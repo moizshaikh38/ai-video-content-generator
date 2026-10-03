@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Film,
   Sparkles,
@@ -15,6 +16,7 @@ import {
   RefreshCw,
   Trash2,
   Video,
+  Sliders,
 } from 'lucide-react';
 import { Button } from '../Button';
 import { SpotlightCard } from '../react-bits/SpotlightCard';
@@ -820,6 +822,16 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                       <div className="flex items-center gap-2">
                         {isReady && (
                           <>
+                            <Link to={`/clips/${clip.id}/edit`}>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs border-orange-500/50 hover:bg-orange-500/10 text-orange-400"
+                              >
+                                <Sliders className="size-3 mr-1" />
+                                Edit
+                              </Button>
+                            </Link>
                             <Button
                               variant="outline"
                               size="sm"

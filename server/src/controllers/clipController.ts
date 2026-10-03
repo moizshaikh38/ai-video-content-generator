@@ -1,8 +1,9 @@
 import { Response } from 'express';
-import { AuthenticatedRequest, isValidUUID, ClipCandidateStatus, ClipAspectRatio } from '../types/index.js';
+import { AuthenticatedRequest, isValidUUID, ClipCandidateStatus, ClipAspectRatio, ClipEditorUpdateDTO } from '../types/index.js';
 import { ClipAnalysisService } from '../services/clipAnalysisService.js';
-import { ClipRenderService } from '../services/clipRenderService.js';
-import { isServerSupabaseConfigured } from '../utils/supabase.js';
+import { ClipRenderService, isClipRenderActive } from '../services/clipRenderService.js';
+import { CaptionService } from '../services/captionService.js';
+import { supabaseAuthClient, isServerSupabaseConfigured } from '../utils/supabase.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -407,8 +408,9 @@ export const getClip = async (req: AuthenticatedRequest, res: Response): Promise
 };
 
 /**
+/**
  * POST /api/clips/:clipId/render
- * Initiates re-render or retries a failed clip
+ * Initiates re-render with current saved editor configuration
  */
 export const renderClip = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const userId = req.user?.id;
@@ -425,15 +427,54 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
   }
 
   try {
+    const clip = await ClipRenderService.getClip(clipId, userId);
+
+    if (isClipRenderActive(clipId)) {
+      res.status(409).json({
+        status: 'error',
+        code: 'RENDER_ALREADY_ACTIVE',
+        message: 'A render job is already running for this clip.',
+      });
+      return;
+    }
+
+    const nextRenderVersion = Number(clip.render_version || 1) + 1;
+
+    // Increment render version and queue clip
+    await supabaseAuthClient
+      .from('clips')
+      .update({
+        render_version: nextRenderVersion,
+        render_status: 'queued',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', clipId);
+
+    // Create a new render job row for tracking
+    const { data: newJob } = await supabaseAuthClient
+      .from('render_jobs')
+      .insert({
+        clip_id: clipId,
+        user_id: userId,
+        status: 'queued',
+        progress: 0,
+        stage: 'queued',
+        attempts: 1,
+      })
+      .select()
+      .maybeSingle();
+
     // Launch rendering asynchronously
-    ClipRenderService.renderClipJob(clipId, userId).catch((err) => {
+    ClipRenderService.renderClipJob(clipId, userId, newJob?.id).catch((err) => {
       logger.error('Background re-render caught error', { clipId, error: err.message });
     });
 
     res.status(202).json({
       status: 'ok',
-      message: 'Clip rendering started.',
+      message: 'Clip rendering started with saved editor configuration.',
       clipId,
+      renderVersion: nextRenderVersion,
+      jobId: newJob?.id,
     });
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';
@@ -551,6 +592,211 @@ export const getClipDownloadUrl = async (req: AuthenticatedRequest, res: Respons
       status: 'error',
       code,
       message: err.message || 'Failed to generate download URL.',
+    });
+  }
+};
+
+/**
+ * GET /api/clips/:clipId/editor
+ * Returns safe editor data bundle (metadata, editor config, caption timing mode, presets, preview)
+ */
+export const getClipEditorData = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const clipId = req.params.clipId;
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });
+    return;
+  }
+
+  if (!clipId || !isValidUUID(clipId)) {
+    res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid clip UUID is required.' });
+    return;
+  }
+
+  try {
+    const data = await ClipRenderService.getClipEditorData(clipId, userId);
+    res.status(200).json({
+      status: 'ok',
+      ...data,
+    });
+  } catch (err: any) {
+    const code = err.code || 'INTERNAL_ERROR';
+    const status = code === 'CLIP_NOT_FOUND' ? 404 : 500;
+    res.status(status).json({
+      status: 'error',
+      code,
+      message: err.message || 'Failed to load clip editor data.',
+    });
+  }
+};
+
+/**
+ * PATCH /api/clips/:clipId/editor
+ * Updates editor configuration fields securely (whitelist only)
+ */
+export const updateClipEditor = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const clipId = req.params.clipId;
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });
+    return;
+  }
+
+  if (!clipId || !isValidUUID(clipId)) {
+    res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid clip UUID is required.' });
+    return;
+  }
+
+  const allowedKeys = new Set([
+    'trimStartOffset',
+    'trimEndOffset',
+    'aspectRatio',
+    'captionEnabled',
+    'captionStyle',
+    'captionPosition',
+    'captionConfig',
+    'cropConfig',
+    'overlayConfig',
+    'volume',
+    'muted',
+  ]);
+
+  const bodyKeys = Object.keys(req.body || {});
+  const invalidKeys = bodyKeys.filter((k) => !allowedKeys.has(k));
+
+  if (invalidKeys.length > 0) {
+    res.status(400).json({
+      status: 'error',
+      code: 'INVALID_PAYLOAD',
+      message: `Disallowed editor fields: ${invalidKeys.join(', ')}`,
+    });
+    return;
+  }
+
+  try {
+    const updated = await ClipRenderService.updateClipEditorConfig(
+      clipId,
+      userId,
+      req.body as ClipEditorUpdateDTO
+    );
+
+    res.status(200).json({
+      status: 'ok',
+      message: 'Clip editor configuration saved.',
+      clip: updated,
+    });
+  } catch (err: any) {
+    const code = err.code || 'INTERNAL_ERROR';
+    const status =
+      code === 'CLIP_NOT_FOUND'
+        ? 404
+        : code === 'INVALID_TRIM' || code === 'TRIM_TOO_SHORT' || code === 'INVALID_ASPECT_RATIO' || code === 'INVALID_CAPTION_STYLE' || code === 'INVALID_CAPTION_POSITION'
+        ? 400
+        : 500;
+
+    res.status(status).json({
+      status: 'error',
+      code,
+      message: err.message || 'Failed to update editor configuration.',
+    });
+  }
+};
+
+/**
+ * POST /api/clips/:clipId/editor/reset
+ * Resets editor configuration to baseline defaults
+ */
+export const resetClipEditor = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const clipId = req.params.clipId;
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });
+    return;
+  }
+
+  if (!clipId || !isValidUUID(clipId)) {
+    res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid clip UUID is required.' });
+    return;
+  }
+
+  try {
+    const reset = await ClipRenderService.resetClipEditorConfig(clipId, userId);
+    res.status(200).json({
+      status: 'ok',
+      message: 'Editor configuration reset to default.',
+      clip: reset,
+    });
+  } catch (err: any) {
+    const code = err.code || 'INTERNAL_ERROR';
+    const status = code === 'CLIP_NOT_FOUND' ? 404 : 500;
+    res.status(status).json({
+      status: 'error',
+      code,
+      message: err.message || 'Failed to reset editor configuration.',
+    });
+  }
+};
+
+/**
+ * GET /api/clips/:clipId/captions
+ * Returns normalized preview caption cues for this clip
+ */
+export const getClipCaptions = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const clipId = req.params.clipId;
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });
+    return;
+  }
+
+  if (!clipId || !isValidUUID(clipId)) {
+    res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid clip UUID is required.' });
+    return;
+  }
+
+  try {
+    const clip = await ClipRenderService.getClip(clipId, userId);
+
+    const { data: transcript, error: transErr } = await supabaseAuthClient
+      .from('transcripts')
+      .select('*')
+      .eq('project_id', clip.project_id)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (transErr || !transcript) {
+      res.status(200).json({
+        status: 'ok',
+        timingMode: 'segment',
+        cues: [],
+      });
+      return;
+    }
+
+    const { timingMode, cues } = CaptionService.extractClipCues(
+      transcript,
+      clip.start_seconds,
+      clip.end_seconds,
+      Number(clip.trim_start_offset || 0),
+      Number(clip.trim_end_offset || 0)
+    );
+
+    res.status(200).json({
+      status: 'ok',
+      timingMode,
+      cues,
+    });
+  } catch (err: any) {
+    const code = err.code || 'INTERNAL_ERROR';
+    const status = code === 'CLIP_NOT_FOUND' ? 404 : 500;
+    res.status(status).json({
+      status: 'error',
+      code,
+      message: err.message || 'Failed to fetch clip captions.',
     });
   }
 };

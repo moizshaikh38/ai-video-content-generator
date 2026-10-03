@@ -13,6 +13,7 @@ const NewProjectPage = React.lazy(() => import('./pages/NewProjectPage').then(m 
 const ProjectDetailPage = React.lazy(() => import('./pages/ProjectDetailPage').then(m => ({ default: m.ProjectDetailPage })));
 const HistoryPage = React.lazy(() => import('./pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const ClipEditorPage = React.lazy(() => import('./pages/ClipEditorPage').then(m => ({ default: m.ClipEditorPage })));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 export const App: React.FC = () => {
@@ -42,6 +43,9 @@ export const App: React.FC = () => {
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
+
+            {/* Focused studio editor */}
+            <Route path="/clips/:clipId/edit" element={<ClipEditorPage />} />
           </Route>
         </Routes></React.Suspense>
       </BrowserRouter>

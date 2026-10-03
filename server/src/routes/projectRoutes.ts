@@ -24,6 +24,10 @@ import {
   deleteClip,
   getClipPreviewUrl,
   getClipDownloadUrl,
+  getClipEditorData,
+  updateClipEditor,
+  resetClipEditor,
+  getClipCaptions,
 } from '../controllers/clipController.js';
 
 const router = Router();
@@ -49,6 +53,12 @@ router.post('/clips/:clipId/render', requireAuth, expensiveLimiter, asyncHandler
 router.delete('/clips/:clipId', requireAuth, asyncHandler(deleteClip));
 router.get('/clips/:clipId/preview-url', requireAuth, asyncHandler(getClipPreviewUrl));
 router.get('/clips/:clipId/download-url', requireAuth, asyncHandler(getClipDownloadUrl));
+
+// Phase 12: Focused Clip Editor & Caption Engine Routes
+router.get('/clips/:clipId/editor', requireAuth, asyncHandler(getClipEditorData));
+router.patch('/clips/:clipId/editor', requireAuth, asyncHandler(updateClipEditor));
+router.post('/clips/:clipId/editor/reset', requireAuth, asyncHandler(resetClipEditor));
+router.get('/clips/:clipId/captions', requireAuth, asyncHandler(getClipCaptions));
 
 // Content Generation Routes
 router.post('/projects/:id/generate-content', requireAuth, expensiveLimiter, asyncHandler(generateProjectContent));

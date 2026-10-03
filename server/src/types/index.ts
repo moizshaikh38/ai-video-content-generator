@@ -339,10 +339,82 @@ export interface ClipRecord {
   created_at: string;
   updated_at: string;
   latest_job?: RenderJobRecord | null;
+
+  // Phase 12 Editor Fields
+  trim_start_offset?: number;
+  trim_end_offset?: number;
+  caption_enabled?: boolean;
+  caption_style?: CaptionStyle;
+  caption_position?: CaptionPosition;
+  caption_config?: CaptionConfig;
+  crop_config?: CropConfig;
+  overlay_config?: OverlayConfig;
+  volume?: number;
+  muted?: boolean;
+  editor_version?: number;
+  render_version?: number;
 }
 
 export interface CreateClipDTO {
   candidateId: string;
   aspectRatio?: ClipAspectRatio;
+}
+
+// ── Phase 12: Caption Engine & Focused Clip Editor ───────────────
+
+export type CaptionStyle = 'clean' | 'bold' | 'minimal' | 'podcast' | 'highlight' | 'karaoke';
+export type CaptionPosition = 'top' | 'center' | 'bottom';
+export type CaptionTimingMode = 'word' | 'segment';
+
+export interface CropConfig {
+  focusX: number; // 0 to 1, default 0.5 (center)
+  focusY: number; // 0 to 1, default 0.5 (center)
+}
+
+export type OverlayPosition = 'top' | 'center' | 'bottom';
+export type OverlaySize = 'sm' | 'md' | 'lg';
+
+export interface OverlayConfig {
+  enabled: boolean;
+  text: string;
+  position?: OverlayPosition;
+  size?: OverlaySize;
+}
+
+export interface CaptionConfig {
+  fontSize?: number;
+  primaryColor?: string; // Hex #RRGGBB
+  highlightColor?: string; // Hex #RRGGBB
+  outlineColor?: string; // Hex #RRGGBB
+  outlineWidth?: number;
+  shadow?: number;
+}
+
+export interface TimedCaptionToken {
+  text: string;
+  start: number; // local to clip (seconds)
+  end: number;   // local to clip (seconds)
+}
+
+export interface TimedCaptionCue {
+  id: string;
+  start: number; // local to clip (seconds)
+  end: number;   // local to clip (seconds)
+  text: string;
+  tokens?: TimedCaptionToken[];
+}
+
+export interface ClipEditorUpdateDTO {
+  trimStartOffset?: number;
+  trimEndOffset?: number;
+  aspectRatio?: ClipAspectRatio;
+  captionEnabled?: boolean;
+  captionStyle?: CaptionStyle;
+  captionPosition?: CaptionPosition;
+  captionConfig?: CaptionConfig;
+  cropConfig?: CropConfig;
+  overlayConfig?: OverlayConfig;
+  volume?: number;
+  muted?: boolean;
 }
 
