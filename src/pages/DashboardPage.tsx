@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, ArrowRight } from 'lucide-react';
+import { Plus, ArrowRight, Video, Link2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { StatusBadge, isProcessing } from '../components/StatusBadge';
 import { projectService } from '../services/projectService';
@@ -13,31 +13,32 @@ export const DashboardPage: React.FC = () => {
   const { user, profile } = useAuth();
   const [projects, setProjects] = useState<Project[]>(() => projectService.getProjects());
 
-  const refreshProjects = () => {
-    setProjects(projectService.getProjects());
+  const loadProjects = async () => {
+    if (!user) return;
+    try {
+      const data = await projectService.fetchProjects(user.id);
+      setProjects(data);
+    } catch (e) {
+      console.error('Failed to load dashboard projects:', e);
+    }
   };
 
   useEffect(() => {
-    refreshProjects();
+    loadProjects();
 
-    const handleUpdate = () => refreshProjects();
+    const handleUpdate = () => {
+      setProjects(projectService.getProjects());
+    };
     window.addEventListener('vireo_project_updated', handleUpdate);
-
-    // Poll if any project is currently processing
-    const interval = setInterval(() => {
-      const current = projectService.getProjects();
-      setProjects(current);
-    }, 2000);
 
     return () => {
       window.removeEventListener('vireo_project_updated', handleUpdate);
-      clearInterval(interval);
     };
-  }, []);
+  }, [user?.id]);
 
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const used = projects.filter((p) => new Date(p.created_at) >= monthStart).length;
-  const processing = projects.filter((p) => isProcessing(p.status)).length;
+  const processing = projects.filter((p) => isProcessing(p.status || p.video_status || '')).length;
   const percentUsed = Math.min(100, Math.round((used / MONTHLY_LIMIT) * 100));
 
   const welcomeText = profile?.full_name
@@ -116,30 +117,51 @@ export const DashboardPage: React.FC = () => {
           </div>
         ) : (
           <ul className="divide-y divide-border">
-            {projects.slice(0, 5).map((p) => (
-              <li key={p.id}>
-                <Link
-                  to={`/projects/${p.id}`}
-                  className="flex items-center justify-between gap-3 py-4 hover:bg-cream/40 rounded-xl px-2.5 transition-colors group"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-foreground text-sm sm:text-base group-hover:text-clay transition-colors">
-                      {p.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(p.created_at).toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </p>
-                  </div>
-                  <div className="shrink-0 flex items-center gap-2">
-                    <StatusBadge status={p.status} />
-                  </div>
-                </Link>
-              </li>
-            ))}
+            {projects.slice(0, 5).map((p) => {
+              const isUrl = p.source_type === 'url' || Boolean(p.source_url && !p.storage_path);
+              const statusVal = p.video_status || p.status;
+
+              return (
+                <li key={p.id}>
+                  <Link
+                    to={`/projects/${p.id}`}
+                    className="flex items-center justify-between gap-3 py-4 hover:bg-cream/40 rounded-xl px-2.5 transition-colors group"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-foreground text-sm sm:text-base group-hover:text-clay transition-colors">
+                        {p.title}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
+                        <span>
+                          {new Date(p.created_at).toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </span>
+                        <span>•</span>
+                        <span className="inline-flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                          {isUrl ? (
+                            <>
+                              <Link2 className="size-3" />
+                              <span>URL</span>
+                            </>
+                          ) : (
+                            <>
+                              <Video className="size-3" />
+                              <span>Upload</span>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-2">
+                      <StatusBadge status={statusVal} />
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

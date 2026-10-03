@@ -98,11 +98,21 @@ CREATE TABLE IF NOT EXISTS public.projects (
   title TEXT NOT NULL,
   source_type TEXT NOT NULL DEFAULT 'upload', -- 'upload' | 'url'
   source_url TEXT,
-  video_status TEXT NOT NULL DEFAULT 'queued', -- 'uploading' | 'queued' | 'transcribing' | 'analyzing' | 'generating' | 'complete' | 'failed'
+  storage_path TEXT,
+  file_name TEXT,
+  file_size BIGINT,
+  mime_type TEXT,
+  video_status TEXT NOT NULL DEFAULT 'uploading', -- 'uploading' | 'uploaded' | 'queued' | 'transcribing' | 'analyzing' | 'generating' | 'complete' | 'failed'
   notes TEXT DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Backward-compatible column additions for existing installations
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS storage_path TEXT;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS file_name TEXT;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS file_size BIGINT;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS mime_type TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_projects_user_id ON public.projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_projects_status ON public.projects(video_status);
@@ -280,3 +290,86 @@ CREATE OR REPLACE TRIGGER set_projects_updated_at
 CREATE OR REPLACE TRIGGER set_content_outputs_updated_at
   BEFORE UPDATE ON public.content_outputs
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- --------------------------------------------------------
+-- 7. Supabase Storage: 'videos' bucket & RLS policies
+-- Phase 3: Real Video Upload & Supabase Storage
+-- Bucket name: videos (private, 500 MB limit)
+-- Path format: {user_id}/{project_id}/{filename}
+-- --------------------------------------------------------
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'videos',
+  'videos',
+  false,
+  524288000, -- 500 MB limit in bytes
+  ARRAY[
+    'video/mp4',
+    'video/quicktime',
+    'video/webm',
+    'video/x-msvideo',
+    'video/x-matroska',
+    'video/avi',
+    'video/mkv'
+  ]
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = false,
+  file_size_limit = 524288000,
+  allowed_mime_types = ARRAY[
+    'video/mp4',
+    'video/quicktime',
+    'video/webm',
+    'video/x-msvideo',
+    'video/x-matroska',
+    'video/avi',
+    'video/mkv'
+  ];
+
+-- Storage RLS Policy 1: Authenticated users can upload only into their own user folder: {user_id}/...
+DROP POLICY IF EXISTS "Users can upload their own videos" ON storage.objects;
+CREATE POLICY "Users can upload their own videos"
+  ON storage.objects
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'videos' AND
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+-- Storage RLS Policy 2: Users can view / read only their own files: {user_id}/...
+DROP POLICY IF EXISTS "Users can view their own videos" ON storage.objects;
+CREATE POLICY "Users can view their own videos"
+  ON storage.objects
+  FOR SELECT
+  TO authenticated
+  USING (
+    bucket_id = 'videos' AND
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+-- Storage RLS Policy 3: Users can update only their own files: {user_id}/...
+DROP POLICY IF EXISTS "Users can update their own videos" ON storage.objects;
+CREATE POLICY "Users can update their own videos"
+  ON storage.objects
+  FOR UPDATE
+  TO authenticated
+  USING (
+    bucket_id = 'videos' AND
+    auth.uid()::text = (storage.foldername(name))[1]
+  )
+  WITH CHECK (
+    bucket_id = 'videos' AND
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+-- Storage RLS Policy 4: Users can delete only their own files: {user_id}/...
+DROP POLICY IF EXISTS "Users can delete their own videos" ON storage.objects;
+CREATE POLICY "Users can delete their own videos"
+  ON storage.objects
+  FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'videos' AND
+    auth.uid()::text = (storage.foldername(name))[1]
+  );

@@ -1,9 +1,12 @@
 const map: Record<string, { label: string; cls: string }> = {
-  uploading: { label: "Uploading", cls: "bg-secondary text-muted-foreground" },
+  uploading: { label: "Uploading", cls: "bg-secondary text-muted-foreground animate-pulse" },
+  uploaded: { label: "Uploaded", cls: "bg-sage/15 text-sage font-medium" },
   queued: { label: "Queued", cls: "bg-secondary text-muted-foreground" },
+  processing: { label: "Processing", cls: "bg-accent text-accent-foreground font-medium animate-pulse" },
   transcribing: { label: "Transcribing", cls: "bg-accent text-accent-foreground font-medium animate-pulse" },
   analyzing: { label: "Analyzing", cls: "bg-accent text-accent-foreground font-medium animate-pulse" },
   generating: { label: "Generating", cls: "bg-accent text-accent-foreground font-medium animate-pulse" },
+  completed: { label: "Completed", cls: "bg-sage/15 text-sage font-medium" },
   complete: { label: "Complete", cls: "bg-sage/15 text-sage font-medium" },
   failed: { label: "Failed", cls: "bg-destructive/10 text-destructive font-medium" },
 };
@@ -17,4 +20,4 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export const isProcessing = (s: string) => !["complete", "failed"].includes(s);
+export const isProcessing = (s: string) => !["complete", "completed", "uploaded", "failed"].includes(s);
