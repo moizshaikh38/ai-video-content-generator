@@ -20,7 +20,7 @@ export interface ProcessProjectResult {
  * 3. Downloads video from private Supabase Storage 'videos' bucket
  * 4. Extracts audio track using FFmpeg into temporary MP3
  * 5. Updates project video_status -> 'transcribing'
- * 6. Sends extracted audio to OpenRouter Speech-to-Text API (whisper-large-v3)
+ * 6. Sends extracted audio to OpenRouter Speech-to-Text API (whisper-large-v3-turbo)
  * 7. Upserts transcript into Supabase 'transcripts' table
  * 8. Updates project video_status -> 'transcribed'
  * 9. Cleans up temporary audio files reliably

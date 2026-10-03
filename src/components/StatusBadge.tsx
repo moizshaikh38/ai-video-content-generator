@@ -21,4 +21,4 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export const isProcessing = (s: string) => !["complete", "completed", "uploaded", "failed"].includes(s);
+export const isProcessing = (s: string) => !["complete", "completed", "uploaded", "transcribed", "failed"].includes(s);

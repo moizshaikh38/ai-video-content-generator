@@ -399,3 +399,164 @@ export const getProjectTranscript = async (req: AuthenticatedRequest, res: Respo
   }
 };
 
+/**
+ * POST /api/projects/:id/generate-content
+ * Optional query or body param: platform ('youtube' | 'instagram' | 'shorts' | 'linkedin' | 'x')
+ */
+export const generateProjectContent = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const projectId = req.params.id;
+  const platform = (req.body?.platform || req.query?.platform) as any;
+  const customNotes = req.body?.customNotes;
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', message: 'User not authenticated.' });
+    return;
+  }
+
+  if (!projectId) {
+    res.status(400).json({ status: 'error', message: 'Project ID is required.' });
+    return;
+  }
+
+  try {
+    const { contentGenerationService } = await import('../services/contentGenerationService.js');
+    const result = await contentGenerationService.generateContentForProject({
+      projectId,
+      userId,
+      platform,
+      customNotes,
+    });
+
+    res.status(200).json(result);
+  } catch (err: any) {
+    logger.error(`Error generating content for project ${projectId}:`, err.message);
+
+    if (err.message?.includes('Transcript is not available yet')) {
+      res.status(400).json({
+        status: 'error',
+        message: 'Transcript is not available yet. Please complete transcription first.',
+      });
+      return;
+    }
+
+    if (err.message?.includes('Project not found')) {
+      res.status(404).json({
+        status: 'error',
+        message: 'Project not found or access denied.',
+      });
+      return;
+    }
+
+    res.status(500).json({
+      status: 'error',
+      message: err.message || 'Failed to generate content.',
+    });
+  }
+};
+
+/**
+ * GET /api/projects/:id/content
+ * Retrieve all content outputs for a project owned by the authenticated user
+ */
+export const getProjectContent = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const projectId = req.params.id;
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', message: 'User not authenticated.' });
+    return;
+  }
+
+  if (!projectId) {
+    res.status(400).json({ status: 'error', message: 'Project ID is required.' });
+    return;
+  }
+
+  try {
+    // Verify ownership
+    const { data: project, error: projErr } = await supabaseAuthClient
+      .from('projects')
+      .select('id, user_id')
+      .eq('id', projectId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (projErr) {
+      logger.error('Error verifying project ownership:', projErr.message);
+      res.status(500).json({ status: 'error', message: 'Failed to verify project access.' });
+      return;
+    }
+
+    if (!project) {
+      res.status(404).json({ status: 'error', message: 'Project not found or access denied.' });
+      return;
+    }
+
+    const { ContentOutputService } = await import('../services/contentOutputService.js');
+    const outputs = await ContentOutputService.getOutputsForProject(projectId);
+
+    res.status(200).json({
+      status: 'ok',
+      projectId,
+      outputs,
+    });
+  } catch (err: any) {
+    logger.error('Unexpected error fetching content outputs:', err);
+    res.status(500).json({ status: 'error', message: 'An unexpected error occurred.' });
+  }
+};
+
+/**
+ * PATCH /api/projects/:id/content/:outputId
+ * Edit / save content for a specific output item
+ */
+export const updateProjectContent = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const projectId = req.params.id;
+  const outputId = req.params.outputId;
+  const content = req.body?.content;
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', message: 'User not authenticated.' });
+    return;
+  }
+
+  if (!projectId || !outputId) {
+    res.status(400).json({ status: 'error', message: 'Project ID and Output ID are required.' });
+    return;
+  }
+
+  if (typeof content !== 'string') {
+    res.status(400).json({ status: 'error', message: 'Content string is required.' });
+    return;
+  }
+
+  try {
+    // Verify project ownership
+    const { data: project } = await supabaseAuthClient
+      .from('projects')
+      .select('id, user_id')
+      .eq('id', projectId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!project) {
+      res.status(404).json({ status: 'error', message: 'Project not found or access denied.' });
+      return;
+    }
+
+    const { ContentOutputService } = await import('../services/contentOutputService.js');
+    const updated = await ContentOutputService.updateOutputContent(outputId, projectId, content);
+
+    res.status(200).json({
+      status: 'ok',
+      output: updated,
+    });
+  } catch (err: any) {
+    logger.error('Error updating content output:', err);
+    res.status(500).json({ status: 'error', message: err.message || 'Failed to update output.' });
+  }
+};
+
+

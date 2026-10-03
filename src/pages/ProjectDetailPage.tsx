@@ -81,7 +81,23 @@ export const ProjectDetailPage: React.FC = () => {
   const [transcript, setTranscript] = useState<Transcript | null>(null);
   const [isLoading, setIsLoading] = useState(!project);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+
+  const handleGenerateContent = async (targetPlatform?: OutputPlatform) => {
+    if (!id) return;
+    setIsGenerating(true);
+    setGenerationError(null);
+    try {
+      await projectService.generateContent(id, targetPlatform);
+      await refreshData();
+    } catch (err: any) {
+      setGenerationError(err.message || 'Failed to generate content. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const refreshData = async () => {
     if (!id) return;
@@ -90,9 +106,18 @@ export const ProjectDetailPage: React.FC = () => {
     if (p) setProject(p);
     setOutputs(o);
 
-    // Fetch transcript if transcribed or completed
-    const t = await projectService.fetchTranscript(id);
-    if (t) setTranscript(t);
+    // Only query transcript if project has reached a transcribed/completed milestone
+    const currentStatus = p?.video_status || p?.status;
+    if (currentStatus === 'transcribed' || currentStatus === 'completed' || currentStatus === 'complete' || currentStatus === 'generating') {
+      const t = await projectService.fetchTranscript(id);
+      if (t) setTranscript(t);
+
+      // Load real content outputs from Supabase
+      const realOutputs = await projectService.fetchContentOutputs(id);
+      if (realOutputs) setOutputs(realOutputs);
+    } else {
+      setTranscript(null);
+    }
 
     setIsLoading(false);
   };
@@ -120,7 +145,7 @@ export const ProjectDetailPage: React.FC = () => {
     }
   }, [id, project?.video_status, project?.status, project?.source_type, project?.source_url]);
 
-  // Polling loop while processing or transcribing
+  // Polling loop while processing or transcribing or generating
   useEffect(() => {
     if (!id || !project) return;
     const currentStatus = project.video_status || project.status;
@@ -420,15 +445,109 @@ export const ProjectDetailPage: React.FC = () => {
             <TranscriptSection transcript={transcript} />
           )}
 
-          {/* Show Workspace tabs if content outputs already exist */}
-          {hasOutputs && (
-            <div className="space-y-4 pt-4">
-              <h3 className="text-lg font-semibold font-display text-foreground">
-                Content Kits
-              </h3>
-              <Workspace outputs={outputs} projectId={project.id} onRefresh={refreshData} />
+          {/* Phase 5: AI Content Generation Engine Section */}
+          <div className="space-y-4 pt-4 border-t border-border/40">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold font-display text-foreground flex items-center gap-2">
+                  <Sparkles className="size-5 text-clay" />
+                  <span>AI Content Generation Engine</span>
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Repurpose video transcript into platform-native content kits for YouTube, Instagram, Shorts, LinkedIn, and X.
+                </p>
+              </div>
+
+              {transcript ? (
+                <Button
+                  variant="clay"
+                  size="sm"
+                  onClick={() => handleGenerateContent()}
+                  disabled={isGenerating}
+                  className="shadow-clay"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                      <span>Generating Content Kits...</span>
+                    </>
+                  ) : hasOutputs ? (
+                    <>
+                      <RefreshCw className="size-3.5 mr-1.5" />
+                      <span>Regenerate All Kits</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="size-3.5 mr-1.5" />
+                      <span>Generate Content Kits</span>
+                    </>
+                  )}
+                </Button>
+              ) : null}
             </div>
-          )}
+
+            {generationError && (
+              <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive flex items-center justify-between">
+                <span>{generationError}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setGenerationError(null)}
+                  className="h-6 px-2 text-xs text-destructive hover:bg-destructive/10"
+                >
+                  Dismiss
+                </Button>
+              </div>
+            )}
+
+            {/* If transcript is not available yet, honestly communicate waiting state */}
+            {!transcript && (
+              <div className="card-soft p-6 sm:p-8 text-center space-y-3 border-dashed border-border/80 bg-cream/30">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center">
+                  <FileText className="size-5" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-semibold text-foreground">Waiting for Transcript</h4>
+                  <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+                    AI content generation requires a real video transcript. Once video transcription is completed, you can generate title options, descriptions, Instagram hooks, chapters, LinkedIn posts, and Twitter threads.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* If transcript is ready but no outputs yet */}
+            {transcript && !hasOutputs && !isGenerating && (
+              <div className="card-soft p-6 text-center space-y-3 bg-cream/40">
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  Transcript is ready! Click "Generate Content Kits" to create platform-specific content packages for this project.
+                </p>
+              </div>
+            )}
+
+            {/* Loading state during generation */}
+            {isGenerating && (
+              <div className="card-soft p-8 text-center space-y-3 border border-clay/30 bg-clay/5">
+                <Loader2 className="size-7 text-clay animate-spin mx-auto" />
+                <div className="space-y-1">
+                  <h4 className="text-sm font-medium text-foreground">Crafting Social Content Kits...</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Analyzing transcript, matching creator persona, and structuring platform-specific assets.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Show Workspace tabs if content outputs exist */}
+            {hasOutputs && (
+              <Workspace
+                outputs={outputs}
+                projectId={project.id}
+                onRefresh={refreshData}
+                onRegeneratePlatform={(p) => handleGenerateContent(p)}
+                isGenerating={isGenerating}
+              />
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -562,15 +681,20 @@ function Workspace({
   outputs,
   projectId,
   onRefresh,
+  onRegeneratePlatform,
+  isGenerating,
 }: {
   outputs: ContentOutput[];
   projectId: string;
   onRefresh: () => void;
+  onRegeneratePlatform?: (platform: OutputPlatform) => void;
+  isGenerating?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<OutputPlatform>('youtube');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const tabOutputs = outputs.filter((o) => o.platform === activeTab);
   const tabConfig = TABS.find((t) => t.key === activeTab)!;
@@ -586,32 +710,62 @@ function Workspace({
     setDraft(out.content);
   };
 
-  const saveEdit = (outputId: string) => {
-    projectService.updateOutputContent(outputId, draft);
-    setEditingId(null);
-    onRefresh();
+  const saveEdit = async (outputId: string) => {
+    setIsSavingEdit(true);
+    try {
+      await projectService.updateOutputContentAsync(outputId, projectId, draft);
+      setEditingId(null);
+      onRefresh();
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   return (
     <div key={projectId} className="space-y-5">
-      {/* Platform Navigation Tabs */}
-      <div className="flex gap-1.5 overflow-x-auto border-b border-border pb-2">
-        {TABS.map((tab) => {
-          const isActive = tab.key === activeTab;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`rounded-full px-4 py-1.5 text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
-                isActive
-                  ? 'bg-clay text-clay-foreground shadow-clay'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-cream/60'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+      {/* Platform Navigation Tabs and Platform Regenerate Action */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-2">
+        <div className="flex gap-1.5 overflow-x-auto">
+          {TABS.map((tab) => {
+            const isActive = tab.key === activeTab;
+            const count = outputs.filter((o) => o.platform === tab.key).length;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`rounded-full px-4 py-1.5 text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                  isActive
+                    ? 'bg-clay text-clay-foreground shadow-clay'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-cream/60'
+                }`}
+              >
+                <span>{tab.label}</span>
+                {count > 0 && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-white/20' : 'bg-muted'}`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {onRegeneratePlatform && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onRegeneratePlatform(activeTab)}
+            disabled={isGenerating}
+            className="text-xs h-8"
+          >
+            {isGenerating ? (
+              <Loader2 className="size-3 animate-spin mr-1" />
+            ) : (
+              <RefreshCw className="size-3 mr-1" />
+            )}
+            <span>Regenerate {tabConfig.label}</span>
+          </Button>
+        )}
       </div>
 
       {/* Tab Group Content */}
@@ -654,8 +808,16 @@ function Workspace({
                               size="sm"
                               variant="clay"
                               onClick={() => saveEdit(item.id)}
+                              disabled={isSavingEdit}
                             >
-                              Save changes
+                              {isSavingEdit ? (
+                                <>
+                                  <Loader2 className="size-3 animate-spin mr-1" />
+                                  <span>Saving...</span>
+                                </>
+                              ) : (
+                                <span>Save changes</span>
+                              )}
                             </Button>
                           </div>
                         </div>

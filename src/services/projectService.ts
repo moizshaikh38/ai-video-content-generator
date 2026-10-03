@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { Project, ContentOutput, CreatorProfile, ProjectStatus, Transcript } from '../types';
+import { Project, ContentOutput, OutputPlatform, CreatorProfile, ProjectStatus, Transcript } from '../types';
 
 export interface CreateProjectInput {
   id?: string;
@@ -466,6 +466,157 @@ class ProjectService {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Fetches content outputs for a project from Supabase content_outputs or backend API.
+   * Synchronizes local cache so getOutputs(projectId) returns latest data.
+   */
+  async fetchContentOutputs(projectId: string): Promise<ContentOutput[]> {
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('content_outputs')
+          .select('*')
+          .eq('project_id', projectId)
+          .order('platform', { ascending: true })
+          .order('position', { ascending: true });
+
+        if (!error && data) {
+          // Replace cached outputs for this project
+          this.outputs = this.outputs.filter((o) => o.project_id !== projectId).concat(data as ContentOutput[]);
+          this.save();
+          return data as ContentOutput[];
+        }
+      } catch (err) {
+        console.warn('Direct content_outputs fetch failed:', err);
+      }
+    }
+
+    // Fallback: fetch via backend API
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return this.getOutputs(projectId);
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${apiUrl}/projects/${projectId}/content`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const json = await response.json();
+        const outputs = json.outputs || [];
+        this.outputs = this.outputs.filter((o) => o.project_id !== projectId).concat(outputs);
+        this.save();
+        return outputs;
+      }
+    } catch (err) {
+      console.warn('Backend content fetch error:', err);
+    }
+
+    return this.getOutputs(projectId);
+  }
+
+  /**
+   * Triggers content generation on the backend for all platforms or a specific platform.
+   * POST /api/projects/:id/generate-content
+   */
+  async generateContent(
+    projectId: string,
+    platform?: OutputPlatform,
+    customNotes?: string
+  ): Promise<{ success: boolean; message: string; outputs: ContentOutput[] }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    if (!token) {
+      throw new Error('User session not found. Please log in again.');
+    }
+
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const response = await fetch(`${apiUrl}/projects/${projectId}/generate-content`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        platform,
+        customNotes,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to generate content.');
+    }
+
+    const outputs = (data.outputs || []) as ContentOutput[];
+
+    // Synchronize local cache with returned outputs
+    if (platform) {
+      this.outputs = this.outputs
+        .filter((o) => !(o.project_id === projectId && o.platform === platform))
+        .concat(outputs.filter((o) => o.platform === platform));
+    } else {
+      this.outputs = this.outputs.filter((o) => o.project_id !== projectId).concat(outputs);
+    }
+    this.save();
+    window.dispatchEvent(new CustomEvent('vireo_project_updated', { detail: { projectId } }));
+
+    return {
+      success: true,
+      message: data.message || 'Content generated successfully.',
+      outputs,
+    };
+  }
+
+  /**
+   * Persists an edited output item to Supabase content_outputs and local cache.
+   */
+  async updateOutputContentAsync(outputId: string, projectId: string, content: string): Promise<boolean> {
+    // 1. Update local cache immediately
+    this.updateOutputContent(outputId, content);
+
+    // 2. Persist to Supabase if configured
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('content_outputs')
+          .update({ content: content.trim() })
+          .eq('id', outputId)
+          .eq('project_id', projectId);
+
+        if (!error) return true;
+      } catch (err) {
+        console.warn('Direct output update error, attempting backend API:', err);
+      }
+    }
+
+    // 3. Fallback to backend API
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return true;
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      await fetch(`${apiUrl}/projects/${projectId}/content/${outputId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content }),
+      });
+    } catch {
+      // Local cache already updated
+    }
+
+    return true;
   }
 }
 

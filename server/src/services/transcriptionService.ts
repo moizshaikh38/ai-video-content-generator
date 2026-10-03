@@ -13,7 +13,7 @@ export interface TranscriptionResult {
  * Transcribes audio media using OpenRouter's Speech-to-Text API endpoint:
  * POST https://openrouter.ai/api/v1/audio/transcriptions
  *
- * Model: openai/whisper-large-v3
+ * Model: openai/whisper-large-v3-turbo
  *
  * Requirements:
  * - OPENROUTER_API_KEY must be configured.
@@ -43,7 +43,7 @@ export async function transcribeAudioWithOpenRouter(
     );
   }
 
-  const model = 'openai/whisper-large-v3';
+  const model = 'openai/whisper-large-v3-turbo';
   logger.info(
     `[Transcription] Submitting ${fileName} (${(audioBuffer.length / (1024 * 1024)).toFixed(2)} MB) to OpenRouter Speech-to-Text (${model})...`
   );
