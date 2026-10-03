@@ -1,8 +1,9 @@
 import { supabaseAuthClient, isServerSupabaseConfigured } from '../utils/supabase.js';
 import { logger } from '../utils/logger.js';
 import { extractAudioFromVideo } from './audioExtractionService.js';
-import { transcribeAudioWithOpenRouter } from './transcriptionService.js';
+import { getTranscriptionProvider } from './transcription/transcriptionProviderFactory.js';
 import { TranscriptRecord } from '../types/index.js';
+import { UsageService } from './usageService.js';
 
 // In-memory set to guard against duplicate concurrent processing runs for the same project
 const activeProcessingSet = new Set<string>();
@@ -21,21 +22,23 @@ export function isProjectProcessingActive(projectId: string): boolean {
 }
 
 /**
- * Executes the complete video processing and transcription pipeline via OpenRouter:
+ * Executes the complete video processing and transcription pipeline:
  * 1. Concurrency guard (locks projectId)
  * 2. Updates project video_status -> 'processing'
  * 3. Downloads video from private Supabase Storage 'videos' bucket
  * 4. Extracts audio track using FFmpeg into temporary MP3 (with process timeout)
  * 5. Updates project video_status -> 'transcribing'
- * 6. Sends extracted audio to OpenRouter Speech-to-Text API (whisper-large-v3-turbo)
+ * 6. Sends extracted audio to provider-agnostic Speech-to-Text API (Groq / OpenRouter)
  * 7. Upserts transcript into Supabase 'transcripts' table
  * 8. Updates project video_status -> 'transcribed'
- * 9. Cleans up temporary audio files reliably
+ * 9. Settles usage reservation on success, or releases on failure
+ * 10. Cleans up temporary audio files reliably
  */
 export async function processProjectVideo(
   projectId: string,
   userId: string,
-  sourceUrl: string
+  sourceUrl: string,
+  processingAttemptId?: string
 ): Promise<ProcessProjectResult> {
   if (!isServerSupabaseConfigured) {
     throw new Error('Supabase is not configured on the server.');
@@ -98,8 +101,10 @@ export async function processProjectVideo(
       .eq('id', projectId)
       .eq('user_id', userId);
 
-    // 5. Transcribe audio with OpenRouter
-    const transcription = await transcribeAudioWithOpenRouter(
+    // 5. Transcribe audio with configured provider (Groq default / OpenRouter)
+    const provider = getTranscriptionProvider();
+    logger.info(`Using transcription provider: ${provider.name}`, { projectId, provider: provider.name });
+    const transcription = await provider.transcribeAudio(
       extractedAudio.audioBuffer,
       `${projectId}.mp3`,
       'audio/mp3'
@@ -111,7 +116,7 @@ export async function processProjectVideo(
       user_id: userId,
       transcript_text: transcription.text,
       language: transcription.language,
-      duration_seconds: transcription.duration,
+      duration_seconds: transcription.durationSeconds,
       segments: transcription.segments,
       updated_at: new Date().toISOString(),
     };
@@ -142,7 +147,20 @@ export async function processProjectVideo(
       .eq('id', projectId)
       .eq('user_id', userId);
 
-    logger.info(`Project ${projectId} successfully transcribed via OpenRouter!`, { projectId });
+    // 8. Settle usage reservation atomically using measured audio duration
+    if (processingAttemptId) {
+      await UsageService.settleReservation(
+        processingAttemptId,
+        transcription.durationSeconds || 0,
+        {
+          provider: provider.name,
+          language: transcription.language,
+          segment_count: transcription.segments?.length || 0,
+        }
+      );
+    }
+
+    logger.info(`Project ${projectId} successfully transcribed via ${provider.name}!`, { projectId, provider: provider.name });
 
     return {
       status: 'transcribed',
@@ -155,6 +173,11 @@ export async function processProjectVideo(
       userId,
       error: message,
     });
+
+    // Safely release the usage quota reservation so failed jobs never consume quota
+    if (processingAttemptId) {
+      await UsageService.releaseReservation(processingAttemptId, message || 'Processing failed');
+    }
 
     // Mark project status as 'failed' in database
     try {

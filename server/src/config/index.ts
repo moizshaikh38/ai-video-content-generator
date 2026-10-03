@@ -17,10 +17,13 @@ export const config = {
   openrouterApiKey: process.env.OPENROUTER_API_KEY || '',
   openrouterTextModel: process.env.OPENROUTER_TEXT_MODEL || 'openai/gpt-4o-mini',
   transcriptionModel: process.env.TRANSCRIPTION_MODEL || 'openai/whisper-large-v3-turbo',
+  groqApiKey: process.env.GROQ_API_KEY || '',
+  transcriptionProvider: process.env.TRANSCRIPTION_PROVIDER || 'groq',
   appUrl: process.env.APP_URL || process.env.CORS_ORIGIN || 'http://localhost:5173',
   // Processing configuration
   processingStaleMinutes: parseInt(process.env.PROCESSING_STALE_MINUTES || '15', 10),
   maxVideoBytes: 50 * 1024 * 1024, // 50 MB — must match Supabase bucket config
+  defaultMonthlyQuotaMinutes: parseInt(process.env.DEFAULT_MONTHLY_QUOTA_MINUTES || '15', 10),
   // Timeouts (milliseconds)
   transcriptionTimeoutMs: parseInt(process.env.TRANSCRIPTION_TIMEOUT_MS || '120000', 10),
   contentGenerationTimeoutMs: parseInt(process.env.CONTENT_GENERATION_TIMEOUT_MS || '60000', 10),
@@ -35,7 +38,6 @@ export function validateEnvironment(): void {
   const critical: Array<{ name: string; value: string; required: boolean }> = [
     { name: 'SUPABASE_URL', value: config.supabaseUrl, required: true },
     { name: 'SUPABASE_SECRET_KEY', value: config.supabaseSecretKey, required: true },
-    { name: 'OPENROUTER_API_KEY', value: config.openrouterApiKey, required: false },
     { name: 'CORS_ORIGIN', value: config.corsOrigin, required: false },
   ];
 
@@ -54,10 +56,16 @@ export function validateEnvironment(): void {
     }
   }
 
-  // Warn about optional but important vars
-  const optional = critical.filter((v) => !v.required && !v.value);
-  if (optional.length > 0) {
-    const names = optional.map((v) => v.name).join(', ');
-    console.warn(`[WARN] Optional environment variables not set: ${names}`);
+  // Check transcription provider credentials
+  const provider = (config.transcriptionProvider || 'groq').toLowerCase().trim();
+  if (provider === 'groq' && !config.groqApiKey) {
+    console.warn('[WARN] TRANSCRIPTION_PROVIDER is set to "groq" but GROQ_API_KEY is not configured.');
+  } else if (provider === 'openrouter' && !config.openrouterApiKey) {
+    console.warn('[WARN] TRANSCRIPTION_PROVIDER is set to "openrouter" but OPENROUTER_API_KEY is not configured.');
+  }
+
+  // Warn if text generation key is absent
+  if (!config.openrouterApiKey) {
+    console.warn('[WARN] OPENROUTER_API_KEY is not configured. AI content generation will fail until set.');
   }
 }

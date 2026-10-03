@@ -16,6 +16,18 @@ export interface CreatorProfileData {
   target_audience: string;
   language: string;
   tone: string;
+  custom_tone?: string;
+  website_url?: string;
+  newsletter_url?: string;
+  podcast_url?: string;
+  youtube_cta?: string;
+  instagram_cta?: string;
+  linkedin_cta?: string;
+  twitter_cta?: string;
+  tiktok_cta?: string;
+  preferred_hook_style?: string;
+  brand_rules?: string;
+  forbidden_phrases?: string;
 }
 
 interface AuthContextType {

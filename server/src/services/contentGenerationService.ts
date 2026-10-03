@@ -15,6 +15,7 @@ import {
   CreatorProfileData,
   TranscriptRecord,
   VALID_PLATFORMS,
+  GenerationOverrides,
 } from '../types/index.js';
 
 export interface GenerateContentInput {
@@ -22,6 +23,10 @@ export interface GenerateContentInput {
   userId: string;
   platform?: OutputPlatform;
   customNotes?: string;
+  overrideTone?: string;
+  overrideLanguage?: string;
+  overrideCTA?: string;
+  overrides?: GenerationOverrides;
 }
 
 export interface GenerationResult {
@@ -43,7 +48,16 @@ export class ContentGenerationService {
    * retrieves creator context, generates structured outputs via LLM, and persists them to content_outputs.
    */
   public async generateContentForProject(input: GenerateContentInput): Promise<GenerationResult> {
-    const { projectId, userId, platform, customNotes } = input;
+    const {
+      projectId,
+      userId,
+      platform,
+      customNotes,
+      overrideTone,
+      overrideLanguage,
+      overrideCTA,
+      overrides,
+    } = input;
 
     // 1. Verify project ownership and fetch project info
     const { data: project, error: projErr } = await supabaseAuthClient
@@ -95,7 +109,7 @@ export class ContentGenerationService {
     let creatorProfile: CreatorProfileData | undefined;
     const { data: profileData } = await supabaseAuthClient
       .from('creator_profiles')
-      .select('niche, target_audience, language, tone')
+      .select('*')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -105,6 +119,18 @@ export class ContentGenerationService {
         target_audience: profileData.target_audience || '',
         language: profileData.language || 'English',
         tone: profileData.tone || 'Friendly',
+        custom_tone: profileData.custom_tone || '',
+        website_url: profileData.website_url || '',
+        newsletter_url: profileData.newsletter_url || '',
+        podcast_url: profileData.podcast_url || '',
+        youtube_cta: profileData.youtube_cta || '',
+        instagram_cta: profileData.instagram_cta || '',
+        linkedin_cta: profileData.linkedin_cta || '',
+        twitter_cta: profileData.twitter_cta || '',
+        tiktok_cta: profileData.tiktok_cta || '',
+        preferred_hook_style: profileData.preferred_hook_style || '',
+        brand_rules: profileData.brand_rules || '',
+        forbidden_phrases: profileData.forbidden_phrases || '',
       };
     }
 
@@ -115,13 +141,22 @@ export class ContentGenerationService {
       .eq('id', projectId)
       .eq('user_id', userId);
 
+    const effectiveTone = overrideTone?.trim() || overrides?.overrideTone?.trim();
+    const effectiveLanguage = overrideLanguage?.trim() || overrides?.overrideLanguage?.trim();
+    const effectiveCTA = overrideCTA?.trim() || overrides?.overrideCTA?.trim();
+
     const promptContext: PromptContext = {
       transcript: transcript.transcript_text,
-      language: transcript.language || creatorProfile?.language || 'en',
+      language: effectiveLanguage || transcript.language || creatorProfile?.language || 'English',
       duration: transcript.duration_seconds,
       segments: transcript.segments || [],
       creatorProfile,
       notes: customNotes || project.notes || '',
+      overrides: {
+        overrideTone: effectiveTone,
+        overrideLanguage: effectiveLanguage,
+        overrideCTA: effectiveCTA,
+      },
     };
 
     const systemPrompt = ContentPromptService.getSystemPrompt();

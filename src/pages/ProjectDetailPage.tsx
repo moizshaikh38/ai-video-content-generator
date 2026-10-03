@@ -20,14 +20,22 @@ import {
   ChevronUp,
   UploadCloud,
   CircleCheck,
+  SlidersHorizontal,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '../components/Button';
+import { Input } from '../components/Input';
 import { Textarea } from '../components/Textarea';
 import { StatusBadge, isProcessing } from '../components/StatusBadge';
 import { LoadingState } from '../components/LoadingState';
 import { projectService } from '../services/projectService';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
-import { Project, ContentOutput, OutputPlatform, Transcript } from '../types';
+import { Project, ContentOutput, OutputPlatform, Transcript, GenerationOverrides } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { CreatorPersonaCard } from '../components/react-bits/CreatorPersonaCard';
+import { GenerationProgress } from '../components/react-bits/GenerationProgress';
+import { SpotlightCard } from '../components/react-bits/SpotlightCard';
+import { QuotaExceededModal } from '../components/QuotaExceededModal';
 
 interface TabConfig {
   key: OutputPlatform;
@@ -86,6 +94,7 @@ const TABS: TabConfig[] = [
 
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { creatorProfile } = useAuth();
   const [project, setProject] = useState<Project | undefined>(() =>
     id ? projectService.getProject(id) : undefined
   );
@@ -100,6 +109,24 @@ export const ProjectDetailPage: React.FC = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+
+  // Quota error state
+  const [quotaError, setQuotaError] = useState<{
+    remaining_minutes?: number;
+    requested_minutes?: number;
+    limit_minutes?: number;
+    reset_date?: string;
+  } | null>(null);
+  const [isQuotaModalOpen, setIsQuotaModalOpen] = useState(false);
+
+  // Video-level persona tuning state (only applies to this project)
+  const [showTuning, setShowTuning] = useState(false);
+  const [tuningTone, setTuningTone] = useState('');
+  const [tuningLanguage, setTuningLanguage] = useState('');
+  const [tuningInstructions, setTuningInstructions] = useState('');
+  const [tuningCTA, setTuningCTA] = useState('');
+
+  const hasTuningOverrides = Boolean(tuningTone || tuningLanguage || tuningInstructions || tuningCTA);
 
   useEffect(() => {
     let active = true;
@@ -116,8 +143,22 @@ export const ProjectDetailPage: React.FC = () => {
     setIsGenerating(true);
     setGeneratingPlatform(targetPlatform || null);
     setGenerationError(null);
+
+    const overrides: GenerationOverrides | undefined = (tuningTone || tuningLanguage || tuningCTA)
+      ? {
+          overrideTone: tuningTone || undefined,
+          overrideLanguage: tuningLanguage || undefined,
+          overrideCTA: tuningCTA || undefined,
+        }
+      : undefined;
+
     try {
-      await projectService.generateContent(id, targetPlatform);
+      await projectService.generateContent(
+        id,
+        targetPlatform,
+        tuningInstructions.trim() || undefined,
+        overrides
+      );
       await refreshData();
     } catch (err: any) {
       setGenerationError(err.message || 'Failed to generate content. Please try again.');
@@ -167,7 +208,16 @@ export const ProjectDetailPage: React.FC = () => {
     if (!project || !id) return;
     const currentStatus = project.video_status || project.status;
     if (currentStatus === 'uploaded' && project.source_type === 'upload' && project.source_url) {
-      projectService.startProcessing(id).catch((err) => {
+      projectService.startProcessing(id).catch((err: any) => {
+        if (err.status === 403 || err.error_code === 'QUOTA_EXCEEDED') {
+          setQuotaError({
+            remaining_minutes: err.remaining_minutes,
+            requested_minutes: err.requested_minutes,
+            limit_minutes: err.limit_minutes,
+            reset_date: err.reset_date,
+          });
+          setIsQuotaModalOpen(true);
+        }
         console.warn('Auto-start processing notice:', err.message);
       });
     }
@@ -192,11 +242,22 @@ export const ProjectDetailPage: React.FC = () => {
     if (!id) return;
     setIsRetrying(true);
     setActionError(null);
+    setQuotaError(null);
     try {
       await projectService.startProcessing(id);
       await refreshData();
     } catch (err: any) {
-      setActionError(err.message || 'Failed to start processing.');
+      if (err.status === 403 || err.error_code === 'QUOTA_EXCEEDED') {
+        setQuotaError({
+          remaining_minutes: err.remaining_minutes,
+          requested_minutes: err.requested_minutes,
+          limit_minutes: err.limit_minutes,
+          reset_date: err.reset_date,
+        });
+        setIsQuotaModalOpen(true);
+      } else {
+        setActionError(err.message || 'Failed to start processing.');
+      }
     } finally {
       setIsRetrying(false);
     }
@@ -289,6 +350,50 @@ export const ProjectDetailPage: React.FC = () => {
         <div className="rounded-2xl border border-[#f2dacd] bg-[#fff6f0] p-5 text-sm text-[#813d22]">
           Video URL processing is not available for this project. Upload the video file to create a transcript and content kit.
           <Link to="/projects/new" className="ml-2 font-semibold underline">Upload a video</Link>
+        </div>
+      )}
+
+      {/* Quota Exceeded Modal & Alert */}
+      {quotaError && (
+        <QuotaExceededModal
+          isOpen={isQuotaModalOpen}
+          onClose={() => setIsQuotaModalOpen(false)}
+          limitMinutes={quotaError.limit_minutes ?? 15}
+          remainingMinutes={quotaError.remaining_minutes ?? 0}
+          requestedMinutes={quotaError.requested_minutes}
+          resetDate={quotaError.reset_date}
+        />
+      )}
+
+      {quotaError && (
+        <div className="rounded-2xl border border-clay/40 bg-clay/5 p-6 text-center space-y-3">
+          <div className="size-10 rounded-xl bg-clay/15 text-clay mx-auto flex items-center justify-center">
+            <Clock className="size-5" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-semibold text-base text-foreground font-display">
+              Monthly Processing Limit Reached
+            </h3>
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto">
+              You have <span className="font-semibold text-foreground">{quotaError.remaining_minutes ?? 0} minutes</span> remaining in your plan this month.
+              {quotaError.requested_minutes ? (
+                <> This video requires an estimated <span className="font-semibold text-foreground">~{quotaError.requested_minutes.toFixed(1)} minutes</span>.</>
+              ) : null}
+              {quotaError.reset_date && (
+                <span className="block mt-1 font-mono text-clay text-xs">
+                  Resets on {new Date(quotaError.reset_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })} (UTC).
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+            <Button variant="outline" size="sm" onClick={() => setIsQuotaModalOpen(true)}>
+              View Quota Details
+            </Button>
+            <Button variant="clay" size="sm" onClick={handleRetryProcessing} disabled={isRetrying}>
+              Check Again
+            </Button>
+          </div>
         </div>
       )}
 
@@ -494,9 +599,15 @@ export const ProjectDetailPage: React.FC = () => {
             </div>
           )}
 
-          {/* Transcript Display Section */}
+          {/* Creator Persona Summary Card & Transcript Display Section */}
           {transcript && (
-            <TranscriptSection transcript={transcript} />
+            <div className="space-y-4">
+              <CreatorPersonaCard
+                profile={creatorProfile}
+                hasOverrides={hasTuningOverrides}
+              />
+              <TranscriptSection transcript={transcript} />
+            </div>
           )}
 
           {/* Phase 5: AI Content Generation Engine Section */}
@@ -513,32 +624,122 @@ export const ProjectDetailPage: React.FC = () => {
               </div>
 
               {transcript ? (
-                <Button
-                  variant="clay"
-                  size="sm"
-                  onClick={() => handleGenerateContent()}
-                  disabled={isGenerating}
-                  className="shadow-clay"
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="size-3.5 animate-spin mr-1.5" />
-                      <span>Generating Content Kits...</span>
-                    </>
-                  ) : hasOutputs ? (
-                    <>
-                      <RefreshCw className="size-3.5 mr-1.5" />
-                      <span>Regenerate All Kits</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="size-3.5 mr-1.5" />
-                      <span>Generate Content Kits</span>
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={hasTuningOverrides ? 'clay' : 'outline'}
+                    size="sm"
+                    onClick={() => setShowTuning(!showTuning)}
+                    className="gap-1.5"
+                  >
+                    <SlidersHorizontal className="size-3.5" />
+                    <span>{hasTuningOverrides ? 'Tuned for video' : 'Tune Persona'}</span>
+                    {showTuning ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                  </Button>
+
+                  <Button
+                    variant="clay"
+                    size="sm"
+                    onClick={() => handleGenerateContent()}
+                    disabled={isGenerating}
+                    className="shadow-clay"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                        <span>Generating Content Kits...</span>
+                      </>
+                    ) : hasOutputs ? (
+                      <>
+                        <RefreshCw className="size-3.5 mr-1.5" />
+                        <span>Regenerate All Kits</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="size-3.5 mr-1.5" />
+                        <span>Generate Content Kits</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
               ) : null}
             </div>
+
+            {/* Video-Level Persona Tuning Expandable AI Control Surface */}
+            {transcript && showTuning && (
+              <SpotlightCard
+                spotlightColor="rgba(192, 98, 62, 0.12)"
+                className="p-5 md:p-6 border-clay/30 bg-cream/50 animate-in fade-in slide-in-from-top-2 duration-300"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/50 pb-3 gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-clay/15 text-clay">
+                      <SlidersHorizontal className="size-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold font-display text-foreground">
+                        AI Control Surface — Customize for this video
+                      </h4>
+                      <p className="text-[11px] text-muted-foreground">
+                        {hasTuningOverrides
+                          ? 'Only applies to this project · Does not modify your saved creator profile'
+                          : 'Currently using your saved creator profile defaults'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {hasTuningOverrides && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setTuningTone('');
+                        setTuningLanguage('');
+                        setTuningCTA('');
+                        setTuningInstructions('');
+                      }}
+                      className="h-7 text-xs text-muted-foreground hover:text-foreground self-start sm:self-auto"
+                    >
+                      <RotateCcw className="size-3 mr-1" /> Reset to defaults
+                    </Button>
+                  )}
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3 pt-3">
+                  <Input
+                    label="Tone Override"
+                    placeholder="e.g. Sarcastic, high-energy, contrarian"
+                    value={tuningTone}
+                    onChange={(e) => setTuningTone(e.target.value)}
+                    className="rounded-xl text-xs"
+                  />
+                  <Input
+                    label="Language Override"
+                    placeholder="e.g. Spanish, German, French"
+                    value={tuningLanguage}
+                    onChange={(e) => setTuningLanguage(e.target.value)}
+                    className="rounded-xl text-xs"
+                  />
+                  <Input
+                    label="Call to Action (CTA) Override"
+                    placeholder="e.g. Download the free checklist link below"
+                    value={tuningCTA}
+                    onChange={(e) => setTuningCTA(e.target.value)}
+                    className="rounded-xl text-xs"
+                  />
+                </div>
+
+                <div className="pt-3">
+                  <Textarea
+                    label="Specific Video Directives"
+                    placeholder="e.g. Emphasize the second tip about cold emails; make the LinkedIn post sound like an engineering postmortem."
+                    value={tuningInstructions}
+                    onChange={(e) => setTuningInstructions(e.target.value)}
+                    rows={2}
+                    className="rounded-xl text-xs"
+                  />
+                </div>
+              </SpotlightCard>
+            )}
 
             {generationError && (
               <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive flex items-center justify-between">
@@ -580,21 +781,9 @@ export const ProjectDetailPage: React.FC = () => {
 
             {/* Loading state during generation */}
             {isGenerating && (
-              <div className="card-soft p-8 text-center space-y-3 border border-clay/30 bg-clay/5">
-                <Loader2 className="size-7 text-clay animate-spin mx-auto" />
-                <div className="space-y-1">
-                  <h4 className="text-sm font-medium text-foreground">
-                    {generatingPlatform
-                      ? `Generating ${generatingPlatform.toUpperCase()} Content Kit...`
-                      : 'Crafting Social Content Kits...'}
-                  </h4>
-                  <p className="text-xs text-muted-foreground">
-                    {generatingPlatform
-                      ? `Tailoring insights from transcript for ${generatingPlatform}.`
-                      : 'Analyzing transcript, matching creator persona, and structuring platform-specific assets.'}
-                  </p>
-                </div>
-              </div>
+              <GenerationProgress
+                platformName={generatingPlatform ? generatingPlatform.toUpperCase() : undefined}
+              />
             )}
 
             {/* Show Workspace tabs if content outputs exist */}

@@ -1,6 +1,7 @@
 import {
   OutputPlatform,
   CreatorProfileData,
+  GenerationOverrides,
   TranscriptSegment,
 } from '../types/index.js';
 
@@ -11,37 +12,148 @@ export interface PromptContext {
   segments?: TranscriptSegment[];
   creatorProfile?: CreatorProfileData;
   notes?: string;
+  overrides?: GenerationOverrides;
 }
 
 export class ContentPromptService {
   /**
-   * Formats the creator tone, audience, and niche context block.
+   * Resolves the effective CTA for a specific platform based on overrides and profile defaults.
+   * Priority: overrideCTA > platform_cta > generic CTA
    */
-  private static formatCreatorContext(ctx: PromptContext): string {
-    const parts: string[] = [];
-    if (ctx.creatorProfile?.niche?.trim()) {
-      parts.push(`- Creator Niche: ${ctx.creatorProfile.niche.trim()}`);
-    }
-    if (ctx.creatorProfile?.target_audience?.trim()) {
-      parts.push(`- Target Audience: ${ctx.creatorProfile.target_audience.trim()}`);
-    }
-    if (ctx.creatorProfile?.tone?.trim()) {
-      parts.push(`- Desired Tone: ${ctx.creatorProfile.tone.trim()}`);
-    }
-    if (ctx.creatorProfile?.language?.trim()) {
-      parts.push(`- Target Language: ${ctx.creatorProfile.language.trim()}`);
-    } else if (ctx.language) {
-      parts.push(`- Content Language: ${ctx.language}`);
-    }
-    if (ctx.notes?.trim()) {
-      parts.push(`- Additional Creator Notes: ${ctx.notes.trim()}`);
+  public static resolveEffectiveCTA(platform: OutputPlatform, ctx: PromptContext): string {
+    if (ctx.overrides?.overrideCTA?.trim()) {
+      return ctx.overrides.overrideCTA.trim();
     }
 
-    if (parts.length === 0) {
+    const cp = ctx.creatorProfile;
+    if (!cp) return '';
+
+    switch (platform) {
+      case 'youtube':
+        return cp.youtube_cta?.trim() || '';
+      case 'instagram':
+        return cp.instagram_cta?.trim() || '';
+      case 'shorts':
+        return cp.instagram_cta?.trim() || cp.youtube_cta?.trim() || '';
+      case 'linkedin':
+        return cp.linkedin_cta?.trim() || '';
+      case 'x':
+        return cp.twitter_cta?.trim() || '';
+      case 'tiktok':
+        return cp.tiktok_cta?.trim() || '';
+      default:
+        return '';
+    }
+  }
+
+  /**
+   * Resolves the effective voice tone.
+   * Priority: overrideTone > custom_tone (if tone is Custom or provided) > preset tone > fallback 'Friendly'
+   */
+  public static resolveEffectiveTone(ctx: PromptContext): string {
+    if (ctx.overrides?.overrideTone?.trim()) {
+      return ctx.overrides.overrideTone.trim();
+    }
+
+    const cp = ctx.creatorProfile;
+    if (!cp) return 'Friendly';
+
+    if (cp.tone?.toLowerCase() === 'custom' && cp.custom_tone?.trim()) {
+      return cp.custom_tone.trim();
+    }
+
+    if (cp.custom_tone?.trim()) {
+      return cp.custom_tone.trim();
+    }
+
+    return cp.tone?.trim() || 'Friendly';
+  }
+
+  /**
+   * Resolves effective target language.
+   * Priority: overrideLanguage > creatorProfile.language > ctx.language > 'English'
+   */
+  public static resolveEffectiveLanguage(ctx: PromptContext): string {
+    if (ctx.overrides?.overrideLanguage?.trim()) {
+      return ctx.overrides.overrideLanguage.trim();
+    }
+
+    return ctx.creatorProfile?.language?.trim() || ctx.language?.trim() || 'English';
+  }
+
+  /**
+   * Formats the creator persona, brand guidelines, CTAs, and video-specific overrides.
+   */
+  public static formatCreatorContext(ctx: PromptContext, platform?: OutputPlatform): string {
+    const cp = ctx.creatorProfile;
+    const effectiveTone = this.resolveEffectiveTone(ctx);
+    const effectiveLanguage = this.resolveEffectiveLanguage(ctx);
+    const effectiveCTA = platform ? this.resolveEffectiveCTA(platform, ctx) : '';
+
+    const sections: string[] = [];
+
+    // 1. Creator Persona
+    const personaLines: string[] = [];
+    if (cp?.niche?.trim()) personaLines.push(`- Niche: ${cp.niche.trim()}`);
+    if (cp?.target_audience?.trim()) personaLines.push(`- Target Audience: ${cp.target_audience.trim()}`);
+    personaLines.push(`- Tone of Voice: ${effectiveTone}`);
+    personaLines.push(`- Language: ${effectiveLanguage}`);
+    if (cp?.preferred_hook_style?.trim()) {
+      personaLines.push(`- Preferred Hook Style: ${cp.preferred_hook_style.trim()}`);
+    }
+
+    if (personaLines.length > 0) {
+      sections.push(`CREATOR PERSONA:\n${personaLines.join('\n')}`);
+    }
+
+    // 2. Brand Rules & Forbidden Phrases
+    const ruleLines: string[] = [];
+    if (cp?.brand_rules?.trim()) {
+      ruleLines.push(`- Writing Style & Brand Guidelines: ${cp.brand_rules.trim()}`);
+    }
+    if (cp?.forbidden_phrases?.trim()) {
+      ruleLines.push(`- STRICT FORBIDDEN PHRASES (DO NOT USE): ${cp.forbidden_phrases.trim()}`);
+    }
+
+    if (ruleLines.length > 0) {
+      sections.push(`BRAND RULES:\n${ruleLines.join('\n')}`);
+    }
+
+    // 3. Links & Call-To-Action (Only when explicitly provided)
+    const ctaLines: string[] = [];
+    if (cp?.website_url?.trim()) ctaLines.push(`- Website: ${cp.website_url.trim()}`);
+    if (cp?.newsletter_url?.trim()) ctaLines.push(`- Newsletter: ${cp.newsletter_url.trim()}`);
+    if (cp?.podcast_url?.trim()) ctaLines.push(`- Podcast: ${cp.podcast_url.trim()}`);
+    if (effectiveCTA) ctaLines.push(`- Target CTA: ${effectiveCTA}`);
+
+    if (ctaLines.length > 0) {
+      sections.push(`CREATOR LINKS & CALL-TO-ACTION:\n${ctaLines.join('\n')}`);
+    }
+
+    // 4. Video-Specific Instructions & Overrides
+    const videoLines: string[] = [];
+    if (ctx.notes?.trim()) {
+      videoLines.push(`- Video Notes: ${ctx.notes.trim()}`);
+    }
+    if (ctx.overrides?.overrideTone?.trim()) {
+      videoLines.push(`- Video Tone Override Applied: ${ctx.overrides.overrideTone.trim()}`);
+    }
+    if (ctx.overrides?.overrideLanguage?.trim()) {
+      videoLines.push(`- Video Language Override Applied: ${ctx.overrides.overrideLanguage.trim()}`);
+    }
+    if (ctx.overrides?.overrideCTA?.trim()) {
+      videoLines.push(`- Video CTA Override Applied: ${ctx.overrides.overrideCTA.trim()}`);
+    }
+
+    if (videoLines.length > 0) {
+      sections.push(`VIDEO-SPECIFIC INSTRUCTIONS:\n${videoLines.join('\n')}`);
+    }
+
+    if (sections.length === 0) {
       return 'No specific creator persona provided. Use a natural, authentic, engaging tone.';
     }
 
-    return parts.join('\n');
+    return sections.join('\n\n');
   }
 
   /**
@@ -82,7 +194,7 @@ CRITICAL RULES:
    * Prompt for YouTube package (Titles, Description, Chapters, Keywords).
    */
   public static buildYouTubePrompt(ctx: PromptContext): string {
-    const creatorContext = this.formatCreatorContext(ctx);
+    const creatorContext = this.formatCreatorContext(ctx, 'youtube');
     const segmentsFormatted = this.formatSegments(ctx.segments);
     const hasTimestamps = Boolean(ctx.segments && ctx.segments.length > 0);
 
@@ -131,7 +243,7 @@ REQUIRED OUTPUT FORMAT (JSON ONLY):
 
 SPECIFIC RULES:
 - "titles": Exactly 5 distinct title angles (under 70 characters each). Do not write minor variations of one sentence.
-- "description": Grounded in the transcript. Do not fabricate external links or sponsors.
+- "description": Grounded in the transcript. Do not fabricate external links or sponsors. If a Target CTA or Links are provided in the creator context, weave them naturally into the description.
 - "chapters": ${
       hasTimestamps
         ? 'Generate 4-8 logical chapters using real timestamps from the segments provided above. Always start with 00:00.'
@@ -144,7 +256,7 @@ SPECIFIC RULES:
    * Prompt for Instagram package (Hooks, Caption, Hashtags).
    */
   public static buildInstagramPrompt(ctx: PromptContext): string {
-    const creatorContext = this.formatCreatorContext(ctx);
+    const creatorContext = this.formatCreatorContext(ctx, 'instagram');
 
     return `Create an Instagram Reel / Post package based on the following video transcript.
 
@@ -176,8 +288,8 @@ REQUIRED OUTPUT FORMAT (JSON ONLY):
 }
 
 SPECIFIC RULES:
-- "hooks": Exactly 5 punchy opening text overlays / voiceover hooks for Reels or Carousels.
-- "caption": Engaging, easy to scan with emojis and spacing, reflecting the actual video topic.
+- "hooks": Exactly 5 punchy opening text overlays / voiceover hooks for Reels or Carousels. Respect the creator's preferred hook style if specified.
+- "caption": Engaging, easy to scan with emojis and spacing, reflecting the actual video topic. Incorporate the creator's Target CTA if provided.
 - "hashtags": 5-10 curated, relevant hashtags. Avoid generic spam tags (#viral, #fyp).`;
   }
 
@@ -185,7 +297,7 @@ SPECIFIC RULES:
    * Prompt for Shorts / Reels highlight moments with timestamps or narrative boundaries.
    */
   public static buildShortsPrompt(ctx: PromptContext): string {
-    const creatorContext = this.formatCreatorContext(ctx);
+    const creatorContext = this.formatCreatorContext(ctx, 'shorts');
     const segmentsFormatted = this.formatSegments(ctx.segments);
     const hasTimestamps = Boolean(ctx.segments && ctx.segments.length > 0);
 
@@ -218,7 +330,7 @@ REQUIRED OUTPUT FORMAT (JSON ONLY):
 }
 
 SPECIFIC RULES:
-- Identify 2 to 4 high-retention moments (surprising insight, strong opinion, emotional point, or key step).
+- Identify 2 to 4 high-retention moments (surprising insight, strong opinion, emotional point, or key step). Respect the creator's preferred hook style if provided.
 - ${
       hasTimestamps
         ? 'Accurate "start" and "end" timestamps formatted as MM:SS based on the provided segments.'
@@ -231,7 +343,7 @@ SPECIFIC RULES:
    * Prompt for TikTok hooks, caption, and a transcript-grounded clip idea.
    */
   public static buildTikTokPrompt(ctx: PromptContext): string {
-    const creatorContext = this.formatCreatorContext(ctx);
+    const creatorContext = this.formatCreatorContext(ctx, 'tiktok');
     const segmentsFormatted = this.formatSegments(ctx.segments);
     const hasTimestamps = Boolean(ctx.segments && ctx.segments.length > 0);
 
@@ -267,19 +379,21 @@ REQUIRED OUTPUT FORMAT (JSON ONLY):
 }
 
 SPECIFIC RULES:
-- Give exactly 3 distinct, brief hooks. Keep them grounded in what the speaker actually says.
-- The caption should be concise and readable. Do not add unsupported claims, links, or generic hashtag spam.
+- Give exactly 3 distinct, brief hooks. Keep them grounded in what the speaker actually says. Respect the creator's preferred hook style if provided.
+- The caption should be concise and readable. Incorporate the creator's Target CTA or discussion hook naturally if provided. Strictly adhere to brand rules and forbidden phrases. Do not add unsupported claims, links, or generic hashtag spam.
 - Choose one useful moment from the transcript, with enough context to make sense on its own.
-- ${hasTimestamps
-      ? 'Use only start and end times supported by the provided segments.'
-      : 'No timestamped segments are available. Set start and end to "N/A" and timestamps_available to false. Never invent times.'}`;
+- ${
+      hasTimestamps
+        ? 'Use only start and end times supported by the provided segments.'
+        : 'No timestamped segments are available. Set start and end to "N/A" and timestamps_available to false. Never invent times.'
+    }`;
   }
 
   /**
    * Prompt for LinkedIn Post.
    */
   public static buildLinkedInPrompt(ctx: PromptContext): string {
-    const creatorContext = this.formatCreatorContext(ctx);
+    const creatorContext = this.formatCreatorContext(ctx, 'linkedin');
 
     return `Draft a polished, high-engagement LinkedIn post based on the insights in this video transcript.
 
@@ -298,16 +412,16 @@ REQUIRED OUTPUT FORMAT (JSON ONLY):
 
 SPECIFIC RULES:
 - High signal-to-noise ratio. Professional, thoughtful, but conversational.
-- No corporate jargon, no generic motivational clichés.
+- No corporate jargon, no generic motivational clichés. Strictly respect any brand rules or forbidden phrases.
 - Grounded entirely in the transcript's real ideas.
-- Optimized for read-time and discussion in comments.`;
+- Optimized for read-time and discussion in comments. Include the creator's Target CTA if provided.`;
   }
 
   /**
    * Prompt for X (Twitter) Post & Thread.
    */
   public static buildTwitterPrompt(ctx: PromptContext): string {
-    const creatorContext = this.formatCreatorContext(ctx);
+    const creatorContext = this.formatCreatorContext(ctx, 'x');
 
     return `Draft an impactful X (Twitter) standalone post and a companion value-packed thread based on this transcript.
 
@@ -334,7 +448,7 @@ SPECIFIC RULES:
 - Standalone post must be under 280 characters.
 - Thread should be 3-6 tweets maximum, cleanly broken down.
 - Each thread item should be standalone valuable and under 280 characters.
-- No hashtag stuffing. Pure insights.`;
+- No hashtag stuffing. Pure insights. Include Target CTA in the final thread conclusion if specified.`;
   }
 
   /**

@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { Project, ContentOutput, OutputPlatform, CreatorProfile, ProjectStatus, Transcript } from '../types';
+import { Project, ContentOutput, OutputPlatform, CreatorProfile, ProjectStatus, Transcript, GenerationOverrides } from '../types';
 
 export interface CreateProjectInput {
   id?: string;
@@ -414,11 +414,19 @@ class ProjectService {
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to start video processing.');
+        const error: any = new Error(data.message || 'Failed to start video processing.');
+        error.status = response.status;
+        error.error_code = data.error_code;
+        error.limit_minutes = data.limit_minutes;
+        error.remaining_minutes = data.remaining_minutes;
+        error.requested_minutes = data.requested_minutes;
+        error.reset_date = data.reset_date;
+        throw error;
       }
 
       // Optimistically update local project video_status to 'processing'
       await this.updateProjectAsync(projectId, { video_status: 'processing' });
+      window.dispatchEvent(new CustomEvent('vireo_usage_updated'));
       return { success: true, message: data.message };
     } catch (err: any) {
       console.error('Failed to trigger project processing:', err);
@@ -529,7 +537,8 @@ class ProjectService {
   async generateContent(
     projectId: string,
     platform?: OutputPlatform,
-    customNotes?: string
+    customNotes?: string,
+    overrides?: GenerationOverrides
   ): Promise<{ success: boolean; message: string; outputs: ContentOutput[] }> {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
@@ -548,6 +557,9 @@ class ProjectService {
       body: JSON.stringify({
         platform,
         customNotes,
+        overrideTone: overrides?.overrideTone,
+        overrideLanguage: overrides?.overrideLanguage,
+        overrideCTA: overrides?.overrideCTA,
       }),
     });
 

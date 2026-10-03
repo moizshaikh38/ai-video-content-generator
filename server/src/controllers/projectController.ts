@@ -480,20 +480,51 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
-    // 4. Initiate processing pipeline asynchronously
+    // 4. Concurrency-safe atomic quota reservation
+    const { UsageService } = await import('../services/usageService.js');
+    const rawAttemptId = req.headers['x-processing-attempt-id'] as string;
+    const attemptId = rawAttemptId && isValidUUID(rawAttemptId) ? rawAttemptId : crypto.randomUUID();
+
+    // Clamp client-supplied estimated minutes between 0.5 and 60.0 (prevents abuse)
+    const rawEstimate = Number(req.body?.estimated_minutes);
+    const estimatedMinutes = !isNaN(rawEstimate) && rawEstimate > 0 ? Math.min(Math.max(rawEstimate, 0.5), 60.0) : 3.0;
+
+    const reservation = await UsageService.reserveQuota(userId, projectId, attemptId, estimatedMinutes);
+
+    if (!reservation.allowed) {
+      logger.warn('User exceeded processing quota', {
+        userId,
+        projectId,
+        limitMinutes: reservation.limitMinutes,
+        remainingMinutes: reservation.remainingMinutes,
+      });
+      res.status(403).json({
+        status: 'error',
+        code: reservation.errorCode || 'QUOTA_EXCEEDED',
+        message: reservation.errorMessage || 'Monthly video processing quota exceeded.',
+        billing_period: reservation.billingPeriod,
+        limit_minutes: reservation.limitMinutes,
+        remaining_minutes: reservation.remainingMinutes,
+        requested_minutes: reservation.requestedMinutes,
+        reset_date: reservation.resetDate,
+      });
+      return;
+    }
+
+    // 5. Initiate processing pipeline asynchronously
     const { processProjectVideo } = await import('../services/videoProcessingService.js');
 
-    // Run pipeline in background
-    processProjectVideo(projectId, userId, project.source_url)
+    // Run pipeline in background with unique processing_attempt_id
+    processProjectVideo(projectId, userId, project.source_url, attemptId)
       .then((result) => {
         if (result.status === 'transcribed') {
-          logger.info(`Background pipeline completed for project ${projectId}`, { projectId, userId });
+          logger.info(`Background pipeline completed for project ${projectId} (attempt: ${attemptId})`, { projectId, userId });
         } else {
-          logger.warn(`Background pipeline failed for project ${projectId}`, { projectId, error: result.error });
+          logger.warn(`Background pipeline failed for project ${projectId} (attempt: ${attemptId})`, { projectId, error: result.error });
         }
       })
       .catch((err) => {
-        logger.error(`Background pipeline unexpected error for project ${projectId}`, {
+        logger.error(`Background pipeline unexpected error for project ${projectId} (attempt: ${attemptId})`, {
           projectId,
           error: err instanceof Error ? err.message : String(err),
         });
@@ -503,6 +534,7 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
       status: 'ok',
       message: 'Video processing started.',
       projectId,
+      processingAttemptId: attemptId,
       video_status: 'processing',
     });
   } catch (err) {
@@ -657,12 +689,18 @@ export const generateProjectContent = async (req: AuthenticatedRequest, res: Res
   }
 
   try {
+    const overrideTone = typeof req.body?.overrideTone === 'string' ? req.body.overrideTone.slice(0, 200) : undefined;
+    const overrideLanguage = typeof req.body?.overrideLanguage === 'string' ? req.body.overrideLanguage.slice(0, 100) : undefined;
+    const overrideCTA = typeof req.body?.overrideCTA === 'string' ? req.body.overrideCTA.slice(0, 300) : undefined;
+    const overrides = (overrideTone || overrideLanguage || overrideCTA) ? { overrideTone, overrideLanguage, overrideCTA } : undefined;
+
     const { contentGenerationService } = await import('../services/contentGenerationService.js');
     const result = await contentGenerationService.generateContentForProject({
       projectId,
       userId,
       platform: platform as OutputPlatform | undefined,
       customNotes: typeof customNotes === 'string' ? customNotes.trim().slice(0, 2000) : undefined,
+      overrides,
     });
 
     res.status(200).json(result);
