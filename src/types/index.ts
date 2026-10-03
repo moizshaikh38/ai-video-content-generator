@@ -112,3 +112,44 @@ export interface HealthCheckResponse {
   status: 'ok' | 'error';
   timestamp?: string;
 }
+
+// ── Clip Candidates (Phase 10: AI Auto Clip Finder) ───────────────
+
+export type ClipCandidateStatus = 'suggested' | 'selected' | 'dismissed';
+
+export type ClipCandidateCategory =
+  | 'educational'
+  | 'story'
+  | 'controversial'
+  | 'insight'
+  | 'emotional'
+  | 'entertaining'
+  | 'tutorial'
+  | 'general';
+
+export interface ClipCandidate {
+  id: string;
+  project_id: string;
+  user_id: string;
+
+  start_segment_index: number;
+  end_segment_index: number;
+
+  start_seconds: number;
+  end_seconds: number;
+  duration_seconds: number;
+
+  title: string;
+  hook: string;
+  reason: string;
+  category: ClipCandidateCategory | string;
+  engagement_score: number;
+
+  status: ClipCandidateStatus;
+
+  metadata?: Record<string, any>;
+
+  created_at: string;
+  updated_at: string;
+}
+

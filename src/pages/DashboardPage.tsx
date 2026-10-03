@@ -93,7 +93,7 @@ export const DashboardPage: React.FC = () => {
           to="/projects/new"
           className="inline-flex items-center gap-2 rounded-xl bg-clay px-5 py-3 text-sm font-semibold text-white shadow-clay hover:bg-[#c93f1e]"
         >
-          <Plus className="size-4" /> New Video Project
+          <Plus className="size-4" /> Clip a Video
         </Link>
       </div>
 
@@ -329,7 +329,7 @@ export const DashboardPage: React.FC = () => {
               to="/projects/new"
               className="mt-5 inline-flex rounded-xl bg-clay px-5 py-2.5 text-sm font-semibold text-white"
             >
-              Upload Your First Video
+              Clip Your First Video
             </Link>
           </div>
         )}

@@ -22,6 +22,7 @@ import {
   CircleCheck,
   SlidersHorizontal,
   RotateCcw,
+  Film,
 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -36,6 +37,7 @@ import { CreatorPersonaCard } from '../components/react-bits/CreatorPersonaCard'
 import { GenerationProgress } from '../components/react-bits/GenerationProgress';
 import { SpotlightCard } from '../components/react-bits/SpotlightCard';
 import { QuotaExceededModal } from '../components/QuotaExceededModal';
+import { ClipWorkspace } from '../components/clips/ClipWorkspace';
 
 interface TabConfig {
   key: OutputPlatform;
@@ -125,6 +127,7 @@ export const ProjectDetailPage: React.FC = () => {
   const [tuningLanguage, setTuningLanguage] = useState('');
   const [tuningInstructions, setTuningInstructions] = useState('');
   const [tuningCTA, setTuningCTA] = useState('');
+  const [workspaceTab, setWorkspaceTab] = useState<'clips' | 'content' | 'transcript'>('clips');
 
   const hasTuningOverrides = Boolean(tuningTone || tuningLanguage || tuningInstructions || tuningCTA);
 
@@ -599,19 +602,80 @@ export const ProjectDetailPage: React.FC = () => {
             </div>
           )}
 
-          {/* Creator Persona Summary Card & Transcript Display Section */}
+          {/* Phase 10: Primary Workspace Navigation (Clips / Content Kit / Transcript) */}
           {transcript && (
-            <div className="space-y-4">
-              <CreatorPersonaCard
-                profile={creatorProfile}
-                hasOverrides={hasTuningOverrides}
-              />
-              <TranscriptSection transcript={transcript} />
-            </div>
-          )}
+            <div className="space-y-6 pt-2">
+              <div className="flex border-b border-border/80 gap-6">
+                <button
+                  onClick={() => setWorkspaceTab('clips')}
+                  className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
+                    workspaceTab === 'clips'
+                      ? 'border-clay text-foreground font-display'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Film className="size-4 text-clay" />
+                  <span>Clips</span>
+                  <span className="rounded-full bg-clay/10 text-clay text-[11px] font-mono px-2 py-0.5 font-bold">
+                    Primary
+                  </span>
+                </button>
 
-          {/* Phase 5: AI Content Generation Engine Section */}
-          <div className="space-y-4 pt-4 border-t border-border/40">
+                <button
+                  onClick={() => setWorkspaceTab('content')}
+                  className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
+                    workspaceTab === 'content'
+                      ? 'border-clay text-foreground font-display'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Sparkles className="size-4 text-sage" />
+                  <span>Content Kit</span>
+                  {hasOutputs && (
+                    <span className="rounded-full bg-sage/10 text-sage text-[11px] font-mono px-2 py-0.5 font-bold">
+                      {outputs.length}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setWorkspaceTab('transcript')}
+                  className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
+                    workspaceTab === 'transcript'
+                      ? 'border-clay text-foreground font-display'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <FileText className="size-4 text-muted-foreground" />
+                  <span>Transcript</span>
+                </button>
+              </div>
+
+              {/* Tab 1: Clips Workspace (Primary Default) */}
+              {workspaceTab === 'clips' && (
+                <div className="animate-in fade-in duration-200">
+                  <ClipWorkspace
+                    projectId={project.id}
+                    transcript={transcript}
+                    videoPreviewUrl={videoPreviewUrl}
+                  />
+                </div>
+              )}
+
+              {/* Tab 2: Transcript View */}
+              {workspaceTab === 'transcript' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <CreatorPersonaCard
+                    profile={creatorProfile}
+                    hasOverrides={hasTuningOverrides}
+                  />
+                  <TranscriptSection transcript={transcript} />
+                </div>
+              )}
+
+              {/* Tab 3: Content Kit View */}
+              {workspaceTab === 'content' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-lg font-semibold font-display text-foreground flex items-center gap-2">
@@ -786,7 +850,6 @@ export const ProjectDetailPage: React.FC = () => {
               />
             )}
 
-            {/* Show Workspace tabs if content outputs exist */}
             {hasOutputs && (
               <Workspace
                 outputs={outputs}
@@ -797,7 +860,10 @@ export const ProjectDetailPage: React.FC = () => {
                 generatingPlatform={generatingPlatform}
               />
             )}
-          </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

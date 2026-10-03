@@ -81,7 +81,7 @@ const platformContent = [
 const faqs = [
   {
     q: "What does Vireo do?",
-    a: "Vireo takes an existing video, creates a transcript, and generates editable content drafts for different social platforms.",
+    a: "Vireo finds the strongest standalone moments in your long-form videos for short-form clips, and generates ready-to-post content kits across YouTube, Instagram, Shorts/Reels, TikTok, LinkedIn, and X.",
   },
   {
     q: "What happens to my uploaded videos?",
@@ -104,7 +104,7 @@ const faqs = [
 
 const Cta = ({ className = "" }: { className?: string }) => (
   <Link className={`lv-cta ${className}`} to="/signup">
-    Start Creating Free <ArrowUpRight size={17} />
+    Clip a Video <ArrowUpRight size={17} />
   </Link>
 );
 const Label = ({ children }: { children: React.ReactNode }) => (
@@ -115,14 +115,14 @@ function HeroSection() {
   return (
     <section className="lv-hero lv-motion-loop" aria-labelledby="hero-title">
       <div className="lv-hero-copy">
-        <Label>AI CONTENT REPURPOSING FOR VIDEO CREATORS</Label>
+        <Label>AI CLIPS &amp; CONTENT REPURPOSING FOR VIDEO CREATORS</Label>
         <h1 id="hero-title">
-          Turn one video into
-          <br className="lv-desktop-break" /> your <em>entire content kit.</em>
+          Turn long videos into
+          <br className="lv-desktop-break" /> ready-to-post <em>clips &amp; content.</em>
         </h1>
         <p>
-          Upload a video. Vireo turns it into a transcript, titles, hooks,
-          captions, posts and short-form moments for every channel you use.
+          Vireo finds the strongest moments in your videos, then helps you turn
+          them into short-form clips and platform-ready content.
         </p>
         <div className="lv-hero-actions">
           <Cta />
@@ -132,7 +132,7 @@ function HeroSection() {
         </div>
         <div className="lv-hero-proof">
           <span>
-            <Check size={14} /> No complicated editing
+            <Check size={14} /> Find your best clips with AI
           </span>
           <i />
           <span>
