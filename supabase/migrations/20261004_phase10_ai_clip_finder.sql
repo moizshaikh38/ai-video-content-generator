@@ -88,3 +88,9 @@ CREATE POLICY "Service role full access on clip candidates"
   TO service_role
   USING (true)
   WITH CHECK (true);
+
+-- 4. Table grants for authenticated and service_role
+REVOKE ALL ON public.clip_candidates FROM anon, public;
+GRANT SELECT, UPDATE, DELETE ON public.clip_candidates TO authenticated;
+GRANT ALL ON public.clip_candidates TO service_role;
+

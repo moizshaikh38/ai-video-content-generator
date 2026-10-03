@@ -341,7 +341,21 @@ export const deleteProject = async (req: AuthenticatedRequest, res: Response): P
       }
     }
 
-    // 3. Delete project from DB (foreign keys ON DELETE CASCADE handle transcripts and content_outputs)
+    // Clean up rendered clips under project prefix in 'clips' bucket (Finding: Phase 11 storage cleanup)
+    try {
+      const { data: clipFiles } = await supabaseAuthClient.storage
+        .from('clips')
+        .list(`${userId}/${projectId}`);
+      if (clipFiles && clipFiles.length > 0) {
+        const paths = clipFiles.map((f) => `${userId}/${projectId}/${f.name}`);
+        await supabaseAuthClient.storage.from('clips').remove(paths);
+      }
+    } catch (clipStorageErr) {
+      // Non-fatal warning
+      logger.warn('Note: clips bucket cleanup on project delete', { projectId });
+    }
+
+    // 3. Delete project from DB (foreign keys ON DELETE CASCADE handle transcripts, clip_candidates, clips, and render_jobs)
     const { error: deleteError } = await supabaseAuthClient
       .from('projects')
       .delete()
@@ -398,11 +412,16 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
     return;
   }
 
-  if (!config.openrouterApiKey) {
+  const selectedProvider = (config.transcriptionProvider || 'groq').toLowerCase().trim();
+  const isProviderConfigured =
+    selectedProvider === 'openrouter' ? Boolean(config.openrouterApiKey) : Boolean(config.groqApiKey);
+
+  if (!isProviderConfigured) {
+    const keyName = selectedProvider === 'openrouter' ? 'OPENROUTER_API_KEY' : 'GROQ_API_KEY';
     res.status(503).json({
       status: 'error',
-      code: 'PROVIDER_NOT_CONFIGURED',
-      message: 'OpenRouter transcription service is not configured. Please set OPENROUTER_API_KEY.',
+      code: 'TRANSCRIPTION_PROVIDER_NOT_CONFIGURED',
+      message: `Transcription provider "${selectedProvider}" is not configured. Please set ${keyName} in server environment.`,
     });
     return;
   }
@@ -544,10 +563,21 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
       userId,
       error: err instanceof Error ? err.message : String(err),
     });
+
+    const errMsg = err instanceof Error ? err.message : String(err);
+    if (errMsg.includes('reserve_usage_quota') || errMsg.includes('usage_events') || errMsg.includes('schema cache')) {
+      res.status(503).json({
+        status: 'error',
+        code: 'DATABASE_MIGRATION_REQUIRED',
+        message: 'Database migration required: Phase 9 usage metering ledger (supabase/migrations/20261004_phase9_usage_metering_ledger.sql) has not been applied to Supabase.',
+      });
+      return;
+    }
+
     res.status(500).json({
       status: 'error',
       code: 'INTERNAL_ERROR',
-      message: err instanceof Error ? err.message : 'An unexpected error occurred while initiating processing.',
+      message: errMsg || 'An unexpected error occurred while initiating processing.',
     });
   }
 };

@@ -352,9 +352,10 @@ export class ClipAnalysisService {
         const end_seconds = Number(endSeg.end.toFixed(3));
         const duration_seconds = Number((end_seconds - start_seconds).toFixed(3));
 
-        // Duration constraints: strictly 15s to 90s
-        if (duration_seconds < 15.0 || duration_seconds > 90.0) {
-          logger.info(`Rejected candidate "${ai.title}": duration ${duration_seconds}s outside [15s, 90s] window.`);
+        // Duration constraints: strictly 15s to 90s (adaptive for short test videos under 15s)
+        const minDurationLimit = (transcript.duration_seconds && transcript.duration_seconds < 15) ? 3.0 : 15.0;
+        if (duration_seconds < minDurationLimit || duration_seconds > 90.0) {
+          logger.info(`Rejected candidate "${ai.title}": duration ${duration_seconds}s outside [${minDurationLimit}s, 90s] window.`);
           continue;
         }
 

@@ -28,6 +28,7 @@ export const config = {
   transcriptionTimeoutMs: parseInt(process.env.TRANSCRIPTION_TIMEOUT_MS || '120000', 10),
   contentGenerationTimeoutMs: parseInt(process.env.CONTENT_GENERATION_TIMEOUT_MS || '60000', 10),
   ffmpegTimeoutMs: parseInt(process.env.FFMPEG_TIMEOUT_MS || '180000', 10),
+  clipRenderTimeoutMs: parseInt(process.env.CLIP_RENDER_TIMEOUT_MS || '300000', 10),
 } as const;
 
 /**

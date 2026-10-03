@@ -42,9 +42,16 @@ function it(name: string, fn: () => void | Promise<void>) {
 async function runTests() {
   console.log('Running Phase 8 Deterministic Tests...\n');
 
-  // Test 1: Factory default returns GroqTranscriptionProvider
-  await it('Factory default resolves GroqTranscriptionProvider', () => {
+  // Test 1: Factory default resolves configured provider (or Groq)
+  await it('Factory default resolves configured provider (or Groq)', () => {
     const provider = getTranscriptionProvider();
+    const expected = config.transcriptionProvider || 'groq';
+    assert.strictEqual(provider.name, expected);
+  });
+
+  // Test 1b: Factory resolves GroqTranscriptionProvider when explicitly requested
+  await it('Factory resolves GroqTranscriptionProvider when specified', () => {
+    const provider = getTranscriptionProvider('groq');
     assert.strictEqual(provider.name, 'groq');
     assert.ok(provider instanceof GroqTranscriptionProvider);
   });

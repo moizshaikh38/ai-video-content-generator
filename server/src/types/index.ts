@@ -289,3 +289,60 @@ export interface AIClipAnalysisResponse {
   clips: AIClipCandidate[];
 }
 
+// ── Phase 11: Clip Rendering Engine Types ─────────────────────────
+
+export type ClipAspectRatio = '9:16' | '1:1' | '16:9';
+export type ClipCropMode = 'center' | 'manual';
+export type ClipRenderStatus = 'draft' | 'queued' | 'rendering' | 'uploading' | 'ready' | 'failed';
+export type RenderJobStatus = 'queued' | 'processing' | 'uploading' | 'completed' | 'failed';
+export type RenderJobStage =
+  | 'queued'
+  | 'downloading'
+  | 'cutting'
+  | 'reframing'
+  | 'encoding'
+  | 'uploading'
+  | 'completed'
+  | 'failed';
+
+export interface RenderJobRecord {
+  id: string;
+  clip_id: string;
+  user_id: string;
+  status: RenderJobStatus;
+  progress: number;
+  stage: RenderJobStage | string;
+  attempts: number;
+  error_code?: string | null;
+  error_message?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClipRecord {
+  id: string;
+  project_id: string;
+  candidate_id?: string | null;
+  user_id: string;
+  start_seconds: number;
+  end_seconds: number;
+  duration_seconds: number;
+  aspect_ratio: ClipAspectRatio;
+  crop_mode: ClipCropMode;
+  render_status: ClipRenderStatus;
+  source_storage_path: string;
+  output_storage_path?: string | null;
+  render_error_code?: string | null;
+  render_error_message?: string | null;
+  created_at: string;
+  updated_at: string;
+  latest_job?: RenderJobRecord | null;
+}
+
+export interface CreateClipDTO {
+  candidateId: string;
+  aspectRatio?: ClipAspectRatio;
+}
+

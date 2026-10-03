@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
+  AlertCircle,
   ArrowLeft,
   Check,
   Copy,
@@ -206,11 +207,14 @@ export const ProjectDetailPage: React.FC = () => {
     };
   }, [id]);
 
-  // Auto-start processing when newly uploaded
+  const hasAttemptedAutoStart = useRef(false);
+
+  // Auto-start processing once when newly uploaded
   useEffect(() => {
-    if (!project || !id) return;
+    if (!project || !id || hasAttemptedAutoStart.current) return;
     const currentStatus = project.video_status || project.status;
     if (currentStatus === 'uploaded' && project.source_type === 'upload' && project.source_url) {
+      hasAttemptedAutoStart.current = true;
       projectService.startProcessing(id).catch((err: any) => {
         if (err.status === 403 || err.error_code === 'QUOTA_EXCEEDED') {
           setQuotaError({
@@ -220,6 +224,8 @@ export const ProjectDetailPage: React.FC = () => {
             reset_date: err.reset_date,
           });
           setIsQuotaModalOpen(true);
+        } else if (err.message) {
+          setActionError(err.message);
         }
         console.warn('Auto-start processing notice:', err.message);
       });
@@ -509,11 +515,31 @@ export const ProjectDetailPage: React.FC = () => {
                     ) : (
                       <Sparkles className="size-3.5 mr-1" />
                     )}
-                    Start Processing
+                    {isRetrying ? 'Starting…' : 'Start Processing'}
                   </Button>
                 )}
               </div>
             </div>
+
+            {/* Error Banner if processing failed to start */}
+            {actionError && (
+              <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/30 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
+                  <div className="text-xs sm:text-sm">
+                    <span className="font-semibold text-destructive">Processing error:</span>{' '}
+                    <span className="text-foreground">{actionError}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActionError(null)}
+                  className="text-xs text-muted-foreground hover:text-foreground font-medium underline shrink-0"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
 
             {/* Processing Banner if currently active */}
             {isProcessing(statusVal) && (
