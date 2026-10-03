@@ -99,7 +99,7 @@ export const HistoryPage: React.FC = () => {
         <div className="card-soft p-3 sm:p-5">
           <ul className="divide-y divide-border">
             {projects.map((p) => {
-              const isUrl = p.source_type === 'url' || Boolean(p.source_url && !p.storage_path);
+              const isUrl = p.source_type === 'url';
               const statusVal = p.video_status || p.status;
 
               return (

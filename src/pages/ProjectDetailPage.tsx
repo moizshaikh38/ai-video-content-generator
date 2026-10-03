@@ -114,7 +114,7 @@ export const ProjectDetailPage: React.FC = () => {
     );
   }
 
-  const isUrl = project.source_type === 'url' || Boolean(project.source_url && !project.storage_path);
+  const isUrl = project.source_type === 'url';
   const statusVal = project.video_status || project.status;
   const isUploaded = statusVal === 'uploaded';
   const hasOutputs = outputs && outputs.length > 0;
@@ -179,7 +179,7 @@ export const ProjectDetailPage: React.FC = () => {
         <div className="card-soft p-8 text-center space-y-3 border-destructive/20 bg-destructive/5">
           <p className="font-semibold text-lg text-foreground font-display">Something went wrong</p>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            {project.error || 'The video processing failed. Please try again with another clip or URL.'}
+            The video processing failed. Please try again with another clip or URL.
           </p>
           <div className="pt-2">
             <Button variant="clay" asChild>
@@ -226,41 +226,30 @@ export const ProjectDetailPage: React.FC = () => {
                 </p>
               </div>
 
-              {project.file_name && (
+              {!isUrl && project.source_url && (
                 <div className="rounded-2xl bg-cream/60 p-4 border border-border/60 space-y-1">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Original File
                   </span>
-                  <p className="text-sm font-medium text-foreground truncate" title={project.file_name}>
-                    {project.file_name}
+                  <p className="text-sm font-medium text-foreground truncate" title={project.source_url.split('/').pop() || 'video.mp4'}>
+                    {project.source_url.split('/').pop() || 'video.mp4'}
                   </p>
                 </div>
               )}
 
-              {project.file_size && (
-                <div className="rounded-2xl bg-cream/60 p-4 border border-border/60 space-y-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    File Size
-                  </span>
-                  <p className="text-sm font-medium text-foreground">
-                    {(project.file_size / (1024 * 1024)).toFixed(2)} MB
-                  </p>
-                </div>
-              )}
-
-              {project.storage_path && (
+              {!isUrl && project.source_url && (
                 <div className="rounded-2xl bg-cream/60 p-4 border border-border/60 space-y-1 sm:col-span-2 md:col-span-3">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                     <HardDrive className="size-3 text-muted-foreground" />
                     Storage Path
                   </span>
                   <p className="text-xs font-mono text-muted-foreground break-all select-all">
-                    videos/{project.storage_path}
+                    videos/{project.source_url}
                   </p>
                 </div>
               )}
 
-              {project.source_url && (
+              {isUrl && project.source_url && (
                 <div className="rounded-2xl bg-cream/60 p-4 border border-border/60 space-y-1 sm:col-span-2 md:col-span-3">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                     <Link2 className="size-3 text-muted-foreground" />

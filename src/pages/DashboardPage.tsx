@@ -118,7 +118,7 @@ export const DashboardPage: React.FC = () => {
         ) : (
           <ul className="divide-y divide-border">
             {projects.slice(0, 5).map((p) => {
-              const isUrl = p.source_type === 'url' || Boolean(p.source_url && !p.storage_path);
+              const isUrl = p.source_type === 'url';
               const statusVal = p.video_status || p.status;
 
               return (

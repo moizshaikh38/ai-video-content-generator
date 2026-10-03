@@ -43,14 +43,9 @@ export interface Project {
   source_type?: 'upload' | 'url';
   source_url?: string | null;
   video_url?: string | null;
-  storage_path?: string | null;
-  file_name?: string | null;
-  file_size?: number | null;
-  mime_type?: string | null;
   notes?: string;
   status: ProjectStatus;
   video_status?: ProjectStatus;
-  error?: string | null;
   created_at: string;
   updated_at?: string;
 }

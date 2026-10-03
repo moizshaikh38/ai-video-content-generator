@@ -7,10 +7,6 @@ export interface CreateProjectInput {
   title: string;
   sourceType?: 'upload' | 'url';
   sourceUrl?: string | null;
-  storagePath?: string | null;
-  fileName?: string | null;
-  fileSize?: number | null;
-  mimeType?: string | null;
   videoStatus?: ProjectStatus;
   notes?: string;
 }
@@ -61,25 +57,16 @@ class ProjectService {
 
   private mapRowToProject(row: any): Project {
     const status = (row.video_status as ProjectStatus) || 'uploading';
-    const isUpload = row.source_type === 'upload' || (!row.source_type && !row.source_url?.startsWith('http'));
-    const storagePath = isUpload ? (row.storage_path || row.source_url || null) : null;
-    const fileName = row.file_name || (storagePath ? storagePath.split('/').pop() : null);
-
     return {
       id: row.id,
       user_id: row.user_id,
       title: row.title || 'Untitled Project',
-      source_type: row.source_type || (isUpload ? 'upload' : 'url'),
+      source_type: row.source_type || 'upload',
       source_url: row.source_url || null,
       video_url: row.source_url || null,
-      storage_path: storagePath,
-      file_name: fileName,
-      file_size: row.file_size || null,
-      mime_type: row.mime_type || null,
       notes: row.notes || '',
       status,
       video_status: status,
-      error: row.error || null,
       created_at: row.created_at || new Date().toISOString(),
       updated_at: row.updated_at || new Date().toISOString(),
     };
@@ -199,25 +186,6 @@ class ProjectService {
     const projectId = input.id || crypto.randomUUID();
     const status = input.videoStatus || 'uploading';
 
-    const newProject: Project = {
-      id: projectId,
-      user_id: input.userId,
-      title: input.title.trim() || 'Untitled Video Project',
-      source_type: input.sourceType || 'upload',
-      source_url: input.sourceUrl || null,
-      video_url: input.sourceUrl || input.storagePath || null,
-      storage_path: input.storagePath || null,
-      file_name: input.fileName || null,
-      file_size: input.fileSize || null,
-      mime_type: input.mimeType || null,
-      notes: input.notes?.trim() || '',
-      status,
-      video_status: status,
-      error: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
     if (!isSupabaseConfigured) {
       throw new Error(
         'Supabase is not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to .env.local.'
@@ -228,23 +196,43 @@ class ProjectService {
       throw new Error('You must be signed in with a Supabase user account to create a project.');
     }
 
-    const cleanStoragePath = input.storagePath ? input.storagePath.replace(/^videos\//, '') : null;
-    const sourceUrl = input.sourceType === 'upload' ? (cleanStoragePath || input.sourceUrl || null) : (input.sourceUrl || null);
+    const sourceUrl = input.sourceUrl || null;
+
+    const newProject: Project = {
+      id: projectId,
+      user_id: input.userId,
+      title: input.title.trim() || 'Untitled Video Project',
+      source_type: input.sourceType || 'upload',
+      source_url: sourceUrl,
+      video_url: sourceUrl,
+      notes: input.notes?.trim() || '',
+      status,
+      video_status: status,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const insertPayload = {
+      id: newProject.id,
+      user_id: newProject.user_id,
+      title: newProject.title,
+      source_type: newProject.source_type,
+      source_url: newProject.source_url,
+      video_status: newProject.video_status,
+      notes: newProject.notes,
+    };
+
+    // Safe diagnostics logging (Task 12: table, operation, column names only)
+    console.info('[Supabase Project Save]', {
+      table: 'projects',
+      operation: 'insert',
+      columns: Object.keys(insertPayload),
+    });
 
     try {
-      // ONLY insert columns that actually exist in the database table public.projects:
-      // id, user_id, title, source_type, source_url, video_status, notes
       const { data, error } = await supabase
         .from('projects')
-        .insert({
-          id: newProject.id,
-          user_id: newProject.user_id,
-          title: newProject.title,
-          source_type: newProject.source_type,
-          source_url: sourceUrl,
-          video_status: newProject.video_status,
-          notes: newProject.notes,
-        })
+        .insert(insertPayload)
         .select()
         .single();
 
@@ -285,15 +273,21 @@ class ProjectService {
         if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
 
         // In the database schema, source_url holds the storage path for uploads
-        if (updates.storage_path !== undefined) {
-          dbUpdates.source_url = updates.storage_path ? updates.storage_path.replace(/^videos\//, '') : null;
-        } else if (updates.source_url !== undefined) {
+        if (updates.source_url !== undefined) {
           dbUpdates.source_url = updates.source_url;
         }
 
         if (updates.video_status !== undefined || updates.status !== undefined) {
           dbUpdates.video_status = updates.video_status || updates.status;
         }
+
+        // Safe diagnostics logging (Task 12: table, operation, column names only)
+        console.info('[Supabase Project Save]', {
+          table: 'projects',
+          operation: 'update',
+          projectId: id,
+          columns: Object.keys(dbUpdates),
+        });
 
         const { data, error } = await supabase
           .from('projects')
@@ -376,7 +370,6 @@ class ProjectService {
       notes: notes.trim(),
       status: isUrl ? 'queued' : 'uploaded',
       video_status: isUrl ? 'queued' : 'uploaded',
-      error: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

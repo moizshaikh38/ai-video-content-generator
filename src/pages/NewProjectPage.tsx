@@ -104,7 +104,7 @@ export const NewProjectPage: React.FC = () => {
 
       // 3. ONLY after Storage upload succeeds, update project record with storage path and status 'uploaded'
       await projectService.updateProjectAsync(projectId, {
-        storage_path: uploadResult.storagePath,
+        source_url: uploadResult.storagePath,
         video_status: 'uploaded',
       });
 
