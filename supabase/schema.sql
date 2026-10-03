@@ -214,7 +214,56 @@ CREATE POLICY "Users can delete content outputs for their own projects"
   );
 
 -- --------------------------------------------------------
--- 5. Automatic Profile Provisioning Trigger
+-- 5. Table: transcripts
+-- Stores full video transcription, segments, and audio metadata
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.transcripts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  transcript_text TEXT NOT NULL DEFAULT '',
+  language TEXT DEFAULT 'en',
+  duration_seconds NUMERIC(10, 2),
+  segments JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_transcripts_project UNIQUE (project_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_transcripts_project_id ON public.transcripts(project_id);
+CREATE INDEX IF NOT EXISTS idx_transcripts_user_id ON public.transcripts(user_id);
+
+-- Enable RLS on transcripts
+ALTER TABLE public.transcripts ENABLE ROW LEVEL SECURITY;
+
+-- Transcripts RLS Policies: users can only manage their own transcripts
+CREATE POLICY "Users can view their own transcripts"
+  ON public.transcripts
+  FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own transcripts"
+  ON public.transcripts
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own transcripts"
+  ON public.transcripts
+  FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own transcripts"
+  ON public.transcripts
+  FOR DELETE
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- --------------------------------------------------------
+-- 6. Automatic Profile Provisioning Trigger
 -- Runs whenever a new user signs up via Supabase Auth
 -- --------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -279,6 +328,10 @@ CREATE OR REPLACE TRIGGER set_projects_updated_at
 
 CREATE OR REPLACE TRIGGER set_content_outputs_updated_at
   BEFORE UPDATE ON public.content_outputs
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE OR REPLACE TRIGGER set_transcripts_updated_at
+  BEFORE UPDATE ON public.transcripts
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- --------------------------------------------------------

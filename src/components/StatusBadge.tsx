@@ -4,6 +4,7 @@ const map: Record<string, { label: string; cls: string }> = {
   queued: { label: "Queued", cls: "bg-secondary text-muted-foreground" },
   processing: { label: "Processing", cls: "bg-accent text-accent-foreground font-medium animate-pulse" },
   transcribing: { label: "Transcribing", cls: "bg-accent text-accent-foreground font-medium animate-pulse" },
+  transcribed: { label: "Transcribed", cls: "bg-sage/15 text-sage font-medium" },
   analyzing: { label: "Analyzing", cls: "bg-accent text-accent-foreground font-medium animate-pulse" },
   generating: { label: "Generating", cls: "bg-accent text-accent-foreground font-medium animate-pulse" },
   completed: { label: "Completed", cls: "bg-sage/15 text-sage font-medium" },

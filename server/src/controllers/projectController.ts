@@ -3,7 +3,7 @@ import { AuthenticatedRequest } from '../types/index.js';
 import { supabaseAuthClient, isServerSupabaseConfigured } from '../utils/supabase.js';
 import { logger } from '../utils/logger.js';
 
-const MAX_VIDEO_BYTES = 500 * 1024 * 1024; // 500 MB
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB Supabase Storage Free limit
 const ALLOWED_MIME_TYPES = [
   'video/mp4',
   'video/quicktime',
@@ -141,11 +141,11 @@ export const createProject = async (req: AuthenticatedRequest, res: Response): P
     return;
   }
 
-  // Validate file size limit (500 MB)
+  // Validate file size limit (50 MB)
   if (file_size && Number(file_size) > MAX_VIDEO_BYTES) {
     res.status(400).json({
       status: 'error',
-      message: 'Video file exceeds the maximum allowed size of 500 MB.',
+      message: 'Video file exceeds the maximum allowed size of 50 MB.',
     });
     return;
   }
@@ -244,3 +244,158 @@ export const deleteProject = async (req: AuthenticatedRequest, res: Response): P
     res.status(500).json({ status: 'error', message: 'An unexpected error occurred.' });
   }
 };
+
+/**
+ * POST /api/projects/:id/process
+ * Start video processing and transcription pipeline
+ */
+export const processProject = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const projectId = req.params.id;
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', message: 'User not authenticated.' });
+    return;
+  }
+
+  if (!projectId) {
+    res.status(400).json({ status: 'error', message: 'Project ID is required.' });
+    return;
+  }
+
+  try {
+    // 1. Fetch project and verify ownership
+    const { data: project, error: fetchError } = await supabaseAuthClient
+      .from('projects')
+      .select('*')
+      .eq('id', projectId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (fetchError) {
+      logger.error(`Failed to fetch project ${projectId} for processing:`, fetchError.message);
+      res.status(500).json({ status: 'error', message: 'Failed to access project.' });
+      return;
+    }
+
+    if (!project) {
+      res.status(404).json({ status: 'error', message: 'Project not found or access denied.' });
+      return;
+    }
+
+    // 2. Validate source type & presence of source_url
+    if (project.source_type !== 'upload') {
+      res.status(400).json({
+        status: 'error',
+        message: 'Processing currently supports direct video uploads.',
+      });
+      return;
+    }
+
+    if (!project.source_url) {
+      res.status(400).json({
+        status: 'error',
+        message: 'Project does not have an uploaded video file associated with it.',
+      });
+      return;
+    }
+
+    // 3. Initiate processing pipeline asynchronously and immediately return status: 'processing'
+    // This allows the frontend to poll status updates smoothly without HTTP timeouts.
+    const { processProjectVideo } = await import('../services/videoProcessingService.js');
+
+    // Run pipeline in background
+    processProjectVideo(projectId, userId, project.source_url)
+      .then((result) => {
+        if (result.status === 'transcribed') {
+          logger.info(`Background pipeline completed for project ${projectId}`);
+        } else {
+          logger.warn(`Background pipeline failed for project ${projectId}:`, result.error);
+        }
+      })
+      .catch((err) => {
+        logger.error(`Background pipeline unexpected error for project ${projectId}:`, err);
+      });
+
+    res.status(202).json({
+      status: 'ok',
+      message: 'Video processing started.',
+      projectId,
+      video_status: 'processing',
+    });
+  } catch (err: any) {
+    logger.error('Unexpected error initiating project processing:', err);
+    res.status(500).json({
+      status: 'error',
+      message: err.message || 'An unexpected error occurred while initiating processing.',
+    });
+  }
+};
+
+/**
+ * GET /api/projects/:id/transcript
+ * Retrieve stored transcript for a project owned by the user
+ */
+export const getProjectTranscript = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const projectId = req.params.id;
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', message: 'User not authenticated.' });
+    return;
+  }
+
+  if (!projectId) {
+    res.status(400).json({ status: 'error', message: 'Project ID is required.' });
+    return;
+  }
+
+  try {
+    // 1. Verify project ownership first
+    const { data: project, error: projectError } = await supabaseAuthClient
+      .from('projects')
+      .select('id, user_id')
+      .eq('id', projectId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (projectError) {
+      logger.error('Failed to verify project ownership:', projectError.message);
+      res.status(500).json({ status: 'error', message: 'Failed to verify project access.' });
+      return;
+    }
+
+    if (!project) {
+      res.status(404).json({ status: 'error', message: 'Project not found or access denied.' });
+      return;
+    }
+
+    // 2. Fetch transcript
+    const { data: transcript, error: transcriptError } = await supabaseAuthClient
+      .from('transcripts')
+      .select('*')
+      .eq('project_id', projectId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (transcriptError) {
+      logger.error('Failed to fetch transcript:', transcriptError.message);
+      res.status(500).json({ status: 'error', message: 'Failed to fetch transcript.' });
+      return;
+    }
+
+    if (!transcript) {
+      res.status(404).json({ status: 'error', message: 'Transcript not found for this project.' });
+      return;
+    }
+
+    res.status(200).json({
+      status: 'ok',
+      transcript,
+    });
+  } catch (err: any) {
+    logger.error('Unexpected error fetching transcript:', err);
+    res.status(500).json({ status: 'error', message: 'An unexpected error occurred.' });
+  }
+};
+

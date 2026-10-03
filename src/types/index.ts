@@ -2,16 +2,35 @@ export type ProjectStatus =
   | 'uploading'
   | 'uploaded'
   | 'processing'
-  | 'completed'
-  | 'queued'
   | 'transcribing'
+  | 'transcribed'
   | 'analyzing'
   | 'generating'
+  | 'completed'
   | 'complete'
+  | 'queued'
   | 'failed';
 
 export const isProcessing = (s: string) =>
-  !['complete', 'completed', 'uploaded', 'failed'].includes(s);
+  ['processing', 'transcribing', 'analyzing', 'generating'].includes(s);
+
+export interface TranscriptSegment {
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface Transcript {
+  id: string;
+  project_id: string;
+  user_id: string;
+  transcript_text: string;
+  language: string;
+  duration_seconds: number | null;
+  segments: TranscriptSegment[];
+  created_at: string;
+  updated_at: string;
+}
 
 export type OutputPlatform = 'youtube' | 'instagram' | 'shorts' | 'linkedin' | 'x';
 

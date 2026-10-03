@@ -19,3 +19,22 @@ export interface AppError extends Error {
 export interface AuthenticatedRequest extends Request {
   user?: User;
 }
+
+export interface TranscriptSegment {
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface TranscriptRecord {
+  id: string;
+  project_id: string;
+  user_id: string;
+  transcript_text: string;
+  language: string;
+  duration_seconds: number | null;
+  segments: TranscriptSegment[];
+  created_at: string;
+  updated_at: string;
+}
+

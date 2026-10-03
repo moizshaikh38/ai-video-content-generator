@@ -14,4 +14,5 @@ export const config = {
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
   supabaseSecretKey: process.env.SUPABASE_SECRET_KEY || '',
+  openaiApiKey: process.env.OPENAI_API_KEY || '',
 };

@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { Project, ContentOutput, CreatorProfile, ProjectStatus } from '../types';
+import { Project, ContentOutput, CreatorProfile, ProjectStatus, Transcript } from '../types';
 
 export interface CreateProjectInput {
   id?: string;
@@ -386,6 +386,86 @@ class ProjectService {
     item.content = content;
     this.save();
     return true;
+  }
+
+  /**
+   * Calls the backend API to start/retry video processing and transcription.
+   * POST /api/projects/:id/process
+   */
+  async startProcessing(projectId: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      if (!token) {
+        throw new Error('User session not found. Please log in again.');
+      }
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${apiUrl}/projects/${projectId}/process`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to start video processing.');
+      }
+
+      // Optimistically update local project video_status to 'processing'
+      await this.updateProjectAsync(projectId, { video_status: 'processing' });
+      return { success: true, message: data.message };
+    } catch (err: any) {
+      console.error('Failed to trigger project processing:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Fetches transcript for a project from Supabase database or backend API.
+   * GET /api/projects/:id/transcript or supabase query
+   */
+  async fetchTranscript(projectId: string): Promise<Transcript | null> {
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('transcripts')
+          .select('*')
+          .eq('project_id', projectId)
+          .maybeSingle();
+
+        if (error) {
+          console.warn('Error fetching transcript directly from Supabase, trying backend API:', error.message);
+        } else if (data) {
+          return data as Transcript;
+        }
+      } catch (err) {
+        console.warn('Direct transcript query failed:', err);
+      }
+    }
+
+    // Fallback: fetch via backend API endpoint with auth token
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return null;
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${apiUrl}/projects/${projectId}/transcript`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) return null;
+      const json = await response.json();
+      return json.transcript || null;
+    } catch {
+      return null;
+    }
   }
 }
 
