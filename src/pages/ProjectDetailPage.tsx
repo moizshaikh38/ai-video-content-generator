@@ -66,7 +66,10 @@ const TABS: TabConfig[] = [
   {
     key: 'x',
     label: 'X (Twitter)',
-    groups: [{ type: 'thread', label: 'Thread structure & hooks' }],
+    groups: [
+      { type: 'post', label: 'Standalone post' },
+      { type: 'thread', label: 'Thread structure & hooks' },
+    ],
   },
 ];
 
@@ -82,12 +85,14 @@ export const ProjectDetailPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(!project);
   const [isRetrying, setIsRetrying] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingPlatform, setGeneratingPlatform] = useState<OutputPlatform | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
   const handleGenerateContent = async (targetPlatform?: OutputPlatform) => {
     if (!id) return;
     setIsGenerating(true);
+    setGeneratingPlatform(targetPlatform || null);
     setGenerationError(null);
     try {
       await projectService.generateContent(id, targetPlatform);
@@ -96,6 +101,7 @@ export const ProjectDetailPage: React.FC = () => {
       setGenerationError(err.message || 'Failed to generate content. Please try again.');
     } finally {
       setIsGenerating(false);
+      setGeneratingPlatform(null);
     }
   };
 
@@ -529,9 +535,15 @@ export const ProjectDetailPage: React.FC = () => {
               <div className="card-soft p-8 text-center space-y-3 border border-clay/30 bg-clay/5">
                 <Loader2 className="size-7 text-clay animate-spin mx-auto" />
                 <div className="space-y-1">
-                  <h4 className="text-sm font-medium text-foreground">Crafting Social Content Kits...</h4>
+                  <h4 className="text-sm font-medium text-foreground">
+                    {generatingPlatform
+                      ? `Generating ${generatingPlatform.toUpperCase()} Content Kit...`
+                      : 'Crafting Social Content Kits...'}
+                  </h4>
                   <p className="text-xs text-muted-foreground">
-                    Analyzing transcript, matching creator persona, and structuring platform-specific assets.
+                    {generatingPlatform
+                      ? `Tailoring insights from transcript for ${generatingPlatform}.`
+                      : 'Analyzing transcript, matching creator persona, and structuring platform-specific assets.'}
                   </p>
                 </div>
               </div>
@@ -545,6 +557,7 @@ export const ProjectDetailPage: React.FC = () => {
                 onRefresh={refreshData}
                 onRegeneratePlatform={(p) => handleGenerateContent(p)}
                 isGenerating={isGenerating}
+                generatingPlatform={generatingPlatform}
               />
             )}
           </div>
@@ -683,12 +696,14 @@ function Workspace({
   onRefresh,
   onRegeneratePlatform,
   isGenerating,
+  generatingPlatform,
 }: {
   outputs: ContentOutput[];
   projectId: string;
   onRefresh: () => void;
   onRegeneratePlatform?: (platform: OutputPlatform) => void;
   isGenerating?: boolean;
+  generatingPlatform?: OutputPlatform | null;
 }) {
   const [activeTab, setActiveTab] = useState<OutputPlatform>('youtube');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -698,6 +713,7 @@ function Workspace({
 
   const tabOutputs = outputs.filter((o) => o.platform === activeTab);
   const tabConfig = TABS.find((t) => t.key === activeTab)!;
+  const isPlatformGenerating = isGenerating && generatingPlatform === activeTab;
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -758,12 +774,22 @@ function Workspace({
             disabled={isGenerating}
             className="text-xs h-8"
           >
-            {isGenerating ? (
-              <Loader2 className="size-3 animate-spin mr-1" />
+            {isPlatformGenerating ? (
+              <>
+                <Loader2 className="size-3 animate-spin mr-1" />
+                <span>Regenerating {tabConfig.label}...</span>
+              </>
+            ) : isGenerating ? (
+              <>
+                <Loader2 className="size-3 animate-spin mr-1" />
+                <span>Processing...</span>
+              </>
             ) : (
-              <RefreshCw className="size-3 mr-1" />
+              <>
+                <RefreshCw className="size-3 mr-1" />
+                <span>Regenerate {tabConfig.label}</span>
+              </>
             )}
-            <span>Regenerate {tabConfig.label}</span>
           </Button>
         )}
       </div>
