@@ -13,10 +13,32 @@ export interface AIProviderClient {
   generateJsonCompletion<T>(request: CompletionRequest): Promise<T>;
 }
 
+interface OpenRouterChoice {
+  message?: {
+    content?: string;
+    role?: string;
+  };
+  finish_reason?: string;
+}
+
+interface OpenRouterChatResponse {
+  id?: string;
+  choices?: OpenRouterChoice[];
+  error?: {
+    message?: string;
+    code?: string | number;
+  };
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
+}
+
 /**
  * Provider implementation for OpenRouter LLM chat completions.
  * Default model: openai/gpt-4o-mini (cost-effective, high instruction adherence for JSON output).
- * Configurable via OPENROUTER_MODEL env var or default fallback.
+ * Configurable via OPENROUTER_TEXT_MODEL env var or default fallback.
  */
 export class OpenRouterContentProvider implements AIProviderClient {
   private apiKey: string;
@@ -26,16 +48,16 @@ export class OpenRouterContentProvider implements AIProviderClient {
   constructor() {
     this.apiKey = config.openrouterApiKey?.trim() || '';
     this.appUrl = config.appUrl || 'http://localhost:5173';
-    this.defaultModel = process.env.OPENROUTER_TEXT_MODEL || 'openai/gpt-4o-mini';
+    this.defaultModel = config.openrouterTextModel || 'openai/gpt-4o-mini';
   }
 
   /**
-   * Generates a validated JSON completion from OpenRouter.
+   * Generates a validated JSON completion from OpenRouter with timeout protection.
    */
   async generateJsonCompletion<T>(request: CompletionRequest): Promise<T> {
     if (!this.apiKey) {
       throw new Error(
-        'OPENROUTER_API_KEY is not configured on the server. Please add your key to .env.local.'
+        'OPENROUTER_API_KEY is not configured on the server. Please add your key to server environment.'
       );
     }
 
@@ -50,22 +72,39 @@ export class OpenRouterContentProvider implements AIProviderClient {
       max_tokens: request.maxTokens ?? 2048,
     };
 
-    logger.info(`[AI Provider] Sending content generation request to OpenRouter (${this.defaultModel})...`);
+    logger.info(`Sending content generation request to OpenRouter (${this.defaultModel})...`);
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'HTTP-Referer': this.appUrl,
-        'X-Title': 'Vireo AI Video Content Generator',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort(new Error(`AI generation request timed out after ${config.contentGenerationTimeoutMs / 1000}s.`));
+    }, config.contentGenerationTimeoutMs);
+
+    let response: Response;
+    try {
+      response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'HTTP-Referer': this.appUrl,
+          'X-Title': 'Vireo AI Video Content Generator',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        logger.error(`AI generation timed out after ${config.contentGenerationTimeoutMs}ms`);
+        throw new Error(`AI generation timed out after ${config.contentGenerationTimeoutMs / 1000}s. Please retry.`);
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const errText = await response.text();
-      logger.error(`[AI Provider] OpenRouter API error (${response.status}):`, errText);
+      logger.error(`OpenRouter API error (${response.status})`, { errorText: errText });
 
       let cleanMsg = 'AI content generation provider returned an error.';
       try {
@@ -81,16 +120,16 @@ export class OpenRouterContentProvider implements AIProviderClient {
         throw new Error('AI provider authentication failed: invalid API key.');
       }
       if (response.status === 402) {
-        throw new Error(`AI provider payment/credits error: ${cleanMsg}`);
+        throw new Error(`AI provider payment/credits error: ${cleanMsg}. Please check your OpenRouter credit balance.`);
       }
       if (response.status === 429) {
-        throw new Error(`AI provider rate limit exceeded: ${cleanMsg}`);
+        throw new Error(`AI provider rate limit exceeded: ${cleanMsg}. Please wait a moment and try again.`);
       }
 
       throw new Error(`AI provider error (${response.status}): ${cleanMsg}`);
     }
 
-    const data = (await response.json()) as any;
+    const data = (await response.json()) as OpenRouterChatResponse;
     const content = data.choices?.[0]?.message?.content;
 
     if (!content || typeof content !== 'string') {
@@ -103,8 +142,8 @@ export class OpenRouterContentProvider implements AIProviderClient {
     try {
       const parsed = JSON.parse(cleaned) as T;
       return parsed;
-    } catch (parseErr: any) {
-      logger.error('[AI Provider] Failed to parse JSON response from LLM:', content);
+    } catch {
+      logger.error('Failed to parse JSON response from LLM', { rawContent: content });
       throw new Error('Failed to parse structured JSON from AI provider response.');
     }
   }

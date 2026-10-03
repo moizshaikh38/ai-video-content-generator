@@ -9,16 +9,35 @@ export interface TranscriptionResult {
   segments: TranscriptSegment[];
 }
 
+interface OpenRouterWhisperSegment {
+  start?: number;
+  end?: number;
+  text?: string;
+  [key: string]: unknown;
+}
+
+interface OpenRouterWhisperResponse {
+  text?: string;
+  language?: string;
+  duration?: number;
+  segments?: OpenRouterWhisperSegment[];
+  error?: {
+    message?: string;
+    code?: string | number;
+  };
+}
+
 /**
  * Transcribes audio media using OpenRouter's Speech-to-Text API endpoint:
  * POST https://openrouter.ai/api/v1/audio/transcriptions
  *
- * Model: openai/whisper-large-v3-turbo
+ * Model: openai/whisper-large-v3-turbo (or TRANSCRIPTION_MODEL env)
  *
  * Requirements:
  * - OPENROUTER_API_KEY must be configured.
  * - Real API call only (no mock fallback).
  * - Proper OpenRouter headers: Authorization, HTTP-Referer, X-Title.
+ * - Timeout enforcement via AbortSignal.
  * - Extracts text, language, duration, and timestamped segments if available.
  */
 export async function transcribeAudioWithOpenRouter(
@@ -43,9 +62,9 @@ export async function transcribeAudioWithOpenRouter(
     );
   }
 
-  const model = 'openai/whisper-large-v3-turbo';
+  const model = config.transcriptionModel || 'openai/whisper-large-v3-turbo';
   logger.info(
-    `[Transcription] Submitting ${fileName} (${(audioBuffer.length / (1024 * 1024)).toFixed(2)} MB) to OpenRouter Speech-to-Text (${model})...`
+    `Submitting ${fileName} (${(audioBuffer.length / (1024 * 1024)).toFixed(2)} MB) to OpenRouter Speech-to-Text (${model})...`
   );
 
   const formData = new FormData();
@@ -60,15 +79,32 @@ export async function transcribeAudioWithOpenRouter(
     'X-Title': 'Vireo AI Video Content Generator',
   };
 
-  const response = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
-    method: 'POST',
-    headers,
-    body: formData,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort(new Error(`Transcription request timed out after ${config.transcriptionTimeoutMs / 1000}s.`));
+  }, config.transcriptionTimeoutMs);
+
+  let response: Response;
+  try {
+    response = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
+      method: 'POST',
+      headers,
+      body: formData,
+      signal: controller.signal,
+    });
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      logger.error(`Transcription timed out after ${config.transcriptionTimeoutMs}ms`);
+      throw new Error(`Transcription request timed out after ${config.transcriptionTimeoutMs / 1000}s. Please retry.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const errText = await response.text();
-    logger.error(`[Transcription] OpenRouter API error (${response.status}):`, errText);
+    logger.error(`OpenRouter API error (${response.status})`, { errorText: errText });
 
     let userMsg = 'Transcription provider failed to process the audio.';
     try {
@@ -84,16 +120,16 @@ export async function transcribeAudioWithOpenRouter(
       throw new Error('OpenRouter authentication failed: invalid or unauthorized API key.');
     }
     if (response.status === 402) {
-      throw new Error(`OpenRouter payment/credit error: ${userMsg}`);
+      throw new Error(`OpenRouter payment/credit error: ${userMsg}. Please check your OpenRouter credit balance.`);
     }
     if (response.status === 429) {
-      throw new Error(`OpenRouter rate limit exceeded: ${userMsg}`);
+      throw new Error(`OpenRouter rate limit exceeded: ${userMsg}. Please wait a moment and try again.`);
     }
 
     throw new Error(`OpenRouter transcription error (${response.status}): ${userMsg}`);
   }
 
-  const result = (await response.json()) as any;
+  const result = (await response.json()) as OpenRouterWhisperResponse;
 
   const text = (result.text || '').trim();
   if (!text) {
@@ -101,7 +137,7 @@ export async function transcribeAudioWithOpenRouter(
   }
 
   const rawSegments = Array.isArray(result.segments) ? result.segments : [];
-  const segments: TranscriptSegment[] = rawSegments.map((seg: any) => ({
+  const segments: TranscriptSegment[] = rawSegments.map((seg) => ({
     start: Number(seg.start || 0),
     end: Number(seg.end || 0),
     text: String(seg.text || '').trim(),
@@ -111,10 +147,10 @@ export async function transcribeAudioWithOpenRouter(
   const language = typeof result.language === 'string' ? result.language : 'en';
 
   if (segments.length === 0) {
-    logger.info('[Transcription] Provider returned transcript text without timestamped segments.');
+    logger.info('Provider returned transcript text without timestamped segments.');
   } else {
     logger.info(
-      `[Transcription] Successfully transcribed audio via OpenRouter: ${segments.length} segments, duration: ${duration}s, language: ${language}`
+      `Successfully transcribed audio via OpenRouter: ${segments.length} segments, duration: ${duration}s, language: ${language}`
     );
   }
 

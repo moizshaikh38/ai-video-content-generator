@@ -11,7 +11,9 @@
     "build:frontend": "tsc && vite build",
     "build:backend": "npm run build --prefix server",
     "start": "npm run start --prefix server",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "npm run test:backend",
+    "test:backend": "npm test --prefix server"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",

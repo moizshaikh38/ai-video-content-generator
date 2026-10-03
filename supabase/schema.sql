@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS public.projects (
   title TEXT NOT NULL,
   source_type TEXT NOT NULL DEFAULT 'upload', -- 'upload' | 'url'
   source_url TEXT,
-  video_status TEXT NOT NULL DEFAULT 'queued', -- 'uploading' | 'uploaded' | 'queued' | 'transcribing' | 'analyzing' | 'generating' | 'complete' | 'failed'
+  video_status TEXT NOT NULL DEFAULT 'uploading', -- 'uploading' | 'uploaded' | 'processing' | 'transcribing' | 'transcribed' | 'generating' | 'completed' | 'failed'
   notes TEXT DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -337,7 +337,7 @@ CREATE OR REPLACE TRIGGER set_transcripts_updated_at
 -- --------------------------------------------------------
 -- 7. Supabase Storage: 'videos' bucket & RLS policies
 -- Phase 3: Real Video Upload & Supabase Storage
--- Bucket name: videos (private, 500 MB limit)
+-- Bucket name: videos (private, 50 MB limit)
 -- Path format: {user_id}/{project_id}/{filename}
 -- --------------------------------------------------------
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -345,7 +345,7 @@ VALUES (
   'videos',
   'videos',
   false,
-  524288000, -- 500 MB limit in bytes
+  52428800, -- 50 MB limit in bytes (50 * 1024 * 1024)
   ARRAY[
     'video/mp4',
     'video/quicktime',
@@ -358,7 +358,7 @@ VALUES (
 )
 ON CONFLICT (id) DO UPDATE SET
   public = false,
-  file_size_limit = 524288000,
+  file_size_limit = 52428800,
   allowed_mime_types = ARRAY[
     'video/mp4',
     'video/quicktime',
@@ -419,14 +419,17 @@ CREATE POLICY "Users can delete their own videos"
 
 -- --------------------------------------------------------
 -- 8. Table & Schema Permissions
--- Ensure anon, authenticated, and service_role have access
+-- Ensure authenticated and service_role have full access, anon has restricted access
 -- --------------------------------------------------------
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
-GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO authenticated, service_role;
 
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO anon, authenticated, service_role;
+-- Restrict anon permissions
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
+GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO anon;
 
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO authenticated, service_role;

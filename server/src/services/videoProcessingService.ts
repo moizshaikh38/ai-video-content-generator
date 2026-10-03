@@ -1,4 +1,4 @@
-import { supabaseAuthClient } from '../utils/supabase.js';
+import { supabaseAuthClient, isServerSupabaseConfigured } from '../utils/supabase.js';
 import { logger } from '../utils/logger.js';
 import { extractAudioFromVideo } from './audioExtractionService.js';
 import { transcribeAudioWithOpenRouter } from './transcriptionService.js';
@@ -14,11 +14,18 @@ export interface ProcessProjectResult {
 }
 
 /**
+ * Checks if a project is currently being processed in memory
+ */
+export function isProjectProcessingActive(projectId: string): boolean {
+  return activeProcessingSet.has(projectId);
+}
+
+/**
  * Executes the complete video processing and transcription pipeline via OpenRouter:
  * 1. Concurrency guard (locks projectId)
  * 2. Updates project video_status -> 'processing'
  * 3. Downloads video from private Supabase Storage 'videos' bucket
- * 4. Extracts audio track using FFmpeg into temporary MP3
+ * 4. Extracts audio track using FFmpeg into temporary MP3 (with process timeout)
  * 5. Updates project video_status -> 'transcribing'
  * 6. Sends extracted audio to OpenRouter Speech-to-Text API (whisper-large-v3-turbo)
  * 7. Upserts transcript into Supabase 'transcripts' table
@@ -30,6 +37,10 @@ export async function processProjectVideo(
   userId: string,
   sourceUrl: string
 ): Promise<ProcessProjectResult> {
+  if (!isServerSupabaseConfigured) {
+    throw new Error('Supabase is not configured on the server.');
+  }
+
   if (activeProcessingSet.has(projectId)) {
     throw new Error('Project processing is already in progress.');
   }
@@ -39,7 +50,7 @@ export async function processProjectVideo(
 
   try {
     // 1. Update status to 'processing'
-    logger.info(`[Pipeline] Starting video processing for project ${projectId} (User: ${userId})`);
+    logger.info(`Starting video processing for project ${projectId}`, { projectId, userId });
     await supabaseAuthClient
       .from('projects')
       .update({ video_status: 'processing' })
@@ -48,7 +59,10 @@ export async function processProjectVideo(
 
     // 2. Clean storage path and download video
     const storagePath = sourceUrl.replace(/^videos\//, '');
-    logger.info(`[Pipeline] Downloading private video from bucket 'videos', path: ${storagePath}`);
+    logger.info(`Downloading private video from bucket 'videos', path: ${storagePath}`, {
+      projectId,
+      storagePath,
+    });
 
     const { data: fileBlob, error: downloadError } = await supabaseAuthClient.storage
       .from('videos')
@@ -56,7 +70,11 @@ export async function processProjectVideo(
 
     if (downloadError || !fileBlob) {
       const errDetail = downloadError?.message || 'File blob not found';
-      logger.error(`[Pipeline] Failed to download video from Supabase Storage: ${errDetail}`);
+      logger.error('Failed to download video from Supabase Storage', {
+        projectId,
+        storagePath,
+        error: errDetail,
+      });
       throw new Error(`Failed to retrieve video file from storage: ${errDetail}`);
     }
 
@@ -64,9 +82,10 @@ export async function processProjectVideo(
     const videoBuffer = Buffer.from(arrayBuffer);
     const originalFileName = storagePath.split('/').pop() || 'video.mp4';
 
-    logger.info(
-      `[Pipeline] Video retrieved (${(videoBuffer.length / (1024 * 1024)).toFixed(2)} MB). Extracting audio via FFmpeg...`
-    );
+    logger.info(`Video retrieved (${(videoBuffer.length / (1024 * 1024)).toFixed(2)} MB). Extracting audio via FFmpeg...`, {
+      projectId,
+      sizeBytes: videoBuffer.length,
+    });
 
     // 3. Extract audio via FFmpeg
     const extractedAudio = await extractAudioFromVideo(videoBuffer, originalFileName);
@@ -97,7 +116,10 @@ export async function processProjectVideo(
       updated_at: new Date().toISOString(),
     };
 
-    logger.info(`[Pipeline] Storing transcript for project ${projectId} into 'transcripts' table...`);
+    logger.info(`Storing transcript for project ${projectId} into 'transcripts' table...`, {
+      projectId,
+      charCount: transcription.text.length,
+    });
 
     const { data: savedTranscript, error: saveError } = await supabaseAuthClient
       .from('transcripts')
@@ -106,7 +128,10 @@ export async function processProjectVideo(
       .single();
 
     if (saveError) {
-      logger.error(`[Pipeline] Failed to save transcript to Supabase: ${saveError.message}`);
+      logger.error('Failed to save transcript to Supabase', {
+        projectId,
+        error: saveError.message,
+      });
       throw new Error(`Failed to save transcript: ${saveError.message}`);
     }
 
@@ -117,14 +142,19 @@ export async function processProjectVideo(
       .eq('id', projectId)
       .eq('user_id', userId);
 
-    logger.info(`[Pipeline] Project ${projectId} successfully transcribed via OpenRouter!`);
+    logger.info(`Project ${projectId} successfully transcribed via OpenRouter!`, { projectId });
 
     return {
       status: 'transcribed',
       transcript: savedTranscript as TranscriptRecord,
     };
-  } catch (err: any) {
-    logger.error(`[Pipeline] Video processing failed for project ${projectId}:`, err.message);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`Video processing failed for project ${projectId}`, {
+      projectId,
+      userId,
+      error: message,
+    });
 
     // Mark project status as 'failed' in database
     try {
@@ -133,17 +163,24 @@ export async function processProjectVideo(
         .update({ video_status: 'failed' })
         .eq('id', projectId)
         .eq('user_id', userId);
-    } catch (updateErr: any) {
-      logger.error(`[Pipeline] Failed to set video_status to 'failed':`, updateErr.message);
+    } catch (updateErr) {
+      logger.error('Failed to set video_status to failed', {
+        projectId,
+        error: updateErr instanceof Error ? updateErr.message : String(updateErr),
+      });
     }
 
     return {
       status: 'failed',
-      error: err.message || 'Video processing failed.',
+      error: message || 'Video processing failed.',
     };
   } finally {
     if (cleanupAudio) {
-      cleanupAudio();
+      try {
+        cleanupAudio();
+      } catch {
+        // Ignore cleanup errors
+      }
     }
     activeProcessingSet.delete(projectId);
   }

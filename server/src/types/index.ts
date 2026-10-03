@@ -1,24 +1,99 @@
 import { User } from '@supabase/supabase-js';
 import { Request } from 'express';
 
-export interface ApiResponse<T = unknown> {
-  success: boolean;
-  message?: string;
+// ── Canonical Video Status State Machine ──────────────────────────
+// These are the ONLY valid values for projects.video_status in the database.
+// The schema default is 'uploading'. Transitions are enforced in videoProcessingService.
+export type VideoStatus =
+  | 'uploading'
+  | 'uploaded'
+  | 'processing'
+  | 'transcribing'
+  | 'transcribed'
+  | 'generating'
+  | 'completed'
+  | 'failed';
+
+export const VIDEO_STATUSES: readonly VideoStatus[] = [
+  'uploading',
+  'uploaded',
+  'processing',
+  'transcribing',
+  'transcribed',
+  'generating',
+  'completed',
+  'failed',
+] as const;
+
+/** States that allow starting/retrying processing */
+export const PROCESSABLE_STATUSES: readonly VideoStatus[] = ['uploaded', 'failed'] as const;
+
+/** States that indicate active background work */
+export const ACTIVE_PROCESSING_STATUSES: readonly VideoStatus[] = [
+  'processing',
+  'transcribing',
+  'generating',
+] as const;
+
+// ── API Response Types ────────────────────────────────────────────
+
+export interface ApiSuccessResponse<T = unknown> {
+  status: 'ok';
   data?: T;
-  error?: string;
+  message?: string;
+  requestId?: string;
+}
+
+export interface ApiErrorResponse {
+  status: 'error';
+  code?: string;
+  message: string;
+  requestId?: string;
 }
 
 export interface HealthStatus {
   status: 'ok' | 'error';
+  timestamp?: string;
+  version?: string;
 }
 
-export interface AppError extends Error {
-  statusCode?: number;
+// ── Application Error ─────────────────────────────────────────────
+
+export class AppError extends Error {
+  public readonly statusCode: number;
+  public readonly code: string;
+  public readonly isOperational: boolean;
+
+  constructor(
+    message: string,
+    statusCode: number = 500,
+    code: string = 'INTERNAL_ERROR',
+    isOperational: boolean = true
+  ) {
+    super(message);
+    this.statusCode = statusCode;
+    this.code = code;
+    this.isOperational = isOperational;
+    Object.setPrototypeOf(this, AppError.prototype);
+  }
 }
+
+// ── Request Types ─────────────────────────────────────────────────
 
 export interface AuthenticatedRequest extends Request {
   user?: User;
+  requestId?: string;
 }
+
+// ── UUID Validation ───────────────────────────────────────────────
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isValidUUID(value: string): boolean {
+  return UUID_REGEX.test(value);
+}
+
+// ── Transcript Types ──────────────────────────────────────────────
 
 export interface TranscriptSegment {
   start: number;
@@ -37,6 +112,8 @@ export interface TranscriptRecord {
   created_at: string;
   updated_at: string;
 }
+
+// ── Content Output Types ──────────────────────────────────────────
 
 export type OutputPlatform = 'youtube' | 'instagram' | 'shorts' | 'tiktok' | 'linkedin' | 'x';
 
@@ -79,7 +156,8 @@ export interface CreatorProfileData {
   tone?: string;
 }
 
-// Structured Platform AI Outputs
+// ── Structured Platform AI Outputs ────────────────────────────────
+
 export interface YouTubeGeneratedContent {
   titles: string[];
   description: string;

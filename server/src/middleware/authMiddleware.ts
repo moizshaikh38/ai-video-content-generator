@@ -3,16 +3,35 @@ import { AuthenticatedRequest } from '../types/index.js';
 import { supabaseAuthClient, isServerSupabaseConfigured } from '../utils/supabase.js';
 import { logger } from '../utils/logger.js';
 
+/**
+ * Authentication middleware: verifies Supabase JWT Bearer token.
+ *
+ * SECURITY:
+ * - NO demo-token fallback. Production and development both require real Supabase auth.
+ * - If Supabase is not configured, the endpoint returns 503 (service unavailable).
+ * - User identity comes ONLY from verified token, never from request body.
+ */
 export const requireAuth = async (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  // Fail closed: if Supabase is not configured, no authentication is possible
+  if (!isServerSupabaseConfigured) {
+    res.status(503).json({
+      status: 'error',
+      code: 'SERVICE_UNAVAILABLE',
+      message: 'Authentication service is not configured. Please configure Supabase credentials.',
+    });
+    return;
+  }
+
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     res.status(401).json({
       status: 'error',
+      code: 'AUTH_MISSING',
       message: 'Authentication required. Missing Bearer token in Authorization header.',
     });
     return;
@@ -23,22 +42,9 @@ export const requireAuth = async (
   if (!token) {
     res.status(401).json({
       status: 'error',
+      code: 'AUTH_EMPTY',
       message: 'Authentication token is empty.',
     });
-    return;
-  }
-
-  // Handle local development demo token fallback when Supabase is not configured
-  if (token === 'demo-token' && !isServerSupabaseConfigured) {
-    req.user = {
-      id: 'demo-user-id',
-      email: 'demo@vireo.app',
-      app_metadata: {},
-      user_metadata: { full_name: 'Demo Creator' },
-      aud: 'authenticated',
-      created_at: new Date().toISOString(),
-    } as any;
-    next();
     return;
   }
 
@@ -46,9 +52,13 @@ export const requireAuth = async (
     const { data: { user }, error } = await supabaseAuthClient.auth.getUser(token);
 
     if (error || !user) {
-      logger.warn(`Auth failed for token from ${req.ip}:`, error?.message || 'User not found');
+      logger.warn('Auth verification failed', {
+        ip: req.ip,
+        reason: error?.message || 'User not found',
+      });
       res.status(401).json({
         status: 'error',
+        code: 'AUTH_INVALID',
         message: 'Invalid or expired authentication token.',
       });
       return;
@@ -57,9 +67,12 @@ export const requireAuth = async (
     req.user = user;
     next();
   } catch (err) {
-    logger.error('Unexpected error validating auth token:', err);
+    logger.error('Unexpected error validating auth token', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     res.status(401).json({
       status: 'error',
+      code: 'AUTH_ERROR',
       message: 'Failed to authenticate request.',
     });
   }

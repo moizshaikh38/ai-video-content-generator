@@ -54,7 +54,11 @@ export class ContentGenerationService {
       .maybeSingle();
 
     if (projErr) {
-      logger.error(`[ContentGeneration] Failed to verify project ${projectId}:`, projErr.message);
+      logger.error('Failed to verify project ownership for content generation', {
+        projectId,
+        userId,
+        error: projErr.message,
+      });
       throw new Error(`Failed to verify project: ${projErr.message}`);
     }
 
@@ -73,12 +77,15 @@ export class ContentGenerationService {
       .maybeSingle();
 
     if (transErr) {
-      logger.error(`[ContentGeneration] Error querying transcript for ${projectId}:`, transErr.message);
+      logger.error('Error querying transcript for project', {
+        projectId,
+        error: transErr.message,
+      });
       throw new Error(`Failed to query transcript: ${transErr.message}`);
     }
 
     if (!transcriptRecord || !transcriptRecord.transcript_text?.trim()) {
-      logger.warn(`[ContentGeneration] Generation rejected for ${projectId}: Transcript not available yet.`);
+      logger.warn('Content generation rejected: Transcript not available yet', { projectId });
       throw new Error('Transcript is not available yet. Please complete transcription first.');
     }
 
@@ -101,11 +108,12 @@ export class ContentGenerationService {
       };
     }
 
-    // 4. Update project video_status to 'generating'
+    // 4. Update project video_status to 'generating' with scoped user_id (H7)
     await supabaseAuthClient
       .from('projects')
       .update({ video_status: 'generating' })
-      .eq('id', projectId);
+      .eq('id', projectId)
+      .eq('user_id', userId);
 
     const promptContext: PromptContext = {
       transcript: transcript.transcript_text,
@@ -126,7 +134,7 @@ export class ContentGenerationService {
     try {
       // 5. Generate content sequentially for requested platforms
       for (const p of platformsToGenerate) {
-        logger.info(`[ContentGeneration] Generating ${p} content for project ${projectId}...`);
+        logger.info(`Generating ${p} content for project ${projectId}...`, { projectId, platform: p });
         const userPrompt = ContentPromptService.buildPromptForPlatform(p, promptContext);
 
         switch (p) {
@@ -195,16 +203,20 @@ export class ContentGenerationService {
       // 6. Save generated content to database
       await ContentOutputService.saveOutputs(projectId, rowsToInsert, platform);
 
-      // 7. Update project video_status to 'completed'
+      // 7. Update project video_status to 'completed' with user_id scoped (H7)
       await supabaseAuthClient
         .from('projects')
         .update({ video_status: 'completed' })
-        .eq('id', projectId);
+        .eq('id', projectId)
+        .eq('user_id', userId);
 
       // 8. Fetch and return complete outputs list for the project
       const finalOutputs = await ContentOutputService.getOutputsForProject(projectId);
 
-      logger.info(`[ContentGeneration] Successfully generated ${finalOutputs.length} content outputs for project ${projectId}`);
+      logger.info(`Successfully generated ${finalOutputs.length} content outputs for project ${projectId}`, {
+        projectId,
+        outputCount: finalOutputs.length,
+      });
 
       return {
         status: 'ok',
@@ -212,14 +224,19 @@ export class ContentGenerationService {
         projectId,
         outputs: finalOutputs,
       };
-    } catch (err: any) {
-      logger.error(`[ContentGeneration] Generation failed for project ${projectId}:`, err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error(`Content generation failed for project ${projectId}`, {
+        projectId,
+        error: message,
+      });
 
-      // Revert status back to 'transcribed' so user can retry generation without needing to re-transcribe
+      // Revert status back to 'transcribed' so user can retry generation without needing to re-transcribe (H7)
       await supabaseAuthClient
         .from('projects')
         .update({ video_status: 'transcribed' })
-        .eq('id', projectId);
+        .eq('id', projectId)
+        .eq('user_id', userId);
 
       throw err;
     }
