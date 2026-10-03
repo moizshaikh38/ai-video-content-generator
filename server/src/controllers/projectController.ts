@@ -175,17 +175,14 @@ export const createProject = async (req: AuthenticatedRequest, res: Response): P
     }
   }
 
+  const cleanStoragePath = storage_path ? String(storage_path).replace(/^videos\//, '') : null;
   const projectRecord = {
     id: id || crypto.randomUUID(),
     user_id: userId,
     title: title.trim(),
     source_type,
-    source_url: source_url || null,
-    storage_path: storage_path ? String(storage_path).replace(/^videos\//, '') : null,
-    file_name: file_name || null,
-    file_size: file_size ? Number(file_size) : null,
-    mime_type: mime_type || null,
-    video_status: storage_path ? 'uploaded' : 'uploading',
+    source_url: cleanStoragePath || source_url || null,
+    video_status: (cleanStoragePath || source_url) ? 'uploaded' : 'uploading',
     notes: String(notes || '').trim(),
   };
 

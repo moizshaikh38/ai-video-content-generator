@@ -98,21 +98,11 @@ CREATE TABLE IF NOT EXISTS public.projects (
   title TEXT NOT NULL,
   source_type TEXT NOT NULL DEFAULT 'upload', -- 'upload' | 'url'
   source_url TEXT,
-  storage_path TEXT,
-  file_name TEXT,
-  file_size BIGINT,
-  mime_type TEXT,
-  video_status TEXT NOT NULL DEFAULT 'uploading', -- 'uploading' | 'uploaded' | 'queued' | 'transcribing' | 'analyzing' | 'generating' | 'complete' | 'failed'
+  video_status TEXT NOT NULL DEFAULT 'queued', -- 'uploading' | 'uploaded' | 'queued' | 'transcribing' | 'analyzing' | 'generating' | 'complete' | 'failed'
   notes TEXT DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
--- Backward-compatible column additions for existing installations
-ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS storage_path TEXT;
-ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS file_name TEXT;
-ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS file_size BIGINT;
-ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS mime_type TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_projects_user_id ON public.projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_projects_status ON public.projects(video_status);

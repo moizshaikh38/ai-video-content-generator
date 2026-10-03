@@ -88,9 +88,6 @@ export const NewProjectPage: React.FC = () => {
         userId: user.id,
         title: title.trim(),
         sourceType: 'upload',
-        fileName: file.name,
-        fileSize: file.size,
-        mimeType: file.type || 'video/mp4',
         videoStatus: 'uploading',
         notes: notes.trim(),
       });
@@ -108,10 +105,6 @@ export const NewProjectPage: React.FC = () => {
       // 3. ONLY after Storage upload succeeds, update project record with storage path and status 'uploaded'
       await projectService.updateProjectAsync(projectId, {
         storage_path: uploadResult.storagePath,
-        file_name: uploadResult.fileName,
-        file_size: uploadResult.fileSize,
-        mime_type: uploadResult.mimeType,
-        status: 'uploaded',
         video_status: 'uploaded',
       });
 
@@ -129,9 +122,7 @@ export const NewProjectPage: React.FC = () => {
       if (projectCreated) {
         try {
           await projectService.updateProjectAsync(projectId, {
-            status: 'failed',
             video_status: 'failed',
-            error: message,
           });
         } catch (updateErr) {
           console.error('Failed to set project status to failed in Supabase:', updateErr);

@@ -61,15 +61,19 @@ class ProjectService {
 
   private mapRowToProject(row: any): Project {
     const status = (row.video_status as ProjectStatus) || 'uploading';
+    const isUpload = row.source_type === 'upload' || (!row.source_type && !row.source_url?.startsWith('http'));
+    const storagePath = isUpload ? (row.storage_path || row.source_url || null) : null;
+    const fileName = row.file_name || (storagePath ? storagePath.split('/').pop() : null);
+
     return {
       id: row.id,
       user_id: row.user_id,
       title: row.title || 'Untitled Project',
-      source_type: row.source_type || (row.source_url ? 'url' : 'upload'),
+      source_type: row.source_type || (isUpload ? 'upload' : 'url'),
       source_url: row.source_url || null,
-      video_url: row.source_url || row.storage_path || null,
-      storage_path: row.storage_path || null,
-      file_name: row.file_name || null,
+      video_url: row.source_url || null,
+      storage_path: storagePath,
+      file_name: fileName,
       file_size: row.file_size || null,
       mime_type: row.mime_type || null,
       notes: row.notes || '',
@@ -225,8 +229,11 @@ class ProjectService {
     }
 
     const cleanStoragePath = input.storagePath ? input.storagePath.replace(/^videos\//, '') : null;
+    const sourceUrl = input.sourceType === 'upload' ? (cleanStoragePath || input.sourceUrl || null) : (input.sourceUrl || null);
 
     try {
+      // ONLY insert columns that actually exist in the database table public.projects:
+      // id, user_id, title, source_type, source_url, video_status, notes
       const { data, error } = await supabase
         .from('projects')
         .insert({
@@ -234,11 +241,7 @@ class ProjectService {
           user_id: newProject.user_id,
           title: newProject.title,
           source_type: newProject.source_type,
-          source_url: newProject.source_url,
-          storage_path: cleanStoragePath,
-          file_name: newProject.file_name,
-          file_size: newProject.file_size,
-          mime_type: newProject.mime_type,
+          source_url: sourceUrl,
           video_status: newProject.video_status,
           notes: newProject.notes,
         })
@@ -274,20 +277,23 @@ class ProjectService {
 
     if (isSupabaseConfigured) {
       try {
+        // ONLY update columns that actually exist in the database table public.projects:
+        // title, source_type, source_url, video_status, notes
         const dbUpdates: Record<string, any> = {};
         if (updates.title !== undefined) dbUpdates.title = updates.title;
+        if (updates.source_type !== undefined) dbUpdates.source_type = updates.source_type;
+        if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+
+        // In the database schema, source_url holds the storage path for uploads
         if (updates.storage_path !== undefined) {
-          dbUpdates.storage_path = updates.storage_path ? updates.storage_path.replace(/^videos\//, '') : null;
+          dbUpdates.source_url = updates.storage_path ? updates.storage_path.replace(/^videos\//, '') : null;
+        } else if (updates.source_url !== undefined) {
+          dbUpdates.source_url = updates.source_url;
         }
-        if (updates.source_url !== undefined) dbUpdates.source_url = updates.source_url;
-        if (updates.file_name !== undefined) dbUpdates.file_name = updates.file_name;
-        if (updates.file_size !== undefined) dbUpdates.file_size = updates.file_size;
-        if (updates.mime_type !== undefined) dbUpdates.mime_type = updates.mime_type;
-        if (updates.status !== undefined || updates.video_status !== undefined) {
+
+        if (updates.video_status !== undefined || updates.status !== undefined) {
           dbUpdates.video_status = updates.video_status || updates.status;
         }
-        if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
-        if (updates.error !== undefined) dbUpdates.error = updates.error;
 
         const { data, error } = await supabase
           .from('projects')
