@@ -1,6 +1,7 @@
 import { supabaseAuthClient } from '../utils/supabase.js';
 import { logger } from '../utils/logger.js';
-import { transcribeMedia } from './transcriptionService.js';
+import { extractAudioFromVideo } from './audioExtractionService.js';
+import { transcribeAudioWithOpenRouter } from './transcriptionService.js';
 import { TranscriptRecord } from '../types/index.js';
 
 // In-memory set to guard against duplicate concurrent processing runs for the same project
@@ -13,14 +14,16 @@ export interface ProcessProjectResult {
 }
 
 /**
- * Executes the complete video processing and transcription pipeline:
+ * Executes the complete video processing and transcription pipeline via OpenRouter:
  * 1. Concurrency guard (locks projectId)
  * 2. Updates project video_status -> 'processing'
  * 3. Downloads video from private Supabase Storage 'videos' bucket
- * 4. Updates project video_status -> 'transcribing'
- * 5. Calls OpenAI Whisper API
- * 6. Upserts transcript into 'transcripts' table
- * 7. Updates project video_status -> 'transcribed'
+ * 4. Extracts audio track using FFmpeg into temporary MP3
+ * 5. Updates project video_status -> 'transcribing'
+ * 6. Sends extracted audio to OpenRouter Speech-to-Text API (whisper-large-v3)
+ * 7. Upserts transcript into Supabase 'transcripts' table
+ * 8. Updates project video_status -> 'transcribed'
+ * 9. Cleans up temporary audio files reliably
  */
 export async function processProjectVideo(
   projectId: string,
@@ -32,6 +35,7 @@ export async function processProjectVideo(
   }
 
   activeProcessingSet.add(projectId);
+  let cleanupAudio: (() => void) | null = null;
 
   try {
     // 1. Update status to 'processing'
@@ -42,7 +46,7 @@ export async function processProjectVideo(
       .eq('id', projectId)
       .eq('user_id', userId);
 
-    // 2. Clean storage path
+    // 2. Clean storage path and download video
     const storagePath = sourceUrl.replace(/^videos\//, '');
     logger.info(`[Pipeline] Downloading private video from bucket 'videos', path: ${storagePath}`);
 
@@ -57,23 +61,32 @@ export async function processProjectVideo(
     }
 
     const arrayBuffer = await fileBlob.arrayBuffer();
-    const mediaBuffer = Buffer.from(arrayBuffer);
-    const fileName = storagePath.split('/').pop() || 'video.mp4';
-    const mimeType = fileBlob.type || 'video/mp4';
+    const videoBuffer = Buffer.from(arrayBuffer);
+    const originalFileName = storagePath.split('/').pop() || 'video.mp4';
 
-    logger.info(`[Pipeline] Video retrieved (${(mediaBuffer.length / (1024 * 1024)).toFixed(2)} MB). Updating status to 'transcribing'...`);
+    logger.info(
+      `[Pipeline] Video retrieved (${(videoBuffer.length / (1024 * 1024)).toFixed(2)} MB). Extracting audio via FFmpeg...`
+    );
 
-    // 3. Update status to 'transcribing'
+    // 3. Extract audio via FFmpeg
+    const extractedAudio = await extractAudioFromVideo(videoBuffer, originalFileName);
+    cleanupAudio = extractedAudio.cleanup;
+
+    // 4. Update status to 'transcribing'
     await supabaseAuthClient
       .from('projects')
       .update({ video_status: 'transcribing' })
       .eq('id', projectId)
       .eq('user_id', userId);
 
-    // 4. Perform real transcription
-    const transcription = await transcribeMedia(mediaBuffer, fileName, mimeType);
+    // 5. Transcribe audio with OpenRouter
+    const transcription = await transcribeAudioWithOpenRouter(
+      extractedAudio.audioBuffer,
+      `${projectId}.mp3`,
+      'audio/mp3'
+    );
 
-    // 5. Store transcript into Supabase transcripts table (upsert to prevent duplicate records)
+    // 6. Store transcript into Supabase transcripts table (upsert to avoid duplicates)
     const transcriptPayload = {
       project_id: projectId,
       user_id: userId,
@@ -97,14 +110,14 @@ export async function processProjectVideo(
       throw new Error(`Failed to save transcript: ${saveError.message}`);
     }
 
-    // 6. Update project status to 'transcribed'
+    // 7. Update project status to 'transcribed'
     await supabaseAuthClient
       .from('projects')
       .update({ video_status: 'transcribed' })
       .eq('id', projectId)
       .eq('user_id', userId);
 
-    logger.info(`[Pipeline] Project ${projectId} successfully transcribed!`);
+    logger.info(`[Pipeline] Project ${projectId} successfully transcribed via OpenRouter!`);
 
     return {
       status: 'transcribed',
@@ -113,7 +126,7 @@ export async function processProjectVideo(
   } catch (err: any) {
     logger.error(`[Pipeline] Video processing failed for project ${projectId}:`, err.message);
 
-    // Revert/mark project status as 'failed' in database
+    // Mark project status as 'failed' in database
     try {
       await supabaseAuthClient
         .from('projects')
@@ -129,6 +142,9 @@ export async function processProjectVideo(
       error: err.message || 'Video processing failed.',
     };
   } finally {
+    if (cleanupAudio) {
+      cleanupAudio();
+    }
     activeProcessingSet.delete(projectId);
   }
 }

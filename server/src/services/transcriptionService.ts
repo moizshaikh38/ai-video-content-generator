@@ -10,53 +10,67 @@ export interface TranscriptionResult {
 }
 
 /**
- * Transcribes audio or video media using the OpenAI Audio Transcriptions API (Whisper).
- * Strict production implementation: If OPENAI_API_KEY is not configured, it throws an error immediately.
- * No mock or simulated transcription fallback is used.
+ * Transcribes audio media using OpenRouter's Speech-to-Text API endpoint:
+ * POST https://openrouter.ai/api/v1/audio/transcriptions
+ *
+ * Model: openai/whisper-large-v3
+ *
+ * Requirements:
+ * - OPENROUTER_API_KEY must be configured.
+ * - Real API call only (no mock fallback).
+ * - Proper OpenRouter headers: Authorization, HTTP-Referer, X-Title.
+ * - Extracts text, language, duration, and timestamped segments if available.
  */
-export async function transcribeMedia(
-  mediaBuffer: Buffer,
-  fileName: string,
-  mimeType: string = 'video/mp4'
+export async function transcribeAudioWithOpenRouter(
+  audioBuffer: Buffer,
+  fileName: string = 'audio.mp3',
+  mimeType: string = 'audio/mp3'
 ): Promise<TranscriptionResult> {
-  const apiKey = config.openaiApiKey?.trim();
+  const apiKey = config.openrouterApiKey?.trim();
 
   if (!apiKey) {
-    const errorMsg = 'OPENAI_API_KEY is not configured on the server. Please add OPENAI_API_KEY to your server environment.';
+    const errorMsg = 'OPENROUTER_API_KEY is not configured on the server. Please add OPENROUTER_API_KEY to your server environment.';
     logger.error(`[Transcription] ${errorMsg}`);
     throw new Error(errorMsg);
   }
 
-  // OpenAI Whisper accepts up to 25 MB per file directly.
-  const MAX_WHISPER_BYTES = 25 * 1024 * 1024;
-  if (mediaBuffer.length > MAX_WHISPER_BYTES) {
-    const sizeMb = (mediaBuffer.length / (1024 * 1024)).toFixed(1);
+  // OpenRouter / Whisper limit is 25 MB
+  const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
+  if (audioBuffer.length > MAX_AUDIO_BYTES) {
+    const sizeMb = (audioBuffer.length / (1024 * 1024)).toFixed(1);
     throw new Error(
-      `Media size (${sizeMb} MB) exceeds OpenAI transcription limit of 25 MB. Please provide a shorter clip or compressed file.`
+      `Audio size (${sizeMb} MB) exceeds transcription provider limit of 25 MB. Please provide a shorter clip.`
     );
   }
 
-  logger.info(`[Transcription] Submitting ${fileName} (${(mediaBuffer.length / (1024 * 1024)).toFixed(2)} MB) to OpenAI Whisper API...`);
+  const model = 'openai/whisper-large-v3';
+  logger.info(
+    `[Transcription] Submitting ${fileName} (${(audioBuffer.length / (1024 * 1024)).toFixed(2)} MB) to OpenRouter Speech-to-Text (${model})...`
+  );
 
-  // Build multipart form data using native standard Web fetch FormData and Blob
   const formData = new FormData();
-  const blob = new Blob([mediaBuffer], { type: mimeType });
+  const blob = new Blob([audioBuffer], { type: mimeType });
   formData.append('file', blob, fileName);
-  formData.append('model', 'whisper-1');
+  formData.append('model', model);
   formData.append('response_format', 'verbose_json');
 
-  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    'HTTP-Referer': config.appUrl || 'http://localhost:5173',
+    'X-Title': 'Vireo AI Video Content Generator',
+  };
+
+  const response = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-    },
+    headers,
     body: formData,
   });
 
   if (!response.ok) {
     const errText = await response.text();
-    logger.error(`[Transcription] OpenAI API error (${response.status}):`, errText);
-    let userMsg = 'Transcription provider failed to process the video.';
+    logger.error(`[Transcription] OpenRouter API error (${response.status}):`, errText);
+
+    let userMsg = 'Transcription provider failed to process the audio.';
     try {
       const parsed = JSON.parse(errText);
       if (parsed.error?.message) {
@@ -65,7 +79,18 @@ export async function transcribeMedia(
     } catch {
       // Use fallback userMsg
     }
-    throw new Error(`OpenAI transcription error: ${userMsg}`);
+
+    if (response.status === 401) {
+      throw new Error('OpenRouter authentication failed: invalid or unauthorized API key.');
+    }
+    if (response.status === 402) {
+      throw new Error(`OpenRouter payment/credit error: ${userMsg}`);
+    }
+    if (response.status === 429) {
+      throw new Error(`OpenRouter rate limit exceeded: ${userMsg}`);
+    }
+
+    throw new Error(`OpenRouter transcription error (${response.status}): ${userMsg}`);
   }
 
   const result = (await response.json()) as any;
@@ -85,7 +110,13 @@ export async function transcribeMedia(
   const duration = typeof result.duration === 'number' ? result.duration : null;
   const language = typeof result.language === 'string' ? result.language : 'en';
 
-  logger.info(`[Transcription] Successfully transcribed ${fileName}: ${segments.length} segments, duration: ${duration}s, language: ${language}`);
+  if (segments.length === 0) {
+    logger.info('[Transcription] Provider returned transcript text without timestamped segments.');
+  } else {
+    logger.info(
+      `[Transcription] Successfully transcribed audio via OpenRouter: ${segments.length} segments, duration: ${duration}s, language: ${language}`
+    );
+  }
 
   return {
     text,
