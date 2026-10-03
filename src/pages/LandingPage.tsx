@@ -23,7 +23,7 @@ import {
   TranscriptPreview,
   TransformationVisual,
   WorkspacePreview,
-  channels,
+  platformOutputs,
 } from "../components/landing/ProductVisuals";
 import { plans } from "../data/marketing";
 import "./landing.css";
@@ -148,20 +148,12 @@ function PlatformStrip() {
     >
       <p>Content built for the places your audience already is.</p>
       <div>
-        {channels.map((channel, i) => (
-          <span key={channel}>
-            <b className="lv-platform-mark">
-              {i === 4
-                ? "𝕏"
-                : i === 2
-                  ? "▶"
-                  : i === 1
-                    ? "◎"
-                    : i === 3
-                      ? "in"
-                      : "▶"}
-            </b>
-            {channel}
+        {platformOutputs.map((output) => (
+          <span key={output.name}>
+            <span className="lv-platform-mark">
+              <img src={output.logo} alt="" loading="lazy" decoding="async" />
+            </span>
+            {output.name}
           </span>
         ))}
       </div>

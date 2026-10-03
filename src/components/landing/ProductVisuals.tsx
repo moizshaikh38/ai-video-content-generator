@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpRight,
   AudioLines,
@@ -11,6 +12,11 @@ import { Logo } from "../Logo";
 import creatorVideo from "../../assets/landing/creator-video.webp";
 import creatorMomentTwo from "../../assets/landing/creator-moment-2.webp";
 import creatorMomentThree from "../../assets/landing/creator-moment-3.webp";
+import youtubeLogo from "../../assets/landing/platforms/youtube.svg";
+import instagramLogo from "../../assets/landing/platforms/instagram.svg";
+import shortsLogo from "../../assets/landing/platforms/youtubeshorts.svg";
+import linkedinLogo from "../../assets/landing/platforms/linkedin-in.png";
+import xLogo from "../../assets/landing/platforms/x.svg";
 
 export const channels = [
   "YouTube",
@@ -18,6 +24,34 @@ export const channels = [
   "Shorts / Reels",
   "LinkedIn",
   "X",
+] as const;
+
+export const platformOutputs = [
+  {
+    name: "YouTube",
+    type: "Title + description",
+    logo: youtubeLogo,
+    variant: "youtube",
+  },
+  {
+    name: "Instagram",
+    type: "Hook + caption",
+    logo: instagramLogo,
+    variant: "instagram",
+  },
+  {
+    name: "Shorts / Reels",
+    type: "Moments + timestamps",
+    logo: shortsLogo,
+    variant: "shorts",
+  },
+  {
+    name: "LinkedIn",
+    type: "Professional post",
+    logo: linkedinLogo,
+    variant: "linkedin",
+  },
+  { name: "X", type: "Thread draft", logo: xLogo, variant: "x" },
 ] as const;
 
 function VideoTile({ compact = false }: { compact?: boolean }) {
@@ -131,9 +165,34 @@ export function HeroVisual() {
 }
 
 export function TransformationVisual() {
+  const container = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    const element = container.current;
+    if (!element) return;
+    if (!("IntersectionObserver" in window)) {
+      setActive(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setActive(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.3 },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div
+      ref={container}
       className="lv-transform"
+      data-active={active}
       aria-label="A video is processed by Vireo into drafts for five content platforms"
     >
       <div className="lv-transform-source">
@@ -146,6 +205,7 @@ export function TransformationVisual() {
       </div>
       <div className="lv-transform-connector">
         <span />
+        <i aria-hidden="true" />
       </div>
       <div className="lv-transform-engine">
         <span className="lv-engine-icon">
@@ -154,17 +214,34 @@ export function TransformationVisual() {
         <strong>Vireo</strong>
         <small>Transcribe · Understand · Repurpose</small>
       </div>
-      <div className="lv-transform-connector">
+      <div className="lv-transform-connector lv-transform-connector--out">
         <span />
+        <i aria-hidden="true" />
       </div>
       <div className="lv-transform-outputs">
         <span className="lv-mini-eyebrow">THE OUTPUTS</span>
-        {channels.map((channel, i) => (
-          <div key={channel}>
-            <span className="lv-output-index">0{i + 1}</span>
-            <strong>{channel}</strong>
-            <span>
-              <ArrowUpRight size={15} />
+        {platformOutputs.map((output, i) => (
+          <div
+            className={`lv-output-card lv-output-card-${i + 1}`}
+            key={output.name}
+          >
+            <span className={`lv-output-logo lv-output-logo-${output.variant}`}>
+              <img src={output.logo} alt="" loading="lazy" decoding="async" />
+              {output.variant === "shorts" && (
+                <img
+                  src={instagramLogo}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                />
+              )}
+            </span>
+            <span className="lv-output-copy">
+              <strong>{output.name}</strong>
+              <small>{output.type}</small>
+            </span>
+            <span className="lv-output-ready" aria-label="Draft output">
+              <Check size={13} />
             </span>
           </div>
         ))}
