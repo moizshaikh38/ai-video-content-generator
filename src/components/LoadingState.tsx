@@ -32,13 +32,13 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
     >
       <Loader2
         className={cn(
-          'animate-spin text-indigo-500 mb-3.5',
+          'animate-spin text-clay mb-3.5',
           iconSizes[size]
         )}
       />
-      <h4 className="text-base font-medium text-slate-200">{message}</h4>
+      <h4 className="text-base font-semibold font-display text-foreground">{message}</h4>
       {description && (
-        <p className="text-sm text-slate-400 mt-1 max-w-sm">{description}</p>
+        <p className="text-sm text-muted-foreground mt-1 max-w-sm">{description}</p>
       )}
     </div>
   );
