@@ -253,7 +253,7 @@ export function TransformationVisual() {
 export function TranscriptPreview() {
   return (
     <div
-      className="lv-product-window lv-transcript-preview"
+      className="lv-product-window lv-transcript-preview lv-reveal lv-motion-loop"
       aria-label="Illustrative timestamped transcript preview"
     >
       <div className="lv-window-bar">
@@ -346,7 +346,7 @@ export function TranscriptPreview() {
 export function WorkspacePreview() {
   return (
     <div
-      className="lv-product-window lv-workspace-preview"
+      className="lv-product-window lv-workspace-preview lv-reveal"
       aria-label="Illustrative platform content workspace"
     >
       <div className="lv-window-bar">
@@ -432,7 +432,7 @@ export function MomentsPreview() {
   ];
   return (
     <div
-      className="lv-moments-preview"
+      className="lv-moments-preview lv-reveal"
       aria-label="Illustrative timestamped moments"
     >
       <div className="lv-moments-head">

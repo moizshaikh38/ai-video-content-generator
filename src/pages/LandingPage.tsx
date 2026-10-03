@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowDown,
@@ -26,7 +26,9 @@ import {
   platformOutputs,
 } from "../components/landing/ProductVisuals";
 import { plans } from "../data/marketing";
+import { useLandingMotion } from "../components/landing/useLandingMotion";
 import "./landing.css";
+import "./landing-motion.css";
 
 const platformContent = [
   {
@@ -104,7 +106,7 @@ const Label = ({ children }: { children: React.ReactNode }) => (
 
 function HeroSection() {
   return (
-    <section className="lv-hero" aria-labelledby="hero-title">
+    <section className="lv-hero lv-motion-loop" aria-labelledby="hero-title">
       <div className="lv-hero-copy">
         <Label>AI CONTENT REPURPOSING FOR VIDEO CREATORS</Label>
         <h1 id="hero-title">
@@ -146,8 +148,10 @@ function PlatformStrip() {
       className="lv-platform-strip"
       aria-label="Supported content platforms"
     >
-      <p>Content built for the places your audience already is.</p>
-      <div>
+      <p className="lv-reveal">
+        Content built for the places your audience already is.
+      </p>
+      <div className="lv-reveal">
         {platformOutputs.map((output) => (
           <span key={output.name}>
             <span className="lv-platform-mark">
@@ -179,14 +183,14 @@ function ProblemAndSolution() {
   return (
     <>
       <section className="lv-problem lv-container">
-        <div className="lv-problem-intro">
+        <div className="lv-problem-intro lv-reveal lv-reveal-left">
           <Label>THE OLD WAY</Label>
           <h2>
             One video shouldn't create <em>five more hours of work.</em>
           </h2>
           <p>Stop rewriting the same idea for every platform.</p>
         </div>
-        <div className="lv-old-workflow">
+        <div className="lv-old-workflow lv-reveal lv-reveal-right">
           <div className="lv-old-header">
             <Video size={17} />
             <span>Video is finished</span>
@@ -205,7 +209,7 @@ function ProblemAndSolution() {
       </section>
       <section className="lv-solution">
         <div className="lv-container">
-          <div className="lv-solution-heading">
+          <div className="lv-solution-heading lv-reveal">
             <div>
               <Label>THE VIREO WAY</Label>
               <h2>
@@ -217,7 +221,7 @@ function ProblemAndSolution() {
               point for each channel.
             </p>
           </div>
-          <div className="lv-flow">
+          <div className="lv-flow lv-reveal-group">
             {flow.map((step, i) => (
               <div className="lv-flow-item" key={step.title}>
                 <span className="lv-flow-icon">
@@ -239,7 +243,7 @@ function ProductShowcase() {
   return (
     <section id="product" className="lv-showcase lv-container">
       <div className="lv-showcase-row">
-        <div className="lv-showcase-copy">
+        <div className="lv-showcase-copy lv-reveal lv-reveal-left">
           <Label>01 / TRANSCRIPT</Label>
           <h2>
             Your complete transcript, <em>without the busywork.</em>
@@ -257,7 +261,7 @@ function ProductShowcase() {
       </div>
       <div className="lv-showcase-row lv-showcase-row-reverse">
         <WorkspacePreview />
-        <div className="lv-showcase-copy">
+        <div className="lv-showcase-copy lv-reveal lv-reveal-right">
           <Label>02 / CONTENT</Label>
           <h2>
             One story, shaped for <em>every platform.</em>
@@ -273,7 +277,7 @@ function ProductShowcase() {
         </div>
       </div>
       <div className="lv-showcase-row">
-        <div className="lv-showcase-copy">
+        <div className="lv-showcase-copy lv-reveal lv-reveal-left">
           <Label>03 / MOMENTS</Label>
           <h2>
             Find the moments <em>worth sharing.</em>
@@ -298,7 +302,7 @@ function PlatformOutputs() {
   return (
     <section id="platforms" className="lv-outputs">
       <div className="lv-container">
-        <div className="lv-output-heading">
+        <div className="lv-output-heading lv-reveal">
           <div>
             <Label>MADE FOR EACH CHANNEL</Label>
             <h2>
@@ -313,7 +317,7 @@ function PlatformOutputs() {
           </p>
         </div>
         <div
-          className="lv-output-switcher"
+          className="lv-output-switcher lv-reveal"
           role="tablist"
           aria-label="Content platform previews"
         >
@@ -351,7 +355,7 @@ function PlatformOutputs() {
           aria-labelledby={`platform-tab-${active}`}
           tabIndex={0}
         >
-          <div className="lv-output-panel-main">
+          <div className="lv-output-panel-main" key={`main-${active}`}>
             <span className="lv-output-label">{output.label}</span>
             <h3>{output.title}</h3>
             <p>{output.body}</p>
@@ -359,7 +363,7 @@ function PlatformOutputs() {
               Illustrative content preview
             </span>
           </div>
-          <div className="lv-output-panel-aside">
+          <div className="lv-output-panel-aside" key={`aside-${active}`}>
             <span className="lv-mini-eyebrow">IN YOUR CONTENT KIT</span>
             {output.details.map((detail, i) => (
               <div key={detail}>
@@ -378,7 +382,7 @@ function PlatformOutputs() {
 function BeforeAfter() {
   return (
     <section className="lv-before-after lv-container">
-      <div className="lv-before-title">
+      <div className="lv-before-title lv-reveal lv-reveal-left">
         <Label>A BETTER WAY TO WORK</Label>
         <h2>
           Same video.
@@ -386,7 +390,7 @@ function BeforeAfter() {
           <em>More places to go.</em>
         </h2>
       </div>
-      <div className="lv-before-compare">
+      <div className="lv-before-compare lv-reveal-group">
         <div>
           <span>BEFORE VIREO</span>
           <strong>One video</strong>
@@ -409,7 +413,7 @@ function FeatureBento() {
   return (
     <section id="features" className="lv-features">
       <div className="lv-container">
-        <div className="lv-feature-heading">
+        <div className="lv-feature-heading lv-reveal">
           <Label>THOUGHTFULLY BUILT</Label>
           <h2>
             Everything after the upload,
@@ -417,7 +421,7 @@ function FeatureBento() {
             <em>in one place.</em>
           </h2>
         </div>
-        <div className="lv-bento">
+        <div className="lv-bento lv-reveal-group">
           <div className="lv-bento-card lv-bento-wide">
             <AudioLines size={22} />
             <h3>AI transcription</h3>
@@ -486,7 +490,7 @@ function UseCases() {
   return (
     <section id="use-cases" className="lv-use-cases">
       <div className="lv-container">
-        <div className="lv-use-heading">
+        <div className="lv-use-heading lv-reveal">
           <Label>BUILT FOR CREATORS</Label>
           <h2>
             Spend more time creating.
@@ -494,7 +498,7 @@ function UseCases() {
             <em>Less time repurposing.</em>
           </h2>
         </div>
-        <div className="lv-use-list">
+        <div className="lv-use-list lv-reveal-group">
           {cases.map((item) => (
             <div key={item.number}>
               <span>{item.number}</span>
@@ -530,13 +534,13 @@ function HowItWorks() {
   ];
   return (
     <section id="how" className="lv-how lv-container">
-      <div className="lv-how-heading">
+      <div className="lv-how-heading lv-reveal">
         <Label>HOW IT WORKS</Label>
         <h2>
           From upload to <em>everywhere.</em>
         </h2>
       </div>
-      <div className="lv-timeline">
+      <div className="lv-timeline lv-reveal-group">
         {steps.map((step, i) => (
           <div key={step.title}>
             <span className="lv-timeline-dot">0{i + 1}</span>
@@ -553,7 +557,7 @@ function Pricing() {
   return (
     <section id="pricing" className="lv-pricing">
       <div className="lv-container">
-        <div className="lv-pricing-heading">
+        <div className="lv-pricing-heading lv-reveal">
           <div>
             <Label>PLANS</Label>
             <h2>
@@ -565,7 +569,7 @@ function Pricing() {
             live.
           </p>
         </div>
-        <div className="lv-pricing-grid">
+        <div className="lv-pricing-grid lv-reveal-group">
           {plans.map((plan) => (
             <div
               className={`lv-plan ${plan.name === "Pro" ? "lv-plan-featured" : ""}`}
@@ -601,7 +605,7 @@ function Pricing() {
 function FAQ() {
   return (
     <section id="faq" className="lv-faq lv-container">
-      <div>
+      <div className="lv-reveal lv-reveal-left">
         <Label>FAQ</Label>
         <h2>
           Good to know
@@ -610,7 +614,7 @@ function FAQ() {
         </h2>
         <p>The practical details for your first video.</p>
       </div>
-      <div className="lv-faq-list">
+      <div className="lv-faq-list lv-reveal lv-reveal-right">
         {faqs.map((faq) => (
           <details key={faq.q}>
             <summary>
@@ -627,10 +631,10 @@ function FAQ() {
 
 function FinalCTA() {
   return (
-    <section className="lv-final">
+    <section className="lv-final lv-motion-loop">
       <div className="lv-final-orbit lv-final-orbit-one" />
       <div className="lv-final-orbit lv-final-orbit-two" />
-      <div className="lv-container lv-final-content">
+      <div className="lv-container lv-final-content lv-reveal">
         <Logo light />
         <Label>ONE VIDEO. EVERY PLATFORM.</Label>
         <h2>
@@ -646,11 +650,13 @@ function FinalCTA() {
 }
 
 export function LandingPage() {
+  const pageRef = useRef<HTMLElement>(null);
+  useLandingMotion(pageRef);
   return (
-    <main className="lv-page">
+    <main className="lv-page" ref={pageRef}>
       <HeroSection />
       <section className="lv-transformation lv-container">
-        <div className="lv-transformation-heading">
+        <div className="lv-transformation-heading lv-reveal">
           <Label>THE TRANSFORMATION</Label>
           <h2>
             One upload.
