@@ -50,6 +50,8 @@ export default {
         },
         ink: 'var(--ink)',
         cream: 'var(--cream)',
+        forest: 'var(--forest)',
+        'vireo-green': 'var(--vireo-green)',
       },
       boxShadow: {
         soft: 'var(--shadow-soft)',

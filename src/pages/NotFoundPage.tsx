@@ -1,24 +1,5 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '../components/Button';
-
-export const NotFoundPage: React.FC = () => {
-  return (
-    <div className="flex min-h-[60vh] items-center justify-center px-4 py-16">
-      <div className="max-w-md text-center card-soft p-8 sm:p-10 shadow-lift">
-        <h1 className="text-7xl font-bold font-display text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold font-display text-foreground">
-          Page not found
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
-        <div className="mt-6">
-          <Button variant="sage" asChild>
-            <Link to="/">Go home</Link>
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-};
+import { Compass } from 'lucide-react';
+import { Logo } from '../components/Logo';
+export const NotFoundPage: React.FC = () => <div className="flex min-h-[65vh] items-center justify-center px-4 py-16"><div className="max-w-lg rounded-3xl border border-border bg-white p-10 text-center shadow-soft"><div className="mx-auto grid size-16 place-items-center rounded-2xl bg-[#eaf3eb] text-vireo-green"><Compass className="size-8" /></div><div className="mt-5 flex justify-center"><Logo compact /></div><p className="mt-4 text-xs font-bold uppercase tracking-widest text-clay">404</p><h1 className="mt-2 font-display text-4xl font-semibold">Page not found.</h1><p className="mt-3 text-sm text-muted-foreground">The page you’re looking for has moved or does not exist.</p><Link to="/" className="mt-7 inline-block rounded-xl bg-clay px-5 py-3 text-sm font-semibold text-white">Go Home</Link></div></div>;

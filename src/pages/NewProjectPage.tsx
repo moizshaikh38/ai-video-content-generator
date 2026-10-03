@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Upload, Link2, XCircle } from 'lucide-react';
+import { Upload, Link2, XCircle, Check, ArrowLeft, Lightbulb, FileText, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { Textarea } from '../components/Textarea';
@@ -8,14 +9,14 @@ import { projectService } from '../services/projectService';
 import { uploadVideoFile, validateVideoFile } from '../services/storageService';
 import { useAuth } from '../context/AuthContext';
 
-const MAX_MB = 500;
+const MAX_MB = 50;
 
 export const NewProjectPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
 
-  const [mode, setMode] = useState<'upload' | 'url'>('upload');
+  const [mode] = useState<'upload' | 'url'>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
@@ -31,9 +32,8 @@ export const NewProjectPage: React.FC = () => {
   useEffect(() => {
     const prefillUrl = searchParams.get('url');
     if (prefillUrl) {
-      setMode('url');
       setUrl(prefillUrl);
-      setTitle('YouTube Video Analysis');
+      setErrorMsg('Video URL processing is coming soon. Please upload a video file.');
     }
   }, [searchParams]);
 
@@ -186,176 +186,18 @@ export const NewProjectPage: React.FC = () => {
 
   const isUploading = progress !== null && progress < 100;
 
-  return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-6 pt-4">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight font-display text-foreground">
-          New project
-        </h1>
-        <p className="mt-1 text-sm sm:text-base text-muted-foreground">
-          Upload a video or paste a supported video URL.
-        </p>
-      </div>
-
-      <div className="card-soft space-y-5 p-5 md:p-7">
-        {errorMsg && (
-          <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-3.5 text-xs text-destructive font-medium flex items-center justify-between gap-3">
-            <span className="flex-1">{errorMsg}</span>
-            {uploadFailed && file && mode === 'upload' && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={executeUploadFlow}
-                className="shrink-0 h-7 text-xs px-2.5 border-destructive/30 hover:bg-destructive/10"
-              >
-                Retry
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* Mode Toggle Switch */}
-        <div className="grid grid-cols-2 gap-1 rounded-full bg-cream p-1 border border-border">
-          <button
-            type="button"
-            disabled={isUploading}
-            onClick={() => {
-              setMode('upload');
-              setErrorMsg(null);
-            }}
-            className={`flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-medium transition-all ${
-              mode === 'upload'
-                ? 'bg-card text-foreground shadow-soft border border-border/80'
-                : 'text-muted-foreground hover:text-foreground'
-            } ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <Upload className="size-4" />
-            <span>Upload video</span>
-          </button>
-          <button
-            type="button"
-            disabled={isUploading}
-            onClick={() => {
-              setMode('url');
-              setErrorMsg(null);
-            }}
-            className={`flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-medium transition-all ${
-              mode === 'url'
-                ? 'bg-card text-foreground shadow-soft border border-border/80'
-                : 'text-muted-foreground hover:text-foreground'
-            } ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <Link2 className="size-4" />
-            <span>Paste URL</span>
-          </button>
-        </div>
-
-        {/* Input Area (Upload or URL) */}
-        {mode === 'upload' ? (
-          <div
-            onClick={() => !isUploading && fileInputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              if (!isUploading) setIsDragOver(true);
-            }}
-            onDragLeave={() => setIsDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setIsDragOver(false);
-              if (!isUploading) {
-                handlePickFile(e.dataTransfer.files[0]);
-              }
-            }}
-            className={`flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-10 text-center transition-colors ${
-              isDragOver
-                ? 'border-clay bg-clay/5'
-                : 'border-input bg-cream/60 hover:bg-cream/90'
-            } ${isUploading ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
-          >
-            <span className="text-3xl select-none">🎬</span>
-            <span className="mt-2 font-medium text-foreground text-sm sm:text-base">
-              {file ? file.name : 'Drop a video or tap to choose'}
-            </span>
-            <span className="text-xs text-muted-foreground mt-1">
-              {file
-                ? `${(file.size / 1024 / 1024).toFixed(1)} MB`
-                : `MP4, MOV, WEBM, AVI, MKV · up to ${MAX_MB}MB`}
-            </span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/x-matroska,.mp4,.mov,.webm,.avi,.mkv"
-              className="hidden"
-              disabled={isUploading}
-              onChange={(e) => handlePickFile(e.target.files?.[0])}
-            />
-          </div>
-        ) : (
-          <Input
-            label="Video URL"
-            placeholder="https://youtube.com/watch?v=…"
-            value={url}
-            disabled={isUploading}
-            onChange={(e) => setUrl(e.target.value)}
-          />
-        )}
-
-        {/* Project Title */}
-        <Input
-          label="Project title"
-          placeholder="e.g. How I Built a $1M SaaS With Zero Funding"
-          value={title}
-          disabled={isUploading}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-
-        {/* Notes / Description */}
-        <Textarea
-          label="Transcript or what the video is about (optional)"
-          rows={5}
-          placeholder="Paste the transcript or describe key topics, takeaways, or moments. The more detail, the higher quality your generated content."
-          value={notes}
-          disabled={isUploading}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-
-        {/* Progress bar and cancellation when uploading */}
-        {isUploading && (
-          <div className="space-y-2 pt-2">
-            <div className="flex justify-between items-center text-xs text-muted-foreground">
-              <span>Uploading video to Supabase Storage…</span>
-              <div className="flex items-center gap-3">
-                <span className="font-mono font-medium">{progress}%</span>
-                <button
-                  type="button"
-                  onClick={handleCancelUpload}
-                  className="text-destructive hover:underline font-medium text-xs cursor-pointer inline-flex items-center gap-1"
-                >
-                  <XCircle className="size-3" />
-                  <span>Cancel</span>
-                </button>
-              </div>
-            </div>
-            <div className="h-2.5 rounded-full bg-secondary overflow-hidden">
-              <div
-                className="h-full rounded-full bg-sage transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        <Button
-          type="submit"
-          variant="clay"
-          size="lg"
-          className="w-full mt-4"
-          disabled={isUploading}
-        >
-          {isUploading ? 'Uploading video…' : 'Generate content'}
-        </Button>
-      </div>
-    </form>
-  );
+  return <div className="space-y-5">
+    <Link to="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-forest"><ArrowLeft className="size-4" />Back to Dashboard</Link>
+    <div><h1 className="font-display text-4xl font-semibold tracking-tight">Create a New Project</h1><p className="mt-2 text-muted-foreground">Turn your video into engaging content. Upload a file to get started.</p></div>
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]"><form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-border bg-white p-5 shadow-soft md:p-7">
+      {errorMsg && <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive"><span>{errorMsg}</span>{uploadFailed && file && <button type="button" onClick={executeUploadFlow} className="font-semibold underline">Retry</button>}</div>}
+      <div className="grid grid-cols-2 gap-3"><div className="flex items-center justify-center gap-2 rounded-xl bg-[#eaf4eb] px-4 py-4 font-semibold text-forest"><Upload className="size-5"/>Upload Video</div><div aria-disabled="true" title="Video URL processing is coming soon" className="flex items-center justify-center gap-2 rounded-xl border border-border bg-cream/60 px-4 py-4 text-muted-foreground"><Link2 className="size-5"/><span>Paste Video URL <small className="block text-[10px]">Coming soon</small></span></div></div>
+      <div onDragOver={e=>{e.preventDefault();if(!isUploading)setIsDragOver(true)}} onDragLeave={()=>setIsDragOver(false)} onDrop={e=>{e.preventDefault();setIsDragOver(false);if(!isUploading)handlePickFile(e.dataTransfer.files[0])}} className={`rounded-2xl border-2 border-dashed p-8 text-center transition-colors ${isDragOver?'border-vireo-green bg-[#eaf4eb]':'border-[#d5e3d8] bg-[#fbfdfb]'} md:p-12`}><span className="mx-auto grid size-16 place-items-center rounded-2xl bg-[#eaf4eb] text-vireo-green"><Upload className="size-8" /></span><h2 className="mt-5 text-lg font-semibold">{file?file.name:'Drag and drop your video file here'}</h2><p className="mt-1 text-sm text-muted-foreground">{file?`${(file.size/1024/1024).toFixed(1)} MB`:'or choose a file from your device'}</p><button type="button" disabled={isUploading} onClick={()=>fileInputRef.current?.click()} className="mt-4 rounded-xl border border-vireo-green px-4 py-2 text-sm font-semibold text-vireo-green hover:bg-[#eaf4eb]">Browse files</button><input ref={fileInputRef} type="file" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/x-matroska,.mp4,.mov,.webm,.avi,.mkv" className="sr-only" disabled={isUploading} onChange={e=>handlePickFile(e.target.files?.[0])}/><p className="mt-5 text-xs text-muted-foreground">MP4, MOV, WEBM, AVI, MKV · Maximum {MAX_MB} MB</p></div>
+      <div className="rounded-xl border border-border bg-[#f8faf8] p-4"><p className="flex items-center gap-2 text-sm font-semibold"><FileText className="size-4 text-vireo-green"/>File requirements</p><div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">{['Supported video format','Up to 50 MB'].map(x=><p key={x} className="flex items-center gap-2"><Check className="size-4 text-vireo-green"/>{x}</p>)}</div></div>
+      <Input label="Project title" maxLength={100} required placeholder="e.g. My creator interview" value={title} disabled={isUploading} onChange={e=>setTitle(e.target.value)} />
+      <Textarea label="Notes (optional)" rows={4} maxLength={500} placeholder="Add context or key topics for your content kit" value={notes} disabled={isUploading} onChange={e=>setNotes(e.target.value)} />
+      {isUploading && <div className="space-y-2"><div className="flex justify-between text-sm"><span>Uploading video…</span><button type="button" onClick={handleCancelUpload} className="inline-flex items-center gap-1 text-destructive"><XCircle className="size-4"/>Cancel</button></div><div className="h-2 rounded-full bg-secondary"><div className="h-full rounded-full bg-vireo-green transition-all" style={{width:`${progress}%`}}/></div><p className="text-right text-xs text-muted-foreground">{progress}%</p></div>}
+      <Button type="submit" variant="clay" size="lg" className="w-full" disabled={isUploading || !file}>{isUploading?'Uploading video…':'Start Processing'}</Button><p className="text-center text-xs text-muted-foreground">Your video will be processed after it uploads.</p>
+    </form><aside className="space-y-4"><div className="rounded-2xl border border-border bg-[#f6faf5] p-6 shadow-soft"><h2 className="flex items-center gap-3 font-display text-xl font-semibold"><Lightbulb className="size-5 text-clay"/>Get the best results</h2><p className="mt-2 text-sm text-muted-foreground">A clear recording makes a more useful transcript.</p><ul className="mt-5 space-y-4">{['Use clear audio with little background noise','Keep the speaker easy to hear','Include an introduction and key topics'].map(x=><li key={x} className="flex gap-3 text-sm"><span className="grid size-5 shrink-0 place-items-center rounded-full bg-[#dceee0] text-vireo-green"><Check className="size-3"/></span>{x}</li>)}</ul></div><div className="rounded-2xl border border-border bg-white p-6 shadow-soft"><h2 className="font-display text-xl font-semibold">What happens next?</h2><ol className="mt-5 space-y-5">{['Upload your video','Extract and transcribe audio','Generate content drafts','Review and edit'].map((x,i)=><li key={x} className="flex items-center gap-3 text-sm"><span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#fff0e8] font-semibold text-clay">{i+1}</span>{x}</li>)}</ol></div><div className="rounded-2xl border border-border bg-[#fff8f4] p-6 text-center"><Sparkles className="mx-auto size-8 text-clay"/><p className="mt-3 font-semibold">One video, many possibilities.</p><p className="mt-2 text-sm text-muted-foreground">Get a transcript, titles, hooks and posts from your recording.</p></div></aside></div>
+  </div>;
 };

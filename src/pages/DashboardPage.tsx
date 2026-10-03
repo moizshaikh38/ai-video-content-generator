@@ -1,202 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, ArrowRight, Video, Link2 } from 'lucide-react';
-import { Button } from '../components/Button';
-import { StatusBadge, isProcessing } from '../components/StatusBadge';
+import { Plus, ArrowRight, Video, Link2, FolderOpen, CheckCircle2, Clock3, FileText, UploadCloud, History, Sparkles } from 'lucide-react';
+import { StatusBadge } from '../components/StatusBadge';
 import { projectService } from '../services/projectService';
 import { useAuth } from '../context/AuthContext';
 import { Project } from '../types';
 
-const MONTHLY_LIMIT = 3;
-
+const activeStatuses = ['uploading','uploaded','queued','processing','transcribing','analyzing','generating'];
+const completeStatuses = ['completed','complete','transcribed'];
 export const DashboardPage: React.FC = () => {
   const { user, profile } = useAuth();
-  const [projects, setProjects] = useState<Project[]>(() => projectService.getProjects());
-
-  const loadProjects = async () => {
-    if (!user) return;
-    try {
-      const data = await projectService.fetchProjects(user.id);
-      setProjects(data);
-    } catch (e) {
-      console.error('Failed to load dashboard projects:', e);
-    }
-  };
-
-  useEffect(() => {
-    loadProjects();
-
-    const handleUpdate = () => {
-      setProjects(projectService.getProjects());
-    };
-    window.addEventListener('vireo_project_updated', handleUpdate);
-
-    return () => {
-      window.removeEventListener('vireo_project_updated', handleUpdate);
-    };
-  }, [user?.id]);
-
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  const used = projects.filter((p) => new Date(p.created_at) >= monthStart).length;
-  const processing = projects.filter((p) => isProcessing(p.status || p.video_status || '')).length;
-  const percentUsed = Math.min(100, Math.round((used / MONTHLY_LIMIT) * 100));
-
-  const welcomeText = profile?.full_name
-    ? `Welcome back, ${profile.full_name}. `
-    : user?.email
-    ? `Welcome back (${user.email}). `
-    : '';
-
-  return (
-    <div className="space-y-8 pt-4">
-      {/* Studio Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight md:text-4xl font-display text-foreground">
-            Your studio
-          </h1>
-          <p className="mt-1 text-sm sm:text-base text-muted-foreground">
-            {welcomeText}One video in. Content everywhere out.
-          </p>
-        </div>
-        <Button variant="clay" size="lg" asChild>
-          <Link to="/projects/new" className="flex items-center gap-2">
-            <Plus className="size-4" />
-            <span>Create new project</span>
-          </Link>
-        </Button>
-      </div>
-
-      {/* Stats Overview Grid */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard
-          label="Videos this month"
-          value={`${used} / ${MONTHLY_LIMIT}`}
-          sub="Free plan tier"
-          bar={percentUsed}
-        />
-        <StatCard
-          label="Processing now"
-          value={String(processing)}
-          sub={processing > 0 ? 'Analyzing clips…' : 'All caught up'}
-        />
-        <StatCard
-          label="Total projects"
-          value={String(projects.length)}
-          sub="All-time created"
-        />
-      </div>
-
-      {/* Recent Projects Section */}
-      <section className="card-soft p-5 md:p-7">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold font-display text-foreground">
-            Recent projects
-          </h2>
-          <Link
-            to="/history"
-            className="text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
-          >
-            <span>View all</span>
-            <ArrowRight className="size-3.5" />
-          </Link>
-        </div>
-
-        {projects.length === 0 ? (
-          <div className="rounded-2xl bg-cream/70 py-12 text-center border border-border">
-            <p className="text-3xl select-none">🎬</p>
-            <p className="mt-2 font-medium text-foreground">No projects yet</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Upload your first video to generate an omni-channel content kit.
-            </p>
-            <div className="mt-5">
-              <Button variant="clay" size="sm" asChild>
-                <Link to="/projects/new">New Project</Link>
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <ul className="divide-y divide-border">
-            {projects.slice(0, 5).map((p) => {
-              const isUrl = p.source_type === 'url';
-              const statusVal = p.video_status || p.status;
-
-              return (
-                <li key={p.id}>
-                  <Link
-                    to={`/projects/${p.id}`}
-                    className="flex items-center justify-between gap-3 py-4 hover:bg-cream/40 rounded-xl px-2.5 transition-colors group"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-foreground text-sm sm:text-base group-hover:text-clay transition-colors">
-                        {p.title}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
-                        <span>
-                          {new Date(p.created_at).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
-                        </span>
-                        <span>•</span>
-                        <span className="inline-flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                          {isUrl ? (
-                            <>
-                              <Link2 className="size-3" />
-                              <span>URL</span>
-                            </>
-                          ) : (
-                            <>
-                              <Video className="size-3" />
-                              <span>Upload</span>
-                            </>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="shrink-0 flex items-center gap-2">
-                      <StatusBadge status={statusVal} />
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-    </div>
-  );
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const load = async () => { if (!user) return; try { setError(''); setProjects(await projectService.fetchProjects(user.id)); } catch { setError('Unable to load projects.'); } finally { setLoading(false); } };
+  useEffect(() => { load(); const update = () => setProjects(projectService.getProjects()); window.addEventListener('vireo_project_updated', update); return () => window.removeEventListener('vireo_project_updated', update); }, [user?.id]);
+  const getStatus = (p:Project) => p.video_status || p.status;
+  const complete = projects.filter(p=>completeStatuses.includes(getStatus(p)));
+  const queue = projects.filter(p=>activeStatuses.includes(getStatus(p)));
+  const name = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Creator';
+  const stats = [{label:'Total Projects',value:projects.length,icon:FolderOpen,tone:'green'},{label:'Completed',value:complete.length,icon:CheckCircle2,tone:'green'},{label:'In Progress',value:queue.length,icon:Clock3,tone:'orange'},{label:'Transcripts Ready',value:projects.filter(p=>completeStatuses.includes(getStatus(p))).length,icon:FileText,tone:'purple'}];
+  return <div className="space-y-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-vireo-green">Creator workspace</p><h1 className="mt-1 font-display text-4xl font-semibold tracking-tight">Welcome back, {name.split(' ')[0]}.</h1><p className="mt-2 text-muted-foreground">Turn one video into content for every channel.</p></div><Link to="/projects/new" className="inline-flex items-center gap-2 rounded-xl bg-clay px-5 py-3 text-sm font-semibold text-white shadow-clay hover:bg-[#c93f1e]"><Plus className="size-4"/> New Video Project</Link></div>
+    {error && <div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">{error} <button onClick={load} className="ml-2 font-semibold underline">Retry</button></div>}
+    {loading ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{stats.map(s=><div key={s.label} className="h-28 animate-pulse rounded-2xl bg-white" />)}</div> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{stats.map(s=><div key={s.label} className="flex items-center gap-4 rounded-2xl border border-border bg-white p-5 shadow-soft"><span className={`grid size-12 place-items-center rounded-xl ${s.tone==='orange'?'bg-[#fff0e9] text-clay':s.tone==='purple'?'bg-[#f1eafd] text-[#7848b2]':'bg-[#e8f3e9] text-vireo-green'}`}><s.icon className="size-6"/></span><div><p className="text-sm text-muted-foreground">{s.label}</p><p className="mt-1 text-2xl font-bold">{s.value}</p></div></div>)}</div>}
+    <div className="grid gap-5 xl:grid-cols-[1.55fr_1fr]"><section className="rounded-2xl border border-border bg-white p-5 shadow-soft"><div className="flex items-center justify-between"><div><h2 className="text-lg font-semibold">Quick Actions</h2><p className="text-sm text-muted-foreground">Pick up where your content starts.</p></div></div><div className="mt-5 grid gap-3 sm:grid-cols-3"><Link to="/projects/new" className="rounded-xl border border-[#f6e2d8] bg-[#fff8f5] p-5 hover:border-clay"><span className="grid size-10 place-items-center rounded-full bg-[#ffebe1] text-clay"><UploadCloud className="size-5"/></span><h3 className="mt-5 text-sm font-semibold">Upload a video</h3><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Start a fresh content kit</p></Link><Link to="/history" className="rounded-xl border border-[#e3ece5] bg-[#f8fcf8] p-5 hover:border-vireo-green"><span className="grid size-10 place-items-center rounded-full bg-[#e6f2e9] text-vireo-green"><History className="size-5"/></span><h3 className="mt-5 text-sm font-semibold">View history</h3><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Revisit previous projects</p></Link>{complete[0]?<Link to={`/projects/${complete[0].id}`} className="rounded-xl border border-[#ebe4f4] bg-[#fcf9ff] p-5 hover:border-[#7848b2]"><span className="grid size-10 place-items-center rounded-full bg-[#f1eafd] text-[#7848b2]"><FileText className="size-5"/></span><h3 className="mt-5 text-sm font-semibold">Latest transcript</h3><p className="mt-1 truncate text-xs text-muted-foreground">{complete[0].title}</p></Link>:<div className="rounded-xl border border-border bg-cream/50 p-5"><span className="grid size-10 place-items-center rounded-full bg-white text-muted-foreground"><FileText className="size-5"/></span><h3 className="mt-5 text-sm font-semibold">Latest transcript</h3><p className="mt-1 text-xs text-muted-foreground">Available after processing</p></div>}</div></section><section className="rounded-2xl border border-border bg-white p-5 shadow-soft"><div className="flex items-center justify-between"><h2 className="text-lg font-semibold">Processing Queue</h2><Link to="/history" className="text-sm font-semibold text-vireo-green">View all <ArrowRight className="inline size-4"/></Link></div>{queue.length?<div className="mt-4 space-y-2">{queue.slice(0,4).map(p=><Link key={p.id} to={`/projects/${p.id}`} className="flex items-center justify-between gap-2 rounded-xl bg-cream/70 p-3 hover:bg-[#e9f2eb]"><span className="min-w-0 truncate text-sm font-medium">{p.title}</span><StatusBadge status={getStatus(p)}/></Link>)}</div>:<div className="mt-5 rounded-xl border border-dashed border-border p-8 text-center"><Sparkles className="mx-auto size-6 text-vireo-green"/><p className="mt-2 text-sm font-semibold">All caught up</p><p className="mt-1 text-xs text-muted-foreground">No videos are processing right now.</p></div>}</section></div>
+    <section className="rounded-2xl border border-border bg-white p-5 shadow-soft"><div className="flex items-center justify-between"><h2 className="text-lg font-semibold">Recent Projects</h2><Link to="/history" className="text-sm font-semibold text-vireo-green">View all <ArrowRight className="inline size-4"/></Link></div>{projects.length?<div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{projects.slice(0,4).map(p=><Link to={`/projects/${p.id}`} key={p.id} className="rounded-xl border border-border p-4 transition-colors hover:border-vireo-green"><span className="grid h-28 place-items-center rounded-lg bg-[#eff4ef] text-vireo-green">{p.source_type==='url'?<Link2 className="size-8"/>:<Video className="size-8"/>}</span><h3 className="mt-3 truncate text-sm font-semibold">{p.title}</h3><p className="mt-1 text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString()} · {p.source_type==='url'?'URL':'Upload'}</p><div className="mt-3"><StatusBadge status={getStatus(p)}/></div></Link>)}</div>:<div className="mt-5 rounded-xl border border-dashed border-border py-14 text-center"><Video className="mx-auto size-8 text-vireo-green"/><h3 className="mt-3 font-semibold">Your first project starts here</h3><p className="mt-1 text-sm text-muted-foreground">Upload a video to create a transcript and a content kit.</p><Link to="/projects/new" className="mt-5 inline-flex rounded-xl bg-clay px-5 py-2.5 text-sm font-semibold text-white">Upload Your First Video</Link></div>}</section>
+  </div>;
 };
-
-function StatCard({
-  label,
-  value,
-  sub,
-  bar,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  bar?: number;
-}) {
-  return (
-    <div className="card-soft p-5">
-      <p className="text-xs font-semibold uppercase tracking-[0.15em] text-clay">
-        {label}
-      </p>
-      <p className="mt-2 font-display text-3xl font-semibold text-foreground">
-        {value}
-      </p>
-      {bar !== undefined && (
-        <div className="mt-3 h-1.5 rounded-full bg-secondary overflow-hidden">
-          <div
-            className="h-full rounded-full bg-sage transition-all duration-300"
-            style={{ width: `${bar}%` }}
-          />
-        </div>
-      )}
-      <p className="mt-2 text-xs text-muted-foreground">{sub}</p>
-    </div>
-  );
-}

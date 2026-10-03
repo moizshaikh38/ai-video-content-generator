@@ -58,6 +58,7 @@ export const SettingsPage: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    let saved = true;
     setSaving(true);
     setSavedSuccess(false);
     setErrorMessage(null);
@@ -98,12 +99,15 @@ export const SettingsPage: React.FC = () => {
       } catch (err) {
         console.error('Failed to save to Supabase:', err);
         setErrorMessage('Failed to sync settings with database. Local changes were preserved.');
+        saved = false;
       }
     }
 
     setSaving(false);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+    if (saved) {
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    }
   };
 
   const handleResetPassword = async () => {
@@ -135,20 +139,20 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 pt-4">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight font-display text-foreground">
+        <h1 className="text-4xl font-semibold tracking-tight font-display text-foreground">
           Settings
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Configure your creator profile and AI content persona preferences.
+          Personalize your creator profile and content preferences.
         </p>
       </div>
 
-      <form onSubmit={handleSave} className="space-y-6">
+      <form onSubmit={handleSave} className="grid items-start gap-5 lg:grid-cols-2">
         {/* Profile Details */}
         <section className="card-soft space-y-4 p-5 md:p-7">
-          <h2 className="text-lg font-semibold font-display text-foreground">Profile</h2>
+          <div><h2 className="text-xl font-semibold font-display text-foreground">Profile Settings</h2><p className="text-sm text-muted-foreground">Manage how your account appears.</p></div>
           <Input
             label="Full Name"
             value={fullName}
@@ -157,7 +161,7 @@ export const SettingsPage: React.FC = () => {
           />
           <Input
             label="Email Address"
-            value={user?.email || 'alex@creatorstudio.co'}
+            value={user?.email || ''}
             disabled
             className="bg-secondary/40 text-muted-foreground cursor-not-allowed"
           />
@@ -165,9 +169,7 @@ export const SettingsPage: React.FC = () => {
 
         {/* Content Persona Preferences */}
         <section className="card-soft space-y-4 p-5 md:p-7">
-          <h2 className="text-lg font-semibold font-display text-foreground">
-            Content preferences
-          </h2>
+          <div><h2 className="text-xl font-semibold font-display text-foreground">Creator Profile</h2><p className="text-sm text-muted-foreground">Help Vireo shape content for your audience.</p></div>
           <Input
             label="Creator Niche"
             placeholder="e.g. Fitness, Tech breakdowns, SaaS & Startups"
@@ -183,8 +185,9 @@ export const SettingsPage: React.FC = () => {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-foreground">Language</label>
+              <label htmlFor="creator-language" className="block text-sm font-semibold text-foreground">Language</label>
               <select
+                id="creator-language"
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
                 className="flex h-10 w-full rounded-xl border border-input bg-card px-3.5 py-2 text-sm shadow-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -198,8 +201,9 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-foreground">Content Tone</label>
+              <label htmlFor="creator-tone" className="block text-sm font-semibold text-foreground">Content Tone</label>
               <select
+                id="creator-tone"
                 value={tone}
                 onChange={(e) => setTone(e.target.value)}
                 className="flex h-10 w-full rounded-xl border border-input bg-card px-3.5 py-2 text-sm shadow-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -215,19 +219,19 @@ export const SettingsPage: React.FC = () => {
         </section>
 
         {errorMessage && (
-          <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive font-medium text-center">
+          <div role="alert" className="rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive font-medium lg:col-span-2">
             {errorMessage}
           </div>
         )}
 
         {savedSuccess && (
-          <div className="rounded-xl bg-sage/15 border border-sage/30 p-3 text-xs text-sage font-medium text-center">
+          <div role="status" className="rounded-xl bg-sage/15 border border-sage/30 p-3 text-sm text-sage font-medium lg:col-span-2">
             Settings saved successfully!
           </div>
         )}
 
-        <Button type="submit" variant="sage" size="lg" className="w-full" disabled={saving}>
-          {saving ? 'Saving…' : 'Save Settings'}
+        <Button type="submit" variant="clay" size="lg" className="lg:col-span-2 lg:justify-self-end" disabled={saving}>
+          {saving ? 'Saving…' : 'Save Changes'}
         </Button>
       </form>
 

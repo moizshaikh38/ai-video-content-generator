@@ -1,18 +1,4 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Logo } from './Logo';
-
-export const Footer: React.FC = () => {
-  return (
-    <footer className="border-t border-border mt-20 bg-background/50">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-        <Logo to="/" />
-        <p className="text-center sm:text-left">
-          Vireo — one video, every platform. Made for creators who'd rather make things than post them.
-        </p>
-        <p className="text-center sm:text-right">
-          © {new Date().getFullYear()} Vireo Studio. All rights reserved.
-        </p>
-      </div>
-    </footer>
-  );
-};
+export const Footer: React.FC = () => <footer className="border-t border-border bg-white/70"><div className="mx-auto grid max-w-[1350px] gap-10 px-5 py-14 md:grid-cols-[1.6fr_1fr_1fr_1fr] lg:px-10"><div><Logo /><p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">Upload once. Repurpose everywhere. Make more of the videos you already create.</p></div><div><p className="text-sm font-semibold">Product</p><div className="mt-4 space-y-3 text-sm text-muted-foreground"><a className="block hover:text-forest" href="/#features">Features</a><a className="block hover:text-forest" href="/#platforms">Platforms</a><a className="block hover:text-forest" href="/#pricing">Plans</a></div></div><div><p className="text-sm font-semibold">Resources</p><div className="mt-4 space-y-3 text-sm text-muted-foreground"><a className="block hover:text-forest" href="/#how">How it works</a><a className="block hover:text-forest" href="/#faq">FAQ</a></div></div><div><p className="text-sm font-semibold">Account</p><div className="mt-4 space-y-3 text-sm text-muted-foreground"><Link className="block hover:text-forest" to="/login">Sign in</Link><Link className="block hover:text-forest" to="/signup">Create account</Link></div></div></div><div className="mx-auto max-w-[1350px] border-t border-border px-5 py-5 text-xs text-muted-foreground lg:px-10">© {new Date().getFullYear()} Vireo. All rights reserved.</div></footer>;

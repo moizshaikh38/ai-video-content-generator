@@ -8,7 +8,6 @@ import {
   Video,
   Link2,
   FileCheck2,
-  HardDrive,
   FileText,
   Calendar,
   Loader2,
@@ -19,12 +18,15 @@ import {
   Globe,
   ChevronDown,
   ChevronUp,
+  UploadCloud,
+  CircleCheck,
 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Textarea } from '../components/Textarea';
 import { StatusBadge, isProcessing } from '../components/StatusBadge';
 import { LoadingState } from '../components/LoadingState';
 import { projectService } from '../services/projectService';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { Project, ContentOutput, OutputPlatform, Transcript } from '../types';
 
 interface TabConfig {
@@ -88,6 +90,17 @@ export const ProjectDetailPage: React.FC = () => {
   const [generatingPlatform, setGeneratingPlatform] = useState<OutputPlatform | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setVideoPreviewUrl(null);
+    if (!isSupabaseConfigured || project?.source_type !== 'upload' || !project.source_url) return;
+    supabase.storage.from('videos').createSignedUrl(project.source_url, 3600).then(({ data }) => {
+      if (active) setVideoPreviewUrl(data?.signedUrl || null);
+    });
+    return () => { active = false; };
+  }, [project?.source_type, project?.source_url]);
 
   const handleGenerateContent = async (targetPlatform?: OutputPlatform) => {
     if (!id) return;
@@ -155,7 +168,7 @@ export const ProjectDetailPage: React.FC = () => {
   useEffect(() => {
     if (!id || !project) return;
     const currentStatus = project.video_status || project.status;
-    const active = isProcessing(currentStatus);
+    const active = isProcessing(currentStatus) && project.source_type !== 'url';
 
     if (!active) return;
 
@@ -211,18 +224,19 @@ export const ProjectDetailPage: React.FC = () => {
     <div className="space-y-6 pt-4">
       {/* Back Link */}
       <Link
-        to="/dashboard"
+        to="/history"
         className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="size-4" />
-        <span>Back to Studio</span>
+        <span>Back to Projects</span>
       </Link>
 
       {/* Project Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 card-soft p-5 md:p-6">
+      <div className="flex flex-col items-start gap-5 rounded-2xl bg-white p-5 shadow-soft border border-border sm:flex-row sm:items-center md:p-6">
+        <div className="grid aspect-video w-full shrink-0 place-items-center overflow-hidden rounded-xl bg-[#eaf3eb] text-vireo-green sm:w-48">{videoPreviewUrl?<video src={videoPreviewUrl} controls preload="metadata" aria-label={`Preview ${project.title}`} className="h-full w-full object-cover"/>:<Video className="size-9" />}</div>
         <div className="space-y-1.5 min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl font-display text-foreground truncate">
+            <h1 className="min-w-0 break-words text-2xl font-semibold tracking-tight md:text-3xl font-display text-foreground">
               {project.title}
             </h1>
             <StatusBadge status={statusVal} />
@@ -257,10 +271,17 @@ export const ProjectDetailPage: React.FC = () => {
           </div>
         </div>
 
-        <Button variant="outline" size="sm" asChild>
+        <Button variant="outline" size="sm" className="sm:ml-auto" asChild>
           <Link to="/projects/new">New Project</Link>
         </Button>
       </div>
+
+      {isUrl && !['transcribed','completed','complete'].includes(statusVal) && (
+        <div className="rounded-2xl border border-[#f2dacd] bg-[#fff6f0] p-5 text-sm text-[#813d22]">
+          Video URL processing is not available for this project. Upload the video file to create a transcript and content kit.
+          <Link to="/projects/new" className="ml-2 font-semibold underline">Upload a video</Link>
+        </div>
+      )}
 
       {/* Failed State */}
       {statusVal === 'failed' ? (
@@ -301,7 +322,15 @@ export const ProjectDetailPage: React.FC = () => {
         /* Video Uploaded / Processing / Transcribed State */
         <div className="space-y-6">
           {/* Main Video / Processing Card */}
-          <div className="card-soft p-6 md:p-8 space-y-6 bg-card border-border/80">
+          {!['transcribed','completed','complete'].includes(statusVal) && <div className="card-soft p-6 md:p-8 space-y-6 bg-card border-border/80">
+            <div><h2 className="font-display text-2xl font-semibold">Processing Your Video</h2><p className="mt-1 text-sm text-muted-foreground">Your video moves through each stage automatically. You can return to this page later.</p></div>
+            <div className="grid grid-cols-2 gap-3 border-b border-border pb-6 sm:grid-cols-5">{[
+              { key:'uploaded', label:'Uploaded', icon:UploadCloud },
+              { key:'processing', label:'Processing', icon:Video },
+              { key:'transcribing', label:'Transcribing', icon:Volume2 },
+              { key:'generating', label:'Generating', icon:Sparkles },
+              { key:'complete', label:'Complete', icon:CircleCheck },
+            ].map((step,index)=>{const current=['uploading','uploaded','queued','processing','transcribing','analyzing','generating','transcribed','complete','completed'].indexOf(statusVal);const stage=[1,3,4,6,8][index];const done=current>stage;const active=current===stage || (index===1&&statusVal==='queued') || (index===3&&statusVal==='analyzing');return <div key={step.key} className="text-center"><span className={`mx-auto grid size-10 place-items-center rounded-full border ${done?'border-vireo-green bg-vireo-green text-white':active?'border-clay bg-clay text-white':'border-border bg-[#f7f8f7] text-muted-foreground'}`}><step.icon className="size-5"/></span><p className="mt-2 text-sm font-semibold">{step.label}</p><p className="text-xs text-muted-foreground">{done?'Complete':active?'In progress':'Pending'}</p></div>})}</div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border/60">
               <div className="flex items-center gap-3.5">
                 <div
@@ -316,7 +345,7 @@ export const ProjectDetailPage: React.FC = () => {
                   {isProcessing(statusVal) ? (
                     <Loader2 className="size-6 animate-spin" />
                   ) : statusVal === 'transcribed' ? (
-                    <Sparkles className="size-6 text-terracotta" />
+                    <Sparkles className="size-6 text-clay" />
                   ) : (
                     <FileCheck2 className="size-6" />
                   )}
@@ -407,17 +436,6 @@ export const ProjectDetailPage: React.FC = () => {
                 </div>
               )}
 
-              {!isUrl && project.source_url && (
-                <div className="rounded-2xl bg-cream/60 p-4 border border-border/60 space-y-1 sm:col-span-2 md:col-span-3">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    <HardDrive className="size-3 text-muted-foreground" />
-                    Storage Path
-                  </span>
-                  <p className="text-xs font-mono text-muted-foreground break-all select-all">
-                    videos/{project.source_url}
-                  </p>
-                </div>
-              )}
 
               {isUrl && project.source_url && (
                 <div className="rounded-2xl bg-cream/60 p-4 border border-border/60 space-y-1 sm:col-span-2 md:col-span-3">
@@ -444,7 +462,28 @@ export const ProjectDetailPage: React.FC = () => {
                 </p>
               </div>
             )}
-          </div>
+          </div>}
+
+          {!['transcribed','completed','complete'].includes(statusVal) && (
+            <div className="grid gap-5 lg:grid-cols-2">
+              <section className="card-soft p-6">
+                <h2 className="font-display text-xl font-semibold">Live Activity</h2>
+                <div className="mt-5 space-y-5">
+                  {[
+                    { label: 'Video uploaded', ready: !['uploading'].includes(statusVal) },
+                    { label: 'Video processing', ready: ['processing','transcribing','analyzing','generating'].includes(statusVal) },
+                    { label: 'Audio transcription', ready: ['transcribing','analyzing','generating'].includes(statusVal) },
+                    { label: 'Content generation', ready: ['generating'].includes(statusVal) },
+                  ].map((event) => <div key={event.label} className="flex items-center gap-3"><span className={`grid size-7 place-items-center rounded-full ${event.ready?'bg-[#e3f1e6] text-vireo-green':'bg-[#f2f3f3] text-muted-foreground'}`}>{event.ready?<Check className="size-4"/>:<Clock className="size-4"/>}</span><span className="text-sm font-medium">{event.label}</span><span className="ml-auto text-xs text-muted-foreground">{event.ready?'Started':'Pending'}</span></div>)}
+                </div>
+              </section>
+              <section className="card-soft p-6">
+                <h2 className="font-display text-xl font-semibold">Transcript & Content</h2>
+                <div className="mt-5 space-y-3 rounded-xl border border-border bg-[#fafbf9] p-5"><div className="h-3 w-4/5 animate-pulse rounded bg-[#e9eeea]"/><div className="h-3 w-full animate-pulse rounded bg-[#e9eeea]"/><div className="h-3 w-2/3 animate-pulse rounded bg-[#e9eeea]"/></div>
+                <p className="mt-4 text-sm text-muted-foreground">Transcript and generated drafts will appear when each step is ready.</p>
+              </section>
+            </div>
+          )}
 
           {/* Transcript Display Section */}
           {transcript && (
@@ -457,7 +496,7 @@ export const ProjectDetailPage: React.FC = () => {
               <div>
                 <h3 className="text-lg font-semibold font-display text-foreground flex items-center gap-2">
                   <Sparkles className="size-5 text-clay" />
-                  <span>AI Content Generation Engine</span>
+                  <span>Platform Content</span>
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Repurpose video transcript into platform-native content kits for YouTube, Instagram, Shorts, LinkedIn, and X.
@@ -507,7 +546,7 @@ export const ProjectDetailPage: React.FC = () => {
             )}
 
             {/* If transcript is not available yet, honestly communicate waiting state */}
-            {!transcript && (
+            {!transcript && !hasOutputs && (
               <div className="card-soft p-6 sm:p-8 text-center space-y-3 border-dashed border-border/80 bg-cream/30">
                 <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center">
                   <FileText className="size-5" />
@@ -587,7 +626,7 @@ function TranscriptSection({ transcript }: { transcript: Transcript }) {
     <div className="card-soft p-6 md:p-8 space-y-6 bg-card border-border/80">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/60">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-terracotta/15 text-terracotta flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-clay/15 text-clay flex items-center justify-center shrink-0">
             <Volume2 className="size-5" />
           </div>
           <div>
@@ -614,6 +653,7 @@ function TranscriptSection({ transcript }: { transcript: Transcript }) {
                   <span>{transcript.segments.length} segments</span>
                 </>
               )}
+              <span>•</span><span>{transcript.transcript_text.trim().split(/\s+/).filter(Boolean).length} words</span>
             </div>
           </div>
         </div>
@@ -741,15 +781,19 @@ function Workspace({
     <div key={projectId} className="space-y-5">
       {/* Platform Navigation Tabs and Platform Regenerate Action */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-2">
-        <div className="flex gap-1.5 overflow-x-auto">
+        <div role="tablist" aria-label="Content platforms" className="flex max-w-full gap-1.5 overflow-x-auto">
           {TABS.map((tab) => {
             const isActive = tab.key === activeTab;
             const count = outputs.filter((o) => o.platform === tab.key).length;
             return (
               <button
                 key={tab.key}
+                role="tab"
+                aria-selected={isActive}
+                id={`tab-${tab.key}`}
+                aria-controls={`panel-${tab.key}`}
                 onClick={() => setActiveTab(tab.key)}
-                className={`rounded-full px-4 py-1.5 text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                className={`rounded-xl px-4 py-2.5 text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
                   isActive
                     ? 'bg-clay text-clay-foreground shadow-clay'
                     : 'text-muted-foreground hover:text-foreground hover:bg-cream/60'
@@ -795,7 +839,8 @@ function Workspace({
       </div>
 
       {/* Tab Group Content */}
-      <div className="space-y-6">
+      <div role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={`tab-${activeTab}`} className="space-y-6">
+        {tabOutputs.length===0 && <div className="rounded-2xl border border-dashed border-border bg-white p-8 text-center"><Sparkles className="mx-auto size-6 text-clay"/><p className="mt-3 font-semibold">No {tabConfig.label} content yet</p><p className="mt-1 text-sm text-muted-foreground">Generate this platform’s content to see drafts here.</p></div>}
         {tabConfig.groups.map((group) => {
           const items = tabOutputs.filter((o) => o.content_type === group.type);
           if (items.length === 0) return null;

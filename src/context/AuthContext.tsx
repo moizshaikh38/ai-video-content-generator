@@ -155,6 +155,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initAuth();
 
+    // The local development session has no Supabase auth events. A placeholder
+    // client's INITIAL_SESSION event would otherwise clear it after refresh.
+    if (!isSupabaseConfigured) {
+      return () => { mounted = false; };
+    }
+
     // Setup real-time auth listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       if (!mounted) return;

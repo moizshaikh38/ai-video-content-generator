@@ -343,9 +343,11 @@ class ProjectService {
         const { error } = await supabase.from('projects').delete().eq('id', id);
         if (error) {
           console.error('Error deleting project from Supabase:', error.message);
+          throw error;
         }
       } catch (err) {
         console.error('Unexpected error deleting project from Supabase:', err);
+        throw err;
       }
     }
 

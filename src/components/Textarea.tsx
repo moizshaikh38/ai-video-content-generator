@@ -13,7 +13,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className="w-full space-y-1.5">
         {label && (
-          <label htmlFor={inputId} className="block text-xs font-medium text-foreground">
+          <label htmlFor={inputId} className="block text-sm font-semibold text-foreground">
             {label}
           </label>
         )}

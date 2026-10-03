@@ -1,346 +1,46 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Check, ArrowRight } from 'lucide-react';
-import { Button } from '../components/Button';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, Check, UploadCloud, AudioLines, FileText, Sparkles, Copy, Play as Youtube, Camera as Instagram, BriefcaseBusiness as Linkedin, Play, Clock3, Hash, MessageSquare, Settings2, History, Wand2 } from 'lucide-react';
+import { Logo } from '../components/Logo';
+import { plans, examples } from '../data/marketing';
 
 const steps = [
-  { num: '01', title: 'Upload', desc: 'Drop a clip or paste a supported video URL.' },
-  { num: '02', title: 'AI Analysis', desc: 'Transcribes audio and extracts topics, core insights, and key moments.' },
-  { num: '03', title: 'Generate', desc: 'Drafts native content for YouTube, Instagram, Shorts, LinkedIn, and X.' },
-  { num: '04', title: 'Edit', desc: 'Fine-tune and customize any copy directly inline in your workspace.' },
-  { num: '05', title: 'Copy', desc: 'One-click copy to clipboard, formatted and ready for publishing.' },
+  { title: 'Upload your video', description: 'Add a supported video file up to 50 MB.', icon: UploadCloud },
+  { title: 'Extract audio', description: 'Vireo prepares the audio for transcription.', icon: AudioLines },
+  { title: 'AI transcription', description: 'Get a readable transcript with timing where available.', icon: FileText },
+  { title: 'Generate content', description: 'Create platform-specific titles, hooks, captions and posts.', icon: Sparkles },
+  { title: 'Review and publish', description: 'Edit, copy and publish from your own channels.', icon: Copy },
 ];
-
-const plans = [
-  {
-    name: 'Free',
-    price: '$0',
-    desc: '3 videos a month',
-    perks: ['YouTube, IG & Shorts', 'LinkedIn & X posts', 'Inline editor & one-tap copy'],
-    featured: false,
-  },
-  {
-    name: 'Creator',
-    price: '$19',
-    desc: '30 videos a month',
-    perks: [
-      'Everything in Free',
-      'Unlimited AI regenerations',
-      'Custom creator niche & voice tone',
-      'Priority video transcription',
-    ],
-    featured: true,
-  },
-  {
-    name: 'Studio',
-    price: '$49',
-    desc: 'Unlimited videos',
-    perks: [
-      'Everything in Creator',
-      'Unlimited video processing',
-      'Multi-creator profiles',
-      'Export to social schedulers',
-    ],
-    featured: false,
-  },
+const features = [
+  { title: 'AI transcription', description: 'Turn spoken words into a useful written starting point.', icon: AudioLines },
+  { title: 'Timestamped transcript', description: 'Find key passages and revisit your source quickly.', icon: Clock3 },
+  { title: 'Platform-ready drafts', description: 'Make YouTube, Instagram, LinkedIn and X copy.', icon: MessageSquare },
+  { title: 'Hooks and hashtags', description: 'Find strong openings and relevant tags.', icon: Hash },
+  { title: 'Creator preferences', description: 'Set your niche, audience, language and tone.', icon: Settings2 },
+  { title: 'History and editing', description: 'Reopen your projects and refine generated content.', icon: History },
 ];
+const faqs = [
+  { q: 'What is Vireo?', a: 'Vireo turns an existing video into a transcript and drafts content for several social platforms.' },
+  { q: 'Which video formats are supported?', a: 'The upload form accepts MP4, MOV, WEBM, AVI and MKV files. Video URL processing is planned.' },
+  { q: 'What is the upload limit?', a: 'Uploaded files can be up to 50 MB.' },
+  { q: 'How does transcription work?', a: 'Vireo extracts audio from your video and sends it through an AI speech-to-text service. Processing time varies by file.' },
+  { q: 'Which platforms does Vireo create content for?', a: 'Vireo can draft content for YouTube, Instagram, Shorts/Reels, LinkedIn and X.' },
+  { q: 'Is my uploaded video private?', a: 'Uploads are stored in a private video bucket and project access is tied to your account.' },
+];
+const cta = 'inline-flex items-center justify-center gap-2 rounded-xl bg-clay px-6 py-3.5 font-semibold text-white shadow-clay transition-colors hover:bg-[#c93f1e]';
+export const LandingPage: React.FC = () => <div className="overflow-hidden">
+  <section className="relative mx-auto grid max-w-[1350px] items-center gap-12 px-5 pb-20 pt-16 lg:grid-cols-[.9fr_1.1fr] lg:px-10 lg:pt-24">
+    <div className="relative z-10"><span className="inline-flex rounded-full bg-[#fff0e9] px-4 py-2 text-xs font-semibold uppercase tracking-[.14em] text-clay">AI content repurposing for creators</span><h1 className="mt-5 max-w-[670px] font-display text-[clamp(3.2rem,5.5vw,5.7rem)] font-semibold leading-[1.05] tracking-[-.055em]">Turn one video into <span className="text-clay">scroll-stopping content.</span></h1><p className="mt-6 max-w-[580px] text-lg leading-relaxed text-muted-foreground">Upload a video and let Vireo transform it into a transcript, titles, hooks, captions, posts and platform-ready ideas.</p><div className="mt-8 flex flex-wrap gap-3"><Link className={cta} to="/signup">Generate Your First Content Kit <ArrowRight className="size-4" /></Link><a href="#how" className="inline-flex items-center gap-2 rounded-xl border border-[#e9dcd4] bg-white px-6 py-3.5 font-semibold text-forest hover:bg-cream"><Play className="size-4" /> See How It Works</a></div><p className="mt-5 text-sm text-muted-foreground">One upload. More ways to share what you made.</p></div>
+    <div className="relative"><div className="absolute -inset-10 rounded-full bg-[#fff0e6] blur-[70px]" /><ProductPreview /></div>
+  </section>
+  <section className="border-y border-border bg-white/65 py-8"><div className="mx-auto max-w-[1350px] px-5 text-center lg:px-10"><p className="text-xs font-semibold uppercase tracking-[.2em] text-muted-foreground">Create content for every major platform</p><div className="mt-5 flex flex-wrap items-center justify-center gap-x-12 gap-y-4 font-semibold text-[#6a747a]"><span>YouTube</span><span>Instagram</span><span>Shorts / Reels</span><span>LinkedIn</span><span>X</span></div></div></section>
+  <section id="product" className="mx-auto grid max-w-[1350px] gap-5 px-5 py-24 md:grid-cols-2 lg:px-10"><div className="rounded-3xl bg-[#fff4ef] p-8 md:p-12"><p className="text-xs font-bold uppercase tracking-[.2em] text-clay">The old way</p><h2 className="mt-3 max-w-md font-display text-3xl font-semibold">Repurposing video manually takes time.</h2><ul className="mt-7 space-y-4 text-[#43505a]">{['Rewatching to find useful moments','Writing every platform post from scratch','Repeating the same work after each upload'].map(x=><li key={x} className="flex gap-3"><span className="grid size-6 shrink-0 place-items-center rounded-full bg-[#f8dbd1] text-clay">×</span>{x}</li>)}</ul></div><div className="rounded-3xl bg-[#eef5ee] p-8 md:p-12"><p className="text-xs font-bold uppercase tracking-[.2em] text-vireo-green">The Vireo way</p><h2 className="mt-3 max-w-md font-display text-3xl font-semibold text-forest">One source, a full content kit.</h2><ul className="mt-7 space-y-4 text-[#43505a]">{['Transcribe spoken content automatically','Surface useful moments and hooks','Create drafts for each platform'].map(x=><li key={x} className="flex gap-3"><span className="grid size-6 shrink-0 place-items-center rounded-full bg-[#d7e9db] text-forest"><Check className="size-4" /></span>{x}</li>)}</ul></div></section>
+  <section id="how" className="mx-auto max-w-[1350px] px-5 pb-24 text-center lg:px-10"><span className="text-xs font-bold uppercase tracking-[.2em] text-clay">How it works</span><h2 className="mt-3 font-display text-4xl font-semibold">From upload to everywhere.</h2><p className="mt-2 text-muted-foreground">Five straightforward steps from video to publishable drafts.</p><div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">{steps.map((s,i)=><div key={s.title} className="relative rounded-2xl border border-border bg-white p-6 text-left shadow-soft"><span className="absolute right-5 top-5 text-xs font-bold text-clay">0{i+1}</span><span className="grid size-12 place-items-center rounded-full bg-[#fff0e9] text-clay"><s.icon className="size-5" /></span><h3 className="mt-5 text-base font-semibold">{s.title}</h3><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.description}</p></div>)}</div></section>
+  <section id="features" className="bg-white/65 py-24"><div className="mx-auto max-w-[1350px] px-5 lg:px-10"><div className="text-center"><span className="text-xs font-bold uppercase tracking-[.2em] text-clay">Features</span><h2 className="mt-3 font-display text-4xl font-semibold">The essentials for modern creators.</h2></div><div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{features.map(f=><div key={f.title} className="rounded-2xl border border-border bg-white p-6 shadow-soft"><span className="grid size-11 place-items-center rounded-xl bg-[#fff0e9] text-clay"><f.icon className="size-5" /></span><h3 className="mt-5 text-lg font-semibold">{f.title}</h3><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.description}</p></div>)}</div></div></section>
+  <section id="platforms" className="mx-auto max-w-[1350px] px-5 py-24 lg:px-10"><div className="text-center"><span className="text-xs font-bold uppercase tracking-[.2em] text-clay">Platform outputs</span><h2 className="mt-3 font-display text-4xl font-semibold">A better starting point for every channel.</h2><p className="mt-2 text-sm text-muted-foreground">Illustrative examples of the drafts Vireo can create.</p></div><div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-5">{examples.map((e,i)=><div key={e.platform} className="overflow-hidden rounded-2xl border border-border bg-white shadow-soft"><div className={`h-28 ${['bg-[#f6e1d6]','bg-[#f8e4e9]','bg-[#e9f1e9]','bg-[#e2eff5]','bg-[#e9e9e9]'][i]} p-5`}><span className="grid size-11 place-items-center rounded-xl bg-white/80 text-forest">{[<Youtube />,<Instagram />,<Play />,<Linkedin />,<span className="text-xl font-bold">𝕏</span>][i]}</span></div><div className="p-5"><h3 className="font-semibold">{e.platform}</h3><p className="mt-1 text-xs text-muted-foreground">{e.type}</p><p className="mt-4 text-sm font-medium leading-relaxed">“{e.sample}”</p></div></div>)}</div></section>
+  <section id="pricing" className="bg-white/65 py-24"><div className="mx-auto max-w-[1150px] px-5"><div className="text-center"><span className="text-xs font-bold uppercase tracking-[.2em] text-clay">Plans</span><h2 className="mt-3 font-display text-4xl font-semibold">Start with the tools you need.</h2><p className="mt-2 text-sm text-muted-foreground">Paid plans are planned. Billing is not available yet.</p></div><div className="mt-10 grid gap-5 md:grid-cols-3">{plans.map(p=><div key={p.name} className={`flex flex-col rounded-2xl border bg-white p-7 shadow-soft ${p.name==='Pro'?'border-clay':'border-border'}`}><div className="flex justify-between"><h3 className="font-display text-xl font-semibold">{p.name}</h3>{p.name==='Pro'&&<span className="rounded-full bg-[#fff0e9] px-2 py-1 text-xs text-clay">Planned</span>}</div><p className="mt-5 text-3xl font-semibold">{p.price}</p><p className="mt-3 min-h-[48px] text-sm text-muted-foreground">{p.description}</p><ul className="mt-6 flex-1 space-y-3">{p.features.map(f=><li key={f} className="flex gap-2 text-sm"><Check className="size-4 shrink-0 text-vireo-green" />{f}</li>)}</ul>{p.available?<Link to="/signup" className={`${cta} mt-8 text-sm`}>Get started <ArrowRight className="size-4" /></Link>:<span className="mt-8 rounded-xl border border-border px-6 py-3.5 text-center text-sm font-semibold text-muted-foreground">Coming soon</span>}</div>)}</div></div></section>
+  <section id="faq" className="mx-auto grid max-w-[1150px] gap-10 px-5 py-24 lg:grid-cols-[.7fr_1.3fr]"><div><span className="text-xs font-bold uppercase tracking-[.2em] text-clay">Frequently asked questions</span><h2 className="mt-3 font-display text-4xl font-semibold">Good to know.</h2><p className="mt-4 text-muted-foreground">The practical details before your first upload.</p></div><div className="space-y-3">{faqs.map(f=><details key={f.q} className="group rounded-xl border border-border bg-white p-5"><summary className="cursor-pointer list-none pr-6 font-semibold marker:hidden">{f.q}<span className="float-right text-clay group-open:rotate-45">+</span></summary><p className="mt-3 text-sm leading-relaxed text-muted-foreground">{f.a}</p></details>)}</div></section>
+  <section className="mx-auto max-w-[1350px] px-5 pb-20 lg:px-10"><div className="relative overflow-hidden rounded-[28px] bg-forest px-8 py-14 text-white md:px-16"><div className="absolute -right-14 -top-24 size-80 rounded-full border-[50px] border-white/5" /><div className="relative"><Wand2 className="size-7 text-[#aed19b]" /><h2 className="mt-4 max-w-xl font-display text-4xl font-semibold">Turn one video into your next week of content.</h2><p className="mt-3 max-w-lg text-[#d1e0d7]">Bring the video. Vireo helps you shape everything that comes after.</p><Link to="/signup" className={`${cta} mt-7`}>Start Creating <ArrowRight className="size-4" /></Link></div></div></section>
+</div>;
 
-export const LandingPage: React.FC = () => {
-  const [quickUrl, setQuickUrl] = useState('');
-  const navigate = useNavigate();
-
-  const handleQuickStart = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (quickUrl.trim()) {
-      navigate(`/projects/new?url=${encodeURIComponent(quickUrl.trim())}`);
-    } else {
-      navigate('/projects/new');
-    }
-  };
-
-  return (
-    <div className="min-h-screen">
-      {/* Hero Header */}
-      <header className="mx-auto max-w-6xl px-4 sm:px-6 pb-10 pt-12 text-center md:pt-16">
-        <span className="inline-block rounded-full bg-sage/15 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-sage">
-          One upload, every platform
-        </span>
-        <h1 className="mx-auto mt-6 max-w-4xl text-4xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-5xl md:text-7xl font-display">
-          Turn One Video Into Content Everywhere
-        </h1>
-        <p className="mx-auto mt-6 max-w-xl text-base sm:text-lg leading-relaxed text-muted-foreground">
-          Upload a video or paste a URL. Our AI transcribes, analyzes, and crafts platform-native titles, captions, hooks, and posts in seconds.
-        </p>
-      </header>
-
-      {/* Interactive Quick-Start Input Bar */}
-      <section className="mx-auto max-w-3xl px-4 sm:px-6">
-        <form
-          onSubmit={handleQuickStart}
-          className="flex flex-col items-stretch gap-2 rounded-[2rem] bg-card p-2.5 sm:p-3 shadow-lift border border-border sm:flex-row"
-        >
-          <div className="flex flex-1 items-center gap-3 rounded-2xl bg-cream/80 px-4 py-3 text-muted-foreground border border-border/50">
-            <span className="text-2xl select-none">🎬</span>
-            <input
-              type="text"
-              placeholder="Paste YouTube/video URL or click to upload clip…"
-              value={quickUrl}
-              onChange={(e) => setQuickUrl(e.target.value)}
-              className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-            />
-          </div>
-          <Button type="submit" variant="clay" size="lg" className="shrink-0">
-            Get Started
-          </Button>
-        </form>
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          MP4, MOV, YouTube, or web video links · No credit card required
-        </p>
-      </section>
-
-      {/* Content Kit Preview Mockup */}
-      <section className="mx-auto mt-16 max-w-6xl px-4 sm:px-6">
-        <div className="rounded-[2.5rem] bg-card p-6 shadow-soft border border-border md:p-8">
-          <div className="mb-6 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="size-2.5 animate-pulse rounded-full bg-sage" />
-              <span className="font-display text-lg font-semibold text-foreground">Your content kit</span>
-            </div>
-            <span className="text-xs uppercase tracking-widest text-muted-foreground font-mono">
-              Live Example
-            </span>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <SampleCard label="YouTube Titles & Chapters" meta="SEO Optimized">
-              <div className="space-y-2 font-medium text-foreground">
-                <p>• How I Built a $1M SaaS in 18 Months (No Investors)</p>
-                <p>• The Bootstrapping Playbook: Zero to 7 Figures</p>
-                <p>• Why We Rejected VC Money and Grew Faster</p>
-              </div>
-              <div className="mt-3 pt-3 border-t border-border/60 text-xs text-muted-foreground font-mono">
-                0:00 Intro • 2:15 Validation • 5:40 First 10 Customers • 9:22 PLG
-              </div>
-            </SampleCard>
-
-            <SampleCard label="Instagram Caption & Hooks" meta="Ready to post">
-              <p className="text-xs font-semibold text-clay mb-1.5">Hook Option 1:</p>
-              <p className="text-sm font-medium mb-2">
-                "Stop looking for investors. Here's why bootstrapping is your unfair advantage:"
-              </p>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Bootstrapping taught me one brutal truth: when you have no funding, you can't buy your way out of bad product-market fit. 💡
-              </p>
-              <p className="mt-2 text-[11px] text-sage font-medium">
-                #saas #buildinpublic #bootstrapping #techfounder
-              </p>
-            </SampleCard>
-
-            <SampleCard label="Shorts & Reels Moments" meta="3 clip cut-points">
-              <div className="flex gap-2.5">
-                {[
-                  { time: '0:45–1:15', label: 'VC vs Bootstrap' },
-                  { time: '5:40–6:25', label: 'Cold DM Script' },
-                  { time: '13:10–14:02', label: 'Hiring Mistake' },
-                ].map((clip) => (
-                  <div key={clip.time} className="flex-1 rounded-2xl bg-card p-2.5 border border-border text-center">
-                    <div className="grid aspect-[9/16] place-items-center rounded-xl bg-cream">
-                      <div className="px-1">
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-clay font-semibold block">
-                          {clip.time}
-                        </span>
-                        <span className="text-[9px] text-muted-foreground font-medium block mt-1">
-                          {clip.label}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </SampleCard>
-
-            <SampleCard label="LinkedIn & X Formats" meta="Thought Leadership">
-              <div className="text-xs leading-relaxed space-y-2">
-                <p className="font-medium text-foreground">
-                  "Most founders think they need $1,000,000 in seed money. What they actually need is 10 customers who care deeply."
-                </p>
-                <p className="text-muted-foreground">
-                  → Sell the problem before writing code<br />
-                  → Manually onboard your first 75 signups<br />
-                  → Optimize for retention over vanity hype
-                </p>
-                <div className="pt-2 border-t border-border/60 flex items-center justify-between text-[11px] text-clay font-medium">
-                  <span>+ 7-part X Thread Structure</span>
-                  <span className="text-muted-foreground">Formatted with emojis</span>
-                </div>
-              </div>
-            </SampleCard>
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section id="how" className="mx-auto mt-24 max-w-6xl px-4 sm:px-6">
-        <div className="text-center">
-          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Workflow</span>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl font-display">
-            How it works
-          </h2>
-          <p className="mt-2 text-sm sm:text-base text-muted-foreground">
-            From single raw video to multi-channel distribution in 5 steps.
-          </p>
-        </div>
-
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 md:grid-cols-5">
-          {steps.map((s) => (
-            <div key={s.num} className="card-soft p-5 flex flex-col justify-between">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-[0.15em] text-clay font-mono">
-                  {s.num}
-                </span>
-                <h3 className="mt-2 text-lg font-semibold font-display">{s.title}</h3>
-                <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  {s.desc}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section id="features" className="mx-auto mt-24 grid max-w-6xl gap-6 px-4 sm:px-6 md:grid-cols-3">
-        <div className="card-soft p-7">
-          <div className="mb-4 grid size-12 place-items-center rounded-2xl text-2xl bg-sage/15">
-            ⚡
-          </div>
-          <h3 className="mb-2 text-xl font-semibold font-display">Seconds, not hours</h3>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            Every format drafted in one pass — a single recording yields a full week of scheduled posts across all platforms.
-          </p>
-        </div>
-
-        <div className="card-soft p-7">
-          <div className="mb-4 grid size-12 place-items-center rounded-2xl text-2xl bg-clay/15">
-            🎯
-          </div>
-          <h3 className="mb-2 text-xl font-semibold font-display">Native to each platform</h3>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            YouTube, Instagram, Shorts, LinkedIn, and X — each piece is authored with the specific tone, formatting, and reader psychology of that network.
-          </p>
-        </div>
-
-        <div className="card-soft p-7">
-          <div className="mb-4 grid size-12 place-items-center rounded-2xl text-2xl bg-ink/10">
-            ✍️
-          </div>
-          <h3 className="mb-2 text-xl font-semibold font-display">Yours to edit</h3>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            Full control over every generated word. Tweak copy inline, regenerate specific sections, and configure your target niche and audience voice.
-          </p>
-        </div>
-      </section>
-
-      {/* Pricing Section */}
-      <section id="pricing" className="mx-auto mt-24 max-w-6xl px-4 sm:px-6">
-        <div className="text-center">
-          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Plans</span>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl font-display">
-            Simple pricing
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Start free, upgrade when your publishing volume expands.
-          </p>
-        </div>
-
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
-          {plans.map((p) => (
-            <div
-              key={p.name}
-              className={`card-soft flex flex-col p-7 ${
-                p.featured ? 'border-2 border-sage shadow-lift' : ''
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold uppercase tracking-[0.15em] text-clay">
-                  {p.name}
-                </p>
-                {p.featured && (
-                  <span className="rounded-full bg-sage/15 px-2.5 py-0.5 text-[10px] font-semibold text-sage">
-                    Most Popular
-                  </span>
-                )}
-              </div>
-              <p className="mt-3 font-display text-4xl font-semibold">
-                {p.price}
-                <span className="text-base font-normal text-muted-foreground">/mo</span>
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">{p.desc}</p>
-
-              <ul className="mt-6 flex-1 space-y-2.5 text-sm">
-                {p.perks.map((k) => (
-                  <li key={k} className="flex items-center gap-2.5">
-                    <Check className="size-4 text-sage shrink-0" />
-                    <span>{k}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <Button
-                className="mt-8 w-full"
-                variant={p.featured ? 'sage' : 'outline'}
-                asChild
-              >
-                <Link to="/dashboard">Get Started</Link>
-              </Button>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Bottom CTA Banner */}
-      <section className="mx-auto mt-24 max-w-4xl px-4 sm:px-6">
-        <div className="card-soft p-8 sm:p-12 text-center bg-card shadow-lift border border-border">
-          <span className="inline-block rounded-full bg-clay/15 px-3 py-1 text-xs font-semibold text-clay mb-3">
-            Start Generating
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-semibold font-display tracking-tight text-foreground">
-            Ready to turn your videos into viral content?
-          </h2>
-          <p className="mt-3 text-sm sm:text-base text-muted-foreground max-w-lg mx-auto">
-            Upload your first video today and experience an end-to-end content kit in under 60 seconds.
-          </p>
-          <div className="mt-8 flex justify-center">
-            <Button variant="clay" size="lg" asChild>
-              <Link to="/projects/new">
-                Create New Project <ArrowRight className="size-4 ml-1" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-};
-
-function SampleCard({
-  label,
-  meta,
-  children,
-}: {
-  label: string;
-  meta: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl bg-cream/70 p-5 border border-border">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-[0.15em] text-clay">
-          {label}
-        </span>
-        <span className="text-[10px] font-mono text-muted-foreground">{meta}</span>
-      </div>
-      <div className="text-sm leading-relaxed text-foreground/90">{children}</div>
-    </div>
-  );
-}
+function ProductPreview(){ return <div className="relative rounded-[22px] border border-border bg-white p-3 shadow-lift"><div className="flex gap-3"><div className="hidden w-28 shrink-0 rounded-xl bg-[#f8faf7] p-3 sm:block"><Logo compact /><div className="mt-7 space-y-3 text-[10px] text-[#56615e]"><p className="rounded-md bg-[#e5f1e8] p-2 font-semibold text-forest">◉ Dashboard</p><p className="p-2">⊕ New Project</p><p className="p-2">◷ History</p><p className="p-2">⚙ Settings</p></div></div><div className="min-w-0 flex-1"><div className="flex h-8 items-center rounded-lg bg-[#f7f7f5] px-3 text-[10px] text-muted-foreground">Search projects and content…</div><div className="mt-3 rounded-xl bg-[#eef4ef] p-5"><p className="text-[10px] font-semibold uppercase tracking-widest text-vireo-green">Your content kit</p><h3 className="mt-2 text-xl font-semibold text-forest">One video. Five fresh ways to share it.</h3><p className="mt-2 text-xs text-muted-foreground">Transcripts, hooks, captions and posts in one workspace.</p><div className="mt-5 flex flex-wrap gap-2">{['YouTube','Instagram','Shorts','LinkedIn','X'].map(x=><span key={x} className="rounded-lg bg-white px-2.5 py-2 text-[10px] font-semibold text-forest shadow-soft">{x}</span>)}</div></div><div className="mt-3 grid grid-cols-2 gap-3"><div className="rounded-xl border border-border p-4"><div className="flex items-center gap-2 text-xs font-semibold"><FileText className="size-4 text-vireo-green" />Transcript</div><div className="mt-3 space-y-2"><span className="block h-2 w-full rounded bg-[#e6eee8]"/><span className="block h-2 w-4/5 rounded bg-[#e6eee8]"/><span className="block h-2 w-3/5 rounded bg-[#e6eee8]"/></div></div><div className="rounded-xl border border-border p-4"><div className="flex items-center gap-2 text-xs font-semibold"><Sparkles className="size-4 text-clay" />Content drafts</div><p className="mt-3 text-[11px] text-muted-foreground">A clear title and an opening that makes people stop scrolling.</p></div></div></div></div><span className="absolute -bottom-4 right-6 rounded-full bg-white px-4 py-2 text-[10px] font-semibold text-forest shadow-lift">Illustrative product preview</span></div> }
