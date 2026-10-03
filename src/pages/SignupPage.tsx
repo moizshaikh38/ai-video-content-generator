@@ -3,21 +3,72 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Logo } from '../components/Logo';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate();
+  const { signUp, isConfigured } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+    setInfoMessage(null);
     setBusy(true);
-    setTimeout(() => {
+
+    if (password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters long.');
       setBusy(false);
+      return;
+    }
+
+    try {
+      const { error } = await signUp(email.trim(), password, name.trim());
+      if (error) {
+        if (error.message.includes('User already registered') || error.message.includes('already exists')) {
+          setErrorMessage('An account with this email already exists. Please sign in instead.');
+        } else if (error.message.includes('Password should be')) {
+          setErrorMessage('Password is too weak. Please use at least 6 characters.');
+        } else {
+          setErrorMessage(error.message || 'Failed to create account. Please try again.');
+        }
+        setBusy(false);
+        return;
+      }
+
       navigate('/dashboard');
-    }, 600);
+    } catch (err) {
+      setErrorMessage((err as Error).message || 'An unexpected error occurred.');
+      setBusy(false);
+    }
+  };
+
+  const handleGoogleOAuth = async () => {
+    setErrorMessage(null);
+    if (!isConfigured) {
+      setInfoMessage('Google sign-up requires VITE_SUPABASE_URL and Google OAuth provider enabled in the Supabase Dashboard.');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/dashboard',
+        },
+      });
+      if (error) {
+        setErrorMessage('Google sign-up failed. Please verify Google OAuth configuration in Supabase Dashboard.');
+      }
+    } catch {
+      setErrorMessage('Could not initiate Google authentication.');
+    }
   };
 
   return (
@@ -32,11 +83,23 @@ export const SignupPage: React.FC = () => {
           Turn one video into content everywhere.
         </p>
 
+        {errorMessage && (
+          <div className="mt-4 rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive font-medium">
+            {errorMessage}
+          </div>
+        )}
+
+        {infoMessage && (
+          <div className="mt-4 rounded-xl bg-sage/15 border border-sage/30 p-3 text-xs text-sage font-medium">
+            {infoMessage}
+          </div>
+        )}
+
         <Button
           type="button"
           variant="outline"
           className="mt-6 w-full flex items-center justify-center gap-2"
-          onClick={() => navigate('/dashboard')}
+          onClick={handleGoogleOAuth}
         >
           <svg className="size-4" viewBox="0 0 24 24">
             <path

@@ -3,20 +3,65 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Logo } from '../components/Logo';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const { signInWithPassword, isConfigured } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+    setInfoMessage(null);
     setBusy(true);
-    setTimeout(() => {
-      setBusy(false);
+
+    try {
+      const { error } = await signInWithPassword(email.trim(), password);
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          setErrorMessage('Invalid email or password. Please check your credentials.');
+        } else if (error.message.includes('Email not confirmed')) {
+          setErrorMessage('Please confirm your email address before signing in.');
+        } else {
+          setErrorMessage(error.message || 'Failed to sign in. Please try again.');
+        }
+        setBusy(false);
+        return;
+      }
+
       navigate('/dashboard');
-    }, 600);
+    } catch (err) {
+      setErrorMessage((err as Error).message || 'An unexpected error occurred.');
+      setBusy(false);
+    }
+  };
+
+  const handleGoogleOAuth = async () => {
+    setErrorMessage(null);
+    if (!isConfigured) {
+      setInfoMessage('Google sign-in requires VITE_SUPABASE_URL and Google OAuth provider enabled in the Supabase Dashboard.');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/dashboard',
+        },
+      });
+      if (error) {
+        setErrorMessage('Google sign-in failed. Please verify Google OAuth configuration in Supabase Dashboard.');
+      }
+    } catch {
+      setErrorMessage('Could not initiate Google authentication.');
+    }
   };
 
   return (
@@ -29,11 +74,23 @@ export const LoginPage: React.FC = () => {
           Turn one video into content everywhere.
         </p>
 
+        {errorMessage && (
+          <div className="mt-4 rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive font-medium">
+            {errorMessage}
+          </div>
+        )}
+
+        {infoMessage && (
+          <div className="mt-4 rounded-xl bg-sage/15 border border-sage/30 p-3 text-xs text-sage font-medium">
+            {infoMessage}
+          </div>
+        )}
+
         <Button
           type="button"
           variant="outline"
           className="mt-6 w-full flex items-center justify-center gap-2"
-          onClick={() => navigate('/dashboard')}
+          onClick={handleGoogleOAuth}
         >
           <svg className="size-4" viewBox="0 0 24 24">
             <path

@@ -1,5 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { PublicOnlyRoute } from './components/PublicOnlyRoute';
 import { RootLayout } from './layouts/RootLayout';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { LandingPage } from './pages/LandingPage';
@@ -14,27 +17,35 @@ import { NotFoundPage } from './pages/NotFoundPage';
 
 export const App: React.FC = () => {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public marketing layout with top navbar & footer */}
-        <Route element={<RootLayout />}>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Route>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public marketing layout with top navbar & footer */}
+          <Route element={<RootLayout />}>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
 
-        {/* Dashboard application layout with workspace header and mobile navigation */}
-        <Route element={<DashboardLayout />}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/projects/new" element={<NewProjectPage />} />
-          <Route path="/new" element={<Navigate to="/projects/new" replace />} />
-          <Route path="/projects/:id" element={<ProjectDetailPage />} />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+          {/* Auth routes: only accessible when not logged in */}
+          <Route element={<PublicOnlyRoute />}>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+          </Route>
+
+          {/* Protected dashboard routes: require authenticated session */}
+          <Route element={<ProtectedRoute />}>
+            <Route element={<DashboardLayout />}>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/projects/new" element={<NewProjectPage />} />
+              <Route path="/new" element={<Navigate to="/projects/new" replace />} />
+              <Route path="/projects/:id" element={<ProjectDetailPage />} />
+              <Route path="/history" element={<HistoryPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Route>
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 };
 

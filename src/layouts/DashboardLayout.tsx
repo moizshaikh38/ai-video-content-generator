@@ -1,7 +1,8 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutGrid, Plus, History, Settings, LogOut } from 'lucide-react';
+import { LayoutGrid, Plus, History, Settings, LogOut, User } from 'lucide-react';
 import { Logo } from '../components/Logo';
+import { useAuth } from '../context/AuthContext';
 
 const links = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutGrid },
@@ -12,11 +13,14 @@ const links = [
 
 export const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
+  const { signOut, user, profile } = useAuth();
 
-  const handleSignOut = () => {
-    // Graceful sign out placeholder
-    navigate('/');
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/login');
   };
+
+  const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Creator';
 
   return (
     <div className="min-h-screen pb-24 md:pb-12 bg-background text-foreground">
@@ -43,15 +47,23 @@ export const DashboardLayout: React.FC = () => {
           ))}
         </nav>
 
-        {/* Sign Out Button */}
-        <button
-          onClick={handleSignOut}
-          className="flex items-center gap-2 rounded-full px-3.5 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-          aria-label="Sign out"
-        >
-          <LogOut className="size-4" />
-          <span className="hidden sm:inline font-medium">Sign out</span>
-        </button>
+        {/* User Badge & Sign Out Button */}
+        <div className="flex items-center gap-2">
+          {user && (
+            <span className="hidden lg:inline-flex items-center gap-1.5 text-xs text-muted-foreground px-3 py-1 rounded-full bg-cream/80 border border-border/50">
+              <User className="size-3 text-clay" />
+              <span className="font-medium text-foreground">{displayName}</span>
+            </span>
+          )}
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            aria-label="Sign out"
+          >
+            <LogOut className="size-4" />
+            <span className="hidden sm:inline font-medium text-xs">Sign out</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Content Area */}

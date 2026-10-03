@@ -4,11 +4,13 @@ import { Plus, ArrowRight } from 'lucide-react';
 import { Button } from '../components/Button';
 import { StatusBadge, isProcessing } from '../components/StatusBadge';
 import { projectService } from '../services/projectService';
+import { useAuth } from '../context/AuthContext';
 import { Project } from '../types';
 
 const MONTHLY_LIMIT = 3;
 
 export const DashboardPage: React.FC = () => {
+  const { user, profile } = useAuth();
   const [projects, setProjects] = useState<Project[]>(() => projectService.getProjects());
 
   const refreshProjects = () => {
@@ -38,6 +40,12 @@ export const DashboardPage: React.FC = () => {
   const processing = projects.filter((p) => isProcessing(p.status)).length;
   const percentUsed = Math.min(100, Math.round((used / MONTHLY_LIMIT) * 100));
 
+  const welcomeText = profile?.full_name
+    ? `Welcome back, ${profile.full_name}. `
+    : user?.email
+    ? `Welcome back (${user.email}). `
+    : '';
+
   return (
     <div className="space-y-8 pt-4">
       {/* Studio Header */}
@@ -47,7 +55,7 @@ export const DashboardPage: React.FC = () => {
             Your studio
           </h1>
           <p className="mt-1 text-sm sm:text-base text-muted-foreground">
-            One video in. Content everywhere out.
+            {welcomeText}One video in. Content everywhere out.
           </p>
         </div>
         <Button variant="clay" size="lg" asChild>
