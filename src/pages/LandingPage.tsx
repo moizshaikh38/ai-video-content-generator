@@ -23,8 +23,8 @@ import {
   TranscriptPreview,
   TransformationVisual,
   WorkspacePreview,
-  platformOutputs,
 } from "../components/landing/ProductVisuals";
+import { platformOutputs } from "../data/platforms";
 import { plans } from "../data/marketing";
 import { useLandingMotion } from "../components/landing/useLandingMotion";
 import "./landing.css";
@@ -57,6 +57,13 @@ const platformContent = [
     details: ["Moment ideas", "Source timestamps", "Short-form hooks"],
   },
   {
+    name: "TikTok",
+    label: "HOOK · CAPTION · MOMENT",
+    title: "Make the first seconds count.",
+    body: "Turn a standout moment into a short-form angle with a clear opening and an editable caption.",
+    details: ["Scroll-stopping hook", "Moment idea", "Editable caption"],
+  },
+  {
     name: "LinkedIn",
     label: "PROFESSIONAL POST",
     title: "Make the idea useful at work.",
@@ -87,7 +94,7 @@ const faqs = [
   { q: "How large can my video be?", a: "Video uploads can be up to 50 MB." },
   {
     q: "Which platforms can Vireo generate content for?",
-    a: "Vireo drafts content for YouTube, Instagram, Shorts/Reels, LinkedIn and X.",
+    a: "Vireo drafts content for YouTube, Instagram, Shorts/Reels, TikTok, LinkedIn and X.",
   },
   {
     q: "Can I edit the generated content?",
@@ -169,8 +176,9 @@ function ProblemAndSolution() {
   const oldTasks = [
     "Watch the video again",
     "Write the title & description",
-    "Find the best hooks",
+    "Find Shorts / Reels moments",
     "Write the caption & hashtags",
+    "Write a TikTok hook",
     "Create a LinkedIn post",
     "Write an X thread",
   ];
@@ -268,8 +276,8 @@ function ProductShowcase() {
           </h2>
           <p>
             Start with YouTube titles and descriptions, Instagram hooks and
-            captions, LinkedIn posts, X threads and short-form ideas. Edit every
-            draft in your workspace.
+            captions, Shorts/Reels moments, TikTok hooks, LinkedIn posts and X
+            threads. Edit every draft in your workspace.
           </p>
           <div className="lv-showcase-note">
             <FileText size={18} /> Review, edit and copy your drafts
@@ -308,7 +316,7 @@ function PlatformOutputs() {
             <h2>
               One video.
               <br />
-              <em>Five content channels.</em>
+              <em>Six content channels.</em>
             </h2>
           </div>
           <p>
@@ -394,7 +402,7 @@ function BeforeAfter() {
         <div>
           <span>BEFORE VIREO</span>
           <strong>One video</strong>
-          <strong>Five platforms</strong>
+          <strong>Six platforms</strong>
           <strong>Hours of manual writing</strong>
         </div>
         <ArrowRight className="lv-before-arrow" size={26} />
@@ -435,9 +443,9 @@ function FeatureBento() {
             <h3>Platform-specific drafts</h3>
             <p>Titles, captions, posts and threads with a format in mind.</p>
             <div className="lv-bento-pills">
-              <span>YouTube</span>
-              <span>Instagram</span>
-              <span>LinkedIn</span>
+              {platformOutputs.map((output) => (
+                <span key={output.name}>{output.name}</span>
+              ))}
             </div>
           </div>
           <div className="lv-bento-card">

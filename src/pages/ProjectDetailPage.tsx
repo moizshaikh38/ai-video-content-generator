@@ -61,6 +61,15 @@ const TABS: TabConfig[] = [
     groups: [{ type: 'moment', label: 'Best moments & clip cut-points' }],
   },
   {
+    key: 'tiktok',
+    label: 'TikTok',
+    groups: [
+      { type: 'hook', label: 'Opening hooks' },
+      { type: 'caption', label: 'Video caption' },
+      { type: 'moment', label: 'Clip idea' },
+    ],
+  },
+  {
     key: 'linkedin',
     label: 'LinkedIn',
     groups: [{ type: 'post', label: 'Thought leadership post' }],
@@ -499,7 +508,7 @@ export const ProjectDetailPage: React.FC = () => {
                   <span>Platform Content</span>
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Repurpose video transcript into platform-native content kits for YouTube, Instagram, Shorts, LinkedIn, and X.
+                  Repurpose video transcript into platform-native content kits for YouTube, Instagram, Shorts/Reels, TikTok, LinkedIn, and X.
                 </p>
               </div>
 
@@ -554,7 +563,7 @@ export const ProjectDetailPage: React.FC = () => {
                 <div className="space-y-1">
                   <h4 className="text-sm font-semibold text-foreground">Waiting for Transcript</h4>
                   <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-                    AI content generation requires a real video transcript. Once video transcription is completed, you can generate title options, descriptions, Instagram hooks, chapters, LinkedIn posts, and Twitter threads.
+                    AI content generation requires a real video transcript. Once transcription is completed, you can generate drafts for YouTube, Instagram, Shorts/Reels, TikTok, LinkedIn, and X.
                   </p>
                 </div>
               </div>

@@ -32,7 +32,7 @@ export interface Transcript {
   updated_at: string;
 }
 
-export type OutputPlatform = 'youtube' | 'instagram' | 'shorts' | 'linkedin' | 'x';
+export type OutputPlatform = 'youtube' | 'instagram' | 'shorts' | 'tiktok' | 'linkedin' | 'x';
 
 export type OutputContentType =
   | 'title'

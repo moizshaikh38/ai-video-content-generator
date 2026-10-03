@@ -6,6 +6,7 @@ import {
   YouTubeGeneratedContent,
   InstagramGeneratedContent,
   ShortsGeneratedContent,
+  TikTokGeneratedContent,
   LinkedInGeneratedContent,
   TwitterGeneratedContent,
 } from '../types/index.js';
@@ -168,6 +169,51 @@ export class ContentOutputService {
         });
       });
     }
+
+    return rows;
+  }
+
+  /**
+   * Converts TikTok hooks, caption, and clip idea into editable content rows.
+   */
+  public static transformTikTokToRows(
+    projectId: string,
+    data: TikTokGeneratedContent
+  ): Array<Omit<ContentOutputRecord, 'id' | 'created_at' | 'updated_at'>> {
+    const rows: Array<Omit<ContentOutputRecord, 'id' | 'created_at' | 'updated_at'>> = [];
+
+    data.hooks.slice(0, 3).forEach((hook, idx) => {
+      if (hook?.trim()) {
+        rows.push({
+          project_id: projectId,
+          platform: 'tiktok',
+          content_type: 'hook',
+          content: hook.trim(),
+          position: idx,
+        });
+      }
+    });
+
+    rows.push({
+      project_id: projectId,
+      platform: 'tiktok',
+      content_type: 'caption',
+      content: data.caption.trim(),
+      position: 0,
+    });
+
+    const moment = data.moment;
+    const timeHeader = moment.timestamps_available && moment.start && moment.end &&
+      moment.start !== 'N/A' && moment.end !== 'N/A'
+      ? `[${moment.start} - ${moment.end}] `
+      : '';
+    rows.push({
+      project_id: projectId,
+      platform: 'tiktok',
+      content_type: 'moment',
+      content: `${timeHeader}${moment.description.trim()}`,
+      position: 0,
+    });
 
     return rows;
   }

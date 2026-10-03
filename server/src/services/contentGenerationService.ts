@@ -9,10 +9,12 @@ import {
   YouTubeGeneratedContent,
   InstagramGeneratedContent,
   ShortsGeneratedContent,
+  TikTokGeneratedContent,
   LinkedInGeneratedContent,
   TwitterGeneratedContent,
   CreatorProfileData,
   TranscriptRecord,
+  VALID_PLATFORMS,
 } from '../types/index.js';
 
 export interface GenerateContentInput {
@@ -119,7 +121,7 @@ export class ContentGenerationService {
 
     const platformsToGenerate: OutputPlatform[] = platform
       ? [platform]
-      : ['youtube', 'instagram', 'shorts', 'linkedin', 'x'];
+      : [...VALID_PLATFORMS];
 
     try {
       // 5. Generate content sequentially for requested platforms
@@ -153,6 +155,20 @@ export class ContentGenerationService {
             });
             this.validateShortsOutput(result);
             rowsToInsert.push(...ContentOutputService.transformShortsToRows(projectId, result));
+            break;
+          }
+          case 'tiktok': {
+            const result = await this.aiProvider.generateJsonCompletion<TikTokGeneratedContent>({
+              systemPrompt,
+              userPrompt,
+            });
+            this.validateTikTokOutput(result);
+            if (!promptContext.segments?.length) {
+              result.moment.start = 'N/A';
+              result.moment.end = 'N/A';
+              result.moment.timestamps_available = false;
+            }
+            rowsToInsert.push(...ContentOutputService.transformTikTokToRows(projectId, result));
             break;
           }
           case 'linkedin': {
@@ -234,6 +250,20 @@ export class ContentGenerationService {
     if (!out || typeof out !== 'object') throw new Error('Invalid Shorts output structure.');
     if (!Array.isArray(out.moments)) {
       throw new Error('Shorts generation did not return moments array.');
+    }
+  }
+
+  private validateTikTokOutput(out: any): void {
+    if (!out || typeof out !== 'object') throw new Error('Invalid TikTok output structure.');
+    if (!Array.isArray(out.hooks) || out.hooks.length === 0 ||
+      !out.hooks.every((hook: unknown) => typeof hook === 'string' && hook.trim())) {
+      throw new Error('TikTok generation did not return hooks.');
+    }
+    if (typeof out.caption !== 'string' || !out.caption.trim()) {
+      throw new Error('TikTok generation did not return a caption.');
+    }
+    if (!out.moment || typeof out.moment.description !== 'string' || !out.moment.description.trim()) {
+      throw new Error('TikTok generation did not return a moment idea.');
     }
   }
 

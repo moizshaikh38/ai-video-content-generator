@@ -401,7 +401,7 @@ export const getProjectTranscript = async (req: AuthenticatedRequest, res: Respo
 
 /**
  * POST /api/projects/:id/generate-content
- * Optional query or body param: platform ('youtube' | 'instagram' | 'shorts' | 'linkedin' | 'x')
+ * Optional query or body param: platform ('youtube' | 'instagram' | 'shorts' | 'tiktok' | 'linkedin' | 'x')
  */
 export const generateProjectContent = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const userId = req.user?.id;

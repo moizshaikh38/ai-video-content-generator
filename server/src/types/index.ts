@@ -38,7 +38,16 @@ export interface TranscriptRecord {
   updated_at: string;
 }
 
-export type OutputPlatform = 'youtube' | 'instagram' | 'shorts' | 'linkedin' | 'x';
+export type OutputPlatform = 'youtube' | 'instagram' | 'shorts' | 'tiktok' | 'linkedin' | 'x';
+
+export const VALID_PLATFORMS: readonly OutputPlatform[] = [
+  'youtube',
+  'instagram',
+  'shorts',
+  'tiktok',
+  'linkedin',
+  'x',
+] as const;
 
 export type OutputContentType =
   | 'title'
@@ -94,6 +103,17 @@ export interface ShortsGeneratedContent {
   }>;
 }
 
+export interface TikTokGeneratedContent {
+  hooks: string[];
+  caption: string;
+  moment: {
+    start?: string;
+    end?: string;
+    description: string;
+    timestamps_available?: boolean;
+  };
+}
+
 export interface LinkedInGeneratedContent {
   post: string;
 }
@@ -107,6 +127,7 @@ export interface GeneratedPlatformKit {
   youtube?: YouTubeGeneratedContent;
   instagram?: InstagramGeneratedContent;
   shorts?: ShortsGeneratedContent;
+  tiktok?: TikTokGeneratedContent;
   linkedin?: LinkedInGeneratedContent;
   x?: TwitterGeneratedContent;
 }

@@ -626,6 +626,12 @@
 .lv-output-logo-x {
   background: #f1f2f0;
 }
+.lv-output-logo-tiktok {
+  background: #171717;
+}
+.lv-output-logo-tiktok img {
+  filter: brightness(0) invert(1);
+}
 .lv-output-copy {
   display: flex;
   flex-direction: column;
@@ -671,6 +677,9 @@
 }
 .lv-transform[data-active="true"] .lv-output-card-5 {
   animation-delay: 1.08s;
+}
+.lv-transform[data-active="true"] .lv-output-card-6 {
+  animation-delay: 1.23s;
 }
 @keyframes lv-output-reveal {
   from {

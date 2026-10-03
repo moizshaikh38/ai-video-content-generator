@@ -12,47 +12,8 @@ import { Logo } from "../Logo";
 import creatorVideo from "../../assets/landing/creator-video.webp";
 import creatorMomentTwo from "../../assets/landing/creator-moment-2.webp";
 import creatorMomentThree from "../../assets/landing/creator-moment-3.webp";
-import youtubeLogo from "../../assets/landing/platforms/youtube.svg";
 import instagramLogo from "../../assets/landing/platforms/instagram.svg";
-import shortsLogo from "../../assets/landing/platforms/youtubeshorts.svg";
-import linkedinLogo from "../../assets/landing/platforms/linkedin-in.png";
-import xLogo from "../../assets/landing/platforms/x.svg";
-
-export const channels = [
-  "YouTube",
-  "Instagram",
-  "Shorts / Reels",
-  "LinkedIn",
-  "X",
-] as const;
-
-export const platformOutputs = [
-  {
-    name: "YouTube",
-    type: "Title + description",
-    logo: youtubeLogo,
-    variant: "youtube",
-  },
-  {
-    name: "Instagram",
-    type: "Hook + caption",
-    logo: instagramLogo,
-    variant: "instagram",
-  },
-  {
-    name: "Shorts / Reels",
-    type: "Moments + timestamps",
-    logo: shortsLogo,
-    variant: "shorts",
-  },
-  {
-    name: "LinkedIn",
-    type: "Professional post",
-    logo: linkedinLogo,
-    variant: "linkedin",
-  },
-  { name: "X", type: "Thread draft", logo: xLogo, variant: "x" },
-] as const;
+import { channels, platformOutputs } from "../../data/platforms";
 
 function VideoTile({ compact = false }: { compact?: boolean }) {
   return (
@@ -77,7 +38,7 @@ export function HeroVisual() {
   return (
     <div
       className="lv-hero-stage"
-      aria-label="Illustration of one uploaded video becoming a transcript and five platform drafts"
+      aria-label="Illustration of one uploaded video becoming a transcript and six platform drafts"
     >
       <div className="lv-stage-halo" />
       <div className="lv-floating lv-floating-youtube">
@@ -157,7 +118,7 @@ export function HeroVisual() {
         <small>Shape it for each channel</small>
       </div>
       <div className="lv-stage-caption">
-        <span className="lv-stage-caption-dot" /> ONE VIDEO <span>→</span> FIVE
+        <span className="lv-stage-caption-dot" /> ONE VIDEO <span>→</span> SIX
         WAYS TO SHARE
       </div>
     </div>
@@ -193,7 +154,7 @@ export function TransformationVisual() {
       ref={container}
       className="lv-transform"
       data-active={active}
-      aria-label="A video is processed by Vireo into drafts for five content platforms"
+      aria-label="A video is processed by Vireo into drafts for six content platforms"
     >
       <div className="lv-transform-source">
         <VideoTile compact />

@@ -143,7 +143,7 @@ CREATE POLICY "Users can delete their own projects"
 CREATE TABLE IF NOT EXISTS public.content_outputs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
-  platform TEXT NOT NULL,      -- 'youtube' | 'instagram' | 'shorts' | 'linkedin' | 'x'
+  platform TEXT NOT NULL,      -- 'youtube' | 'instagram' | 'shorts' | 'tiktok' | 'linkedin' | 'x'
   content_type TEXT NOT NULL,  -- 'title' | 'description' | 'chapters' | 'keywords' | 'hook' | 'caption' | 'hashtags' | 'moment' | 'post' | 'thread'
   content TEXT NOT NULL DEFAULT '',
   position INT NOT NULL DEFAULT 0,

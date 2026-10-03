@@ -228,6 +228,54 @@ SPECIFIC RULES:
   }
 
   /**
+   * Prompt for TikTok hooks, caption, and a transcript-grounded clip idea.
+   */
+  public static buildTikTokPrompt(ctx: PromptContext): string {
+    const creatorContext = this.formatCreatorContext(ctx);
+    const segmentsFormatted = this.formatSegments(ctx.segments);
+    const hasTimestamps = Boolean(ctx.segments && ctx.segments.length > 0);
+
+    return `Create a TikTok content package from this existing video transcript. Suggest copy and a clip idea; do not claim to edit or publish the video.
+
+CREATOR & AUDIENCE CONTEXT:
+${creatorContext}
+
+TRANSCRIPT:
+"""
+${ctx.transcript}
+"""
+
+TIMESTAMPS / SEGMENTS:
+"""
+${segmentsFormatted}
+"""
+
+REQUIRED OUTPUT FORMAT (JSON ONLY):
+{
+  "hooks": [
+    "Short opening line for on-screen text or voiceover",
+    "A distinct opening angle",
+    "A third opening angle"
+  ],
+  "caption": "A concise, editable TikTok caption based on the actual video, with a natural invitation to respond.",
+  "moment": {
+    "start": "${hasTimestamps ? '00:15' : 'N/A'}",
+    "end": "${hasTimestamps ? '00:45' : 'N/A'}",
+    "description": "One specific moment or idea from the transcript that can stand alone as a short clip.",
+    "timestamps_available": ${hasTimestamps}
+  }
+}
+
+SPECIFIC RULES:
+- Give exactly 3 distinct, brief hooks. Keep them grounded in what the speaker actually says.
+- The caption should be concise and readable. Do not add unsupported claims, links, or generic hashtag spam.
+- Choose one useful moment from the transcript, with enough context to make sense on its own.
+- ${hasTimestamps
+      ? 'Use only start and end times supported by the provided segments.'
+      : 'No timestamped segments are available. Set start and end to "N/A" and timestamps_available to false. Never invent times.'}`;
+  }
+
+  /**
    * Prompt for LinkedIn Post.
    */
   public static buildLinkedInPrompt(ctx: PromptContext): string {
@@ -300,6 +348,8 @@ SPECIFIC RULES:
         return this.buildInstagramPrompt(ctx);
       case 'shorts':
         return this.buildShortsPrompt(ctx);
+      case 'tiktok':
+        return this.buildTikTokPrompt(ctx);
       case 'linkedin':
         return this.buildLinkedInPrompt(ctx);
       case 'x':
