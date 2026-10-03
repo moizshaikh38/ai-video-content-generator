@@ -1,369 +1,346 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import {
-  FileText,
-  Sparkles,
-  Film,
-  Share2,
-  Upload,
-  Brain,
-  Layers,
-  Copy,
-  ArrowRight,
-  CheckCircle2,
-  Activity,
-} from 'lucide-react';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Check, ArrowRight } from 'lucide-react';
 import { Button } from '../components/Button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/Card';
-import { Container } from '../components/Container';
-import { useHealth } from '../hooks/useHealth';
-import { YoutubeIcon, InstagramIcon } from '../components/SocialIcons';
+
+const steps = [
+  { num: '01', title: 'Upload', desc: 'Drop a clip or paste a supported video URL.' },
+  { num: '02', title: 'AI Analysis', desc: 'Transcribes audio and extracts topics, core insights, and key moments.' },
+  { num: '03', title: 'Generate', desc: 'Drafts native content for YouTube, Instagram, Shorts, LinkedIn, and X.' },
+  { num: '04', title: 'Edit', desc: 'Fine-tune and customize any copy directly inline in your workspace.' },
+  { num: '05', title: 'Copy', desc: 'One-click copy to clipboard, formatted and ready for publishing.' },
+];
+
+const plans = [
+  {
+    name: 'Free',
+    price: '$0',
+    desc: '3 videos a month',
+    perks: ['YouTube, IG & Shorts', 'LinkedIn & X posts', 'Inline editor & one-tap copy'],
+    featured: false,
+  },
+  {
+    name: 'Creator',
+    price: '$19',
+    desc: '30 videos a month',
+    perks: [
+      'Everything in Free',
+      'Unlimited AI regenerations',
+      'Custom creator niche & voice tone',
+      'Priority video transcription',
+    ],
+    featured: true,
+  },
+  {
+    name: 'Studio',
+    price: '$49',
+    desc: 'Unlimited videos',
+    perks: [
+      'Everything in Creator',
+      'Unlimited video processing',
+      'Multi-creator profiles',
+      'Export to social schedulers',
+    ],
+    featured: false,
+  },
+];
 
 export const LandingPage: React.FC = () => {
-  const { health, isLoading: isHealthLoading } = useHealth();
+  const [quickUrl, setQuickUrl] = useState('');
+  const navigate = useNavigate();
 
-  const features = [
-    {
-      title: 'AI Transcription',
-      description: 'Accurate speech-to-text with automatic timestamping and speaker detection.',
-      icon: FileText,
-      badge: 'Transcription',
-    },
-    {
-      title: 'AI Content Generation',
-      description: 'Synthesize core takeaways, summaries, blog drafts, and action items in seconds.',
-      icon: Sparkles,
-      badge: 'Core Engine',
-    },
-    {
-      title: 'YouTube Content',
-      description: 'Optimized video titles, SEO descriptions, chapters, and community posts.',
-      icon: YoutubeIcon,
-      badge: 'Long-Form',
-    },
-    {
-      title: 'Instagram Content',
-      description: 'Engaging captions, carousels, hashtags, and story ideas tailored for IG audience.',
-      icon: InstagramIcon,
-      badge: 'Visual Feeds',
-    },
-    {
-      title: 'Shorts & Reels',
-      description: 'Key clip ideas, punchy vertical hooks, and dynamic subtitle templates.',
-      icon: Film,
-      badge: 'Vertical Video',
-    },
-    {
-      title: 'LinkedIn & X Content',
-      description: 'Thought leadership posts, viral threads, and bite-sized insights ready to share.',
-      icon: Share2,
-      badge: 'Social Networks',
-    },
-  ];
-
-  const steps = [
-    {
-      num: '01',
-      title: 'Upload',
-      description: 'Provide a video file or link to any MP4, MOV, or web video stream.',
-      icon: Upload,
-    },
-    {
-      num: '02',
-      title: 'AI Understands',
-      description: 'Our engine parses audio, extracts transcripts, and structures topic highlights.',
-      icon: Brain,
-    },
-    {
-      num: '03',
-      title: 'Generate Content',
-      description: 'Tailored content packages for every social channel are automatically drafted.',
-      icon: Layers,
-    },
-    {
-      num: '04',
-      title: 'Edit & Copy',
-      description: 'Review the generated drafts, tweak where needed, and copy straight to clipboard.',
-      icon: Copy,
-    },
-  ];
+  const handleQuickStart = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (quickUrl.trim()) {
+      navigate(`/projects/new?url=${encodeURIComponent(quickUrl.trim())}`);
+    } else {
+      navigate('/projects/new');
+    }
+  };
 
   return (
-    <div className="relative overflow-hidden">
-      {/* Background Glow Accents */}
-      <div
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[550px] bg-gradient-to-b from-indigo-600/15 via-purple-600/5 to-transparent blur-3xl pointer-events-none -z-10"
-        aria-hidden="true"
-      />
-      <div
-        className="absolute top-96 right-0 w-96 h-96 bg-cyan-500/10 blur-3xl pointer-events-none -z-10"
-        aria-hidden="true"
-      />
+    <div className="min-h-screen">
+      {/* Hero Header */}
+      <header className="mx-auto max-w-6xl px-4 sm:px-6 pb-10 pt-12 text-center md:pt-16">
+        <span className="inline-block rounded-full bg-sage/15 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-sage">
+          One upload, every platform
+        </span>
+        <h1 className="mx-auto mt-6 max-w-4xl text-4xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-5xl md:text-7xl font-display">
+          Turn One Video Into Content Everywhere
+        </h1>
+        <p className="mx-auto mt-6 max-w-xl text-base sm:text-lg leading-relaxed text-muted-foreground">
+          Upload a video or paste a URL. Our AI transcribes, analyzes, and crafts platform-native titles, captions, hooks, and posts in seconds.
+        </p>
+      </header>
 
-      {/* Hero Section */}
-      <section className="pt-12 sm:pt-20 pb-16 sm:pb-24">
-        <Container size="lg">
-          <div className="flex flex-col items-center text-center max-w-4xl mx-auto">
-            {/* Live Backend Connection Indicator */}
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300 mb-6 shadow-sm">
-              <span className="flex h-2 w-2 relative">
-                <span
-                  className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                    isHealthLoading
-                      ? 'bg-amber-400'
-                      : health?.status === 'ok'
-                      ? 'bg-emerald-400'
-                      : 'bg-red-400'
-                  }`}
-                />
-                <span
-                  className={`relative inline-flex rounded-full h-2 w-2 ${
-                    isHealthLoading
-                      ? 'bg-amber-500'
-                      : health?.status === 'ok'
-                      ? 'bg-emerald-500'
-                      : 'bg-red-500'
-                  }`}
-                />
-              </span>
-              <Activity className="w-3.5 h-3.5 text-slate-400" />
-              <span>
-                Backend API:{' '}
-                {isHealthLoading
-                  ? 'Connecting...'
-                  : health?.status === 'ok'
-                  ? 'Online (/api/health)'
-                  : 'Offline'}
-              </span>
-            </div>
-
-            {/* Headline */}
-            <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white leading-[1.15] sm:leading-[1.12]">
-              Turn One Video Into{' '}
-              <span className="bg-gradient-to-r from-indigo-400 via-purple-300 to-cyan-400 bg-clip-text text-transparent">
-                Content Everywhere
-              </span>
-            </h1>
-
-            {/* Description */}
-            <p className="mt-6 text-base sm:text-xl text-slate-300 max-w-2xl leading-relaxed font-normal">
-              Upload one video and use AI to transform it into useful content for multiple platforms.
-            </p>
-
-            {/* CTA Buttons */}
-            <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4 w-full sm:w-auto">
-              <Link to="/signup" className="w-full sm:w-auto">
-                <Button
-                  variant="primary"
-                  size="lg"
-                  className="w-full sm:w-auto font-semibold px-8"
-                  rightIcon={<ArrowRight className="w-4 h-4" />}
-                >
-                  Get Started
-                </Button>
-              </Link>
-              <a href="#how-it-works" className="w-full sm:w-auto">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full sm:w-auto font-semibold px-8"
-                >
-                  See How It Works
-                </Button>
-              </a>
-            </div>
-
-            {/* Visual Workflow Preview Mockup */}
-            <div className="mt-14 sm:mt-16 w-full rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-6 backdrop-blur shadow-2xl">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-amber-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-                  <span className="text-xs text-slate-400 ml-2 font-mono hidden sm:inline">
-                    OmniVid Studio — Pipeline Preview
-                  </span>
-                </div>
-                <span className="text-xs text-indigo-400 font-medium bg-indigo-500/10 px-2.5 py-1 rounded-md border border-indigo-500/20">
-                  Phase 1 Ready
-                </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
-                <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800">
-                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                    Input Source
-                  </div>
-                  <div className="text-sm font-medium text-white flex items-center gap-2">
-                    <Upload className="w-4 h-4 text-indigo-400 shrink-0" />
-                    <span className="truncate">Single Raw Video (MP4)</span>
-                  </div>
-                </div>
-                <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800">
-                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                    Intelligence Engine
-                  </div>
-                  <div className="text-sm font-medium text-white flex items-center gap-2">
-                    <Brain className="w-4 h-4 text-purple-400 shrink-0" />
-                    <span>Transcript + Highlights</span>
-                  </div>
-                </div>
-                <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800">
-                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                    Omni-Channel Output
-                  </div>
-                  <div className="text-sm font-medium text-white flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-cyan-400 shrink-0" />
-                    <span>6 Content Packages</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+      {/* Interactive Quick-Start Input Bar */}
+      <section className="mx-auto max-w-3xl px-4 sm:px-6">
+        <form
+          onSubmit={handleQuickStart}
+          className="flex flex-col items-stretch gap-2 rounded-[2rem] bg-card p-2.5 sm:p-3 shadow-lift border border-border sm:flex-row"
+        >
+          <div className="flex flex-1 items-center gap-3 rounded-2xl bg-cream/80 px-4 py-3 text-muted-foreground border border-border/50">
+            <span className="text-2xl select-none">🎬</span>
+            <input
+              type="text"
+              placeholder="Paste YouTube/video URL or click to upload clip…"
+              value={quickUrl}
+              onChange={(e) => setQuickUrl(e.target.value)}
+              className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+            />
           </div>
-        </Container>
+          <Button type="submit" variant="clay" size="lg" className="shrink-0">
+            Get Started
+          </Button>
+        </form>
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          MP4, MOV, YouTube, or web video links · No credit card required
+        </p>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-16 sm:py-24 border-t border-slate-900 bg-slate-950/50">
-        <Container size="lg">
-          <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
-            <h2 className="text-xs sm:text-sm font-bold tracking-widest text-indigo-400 uppercase mb-2">
-              Capabilities
-            </h2>
-            <h3 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-              One Recording. Every Medium.
-            </h3>
-            <p className="mt-3 text-sm sm:text-base text-slate-400 leading-relaxed">
-              Designed to transform any raw presentation, podcast, interview, or tutorial into tailored content.
-            </p>
+      {/* Content Kit Preview Mockup */}
+      <section className="mx-auto mt-16 max-w-6xl px-4 sm:px-6">
+        <div className="rounded-[2.5rem] bg-card p-6 shadow-soft border border-border md:p-8">
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="size-2.5 animate-pulse rounded-full bg-sage" />
+              <span className="font-display text-lg font-semibold text-foreground">Your content kit</span>
+            </div>
+            <span className="text-xs uppercase tracking-widest text-muted-foreground font-mono">
+              Live Example
+            </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-            {features.map((feature, idx) => {
-              const Icon = feature.icon;
-              return (
-                <Card
-                  key={idx}
-                  hoverable
-                  className="flex flex-col justify-between transition-all duration-200"
-                >
-                  <CardHeader>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-                        <Icon className="w-6 h-6" />
+          <div className="grid gap-4 md:grid-cols-2">
+            <SampleCard label="YouTube Titles & Chapters" meta="SEO Optimized">
+              <div className="space-y-2 font-medium text-foreground">
+                <p>• How I Built a $1M SaaS in 18 Months (No Investors)</p>
+                <p>• The Bootstrapping Playbook: Zero to 7 Figures</p>
+                <p>• Why We Rejected VC Money and Grew Faster</p>
+              </div>
+              <div className="mt-3 pt-3 border-t border-border/60 text-xs text-muted-foreground font-mono">
+                0:00 Intro • 2:15 Validation • 5:40 First 10 Customers • 9:22 PLG
+              </div>
+            </SampleCard>
+
+            <SampleCard label="Instagram Caption & Hooks" meta="Ready to post">
+              <p className="text-xs font-semibold text-clay mb-1.5">Hook Option 1:</p>
+              <p className="text-sm font-medium mb-2">
+                "Stop looking for investors. Here's why bootstrapping is your unfair advantage:"
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Bootstrapping taught me one brutal truth: when you have no funding, you can't buy your way out of bad product-market fit. 💡
+              </p>
+              <p className="mt-2 text-[11px] text-sage font-medium">
+                #saas #buildinpublic #bootstrapping #techfounder
+              </p>
+            </SampleCard>
+
+            <SampleCard label="Shorts & Reels Moments" meta="3 clip cut-points">
+              <div className="flex gap-2.5">
+                {[
+                  { time: '0:45–1:15', label: 'VC vs Bootstrap' },
+                  { time: '5:40–6:25', label: 'Cold DM Script' },
+                  { time: '13:10–14:02', label: 'Hiring Mistake' },
+                ].map((clip) => (
+                  <div key={clip.time} className="flex-1 rounded-2xl bg-card p-2.5 border border-border text-center">
+                    <div className="grid aspect-[9/16] place-items-center rounded-xl bg-cream">
+                      <div className="px-1">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-clay font-semibold block">
+                          {clip.time}
+                        </span>
+                        <span className="text-[9px] text-muted-foreground font-medium block mt-1">
+                          {clip.label}
+                        </span>
                       </div>
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                        {feature.badge}
-                      </span>
                     </div>
-                    <CardTitle className="text-lg text-white font-semibold">
-                      {feature.title}
-                    </CardTitle>
-                    <CardDescription className="text-slate-400 text-sm mt-1.5">
-                      {feature.description}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-2 text-xs text-indigo-400/90 font-medium flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>Modular Generation Ready</span>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                  </div>
+                ))}
+              </div>
+            </SampleCard>
+
+            <SampleCard label="LinkedIn & X Formats" meta="Thought Leadership">
+              <div className="text-xs leading-relaxed space-y-2">
+                <p className="font-medium text-foreground">
+                  "Most founders think they need $1,000,000 in seed money. What they actually need is 10 customers who care deeply."
+                </p>
+                <p className="text-muted-foreground">
+                  → Sell the problem before writing code<br />
+                  → Manually onboard your first 75 signups<br />
+                  → Optimize for retention over vanity hype
+                </p>
+                <div className="pt-2 border-t border-border/60 flex items-center justify-between text-[11px] text-clay font-medium">
+                  <span>+ 7-part X Thread Structure</span>
+                  <span className="text-muted-foreground">Formatted with emojis</span>
+                </div>
+              </div>
+            </SampleCard>
           </div>
-        </Container>
+        </div>
       </section>
 
       {/* How It Works Section */}
-      <section id="how-it-works" className="py-16 sm:py-24 border-t border-slate-900">
-        <Container size="lg">
-          <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
-            <h2 className="text-xs sm:text-sm font-bold tracking-widest text-indigo-400 uppercase mb-2">
-              Workflow
-            </h2>
-            <h3 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-              How It Works
-            </h3>
-            <p className="mt-3 text-sm sm:text-base text-slate-400">
-              A smooth 4-step pipeline that takes your video from raw footage to published copy.
-            </p>
-          </div>
+      <section id="how" className="mx-auto mt-24 max-w-6xl px-4 sm:px-6">
+        <div className="text-center">
+          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Workflow</span>
+          <h2 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl font-display">
+            How it works
+          </h2>
+          <p className="mt-2 text-sm sm:text-base text-muted-foreground">
+            From single raw video to multi-channel distribution in 5 steps.
+          </p>
+        </div>
 
-          {/* Stepper Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {steps.map((step, idx) => {
-              const StepIcon = step.icon;
-              return (
-                <div
-                  key={idx}
-                  className="relative flex flex-col p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700 transition-colors"
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-sm">
-                      <StepIcon className="w-5 h-5" />
-                    </div>
-                    <span className="text-2xl font-black text-slate-700 font-mono">
-                      {step.num}
-                    </span>
-                  </div>
-
-                  <h4 className="text-lg font-bold text-white mb-2">{step.title}</h4>
-                  <p className="text-sm text-slate-400 leading-relaxed flex-1">
-                    {step.description}
-                  </p>
-
-                  {idx < steps.length - 1 && (
-                    <div className="hidden lg:block absolute -right-3 top-1/2 -translate-y-1/2 z-10 text-slate-600">
-                      <ArrowRight className="w-5 h-5 text-slate-600" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Mobile Flow Indicator */}
-          <div className="mt-8 flex items-center justify-center gap-2 text-xs text-slate-400 font-medium sm:hidden">
-            <span>Upload</span>
-            <span>→</span>
-            <span>AI Understands</span>
-            <span>→</span>
-            <span>Generate</span>
-            <span>→</span>
-            <span>Copy</span>
-          </div>
-        </Container>
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 md:grid-cols-5">
+          {steps.map((s) => (
+            <div key={s.num} className="card-soft p-5 flex flex-col justify-between">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-[0.15em] text-clay font-mono">
+                  {s.num}
+                </span>
+                <h3 className="mt-2 text-lg font-semibold font-display">{s.title}</h3>
+                <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  {s.desc}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-16 sm:py-20 border-t border-slate-900 bg-gradient-to-b from-indigo-950/20 via-slate-950 to-slate-950">
-        <Container size="md">
-          <div className="rounded-3xl border border-indigo-500/20 bg-gradient-to-r from-indigo-950/40 via-purple-950/20 to-slate-900/80 p-8 sm:p-12 text-center shadow-xl shadow-indigo-950/20">
-            <h3 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-              Create Your First Content Package
-            </h3>
-            <p className="mt-3 text-sm sm:text-base text-slate-300 max-w-xl mx-auto">
-              Get started now and build an omni-channel distribution machine from your existing video library.
-            </p>
-            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link to="/signup" className="w-full sm:w-auto">
-                <Button
-                  variant="primary"
-                  size="lg"
-                  className="w-full sm:w-auto px-8"
-                  rightIcon={<ArrowRight className="w-4 h-4" />}
-                >
-                  Get Started
-                </Button>
-              </Link>
-              <Link to="/dashboard" className="w-full sm:w-auto">
-                <Button variant="secondary" size="lg" className="w-full sm:w-auto px-8">
-                  Open Dashboard
-                </Button>
-              </Link>
-            </div>
+      {/* Features Section */}
+      <section id="features" className="mx-auto mt-24 grid max-w-6xl gap-6 px-4 sm:px-6 md:grid-cols-3">
+        <div className="card-soft p-7">
+          <div className="mb-4 grid size-12 place-items-center rounded-2xl text-2xl bg-sage/15">
+            ⚡
           </div>
-        </Container>
+          <h3 className="mb-2 text-xl font-semibold font-display">Seconds, not hours</h3>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Every format drafted in one pass — a single recording yields a full week of scheduled posts across all platforms.
+          </p>
+        </div>
+
+        <div className="card-soft p-7">
+          <div className="mb-4 grid size-12 place-items-center rounded-2xl text-2xl bg-clay/15">
+            🎯
+          </div>
+          <h3 className="mb-2 text-xl font-semibold font-display">Native to each platform</h3>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            YouTube, Instagram, Shorts, LinkedIn, and X — each piece is authored with the specific tone, formatting, and reader psychology of that network.
+          </p>
+        </div>
+
+        <div className="card-soft p-7">
+          <div className="mb-4 grid size-12 place-items-center rounded-2xl text-2xl bg-ink/10">
+            ✍️
+          </div>
+          <h3 className="mb-2 text-xl font-semibold font-display">Yours to edit</h3>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Full control over every generated word. Tweak copy inline, regenerate specific sections, and configure your target niche and audience voice.
+          </p>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="mx-auto mt-24 max-w-6xl px-4 sm:px-6">
+        <div className="text-center">
+          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Plans</span>
+          <h2 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl font-display">
+            Simple pricing
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Start free, upgrade when your publishing volume expands.
+          </p>
+        </div>
+
+        <div className="mt-10 grid gap-6 md:grid-cols-3">
+          {plans.map((p) => (
+            <div
+              key={p.name}
+              className={`card-soft flex flex-col p-7 ${
+                p.featured ? 'border-2 border-sage shadow-lift' : ''
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold uppercase tracking-[0.15em] text-clay">
+                  {p.name}
+                </p>
+                {p.featured && (
+                  <span className="rounded-full bg-sage/15 px-2.5 py-0.5 text-[10px] font-semibold text-sage">
+                    Most Popular
+                  </span>
+                )}
+              </div>
+              <p className="mt-3 font-display text-4xl font-semibold">
+                {p.price}
+                <span className="text-base font-normal text-muted-foreground">/mo</span>
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">{p.desc}</p>
+
+              <ul className="mt-6 flex-1 space-y-2.5 text-sm">
+                {p.perks.map((k) => (
+                  <li key={k} className="flex items-center gap-2.5">
+                    <Check className="size-4 text-sage shrink-0" />
+                    <span>{k}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <Button
+                className="mt-8 w-full"
+                variant={p.featured ? 'sage' : 'outline'}
+                asChild
+              >
+                <Link to="/dashboard">Get Started</Link>
+              </Button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Bottom CTA Banner */}
+      <section className="mx-auto mt-24 max-w-4xl px-4 sm:px-6">
+        <div className="card-soft p-8 sm:p-12 text-center bg-card shadow-lift border border-border">
+          <span className="inline-block rounded-full bg-clay/15 px-3 py-1 text-xs font-semibold text-clay mb-3">
+            Start Generating
+          </span>
+          <h2 className="text-3xl sm:text-4xl font-semibold font-display tracking-tight text-foreground">
+            Ready to turn your videos into viral content?
+          </h2>
+          <p className="mt-3 text-sm sm:text-base text-muted-foreground max-w-lg mx-auto">
+            Upload your first video today and experience an end-to-end content kit in under 60 seconds.
+          </p>
+          <div className="mt-8 flex justify-center">
+            <Button variant="clay" size="lg" asChild>
+              <Link to="/projects/new">
+                Create New Project <ArrowRight className="size-4 ml-1" />
+              </Link>
+            </Button>
+          </div>
+        </div>
       </section>
     </div>
   );
 };
+
+function SampleCard({
+  label,
+  meta,
+  children,
+}: {
+  label: string;
+  meta: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl bg-cream/70 p-5 border border-border">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-[0.15em] text-clay">
+          {label}
+        </span>
+        <span className="text-[10px] font-mono text-muted-foreground">{meta}</span>
+      </div>
+      <div className="text-sm leading-relaxed text-foreground/90">{children}</div>
+    </div>
+  );
+}

@@ -1,73 +1,64 @@
-import React from 'react';
+import * as React from 'react';
 import { cn } from '../lib/utils';
-import { Loader2 } from 'lucide-react';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
-  isLoading?: boolean;
+  variant?: 'default' | 'sage' | 'clay' | 'outline' | 'secondary' | 'ghost' | 'destructive' | 'link';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+  asChild?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
 }
+
+const variantStyles: Record<NonNullable<ButtonProps['variant']>, string> = {
+  default: 'bg-primary text-primary-foreground shadow-ink hover:bg-primary/90',
+  sage: 'bg-sage text-sage-foreground shadow-sage hover:-translate-y-0.5',
+  clay: 'bg-clay text-clay-foreground shadow-clay hover:-translate-y-0.5 rounded-2xl',
+  destructive: 'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
+  outline: 'border border-input bg-card hover:bg-secondary text-foreground',
+  secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+  ghost: 'hover:bg-secondary text-foreground',
+  link: 'text-primary underline-offset-4 hover:underline',
+};
+
+const sizeStyles: Record<NonNullable<ButtonProps['size']>, string> = {
+  default: 'h-10 px-5 text-sm',
+  sm: 'h-9 px-3 text-xs',
+  lg: 'h-12 px-7 text-base',
+  icon: 'h-10 w-10 p-0',
+};
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
       className,
+      variant = 'default',
+      size = 'default',
+      asChild = false,
       children,
-      variant = 'primary',
-      size = 'md',
-      isLoading = false,
-      disabled,
       leftIcon,
       rightIcon,
-      type = 'button',
+      disabled,
       ...props
     },
     ref
   ) => {
-    const baseStyles =
-      'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:opacity-50 disabled:cursor-not-allowed select-none active:scale-[0.98]';
+    const baseClasses =
+      'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full font-medium cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed select-none';
+    const computedClassName = cn(baseClasses, variantStyles[variant], sizeStyles[size], className);
 
-    const variants = {
-      primary:
-        'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/25 focus:ring-indigo-500 border border-indigo-500/40',
-      secondary:
-        'bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 focus:ring-slate-400',
-      outline:
-        'bg-transparent hover:bg-slate-800/60 text-slate-200 border border-slate-700 hover:border-slate-600 focus:ring-slate-400',
-      ghost:
-        'bg-transparent hover:bg-slate-800/50 text-slate-300 hover:text-white focus:ring-slate-400',
-      danger:
-        'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-500/20 focus:ring-red-500 border border-red-500/30',
-    };
-
-    const sizes = {
-      sm: 'text-xs px-3.5 py-2 min-h-[36px] gap-1.5',
-      md: 'text-sm px-5 py-2.5 min-h-[44px] gap-2',
-      lg: 'text-base px-6 py-3.5 min-h-[50px] gap-2.5 font-semibold',
-    };
+    if (asChild && React.isValidElement(children)) {
+      const child = children as React.ReactElement<any>;
+      return React.cloneElement(child, {
+        className: cn(computedClassName, child.props.className),
+        ...props,
+      });
+    }
 
     return (
-      <button
-        ref={ref}
-        type={type}
-        disabled={disabled || isLoading}
-        className={cn(baseStyles, variants[variant], sizes[size], className)}
-        {...props}
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin text-current" />
-            <span>{children}</span>
-          </>
-        ) : (
-          <>
-            {leftIcon && <span className="inline-flex shrink-0">{leftIcon}</span>}
-            <span>{children}</span>
-            {rightIcon && <span className="inline-flex shrink-0">{rightIcon}</span>}
-          </>
-        )}
+      <button ref={ref} className={computedClassName} disabled={disabled} {...props}>
+        {leftIcon}
+        {children}
+        {rightIcon}
       </button>
     );
   }

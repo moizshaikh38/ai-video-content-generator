@@ -23,19 +23,19 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center p-10 text-center rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 max-w-lg mx-auto my-8',
+        'flex flex-col items-center justify-center p-10 text-center rounded-3xl border border-dashed border-border bg-cream/50 max-w-lg mx-auto my-8',
         className
       )}
     >
-      <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-4">
+      <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center text-muted-foreground mb-4">
         {icon || <FolderOpen className="w-7 h-7" />}
       </div>
-      <h3 className="text-lg font-semibold text-white mb-1.5">{title}</h3>
-      <p className="text-sm text-slate-400 max-w-sm mb-6 leading-relaxed">
+      <h3 className="text-lg font-semibold font-display text-foreground mb-1.5">{title}</h3>
+      <p className="text-sm text-muted-foreground max-w-sm mb-6 leading-relaxed">
         {description}
       </p>
       {actionLabel && onAction && (
-        <Button variant="primary" size="md" onClick={onAction}>
+        <Button variant="clay" size="default" onClick={onAction}>
           {actionLabel}
         </Button>
       )}

@@ -1,318 +1,433 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import {
-  ArrowLeft,
-  FileText,
-  Share2,
-  Film,
-  Copy,
-  Check,
-  Play,
-  Clock,
-} from 'lucide-react';
+import { ArrowLeft, Check, Copy, Pencil, RefreshCw } from 'lucide-react';
 import { Button } from '../components/Button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/Card';
-import { LoadingState } from '../components/LoadingState';
-import { ErrorState } from '../components/ErrorState';
-import { YoutubeIcon } from '../components/SocialIcons';
+import { Textarea } from '../components/Textarea';
+import { StatusBadge } from '../components/StatusBadge';
+import { projectService } from '../services/projectService';
+import { Project, ContentOutput, OutputPlatform } from '../types';
+
+const STAGES = [
+  ['uploading', 'Uploading video'],
+  ['queued', 'Queued in processing pipeline'],
+  ['transcribing', 'Transcribing audio speech'],
+  ['analyzing', 'Analyzing topics & key moments'],
+  ['generating', 'Generating multi-platform content'],
+  ['complete', 'Complete'],
+] as const;
+
+interface TabConfig {
+  key: OutputPlatform;
+  label: string;
+  groups: Array<{ type: ContentOutput['content_type']; label: string }>;
+}
+
+const TABS: TabConfig[] = [
+  {
+    key: 'youtube',
+    label: 'YouTube',
+    groups: [
+      { type: 'title', label: 'Title ideas (High CTR)' },
+      { type: 'description', label: 'Video description' },
+      { type: 'chapters', label: 'Timestamped chapters' },
+      { type: 'keywords', label: 'SEO keywords & tags' },
+    ],
+  },
+  {
+    key: 'instagram',
+    label: 'Instagram',
+    groups: [
+      { type: 'hook', label: 'Reel & carousel hooks' },
+      { type: 'caption', label: 'Feed caption' },
+      { type: 'hashtags', label: 'Curated hashtags' },
+    ],
+  },
+  {
+    key: 'shorts',
+    label: 'Shorts / Reels',
+    groups: [{ type: 'moment', label: 'Best moments & clip cut-points' }],
+  },
+  {
+    key: 'linkedin',
+    label: 'LinkedIn',
+    groups: [{ type: 'post', label: 'Thought leadership post' }],
+  },
+  {
+    key: 'x',
+    label: 'X (Twitter)',
+    groups: [{ type: 'thread', label: 'Thread structure & hooks' }],
+  },
+];
 
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [activeTab, setActiveTab] = useState<'transcript' | 'youtube' | 'social' | 'shorts'>('transcript');
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [project, setProject] = useState<Project | undefined>(() =>
+    id ? projectService.getProject(id) : undefined
+  );
+  const [outputs, setOutputs] = useState<ContentOutput[]>(() =>
+    id ? projectService.getOutputs(id) : []
+  );
 
-  // States to demonstrate LoadingState and ErrorState components
-  const [simulatedState, setSimulatedState] = useState<'normal' | 'loading' | 'error'>('normal');
-
-  const handleCopy = (key: string, _text: string) => {
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2000);
+  const refreshData = () => {
+    if (!id) return;
+    const p = projectService.getProject(id);
+    const o = projectService.getOutputs(id);
+    setProject(p);
+    setOutputs(o);
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Top Bar Navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-        <Link
-          to="/dashboard"
-          className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Dashboard
-        </Link>
+  useEffect(() => {
+    refreshData();
 
-        {/* State preview triggers for Phase 1 verification */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500 hidden sm:inline">UI Component States:</span>
-          <Button
-            variant={simulatedState === 'normal' ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => setSimulatedState('normal')}
-          >
-            Normal
-          </Button>
-          <Button
-            variant={simulatedState === 'loading' ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => setSimulatedState('loading')}
-          >
-            Loading
-          </Button>
-          <Button
-            variant={simulatedState === 'error' ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => setSimulatedState('error')}
-          >
-            Error
-          </Button>
+    const handleUpdate = () => refreshData();
+    window.addEventListener('vireo_project_updated', handleUpdate);
+
+    const interval = setInterval(() => {
+      refreshData();
+    }, 1500);
+
+    return () => {
+      window.removeEventListener('vireo_project_updated', handleUpdate);
+      clearInterval(interval);
+    };
+  }, [id]);
+
+  if (!project) {
+    return (
+      <div className="py-20 text-center space-y-4">
+        <p className="text-muted-foreground text-sm">Project not found.</p>
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/dashboard">Back to Studio</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const isComplete = project.status === 'complete';
+
+  return (
+    <div className="space-y-6 pt-4">
+      {/* Back Link */}
+      <Link
+        to="/dashboard"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft className="size-4" />
+        <span>Back to Studio</span>
+      </Link>
+
+      {/* Project Title & Status */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl font-display text-foreground">
+            {project.title}
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Created on{' '}
+            {new Date(project.created_at).toLocaleDateString(undefined, {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            })}
+          </p>
         </div>
+        <StatusBadge status={project.status} />
       </div>
 
-      {simulatedState === 'loading' ? (
-        <LoadingState
-          size="lg"
-          message="Synthesizing Content Packages"
-          description="Extracting timestamps, generating YouTube SEO descriptions, and writing social drafts..."
-        />
-      ) : simulatedState === 'error' ? (
-        <ErrorState
-          title="Could Not Load Project"
-          message="We encountered an issue fetching the video processing status. Please check your network connection and retry."
-          onRetry={() => setSimulatedState('normal')}
-        />
+      {/* Main Content Area */}
+      {project.status === 'failed' ? (
+        <div className="card-soft p-8 text-center space-y-3">
+          <p className="font-semibold text-lg text-foreground font-display">Something went wrong</p>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            {project.error || 'The video processing failed. Please try again with another clip or URL.'}
+          </p>
+          <div className="pt-2">
+            <Button variant="clay" asChild>
+              <Link to="/projects/new">Try New Video</Link>
+            </Button>
+          </div>
+        </div>
+      ) : !isComplete ? (
+        <ProcessingTimeline status={project.status} />
       ) : (
-        <>
-          {/* Project Header Banner */}
-          <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-indigo-400 uppercase tracking-wider bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
-                  {id || 'proj-01'}
-                </span>
-                <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  Ready
-                </span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-bold text-white">
-                Product Keynote & Architecture Walkthrough
-              </h1>
-              <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5" /> 18m 42s Duration
-                </span>
-                <span>•</span>
-                <span>1080p MP4</span>
-                <span>•</span>
-                <span>Source: /videos/keynote-2026.mp4</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                leftIcon={<Play className="w-3.5 h-3.5 text-indigo-400" />}
-              >
-                Preview Video
-              </Button>
-            </div>
-          </div>
-
-          {/* Package Tabs */}
-          <div className="flex border-b border-slate-800 overflow-x-auto no-scrollbar gap-2">
-            {[
-              { id: 'transcript', label: 'AI Transcript', icon: FileText },
-              { id: 'youtube', label: 'YouTube Package', icon: YoutubeIcon },
-              { id: 'social', label: 'Social Content (X & LinkedIn)', icon: Share2 },
-              { id: 'shorts', label: 'Shorts & Hooks', icon: Film },
-            ].map((tab) => {
-              const TabIcon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
-                    isActive
-                      ? 'border-indigo-500 text-indigo-400 bg-slate-900/50'
-                      : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
-                  }`}
-                >
-                  <TabIcon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Active Tab Content Display */}
-          {activeTab === 'transcript' && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Full Audio Transcription</CardTitle>
-                  <CardDescription>
-                    Speech-to-text transcript generated with timestamp intervals.
-                  </CardDescription>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  leftIcon={copiedKey === 'transcript' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                  onClick={() => handleCopy('transcript', 'Full Transcript content')}
-                >
-                  {copiedKey === 'transcript' ? 'Copied!' : 'Copy Transcript'}
-                </Button>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3 font-mono text-xs sm:text-sm bg-slate-950/70 p-4 rounded-xl border border-slate-800">
-                  <div className="text-slate-400">
-                    <span className="text-indigo-400 font-bold">[00:00 - 00:45]</span> Welcome everyone. Today we are walking through the core architecture of our next generation content engine.
-                  </div>
-                  <div className="text-slate-400">
-                    <span className="text-indigo-400 font-bold">[00:46 - 02:15]</span> The goal here is simple: turn one high-quality video into dozens of contextual assets without manual editing.
-                  </div>
-                  <div className="text-slate-400">
-                    <span className="text-indigo-400 font-bold">[02:16 - 04:30]</span> Let&apos;s look at the pipeline: ingest, transcribe, analyze topics, and format for target networks.
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {activeTab === 'youtube' && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>YouTube Optimization Package</CardTitle>
-                  <CardDescription>
-                    SEO title options, video description with chapters, and relevant tags.
-                  </CardDescription>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  leftIcon={copiedKey === 'youtube' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                  onClick={() => handleCopy('youtube', 'YouTube metadata')}
-                >
-                  {copiedKey === 'youtube' ? 'Copied!' : 'Copy Package'}
-                </Button>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
-                  <p className="text-xs uppercase font-bold text-indigo-400">Suggested Title</p>
-                  <p className="text-sm font-semibold text-white">
-                    Turn One Video Into Content Everywhere (System Architecture Breakdown)
-                  </p>
-                </div>
-                <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
-                  <p className="text-xs uppercase font-bold text-indigo-400">Description & Timestamps</p>
-                  <pre className="text-xs text-slate-300 font-sans whitespace-pre-line leading-relaxed">
-                    Learn how we built an automated omni-channel video distribution pipeline.{"\n\n"}
-                    TIMESTAMPS:{"\n"}
-                    00:00 - Introduction & Vision{"\n"}
-                    02:15 - Pipeline Design & Ingest{"\n"}
-                    07:40 - AI Transcription & Prompt Orchestraction{"\n"}
-                    14:20 - Multi-Platform Output Engine{"\n"}
-                    18:00 - Conclusion & Next Steps
-                  </pre>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {activeTab === 'social' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <div>
-                    <CardTitle className="text-base">LinkedIn Thought Leadership Post</CardTitle>
-                    <CardDescription>Professional angle focusing on efficiency.</CardDescription>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCopy('linkedin', 'LinkedIn text')}
-                  >
-                    {copiedKey === 'linkedin' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-300 leading-relaxed whitespace-pre-line">
-                    Most creators spend 80% of their time repurposing content instead of creating it.{"\n\n"}
-                    Here is the 4-step framework we used to turn a single 18-minute video into 6 distinct platform packages...
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <div>
-                    <CardTitle className="text-base">X / Twitter Thread</CardTitle>
-                    <CardDescription>Bite-sized punchy breakdown.</CardDescription>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCopy('x', 'X thread text')}
-                  >
-                    {copiedKey === 'x' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-300 leading-relaxed whitespace-pre-line">
-                    🧵 How to turn 1 video into 10+ high-performing posts across YouTube, LinkedIn, and Instagram:{"\n\n"}
-                    1/ Focus on high-signal chapters{"\n"}
-                    2/ Extract key quotes as visual hooks{"\n"}
-                    3/ Adapt the voice per platform...
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {activeTab === 'shorts' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Shorts & Reels Hook Suggestions</CardTitle>
-                <CardDescription>
-                  Identified viral clips with timestamp windows and opening hook scripts.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {[
-                  {
-                    hook: '"Why 90% of content distribution fails"',
-                    interval: '03:12 - 03:58',
-                    format: '9:16 Vertical Reel',
-                  },
-                  {
-                    hook: '"The secret to scaling video without hiring editors"',
-                    interval: '08:45 - 09:30',
-                    format: '9:16 Shorts',
-                  },
-                ].map((clip, i) => (
-                  <div
-                    key={i}
-                    className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between gap-4"
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-white">{clip.hook}</p>
-                      <p className="text-xs text-indigo-400 mt-1 font-mono">
-                        Clip Window: {clip.interval} • {clip.format}
-                      </p>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      Select Clip
-                    </Button>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-        </>
+        <Workspace outputs={outputs} projectId={project.id} onRefresh={refreshData} />
       )}
     </div>
   );
 };
+
+function ProcessingTimeline({ status }: { status: Project['status'] }) {
+  const currentStageIndex = Math.max(
+    0,
+    STAGES.findIndex(([s]) => s === status)
+  );
+
+  return (
+    <div className="card-soft mx-auto max-w-md p-6 sm:p-8">
+      <div className="text-center mb-6">
+        <h2 className="text-xl font-semibold font-display text-foreground">
+          Understanding Video
+        </h2>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+          Hang tight — AI transcription and analysis usually takes under a minute.
+        </p>
+      </div>
+
+      <ol className="space-y-1">
+        {STAGES.map(([key, label], i) => {
+          const isDone = i < currentStageIndex;
+          const isActive = i === currentStageIndex;
+
+          return (
+            <li key={key}>
+              <div className="flex items-center gap-3.5 py-2">
+                <span
+                  className={`grid size-8 place-items-center rounded-full text-xs font-semibold transition-all shrink-0 ${
+                    isDone
+                      ? 'bg-sage text-sage-foreground'
+                      : isActive
+                      ? 'bg-clay text-clay-foreground animate-pulse shadow-clay'
+                      : 'bg-secondary text-muted-foreground'
+                  }`}
+                >
+                  {isDone ? <Check className="size-4" /> : i + 1}
+                </span>
+                <span
+                  className={`text-sm ${
+                    isActive
+                      ? 'font-semibold text-foreground'
+                      : isDone
+                      ? 'text-foreground/80'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  {label}
+                </span>
+              </div>
+              {i < STAGES.length - 1 && (
+                <div
+                  className={`ml-4 h-3.5 w-0.5 transition-colors ${
+                    isDone ? 'bg-sage' : 'bg-border'
+                  }`}
+                />
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+function Workspace({
+  outputs,
+  projectId,
+  onRefresh,
+}: {
+  outputs: ContentOutput[];
+  projectId: string;
+  onRefresh: () => void;
+}) {
+  const [activeTab, setActiveTab] = useState<OutputPlatform>('youtube');
+  const currentTabConfig = TABS.find((t) => t.key === activeTab) || TABS[0];
+
+  return (
+    <div className="space-y-6">
+      {/* Platform Pill Tabs */}
+      <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={`shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-all ${
+              activeTab === t.key
+                ? 'bg-ink text-cream shadow-ink font-semibold'
+                : 'bg-card text-muted-foreground border border-border hover:bg-secondary'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content Groups for Active Tab */}
+      <div className="space-y-6">
+        {currentTabConfig.groups.map(({ type, label }) => {
+          const items = outputs.filter(
+            (o) => o.platform === currentTabConfig.key && o.content_type === type
+          );
+
+          if (items.length === 0) return null;
+
+          return (
+            <section key={type} className="space-y-3">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-clay">
+                {label}
+              </h2>
+              <div
+                className={`grid gap-3.5 ${
+                  type === 'title' || type === 'hook' || type === 'moment'
+                    ? 'grid-cols-1 md:grid-cols-2'
+                    : 'grid-cols-1'
+                }`}
+              >
+                {items.map((o) => (
+                  <OutputCard
+                    key={o.id}
+                    output={o}
+                    projectId={projectId}
+                    onSaved={onRefresh}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function OutputCard({
+  output,
+  onSaved,
+}: {
+  output: ContentOutput;
+  projectId?: string;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(output.content);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setText(output.content);
+  }, [output.content]);
+
+  const handleSave = () => {
+    projectService.updateOutputContent(output.id, text);
+    setEditing(false);
+    onSaved();
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback
+    }
+  };
+
+  const handleRegenerate = () => {
+    setBusy(true);
+    setTimeout(() => {
+      let refined = text;
+      if (output.content_type === 'title') {
+        refined = `Refined: ${text.replace(/^Refined:\s*/, '')} (Viral Angle)`;
+      } else if (output.content_type === 'hook') {
+        refined = `Hook (Alternative): "${text.replace(/^Hook \(Alternative\):\s*"?/, '').replace(/"?$/, '')}"`;
+      } else {
+        refined = `${text}\n\n[Refined with enhanced clarity and punch]`;
+      }
+      setText(refined);
+      projectService.updateOutputContent(output.id, refined);
+      setBusy(false);
+      onSaved();
+    }, 800);
+  };
+
+  const lineCount = text.split('\n').length;
+
+  return (
+    <div
+      className={`rounded-2xl bg-card p-4 sm:p-5 shadow-soft border border-border transition-all ${
+        busy ? 'opacity-60' : ''
+      }`}
+    >
+      {editing ? (
+        <Textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={Math.min(12, Math.max(3, lineCount + 2))}
+          className="bg-cream/60 font-sans text-sm"
+        />
+      ) : (
+        <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground font-sans">
+          {busy ? (
+            <span className="text-muted-foreground flex items-center gap-2">
+              <RefreshCw className="size-3.5 animate-spin" />
+              <span>Regenerating content…</span>
+            </span>
+          ) : (
+            text
+          )}
+        </div>
+      )}
+
+      {/* Action Toolbar */}
+      <div className="mt-3.5 flex flex-wrap items-center justify-end gap-1.5 border-t border-border/40 pt-2.5">
+        {editing ? (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setText(output.content);
+                setEditing(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" variant="sage" onClick={handleSave}>
+              Save Changes
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setEditing(true)}
+              disabled={busy}
+              className="text-xs"
+            >
+              <Pencil className="size-3.5 mr-1" />
+              <span>Edit</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleRegenerate}
+              disabled={busy}
+              className="text-xs"
+            >
+              <RefreshCw className={`size-3.5 mr-1 ${busy ? 'animate-spin' : ''}`} />
+              <span>Regenerate</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleCopy}
+              className={`text-xs ${copied ? 'text-sage font-semibold' : ''}`}
+            >
+              {copied ? (
+                <>
+                  <Check className="size-3.5 mr-1 text-sage" />
+                  <span>Copied</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="size-3.5 mr-1" />
+                  <span>Copy</span>
+                </>
+              )}
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

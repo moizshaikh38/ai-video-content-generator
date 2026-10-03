@@ -1,64 +1,81 @@
 import React from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Video, PlusCircle, LayoutDashboard, ArrowLeft } from 'lucide-react';
-import { Container } from '../components/Container';
-import { Button } from '../components/Button';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { LayoutGrid, Plus, History, Settings, LogOut } from 'lucide-react';
+import { Logo } from '../components/Logo';
+
+const links = [
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutGrid },
+  { to: '/projects/new', label: 'New', icon: Plus },
+  { to: '/history', label: 'History', icon: History },
+  { to: '/settings', label: 'Settings', icon: Settings },
+] as const;
 
 export const DashboardLayout: React.FC = () => {
-  const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleSignOut = () => {
+    // Graceful sign out placeholder
+    navigate('/');
+  };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
-      {/* Dashboard Topbar */}
-      <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md">
-        <Container size="lg">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-6">
-              <Link to="/" className="flex items-center gap-2 group">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
-                  <Video className="w-4 h-4" />
-                </div>
-                <span className="font-bold text-white tracking-tight">OmniVid</span>
-              </Link>
+    <div className="min-h-screen pb-24 md:pb-12 bg-background text-foreground">
+      {/* Header */}
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
+        <Logo to="/dashboard" />
 
-              <div className="h-4 w-px bg-slate-800 hidden sm:block" />
+        {/* Desktop Navigation Links */}
+        <nav className="hidden items-center gap-1.5 md:flex bg-secondary/50 p-1 rounded-full border border-border/60">
+          {links.map((l) => (
+            <NavLink
+              key={l.to}
+              to={l.to}
+              className={({ isActive }) =>
+                `rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
+                  isActive
+                    ? 'bg-card text-foreground shadow-soft border border-border/80'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                }`
+              }
+            >
+              {l.label}
+            </NavLink>
+          ))}
+        </nav>
 
-              <nav className="flex items-center gap-2">
-                <Link
-                  to="/dashboard"
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    location.pathname === '/dashboard'
-                      ? 'bg-slate-800 text-white'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-900'
-                  }`}
-                >
-                  <LayoutDashboard className="w-4 h-4" />
-                  <span>Projects</span>
-                </Link>
-              </nav>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Link to="/" className="text-xs text-slate-400 hover:text-slate-200 hidden sm:flex items-center gap-1">
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Back to Site
-              </Link>
-              <Link to="/projects/new">
-                <Button variant="primary" size="sm" leftIcon={<PlusCircle className="w-4 h-4" />}>
-                  New Project
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </Container>
+        {/* Sign Out Button */}
+        <button
+          onClick={handleSignOut}
+          className="flex items-center gap-2 rounded-full px-3.5 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          aria-label="Sign out"
+        >
+          <LogOut className="size-4" />
+          <span className="hidden sm:inline font-medium">Sign out</span>
+        </button>
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 py-8">
-        <Container size="lg">
-          <Outlet />
-        </Container>
+      <main className="mx-auto max-w-6xl px-4 sm:px-6">
+        <Outlet />
       </main>
+
+      {/* Mobile Floating Bottom Bar */}
+      <nav className="fixed inset-x-4 bottom-4 z-40 grid grid-cols-4 rounded-3xl bg-card p-1.5 shadow-lift border border-border md:hidden">
+        {links.map((l) => (
+          <NavLink
+            key={l.to}
+            to={l.to}
+            className={({ isActive }) =>
+              `flex flex-col items-center gap-1 rounded-2xl py-2 text-[11px] font-medium transition-colors ${
+                isActive ? 'bg-cream text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground'
+              }`
+            }
+          >
+            <l.icon className="size-5" />
+            {l.label}
+          </NavLink>
+        ))}
+      </nav>
     </div>
   );
 };

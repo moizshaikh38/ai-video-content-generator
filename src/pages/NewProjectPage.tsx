@@ -1,165 +1,226 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, UploadCloud, Link as LinkIcon, Sparkles, AlertCircle } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Upload, Link2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/Card';
+import { Textarea } from '../components/Textarea';
+import { projectService } from '../services/projectService';
+
+const MAX_MB = 500;
 
 export const NewProjectPage: React.FC = () => {
-  const [title, setTitle] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
-  const [uploadMode, setUploadMode] = useState<'url' | 'file'>('file');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    // In Phase 1: placeholder routing to demonstration project detail
-    navigate('/projects/proj-01');
+  const [mode, setMode] = useState<'upload' | 'url'>('upload');
+  const [file, setFile] = useState<File | null>(null);
+  const [url, setUrl] = useState('');
+  const [title, setTitle] = useState('');
+  const [notes, setNotes] = useState('');
+  const [progress, setProgress] = useState<number | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const prefillUrl = searchParams.get('url');
+    if (prefillUrl) {
+      setMode('url');
+      setUrl(prefillUrl);
+      setTitle('YouTube Video Analysis');
+    }
+  }, [searchParams]);
+
+  const handlePickFile = (f?: File) => {
+    if (!f) return;
+    if (!f.type.startsWith('video/')) {
+      setErrorMsg('Please select a valid video file (MP4, MOV, WEBM).');
+      return;
+    }
+    if (f.size > MAX_MB * 1024 * 1024) {
+      setErrorMsg(`Video file must be under ${MAX_MB}MB.`);
+      return;
+    }
+    setErrorMsg(null);
+    setFile(f);
+    if (!title) {
+      setTitle(f.name.replace(/\.[^.]+$/, ''));
+    }
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+
+    if (mode === 'upload' && !file) {
+      setErrorMsg('Please choose a video file to upload.');
+      return;
+    }
+    if (mode === 'url' && !url.trim()) {
+      setErrorMsg('Please enter a valid video URL.');
+      return;
+    }
+    if (!title.trim()) {
+      setErrorMsg('Please give your project a title.');
+      return;
+    }
+
+    if (mode === 'upload') {
+      setProgress(15);
+      const timer = setInterval(() => {
+        setProgress((prev) => {
+          if (prev === null || prev >= 100) {
+            clearInterval(timer);
+            const proj = projectService.createProject(
+              title.trim(),
+              file ? file.name : null,
+              notes.trim()
+            );
+            navigate(`/projects/${proj.id}`);
+            return 100;
+          }
+          return prev + 25;
+        });
+      }, 300);
+    } else {
+      const proj = projectService.createProject(title.trim(), url.trim(), notes.trim());
+      navigate(`/projects/${proj.id}`);
+    }
+  };
+
+  const isUploading = progress !== null && progress < 100;
+
   return (
-    <div className="max-w-3xl mx-auto py-4">
-      {/* Back button */}
-      <Link
-        to="/dashboard"
-        className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white mb-6 transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to Projects
-      </Link>
+    <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-6 pt-4">
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight font-display text-foreground">
+          New project
+        </h1>
+        <p className="mt-1 text-sm sm:text-base text-muted-foreground">
+          Upload a video or paste a supported video URL.
+        </p>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold">Create New Content Project</CardTitle>
-          <CardDescription>
-            Import a video via link or upload to generate transcriptions and cross-platform content packages.
-          </CardDescription>
-        </CardHeader>
+      <div className="card-soft space-y-5 p-5 md:p-7">
+        {errorMsg && (
+          <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive font-medium">
+            {errorMsg}
+          </div>
+        )}
 
-        <CardContent>
-          {/* Phase 1 Notice */}
-          <div className="mb-6 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
-            <div className="text-xs text-indigo-200 leading-relaxed">
-              <span className="font-semibold text-indigo-300">Phase 1 Foundation:</span> Video storage,
-              cloud transcoding, and AI generation are reserved for future phases. Submitting this form
-              navigates to the project view layout.
+        {/* Mode Toggle Switch */}
+        <div className="grid grid-cols-2 gap-1 rounded-full bg-cream p-1 border border-border">
+          <button
+            type="button"
+            onClick={() => {
+              setMode('upload');
+              setErrorMsg(null);
+            }}
+            className={`flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-medium transition-all ${
+              mode === 'upload'
+                ? 'bg-card text-foreground shadow-soft border border-border/80'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Upload className="size-4" />
+            <span>Upload video</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode('url');
+              setErrorMsg(null);
+            }}
+            className={`flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-medium transition-all ${
+              mode === 'url'
+                ? 'bg-card text-foreground shadow-soft border border-border/80'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Link2 className="size-4" />
+            <span>Paste URL</span>
+          </button>
+        </div>
+
+        {/* Input Area (Upload or URL) */}
+        {mode === 'upload' ? (
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              handlePickFile(e.dataTransfer.files[0]);
+            }}
+            className="flex w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-input bg-cream/60 px-4 py-10 text-center transition-colors hover:bg-cream/90"
+          >
+            <span className="text-3xl select-none">🎬</span>
+            <span className="mt-2 font-medium text-foreground text-sm sm:text-base">
+              {file ? file.name : 'Drop a video or tap to choose'}
+            </span>
+            <span className="text-xs text-muted-foreground mt-1">
+              {file
+                ? `${(file.size / 1024 / 1024).toFixed(1)} MB`
+                : `MP4, MOV, WEBM · up to ${MAX_MB}MB`}
+            </span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/*"
+              className="hidden"
+              onChange={(e) => handlePickFile(e.target.files?.[0])}
+            />
+          </div>
+        ) : (
+          <Input
+            label="Video URL"
+            placeholder="https://youtube.com/watch?v=…"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+          />
+        )}
+
+        {/* Project Title */}
+        <Input
+          label="Project title"
+          placeholder="e.g. How I Built a $1M SaaS With Zero Funding"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+
+        {/* Notes / Description */}
+        <Textarea
+          label="Transcript or what the video is about (optional)"
+          rows={5}
+          placeholder="Paste the transcript or describe key topics, takeaways, or moments. The more detail, the higher quality your generated content."
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+
+        {/* Progress bar when uploading */}
+        {isUploading && (
+          <div className="space-y-1.5 pt-2">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Uploading video…</span>
+              <span className="font-mono">{progress}%</span>
+            </div>
+            <div className="h-2 rounded-full bg-secondary overflow-hidden">
+              <div
+                className="h-full rounded-full bg-sage transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
             </div>
           </div>
+        )}
 
-          <form onSubmit={handleCreate} className="space-y-6">
-            <Input
-              label="Project Title"
-              placeholder="e.g. Masterclass on System Design & Microservices"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              helperText="Give your project a recognizable title"
-              required
-            />
-
-            {/* Input Mode Selector */}
-            <div>
-              <label className="text-sm font-medium text-slate-200 block mb-2">
-                Video Source
-              </label>
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <button
-                  type="button"
-                  onClick={() => setUploadMode('file')}
-                  className={`p-3 rounded-xl border text-sm font-medium flex items-center justify-center gap-2 transition-all ${
-                    uploadMode === 'file'
-                      ? 'border-indigo-500 bg-indigo-600/15 text-white'
-                      : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
-                  }`}
-                >
-                  <UploadCloud className="w-4 h-4" />
-                  <span>File Upload</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUploadMode('url')}
-                  className={`p-3 rounded-xl border text-sm font-medium flex items-center justify-center gap-2 transition-all ${
-                    uploadMode === 'url'
-                      ? 'border-indigo-500 bg-indigo-600/15 text-white'
-                      : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
-                  }`}
-                >
-                  <LinkIcon className="w-4 h-4" />
-                  <span>Video URL</span>
-                </button>
-              </div>
-
-              {uploadMode === 'file' ? (
-                <div className="border-2 border-dashed border-slate-800 hover:border-slate-700 rounded-2xl p-8 text-center bg-slate-950/40 cursor-pointer transition-colors">
-                  <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 mx-auto mb-3">
-                    <UploadCloud className="w-6 h-6" />
-                  </div>
-                  <p className="text-sm font-medium text-white mb-1">
-                    Click to select or drag and drop a video file
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    MP4, MOV, WEBM up to 2GB (Upload backend in Phase 2)
-                  </p>
-                </div>
-              ) : (
-                <Input
-                  label="Public Video URL"
-                  placeholder="https://www.youtube.com/watch?v=..."
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  leftIcon={<LinkIcon className="w-4 h-4" />}
-                  helperText="Supports YouTube, Vimeo, Loom, or direct video file links"
-                />
-              )}
-            </div>
-
-            {/* Target Channels Selection */}
-            <div>
-              <label className="text-sm font-medium text-slate-200 block mb-2">
-                Target Output Channels
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {[
-                  'YouTube (SEO & Timestamps)',
-                  'Instagram (Reels & Captions)',
-                  'LinkedIn Posts',
-                  'X / Twitter Threads',
-                  'Full AI Transcript',
-                  'Shorts Hook Clips',
-                ].map((channel, i) => (
-                  <label
-                    key={i}
-                    className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 text-xs text-slate-300 cursor-pointer hover:border-slate-700"
-                  >
-                    <input
-                      type="checkbox"
-                      defaultChecked
-                      className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span>{channel}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-4 flex justify-end gap-3">
-              <Link to="/dashboard">
-                <Button variant="outline" size="md">
-                  Cancel
-                </Button>
-              </Link>
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                rightIcon={<Sparkles className="w-4 h-4" />}
-              >
-                Create Project
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+        <Button
+          type="submit"
+          variant="clay"
+          size="lg"
+          className="w-full mt-4"
+          disabled={isUploading}
+        >
+          {isUploading ? 'Uploading video…' : 'Generate content'}
+        </Button>
+      </div>
+    </form>
   );
 };

@@ -1,157 +1,172 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Calendar, Clock, ArrowRight, Layers, RefreshCw } from 'lucide-react';
+import { Plus, ArrowRight } from 'lucide-react';
 import { Button } from '../components/Button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../components/Card';
-import { EmptyState } from '../components/EmptyState';
-import { ProjectPlaceholder } from '../types';
+import { StatusBadge, isProcessing } from '../components/StatusBadge';
+import { projectService } from '../services/projectService';
+import { Project } from '../types';
 
-const INITIAL_PROJECTS: ProjectPlaceholder[] = [
-  {
-    id: 'proj-01',
-    title: 'Product Keynote & Architecture Walkthrough',
-    sourceUrl: 'https://example.com/videos/keynote-2026.mp4',
-    status: 'completed',
-    createdAt: 'Today at 10:30 AM',
-    duration: '18m 42s',
-    contentTypes: ['YouTube SEO', 'Instagram Carousels', 'Shorts Hooks', 'LinkedIn Post'],
-  },
-  {
-    id: 'proj-02',
-    title: 'Podcast Episode 42: Modern Web Scaling',
-    sourceUrl: 'https://example.com/videos/podcast-42.mp4',
-    status: 'processing',
-    createdAt: 'Yesterday',
-    duration: '45m 10s',
-    contentTypes: ['AI Transcript', 'Twitter Thread', 'Show Notes'],
-  },
-  {
-    id: 'proj-03',
-    title: 'TypeScript Full Stack SaaS Deep Dive',
-    sourceUrl: 'https://example.com/videos/saas-demo.mp4',
-    status: 'pending',
-    createdAt: 'Oct 01, 2026',
-    duration: '12m 05s',
-    contentTypes: ['Summary', 'YouTube Timestamps'],
-  },
-];
+const MONTHLY_LIMIT = 3;
 
 export const DashboardPage: React.FC = () => {
-  const [projects] = useState<ProjectPlaceholder[]>(INITIAL_PROJECTS);
-  const [showEmpty, setShowEmpty] = useState(false);
+  const [projects, setProjects] = useState<Project[]>(() => projectService.getProjects());
 
-  const toggleView = () => setShowEmpty(!showEmpty);
+  const refreshProjects = () => {
+    setProjects(projectService.getProjects());
+  };
+
+  useEffect(() => {
+    refreshProjects();
+
+    const handleUpdate = () => refreshProjects();
+    window.addEventListener('vireo_project_updated', handleUpdate);
+
+    // Poll if any project is currently processing
+    const interval = setInterval(() => {
+      const current = projectService.getProjects();
+      setProjects(current);
+    }, 2000);
+
+    return () => {
+      window.removeEventListener('vireo_project_updated', handleUpdate);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const used = projects.filter((p) => new Date(p.created_at) >= monthStart).length;
+  const processing = projects.filter((p) => isProcessing(p.status)).length;
+  const percentUsed = Math.min(100, Math.round((used / MONTHLY_LIMIT) * 100));
 
   return (
-    <div className="space-y-8">
-      {/* Top Banner / Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+    <div className="space-y-8 pt-4">
+      {/* Studio Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-            Projects Dashboard
+          <h1 className="text-3xl font-semibold tracking-tight md:text-4xl font-display text-foreground">
+            Your studio
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Manage your video repositories and generated multi-channel content packages.
+          <p className="mt-1 text-sm sm:text-base text-muted-foreground">
+            One video in. Content everywhere out.
           </p>
         </div>
+        <Button variant="clay" size="lg" asChild>
+          <Link to="/projects/new" className="flex items-center gap-2">
+            <Plus className="size-4" />
+            <span>Create new project</span>
+          </Link>
+        </Button>
+      </div>
 
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleView}
-            leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+      {/* Stats Overview Grid */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard
+          label="Videos this month"
+          value={`${used} / ${MONTHLY_LIMIT}`}
+          sub="Free plan tier"
+          bar={percentUsed}
+        />
+        <StatCard
+          label="Processing now"
+          value={String(processing)}
+          sub={processing > 0 ? 'Analyzing clips…' : 'All caught up'}
+        />
+        <StatCard
+          label="Total projects"
+          value={String(projects.length)}
+          sub="All-time created"
+        />
+      </div>
+
+      {/* Recent Projects Section */}
+      <section className="card-soft p-5 md:p-7">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold font-display text-foreground">
+            Recent projects
+          </h2>
+          <Link
+            to="/history"
+            className="text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
           >
-            {showEmpty ? 'Show Projects' : 'Test Empty State'}
-          </Button>
-          <Link to="/projects/new">
-            <Button variant="primary" size="md" leftIcon={<Plus className="w-4 h-4" />}>
-              New Project
-            </Button>
+            <span>View all</span>
+            <ArrowRight className="size-3.5" />
           </Link>
         </div>
-      </div>
 
-      {/* Info Badge */}
-      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
-            <Layers className="w-4 h-4" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-white">Phase 1 Foundation</p>
-            <p className="text-xs text-slate-400">
-              Interactive UI demonstration with mock data. Real video uploads and AI generation will be integrated in subsequent phases.
+        {projects.length === 0 ? (
+          <div className="rounded-2xl bg-cream/70 py-12 text-center border border-border">
+            <p className="text-3xl select-none">🎬</p>
+            <p className="mt-2 font-medium text-foreground">No projects yet</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Upload your first video to generate an omni-channel content kit.
             </p>
+            <div className="mt-5">
+              <Button variant="clay" size="sm" asChild>
+                <Link to="/projects/new">New Project</Link>
+              </Button>
+            </div>
           </div>
-        </div>
-      </div>
-
-      {/* Content Area */}
-      {showEmpty || projects.length === 0 ? (
-        <EmptyState
-          title="No Projects Yet"
-          description="You haven't uploaded or generated any video content packages. Start by creating your first project."
-          actionLabel="Create Project"
-          onAction={() => (window.location.href = '/projects/new')}
-        />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <Card key={project.id} hoverable className="flex flex-col justify-between">
-              <CardHeader>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span
-                    className={`text-[11px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
-                      project.status === 'completed'
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        : project.status === 'processing'
-                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                        : 'bg-slate-800 text-slate-400 border-slate-700'
-                    }`}
-                  >
-                    {project.status}
-                  </span>
-                  <div className="flex items-center text-xs text-slate-400 gap-1">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>{project.duration}</span>
+        ) : (
+          <ul className="divide-y divide-border">
+            {projects.slice(0, 5).map((p) => (
+              <li key={p.id}>
+                <Link
+                  to={`/projects/${p.id}`}
+                  className="flex items-center justify-between gap-3 py-4 hover:bg-cream/40 rounded-xl px-2.5 transition-colors group"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-foreground text-sm sm:text-base group-hover:text-clay transition-colors">
+                      {p.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {new Date(p.created_at).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </p>
                   </div>
-                </div>
-                <CardTitle className="text-lg line-clamp-1">{project.title}</CardTitle>
-                <CardDescription className="flex items-center gap-1.5 text-xs text-slate-400 mt-1">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Created {project.createdAt}</span>
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent>
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-slate-400">Available Packages:</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {project.contentTypes?.map((tag, i) => (
-                      <span
-                        key={i}
-                        className="text-[11px] px-2 py-0.5 rounded-md bg-slate-800/80 text-slate-300 border border-slate-700/60"
-                      >
-                        {tag}
-                      </span>
-                    ))}
+                  <div className="shrink-0 flex items-center gap-2">
+                    <StatusBadge status={p.status} />
                   </div>
-                </div>
-              </CardContent>
-
-              <CardFooter className="justify-between">
-                <span className="text-xs text-slate-400 font-mono">{project.id}</span>
-                <Link to={`/projects/${project.id}`}>
-                  <Button variant="ghost" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
-                    View Project
-                  </Button>
                 </Link>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 };
+
+function StatCard({
+  label,
+  value,
+  sub,
+  bar,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  bar?: number;
+}) {
+  return (
+    <div className="card-soft p-5">
+      <p className="text-xs font-semibold uppercase tracking-[0.15em] text-clay">
+        {label}
+      </p>
+      <p className="mt-2 font-display text-3xl font-semibold text-foreground">
+        {value}
+      </p>
+      {bar !== undefined && (
+        <div className="mt-3 h-1.5 rounded-full bg-secondary overflow-hidden">
+          <div
+            className="h-full rounded-full bg-sage transition-all duration-300"
+            style={{ width: `${bar}%` }}
+          />
+        </div>
+      )}
+      <p className="mt-2 text-xs text-muted-foreground">{sub}</p>
+    </div>
+  );
+}
