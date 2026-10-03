@@ -15,16 +15,8 @@ export function getTranscriptionProvider(providerName?: string): TranscriptionPr
 
   switch (chosen) {
     case 'groq':
-      if (!config.groqApiKey && config.openrouterApiKey) {
-        logger.warn('[Transcription Factory] GROQ_API_KEY is not configured, falling back to OpenRouter');
-        return new OpenRouterTranscriptionProvider();
-      }
       return new GroqTranscriptionProvider();
     case 'openrouter':
-      if (!config.openrouterApiKey && config.groqApiKey) {
-        logger.warn('[Transcription Factory] OPENROUTER_API_KEY is not configured, falling back to Groq');
-        return new GroqTranscriptionProvider();
-      }
       return new OpenRouterTranscriptionProvider();
     default:
       const errMsg = `Unsupported transcription provider "${chosen}". Supported providers are: "groq", "openrouter".`;
