@@ -1,15 +1,104 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight, Menu, X } from 'lucide-react';
-import { Logo } from './Logo';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { ArrowUpRight, Menu, X } from "lucide-react";
+import { Logo } from "./Logo";
 
 const links = [
-  { label: 'Product', href: '/#product' },
-  { label: 'Use Cases', href: '/#platforms' },
-  { label: 'Pricing', href: '/#pricing' },
-  { label: 'Resources', href: '/#faq' },
+  { label: "Product", href: "/#product" },
+  { label: "How It Works", href: "/#how" },
+  { label: "Use Cases", href: "/#use-cases" },
+  { label: "Pricing", href: "/#pricing" },
 ];
-export const Navbar: React.FC = () => {
+
+export function Navbar() {
   const [open, setOpen] = useState(false);
-  return <header className="sticky top-0 z-50 border-b border-border bg-[#fffdf9]/90 backdrop-blur-md"><nav className="mx-auto flex h-[72px] max-w-[1350px] items-center justify-between px-5 lg:px-10"><Logo /><div className="hidden items-center gap-9 lg:flex">{links.map(x => <a key={x.label} href={x.href} className="text-sm font-medium text-[#344249] hover:text-forest">{x.label}</a>)}</div><div className="hidden items-center gap-6 sm:flex"><Link to="/login" className="text-sm font-medium hover:text-clay">Sign in</Link><Link to="/signup" className="inline-flex items-center gap-2 rounded-xl bg-clay px-5 py-3 text-sm font-semibold text-white shadow-clay hover:bg-[#c93f1e]">Start Creating <ArrowRight className="size-4" /></Link></div><button onClick={() => setOpen(!open)} aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} className="rounded-lg p-2 sm:hidden">{open ? <X /> : <Menu />}</button></nav>{open && <div className="border-t border-border bg-white p-5 sm:hidden"><div className="flex flex-col gap-4">{links.map(x => <a onClick={() => setOpen(false)} key={x.label} href={x.href} className="text-sm font-medium">{x.label}</a>)}<Link to="/login" className="text-sm font-medium">Sign in</Link><Link to="/signup" className="rounded-xl bg-clay px-4 py-3 text-center text-sm font-semibold text-white">Start Creating</Link></div></div>}</header>;
-};
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const update = () => setScrolled(window.scrollY > 16);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
+  return (
+    <header
+      className={`sticky top-0 z-50 border-b transition-colors duration-200 ${scrolled || open ? "border-[#e2e7dd] bg-[#fbf8f3]/95 shadow-[0_7px_22px_#143f310b]" : "border-transparent bg-[#fbf8f3]/85"} backdrop-blur-xl`}
+    >
+      <nav
+        className="mx-auto flex h-[72px] max-w-[1288px] items-center justify-between gap-7 px-5 lg:px-8"
+        aria-label="Main navigation"
+      >
+        <Logo />
+        <div className="hidden items-center gap-8 lg:flex">
+          {links.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className="text-[13px] font-semibold text-[#526a59] transition-colors hover:text-forest"
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
+        <div className="hidden items-center gap-5 lg:flex">
+          <Link
+            to="/login"
+            className="text-[13px] font-semibold text-[#365441] hover:text-clay"
+          >
+            Sign In
+          </Link>
+          <Link
+            to="/signup"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-clay px-4 text-[13px] font-bold text-white shadow-clay transition-colors hover:bg-[#bd3f1d]"
+          >
+            Start Creating Free <ArrowUpRight size={15} />
+          </Link>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          aria-label={open ? "Close menu" : "Open menu"}
+          aria-expanded={open}
+          aria-controls="mobile-navigation"
+          className="grid size-11 place-items-center rounded-lg text-forest hover:bg-[#eaf0e6] lg:hidden"
+        >
+          {open ? <X size={21} /> : <Menu size={21} />}
+        </button>
+      </nav>
+      {open && (
+        <div
+          id="mobile-navigation"
+          className="border-t border-[#e2e7dd] bg-[#fbf8f3] px-5 pb-6 pt-3 lg:hidden"
+        >
+          <div className="mx-auto flex max-w-[1288px] flex-col">
+            <div className="flex flex-col border-b border-[#e4e8df] pb-3">
+              {links.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  className="flex min-h-12 items-center text-sm font-semibold text-[#365441]"
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
+            <Link
+              to="/login"
+              onClick={() => setOpen(false)}
+              className="flex min-h-12 items-center text-sm font-semibold text-[#365441]"
+            >
+              Sign In
+            </Link>
+            <Link
+              to="/signup"
+              onClick={() => setOpen(false)}
+              className="flex min-h-12 items-center justify-center rounded-xl bg-clay px-4 text-sm font-bold text-white"
+            >
+              Start Creating Free
+            </Link>
+          </div>
+        </div>
+      )}
+    </header>
+  );
+}

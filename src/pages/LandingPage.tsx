@@ -1,46 +1,684 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight, Check, UploadCloud, AudioLines, FileText, Sparkles, Copy, Play as Youtube, Camera as Instagram, BriefcaseBusiness as Linkedin, Play, Clock3, Hash, MessageSquare, Settings2, History, Wand2 } from 'lucide-react';
-import { Logo } from '../components/Logo';
-import { plans, examples } from '../data/marketing';
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  ArrowDown,
+  ArrowRight,
+  ArrowUpRight,
+  AudioLines,
+  Check,
+  ChevronDown,
+  Clock3,
+  Copy,
+  FileText,
+  LockKeyhole,
+  Settings2,
+  Sparkles,
+  UploadCloud,
+  Video,
+} from "lucide-react";
+import { Logo } from "../components/Logo";
+import {
+  HeroVisual,
+  MomentsPreview,
+  TranscriptPreview,
+  TransformationVisual,
+  WorkspacePreview,
+  channels,
+} from "../components/landing/ProductVisuals";
+import { plans } from "../data/marketing";
+import "./landing.css";
 
-const steps = [
-  { title: 'Upload your video', description: 'Add a supported video file up to 50 MB.', icon: UploadCloud },
-  { title: 'Extract audio', description: 'Vireo prepares the audio for transcription.', icon: AudioLines },
-  { title: 'AI transcription', description: 'Get a readable transcript with timing where available.', icon: FileText },
-  { title: 'Generate content', description: 'Create platform-specific titles, hooks, captions and posts.', icon: Sparkles },
-  { title: 'Review and publish', description: 'Edit, copy and publish from your own channels.', icon: Copy },
-];
-const features = [
-  { title: 'AI transcription', description: 'Turn spoken words into a useful written starting point.', icon: AudioLines },
-  { title: 'Timestamped transcript', description: 'Find key passages and revisit your source quickly.', icon: Clock3 },
-  { title: 'Platform-ready drafts', description: 'Make YouTube, Instagram, LinkedIn and X copy.', icon: MessageSquare },
-  { title: 'Hooks and hashtags', description: 'Find strong openings and relevant tags.', icon: Hash },
-  { title: 'Creator preferences', description: 'Set your niche, audience, language and tone.', icon: Settings2 },
-  { title: 'History and editing', description: 'Reopen your projects and refine generated content.', icon: History },
-];
+const platformContent = [
+  {
+    name: "YouTube",
+    label: "TITLE · DESCRIPTION · CHAPTERS",
+    title: "Make one idea work across every channel",
+    body: "A clear title, a useful description, and chapters that help viewers find the parts they need.",
+    details: [
+      "Title that leads with the idea",
+      "Description shaped from your video",
+      "Timestamped chapters",
+    ],
+  },
+  {
+    name: "Instagram",
+    label: "HOOK · CAPTION · HASHTAGS",
+    title: "Your next caption starts here.",
+    body: "A first line that earns attention, a caption with a point of view, and relevant hashtags.",
+    details: ["Opening hook", "Ready-to-edit caption", "Relevant hashtags"],
+  },
+  {
+    name: "Shorts / Reels",
+    label: "MOMENTS · TIMESTAMPS",
+    title: "Find the part worth replaying.",
+    body: "Spot concise moments in your transcript and return to the right point in the original video.",
+    details: ["Moment ideas", "Source timestamps", "Short-form hooks"],
+  },
+  {
+    name: "LinkedIn",
+    label: "PROFESSIONAL POST",
+    title: "Make the idea useful at work.",
+    body: "Turn the key lesson from your video into a thoughtful professional post.",
+    details: ["Clear opening", "Structured takeaway", "Editable draft"],
+  },
+  {
+    name: "X",
+    label: "THREAD",
+    title: "Tell the story, post by post.",
+    body: "Break an idea into a concise thread that carries the thought from start to finish.",
+    details: ["Thread opening", "Connected posts", "Closing thought"],
+  },
+] as const;
 const faqs = [
-  { q: 'What is Vireo?', a: 'Vireo turns an existing video into a transcript and drafts content for several social platforms.' },
-  { q: 'Which video formats are supported?', a: 'The upload form accepts MP4, MOV, WEBM, AVI and MKV files. Video URL processing is planned.' },
-  { q: 'What is the upload limit?', a: 'Uploaded files can be up to 50 MB.' },
-  { q: 'How does transcription work?', a: 'Vireo extracts audio from your video and sends it through an AI speech-to-text service. Processing time varies by file.' },
-  { q: 'Which platforms does Vireo create content for?', a: 'Vireo can draft content for YouTube, Instagram, Shorts/Reels, LinkedIn and X.' },
-  { q: 'Is my uploaded video private?', a: 'Uploads are stored in a private video bucket and project access is tied to your account.' },
+  {
+    q: "What does Vireo do?",
+    a: "Vireo takes an existing video, creates a transcript, and generates editable content drafts for different social platforms.",
+  },
+  {
+    q: "What happens to my uploaded videos?",
+    a: "Uploaded videos are stored privately. Projects are tied to your account so you can return to your transcript and generated content.",
+  },
+  {
+    q: "Which file formats are supported?",
+    a: "The upload form accepts MP4, MOV, WEBM, AVI and MKV files.",
+  },
+  { q: "How large can my video be?", a: "Video uploads can be up to 50 MB." },
+  {
+    q: "Which platforms can Vireo generate content for?",
+    a: "Vireo drafts content for YouTube, Instagram, Shorts/Reels, LinkedIn and X.",
+  },
+  {
+    q: "Can I edit the generated content?",
+    a: "Yes. Review and edit your drafts before copying them to publish through your own channels.",
+  },
 ];
-const cta = 'inline-flex items-center justify-center gap-2 rounded-xl bg-clay px-6 py-3.5 font-semibold text-white shadow-clay transition-colors hover:bg-[#c93f1e]';
-export const LandingPage: React.FC = () => <div className="overflow-hidden">
-  <section className="relative mx-auto grid max-w-[1350px] items-center gap-12 px-5 pb-20 pt-16 lg:grid-cols-[.9fr_1.1fr] lg:px-10 lg:pt-24">
-    <div className="relative z-10"><span className="inline-flex rounded-full bg-[#fff0e9] px-4 py-2 text-xs font-semibold uppercase tracking-[.14em] text-clay">AI content repurposing for creators</span><h1 className="mt-5 max-w-[670px] font-display text-[clamp(3.2rem,5.5vw,5.7rem)] font-semibold leading-[1.05] tracking-[-.055em]">Turn one video into <span className="text-clay">scroll-stopping content.</span></h1><p className="mt-6 max-w-[580px] text-lg leading-relaxed text-muted-foreground">Upload a video and let Vireo transform it into a transcript, titles, hooks, captions, posts and platform-ready ideas.</p><div className="mt-8 flex flex-wrap gap-3"><Link className={cta} to="/signup">Generate Your First Content Kit <ArrowRight className="size-4" /></Link><a href="#how" className="inline-flex items-center gap-2 rounded-xl border border-[#e9dcd4] bg-white px-6 py-3.5 font-semibold text-forest hover:bg-cream"><Play className="size-4" /> See How It Works</a></div><p className="mt-5 text-sm text-muted-foreground">One upload. More ways to share what you made.</p></div>
-    <div className="relative"><div className="absolute -inset-10 rounded-full bg-[#fff0e6] blur-[70px]" /><ProductPreview /></div>
-  </section>
-  <section className="border-y border-border bg-white/65 py-8"><div className="mx-auto max-w-[1350px] px-5 text-center lg:px-10"><p className="text-xs font-semibold uppercase tracking-[.2em] text-muted-foreground">Create content for every major platform</p><div className="mt-5 flex flex-wrap items-center justify-center gap-x-12 gap-y-4 font-semibold text-[#6a747a]"><span>YouTube</span><span>Instagram</span><span>Shorts / Reels</span><span>LinkedIn</span><span>X</span></div></div></section>
-  <section id="product" className="mx-auto grid max-w-[1350px] gap-5 px-5 py-24 md:grid-cols-2 lg:px-10"><div className="rounded-3xl bg-[#fff4ef] p-8 md:p-12"><p className="text-xs font-bold uppercase tracking-[.2em] text-clay">The old way</p><h2 className="mt-3 max-w-md font-display text-3xl font-semibold">Repurposing video manually takes time.</h2><ul className="mt-7 space-y-4 text-[#43505a]">{['Rewatching to find useful moments','Writing every platform post from scratch','Repeating the same work after each upload'].map(x=><li key={x} className="flex gap-3"><span className="grid size-6 shrink-0 place-items-center rounded-full bg-[#f8dbd1] text-clay">×</span>{x}</li>)}</ul></div><div className="rounded-3xl bg-[#eef5ee] p-8 md:p-12"><p className="text-xs font-bold uppercase tracking-[.2em] text-vireo-green">The Vireo way</p><h2 className="mt-3 max-w-md font-display text-3xl font-semibold text-forest">One source, a full content kit.</h2><ul className="mt-7 space-y-4 text-[#43505a]">{['Transcribe spoken content automatically','Surface useful moments and hooks','Create drafts for each platform'].map(x=><li key={x} className="flex gap-3"><span className="grid size-6 shrink-0 place-items-center rounded-full bg-[#d7e9db] text-forest"><Check className="size-4" /></span>{x}</li>)}</ul></div></section>
-  <section id="how" className="mx-auto max-w-[1350px] px-5 pb-24 text-center lg:px-10"><span className="text-xs font-bold uppercase tracking-[.2em] text-clay">How it works</span><h2 className="mt-3 font-display text-4xl font-semibold">From upload to everywhere.</h2><p className="mt-2 text-muted-foreground">Five straightforward steps from video to publishable drafts.</p><div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">{steps.map((s,i)=><div key={s.title} className="relative rounded-2xl border border-border bg-white p-6 text-left shadow-soft"><span className="absolute right-5 top-5 text-xs font-bold text-clay">0{i+1}</span><span className="grid size-12 place-items-center rounded-full bg-[#fff0e9] text-clay"><s.icon className="size-5" /></span><h3 className="mt-5 text-base font-semibold">{s.title}</h3><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.description}</p></div>)}</div></section>
-  <section id="features" className="bg-white/65 py-24"><div className="mx-auto max-w-[1350px] px-5 lg:px-10"><div className="text-center"><span className="text-xs font-bold uppercase tracking-[.2em] text-clay">Features</span><h2 className="mt-3 font-display text-4xl font-semibold">The essentials for modern creators.</h2></div><div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{features.map(f=><div key={f.title} className="rounded-2xl border border-border bg-white p-6 shadow-soft"><span className="grid size-11 place-items-center rounded-xl bg-[#fff0e9] text-clay"><f.icon className="size-5" /></span><h3 className="mt-5 text-lg font-semibold">{f.title}</h3><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.description}</p></div>)}</div></div></section>
-  <section id="platforms" className="mx-auto max-w-[1350px] px-5 py-24 lg:px-10"><div className="text-center"><span className="text-xs font-bold uppercase tracking-[.2em] text-clay">Platform outputs</span><h2 className="mt-3 font-display text-4xl font-semibold">A better starting point for every channel.</h2><p className="mt-2 text-sm text-muted-foreground">Illustrative examples of the drafts Vireo can create.</p></div><div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-5">{examples.map((e,i)=><div key={e.platform} className="overflow-hidden rounded-2xl border border-border bg-white shadow-soft"><div className={`h-28 ${['bg-[#f6e1d6]','bg-[#f8e4e9]','bg-[#e9f1e9]','bg-[#e2eff5]','bg-[#e9e9e9]'][i]} p-5`}><span className="grid size-11 place-items-center rounded-xl bg-white/80 text-forest">{[<Youtube />,<Instagram />,<Play />,<Linkedin />,<span className="text-xl font-bold">𝕏</span>][i]}</span></div><div className="p-5"><h3 className="font-semibold">{e.platform}</h3><p className="mt-1 text-xs text-muted-foreground">{e.type}</p><p className="mt-4 text-sm font-medium leading-relaxed">“{e.sample}”</p></div></div>)}</div></section>
-  <section id="pricing" className="bg-white/65 py-24"><div className="mx-auto max-w-[1150px] px-5"><div className="text-center"><span className="text-xs font-bold uppercase tracking-[.2em] text-clay">Plans</span><h2 className="mt-3 font-display text-4xl font-semibold">Start with the tools you need.</h2><p className="mt-2 text-sm text-muted-foreground">Paid plans are planned. Billing is not available yet.</p></div><div className="mt-10 grid gap-5 md:grid-cols-3">{plans.map(p=><div key={p.name} className={`flex flex-col rounded-2xl border bg-white p-7 shadow-soft ${p.name==='Pro'?'border-clay':'border-border'}`}><div className="flex justify-between"><h3 className="font-display text-xl font-semibold">{p.name}</h3>{p.name==='Pro'&&<span className="rounded-full bg-[#fff0e9] px-2 py-1 text-xs text-clay">Planned</span>}</div><p className="mt-5 text-3xl font-semibold">{p.price}</p><p className="mt-3 min-h-[48px] text-sm text-muted-foreground">{p.description}</p><ul className="mt-6 flex-1 space-y-3">{p.features.map(f=><li key={f} className="flex gap-2 text-sm"><Check className="size-4 shrink-0 text-vireo-green" />{f}</li>)}</ul>{p.available?<Link to="/signup" className={`${cta} mt-8 text-sm`}>Get started <ArrowRight className="size-4" /></Link>:<span className="mt-8 rounded-xl border border-border px-6 py-3.5 text-center text-sm font-semibold text-muted-foreground">Coming soon</span>}</div>)}</div></div></section>
-  <section id="faq" className="mx-auto grid max-w-[1150px] gap-10 px-5 py-24 lg:grid-cols-[.7fr_1.3fr]"><div><span className="text-xs font-bold uppercase tracking-[.2em] text-clay">Frequently asked questions</span><h2 className="mt-3 font-display text-4xl font-semibold">Good to know.</h2><p className="mt-4 text-muted-foreground">The practical details before your first upload.</p></div><div className="space-y-3">{faqs.map(f=><details key={f.q} className="group rounded-xl border border-border bg-white p-5"><summary className="cursor-pointer list-none pr-6 font-semibold marker:hidden">{f.q}<span className="float-right text-clay group-open:rotate-45">+</span></summary><p className="mt-3 text-sm leading-relaxed text-muted-foreground">{f.a}</p></details>)}</div></section>
-  <section className="mx-auto max-w-[1350px] px-5 pb-20 lg:px-10"><div className="relative overflow-hidden rounded-[28px] bg-forest px-8 py-14 text-white md:px-16"><div className="absolute -right-14 -top-24 size-80 rounded-full border-[50px] border-white/5" /><div className="relative"><Wand2 className="size-7 text-[#aed19b]" /><h2 className="mt-4 max-w-xl font-display text-4xl font-semibold">Turn one video into your next week of content.</h2><p className="mt-3 max-w-lg text-[#d1e0d7]">Bring the video. Vireo helps you shape everything that comes after.</p><Link to="/signup" className={`${cta} mt-7`}>Start Creating <ArrowRight className="size-4" /></Link></div></div></section>
-</div>;
 
-function ProductPreview(){ return <div className="relative rounded-[22px] border border-border bg-white p-3 shadow-lift"><div className="flex gap-3"><div className="hidden w-28 shrink-0 rounded-xl bg-[#f8faf7] p-3 sm:block"><Logo compact /><div className="mt-7 space-y-3 text-[10px] text-[#56615e]"><p className="rounded-md bg-[#e5f1e8] p-2 font-semibold text-forest">◉ Dashboard</p><p className="p-2">⊕ New Project</p><p className="p-2">◷ History</p><p className="p-2">⚙ Settings</p></div></div><div className="min-w-0 flex-1"><div className="flex h-8 items-center rounded-lg bg-[#f7f7f5] px-3 text-[10px] text-muted-foreground">Search projects and content…</div><div className="mt-3 rounded-xl bg-[#eef4ef] p-5"><p className="text-[10px] font-semibold uppercase tracking-widest text-vireo-green">Your content kit</p><h3 className="mt-2 text-xl font-semibold text-forest">One video. Five fresh ways to share it.</h3><p className="mt-2 text-xs text-muted-foreground">Transcripts, hooks, captions and posts in one workspace.</p><div className="mt-5 flex flex-wrap gap-2">{['YouTube','Instagram','Shorts','LinkedIn','X'].map(x=><span key={x} className="rounded-lg bg-white px-2.5 py-2 text-[10px] font-semibold text-forest shadow-soft">{x}</span>)}</div></div><div className="mt-3 grid grid-cols-2 gap-3"><div className="rounded-xl border border-border p-4"><div className="flex items-center gap-2 text-xs font-semibold"><FileText className="size-4 text-vireo-green" />Transcript</div><div className="mt-3 space-y-2"><span className="block h-2 w-full rounded bg-[#e6eee8]"/><span className="block h-2 w-4/5 rounded bg-[#e6eee8]"/><span className="block h-2 w-3/5 rounded bg-[#e6eee8]"/></div></div><div className="rounded-xl border border-border p-4"><div className="flex items-center gap-2 text-xs font-semibold"><Sparkles className="size-4 text-clay" />Content drafts</div><p className="mt-3 text-[11px] text-muted-foreground">A clear title and an opening that makes people stop scrolling.</p></div></div></div></div><span className="absolute -bottom-4 right-6 rounded-full bg-white px-4 py-2 text-[10px] font-semibold text-forest shadow-lift">Illustrative product preview</span></div> }
+const Cta = ({ className = "" }: { className?: string }) => (
+  <Link className={`lv-cta ${className}`} to="/signup">
+    Start Creating Free <ArrowUpRight size={17} />
+  </Link>
+);
+const Label = ({ children }: { children: React.ReactNode }) => (
+  <span className="lv-section-label">{children}</span>
+);
+
+function HeroSection() {
+  return (
+    <section className="lv-hero" aria-labelledby="hero-title">
+      <div className="lv-hero-copy">
+        <Label>AI CONTENT REPURPOSING FOR VIDEO CREATORS</Label>
+        <h1 id="hero-title">
+          Turn one video into
+          <br className="lv-desktop-break" /> your <em>entire content kit.</em>
+        </h1>
+        <p>
+          Upload a video. Vireo turns it into a transcript, titles, hooks,
+          captions, posts and short-form moments for every channel you use.
+        </p>
+        <div className="lv-hero-actions">
+          <Cta />
+          <a className="lv-secondary-cta" href="#how">
+            See How It Works <ArrowDown size={16} />
+          </a>
+        </div>
+        <div className="lv-hero-proof">
+          <span>
+            <Check size={14} /> No complicated editing
+          </span>
+          <i />
+          <span>
+            <LockKeyhole size={14} /> Private uploads
+          </span>
+          <i />
+          <span>
+            <Copy size={14} /> Ready-to-use drafts
+          </span>
+        </div>
+      </div>
+      <HeroVisual />
+    </section>
+  );
+}
+
+function PlatformStrip() {
+  return (
+    <section
+      className="lv-platform-strip"
+      aria-label="Supported content platforms"
+    >
+      <p>Content built for the places your audience already is.</p>
+      <div>
+        {channels.map((channel, i) => (
+          <span key={channel}>
+            <b className="lv-platform-mark">
+              {i === 4
+                ? "𝕏"
+                : i === 2
+                  ? "▶"
+                  : i === 1
+                    ? "◎"
+                    : i === 3
+                      ? "in"
+                      : "▶"}
+            </b>
+            {channel}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ProblemAndSolution() {
+  const oldTasks = [
+    "Watch the video again",
+    "Write the title & description",
+    "Find the best hooks",
+    "Write the caption & hashtags",
+    "Create a LinkedIn post",
+    "Write an X thread",
+  ];
+  const flow = [
+    { icon: UploadCloud, title: "Upload", text: "Start with a video" },
+    { icon: AudioLines, title: "Transcribe", text: "Get the words" },
+    { icon: Sparkles, title: "Understand", text: "Find the ideas" },
+    { icon: ArrowUpRight, title: "Repurpose", text: "Shape every draft" },
+  ];
+  return (
+    <>
+      <section className="lv-problem lv-container">
+        <div className="lv-problem-intro">
+          <Label>THE OLD WAY</Label>
+          <h2>
+            One video shouldn't create <em>five more hours of work.</em>
+          </h2>
+          <p>Stop rewriting the same idea for every platform.</p>
+        </div>
+        <div className="lv-old-workflow">
+          <div className="lv-old-header">
+            <Video size={17} />
+            <span>Video is finished</span>
+            <span className="lv-old-still">But the work isn't.</span>
+          </div>
+          <ol>
+            {oldTasks.map((task, i) => (
+              <li key={task}>
+                <span>{String(i + 1).padStart(2, "0")}</span>
+                {task}
+                <span className="lv-old-line" />
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+      <section className="lv-solution">
+        <div className="lv-container">
+          <div className="lv-solution-heading">
+            <div>
+              <Label>THE VIREO WAY</Label>
+              <h2>
+                Vireo does the <em>repurposing</em> for you.
+              </h2>
+            </div>
+            <p>
+              Your video stays the source. Vireo gives you a useful starting
+              point for each channel.
+            </p>
+          </div>
+          <div className="lv-flow">
+            {flow.map((step, i) => (
+              <div className="lv-flow-item" key={step.title}>
+                <span className="lv-flow-icon">
+                  <step.icon size={21} />
+                </span>
+                <span className="lv-flow-number">0{i + 1}</span>
+                <strong>{step.title}</strong>
+                <small>{step.text}</small>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function ProductShowcase() {
+  return (
+    <section id="product" className="lv-showcase lv-container">
+      <div className="lv-showcase-row">
+        <div className="lv-showcase-copy">
+          <Label>01 / TRANSCRIPT</Label>
+          <h2>
+            Your complete transcript, <em>without the busywork.</em>
+          </h2>
+          <p>
+            Vireo turns spoken words into a readable, timestamped transcript.
+            Find the line you need and keep the original idea close.
+          </p>
+          <div className="lv-showcase-note">
+            <AudioLines size={18} /> Transcript · language · duration ·
+            timestamps
+          </div>
+        </div>
+        <TranscriptPreview />
+      </div>
+      <div className="lv-showcase-row lv-showcase-row-reverse">
+        <WorkspacePreview />
+        <div className="lv-showcase-copy">
+          <Label>02 / CONTENT</Label>
+          <h2>
+            One story, shaped for <em>every platform.</em>
+          </h2>
+          <p>
+            Start with YouTube titles and descriptions, Instagram hooks and
+            captions, LinkedIn posts, X threads and short-form ideas. Edit every
+            draft in your workspace.
+          </p>
+          <div className="lv-showcase-note">
+            <FileText size={18} /> Review, edit and copy your drafts
+          </div>
+        </div>
+      </div>
+      <div className="lv-showcase-row">
+        <div className="lv-showcase-copy">
+          <Label>03 / MOMENTS</Label>
+          <h2>
+            Find the moments <em>worth sharing.</em>
+          </h2>
+          <p>
+            Revisit standout lines in the transcript with timestamps that point
+            back to the original video.
+          </p>
+          <div className="lv-showcase-note">
+            <Clock3 size={18} /> Short-form ideas with source timestamps
+          </div>
+        </div>
+        <MomentsPreview />
+      </div>
+    </section>
+  );
+}
+
+function PlatformOutputs() {
+  const [active, setActive] = useState(0);
+  const output = platformContent[active];
+  return (
+    <section id="platforms" className="lv-outputs">
+      <div className="lv-container">
+        <div className="lv-output-heading">
+          <div>
+            <Label>MADE FOR EACH CHANNEL</Label>
+            <h2>
+              One video.
+              <br />
+              <em>Five content channels.</em>
+            </h2>
+          </div>
+          <p>
+            A different format for each audience, with your original idea at the
+            center.
+          </p>
+        </div>
+        <div
+          className="lv-output-switcher"
+          role="tablist"
+          aria-label="Content platform previews"
+        >
+          {platformContent.map((platform, i) => (
+            <button
+              key={platform.name}
+              id={`platform-tab-${i}`}
+              type="button"
+              role="tab"
+              aria-selected={active === i}
+              aria-controls="platform-panel"
+              tabIndex={active === i ? 0 : -1}
+              onClick={() => setActive(i)}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+                  event.preventDefault();
+                  const next =
+                    (i +
+                      (event.key === "ArrowRight" ? 1 : -1) +
+                      platformContent.length) %
+                    platformContent.length;
+                  setActive(next);
+                  document.getElementById(`platform-tab-${next}`)?.focus();
+                }
+              }}
+            >
+              {platform.name}
+            </button>
+          ))}
+        </div>
+        <div
+          id="platform-panel"
+          className="lv-output-panel"
+          role="tabpanel"
+          aria-labelledby={`platform-tab-${active}`}
+          tabIndex={0}
+        >
+          <div className="lv-output-panel-main">
+            <span className="lv-output-label">{output.label}</span>
+            <h3>{output.title}</h3>
+            <p>{output.body}</p>
+            <span className="lv-output-example">
+              Illustrative content preview
+            </span>
+          </div>
+          <div className="lv-output-panel-aside">
+            <span className="lv-mini-eyebrow">IN YOUR CONTENT KIT</span>
+            {output.details.map((detail, i) => (
+              <div key={detail}>
+                <span>0{i + 1}</span>
+                <strong>{detail}</strong>
+                <Check size={16} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BeforeAfter() {
+  return (
+    <section className="lv-before-after lv-container">
+      <div className="lv-before-title">
+        <Label>A BETTER WAY TO WORK</Label>
+        <h2>
+          Same video.
+          <br />
+          <em>More places to go.</em>
+        </h2>
+      </div>
+      <div className="lv-before-compare">
+        <div>
+          <span>BEFORE VIREO</span>
+          <strong>One video</strong>
+          <strong>Five platforms</strong>
+          <strong>Hours of manual writing</strong>
+        </div>
+        <ArrowRight className="lv-before-arrow" size={26} />
+        <div>
+          <span>WITH VIREO</span>
+          <strong>One upload</strong>
+          <strong>One transcript</strong>
+          <strong>Multiple ready-to-use drafts</strong>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FeatureBento() {
+  return (
+    <section id="features" className="lv-features">
+      <div className="lv-container">
+        <div className="lv-feature-heading">
+          <Label>THOUGHTFULLY BUILT</Label>
+          <h2>
+            Everything after the upload,
+            <br />
+            <em>in one place.</em>
+          </h2>
+        </div>
+        <div className="lv-bento">
+          <div className="lv-bento-card lv-bento-wide">
+            <AudioLines size={22} />
+            <h3>AI transcription</h3>
+            <p>Start with the words you actually said.</p>
+            <div className="lv-bento-quote">
+              <span>00:42</span> “Shape the same message for every channel.”
+            </div>
+          </div>
+          <div className="lv-bento-card lv-bento-sage">
+            <FileText size={22} />
+            <h3>Platform-specific drafts</h3>
+            <p>Titles, captions, posts and threads with a format in mind.</p>
+            <div className="lv-bento-pills">
+              <span>YouTube</span>
+              <span>Instagram</span>
+              <span>LinkedIn</span>
+            </div>
+          </div>
+          <div className="lv-bento-card">
+            <Clock3 size={22} />
+            <h3>Timestamped moments</h3>
+            <p>Return to the right line when you want a short-form idea.</p>
+            <div className="lv-bento-time">
+              00:18 <span>→</span> 00:42 <span>→</span> 01:06
+            </div>
+          </div>
+          <div className="lv-bento-card">
+            <Settings2 size={22} />
+            <h3>Creator preferences</h3>
+            <p>Set your niche, audience, language and tone.</p>
+          </div>
+          <div className="lv-bento-card">
+            <LockKeyhole size={22} />
+            <h3>Private uploads</h3>
+            <p>Your source video belongs in your own account workspace.</p>
+          </div>
+          <div className="lv-bento-card">
+            <Copy size={22} />
+            <h3>Project history</h3>
+            <p>Return to a project and keep refining your content.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function UseCases() {
+  const cases = [
+    {
+      number: "01",
+      title: "YouTube creators",
+      text: "A published video can become captions, posts and short-form starting points.",
+    },
+    {
+      number: "02",
+      title: "Podcasters",
+      text: "Turn a recorded conversation into shareable takeaways for each channel.",
+    },
+    {
+      number: "03",
+      title: "Founders & personal brands",
+      text: "Keep your ideas moving without rewriting them from scratch.",
+    },
+  ];
+  return (
+    <section id="use-cases" className="lv-use-cases">
+      <div className="lv-container">
+        <div className="lv-use-heading">
+          <Label>BUILT FOR CREATORS</Label>
+          <h2>
+            Spend more time creating.
+            <br />
+            <em>Less time repurposing.</em>
+          </h2>
+        </div>
+        <div className="lv-use-list">
+          {cases.map((item) => (
+            <div key={item.number}>
+              <span>{item.number}</span>
+              <h3>{item.title}</h3>
+              <p>{item.text}</p>
+              <ArrowUpRight size={20} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HowItWorks() {
+  const steps = [
+    {
+      title: "Upload your video",
+      text: "Choose a supported video file up to 50 MB.",
+    },
+    {
+      title: "Vireo transcribes it",
+      text: "Get a readable source transcript with timing where available.",
+    },
+    {
+      title: "Generate for every channel",
+      text: "Create platform-specific drafts from your original message.",
+    },
+    {
+      title: "Review, copy & publish",
+      text: "Edit what you need, then share through your own channels.",
+    },
+  ];
+  return (
+    <section id="how" className="lv-how lv-container">
+      <div className="lv-how-heading">
+        <Label>HOW IT WORKS</Label>
+        <h2>
+          From upload to <em>everywhere.</em>
+        </h2>
+      </div>
+      <div className="lv-timeline">
+        {steps.map((step, i) => (
+          <div key={step.title}>
+            <span className="lv-timeline-dot">0{i + 1}</span>
+            <h3>{step.title}</h3>
+            <p>{step.text}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Pricing() {
+  return (
+    <section id="pricing" className="lv-pricing">
+      <div className="lv-container">
+        <div className="lv-pricing-heading">
+          <div>
+            <Label>PLANS</Label>
+            <h2>
+              Start with the <em>essentials.</em>
+            </h2>
+          </div>
+          <p>
+            Starter is available now. Pro and Team are planned; billing is not
+            live.
+          </p>
+        </div>
+        <div className="lv-pricing-grid">
+          {plans.map((plan) => (
+            <div
+              className={`lv-plan ${plan.name === "Pro" ? "lv-plan-featured" : ""}`}
+              key={plan.name}
+            >
+              <div className="lv-plan-top">
+                <h3>{plan.name}</h3>
+                {plan.name === "Pro" && <span>FOR GROWING CREATORS</span>}
+              </div>
+              <strong>{plan.price}</strong>
+              <p>{plan.description}</p>
+              <ul>
+                {plan.features.map((feature) => (
+                  <li key={feature}>
+                    <Check size={15} />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+              {plan.available ? (
+                <Cta className="lv-plan-cta" />
+              ) : (
+                <span className="lv-plan-unavailable">Coming soon</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FAQ() {
+  return (
+    <section id="faq" className="lv-faq lv-container">
+      <div>
+        <Label>FAQ</Label>
+        <h2>
+          Good to know
+          <br />
+          <em>before you begin.</em>
+        </h2>
+        <p>The practical details for your first video.</p>
+      </div>
+      <div className="lv-faq-list">
+        {faqs.map((faq) => (
+          <details key={faq.q}>
+            <summary>
+              {faq.q}
+              <ChevronDown size={18} aria-hidden="true" />
+            </summary>
+            <p>{faq.a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FinalCTA() {
+  return (
+    <section className="lv-final">
+      <div className="lv-final-orbit lv-final-orbit-one" />
+      <div className="lv-final-orbit lv-final-orbit-two" />
+      <div className="lv-container lv-final-content">
+        <Logo light />
+        <Label>ONE VIDEO. EVERY PLATFORM.</Label>
+        <h2>
+          Your next video is already
+          <br />
+          <em>more than one piece of content.</em>
+        </h2>
+        <p>Turn it into an entire content kit with Vireo.</p>
+        <Cta />
+      </div>
+    </section>
+  );
+}
+
+export function LandingPage() {
+  return (
+    <main className="lv-page">
+      <HeroSection />
+      <section className="lv-transformation lv-container">
+        <div className="lv-transformation-heading">
+          <Label>THE TRANSFORMATION</Label>
+          <h2>
+            One upload.
+            <br />
+            <em>Every platform covered.</em>
+          </h2>
+        </div>
+        <TransformationVisual />
+      </section>
+      <PlatformStrip />
+      <ProblemAndSolution />
+      <ProductShowcase />
+      <PlatformOutputs />
+      <BeforeAfter />
+      <FeatureBento />
+      <UseCases />
+      <HowItWorks />
+      <Pricing />
+      <FAQ />
+      <FinalCTA />
+    </main>
+  );
+}
