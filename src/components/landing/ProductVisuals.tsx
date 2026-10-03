@@ -8,6 +8,9 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Logo } from "../Logo";
+import creatorVideo from "../../assets/landing/creator-video.webp";
+import creatorMomentTwo from "../../assets/landing/creator-moment-2.webp";
+import creatorMomentThree from "../../assets/landing/creator-moment-3.webp";
 
 export const channels = [
   "YouTube",
@@ -20,9 +23,12 @@ export const channels = [
 function VideoTile({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`lv-video ${compact ? "lv-video-compact" : ""}`}>
-      <div className="lv-video-glow" />
-      <div className="lv-video-orbit lv-video-orbit-one" />
-      <div className="lv-video-orbit lv-video-orbit-two" />
+      <img
+        src={creatorVideo}
+        alt="Creator speaking to camera in a warm home studio"
+        loading={compact ? "lazy" : "eager"}
+        decoding="async"
+      />
       <div className="lv-video-content">
         <span className="lv-video-play">
           <Play size={18} fill="currentColor" />
@@ -332,16 +338,19 @@ export function MomentsPreview() {
       time: "00:18",
       title: "The opening thought",
       line: "A hook that sets up your core idea.",
+      image: creatorVideo,
     },
     {
       time: "00:42",
       title: "The practical takeaway",
       line: "A focused moment worth revisiting.",
+      image: creatorMomentTwo,
     },
     {
       time: "01:06",
       title: "The closing insight",
       line: "A natural ending for a short clip.",
+      image: creatorMomentThree,
     },
   ];
   return (
@@ -361,6 +370,7 @@ export function MomentsPreview() {
       {moments.map((m, i) => (
         <div className="lv-moment" key={m.time}>
           <div className={`lv-moment-thumb lv-moment-thumb-${i}`}>
+            <img src={m.image} alt="" loading="lazy" decoding="async" />
             <Play size={14} fill="currentColor" />
           </div>
           <time>{m.time}</time>
