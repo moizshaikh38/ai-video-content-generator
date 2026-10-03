@@ -3,15 +3,15 @@ import { config } from '../config/index.js';
 
 export const isServerSupabaseConfigured = Boolean(
   config.supabaseUrl &&
-  (config.supabaseAnonKey || config.supabaseServiceRoleKey) &&
+  config.supabaseSecretKey &&
   config.supabaseUrl !== 'https://placeholder.supabase.co' &&
   !config.supabaseUrl.includes('your-supabase')
 );
 
-// Standard Supabase client using anon key for user-context validation
+// Standard Supabase client using secret key for server-side auth validation
 export const supabaseAuthClient = createClient(
   config.supabaseUrl || 'https://placeholder.supabase.co',
-  config.supabaseAnonKey || config.supabaseServiceRoleKey || 'placeholder-anon-key',
+  config.supabaseSecretKey || 'placeholder-secret-key',
   {
     auth: {
       persistSession: false,
