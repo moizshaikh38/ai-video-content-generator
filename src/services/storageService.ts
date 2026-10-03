@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-export const MAX_VIDEO_BYTES = 500 * 1024 * 1024; // 500 MB
+// Supabase bucket currently configured with 50 MB limit
+export const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB
 export const ALLOWED_EXTENSIONS = ['.mp4', '.mov', '.webm', '.avi', '.mkv'];
 export const ALLOWED_MIME_TYPES = [
   'video/mp4',
@@ -26,7 +27,7 @@ export interface UploadOptions {
 }
 
 export interface UploadResult {
-  storagePath: string;
+  storagePath: string; // Object path without bucket name: {userId}/{projectId}/{fileName}
   fileName: string;
   fileSize: number;
   mimeType: string;
@@ -40,12 +41,12 @@ export function validateVideoFile(file: File | null | undefined): ValidationResu
     return { valid: false, error: 'No video file provided.' };
   }
 
-  // Check file size (500 MB limit)
+  // Check file size (50 MB limit configured in Supabase Storage)
   if (file.size > MAX_VIDEO_BYTES) {
     const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
     return {
       valid: false,
-      error: `File is too large (${sizeMb} MB). Maximum allowed video size is 500 MB.`,
+      error: `File is too large (${sizeMb} MB). Maximum allowed video size in Supabase Storage is 50 MB.`,
     };
   }
 
@@ -77,9 +78,15 @@ export function validateVideoFile(file: File | null | undefined): ValidationResu
 }
 
 /**
- * Uploads a video file directly to Supabase Storage in the private 'videos' bucket.
- * Target path structure: {user_id}/{project_id}/{filename}
- * Supports real-time progress callbacks and cancellation via AbortSignal.
+ * Uploads a video file directly to the private 'videos' Supabase Storage bucket.
+ * 
+ * Rules:
+ * 1. Must use supabase.storage.from('videos').upload(objectPath, file, options)
+ * 2. Bucket name must be exactly: videos
+ * 3. objectPath MUST NOT contain the bucket name. Correct: ${userId}/${projectId}/${fileName}
+ * 4. The authenticated user's real Supabase auth.uid() must match the first folder segment.
+ * 5. Safe diagnostics only (no keys, tokens, or passwords).
+ * 6. Never fake success or simulate upload.
  */
 export async function uploadVideoFile({
   file,
@@ -88,140 +95,102 @@ export async function uploadVideoFile({
   onProgress,
   signal,
 }: UploadOptions): Promise<UploadResult> {
+  // Validate file
   const validation = validateVideoFile(file);
   if (!validation.valid) {
     throw new Error(validation.error || 'Invalid video file.');
   }
 
-  // Sanitize filename to avoid URL and storage key escaping issues
-  const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const storagePath = `${userId}/${projectId}/${sanitizedName}`;
-
-  if (!isSupabaseConfigured) {
-    // Graceful offline / demo simulation when live Supabase credentials are not populated
-    return simulateLocalUpload(file, storagePath, onProgress, signal);
+  if (signal?.aborted) {
+    throw new DOMException('Upload cancelled by user', 'AbortError');
   }
 
-  // Live Supabase Storage upload
-  return new Promise<UploadResult>((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new DOMException('Upload cancelled by user', 'AbortError'));
-      return;
-    }
+  if (!isSupabaseConfigured) {
+    throw new Error(
+      'Supabase credentials are not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to .env.local.'
+    );
+  }
 
-    supabase.auth.getSession().then(({ data: { session }, error: sessionError }) => {
-      if (sessionError || !session) {
-        reject(new Error('Authentication session expired. Please log in again.'));
-        return;
-      }
+  // 1. Verify authenticated user in Supabase
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    throw new Error('Authentication required: You must be signed in with a valid Supabase account to upload.');
+  }
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-      const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
-      const uploadEndpoint = `${supabaseUrl}/storage/v1/object/videos/${storagePath}`;
+  const authenticatedUserId = user.id;
 
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', uploadEndpoint, true);
+  // 2. Validate user folder boundary matches auth.uid()
+  if (userId && userId !== authenticatedUserId) {
+    throw new Error('Security violation: Cannot upload into another user folder.');
+  }
 
-      // Set headers for Supabase Storage API
-      xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
-      xhr.setRequestHeader('apikey', supabasePublishableKey);
-      xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
-      xhr.setRequestHeader('x-upsert', 'true');
+  // 3. Build sanitized object path: {userId}/{projectId}/{fileName}
+  // IMPORTANT: MUST NOT contain bucket name 'videos/'
+  const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const objectPath = `${authenticatedUserId}/${projectId}/${sanitizedFileName}`;
 
-      if (signal) {
-        signal.addEventListener('abort', () => {
-          xhr.abort();
-          reject(new DOMException('Upload cancelled by user', 'AbortError'));
-        });
-      }
+  // 4. Safe diagnostics logging (NO secrets, NO tokens, NO keys)
+  console.info('[Supabase Storage Upload: Starting]', {
+    bucket: 'videos',
+    objectPath,
+    fileName: file.name,
+    fileSize: `${(file.size / (1024 * 1024)).toFixed(2)} MB (${file.size} bytes)`,
+    mimeType: file.type || 'video/mp4',
+  });
 
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable && onProgress) {
-          const percent = Math.min(99, Math.round((event.loaded / event.total) * 100));
-          onProgress(percent);
-        }
-      };
+  onProgress?.(15);
 
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          onProgress?.(100);
-          resolve({
-            storagePath,
-            fileName: file.name,
-            fileSize: file.size,
-            mimeType: file.type || 'video/mp4',
-          });
-        } else {
-          let errorDetail = 'Upload failed';
-          try {
-            const parsed = JSON.parse(xhr.responseText);
-            errorDetail = parsed.message || parsed.error || errorDetail;
-          } catch {
-            errorDetail = xhr.statusText || errorDetail;
-          }
-
-          if (xhr.status === 401 || xhr.status === 403) {
-            reject(
-              new Error('Storage permission denied. You can only upload files to your own folder.')
-            );
-          } else if (xhr.status === 413) {
-            reject(new Error('File exceeds the Supabase storage file size limit (500 MB).'));
-          } else {
-            reject(new Error(`Storage error (${xhr.status}): ${errorDetail}`));
-          }
-        }
-      };
-
-      xhr.onerror = () => {
-        reject(
-          new Error('Network error occurred during video upload. Please check your connection and retry.')
-        );
-      };
-
-      xhr.ontimeout = () => {
-        reject(new Error('Upload timed out. Please check your connection and retry.'));
-      };
-
-      xhr.send(file);
-    }).catch((err) => {
-      reject(new Error(`Failed to initialize upload: ${err?.message || err}`));
+  // 5. Call real Supabase Storage upload
+  const { data, error } = await supabase.storage
+    .from('videos')
+    .upload(objectPath, file, {
+      cacheControl: '3600',
+      upsert: true,
+      contentType: file.type || 'video/mp4',
     });
+
+  // 6. Inspect response
+  if (error) {
+    console.error('[Supabase Storage Upload: Error]', {
+      bucket: 'videos',
+      objectPath,
+      errorMessage: error.message,
+      errorName: error.name,
+    });
+
+    // Provide helpful human-readable errors
+    if (error.message.includes('row-level security') || error.message.includes('policy')) {
+      throw new Error(
+        `Storage permission denied: Storage RLS policy rejected upload for path "${objectPath}". Ensure you are signed in.`
+      );
+    } else if (error.message.includes('Entity Too Large') || error.message.includes('413')) {
+      throw new Error('Video exceeds Supabase Storage file size limit (50 MB).');
+    } else if (error.message.includes('Bucket not found')) {
+      throw new Error('Storage bucket "videos" does not exist in your Supabase project.');
+    } else {
+      throw new Error(`Supabase Storage upload failed: ${error.message}`);
+    }
+  }
+
+  if (!data || !data.path) {
+    throw new Error(
+      'Supabase Storage upload did not return an object path. The upload cannot be confirmed.'
+    );
+  }
+
+  onProgress?.(100);
+
+  console.info('[Supabase Storage Upload: Success]', {
+    bucket: 'videos',
+    objectPath: data.path,
+    fileName: file.name,
+    fileSize: file.size,
   });
-}
 
-/**
- * Offline / dev simulation when Supabase credentials are not yet populated.
- */
-function simulateLocalUpload(
-  file: File,
-  storagePath: string,
-  onProgress?: (pct: number) => void,
-  signal?: AbortSignal
-): Promise<UploadResult> {
-  return new Promise<UploadResult>((resolve, reject) => {
-    let currentPct = 10;
-    onProgress?.(currentPct);
-
-    const interval = setInterval(() => {
-      if (signal?.aborted) {
-        clearInterval(interval);
-        reject(new DOMException('Upload cancelled by user', 'AbortError'));
-        return;
-      }
-
-      currentPct += 20;
-      if (currentPct >= 100) {
-        clearInterval(interval);
-        onProgress?.(100);
-        resolve({
-          storagePath,
-          fileName: file.name,
-          fileSize: file.size,
-          mimeType: file.type || 'video/mp4',
-        });
-      } else {
-        onProgress?.(currentPct);
-      }
-    }, 250);
-  });
+  return {
+    storagePath: data.path, // Correct path: {userId}/{projectId}/{fileName}
+    fileName: file.name,
+    fileSize: file.size,
+    mimeType: file.type || 'video/mp4',
+  };
 }

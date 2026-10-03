@@ -214,48 +214,54 @@ class ProjectService {
       updated_at: new Date().toISOString(),
     };
 
-    if (isSupabaseConfigured && input.userId) {
-      try {
-        const { data, error } = await supabase
-          .from('projects')
-          .insert({
-            id: newProject.id,
-            user_id: newProject.user_id,
-            title: newProject.title,
-            source_type: newProject.source_type,
-            source_url: newProject.source_url,
-            storage_path: newProject.storage_path,
-            file_name: newProject.file_name,
-            file_size: newProject.file_size,
-            mime_type: newProject.mime_type,
-            video_status: newProject.video_status,
-            notes: newProject.notes,
-          })
-          .select()
-          .single();
-
-        if (error) {
-          console.error('Failed to create project in Supabase:', error.message);
-          throw new Error(`Failed to save project: ${error.message}`);
-        }
-
-        if (data) {
-          const mapped = this.mapRowToProject(data);
-          this.projects.unshift(mapped);
-          this.save();
-          window.dispatchEvent(new CustomEvent('vireo_project_updated', { detail: { projectId } }));
-          return mapped;
-        }
-      } catch (err: any) {
-        console.error('Error inserting project to Supabase:', err);
-        throw err;
-      }
+    if (!isSupabaseConfigured) {
+      throw new Error(
+        'Supabase is not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to .env.local.'
+      );
     }
 
-    // Local fallback
-    this.projects.unshift(newProject);
-    this.save();
-    window.dispatchEvent(new CustomEvent('vireo_project_updated', { detail: { projectId } }));
+    if (!input.userId) {
+      throw new Error('You must be signed in with a Supabase user account to create a project.');
+    }
+
+    const cleanStoragePath = input.storagePath ? input.storagePath.replace(/^videos\//, '') : null;
+
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .insert({
+          id: newProject.id,
+          user_id: newProject.user_id,
+          title: newProject.title,
+          source_type: newProject.source_type,
+          source_url: newProject.source_url,
+          storage_path: cleanStoragePath,
+          file_name: newProject.file_name,
+          file_size: newProject.file_size,
+          mime_type: newProject.mime_type,
+          video_status: newProject.video_status,
+          notes: newProject.notes,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Failed to create project in Supabase:', error.message);
+        throw new Error(`Failed to save project to Supabase: ${error.message}`);
+      }
+
+      if (data) {
+        const mapped = this.mapRowToProject(data);
+        this.projects.unshift(mapped);
+        this.save();
+        window.dispatchEvent(new CustomEvent('vireo_project_updated', { detail: { projectId } }));
+        return mapped;
+      }
+    } catch (err: any) {
+      console.error('Error inserting project to Supabase:', err);
+      throw err;
+    }
+
     return newProject;
   }
 
@@ -270,7 +276,9 @@ class ProjectService {
       try {
         const dbUpdates: Record<string, any> = {};
         if (updates.title !== undefined) dbUpdates.title = updates.title;
-        if (updates.storage_path !== undefined) dbUpdates.storage_path = updates.storage_path;
+        if (updates.storage_path !== undefined) {
+          dbUpdates.storage_path = updates.storage_path ? updates.storage_path.replace(/^videos\//, '') : null;
+        }
         if (updates.source_url !== undefined) dbUpdates.source_url = updates.source_url;
         if (updates.file_name !== undefined) dbUpdates.file_name = updates.file_name;
         if (updates.file_size !== undefined) dbUpdates.file_size = updates.file_size;
@@ -279,6 +287,7 @@ class ProjectService {
           dbUpdates.video_status = updates.video_status || updates.status;
         }
         if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+        if (updates.error !== undefined) dbUpdates.error = updates.error;
 
         const { data, error } = await supabase
           .from('projects')
@@ -289,6 +298,7 @@ class ProjectService {
 
         if (error) {
           console.error('Error updating Supabase project:', error.message);
+          throw new Error(`Failed to update project in Supabase: ${error.message}`);
         } else if (data) {
           const mapped = this.mapRowToProject(data);
           if (existingIdx >= 0) {
@@ -302,6 +312,7 @@ class ProjectService {
         }
       } catch (err) {
         console.error('Unexpected error updating project in Supabase:', err);
+        throw err;
       }
     }
 

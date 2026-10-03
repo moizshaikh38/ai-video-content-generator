@@ -79,6 +79,8 @@ export const NewProjectPage: React.FC = () => {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
+    let projectCreated = false;
+
     try {
       // 1. Create project record in database with status 'uploading'
       await projectService.createProjectAsync({
@@ -92,6 +94,7 @@ export const NewProjectPage: React.FC = () => {
         videoStatus: 'uploading',
         notes: notes.trim(),
       });
+      projectCreated = true;
 
       // 2. Upload video file to Supabase Storage: {user_id}/{project_id}/{filename}
       const uploadResult = await uploadVideoFile({
@@ -102,9 +105,12 @@ export const NewProjectPage: React.FC = () => {
         signal: abortController.signal,
       });
 
-      // 3. Update project record with storage path and status 'uploaded'
+      // 3. ONLY after Storage upload succeeds, update project record with storage path and status 'uploaded'
       await projectService.updateProjectAsync(projectId, {
         storage_path: uploadResult.storagePath,
+        file_name: uploadResult.fileName,
+        file_size: uploadResult.fileSize,
+        mime_type: uploadResult.mimeType,
         status: 'uploaded',
         video_status: 'uploaded',
       });
@@ -113,12 +119,26 @@ export const NewProjectPage: React.FC = () => {
       abortControllerRef.current = null;
       navigate(`/projects/${projectId}`);
     } catch (err: any) {
-      if (err.name === 'AbortError' || err.message?.includes('cancelled')) {
-        setErrorMsg('Upload was cancelled.');
-      } else {
-        console.error('Video upload failed:', err);
-        setErrorMsg(err.message || 'Failed to upload video. Please check your connection and retry.');
+      const isAbort = err.name === 'AbortError' || err.message?.includes('cancelled');
+      const message = isAbort
+        ? 'Upload was cancelled.'
+        : err.message || 'Failed to upload video to Supabase Storage.';
+
+      console.error('[Upload Flow Failed]', err);
+
+      if (projectCreated) {
+        try {
+          await projectService.updateProjectAsync(projectId, {
+            status: 'failed',
+            video_status: 'failed',
+            error: message,
+          });
+        } catch (updateErr) {
+          console.error('Failed to set project status to failed in Supabase:', updateErr);
+        }
       }
+
+      setErrorMsg(message);
       setUploadFailed(true);
       setProgress(null);
       abortControllerRef.current = null;
