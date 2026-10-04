@@ -12,6 +12,8 @@ import {
   TimedCaptionToken,
   TranscriptSegment,
   ClipAspectRatio,
+  SAFE_FONT_FAMILIES,
+  SafeFontFamily,
 } from '../types/index.js';
 
 export interface GenerateCaptionsOptions {
@@ -27,7 +29,31 @@ export interface CaptionGenerationResult {
   assFilePath?: string;
 }
 
+export interface OverlapValidationResult {
+  valid: boolean;
+  overlaps: Array<{
+    cue1Id: string;
+    cue2Id: string;
+    cue1End: number;
+    cue2Start: number;
+    overlapMs: number;
+  }>;
+  maxActiveCues: number;
+}
+
 export class CaptionService {
+  /**
+   * Safe font family validator strictly enforcing allowlist
+   */
+  public static validateFontFamily(font?: string): SafeFontFamily {
+    if (!font || typeof font !== 'string') return 'Arial';
+    const clean = font.trim();
+    if ((SAFE_FONT_FAMILIES as readonly string[]).includes(clean)) {
+      return clean as SafeFontFamily;
+    }
+    return 'Arial';
+  }
+
   /**
    * Sanitizes text for safe inclusion inside ASS subtitle dialogues.
    * Strips/escapes curly braces `{}` which denote ASS override tags,
@@ -44,17 +70,19 @@ export class CaptionService {
   }
 
   /**
-   * Converts a standard hex color `#RRGGBB` into ASS BGR format `&H00BBGGRR&`.
-   * Throws or defaults safely if the hex color is invalid.
+   * Converts a standard hex color `#RRGGBB` into ASS BGR format `&H[Alpha]BBGGRR&`.
+   * Alpha: 0 (00 = fully opaque) to 255 (FF = fully transparent).
    */
-  public static hexToAssColor(hex: string, defaultHex = '#FFFFFF'): string {
+  public static hexToAssColor(hex?: string, defaultHex = '#FFFFFF', alpha = 0): string {
     const clean = (hex || '').trim();
     const hexPattern = /^#?([0-9a-fA-F]{6})$/;
     const match = clean.match(hexPattern);
 
+    const safeAlpha = Math.min(255, Math.max(0, Math.round(alpha)));
+    const alphaHex = safeAlpha.toString(16).padStart(2, '0').toUpperCase();
+
     if (!match) {
-      // Fallback
-      return this.hexToAssColor(defaultHex);
+      return this.hexToAssColor(defaultHex, '#FFFFFF', alpha);
     }
 
     const value = match[1];
@@ -62,15 +90,15 @@ export class CaptionService {
     const g = value.substring(2, 4).toUpperCase();
     const b = value.substring(4, 6).toUpperCase();
 
-    // ASS format: &H[Alpha][Blue][Green][Red]& (Alpha 00 = fully opaque)
-    return `&H00${b}${g}${r}&`;
+    // ASS format: &H[Alpha][Blue][Green][Red]&
+    return `&H${alphaHex}${b}${g}${r}&`;
   }
 
   /**
    * Validates a hex color string
    */
   public static isValidHexColor(hex?: string): boolean {
-    if (!hex) return false;
+    if (!hex || typeof hex !== 'string') return false;
     return /^#?([0-9a-fA-F]{6})$/.test(hex.trim());
   }
 
@@ -79,10 +107,11 @@ export class CaptionService {
    */
   public static formatAssTime(seconds: number): string {
     const clamped = Math.max(0, seconds);
-    const h = Math.floor(clamped / 3600);
-    const m = Math.floor((clamped % 3600) / 60);
-    const s = Math.floor(clamped % 60);
-    const cs = Math.floor((clamped - Math.floor(clamped)) * 100);
+    const totalCs = Math.round(clamped * 100);
+    const h = Math.floor(totalCs / 360000);
+    const m = Math.floor((totalCs % 360000) / 6000);
+    const s = Math.floor((totalCs % 6000) / 100);
+    const cs = totalCs % 100;
 
     const mStr = String(m).padStart(2, '0');
     const sStr = String(s).padStart(2, '0');
@@ -109,10 +138,6 @@ export class CaptionService {
 
   /**
    * Resolves ASS Style Alignment code and vertical margin
-   * Alignment codes (numpad-style):
-   * 1 = bottom left, 2 = bottom center, 3 = bottom right
-   * 4 = mid left,    5 = mid center,    6 = mid right
-   * 7 = top left,    8 = top center,    9 = top right
    */
   public static getPositionConfig(
     position: CaptionPosition = 'bottom',
@@ -135,39 +160,146 @@ export class CaptionService {
       default:
         return {
           alignment: 2, // Bottom Center
-          // Generous bottom margin for 9:16 to avoid TikTok / Reels UI controls and caption bar
           marginV: isPortrait ? 220 : 80,
         };
     }
   }
 
   /**
-   * Groups transcript tokens or segment phrases into human-friendly short caption cues
-   * (2–5 words per chunk, breaking on punctuation or pauses).
+   * Enforces strict monotonic non-overlapping timing on consecutive caption cues.
+   * At any timestamp, normally only ONE caption cue will be active.
+   */
+  public static enforceZeroOverlap(cues: TimedCaptionCue[]): TimedCaptionCue[] {
+    if (!cues || cues.length <= 1) return cues || [];
+
+    // Sort cues by start timestamp ascending
+    const sorted = [...cues].sort((a, b) => a.start - b.start);
+
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const current = sorted[i];
+      const next = sorted[i + 1];
+
+      // If current cue ends after next cue starts, clamp current.end
+      if (current.end > next.start) {
+        const clampedEnd = Math.max(current.start + 0.05, Number(next.start.toFixed(3)));
+        current.end = clampedEnd;
+
+        // Also clamp the last word's end if words are present
+        if (Array.isArray(current.words) && current.words.length > 0) {
+          const lastWord = current.words[current.words.length - 1];
+          if (lastWord.end > clampedEnd) {
+            lastWord.end = clampedEnd;
+          }
+        }
+      }
+    }
+
+    return sorted;
+  }
+
+  /**
+   * Validates that no two unrelated cues overlap in time.
+   */
+  public static validateNoOverlappingCues(
+    cues: TimedCaptionCue[],
+    toleranceMs = 50
+  ): OverlapValidationResult {
+    const overlaps: OverlapValidationResult['overlaps'] = [];
+    if (!cues || cues.length <= 1) {
+      return { valid: true, overlaps: [], maxActiveCues: cues?.length ? 1 : 0 };
+    }
+
+    const sorted = [...cues].sort((a, b) => a.start - b.start);
+    let maxSimultaneous = 1;
+
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const current = sorted[i];
+      const next = sorted[i + 1];
+
+      const diffSec = current.end - next.start;
+      const overlapMs = Math.round(diffSec * 1000);
+
+      if (overlapMs > toleranceMs) {
+        overlaps.push({
+          cue1Id: current.id,
+          cue2Id: next.id,
+          cue1End: current.end,
+          cue2Start: next.start,
+          overlapMs,
+        });
+      }
+    }
+
+    // Check peak active cues across time sample points
+    const checkPoints = new Set<number>();
+    for (const c of sorted) {
+      checkPoints.add(c.start);
+      checkPoints.add(c.start + 0.02);
+      checkPoints.add(c.end - 0.02);
+      checkPoints.add(c.end);
+    }
+
+    for (const t of checkPoints) {
+      const activeCount = sorted.filter((c) => t >= c.start && t < c.end).length;
+      if (activeCount > maxSimultaneous) {
+        maxSimultaneous = activeCount;
+      }
+    }
+
+    return {
+      valid: overlaps.length === 0 && maxSimultaneous <= 1,
+      overlaps,
+      maxActiveCues: maxSimultaneous,
+    };
+  }
+
+  /**
+   * Groups timed words into short, human-friendly caption cues (default 3–5 words).
+   * Natural break triggers:
+   * - Max words per cue reached (default 4)
+   * - Meaningful speech pause (>0.45s gap)
+   * - Punctuation on previous token (comma, period, question mark, etc.)
+   * - Max line width / max lines reached
+   * - Cue duration limit (max ~3.2s)
    */
   public static groupIntoCues(
     tokens: TimedCaptionToken[],
     maxWords = 4,
-    maxChars = 34
+    maxLines = 2,
+    maxCharsPerLine = 28,
+    pauseBreak = 0.45
   ): TimedCaptionCue[] {
-    if (tokens.length === 0) return [];
+    if (!tokens || tokens.length === 0) return [];
 
     const cues: TimedCaptionCue[] = [];
     let currentWords: TimedCaptionToken[] = [];
+    const safeMaxWords = Math.min(6, Math.max(2, maxWords));
+    const totalMaxChars = maxCharsPerLine * maxLines;
 
     const flush = () => {
       if (currentWords.length === 0) return;
       const start = currentWords[0].start;
       const end = currentWords[currentWords.length - 1].end;
-      const text = currentWords.map((t) => t.text).join(' ');
+      const rawText = currentWords.map((t) => t.text).join(' ');
+
+      // Split into 2 lines if exceeds single line character threshold
+      let formattedText = rawText;
+      if (maxLines > 1 && rawText.length > maxCharsPerLine && currentWords.length >= 2) {
+        const midIndex = Math.ceil(currentWords.length / 2);
+        const line1 = currentWords.slice(0, midIndex).map((t) => t.text).join(' ');
+        const line2 = currentWords.slice(midIndex).map((t) => t.text).join(' ');
+        formattedText = `${line1}\\N${line2}`;
+      }
 
       if (end > start) {
+        const wordsCopy = currentWords.map((w) => ({ ...w }));
         cues.push({
           id: `cue-${cues.length + 1}`,
           start: Number(start.toFixed(3)),
           end: Number(end.toFixed(3)),
-          text,
-          tokens: [...currentWords],
+          text: formattedText,
+          words: wordsCopy,
+          tokens: wordsCopy, // backward-compatibility alias
         });
       }
       currentWords = [];
@@ -177,18 +309,27 @@ export class CaptionService {
       const tok = tokens[i];
       const prevTok = currentWords[currentWords.length - 1];
 
-      // Check timing gap (>0.4s pause = natural break)
-      const hasPause = prevTok && (tok.start - prevTok.end > 0.4);
+      // Check timing gap (>pauseBreak second pause indicates natural pause in speech)
+      const hasPause = prevTok && tok.start - prevTok.end > pauseBreak;
 
-      // Check current length
-      const currentText = currentWords.map((t) => t.text).join(' ');
-      const wouldExceedChars = (currentText + ' ' + tok.text).length > maxChars;
-      const wouldExceedWords = currentWords.length >= maxWords;
-
-      // Punctuation on previous token indicates natural break
+      // Check punctuation at end of previous word
       const prevHasPunctuation = prevTok && /[.!?,;:]$/.test(prevTok.text);
 
-      if (currentWords.length > 0 && (hasPause || wouldExceedWords || wouldExceedChars || prevHasPunctuation)) {
+      // Check word count
+      const wouldExceedWords = currentWords.length >= safeMaxWords;
+
+      // Check character count
+      const currentText = currentWords.map((t) => t.text).join(' ');
+      const wouldExceedChars = (currentText + ' ' + tok.text).length > totalMaxChars;
+
+      // Check duration limit (avoid cues lasting longer than 3.2 seconds)
+      const wouldExceedDuration =
+        currentWords.length > 0 && tok.end - currentWords[0].start > 3.2;
+
+      if (
+        currentWords.length > 0 &&
+        (hasPause || prevHasPunctuation || wouldExceedWords || wouldExceedChars || wouldExceedDuration)
+      ) {
         flush();
       }
 
@@ -196,18 +337,22 @@ export class CaptionService {
     }
 
     flush();
-    return cues;
+    return this.enforceZeroOverlap(cues);
   }
 
   /**
-   * Extracts overlapping transcript tokens/segments and converts them to clip-local coordinates
+   * Extracts transcript tokens/segments and converts them to clip-local coordinates.
+   * Backward compatible:
+   * - If real word timestamps exist: uses real word timing & grouping.
+   * - If only segments exist: uses segment-level captions without fabricating fake word timestamps.
    */
   public static extractClipCues(
     transcript: { segments?: any[]; words?: any[] },
     clipStart: number,
     clipEnd: number,
     trimStartOffset = 0,
-    trimEndOffset = 0
+    trimEndOffset = 0,
+    captionConfig?: CaptionConfig
   ): { timingMode: CaptionTimingMode; cues: TimedCaptionCue[] } {
     const effectiveStart = Number((clipStart + trimStartOffset).toFixed(3));
     const effectiveEnd = Number((clipEnd - trimEndOffset).toFixed(3));
@@ -217,19 +362,26 @@ export class CaptionService {
       return { timingMode: 'segment', cues: [] };
     }
 
-    // 1. Check if word-level timestamps are present
-    const rawWords = Array.isArray(transcript.words) && transcript.words.length > 0
-      ? transcript.words
-      : null;
+    const maxWords = captionConfig?.maxWordsPerCue || 4;
+    const maxLines = captionConfig?.maxLines || 2;
+    const isUppercase = Boolean(captionConfig?.uppercase);
 
-    if (rawWords) {
+    // 1. Check if word-level timestamps are present
+    const rawWords =
+      Array.isArray(transcript.words) && transcript.words.length > 0
+        ? transcript.words
+        : Array.isArray(transcript.segments)
+        ? transcript.segments.flatMap((s) => (Array.isArray(s?.words) ? s.words : []))
+        : [];
+
+    if (rawWords.length > 0) {
       // WORD-LEVEL TIMING MODE
       const candidateTokens: TimedCaptionToken[] = [];
 
       for (const w of rawWords) {
         const wStart = Number(w.start);
         const wEnd = Number(w.end);
-        const wText = String(w.word || w.text || '').trim();
+        let wText = String(w.word || w.text || '').trim();
 
         if (isNaN(wStart) || isNaN(wEnd) || !wText) continue;
 
@@ -239,6 +391,9 @@ export class CaptionService {
           const localEnd = Math.min(effectiveDuration, Number((wEnd - effectiveStart).toFixed(3)));
 
           if (localEnd > localStart) {
+            if (isUppercase) {
+              wText = wText.toUpperCase();
+            }
             candidateTokens.push({
               text: wText,
               start: localStart,
@@ -249,21 +404,26 @@ export class CaptionService {
       }
 
       if (candidateTokens.length > 0) {
+        let cues = this.groupIntoCues(candidateTokens, maxWords, maxLines);
+
+        // Apply manual text overrides if any
+        cues = this.applyOverrides(cues, captionConfig?.caption_overrides);
+
         return {
           timingMode: 'word',
-          cues: this.groupIntoCues(candidateTokens),
+          cues,
         };
       }
     }
 
-    // 2. SEGMENT-LEVEL FALLBACK MODE
+    // 2. SEGMENT-LEVEL FALLBACK MODE (Never manufacture fake word timestamps)
     const rawSegments = Array.isArray(transcript.segments) ? transcript.segments : [];
     const cues: TimedCaptionCue[] = [];
 
     for (const seg of rawSegments) {
       const segStart = Number(seg.start);
       const segEnd = Number(seg.end);
-      const segText = String(seg.text || '').trim();
+      let segText = String(seg.text || '').trim();
 
       if (isNaN(segStart) || isNaN(segEnd) || !segText) continue;
 
@@ -274,33 +434,14 @@ export class CaptionService {
         const segDuration = localEnd - localStart;
 
         if (segDuration > 0) {
-          // If segment has embedded words array inside segment object
-          if (Array.isArray(seg.words) && seg.words.length > 0) {
-            const segTokens: TimedCaptionToken[] = [];
-            for (const sw of seg.words) {
-              const swStart = Number(sw.start);
-              const swEnd = Number(sw.end);
-              const swText = String(sw.word || sw.text || '').trim();
-              if (swEnd > effectiveStart && swStart < effectiveEnd) {
-                const sLocalStart = Math.max(0, Number((swStart - effectiveStart).toFixed(3)));
-                const sLocalEnd = Math.min(effectiveDuration, Number((swEnd - effectiveStart).toFixed(3)));
-                if (sLocalEnd > sLocalStart) {
-                  segTokens.push({ text: swText, start: sLocalStart, end: sLocalEnd });
-                }
-              }
-            }
-            if (segTokens.length > 0) {
-              cues.push(...this.groupIntoCues(segTokens));
-              continue;
-            }
+          if (isUppercase) {
+            segText = segText.toUpperCase();
           }
 
-          // Plain segment fallback: strictly grounded in the REAL segment start and end interval.
-          // Never divide segment duration proportionally across words or fabricate timestamps.
-          // Format text with clean line breaks if long (>7 words) for optimal subtitle readability.
+          // Format clean 2-line break if long
           const words = segText.split(/\s+/).filter(Boolean);
           let displayText = segText;
-          if (words.length > 7) {
+          if (words.length > 7 && maxLines > 1) {
             const midpoint = Math.ceil(words.length / 2);
             displayText = `${words.slice(0, midpoint).join(' ')}\\N${words.slice(midpoint).join(' ')}`;
           }
@@ -315,14 +456,48 @@ export class CaptionService {
       }
     }
 
+    // Guarantee non-overlapping consecutive segment cues
+    let processedCues = this.enforceZeroOverlap(cues);
+
+    // Apply manual text overrides if any
+    processedCues = this.applyOverrides(processedCues, captionConfig?.caption_overrides);
+
     return {
       timingMode: 'segment',
-      cues,
+      cues: processedCues,
     };
   }
 
   /**
-   * Builds the complete ASS script content for FFmpeg burning
+   * Applies manual text corrections without mutating canonical transcript
+   */
+  private static applyOverrides(
+    cues: TimedCaptionCue[],
+    overrides?: Array<{ cueId: string; text: string }>
+  ): TimedCaptionCue[] {
+    if (!overrides || overrides.length === 0) return cues;
+
+    const overrideMap = new Map<string, string>();
+    for (const o of overrides) {
+      if (o.cueId && typeof o.text === 'string') {
+        overrideMap.set(o.cueId, o.text.trim());
+      }
+    }
+
+    return cues.map((cue) => {
+      if (overrideMap.has(cue.id)) {
+        return {
+          ...cue,
+          text: overrideMap.get(cue.id)!,
+        };
+      }
+      return cue;
+    });
+  }
+
+  /**
+   * Builds the complete ASS script content for FFmpeg burning.
+   * Guarantees that at any timestamp normally exactly ONE caption event is visible.
    */
   public static buildAssScript(
     cues: TimedCaptionCue[],
@@ -345,111 +520,142 @@ export class CaptionService {
     const playRes = this.getPlayRes(aspectRatio);
     const posConfig = this.getPositionConfig(position, aspectRatio);
 
-    // Style Presets Configuration
-    let fontName = 'Arial';
-    let fontSize = customConfig.fontSize || 64;
-    let primaryColour = '&H00FFFFFF&'; // Default white
-    let secondaryColour = '&H0000FFFF&'; // Yellow for karaoke
-    let outlineColour = '&H00000000&'; // Default black outline
-    let backColour = '&H80000000&'; // Translucent shadow
-    let bold = 1;
-    let outline = customConfig.outlineWidth ?? 3.5;
-    let shadow = customConfig.shadow ?? 1.5;
+    // 1. Typography & Font validation
+    const rawFont = customConfig.fontFamily;
+    const fontName = this.validateFontFamily(rawFont);
 
-    // Apply custom colors if specified and valid
-    if (customConfig.primaryColor && this.isValidHexColor(customConfig.primaryColor)) {
-      primaryColour = this.hexToAssColor(customConfig.primaryColor);
-    }
-    if (customConfig.outlineColor && this.isValidHexColor(customConfig.outlineColor)) {
-      outlineColour = this.hexToAssColor(customConfig.outlineColor);
-    }
-    if (customConfig.highlightColor && this.isValidHexColor(customConfig.highlightColor)) {
-      secondaryColour = this.hexToAssColor(customConfig.highlightColor);
-    }
-
+    // Safe font size clamping (32 to 110)
+    let defaultFontSize = 64;
     switch (style) {
       case 'bold':
-        fontName = 'Arial Black';
-        fontSize = customConfig.fontSize || 74;
-        outline = customConfig.outlineWidth ?? 5.0;
-        shadow = customConfig.shadow ?? 2.0;
+        defaultFontSize = 76;
         break;
-
       case 'minimal':
-        fontName = 'Arial';
-        fontSize = customConfig.fontSize || 50;
-        outline = customConfig.outlineWidth ?? 1.8;
-        shadow = customConfig.shadow ?? 0.5;
-        bold = 0;
+        defaultFontSize = 48;
         break;
-
       case 'podcast':
-        fontName = 'Arial';
-        fontSize = customConfig.fontSize || 68;
-        primaryColour = customConfig.primaryColor
-          ? this.hexToAssColor(customConfig.primaryColor)
-          : '&H0024E0FF&'; // Warm golden yellow
-        outline = customConfig.outlineWidth ?? 4.0;
-        shadow = customConfig.shadow ?? 2.0;
+        defaultFontSize = 66;
         break;
-
       case 'highlight':
-        fontName = 'Arial Black';
-        fontSize = customConfig.fontSize || 70;
-        secondaryColour = '&H0000FF55&'; // Vibrant neon green
-        outline = customConfig.outlineWidth ?? 4.5;
-        shadow = customConfig.shadow ?? 2.0;
+        defaultFontSize = 72;
         break;
-
       case 'karaoke':
-        fontName = 'Arial Black';
-        fontSize = customConfig.fontSize || 72;
-        outline = customConfig.outlineWidth ?? 4.5;
-        shadow = customConfig.shadow ?? 2.0;
-        // Karaoke uses secondaryColour as unread / highlight color
+        defaultFontSize = 70;
         break;
-
       case 'clean':
       default:
-        fontName = 'Arial';
-        fontSize = customConfig.fontSize || 64;
-        outline = customConfig.outlineWidth ?? 3.5;
-        shadow = customConfig.shadow ?? 1.5;
+        defaultFontSize = 64;
         break;
     }
 
-    // Format Dialogue Events
+    const rawSize = customConfig.fontSize || defaultFontSize;
+    const fontSize = Math.min(110, Math.max(32, Math.round(rawSize)));
+
+    // Font weight (400 - 900)
+    const fontWeight = customConfig.fontWeight ?? (style === 'bold' || style === 'highlight' || style === 'karaoke' ? 800 : 700);
+    const bold = fontWeight >= 700 ? 1 : 0;
+
+    // 2. Colors & Stroke
+    const textColorHex = customConfig.textColor || customConfig.primaryColor || '#FFFFFF';
+    const activeColorHex =
+      customConfig.activeWordColor ||
+      customConfig.highlightColor ||
+      (style === 'highlight' ? '#10B981' : style === 'podcast' ? '#F59E0B' : '#FF6B35');
+    const strokeColorHex = customConfig.strokeColor || customConfig.outlineColor || '#000000';
+
+    let primaryColour = this.hexToAssColor(textColorHex, '#FFFFFF', 0);
+    let secondaryColour = this.hexToAssColor(activeColorHex, '#FF6B35', 0);
+    let outlineColour = this.hexToAssColor(strokeColorHex, '#000000', 0);
+
+    // Stroke width (0 to 8)
+    const rawStroke =
+      customConfig.strokeWidth ??
+      customConfig.outlineWidth ??
+      (style === 'bold' ? 5.5 : style === 'minimal' ? 1.5 : 4.0);
+    const outline = Math.min(8, Math.max(0, Number(rawStroke.toFixed(1))));
+
+    // Shadow (0 to 5)
+    const isShadowEnabled = customConfig.shadowEnabled !== false;
+    let shadow = 0;
+    if (isShadowEnabled) {
+      const rawShadow = customConfig.shadow ?? (style === 'minimal' ? 0 : 1.8);
+      shadow = Math.min(5, Math.max(0, Number(rawShadow.toFixed(1))));
+    }
+
+    // Background box vs Outline
+    let borderStyle = 1; // 1 = Outline + Drop Shadow
+    let backColour = '&H80000000&'; // Default semi-transparent shadow
+
+    if (customConfig.backgroundEnabled) {
+      borderStyle = 3; // 3 = Opaque/Translucent Bounding Box
+      const bgOpacity = Math.min(1, Math.max(0, customConfig.backgroundOpacity ?? 0.55));
+      const bgAlpha = Math.round((1 - bgOpacity) * 255);
+      backColour = this.hexToAssColor(customConfig.backgroundColor || '#000000', '#000000', bgAlpha);
+    } else {
+      const shadowOpacity = Math.min(1, Math.max(0, customConfig.shadowOpacity ?? 0.45));
+      const shadowAlpha = Math.round((1 - shadowOpacity) * 255);
+      backColour = this.hexToAssColor('#000000', '#000000', shadowAlpha);
+    }
+
+    // 3. Placement & Alignment
+    let alignment = posConfig.alignment;
+    if (customConfig.textAlign === 'left') {
+      alignment = alignment === 8 ? 7 : alignment === 5 ? 4 : 1;
+    } else if (customConfig.textAlign === 'right') {
+      alignment = alignment === 8 ? 9 : alignment === 5 ? 6 : 3;
+    }
+
+    // Fine vertical position (positionY: 0.0 to 1.0)
+    let marginV = posConfig.marginV;
+    if (customConfig.positionY !== undefined) {
+      const posY = Math.min(0.92, Math.max(0.08, Number(customConfig.positionY)));
+      marginV = Math.round(playRes.y * (1 - posY));
+    }
+
+    // 4. Animation tags
+    const animation = customConfig.animation || 'none';
+    let animationTag = '';
+    if (animation === 'fade') {
+      animationTag = '{\\fad(90,90)}';
+    } else if (animation === 'pop') {
+      animationTag = '{\\t(0,70,\\fscx110\\fscy110)\\t(70,140,\\fscx100\\fscy100)}';
+    }
+
+    // Enforce strict zero overlap across cues
+    const cleanCues = this.enforceZeroOverlap(cues);
+
+    // 5. Format Dialogue Events (exactly one dialogue event per cue)
     const events: string[] = [];
 
-    for (const cue of cues) {
+    for (const cue of cleanCues) {
       const startStr = this.formatAssTime(cue.start);
       const endStr = this.formatAssTime(cue.end);
       let dialogueText = '';
 
-      if (style === 'karaoke' && timingMode === 'word' && Array.isArray(cue.tokens) && cue.tokens.length > 0) {
-        // Sequential word timing using ASS {\k<centiseconds>}
+      if (style === 'karaoke' && timingMode === 'word' && Array.isArray(cue.words) && cue.words.length > 0) {
+        // True Karaoke: use real word durations with ASS {\k<duration_cs>}
         const parts: string[] = [];
-        for (const tok of cue.tokens) {
+        for (const tok of cue.words) {
           const durationCs = Math.max(1, Math.round((tok.end - tok.start) * 100));
           const safeWord = this.sanitizeAssText(tok.text);
           parts.push(`{\\k${durationCs}}${safeWord}`);
         }
-        dialogueText = parts.join(' ');
-      } else if (style === 'highlight') {
-        // Highlight first or most prominent word with highlight color
+        dialogueText = `${animationTag}${parts.join(' ')}`;
+      } else if (style === 'highlight' || style === 'podcast') {
+        // Highlight first word with activeWordColor
         const words = cue.text.split(' ');
         if (words.length > 1) {
           const highlightWord = this.sanitizeAssText(words[0]);
           const rest = this.sanitizeAssText(words.slice(1).join(' '));
-          dialogueText = `{\\c${secondaryColour}}${highlightWord}{\\r} ${rest}`;
+          dialogueText = `${animationTag}{\\c${secondaryColour}}${highlightWord}{\\c${primaryColour}} ${rest}`;
         } else {
-          dialogueText = this.sanitizeAssText(cue.text);
+          dialogueText = `${animationTag}${this.sanitizeAssText(cue.text)}`;
         }
       } else {
-        dialogueText = this.sanitizeAssText(cue.text);
+        dialogueText = `${animationTag}${this.sanitizeAssText(cue.text)}`;
       }
 
-      if (dialogueText) {
+      if (dialogueText.trim()) {
         events.push(`Dialogue: 0,${startStr},${endStr},Default,,0,0,0,,${dialogueText}`);
       }
     }
@@ -465,7 +671,7 @@ export class CaptionService {
       '',
       '[V4+ Styles]',
       'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
-      `Style: Default,${fontName},${fontSize},${primaryColour},${secondaryColour},${outlineColour},${backColour},${bold},0,0,0,100,100,0,0,1,${outline},${shadow},${posConfig.alignment},60,60,${posConfig.marginV},1`,
+      `Style: Default,${fontName},${fontSize},${primaryColour},${secondaryColour},${outlineColour},${backColour},${bold},0,0,0,100,100,0,0,${borderStyle},${outline},${shadow},${alignment},60,60,${marginV},1`,
       '',
       '[Events]',
       'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
@@ -504,19 +710,25 @@ export class CaptionService {
     const trimStart = Number(clip.trim_start_offset || 0);
     const trimEnd = Number(clip.trim_end_offset || 0);
 
+    const mergedConfig: CaptionConfig = {
+      ...(clip.caption_config || {}),
+      caption_overrides: clip.caption_config?.caption_overrides || (clip as any).caption_overrides || [],
+    };
+
     const { timingMode, cues } = this.extractClipCues(
       transcript,
       clip.start_seconds,
       clip.end_seconds,
       trimStart,
-      trimEnd
+      trimEnd,
+      mergedConfig
     );
 
     const assContent = this.buildAssScript(cues, {
       style: (clip.caption_style as CaptionStyle) || 'clean',
       position: (clip.caption_position as CaptionPosition) || 'bottom',
       aspectRatio: targetAspectRatio,
-      customConfig: clip.caption_config || {},
+      customConfig: mergedConfig,
       timingMode,
     });
 

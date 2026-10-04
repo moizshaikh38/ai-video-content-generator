@@ -269,6 +269,56 @@ class ClipRenderService {
 
     return await res.json();
   }
+
+  /**
+   * Phase 13: Triggers smart auto-reframe face tracking analysis
+   */
+  async analyzeClipReframe(clipId: string): Promise<{
+    status: string;
+    analysis_status: string;
+    clipId: string;
+  }> {
+    const headers = await this.getAuthHeader();
+    const res = await fetch(`${this.getApiUrl()}/clips/${clipId}/reframe/analyze`, {
+      method: 'POST',
+      headers,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to start smart reframe analysis.');
+    }
+
+    return await res.json();
+  }
+
+  /**
+   * Phase 13: Fetches latest smart reframe tracking data
+   */
+  async getClipReframe(clipId: string): Promise<{
+    status: 'pending' | 'analyzing' | 'ready' | 'failed';
+    detectedFaceCount: number;
+    dominantTrackId: string | null;
+    smoothedKeyframes: Array<{ time: number; centerX: number; centerY: number }>;
+    analysisVersion: number;
+    analyzedTrimStart?: number;
+    analyzedTrimEnd?: number;
+    analyzedAspectRatio?: string;
+    isStale?: boolean;
+  }> {
+    const headers = await this.getAuthHeader();
+    const res = await fetch(`${this.getApiUrl()}/clips/${clipId}/reframe`, {
+      headers,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch smart reframe tracking status.');
+    }
+
+    return await res.json();
+  }
 }
 
 export const clipRenderService = new ClipRenderService();
+

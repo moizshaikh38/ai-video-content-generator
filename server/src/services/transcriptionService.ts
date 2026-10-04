@@ -1,12 +1,13 @@
 import { OpenRouterTranscriptionProvider } from './transcription/openRouterTranscriptionProvider.js';
 import { NormalizedTranscriptionResult } from './transcription/types.js';
-import { TranscriptSegment } from '../types/index.js';
+import { TranscriptSegment, TranscriptWord } from '../types/index.js';
 
 export interface TranscriptionResult {
   text: string;
   language: string;
   duration: number | null;
   segments: TranscriptSegment[];
+  words: TranscriptWord[];
 }
 
 /**
@@ -30,5 +31,6 @@ export async function transcribeAudioWithOpenRouter(
     language: result.language,
     duration: result.durationSeconds,
     segments: result.segments,
+    words: result.words || [],
   };
 }

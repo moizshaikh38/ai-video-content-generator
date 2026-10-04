@@ -111,7 +111,7 @@ export async function processProjectVideo(
     );
 
     // 6. Store transcript into Supabase transcripts table (upsert to avoid duplicates)
-    const transcriptPayload = {
+    const transcriptPayload: any = {
       project_id: projectId,
       user_id: userId,
       transcript_text: transcription.text,
@@ -121,16 +121,35 @@ export async function processProjectVideo(
       updated_at: new Date().toISOString(),
     };
 
+    if (Array.isArray(transcription.words) && transcription.words.length > 0) {
+      transcriptPayload.words = transcription.words;
+    }
+
     logger.info(`Storing transcript for project ${projectId} into 'transcripts' table...`, {
       projectId,
       charCount: transcription.text.length,
+      segmentCount: transcription.segments?.length || 0,
+      wordCount: transcription.words?.length || 0,
     });
 
-    const { data: savedTranscript, error: saveError } = await supabaseAuthClient
+    let { data: savedTranscript, error: saveError } = await supabaseAuthClient
       .from('transcripts')
       .upsert(transcriptPayload, { onConflict: 'project_id' })
       .select()
       .single();
+
+    // Fallback if 'words' column has not been migrated yet in Supabase
+    if (saveError && saveError.message.includes('words') && transcriptPayload.words) {
+      logger.warn('[VideoProcessing] "words" column not present in transcripts table yet. Retrying without words column.');
+      delete transcriptPayload.words;
+      const retry = await supabaseAuthClient
+        .from('transcripts')
+        .upsert(transcriptPayload, { onConflict: 'project_id' })
+        .select()
+        .single();
+      savedTranscript = retry.data;
+      saveError = retry.error;
+    }
 
     if (saveError) {
       logger.error('Failed to save transcript to Supabase', {

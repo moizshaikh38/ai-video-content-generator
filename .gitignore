@@ -51,3 +51,11 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Python
+.venv/
+server/python/.venv/
+__pycache__/
+*.pyc
+*.pyo
+

@@ -28,7 +28,10 @@ import {
   updateClipEditor,
   resetClipEditor,
   getClipCaptions,
+  analyzeClipReframe,
+  getClipReframe,
 } from '../controllers/clipController.js';
+
 
 const router = Router();
 
@@ -59,6 +62,11 @@ router.get('/clips/:clipId/editor', requireAuth, asyncHandler(getClipEditorData)
 router.patch('/clips/:clipId/editor', requireAuth, asyncHandler(updateClipEditor));
 router.post('/clips/:clipId/editor/reset', requireAuth, asyncHandler(resetClipEditor));
 router.get('/clips/:clipId/captions', requireAuth, asyncHandler(getClipCaptions));
+
+// Phase 13: Smart Auto-Reframe Routes
+router.post('/clips/:clipId/reframe/analyze', requireAuth, expensiveLimiter, asyncHandler(analyzeClipReframe));
+router.get('/clips/:clipId/reframe', requireAuth, asyncHandler(getClipReframe));
+
 
 // Content Generation Routes
 router.post('/projects/:id/generate-content', requireAuth, expensiveLimiter, asyncHandler(generateProjectContent));

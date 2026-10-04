@@ -225,10 +225,36 @@ export type CaptionStyle = 'clean' | 'bold' | 'minimal' | 'podcast' | 'highlight
 export type CaptionPosition = 'top' | 'center' | 'bottom';
 export type CaptionTimingMode = 'word' | 'segment';
 
+export type CropMode = 'center' | 'manual' | 'smart';
+
 export interface CropConfig {
+  mode?: CropMode;
   focusX: number; // 0 to 1, default 0.5 (center)
   focusY: number; // 0 to 1, default 0.5 (center)
+  smart?: {
+    trackId?: string;
+    strength?: number;
+  };
 }
+
+export interface ReframeKeyframe {
+  time: number;
+  centerX: number;
+  centerY: number;
+}
+
+export interface ReframeStatusResponse {
+  status: 'pending' | 'analyzing' | 'ready' | 'failed';
+  detectedFaceCount: number;
+  dominantTrackId: string | null;
+  smoothedKeyframes: ReframeKeyframe[];
+  analysisVersion: number;
+  analyzedTrimStart?: number;
+  analyzedTrimEnd?: number;
+  analyzedAspectRatio?: string;
+  isStale?: boolean;
+}
+
 
 export type OverlayPosition = 'top' | 'center' | 'bottom';
 export type OverlaySize = 'sm' | 'md' | 'lg';
@@ -240,13 +266,58 @@ export interface OverlayConfig {
   size?: OverlaySize;
 }
 
+export const SAFE_FONT_FAMILIES = [
+  'Inter',
+  'Arial',
+  'Arial Black',
+  'DejaVu Sans',
+  'Liberation Sans',
+] as const;
+
+export type SafeFontFamily = (typeof SAFE_FONT_FAMILIES)[number];
+
+export type CaptionAnimation = 'none' | 'fade' | 'pop' | 'word_pop';
+export type CaptionTextAlign = 'left' | 'center' | 'right';
+
+export interface CaptionCueOverride {
+  cueId: string;
+  text: string;
+}
+
 export interface CaptionConfig {
+  fontFamily?: SafeFontFamily | string;
   fontSize?: number;
-  primaryColor?: string; // Hex #RRGGBB
-  highlightColor?: string; // Hex #RRGGBB
-  outlineColor?: string; // Hex #RRGGBB
+  fontWeight?: number;
+  uppercase?: boolean;
+
+  textColor?: string;
+  primaryColor?: string;
+  activeWordColor?: string;
+  highlightColor?: string;
+  strokeColor?: string;
+  outlineColor?: string;
+  strokeWidth?: number;
   outlineWidth?: number;
+
+  shadowEnabled?: boolean;
+  shadowOpacity?: number;
   shadow?: number;
+
+  backgroundEnabled?: boolean;
+  backgroundColor?: string;
+  backgroundOpacity?: number;
+
+  position?: CaptionPosition;
+  positionY?: number; // 0 to 1
+  positionX?: number; // 0 to 1
+  textAlign?: CaptionTextAlign;
+
+  maxWordsPerCue?: number; // 2..6
+  maxLines?: number; // 1..2
+
+  animation?: CaptionAnimation;
+
+  caption_overrides?: CaptionCueOverride[];
 }
 
 export interface TimedCaptionToken {
@@ -260,6 +331,7 @@ export interface TimedCaptionCue {
   start: number;
   end: number;
   text: string;
+  words?: TimedCaptionToken[];
   tokens?: TimedCaptionToken[];
 }
 

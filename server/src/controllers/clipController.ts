@@ -3,7 +3,9 @@ import { AuthenticatedRequest, isValidUUID, ClipCandidateStatus, ClipAspectRatio
 import { ClipAnalysisService } from '../services/clipAnalysisService.js';
 import { ClipRenderService, isClipRenderActive } from '../services/clipRenderService.js';
 import { CaptionService } from '../services/captionService.js';
+import { SmartReframeService, activeReframeAnalysisSet } from '../services/smartReframeService.js';
 import { supabaseAuthClient, isServerSupabaseConfigured } from '../utils/supabase.js';
+
 import { logger } from '../utils/logger.js';
 
 /**
@@ -782,7 +784,8 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
       clip.start_seconds,
       clip.end_seconds,
       Number(clip.trim_start_offset || 0),
-      Number(clip.trim_end_offset || 0)
+      Number(clip.trim_end_offset || 0),
+      clip.caption_config || {}
     );
 
     res.status(200).json({
@@ -800,4 +803,133 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
     });
   }
 };
+
+/**
+ * POST /api/clips/:clipId/reframe/analyze
+ * Initiates smart auto-reframe face tracking analysis for a clip
+ */
+export const analyzeClipReframe = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const clipId = req.params.clipId;
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });
+    return;
+  }
+
+  if (!clipId || !isValidUUID(clipId)) {
+    res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid clip UUID is required.' });
+    return;
+  }
+
+  // Security guard: frontend cannot send arbitrary filesystem/commands/track data
+  const disallowedKeys = ['filesystemPath', 'pythonCommand', 'ffmpegExpression', 'storagePath', 'rawTrackData'];
+  const bodyKeys = Object.keys(req.body || {});
+  const presentDisallowed = bodyKeys.filter((k) => disallowedKeys.includes(k));
+  if (presentDisallowed.length > 0) {
+    res.status(400).json({
+      status: 'error',
+      code: 'INVALID_PAYLOAD',
+      message: `Disallowed parameter: ${presentDisallowed.join(', ')}`,
+    });
+    return;
+  }
+
+  // Duplicate analysis check
+  if (activeReframeAnalysisSet.has(clipId)) {
+    res.status(409).json({
+      status: 'error',
+      code: 'REFRAME_ANALYSIS_ACTIVE',
+      message: 'Smart reframe analysis is already in progress for this clip.',
+    });
+    return;
+  }
+
+  try {
+    // Verify clip existence and ownership
+    const clip = await ClipRenderService.getClip(clipId, userId);
+    if (!clip) {
+      res.status(404).json({ status: 'error', code: 'CLIP_NOT_FOUND', message: 'Clip not found.' });
+      return;
+    }
+
+    // Launch analysis asynchronously in background
+    SmartReframeService.analyzeClipFraming(clipId, userId).catch((err) => {
+      logger.error('Background smart reframe analysis failed', { clipId, error: err.message });
+    });
+
+    res.status(202).json({
+      status: 'ok',
+      analysis_status: 'analyzing',
+      clipId,
+    });
+  } catch (err: any) {
+    const code = err.code || 'INTERNAL_ERROR';
+    const status =
+      code === 'CLIP_NOT_FOUND' ? 404 : code === 'REFRAME_ANALYSIS_ACTIVE' ? 409 : 500;
+    res.status(status).json({
+      status: 'error',
+      code,
+      message: err.message || 'Failed to start smart reframe analysis.',
+    });
+  }
+};
+
+/**
+ * GET /api/clips/:clipId/reframe
+ * Retrieves safe smart reframe tracking data for a clip
+ */
+export const getClipReframe = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const clipId = req.params.clipId;
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });
+    return;
+  }
+
+  if (!clipId || !isValidUUID(clipId)) {
+    res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid clip UUID is required.' });
+    return;
+  }
+
+  try {
+    const track = await SmartReframeService.getReframeTrack(clipId, userId);
+
+    if (!track) {
+      // If no track yet, check if currently analyzing
+      const isAnalyzing = activeReframeAnalysisSet.has(clipId);
+      res.status(200).json({
+        status: isAnalyzing ? 'analyzing' : 'pending',
+        detectedFaceCount: 0,
+        dominantTrackId: null,
+        smoothedKeyframes: [],
+        analysisVersion: 1,
+        isStale: false,
+      });
+      return;
+    }
+
+    // Return safe data without exposing server paths
+    res.status(200).json({
+      status: track.status,
+      detectedFaceCount: track.detected_face_count || 0,
+      dominantTrackId: track.dominant_track_id,
+      smoothedKeyframes: track.smoothed_keyframes || [],
+      analysisVersion: track.analysis_version,
+      analyzedTrimStart: track.analyzed_trim_start,
+      analyzedTrimEnd: track.analyzed_trim_end,
+      analyzedAspectRatio: track.analyzed_aspect_ratio,
+      isStale: Boolean(track.isStale),
+    });
+  } catch (err: any) {
+    const code = err.code || 'INTERNAL_ERROR';
+    res.status(500).json({
+      status: 'error',
+      code,
+      message: err.message || 'Failed to fetch reframe track.',
+    });
+  }
+};
+
 

@@ -95,10 +95,17 @@ export function isValidUUID(value: string): boolean {
 
 // ── Transcript Types ──────────────────────────────────────────────
 
+export interface TranscriptWord {
+  word: string;
+  start: number;
+  end: number;
+}
+
 export interface TranscriptSegment {
   start: number;
   end: number;
   text: string;
+  words?: TranscriptWord[];
 }
 
 export interface TranscriptRecord {
@@ -109,6 +116,7 @@ export interface TranscriptRecord {
   language: string;
   duration_seconds: number | null;
   segments: TranscriptSegment[];
+  words?: TranscriptWord[];
   created_at: string;
   updated_at: string;
 }
@@ -366,9 +374,16 @@ export type CaptionStyle = 'clean' | 'bold' | 'minimal' | 'podcast' | 'highlight
 export type CaptionPosition = 'top' | 'center' | 'bottom';
 export type CaptionTimingMode = 'word' | 'segment';
 
+export type CropMode = 'center' | 'manual' | 'smart';
+
 export interface CropConfig {
-  focusX: number; // 0 to 1, default 0.5 (center)
-  focusY: number; // 0 to 1, default 0.5 (center)
+  mode?: CropMode;
+  focusX?: number; // 0 to 1, default 0.5 (center)
+  focusY?: number; // 0 to 1, default 0.5 (center)
+  smart?: {
+    trackId?: string;
+    strength?: number;
+  };
 }
 
 export type OverlayPosition = 'top' | 'center' | 'bottom';
@@ -381,13 +396,66 @@ export interface OverlayConfig {
   size?: OverlaySize;
 }
 
+export const SAFE_FONT_FAMILIES = [
+  'Inter',
+  'Arial',
+  'Arial Black',
+  'DejaVu Sans',
+  'Liberation Sans',
+] as const;
+
+export type SafeFontFamily = (typeof SAFE_FONT_FAMILIES)[number];
+
+export type CaptionAnimation = 'none' | 'fade' | 'pop' | 'word_pop';
+export type CaptionTextAlign = 'left' | 'center' | 'right';
+
+export interface CaptionCueOverride {
+  cueId: string;
+  text: string;
+}
+
 export interface CaptionConfig {
+  // Typography
+  fontFamily?: SafeFontFamily | string;
   fontSize?: number;
-  primaryColor?: string; // Hex #RRGGBB
-  highlightColor?: string; // Hex #RRGGBB
-  outlineColor?: string; // Hex #RRGGBB
-  outlineWidth?: number;
-  shadow?: number;
+  fontWeight?: number; // 400 - 900
+  uppercase?: boolean;
+
+  // Colors & stroke
+  textColor?: string; // Hex #RRGGBB
+  primaryColor?: string; // Alias for textColor
+  activeWordColor?: string; // Hex #RRGGBB
+  highlightColor?: string; // Alias for activeWordColor
+  strokeColor?: string; // Hex #RRGGBB
+  outlineColor?: string; // Alias for strokeColor
+  strokeWidth?: number; // 0 to 8
+  outlineWidth?: number; // Alias for strokeWidth
+
+  // Shadow
+  shadowEnabled?: boolean;
+  shadowOpacity?: number; // 0 to 1
+  shadow?: number; // Alias / shadow offset (0 to 5)
+
+  // Background Box
+  backgroundEnabled?: boolean;
+  backgroundColor?: string; // Hex #RRGGBB
+  backgroundOpacity?: number; // 0 to 1
+
+  // Placement & alignment
+  position?: CaptionPosition;
+  positionY?: number; // 0 to 1 (normalized vertical position)
+  positionX?: number; // 0 to 1 (normalized horizontal position)
+  textAlign?: CaptionTextAlign;
+
+  // Cue chunk sizing
+  maxWordsPerCue?: number; // 2, 3, 4, 5, 6 (default 4)
+  maxLines?: number; // 1 or 2 (default 2)
+
+  // Animation
+  animation?: CaptionAnimation;
+
+  // Manual cue text corrections
+  caption_overrides?: CaptionCueOverride[];
 }
 
 export interface TimedCaptionToken {
@@ -401,6 +469,7 @@ export interface TimedCaptionCue {
   start: number; // local to clip (seconds)
   end: number;   // local to clip (seconds)
   text: string;
+  words?: TimedCaptionToken[];
   tokens?: TimedCaptionToken[];
 }
 
@@ -417,4 +486,54 @@ export interface ClipEditorUpdateDTO {
   volume?: number;
   muted?: boolean;
 }
+
+// ── Phase 13: Smart Auto-Reframe + Face Tracking ─────────────────
+
+export interface NormalizedFaceDetection {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  center_x: number;
+  center_y: number;
+  confidence: number;
+  track_id?: string;
+  area?: number;
+}
+
+export interface ReframeSample {
+  time: number;
+  faces: NormalizedFaceDetection[];
+}
+
+export interface ReframeKeyframe {
+  time: number;
+  centerX: number;
+  centerY: number;
+}
+
+export interface ReframeTrackRecord {
+  id: string;
+  clip_id: string;
+  project_id: string;
+  user_id: string;
+  status: 'pending' | 'analyzing' | 'ready' | 'failed';
+  analysis_version: number;
+  sample_interval_ms: number;
+  source_width: number | null;
+  source_height: number | null;
+  detected_face_count: number;
+  dominant_track_id: string | null;
+  raw_samples: ReframeSample[];
+  smoothed_keyframes: ReframeKeyframe[];
+  metadata: Record<string, any>;
+  error_code: string | null;
+  error_message: string | null;
+  analyzed_trim_start: number;
+  analyzed_trim_end: number;
+  analyzed_aspect_ratio: string;
+  created_at: string;
+  updated_at: string;
+}
+
 

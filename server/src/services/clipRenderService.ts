@@ -19,8 +19,11 @@ import {
   CaptionConfig,
   ClipEditorUpdateDTO,
   isValidUUID,
+  ReframeKeyframe,
 } from '../types/index.js';
 import { CaptionService } from './captionService.js';
+import { SmartReframeService } from './smartReframeService.js';
+
 
 // Configure fluent-ffmpeg to use ffmpeg-static binary
 if (ffmpegStatic) {
@@ -101,8 +104,22 @@ export function buildCropFilter(
 }
 
 /**
+ * Builds an FFmpeg dynamic crop filter graph expression for smart auto-reframe
+ */
+export function buildSmartCropFilter(
+  keyframes: ReframeKeyframe[],
+  aspectRatio: ClipAspectRatio = '9:16',
+  sourceWidth = 1920,
+  sourceHeight = 1080,
+  duration = 30.0
+): string {
+  return SmartReframeService.buildSmartCropFilter(keyframes, aspectRatio, sourceWidth, sourceHeight, duration);
+}
+
+/**
  * Parses FFmpeg timemark strings (HH:MM:SS.ms) into total seconds
  */
+
 export function parseTimemarkToSeconds(timemark: string): number {
   if (!timemark || typeof timemark !== 'string') return 0;
   const parts = timemark.split(':');
@@ -362,8 +379,43 @@ export class ClipRenderService {
       const durationSec = Math.max(0.1, Number((originalDuration - trimStart - trimEnd).toFixed(3)));
       const timeoutMs = config.clipRenderTimeoutMs || 300000;
 
-      const cropFilter = buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config);
+      let cropFilter = buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config);
+
+      // Phase 13: Dynamic Smart Auto-Reframe
+      if (clip.crop_config?.mode === 'smart') {
+        try {
+          const track = await SmartReframeService.getReframeTrack(clipId, clip.user_id);
+          if (
+            track &&
+            track.status === 'ready' &&
+            Array.isArray(track.smoothed_keyframes) &&
+            track.smoothed_keyframes.length > 0
+          ) {
+            if (track.isStale) {
+              logger.warn(`[ClipRender] Smart reframe track is stale for clip ${clipId}. Falling back to center crop.`);
+              cropFilter = buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 });
+            } else {
+              cropFilter = SmartReframeService.buildSmartCropFilter(
+                track.smoothed_keyframes,
+                clip.aspect_ratio as ClipAspectRatio,
+                track.source_width || 1920,
+                track.source_height || 1080,
+                durationSec
+              );
+              logger.info(`[ClipRender] Applied dynamic smart reframe filter with ${track.smoothed_keyframes.length} keyframes for clip ${clipId}`);
+            }
+          } else {
+            logger.warn(`[ClipRender] No ready smart reframe track found for clip ${clipId}. Falling back to center crop.`);
+            cropFilter = buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 });
+          }
+        } catch (reframeErr: any) {
+          logger.warn(`[ClipRender] Smart reframe resolution error for clip ${clipId}: ${reframeErr.message}. Falling back to center crop.`);
+          cropFilter = buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 });
+        }
+      }
+
       const videoFilters: string[] = [cropFilter];
+
 
       // ASS Subtitles burn-in
       if (clip.caption_enabled !== false) {
@@ -944,13 +996,20 @@ export class ClipRenderService {
     }
 
     // Crop config
-    let safeCrop = clip.crop_config || { focusX: 0.5, focusY: 0.5 };
+    let safeCrop = clip.crop_config || { mode: 'center', focusX: 0.5, focusY: 0.5 };
     if (update.cropConfig) {
+      const mode = update.cropConfig.mode === 'smart' ? 'smart' : update.cropConfig.mode === 'manual' ? 'manual' : 'center';
       safeCrop = {
+        mode,
         focusX: Math.min(1.0, Math.max(0.0, Number(update.cropConfig.focusX ?? 0.5))),
         focusY: Math.min(1.0, Math.max(0.0, Number(update.cropConfig.focusY ?? 0.5))),
+        smart: update.cropConfig.smart ? {
+          trackId: update.cropConfig.smart.trackId ? String(update.cropConfig.smart.trackId) : undefined,
+          strength: Math.min(1.0, Math.max(0.0, Number(update.cropConfig.smart.strength ?? 1.0))),
+        } : undefined,
       };
     }
+
 
     // Overlay config
     let safeOverlay = clip.overlay_config || { enabled: false, text: '' };
@@ -966,8 +1025,107 @@ export class ClipRenderService {
       };
     }
 
-    // Caption config
-    const safeCaptionConfig = update.captionConfig || clip.caption_config || {};
+    // Caption config validation & sanitization
+    let safeCaptionConfig: CaptionConfig = clip.caption_config || {};
+    if (update.captionConfig) {
+      const incoming = update.captionConfig;
+      const sanitized: CaptionConfig = {};
+
+      if (incoming.fontFamily) {
+        sanitized.fontFamily = CaptionService.validateFontFamily(String(incoming.fontFamily));
+      }
+      if (incoming.fontSize !== undefined) {
+        sanitized.fontSize = Math.min(110, Math.max(32, Math.round(Number(incoming.fontSize) || 64)));
+      }
+      if (incoming.fontWeight !== undefined) {
+        const fw = Math.round(Number(incoming.fontWeight) || 700);
+        sanitized.fontWeight = [400, 500, 600, 700, 800, 900].includes(fw) ? fw : 700;
+      }
+      if (incoming.uppercase !== undefined) {
+        sanitized.uppercase = Boolean(incoming.uppercase);
+      }
+
+      const hexRegex = /^#?([0-9a-fA-F]{6})$/;
+      if (incoming.textColor && hexRegex.test(incoming.textColor)) {
+        sanitized.textColor = incoming.textColor.startsWith('#') ? incoming.textColor : `#${incoming.textColor}`;
+      } else if (incoming.primaryColor && hexRegex.test(incoming.primaryColor)) {
+        sanitized.textColor = incoming.primaryColor.startsWith('#') ? incoming.primaryColor : `#${incoming.primaryColor}`;
+      }
+
+      if (incoming.activeWordColor && hexRegex.test(incoming.activeWordColor)) {
+        sanitized.activeWordColor = incoming.activeWordColor.startsWith('#') ? incoming.activeWordColor : `#${incoming.activeWordColor}`;
+      } else if (incoming.highlightColor && hexRegex.test(incoming.highlightColor)) {
+        sanitized.activeWordColor = incoming.highlightColor.startsWith('#') ? incoming.highlightColor : `#${incoming.highlightColor}`;
+      }
+
+      if (incoming.strokeColor && hexRegex.test(incoming.strokeColor)) {
+        sanitized.strokeColor = incoming.strokeColor.startsWith('#') ? incoming.strokeColor : `#${incoming.strokeColor}`;
+      } else if (incoming.outlineColor && hexRegex.test(incoming.outlineColor)) {
+        sanitized.strokeColor = incoming.outlineColor.startsWith('#') ? incoming.outlineColor : `#${incoming.outlineColor}`;
+      }
+
+      if (incoming.strokeWidth !== undefined || incoming.outlineWidth !== undefined) {
+        const sw = Number(incoming.strokeWidth ?? incoming.outlineWidth);
+        sanitized.strokeWidth = Math.min(8, Math.max(0, Number(sw.toFixed(1))));
+      }
+
+      if (incoming.shadowEnabled !== undefined) {
+        sanitized.shadowEnabled = Boolean(incoming.shadowEnabled);
+      }
+      if (incoming.shadowOpacity !== undefined) {
+        sanitized.shadowOpacity = Math.min(1.0, Math.max(0.0, Number(Number(incoming.shadowOpacity).toFixed(2))));
+      }
+      if (incoming.shadow !== undefined) {
+        sanitized.shadow = Math.min(5, Math.max(0, Number(Number(incoming.shadow).toFixed(1))));
+      }
+
+      if (incoming.backgroundEnabled !== undefined) {
+        sanitized.backgroundEnabled = Boolean(incoming.backgroundEnabled);
+      }
+      if (incoming.backgroundColor && hexRegex.test(incoming.backgroundColor)) {
+        sanitized.backgroundColor = incoming.backgroundColor.startsWith('#') ? incoming.backgroundColor : `#${incoming.backgroundColor}`;
+      }
+      if (incoming.backgroundOpacity !== undefined) {
+        sanitized.backgroundOpacity = Math.min(1.0, Math.max(0.0, Number(Number(incoming.backgroundOpacity).toFixed(2))));
+      }
+
+      if (incoming.position && ['top', 'center', 'bottom'].includes(incoming.position)) {
+        sanitized.position = incoming.position as CaptionPosition;
+      }
+      if (incoming.positionY !== undefined) {
+        sanitized.positionY = Math.min(1.0, Math.max(0.0, Number(Number(incoming.positionY).toFixed(3))));
+      }
+      if (incoming.positionX !== undefined) {
+        sanitized.positionX = Math.min(1.0, Math.max(0.0, Number(Number(incoming.positionX).toFixed(3))));
+      }
+      if (incoming.textAlign && ['left', 'center', 'right'].includes(incoming.textAlign)) {
+        sanitized.textAlign = incoming.textAlign as any;
+      }
+
+      if (incoming.maxWordsPerCue !== undefined) {
+        sanitized.maxWordsPerCue = Math.min(6, Math.max(2, Math.round(Number(incoming.maxWordsPerCue))));
+      }
+      if (incoming.maxLines !== undefined) {
+        sanitized.maxLines = Math.min(2, Math.max(1, Math.round(Number(incoming.maxLines))));
+      }
+
+      if (incoming.animation && ['none', 'fade', 'pop', 'word_pop'].includes(incoming.animation)) {
+        sanitized.animation = incoming.animation as any;
+      }
+
+      if (Array.isArray(incoming.caption_overrides)) {
+        sanitized.caption_overrides = incoming.caption_overrides
+          .filter((o) => o && typeof o.cueId === 'string' && typeof o.text === 'string')
+          .map((o) => ({
+            cueId: String(o.cueId).slice(0, 50),
+            text: CaptionService.sanitizeAssText(o.text).slice(0, 200),
+          }));
+      } else if (Array.isArray(clip.caption_config?.caption_overrides)) {
+        sanitized.caption_overrides = clip.caption_config.caption_overrides;
+      }
+
+      safeCaptionConfig = { ...safeCaptionConfig, ...sanitized };
+    }
 
     // Audio
     const safeVolume = update.volume !== undefined

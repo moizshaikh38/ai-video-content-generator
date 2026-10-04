@@ -1,7 +1,11 @@
 import { config } from '../../config/index.js';
 import { logger } from '../../utils/logger.js';
 import { TranscriptionProvider } from './transcriptionProvider.js';
-import { NormalizedTranscriptionResult, NormalizedTranscriptSegment } from './types.js';
+import {
+  NormalizedTranscriptionResult,
+  NormalizedTranscriptSegment,
+  NormalizedTranscriptWord,
+} from './types.js';
 import { normalizeTranscriptionError } from './errorNormalizer.js';
 
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // 25 MB Groq limit
@@ -45,6 +49,8 @@ export class GroqTranscriptionProvider implements TranscriptionProvider {
     formData.append('file', blob, fileName);
     formData.append('model', GROQ_MODEL);
     formData.append('response_format', 'verbose_json');
+    formData.append('timestamp_granularities[]', 'word');
+    formData.append('timestamp_granularities[]', 'segment');
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
@@ -117,11 +123,24 @@ export class GroqTranscriptionProvider implements TranscriptionProvider {
       }))
       .filter((seg: NormalizedTranscriptSegment) => seg.text.length > 0 || seg.end > seg.start);
 
+    // Extract real word timestamps if returned by provider
+    const rawWords = Array.isArray(result?.words)
+      ? result.words
+      : rawSegments.flatMap((s: any) => (Array.isArray(s?.words) ? s.words : []));
+
+    const words: NormalizedTranscriptWord[] = rawWords
+      .map((w: any) => ({
+        word: String(w.word || w.text || '').trim(),
+        start: Number(w.start ?? 0),
+        end: Number(w.end ?? 0),
+      }))
+      .filter((w: NormalizedTranscriptWord) => w.word.length > 0 && w.end >= w.start);
+
     const durationSeconds = typeof result?.duration === 'number' ? result.duration : null;
     const language = typeof result?.language === 'string' ? result.language : 'en';
 
     logger.info(
-      `[Groq] Successfully transcribed audio: ${segments.length} segments, duration: ${durationSeconds}s, language: ${language}`
+      `[Groq] Successfully transcribed audio: ${segments.length} segments, ${words.length} words, duration: ${durationSeconds}s, language: ${language}`
     );
 
     return {
@@ -129,6 +148,7 @@ export class GroqTranscriptionProvider implements TranscriptionProvider {
       language,
       durationSeconds,
       segments,
+      words,
     };
   }
 }

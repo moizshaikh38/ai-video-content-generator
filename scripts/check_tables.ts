@@ -12,6 +12,9 @@ async function main() {
   const { data: rjData, error: rjErr } = await supabaseAuthClient.from('render_jobs').select('id').limit(1);
   console.log('render_jobs:', rjErr ? `${rjErr.code} ${rjErr.message}` : 'EXISTS & QUERYABLE');
 
+  const { data: rfData, error: rfErr } = await supabaseAuthClient.from('reframe_tracks').select('id').limit(1);
+  console.log('reframe_tracks:', rfErr ? `${rfErr.code} ${rfErr.message}` : 'EXISTS & QUERYABLE');
+
   const { data: bData, error: bErr } = await supabaseAuthClient.storage.listBuckets();
   if (bErr) console.log('storage buckets error:', bErr.message);
   else console.log('storage buckets:', bData.map((b: any) => b.name));
