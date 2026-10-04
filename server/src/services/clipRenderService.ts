@@ -1,10 +1,14 @@
+import { createClipWithJob } from '../db/repositories/clipRepository.js';
+import { isMongoConfigured } from '../db/mongoClient.js';
+import { dataRepository } from '../db/repositories/dataRepository.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
-import { supabaseAuthClient, isServerSupabaseConfigured } from '../utils/supabase.js';
+import { clipObjectPrefix, deletePrefix, downloadObjectToFile, renderObjectKey, signObjectGet, uploadFile } from './objectStorageService.js';
+import { deleteClipRecords } from '../db/repositories/deletionRepository.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 import {
@@ -144,7 +148,7 @@ export class ClipRenderService {
     aspectRatio: ClipAspectRatio = '9:16',
     cropMode: ClipCropMode = 'center'
   ): Promise<CreateClipResult> {
-    if (!isServerSupabaseConfigured) {
+    if (!isMongoConfigured) {
       const err = new Error('Database service is not configured.');
       (err as any).code = 'SERVICE_UNAVAILABLE';
       throw err;
@@ -156,116 +160,9 @@ export class ClipRenderService {
       throw err;
     }
 
-    // 1. Verify project ownership and fetch source file
-    const { data: project, error: projErr } = await supabaseAuthClient
-      .from('projects')
-      .select('id, user_id, source_url, title')
-      .eq('id', projectId)
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (projErr || !project) {
-      const err = new Error('Project not found or access denied.');
-      (err as any).code = 'PROJECT_NOT_FOUND';
-      throw err;
-    }
-
-    if (!project.source_url) {
-      const err = new Error('Project does not have an uploaded video source file.');
-      (err as any).code = 'SOURCE_VIDEO_NOT_FOUND';
-      throw err;
-    }
-
-    // 2. Verify candidate ownership and that it belongs to this project
-    const { data: candidate, error: candErr } = await supabaseAuthClient
-      .from('clip_candidates')
-      .select('*')
-      .eq('id', candidateId)
-      .eq('project_id', projectId)
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (candErr || !candidate) {
-      const err = new Error('Clip candidate not found or does not belong to this project.');
-      (err as any).code = 'CANDIDATE_NOT_FOUND';
-      throw err;
-    }
-
-    // 3. Derive timestamps strictly from candidate (CRITICAL SECURITY RULE)
-    const startSeconds = Number(candidate.start_seconds);
-    const endSeconds = Number(candidate.end_seconds);
-    const durationSeconds = Number(
-      candidate.duration_seconds || (endSeconds - startSeconds).toFixed(3)
-    );
-
-    if (isNaN(startSeconds) || isNaN(endSeconds) || endSeconds <= startSeconds) {
-      const err = new Error('Candidate contains invalid timestamp boundaries.');
-      (err as any).code = 'INVALID_TIMESTAMPS';
-      throw err;
-    }
-
-    // Validate aspect ratio
     const validRatios: ClipAspectRatio[] = ['9:16', '1:1', '16:9'];
     const validAspectRatio = validRatios.includes(aspectRatio) ? aspectRatio : '9:16';
-    const cleanSourcePath = project.source_url.replace(/^videos\//, '');
-
-    // 4. Insert clip row into public.clips
-    const { data: clip, error: clipErr } = await supabaseAuthClient
-      .from('clips')
-      .insert({
-        project_id: projectId,
-        candidate_id: candidateId,
-        user_id: userId,
-        start_seconds: startSeconds,
-        end_seconds: endSeconds,
-        duration_seconds: durationSeconds,
-        aspect_ratio: validAspectRatio,
-        crop_mode: cropMode,
-        render_status: 'queued',
-        source_storage_path: cleanSourcePath,
-      })
-      .select()
-      .single();
-
-    if (clipErr || !clip) {
-      logger.error('Failed to insert clip record', { error: clipErr?.message, projectId, candidateId });
-      const err = new Error(`Failed to create clip record: ${clipErr?.message || 'DB error'}`);
-      (err as any).code = 'DB_ERROR';
-      throw err;
-    }
-
-    // 5. Insert initial render job
-    const { data: renderJob, error: jobErr } = await supabaseAuthClient
-      .from('render_jobs')
-      .insert({
-        clip_id: clip.id,
-        user_id: userId,
-        status: 'queued',
-        progress: 0,
-        stage: 'queued',
-        attempts: 1,
-      })
-      .select()
-      .single();
-
-    if (jobErr || !renderJob) {
-      logger.error('Failed to create render job', { error: jobErr?.message, clipId: clip.id });
-      // Rollback clip if job fails
-      await supabaseAuthClient.from('clips').delete().eq('id', clip.id);
-      const err = new Error(`Failed to create render job: ${jobErr?.message || 'DB error'}`);
-      (err as any).code = 'DB_ERROR';
-      throw err;
-    }
-
-    // Auto-mark candidate as 'selected' in database if it was 'suggested'
-    if (candidate.status === 'suggested') {
-      try {
-        await supabaseAuthClient
-          .from('clip_candidates')
-          .update({ status: 'selected', updated_at: new Date().toISOString() })
-          .eq('id', candidateId);
-      } catch {}
-    }
+    const { clip, renderJob } = await createClipWithJob(projectId, candidateId, userId, validAspectRatio, cropMode);
 
     // 6. Launch in-process background rendering
     ClipRenderService.renderClipJob(clip.id, userId, renderJob.id).catch((renderErr) => {
@@ -296,7 +193,7 @@ export class ClipRenderService {
     }
 
     // Fetch clip and verify ownership
-    const { data: clip, error: clipErr } = await supabaseAuthClient
+    const { data: clip, error: clipErr } = await dataRepository
       .from('clips')
       .select('*')
       .eq('id', clipId)
@@ -323,7 +220,7 @@ export class ClipRenderService {
     // Ensure a render job exists
     let jobId = existingJobId;
     if (!jobId) {
-      const { data: newJob } = await supabaseAuthClient
+      const { data: newJob } = await dataRepository
         .from('render_jobs')
         .insert({
           clip_id: clipId,
@@ -356,18 +253,7 @@ export class ClipRenderService {
         sourcePath: clip.source_storage_path,
       });
 
-      const { data: sourceBlob, error: downloadError } = await supabaseAuthClient.storage
-        .from('videos')
-        .download(clip.source_storage_path);
-
-      if (downloadError || !sourceBlob) {
-        const err = new Error(downloadError?.message || 'Failed to download source video from storage.');
-        (err as any).code = 'SOURCE_VIDEO_NOT_FOUND';
-        throw err;
-      }
-
-      const sourceBuffer = Buffer.from(await sourceBlob.arrayBuffer());
-      fs.writeFileSync(sourcePath, sourceBuffer);
+      await downloadObjectToFile('source', clip.source_storage_path, sourcePath);
 
       // 2. FFmpeg cut, manual framing, ASS subtitles, text overlay, and MP4 encode
       await ClipRenderService.updateJobStage(jobId, clipId, 'cutting', 10, 'rendering');
@@ -546,62 +432,23 @@ export class ClipRenderService {
       // 3. Upload rendered MP4 to storage with revision versioning
       await ClipRenderService.updateJobStage(jobId, clipId, 'uploading', 90, 'uploading');
 
-      const renderedBuffer = fs.readFileSync(outputPath);
+      const renderedSize = (await fs.promises.stat(outputPath)).size;
       const renderVersion = Number(clip.render_version || 1);
-      const outputStoragePath = `${clip.user_id}/${clip.project_id}/${clip.id}/v${renderVersion}/render.mp4`;
+      const outputStoragePath = renderObjectKey(clip.user_id, clip.project_id, clip.id, renderVersion);
 
       logger.info(
-        `[ClipRender] Uploading rendered MP4 v${renderVersion} (${(renderedBuffer.length / (1024 * 1024)).toFixed(2)} MB) to path: ${outputStoragePath}`
+        `[ClipRender] Uploading rendered MP4 v${renderVersion} (${(renderedSize / (1024 * 1024)).toFixed(2)} MB) to path: ${outputStoragePath}`
       );
-
-      // Try uploading to 'clips' bucket first; fallback to 'videos' bucket if needed
-      let uploadBucket = 'clips';
-      let finalStoragePath = outputStoragePath;
-
-      const { error: clipsUploadErr } = await supabaseAuthClient.storage
-        .from('clips')
-        .upload(outputStoragePath, renderedBuffer, {
-          contentType: 'video/mp4',
-          upsert: true,
-        });
-
-      if (clipsUploadErr) {
-        logger.warn(`Failed to upload to 'clips' bucket (${clipsUploadErr.message}). Falling back to 'videos' bucket.`);
-        uploadBucket = 'videos';
-        finalStoragePath = `clips/${outputStoragePath}`;
-
-        const { error: videosUploadErr } = await supabaseAuthClient.storage
-          .from('videos')
-          .upload(finalStoragePath, renderedBuffer, {
-            contentType: 'video/mp4',
-            upsert: true,
-          });
-
-        if (videosUploadErr) {
-          const err = new Error(`Failed to upload rendered clip: ${videosUploadErr.message}`);
-          (err as any).code = 'OUTPUT_UPLOAD_FAILED';
-          throw err;
-        }
-      }
-
-      // Safely clean up previous version if it differs from finalStoragePath
-      if (clip.output_storage_path && clip.output_storage_path !== finalStoragePath) {
-        try {
-          const oldIsFallback = clip.output_storage_path.startsWith('clips/');
-          const oldBucket = oldIsFallback ? 'videos' : 'clips';
-          await supabaseAuthClient.storage.from(oldBucket).remove([clip.output_storage_path]);
-          logger.info(`[ClipRender] Cleaned up previous render revision: ${clip.output_storage_path}`);
-        } catch (rmErr: any) {
-          logger.warn(`Could not remove old render revision ${clip.output_storage_path}: ${rmErr.message}`);
-        }
-      }
+      await uploadFile('clips', outputStoragePath, outputPath, renderedSize, 'video/mp4');
+      const finalStoragePath = outputStoragePath;
 
       // 4. Update clip status -> 'ready'
-      await supabaseAuthClient
+      await dataRepository
         .from('clips')
         .update({
           render_status: 'ready',
           output_storage_path: finalStoragePath,
+          output_object_key: finalStoragePath,
           render_error_code: null,
           render_error_message: null,
           updated_at: new Date().toISOString(),
@@ -610,7 +457,7 @@ export class ClipRenderService {
 
       // 5. Update render job -> 'completed' (100%)
       if (jobId) {
-        await supabaseAuthClient
+        await dataRepository
           .from('render_jobs')
           .update({
             status: 'completed',
@@ -635,7 +482,7 @@ export class ClipRenderService {
 
       // Update clip to failed
       try {
-        await supabaseAuthClient
+        await dataRepository
           .from('clips')
           .update({
             render_status: 'failed',
@@ -649,7 +496,7 @@ export class ClipRenderService {
       // Update render job to failed
       if (jobId) {
         try {
-          await supabaseAuthClient
+          await dataRepository
             .from('render_jobs')
             .update({
               status: 'failed',
@@ -684,7 +531,7 @@ export class ClipRenderService {
     if (!jobId) return;
     const clamped = Math.min(100, Math.max(0, progress || 0));
     try {
-      await supabaseAuthClient
+      await dataRepository
         .from('render_jobs')
         .update({
           progress: clamped,
@@ -707,7 +554,7 @@ export class ClipRenderService {
   ): Promise<void> {
     if (jobId) {
       try {
-        await supabaseAuthClient
+        await dataRepository
           .from('render_jobs')
           .update({
             stage,
@@ -721,7 +568,7 @@ export class ClipRenderService {
     }
 
     try {
-      await supabaseAuthClient
+      await dataRepository
         .from('clips')
         .update({
           render_status: clipStatus,
@@ -735,9 +582,9 @@ export class ClipRenderService {
    * Fetches all clips belonging to a project and user, attaching the latest render job.
    */
   public static async getProjectClips(projectId: string, userId: string): Promise<ClipRecord[]> {
-    if (!isServerSupabaseConfigured) return [];
+    if (!isMongoConfigured) return [];
 
-    const { data: clips, error } = await supabaseAuthClient
+    const { data: clips, error } = await dataRepository
       .from('clips')
       .select('*')
       .eq('project_id', projectId)
@@ -751,8 +598,8 @@ export class ClipRenderService {
 
     // Attach latest render job for each clip
     const enrichedClips: ClipRecord[] = await Promise.all(
-      clips.map(async (clip) => {
-        const { data: job } = await supabaseAuthClient
+      clips.map(async (clip: any) => {
+        const { data: job } = await dataRepository
           .from('render_jobs')
           .select('*')
           .eq('clip_id', clip.id)
@@ -774,13 +621,13 @@ export class ClipRenderService {
    * Fetches a single clip and its latest render job.
    */
   public static async getClip(clipId: string, userId: string): Promise<ClipRecord> {
-    if (!isServerSupabaseConfigured) {
+    if (!isMongoConfigured) {
       const err = new Error('Database service is not configured.');
       (err as any).code = 'SERVICE_UNAVAILABLE';
       throw err;
     }
 
-    const { data: clip, error } = await supabaseAuthClient
+    const { data: clip, error } = await dataRepository
       .from('clips')
       .select('*')
       .eq('id', clipId)
@@ -793,7 +640,7 @@ export class ClipRenderService {
       throw err;
     }
 
-    const { data: job } = await supabaseAuthClient
+    const { data: job } = await dataRepository
       .from('render_jobs')
       .select('*')
       .eq('clip_id', clipId)
@@ -819,24 +666,11 @@ export class ClipRenderService {
       throw err;
     }
 
-    const isVideosFallback = clip.output_storage_path.startsWith('clips/');
-    const bucket = isVideosFallback ? 'videos' : 'clips';
-    const storagePath = clip.output_storage_path;
-    const expiresIn = 3600; // 1 hour
-
-    const { data, error } = await supabaseAuthClient.storage
-      .from(bucket)
-      .createSignedUrl(storagePath, expiresIn);
-
-    if (error || !data?.signedUrl) {
-      logger.error('Failed to create signed preview URL', { error: error?.message, clipId });
-      const err = new Error(`Failed to generate preview URL: ${error?.message || 'Storage error'}`);
-      (err as any).code = 'STORAGE_ERROR';
-      throw err;
-    }
+    const expiresIn = 300;
+    const signedUrl = await signObjectGet('clips', clip.output_storage_path);
 
     return {
-      signedUrl: data.signedUrl,
+      signedUrl,
       expiresInSeconds: expiresIn,
     };
   }
@@ -854,7 +688,7 @@ export class ClipRenderService {
     }
 
     // Fetch project title and candidate title for human-friendly filename
-    const { data: project } = await supabaseAuthClient
+    const { data: project } = await dataRepository
       .from('projects')
       .select('title')
       .eq('id', clip.project_id)
@@ -862,7 +696,7 @@ export class ClipRenderService {
 
     let candidateTitle = 'clip';
     if (clip.candidate_id) {
-      const { data: cand } = await supabaseAuthClient
+      const { data: cand } = await dataRepository
         .from('clip_candidates')
         .select('title')
         .eq('id', clip.candidate_id)
@@ -874,26 +708,11 @@ export class ClipRenderService {
     const safeTitle = sanitizeFilename(candidateTitle);
     const downloadFilename = `vireo-${safeProj}-${safeTitle}.mp4`;
 
-    const isVideosFallback = clip.output_storage_path.startsWith('clips/');
-    const bucket = isVideosFallback ? 'videos' : 'clips';
-    const storagePath = clip.output_storage_path;
-    const expiresIn = 3600; // 1 hour
-
-    const { data, error } = await supabaseAuthClient.storage
-      .from(bucket)
-      .createSignedUrl(storagePath, expiresIn, {
-        download: downloadFilename,
-      });
-
-    if (error || !data?.signedUrl) {
-      logger.error('Failed to create signed download URL', { error: error?.message, clipId });
-      const err = new Error(`Failed to generate download URL: ${error?.message || 'Storage error'}`);
-      (err as any).code = 'STORAGE_ERROR';
-      throw err;
-    }
+    const expiresIn = 300;
+    const signedUrl = await signObjectGet('clips', clip.output_storage_path, downloadFilename);
 
     return {
-      signedUrl: data.signedUrl,
+      signedUrl,
       filename: downloadFilename,
       expiresInSeconds: expiresIn,
     };
@@ -905,39 +724,9 @@ export class ClipRenderService {
   public static async deleteClip(clipId: string, userId: string): Promise<void> {
     const clip = await ClipRenderService.getClip(clipId, userId);
 
-    // Clean up storage files (both direct and versioned revisions)
-    const folderPrefix = `${clip.user_id}/${clip.project_id}/${clip.id}`;
-    for (const bucket of ['clips', 'videos']) {
-      try {
-        const { data: files } = await supabaseAuthClient.storage.from(bucket).list(folderPrefix);
-        if (files && files.length > 0) {
-          const filePaths = files.map((f) => `${folderPrefix}/${f.name}`);
-          await supabaseAuthClient.storage.from(bucket).remove(filePaths);
-          logger.info(`[ClipRender] Removed ${filePaths.length} revision files from ${bucket} for clip ${clipId}`);
-        }
-      } catch (listErr) {
-        // Fallback: remove direct output_storage_path if set
-        if (clip.output_storage_path) {
-          try {
-            await supabaseAuthClient.storage.from(bucket).remove([clip.output_storage_path]);
-          } catch {}
-        }
-      }
-    }
+    await deletePrefix('clips', clipObjectPrefix(clip.user_id, clip.project_id, clip.id));
 
-    // Delete row from DB (CASCADE handles render_jobs)
-    const { error } = await supabaseAuthClient
-      .from('clips')
-      .delete()
-      .eq('id', clipId)
-      .eq('user_id', userId);
-
-    if (error) {
-      logger.error('Failed to delete clip record from DB', { error: error.message, clipId });
-      const err = new Error(`Failed to delete clip: ${error.message}`);
-      (err as any).code = 'DB_ERROR';
-      throw err;
-    }
+    await deleteClipRecords(userId, clipId);
   }
 
   /**
@@ -1151,7 +940,7 @@ export class ClipRenderService {
       updated_at: new Date().toISOString(),
     };
 
-    const { data: updated, error: updateErr } = await supabaseAuthClient
+    const { data: updated, error: updateErr } = await dataRepository
       .from('clips')
       .update(payload)
       .eq('id', clipId)
@@ -1189,7 +978,7 @@ export class ClipRenderService {
       updated_at: new Date().toISOString(),
     };
 
-    const { data: resetClip, error } = await supabaseAuthClient
+    const { data: resetClip, error } = await dataRepository
       .from('clips')
       .update(payload)
       .eq('id', clipId)
@@ -1218,7 +1007,7 @@ export class ClipRenderService {
     // Get timing mode from transcript
     let timingMode = 'segment';
     try {
-      const { data: trans } = await supabaseAuthClient
+      const { data: trans } = await dataRepository
         .from('transcripts')
         .select('words')
         .eq('project_id', clip.project_id)

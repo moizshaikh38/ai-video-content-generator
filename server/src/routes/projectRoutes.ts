@@ -5,7 +5,11 @@ import { asyncHandler } from '../middleware/errorHandler.js';
 import {
   listProjects,
   getProject,
+  updateProject,
   createProject,
+  createProjectUploadUrl,
+  confirmProjectUpload,
+  getProjectSourcePreviewUrl,
   deleteProject,
   processProject,
   getProjectTranscript,
@@ -38,7 +42,11 @@ const router = Router();
 // All project routes require authentication
 router.get('/projects', requireAuth, asyncHandler(listProjects));
 router.post('/projects', requireAuth, asyncHandler(createProject));
+router.post('/projects/:id/upload-url', requireAuth, asyncHandler(createProjectUploadUrl));
+router.post('/projects/:id/confirm-upload', requireAuth, asyncHandler(confirmProjectUpload));
+router.get('/projects/:id/source-preview-url', requireAuth, asyncHandler(getProjectSourcePreviewUrl));
 router.get('/projects/:id', requireAuth, asyncHandler(getProject));
+router.patch('/projects/:id', requireAuth, asyncHandler(updateProject));
 router.delete('/projects/:id', requireAuth, asyncHandler(deleteProject));
 router.post('/projects/:id/process', requireAuth, expensiveLimiter, asyncHandler(processProject));
 router.get('/projects/:id/transcript', requireAuth, asyncHandler(getProjectTranscript));
@@ -74,4 +82,3 @@ router.get('/projects/:id/content', requireAuth, asyncHandler(getProjectContent)
 router.patch('/projects/:id/content/:outputId', requireAuth, asyncHandler(updateProjectContent));
 
 export default router;
-

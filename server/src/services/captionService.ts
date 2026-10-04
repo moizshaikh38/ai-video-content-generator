@@ -1,6 +1,7 @@
+import { isMongoConfigured } from '../db/mongoClient.js';
+import { dataRepository } from '../db/repositories/dataRepository.js';
 import fs from 'node:fs';
 import path from 'node:path';
-import { supabaseAuthClient, isServerSupabaseConfigured } from '../utils/supabase.js';
 import { logger } from '../utils/logger.js';
 import {
   ClipRecord,
@@ -690,12 +691,12 @@ export class CaptionService {
   ): Promise<CaptionGenerationResult> {
     const { clip, targetAspectRatio = clip.aspect_ratio || '9:16', outputPath } = options;
 
-    if (!isServerSupabaseConfigured) {
+    if (!isMongoConfigured) {
       return { timingMode: 'segment', cues: [], assContent: '' };
     }
 
     // Load transcript for this project
-    const { data: transcript, error: transErr } = await supabaseAuthClient
+    const { data: transcript, error: transErr } = await dataRepository
       .from('transcripts')
       .select('*')
       .eq('project_id', clip.project_id)

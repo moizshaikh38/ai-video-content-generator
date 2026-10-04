@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../types/index.js';
 import { supabaseAuthClient, isServerSupabaseConfigured } from '../utils/supabase.js';
 import { logger } from '../utils/logger.js';
+import { ownerContext } from '../db/repositories/dataRepository.js';
 
 /**
  * Authentication middleware: verifies Supabase JWT Bearer token.
@@ -65,7 +66,7 @@ export const requireAuth = async (
     }
 
     req.user = user;
-    next();
+    ownerContext.run(user.id, next);
   } catch (err) {
     logger.error('Unexpected error validating auth token', {
       error: err instanceof Error ? err.message : String(err),

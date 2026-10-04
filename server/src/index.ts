@@ -7,6 +7,9 @@ import apiRouter from './routes/index.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { requestIdMiddleware } from './middleware/requestId.js';
 import { generalLimiter } from './middleware/rateLimiter.js';
+import { bootstrapMongo } from './db/bootstrapMongo.js';
+import { closeMongo, isMongoConfigured } from './db/mongoClient.js';
+import { UsageService } from './services/usageService.js';
 
 // Validate environment variables on startup (fails fast in production)
 validateEnvironment();
@@ -48,23 +51,41 @@ app.use(errorHandler);
 
 // Start server if not running inside test runner
 let server: ReturnType<typeof app.listen> | null = null;
+let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
 if (process.env.NODE_ENV !== 'test') {
-  server = app.listen(config.port, () => {
-    logger.info(`Server running in ${config.nodeEnv} mode on http://localhost:${config.port}`);
-    logger.info(`Health check available at http://localhost:${config.port}/api/health`);
+  const start = async () => {
+    if (isMongoConfigured) await bootstrapMongo();
+    if (isMongoConfigured) {
+      const cleanup = () => UsageService.cleanupOrphanedReservations(30)
+        .then((count) => { if (count > 0) logger.info(`Released ${count} orphaned usage reservations.`); })
+        .catch((error) => logger.warn('Usage reservation cleanup failed', { error: error instanceof Error ? error.message : String(error) }));
+      cleanup();
+      cleanupTimer = setInterval(cleanup, 10 * 60_000);
+      cleanupTimer.unref();
+    }
+    server = app.listen(config.port, () => {
+      logger.info(`Server running in ${config.nodeEnv} mode on http://localhost:${config.port}`);
+      logger.info(`Health check available at http://localhost:${config.port}/api/health`);
+    });
+  };
+  start().catch((error) => {
+    logger.error('Database bootstrap failed', { error: error instanceof Error ? error.message : String(error) });
+    closeMongo().finally(() => process.exit(1));
   });
 
   // Graceful shutdown handling (H8)
   const handleShutdown = (signal: string) => {
     logger.info(`Received ${signal}. Initiating graceful shutdown...`);
+    if (cleanupTimer) clearInterval(cleanupTimer);
     if (server) {
-      server.close((err) => {
+      server.close(async (err) => {
         if (err) {
           logger.error('Error during server shutdown', err);
           process.exit(1);
         }
         logger.info('HTTP server closed successfully.');
+        await closeMongo();
         process.exit(0);
       });
 

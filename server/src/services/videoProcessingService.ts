@@ -1,4 +1,10 @@
-import { supabaseAuthClient, isServerSupabaseConfigured } from '../utils/supabase.js';
+import { isMongoConfigured } from '../db/mongoClient.js';
+import { dataRepository } from '../db/repositories/dataRepository.js';
+import os from 'node:os';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import { downloadObjectToFile } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
 import { extractAudioFromVideo } from './audioExtractionService.js';
 import { getTranscriptionProvider } from './transcription/transcriptionProviderFactory.js';
@@ -25,11 +31,11 @@ export function isProjectProcessingActive(projectId: string): boolean {
  * Executes the complete video processing and transcription pipeline:
  * 1. Concurrency guard (locks projectId)
  * 2. Updates project video_status -> 'processing'
- * 3. Downloads video from private Supabase Storage 'videos' bucket
+ * 3. Streams video from private Cloudflare R2 storage
  * 4. Extracts audio track using FFmpeg into temporary MP3 (with process timeout)
  * 5. Updates project video_status -> 'transcribing'
  * 6. Sends extracted audio to provider-agnostic Speech-to-Text API (Groq / OpenRouter)
- * 7. Upserts transcript into Supabase 'transcripts' table
+ * 7. Upserts transcript into MongoDB
  * 8. Updates project video_status -> 'transcribed'
  * 9. Settles usage reservation on success, or releases on failure
  * 10. Cleans up temporary audio files reliably
@@ -40,8 +46,8 @@ export async function processProjectVideo(
   sourceUrl: string,
   processingAttemptId?: string
 ): Promise<ProcessProjectResult> {
-  if (!isServerSupabaseConfigured) {
-    throw new Error('Supabase is not configured on the server.');
+  if (!isMongoConfigured) {
+    throw new Error('MongoDB is not configured on the server.');
   }
 
   if (activeProcessingSet.has(projectId)) {
@@ -50,52 +56,30 @@ export async function processProjectVideo(
 
   activeProcessingSet.add(projectId);
   let cleanupAudio: (() => void) | null = null;
+  let downloadedVideoPath: string | null = null;
 
   try {
     // 1. Update status to 'processing'
     logger.info(`Starting video processing for project ${projectId}`, { projectId, userId });
-    await supabaseAuthClient
+    await dataRepository
       .from('projects')
       .update({ video_status: 'processing' })
       .eq('id', projectId)
       .eq('user_id', userId);
 
-    // 2. Clean storage path and download video
-    const storagePath = sourceUrl.replace(/^videos\//, '');
-    logger.info(`Downloading private video from bucket 'videos', path: ${storagePath}`, {
-      projectId,
-      storagePath,
-    });
-
-    const { data: fileBlob, error: downloadError } = await supabaseAuthClient.storage
-      .from('videos')
-      .download(storagePath);
-
-    if (downloadError || !fileBlob) {
-      const errDetail = downloadError?.message || 'File blob not found';
-      logger.error('Failed to download video from Supabase Storage', {
-        projectId,
-        storagePath,
-        error: errDetail,
-      });
-      throw new Error(`Failed to retrieve video file from storage: ${errDetail}`);
-    }
-
-    const arrayBuffer = await fileBlob.arrayBuffer();
-    const videoBuffer = Buffer.from(arrayBuffer);
+    // 2. Stream private R2 object to a unique local temp file before FFmpeg.
+    const storagePath = sourceUrl;
     const originalFileName = storagePath.split('/').pop() || 'video.mp4';
+    const videoPath = path.join(os.tmpdir(), `vireo-source-${crypto.randomUUID()}${path.extname(originalFileName) || '.mp4'}`);
+    downloadedVideoPath = videoPath;
+    await downloadObjectToFile('source', storagePath, videoPath);
 
-    logger.info(`Video retrieved (${(videoBuffer.length / (1024 * 1024)).toFixed(2)} MB). Extracting audio via FFmpeg...`, {
-      projectId,
-      sizeBytes: videoBuffer.length,
-    });
-
-    // 3. Extract audio via FFmpeg
-    const extractedAudio = await extractAudioFromVideo(videoBuffer, originalFileName);
+    // 3. Extract audio via FFmpeg without buffering the video in Node memory.
+    const extractedAudio = await extractAudioFromVideo(videoPath, originalFileName);
     cleanupAudio = extractedAudio.cleanup;
 
     // 4. Update status to 'transcribing'
-    await supabaseAuthClient
+    await dataRepository
       .from('projects')
       .update({ video_status: 'transcribing' })
       .eq('id', projectId)
@@ -110,7 +94,7 @@ export async function processProjectVideo(
       'audio/mp3'
     );
 
-    // 6. Store transcript into Supabase transcripts table (upsert to avoid duplicates)
+    // 6. Store transcript in MongoDB (upsert to avoid duplicates)
     const transcriptPayload: any = {
       project_id: projectId,
       user_id: userId,
@@ -132,27 +116,14 @@ export async function processProjectVideo(
       wordCount: transcription.words?.length || 0,
     });
 
-    let { data: savedTranscript, error: saveError } = await supabaseAuthClient
+    let { data: savedTranscript, error: saveError } = await dataRepository
       .from('transcripts')
       .upsert(transcriptPayload, { onConflict: 'project_id' })
       .select()
       .single();
 
-    // Fallback if 'words' column has not been migrated yet in Supabase
-    if (saveError && saveError.message.includes('words') && transcriptPayload.words) {
-      logger.warn('[VideoProcessing] "words" column not present in transcripts table yet. Retrying without words column.');
-      delete transcriptPayload.words;
-      const retry = await supabaseAuthClient
-        .from('transcripts')
-        .upsert(transcriptPayload, { onConflict: 'project_id' })
-        .select()
-        .single();
-      savedTranscript = retry.data;
-      saveError = retry.error;
-    }
-
     if (saveError) {
-      logger.error('Failed to save transcript to Supabase', {
+      logger.error('Failed to save transcript to MongoDB', {
         projectId,
         error: saveError.message,
       });
@@ -160,7 +131,7 @@ export async function processProjectVideo(
     }
 
     // 7. Update project status to 'transcribed'
-    await supabaseAuthClient
+    await dataRepository
       .from('projects')
       .update({ video_status: 'transcribed' })
       .eq('id', projectId)
@@ -200,7 +171,7 @@ export async function processProjectVideo(
 
     // Mark project status as 'failed' in database
     try {
-      await supabaseAuthClient
+      await dataRepository
         .from('projects')
         .update({ video_status: 'failed' })
         .eq('id', projectId)
@@ -224,6 +195,7 @@ export async function processProjectVideo(
         // Ignore cleanup errors
       }
     }
+    if (downloadedVideoPath) await fs.rm(downloadedVideoPath, { force: true }).catch(() => undefined);
     activeProcessingSet.delete(projectId);
   }
 }

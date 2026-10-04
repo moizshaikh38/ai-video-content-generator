@@ -1,3 +1,4 @@
+// LEGACY SUPABASE RPC BEHAVIOR MODEL — retained for historical semantics; Mongo integration is tested in mongoMigration.test.ts.
 import assert from 'assert';
 import { getCurrentUtcBillingPeriod, getUtcBillingResetDate, UsageService } from '../services/usageService.js';
 import { config } from '../config/index.js';

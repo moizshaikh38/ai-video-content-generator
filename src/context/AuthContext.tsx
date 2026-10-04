@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { backendRequest } from '../services/backendClient';
+import { projectService } from '../services/projectService';
 
 export interface UserProfile {
   id: string;
@@ -53,7 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [creatorProfile, setCreatorProfile] = useState<CreatorProfileData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfiles = useCallback(async (userId: string, userEmail: string) => {
+  const fetchProfiles = useCallback(async (userId: string, userEmail: string, token?: string) => {
     if (!isSupabaseConfigured) {
       // Local fallback profile
       setProfile({
@@ -72,48 +74,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      // Fetch public.profiles
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (profileData) {
-        setProfile(profileData as UserProfile);
-      } else {
-        // Fallback or self-provision if trigger didn't run
-        const fallbackProfile: UserProfile = {
-          id: userId,
-          email: userEmail,
-          full_name: userEmail.split('@')[0] || 'Creator',
-        };
-        await supabase.from('profiles').upsert(fallbackProfile);
-        setProfile(fallbackProfile);
-      }
-
-      // Fetch public.creator_profiles
-      const { data: creatorData } = await supabase
-        .from('creator_profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (creatorData) {
-        setCreatorProfile(creatorData as CreatorProfileData);
-      } else {
-        const defaultCreator: CreatorProfileData = {
-          user_id: userId,
-          niche: '',
-          target_audience: '',
-          language: 'English',
-          tone: 'Friendly',
-        };
-        await supabase.from('creator_profiles').upsert(defaultCreator, { onConflict: 'user_id' });
-        setCreatorProfile(defaultCreator);
-      }
+      const data = await backendRequest<{ profile: UserProfile; creatorProfile: CreatorProfileData }>('/profiles/me', {}, token);
+      setProfile(data.profile);
+      setCreatorProfile(data.creatorProfile);
     } catch (err) {
-      console.error('Error fetching Supabase user profiles:', err);
+      console.error('Error fetching user profiles:', err);
+      setProfile({ id: userId, email: userEmail, full_name: userEmail.split('@')[0] || 'Creator' });
     }
   }, []);
 
@@ -155,7 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setSession(initialSession);
           setUser(initialSession?.user ?? null);
           if (initialSession?.user) {
-            await fetchProfiles(initialSession.user.id, initialSession.user.email || '');
+            await fetchProfiles(initialSession.user.id, initialSession.user.email || '', initialSession.access_token);
           }
         }
       } catch (err) {
@@ -180,10 +146,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(newSession?.user ?? null);
 
       if (newSession?.user) {
-        await fetchProfiles(newSession.user.id, newSession.user.email || '');
+        await fetchProfiles(newSession.user.id, newSession.user.email || '', newSession.access_token);
       } else {
         setProfile(null);
         setCreatorProfile(null);
+        projectService.clear();
       }
       setLoading(false);
     });
@@ -224,7 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data.user) {
         // Safely ensure profile records exist
-        await fetchProfiles(data.user.id, email);
+        await fetchProfiles(data.user.id, email, data.session?.access_token);
       }
 
       return { error: null };
@@ -256,7 +223,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) return { error };
 
       if (data.user) {
-        await fetchProfiles(data.user.id, email);
+        await fetchProfiles(data.user.id, email, data.session?.access_token);
       }
 
       return { error: null };
@@ -278,6 +245,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(null);
     setProfile(null);
     setCreatorProfile(null);
+    projectService.clear();
   };
 
   const value: AuthContextType = {

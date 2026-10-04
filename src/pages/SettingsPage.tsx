@@ -14,6 +14,7 @@ import { Input } from '../components/Input';
 import { Textarea } from '../components/Textarea';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { backendRequest } from '../services/backendClient';
 import { projectService } from '../services/projectService';
 import { SpotlightCard } from '../components/react-bits/SpotlightCard';
 import { ShinyButton } from '../components/react-bits/ShinyButton';
@@ -145,18 +146,9 @@ export const SettingsPage: React.FC = () => {
 
     if (isConfigured && user) {
       try {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ full_name: fullName.trim() })
-          .eq('id', user.id);
-
-        if (profileError) throw profileError;
-
-        const { error: creatorError } = await supabase
-          .from('creator_profiles')
-          .upsert(
-            {
-              user_id: user.id,
+        await backendRequest('/profiles/me', {
+          method: 'PUT',
+          body: JSON.stringify({ full_name: fullName.trim(), creatorProfile: {
               niche: niche.trim(),
               target_audience: audience.trim(),
               language,
@@ -173,15 +165,12 @@ export const SettingsPage: React.FC = () => {
               preferred_hook_style: preferredHookStyle.trim(),
               brand_rules: brandRules.trim(),
               forbidden_phrases: forbiddenPhrases.trim(),
-            },
-            { onConflict: 'user_id' }
-          );
-
-        if (creatorError) throw creatorError;
+            } }),
+        });
 
         await refreshProfile();
       } catch (err: any) {
-        console.error('Failed to save to Supabase:', err);
+        console.error('Failed to save settings:', err);
         setErrorMessage(
           err.message || 'Failed to sync settings with database. Local changes were preserved.'
         );

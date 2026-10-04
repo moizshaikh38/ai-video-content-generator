@@ -130,18 +130,6 @@ async function runTests() {
     assert.equal(clampEstimate(12.5), 12.5);
   });
 
-  // Test 7: Error normalizer maps missing migration RPC to DATABASE_MIGRATION_REQUIRED
-  await it('Error mapping: detects missing schema RPC and maps to DATABASE_MIGRATION_REQUIRED', () => {
-    const err = new Error(
-      'Could not find the function public.reserve_usage_quota(p_attempt_id, p_default_monthly_quota, p_estimated_minutes, p_project_id, p_user_id) in the schema cache'
-    );
-    const isMigrationMissing =
-      err.message.includes('reserve_usage_quota') ||
-      err.message.includes('usage_events') ||
-      err.message.includes('schema cache');
-    assert.equal(isMigrationMissing, true);
-  });
-
   console.log(`\nProcess Startup Results: ${passed}/${total} tests passed.\n`);
   if (passed !== total) {
     process.exitCode = 1;

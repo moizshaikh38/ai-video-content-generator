@@ -1,4 +1,6 @@
-import { supabaseAuthClient, isServerSupabaseConfigured } from '../utils/supabase.js';
+import { replaceSuggestedCandidates } from '../db/repositories/clipCandidateRepository.js';
+import { isMongoConfigured } from '../db/mongoClient.js';
+import { dataRepository } from '../db/repositories/dataRepository.js';
 import { logger } from '../utils/logger.js';
 import { defaultAiProvider, AIProviderClient } from './aiProviderClient.js';
 import { ClipPromptService } from './clipPromptService.js';
@@ -238,7 +240,7 @@ export class ClipAnalysisService {
 
     try {
       // 1. Verify project exists and belongs to user
-      const { data: project, error: projErr } = await supabaseAuthClient
+      const { data: project, error: projErr } = await dataRepository
         .from('projects')
         .select('id, user_id, title, notes')
         .eq('id', projectId)
@@ -255,7 +257,7 @@ export class ClipAnalysisService {
       }
 
       // 2. Fetch transcript and ensure timestamped segments exist
-      const { data: transcript, error: transErr } = await supabaseAuthClient
+      const { data: transcript, error: transErr } = await dataRepository
         .from('transcripts')
         .select('*')
         .eq('project_id', projectId)
@@ -287,7 +289,7 @@ export class ClipAnalysisService {
       // 3. Fetch optional creator profile for persona guidance
       let creatorProfile: CreatorProfileData | null = null;
       try {
-        const { data: cpData } = await supabaseAuthClient
+        const { data: cpData } = await dataRepository
           .from('creator_profiles')
           .select('*')
           .eq('user_id', userId)
@@ -381,72 +383,10 @@ export class ClipAnalysisService {
       // 8. Cap to max 12 candidates (target 8)
       const topCandidates = deduped.slice(0, 12);
 
-      // 9. Persistence logic:
-      // Fetch existing 'selected' candidates to preserve them and avoid unique constraint conflicts
-      const { data: existingSelected } = await supabaseAuthClient
-        .from('clip_candidates')
-        .select('*')
-        .eq('project_id', projectId)
-        .eq('status', 'selected');
-
-      const existingSelectedKeys = new Set(
-        (existingSelected || []).map((c: any) => `${c.start_segment_index}-${c.end_segment_index}`)
-      );
-
-      // Delete existing 'suggested' and 'dismissed' candidates for this project
-      const { error: delErr } = await supabaseAuthClient
-        .from('clip_candidates')
-        .delete()
-        .eq('project_id', projectId)
-        .in('status', ['suggested', 'dismissed']);
-
-      if (delErr) {
-        logger.warn(`Could not clear old clip candidates: ${delErr.message}`);
-      }
-
-      // Filter out any new candidates that exactly match an existing selected candidate
-      const rowsToInsert = topCandidates
-        .filter((c) => !existingSelectedKeys.has(`${c.start_segment_index}-${c.end_segment_index}`))
-        .map((c) => ({
-          project_id: projectId,
-          user_id: userId,
-          start_segment_index: c.start_segment_index,
-          end_segment_index: c.end_segment_index,
-          start_seconds: c.start_seconds,
-          end_seconds: c.end_seconds,
-          duration_seconds: c.duration_seconds,
-          title: c.title,
-          hook: c.hook,
-          reason: c.reason,
-          category: c.category,
-          engagement_score: c.engagement_score,
-          status: 'suggested' as ClipCandidateStatus,
-          metadata: {},
-        }));
-
-      if (rowsToInsert.length > 0) {
-        const { error: insertErr } = await supabaseAuthClient
-          .from('clip_candidates')
-          .insert(rowsToInsert);
-
-        if (insertErr) {
-          logger.error(`Failed to insert clip candidates: ${insertErr.message}`);
-          throw new Error(`Failed to persist clip candidates: ${insertErr.message}`);
-        }
-      }
-
-      // 10. Return all active clip candidates for this project (including preserved selected ones)
-      const { data: allProjectCandidates, error: fetchErr } = await supabaseAuthClient
-        .from('clip_candidates')
-        .select('*')
-        .eq('project_id', projectId)
-        .order('engagement_score', { ascending: false });
-
-      if (fetchErr) {
-        throw new Error(`Failed to retrieve clip candidates: ${fetchErr.message}`);
-      }
-
-      return (allProjectCandidates || []) as ClipCandidate[];
+      // 9. Replace suggestions in one Mongo transaction, preserving selected clips.
+      const allProjectCandidates = await replaceSuggestedCandidates(userId, projectId,
+        topCandidates.map((candidate) => ({ ...candidate, metadata: {} })));
+      return allProjectCandidates as unknown as ClipCandidate[];
     } finally {
       activeClipAnalysisSet.delete(projectId);
     }
@@ -456,7 +396,7 @@ export class ClipAnalysisService {
    * Fetches all clip candidates for a project owned by user
    */
   public static async getCandidates(projectId: string, userId: string): Promise<ClipCandidate[]> {
-    const { data: project, error: projErr } = await supabaseAuthClient
+    const { data: project, error: projErr } = await dataRepository
       .from('projects')
       .select('id, user_id')
       .eq('id', projectId)
@@ -470,7 +410,7 @@ export class ClipAnalysisService {
       throw err;
     }
 
-    const { data: candidates, error: candErr } = await supabaseAuthClient
+    const { data: candidates, error: candErr } = await dataRepository
       .from('clip_candidates')
       .select('*')
       .eq('project_id', projectId)
@@ -497,7 +437,7 @@ export class ClipAnalysisService {
     }
 
     // Verify ownership through project and user_id
-    const { data: candidate, error: fetchErr } = await supabaseAuthClient
+    const { data: candidate, error: fetchErr } = await dataRepository
       .from('clip_candidates')
       .select('*')
       .eq('id', candidateId)
@@ -512,7 +452,7 @@ export class ClipAnalysisService {
       throw err;
     }
 
-    const { data: updated, error: updateErr } = await supabaseAuthClient
+    const { data: updated, error: updateErr } = await dataRepository
       .from('clip_candidates')
       .update({
         status: newStatus,

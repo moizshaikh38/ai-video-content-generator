@@ -1,6 +1,7 @@
 import { HealthStatus } from '../types/index.js';
 import { config } from '../config/index.js';
 import { isServerSupabaseConfigured } from '../utils/supabase.js';
+import { isMongoConfigured, isMongoHealthy } from '../db/mongoClient.js';
 
 export interface DetailedHealthStatus extends HealthStatus {
   timestamp: string;
@@ -9,6 +10,8 @@ export interface DetailedHealthStatus extends HealthStatus {
   environment: string;
   services: {
     supabaseConfigured: boolean;
+    mongoConfigured?: boolean;
+    mongoConnected?: boolean;
     openRouterConfigured: boolean;
   };
 }
@@ -22,7 +25,14 @@ export const getHealthStatus = (): DetailedHealthStatus => {
     environment: config.nodeEnv,
     services: {
       supabaseConfigured: isServerSupabaseConfigured,
+      mongoConfigured: isMongoConfigured,
       openRouterConfigured: Boolean(config.openrouterApiKey),
     },
   };
 };
+
+export async function getDetailedHealthStatus(): Promise<DetailedHealthStatus> {
+  const health = getHealthStatus();
+  const connected = await isMongoHealthy();
+  return { ...health, status: connected ? 'ok' : 'error', services: { ...health.services, mongoConnected: connected } };
+}

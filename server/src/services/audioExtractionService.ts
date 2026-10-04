@@ -28,7 +28,7 @@ export interface ExtractedAudioResult {
  * The cleanup function is returned to clean up the temporary audio file when finished.
  */
 export async function extractAudioFromVideo(
-  videoBuffer: Buffer,
+  videoBuffer: Buffer | string,
   originalFileName: string
 ): Promise<ExtractedAudioResult> {
   if (!videoBuffer || videoBuffer.length === 0) {
@@ -38,11 +38,14 @@ export async function extractAudioFromVideo(
   const tempDir = os.tmpdir();
   const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   const ext = path.extname(originalFileName) || '.mp4';
-  const tempVideoPath = path.join(tempDir, `vireo_in_${uniqueId}${ext}`);
+  const tempVideoPath = typeof videoBuffer === 'string' ? videoBuffer : path.join(tempDir, `vireo_in_${uniqueId}${ext}`);
   const tempAudioPath = path.join(tempDir, `vireo_out_${uniqueId}.mp3`);
 
-  logger.info(`Writing video buffer (${(videoBuffer.length / (1024 * 1024)).toFixed(2)} MB) to temporary file: ${tempVideoPath}`);
-  await fs.promises.writeFile(tempVideoPath, videoBuffer);
+  const sourceSize = typeof videoBuffer === 'string' ? (await fs.promises.stat(videoBuffer)).size : videoBuffer.length;
+  if (typeof videoBuffer !== 'string') {
+    logger.info(`Writing video buffer (${(sourceSize / (1024 * 1024)).toFixed(2)} MB) to temporary file: ${tempVideoPath}`);
+    await fs.promises.writeFile(tempVideoPath, videoBuffer);
+  }
 
   const cleanup = () => {
     try {
@@ -111,6 +114,10 @@ export async function extractAudioFromVideo(
       throw new Error('Extracted audio file does not exist after FFmpeg completion.');
     }
 
+    const audioSize = (await fs.promises.stat(tempAudioPath)).size;
+    if (audioSize > 25 * 1024 * 1024) {
+      throw new Error('Extracted audio exceeds the transcription provider limit of 25 MB. Please provide a shorter video.');
+    }
     const audioBuffer = await fs.promises.readFile(tempAudioPath);
     if (audioBuffer.length === 0) {
       throw new Error('Extracted audio file is empty (0 bytes).');
@@ -126,7 +133,7 @@ export async function extractAudioFromVideo(
     }
 
     logger.info(
-      `Audio extracted: ${(audioBuffer.length / (1024 * 1024)).toFixed(2)} MB (reduced from ${(videoBuffer.length / (1024 * 1024)).toFixed(2)} MB video)`
+      `Audio extracted: ${(audioBuffer.length / (1024 * 1024)).toFixed(2)} MB (reduced from ${(sourceSize / (1024 * 1024)).toFixed(2)} MB video)`
     );
 
     return {

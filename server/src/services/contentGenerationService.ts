@@ -1,4 +1,4 @@
-import { supabaseAuthClient } from '../utils/supabase.js';
+import { dataRepository } from '../db/repositories/dataRepository.js';
 import { logger } from '../utils/logger.js';
 import { ContentPromptService, PromptContext } from './contentPromptService.js';
 import { defaultAiProvider, AIProviderClient } from './aiProviderClient.js';
@@ -60,7 +60,7 @@ export class ContentGenerationService {
     } = input;
 
     // 1. Verify project ownership and fetch project info
-    const { data: project, error: projErr } = await supabaseAuthClient
+    const { data: project, error: projErr } = await dataRepository
       .from('projects')
       .select('id, user_id, title, notes, video_status')
       .eq('id', projectId)
@@ -80,10 +80,10 @@ export class ContentGenerationService {
       throw new Error('Project not found or access denied.');
     }
 
-    // 2. Fetch real transcript from Supabase.
+    // 2. Fetch the persisted MongoDB transcript.
     // MANDATORY CONSTRAINT: If transcript does not exist, FAIL IMMEDIATELY.
     // Never call AI, never create fake/mock transcripts.
-    const { data: transcriptRecord, error: transErr } = await supabaseAuthClient
+    const { data: transcriptRecord, error: transErr } = await dataRepository
       .from('transcripts')
       .select('*')
       .eq('project_id', projectId)
@@ -107,7 +107,7 @@ export class ContentGenerationService {
 
     // 3. Fetch creator profile for personalization if available
     let creatorProfile: CreatorProfileData | undefined;
-    const { data: profileData } = await supabaseAuthClient
+    const { data: profileData } = await dataRepository
       .from('creator_profiles')
       .select('*')
       .eq('user_id', userId)
@@ -135,7 +135,7 @@ export class ContentGenerationService {
     }
 
     // 4. Update project video_status to 'generating' with scoped user_id (H7)
-    await supabaseAuthClient
+    await dataRepository
       .from('projects')
       .update({ video_status: 'generating' })
       .eq('id', projectId)
@@ -239,7 +239,7 @@ export class ContentGenerationService {
       await ContentOutputService.saveOutputs(projectId, rowsToInsert, platform);
 
       // 7. Update project video_status to 'completed' with user_id scoped (H7)
-      await supabaseAuthClient
+      await dataRepository
         .from('projects')
         .update({ video_status: 'completed' })
         .eq('id', projectId)
@@ -267,7 +267,7 @@ export class ContentGenerationService {
       });
 
       // Revert status back to 'transcribed' so user can retry generation without needing to re-transcribe (H7)
-      await supabaseAuthClient
+      await dataRepository
         .from('projects')
         .update({ video_status: 'transcribed' })
         .eq('id', projectId)

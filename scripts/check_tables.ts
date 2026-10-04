@@ -1,3 +1,4 @@
+// LEGACY SUPABASE DATABASE/STORAGE DIAGNOSTIC — historical only; do not use for MongoDB/R2 production.
 import { supabaseAuthClient } from '../server/src/utils/supabase.js';
 
 async function main() {

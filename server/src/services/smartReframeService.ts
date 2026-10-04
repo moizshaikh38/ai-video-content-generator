@@ -1,3 +1,5 @@
+import { isMongoConfigured } from '../db/mongoClient.js';
+import { dataRepository } from '../db/repositories/dataRepository.js';
 /**
  * Phase 13: Smart Auto-Reframe + Face Tracking Service
  * Detects faces, tracks dominant subject over time, smoothes camera movement,
@@ -12,7 +14,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { execFile, ChildProcess } from 'node:child_process';
-import { supabaseAuthClient, isServerSupabaseConfigured } from '../utils/supabase.js';
+import { downloadObjectToFile } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
 import {
   ClipAspectRatio,
@@ -603,7 +605,7 @@ export class SmartReframeService {
     userId: string,
     options: SmartReframeOptions = {}
   ): Promise<ReframeTrackRecord> {
-    if (!isServerSupabaseConfigured) {
+    if (!isMongoConfigured) {
       const err = new Error('Database service is not configured.');
       (err as any).code = 'SERVICE_UNAVAILABLE';
       throw err;
@@ -623,7 +625,7 @@ export class SmartReframeService {
 
     try {
       // 2. Fetch clip and verify ownership
-      const { data: clip, error: clipErr } = await supabaseAuthClient
+      const { data: clip, error: clipErr } = await dataRepository
         .from('clips')
         .select('*')
         .eq('id', clipId)
@@ -652,18 +654,7 @@ export class SmartReframeService {
 
       // 3. Download source video to temp location
       logger.info(`[SmartReframe] Downloading source video from Storage for clip ${clipId}: ${clip.source_storage_path}`);
-      const { data: sourceBlob, error: downloadError } = await supabaseAuthClient.storage
-        .from('videos')
-        .download(clip.source_storage_path);
-
-      if (downloadError || !sourceBlob) {
-        const err = new Error(downloadError?.message || 'Failed to download source video.');
-        (err as any).code = 'SOURCE_VIDEO_NOT_FOUND';
-        throw err;
-      }
-
-      const sourceBuffer = Buffer.from(await sourceBlob.arrayBuffer());
-      fs.writeFileSync(localSourcePath, sourceBuffer);
+      await downloadObjectToFile('source', clip.source_storage_path, localSourcePath);
 
       // 4. Determine effective clip boundaries
       const trimStart = Number(clip.trim_start_offset || 0);
@@ -727,7 +718,7 @@ export class SmartReframeService {
         updated_at: new Date().toISOString(),
       };
 
-      const { data: savedRecord, error: upsertErr } = await supabaseAuthClient
+      const { data: savedRecord, error: upsertErr } = await dataRepository
         .from('reframe_tracks')
         .upsert(trackPayload, { onConflict: 'clip_id, analysis_version' })
         .select()
@@ -764,10 +755,10 @@ export class SmartReframeService {
     clipId: string,
     userId: string
   ): Promise<(ReframeTrackRecord & { isStale?: boolean }) | null> {
-    if (!isServerSupabaseConfigured) return null;
+    if (!isMongoConfigured) return null;
 
     // Fetch clip to verify ownership and current trim/aspect ratio
-    const { data: clip, error: clipErr } = await supabaseAuthClient
+    const { data: clip, error: clipErr } = await dataRepository
       .from('clips')
       .select('id, user_id, trim_start_offset, trim_end_offset, aspect_ratio')
       .eq('id', clipId)
@@ -777,7 +768,7 @@ export class SmartReframeService {
       return null;
     }
 
-    const { data: track, error: trackErr } = await supabaseAuthClient
+    const { data: track, error: trackErr } = await dataRepository
       .from('reframe_tracks')
       .select('*')
       .eq('clip_id', clipId)

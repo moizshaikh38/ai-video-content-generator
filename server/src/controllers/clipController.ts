@@ -1,12 +1,14 @@
+import { isMongoConfigured } from '../db/mongoClient.js';
+import { dataRepository } from '../db/repositories/dataRepository.js';
 import { Response } from 'express';
 import { AuthenticatedRequest, isValidUUID, ClipCandidateStatus, ClipAspectRatio, ClipEditorUpdateDTO } from '../types/index.js';
-import { ClipAnalysisService } from '../services/clipAnalysisService.js';
+import { ClipAnalysisService, activeClipAnalysisSet } from '../services/clipAnalysisService.js';
 import { ClipRenderService, isClipRenderActive } from '../services/clipRenderService.js';
 import { CaptionService } from '../services/captionService.js';
 import { SmartReframeService, activeReframeAnalysisSet } from '../services/smartReframeService.js';
-import { supabaseAuthClient, isServerSupabaseConfigured } from '../utils/supabase.js';
 
 import { logger } from '../utils/logger.js';
+import { config } from '../config/index.js';
 
 /**
  * POST /api/projects/:id/analyze-clips
@@ -26,7 +28,12 @@ export const analyzeProjectClips = async (req: AuthenticatedRequest, res: Respon
     return;
   }
 
-  if (!isServerSupabaseConfigured) {
+  if (activeClipAnalysisSet.has(projectId)) {
+    res.status(409).json({ status: 'error', code: 'CLIP_ANALYSIS_ACTIVE', message: 'Clip analysis is already in progress.' });
+    return;
+  }
+
+  if (!isMongoConfigured) {
     res.status(503).json({
       status: 'error',
       code: 'SERVICE_UNAVAILABLE',
@@ -121,7 +128,7 @@ export const getProjectClipCandidates = async (req: AuthenticatedRequest, res: R
     return;
   }
 
-  if (!isServerSupabaseConfigured) {
+  if (!isMongoConfigured) {
     res.status(503).json({
       status: 'error',
       code: 'SERVICE_UNAVAILABLE',
@@ -208,7 +215,7 @@ export const updateProjectClipCandidate = async (req: AuthenticatedRequest, res:
     return;
   }
 
-  if (!isServerSupabaseConfigured) {
+  if (!isMongoConfigured) {
     res.status(503).json({
       status: 'error',
       code: 'SERVICE_UNAVAILABLE',
@@ -443,7 +450,7 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
     const nextRenderVersion = Number(clip.render_version || 1) + 1;
 
     // Increment render version and queue clip
-    await supabaseAuthClient
+    await dataRepository
       .from('clips')
       .update({
         render_version: nextRenderVersion,
@@ -453,7 +460,7 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
       .eq('id', clipId);
 
     // Create a new render job row for tracking
-    const { data: newJob } = await supabaseAuthClient
+    const { data: newJob } = await dataRepository
       .from('render_jobs')
       .insert({
         clip_id: clipId,
@@ -763,7 +770,7 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
   try {
     const clip = await ClipRenderService.getClip(clipId, userId);
 
-    const { data: transcript, error: transErr } = await supabaseAuthClient
+    const { data: transcript, error: transErr } = await dataRepository
       .from('transcripts')
       .select('*')
       .eq('project_id', clip.project_id)
@@ -819,6 +826,11 @@ export const analyzeClipReframe = async (req: AuthenticatedRequest, res: Respons
 
   if (!clipId || !isValidUUID(clipId)) {
     res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid clip UUID is required.' });
+    return;
+  }
+
+  if (!config.smartReframeEnabled) {
+    res.status(503).json({ status: 'error', code: 'REFRAME_UNAVAILABLE', message: 'Smart Reframe is not enabled on this server.' });
     return;
   }
 
@@ -931,5 +943,3 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
     });
   }
 };
-
-

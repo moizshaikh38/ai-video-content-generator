@@ -1,4 +1,6 @@
-import { supabaseAuthClient } from '../utils/supabase.js';
+import { ownerContext } from '../db/repositories/dataRepository.js';
+import { replaceContentOutputs } from '../db/repositories/contentOutputRepository.js';
+import { dataRepository } from '../db/repositories/dataRepository.js';
 import { logger } from '../utils/logger.js';
 import {
   OutputPlatform,
@@ -13,10 +15,10 @@ import {
 
 export class ContentOutputService {
   /**
-   * Retrieves all content outputs for a project from Supabase.
+   * Retrieves all content outputs for an owner-scoped project.
    */
   public static async getOutputsForProject(projectId: string): Promise<ContentOutputRecord[]> {
-    const { data, error } = await supabaseAuthClient
+    const { data, error } = await dataRepository
       .from('content_outputs')
       .select('*')
       .eq('project_id', projectId)
@@ -291,35 +293,10 @@ export class ContentOutputService {
       return [];
     }
 
-    // 1. Delete previous outputs for this platform (or entire project if platform not specified)
-    let deleteQuery = supabaseAuthClient
-      .from('content_outputs')
-      .delete()
-      .eq('project_id', projectId);
-
-    if (platform) {
-      deleteQuery = deleteQuery.eq('platform', platform);
-    }
-
-    const { error: deleteError } = await deleteQuery;
-    if (deleteError) {
-      logger.error(`[ContentOutputService] Error clearing previous outputs:`, deleteError.message);
-      throw new Error(`Failed to update content outputs: ${deleteError.message}`);
-    }
-
-    // 2. Insert new rows
-    const { data: inserted, error: insertError } = await supabaseAuthClient
-      .from('content_outputs')
-      .insert(rows)
-      .select('*')
-      .order('position', { ascending: true });
-
-    if (insertError) {
-      logger.error(`[ContentOutputService] Error inserting new content outputs:`, insertError.message);
-      throw new Error(`Failed to save content outputs: ${insertError.message}`);
-    }
-
-    return (inserted || []) as ContentOutputRecord[];
+    const userId = ownerContext.getStore();
+    if (!userId) throw new Error('Authenticated user context is required.');
+    const saved = await replaceContentOutputs(userId, projectId, rows, platform);
+    return saved as unknown as ContentOutputRecord[];
   }
 
   /**
@@ -330,7 +307,7 @@ export class ContentOutputService {
     projectId: string,
     newContent: string
   ): Promise<ContentOutputRecord> {
-    const { data, error } = await supabaseAuthClient
+    const { data, error } = await dataRepository
       .from('content_outputs')
       .update({ content: newContent.trim() })
       .eq('id', outputId)

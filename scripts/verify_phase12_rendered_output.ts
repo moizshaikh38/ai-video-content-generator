@@ -1,3 +1,4 @@
+// LEGACY SUPABASE DATABASE/STORAGE DIAGNOSTIC — historical only; do not use for MongoDB/R2 production.
 import fs from 'fs';
 import path from 'path';
 import os from 'os';

@@ -9,7 +9,7 @@ import { projectService } from '../services/projectService';
 import { uploadVideoFile, validateVideoFile } from '../services/storageService';
 import { useAuth } from '../context/AuthContext';
 
-const MAX_MB = 50;
+const MAX_MB = 2048;
 
 export const NewProjectPage: React.FC = () => {
   const navigate = useNavigate();
@@ -28,6 +28,7 @@ export const NewProjectPage: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const pendingProjectIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const prefillUrl = searchParams.get('url');
@@ -73,9 +74,9 @@ export const NewProjectPage: React.FC = () => {
 
     setErrorMsg(null);
     setUploadFailed(false);
-    setProgress(5);
+    setProgress(0);
 
-    const projectId = crypto.randomUUID();
+    const projectId = pendingProjectIdRef.current || crypto.randomUUID();
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
@@ -83,51 +84,40 @@ export const NewProjectPage: React.FC = () => {
 
     try {
       // 1. Create project record in database with status 'uploading'
-      await projectService.createProjectAsync({
-        id: projectId,
-        userId: user.id,
-        title: title.trim(),
-        sourceType: 'upload',
-        videoStatus: 'uploading',
-        notes: notes.trim(),
-      });
+      if (!pendingProjectIdRef.current) {
+        await projectService.createProjectAsync({
+          id: projectId,
+          userId: user.id,
+          title: title.trim(),
+          sourceType: 'upload',
+          videoStatus: 'uploading',
+          notes: notes.trim(),
+        });
+        pendingProjectIdRef.current = projectId;
+      }
       projectCreated = true;
 
-      // 2. Upload video file to Supabase Storage: {user_id}/{project_id}/{filename}
-      const uploadResult = await uploadVideoFile({
+      // 2. Upload directly to R2 with byte-accurate browser progress; backend verifies the object.
+      await uploadVideoFile({
         file,
-        userId: user.id,
         projectId,
         onProgress: (pct) => setProgress(pct),
         signal: abortController.signal,
       });
 
-      // 3. ONLY after Storage upload succeeds, update project record with storage path and status 'uploaded'
-      await projectService.updateProjectAsync(projectId, {
-        source_url: uploadResult.storagePath,
-        video_status: 'uploaded',
-      });
-
       setProgress(100);
       abortControllerRef.current = null;
+      pendingProjectIdRef.current = null;
       navigate(`/projects/${projectId}`);
     } catch (err: any) {
       const isAbort = err.name === 'AbortError' || err.message?.includes('cancelled');
       const message = isAbort
         ? 'Upload was cancelled.'
-        : err.message || 'Failed to upload video to Supabase Storage.';
+        : err.message || 'Failed to upload video.';
 
       console.error('[Upload Flow Failed]', err);
 
-      if (projectCreated) {
-        try {
-          await projectService.updateProjectAsync(projectId, {
-            video_status: 'failed',
-          });
-        } catch (updateErr) {
-          console.error('Failed to set project status to failed in Supabase:', updateErr);
-        }
-      }
+      if (projectCreated) await projectService.fetchProject(projectId).catch(() => undefined);
 
       setErrorMsg(message);
       setUploadFailed(true);

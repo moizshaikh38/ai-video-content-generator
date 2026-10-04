@@ -31,7 +31,7 @@ import { Textarea } from '../components/Textarea';
 import { StatusBadge, isProcessing } from '../components/StatusBadge';
 import { LoadingState } from '../components/LoadingState';
 import { projectService } from '../services/projectService';
-import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { backendRequest } from '../services/backendClient';
 import { Project, ContentOutput, OutputPlatform, Transcript, GenerationOverrides } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { CreatorPersonaCard } from '../components/react-bits/CreatorPersonaCard';
@@ -135,10 +135,10 @@ export const ProjectDetailPage: React.FC = () => {
   useEffect(() => {
     let active = true;
     setVideoPreviewUrl(null);
-    if (!isSupabaseConfigured || project?.source_type !== 'upload' || !project.source_url) return;
-    supabase.storage.from('videos').createSignedUrl(project.source_url, 3600).then(({ data }) => {
-      if (active) setVideoPreviewUrl(data?.signedUrl || null);
-    });
+    if (project?.source_type !== 'upload' || !project.source_url) return;
+    backendRequest<{ signedUrl: string }>(`/projects/${project.id}/source-preview-url`).then((data) => {
+      if (active) setVideoPreviewUrl(data.signedUrl || null);
+    }).catch(() => { if (active) setVideoPreviewUrl(null); });
     return () => { active = false; };
   }, [project?.source_type, project?.source_url]);
 
@@ -185,7 +185,7 @@ export const ProjectDetailPage: React.FC = () => {
       const t = await projectService.fetchTranscript(id);
       if (t) setTranscript(t);
 
-      // Load real content outputs from Supabase
+      // Load current content outputs from the backend
       const realOutputs = await projectService.fetchContentOutputs(id);
       if (realOutputs) setOutputs(realOutputs);
     } else {
@@ -277,7 +277,7 @@ export const ProjectDetailPage: React.FC = () => {
       <div className="pt-12">
         <LoadingState
           message="Loading project details…"
-          description="Fetching video record from Supabase."
+          description="Fetching video record."
         />
       </div>
     );
@@ -493,9 +493,9 @@ export const ProjectDetailPage: React.FC = () => {
                       : statusVal === 'transcribing'
                       ? 'Extracting speech and generating timestamped segments.'
                       : statusVal === 'processing'
-                      ? 'Retrieving media from private Supabase Storage.'
+                      ? 'Retrieving media from private storage.'
                       : isUploaded
-                      ? 'Stored securely in private Supabase Storage.'
+                      ? 'Stored securely in private storage.'
                       : isUrl
                       ? 'External video source registered.'
                       : 'File is being transferred to storage.'}
