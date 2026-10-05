@@ -11,12 +11,40 @@ const INITIAL_PROFILE: CreatorProfile = {
   audience: 'Founders, builders, and content creators', language: 'English', tone: 'Friendly',
 };
 
+const PROJECTS_CACHE_KEY = 'vireo_cached_projects';
+
+function loadCachedProjects(): Project[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = sessionStorage.getItem(PROJECTS_CACHE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistCachedProjects(projects: Project[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(PROJECTS_CACHE_KEY, JSON.stringify(projects));
+  } catch {}
+}
+
 class ProjectService {
-  private projects: Project[] = [];
+  private projects: Project[] = loadCachedProjects();
   private outputs: ContentOutput[] = [];
   private profile: CreatorProfile = INITIAL_PROFILE;
 
-  clear(): void { this.projects = []; this.outputs = []; this.profile = INITIAL_PROFILE; }
+  clear(): void {
+    this.projects = [];
+    this.outputs = [];
+    this.profile = INITIAL_PROFILE;
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem(PROJECTS_CACHE_KEY);
+      } catch {}
+    }
+  }
 
   private mapRow(row: any): Project {
     const status = (row.video_status as ProjectStatus) || 'uploading';
@@ -31,6 +59,7 @@ class ProjectService {
   private cacheProject(row: any): Project {
     const project = this.mapRow(row);
     this.projects = [project, ...this.projects.filter((p) => p.id !== project.id)];
+    persistCachedProjects(this.projects);
     window.dispatchEvent(new CustomEvent('vireo_project_updated', { detail: { projectId: project.id } }));
     return project;
   }
@@ -38,6 +67,7 @@ class ProjectService {
   async fetchProjects(_userId?: string): Promise<Project[]> {
     const data = await backendRequest<{ projects: any[] }>('/projects');
     this.projects = (data.projects || []).map((row) => this.mapRow(row));
+    persistCachedProjects(this.projects);
     window.dispatchEvent(new CustomEvent('vireo_project_updated'));
     return this.getProjects();
   }

@@ -13,7 +13,33 @@ export interface BillingUsage {
   is_quota_exceeded: boolean;
 }
 
+const USAGE_CACHE_KEY = 'vireo_cached_usage';
+
 export class BillingService {
+  static getCachedUsage(): BillingUsage | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = sessionStorage.getItem(USAGE_CACHE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  static setCachedUsage(data: BillingUsage): void {
+    if (typeof window === 'undefined') return;
+    try {
+      sessionStorage.setItem(USAGE_CACHE_KEY, JSON.stringify(data));
+    } catch {}
+  }
+
+  static clearCache(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      sessionStorage.removeItem(USAGE_CACHE_KEY);
+    } catch {}
+  }
+
   /**
    * Fetches monthly billing and usage metrics for the authenticated user.
    * Calls GET /api/billing/usage.
@@ -58,7 +84,11 @@ export class BillingService {
       }
 
       const json = await res.json();
-      return json.data as BillingUsage;
+      const usage = json.data as BillingUsage;
+      if (usage) {
+        BillingService.setCachedUsage(usage);
+      }
+      return usage;
     } catch (err: unknown) {
       console.warn('BillingService.getUsage failed:', err);
       // Re-throw so caller knows usage is unavailable; DO NOT display fake production usage

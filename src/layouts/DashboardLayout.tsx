@@ -16,6 +16,17 @@ export const DashboardLayout: React.FC = () => {
   const { signOut, user, profile } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [isWarming, setIsWarming] = useState(false);
+
+  React.useEffect(() => {
+    const handleWarming = (e: Event) => {
+      const custom = e as CustomEvent<{ warming: boolean }>;
+      setIsWarming(Boolean(custom.detail?.warming));
+    };
+    window.addEventListener('vireo_server_warming', handleWarming);
+    return () => window.removeEventListener('vireo_server_warming', handleWarming);
+  }, []);
+
   const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Creator';
   const handleSignOut = async () => { await signOut(); navigate('/login'); };
   return (
@@ -40,7 +51,21 @@ export const DashboardLayout: React.FC = () => {
             {accountOpen && <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-border bg-white p-1.5 shadow-lift"><NavLink to="/settings" onClick={() => setAccountOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-cream"><Settings className="size-4" />Settings</NavLink><button onClick={handleSignOut} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-cream"><LogOut className="size-4" />Sign out</button></div>}
           </div>
         </header>
-        <main className="mx-auto max-w-[1500px] px-4 pb-16 pt-7 sm:px-7 lg:px-9"><Outlet /></main>
+        <main className="mx-auto max-w-[1500px] px-4 pb-16 pt-7 sm:px-7 lg:px-9">
+          {isWarming && (
+            <div className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-50/90 px-4 py-3 text-xs text-amber-900 shadow-sm animate-in fade-in duration-300">
+              <span className="relative flex size-2.5 flex-shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex size-2.5 rounded-full bg-amber-500"></span>
+              </span>
+              <div>
+                <span className="font-semibold">Connecting to cloud backend...</span>
+                <span className="ml-1 text-amber-700">Free-tier instances may take 30–50 seconds to wake up after inactivity. Your data will load automatically.</span>
+              </div>
+            </div>
+          )}
+          <Outlet />
+        </main>
       </div>
     </div>
   );

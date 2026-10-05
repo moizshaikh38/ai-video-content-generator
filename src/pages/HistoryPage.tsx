@@ -10,9 +10,9 @@ import { Project } from '../types';
 const statusOf=(p:Project)=>p.video_status||p.status;
 export const HistoryPage: React.FC = () => {
   const { user } = useAuth();
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Project[]>(() => projectService.getProjects());
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => projectService.getProjects().length === 0);
   const [errorMsg, setErrorMsg] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [search,setSearch]=useState('');const [status,setStatus]=useState('all');const [source,setSource]=useState('all');const [sort,setSort]=useState('newest');
@@ -23,10 +23,13 @@ export const HistoryPage: React.FC = () => {
   const closeDelete=()=>{setProjectToDelete(null);requestAnimationFrame(()=>previousFocus.current?.focus())};
   const loadProjects = async () => {
     if (!user) return;
-    setIsLoading(true);
+    if (projectService.getProjects().length === 0) {
+      setIsLoading(true);
+    }
     setErrorMsg('');
     try {
-      setProjects(await projectService.fetchProjects(user.id));
+      const data = await projectService.fetchProjects(user.id);
+      setProjects(data);
     } catch (err: any) {
       console.error('[History] Error loading projects:', err);
       if (typeof window !== 'undefined' && window.location.protocol === 'https:' && apiBase.includes('localhost')) {

@@ -4,8 +4,8 @@ import { useAuth } from '../context/AuthContext';
 
 export function useBillingUsage() {
   const { user } = useAuth();
-  const [usage, setUsage] = useState<BillingUsage | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [usage, setUsage] = useState<BillingUsage | null>(() => BillingService.getCachedUsage());
+  const [isLoading, setIsLoading] = useState(() => !BillingService.getCachedUsage());
   const [error, setError] = useState<string | null>(null);
 
   const fetchUsage = useCallback(async () => {
@@ -13,13 +13,17 @@ export function useBillingUsage() {
       setUsage(null);
       return;
     }
-    setIsLoading(true);
+    if (!BillingService.getCachedUsage()) {
+      setIsLoading(true);
+    }
     setError(null);
     try {
       const data = await BillingService.getUsage();
       setUsage(data);
     } catch (err: any) {
-      setError(err.message || 'Failed to load usage data.');
+      if (!BillingService.getCachedUsage()) {
+        setError(err.message || 'Failed to load usage data.');
+      }
     } finally {
       setIsLoading(false);
     }

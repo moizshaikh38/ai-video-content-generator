@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { backendRequest } from '../services/backendClient';
+import { apiBase, backendRequest } from '../services/backendClient';
 import { projectService } from '../services/projectService';
 
 export interface UserProfile {
@@ -131,6 +131,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
+      // Early non-blocking background ping to wake up cloud backend (Render free-tier)
+      fetch(`${apiBase}/health`).catch(() => undefined);
+
       try {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         if (error) throw error;
@@ -142,7 +145,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             cleanAuthFragmentFromUrl();
           }
           if (initialSession?.user) {
-            await fetchProfiles(initialSession.user.id, initialSession.user.email || '', initialSession.access_token);
+            // Provide immediate profile fallback so UI displays name/email with 0ms delay
+            setProfile({
+              id: initialSession.user.id,
+              email: initialSession.user.email || '',
+              full_name: initialSession.user.user_metadata?.full_name || initialSession.user.email?.split('@')[0] || 'Creator',
+            });
+            // Fetch complete MongoDB profiles asynchronously in the background without blocking the route
+            fetchProfiles(initialSession.user.id, initialSession.user.email || '', initialSession.access_token);
           }
         }
       } catch (err) {
@@ -171,7 +181,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (newSession?.user) {
-        await fetchProfiles(newSession.user.id, newSession.user.email || '', newSession.access_token);
+        setProfile((prev) => prev || {
+          id: newSession.user.id,
+          email: newSession.user.email || '',
+          full_name: newSession.user.user_metadata?.full_name || newSession.user.email?.split('@')[0] || 'Creator',
+        });
+        fetchProfiles(newSession.user.id, newSession.user.email || '', newSession.access_token);
       } else {
         setProfile(null);
         setCreatorProfile(null);

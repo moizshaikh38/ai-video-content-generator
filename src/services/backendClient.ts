@@ -24,23 +24,57 @@ export async function authToken(): Promise<string> {
   return session.access_token;
 }
 
+let warmingTimer: ReturnType<typeof setTimeout> | null = null;
+let activeRequestCount = 0;
+
+function notifyWarming(warming: boolean): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('vireo_server_warming', { detail: { warming } }));
+  }
+}
+
+function startRequestTracker(): void {
+  activeRequestCount++;
+  if (activeRequestCount === 1) {
+    warmingTimer = setTimeout(() => {
+      notifyWarming(true);
+    }, 2500);
+  }
+}
+
+function stopRequestTracker(): void {
+  activeRequestCount = Math.max(0, activeRequestCount - 1);
+  if (activeRequestCount === 0) {
+    if (warmingTimer) {
+      clearTimeout(warmingTimer);
+      warmingTimer = null;
+    }
+    notifyWarming(false);
+  }
+}
+
 export async function backendRequest<T>(path: string, options: RequestInit = {}, tokenOverride?: string): Promise<T> {
   const token = tokenOverride || await authToken();
-  const response = await fetch(`${apiBase}${path}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...options.headers,
-    },
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(data.message || `Request failed (${response.status}).`) as Error & { code?: string; status?: number };
-    error.code = data.code || data.error_code;
-    error.status = response.status;
-    Object.assign(error, data);
-    throw error;
+  startRequestTracker();
+  try {
+    const response = await fetch(`${apiBase}${path}`, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...options.headers,
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(data.message || `Request failed (${response.status}).`) as Error & { code?: string; status?: number };
+      error.code = data.code || data.error_code;
+      error.status = response.status;
+      Object.assign(error, data);
+      throw error;
+    }
+    return data as T;
+  } finally {
+    stopRequestTracker();
   }
-  return data as T;
 }

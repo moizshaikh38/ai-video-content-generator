@@ -34,16 +34,20 @@ const completeStatuses = ['completed', 'complete', 'transcribed'];
 
 export const DashboardPage: React.FC = () => {
   const { user, profile } = useAuth();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [projects, setProjects] = useState<Project[]>(() => projectService.getProjects());
+  const [loading, setLoading] = useState(() => projectService.getProjects().length === 0);
   const [error, setError] = useState('');
   const { usage, isLoading: usageLoading, error: usageError } = useBillingUsage();
 
   const load = async () => {
     if (!user) return;
+    if (projectService.getProjects().length === 0) {
+      setLoading(true);
+    }
     try {
       setError('');
-      setProjects(await projectService.fetchProjects(user.id));
+      const data = await projectService.fetchProjects(user.id);
+      setProjects(data);
     } catch (err: any) {
       console.error('[Dashboard] Error fetching projects:', err);
       if (typeof window !== 'undefined' && window.location.protocol === 'https:' && apiBase.includes('localhost')) {
