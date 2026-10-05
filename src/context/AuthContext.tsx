@@ -48,6 +48,24 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function cleanAuthFragmentFromUrl(): void {
+  if (typeof window === 'undefined') return;
+  // If hash contains tokens or errors from OAuth redirect
+  if (window.location.hash && (window.location.hash.includes('access_token=') || window.location.hash.includes('error='))) {
+    const cleanUrl = window.location.pathname + window.location.search;
+    window.history.replaceState(null, '', cleanUrl);
+  } else if (window.location.search && (window.location.search.includes('code=') || window.location.search.includes('error='))) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('code');
+    url.searchParams.delete('state');
+    url.searchParams.delete('error');
+    url.searchParams.delete('error_description');
+    const search = url.searchParams.toString();
+    const cleanUrl = url.pathname + (search ? `?${search}` : '') + url.hash;
+    window.history.replaceState(null, '', cleanUrl);
+  }
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -120,6 +138,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (mounted) {
           setSession(initialSession);
           setUser(initialSession?.user ?? null);
+          if (initialSession) {
+            cleanAuthFragmentFromUrl();
+          }
           if (initialSession?.user) {
             await fetchProfiles(initialSession.user.id, initialSession.user.email || '', initialSession.access_token);
           }
@@ -144,6 +165,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!mounted) return;
       setSession(newSession);
       setUser(newSession?.user ?? null);
+
+      if (newSession) {
+        cleanAuthFragmentFromUrl();
+      }
 
       if (newSession?.user) {
         await fetchProfiles(newSession.user.id, newSession.user.email || '', newSession.access_token);

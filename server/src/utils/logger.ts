@@ -47,7 +47,10 @@ function formatLog(entry: LogEntry): string {
   const ctxStr = ctx ? ` (${ctx})` : '';
   const detailStr = entry.detail !== undefined ? ` ${typeof entry.detail === 'object' ? JSON.stringify(entry.detail) : entry.detail}` : '';
   const errorStr = entry.error ? ` [Error: ${entry.error}]` : '';
-  return `${tag} ${ts}${ctxStr} ${entry.message}${detailStr}${errorStr}`;
+  const standardKeys = new Set(['level', 'timestamp', 'message', 'requestId', 'userId', 'projectId', 'detail', 'error']);
+  const extraKeys = Object.keys(entry).filter((k) => !standardKeys.has(k));
+  const extraStr = extraKeys.length > 0 ? ` ${JSON.stringify(Object.fromEntries(extraKeys.map((k) => [k, entry[k]])))}` : '';
+  return `${tag} ${ts}${ctxStr} ${entry.message}${detailStr}${errorStr}${extraStr}`;
 }
 
 function createLogEntry(

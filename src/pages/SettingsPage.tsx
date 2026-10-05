@@ -14,6 +14,7 @@ import { Input } from '../components/Input';
 import { Textarea } from '../components/Textarea';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { getOAuthRedirectUrl } from '../lib/authUrl';
 import { backendRequest } from '../services/backendClient';
 import { projectService } from '../services/projectService';
 import { SpotlightCard } from '../components/react-bits/SpotlightCard';
@@ -187,7 +188,7 @@ export const SettingsPage: React.FC = () => {
     setAccountMessage(null);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: window.location.origin + '/settings',
+        redirectTo: getOAuthRedirectUrl('/settings'),
       });
       if (error) {
         setAccountMessage(`Password reset error: ${error.message}`);

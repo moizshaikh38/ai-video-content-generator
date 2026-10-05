@@ -7,6 +7,7 @@ import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { getOAuthRedirectUrl } from '../lib/authUrl';
 
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate();
@@ -67,7 +68,7 @@ export const SignupPage: React.FC = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/dashboard',
+          redirectTo: getOAuthRedirectUrl('/dashboard'),
         },
       });
       if (error) {
