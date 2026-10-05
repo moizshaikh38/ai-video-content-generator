@@ -57,5 +57,5 @@ Thumbs.db
 server/python/.venv/
 __pycache__/
 *.pyc
-*.pyo
-
+# Local artifacts
+artifacts/

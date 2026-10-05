@@ -224,6 +224,7 @@ export const ClipEditorPage: React.FC = () => {
   const [isAnalyzingReframe, setIsAnalyzingReframe] = useState<boolean>(false);
   const [reframeStep, setReframeStep] = useState<string>('Scanning frames...');
   const [reframeError, setReframeError] = useState<string | null>(null);
+  const isSmartReframeEnabled = import.meta.env.VITE_SMART_REFRAME_ENABLED === 'true';
 
   // Dirty state tracking
   const [isDirty, setIsDirty] = useState<boolean>(false);
@@ -379,6 +380,10 @@ export const ClipEditorPage: React.FC = () => {
   // Trigger smart reframe analysis
   const handleAnalyzeReframe = async () => {
     if (!clipId) return;
+    if (!isSmartReframeEnabled) {
+      setReframeError('Smart Auto-Reframe is coming soon in beta.');
+      return;
+    }
     setIsAnalyzingReframe(true);
     setReframeError(null);
     setReframeStep('Scanning frames...');
@@ -1845,25 +1850,40 @@ export const ClipEditorPage: React.FC = () => {
                     {[
                       { id: 'center', label: 'Center', desc: 'Standard center' },
                       { id: 'manual', label: 'Manual', desc: 'Adjust slider' },
-                      { id: 'smart', label: 'Smart', desc: 'Auto-track subject' },
-                    ].map((mode) => (
-                      <button
-                        key={mode.id}
-                        type="button"
-                        onClick={() => {
-                          setCropConfig({ ...cropConfig, mode: mode.id as CropMode });
-                          markDirty();
-                        }}
-                        className={`p-2.5 text-center rounded-lg border transition ${
-                          (cropConfig.mode || 'center') === mode.id
-                            ? 'bg-orange-950/40 border-orange-500 text-white shadow-sm shadow-orange-500/10'
-                            : 'bg-neutral-800/40 border-neutral-700/60 text-neutral-300 hover:bg-neutral-800'
-                        }`}
-                      >
-                        <p className="text-xs font-bold">{mode.label}</p>
-                        <p className="text-[10px] text-neutral-400 mt-0.5">{mode.desc}</p>
-                      </button>
-                    ))}
+                      { id: 'smart', label: 'Smart', desc: isSmartReframeEnabled ? 'Auto-track subject' : 'Coming soon' },
+                    ].map((mode) => {
+                      const isDisabled = mode.id === 'smart' && !isSmartReframeEnabled;
+                      return (
+                        <button
+                          key={mode.id}
+                          type="button"
+                          disabled={isDisabled}
+                          title={isDisabled ? 'Smart Auto-Reframe is coming soon in beta' : undefined}
+                          onClick={() => {
+                            if (isDisabled) return;
+                            setCropConfig({ ...cropConfig, mode: mode.id as CropMode });
+                            markDirty();
+                          }}
+                          className={`p-2.5 text-center rounded-lg border transition ${
+                            isDisabled
+                              ? 'opacity-50 cursor-not-allowed bg-neutral-900 border-neutral-800 text-neutral-500'
+                              : (cropConfig.mode || 'center') === mode.id
+                              ? 'bg-orange-950/40 border-orange-500 text-white shadow-sm shadow-orange-500/10'
+                              : 'bg-neutral-800/40 border-neutral-700/60 text-neutral-300 hover:bg-neutral-800'
+                          }`}
+                        >
+                          <p className="text-xs font-bold flex items-center justify-center gap-1">
+                            {mode.label}
+                            {isDisabled && (
+                              <span className="text-[9px] font-normal px-1 py-0.5 rounded bg-neutral-800 text-neutral-400">
+                                Beta
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-[10px] text-neutral-400 mt-0.5">{mode.desc}</p>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 

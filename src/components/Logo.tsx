@@ -35,8 +35,11 @@ export function Logo({
             className="size-9 shrink-0 transition-transform group-hover:scale-105"
           />
           {!compact && (
-            <span className="text-[27px] font-bold tracking-[-0.07em] leading-none text-forest">
+            <span className="text-[27px] font-bold tracking-[-0.07em] leading-none text-forest inline-flex items-center gap-1.5">
               Vireo
+              <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-clay/10 text-clay border border-clay/20 font-sans tracking-normal">
+                Beta
+              </span>
             </span>
           )}
         </>

@@ -64,8 +64,8 @@ if (process.env.NODE_ENV !== 'test') {
       cleanupTimer = setInterval(cleanup, 10 * 60_000);
       cleanupTimer.unref();
     }
-    server = app.listen(config.port, () => {
-      logger.info(`Server running in ${config.nodeEnv} mode on http://localhost:${config.port}`);
+    server = app.listen(config.port, '0.0.0.0', () => {
+      logger.info(`Server running in ${config.nodeEnv} mode on http://0.0.0.0:${config.port}`);
       logger.info(`Health check available at http://localhost:${config.port}/api/health`);
     });
   };

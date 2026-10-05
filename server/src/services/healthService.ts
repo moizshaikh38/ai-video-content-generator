@@ -12,6 +12,7 @@ export interface DetailedHealthStatus extends HealthStatus {
     supabaseConfigured: boolean;
     mongoConfigured?: boolean;
     mongoConnected?: boolean;
+    storageConfigured?: boolean;
     openRouterConfigured: boolean;
   };
 }
@@ -26,6 +27,7 @@ export const getHealthStatus = (): DetailedHealthStatus => {
     services: {
       supabaseConfigured: isServerSupabaseConfigured,
       mongoConfigured: isMongoConfigured,
+      storageConfigured: Boolean(config.r2AccountId && config.r2AccessKeyId && config.r2SecretAccessKey),
       openRouterConfigured: Boolean(config.openrouterApiKey),
     },
   };

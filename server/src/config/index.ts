@@ -22,8 +22,7 @@ export const config = {
   r2Endpoint: process.env.R2_ENDPOINT || '',
   r2SourceBucket: process.env.R2_SOURCE_BUCKET || 'vireo-source-videos',
   r2ClipsBucket: process.env.R2_CLIPS_BUCKET || 'vireo-rendered-clips',
-  smartReframeEnabled: process.env.SMART_REFRAME_ENABLED === 'true' ||
-    (process.env.SMART_REFRAME_ENABLED !== 'false' && process.env.NODE_ENV !== 'production'),
+  smartReframeEnabled: process.env.SMART_REFRAME_ENABLED === 'true',
   openrouterApiKey: process.env.OPENROUTER_API_KEY || '',
   openrouterTextModel: process.env.OPENROUTER_TEXT_MODEL || 'openai/gpt-4o-mini',
   transcriptionModel: process.env.TRANSCRIPTION_MODEL || 'openai/whisper-large-v3-turbo',

@@ -26,6 +26,7 @@ import ffmpegStatic from 'ffmpeg-static';
 import { SmartReframeService, activeReframeAnalysisSet } from '../services/smartReframeService.js';
 import { buildSmartCropFilter } from '../services/clipRenderService.js';
 import { analyzeClipReframe, getClipReframe } from '../controllers/clipController.js';
+import { config } from '../config/index.js';
 import { AuthenticatedRequest, ReframeKeyframe, ReframeSample } from '../types/index.js';
 
 const execFileAsync = promisify(execFile);
@@ -343,6 +344,9 @@ async function runTests() {
   });
 
   // 9. API Security Guards
+  const originalSmartReframe = config.smartReframeEnabled;
+  (config as any).smartReframeEnabled = true;
+
   await it('API analyze: returns 401 when request is unauthenticated', async () => {
     const { req, res, getStatusCode, getResponseData } = mockReqRes({ user: undefined });
     req.params = { clipId: '33333333-3333-4333-a333-333333333333' };
@@ -404,6 +408,8 @@ async function runTests() {
     await getClipReframe(badUuid.req, badUuid.res);
     assert.equal(badUuid.getStatusCode(), 400);
   });
+
+  (config as any).smartReframeEnabled = originalSmartReframe;
 
   // 10. Real FFmpeg Execution Test with Dynamic Smart Crop
   await it('Real FFmpeg Engine: renders test video with dynamic piecewise crop expression', async () => {
