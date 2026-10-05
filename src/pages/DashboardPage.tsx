@@ -18,6 +18,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { projectService } from '../services/projectService';
 import { useAuth } from '../context/AuthContext';
 import { useBillingUsage } from '../hooks/useBillingUsage';
+import { apiBase } from '../services/backendClient';
 import { Project } from '../types';
 
 const activeStatuses = [
@@ -43,8 +44,15 @@ export const DashboardPage: React.FC = () => {
     try {
       setError('');
       setProjects(await projectService.fetchProjects(user.id));
-    } catch {
-      setError('Unable to load projects.');
+    } catch (err: any) {
+      console.error('[Dashboard] Error fetching projects:', err);
+      if (typeof window !== 'undefined' && window.location.protocol === 'https:' && apiBase.includes('localhost')) {
+        setError('Backend API is not configured (VITE_API_URL missing in Vercel settings).');
+      } else if (err?.message?.includes('Failed to fetch') || err?.name === 'TypeError') {
+        setError('Unable to reach backend server. The server may be waking up (cold start) or offline.');
+      } else {
+        setError(err.message || 'Unable to load projects.');
+      }
     } finally {
       setLoading(false);
     }

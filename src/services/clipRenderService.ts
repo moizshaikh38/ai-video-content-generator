@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { RenderedClip, ClipAspectRatio } from '../types';
+import { apiBase } from './backendClient';
 
 export interface CreateClipResponse {
   status: 'ok';
@@ -29,7 +30,7 @@ export interface SignedUrlResponse {
 
 class ClipRenderService {
   private getApiUrl(): string {
-    return import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    return apiBase;
   }
 
   private async getAuthHeader(): Promise<HeadersInit> {

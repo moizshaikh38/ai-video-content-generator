@@ -1,10 +1,9 @@
 import { HealthCheckResponse } from '../types';
-
-const API_BASE = '/api';
+import { apiBase } from './backendClient';
 
 export async function checkBackendHealth(): Promise<HealthCheckResponse> {
   try {
-    const res = await fetch(`${API_BASE}/health`);
+    const res = await fetch(`${apiBase}/health`);
     if (!res.ok) {
       throw new Error(`HTTP error! status: ${res.status}`);
     }

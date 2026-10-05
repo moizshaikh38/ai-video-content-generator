@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { apiBase } from './backendClient';
 
 export interface BillingUsage {
   billing_period: string;
@@ -45,8 +46,7 @@ export class BillingService {
       const token = session?.access_token;
       if (!token) return null;
 
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      const res = await fetch(`${apiUrl}/billing/usage`, {
+      const res = await fetch(`${apiBase}/billing/usage`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

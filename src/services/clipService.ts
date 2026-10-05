@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { ClipCandidate, ClipCandidateStatus } from '../types';
+import { apiBase } from './backendClient';
 
 export interface AnalyzeClipsResponse {
   status: 'ok';
@@ -22,7 +23,7 @@ export interface UpdateClipCandidateResponse {
 
 class ClipService {
   private getApiUrl(): string {
-    return import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    return apiBase;
   }
 
   private async getAuthToken(): Promise<string> {

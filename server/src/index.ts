@@ -28,9 +28,47 @@ app.use(
 app.use(requestIdMiddleware);
 
 // CORS configuration (L3)
+const parseAllowedOrigins = (raw?: string): string[] => {
+  if (!raw) return ['http://localhost:5173'];
+  return raw
+    .split(',')
+    .map((s) => s.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+};
+
+const allowedOrigins = parseAllowedOrigins(config.corsOrigin);
+
 app.use(
   cors({
-    origin: config.corsOrigin,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (curl, mobile apps, server-to-server)
+      if (!origin) return callback(null, true);
+
+      const normalized = origin.replace(/\/+$/, '');
+
+      // Wildcard or direct match
+      if (config.corsOrigin === '*' || allowedOrigins.includes(normalized)) {
+        return callback(null, true);
+      }
+
+      // Allow any localhost port in development or if localhost is in allowed origins
+      if (
+        (allowedOrigins.some((o) => o.includes('localhost')) || !config.isProduction) &&
+        /^http:\/\/localhost(:\d+)?$/.test(normalized)
+      ) {
+        return callback(null, true);
+      }
+
+      // Allow Vercel preview and production domains if .vercel.app is specified or in non-production
+      if (
+        (allowedOrigins.some((o) => o.includes('.vercel.app')) || !config.isProduction) &&
+        /^https:\/\/[a-zA-Z0-9_.-]+\.vercel\.app$/.test(normalized)
+      ) {
+        return callback(null, true);
+      }
+
+      callback(null, false);
+    },
     credentials: true,
   })
 );

@@ -4,6 +4,7 @@ import { Trash2, ArrowUpRight, Video, Link2, Search, Plus, FolderOpen, CheckCirc
 import { StatusBadge } from '../components/StatusBadge';
 import { projectService } from '../services/projectService';
 import { useAuth } from '../context/AuthContext';
+import { apiBase } from '../services/backendClient';
 import { Project } from '../types';
 
 const statusOf=(p:Project)=>p.video_status||p.status;
@@ -20,7 +21,25 @@ export const HistoryPage: React.FC = () => {
   const previousFocus=useRef<HTMLElement|null>(null);
   const openDelete=(project:Project)=>{previousFocus.current=document.activeElement as HTMLElement;setProjectToDelete(project)};
   const closeDelete=()=>{setProjectToDelete(null);requestAnimationFrame(()=>previousFocus.current?.focus())};
-  const loadProjects = async () => { if(!user)return; setIsLoading(true);setErrorMsg('');try{setProjects(await projectService.fetchProjects(user.id))}catch{setErrorMsg('Unable to retrieve your projects.')}finally{setIsLoading(false)} };
+  const loadProjects = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    setErrorMsg('');
+    try {
+      setProjects(await projectService.fetchProjects(user.id));
+    } catch (err: any) {
+      console.error('[History] Error loading projects:', err);
+      if (typeof window !== 'undefined' && window.location.protocol === 'https:' && apiBase.includes('localhost')) {
+        setErrorMsg('Backend API is not configured (VITE_API_URL missing in Vercel settings).');
+      } else if (err?.message?.includes('Failed to fetch') || err?.name === 'TypeError') {
+        setErrorMsg('Unable to reach backend server. The server may be waking up (cold start) or offline.');
+      } else {
+        setErrorMsg('Unable to retrieve your projects.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
   useEffect(()=>{loadProjects();const update=()=>setProjects(projectService.getProjects());window.addEventListener('vireo_project_updated',update);return()=>window.removeEventListener('vireo_project_updated',update)},[user?.id]);
   useEffect(()=>{if(projectToDelete)cancelRef.current?.focus()},[projectToDelete]);
   const handleDelete=async(id:string)=>{setIsDeleting(true);try{await projectService.deleteProject(id);setProjects(projectService.getProjects());closeDelete()}catch{setErrorMsg('Could not delete project. Please try again.')}finally{setIsDeleting(false)}};
