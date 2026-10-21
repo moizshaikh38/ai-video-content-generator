@@ -156,7 +156,7 @@ async function runTests() {
   await it('ASS Sanitizer: strips curly braces and command tags to prevent injection', () => {
     const dangerous = 'Hello {\\b1\\pos(0,0)} World!\\NInject';
     const safe = CaptionService.sanitizeAssText(dangerous);
-    assert.equal(safe, 'Hello /b1/pos(0,0) World!/NInject');
+    assert.equal(safe, 'Hello /b1/pos(0,0) World!\\NInject');
     assert.ok(!safe.includes('{'));
     assert.ok(!safe.includes('}'));
   });

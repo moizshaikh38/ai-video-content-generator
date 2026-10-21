@@ -72,6 +72,13 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
   const [newExpTestType, setNewExpTestType] = useState<ABTestType>('THUMBNAIL_ONLY');
   const [newExpTargetMetric, setNewExpTargetMetric] = useState<ABTargetMetric>('CTR');
   const [newVarBTitle, setNewVarBTitle] = useState<string>('');
+  const [hookVariants, setHookVariants] = useState<Array<{
+    hook_type: string;
+    hook_text: string;
+    predicted_retention_lift: string;
+    suggested_caption_burst: string[];
+  }>>([]);
+  const [isGeneratingHooks, setIsGeneratingHooks] = useState<boolean>(false);
 
   const loadExperiments = useCallback(async () => {
     try {
@@ -212,6 +219,19 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
     }
   };
 
+  const handleGenerateHookVariants = async () => {
+    try {
+      setIsGeneratingHooks(true);
+      setError(null);
+      const variants = await abStudioService.generateHookVariants(clipTitle || 'Engaging viral video clip');
+      setHookVariants(variants);
+    } catch (err: any) {
+      setError(err.message || 'Failed to generate viral hook variants.');
+    } finally {
+      setIsGeneratingHooks(false);
+    }
+  };
+
   const handleCreateExperiment = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -232,14 +252,14 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
             variant_letter: 'A',
             is_control: true,
             name: 'Variant A (Control)',
-            title: newExpTestType === 'TITLE_ONLY' ? clipTitle : undefined,
+            title: (newExpTestType === 'TITLE_ONLY' || newExpTestType === 'HOOK_LINE') ? clipTitle : undefined,
             traffic_weight: 50,
           },
           {
             variant_letter: 'B',
             is_control: false,
             name: 'Variant B (Challenger)',
-            title: newExpTestType === 'TITLE_ONLY' ? newVarBTitle || `New: ${clipTitle}` : undefined,
+            title: (newExpTestType === 'TITLE_ONLY' || newExpTestType === 'HOOK_LINE') ? newVarBTitle || `New: ${clipTitle}` : undefined,
             traffic_weight: 50,
           },
         ],
@@ -285,8 +305,8 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-base font-semibold text-white">A/B Testing Studio</h1>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400 border border-neutral-700">
-                  Phase 27
+                <span className="text-xs px-2 py-0.5 rounded-full bg-white/[0.06] text-neutral-300 border border-white/[0.08]">
+                  Studio Experiment Engine
                 </span>
                 {selectedExperiment && (
                   <span
@@ -335,14 +355,14 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
             </div>
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg transition shadow-md shadow-violet-950/40"
             >
               <Plus className="w-3.5 h-3.5" />
               New Experiment
             </button>
             <button
               onClick={loadExperiments}
-              className="p-1.5 text-neutral-400 hover:text-white bg-neutral-800 hover:bg-neutral-700 rounded-lg transition"
+              className="p-1.5 text-neutral-400 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] rounded-lg transition border border-white/[0.08]"
               title="Refresh"
             >
               <RefreshCw className="w-4 h-4" />
@@ -352,7 +372,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
 
         {/* Experiment Selector Bar */}
         {experiments.length > 1 && (
-          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-neutral-800/80 overflow-x-auto">
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/[0.08] overflow-x-auto">
             <span className="text-xs text-neutral-400 shrink-0">Experiments:</span>
             {experiments.map((exp) => (
               <button
@@ -360,8 +380,8 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                 onClick={() => handleSelectExperiment(exp.id)}
                 className={`text-xs px-2.5 py-1 rounded-md transition shrink-0 ${
                   selectedExperiment?.id === exp.id
-                    ? 'bg-orange-950/60 text-orange-300 border border-orange-500/50'
-                    : 'bg-neutral-800/60 text-neutral-400 hover:text-white'
+                    ? 'bg-violet-600/20 text-violet-300 border border-violet-500/50'
+                    : 'bg-white/[0.04] text-neutral-400 hover:text-white border border-white/[0.06]'
                 }`}
               >
                 {exp.name} ({exp.status})
@@ -408,12 +428,12 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
         </div>
       ) : isLoading ? (
         <div className="flex-1 flex items-center justify-center p-8 text-neutral-400 text-xs">
-          <RefreshCw className="w-5 h-5 animate-spin mr-2 text-orange-400" />
+          <RefreshCw className="w-5 h-5 animate-spin mr-2 text-violet-400" />
           Loading experiments...
         </div>
       ) : !selectedExperiment ? (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto">
-          <div className="p-3 bg-neutral-900 border border-neutral-800 rounded-2xl mb-3 text-orange-400">
+          <div className="p-3 bg-[#0E1017] border border-white/[0.08] rounded-2xl mb-3 text-violet-400">
             <FlaskConical className="w-8 h-8" />
           </div>
           <h2 className="text-sm font-semibold text-white mb-1">No Experiments for this Clip</h2>
@@ -422,7 +442,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
           </p>
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-medium transition shadow-lg shadow-orange-950/50"
+            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg text-xs font-medium transition shadow-lg shadow-violet-950/50"
           >
             <Plus className="w-4 h-4" />
             Create Your First Experiment
@@ -431,20 +451,20 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
       ) : (
         <div className="p-4 space-y-5 flex-1 min-w-0">
           {/* Experiment Meta & Decision Bar */}
-          <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-4 space-y-3 min-w-0">
+          <div className="bg-[#0E1017] border border-white/[0.08] rounded-2xl p-4 space-y-3 min-w-0">
             <div className="flex flex-wrap items-center justify-between gap-3 min-w-0">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2 min-w-0">
                   <h2 className="text-sm font-semibold text-white truncate max-w-[220px]" title={selectedExperiment.name}>
                     {selectedExperiment.name}
                   </h2>
-                  <span className="text-[11px] px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 border border-neutral-700 flex items-center gap-1 shrink-0">
-                    {selectedExperiment.test_type === 'THUMBNAIL_ONLY' && <ImageIcon className="w-3 h-3 text-orange-400" />}
+                  <span className="text-[11px] px-2 py-0.5 rounded bg-white/[0.06] text-neutral-300 border border-white/[0.08] flex items-center gap-1 shrink-0">
+                    {selectedExperiment.test_type === 'THUMBNAIL_ONLY' && <ImageIcon className="w-3 h-3 text-violet-400" />}
                     {selectedExperiment.test_type === 'TITLE_ONLY' && <Type className="w-3 h-3 text-blue-400" />}
                     {selectedExperiment.test_type === 'HOOK_LINE' && <Mic className="w-3 h-3 text-emerald-400" />}
                     {selectedExperiment.test_type}
                   </span>
-                  <span className="text-[11px] px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 border border-neutral-700 shrink-0">
+                  <span className="text-[11px] px-2 py-0.5 rounded bg-white/[0.06] text-neutral-300 border border-white/[0.08] shrink-0">
                     Metric: {selectedExperiment.target_metric}
                   </span>
                 </div>
@@ -469,14 +489,14 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   <>
                     <button
                       onClick={() => setIsObservationModalOpen(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-medium rounded-lg transition"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-medium rounded-lg transition shadow-md shadow-violet-950/40"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       Log Observations
                     </button>
                     <button
                       onClick={() => setIsCsvImportModalOpen(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-orange-400 text-xs font-medium rounded-lg border border-neutral-700 transition"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.1] text-violet-300 text-xs font-medium rounded-lg border border-white/[0.08] transition"
                       title="Import performance analytics from CSV"
                     >
                       <Upload className="w-3.5 h-3.5" />
@@ -485,7 +505,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                     <button
                       onClick={handlePauseExperiment}
                       disabled={isSubmitting}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-medium rounded-lg border border-neutral-700 transition"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.1] text-neutral-200 text-xs font-medium rounded-lg border border-white/[0.08] transition"
                     >
                       <Pause className="w-3.5 h-3.5" />
                       Pause
@@ -508,7 +528,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                       setConfirmPromotionCheck(false);
                       setIsPromoteModalOpen(true);
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-medium rounded-lg transition shadow-lg shadow-orange-950/40"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-medium rounded-lg transition shadow-lg shadow-violet-950/40"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     Promote Winner to Clip
@@ -524,17 +544,17 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   onClick={() => handleExportCsv(selectedExperiment.id, selectedExperiment.name)}
                   disabled={isExporting}
                   title="Download RFC-4180 CSV report"
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-medium rounded-lg border border-neutral-700 transition"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.1] text-neutral-200 text-xs font-medium rounded-lg border border-white/[0.08] transition"
                 >
-                  <Download className={`w-3.5 h-3.5 ${isExporting ? 'animate-bounce text-orange-400' : ''}`} />
+                  <Download className={`w-3.5 h-3.5 ${isExporting ? 'animate-bounce text-violet-400' : ''}`} />
                   <span>{isExporting ? 'Exporting...' : 'Export CSV'}</span>
                 </button>
               </div>
             </div>
 
             {/* Statistical Decision Rationale Banner */}
-            <div className="p-3 bg-neutral-950/60 border border-neutral-800 rounded-xl text-xs flex items-start gap-2.5 min-w-0">
-              <BarChart3 className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+            <div className="p-3 bg-[#07080D] border border-white/[0.08] rounded-xl text-xs flex items-start gap-2.5 min-w-0">
+              <BarChart3 className="w-4 h-4 text-violet-400 shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <span className="font-semibold text-neutral-200">Decision Engine: </span>
                 <span className="text-neutral-400 break-words">
@@ -587,19 +607,27 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
               return (
                 <div
                   key={v.id}
-                  className={`bg-neutral-900 border rounded-2xl p-4 flex flex-col justify-between transition min-w-0 overflow-hidden ${
+                  className={`bg-[#0E1017] border rounded-2xl p-4 flex flex-col justify-between transition min-w-0 overflow-hidden ${
                     isWinner
-                      ? 'border-orange-500/80 bg-orange-950/20 shadow-xl shadow-orange-950/20'
+                      ? 'border-amber-500/80 bg-amber-950/20 shadow-xl shadow-amber-950/30'
                       : v.is_control
-                      ? 'border-neutral-700'
-                      : 'border-neutral-800 hover:border-neutral-700'
+                      ? 'border-white/[0.14]'
+                      : 'border-white/[0.08] hover:border-white/[0.16]'
                   }`}
                 >
                   <div className="space-y-3 min-w-0">
+                    {/* Top Winner Ribbon */}
+                    {isWinner && (
+                      <div className="flex items-center gap-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 text-xs font-bold text-amber-300">
+                        <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <span>Declared Winner</span>
+                      </div>
+                    )}
+
                     {/* Variant Top Bar */}
                     <div className="flex items-center justify-between gap-2 min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-6 h-6 rounded-full bg-neutral-800 text-white font-bold text-xs flex items-center justify-center border border-neutral-700 shrink-0">
+                        <span className="w-6 h-6 rounded-full bg-white/[0.08] text-white font-bold text-xs flex items-center justify-center border border-white/[0.12] shrink-0">
                           {v.variant_letter}
                         </span>
                         <span className="text-xs font-semibold text-white truncate max-w-[120px]" title={v.name}>
@@ -608,23 +636,38 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                       </div>
                       <span
                         title={v.performance_status.replace(/_/g, ' ')}
-                        className={`text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${
+                        className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${
                           v.is_control
-                            ? 'bg-neutral-800 text-neutral-300'
-                            : v.performance_status === 'STATISTICALLY_SIGNIFICANT_WINNER'
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-bold'
+                            ? 'bg-white/[0.08] text-neutral-300 border border-white/[0.12]'
+                            : v.performance_status === 'STATISTICALLY_SIGNIFICANT_WINNER' || isWinner
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
                             : v.performance_status === 'LEADER'
-                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
+                            ? 'bg-blue-500/15 text-blue-300 border border-blue-500/30'
                             : v.performance_status === 'UNDERPERFORMING'
-                            ? 'bg-red-500/10 text-red-400 border border-red-500/30'
-                            : 'bg-neutral-800 text-neutral-400'
+                            ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                            : 'bg-white/[0.06] text-neutral-400 border border-white/[0.08]'
                         }`}
                       >
-                        {v.is_control
-                          ? 'CONTROL'
-                          : v.performance_status === 'STATISTICALLY_SIGNIFICANT_WINNER'
-                          ? 'SIG. WINNER'
-                          : v.performance_status.replace(/_/g, ' ')}
+                        {v.is_control ? (
+                          'CONTROL'
+                        ) : v.performance_status === 'STATISTICALLY_SIGNIFICANT_WINNER' || isWinner ? (
+                          <>
+                            <Trophy className="w-3 h-3 text-amber-400 shrink-0" />
+                            <span>WINNER</span>
+                          </>
+                        ) : v.performance_status === 'LEADER' ? (
+                          <>
+                            <CheckCircle2 className="w-3 h-3 text-blue-400 shrink-0" />
+                            <span>LEADER</span>
+                          </>
+                        ) : v.performance_status === 'UNDERPERFORMING' ? (
+                          <>
+                            <AlertCircle className="w-3 h-3 text-rose-400 shrink-0" />
+                            <span>UNDERPERFORMING</span>
+                          </>
+                        ) : (
+                          v.performance_status.replace(/_/g, ' ')
+                        )}
                       </span>
                     </div>
 
@@ -665,7 +708,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                     {/* Heuristic Benchmark Badge */}
                     {v.preflight_heuristic_score !== null && v.preflight_heuristic_score !== undefined && (
                       <div className="text-[10px] text-neutral-500 flex items-center gap-1 min-w-0">
-                        <Sparkles className="w-3 h-3 text-orange-400/70 shrink-0" />
+                        <Sparkles className="w-3 h-3 text-violet-400 shrink-0" />
                         <span className="truncate">Heuristic Score: {v.preflight_heuristic_score}/100</span>
                       </div>
                     )}
@@ -738,7 +781,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   {/* Winner Action */}
                   <div className="pt-3 mt-3 border-t border-neutral-800/80">
                     {isWinner ? (
-                      <div className="flex items-center justify-center gap-1.5 text-xs text-orange-400 font-bold py-1.5 bg-orange-500/10 rounded-lg border border-orange-500/30">
+                      <div className="flex items-center justify-center gap-1.5 text-xs text-amber-400 font-bold py-1.5 bg-amber-500/10 rounded-lg border border-amber-500/30">
                         <Trophy className="w-3.5 h-3.5" />
                         Declared Winner
                       </div>
@@ -746,9 +789,9 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                       <button
                         onClick={() => handleDeclareWinner(v.id)}
                         disabled={isSubmitting}
-                        className="w-full text-xs font-medium py-1.5 px-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg transition border border-neutral-700 flex items-center justify-center gap-1"
+                        className="w-full text-xs font-medium py-1.5 px-2 bg-white/[0.06] hover:bg-white/[0.1] text-neutral-200 rounded-lg transition border border-white/[0.08] flex items-center justify-center gap-1"
                       >
-                        <Trophy className="w-3 h-3 text-orange-400" />
+                        <Trophy className="w-3 h-3 text-amber-400" />
                         Declare as Winner
                       </button>
                     ) : (
@@ -767,10 +810,10 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
       {/* Observation Ingestion Modal */}
       {isObservationModalOpen && selectedExperiment && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+          <div className="bg-[#0E1017] border border-white/[0.08] rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-orange-400" />
+                <BarChart3 className="w-4 h-4 text-violet-400" />
                 Log Observed Performance Batch
               </h3>
               <button
@@ -788,7 +831,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   value={selectedVariantId}
                   onChange={(e) => setSelectedVariantId(e.target.value)}
                   required
-                  className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-white focus:outline-none focus:border-orange-500"
+                  className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                 >
                   <option value="">Select variant...</option>
                   {selectedExperiment.variants.map((v) => (
@@ -810,7 +853,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                     value={observationExposures}
                     onChange={(e) => setObservationExposures(Number(e.target.value))}
                     required
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-white focus:outline-none focus:border-orange-500"
+                    className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                   />
                 </div>
                 <div>
@@ -824,7 +867,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                     value={observationConversions}
                     onChange={(e) => setObservationConversions(Number(e.target.value))}
                     required
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-white focus:outline-none focus:border-orange-500"
+                    className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                   />
                 </div>
               </div>
@@ -834,7 +877,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                 <select
                   value={observationProvenance}
                   onChange={(e) => setObservationProvenance(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-white focus:outline-none focus:border-orange-500"
+                  className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                 >
                   <option value="MANUAL_ENTRY">Manual Entry from Creator Studio</option>
                   <option value="CSV_IMPORT">CSV / Spreadsheet Import</option>
@@ -851,22 +894,22 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   placeholder="e.g. YouTube Studio batch Oct 1-3"
                   value={observationSourceLabel}
                   onChange={(e) => setObservationSourceLabel(e.target.value)}
-                  className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-white focus:outline-none focus:border-orange-500"
+                  className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                 />
               </div>
 
-              <div className="pt-3 flex justify-end gap-2 border-t border-neutral-800">
+              <div className="pt-3 flex justify-end gap-2 border-t border-white/[0.08]">
                 <button
                   type="button"
                   onClick={() => setIsObservationModalOpen(false)}
-                  className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white bg-neutral-800 rounded-lg"
+                  className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] rounded-lg"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-1.5 text-xs font-medium bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition"
+                  className="px-4 py-1.5 text-xs font-medium bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg transition shadow-md shadow-violet-950/40"
                 >
                   Save Observations
                 </button>
@@ -879,10 +922,10 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
       {/* Create Experiment Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+          <div className="bg-[#0E1017] border border-white/[0.08] rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <FlaskConical className="w-4 h-4 text-orange-400" />
+                <FlaskConical className="w-4 h-4 text-violet-400" />
                 Configure New A/B Experiment
               </h3>
               <button onClick={() => setIsCreateModalOpen(false)} className="text-neutral-400 hover:text-white">
@@ -898,7 +941,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   placeholder={`e.g. ${clipTitle} Thumbnail Split Test`}
                   value={newExpName}
                   onChange={(e) => setNewExpName(e.target.value)}
-                  className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-white focus:outline-none focus:border-orange-500"
+                  className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                 />
               </div>
 
@@ -910,7 +953,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   value={newExpHypothesis}
                   onChange={(e) => setNewExpHypothesis(e.target.value)}
                   required
-                  className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-white focus:outline-none focus:border-orange-500"
+                  className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                 />
               </div>
 
@@ -922,7 +965,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   <select
                     value={newExpTestType}
                     onChange={(e) => setNewExpTestType(e.target.value as ABTestType)}
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-white focus:outline-none focus:border-orange-500"
+                    className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                   >
                     <option value="THUMBNAIL_ONLY">Thumbnail Only (Visuals / Layout)</option>
                     <option value="TITLE_ONLY">Title Only (Headlines / Hooks)</option>
@@ -935,7 +978,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   <select
                     value={newExpTargetMetric}
                     onChange={(e) => setNewExpTargetMetric(e.target.value as ABTargetMetric)}
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-white focus:outline-none focus:border-orange-500"
+                    className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                   >
                     <option value="CTR">Click-Through Rate (CTR)</option>
                     <option value="RETENTION_RATE">Completion / Retention Rate</option>
@@ -955,29 +998,99 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                     value={newVarBTitle}
                     onChange={(e) => setNewVarBTitle(e.target.value)}
                     required
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-white focus:outline-none focus:border-orange-500"
+                    className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                   />
                 </div>
               )}
 
-              <div className="p-3 bg-neutral-950 border border-neutral-800 rounded-xl text-[11px] text-neutral-400">
+              {newExpTestType === 'HOOK_LINE' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-neutral-300">
+                      Challenger Hook Line (Variant B)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleGenerateHookVariants}
+                      disabled={isGeneratingHooks}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 rounded-lg transition disabled:opacity-50"
+                    >
+                      <Sparkles className="w-3 h-3 text-violet-400" />
+                      {isGeneratingHooks ? 'Generating...' : 'Generate 5 Viral Hooks (Vireo SVML)'}
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="e.g. Stop making this critical mistake in 2026..."
+                    value={newVarBTitle}
+                    onChange={(e) => setNewVarBTitle(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
+                  />
+                  {hookVariants.length > 0 && (
+                    <div className="space-y-2 pt-1 max-h-48 overflow-y-auto pr-1">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 block">
+                        Select a Viral Hook Formula
+                      </span>
+                      {hookVariants.map((v, i) => (
+                        <div
+                          key={i}
+                          onClick={() => {
+                            setNewVarBTitle(v.hook_text);
+                            setNewExpHypothesis(`Testing ${v.hook_type.replace('_', ' ')} hook ("${v.hook_text}") will lift viewer retention by ${v.predicted_retention_lift}.`);
+                          }}
+                          className={`p-2.5 rounded-lg border cursor-pointer transition text-left ${
+                            newVarBTitle === v.hook_text
+                              ? 'bg-violet-950/40 border-violet-500/50 text-white'
+                              : 'bg-white/[0.02] border-white/[0.06] hover:border-violet-500/30 text-neutral-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between text-[11px] mb-1">
+                            <span className="font-semibold capitalize text-violet-300">
+                              {v.hook_type.replace('_', ' ')}
+                            </span>
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                              {v.predicted_retention_lift}
+                            </span>
+                          </div>
+                          <p className="text-xs text-neutral-200 line-clamp-2">{v.hook_text}</p>
+                          {v.suggested_caption_burst && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {v.suggested_caption_burst.map((word, wIdx) => (
+                                <span
+                                  key={wIdx}
+                                  className="text-[9px] px-1 py-0.2 rounded bg-white/[0.05] text-neutral-400"
+                                >
+                                  {word}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="p-3 bg-[#07080D] border border-white/[0.08] rounded-xl text-[11px] text-neutral-400">
                 <span className="font-semibold text-neutral-200">Statistical Planning: </span>
                 Default parameters: 95% Confidence ($\alpha=0.05$), 80% Power, 20% relative MDE. The system will
                 calculate minimum required sample size mathematically (Evan Miller formula).
               </div>
 
-              <div className="pt-3 flex justify-end gap-2 border-t border-neutral-800">
+              <div className="pt-3 flex justify-end gap-2 border-t border-white/[0.08]">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white bg-neutral-800 rounded-lg"
+                  className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] rounded-lg"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-1.5 text-xs font-medium bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition"
+                  className="px-4 py-1.5 text-xs font-medium bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg transition shadow-md shadow-violet-950/40"
                 >
                   Create Experiment
                 </button>
@@ -990,10 +1103,10 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
       {/* Human-Approved Promotion Confirmation Modal */}
       {isPromoteModalOpen && selectedExperiment && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+          <div className="bg-[#0E1017] border border-white/[0.08] rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-orange-400" />
+                <Trophy className="w-4 h-4 text-amber-400" />
                 Confirm Winner Promotion
               </h3>
               <button onClick={() => setIsPromoteModalOpen(false)} className="text-neutral-400 hover:text-white">
@@ -1006,7 +1119,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                 Promoting the winning variant will update your active clip and store learned traits into Brand Brain.
               </p>
 
-              <div className="p-3 bg-neutral-950 border border-neutral-800 rounded-xl space-y-1.5">
+              <div className="p-3 bg-[#07080D] border border-white/[0.08] rounded-xl space-y-1.5">
                 <div className="font-semibold text-white">What will happen:</div>
                 <ul className="list-disc list-inside text-neutral-400 space-y-1">
                   <li>Active clip state will adopt the winning asset.</li>
@@ -1024,7 +1137,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   type="checkbox"
                   checked={confirmPromotionCheck}
                   onChange={(e) => setConfirmPromotionCheck(e.target.checked)}
-                  className="mt-0.5 rounded border-neutral-700 text-orange-500 focus:ring-orange-500"
+                  className="mt-0.5 rounded border-white/20 bg-[#07080D] text-violet-500 focus:ring-violet-500"
                 />
                 <span className="text-[11px] text-neutral-200">
                   I explicitly confirm promoting this winning variant to my active clip.
@@ -1032,11 +1145,11 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
               </label>
             </div>
 
-            <div className="pt-3 flex justify-end gap-2 border-t border-neutral-800">
+            <div className="pt-3 flex justify-end gap-2 border-t border-white/[0.08]">
               <button
                 type="button"
                 onClick={() => setIsPromoteModalOpen(false)}
-                className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white bg-neutral-800 rounded-lg"
+                className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] rounded-lg"
               >
                 Cancel
               </button>
@@ -1044,7 +1157,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                 type="button"
                 onClick={handlePromoteWinner}
                 disabled={!confirmPromotionCheck || isSubmitting}
-                className="px-4 py-1.5 text-xs font-medium bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white rounded-lg transition"
+                className="px-4 py-1.5 text-xs font-medium bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-lg transition shadow-md shadow-violet-950/40"
               >
                 Promote Winner
               </button>

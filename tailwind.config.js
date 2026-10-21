@@ -52,6 +52,24 @@ export default {
         cream: 'var(--cream)',
         forest: 'var(--forest)',
         'vireo-green': 'var(--vireo-green)',
+        vc: {
+          canvas: 'var(--vc-canvas)',
+          surface1: 'var(--vc-surface-1)',
+          surface2: 'var(--vc-surface-2)',
+          surface3: 'var(--vc-surface-3)',
+          border: 'var(--vc-border)',
+          'border-strong': 'var(--vc-border-strong)',
+          'text-primary': 'var(--vc-text-primary)',
+          'text-secondary': 'var(--vc-text-secondary)',
+          'text-muted': 'var(--vc-text-muted)',
+          ai: 'var(--vc-accent-ai)',
+          'ai-hover': 'var(--vc-accent-ai-hover)',
+          success: 'var(--vc-success)',
+          warning: 'var(--vc-warning)',
+          destructive: 'var(--vc-destructive)',
+          action: 'var(--vc-action-primary)',
+          'action-foreground': 'var(--vc-action-primary-text)',
+        },
       },
       boxShadow: {
         soft: 'var(--shadow-soft)',
@@ -62,7 +80,7 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        display: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+        display: ['Sora', 'Inter', 'ui-sans-serif', 'sans-serif'],
       },
       borderRadius: {
         '2xl': '1rem',

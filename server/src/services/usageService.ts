@@ -38,12 +38,31 @@ export function getUtcBillingResetDate(): string {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString();
 }
 
+const DEFAULT_UNLIMITED_EMAILS = ['vertexdigitals07@gmail.com', 'moizsh786786@gmail.com'];
+
 export function isUserUnlimited(email?: string): boolean {
-  if (!email || !config.devUnlimitedUserEmail) return false;
-  return email.trim().toLowerCase() === config.devUnlimitedUserEmail.trim().toLowerCase();
+  if (!email) return false;
+  const cleanEmail = email.trim().toLowerCase();
+  if (DEFAULT_UNLIMITED_EMAILS.includes(cleanEmail)) return true;
+  if (!config.devUnlimitedUserEmail) return false;
+  const configuredEmails = config.devUnlimitedUserEmail
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return configuredEmails.includes(cleanEmail);
 }
 
+let lastOrphanCleanupAt = 0;
+const ORPHAN_CLEANUP_INTERVAL_MS = 60 * 1000;
+
 export class UsageService {
+  /**
+   * Resets the orphan cleanup throttle timestamp (for deterministic unit testing).
+   */
+  static resetOrphanCleanupThrottle(): void {
+    lastOrphanCleanupAt = 0;
+  }
+
   static async reserveQuota(
     userId: string,
     projectId: string,
@@ -51,6 +70,13 @@ export class UsageService {
     estimatedMinutes = 3,
     userEmail?: string
   ): Promise<UsageQuotaReservationResult> {
+    // Throttled self-healing check: clean up reservations orphaned >30m before evaluating quota
+    const now = Date.now();
+    if (now - lastOrphanCleanupAt > ORPHAN_CLEANUP_INTERVAL_MS) {
+      lastOrphanCleanupAt = now;
+      await cleanupUsage(30).catch(() => 0);
+    }
+
     const isUnlimited = isUserUnlimited(userEmail);
     // Dynamically resolve entitlement if not unlimited developer
     let entitlementLimit: number | undefined;
@@ -116,23 +142,31 @@ export class UsageService {
 
     let effectiveLimit = config.defaultMonthlyQuotaMinutes;
     let effectivePlanTier = 'free';
+    let resolvedFromSubscription = false;
 
     if (isUnlimited) {
       effectiveLimit = 999999;
       effectivePlanTier = 'developer';
+      resolvedFromSubscription = true;
     } else {
       try {
         const { SubscriptionService } = await import('./subscriptionService.js');
         const entitlement = await SubscriptionService.resolveUserEntitlement(userId, userEmail);
         effectiveLimit = entitlement.monthly_minutes;
         effectivePlanTier = entitlement.plan_id;
+        resolvedFromSubscription = true;
       } catch {
         effectiveLimit = balance?.monthly_minutes_limit ?? config.defaultMonthlyQuotaMinutes;
         effectivePlanTier = balance?.plan_tier ?? 'free';
       }
     }
 
-    const limit = isUnlimited ? 999999 : (balance?.monthly_minutes_limit ?? effectiveLimit);
+    const limit = isUnlimited
+      ? 999999
+      : resolvedFromSubscription
+      ? Math.max(effectiveLimit, balance?.monthly_minutes_limit ?? 0)
+      : (balance?.monthly_minutes_limit ?? effectiveLimit);
+
     const settled = balance?.settled_minutes ?? 0;
     const reserved = balance?.reserved_minutes ?? 0;
     const total = Math.round((settled + reserved) * 100) / 100;

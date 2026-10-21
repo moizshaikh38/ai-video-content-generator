@@ -27,6 +27,8 @@ import {
   BillingInterval,
 } from '../services/billingService';
 import { getPlanPriceDisplay, isProviderIntervalSupported } from '../utils/pricingUtils';
+import { openRazorpayCheckout } from '../services/razorpayService';
+import { RazorpayCheckoutButton } from '../components/RazorpayCheckoutButton';
 
 export const BillingPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -130,6 +132,43 @@ export const BillingPage: React.FC = () => {
 
     try {
       setCheckoutLoading(planId);
+
+      // Razorpay Standard Web Checkout (Order-based flow with signature verification)
+      if (selectedProvider === 'razorpay') {
+        const targetPlan = plans.find((p) => p.id === planId);
+        const amountInPaise = Math.round((targetPlan?.inr_monthly_price || 999) * 100);
+        await openRazorpayCheckout({
+          amount: amountInPaise,
+          currency: 'INR',
+          name: 'VireoClip',
+          description: `${(targetPlan?.display_name || planId).toUpperCase()} Plan Subscription (${billingInterval})`,
+          notes: {
+            planId,
+            interval: billingInterval,
+          },
+          onSuccess: (verifyRes) => {
+            setNotice({
+              type: 'success',
+              message: `Payment successful! Order ID: ${verifyRes.order_id}, Payment ID: ${verifyRes.payment_id}. Signature verified via Razorpay HMAC-SHA256.`,
+            });
+            loadBillingData();
+          },
+          onError: (err) => {
+            setNotice({
+              type: 'error',
+              message: err.message || 'Razorpay checkout failed or was declined.',
+            });
+          },
+          onDismiss: () => {
+            setNotice({
+              type: 'info',
+              message: 'Razorpay checkout modal closed.',
+            });
+          },
+        });
+        return;
+      }
+
       const checkoutRes = await BillingService.createCheckout(planId, billingInterval, selectedProvider);
 
       if (checkoutRes.provider === 'paddle') {
@@ -139,28 +178,6 @@ export const BillingPage: React.FC = () => {
           setNotice({
             type: 'info',
             message: `Paddle transaction created (${checkoutRes.transactionId}). Redirecting to checkout...`,
-          });
-        }
-      } else if (checkoutRes.provider === 'razorpay') {
-        if ((window as any).Razorpay && checkoutRes.subscriptionId && checkoutRes.keyId) {
-          const rzp = new (window as any).Razorpay({
-            key: checkoutRes.keyId,
-            subscription_id: checkoutRes.subscriptionId,
-            name: 'VireoClip',
-            description: `${planId.toUpperCase()} Subscription`,
-            handler: function () {
-              setNotice({
-                type: 'success',
-                message: 'Razorpay payment authenticated! Processing webhook...',
-              });
-              loadBillingData();
-            },
-          });
-          rzp.open();
-        } else {
-          setNotice({
-            type: 'info',
-            message: `Razorpay test subscription initiated (${checkoutRes.subscriptionId}). Key: ${checkoutRes.keyId}`,
           });
         }
       } else if (checkoutRes.url) {
@@ -529,14 +546,14 @@ export const BillingPage: React.FC = () => {
                 spotlightColor={isPro ? 'rgba(46, 125, 82, 0.18)' : 'rgba(192, 98, 62, 0.1)'}
                 className={`p-6 bg-card border rounded-3xl flex flex-col justify-between transition-all relative ${
                   isCurrent
-                    ? 'border-clay/60 shadow-clay ring-1 ring-clay/20'
+                    ? 'border-clay/60 shadow-black/40 ring-1 ring-white/20'
                     : isPro
                     ? 'border-vireo-green/60 shadow-soft ring-1 ring-vireo-green/30'
                     : 'border-border/80'
                 }`}
               >
                 {isPro && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-vireo-green text-white text-[10px] font-bold flex items-center gap-1 shadow-sm">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-[#F4F6FB] text-[#0B0C0F] text-[10px] font-bold flex items-center gap-1 shadow-sm">
                     <Star className="size-3 fill-white" />
                     <span>RECOMMENDED</span>
                   </div>
@@ -635,6 +652,122 @@ export const BillingPage: React.FC = () => {
           })}
         </div>
       </div>
+
+      {/* Razorpay Standard Web Checkout Section */}
+      <SpotlightCard
+        spotlightColor="rgba(124, 58, 237, 0.14)"
+        className="p-6 bg-card border border-border/80 rounded-3xl space-y-5"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-base font-bold font-display text-foreground">
+                Razorpay Standard Web Checkout
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-violet-500/15 text-violet-400 border border-violet-500/30">
+                STANDARD MODAL FLOW
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                ACTIVE
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Direct checkout powered by Razorpay Standard Checkout SDK. Automatically triggers order generation, modal presentation, and backend HMAC-SHA256 signature verification.
+            </p>
+          </div>
+          <div className="text-right sm:text-right shrink-0">
+            <span className="text-[11px] font-mono text-muted-foreground bg-muted/60 px-2.5 py-1 rounded-lg border border-border/60">
+              Key: rzp_test_...HySy
+            </span>
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3 text-xs">
+          <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-border/60 space-y-1">
+            <div className="font-semibold text-foreground flex items-center gap-1.5">
+              <span className="size-5 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-[10px] font-mono font-bold">1</span>
+              <span>Backend Order API</span>
+            </div>
+            <p className="text-muted-foreground text-[11px]">
+              POST /api/create-order generates an authenticated Razorpay order ID.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-border/60 space-y-1">
+            <div className="font-semibold text-foreground flex items-center gap-1.5">
+              <span className="size-5 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-[10px] font-mono font-bold">2</span>
+              <span>Checkout.js Modal</span>
+            </div>
+            <p className="text-muted-foreground text-[11px]">
+              Native popup handles UPI, Cards, Netbanking and Test Mode cards securely.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-border/60 space-y-1">
+            <div className="font-semibold text-foreground flex items-center gap-1.5">
+              <span className="size-5 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-[10px] font-mono font-bold">3</span>
+              <span>HMAC-SHA256 Verification</span>
+            </div>
+            <p className="text-muted-foreground text-[11px]">
+              POST /api/verify-payment cryptographically validates Razorpay signatures.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          {/* ₹1 Quick Test Order */}
+          <RazorpayCheckoutButton
+            amountInPaise={100}
+            name="VireoClip Test"
+            description="Minimum amount ₹1 test transaction"
+            variant="ai"
+            size="sm"
+            onSuccess={(res) => {
+              setNotice({
+                type: 'success',
+                message: `₹1 Test Payment Verified! Order: ${res.order_id}, Payment ID: ${res.payment_id}`,
+              });
+            }}
+            onError={(err) => {
+              setNotice({
+                type: 'error',
+                message: `Payment test failed: ${err.message}`,
+              });
+            }}
+          >
+            <span className="flex items-center gap-1.5">
+              <CreditCard className="size-3.5" />
+              <span>Test ₹1 Payment (100 paise)</span>
+            </span>
+          </RazorpayCheckoutButton>
+
+          {/* ₹499 Creator Credits Test */}
+          <RazorpayCheckoutButton
+            amountInPaise={49900}
+            name="VireoClip Creator Credits"
+            description="500 Extra Processing Minutes"
+            variant="secondary"
+            size="sm"
+            onSuccess={(res) => {
+              setNotice({
+                type: 'success',
+                message: `Credits purchased! Order: ${res.order_id}, Payment ID: ${res.payment_id}`,
+              });
+            }}
+            onError={(err) => {
+              setNotice({
+                type: 'error',
+                message: `Credits payment failed: ${err.message}`,
+              });
+            }}
+          >
+            <span className="flex items-center gap-1.5">
+              <Sparkles className="size-3.5 text-violet-400" />
+              <span>Buy Extra Credits (₹499)</span>
+            </span>
+          </RazorpayCheckoutButton>
+        </div>
+      </SpotlightCard>
 
       {/* Billing Invoices History */}
       <div className="space-y-4 pt-4">

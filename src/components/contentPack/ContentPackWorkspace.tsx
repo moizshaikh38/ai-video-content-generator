@@ -348,7 +348,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
               <Button
                 variant="outline"
                 size="sm"
-                className="text-xs border-sage/60 bg-sage/10 text-sage hover:bg-sage hover:text-white"
+                className="text-xs border-sage/60 bg-sage/10 text-sage hover:bg-[#F4F6FB] hover:text-[#0B0C0F]"
                 onClick={() => handleOpenPublish(selectedPlatform !== 'all' ? selectedPlatform : 'shorts')}
               >
                 <Share2 className="size-3.5 mr-1" />
@@ -493,7 +493,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
               variant="clay"
               onClick={handleGenerate}
               disabled={generating}
-              className="text-xs px-5 py-2 shadow-clay"
+              className="text-xs px-5 py-2 shadow-black/40"
             >
               <Sparkles className={`size-4 mr-2 ${generating ? 'animate-spin' : ''}`} />
               {generating ? 'Crafting Content Pack...' : 'Generate Content Pack Now'}

@@ -89,13 +89,16 @@ class ClipRenderService {
   }
 
   /**
-   * Phase 12: Fetches full editor bundle (metadata, editor config, caption timing mode, presets, preview)
+   * Phase 12: Fetches full editor bundle (metadata, editor config, caption timing mode, presets, clean source, rendered preview, editorProject)
    */
   async getClipEditorData(clipId: string): Promise<{
     clip: RenderedClip;
     timingMode: string;
     availablePresets: string[];
     previewUrl?: string;
+    cleanSourceUrl?: string;
+    renderedPreviewUrl?: string;
+    editorProject?: any;
   }> {
     return backendRequest(`/clips/${clipId}/editor`);
   }
@@ -127,6 +130,45 @@ class ClipRenderService {
   /**
    * Phase 12: Fetches normalized preview caption cues
    */
+  /**
+   * Phase: Timeline Pro — fetches cached audio peaks for an uploaded audio asset.
+   */
+  async getAssetWaveform(assetId: string): Promise<{
+    peaks: number[]; duration: number; resolution: number; version: number; cached?: boolean;
+  }> {
+    return backendRequest(`/audio-assets/${assetId}/waveform`);
+  }
+
+  /**
+   * Phase: Timeline Pro — fetches a cached base64 sprite-sheet filmstrip for the clip.
+   */
+  async getClipThumbnails(clipId: string, count?: number): Promise<{
+    dataUrl: string;
+    frameCount: number;
+    frameWidth: number;
+    frameHeight: number;
+    duration: number;
+    version: number;
+    cached?: boolean;
+  }> {
+    const q = count ? `?count=${count}` : '';
+    return backendRequest(`/clips/${clipId}/thumbnails${q}`);
+  }
+
+  /**
+   * Phase: Timeline Pro — fetches cached audio peaks for the clip's source window.
+   * Peaks are quantized 0..100 (see server/src/shared/waveformPeaks.ts).
+   */
+  async getClipWaveform(clipId: string): Promise<{
+    peaks: number[];
+    duration: number;
+    resolution: number;
+    version: number;
+    cached?: boolean;
+  }> {
+    return backendRequest(`/clips/${clipId}/waveform`);
+  }
+
   async getClipCaptions(clipId: string): Promise<{
     timingMode: string;
     cues: Array<{

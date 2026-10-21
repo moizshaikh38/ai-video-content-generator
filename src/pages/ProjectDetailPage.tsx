@@ -22,11 +22,9 @@ import {
   SlidersHorizontal,
   RotateCcw,
   Film,
-  Lock,
-  Play,
-  Hash,
-  Image as ImageIcon,
   Send,
+  Search,
+  X,
 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -442,26 +440,26 @@ export const ProjectDetailPage: React.FC = () => {
       ) : (
         /* Video Uploaded / Processing / Transcribed State */
         <div className="space-y-6">
-          {/* Main Video / Processing Card */}
+          {/* Main Single Video / Processing Tracker Card */}
           {!['transcribed', 'completed', 'complete'].includes(statusVal) && (
-            <div className="card-soft p-6 md:p-8 space-y-8 bg-card border-border/80 shadow-soft">
+            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 p-6 md:p-8 space-y-8 shadow-2xl backdrop-blur-xl text-white">
               {/* Card Header with Estimated Time */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="font-display text-2xl font-semibold text-foreground tracking-tight">
+                  <h2 className="font-['Sora',sans-serif] text-xl sm:text-2xl font-bold text-white tracking-tight">
                     Processing Your Video
                   </h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 text-xs sm:text-sm text-slate-400">
                     This usually takes 2–5 minutes. You can leave this page — we'll notify you when it's ready.
                   </p>
                 </div>
-                <div className="inline-flex items-center gap-3 rounded-2xl border border-sage/30 bg-sage/10 px-4 py-2.5 shrink-0 self-start sm:self-auto">
-                  <div className="grid size-9 place-items-center rounded-full bg-sage/20 text-vireo-green">
+                <div className="inline-flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2 shrink-0 self-start sm:self-auto backdrop-blur-sm">
+                  <div className="grid size-8 place-items-center rounded-lg bg-[#8B5CF6]/20 text-[#A78BFA]">
                     <Clock className="size-4" />
                   </div>
                   <div className="text-left">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Estimated time remaining</p>
-                    <p className="text-base font-bold font-display text-foreground leading-tight">~2 minutes</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Estimated remaining</p>
+                    <p className="text-sm font-bold font-mono text-white leading-tight">~2 minutes</p>
                   </div>
                 </div>
               </div>
@@ -473,7 +471,7 @@ export const ProjectDetailPage: React.FC = () => {
                     { key: 'uploaded', label: 'Uploaded', desc: 'Completed', icon: CircleCheck },
                     { key: 'processing', label: 'Processing', desc: 'Analyzing video, extracting audio…', icon: Video },
                     { key: 'transcribing', label: 'Transcribing', desc: 'Converting speech to text…', icon: Volume2 },
-                    { key: 'generating', label: 'Generating', desc: 'Creating chapters, hooks and assets…', icon: Sparkles },
+                    { key: 'generating', label: 'Generating', desc: 'Detecting viral hooks & clips…', icon: Sparkles },
                     { key: 'complete', label: 'Complete', desc: 'Your content will be ready soon!', icon: CircleCheck },
                   ].map((step, index) => {
                     const current = ['uploading', 'uploaded', 'queued', 'processing', 'transcribing', 'analyzing', 'generating', 'transcribed', 'complete', 'completed'].indexOf(statusVal);
@@ -486,20 +484,20 @@ export const ProjectDetailPage: React.FC = () => {
                         <span
                           className={`grid size-11 place-items-center rounded-full border-2 transition-all ${
                             done
-                              ? 'border-vireo-green bg-vireo-green text-white shadow-sm'
+                              ? 'border-emerald-400/80 bg-emerald-500/20 text-emerald-300 shadow-sm'
                               : active
-                              ? 'border-clay bg-clay text-white shadow-sm ring-4 ring-clay/20 animate-pulse'
-                              : 'border-border bg-[#f8f9f8] text-muted-foreground'
+                              ? 'border-[#8B5CF6] bg-[#8B5CF6]/20 text-[#A78BFA] shadow-sm ring-4 ring-[#8B5CF6]/30 animate-pulse'
+                              : 'border-white/10 bg-white/[0.03] text-slate-500'
                           }`}
                         >
                           <step.icon className="size-5" />
                         </span>
-                        <p className="mt-3 text-sm font-semibold text-foreground font-display">{step.label}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                        <p className="mt-3 text-xs sm:text-sm font-semibold text-white font-['Sora',sans-serif]">{step.label}</p>
+                        <p className="mt-0.5 text-xs text-slate-400 line-clamp-2 leading-relaxed">
                           {done ? (index === 0 ? 'Completed' : 'Finished') : active ? step.desc : 'Pending'}
                         </p>
                         {(done || active) && (
-                          <span className="mt-1 text-[11px] font-mono text-muted-foreground/80">
+                          <span className="mt-1 text-[11px] font-mono text-slate-500">
                             {new Date(project.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         )}
@@ -509,35 +507,46 @@ export const ProjectDetailPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Action Error if any */}
+              {/* Action Error if any - with Retry button directly beside message */}
               {actionError && (
-                <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/30 flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-2.5">
-                    <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
-                    <div className="text-xs sm:text-sm">
-                      <span className="font-semibold text-destructive">Processing notice:</span>{' '}
-                      <span className="text-foreground">{actionError}</span>
+                <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <AlertCircle className="size-4 text-rose-400 shrink-0" />
+                    <div className="text-xs sm:text-sm text-rose-300">
+                      <span className="font-semibold text-rose-200">Processing notice:</span>{' '}
+                      <span>{actionError}</span>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setActionError(null)}
-                    className="text-xs text-muted-foreground hover:text-foreground font-medium underline shrink-0"
-                  >
-                    Dismiss
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={isRetrying}
+                      onClick={handleRetryProcessing}
+                      className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 font-semibold text-xs border border-rose-500/30 transition-all cursor-pointer flex items-center gap-1"
+                    >
+                      {isRetrying && <Loader2 className="size-3 animate-spin" />}
+                      Retry
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActionError(null)}
+                      className="text-xs text-slate-400 hover:text-white font-medium underline"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                 </div>
               )}
 
               {/* Manual trigger button if uploaded and idle */}
               {isUploaded && !isProcessing(statusVal) && (
-                <div className="flex items-center justify-between p-4 rounded-xl border border-clay/30 bg-clay/5">
-                  <div className="text-xs sm:text-sm text-foreground">
-                    <span className="font-semibold">Ready to start processing:</span> Audio extraction, transcription, and AI content kits are queued.
+                <div className="flex items-center justify-between p-4 rounded-xl border border-white/10 bg-white/[0.04]">
+                  <div className="text-xs sm:text-sm text-slate-300">
+                    <span className="font-semibold text-white">Ready to start processing:</span> Audio extraction, transcription, and AI content kits are queued.
                   </div>
                   <Button
                     size="sm"
-                    variant="clay"
+                    variant="primary"
                     disabled={isRetrying}
                     onClick={handleRetryProcessing}
                     className="shrink-0"
@@ -554,254 +563,37 @@ export const ProjectDetailPage: React.FC = () => {
             </div>
           )}
 
-          {/* Live Activity & Locked Placeholders Grid */}
-          {!['transcribed', 'completed', 'complete'].includes(statusVal) && (
-            <div className="grid gap-6 lg:grid-cols-12">
-              {/* Left Column: Live Activity */}
-              <section className="card-soft p-6 lg:col-span-5 bg-card border-border/80 shadow-soft space-y-5">
-                <div className="flex items-center justify-between pb-3 border-b border-border/70">
-                  <h3 className="font-display text-lg font-semibold text-foreground">Live Activity</h3>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-sage/10 text-vireo-green border border-sage/30">
-                    <span className="size-1.5 rounded-full bg-vireo-green animate-pulse" />
-                    Processing
-                  </span>
-                </div>
-
-                <div className="space-y-5 relative">
-                  {/* Item 1: Upload */}
-                  <div className="flex items-start gap-3.5">
-                    <span className="grid size-8 place-items-center rounded-full bg-sage/20 text-vireo-green shrink-0 mt-0.5">
-                      <Check className="size-4 stroke-[2.5]" />
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground">Video uploaded successfully</p>
-                        <span className="text-xs text-muted-foreground font-mono shrink-0">
-                          {new Date(project.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">
-                        {project.source_url ? project.source_url.split('/').pop() : 'video.mp4'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Item 2: Processing */}
-                  <div className="flex items-start gap-3.5">
-                    <span className="grid size-8 place-items-center rounded-full bg-clay/15 text-clay shrink-0 mt-0.5">
-                      {isProcessing(statusVal) ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        <Check className="size-4 stroke-[2.5]" />
-                      )}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground">Processing video</p>
-                        <span className="text-xs text-muted-foreground font-mono shrink-0">
-                          {new Date(project.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                      <ul className="text-xs text-muted-foreground space-y-0.5 mt-1 list-disc list-inside">
-                        <li>Analyzing video quality</li>
-                        <li>Extracting audio tracks</li>
-                        <li>Preparing for transcription…</li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  {/* Item 3: Transcribing */}
-                  <div className="flex items-start gap-3.5">
-                    <span className={`grid size-8 place-items-center rounded-full shrink-0 mt-0.5 ${
-                      statusVal === 'transcribing' ? 'bg-clay/15 text-clay' : 'bg-muted text-muted-foreground'
-                    }`}>
-                      {statusVal === 'transcribing' ? <Loader2 className="size-4 animate-spin" /> : <Clock className="size-4" />}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground">Transcribing audio</p>
-                        <span className="text-xs text-muted-foreground font-mono shrink-0">
-                          {statusVal === 'transcribing' ? 'In progress' : 'Pending'}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Converting speech to text with high accuracy…
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Item 4: Generating */}
-                  <div className="flex items-start gap-3.5">
-                    <span className={`grid size-8 place-items-center rounded-full shrink-0 mt-0.5 ${
-                      statusVal === 'generating' ? 'bg-clay/15 text-clay' : 'bg-muted text-muted-foreground'
-                    }`}>
-                      {statusVal === 'generating' ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground">Generating content</p>
-                        <span className="text-xs text-muted-foreground font-mono shrink-0">
-                          {statusVal === 'generating' ? 'In progress' : 'Pending'}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Creating chapters, key moments, titles…
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Item 5: Complete */}
-                  <div className="flex items-start gap-3.5">
-                    <span className="grid size-8 place-items-center rounded-full bg-muted text-muted-foreground shrink-0 mt-0.5">
-                      <CircleCheck className="size-4" />
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground">Complete</p>
-                        <span className="text-xs text-muted-foreground font-mono shrink-0">Pending</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Your video and assets will be ready soon!
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              {/* Right Column: Locked Placeholders */}
-              <div className="space-y-6 lg:col-span-7">
-                {/* Locked Transcript Card */}
-                <section className="card-soft p-6 bg-card border-border/80 shadow-soft space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-border/70">
-                    <div className="flex items-center gap-2">
-                      <FileText className="size-4 text-muted-foreground" />
-                      <h3 className="font-display text-base font-semibold text-foreground">Transcript</h3>
-                    </div>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
-                      <Lock className="size-3" />
-                      Locked
-                    </span>
-                  </div>
-
-                  <div className="relative rounded-xl border border-border/70 bg-[#fafbf9] p-6 text-center overflow-hidden">
-                    {/* Background blurred skeleton */}
-                    <div className="space-y-2.5 opacity-25 select-none pointer-events-none mb-4">
-                      <div className="h-3 w-4/5 rounded bg-muted-foreground/30 mx-auto" />
-                      <div className="h-3 w-full rounded bg-muted-foreground/30" />
-                      <div className="h-3 w-2/3 rounded bg-muted-foreground/30 mx-auto" />
-                    </div>
-
-                    <div className="relative z-10 flex flex-col items-center">
-                      <div className="grid size-10 place-items-center rounded-full bg-white shadow-soft border border-border text-muted-foreground mb-2">
-                        <Lock className="size-4 text-clay" />
-                      </div>
-                      <p className="text-sm font-semibold text-foreground font-display">Transcript will be available soon</p>
-                      <p className="text-xs text-muted-foreground mt-0.5 max-w-sm">
-                        We're transcribing your video with high accuracy. This will be ready in a few minutes.
-                      </p>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Locked Generated Content Card */}
-                <section className="card-soft p-6 bg-card border-border/80 shadow-soft space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-border/70">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="size-4 text-clay" />
-                      <h3 className="font-display text-base font-semibold text-foreground">Generated Content</h3>
-                    </div>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
-                      <Lock className="size-3" />
-                      Locked
-                    </span>
-                  </div>
-
-                  {/* 4 Feature Subcards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="rounded-xl border border-border/80 bg-white p-3.5 space-y-1">
-                      <div className="flex items-center gap-2 text-foreground font-medium text-xs">
-                        <Play className="size-3.5 text-muted-foreground" />
-                        <span>Social Clips</span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground leading-snug">
-                        Short-form videos for all platforms
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-border/80 bg-white p-3.5 space-y-1">
-                      <div className="flex items-center gap-2 text-foreground font-medium text-xs">
-                        <FileText className="size-3.5 text-muted-foreground" />
-                        <span>Titles & Descriptions</span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground leading-snug">
-                        SEO-optimized titles and descriptions
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-border/80 bg-white p-3.5 space-y-1">
-                      <div className="flex items-center gap-2 text-foreground font-medium text-xs">
-                        <Hash className="size-3.5 text-muted-foreground" />
-                        <span>Hook Suggestions</span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground leading-snug">
-                        High-performing opening hooks
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-border/80 bg-white p-3.5 space-y-1">
-                      <div className="flex items-center gap-2 text-foreground font-medium text-xs">
-                        <ImageIcon className="size-3.5 text-muted-foreground" />
-                        <span>Thumbnails</span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground leading-snug">
-                        AI-generated thumbnail options
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Lock footer note */}
-                  <div className="flex items-center justify-center gap-2 pt-2 text-center">
-                    <Lock className="size-3 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">
-                      Generated content will be available soon as your video finishes processing.
-                    </span>
-                  </div>
-                </section>
-              </div>
-            </div>
-          )}
-
-          {/* Phase 10: Primary Workspace Navigation (Clips / Content Kit / Transcript) */}
+          {/* Primary Workspace Navigation (Clips / Content Kit / Transcript) */}
           {transcript && (
             <div className="space-y-6 pt-2">
-              <div className="flex border-b border-border/80 gap-6">
+              <div className="flex border-b border-white/[0.08] gap-6">
                 <button
                   onClick={() => setWorkspaceTab('clips')}
-                  className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
+                  className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
                     workspaceTab === 'clips'
-                      ? 'border-clay text-foreground font-display'
-                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                      ? 'border-[#8B5CF6] text-white'
+                      : 'border-transparent text-slate-400 hover:text-white'
                   }`}
                 >
-                  <Film className="size-4 text-clay" />
+                  <Film className="size-4 text-[#A78BFA]" />
                   <span>Clips</span>
-                  <span className="rounded-full bg-clay/10 text-clay text-[11px] font-mono px-2 py-0.5 font-bold">
+                  <span className="rounded-full bg-[#8B5CF6]/20 text-[#C4B5FD] border border-[#8B5CF6]/30 text-[11px] font-mono px-2 py-0.5 font-bold">
                     Primary
                   </span>
                 </button>
 
                 <button
                   onClick={() => setWorkspaceTab('content')}
-                  className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
+                  className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
                     workspaceTab === 'content'
-                      ? 'border-clay text-foreground font-display'
-                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                      ? 'border-[#8B5CF6] text-white'
+                      : 'border-transparent text-slate-400 hover:text-white'
                   }`}
                 >
-                  <Sparkles className="size-4 text-sage" />
+                  <Sparkles className="size-4 text-emerald-400" />
                   <span>Content Kit</span>
                   {hasOutputs && (
-                    <span className="rounded-full bg-sage/10 text-sage text-[11px] font-mono px-2 py-0.5 font-bold">
+                    <span className="rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-mono px-2 py-0.5 font-bold">
                       {outputs.length}
                     </span>
                   )}
@@ -809,13 +601,13 @@ export const ProjectDetailPage: React.FC = () => {
 
                 <button
                   onClick={() => setWorkspaceTab('transcript')}
-                  className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
+                  className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
                     workspaceTab === 'transcript'
-                      ? 'border-clay text-foreground font-display'
-                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                      ? 'border-[#8B5CF6] text-white'
+                      : 'border-transparent text-slate-400 hover:text-white'
                   }`}
                 >
-                  <FileText className="size-4 text-muted-foreground" />
+                  <FileText className="size-4 text-slate-400" />
                   <span>Transcript</span>
                 </button>
               </div>
@@ -874,7 +666,7 @@ export const ProjectDetailPage: React.FC = () => {
                     size="sm"
                     onClick={() => handleGenerateContent()}
                     disabled={isGenerating}
-                    className="shadow-clay"
+                    className="shadow-black/40"
                   >
                     {isGenerating ? (
                       <>
@@ -1042,6 +834,7 @@ export const ProjectDetailPage: React.FC = () => {
 function TranscriptSection({ transcript }: { transcript: Transcript }) {
   const [copied, setCopied] = useState(false);
   const [showSegments, setShowSegments] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleCopyAll = () => {
     navigator.clipboard.writeText(transcript.transcript_text);
@@ -1055,27 +848,49 @@ function TranscriptSection({ transcript }: { transcript: Transcript }) {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const query = searchQuery.trim().toLowerCase();
+
+  const filteredSegments = (transcript.segments || []).filter((seg) => {
+    if (!query) return true;
+    return seg.text.toLowerCase().includes(query);
+  });
+
+  const highlightMatch = (text: string, q: string) => {
+    if (!q) return text;
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+    return parts.map((part, i) =>
+      part.toLowerCase() === q.toLowerCase() ? (
+        <mark key={i} className="bg-[#8B5CF6]/40 text-[#C4B5FD] font-semibold px-0.5 rounded">
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
+  };
+
   return (
-    <div className="card-soft p-6 md:p-8 space-y-6 bg-card border-border/80">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/60">
+    <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 p-5 sm:p-7 space-y-6 shadow-xl backdrop-blur-md text-white">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-clay/15 text-clay flex items-center justify-center shrink-0">
+          <div className="size-10 rounded-xl bg-[#8B5CF6]/15 text-[#A78BFA] border border-[#8B5CF6]/25 flex items-center justify-center shrink-0">
             <Volume2 className="size-5" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold font-display text-foreground">
+            <h3 className="text-base sm:text-lg font-bold font-['Sora',sans-serif] text-white">
               Video Transcript
             </h3>
-            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-0.5">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 mt-0.5">
               <span className="flex items-center gap-1">
-                <Globe className="size-3" />
+                <Globe className="size-3 text-slate-500" />
                 <span className="uppercase">{transcript.language || 'en'}</span>
               </span>
               {transcript.duration_seconds !== null && (
                 <>
                   <span>•</span>
                   <span className="flex items-center gap-1">
-                    <Clock className="size-3" />
+                    <Clock className="size-3 text-slate-500" />
                     <span>{formatTimestamp(transcript.duration_seconds)}</span>
                   </span>
                 </>
@@ -1086,12 +901,35 @@ function TranscriptSection({ transcript }: { transcript: Transcript }) {
                   <span>{transcript.segments.length} segments</span>
                 </>
               )}
-              <span>•</span><span>{transcript.transcript_text.trim().split(/\s+/).filter(Boolean).length} words</span>
+              <span>•</span>
+              <span>{transcript.transcript_text.trim().split(/\s+/).filter(Boolean).length} words</span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Reactive Keyword Search Input */}
+          <div className="relative">
+            <Search className="size-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search transcript…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 pl-8 pr-7 text-xs rounded-lg bg-white/[0.05] border border-white/[0.1] text-white placeholder:text-slate-500 focus:outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10 w-36 sm:w-48 transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
+                aria-label="Clear search"
+              >
+                <X className="size-3" />
+              </button>
+            )}
+          </div>
+
           <Button
             size="sm"
             variant="outline"
@@ -1100,13 +938,13 @@ function TranscriptSection({ transcript }: { transcript: Transcript }) {
           >
             {copied ? (
               <>
-                <Check className="size-3.5 text-sage mr-1.5" />
+                <Check className="size-3.5 text-emerald-400 mr-1.5" />
                 Copied
               </>
             ) : (
               <>
                 <Copy className="size-3.5 mr-1.5" />
-                Copy Full Transcript
+                Copy Transcript
               </>
             )}
           </Button>
@@ -1134,28 +972,64 @@ function TranscriptSection({ transcript }: { transcript: Transcript }) {
         </div>
       </div>
 
+      {/* Search results banner if search is active */}
+      {query && (
+        <div className="flex items-center justify-between text-xs text-slate-400 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-1.5 font-mono">
+          <span>
+            {filteredSegments.length === 0
+              ? `No segments match "${searchQuery}"`
+              : `Found ${filteredSegments.length} matching ${
+                  filteredSegments.length === 1 ? 'segment' : 'segments'
+                }`}
+          </span>
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            className="text-[#A78BFA] hover:text-white underline cursor-pointer"
+          >
+            Reset search
+          </button>
+        </div>
+      )}
+
       {/* Timestamped Segments */}
       {showSegments && transcript.segments && transcript.segments.length > 0 ? (
-        <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
-          {transcript.segments.map((seg, idx) => (
-            <div
-              key={idx}
-              className="flex items-start gap-3 p-3 rounded-xl bg-cream/40 border border-border/40 hover:bg-cream/70 transition-colors"
+        filteredSegments.length > 0 ? (
+          <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+            {filteredSegments.map((seg, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors"
+              >
+                <span className="font-mono text-xs font-semibold text-[#22D3EE] px-2 py-0.5 rounded-md bg-[#22D3EE]/10 border border-[#22D3EE]/25 shrink-0 select-all">
+                  {formatTimestamp(seg.start)}
+                </span>
+                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed flex-1">
+                  {highlightMatch(seg.text, query)}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-10 text-center rounded-xl border border-white/[0.06] bg-white/[0.02] space-y-2">
+            <Search className="size-6 text-slate-500 mx-auto" />
+            <p className="text-xs text-slate-400">
+              No transcript segments found matching "{searchQuery}".
+            </p>
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="text-xs font-semibold text-[#A78BFA] hover:underline cursor-pointer"
             >
-              <span className="font-mono text-xs font-semibold text-clay px-2 py-0.5 rounded-md bg-clay/10 shrink-0 select-all">
-                {formatTimestamp(seg.start)}
-              </span>
-              <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed flex-1">
-                {seg.text}
-              </p>
-            </div>
-          ))}
-        </div>
+              Clear search
+            </button>
+          </div>
+        )
       ) : (
         /* Full text fallback */
-        <div className="rounded-2xl bg-cream/30 p-4 border border-border/60 max-h-80 overflow-y-auto">
-          <p className="text-xs sm:text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
-            {transcript.transcript_text}
+        <div className="rounded-xl bg-white/[0.03] p-4 border border-white/[0.06] max-h-80 overflow-y-auto">
+          <p className="text-xs sm:text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">
+            {highlightMatch(transcript.transcript_text, query)}
           </p>
         </div>
       )}
@@ -1229,7 +1103,7 @@ function Workspace({
                 onClick={() => setActiveTab(tab.key)}
                 className={`rounded-xl px-4 py-2.5 text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
                   isActive
-                    ? 'bg-clay text-clay-foreground shadow-clay'
+                    ? 'bg-clay text-clay-foreground shadow-black/40'
                     : 'text-muted-foreground hover:text-foreground hover:bg-cream/60'
                 }`}
               >

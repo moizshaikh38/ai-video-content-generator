@@ -22,6 +22,7 @@ export class GlossaryService {
    * Default brand tokens protected across all projects.
    */
   public static readonly GLOBAL_BRAND_TOKENS = [
+    'VireoClip',
     'Vireo',
     'OpenAI',
     'ChatGPT',

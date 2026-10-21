@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ABStudioService } from '../services/abStudioService.js';
+import { ViralCloneService } from '../services/viralCloneService.js';
 import { AppError } from '../types/index.js';
 
 function getAuthUser(req: Request): string {
@@ -171,5 +172,17 @@ export class ABStudioController {
     const { csv_content, column_mapping } = req.body;
     const result = await ABStudioService.executeCsvImport(userId, id, csv_content, column_mapping);
     res.json({ success: true, data: result });
+  }
+
+  /**
+   * POST /api/ab-studio/generate-hook-variants
+   */
+  public static async generateHookVariants(req: Request, res: Response): Promise<void> {
+    const { topic } = req.body;
+    if (!topic || typeof topic !== 'string') {
+      throw new AppError('Topic string is required.', 400, 'BAD_REQUEST');
+    }
+    const variants = ViralCloneService.generateHookVariants(topic);
+    res.json({ success: true, data: variants });
   }
 }

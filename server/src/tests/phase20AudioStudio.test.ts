@@ -423,7 +423,7 @@ describe('Phase 20 — Vireo Audio + Voice Studio System Tests', () => {
 
       assert.ok(mixStatements.length >= 2);
       const amix = mixStatements[mixStatements.length - 1];
-      assert.ok(amix.includes('amix=inputs=2:duration=first:dropout_transition=2[mixed]'));
+      assert.ok(amix.includes('amix=inputs=2:duration=first:dropout_transition=2:normalize=0[mixed]'));
     });
 
     it('18. supports B-roll audio modes (muted, original, auto_duck)', () => {

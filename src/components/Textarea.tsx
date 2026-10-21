@@ -5,23 +5,25 @@ export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextArea
   label?: string;
   rightLabel?: React.ReactNode;
   error?: string;
+  helperText?: string;
 }
 
 export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, label, rightLabel, error, id, ...props }, ref) => {
+  ({ className, label, rightLabel, error, helperText, id, ...props }, ref) => {
     const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+    const errorId = inputId ? `${inputId}-error` : undefined;
 
     return (
       <div className="w-full space-y-1.5">
         {(label || rightLabel) && (
           <div className="flex items-center justify-between">
             {label && (
-              <label htmlFor={inputId} className="block text-sm font-semibold text-foreground">
+              <label htmlFor={inputId} className="block text-xs font-medium text-slate-300">
                 {label}
               </label>
             )}
             {rightLabel && (
-              <span className="text-xs text-muted-foreground font-mono">
+              <span className="text-xs text-slate-400 font-mono">
                 {rightLabel}
               </span>
             )}
@@ -29,15 +31,18 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         )}
         <textarea
           id={inputId}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error && errorId ? errorId : undefined}
           className={cn(
-            'flex min-h-[90px] w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground transition-colors',
-            error && 'border-destructive focus-visible:ring-destructive',
+            'flex min-h-[90px] w-full rounded-xl border border-white/[0.08] bg-[#0F1420]/80 px-3.5 py-2.5 text-sm text-[#F4F6FB] placeholder:text-slate-500 focus-visible:outline-none focus-visible:border-white/30 focus-visible:bg-[#151C2C] focus-visible:ring-2 focus-visible:ring-white/20 disabled:cursor-not-allowed disabled:opacity-50 transition-all',
+            error && 'border-rose-500/80 focus-visible:border-rose-500 focus-visible:ring-rose-500/20',
             className
           )}
           ref={ref}
           {...props}
         />
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p id={errorId} className="text-xs text-rose-400">{error}</p>}
+        {!error && helperText && <p className="text-xs text-slate-400">{helperText}</p>}
       </div>
     );
   }

@@ -127,6 +127,9 @@ export class ContentWorkflowService {
       if (targetState === 'READY_FOR_REVIEW') {
         return isClipReady || hasCreativeArtifact;
       }
+      if (targetState === 'AWAITING_APPROVAL' || targetState === 'APPROVED') {
+        return isClipReady && hasCreativeArtifact;
+      }
       if (targetState === 'PUBLISHED') {
         return isPublishingVerified;
       }
@@ -142,12 +145,13 @@ export class ContentWorkflowService {
 
   /**
    * Fetches upstream artifacts across existing collections for a given clip and project.
-   * Strictly non-destructive: read-only inspection.
+   * Strictly non-destructive: read-only inspection with parallelized queries.
    */
   static async resolveArtifacts(
     userId: string,
     projectId: string,
-    clipId?: string | null
+    clipId?: string | null,
+    preloadedBrandProfile?: any
   ): Promise<WorkflowArtifactSummary> {
     const db = await getMongoDb();
     const summary: WorkflowArtifactSummary = {
@@ -161,117 +165,74 @@ export class ContentWorkflowService {
       ab_experiment: null,
     };
 
-    if (clipId) {
-      // 1. Clip
-      const clip = await db.collection('clips').findOne({ id: clipId, user_id: userId });
-      if (clip) {
-        summary.clip = {
-          id: clip.id,
-          title: clip.title || 'Untitled Clip',
-          status: clip.status || clip.render_status || 'draft',
-          duration_seconds: clip.duration_seconds,
-          aspect_ratio: clip.aspect_ratio,
-        };
-      }
+    // Parallel brand profile promise
+    const brandPromise = preloadedBrandProfile !== undefined
+      ? Promise.resolve(preloadedBrandProfile)
+      : db.collection('brand_brain_profiles').findOne(
+          { user_id: userId, status: 'active' },
+          { sort: { version: -1 } }
+        );
 
-      // 2. Content Pack
-      const pack = await db.collection('content_packs').findOne({ clip_id: clipId, user_id: userId });
-      if (pack) {
-        const itemsCount = await db.collection('content_pack_items').countDocuments({ content_pack_id: pack.id });
-        const approvedCount = await db.collection('content_pack_items').countDocuments({ content_pack_id: pack.id, status: 'APPROVED' });
-        summary.content_pack = {
-          id: pack.id,
-          status: pack.status || 'DRAFT',
-          items_count: itemsCount,
-          approved_count: approvedCount,
+    if (!clipId) {
+      const brandProfile = await brandPromise;
+      if (brandProfile) {
+        summary.brand_brain = {
+          profile_id: brandProfile.id,
+          status: brandProfile.status,
+          version: brandProfile.version,
         };
       }
-
-      // 3. Hook Lab
-      const hookSession = await db.collection('hook_lab_sessions').findOne(
-        { clip_id: clipId, user_id: userId },
-        { sort: { created_at: -1 } }
-      );
-      if (hookSession) {
-        const candidatesCount = await db.collection('hook_candidates').countDocuments({ hook_lab_session_id: hookSession.id });
-        const selectedHook = await db.collection('hook_candidates').findOne({
-          hook_lab_session_id: hookSession.id,
-          status: { $in: ['APPLIED', 'APPROVED'] },
-        });
-        summary.hook_lab = {
-          id: hookSession.id,
-          status: hookSession.status || 'DRAFT',
-          candidates_count: candidatesCount,
-          selected_hook: selectedHook?.headline_text || selectedHook?.spoken_rewrite || null,
-        };
-      }
-
-      // 4. Thumbnail Lab
-      const thumbSession = await db.collection('thumbnail_lab_sessions').findOne(
-        { clip_id: clipId, user_id: userId },
-        { sort: { created_at: -1 } }
-      );
-      if (thumbSession) {
-        const conceptsCount = await db.collection('thumbnail_concepts').countDocuments({ thumbnail_session_id: thumbSession.id });
-        const approvedConcept = await db.collection('thumbnail_concepts').findOne({
-          thumbnail_session_id: thumbSession.id,
-          status: { $in: ['APPROVED', 'FAVORITED'] },
-        });
-        summary.thumbnail_lab = {
-          id: thumbSession.id,
-          status: thumbSession.status || 'DRAFT',
-          concepts_count: conceptsCount,
-          selected_concept_id: approvedConcept?.id || null,
-        };
-      }
-
-      // 5. Autopilot Run
-      const autoRun = await db.collection('autopilot_runs').findOne(
-        { clip_id: clipId, user_id: userId },
-        { sort: { created_at: -1 } }
-      );
-      if (autoRun) {
-        summary.autopilot = {
-          id: autoRun.id,
-          status: autoRun.status,
-          current_step: autoRun.current_step,
-        };
-      }
-
-      // 6. Publishing Post
-      const publishedPost = await db.collection('published_posts').findOne(
-        { clip_id: clipId, user_id: userId, status: 'published' },
-        { sort: { published_at: -1, created_at: -1 } }
-      );
-      if (publishedPost) {
-        summary.publishing = {
-          id: publishedPost.id,
-          provider: publishedPost.provider,
-          status: publishedPost.status,
-          published_at: publishedPost.published_at || publishedPost.created_at,
-          post_url: publishedPost.post_url,
-        };
-      }
-
-      // 7. A/B Experiment
-      const abExp = await db.collection('ab_experiments').findOne(
-        { clip_id: clipId, user_id: userId },
-        { sort: { created_at: -1 } }
-      );
-      if (abExp) {
-        summary.ab_experiment = {
-          id: abExp.id,
-          status: abExp.status,
-          test_type: abExp.test_type,
-        };
-      }
+      return summary;
     }
 
-    // 8. Brand Brain
-    const brandProfile = await db.collection('brand_brain_profiles').findOne(
-      { user_id: userId, status: 'active' },
-      { sort: { version: -1 } }
-    );
+    // Top-level clip queries all run concurrently via Promise.all
+    const [
+      clip,
+      pack,
+      hookSession,
+      thumbSession,
+      autoRun,
+      publishedPost,
+      abExp,
+      brandProfile,
+    ] = await Promise.all([
+      db.collection('clips').findOne({ id: clipId, user_id: userId }),
+      db.collection('content_packs').findOne({ clip_id: clipId, user_id: userId }),
+      db.collection('hook_lab_sessions').findOne(
+        { clip_id: clipId, user_id: userId },
+        { sort: { created_at: -1 } }
+      ),
+      db.collection('thumbnail_lab_sessions').findOne(
+        { clip_id: clipId, user_id: userId },
+        { sort: { created_at: -1 } }
+      ),
+      db.collection('autopilot_runs').findOne(
+        { clip_id: clipId, user_id: userId },
+        { sort: { created_at: -1 } }
+      ),
+      db.collection('published_posts').findOne(
+        { clip_id: clipId, user_id: userId, status: 'published' },
+        { sort: { published_at: -1, created_at: -1 } }
+      ),
+      db.collection('ab_experiments').findOne(
+        { clip_id: clipId, user_id: userId },
+        { sort: { created_at: -1 } }
+      ),
+      brandPromise,
+    ]);
+
+    // 1. Clip
+    if (clip) {
+      summary.clip = {
+        id: clip.id,
+        title: clip.title || 'Untitled Clip',
+        status: clip.status || clip.render_status || 'draft',
+        duration_seconds: clip.duration_seconds,
+        aspect_ratio: clip.aspect_ratio,
+      };
+    }
+
+    // 2. Brand Brain
     if (brandProfile) {
       summary.brand_brain = {
         profile_id: brandProfile.id,
@@ -280,29 +241,208 @@ export class ContentWorkflowService {
       };
     }
 
+    // 3. Autopilot Run
+    if (autoRun) {
+      summary.autopilot = {
+        id: autoRun.id,
+        status: autoRun.status,
+        current_step: autoRun.current_step,
+      };
+    }
+
+    // 4. Publishing Post
+    if (publishedPost) {
+      summary.publishing = {
+        id: publishedPost.id,
+        provider: publishedPost.provider,
+        status: publishedPost.status,
+        published_at: publishedPost.published_at || publishedPost.created_at,
+        post_url: publishedPost.post_url,
+      };
+    }
+
+    // 5. A/B Experiment
+    if (abExp) {
+      summary.ab_experiment = {
+        id: abExp.id,
+        status: abExp.status,
+        test_type: abExp.test_type,
+      };
+    }
+
+    // Parallel sub-queries for Pack items, Hook candidates, Thumbnail concepts
+    const subQueries: Promise<void>[] = [];
+
+    // Content Pack resolution (support embedded items array and content_pack_items collection)
+    if (pack) {
+      subQueries.push((async () => {
+        let inlineItemsCount = 0;
+        let inlineApprovedCount = 0;
+        if (Array.isArray(pack.items)) {
+          inlineItemsCount = pack.items.length;
+          inlineApprovedCount = pack.items.filter(
+            (item: any) => item?.status === 'APPROVED' || item?.approved === true
+          ).length;
+        }
+
+        const [dbItemsCount, dbApprovedCount] = await Promise.all([
+          db.collection('content_pack_items').countDocuments({ content_pack_id: pack.id }),
+          db.collection('content_pack_items').countDocuments({
+            content_pack_id: pack.id,
+            $or: [{ status: 'APPROVED' }, { approved: true }],
+          }),
+        ]);
+
+        summary.content_pack = {
+          id: pack.id,
+          status: pack.status || 'DRAFT',
+          items_count: Math.max(inlineItemsCount, dbItemsCount),
+          approved_count: Math.max(inlineApprovedCount, dbApprovedCount),
+        };
+      })());
+    }
+
+    // Hook Lab resolution (support hook_candidates session IDs and embedded candidates)
+    if (hookSession) {
+      subQueries.push((async () => {
+        const sessionFilter = {
+          $or: [{ hook_lab_session_id: hookSession.id }, { session_id: hookSession.id }],
+        };
+
+        const [dbCandidatesCount, selectedHook] = await Promise.all([
+          db.collection('hook_candidates').countDocuments(sessionFilter),
+          db.collection('hook_candidates').findOne({
+            ...sessionFilter,
+            status: { $in: ['APPLIED', 'APPROVED'] },
+          }),
+        ]);
+
+        let inlineCandidatesCount = 0;
+        let inlineSelectedHook: any = null;
+        if (Array.isArray(hookSession.candidates)) {
+          inlineCandidatesCount = hookSession.candidates.length;
+          inlineSelectedHook = hookSession.candidates.find(
+            (c: any) => ['APPLIED', 'APPROVED'].includes(c?.status) || c?.selected === true
+          );
+        }
+
+        const resolvedHookText =
+          selectedHook?.text ||
+          selectedHook?.headline_text ||
+          selectedHook?.spoken_rewrite ||
+          inlineSelectedHook?.text ||
+          inlineSelectedHook?.headline_text ||
+          inlineSelectedHook?.spoken_rewrite ||
+          null;
+
+        summary.hook_lab = {
+          id: hookSession.id,
+          status: hookSession.status || 'DRAFT',
+          candidates_count: Math.max(inlineCandidatesCount, dbCandidatesCount),
+          selected_hook: resolvedHookText,
+        };
+      })());
+    }
+
+    // Thumbnail Lab resolution (support thumbnail_concepts session IDs and embedded concepts)
+    if (thumbSession) {
+      subQueries.push((async () => {
+        const sessionFilter = {
+          $or: [{ thumbnail_session_id: thumbSession.id }, { session_id: thumbSession.id }],
+        };
+        const approvedFilter = {
+          $and: [
+            sessionFilter,
+            { $or: [{ status: { $in: ['APPROVED', 'FAVORITED'] } }, { approved: true }, { locked: true }] },
+          ],
+        };
+
+        const [dbConceptsCount, approvedConcept] = await Promise.all([
+          db.collection('thumbnail_concepts').countDocuments(sessionFilter),
+          db.collection('thumbnail_concepts').findOne(approvedFilter),
+        ]);
+
+        let inlineConceptsCount = 0;
+        let inlineApprovedConcept: any = null;
+        if (Array.isArray(thumbSession.concepts)) {
+          inlineConceptsCount = thumbSession.concepts.length;
+          inlineApprovedConcept = thumbSession.concepts.find(
+            (c: any) => ['APPROVED', 'FAVORITED'].includes(c?.status) || c?.approved === true || c?.locked === true
+          );
+        }
+
+        summary.thumbnail_lab = {
+          id: thumbSession.id,
+          status: thumbSession.status || 'DRAFT',
+          concepts_count: Math.max(inlineConceptsCount, dbConceptsCount),
+          selected_concept_id: approvedConcept?.id || inlineApprovedConcept?.id || null,
+        };
+      })());
+    }
+
+    if (subQueries.length > 0) {
+      await Promise.all(subQueries);
+    }
+
     return summary;
   }
 
   /**
    * Auto-initializes or synchronizes workflow tracking for clips that don't have
    * an explicit workflow record yet, ensuring existing creator clips appear in the dashboard.
+   * Also auto-advances existing workflows forward to PUBLISHED if verified published_posts exist.
    */
   static async syncWorkflowsForUserClips(userId: string): Promise<void> {
     const db = await getMongoDb();
-    const existingWorkflows = await db.collection('content_workflows').find({ user_id: userId }).toArray();
-    const linkedClipIds = new Set(existingWorkflows.map((w) => w.clip_id).filter(Boolean));
+    const [existingWorkflows, userClips, publishedPosts] = await Promise.all([
+      db.collection('content_workflows').find({ user_id: userId }).toArray(),
+      db.collection('clips').find({ user_id: userId }).limit(50).toArray(),
+      db.collection('published_posts').find({ user_id: userId, status: 'published' }).toArray(),
+    ]);
 
-    const userClips = await db.collection('clips').find({ user_id: userId }).limit(50).toArray();
+    const publishedClipMap = new Map<string, any>();
+    for (const post of publishedPosts) {
+      if (post.clip_id) {
+        publishedClipMap.set(post.clip_id, post);
+      }
+    }
+
+    // 1. Advance existing workflows if a verified published post now exists
+    for (const w of existingWorkflows) {
+      if (w.current_state !== 'PUBLISHED' && w.clip_id && publishedClipMap.has(w.clip_id)) {
+        const post = publishedClipMap.get(w.clip_id);
+        const now = new Date();
+        const auditEntry: WorkflowAuditEntry = {
+          id: crypto.randomUUID(),
+          from_state: w.current_state,
+          to_state: 'PUBLISHED',
+          actor_id: userId,
+          action: 'PUBLISH_VERIFIED',
+          notes: `Auto-advanced to PUBLISHED: verified published post on ${post.provider || 'platform'}`,
+          timestamp: now,
+        };
+
+        await db.collection('content_workflows').updateOne(
+          { id: w.id, user_id: userId, version: w.version },
+          {
+            $set: {
+              current_state: 'PUBLISHED',
+              version: (w.version || 1) + 1,
+              updated_at: now,
+            },
+            $push: { audit_trail: auditEntry as any },
+          }
+        );
+      }
+    }
+
+    // 2. Initialize workflows for clips without tracking
+    const linkedClipIds = new Set(existingWorkflows.map((w) => w.clip_id).filter(Boolean));
 
     for (const clip of userClips) {
       if (!linkedClipIds.has(clip.id)) {
-        // Infer default initial state based on clip status & publishing
         let initialState: WorkflowState = 'IN_PREPARATION';
-        const isPublished = await db.collection('published_posts').findOne({
-          clip_id: clip.id,
-          user_id: userId,
-          status: 'published',
-        });
+        const isPublished = publishedClipMap.has(clip.id);
 
         if (isPublished) {
           initialState = 'PUBLISHED';
@@ -316,8 +456,8 @@ export class ContentWorkflowService {
           from_state: 'PLANNED',
           to_state: initialState,
           actor_id: userId,
-          action: 'INITIALIZE',
-          notes: 'Auto-synchronized from existing clip',
+          action: isPublished ? 'PUBLISH_VERIFIED' : 'INITIALIZE',
+          notes: isPublished ? 'Auto-synchronized with verified published post' : 'Auto-synchronized from existing clip',
           timestamp: now,
         };
 
@@ -379,10 +519,11 @@ export class ContentWorkflowService {
     const limit = Math.min(100, Math.max(1, options.limit || 20));
     const skip = (page - 1) * limit;
 
-    const [rawWorkflows, totalCount, allUserWorkflows] = await Promise.all([
+    const [rawWorkflows, totalCount, allUserWorkflows, brandProfile] = await Promise.all([
       db.collection('content_workflows').find(query).sort({ updated_at: -1, created_at: -1 }).skip(skip).limit(limit).toArray(),
       db.collection('content_workflows').countDocuments(query),
       db.collection('content_workflows').find({ user_id: userId }).project({ current_state: 1 }).toArray(),
+      db.collection('brand_brain_profiles').findOne({ user_id: userId, status: 'active' }, { sort: { version: -1 } }),
     ]);
 
     // Compute state counts
@@ -404,7 +545,7 @@ export class ContentWorkflowService {
     // Hydrate each workflow with real-time artifacts and readiness evaluations
     const hydratedWorkflows: ContentWorkflowRecord[] = await Promise.all(
       rawWorkflows.map(async (doc) => {
-        const artifacts = await this.resolveArtifacts(userId, doc.project_id, doc.clip_id);
+        const artifacts = await this.resolveArtifacts(userId, doc.project_id, doc.clip_id, brandProfile);
         const readiness = await this.evaluateReadiness(userId, {
           clip_id: doc.clip_id,
           project_id: doc.project_id,
@@ -612,10 +753,24 @@ export class ContentWorkflowService {
       }
     }
 
-    if (targetState === 'APPROVED') {
+    if (targetState === 'AWAITING_APPROVAL' || targetState === 'APPROVED') {
       // Human review gate: cannot be set without explicit user actor
       if (!userId) {
         throw new AppError('Content approval requires an authenticated user.', 400, 'APPROVAL_REQUIRES_ACTOR');
+      }
+
+      const isClipReady = artifacts.clip?.status === 'ready';
+      const hasHook = Boolean(artifacts.hook_lab?.selected_hook || (artifacts.hook_lab?.candidates_count ?? 0) > 0);
+      const hasThumbnail = Boolean(artifacts.thumbnail_lab?.selected_concept_id || (artifacts.thumbnail_lab?.concepts_count ?? 0) > 0);
+      const hasPack = Boolean((artifacts.content_pack?.items_count ?? 0) > 0);
+      const hasCreativeArtifact = hasHook || hasThumbnail || hasPack || (artifacts.autopilot?.status === 'COMPLETED');
+
+      if (!isClipReady || !hasCreativeArtifact) {
+        throw new AppError(
+          `Cannot transition to ${targetState}: Both a ready source clip and at least one creative artifact (hook, thumbnail, or content pack) are required.`,
+          400,
+          'INSUFFICIENT_ARTIFACTS_FOR_REVIEW'
+        );
       }
     }
 
@@ -635,7 +790,7 @@ export class ContentWorkflowService {
     const auditAction =
       targetState === 'APPROVED'
         ? 'APPROVAL'
-        : (targetState === 'IN_PREPARATION' && ['AWAITING_APPROVAL', 'READY_FOR_REVIEW'].includes(existing.current_state))
+        : (targetState === 'IN_PREPARATION' && ['AWAITING_APPROVAL', 'READY_FOR_REVIEW', 'APPROVED'].includes(existing.current_state))
         ? 'REVISION_REQUEST'
         : targetState === 'PUBLISHED'
         ? 'PUBLISH_VERIFIED'
@@ -664,19 +819,18 @@ export class ContentWorkflowService {
         updateFields.approval_notes = options.approvalNotes;
       }
     } else if (targetState === 'IN_PREPARATION') {
-      // If moving back for revisions, reset approval timestamp
+      // If moving back for revisions, reset approval timestamp and notes
       updateFields.approved_by = null;
       updateFields.approved_at = null;
+      updateFields.approval_notes = null;
     }
 
     // Atomic update with version check to prevent race conditions
     const updateQuery: Record<string, any> = {
       id: workflowId,
       user_id: userId,
+      version: options.expectedVersion ?? existing.version,
     };
-    if (options.expectedVersion !== undefined) {
-      updateQuery.version = options.expectedVersion;
-    }
 
     const updateResult = await db.collection('content_workflows').updateOne(updateQuery, {
       $set: updateFields,
@@ -696,6 +850,10 @@ export class ContentWorkflowService {
 
   /**
    * Explicit human approval gate.
+   * Supports smooth multi-hop approval:
+   * - from IN_PREPARATION: verifies prerequisites then transitions IN_PREPARATION -> READY_FOR_REVIEW -> AWAITING_APPROVAL -> APPROVED
+   * - from READY_FOR_REVIEW: transitions READY_FOR_REVIEW -> AWAITING_APPROVAL -> APPROVED
+   * - from AWAITING_APPROVAL: transitions directly to APPROVED
    */
   static async approveWorkflow(
     userId: string,
@@ -709,8 +867,29 @@ export class ContentWorkflowService {
       throw new AppError(`Workflow ${workflowId} not found or unauthorized`, 404, 'WORKFLOW_NOT_FOUND');
     }
 
-    // If currently READY_FOR_REVIEW, progress to AWAITING_APPROVAL first then APPROVED
-    if (existing.current_state === 'READY_FOR_REVIEW') {
+    if (existing.current_state === 'APPROVED') {
+      return this.getWorkflow(userId, workflowId);
+    }
+
+    if (existing.current_state === 'IN_PREPARATION') {
+      const artifacts = await this.resolveArtifacts(userId, existing.project_id, existing.clip_id);
+      const isClipReady = artifacts.clip?.status === 'ready';
+      const hasHook = Boolean(artifacts.hook_lab?.selected_hook || (artifacts.hook_lab?.candidates_count ?? 0) > 0);
+      const hasThumbnail = Boolean(artifacts.thumbnail_lab?.selected_concept_id || (artifacts.thumbnail_lab?.concepts_count ?? 0) > 0);
+      const hasPack = Boolean((artifacts.content_pack?.items_count ?? 0) > 0);
+      const hasCreativeArtifact = hasHook || hasThumbnail || hasPack || (artifacts.autopilot?.status === 'COMPLETED');
+
+      if (!isClipReady || !hasCreativeArtifact) {
+        throw new AppError(
+          'Cannot approve workflow from IN_PREPARATION: Both a ready source clip and at least one creative artifact (hook, thumbnail, or content pack) are required.',
+          400,
+          'INSUFFICIENT_ARTIFACTS_FOR_REVIEW'
+        );
+      }
+
+      await this.transitionWorkflow(userId, workflowId, 'READY_FOR_REVIEW', { notes: 'Auto-progressed from preparation to review' });
+      await this.transitionWorkflow(userId, workflowId, 'AWAITING_APPROVAL', { notes: 'Progressed to approval gate' });
+    } else if (existing.current_state === 'READY_FOR_REVIEW') {
       await this.transitionWorkflow(userId, workflowId, 'AWAITING_APPROVAL', { notes: 'Progressed to approval gate' });
     }
 

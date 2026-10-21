@@ -26,7 +26,19 @@ export class SubscriptionService {
    * 5. Expired / unpaid / no subscription -> 'free'
    */
   static async resolveUserEntitlement(userId: string, userEmail?: string): Promise<UserEntitlement> {
-    if (isUserUnlimited(userEmail)) {
+    const db = await getMongoDb();
+
+    let email = userEmail;
+    if (!email && userId) {
+      try {
+        const profile = await db.collection('profiles').findOne({ $or: [{ id: userId }, { user_id: userId }] });
+        if (profile && typeof profile.email === 'string') {
+          email = profile.email;
+        }
+      } catch {}
+    }
+
+    if (isUserUnlimited(email)) {
       return {
         plan_id: 'developer',
         display_name: 'Developer Unlimited Entitlement',
@@ -39,8 +51,6 @@ export class SubscriptionService {
         subscription: null,
       };
     }
-
-    const db = await getMongoDb();
     const subCol = db.collection<SubscriptionRecord>('subscriptions');
     // Find active subscription across all providers
     const activeSub = await subCol.findOne({

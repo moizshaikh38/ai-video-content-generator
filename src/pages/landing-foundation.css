@@ -39,7 +39,7 @@
   gap: clamp(25px, 3vw, 54px);
 }
 .lp-nav-logo { display: inline-flex; align-items: center; flex: none; }
-.lp-nav-logo img { display: block; width: 116px; height: auto; }
+.lp-nav-logo img { display: block; width: 132px; height: auto; }
 .lp-nav-links { display: flex; align-items: center; gap: clamp(19px, 2.5vw, 35px); }
 .lp-nav-links a,
 .lp-nav-login {
@@ -296,7 +296,7 @@
 @media (max-width: 600px) {
   .lp-nav-inner, .lp-hero-inner { width: calc(100% - 36px); }
   .lp-nav-inner { height: 64px; }
-  .lp-nav-logo img { width: 100px; }
+  .lp-nav-logo img { width: 116px; }
   .lp-hero { padding: 44px 0 60px; }
   .lp-hero-inner { gap: 31px; }
   .lp-hero-eyebrow { font-size: 9px; letter-spacing: .045em; }

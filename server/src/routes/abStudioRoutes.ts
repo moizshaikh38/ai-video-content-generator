@@ -8,6 +8,9 @@ const router = Router();
 // Capabilities
 router.get('/capabilities', requireAuth, asyncHandler(ABStudioController.getCapabilities));
 
+// Viral Hook Lab Generation (Hypit Engine)
+router.post('/generate-hook-variants', requireAuth, asyncHandler(ABStudioController.generateHookVariants));
+
 // Experiments
 router.get('/experiments', requireAuth, asyncHandler(ABStudioController.listUserExperiments));
 router.post('/experiments', requireAuth, asyncHandler(ABStudioController.createExperiment));

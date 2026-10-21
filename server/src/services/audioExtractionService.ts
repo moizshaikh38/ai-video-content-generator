@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
 import { logger } from '../utils/logger.js';
@@ -14,11 +16,104 @@ if (ffmpegStatic) {
   logger.warn('ffmpegStatic path not resolved; relying on system PATH for ffmpeg.');
 }
 
+const execFileAsync = promisify(execFile);
+
+/**
+ * Start-of-stream presentation timestamps read from the source container.
+ *
+ * `avStartOffsetSec` is a *diagnostic* measurement (audio stream start_time minus
+ * video stream start_time). It is recorded on the transcript so caption/audio drift
+ * reports can be correlated with the source container, but it is deliberately NOT
+ * applied as a correction when rebasing transcript seconds into clip-local cues.
+ *
+ * Reason (measured, see server/src/tests/captionAudioSync.test.ts): extraction below
+ * runs `aresample=async=1:first_pts=0`, which *pads* a leading audio gap with silence
+ * rather than sliding the audio earlier, so the extracted MP3 keeps container-absolute
+ * audio positions with the container start time (`format.start_time`) as its zero.
+ * ClipRenderService's `-ss` seek resolves against that same container start time, so the
+ * two zero points already coincide and the required correction is identically zero.
+ * Subtracting `avStartOffsetSec` would introduce the very drift it looks like it fixes.
+ */
+export interface AvStartTimes {
+  videoStartTimeSec: number;
+  audioStartTimeSec: number;
+  containerStartTimeSec: number;
+  avStartOffsetSec: number;
+  /** false when ffprobe was unavailable or returned nothing usable (all values fall back to 0). */
+  probed: boolean;
+}
+
+const UNPROBED_AV_START_TIMES: AvStartTimes = {
+  videoStartTimeSec: 0,
+  audioStartTimeSec: 0,
+  containerStartTimeSec: 0,
+  avStartOffsetSec: 0,
+  probed: false,
+};
+
+function parseStartTime(raw: unknown): number | null {
+  if (raw === undefined || raw === null) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Reads the video/audio stream start timestamps of a media container via ffprobe.
+ * Never throws: a missing ffprobe binary or an unparsable probe degrades to all-zero
+ * values with `probed: false`, leaving existing behaviour untouched.
+ */
+export async function probeAvStartTimes(filePath: string): Promise<AvStartTimes> {
+  try {
+    const { stdout } = await execFileAsync(
+      'ffprobe',
+      [
+        '-v', 'error',
+        '-show_entries', 'stream=index,codec_type,start_time',
+        '-show_entries', 'format=start_time',
+        '-of', 'json',
+        filePath,
+      ],
+      { timeout: 15000, maxBuffer: 4 * 1024 * 1024 }
+    );
+
+    const probe = JSON.parse(stdout) as {
+      streams?: Array<{ codec_type?: string; start_time?: string }>;
+      format?: { start_time?: string };
+    };
+
+    const streams = Array.isArray(probe.streams) ? probe.streams : [];
+    const videoStart = parseStartTime(streams.find((st) => st?.codec_type === 'video')?.start_time);
+    const audioStart = parseStartTime(streams.find((st) => st?.codec_type === 'audio')?.start_time);
+    const containerStart = parseStartTime(probe.format?.start_time);
+
+    if (videoStart === null && audioStart === null && containerStart === null) {
+      return { ...UNPROBED_AV_START_TIMES };
+    }
+
+    const videoStartTimeSec = Number((videoStart ?? 0).toFixed(6));
+    const audioStartTimeSec = Number((audioStart ?? 0).toFixed(6));
+
+    return {
+      videoStartTimeSec,
+      audioStartTimeSec,
+      containerStartTimeSec: Number((containerStart ?? Math.min(videoStartTimeSec, audioStartTimeSec)).toFixed(6)),
+      avStartOffsetSec: Number((audioStartTimeSec - videoStartTimeSec).toFixed(6)),
+      probed: true,
+    };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    logger.warn(`ffprobe A/V start-time probe failed for ${filePath}: ${msg}. Defaulting offset to 0.`);
+    return { ...UNPROBED_AV_START_TIMES };
+  }
+}
+
 export interface ExtractedAudioResult {
   audioBuffer: Buffer;
   audioPath: string;
   format: 'mp3';
   cleanup: () => void;
+  /** Source-container A/V start timestamps measured before extraction (diagnostic). */
+  avStartTimes: AvStartTimes;
 }
 
 /**
@@ -29,27 +124,28 @@ export interface ExtractedAudioResult {
  */
 export async function extractAudioFromVideo(
   videoBuffer: Buffer | string,
-  originalFileName: string
+  originalFileName: string = 'video.mp4'
 ): Promise<ExtractedAudioResult> {
   if (!videoBuffer || videoBuffer.length === 0) {
     throw new Error('Video buffer is empty.');
   }
 
+  const ownsTempVideo = typeof videoBuffer !== 'string';
   const tempDir = os.tmpdir();
   const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-  const ext = path.extname(originalFileName) || '.mp4';
+  const ext = (originalFileName ? path.extname(originalFileName) : (typeof videoBuffer === 'string' ? path.extname(videoBuffer) : '.mp4')) || '.mp4';
   const tempVideoPath = typeof videoBuffer === 'string' ? videoBuffer : path.join(tempDir, `vireo_in_${uniqueId}${ext}`);
   const tempAudioPath = path.join(tempDir, `vireo_out_${uniqueId}.mp3`);
 
   const sourceSize = typeof videoBuffer === 'string' ? (await fs.promises.stat(videoBuffer)).size : videoBuffer.length;
-  if (typeof videoBuffer !== 'string') {
+  if (ownsTempVideo) {
     logger.info(`Writing video buffer (${(sourceSize / (1024 * 1024)).toFixed(2)} MB) to temporary file: ${tempVideoPath}`);
     await fs.promises.writeFile(tempVideoPath, videoBuffer);
   }
 
   const cleanup = () => {
     try {
-      if (fs.existsSync(tempVideoPath)) {
+      if (ownsTempVideo && fs.existsSync(tempVideoPath)) {
         fs.unlinkSync(tempVideoPath);
       }
     } catch (e: unknown) {
@@ -67,54 +163,88 @@ export async function extractAudioFromVideo(
   };
 
   try {
+    // Record how far the source's audio stream starts from its video stream. The extraction
+    // below normalises the MP3 to start at the container's zero, so this is captured purely
+    // as a diagnostic; see AvStartTimes for why it is not subtracted from caption timings.
+    const avStartTimes = await probeAvStartTimes(tempVideoPath);
+    if (avStartTimes.probed) {
+      logger.info(
+        `Source A/V start times: video=${avStartTimes.videoStartTimeSec}s audio=${avStartTimes.audioStartTimeSec}s ` +
+          `container=${avStartTimes.containerStartTimeSec}s av_start_offset=${avStartTimes.avStartOffsetSec}s`
+      );
+    }
+
     logger.info(`Extracting audio with FFmpeg: ${tempVideoPath} -> ${tempAudioPath}`);
 
-    await new Promise<void>((resolve, reject) => {
-      let killed = false;
-      const ffmpegCommand = ffmpeg(tempVideoPath)
-        .noVideo()
-        .audioCodec('libmp3lame')
-        .audioBitrate(128)
-        .audioChannels(1) // Mono for speech recognition efficiency
-        .audioFrequency(16000) // 16kHz optimal for Whisper speech-to-text
-        .format('mp3');
+    const extractWithBitrate = (bitrateKbps: number): Promise<void> => {
+      return new Promise<void>((resolve, reject) => {
+        let killed = false;
+        const ffmpegCommand = ffmpeg(tempVideoPath)
+          .noVideo()
+          .audioCodec('libmp3lame')
+          .audioBitrate(bitrateKbps)
+          .audioChannels(1) // Mono for speech recognition efficiency
+          .audioFrequency(16000) // 16kHz optimal for Whisper speech-to-text
+          .audioFilters('aresample=async=1:first_pts=0')
+          .outputOptions(['-avoid_negative_ts', 'make_zero'])
+          .format('mp3');
 
-      // Enforce timeout (H5)
-      const timeoutId = setTimeout(() => {
-        killed = true;
-        logger.error(`FFmpeg process timed out after ${config.ffmpegTimeoutMs}ms. Killing process...`);
-        try {
-          ffmpegCommand.kill('SIGKILL');
-        } catch {
-          // Process may have already exited
-        }
-        reject(new Error(`FFmpeg audio extraction timed out after ${config.ffmpegTimeoutMs / 1000}s.`));
-      }, config.ffmpegTimeoutMs);
+        // Enforce timeout (H5)
+        const timeoutId = setTimeout(() => {
+          killed = true;
+          logger.error(`FFmpeg process timed out after ${config.ffmpegTimeoutMs}ms. Killing process...`);
+          try {
+            ffmpegCommand.kill('SIGKILL');
+          } catch {
+            // Process may have already exited
+          }
+          reject(new Error(`FFmpeg audio extraction timed out after ${config.ffmpegTimeoutMs / 1000}s.`));
+        }, config.ffmpegTimeoutMs);
 
-      ffmpegCommand
-        .on('start', (cmdLine) => {
-          logger.info(`FFmpeg process started: ${cmdLine}`);
-        })
-        .on('error', (err) => {
-          clearTimeout(timeoutId);
-          if (killed) return;
-          logger.error(`FFmpeg processing error: ${err.message}`);
-          reject(new Error(`FFmpeg audio extraction failed: ${err.message}`));
-        })
-        .on('end', () => {
-          clearTimeout(timeoutId);
-          if (killed) return;
-          logger.info('FFmpeg processing finished successfully.');
-          resolve();
-        })
-        .save(tempAudioPath);
-    });
+        ffmpegCommand
+          .on('start', (cmdLine) => {
+            logger.info(`FFmpeg process started (${bitrateKbps}k): ${cmdLine}`);
+          })
+          .on('error', (err) => {
+            clearTimeout(timeoutId);
+            if (killed) return;
+            logger.error(`FFmpeg processing error: ${err.message}`);
+            reject(new Error(`FFmpeg audio extraction failed: ${err.message}`));
+          })
+          .on('end', () => {
+            clearTimeout(timeoutId);
+            if (killed) return;
+            logger.info(`FFmpeg processing finished successfully at ${bitrateKbps}k.`);
+            resolve();
+          })
+          .save(tempAudioPath);
+      });
+    };
+
+    // Extract at 64 kbps mono (enables up to ~53 min speech under 25MB with crisp Whisper accuracy)
+    await extractWithBitrate(64);
 
     if (!fs.existsSync(tempAudioPath)) {
       throw new Error('Extracted audio file does not exist after FFmpeg completion.');
     }
 
-    const audioSize = (await fs.promises.stat(tempAudioPath)).size;
+    let audioSize = (await fs.promises.stat(tempAudioPath)).size;
+
+    // If extracted MP3 exceeds 24MB, automatically re-encode at 32 kbps mono (enables up to 105 min podcasts under 25MB)
+    if (audioSize > 24 * 1024 * 1024) {
+      logger.warn(
+        `Extracted audio (${(audioSize / (1024 * 1024)).toFixed(2)} MB) exceeds 24 MB; re-encoding at 32 kbps mono for Whisper compliance.`
+      );
+      try {
+        if (fs.existsSync(tempAudioPath)) {
+          fs.unlinkSync(tempAudioPath);
+        }
+      } catch {}
+
+      await extractWithBitrate(32);
+      audioSize = (await fs.promises.stat(tempAudioPath)).size;
+    }
+
     if (audioSize > 25 * 1024 * 1024) {
       throw new Error('Extracted audio exceeds the transcription provider limit of 25 MB. Please provide a shorter video.');
     }
@@ -123,9 +253,9 @@ export async function extractAudioFromVideo(
       throw new Error('Extracted audio file is empty (0 bytes).');
     }
 
-    // Clean up input video immediately to save disk space
+    // Clean up temporary input video immediately if we own it to save disk space
     try {
-      if (fs.existsSync(tempVideoPath)) {
+      if (ownsTempVideo && fs.existsSync(tempVideoPath)) {
         fs.unlinkSync(tempVideoPath);
       }
     } catch {
@@ -141,6 +271,7 @@ export async function extractAudioFromVideo(
       audioPath: tempAudioPath,
       format: 'mp3',
       cleanup,
+      avStartTimes,
     };
   } catch (err) {
     cleanup();

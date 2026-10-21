@@ -13,6 +13,8 @@ import { deletePrefix, projectObjectPrefix, sourceObjectKey, signSourceUpload, h
 import { deleteProjectRecords } from '../db/repositories/deletionRepository.js';
 import { claimProjectProcessing } from '../db/repositories/projectRepository.js';
 import { UrlIngestionService } from '../services/urlIngestionService.js';
+import { GenreIntelligenceService } from '../services/genreIntelligenceService.js';
+import { ClipPreferences } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 
@@ -154,13 +156,17 @@ export const updateProject = async (req: AuthenticatedRequest, res: Response): P
   const projectId = req.params.id;
   if (!req.user?.id) { res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'Authentication required.' }); return; }
   if (!projectId || !isValidUUID(projectId)) { res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid project UUID required.' }); return; }
-  const updates: Record<string, string> = {};
+  const updates: Record<string, any> = {};
   if (typeof req.body?.title === 'string') {
     const value = req.body.title.trim();
     if (!value || value.length > 255) { res.status(400).json({ status: 'error', code: 'INVALID_TITLE', message: 'Title must be 1 to 255 characters.' }); return; }
     updates.title = value;
   }
   if (typeof req.body?.notes === 'string') updates.notes = req.body.notes.trim().slice(0, 2000);
+  const rawPreferences = req.body?.clip_preferences || req.body?.clipPreferences;
+  if (rawPreferences) {
+    updates.clip_preferences = GenreIntelligenceService.normalizePreferences(rawPreferences, req.body?.notes);
+  }
   if (!Object.keys(updates).length) { res.status(400).json({ status: 'error', code: 'INVALID_UPDATE', message: 'No editable fields supplied.' }); return; }
   const { data, error } = await dataRepository.from('projects').update(updates).eq('id', projectId).select().maybeSingle();
   if (error) { res.status(503).json({ status: 'error', code: 'DATABASE_UNAVAILABLE', message: 'Project update failed.' }); return; }
@@ -246,7 +252,14 @@ export const createProject = async (req: AuthenticatedRequest, res: Response): P
     res.status(400).json({ status: 'error', code: 'UPLOAD_REQUIRED', message: 'Use the signed upload endpoint for video files.' });
     return;
   }
-  const projectRecord = {
+
+  const rawPreferences = req.body?.clip_preferences || req.body?.clipPreferences;
+  let normalizedPreferences: ClipPreferences | undefined = undefined;
+  if (rawPreferences || notes) {
+    normalizedPreferences = GenreIntelligenceService.normalizePreferences(rawPreferences, notes);
+  }
+
+  const projectRecord: any = {
     id: id || crypto.randomUUID(),
     user_id: userId,
     title: title.trim(),
@@ -254,6 +267,7 @@ export const createProject = async (req: AuthenticatedRequest, res: Response): P
     source_url: null,
     video_status: 'uploading',
     notes: String(notes || '').trim().slice(0, 2000),
+    ...(normalizedPreferences ? { clip_preferences: normalizedPreferences } : {}),
   };
 
   try {
@@ -305,7 +319,18 @@ export const ingestProjectUrl = async (req: AuthenticatedRequest, res: Response)
     return;
   }
 
-  const { url, title, notes, id } = req.body || {};
+  const {
+    url,
+    title,
+    notes,
+    id,
+    clip_preferences,
+    clipPreferences,
+    startTimeSec,
+    endTimeSec,
+    start_time_sec,
+    end_time_sec,
+  } = req.body || {};
 
   if (!url || typeof url !== 'string' || !url.trim()) {
     res.status(400).json({ status: 'error', code: 'INVALID_URL', message: 'Valid video URL is required.' });
@@ -318,13 +343,29 @@ export const ingestProjectUrl = async (req: AuthenticatedRequest, res: Response)
   }
 
   try {
+    const rawPreferences = clip_preferences || clipPreferences;
+    const startSec = typeof startTimeSec === 'number' ? startTimeSec : (typeof start_time_sec === 'number' ? start_time_sec : undefined);
+    const endSec = typeof endTimeSec === 'number' ? endTimeSec : (typeof end_time_sec === 'number' ? end_time_sec : undefined);
+
     const result = await UrlIngestionService.ingestUrlToProject({
       userId,
       projectId: id,
       url: url.trim(),
       title: typeof title === 'string' ? title.trim() : undefined,
       notes: typeof notes === 'string' ? notes.trim() : undefined,
+      clipPreferences: rawPreferences,
+      startTimeSec: startSec,
+      endTimeSec: endSec,
     });
+
+    if (rawPreferences) {
+      const normalized = GenreIntelligenceService.normalizePreferences(rawPreferences, notes);
+      await dataRepository
+        .from('projects')
+        .update({ clip_preferences: normalized })
+        .eq('id', result.projectId)
+        .eq('user_id', userId);
+    }
 
     const { data: project } = await dataRepository
       .from('projects')
@@ -350,6 +391,35 @@ export const ingestProjectUrl = async (req: AuthenticatedRequest, res: Response)
       error: message,
     });
 
+    res.status(status).json({
+      status: 'error',
+      code,
+      message,
+    });
+  }
+}
+
+/**
+ * Pre-ingest URL metadata probe returning provider, chapters, duration, and auto-genre in ~1s.
+ */
+export async function probeProjectUrl(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const { url } = req.body || {};
+  if (!url || typeof url !== 'string' || !url.trim()) {
+    res.status(400).json({ status: 'error', code: 'INVALID_URL', message: 'Valid video URL is required.' });
+    return;
+  }
+
+  try {
+    const probe = await UrlIngestionService.probeUrlMetadata(url.trim());
+    res.status(200).json({
+      status: 'ok',
+      probe,
+    });
+  } catch (err: any) {
+    logger.error('Failed to probe video URL metadata', { error: err.message, url });
+    const status = err.statusCode || 500;
+    const code = err.code || 'PROBE_FAILED';
+    const message = err.message || 'Failed to probe video URL.';
     res.status(status).json({
       status: 'error',
       code,

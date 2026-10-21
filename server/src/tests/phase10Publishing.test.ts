@@ -84,7 +84,8 @@ describe('Phase 10 — Publishing & Scheduling Deterministic Tests', () => {
     }
     await db.collection('published_posts').deleteMany({ user_id: testUserId });
     await db.collection('publish_jobs').deleteMany({ user_id: testUserId });
-    await closeMongo();
+    await new Promise((r) => setTimeout(r, 600));
+    await closeMongo(true);
   });
 
   describe('1. Platform Capabilities & Validation Engine', () => {

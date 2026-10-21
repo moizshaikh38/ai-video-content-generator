@@ -1,5 +1,5 @@
 import { isMongoConfigured } from '../db/mongoClient.js';
-import { dataRepository } from '../db/repositories/dataRepository.js';
+import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -10,6 +10,9 @@ import { extractAudioFromVideo } from './audioExtractionService.js';
 import { getTranscriptionProvider } from './transcription/transcriptionProviderFactory.js';
 import { TranscriptRecord } from '../types/index.js';
 import { UsageService } from './usageService.js';
+import { ClipRenderService } from './clipRenderService.js';
+import { GenreIntelligenceService } from './genreIntelligenceService.js';
+import { assignWordIds } from '../utils/wordIdentityUtils.js';
 
 // In-memory set to guard against duplicate concurrent processing runs for the same project
 const activeProcessingSet = new Set<string>();
@@ -55,10 +58,11 @@ export async function processProjectVideo(
   }
 
   activeProcessingSet.add(projectId);
-  let cleanupAudio: (() => void) | null = null;
-  let downloadedVideoPath: string | null = null;
+  return await ownerContext.run(userId, async () => {
+    let cleanupAudio: (() => void) | null = null;
+    let downloadedVideoPath: string | null = null;
 
-  try {
+    try {
     // 1. Update status to 'processing'
     logger.info(`Starting video processing for project ${projectId}`, { projectId, userId });
     await dataRepository
@@ -67,12 +71,13 @@ export async function processProjectVideo(
       .eq('id', projectId)
       .eq('user_id', userId);
 
-    // 2. Stream private R2 object to a unique local temp file before FFmpeg.
+    // 2. Stream private R2 object to a local scratch file reusing the shared source cache.
     const storagePath = sourceUrl;
     const originalFileName = storagePath.split('/').pop() || 'video.mp4';
     const videoPath = path.join(os.tmpdir(), `vireo-source-${crypto.randomUUID()}${path.extname(originalFileName) || '.mp4'}`);
     downloadedVideoPath = videoPath;
-    await downloadObjectToFile('source', storagePath, videoPath);
+    const sourceResolution = await ClipRenderService.ensureSourceVideo(storagePath, videoPath);
+    logger.info(`Source video resolved for project ${projectId} via ${sourceResolution}: ${videoPath}`);
 
     // 3. Extract audio via FFmpeg without buffering the video in Node memory.
     const extractedAudio = await extractAudioFromVideo(videoPath, originalFileName);
@@ -94,19 +99,34 @@ export async function processProjectVideo(
       'audio/mp3'
     );
 
+    // Compute effective duration from audio probe or last transcript segment timestamp
+    const effectiveDuration = Number(
+      (
+        transcription.durationSeconds ||
+        (transcription.segments?.length
+          ? transcription.segments[transcription.segments.length - 1].end
+          : 0)
+      ).toFixed(2)
+    );
+
     // 6. Store transcript in MongoDB (upsert to avoid duplicates)
     const transcriptPayload: any = {
       project_id: projectId,
       user_id: userId,
       transcript_text: transcription.text,
+      text: transcription.text,
       language: transcription.language,
-      duration_seconds: transcription.durationSeconds,
+      duration_seconds: effectiveDuration,
       segments: transcription.segments,
+      // Diagnostic: how far the source container's audio stream starts from its video stream.
+      // Recorded (not applied) so caption-drift reports can be correlated with the source;
+      // see AvStartTimes in audioExtractionService for why no correction is subtracted.
+      av_start_offset_sec: extractedAudio.avStartTimes.avStartOffsetSec,
       updated_at: new Date().toISOString(),
     };
 
     if (Array.isArray(transcription.words) && transcription.words.length > 0) {
-      transcriptPayload.words = transcription.words;
+      transcriptPayload.words = assignWordIds(transcription.words, projectId);
     }
 
     logger.info(`Storing transcript for project ${projectId} into 'transcripts' table...`, {
@@ -130,10 +150,50 @@ export async function processProjectVideo(
       throw new Error(`Failed to save transcript: ${saveError.message}`);
     }
 
-    // 7. Update project status to 'transcribed'
+    // 7. Classify video genre locally and enrich project metadata
+    const durationMin = Math.max(0.1, effectiveDuration / 60);
+    const wordCount = transcription.words?.length || transcription.text.split(/\s+/).filter(Boolean).length;
+    const wpm = Math.round(wordCount / durationMin);
+    const questionCount = (transcription.text.match(/\?/g) || []).length;
+    const questionDensityPerMin = Number((questionCount / durationMin).toFixed(2));
+
+    const genreSuggestion = GenreIntelligenceService.classifyVideoGenreLocally({
+      transcriptText: transcription.text,
+      wpm,
+      durationSeconds: effectiveDuration,
+      questionDensityPerMin,
+    });
+
+    const { data: project } = await dataRepository
+      .from('projects')
+      .select('clip_preferences')
+      .eq('id', projectId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const updatePayload: Record<string, any> = {
+      video_status: 'transcribed',
+      updated_at: new Date().toISOString(),
+    };
+
+    if (effectiveDuration > 0) {
+      updatePayload.duration_seconds = effectiveDuration;
+    }
+
+    if (project?.clip_preferences) {
+      const mode = project.clip_preferences.genreSelectionMode || 'auto';
+      if (mode === 'auto' || mode === 'suggested') {
+        updatePayload.clip_preferences = {
+          ...project.clip_preferences,
+          suggested_genre: genreSuggestion.genre,
+          genre_confidence: genreSuggestion.confidence,
+        };
+      }
+    }
+
     await dataRepository
       .from('projects')
-      .update({ video_status: 'transcribed' })
+      .update(updatePayload)
       .eq('id', projectId)
       .eq('user_id', userId);
 
@@ -141,7 +201,7 @@ export async function processProjectVideo(
     if (processingAttemptId) {
       await UsageService.settleReservation(
         processingAttemptId,
-        transcription.durationSeconds || 0,
+        effectiveDuration,
         {
           provider: provider.name,
           language: transcription.language,
@@ -173,7 +233,10 @@ export async function processProjectVideo(
     try {
       await dataRepository
         .from('projects')
-        .update({ video_status: 'failed' })
+        .update({
+          video_status: 'failed',
+          error_message: message || 'Video processing failed.',
+        })
         .eq('id', projectId)
         .eq('user_id', userId);
     } catch (updateErr) {
@@ -198,4 +261,5 @@ export async function processProjectVideo(
     if (downloadedVideoPath) await fs.rm(downloadedVideoPath, { force: true }).catch(() => undefined);
     activeProcessingSet.delete(projectId);
   }
+  });
 }

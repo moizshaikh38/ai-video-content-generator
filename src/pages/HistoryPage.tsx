@@ -77,7 +77,7 @@ export const HistoryPage: React.FC = () => {
                 ? ['completed', 'complete', 'transcribed'].includes(statusOf(p))
                 : status === 'processing'
                 ? ['uploading', 'uploaded', 'queued', 'processing', 'transcribing', 'analyzing', 'generating'].includes(statusOf(p))
-                : statusOf(p) === 'failed')) &&
+                : ['failed', 'error'].includes(statusOf(p)))) &&
             (source === 'all' || p.source_type === source)
         )
         .sort((a, b) =>
@@ -92,19 +92,19 @@ export const HistoryPage: React.FC = () => {
     { label: 'All Projects', value: hasLoadedSuccessfully.current ? projects.length : '-', icon: FolderOpen },
     { label: 'Completed', value: hasLoadedSuccessfully.current ? projects.filter((p) => ['completed', 'complete', 'transcribed'].includes(statusOf(p))).length : '-', icon: CheckCircle2 },
     { label: 'Processing', value: hasLoadedSuccessfully.current ? projects.filter((p) => ['uploading', 'uploaded', 'queued', 'processing', 'transcribing', 'analyzing', 'generating'].includes(statusOf(p))).length : '-', icon: Clock3 },
-    { label: 'Failed', value: hasLoadedSuccessfully.current ? projects.filter((p) => statusOf(p) === 'failed').length : '-', icon: AlertCircle },
+    { label: 'Failed', value: hasLoadedSuccessfully.current ? projects.filter((p) => ['failed', 'error'].includes(statusOf(p))).length : '-', icon: AlertCircle },
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-4xl font-semibold">Project History</h1>
-          <p className="mt-2 text-muted-foreground">View and manage all your video projects and generated content.</p>
+          <h1 className="font-display text-4xl font-semibold text-white">Project History</h1>
+          <p className="mt-2 text-[#8E9AB4]">View and manage all your video projects and generated content.</p>
         </div>
         <Link
           to="/projects/new"
-          className="inline-flex items-center gap-2 rounded-xl bg-clay px-5 py-3 text-sm font-semibold text-white shadow-clay hover:bg-[#c93f1e]"
+          className="inline-flex items-center gap-2 rounded-xl bg-[#F4F6FB] px-5 py-3 text-sm font-semibold text-[#0B0C0F] shadow-black/40 hover:bg-white"
         >
           <Plus className="size-4" />
           New Project
@@ -112,29 +112,40 @@ export const HistoryPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {summary.map((s) => (
-          <div key={s.label} className="flex items-center gap-3 rounded-2xl border border-border bg-white p-4 shadow-soft">
-            <span className="grid size-11 place-items-center rounded-xl bg-[#eaf3eb] text-vireo-green">
-              <s.icon className="size-5" />
-            </span>
-            <div>
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-              <p className="text-xl font-bold">{s.value}</p>
+        {summary.map((s, idx) => {
+          const iconColors = [
+            'bg-violet-500/15 text-violet-400 border-violet-500/25',
+            'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
+            'bg-cyan-500/15 text-cyan-400 border-cyan-500/25',
+            'bg-rose-500/15 text-rose-400 border-rose-500/25',
+          ];
+          return (
+            <div
+              key={s.label}
+              className="flex items-center gap-3.5 rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 p-4 sm:p-5 shadow-xl backdrop-blur-md"
+            >
+              <span className={`grid size-11 place-items-center rounded-xl border ${iconColors[idx]}`}>
+                <s.icon className="size-5" />
+              </span>
+              <div>
+                <p className="text-xs text-[#8E9AB4]">{s.label}</p>
+                <p className="text-xl sm:text-2xl font-bold font-['Sora',sans-serif] text-[#F4F6FB]">{s.value}</p>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-soft">
-        <div className="flex flex-wrap gap-3 border-b border-border p-4">
-          <label className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-input px-3">
-            <Search className="size-4 text-muted-foreground" />
+      <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 shadow-2xl backdrop-blur-xl text-[#F4F6FB]">
+        <div className="flex flex-wrap gap-3 border-b border-white/[0.08] p-4">
+          <label className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.04] px-3 focus-within:ring-2 focus-within:ring-white/20 focus-within:border-white/30 transition-all">
+            <Search className="size-4 text-slate-400 shrink-0" />
             <span className="sr-only">Search projects</span>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by title…"
-              className="h-11 w-full bg-transparent text-sm outline-none"
+              className="h-11 w-full bg-transparent text-sm text-[#F4F6FB] placeholder:text-slate-500 outline-none"
             />
           </label>
           <label className="sr-only" htmlFor="status-filter">Status</label>
@@ -142,7 +153,7 @@ export const HistoryPage: React.FC = () => {
             id="status-filter"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+            className="h-11 rounded-xl border border-white/[0.1] bg-[#0A0B10] px-3 text-sm text-[#F4F6FB] focus:ring-2 focus:ring-white/20 focus:border-white/30 transition-all cursor-pointer"
           >
             <option value="all">All statuses</option>
             <option value="completed">Completed</option>
@@ -154,7 +165,7 @@ export const HistoryPage: React.FC = () => {
             id="source-filter"
             value={source}
             onChange={(e) => setSource(e.target.value)}
-            className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+            className="h-11 rounded-xl border border-white/[0.1] bg-[#0A0B10] px-3 text-sm text-[#F4F6FB] focus:ring-2 focus:ring-white/20 focus:border-white/30 transition-all cursor-pointer"
           >
             <option value="all">All sources</option>
             <option value="upload">Upload</option>
@@ -165,7 +176,7 @@ export const HistoryPage: React.FC = () => {
             id="sort-filter"
             value={sort}
             onChange={(e) => setSort(e.target.value)}
-            className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+            className="h-11 rounded-xl border border-white/[0.1] bg-[#0A0B10] px-3 text-sm text-[#F4F6FB] focus:ring-2 focus:ring-white/20 focus:border-white/30 transition-all cursor-pointer"
           >
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
@@ -179,7 +190,7 @@ export const HistoryPage: React.FC = () => {
                 setSource('all');
                 setSort('newest');
               }}
-              className="h-11 px-3 text-sm font-semibold text-clay hover:text-[#bd3f1d] hover:underline self-center"
+              className="h-11 px-3 text-sm font-semibold text-[#A78BFA] hover:text-white hover:underline self-center cursor-pointer"
             >
               Clear filters
             </button>
@@ -187,9 +198,9 @@ export const HistoryPage: React.FC = () => {
         </div>
 
         {errorMsg && (
-          <p role="alert" className="m-4 rounded-xl bg-destructive/10 p-3 text-sm text-destructive">
+          <p role="alert" className="m-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-300">
             {errorMsg}{' '}
-            <button onClick={loadProjects} className="font-semibold underline">
+            <button onClick={loadProjects} className="font-semibold underline hover:text-white">
               Retry
             </button>
           </p>
@@ -198,18 +209,18 @@ export const HistoryPage: React.FC = () => {
         {isLoading ? (
           <div className="space-y-3 p-5">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-16 animate-pulse rounded-xl bg-cream" />
+              <div key={i} className="h-16 animate-pulse rounded-xl bg-white/[0.03] border border-white/[0.06]" />
             ))}
           </div>
         ) : errorMsg && !hasLoadedSuccessfully.current ? null : filtered.length === 0 ? (
           <div className="p-14 text-center">
-            <Video className="mx-auto size-8 text-vireo-green" />
-            <h2 className="mt-3 font-semibold">{projects.length ? 'No matching projects' : 'No projects yet'}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <Video className="mx-auto size-8 text-slate-500" />
+            <h2 className="mt-3 font-semibold text-white font-['Sora',sans-serif]">{projects.length ? 'No matching projects' : 'No projects yet'}</h2>
+            <p className="mt-1 text-sm text-[#8E9AB4]">
               {projects.length ? 'Try a different search or filter.' : 'Upload your first video to get started.'}
             </p>
             {!projects.length && (
-              <Link to="/projects/new" className="mt-4 inline-block rounded-xl bg-clay px-4 py-2 text-sm font-semibold text-white hover:bg-[#c93f1e]">
+              <Link to="/projects/new" className="mt-4 inline-block rounded-xl bg-[#F4F6FB] px-4 py-2 text-sm font-semibold text-[#0B0C0F] hover:bg-white shadow-md">
                 New Project
               </Link>
             )}
@@ -218,37 +229,46 @@ export const HistoryPage: React.FC = () => {
           <>
             <div className="hidden md:block">
               <table className="w-full text-left text-sm">
-                <thead className="bg-[#fafaf8] text-xs text-muted-foreground">
+                <thead className="bg-white/[0.02] text-xs text-slate-400 border-b border-white/[0.08]">
                   <tr>
-                    <th className="px-5 py-4 font-semibold">Project</th>
-                    <th className="px-4 py-4 font-semibold">Source</th>
-                    <th className="px-4 py-4 font-semibold">Status</th>
-                    <th className="px-4 py-4 font-semibold">Created</th>
-                    <th className="px-4 py-4 text-right font-semibold">Actions</th>
+                    <th className="px-5 py-4 font-semibold font-['Sora',sans-serif]">Project</th>
+                    <th className="px-4 py-4 font-semibold font-['Sora',sans-serif]">Source</th>
+                    <th className="px-4 py-4 font-semibold font-['Sora',sans-serif]">Status</th>
+                    <th className="px-4 py-4 font-semibold font-['Sora',sans-serif]">Created</th>
+                    <th className="px-4 py-4 text-right font-semibold font-['Sora',sans-serif]">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-white/[0.06]">
                   {filtered.map((p) => (
-                    <tr key={p.id} className="border-t border-border hover:bg-cream/50">
+                    <tr key={p.id} className="hover:bg-white/[0.03] transition-colors">
                       <td className="max-w-[300px] px-5 py-4">
-                        <Link to={`/projects/${p.id}`} className="block truncate font-semibold hover:text-vireo-green">
+                        <Link to={`/projects/${p.id}`} className="block truncate font-semibold text-white hover:text-[#A78BFA] transition-colors">
                           {p.title}
                         </Link>
                       </td>
-                      <td className="px-4 py-4 text-muted-foreground">{p.source_type === 'url' ? 'URL' : 'Upload'}</td>
+                      <td className="px-4 py-4 text-slate-400">{p.source_type === 'url' ? 'URL' : 'Upload'}</td>
                       <td className="px-4 py-4">
                         <StatusBadge status={statusOf(p)} />
                       </td>
-                      <td className="px-4 py-4 text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</td>
+                      <td className="px-4 py-4 text-slate-400 font-mono text-xs">{new Date(p.created_at).toLocaleDateString()}</td>
                       <td className="px-4 py-4">
-                        <div className="flex justify-end gap-2">
-                          <Link to={`/projects/${p.id}`} aria-label={`Open ${p.title}`} className="rounded-lg p-2 hover:bg-[#e8f3e9]">
+                        <div className="flex items-center justify-end gap-2">
+                          {['failed', 'error'].includes(statusOf(p)) && (
+                            <Link
+                              to={`/projects/${p.id}`}
+                              aria-label={`View error and retry ${p.title}`}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 transition-all"
+                            >
+                              Retry
+                            </Link>
+                          )}
+                          <Link to={`/projects/${p.id}`} aria-label={`Open ${p.title}`} className="rounded-lg p-2 text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors">
                             <ArrowUpRight className="size-4" />
                           </Link>
                           <button
                             onClick={() => openDelete(p)}
                             aria-label={`Delete ${p.title}`}
-                            className="rounded-lg p-2 text-destructive hover:bg-destructive/10"
+                            className="rounded-lg p-2 text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                           >
                             <Trash2 className="size-4" />
                           </button>
@@ -259,28 +279,35 @@ export const HistoryPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
-            <div className="divide-y divide-border md:hidden">
+            <div className="divide-y divide-white/[0.06] md:hidden">
               {filtered.map((p) => (
-                <div key={p.id} className="p-5">
+                <div key={p.id} className="p-5 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <Link to={`/projects/${p.id}`} className="block truncate font-semibold">
+                      <Link to={`/projects/${p.id}`} className="block truncate font-semibold text-white hover:text-[#A78BFA]">
                         {p.title}
                       </Link>
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="mt-1 text-xs text-slate-400">
                         {p.source_type === 'url' ? <Link2 className="mr-1 inline size-3" /> : <Video className="mr-1 inline size-3" />}
                         {p.source_type === 'url' ? 'URL' : 'Upload'} · {new Date(p.created_at).toLocaleDateString()}
                       </p>
                     </div>
                     <StatusBadge status={statusOf(p)} />
                   </div>
-                  <div className="mt-4 flex gap-2">
-                    <Link to={`/projects/${p.id}`} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-cream">
-                      Open
+                  <div className="flex gap-2">
+                    <Link
+                      to={`/projects/${p.id}`}
+                      className={`rounded-lg border px-3 py-2 text-xs font-semibold transition-all ${
+                        ['failed', 'error'].includes(statusOf(p))
+                          ? 'border-rose-500/40 bg-rose-500/15 text-rose-200 hover:bg-rose-500/25'
+                          : 'border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]'
+                      }`}
+                    >
+                      {['failed', 'error'].includes(statusOf(p)) ? 'View error & retry' : 'Open'}
                     </Link>
                     <button
                       onClick={() => openDelete(p)}
-                      className="rounded-lg border border-destructive/20 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10"
+                      className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/20"
                     >
                       Delete
                     </button>
@@ -294,7 +321,7 @@ export const HistoryPage: React.FC = () => {
 
       {projectToDelete && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-[#14241f]/45 p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
           role="presentation"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) closeDelete();
@@ -316,22 +343,22 @@ export const HistoryPage: React.FC = () => {
                 }
               }
             }}
-            className="w-full max-w-md rounded-2xl bg-white p-7 shadow-lift"
+            className="w-full max-w-md rounded-2xl border border-white/[0.12] bg-[#0E1017] p-7 shadow-2xl text-white"
           >
-            <span className="grid size-11 place-items-center rounded-xl bg-destructive/10 text-destructive">
+            <span className="grid size-11 place-items-center rounded-xl bg-rose-500/15 text-rose-400 border border-rose-500/20">
               <Trash2 className="size-5" />
             </span>
-            <h2 id="delete-title" className="mt-4 font-display text-2xl font-semibold">
+            <h2 id="delete-title" className="mt-4 font-['Sora',sans-serif] text-xl font-bold text-white">
               Delete this project?
             </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm text-slate-400">
               “{projectToDelete.title}” and its associated records will be permanently removed.
             </p>
             <div className="mt-7 flex justify-end gap-3">
               <button
                 ref={cancelRef}
                 onClick={closeDelete}
-                className="rounded-xl border border-border px-4 py-2 text-sm font-semibold hover:bg-cream"
+                className="rounded-xl border border-white/10 bg-white/[0.05] hover:bg-white/[0.1] px-4 py-2 text-sm font-semibold text-slate-200 cursor-pointer"
               >
                 Cancel
               </button>
@@ -339,7 +366,7 @@ export const HistoryPage: React.FC = () => {
                 ref={deleteRef}
                 disabled={isDeleting}
                 onClick={() => handleDelete(projectToDelete.id)}
-                className="rounded-xl bg-destructive px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 hover:bg-[#b8332b]"
+                className="rounded-xl bg-rose-600 hover:bg-rose-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 cursor-pointer transition-colors"
               >
                 {isDeleting ? 'Deleting…' : 'Delete project'}
               </button>

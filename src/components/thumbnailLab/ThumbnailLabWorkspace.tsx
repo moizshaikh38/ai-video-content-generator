@@ -239,7 +239,7 @@ export const ThumbnailLabWorkspace: React.FC<ThumbnailLabWorkspaceProps> = ({
       <div className="flex flex-col items-center justify-center h-full min-h-[480px] space-y-4">
         <div className="size-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
         <p className="text-sm text-muted-foreground animate-pulse">
-          Opening Vireo Thumbnail Lab & analyzing visual frames...
+          Opening VireoClip Thumbnail Lab & analyzing visual frames...
         </p>
       </div>
     );

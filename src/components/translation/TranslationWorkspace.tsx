@@ -57,7 +57,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
   const [languages, setLanguages] = useState<LanguageDefinition[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('hi');
   const [translationStyle, setTranslationStyle] = useState<TranslationStyle>('creator');
-  const [lockedTermsInput, setLockedTermsInput] = useState<string>('Vireo, YouTube, AI');
+  const [lockedTermsInput, setLockedTermsInput] = useState<string>('VireoClip, YouTube, AI');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -121,7 +121,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                 id: 'seg-1',
                 start: 0.0,
                 end: 3.5,
-                text: sourceTranscriptText || 'Welcome to Vireo Video AI. Create studio-quality videos effortlessly.',
+                text: sourceTranscriptText || 'Welcome to VireoClip AI. Create studio-quality videos effortlessly.',
                 speaker_id: 'speaker-0',
               },
             ];
@@ -276,17 +276,17 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
   const currentSegments = activeTranslationProject?.segments || [];
 
   return (
-    <div className="flex flex-col h-full bg-neutral-950 text-neutral-200 text-xs overflow-hidden">
+    <div className="flex flex-col h-full bg-[#0E1017] text-neutral-200 text-xs overflow-hidden select-none animate-panelSlideIn">
       {/* Workspace Header */}
       <div className="p-3 border-b border-neutral-800 bg-neutral-900/60 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20">
+          <div className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20">
             <Globe className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-white text-sm">Vireo Translate & Dubbing</span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-neutral-800 text-orange-400 border border-neutral-700">
+              <span className="font-semibold text-white text-sm">VireoClip Translate & Dubbing</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-neutral-800 text-violet-300 border border-neutral-700">
                 Phase 21
               </span>
             </div>
@@ -314,7 +314,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
               : 'text-neutral-400 hover:text-neutral-200'
           }`}
         >
-          <Languages className="w-3.5 h-3.5 text-orange-400" />
+          <Languages className="w-3.5 h-3.5 text-violet-400" />
           <span>Script Translation</span>
         </button>
         <button
@@ -368,7 +368,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                 <select
                   value={selectedLanguage}
                   onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="bg-neutral-800 border border-neutral-700 text-white rounded px-2.5 py-1 text-xs focus:ring-1 focus:ring-orange-500"
+                  className="bg-neutral-800 border border-neutral-700 text-white rounded px-2.5 py-1 text-xs focus:ring-1 focus:ring-violet-500"
                 >
                   {languages.map((l) => (
                     <option key={l.code} value={l.code}>
@@ -396,7 +396,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                 type="button"
                 onClick={handleStartTranslation}
                 disabled={loading}
-                className="px-4 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white font-medium flex items-center gap-1.5 shadow transition ml-auto"
+                className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:opacity-50 text-white font-medium flex items-center gap-1.5 shadow transition ml-auto"
               >
                 {loading ? (
                   <>
@@ -419,7 +419,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                 type="text"
                 value={lockedTermsInput}
                 onChange={(e) => setLockedTermsInput(e.target.value)}
-                placeholder="Comma separated brand names (e.g. Vireo, YouTube, AI)"
+                placeholder="Comma separated brand names (e.g. VireoClip, YouTube, AI)"
                 className="flex-1 bg-neutral-950 border border-neutral-800 rounded px-2 py-0.5 text-[11px] text-neutral-300 focus:outline-none focus:border-neutral-600"
               />
               <span className="text-[10px] text-neutral-500">URLs & @handles preserved automatically</span>
@@ -509,7 +509,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                           <span
                             className={`text-[9px] px-1.5 py-0.2 rounded ${
                               expansionRatio > 0.25
-                                ? 'bg-orange-950/60 text-orange-400 border border-orange-800/60'
+                                ? 'bg-violet-950/40 text-violet-300 border border-violet-800/40'
                                 : 'text-neutral-500'
                             }`}
                           >
@@ -550,7 +550,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleStartEdit(seg)}
-                                className="text-orange-400 hover:text-orange-300 flex items-center gap-0.5 lowercase"
+                                className="text-violet-400 hover:text-violet-300 flex items-center gap-0.5 lowercase"
                               >
                                 <Edit2 className="w-2.5 h-2.5" />
                                 <span>edit</span>
@@ -564,7 +564,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                                 value={editText}
                                 onChange={(e) => setEditText(e.target.value)}
                                 rows={2}
-                                className="w-full bg-neutral-900 border border-orange-500/60 rounded p-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                className="w-full bg-neutral-900 border border-violet-500/60 rounded p-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
                               />
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
@@ -578,7 +578,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                                   type="button"
                                   onClick={() => handleSaveEdit(seg.segment_id, true)}
                                   disabled={isSaving}
-                                  className="px-2.5 py-0.5 rounded bg-orange-600 hover:bg-orange-500 text-white text-[10px] font-medium"
+                                  className="px-2.5 py-0.5 rounded bg-violet-600 hover:bg-violet-500 text-white text-[10px] font-medium"
                                 >
                                   {isSaving ? 'Saving...' : 'Save & Approve'}
                                 </button>
@@ -641,7 +641,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
           {/* Apply to Timeline Captions Track */}
           <div className="bg-neutral-900/60 p-4 rounded-lg border border-neutral-800 space-y-3">
             <h3 className="font-semibold text-white text-sm flex items-center gap-2">
-              <Layers className="w-4 h-4 text-orange-400" />
+              <Layers className="w-4 h-4 text-violet-400" />
               <span>Timeline Captions Integration</span>
             </h3>
             <p className="text-[11px] text-neutral-400 leading-relaxed">
@@ -657,7 +657,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                 }
               }}
               disabled={currentSegments.length === 0}
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 disabled:opacity-40 text-white font-medium flex items-center gap-2 shadow transition"
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:opacity-40 text-white font-medium flex items-center gap-2 shadow transition"
             >
               <Sparkles className="w-4 h-4" />
               <span>Apply {getLanguageName(selectedLanguage)} Captions to Video</span>
@@ -745,7 +745,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                   type="checkbox"
                   checked={smartShortening}
                   onChange={(e) => setSmartShortening(e.target.checked)}
-                  className="accent-orange-500 rounded"
+                  className="accent-violet-500 rounded"
                 />
                 <span className="text-neutral-300">Smart Shortening</span>
               </label>

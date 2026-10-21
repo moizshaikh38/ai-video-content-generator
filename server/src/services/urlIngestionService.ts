@@ -9,10 +9,11 @@ import { promisify } from 'node:util';
 import ffmpegStatic from 'ffmpeg-static';
 import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
-import { AppError } from '../types/index.js';
+import { AppError, ClipPreferences, ContentGenre } from '../types/index.js';
 import { UrlValidator } from '../utils/urlValidator.js';
 import { uploadFile, sourceObjectKey } from './objectStorageService.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
+import { GenreIntelligenceService } from './genreIntelligenceService.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -22,6 +23,9 @@ export interface IngestUrlOptions {
   url: string;
   title?: string;
   notes?: string;
+  clipPreferences?: Partial<ClipPreferences>;
+  startTimeSec?: number;
+  endTimeSec?: number;
 }
 
 export interface IngestUrlResult {
@@ -41,14 +45,50 @@ export interface VideoStreamProbe {
   width?: number;
   height?: number;
   codec?: string;
+  fps?: number;
   formatName?: string;
+}
+
+export interface YouTubeMetadataResult {
+  title?: string;
+  duration?: number;
+  videoId?: string;
+  thumbnail?: string;
+  channel?: string;
+  description?: string;
+  categories?: string[];
+  tags?: string[];
+  chapters?: Array<{ title: string; start_time: number; end_time: number }>;
+  suggestedGenre?: ContentGenre;
+  genreConfidence?: number;
+}
+
+export interface UrlProbeMetadataResult {
+  provider: 'youtube' | 'direct';
+  normalizedUrl: string;
+  title?: string;
+  duration?: number;
+  thumbnail?: string;
+  channel?: string;
+  description?: string;
+  categories?: string[];
+  tags?: string[];
+  chapters?: Array<{ title: string; start_time: number; end_time: number }>;
+  suggestedGenre?: ContentGenre;
+  genreConfidence?: number;
+  contentLength?: number;
+  contentType?: string;
 }
 
 export class UrlIngestionService {
   /**
-   * Probes video metadata (duration, streams, codecs) using ffmpeg CLI.
+   * Probes video metadata (duration, streams, codecs, fps) using ffmpeg CLI.
    */
   public static async probeVideoFile(filePath: string): Promise<VideoStreamProbe> {
+    if (!fs.existsSync(filePath)) {
+      throw new AppError('Could not verify media streams in the downloaded file.', 400, 'INVALID_MEDIA');
+    }
+
     const ffmpegPath = (ffmpegStatic as unknown as string) || 'ffmpeg';
 
     try {
@@ -76,10 +116,41 @@ export class UrlIngestionService {
       const hasVideo = /Stream #\d+:\d+.*Video:/i.test(output);
       const hasAudio = /Stream #\d+:\d+.*Audio:/i.test(output);
 
+      if (output.includes('Invalid data found when processing input') || (!hasVideo && !hasAudio)) {
+        throw new AppError('Could not verify media streams in the downloaded file.', 400, 'INVALID_MEDIA');
+      }
+
+      // Extract specific video stream line for isolated parsing
+      const videoStreamLine = output.split('\n').find((line) => /Stream #\d+:\d+.*Video:/i.test(line)) || '';
+
       // Extract resolution if video stream present (e.g., 720x1280 or 1920x1080)
-      const resMatch = output.match(/Stream #\d+:\d+.*Video:.*,\s*(\d{2,5})x(\d{2,5})/i);
+      const resMatch =
+        videoStreamLine.match(/(?:,\s*|\s+)(\d{2,5})x(\d{2,5})(?:\s*\[|\s*,|\s+|$)/) ||
+        output.match(/Stream #\d+:\d+.*Video:.*,\s*(\d{2,5})x(\d{2,5})/i) ||
+        output.match(/(\d{2,5})x(\d{2,5})/);
       const width = resMatch ? parseInt(resMatch[1], 10) : undefined;
       const height = resMatch ? parseInt(resMatch[2], 10) : undefined;
+
+      // Extract codec name (e.g., h264, vp9, av1, hevc)
+      let codec: string | undefined = undefined;
+      const codecMatch = videoStreamLine.match(/Video:\s*([^,\s(]+)/i);
+      if (codecMatch) {
+        const rawCodec = codecMatch[1].toLowerCase();
+        if (rawCodec.startsWith('av01') || rawCodec.startsWith('av1')) {
+          codec = 'av1';
+        } else if (rawCodec.startsWith('vp09') || rawCodec.startsWith('vp9')) {
+          codec = 'vp9';
+        } else {
+          codec = rawCodec;
+        }
+      }
+
+      // Extract fps if present
+      let fps: number | undefined = undefined;
+      const fpsMatch = videoStreamLine.match(/(\d+(?:\.\d+)?)\s*fps/i);
+      if (fpsMatch) {
+        fps = parseFloat(fpsMatch[1]);
+      }
 
       return {
         hasVideo,
@@ -87,6 +158,8 @@ export class UrlIngestionService {
         durationSeconds: Number(durationSeconds.toFixed(2)),
         width,
         height,
+        codec,
+        fps,
       };
     } catch (err: any) {
       logger.error('Failed to probe video file with ffmpeg', { error: err.message, filePath });
@@ -112,29 +185,40 @@ export class UrlIngestionService {
 
     let response: Response | null = null;
 
+    const streamController = new AbortController();
+    let streamTimer: NodeJS.Timeout | null = null;
+
+    const resetStreamTimer = () => {
+      if (streamTimer) clearTimeout(streamTimer);
+      streamTimer = setTimeout(() => {
+        streamController.abort(new Error('STREAM_TIMEOUT'));
+      }, timeoutMs);
+    };
+
+    resetStreamTimer();
+
     // Follow redirects manually to validate SSRF on every hop
     while (redirectCount <= maxRedirects) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      if (streamController.signal.aborted) {
+        throw new AppError('Video download timed out. Please verify the URL host or choose a smaller file.', 408, 'DOWNLOAD_TIMEOUT');
+      }
 
       try {
         response = await fetch(currentUrl, {
           method: 'GET',
           redirect: 'manual',
-          signal: controller.signal,
+          signal: streamController.signal,
           headers: {
             'User-Agent': 'VireoClip/1.0 (Media Ingestion; +https://vireoclip.ai)',
             Accept: 'video/*,*/*;q=0.8',
           },
         });
+        resetStreamTimer();
       } catch (fetchErr: any) {
-        clearTimeout(timer);
-        if (fetchErr.name === 'AbortError') {
+        if (fetchErr.name === 'AbortError' || streamController.signal.aborted) {
           throw new AppError('Video download timed out. Please verify the URL host or choose a smaller file.', 408, 'DOWNLOAD_TIMEOUT');
         }
         throw new AppError(`Failed to connect to video host: ${fetchErr.message}`, 502, 'HOST_CONNECTION_FAILED');
-      } finally {
-        clearTimeout(timer);
       }
 
       // Check for redirect (301, 302, 307, 308)
@@ -157,6 +241,7 @@ export class UrlIngestionService {
     }
 
     if (!response || !response.ok) {
+      if (streamTimer) clearTimeout(streamTimer);
       const status = response?.status || 502;
       throw new AppError(`Remote server returned HTTP ${status} when fetching video.`, 502, 'REMOTE_FETCH_FAILED');
     }
@@ -166,6 +251,8 @@ export class UrlIngestionService {
     if (contentLengthHeader) {
       const declaredBytes = parseInt(contentLengthHeader, 10);
       if (!isNaN(declaredBytes) && declaredBytes > maxBytes) {
+        if (streamTimer) clearTimeout(streamTimer);
+        streamController.abort();
         throw new AppError(
           `Video exceeds maximum allowed file size of ${Math.round(maxBytes / (1024 * 1024))} MB.`,
           400,
@@ -179,6 +266,7 @@ export class UrlIngestionService {
     // Stream to disk and strictly track downloaded byte count
     const body = response.body;
     if (!body) {
+      if (streamTimer) clearTimeout(streamTimer);
       throw new AppError('Empty response body from remote server.', 502, 'EMPTY_RESPONSE');
     }
 
@@ -189,11 +277,22 @@ export class UrlIngestionService {
       const reader = body.getReader();
 
       while (true) {
+        if (streamController.signal.aborted) {
+          throw new AppError(
+            'Video download timed out. Please verify the URL host or choose a smaller file.',
+            408,
+            'DOWNLOAD_TIMEOUT'
+          );
+        }
+
         const { done, value } = await reader.read();
+        resetStreamTimer();
+
         if (done) break;
 
         bytesWritten += value.length;
         if (bytesWritten > maxBytes) {
+          streamController.abort();
           throw new AppError(
             `Downloaded video exceeds maximum allowed size of ${Math.round(maxBytes / (1024 * 1024))} MB.`,
             400,
@@ -201,8 +300,26 @@ export class UrlIngestionService {
           );
         }
 
-        fileStream.write(Buffer.from(value));
+        // Respect WriteStream backpressure: when buffer is full, wait for 'drain' before reading next chunk
+        const canWriteMore = fileStream.write(Buffer.from(value));
+        if (!canWriteMore) {
+          await new Promise<void>((resolve, reject) => {
+            const onDrain = () => {
+              fileStream.removeListener('error', onError);
+              resolve();
+            };
+            const onError = (err: Error) => {
+              fileStream.removeListener('drain', onDrain);
+              reject(err);
+            };
+            fileStream.once('drain', onDrain);
+            fileStream.once('error', onError);
+          });
+          resetStreamTimer();
+        }
       }
+
+      if (streamTimer) clearTimeout(streamTimer);
 
       await new Promise<void>((resolve, reject) => {
         fileStream.end(() => resolve());
@@ -215,11 +332,32 @@ export class UrlIngestionService {
         contentType,
       };
     } catch (streamErr: any) {
+      if (streamTimer) clearTimeout(streamTimer);
+      try {
+        streamController.abort();
+      } catch {}
       fileStream.destroy();
       try {
         if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
       } catch {
         // cleanup ignore
+      }
+
+      if (streamErr instanceof AppError) {
+        throw streamErr;
+      }
+
+      if (
+        streamErr.name === 'AbortError' ||
+        streamErr.code === 'DOWNLOAD_TIMEOUT' ||
+        streamController.signal.aborted ||
+        streamErr.message?.includes('STREAM_TIMEOUT')
+      ) {
+        throw new AppError(
+          'Video download timed out. Please verify the URL host or choose a smaller file.',
+          408,
+          'DOWNLOAD_TIMEOUT'
+        );
       }
       throw streamErr;
     }
@@ -253,14 +391,16 @@ export class UrlIngestionService {
   }
 
   /**
-   * Fetches metadata for a public YouTube video using yt-dlp.
+   * Fetches metadata for a public YouTube video using yt-dlp without downloading media.
+   * Extracts rich metadata (chapters, categories, tags, channel, thumbnail) and computes
+   * local genre suggestions.
    */
   public static async fetchYouTubeMetadata(
     url: string,
     timeoutMs = 25000
-  ): Promise<{ title?: string; duration?: number; videoId?: string }> {
+  ): Promise<YouTubeMetadataResult> {
     const pythonBin = this.getPythonPath();
-    const args = ['-m', 'yt_dlp', '--dump-json', '--no-warnings', '--no-call-home', url];
+    const args = ['-m', 'yt_dlp', '--dump-json', '--no-warnings', '--no-playlist', '--skip-download', url];
 
     try {
       const { stdout } = await execFileAsync(pythonBin, args, {
@@ -269,10 +409,85 @@ export class UrlIngestionService {
       });
 
       const info = JSON.parse(stdout);
+
+      const title = typeof info.title === 'string' ? info.title.trim() : undefined;
+      const duration = typeof info.duration === 'number' ? info.duration : undefined;
+      const videoId = typeof info.id === 'string' ? info.id : undefined;
+
+      const thumbnail =
+        typeof info.thumbnail === 'string'
+          ? info.thumbnail
+          : Array.isArray(info.thumbnails) && info.thumbnails.length > 0
+          ? info.thumbnails[info.thumbnails.length - 1]?.url
+          : undefined;
+
+      const channel =
+        typeof info.uploader === 'string' && info.uploader.trim()
+          ? info.uploader.trim()
+          : typeof info.channel === 'string' && info.channel.trim()
+          ? info.channel.trim()
+          : undefined;
+
+      const description =
+        typeof info.description === 'string'
+          ? info.description.slice(0, 1000).trim()
+          : undefined;
+
+      const categories = Array.isArray(info.categories)
+        ? info.categories.map((c: any) => String(c).trim()).filter(Boolean)
+        : undefined;
+
+      const tags = Array.isArray(info.tags)
+        ? info.tags.map((t: any) => String(t).trim()).filter(Boolean).slice(0, 25)
+        : undefined;
+
+      const chapters = Array.isArray(info.chapters)
+        ? info.chapters
+            .map((ch: any) => ({
+              title: String(ch.title || '').trim(),
+              start_time: Number(ch.start_time || 0),
+              end_time: Number(ch.end_time || 0),
+            }))
+            .filter((ch: any) => ch.title && ch.end_time > ch.start_time)
+        : undefined;
+
+      let suggestedGenre: ContentGenre | undefined = undefined;
+      let genreConfidence: number | undefined = undefined;
+
+      const combinedText = [
+        title,
+        description,
+        ...(categories || []),
+        ...(tags || []),
+        ...(chapters ? chapters.map((c: { title: string }) => c.title) : []),
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      if (combinedText.trim()) {
+        try {
+          const suggestion = GenreIntelligenceService.classifyVideoGenreLocally({
+            transcriptText: combinedText,
+          });
+          suggestedGenre = suggestion.genre;
+          genreConfidence = suggestion.confidence;
+        } catch {
+          // Fallback ignore
+        }
+      }
+
       return {
-        title: typeof info.title === 'string' ? info.title.trim() : undefined,
-        duration: typeof info.duration === 'number' ? info.duration : undefined,
-        videoId: typeof info.id === 'string' ? info.id : undefined,
+        title,
+        duration,
+        videoId,
+        thumbnail,
+        channel,
+        description,
+        categories,
+        tags,
+        chapters,
+        suggestedGenre,
+        genreConfidence,
       };
     } catch (err: any) {
       const stderr = String(err.stderr || '');
@@ -295,11 +510,13 @@ export class UrlIngestionService {
 
   /**
    * Downloads a public YouTube video to a bounded local temporary MP4 file using yt-dlp and FFmpeg.
+   * Prefers fast H.264 video with AAC audio, supports concurrent fragments, and handles partial range windows.
    */
   public static async downloadYouTubeToTempFile(
     url: string,
     maxBytes: number = config.maxVideoBytes,
-    timeoutMs: number = 120000
+    timeoutMs: number = 120000,
+    range?: { startSec?: number; endSec?: number }
   ): Promise<{ tempFilePath: string; totalBytes: number; contentType: string; title?: string }> {
     const tempDir = os.tmpdir();
     const uniqueId = `yt-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
@@ -310,22 +527,37 @@ export class UrlIngestionService {
     const ffmpegPath = (ffmpegStatic as unknown as string) || 'ffmpeg';
     const ffmpegDir = path.dirname(ffmpegPath);
 
-    // Format selection: select standard MP4 up to 1080p, merging best audio
-    const formatSpec = 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4][height<=1080]/best[height<=1080]/best';
+    // Format selection: prefer hardware/FFmpeg-friendly H.264 (avc1) with m4a audio, falling back gracefully
+    const formatSpec =
+      'bestvideo[ext=mp4][vcodec^=avc1][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4][height<=1080]/best[height<=1080]/best';
 
     const args = [
       '-m', 'yt_dlp',
       '--no-warnings',
-      '--no-call-home',
+      '--no-playlist',
+      '--concurrent-fragments', '4',
+      '--socket-timeout', '20',
       '--ffmpeg-location', ffmpegDir,
       '-f', formatSpec,
       '--merge-output-format', 'mp4',
       '--max-filesize', `${Math.round(maxBytes / (1024 * 1024))}M`,
-      '-o', outTemplate,
-      url,
     ];
 
-    logger.info(`Starting YouTube download via yt-dlp: ${url} (maxBytes: ${maxBytes})`);
+    if (range && (range.startSec !== undefined || range.endSec !== undefined)) {
+      const s = Math.max(0, range.startSec ?? 0);
+      const e = range.endSec !== undefined ? range.endSec : 'inf';
+      if (typeof e === 'number' && e > s) {
+        const windowDur = e - s;
+        if (windowDur > 7200) {
+          throw new AppError('Video duration exceeds the maximum allowed limit of 2 hours.', 400, 'YOUTUBE_DURATION_TOO_LONG');
+        }
+      }
+      args.push('--download-sections', `*${s}-${e}`, '--force-keyframes-at-cuts');
+    }
+
+    args.push('-o', outTemplate, url);
+
+    logger.info(`Starting YouTube download via yt-dlp: ${url} (maxBytes: ${maxBytes}, range: ${JSON.stringify(range || 'full')})`);
 
     try {
       await execFileAsync(pythonBin, args, {
@@ -358,6 +590,12 @@ export class UrlIngestionService {
       }
       if (stderr.includes('Sign in') || stderr.includes('age-restricted')) {
         throw new AppError('This YouTube video has access or age restrictions and cannot be imported.', 400, 'YOUTUBE_ACCESS_RESTRICTED');
+      }
+      if (stderr.includes('No module named yt_dlp') || dlErr.message.includes('ENOENT')) {
+        throw new AppError('YouTube downloader utility is not configured or available on the server.', 500, 'YOUTUBE_DOWNLOADER_UNAVAILABLE');
+      }
+      if (stderr.includes('Sign in to confirm you’re not a bot') || stderr.includes('bot detection')) {
+        throw new AppError('YouTube is temporarily rate limiting or blocking automated requests. Please try again shortly or upload directly.', 429, 'YOUTUBE_RATE_LIMITED');
       }
 
       throw new AppError('Could not download this YouTube video. Please verify that the video is publicly accessible.', 400, 'YOUTUBE_DOWNLOAD_FAILED');
@@ -394,11 +632,64 @@ export class UrlIngestionService {
   }
 
   /**
+   * Lightweight pre-ingest URL probe returning video metadata and auto-suggested genre in ~1s
+   * without downloading the media payload.
+   */
+  public static async probeUrlMetadata(url: string, timeoutMs = 15000): Promise<UrlProbeMetadataResult> {
+    const validated = await UrlValidator.validateVideoUrl(url);
+
+    if (validated.provider === 'youtube') {
+      const meta = await this.fetchYouTubeMetadata(validated.normalizedUrl, timeoutMs);
+      return {
+        provider: 'youtube',
+        normalizedUrl: validated.normalizedUrl,
+        title: meta.title,
+        duration: meta.duration,
+        thumbnail: meta.thumbnail,
+        channel: meta.channel,
+        description: meta.description,
+        categories: meta.categories,
+        tags: meta.tags,
+        chapters: meta.chapters,
+        suggestedGenre: meta.suggestedGenre,
+        genreConfidence: meta.genreConfidence,
+      };
+    }
+
+    // Direct public media URL
+    let contentLength: number | undefined = undefined;
+    let contentType: string | undefined = undefined;
+
+    try {
+      const headRes = await fetch(validated.normalizedUrl, {
+        method: 'HEAD',
+        headers: { 'User-Agent': 'VireoClip/1.0 (Media Ingestion; +https://vireoclip.ai)' },
+        signal: AbortSignal.timeout(Math.min(timeoutMs, 5000)),
+      });
+      if (headRes.ok) {
+        const cl = headRes.headers.get('content-length');
+        if (cl) contentLength = parseInt(cl, 10);
+        contentType = headRes.headers.get('content-type') || undefined;
+      }
+    } catch {
+      // Ignore head failures
+    }
+
+    return {
+      provider: 'direct',
+      normalizedUrl: validated.normalizedUrl,
+      title: validated.inferredFilename.replace(/\.[^.]+$/, ''),
+      contentLength,
+      contentType,
+    };
+  }
+
+  /**
    * High-level workflow orchestrating URL validation, temporary download, FFmpeg probe,
-   * R2 upload, and project database persistence.
+   * R2 upload, source cache seeding, and project database persistence.
    */
   public static async ingestUrlToProject(options: IngestUrlOptions): Promise<IngestUrlResult> {
-    const { userId, url, title, notes } = options;
+    const { userId, url, title, notes, clipPreferences, startTimeSec, endTimeSec } = options;
     const projectId = options.projectId || crypto.randomUUID();
 
     // 1. Server-side URL & SSRF Validation
@@ -406,6 +697,12 @@ export class UrlIngestionService {
 
     let tempFile: string | null = null;
     let ytMetaTitle: string | undefined = undefined;
+    let ytMeta: YouTubeMetadataResult | undefined = undefined;
+
+    const range =
+      startTimeSec !== undefined || endTimeSec !== undefined
+        ? { startSec: startTimeSec, endSec: endTimeSec }
+        : undefined;
 
     try {
       let download: { tempFilePath: string; totalBytes: number; contentType: string };
@@ -413,15 +710,26 @@ export class UrlIngestionService {
       if (validated.provider === 'youtube') {
         // YouTube Ingestion Path via yt-dlp
         logger.info(`Starting YouTube video ingestion: ${validated.normalizedUrl} (ID: ${validated.youtubeVideoId}) for project ${projectId}`);
-        
-        // Optional quick metadata pre-fetch for title & duration bounds
-        const meta: { title?: string; duration?: number; videoId?: string } = await this.fetchYouTubeMetadata(validated.normalizedUrl).catch(() => ({}));
-        if (meta.title) ytMetaTitle = meta.title;
-        if (meta.duration && meta.duration > 7200) {
+
+        // Quick metadata pre-fetch for title, duration bounds, chapters, and auto-genre
+        ytMeta = await this.fetchYouTubeMetadata(validated.normalizedUrl).catch(() => ({}));
+        if (ytMeta.title) ytMetaTitle = ytMeta.title;
+
+        // Duration guard: if range is specified, validate range window; otherwise validate full duration
+        if (range && (range.startSec !== undefined || range.endSec !== undefined)) {
+          const s = Math.max(0, range.startSec ?? 0);
+          const e = range.endSec !== undefined ? range.endSec : (ytMeta.duration ?? 0);
+          if (typeof e === 'number' && e > s) {
+            const windowDur = e - s;
+            if (windowDur > 7200) {
+              throw new AppError('Video duration exceeds the maximum allowed limit of 2 hours.', 400, 'YOUTUBE_DURATION_TOO_LONG');
+            }
+          }
+        } else if (ytMeta.duration && ytMeta.duration > 7200) {
           throw new AppError('Video duration exceeds the maximum allowed limit of 2 hours.', 400, 'YOUTUBE_DURATION_TOO_LONG');
         }
 
-        download = await this.downloadYouTubeToTempFile(validated.normalizedUrl);
+        download = await this.downloadYouTubeToTempFile(validated.normalizedUrl, config.maxVideoBytes, 120000, range);
       } else {
         // Direct Public Media URL Path
         logger.info(`Starting secure download for URL: ${validated.hostname} for project ${projectId}`);
@@ -453,7 +761,32 @@ export class UrlIngestionService {
       logger.info(`Uploading ingested video to Cloudflare R2: ${key}`);
       await uploadFile('source', key, tempFile, download.totalBytes, mime);
 
-      // 5. Create Project Record in MongoDB in 'uploaded' state so it can be processed immediately
+      // 5. Seed project source disk cache (vireo-source-cache) so subsequent services get instant cache hit
+      const cacheDir = path.join(os.tmpdir(), 'vireo-source-cache');
+      try {
+        if (!fs.existsSync(cacheDir)) {
+          fs.mkdirSync(cacheDir, { recursive: true });
+        }
+        const hash = crypto.createHash('sha256').update(key).digest('hex');
+        const cachedFile = path.join(cacheDir, `${hash}.mp4`);
+        fs.copyFileSync(tempFile, cachedFile);
+        logger.info(`Seeded project source cache for ${key} at ${cachedFile}`);
+      } catch (cacheErr: any) {
+        logger.warn('Failed to seed vireo-source-cache', { error: cacheErr.message });
+      }
+
+      // 6. Normalize clip preferences and attach auto-genre suggestions
+      let normalizedPrefs = GenreIntelligenceService.normalizePreferences(clipPreferences, notes);
+      if (normalizedPrefs.genreSelectionMode === 'auto' && ytMeta?.suggestedGenre) {
+        normalizedPrefs = {
+          ...normalizedPrefs,
+          genre: ytMeta.suggestedGenre,
+          suggestedGenre: ytMeta.suggestedGenre,
+          genreConfidence: ytMeta.genreConfidence ?? 0.85,
+        };
+      }
+
+      // 7. Create Project Record in MongoDB in 'uploaded' state
       const projectTitle = title?.trim() || ytMetaTitle || validated.inferredFilename.replace(/\.[^.]+$/, '') || 'Ingested Video';
       const projectRecord: any = {
         id: projectId,
@@ -461,10 +794,15 @@ export class UrlIngestionService {
         title: projectTitle.slice(0, 255),
         source_type: 'url',
         source_url: key,
+        source_storage_path: key,
         source_object_key: key,
         file_size: download.totalBytes,
         mime_type: mime,
         video_status: 'uploaded',
+        duration_seconds: probe.durationSeconds,
+        width: probe.width,
+        height: probe.height,
+        clip_preferences: normalizedPrefs,
         notes: String(notes || '').trim().slice(0, 2000),
       };
 
@@ -475,6 +813,23 @@ export class UrlIngestionService {
           original_url: validated.normalizedUrl,
           ingested_at: new Date().toISOString(),
           original_title: ytMetaTitle,
+          thumbnail: ytMeta?.thumbnail,
+          channel: ytMeta?.channel,
+          description: ytMeta?.description,
+          categories: ytMeta?.categories,
+          tags: ytMeta?.tags,
+          chapters: ytMeta?.chapters,
+          suggested_genre: ytMeta?.suggestedGenre,
+          genre_confidence: ytMeta?.genreConfidence,
+          selected_range: range,
+        };
+      } else {
+        projectRecord.metadata = {
+          source_provider: 'direct',
+          original_url: validated.normalizedUrl,
+          ingested_at: new Date().toISOString(),
+          codec: probe.codec,
+          fps: probe.fps,
         };
       }
 
@@ -499,7 +854,7 @@ export class UrlIngestionService {
         sourceType: 'url',
       };
     } finally {
-      // 6. Guarantee temp file cleanup
+      // 8. Guarantee temp file cleanup
       if (tempFile) {
         try {
           if (fs.existsSync(tempFile)) {

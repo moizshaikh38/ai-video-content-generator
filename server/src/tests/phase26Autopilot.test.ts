@@ -458,4 +458,253 @@ describe('Phase 26 — Vireo Full Pipeline Autopilot Test Suite', () => {
       );
     });
   });
+
+  describe('9. Closed-Loop Upgrades: Genre Defaults, Idempotency, and Enriched Handoff', () => {
+    it('partial dto.settings preserves default producer_mode and auto_select_highest_scoring_thumbnail', async () => {
+      const partialRun = await AutopilotService.createRun(testUserId, {
+        clip_id: testClipId,
+        settings: {
+          target_platform: 'shorts',
+        } as any,
+      });
+
+      assert.strictEqual(partialRun.settings.target_platform, 'shorts');
+      assert.strictEqual(partialRun.settings.producer_mode, 'BALANCED');
+      assert.strictEqual(partialRun.settings.auto_select_highest_scoring_thumbnail, true);
+
+      // Clean up partial run
+      await db.collection('autopilot_runs').deleteOne({ id: partialRun.id });
+    });
+
+    it('infers AGGRESSIVE producer_mode when project or clip genre is gaming', async () => {
+      const gamingProjectId = crypto.randomUUID();
+      const gamingClipId = crypto.randomUUID();
+
+      await ownerContext.run(testUserId, async () => {
+        await dataRepository.from('projects').insert({
+          id: gamingProjectId,
+          user_id: testUserId,
+          title: 'Gaming Playthrough Project',
+          genre: 'gaming',
+          video_status: 'completed',
+          source_type: 'upload',
+        });
+
+        await dataRepository.from('clips').insert({
+          id: gamingClipId,
+          project_id: gamingProjectId,
+          user_id: testUserId,
+          title: 'Apex Legends Clutch Moments',
+          genre: 'gaming',
+          duration_seconds: 30,
+          status: 'ready',
+        });
+      });
+
+      const gamingRun = await AutopilotService.createRun(testUserId, {
+        clip_id: gamingClipId,
+      });
+
+      assert.strictEqual(gamingRun.settings.producer_mode, 'AGGRESSIVE');
+
+      // Cleanup
+      await db.collection('autopilot_runs').deleteMany({ clip_id: gamingClipId });
+      await db.collection('clips').deleteOne({ id: gamingClipId });
+      await db.collection('projects').deleteOne({ id: gamingProjectId });
+    });
+
+    it('idempotency_key matching returns an already-completed run with same key without duplicating', async () => {
+      const customIdempotencyKey = `idemp-${crypto.randomUUID()}`;
+
+      // 1. First creation
+      const run1 = await AutopilotService.createRun(testUserId, {
+        clip_id: testClipId,
+        idempotency_key: customIdempotencyKey,
+      });
+
+      // Mark run1 as COMPLETED in DB to simulate completion
+      await db.collection('autopilot_runs').updateOne(
+        { id: run1.id },
+        { $set: { status: 'COMPLETED' } }
+      );
+
+      // 2. Second creation with exact same idempotency_key
+      const run2 = await AutopilotService.createRun(testUserId, {
+        clip_id: testClipId,
+        idempotency_key: customIdempotencyKey,
+      });
+
+      assert.strictEqual(run2.id, run1.id, 'Must return the existing run with matching idempotency_key');
+      assert.strictEqual(run2.idempotency_key, customIdempotencyKey);
+
+      // Cleanup
+      await db.collection('autopilot_runs').deleteOne({ id: run1.id });
+    });
+
+    it('approveRun includes clip_id, project_id, hook_text, video_storage_path in publishing_handoff and supports hook override', async () => {
+      const completedRunId = crypto.randomUUID();
+      const mockPackId = crypto.randomUUID();
+      const mockHookId = crypto.randomUUID();
+      const mockOverrideHookId = crypto.randomUUID();
+      const mockHookSessionId = crypto.randomUUID();
+
+      // Seed mock hook session and candidate in hook_lab collections
+      await db.collection('hook_lab_sessions').insertOne({
+        id: mockHookSessionId,
+        clip_id: testClipId,
+        project_id: testProjectId,
+        user_id: testUserId,
+        platform: 'tiktok',
+        created_at: new Date(),
+        updated_at: new Date(),
+      });
+
+      await db.collection('hook_candidates').insertMany([
+        {
+          id: mockHookId,
+          hook_lab_session_id: mockHookSessionId,
+          user_id: testUserId,
+          text: 'Default Winning Hook Text',
+          hook_type: 'curiosity_gap',
+          overall_hook_fit: 90,
+          status: 'APPROVED',
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+        {
+          id: mockOverrideHookId,
+          hook_lab_session_id: mockHookSessionId,
+          user_id: testUserId,
+          text: 'Overridden Custom Hook Text',
+          hook_type: 'bold_claim',
+          overall_hook_fit: 95,
+          status: 'APPROVED',
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+      ]);
+
+      // Seed mock content pack in content_packs collection
+      await db.collection('content_packs').insertOne({
+        id: mockPackId,
+        project_id: testProjectId,
+        clip_id: testClipId,
+        user_id: testUserId,
+        mode: 'BALANCED',
+        platform: 'tiktok',
+        status: 'READY',
+        deliverables: {
+          title: 'Mastering Autopilot in 2026',
+          description: 'A complete step by step tutorial.',
+          hashtags: ['#vireo', '#ai'],
+        },
+        created_at: new Date(),
+        updated_at: new Date(),
+      });
+
+      // Update clip with mock output_storage_path and status
+      await db.collection('clips').updateOne(
+        { id: testClipId },
+        {
+          $set: {
+            output_storage_path: 'storage://rendered-clips/vireo-test-output.mp4',
+            render_status: 'COMPLETED',
+          },
+        }
+      );
+
+      // Seed completed run
+      await db.collection('autopilot_runs').insertOne({
+        id: completedRunId,
+        user_id: testUserId,
+        project_id: testProjectId,
+        clip_id: testClipId,
+        status: 'COMPLETED',
+        current_step: 'APPROVAL',
+        content_pack_id: mockPackId,
+        hook_session_id: mockHookSessionId,
+        selected_hook_candidate_id: mockHookId,
+        settings: {
+          producer_mode: 'BALANCED',
+          target_platform: 'tiktok',
+        },
+        steps: [
+          {
+            step: 'PRODUCER',
+            status: 'COMPLETED',
+            output_id: 'prod-plan-1',
+          },
+          {
+            step: 'HOOK_LAB',
+            status: 'COMPLETED',
+            output_id: mockHookId,
+            artifacts: {
+              hook_session_id: mockHookSessionId,
+              candidate_id: mockHookId,
+              hook_text: 'Default Winning Hook Text',
+            },
+          },
+          {
+            step: 'THUMBNAIL_LAB',
+            status: 'COMPLETED',
+            output_id: 'thumb-concept-1',
+          },
+          {
+            step: 'CONTENT_PACK',
+            status: 'COMPLETED',
+            output_id: mockPackId,
+          },
+          {
+            step: 'APPROVAL',
+            status: 'PENDING',
+          },
+        ],
+        created_at: new Date(),
+        updated_at: new Date(),
+      });
+
+      // Approve run with hook candidate override
+      const result = await AutopilotService.approveRun(testUserId, completedRunId, {
+        selected_hook_candidate_id: mockOverrideHookId,
+      });
+
+      assert.strictEqual(result.run.status, 'APPROVED');
+      assert.strictEqual(result.run.is_approved, true);
+      assert.strictEqual(result.run.selected_hook_candidate_id, mockOverrideHookId);
+
+      // Validate enriched handoff payload
+      const handoff = result.publishing_handoff;
+      assert.strictEqual(handoff.clip_id, testClipId);
+      assert.strictEqual(handoff.project_id, testProjectId);
+      assert.strictEqual(handoff.hook_text, 'Overridden Custom Hook Text');
+      assert.strictEqual(handoff.video_storage_path, 'storage://rendered-clips/vireo-test-output.mp4');
+      assert.strictEqual(handoff.video_render_status, 'COMPLETED');
+      assert.strictEqual(handoff.duration_seconds, 40);
+      assert.strictEqual(handoff.aspect_ratio, '9:16');
+
+      // Verify human approval gate strictly enforced: cannot approve non-ready run
+      const pendingRun = await AutopilotService.createRun(testUserId, { clip_id: testClipId });
+      await assert.rejects(
+        async () => {
+          await AutopilotService.approveRun(testUserId, pendingRun.id);
+        },
+        (err: any) => err.code === 'PIPELINE_NOT_READY'
+      );
+      await db.collection('autopilot_runs').deleteOne({ id: pendingRun.id });
+
+      // Verify non-existent run throws RUN_NOT_FOUND
+      await assert.rejects(
+        async () => {
+          await AutopilotService.approveRun(testUserId, crypto.randomUUID());
+        },
+        (err: any) => err.code === 'RUN_NOT_FOUND'
+      );
+
+      // Cleanup mock items
+      await db.collection('autopilot_runs').deleteOne({ id: completedRunId });
+      await db.collection('content_packs').deleteOne({ id: mockPackId });
+      await db.collection('hook_candidates').deleteMany({ session_id: mockHookSessionId });
+      await db.collection('hook_lab_sessions').deleteOne({ id: mockHookSessionId });
+    });
+  });
 });

@@ -1,49 +1,44 @@
 import { Link } from "react-router-dom";
-import mark from "../assets/brand/vireo-mark.svg";
-import lightLogo from "../assets/brand/vireo-logo-light.svg";
+import type { MouseEventHandler } from "react";
+import darkLogo from "../assets/brand/vireoclip-logo-dark.svg";
+import lightLogo from "../assets/brand/vireoclip-logo-light.svg";
+import symbol from "../assets/brand/vireoclip-symbol.svg";
 
 export interface LogoProps {
   to?: string;
   className?: string;
+  symbolOnly?: boolean;
+  variant?: "light" | "dark";
+  size?: "sm" | "md" | "lg";
   compact?: boolean;
   light?: boolean;
+  onClick?: MouseEventHandler<HTMLAnchorElement>;
 }
+
+const fullLogoSizes = { sm: "h-7", md: "h-9", lg: "h-11" } as const;
+const symbolSizes = { sm: "h-6", md: "h-9", lg: "h-12" } as const;
 
 export function Logo({
   to = "/",
   className = "",
+  symbolOnly = false,
+  variant = "dark",
+  size = "md",
   compact = false,
   light = false,
+  onClick,
 }: LogoProps) {
+  const showSymbol = symbolOnly || compact;
+  const resolvedVariant = light ? "light" : variant;
+  const source = showSymbol ? symbol : resolvedVariant === "light" ? lightLogo : darkLogo;
+
   return (
-    <Link
-      to={to}
-      aria-label="Vireo home"
-      className={`inline-flex items-center gap-2 group ${className}`}
-    >
-      {light && !compact ? (
-        <img
-          src={lightLogo}
-          alt=""
-          className="h-10 w-auto transition-transform group-hover:scale-105"
-        />
-      ) : (
-        <>
-          <img
-            src={mark}
-            alt=""
-            className="size-9 shrink-0 transition-transform group-hover:scale-105"
-          />
-          {!compact && (
-            <span className="text-[27px] font-bold tracking-[-0.07em] leading-none text-forest inline-flex items-center gap-1.5">
-              Vireo
-              <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-clay/10 text-clay border border-clay/20 font-sans tracking-normal">
-                Beta
-              </span>
-            </span>
-          )}
-        </>
-      )}
+    <Link to={to} aria-label="VireoClip home" onClick={onClick} className={`group inline-flex shrink-0 items-center ${className}`}>
+      <img
+        src={source}
+        alt=""
+        className={`${showSymbol ? symbolSizes[size] : fullLogoSizes[size]} w-auto transition-transform group-hover:scale-[1.03]`}
+      />
     </Link>
   );
 }

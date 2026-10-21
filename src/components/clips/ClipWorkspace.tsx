@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Film,
@@ -8,7 +8,6 @@ import {
   Clock,
   Play,
   Pause,
-  Lightbulb,
   Check,
   Loader2,
   AlertCircle,
@@ -32,8 +31,10 @@ import { SpotlightCard } from '../react-bits/SpotlightCard';
 import { ClipCandidate, ClipCandidateStatus, Transcript, RenderedClip, MomentSearchResult } from '../../types';
 import { clipService } from '../../services/clipService';
 import { clipRenderService } from '../../services/clipRenderService';
+import { triggerBrowserDownload } from '../../utils/downloadUtils';
 import { PublishModal } from '../PublishModal';
 import { ContentPackWorkspace } from '../contentPack/ContentPackWorkspace';
+import { WhyThisClipSection } from './WhyThisClipSection';
 
 export interface ClipWorkspaceProps {
   projectId: string;
@@ -119,8 +120,9 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
       ]);
 
       setCandidates(candData);
-      if (candData.length > 0 && !selectedCandidateId) {
-        setSelectedCandidateId(candData[0].id);
+      const initialFiltered = candData.filter((c) => c.status !== 'dismissed');
+      if (initialFiltered.length > 0 && !selectedCandidateId) {
+        setSelectedCandidateId(initialFiltered[0].id);
       }
 
       setMyClips(clipsData);
@@ -164,8 +166,9 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
     try {
       const response = await clipService.analyzeClips(projectId);
       setCandidates(response.candidates);
-      if (response.candidates.length > 0) {
-        setSelectedCandidateId(response.candidates[0].id);
+      const initialFiltered = (response.candidates || []).filter((c: any) => c.status !== 'dismissed');
+      if (initialFiltered.length > 0) {
+        setSelectedCandidateId(initialFiltered[0].id);
       }
     } catch (err: any) {
       setAnalysisError(err.message || 'Failed to analyze video clips.');
@@ -264,12 +267,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
     setIsDownloading(clipId);
     try {
       const { signedUrl, filename } = await clipRenderService.getDownloadUrl(clipId);
-      const link = document.createElement('a');
-      link.href = signedUrl;
-      link.download = filename || 'clip.mp4';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      await triggerBrowserDownload(signedUrl, filename || `clip-${clipId.slice(0, 8)}.mp4`);
     } catch (err: any) {
       alert(err.message || 'Failed to download clip.');
     } finally {
@@ -284,7 +282,30 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const activeCandidate = candidates.find((c) => c.id === selectedCandidateId) || candidates[0];
+  const filteredCandidates = useMemo<ClipCandidate[]>(() => {
+    return candidates.filter((c: ClipCandidate) => {
+      if (filter === 'selected') return c.status === 'selected';
+      return c.status !== 'dismissed';
+    });
+  }, [candidates, filter]);
+
+  const activeCandidate = useMemo<ClipCandidate | undefined>(() => {
+    return (
+      filteredCandidates.find((c: ClipCandidate) => c.id === selectedCandidateId) ||
+      filteredCandidates[0] ||
+      candidates[0]
+    );
+  }, [filteredCandidates, selectedCandidateId, candidates]);
+
+  // Keep selectedCandidateId pointing to an available candidate in filteredCandidates
+  useEffect(() => {
+    if (filteredCandidates.length > 0) {
+      const match = filteredCandidates.some((c: ClipCandidate) => c.id === selectedCandidateId);
+      if (!match) {
+        setSelectedCandidateId(filteredCandidates[0].id);
+      }
+    }
+  }, [filteredCandidates, selectedCandidateId]);
 
   // Sync video seek position when selected candidate changes
   useEffect(() => {
@@ -328,11 +349,6 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
     }
   };
 
-  const filteredCandidates = candidates.filter((c) => {
-    if (filter === 'selected') return c.status === 'selected';
-    return c.status !== 'dismissed';
-  });
-
   const selectedCount = candidates.filter((c) => c.status === 'selected').length;
 
   // 1. Initial Loading State
@@ -361,7 +377,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
             Finding your strongest moments...
           </h3>
           <p className="text-sm text-muted-foreground">
-            Vireo is analyzing your video transcript to detect high-engagement standalone clips.
+            VireoClip is analyzing your video transcript to detect high-engagement standalone clips.
           </p>
         </div>
 
@@ -474,7 +490,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                   Find your best moments
                 </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Vireo analyzes your transcript to surface strong standalone moments for Shorts, Reels, and TikTok.
+                  VireoClip analyzes your transcript to surface strong standalone moments for Shorts, Reels, and TikTok.
                 </p>
                 <p className="text-xs text-muted-foreground/80 font-mono">
                   Usually finds 5–10 strong moments based on hook strength, clarity, and pacing.
@@ -494,7 +510,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                   size="lg"
                   onClick={handleFindClips}
                   disabled={isAnalyzing || !transcript}
-                  className="shadow-clay px-8"
+                  className="shadow-black/40 px-8"
                 >
                   <Sparkles className="size-4 mr-2" />
                   Find Clips
@@ -512,7 +528,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Ask Vireo to find a moment... (e.g. 'find the part about workspace' or 'hook about AI')"
+                      placeholder="Ask VireoClip to find a moment... (e.g. 'find the part about workspace' or 'hook about AI')"
                       className="w-full bg-cream/50 border border-border/80 rounded-xl pl-9 pr-8 py-2 text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-clay/30"
                     />
                     {searchQuery && (
@@ -627,7 +643,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 {/* LEFT: Candidate List */}
                 <div className="lg:col-span-4 space-y-2.5 max-h-[600px] overflow-y-auto pr-1">
-                  {filteredCandidates.map((candidate, index) => {
+                  {filteredCandidates.map((candidate: ClipCandidate, index: number) => {
                     const isSelected = candidate.id === activeCandidate?.id;
                     const isChosen = candidate.status === 'selected';
                     const score = candidate.metadata?.vireo_score ?? candidate.engagement_score;
@@ -640,7 +656,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                         onClick={() => setSelectedCandidateId(candidate.id)}
                         className={`group relative rounded-2xl border p-4 cursor-pointer transition-all duration-200 text-left ${
                           isSelected
-                            ? 'border-clay/50 bg-cream/70 shadow-sm ring-1 ring-clay/20'
+                            ? 'border-clay/50 bg-cream/70 shadow-sm ring-1 ring-white/20'
                             : 'border-border/80 bg-card hover:bg-cream/30 hover:border-border'
                         }`}
                       >
@@ -656,7 +672,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                                   : 'bg-clay/10 text-clay'
                               }`}
                             >
-                              {score} Vireo
+                              {score} VireoClip
                             </span>
                           </div>
 
@@ -676,9 +692,19 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                           {candidate.title}
                         </h4>
 
-                        {/* Multimodal Signal Badges */}
+                        {/* Multimodal & Genre Signal Badges */}
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          {visualScore && (
+                          {(candidate.genre || candidate.metadata?.genre) && (
+                            <span className="inline-flex items-center gap-1 rounded bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 text-[10px] font-mono text-purple-600 dark:text-purple-400">
+                              {candidate.genre || candidate.metadata?.genre}
+                            </span>
+                          )}
+                          {candidate.content_goal && (
+                            <span className="inline-flex items-center gap-1 rounded bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 text-[10px] font-mono text-blue-600 dark:text-blue-400">
+                              {candidate.content_goal}
+                            </span>
+                          )}
+                          {visualScore !== undefined && (
                             <span className="inline-flex items-center gap-1 rounded bg-cream/70 border border-border/50 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
                               <Activity className="size-2.5 text-clay" />
                               {visualScore} Visual
@@ -714,6 +740,11 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                           src={videoPreviewUrl}
                           className="w-full h-full object-contain"
                           onTimeUpdate={handleTimeUpdate}
+                          onLoadedMetadata={() => {
+                            if (videoRef.current && activeCandidate) {
+                              videoRef.current.currentTime = activeCandidate.start_seconds;
+                            }
+                          }}
                           onEnded={() => setIsPlaying(false)}
                         />
 
@@ -792,85 +823,15 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                         </p>
                       </div>
 
-                      {/* Phase 16 Explainable Multimodal Signals */}
-                      {activeCandidate.metadata?.explanation && (
-                        <div className="space-y-2 rounded-xl bg-cream/30 border border-border/60 p-3 text-xs">
-                          <span className="font-semibold text-foreground text-[11px] font-mono uppercase tracking-wider block">
-                            Multimodal Intelligence
-                          </span>
-                          <div className="grid grid-cols-3 gap-1 text-[10px] font-mono">
-                            <div className="rounded bg-card p-1.5 text-center border border-border/40">
-                              <span className="text-muted-foreground block text-[9px]">Hook</span>
-                              <span className="font-bold text-foreground">{activeCandidate.metadata.explanation.hook_score}</span>
-                            </div>
-                            <div className="rounded bg-card p-1.5 text-center border border-border/40">
-                              <span className="text-muted-foreground block text-[9px]">Visual</span>
-                              <span className="font-bold text-foreground">{activeCandidate.metadata.explanation.visual_activity_score}</span>
-                            </div>
-                            <div className="rounded bg-card p-1.5 text-center border border-border/40">
-                              <span className="text-muted-foreground block text-[9px]">Audio</span>
-                              <span className="font-bold text-foreground">{activeCandidate.metadata.explanation.audio_energy_score}</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Why it works / Reasons breakdown */}
-                      {activeCandidate.metadata?.explanation?.reasons?.length ? (
-                        <div className="space-y-1.5 text-xs">
-                          <span className="font-semibold text-foreground flex items-center gap-1.5">
-                            <Lightbulb className="size-3.5 text-sage" />
-                            Why it works
-                          </span>
-                          <ul className="space-y-1">
-                            {activeCandidate.metadata.explanation.reasons.map((r: string, rIdx: number) => (
-                              <li key={rIdx} className="text-muted-foreground text-[11px] leading-relaxed flex items-start gap-1.5">
-                                <span className="text-clay font-bold">•</span>
-                                <span>{r}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : activeCandidate.reason ? (
-                        <div className="space-y-1 text-xs">
-                          <span className="font-semibold text-foreground flex items-center gap-1.5">
-                            <Lightbulb className="size-3.5 text-sage" />
-                            Why it works
-                          </span>
-                          <p className="text-muted-foreground text-[11px] leading-relaxed">
-                            {activeCandidate.reason}
-                          </p>
-                        </div>
-                      ) : null}
-
-                      {/* Platform Suitability */}
-                      {activeCandidate.metadata?.explanation?.platform_suitability && (
-                        <div className="space-y-1.5 text-xs border-t border-border/50 pt-2.5">
-                          <span className="font-semibold text-foreground text-[11px] uppercase tracking-wider font-mono block">
-                            Platform Suitability
-                          </span>
-                          <div className="flex flex-wrap gap-1">
-                            {Object.entries(activeCandidate.metadata.explanation.platform_suitability).map(([plat, detail]: any) => (
-                              <span
-                                key={plat}
-                                title={detail.reason}
-                                className={`rounded px-1.5 py-0.5 text-[9px] font-mono uppercase font-semibold ${
-                                  detail.suitable ? 'bg-vireo-green/10 text-vireo-green' : 'bg-muted text-muted-foreground line-through'
-                                }`}
-                              >
-                                {plat}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      {/* Explainable Intelligence: Sub-scores, reasons, and platform suitability */}
+                      <WhyThisClipSection candidate={activeCandidate} defaultExpanded={true} />
 
                       {/* PHASE 11 PRIMARY ACTION: Create Clip */}
                       <div className="pt-2 space-y-2 border-t border-border/60">
                         <Button
                           variant="clay"
                           size="sm"
-                          className="w-full text-xs shadow-clay py-2.5"
+                          className="w-full text-xs shadow-black/40 py-2.5"
                           disabled={isCreatingClip === activeCandidate.id}
                           onClick={() => handleCreateClip(activeCandidate.id)}
                         >
@@ -1067,7 +1028,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                                 variant="outline"
                                 size="sm"
                                 className="text-xs font-semibold border-purple-500/60 bg-purple-500/10 text-purple-400 hover:bg-purple-600 hover:text-white shadow-xs transition-colors"
-                                title="Open Vireo Producer AI Director (auto dead air cuts, kinetic captions, punch-ins)"
+                                title="Open VireoClip Producer AI Director (auto dead air cuts, kinetic captions, punch-ins)"
                               >
                                 <Wand2 className="size-3.5 mr-1.5" />
                                 Produce
@@ -1077,7 +1038,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="text-xs font-semibold border-clay/60 bg-clay/10 text-clay hover:bg-clay hover:text-white shadow-xs transition-colors"
+                                className="text-xs font-semibold border-clay/60 bg-clay/10 text-clay hover:bg-[#F4F6FB] hover:text-[#0B0C0F] shadow-xs transition-colors"
                                 title="Open full Clip Editor (framing, captions, headline, audio)"
                               >
                                 <Sliders className="size-3.5 mr-1.5" />
@@ -1128,7 +1089,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-xs border-sage/60 bg-sage/10 text-sage hover:bg-sage hover:text-white"
+                              className="text-xs border-sage/60 bg-sage/10 text-sage hover:bg-[#F4F6FB] hover:text-[#0B0C0F]"
                               title="Publish or schedule this clip to social platforms"
                               onClick={() => setPublishingClip(clip)}
                             >
@@ -1138,7 +1099,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                             <Button
                               variant="clay"
                               size="sm"
-                              className="text-xs shadow-clay"
+                              className="text-xs shadow-black/40"
                               disabled={isDownloading === clip.id}
                               onClick={() => handleDownloadClip(clip.id)}
                             >

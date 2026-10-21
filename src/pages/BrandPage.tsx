@@ -30,6 +30,157 @@ import {
   SAFE_EDITOR_FONTS,
 } from '../types';
 
+const renderEvidenceValue = (value: any) => {
+  if (value === null || value === undefined) {
+    return <span className="text-[#9AA2B2] italic">None</span>;
+  }
+  if (typeof value === 'string') {
+    return <span className="text-[#F4F6FB] font-medium">{value}</span>;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return <span className="text-[#F4F6FB] font-semibold">{String(value)}</span>;
+  }
+  if (Array.isArray(value)) {
+    return (
+      <div className="flex flex-wrap gap-1.5 mt-1">
+        {value.map((item, idx) => (
+          <span
+            key={idx}
+            className="rounded-md bg-white/[0.06] border border-white/[0.08] px-2 py-0.5 text-xs text-[#F4F6FB]"
+          >
+            {typeof item === 'object' ? JSON.stringify(item) : String(item)}
+          </span>
+        ))}
+      </div>
+    );
+  }
+  if (typeof value === 'object') {
+    return (
+      <div className="flex flex-wrap gap-2 mt-1">
+        {Object.entries(value).map(([k, v]) => (
+          <span
+            key={k}
+            className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] border border-white/[0.08] px-2 py-0.5 text-xs"
+          >
+            <span className="text-[#9AA2B2] capitalize">{k.replace(/_/g, ' ')}:</span>
+            <span className="font-semibold text-[#F4F6FB]">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+          </span>
+        ))}
+      </div>
+    );
+  }
+  return <span className="text-[#F4F6FB]">{String(value)}</span>;
+};
+
+const BrandVideoPreview916: React.FC<{
+  profile: BrandBrainProfile;
+}> = ({ profile }) => {
+  const brandName = profile.identity.brand_name || 'VireoClip Brand';
+  const primaryColor = profile.visual.primary_colors[0] || '#10B981';
+  const accentColor = profile.visual.accent_colors[0] || '#10B981';
+  const font = profile.visual.fonts[0] || 'Inter';
+  const captionStyle = profile.captions?.default_style || 'active_word_pop';
+  const caseStyle = profile.captions?.case_style || 'uppercase';
+
+  return (
+    <div className="flex flex-col items-center w-full">
+      <div className="w-full max-w-[280px] aspect-[9/16] rounded-3xl border border-white/[0.12] bg-[#07080D] shadow-2xl relative overflow-hidden flex flex-col justify-between p-4 group select-none">
+        {/* Subtle Video Background Gradient */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/85 via-black/50 to-black/90 pointer-events-none" />
+        <div
+          className="absolute -top-24 -left-24 size-48 rounded-full blur-3xl opacity-25 pointer-events-none"
+          style={{ backgroundColor: primaryColor }}
+        />
+        <div
+          className="absolute -bottom-24 -right-24 size-48 rounded-full blur-3xl opacity-25 pointer-events-none"
+          style={{ backgroundColor: accentColor }}
+        />
+
+        {/* Top Header / Watermark */}
+        <div className="relative z-10 flex items-center justify-between text-white/90">
+          <div className="flex items-center gap-2 min-w-0">
+            <div
+              className="size-7 rounded-full flex items-center justify-center text-xs font-bold text-black border border-white/20 shadow-sm shrink-0"
+              style={{ backgroundColor: accentColor }}
+            >
+              {brandName.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold leading-tight truncate">{brandName}</div>
+              <div className="text-[10px] text-white/60">Brand DNA Live</div>
+            </div>
+          </div>
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-white/80 shrink-0">9:16</span>
+        </div>
+
+        {/* Center / Karaoke Caption Mock */}
+        <div className="relative z-10 flex flex-col items-center justify-center my-auto px-2 text-center">
+          <div
+            className={`transition-all duration-300 p-3 rounded-xl max-w-full ${
+              captionStyle === 'boxed_highlighter'
+                ? 'bg-black/80 border border-white/20 shadow-lg'
+                : 'bg-black/40 backdrop-blur-xs'
+            }`}
+            style={{ fontFamily: font }}
+          >
+            <div
+              className="text-base font-extrabold tracking-wide leading-snug"
+              style={{
+                textTransform: caseStyle === 'uppercase' ? 'uppercase' : caseStyle === 'lowercase' ? 'lowercase' : 'none',
+              }}
+            >
+              <span className="text-white">CREATE </span>
+              <span
+                className="px-1.5 py-0.5 rounded-md text-black transition-colors"
+                style={{
+                  backgroundColor: accentColor,
+                  textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                }}
+              >
+                VIRAL
+              </span>
+              <span className="text-white"> SHORTS</span>
+            </div>
+            <div
+              className="text-xs font-semibold text-white/80 mt-1"
+              style={{
+                textTransform: caseStyle === 'uppercase' ? 'uppercase' : caseStyle === 'lowercase' ? 'lowercase' : 'none',
+              }}
+            >
+              IN SECONDS WITH AI
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-center gap-1.5 text-[10px] font-mono text-white/60">
+            <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Style: {captionStyle.replace(/_/g, ' ')}</span>
+          </div>
+        </div>
+
+        {/* Bottom Metadata Badges */}
+        <div className="relative z-10 space-y-1.5 border-t border-white/10 pt-2.5">
+          <div className="flex items-center justify-between text-[11px] text-white/80">
+            <span className="text-white/50">Safe Font</span>
+            <span className="font-semibold text-white truncate max-w-[120px]">{font}</span>
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-white/80">
+            <span className="text-white/50">Primary Accent</span>
+            <div className="flex items-center gap-1.5 font-mono text-[10px]">
+              <span className="size-2.5 rounded-full border border-white/20" style={{ backgroundColor: accentColor }} />
+              <span>{accentColor}</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-white/80">
+            <span className="text-white/50">Pacing Dynamics</span>
+            <span className="capitalize font-medium text-white">{profile.editing?.pacing_style || 'fast'}</span>
+          </div>
+        </div>
+      </div>
+      <p className="mt-2 text-[11px] text-[#9AA2B2] text-center">Interactive 9:16 vertical video preview</p>
+    </div>
+  );
+};
+
 export const BrandPage: React.FC = () => {
   const [profile, setProfile] = useState<BrandBrainProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -331,7 +482,7 @@ export const BrandPage: React.FC = () => {
       <div className="flex h-96 items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Brain className="size-8 animate-pulse text-vireo-green" />
-          <p className="text-sm font-medium text-muted-foreground">Loading Vireo Brand Brain...</p>
+          <p className="text-sm font-medium text-[#9AA2B2]">Loading VireoClip Brand Brain...</p>
         </div>
       </div>
     );
@@ -342,20 +493,20 @@ export const BrandPage: React.FC = () => {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 text-[#F4F6FB]">
       {/* Header Banner */}
-      <div className="mb-8 flex flex-col justify-between gap-4 rounded-3xl bg-gradient-to-r from-forest via-[#1b3d2b] to-[#12261b] p-8 text-white shadow-xl md:flex-row md:items-center">
+      <div className="mb-8 flex flex-col justify-between gap-4 rounded-3xl border border-white/[0.08] bg-gradient-to-r from-[#0d2a1b] via-[#0E1017] to-[#07080D] p-8 text-white shadow-xl md:flex-row md:items-center">
         <div>
           <div className="flex items-center gap-3">
             <div className="flex size-11 items-center justify-center rounded-2xl bg-vireo-green/20 backdrop-blur-md">
               <Brain className="size-6 text-vireo-green" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Vireo Brand Brain</h1>
-              <p className="text-xs text-emerald-200/80">Persistent Brand Memory, Creator Voice & Visual Identity</p>
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl text-[#F4F6FB]">VireoClip Brand Brain</h1>
+              <p className="text-xs text-emerald-300/80">Persistent Brand Memory, Creator Voice & Visual Identity</p>
             </div>
           </div>
-          <p className="mt-2 max-w-2xl text-sm text-gray-300">
+          <p className="mt-2 max-w-2xl text-sm text-[#9AA2B2]">
             Advisory brand intelligence powering your Producer plans, Pro Editor timeline, Captions, B-Roll, and Multilingual Dubbing.
           </p>
         </div>
@@ -363,14 +514,14 @@ export const BrandPage: React.FC = () => {
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => setShowWizard(true)}
-            className="flex items-center gap-2 rounded-xl bg-vireo-green px-4 py-2.5 text-xs font-semibold text-white shadow-md transition hover:bg-emerald-600"
+            className="flex items-center gap-2 rounded-xl bg-[#F4F6FB] px-4 py-2.5 text-xs font-semibold text-[#0B0C0F] shadow-sm transition hover:bg-white"
           >
             <Sparkles className="size-4" />
             Fast Setup Wizard
           </button>
           <button
             onClick={handleResetLearned}
-            className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-medium text-white transition hover:bg-white/20"
+            className="flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-xs font-medium text-white transition hover:bg-white/[0.1]"
           >
             <RotateCcw className="size-4" />
             Reset Learned Layer
@@ -380,98 +531,290 @@ export const BrandPage: React.FC = () => {
 
       {feedback && (
         <div
-          className={`mb-6 flex items-center justify-between rounded-xl p-4 text-sm ${
-            feedback.type === 'success' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'
+          className={`mb-6 flex items-center justify-between rounded-xl p-4 text-sm border ${
+            feedback.type === 'success'
+              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+              : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
           }`}
         >
           <div className="flex items-center gap-2">
             {feedback.type === 'success' ? <CheckCircle2 className="size-5" /> : <AlertTriangle className="size-5" />}
             <span>{feedback.message}</span>
           </div>
-          <button onClick={() => setFeedback(null)} className="text-xs font-semibold underline">
+          <button onClick={() => setFeedback(null)} className="text-xs font-semibold underline hover:opacity-80">
             Dismiss
           </button>
         </div>
       )}
 
-      {/* Navigation Tabs */}
-      <div className="mb-6 flex gap-1 overflow-x-auto border-b border-border pb-2 text-sm font-medium">
-        {[
-          { id: 'overview', label: 'Overview', icon: Brain },
-          { id: 'intelligence', label: 'Audience & Positioning', icon: Target },
-          { id: 'voice', label: 'Creator Voice', icon: Mic },
-          { id: 'visual', label: 'Visual System', icon: Palette },
-          { id: 'captions', label: 'Captions DNA', icon: Subtitles },
-          { id: 'hooks_cta', label: 'Hooks & CTA', icon: Sparkles },
-          { id: 'editing_audio', label: 'Editing & Audio', icon: Film },
-          { id: 'learned', label: 'Learned Intelligence', icon: CheckCircle2 },
-          { id: 'check', label: 'Brand Check', icon: Shield },
-          { id: 'versions', label: 'Version History', icon: History },
-          { id: 'import', label: 'Import Guidelines', icon: Upload },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 transition ${
-              activeTab === tab.id
-                ? 'bg-[#eaf3eb] text-vireo-green font-semibold shadow-2xs'
-                : 'text-muted-foreground hover:bg-cream hover:text-foreground'
-            }`}
-          >
-            <tab.icon className="size-4" />
-            <span>{tab.label}</span>
-          </button>
-        ))}
+      {/* 4-Group Navigation Bar */}
+      <div className="mb-6 space-y-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          {[
+            {
+              id: 'identity_voice',
+              label: 'Identity & Voice',
+              desc: 'Voice, Tone & CTAs',
+              icon: Mic,
+              defaultTab: 'overview',
+            },
+            {
+              id: 'visual_media',
+              label: 'Visual & Media Styling',
+              desc: 'Palette, Captions & Preview',
+              icon: Palette,
+              defaultTab: 'visual',
+            },
+            {
+              id: 'intelligence_learnings',
+              label: 'Intelligence & Learnings',
+              desc: 'Audience & Learned Memory',
+              icon: Brain,
+              defaultTab: 'intelligence',
+            },
+            {
+              id: 'tools_versions',
+              label: 'Tools & Versions',
+              desc: 'Audit, History & Import',
+              icon: Shield,
+              defaultTab: 'check',
+            },
+          ].map((group) => {
+            const isGroupActive =
+              (group.id === 'identity_voice' && ['overview', 'voice', 'hooks_cta'].includes(activeTab)) ||
+              (group.id === 'visual_media' && ['visual', 'captions', 'editing_audio'].includes(activeTab)) ||
+              (group.id === 'intelligence_learnings' && ['intelligence', 'learned'].includes(activeTab)) ||
+              (group.id === 'tools_versions' && ['check', 'versions', 'import'].includes(activeTab));
+
+            return (
+              <button
+                key={group.id}
+                onClick={() => {
+                  if (!isGroupActive) {
+                    setActiveTab(group.defaultTab as any);
+                  }
+                }}
+                className={`flex flex-col items-start gap-1 rounded-2xl border p-4 text-left transition ${
+                  isGroupActive
+                    ? 'border-emerald-500/50 bg-[#0E1017] shadow-lg shadow-emerald-950/20 ring-1 ring-emerald-500/30'
+                    : 'border-white/[0.08] bg-[#0E1017]/60 hover:border-white/[0.16] hover:bg-[#0E1017]'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`p-1.5 rounded-lg ${
+                      isGroupActive ? 'bg-vireo-green text-black' : 'bg-white/[0.06] text-[#9AA2B2]'
+                    }`}
+                  >
+                    <group.icon className="size-4" />
+                  </div>
+                  <span
+                    className={`text-xs font-bold ${
+                      isGroupActive ? 'text-[#F4F6FB]' : 'text-[#9AA2B2]'
+                    }`}
+                  >
+                    {group.label}
+                  </span>
+                </div>
+                <span className="text-[10px] text-[#9AA2B2]">{group.desc}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Sub-Tabs / Views for Active Group */}
+        <div className="flex gap-2 overflow-x-auto border-b border-white/[0.08] pb-3 text-xs font-medium">
+          {['overview', 'voice', 'hooks_cta'].includes(activeTab) && (
+            <>
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                  activeTab === 'overview'
+                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
+                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                }`}
+              >
+                <Brain className="size-3.5" />
+                <span>Identity Overview</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('voice')}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                  activeTab === 'voice'
+                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
+                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                }`}
+              >
+                <Mic className="size-3.5" />
+                <span>Creator Voice & Tone</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('hooks_cta')}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                  activeTab === 'hooks_cta'
+                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
+                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                }`}
+              >
+                <Sparkles className="size-3.5" />
+                <span>Hooks & CTA</span>
+              </button>
+            </>
+          )}
+
+          {['visual', 'captions', 'editing_audio'].includes(activeTab) && (
+            <>
+              <button
+                onClick={() => setActiveTab('visual')}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                  activeTab === 'visual'
+                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
+                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                }`}
+              >
+                <Palette className="size-3.5" />
+                <span>Palette & Typography</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('captions')}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                  activeTab === 'captions'
+                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
+                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                }`}
+              >
+                <Subtitles className="size-3.5" />
+                <span>Captions DNA</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('editing_audio')}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                  activeTab === 'editing_audio'
+                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
+                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                }`}
+              >
+                <Film className="size-3.5" />
+                <span>Editing & Audio Dynamics</span>
+              </button>
+            </>
+          )}
+
+          {['intelligence', 'learned'].includes(activeTab) && (
+            <>
+              <button
+                onClick={() => setActiveTab('intelligence')}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                  activeTab === 'intelligence'
+                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
+                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                }`}
+              >
+                <Target className="size-3.5" />
+                <span>Audience & Positioning</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('learned')}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                  activeTab === 'learned'
+                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
+                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                }`}
+              >
+                <CheckCircle2 className="size-3.5" />
+                <span>Learned Evidence & Memory</span>
+              </button>
+            </>
+          )}
+
+          {['check', 'versions', 'import'].includes(activeTab) && (
+            <>
+              <button
+                onClick={() => setActiveTab('check')}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                  activeTab === 'check'
+                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
+                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                }`}
+              >
+                <Shield className="size-3.5" />
+                <span>Brand Compliance Check</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('versions')}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                  activeTab === 'versions'
+                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
+                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                }`}
+              >
+                <History className="size-3.5" />
+                <span>Version History</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('import')}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                  activeTab === 'import'
+                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
+                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                }`}
+              >
+                <Upload className="size-3.5" />
+                <span>Import Guidelines</span>
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* TAB CONTENT: Overview */}
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-xs lg:col-span-2">
-            <h2 className="text-lg font-bold text-foreground">Brand Identity Summary</h2>
+          <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB] lg:col-span-2">
+            <h2 className="text-lg font-bold text-[#F4F6FB]">Brand Identity Summary</h2>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Brand Name</label>
-                <p className="text-base font-semibold text-foreground">{profile.identity.brand_name || 'Not set'}</p>
+                <label className="text-xs font-medium text-[#9AA2B2]">Brand Name</label>
+                <p className="text-base font-semibold text-[#F4F6FB]">{profile.identity.brand_name || 'Not set'}</p>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Industry / Niche</label>
-                <p className="text-base font-semibold text-foreground">{profile.identity.industry || 'General'}</p>
+                <label className="text-xs font-medium text-[#9AA2B2]">Industry / Niche</label>
+                <p className="text-base font-semibold text-[#F4F6FB]">{profile.identity.industry || 'General'}</p>
               </div>
               <div className="sm:col-span-2">
-                <label className="text-xs font-medium text-muted-foreground">Target Audience</label>
-                <p className="text-sm font-medium text-foreground">
+                <label className="text-xs font-medium text-[#9AA2B2]">Target Audience</label>
+                <p className="text-sm font-medium text-[#F4F6FB]">
                   {profile.identity.target_audience || 'Not defined yet. Review proposed intelligence or define in Audience & Positioning.'}
                 </p>
               </div>
               <div className="sm:col-span-2">
-                <label className="text-xs font-medium text-muted-foreground">Core Value Proposition</label>
-                <p className="text-sm font-medium text-foreground">
+                <label className="text-xs font-medium text-[#9AA2B2]">Core Value Proposition</label>
+                <p className="text-sm font-medium text-[#F4F6FB]">
                   {profile.identity.core_messaging || 'Not defined yet. Add in Audience & Positioning.'}
                 </p>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Primary Palette</label>
+                <label className="text-xs font-medium text-[#9AA2B2]">Primary Palette</label>
                 <div className="mt-1 flex items-center gap-2">
                   {profile.visual.primary_colors.map((c, i) => (
-                    <div key={i} className="flex items-center gap-1.5 rounded-lg border border-border px-2 py-1 text-xs font-mono">
-                      <span className="size-3.5 rounded-full border border-black/10" style={{ backgroundColor: c }} />
+                    <div key={i} className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs font-mono text-[#F4F6FB]">
+                      <span className="size-3.5 rounded-full border border-black/20" style={{ backgroundColor: c }} />
                       <span>{c}</span>
                     </div>
                   ))}
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Primary Brand Font</label>
-                <p className="text-base font-semibold text-foreground">{profile.visual.fonts[0] || 'Inter'}</p>
+                <label className="text-xs font-medium text-[#9AA2B2]">Primary Brand Font</label>
+                <p className="text-base font-semibold text-[#F4F6FB]">{profile.visual.fonts[0] || 'Inter'}</p>
               </div>
             </div>
 
-            <div className="mt-6 border-t border-border pt-4">
-              <h3 className="text-sm font-semibold text-foreground">Core Writing Tone</h3>
+            <div className="mt-6 border-t border-white/[0.08] pt-4">
+              <h3 className="text-sm font-semibold text-[#F4F6FB]">Core Writing Tone</h3>
               <div className="mt-2 flex flex-wrap gap-2">
                 {profile.voice.tones.map((t, idx) => (
-                  <span key={idx} className="rounded-lg bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                  <span key={idx} className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
                     {t}
                   </span>
                 ))}
@@ -479,35 +822,35 @@ export const BrandPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-xs">
-            <h2 className="text-lg font-bold text-foreground">Governance & Learning</h2>
+          <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+            <h2 className="text-lg font-bold text-[#F4F6FB]">Governance & Learning</h2>
             <div className="mt-4 space-y-4">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <span className="text-xs text-muted-foreground">Profile Version</span>
-                <span className="rounded-md bg-cream px-2 py-1 text-xs font-bold text-foreground">v{profile.version}</span>
+              <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+                <span className="text-xs text-[#9AA2B2]">Profile Version</span>
+                <span className="rounded-lg border border-white/[0.1] bg-white/[0.06] px-2 py-1 text-xs font-bold text-[#F4F6FB]">v{profile.version}</span>
               </div>
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <span className="text-xs text-muted-foreground">Evidence Records</span>
-                <span className="text-xs font-semibold text-foreground">{profile.learning.evidence_count} events recorded</span>
+              <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+                <span className="text-xs text-[#9AA2B2]">Evidence Records</span>
+                <span className="text-xs font-semibold text-[#F4F6FB]">{profile.learning.evidence_count} events recorded</span>
               </div>
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <span className="text-xs text-muted-foreground">Evidence References</span>
-                <span className="text-xs font-semibold text-foreground">
+              <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+                <span className="text-xs text-[#9AA2B2]">Evidence References</span>
+                <span className="text-xs font-semibold text-[#F4F6FB]">
                   {(profile.evidence_references || []).length} linked citations
                 </span>
               </div>
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <span className="text-xs text-muted-foreground">Locked Brand Rules</span>
-                <span className="text-xs font-semibold text-emerald-600">
+              <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+                <span className="text-xs text-[#9AA2B2]">Locked Brand Rules</span>
+                <span className="text-xs font-semibold text-emerald-400">
                   {Object.values(profile.locks || {}).filter(Boolean).length} rules locked
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Performance Signals</span>
-                <span className={`rounded-md px-2 py-1 text-xs font-medium ${
+                <span className="text-xs text-[#9AA2B2]">Performance Signals</span>
+                <span className={`rounded-lg px-2.5 py-1 text-xs font-medium ${
                   analyticsStatus === 'SUFFICIENT_DATA'
-                    ? 'bg-emerald-50 text-emerald-700'
-                    : 'bg-amber-50 text-amber-700'
+                    ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
+                    : 'bg-amber-500/15 border border-amber-500/30 text-amber-300'
                 }`}>
                   {analyticsStatus}
                 </span>
@@ -517,19 +860,19 @@ export const BrandPage: React.FC = () => {
 
           {/* Insufficient Evidence Notice */}
           {analyticsStatus === 'INSUFFICIENT_DATA' && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 shadow-xs lg:col-span-3">
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 shadow-sm lg:col-span-3 text-amber-200">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="size-5 shrink-0 text-amber-600 mt-0.5" />
+                <AlertTriangle className="size-5 shrink-0 text-amber-400 mt-0.5" />
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-amber-300">
                     Evidence Gathering in Progress
                   </h4>
-                  <p className="mt-1 text-xs text-amber-800 leading-relaxed">
+                  <p className="mt-1 text-xs text-amber-200/90 leading-relaxed">
                     {evidenceExplanation ||
                       'At least 3 analyzed clips or performance records are required to derive statistically grounded audience or messaging insights without speculation.'}
                   </p>
-                  <p className="mt-2 text-[11px] text-amber-700 font-medium">
-                    Vireo Brand Brain never invents audience facts, customer testimonials, or performance metrics. Import or analyze clips to unlock automated intelligence suggestions.
+                  <p className="mt-2 text-[11px] text-amber-300/80 font-medium">
+                    VireoClip Brand Brain never invents audience facts, customer testimonials, or performance metrics. Import or analyze clips to unlock automated intelligence suggestions.
                   </p>
                 </div>
               </div>
@@ -538,33 +881,33 @@ export const BrandPage: React.FC = () => {
 
           {/* Explainable Proposed Brand Insights */}
           {recommendations.length > 0 && (
-            <div className="rounded-2xl border border-border bg-white p-6 shadow-xs lg:col-span-3">
+            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB] lg:col-span-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-foreground">Proposed Brand Intelligence Insights</h3>
-                  <p className="text-xs text-muted-foreground">
+                  <h3 className="text-sm font-bold text-[#F4F6FB]">Proposed Brand Intelligence Insights</h3>
+                  <p className="text-xs text-[#9AA2B2]">
                     Evidence-derived recommendations for voice, audience, and content pillars. Human approval required before applying to brand guidelines.
                   </p>
                 </div>
-                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+                <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-bold text-emerald-300">
                   {recommendations.length} Pending Review
                 </span>
               </div>
 
               <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 {recommendations.map((r) => (
-                  <div key={r.id} className="flex flex-col justify-between rounded-xl border border-border bg-neutral-50/60 p-4 transition hover:border-emerald-300">
+                  <div key={r.id} className="flex flex-col justify-between rounded-xl border border-white/[0.08] bg-[#07080D] p-4 transition hover:border-emerald-500/40">
                     <div>
                       <div className="flex items-start justify-between gap-2">
-                        <span className="text-xs font-bold text-foreground leading-snug">{r.title}</span>
+                        <span className="text-xs font-bold text-[#F4F6FB] leading-snug">{r.title}</span>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <span
                             className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
                               r.source === 'EVIDENCE_LEARNED'
-                                ? 'bg-emerald-100 text-emerald-800'
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                                 : r.source === 'USER_PROVIDED'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-purple-100 text-purple-800'
+                                ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
                             }`}
                           >
                             {r.source || 'AI_DERIVED'}
@@ -572,10 +915,10 @@ export const BrandPage: React.FC = () => {
                           <span
                             className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
                               r.confidence === 'HIGH'
-                                ? 'bg-emerald-50 text-emerald-700'
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                                 : r.confidence === 'MEDIUM'
-                                ? 'bg-amber-50 text-amber-700'
-                                : 'bg-gray-100 text-gray-700'
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                : 'bg-white/[0.06] text-[#9AA2B2] border border-white/[0.08]'
                             }`}
                           >
                             {r.confidence}
@@ -583,23 +926,23 @@ export const BrandPage: React.FC = () => {
                         </div>
                       </div>
 
-                      <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{r.description}</p>
+                      <p className="mt-2 text-xs text-[#9AA2B2] leading-relaxed">{r.description}</p>
 
                       {/* Source snippet citation */}
                       {r.source_snippet && (
-                        <div className="mt-2 rounded-lg border-l-2 border-emerald-400 bg-white p-2 text-[11px] italic text-neutral-600">
+                        <div className="mt-2 rounded-lg border-l-2 border-emerald-400 bg-white/[0.03] p-2 text-[11px] italic text-[#9AA2B2]">
                           {r.source_snippet}
                         </div>
                       )}
 
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <span className="text-[11px] font-mono text-gray-500">Evidence: {r.evidence}</span>
+                        <span className="text-[11px] font-mono text-[#9AA2B2]">Evidence: {r.evidence}</span>
                       </div>
 
                       {r.evidence_references && r.evidence_references.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1">
                           {r.evidence_references.map((ref, idx) => (
-                            <span key={idx} className="rounded bg-white border border-border px-1.5 py-0.5 text-[9px] font-mono text-gray-600">
+                            <span key={idx} className="rounded bg-white/[0.04] border border-white/[0.08] px-1.5 py-0.5 text-[9px] font-mono text-[#9AA2B2]">
                               {ref}
                             </span>
                           ))}
@@ -608,16 +951,16 @@ export const BrandPage: React.FC = () => {
                     </div>
 
                     {/* Human Review Actions */}
-                    <div className="mt-4 flex items-center justify-end gap-2 border-t border-border/60 pt-3">
+                    <div className="mt-4 flex items-center justify-end gap-2 border-t border-white/[0.06] pt-3">
                       <button
                         onClick={() => handleDismissInsight(r)}
-                        className="rounded-lg border border-border bg-white px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-neutral-100 hover:text-foreground"
+                        className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs font-medium text-[#9AA2B2] hover:bg-white/[0.08] hover:text-[#F4F6FB]"
                       >
                         Dismiss
                       </button>
                       <button
                         onClick={() => handleApproveInsight(r)}
-                        className="flex items-center gap-1.5 rounded-lg bg-vireo-green px-3 py-1 text-xs font-semibold text-white shadow-2xs hover:bg-emerald-600"
+                        className="flex items-center gap-1.5 rounded-xl bg-[#F4F6FB] px-3 py-1 text-xs font-semibold text-[#0B0C0F] shadow-xs hover:bg-white"
                       >
                         <Check className="size-3.5" />
                         Approve Insight
@@ -631,13 +974,13 @@ export const BrandPage: React.FC = () => {
 
           {/* Conflicts */}
           {conflicts.length > 0 && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-6 shadow-xs lg:col-span-3">
-              <h3 className="text-sm font-bold text-amber-900">Performance Divergence & Conflict Resolution</h3>
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 shadow-sm lg:col-span-3 text-amber-200">
+              <h3 className="text-sm font-bold text-amber-300">Performance Divergence & Conflict Resolution</h3>
               <div className="mt-3 space-y-3">
                 {conflicts.map((c, i) => (
-                  <div key={i} className="rounded-xl border border-amber-300 bg-white p-4">
-                    <p className="text-xs font-medium text-foreground">{c.message}</p>
-                    <p className="mt-2 text-xs font-semibold text-amber-700">{c.action_prompt}</p>
+                  <div key={i} className="rounded-xl border border-amber-500/20 bg-[#07080D] p-4">
+                    <p className="text-xs font-medium text-[#F4F6FB]">{c.message}</p>
+                    <p className="mt-2 text-xs font-semibold text-amber-400">{c.action_prompt}</p>
                   </div>
                 ))}
               </div>
@@ -649,11 +992,11 @@ export const BrandPage: React.FC = () => {
       {/* TAB CONTENT: Audience & Positioning */}
       {activeTab === 'intelligence' && (
         <div className="space-y-6">
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-xs">
-            <div className="flex items-center justify-between border-b border-border pb-4">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+            <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
               <div>
-                <h2 className="text-lg font-bold text-foreground">Target Audience & Needs</h2>
-                <p className="text-xs text-muted-foreground">
+                <h2 className="text-lg font-bold text-[#F4F6FB]">Target Audience & Needs</h2>
+                <p className="text-xs text-[#9AA2B2]">
                   Grounded audience definitions used across Hook Lab, Thumbnail Lab, Content Packs, and Autopilot.
                 </p>
               </div>
@@ -661,10 +1004,10 @@ export const BrandPage: React.FC = () => {
 
             <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="md:col-span-2">
-                <label className="text-xs font-semibold text-foreground">Primary Target Audience</label>
+                <label className="text-xs font-semibold text-[#F4F6FB]">Primary Target Audience</label>
                 <textarea
                   rows={3}
-                  className="mt-1.5 w-full rounded-xl border border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-vireo-green"
+                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
                   value={profile.identity.target_audience || ''}
                   onChange={(e) =>
                     setProfile({
@@ -677,10 +1020,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">Audience Needs & Goals (one per line)</label>
+                <label className="text-xs font-semibold text-[#F4F6FB]">Audience Needs & Goals (one per line)</label>
                 <textarea
                   rows={4}
-                  className="mt-1.5 w-full rounded-xl border border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-vireo-green"
+                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
                   value={(profile.identity.audience_needs || []).join('\n')}
                   onChange={(e) =>
                     setProfile({
@@ -696,10 +1039,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">Audience Pain Points (one per line)</label>
+                <label className="text-xs font-semibold text-[#F4F6FB]">Audience Pain Points (one per line)</label>
                 <textarea
                   rows={4}
-                  className="mt-1.5 w-full rounded-xl border border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-vireo-green"
+                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
                   value={(profile.identity.audience_pain_points || []).join('\n')}
                   onChange={(e) =>
                     setProfile({
@@ -715,10 +1058,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div className="md:col-span-2">
-                <label className="text-xs font-semibold text-foreground">Target Demographics / Professional Level</label>
+                <label className="text-xs font-semibold text-[#F4F6FB]">Target Demographics / Professional Level</label>
                 <input
                   type="text"
-                  className="mt-1.5 w-full rounded-xl border border-border p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-vireo-green"
+                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
                   value={profile.identity.target_demographics || ''}
                   onChange={(e) =>
                     setProfile({
@@ -732,11 +1075,11 @@ export const BrandPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-xs">
-            <div className="flex items-center justify-between border-b border-border pb-4">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+            <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
               <div>
-                <h2 className="text-lg font-bold text-foreground">Core Messaging & Positioning</h2>
-                <p className="text-xs text-muted-foreground">
+                <h2 className="text-lg font-bold text-[#F4F6FB]">Core Messaging & Positioning</h2>
+                <p className="text-xs text-[#9AA2B2]">
                   The central thesis and distinct angle of your brand.
                 </p>
               </div>
@@ -744,10 +1087,10 @@ export const BrandPage: React.FC = () => {
 
             <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="md:col-span-2">
-                <label className="text-xs font-semibold text-foreground">Positioning Statement</label>
+                <label className="text-xs font-semibold text-[#F4F6FB]">Positioning Statement</label>
                 <textarea
                   rows={2}
-                  className="mt-1.5 w-full rounded-xl border border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-vireo-green"
+                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
                   value={profile.identity.positioning_statement || ''}
                   onChange={(e) =>
                     setProfile({
@@ -760,10 +1103,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div className="md:col-span-2">
-                <label className="text-xs font-semibold text-foreground">Core Messaging & Value Proposition</label>
+                <label className="text-xs font-semibold text-[#F4F6FB]">Core Messaging & Value Proposition</label>
                 <textarea
                   rows={3}
-                  className="mt-1.5 w-full rounded-xl border border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-vireo-green"
+                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
                   value={profile.identity.core_messaging || ''}
                   onChange={(e) =>
                     setProfile({
@@ -776,10 +1119,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">Brand Mission / Vision</label>
+                <label className="text-xs font-semibold text-[#F4F6FB]">Brand Mission / Vision</label>
                 <input
                   type="text"
-                  className="mt-1.5 w-full rounded-xl border border-border p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-vireo-green"
+                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
                   value={profile.identity.brand_mission || ''}
                   onChange={(e) =>
                     setProfile({
@@ -792,10 +1135,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">Supporting Value Propositions (one per line)</label>
+                <label className="text-xs font-semibold text-[#F4F6FB]">Supporting Value Propositions (one per line)</label>
                 <textarea
                   rows={3}
-                  className="mt-1.5 w-full rounded-xl border border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-vireo-green"
+                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
                   value={(profile.identity.value_propositions || []).join('\n')}
                   onChange={(e) =>
                     setProfile({
@@ -812,11 +1155,11 @@ export const BrandPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-xs">
-            <div className="flex items-center justify-between border-b border-border pb-4">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+            <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
               <div>
-                <h2 className="text-lg font-bold text-foreground">Content Pillars & Recurring Themes</h2>
-                <p className="text-xs text-muted-foreground">
+                <h2 className="text-lg font-bold text-[#F4F6FB]">Content Pillars & Recurring Themes</h2>
+                <p className="text-xs text-[#9AA2B2]">
                   The primary content buckets that structure your videos and Content Packs.
                 </p>
               </div>
@@ -836,7 +1179,7 @@ export const BrandPage: React.FC = () => {
                     },
                   });
                 }}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-cream"
+                className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
               >
                 + Add Content Pillar
               </button>
@@ -844,18 +1187,18 @@ export const BrandPage: React.FC = () => {
 
             <div className="mt-4 space-y-4">
               {(!profile.identity.content_pillars || profile.identity.content_pillars.length === 0) ? (
-                <div className="rounded-xl border border-dashed border-border p-8 text-center">
-                  <p className="text-xs text-muted-foreground">
+                <div className="rounded-xl border border-dashed border-white/[0.1] p-8 text-center">
+                  <p className="text-xs text-[#9AA2B2]">
                     No content pillars set yet. Click &quot;+ Add Content Pillar&quot; or approve evidence recommendations in Overview.
                   </p>
                 </div>
               ) : (
                 profile.identity.content_pillars.map((pillar, idx) => (
-                  <div key={idx} className="rounded-xl border border-border p-4 bg-neutral-50/50">
+                  <div key={idx} className="rounded-xl border border-white/[0.08] p-4 bg-[#07080D]">
                     <div className="flex items-center justify-between gap-4">
                       <input
                         type="text"
-                        className="font-bold text-sm bg-transparent border-b border-border pb-1 focus:outline-none focus:border-vireo-green flex-1"
+                        className="font-bold text-sm bg-transparent border-b border-white/[0.1] pb-1 text-[#F4F6FB] focus:outline-none focus:border-vireo-green flex-1"
                         value={pillar.name}
                         onChange={(e) => {
                           const updated = [...(profile.identity.content_pillars || [])];
@@ -869,14 +1212,14 @@ export const BrandPage: React.FC = () => {
                           const updated = (profile.identity.content_pillars || []).filter((_, i) => i !== idx);
                           setProfile({ ...profile, identity: { ...profile.identity, content_pillars: updated } });
                         }}
-                        className="text-xs font-medium text-red-600 hover:underline"
+                        className="text-xs font-medium text-rose-400 hover:underline"
                       >
                         Remove
                       </button>
                     </div>
                     <textarea
                       rows={2}
-                      className="mt-3 w-full rounded-lg border border-border bg-white p-2.5 text-xs"
+                      className="mt-3 w-full rounded-xl border border-white/[0.1] bg-[#0E1017] p-2.5 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
                       value={pillar.description}
                       onChange={(e) => {
                         const updated = [...(profile.identity.content_pillars || [])];
@@ -888,7 +1231,7 @@ export const BrandPage: React.FC = () => {
                     <div className="mt-2">
                       <input
                         type="text"
-                        className="w-full rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-mono"
+                        className="w-full rounded-xl border border-white/[0.1] bg-[#0E1017] px-2.5 py-1.5 text-xs font-mono text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
                         value={(pillar.keywords || []).join(', ')}
                         onChange={(e) => {
                           const updated = [...(profile.identity.content_pillars || [])];
@@ -907,9 +1250,9 @@ export const BrandPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-xs">
-            <h2 className="text-lg font-bold text-foreground">Platform-Specific Content Guidance</h2>
-            <p className="text-xs text-muted-foreground">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+            <h2 className="text-lg font-bold text-[#F4F6FB]">Platform-Specific Content Guidance</h2>
+            <p className="text-xs text-[#9AA2B2]">
               Approved tone and duration parameters consumed by Content Pack and Autopilot generators.
             </p>
 
@@ -922,14 +1265,14 @@ export const BrandPage: React.FC = () => {
               ].map((plat) => {
                 const guidance = (profile.platform_guidance || {})[plat.key] || {};
                 return (
-                  <div key={plat.key} className="rounded-xl border border-border p-4 bg-neutral-50/40">
-                    <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">{plat.name}</h4>
+                  <div key={plat.key} className="rounded-xl border border-white/[0.08] p-4 bg-[#07080D]">
+                    <h4 className="text-xs font-bold text-[#F4F6FB] uppercase tracking-wider">{plat.name}</h4>
                     <div className="mt-3 space-y-2">
                       <div>
-                        <label className="text-[10px] font-medium text-muted-foreground">Platform Tone</label>
+                        <label className="text-[10px] font-medium text-[#9AA2B2]">Platform Tone</label>
                         <input
                           type="text"
-                          className="mt-1 w-full rounded-lg border border-border bg-white p-1.5 text-xs"
+                          className="mt-1 w-full rounded-lg border border-white/[0.1] bg-[#0E1017] p-1.5 text-xs text-white focus:border-vireo-green focus:outline-none"
                           value={guidance.tone || plat.defaultTone}
                           onChange={(e) => {
                             const updated = {
@@ -941,10 +1284,10 @@ export const BrandPage: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-medium text-muted-foreground">CTA Style</label>
+                        <label className="text-[10px] font-medium text-[#9AA2B2]">CTA Style</label>
                         <input
                           type="text"
-                          className="mt-1 w-full rounded-lg border border-border bg-white p-1.5 text-xs"
+                          className="mt-1 w-full rounded-lg border border-white/[0.1] bg-[#0E1017] p-1.5 text-xs text-white focus:border-vireo-green focus:outline-none"
                           value={guidance.cta_style || 'FOLLOW'}
                           onChange={(e) => {
                             const updated = {
@@ -971,7 +1314,7 @@ export const BrandPage: React.FC = () => {
                 })
               }
               disabled={saving}
-              className="rounded-xl bg-vireo-green px-6 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-emerald-600 disabled:opacity-50"
+              className="rounded-xl bg-[#F4F6FB] px-6 py-2.5 text-xs font-semibold text-[#0B0C0F] shadow-xs hover:bg-white disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Save Audience & Positioning Guidelines'}
             </button>
@@ -981,23 +1324,23 @@ export const BrandPage: React.FC = () => {
 
       {/* TAB CONTENT: Voice */}
       {activeTab === 'voice' && (
-        <div className="space-y-6 rounded-2xl border border-border bg-white p-6 shadow-xs">
+        <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-foreground">Creator Voice & Terminology</h2>
-              <p className="text-xs text-muted-foreground">Defines how AI writes hooks, scripts, and captions.</p>
+              <h2 className="text-lg font-bold text-[#F4F6FB]">Creator Voice & Terminology</h2>
+              <p className="text-xs text-[#9AA2B2]">Defines how AI writes hooks, scripts, and captions.</p>
             </div>
             <button
               onClick={() => handleToggleLock('voice.avoid_phrasing')}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-cream"
+              className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
             >
               {profile.locks['voice.avoid_phrasing'] ? (
                 <>
-                  <Lock className="size-3.5 text-emerald-600" /> Locked Avoid Phrasing
+                  <Lock className="size-3.5 text-emerald-400" /> Locked Avoid Phrasing
                 </>
               ) : (
                 <>
-                  <Unlock className="size-3.5 text-muted-foreground" /> Unlocked
+                  <Unlock className="size-3.5 text-[#9AA2B2]" /> Unlocked
                 </>
               )}
             </button>
@@ -1005,10 +1348,10 @@ export const BrandPage: React.FC = () => {
 
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-semibold text-foreground">Voice & Tone Summary</label>
+              <label className="text-xs font-semibold text-[#F4F6FB]">Voice & Tone Summary</label>
               <textarea
                 rows={2}
-                className="mt-1.5 w-full rounded-xl border border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-vireo-green"
+                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
                 value={profile.voice.voice_summary || ''}
                 onChange={(e) =>
                   setProfile({
@@ -1022,10 +1365,10 @@ export const BrandPage: React.FC = () => {
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div>
-                <label className="text-xs font-semibold text-foreground">Preferred Phrasing / Signatures</label>
+                <label className="text-xs font-semibold text-[#F4F6FB]">Preferred Phrasing / Signatures</label>
                 <textarea
                   rows={4}
-                  className="mt-2 w-full rounded-xl border border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-vireo-green"
+                  className="mt-2 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
                   value={profile.voice.preferred_phrasing.join('\n')}
                   onChange={(e) =>
                     setProfile({
@@ -1038,10 +1381,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">Prohibited / Avoid Phrasing</label>
+                <label className="text-xs font-semibold text-[#F4F6FB]">Prohibited / Avoid Phrasing</label>
                 <textarea
                   rows={4}
-                  className="mt-2 w-full rounded-xl border border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-vireo-green"
+                  className="mt-2 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
                   value={profile.voice.avoid_phrasing.join('\n')}
                   onChange={(e) =>
                     setProfile({
@@ -1049,15 +1392,15 @@ export const BrandPage: React.FC = () => {
                       voice: { ...profile.voice, avoid_phrasing: e.target.value.split('\n').filter(Boolean) },
                     })
                   }
-                  placeholder="Enter prohibited phrases that Vireo should never generate..."
+                  placeholder="Enter prohibited phrases that VireoClip should never generate..."
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">Forbidden Claims & Guarantees (one per line)</label>
+                <label className="text-xs font-semibold text-[#F4F6FB]">Forbidden Claims & Guarantees (one per line)</label>
                 <textarea
                   rows={3}
-                  className="mt-2 w-full rounded-xl border border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-vireo-green"
+                  className="mt-2 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
                   value={(profile.voice.forbidden_claims || []).join('\n')}
                   onChange={(e) =>
                     setProfile({
@@ -1073,10 +1416,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">Styles & Tropes to Avoid (one per line)</label>
+                <label className="text-xs font-semibold text-[#F4F6FB]">Styles & Tropes to Avoid (one per line)</label>
                 <textarea
                   rows={3}
-                  className="mt-2 w-full rounded-xl border border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-vireo-green"
+                  className="mt-2 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
                   value={(profile.voice.styles_to_avoid || []).join('\n')}
                   onChange={(e) =>
                     setProfile({
@@ -1094,10 +1437,10 @@ export const BrandPage: React.FC = () => {
 
             {/* Approved Terminology Management */}
             <div className="pt-2">
-              <div className="flex items-center justify-between border-t border-border pt-4">
+              <div className="flex items-center justify-between border-t border-white/[0.06] pt-4">
                 <div>
-                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Approved Terminology Glossary</h3>
-                  <p className="text-[11px] text-muted-foreground">Standardized terms and phrasing Vireo should favor in hooks and scripts.</p>
+                  <h3 className="text-xs font-bold text-[#F4F6FB] uppercase tracking-wider">Approved Terminology Glossary</h3>
+                  <p className="text-[11px] text-[#9AA2B2]">Standardized terms and phrasing VireoClip should favor in hooks and scripts.</p>
                 </div>
                 <button
                   onClick={() => {
@@ -1108,7 +1451,7 @@ export const BrandPage: React.FC = () => {
                       voice: { ...profile.voice, approved_terminology: [...currentTerms, newTerm] },
                     });
                   }}
-                  className="rounded-lg border border-border px-3 py-1 text-xs font-medium hover:bg-cream"
+                  className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
                 >
                   + Add Term
                 </button>
@@ -1116,13 +1459,13 @@ export const BrandPage: React.FC = () => {
 
               <div className="mt-3 space-y-2">
                 {(!profile.voice.approved_terminology || profile.voice.approved_terminology.length === 0) ? (
-                  <p className="text-xs italic text-muted-foreground">No approved terminology registered yet.</p>
+                  <p className="text-xs italic text-[#9AA2B2]">No approved terminology registered yet.</p>
                 ) : (
                   profile.voice.approved_terminology.map((t, idx) => (
                     <div key={idx} className="flex items-center gap-2">
                       <input
                         type="text"
-                        className="w-1/3 rounded-lg border border-border p-2 text-xs font-semibold"
+                        className="w-1/3 rounded-xl border border-white/[0.1] bg-[#07080D] p-2 text-xs font-semibold text-white focus:border-vireo-green focus:outline-none"
                         placeholder="Approved Term"
                         value={t.term}
                         onChange={(e) => {
@@ -1133,7 +1476,7 @@ export const BrandPage: React.FC = () => {
                       />
                       <input
                         type="text"
-                        className="flex-1 rounded-lg border border-border p-2 text-xs"
+                        className="flex-1 rounded-xl border border-white/[0.1] bg-[#07080D] p-2 text-xs text-white focus:border-vireo-green focus:outline-none"
                         placeholder="Definition / Preferred context"
                         value={t.definition || ''}
                         onChange={(e) => {
@@ -1147,7 +1490,7 @@ export const BrandPage: React.FC = () => {
                           const updated = (profile.voice.approved_terminology || []).filter((_, i) => i !== idx);
                           setProfile({ ...profile, voice: { ...profile.voice, approved_terminology: updated } });
                         }}
-                        className="p-1 text-neutral-400 hover:text-red-500"
+                        className="p-1 text-[#9AA2B2] hover:text-rose-400"
                       >
                         <X className="size-4" />
                       </button>
@@ -1162,7 +1505,7 @@ export const BrandPage: React.FC = () => {
             <button
               onClick={() => handleSaveProfile({ voice: profile.voice })}
               disabled={saving}
-              className="rounded-xl bg-vireo-green px-5 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-emerald-600"
+              className="rounded-xl bg-[#F4F6FB] px-5 py-2.5 text-xs font-semibold text-[#0B0C0F] shadow-xs hover:bg-white"
             >
               {saving ? 'Saving...' : 'Save Voice Rules'}
             </button>
@@ -1170,88 +1513,511 @@ export const BrandPage: React.FC = () => {
         </div>
       )}
 
-      {/* TAB CONTENT: Visual */}
-      {activeTab === 'visual' && (
-        <div className="space-y-6 rounded-2xl border border-border bg-white p-6 shadow-xs">
+      {/* TAB CONTENT: Hooks & CTA */}
+      {activeTab === 'hooks_cta' && (
+        <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-foreground">Visual Identity & Colors</h2>
-              <p className="text-xs text-muted-foreground">Palettes and allowlisted typography for Pro Editor & renders.</p>
+              <h2 className="text-lg font-bold text-[#F4F6FB]">Opening Hooks & Call-To-Action (CTA)</h2>
+              <p className="text-xs text-[#9AA2B2]">
+                Proven viral hook formulas, forbidden opening phrases, and approved sign-offs.
+              </p>
             </div>
             <button
-              onClick={() => handleToggleLock('visual.primary_colors')}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-cream"
+              onClick={() => handleToggleLock('hooks.banned_patterns')}
+              className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
             >
-              {profile.locks['visual.primary_colors'] ? (
+              {profile.locks?.['hooks.banned_patterns'] ? (
                 <>
-                  <Lock className="size-3.5 text-emerald-600" /> Locked Palette
+                  <Lock className="size-3.5 text-emerald-400" /> Locked Hook Tropes
                 </>
               ) : (
                 <>
-                  <Unlock className="size-3.5 text-muted-foreground" /> Unlocked
+                  <Unlock className="size-3.5 text-[#9AA2B2]" /> Unlocked
                 </>
               )}
             </button>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
-              <label className="text-xs font-semibold text-foreground">Primary Accent Color (Hex)</label>
-              <div className="mt-2 flex items-center gap-3">
-                <input
-                  type="color"
-                  className="size-10 cursor-pointer rounded-lg border border-border p-1"
-                  value={profile.visual.accent_colors[0] || '#10B981'}
-                  onChange={(e) =>
-                    setProfile({
-                      ...profile,
-                      visual: { ...profile.visual, accent_colors: [e.target.value] },
-                    })
-                  }
-                />
-                <input
-                  type="text"
-                  className="w-32 rounded-lg border border-border px-3 py-2 text-sm font-mono"
-                  value={profile.visual.accent_colors[0] || '#10B981'}
-                  onChange={(e) =>
-                    setProfile({
-                      ...profile,
-                      visual: { ...profile.visual, accent_colors: [e.target.value] },
-                    })
-                  }
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold text-foreground">Safe Editor Font</label>
+              <label className="text-xs font-semibold text-[#F4F6FB]">Preferred Hook Length</label>
               <select
-                className="mt-2 w-full rounded-xl border border-border p-2.5 text-sm"
-                value={profile.visual.fonts[0] || 'Inter'}
+                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                value={profile.hooks?.preferred_hook_length || 'short'}
                 onChange={(e) =>
                   setProfile({
                     ...profile,
-                    visual: { ...profile.visual, fonts: [e.target.value] },
+                    hooks: { ...profile.hooks, preferred_hook_length: e.target.value as any },
                   })
                 }
               >
-                {SAFE_EDITOR_FONTS.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
-                ))}
+                <option value="short">Short (&lt; 3s / punchy line)</option>
+                <option value="medium">Medium (3–6s / context + twist)</option>
+                <option value="long">Long (Story prelude)</option>
               </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-[#F4F6FB]">Example Hooks (one per line)</label>
+              <textarea
+                rows={3}
+                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                value={(profile.hooks?.example_hooks || []).join('\n')}
+                onChange={(e) =>
+                  setProfile({
+                    ...profile,
+                    hooks: {
+                      ...profile.hooks,
+                      example_hooks: e.target.value.split('\n').filter(Boolean),
+                    },
+                  })
+                }
+                placeholder="Stop doing X if you want Y...&#10;The one framework that changed everything..."
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-[#F4F6FB]">Banned Hook Patterns (one per line)</label>
+              <textarea
+                rows={3}
+                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                value={(profile.hooks?.banned_patterns || []).join('\n')}
+                onChange={(e) =>
+                  setProfile({
+                    ...profile,
+                    hooks: {
+                      ...profile.hooks,
+                      banned_patterns: e.target.value.split('\n').filter(Boolean),
+                    },
+                  })
+                }
+                placeholder="Hey guys, welcome back to my channel...&#10;In this video I will show you..."
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-[#F4F6FB]">Approved CTA Phrases (one per line)</label>
+              <textarea
+                rows={3}
+                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                value={(profile.cta?.approved_phrases || []).join('\n')}
+                onChange={(e) =>
+                  setProfile({
+                    ...profile,
+                    cta: {
+                      ...profile.cta,
+                      approved_phrases: e.target.value.split('\n').filter(Boolean),
+                    },
+                  })
+                }
+                placeholder="Follow for daily engineering breakdowns&#10;Drop a comment with your favorite stack..."
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-[#F4F6FB]">Blocked CTA Tropes (one per line)</label>
+              <textarea
+                rows={3}
+                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                value={(profile.cta?.blocked_phrases || []).join('\n')}
+                onChange={(e) =>
+                  setProfile({
+                    ...profile,
+                    cta: {
+                      ...profile.cta,
+                      blocked_phrases: e.target.value.split('\n').filter(Boolean),
+                    },
+                  })
+                }
+                placeholder="Smash that subscribe button!&#10;Leave a like or else..."
+              />
             </div>
           </div>
 
-          <div className="flex justify-end pt-4">
+          <div className="flex justify-end pt-4 border-t border-white/[0.08]">
             <button
-              onClick={() => handleSaveProfile({ visual: profile.visual })}
+              onClick={() =>
+                handleSaveProfile({
+                  hooks: profile.hooks,
+                  cta: profile.cta,
+                })
+              }
               disabled={saving}
-              className="rounded-xl bg-vireo-green px-5 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-emerald-600"
+              className="rounded-xl bg-[#F4F6FB] px-5 py-2.5 text-xs font-semibold text-[#0B0C0F] hover:bg-white"
             >
-              {saving ? 'Saving...' : 'Save Visual Rules'}
+              {saving ? 'Saving...' : 'Save Hooks & CTA'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* GROUP 2: Visual & Media Styling with Live 9:16 Preview */}
+      {['visual', 'captions', 'editing_audio'].includes(activeTab) && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* Controls Column */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* TAB CONTENT: Visual */}
+            {activeTab === 'visual' && (
+              <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-[#F4F6FB]">Visual Identity & Colors</h2>
+                    <p className="text-xs text-[#9AA2B2]">Palettes and allowlisted typography for Pro Editor & renders.</p>
+                  </div>
+                  <button
+                    onClick={() => handleToggleLock('visual.primary_colors')}
+                    className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
+                  >
+                    {profile.locks?.['visual.primary_colors'] ? (
+                      <>
+                        <Lock className="size-3.5 text-emerald-400" /> Locked Palette
+                      </>
+                    ) : (
+                      <>
+                        <Unlock className="size-3.5 text-[#9AA2B2]" /> Unlocked
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-semibold text-[#F4F6FB]">Primary Brand Color (Hex)</label>
+                    <div className="mt-2 flex items-center gap-3">
+                      <input
+                        type="color"
+                        className="size-10 cursor-pointer rounded-xl border border-white/[0.1] bg-[#07080D] p-1"
+                        value={profile.visual.primary_colors[0] || '#3B82F6'}
+                        onChange={(e) =>
+                          setProfile({
+                            ...profile,
+                            visual: { ...profile.visual, primary_colors: [e.target.value] },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="w-32 rounded-xl border border-white/[0.1] bg-[#07080D] px-3 py-2 text-sm font-mono text-white focus:border-vireo-green focus:outline-none"
+                        value={profile.visual.primary_colors[0] || '#3B82F6'}
+                        onChange={(e) =>
+                          setProfile({
+                            ...profile,
+                            visual: { ...profile.visual, primary_colors: [e.target.value] },
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#F4F6FB]">Primary Accent Highlight (Hex)</label>
+                    <div className="mt-2 flex items-center gap-3">
+                      <input
+                        type="color"
+                        className="size-10 cursor-pointer rounded-xl border border-white/[0.1] bg-[#07080D] p-1"
+                        value={profile.visual.accent_colors[0] || '#10B981'}
+                        onChange={(e) =>
+                          setProfile({
+                            ...profile,
+                            visual: { ...profile.visual, accent_colors: [e.target.value] },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="w-32 rounded-xl border border-white/[0.1] bg-[#07080D] px-3 py-2 text-sm font-mono text-white focus:border-vireo-green focus:outline-none"
+                        value={profile.visual.accent_colors[0] || '#10B981'}
+                        onChange={(e) =>
+                          setProfile({
+                            ...profile,
+                            visual: { ...profile.visual, accent_colors: [e.target.value] },
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-semibold text-[#F4F6FB]">Safe Editor Font</label>
+                    <select
+                      className="mt-2 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-sm text-white focus:border-vireo-green focus:outline-none"
+                      value={profile.visual.fonts[0] || 'Inter'}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          visual: { ...profile.visual, fonts: [e.target.value] },
+                        })
+                      }
+                    >
+                      {SAFE_EDITOR_FONTS.map((f) => (
+                        <option key={f} value={f}>
+                          {f}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-white/[0.08]">
+                  <button
+                    onClick={() => handleSaveProfile({ visual: profile.visual })}
+                    disabled={saving}
+                    className="rounded-xl bg-[#F4F6FB] px-5 py-2.5 text-xs font-semibold text-[#0B0C0F] hover:bg-white"
+                  >
+                    {saving ? 'Saving...' : 'Save Visual Rules'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: Captions DNA */}
+            {activeTab === 'captions' && (
+              <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+                <div>
+                  <h2 className="text-lg font-bold text-[#F4F6FB]">Captions DNA & Formatting</h2>
+                  <p className="text-xs text-[#9AA2B2]">Default subtitle animation preset, case style, line density, and highlight behavior.</p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-semibold text-[#F4F6FB]">Default Caption Style</label>
+                    <select
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      value={profile.captions?.default_style || 'active_word_pop'}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          captions: { ...profile.captions, default_style: e.target.value },
+                        })
+                      }
+                    >
+                      <option value="active_word_pop">Active Word Pop (Karaoke)</option>
+                      <option value="bold_minimal">Bold Minimal</option>
+                      <option value="boxed_highlighter">Boxed Highlighter</option>
+                      <option value="cinematic_glow">Cinematic Glow</option>
+                      <option value="hormozi_bold">Hormozi Bold</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#F4F6FB]">Typography Case</label>
+                    <select
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      value={profile.captions?.case_style || 'uppercase'}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          captions: { ...profile.captions, case_style: e.target.value as any },
+                        })
+                      }
+                    >
+                      <option value="uppercase">UPPERCASE (Punchy)</option>
+                      <option value="titlecase">Title Case</option>
+                      <option value="normal">Normal sentence case</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#F4F6FB]">
+                      Max Words Per Line ({profile.captions?.max_words_per_line || 3})
+                    </label>
+                    <input
+                      type="range"
+                      min={1}
+                      max={6}
+                      className="mt-2 w-full accent-vireo-green cursor-pointer"
+                      value={profile.captions?.max_words_per_line || 3}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          captions: { ...profile.captions, max_words_per_line: Number(e.target.value) },
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#F4F6FB]">Highlight Style</label>
+                    <select
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      value={profile.captions?.highlight_style || 'color_pop'}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          captions: { ...profile.captions, highlight_style: e.target.value },
+                        })
+                      }
+                    >
+                      <option value="color_pop">Color Pop (Accent Highlight)</option>
+                      <option value="scale_up">Scale Up (Kinetic Pop)</option>
+                      <option value="underline">Underline</option>
+                      <option value="box">Background Pill</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-white/[0.08]">
+                  <button
+                    onClick={() => handleSaveProfile({ captions: profile.captions })}
+                    disabled={saving}
+                    className="rounded-xl bg-[#F4F6FB] px-5 py-2.5 text-xs font-semibold text-[#0B0C0F] hover:bg-white"
+                  >
+                    {saving ? 'Saving...' : 'Save Captions DNA'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: Editing & Audio Dynamics */}
+            {activeTab === 'editing_audio' && (
+              <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+                <div>
+                  <h2 className="text-lg font-bold text-[#F4F6FB]">Editing & Audio Dynamics</h2>
+                  <p className="text-xs text-[#9AA2B2]">Pacing speed, B-Roll frequency, dynamic zoom cuts, and music ducking.</p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-semibold text-[#F4F6FB]">Pacing Style</label>
+                    <select
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      value={profile.editing?.pacing_style || 'fast'}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          editing: { ...profile.editing, pacing_style: e.target.value as any },
+                        })
+                      }
+                    >
+                      <option value="fast">Fast & punchy (TikTok / Reels / Shorts)</option>
+                      <option value="ultra_fast">Ultra Fast (High Retaining Hook)</option>
+                      <option value="balanced">Balanced & natural</option>
+                      <option value="slow">Deliberate & educational</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#F4F6FB]">B-Roll Density</label>
+                    <select
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      value={profile.editing?.broll_density || 'balanced'}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          editing: { ...profile.editing, broll_density: e.target.value as any },
+                        })
+                      }
+                    >
+                      <option value="minimal">Minimal (Speaker only)</option>
+                      <option value="balanced">Balanced (Cutaways every 4–6s)</option>
+                      <option value="dense">Dense (Continuous Visual Cutaways)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#F4F6FB]">Punch-in Frequency</label>
+                    <select
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      value={profile.editing?.punch_in_frequency || 'moderate'}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          editing: { ...profile.editing, punch_in_frequency: e.target.value as any },
+                        })
+                      }
+                    >
+                      <option value="none">None (Static Frame)</option>
+                      <option value="low">Low (Emphasis key words only)</option>
+                      <option value="moderate">Moderate (Standard dynamic reframing)</option>
+                      <option value="high">High (High-energy cadence)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#F4F6FB]">Silence Trimming Style</label>
+                    <select
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      value={profile.editing?.silence_style || 'tight'}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          editing: { ...profile.editing, silence_style: e.target.value as any },
+                        })
+                      }
+                    >
+                      <option value="tight">Tight (Strip breath pauses &gt;250ms)</option>
+                      <option value="natural">Natural (Preserve cadence pauses &gt;500ms)</option>
+                      <option value="relaxed">Relaxed (Minimal trimming)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#F4F6FB]">Audio Cleanup Preset</label>
+                    <select
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      value={profile.audio?.cleanup_preset || 'clean'}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          audio: { ...profile.audio, cleanup_preset: e.target.value as any },
+                        })
+                      }
+                    >
+                      <option value="clean">Clean (Balanced noise gate & EQ)</option>
+                      <option value="studio">Studio (Broadcast warmth & presence)</option>
+                      <option value="podcast">Podcast (Voice-forward clarity)</option>
+                      <option value="subtle">Subtle (Gentle filter)</option>
+                      <option value="aggressive">Aggressive (Heavy suppression)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#F4F6FB]">Music Ducking Style</label>
+                    <select
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      value={profile.audio?.ducking_style || 'broadcast'}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          audio: { ...profile.audio, ducking_style: e.target.value as any },
+                        })
+                      }
+                    >
+                      <option value="broadcast">Broadcast (Smooth -18dB duck under voice)</option>
+                      <option value="aggressive">Aggressive (-24dB sharp cutoff)</option>
+                      <option value="balanced">Balanced (-12dB subtle duck)</option>
+                      <option value="subtle">Subtle (-6dB gentle bed)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-white/[0.08]">
+                  <button
+                    onClick={() =>
+                      handleSaveProfile({
+                        editing: profile.editing,
+                        audio: profile.audio,
+                      })
+                    }
+                    disabled={saving}
+                    className="rounded-xl bg-[#F4F6FB] px-5 py-2.5 text-xs font-semibold text-[#0B0C0F] hover:bg-white"
+                  >
+                    {saving ? 'Saving...' : 'Save Editing & Audio Dynamics'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Live 9:16 Interactive Brand Preview Column */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-24 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md flex flex-col items-center">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#F4F6FB] mb-4">
+                Live 9:16 Brand Preview
+              </h3>
+              <BrandVideoPreview916 profile={profile} />
+            </div>
           </div>
         </div>
       )}
@@ -1259,44 +2025,44 @@ export const BrandPage: React.FC = () => {
       {/* TAB CONTENT: Learned Intelligence */}
       {activeTab === 'learned' && (
         <div className="space-y-6">
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-xs">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-foreground">Vireo Has Learned</h2>
-                <p className="text-xs text-muted-foreground">
+                <h2 className="text-lg font-bold text-[#F4F6FB]">VireoClip Has Learned</h2>
+                <p className="text-xs text-[#9AA2B2]">
                   Observed only from your approved video exports and finalized Producer plans.
                 </p>
               </div>
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+              <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-300">
                 {evidenceList.length} evidence records
               </span>
             </div>
 
             <div className="mt-6 space-y-4">
               {evidenceList.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-                  No approved projects recorded yet. As you edit and export videos, Vireo will organically learn your editing and caption style here.
+                <div className="rounded-xl border border-dashed border-white/[0.08] p-8 text-center text-sm text-[#9AA2B2]">
+                  No approved projects recorded yet. As you edit and export videos, VireoClip will organically learn your editing and caption style here.
                 </div>
               ) : (
                 evidenceList.slice(0, 10).map((ev) => (
-                  <div key={ev.id} className="flex flex-col justify-between gap-2 rounded-xl border border-border p-4 sm:flex-row sm:items-center">
-                    <div>
+                  <div key={ev.id} className="flex flex-col justify-between gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 sm:flex-row sm:items-center">
+                    <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="rounded-md bg-cream px-2 py-0.5 text-xs font-bold uppercase text-foreground">
+                        <span className="rounded-md bg-white/[0.08] border border-white/[0.1] px-2 py-0.5 text-xs font-bold uppercase text-[#F4F6FB]">
                           {ev.dimension}
                         </span>
-                        <span className="text-xs text-muted-foreground">Source: {ev.source_type}</span>
+                        <span className="text-xs text-[#9AA2B2]">Source: {ev.source_type}</span>
                       </div>
-                      <p className="mt-1 text-sm font-medium text-foreground">{JSON.stringify(ev.value)}</p>
+                      <div className="mt-2 text-sm text-[#F4F6FB]">{renderEvidenceValue(ev.value)}</div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 shrink-0">
                       <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
                           ev.confidence === 'HIGH'
-                            ? 'bg-emerald-100 text-emerald-800'
+                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
                             : ev.confidence === 'MEDIUM'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-700'
+                            ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+                            : 'bg-white/[0.06] text-[#9AA2B2] border-white/[0.08]'
                         }`}
                       >
                         Confidence: {ev.confidence}
@@ -1312,19 +2078,19 @@ export const BrandPage: React.FC = () => {
 
       {/* TAB CONTENT: Brand Check & Compliance */}
       {activeTab === 'check' && (
-        <div className="space-y-6 rounded-2xl border border-border bg-white p-6 shadow-xs">
+        <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
           <div>
-            <h2 className="text-lg font-bold text-foreground">Brand Check & Compliance Test</h2>
-            <p className="text-xs text-muted-foreground">
+            <h2 className="text-lg font-bold text-[#F4F6FB]">Brand Check & Compliance Test</h2>
+            <p className="text-xs text-[#9AA2B2]">
               Test copy or video transcripts against brand avoid phrasing, typography, and tone governance.
             </p>
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-foreground">Content Text / Script to Evaluate</label>
+            <label className="text-xs font-semibold text-[#F4F6FB]">Content Text / Script to Evaluate</label>
             <textarea
               rows={4}
-              className="mt-2 w-full rounded-xl border border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-vireo-green"
+              className="mt-2 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-sm text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
               value={checkText}
               onChange={(e) => setCheckText(e.target.value)}
               placeholder="Paste video hook, transcript, or caption text here..."
@@ -1334,29 +2100,29 @@ export const BrandPage: React.FC = () => {
           <button
             onClick={handleRunCheck}
             disabled={isChecking || !checkText}
-            className="rounded-xl bg-vireo-green px-5 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-emerald-600 disabled:opacity-50"
+            className="rounded-xl bg-[#F4F6FB] px-5 py-2.5 text-xs font-semibold text-[#0B0C0F] shadow-sm hover:bg-white disabled:opacity-50"
           >
             {isChecking ? 'Evaluating...' : 'Run Compliance Check'}
           </button>
 
           {checkResult && (
-            <div className="mt-6 rounded-2xl border border-border bg-cream/40 p-6">
+            <div className="mt-6 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold text-foreground">Deterministic Brand Match</h3>
-                  <p className="text-xs text-muted-foreground">Strict evaluation of brand alignment</p>
+                  <h3 className="text-base font-bold text-[#F4F6FB]">Deterministic Brand Match</h3>
+                  <p className="text-xs text-[#9AA2B2]">Strict evaluation of brand alignment</p>
                 </div>
                 <div className="text-right">
                   <span className="text-3xl font-extrabold text-vireo-green">{checkResult.score}</span>
-                  <span className="text-xs text-muted-foreground"> / 100</span>
+                  <span className="text-xs text-[#9AA2B2]"> / 100</span>
                 </div>
               </div>
 
               <div className="mt-4 space-y-2">
                 {Object.entries(checkResult.match_breakdown).map(([key, val]) => (
-                  <div key={key} className="flex items-center justify-between rounded-lg bg-white p-3 text-xs">
-                    <span className="font-semibold uppercase text-muted-foreground">{key}</span>
-                    <span className={val.matched ? 'text-emerald-700 font-medium' : 'text-amber-700 font-medium'}>
+                  <div key={key} className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-[#07080D] p-3 text-xs">
+                    <span className="font-semibold uppercase text-[#9AA2B2]">{key}</span>
+                    <span className={val.matched ? 'text-emerald-400 font-medium' : 'text-amber-400 font-medium'}>
                       {val.details}
                     </span>
                   </div>
@@ -1364,10 +2130,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               {checkResult.warnings.length > 0 && (
-                <div className="mt-4 space-y-2 border-t border-border pt-4">
-                  <h4 className="text-xs font-bold uppercase text-red-600">Warnings Detected</h4>
+                <div className="mt-4 space-y-2 border-t border-white/[0.08] pt-4">
+                  <h4 className="text-xs font-bold uppercase text-rose-400">Warnings Detected</h4>
                   {checkResult.warnings.map((w, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-xs text-red-700">
+                    <div key={idx} className="flex items-center gap-2 text-xs text-rose-300">
                       <AlertTriangle className="size-4 shrink-0" />
                       <span>[{w.rule}]: {w.message}</span>
                     </div>
@@ -1381,29 +2147,29 @@ export const BrandPage: React.FC = () => {
 
       {/* TAB CONTENT: Version History */}
       {activeTab === 'versions' && (
-        <div className="space-y-6 rounded-2xl border border-border bg-white p-6 shadow-xs">
+        <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
           <div>
-            <h2 className="text-lg font-bold text-foreground">Brand Brain Version History</h2>
-            <p className="text-xs text-muted-foreground">Every setting change is snapshotted and reversible.</p>
+            <h2 className="text-lg font-bold text-[#F4F6FB]">Brand Brain Version History</h2>
+            <p className="text-xs text-[#9AA2B2]">Every setting change is snapshotted and reversible.</p>
           </div>
 
           <div className="space-y-3">
             {versions.map((ver) => (
-              <div key={ver.id} className="flex items-center justify-between rounded-xl border border-border p-4">
+              <div key={ver.id} className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="rounded-md bg-cream px-2 py-0.5 text-xs font-bold text-foreground">
+                    <span className="rounded-md bg-white/[0.08] border border-white/[0.1] px-2 py-0.5 text-xs font-bold text-[#F4F6FB]">
                       v{ver.version}
                     </span>
-                    <span className="text-xs font-medium text-foreground">{ver.change_summary}</span>
+                    <span className="text-xs font-medium text-[#F4F6FB]">{ver.change_summary}</span>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 text-xs text-[#9AA2B2]">
                     {new Date(ver.created_at).toLocaleString()} • Source: {ver.source}
                   </p>
                 </div>
                 <button
                   onClick={() => handleRestoreVersion(ver.version)}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-cream"
+                  className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
                 >
                   Restore
                 </button>
@@ -1415,17 +2181,17 @@ export const BrandPage: React.FC = () => {
 
       {/* TAB CONTENT: Import Guidelines */}
       {activeTab === 'import' && (
-        <div className="space-y-6 rounded-2xl border border-border bg-white p-6 shadow-xs">
+        <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
           <div>
-            <h2 className="text-lg font-bold text-foreground">Brand Guidelines Document Import</h2>
-            <p className="text-xs text-muted-foreground">
+            <h2 className="text-lg font-bold text-[#F4F6FB]">Brand Guidelines Document Import</h2>
+            <p className="text-xs text-[#9AA2B2]">
               Paste public brand guideline text or style guides. Text is processed strictly as data with prompt injection defense.
             </p>
           </div>
 
           <textarea
             rows={6}
-            className="w-full rounded-xl border border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-vireo-green"
+            className="w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-sm text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
             value={guidelinesText}
             onChange={(e) => setGuidelinesText(e.target.value)}
             placeholder="Paste brand guidelines, tone rules, brand colors (#HEX), or banned phrases..."
@@ -1434,35 +2200,35 @@ export const BrandPage: React.FC = () => {
           <button
             onClick={handleParseGuidelines}
             disabled={isParsing || !guidelinesText}
-            className="rounded-xl bg-vireo-green px-5 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-emerald-600 disabled:opacity-50"
+            className="rounded-xl bg-[#F4F6FB] px-5 py-2.5 text-xs font-semibold text-[#0B0C0F] shadow-sm hover:bg-white disabled:opacity-50"
           >
             {isParsing ? 'Parsing...' : 'Analyze Document'}
           </button>
 
           {importedDraft && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-6">
-              <h3 className="text-sm font-bold text-emerald-900">Detected Guidelines Draft</h3>
-              <p className="text-xs text-emerald-700">{importedDraft.review_notice}</p>
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-6 text-[#F4F6FB]">
+              <h3 className="text-sm font-bold text-emerald-300">Detected Guidelines Draft</h3>
+              <p className="text-xs text-emerald-400/80">{importedDraft.review_notice}</p>
 
               <div className="mt-4 space-y-2 text-xs">
                 {importedDraft.detected_brand_name && (
                   <div>
-                    <strong>Name:</strong> {importedDraft.detected_brand_name}
+                    <strong className="text-emerald-300">Name:</strong> {importedDraft.detected_brand_name}
                   </div>
                 )}
                 {importedDraft.detected_colors?.length > 0 && (
                   <div>
-                    <strong>Colors:</strong> {importedDraft.detected_colors.join(', ')}
+                    <strong className="text-emerald-300">Colors:</strong> {importedDraft.detected_colors.join(', ')}
                   </div>
                 )}
                 {importedDraft.detected_tones?.length > 0 && (
                   <div>
-                    <strong>Tones:</strong> {importedDraft.detected_tones.join(', ')}
+                    <strong className="text-emerald-300">Tones:</strong> {importedDraft.detected_tones.join(', ')}
                   </div>
                 )}
                 {importedDraft.detected_avoid_phrases?.length > 0 && (
                   <div>
-                    <strong>Avoid phrases:</strong> {importedDraft.detected_avoid_phrases.join(', ')}
+                    <strong className="text-emerald-300">Avoid phrases:</strong> {importedDraft.detected_avoid_phrases.join(', ')}
                   </div>
                 )}
               </div>
@@ -1470,13 +2236,13 @@ export const BrandPage: React.FC = () => {
               <div className="mt-4 flex gap-3">
                 <button
                   onClick={handleConfirmImport}
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700"
+                  className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-500"
                 >
                   Confirm & Apply to Brand Brain
                 </button>
                 <button
                   onClick={() => setImportedDraft(null)}
-                  className="rounded-lg border border-border bg-white px-4 py-2 text-xs font-medium text-foreground hover:bg-cream"
+                  className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
                 >
                   Discard
                 </button>
@@ -1488,16 +2254,16 @@ export const BrandPage: React.FC = () => {
 
       {/* FAST SETUP WIZARD MODAL */}
       {showWizard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-3xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-2xl text-[#F4F6FB]">
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
               <div className="flex items-center gap-2">
                 <Sparkles className="size-5 text-vireo-green" />
-                <h3 className="text-base font-bold text-foreground">Fast Brand Setup Wizard</h3>
+                <h3 className="text-base font-bold text-[#F4F6FB]">Fast Brand Setup Wizard</h3>
               </div>
               <button
                 onClick={() => setShowWizard(false)}
-                className="text-xs font-semibold text-muted-foreground hover:text-foreground"
+                className="text-xs font-semibold text-[#9AA2B2] hover:text-[#F4F6FB]"
               >
                 Close
               </button>
@@ -1505,10 +2271,10 @@ export const BrandPage: React.FC = () => {
 
             <div className="py-6 space-y-4">
               <div>
-                <label className="text-xs font-semibold text-foreground">Brand Name</label>
+                <label className="text-xs font-semibold text-[#F4F6FB]">Brand Name</label>
                 <input
                   type="text"
-                  className="mt-1 w-full rounded-xl border border-border p-2.5 text-sm"
+                  className="mt-1 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-sm text-white focus:border-vireo-green focus:outline-none"
                   value={wizardData.brand_name}
                   onChange={(e) => setWizardData({ ...wizardData, brand_name: e.target.value })}
                   placeholder="e.g. Acme Studio"
@@ -1516,10 +2282,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">What do you create? (Industry / Niche)</label>
+                <label className="text-xs font-semibold text-[#F4F6FB]">What do you create? (Industry / Niche)</label>
                 <input
                   type="text"
-                  className="mt-1 w-full rounded-xl border border-border p-2.5 text-sm"
+                  className="mt-1 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-sm text-white focus:border-vireo-green focus:outline-none"
                   value={wizardData.industry}
                   onChange={(e) => setWizardData({ ...wizardData, industry: e.target.value })}
                   placeholder="e.g. AI Engineering, Tech Tutorials, Fitness..."
@@ -1527,17 +2293,17 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">Primary Brand Color</label>
+                <label className="text-xs font-semibold text-[#F4F6FB]">Primary Brand Color</label>
                 <div className="mt-1 flex items-center gap-3">
                   <input
                     type="color"
-                    className="size-10 cursor-pointer rounded-lg border border-border p-1"
+                    className="size-10 cursor-pointer rounded-xl border border-white/[0.1] bg-[#07080D] p-1"
                     value={wizardData.primary_color}
                     onChange={(e) => setWizardData({ ...wizardData, primary_color: e.target.value })}
                   />
                   <input
                     type="text"
-                    className="w-32 rounded-lg border border-border px-3 py-2 text-sm font-mono"
+                    className="w-32 rounded-xl border border-white/[0.1] bg-[#07080D] px-3 py-2 text-sm font-mono text-white focus:border-vireo-green focus:outline-none"
                     value={wizardData.primary_color}
                     onChange={(e) => setWizardData({ ...wizardData, primary_color: e.target.value })}
                   />
@@ -1545,9 +2311,9 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">Pacing Preference</label>
+                <label className="text-xs font-semibold text-[#F4F6FB]">Pacing Preference</label>
                 <select
-                  className="mt-1 w-full rounded-xl border border-border p-2.5 text-sm"
+                  className="mt-1 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-sm text-white focus:border-vireo-green focus:outline-none"
                   value={wizardData.pacing_style}
                   onChange={(e) => setWizardData({ ...wizardData, pacing_style: e.target.value as any })}
                 >
@@ -1558,17 +2324,17 @@ export const BrandPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 border-t border-border pt-4">
+            <div className="flex justify-end gap-3 border-t border-white/[0.08] pt-4">
               <button
                 onClick={() => setShowWizard(false)}
-                className="rounded-xl border border-border px-4 py-2 text-xs font-medium text-foreground hover:bg-cream"
+                className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCompleteWizard}
                 disabled={saving}
-                className="rounded-xl bg-vireo-green px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-600"
+                className="rounded-xl bg-[#F4F6FB] px-5 py-2 text-xs font-semibold text-[#0B0C0F] shadow-sm hover:bg-white"
               >
                 {saving ? 'Completing...' : 'Finish Setup'}
               </button>
@@ -1579,26 +2345,26 @@ export const BrandPage: React.FC = () => {
 
       {/* OVERWRITE CONFIRMATION MODAL */}
       {overwriteModal.isOpen && overwriteModal.recommendation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-amber-200">
-            <div className="flex items-center gap-2 text-amber-800">
-              <AlertTriangle className="size-5 shrink-0 text-amber-600" />
-              <h3 className="text-base font-bold text-foreground">Confirm Overwriting Brand Guideline</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-amber-500/30 bg-[#0E1017] p-6 shadow-2xl text-[#F4F6FB]">
+            <div className="flex items-center gap-2 text-amber-400">
+              <AlertTriangle className="size-5 shrink-0 text-amber-400" />
+              <h3 className="text-base font-bold text-[#F4F6FB]">Confirm Overwriting Brand Guideline</h3>
             </div>
-            <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
+            <p className="mt-3 text-xs text-[#9AA2B2] leading-relaxed">
               {overwriteModal.message ||
                 'This approved recommendation will replace your currently approved brand guideline. This change will be snapshotted in version history.'}
             </p>
 
-            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-xs">
-              <div className="font-semibold text-amber-900">{overwriteModal.recommendation.title}</div>
-              <p className="mt-1 text-muted-foreground text-[11px]">{overwriteModal.recommendation.description}</p>
+            <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs">
+              <div className="font-semibold text-amber-300">{overwriteModal.recommendation.title}</div>
+              <p className="mt-1 text-[#9AA2B2] text-[11px]">{overwriteModal.recommendation.description}</p>
             </div>
 
             <div className="mt-6 flex justify-end gap-2.5">
               <button
                 onClick={() => setOverwriteModal({ isOpen: false, recommendation: null, message: '' })}
-                className="rounded-xl border border-border px-4 py-2 text-xs font-medium text-foreground hover:bg-cream"
+                className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
               >
                 Cancel
               </button>
@@ -1610,7 +2376,7 @@ export const BrandPage: React.FC = () => {
                     overwriteModal.editedValue
                   )
                 }
-                className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-amber-700"
+                className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-amber-500"
               >
                 Confirm & Overwrite
               </button>

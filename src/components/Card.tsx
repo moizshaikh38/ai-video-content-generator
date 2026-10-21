@@ -12,7 +12,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
         ref={ref}
         className={cn(
           'rounded-2xl bg-card border border-border p-6 text-foreground shadow-soft',
-          hoverable && 'transition-all duration-200 hover:shadow-lift hover:-translate-y-0.5',
+          hoverable && 'transition-all duration-200 hover:shadow-lift hover:-translate-y-0.5 hover:border-white/[0.12]',
           className
         )}
         {...props}
@@ -36,7 +36,7 @@ export const CardTitle = React.forwardRef<
   return (
     <h3
       ref={ref}
-      className={cn('text-lg font-semibold leading-snug tracking-tight text-foreground font-display', className)}
+      className={cn('text-lg font-semibold leading-snug tracking-tight text-foreground', className)}
       {...props}
     />
   );

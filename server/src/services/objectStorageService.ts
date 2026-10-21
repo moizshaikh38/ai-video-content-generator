@@ -100,14 +100,38 @@ export async function signObjectGet(bucket: ObjectBucket, key: string, filename?
   }), { expiresIn: 300 });
 }
 
-/** Stream to a unique caller-owned temp path. The caller removes the file. */
-export async function downloadObjectToFile(bucket: ObjectBucket, key: string, path: string): Promise<void> {
+/** Stream to a unique caller-owned temp path with strict timeout protection. The caller removes the file. */
+export async function downloadObjectToFile(
+  bucket: ObjectBucket,
+  key: string,
+  path: string,
+  options?: { timeoutMs?: number }
+): Promise<void> {
+  const timeoutMs = options?.timeoutMs || 60000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort(new Error(`Download timed out after ${timeoutMs}ms`));
+  }, timeoutMs);
+  timer.unref();
+
   try {
-    const result = await storageClient().send(new GetObjectCommand({ Bucket: bucketName(bucket), Key: key }));
+    const result = await storageClient().send(
+      new GetObjectCommand({ Bucket: bucketName(bucket), Key: key }),
+      { abortSignal: controller.signal }
+    );
     if (!result.Body) throw new Error('Empty object body');
-    await pipeline(result.Body as Readable, createWriteStream(path, { flags: 'wx' }));
-  } catch {
+    await pipeline(
+      result.Body as Readable,
+      createWriteStream(path, { flags: 'w' }),
+      { signal: controller.signal }
+    );
+  } catch (err: any) {
+    if (controller.signal.aborted || err?.name === 'AbortError') {
+      throw new AppError(`Source object download timed out after ${timeoutMs / 1000}s.`, 504, 'DOWNLOAD_TIMEOUT');
+    }
     throw new AppError('Source object is unavailable.', 503, 'STORAGE_UNAVAILABLE');
+  } finally {
+    clearTimeout(timer);
   }
 }
 

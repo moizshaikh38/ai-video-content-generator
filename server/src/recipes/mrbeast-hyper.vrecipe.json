@@ -1,0 +1,42 @@
+{
+  "$schema": "https://vireoclip.ai/schemas/vrecipe-v1.json",
+  "id": "mrbeast-hyper",
+  "name": "MrBeast Hyper",
+  "description": "Maximum energy captions with thick dark outline, high-voltage green active words, and dynamic bouncing emphasis.",
+  "version": "1.0.0",
+  "author": "VireoClip",
+  "typography": {
+    "fontFamily": "Arial Black",
+    "fontSize": 86,
+    "fontWeight": "black",
+    "letterSpacing": 2,
+    "textCase": "uppercase"
+  },
+  "positioning": {
+    "alignment": 2,
+    "verticalMargin": 280,
+    "horizontalMargin": 50,
+    "maxWordsPerLine": 2,
+    "maxCharsPerLine": 14,
+    "lineBreakMethod": "single"
+  },
+  "colors": {
+    "primary": "#FFFFFF",
+    "secondary": "#CCCCCC",
+    "activeWordHighlight": "#00FFA3",
+    "outline": "#000000",
+    "outlineWidth": 7,
+    "shadow": "#000000CC",
+    "shadowOffset": 4
+  },
+  "animation": {
+    "preset": "bounce",
+    "durationMs": 150,
+    "activeWordScale": 1.25,
+    "karaokeEffect": "jump"
+  },
+  "decorations": {
+    "emojisEnabled": true,
+    "autoHighlightKeywords": true
+  }
+}

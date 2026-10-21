@@ -17,6 +17,7 @@ import {
   AutopilotCapabilityModel,
   ThumbnailConcept,
   HookCandidate,
+  OverlayConfig,
 } from '../types/index.js';
 import { ProducerPlanningService } from './producerPlanningService.js';
 import { ProducerRenderService } from './producerRenderService.js';
@@ -81,7 +82,26 @@ export class AutopilotService {
         throw new AppError('Associated project not found or access denied.', 404, 'PROJECT_NOT_FOUND');
       }
 
-      // Duplicate delivery guard: If idempotency_key is provided, return existing pending/running run
+      // Infer default producer_mode from clip/project genre if not explicitly provided
+      const genre = String(
+        (clipRec as any).genre ||
+        (project as any)?.genre ||
+        (project as any)?.clip_preferences?.genre ||
+        (project as any)?.settings?.genre ||
+        ''
+      ).toLowerCase();
+      const defaultProducerMode: 'AGGRESSIVE' | 'BALANCED' =
+        (genre === 'gaming' || genre === 'vlog_challenge') ? 'AGGRESSIVE' : 'BALANCED';
+
+      // Safe default merging: preserves defaults even when dto.settings is partial
+      const mergedSettings: AutopilotSettings = {
+        producer_mode: defaultProducerMode,
+        target_platform: 'tiktok',
+        auto_select_highest_scoring_thumbnail: true,
+        ...(dto.settings || {}),
+      };
+
+      // Duplicate delivery guard: If idempotency_key is provided, return existing run
       if (dto.idempotency_key) {
         const { data: existingRuns } = await dataRepository
           .from('autopilot_runs')
@@ -90,6 +110,16 @@ export class AutopilotService {
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
+        // 1. Exact idempotency_key match (as long as it hasn't failed)
+        const matchedRun = (existingRuns || []).find((r: any) =>
+          r.idempotency_key === dto.idempotency_key && r.status !== 'FAILED'
+        );
+        if (matchedRun) {
+          logger.info(`[Autopilot] Idempotently returned existing run ${matchedRun.id} for idempotency_key ${dto.idempotency_key}`);
+          return matchedRun as AutopilotRunRecord;
+        }
+
+        // 2. Otherwise retain check for any active run currently PENDING or RUNNING
         const activeRun = (existingRuns || []).find((r: any) =>
           ['PENDING', 'RUNNING'].includes(r.status)
         );
@@ -114,13 +144,10 @@ export class AutopilotService {
         user_id: userId,
         project_id: clipRec.project_id,
         clip_id: clipRec.id,
+        idempotency_key: dto.idempotency_key,
         status: 'PENDING',
         current_step: 'PRODUCER',
-        settings: dto.settings || {
-          producer_mode: 'BALANCED',
-          target_platform: 'tiktok',
-          auto_select_highest_scoring_thumbnail: true,
-        },
+        settings: mergedSettings,
         steps: initialSteps,
         attempts: 0,
         max_attempts: 3,
@@ -282,12 +309,20 @@ export class AutopilotService {
         run = await this.executeProducerStep(userId, run, lockToken);
         if (run.status === 'FAILED' || run.status === 'BLOCKED') return run;
 
-        // Step 2: Hook Lab
-        run = await this.executeHookLabStep(userId, run, lockToken);
-        if (run.status === 'FAILED' || run.status === 'BLOCKED') return run;
+        // Steps 2 & 3: Hook Lab and Thumbnail Lab in parallel (or single if one already completed)
+        const hookStep = run.steps.find((s) => s.step === 'HOOK_LAB');
+        const thumbStep = run.steps.find((s) => s.step === 'THUMBNAIL_LAB');
 
-        // Step 3: Thumbnail Lab
-        run = await this.executeThumbnailLabStep(userId, run, lockToken);
+        const needsHook = !(hookStep?.status === 'COMPLETED' && run.selected_hook_candidate_id);
+        const needsThumb = !(thumbStep?.status === 'COMPLETED' && run.selected_thumbnail_concept_id);
+
+        if (needsHook && needsThumb) {
+          run = await this.executeParallelHookAndThumbnail(userId, run, lockToken);
+        } else if (needsHook) {
+          run = await this.executeHookLabStep(userId, run, lockToken);
+        } else if (needsThumb) {
+          run = await this.executeThumbnailLabStep(userId, run, lockToken);
+        }
         if (run.status === 'FAILED' || run.status === 'BLOCKED') return run;
 
         // Step 4: Content Pack
@@ -425,24 +460,15 @@ export class AutopilotService {
   }
 
   /**
-   * Stage 2: Hook Lab Orchestration
+   * Stage 2: Hook Lab Orchestration Helper
    */
-  private static async executeHookLabStep(
+  private static async runHookLabAsync(
     userId: string,
-    run: AutopilotRunRecord,
-    lockToken?: string
-  ): Promise<AutopilotRunRecord> {
-    const stepIdx = run.steps.findIndex((s) => s.step === 'HOOK_LAB');
-    const currentStep = run.steps[stepIdx];
-
-    if (currentStep.status === 'COMPLETED' && run.selected_hook_candidate_id) {
-      return run;
-    }
-
-    const startTime = new Date();
-    this.updateStepStatus(run.steps, 'HOOK_LAB', 'RUNNING', { started_at: startTime });
-    await this.updateRunState(userId, run.id, { current_step: 'HOOK_LAB', steps: run.steps }, lockToken);
-
+    run: AutopilotRunRecord
+  ): Promise<
+    | { success: true; session: any; chosen: HookCandidate; rationale: string }
+    | { success: false; sanitized: string; isTransient: boolean; retryEligible: boolean; stepAttempts: number }
+  > {
     try {
       // Create or get session
       const session = await HookLabService.getOrCreateSession(userId, run.clip_id, {
@@ -475,78 +501,62 @@ export class AutopilotService {
       // Verify required hook candidate deliverable
       JobReliabilityService.verifyRequiredOutputs('hook_lab_step', { candidate_id: chosen.id });
 
+      // Task 2: Non-destructively sync chosen hook text into clip's opening hook banner (overlay_config)
+      try {
+        const { data: clipData } = await dataRepository
+          .from('clips')
+          .select('overlay_config')
+          .eq('id', run.clip_id)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        const currentOverlay = (clipData as any)?.overlay_config;
+        const isLocked = currentOverlay?.locked || (currentOverlay?.enabled && currentOverlay?.text && currentOverlay?.user_locked);
+        if (!isLocked) {
+          const updatedOverlay: OverlayConfig = {
+            ...(currentOverlay || {}),
+            enabled: true,
+            text: chosen.text,
+            position: currentOverlay?.position || 'top',
+            size: currentOverlay?.size || 'md',
+          };
+          await dataRepository
+            .from('clips')
+            .update({ overlay_config: updatedOverlay })
+            .eq('id', run.clip_id)
+            .eq('user_id', userId);
+          logger.info(`[Autopilot] Synced winning hook text into clip overlay: "${chosen.text.slice(0, 40)}..."`);
+        }
+      } catch (syncErr: any) {
+        logger.warn(`[Autopilot] Non-fatal: Failed to sync winning hook overlay to clip: ${syncErr.message}`);
+      }
+
       const rationale = locked
         ? `Preserved locked hook: "${chosen.text.slice(0, 50)}..."`
         : `Selected highest overall hook fit (${chosen.overall_hook_fit}/100) for ${chosen.hook_type} hook: "${chosen.text.slice(0, 50)}..."`;
 
-      const endTime = new Date();
-      this.updateStepStatus(run.steps, 'HOOK_LAB', 'COMPLETED', {
-        completed_at: endTime,
-        duration_ms: endTime.getTime() - startTime.getTime(),
-        output_id: chosen.id,
-        output_summary: rationale,
-        artifacts: {
-          hook_session_id: session.id,
-          candidate_id: chosen.id,
-          hook_text: chosen.text,
-          overall_hook_fit: chosen.overall_hook_fit,
-        },
-      });
-
-      return await this.updateRunState(userId, run.id, {
-        hook_session_id: session.id,
-        selected_hook_candidate_id: chosen.id,
-        hook_selection_rationale: rationale,
-        steps: run.steps,
-      }, lockToken);
+      return { success: true, session, chosen, rationale };
     } catch (err: any) {
       logger.error(`[Autopilot] Hook Lab step failed for run ${run.id}: ${err.message}`);
-      const endTime = new Date();
       const isTransient = JobReliabilityService.isTransientError(err);
       const sanitized = JobReliabilityService.sanitizeErrorMessage(err.message || 'Hook Lab generation failed.');
       const currentStepObj = run.steps.find((s) => s.step === 'HOOK_LAB');
       const stepAttempts = (currentStepObj?.attempts || 0) + 1;
       const retryEligible = isTransient && stepAttempts < 3;
-
-      this.updateStepStatus(run.steps, 'HOOK_LAB', 'FAILED', {
-        completed_at: endTime,
-        duration_ms: endTime.getTime() - startTime.getTime(),
-        error: sanitized,
-        retry_eligible: retryEligible,
-        attempts: stepAttempts,
-        max_attempts: 3,
-      });
-
-      return await this.updateRunState(userId, run.id, {
-        status: 'FAILED',
-        error: `Hook Lab failed: ${sanitized}`,
-        last_failure_reason: sanitized,
-        requires_manual_intervention: !retryEligible,
-        steps: run.steps,
-      }, lockToken);
+      return { success: false, sanitized, isTransient, retryEligible, stepAttempts };
     }
   }
 
   /**
-   * Stage 3: Thumbnail Lab Orchestration
-   * Selects highest-scoring eligible thumbnail concept.
+   * Stage 3: Thumbnail Lab Orchestration Helper
    */
-  private static async executeThumbnailLabStep(
+  private static async runThumbnailLabAsync(
     userId: string,
-    run: AutopilotRunRecord,
-    lockToken?: string
-  ): Promise<AutopilotRunRecord> {
-    const stepIdx = run.steps.findIndex((s) => s.step === 'THUMBNAIL_LAB');
-    const currentStep = run.steps[stepIdx];
-
-    if (currentStep.status === 'COMPLETED' && run.selected_thumbnail_concept_id) {
-      return run;
-    }
-
-    const startTime = new Date();
-    this.updateStepStatus(run.steps, 'THUMBNAIL_LAB', 'RUNNING', { started_at: startTime });
-    await this.updateRunState(userId, run.id, { current_step: 'THUMBNAIL_LAB', steps: run.steps }, lockToken);
-
+    run: AutopilotRunRecord
+  ): Promise<
+    | { success: true; session: any; approvedConcept: ThumbnailConcept; selectionRationale: string; finalScore: number }
+    | { success: false; sanitized: string; isTransient: boolean; retryEligible: boolean; stepAttempts: number }
+  > {
     try {
       // Create session
       const session = await ThumbnailLabService.getOrCreateSession(userId, run.clip_id, {
@@ -596,54 +606,259 @@ export class AutopilotService {
       // Verify required thumbnail deliverable
       JobReliabilityService.verifyRequiredOutputs('thumbnail_step', { concept_id: approvedConcept.id });
 
-      const finalScore = approvedConcept.diagnostics?.overall_score ?? selectedConcept.diagnostics?.overall_score;
+      const finalScore = approvedConcept.diagnostics?.overall_score ?? selectedConcept.diagnostics?.overall_score ?? 0;
 
-      const endTime = new Date();
-      this.updateStepStatus(run.steps, 'THUMBNAIL_LAB', 'COMPLETED', {
-        completed_at: endTime,
-        duration_ms: endTime.getTime() - startTime.getTime(),
-        output_id: approvedConcept.id,
-        output_summary: selectionRationale,
-        artifacts: {
-          thumbnail_session_id: session.id,
-          concept_id: approvedConcept.id,
-          title: approvedConcept.title,
-          headline: approvedConcept.text_layer?.headline,
-          overall_score: finalScore,
-          diagnostics: approvedConcept.diagnostics,
-        },
-      });
-
-      return await this.updateRunState(userId, run.id, {
-        thumbnail_session_id: session.id,
-        selected_thumbnail_concept_id: approvedConcept.id,
-        thumbnail_selection_rationale: selectionRationale,
-        thumbnail_score: finalScore,
-        steps: run.steps,
-      }, lockToken);
+      return { success: true, session, approvedConcept, selectionRationale, finalScore };
     } catch (err: any) {
       logger.error(`[Autopilot] Thumbnail Lab step failed for run ${run.id}: ${err.message}`);
-      const endTime = new Date();
       const isTransient = JobReliabilityService.isTransientError(err);
       const sanitized = JobReliabilityService.sanitizeErrorMessage(err.message || 'Thumbnail Lab concept generation failed.');
       const currentStepObj = run.steps.find((s) => s.step === 'THUMBNAIL_LAB');
       const stepAttempts = (currentStepObj?.attempts || 0) + 1;
       const retryEligible = isTransient && stepAttempts < 3;
+      return { success: false, sanitized, isTransient, retryEligible, stepAttempts };
+    }
+  }
 
+  /**
+   * Safe Parallel Execution of Hook Lab & Thumbnail Lab
+   */
+  private static async executeParallelHookAndThumbnail(
+    userId: string,
+    run: AutopilotRunRecord,
+    lockToken?: string
+  ): Promise<AutopilotRunRecord> {
+    const startTimeHook = new Date();
+    const startTimeThumb = new Date();
+
+    this.updateStepStatus(run.steps, 'HOOK_LAB', 'RUNNING', { started_at: startTimeHook });
+    this.updateStepStatus(run.steps, 'THUMBNAIL_LAB', 'RUNNING', { started_at: startTimeThumb });
+
+    await this.updateRunState(userId, run.id, {
+      current_step: 'HOOK_LAB',
+      steps: run.steps,
+    }, lockToken);
+
+    const [hookResult, thumbResult] = await Promise.all([
+      this.runHookLabAsync(userId, run),
+      this.runThumbnailLabAsync(userId, run),
+    ]);
+
+    const updates: Partial<AutopilotRunRecord> = {
+      steps: run.steps,
+    };
+
+    const endTime = new Date();
+
+    // Process Hook Lab outcome
+    if (hookResult.success) {
+      this.updateStepStatus(run.steps, 'HOOK_LAB', 'COMPLETED', {
+        completed_at: endTime,
+        duration_ms: endTime.getTime() - startTimeHook.getTime(),
+        output_id: hookResult.chosen.id,
+        output_summary: hookResult.rationale,
+        artifacts: {
+          hook_session_id: hookResult.session.id,
+          candidate_id: hookResult.chosen.id,
+          hook_text: hookResult.chosen.text,
+          overall_hook_fit: hookResult.chosen.overall_hook_fit,
+        },
+      });
+      updates.hook_session_id = hookResult.session.id;
+      updates.selected_hook_candidate_id = hookResult.chosen.id;
+      updates.hook_selection_rationale = hookResult.rationale;
+    } else {
+      this.updateStepStatus(run.steps, 'HOOK_LAB', 'FAILED', {
+        completed_at: endTime,
+        duration_ms: endTime.getTime() - startTimeHook.getTime(),
+        error: hookResult.sanitized,
+        retry_eligible: hookResult.retryEligible,
+        attempts: hookResult.stepAttempts,
+        max_attempts: 3,
+      });
+    }
+
+    // Process Thumbnail Lab outcome
+    if (thumbResult.success) {
+      this.updateStepStatus(run.steps, 'THUMBNAIL_LAB', 'COMPLETED', {
+        completed_at: endTime,
+        duration_ms: endTime.getTime() - startTimeThumb.getTime(),
+        output_id: thumbResult.approvedConcept.id,
+        output_summary: thumbResult.selectionRationale,
+        artifacts: {
+          thumbnail_session_id: thumbResult.session.id,
+          concept_id: thumbResult.approvedConcept.id,
+          title: thumbResult.approvedConcept.title,
+          headline: thumbResult.approvedConcept.text_layer?.headline,
+          overall_score: thumbResult.finalScore,
+          diagnostics: thumbResult.approvedConcept.diagnostics,
+        },
+      });
+      updates.thumbnail_session_id = thumbResult.session.id;
+      updates.selected_thumbnail_concept_id = thumbResult.approvedConcept.id;
+      updates.thumbnail_selection_rationale = thumbResult.selectionRationale;
+      updates.thumbnail_score = thumbResult.finalScore;
+    } else {
       this.updateStepStatus(run.steps, 'THUMBNAIL_LAB', 'FAILED', {
         completed_at: endTime,
+        duration_ms: endTime.getTime() - startTimeThumb.getTime(),
+        error: thumbResult.sanitized,
+        retry_eligible: thumbResult.retryEligible,
+        attempts: thumbResult.stepAttempts,
+        max_attempts: 3,
+      });
+    }
+
+    // Handle any failures cleanly
+    if (!hookResult.success || !thumbResult.success) {
+      const failedSteps: string[] = [];
+      let lastFailure = '';
+      let requiresIntervention = false;
+
+      if (!hookResult.success) {
+        failedSteps.push(`Hook Lab: ${hookResult.sanitized}`);
+        lastFailure = hookResult.sanitized;
+        if (!hookResult.retryEligible) requiresIntervention = true;
+      }
+      if (!thumbResult.success) {
+        failedSteps.push(`Thumbnail Lab: ${thumbResult.sanitized}`);
+        lastFailure = thumbResult.sanitized;
+        if (!thumbResult.retryEligible) requiresIntervention = true;
+      }
+
+      updates.status = 'FAILED';
+      updates.error = failedSteps.join(' | ');
+      updates.last_failure_reason = lastFailure;
+      updates.requires_manual_intervention = requiresIntervention;
+    } else {
+      updates.current_step = 'CONTENT_PACK';
+    }
+
+    return await this.updateRunState(userId, run.id, updates, lockToken);
+  }
+
+  /**
+   * Stage 2: Hook Lab Orchestration (Standalone / Retry execution)
+   */
+  private static async executeHookLabStep(
+    userId: string,
+    run: AutopilotRunRecord,
+    lockToken?: string
+  ): Promise<AutopilotRunRecord> {
+    const stepIdx = run.steps.findIndex((s) => s.step === 'HOOK_LAB');
+    const currentStep = run.steps[stepIdx];
+
+    if (currentStep.status === 'COMPLETED' && run.selected_hook_candidate_id) {
+      return run;
+    }
+
+    const startTime = new Date();
+    this.updateStepStatus(run.steps, 'HOOK_LAB', 'RUNNING', { started_at: startTime });
+    await this.updateRunState(userId, run.id, { current_step: 'HOOK_LAB', steps: run.steps }, lockToken);
+
+    const res = await this.runHookLabAsync(userId, run);
+
+    const endTime = new Date();
+    if (res.success) {
+      this.updateStepStatus(run.steps, 'HOOK_LAB', 'COMPLETED', {
+        completed_at: endTime,
         duration_ms: endTime.getTime() - startTime.getTime(),
-        error: sanitized,
-        retry_eligible: retryEligible,
-        attempts: stepAttempts,
+        output_id: res.chosen.id,
+        output_summary: res.rationale,
+        artifacts: {
+          hook_session_id: res.session.id,
+          candidate_id: res.chosen.id,
+          hook_text: res.chosen.text,
+          overall_hook_fit: res.chosen.overall_hook_fit,
+        },
+      });
+
+      return await this.updateRunState(userId, run.id, {
+        hook_session_id: res.session.id,
+        selected_hook_candidate_id: res.chosen.id,
+        hook_selection_rationale: res.rationale,
+        steps: run.steps,
+      }, lockToken);
+    } else {
+      this.updateStepStatus(run.steps, 'HOOK_LAB', 'FAILED', {
+        completed_at: endTime,
+        duration_ms: endTime.getTime() - startTime.getTime(),
+        error: res.sanitized,
+        retry_eligible: res.retryEligible,
+        attempts: res.stepAttempts,
         max_attempts: 3,
       });
 
       return await this.updateRunState(userId, run.id, {
         status: 'FAILED',
-        error: `Thumbnail Lab failed: ${sanitized}`,
-        last_failure_reason: sanitized,
-        requires_manual_intervention: !retryEligible,
+        error: `Hook Lab failed: ${res.sanitized}`,
+        last_failure_reason: res.sanitized,
+        requires_manual_intervention: !res.retryEligible,
+        steps: run.steps,
+      }, lockToken);
+    }
+  }
+
+  /**
+   * Stage 3: Thumbnail Lab Orchestration (Standalone / Retry execution)
+   */
+  private static async executeThumbnailLabStep(
+    userId: string,
+    run: AutopilotRunRecord,
+    lockToken?: string
+  ): Promise<AutopilotRunRecord> {
+    const stepIdx = run.steps.findIndex((s) => s.step === 'THUMBNAIL_LAB');
+    const currentStep = run.steps[stepIdx];
+
+    if (currentStep.status === 'COMPLETED' && run.selected_thumbnail_concept_id) {
+      return run;
+    }
+
+    const startTime = new Date();
+    this.updateStepStatus(run.steps, 'THUMBNAIL_LAB', 'RUNNING', { started_at: startTime });
+    await this.updateRunState(userId, run.id, { current_step: 'THUMBNAIL_LAB', steps: run.steps }, lockToken);
+
+    const res = await this.runThumbnailLabAsync(userId, run);
+
+    const endTime = new Date();
+    if (res.success) {
+      this.updateStepStatus(run.steps, 'THUMBNAIL_LAB', 'COMPLETED', {
+        completed_at: endTime,
+        duration_ms: endTime.getTime() - startTime.getTime(),
+        output_id: res.approvedConcept.id,
+        output_summary: res.selectionRationale,
+        artifacts: {
+          thumbnail_session_id: res.session.id,
+          concept_id: res.approvedConcept.id,
+          title: res.approvedConcept.title,
+          headline: res.approvedConcept.text_layer?.headline,
+          overall_score: res.finalScore,
+          diagnostics: res.approvedConcept.diagnostics,
+        },
+      });
+
+      return await this.updateRunState(userId, run.id, {
+        thumbnail_session_id: res.session.id,
+        selected_thumbnail_concept_id: res.approvedConcept.id,
+        thumbnail_selection_rationale: res.selectionRationale,
+        thumbnail_score: res.finalScore,
+        steps: run.steps,
+      }, lockToken);
+    } else {
+      this.updateStepStatus(run.steps, 'THUMBNAIL_LAB', 'FAILED', {
+        completed_at: endTime,
+        duration_ms: endTime.getTime() - startTime.getTime(),
+        error: res.sanitized,
+        retry_eligible: res.retryEligible,
+        attempts: res.stepAttempts,
+        max_attempts: 3,
+      });
+
+      return await this.updateRunState(userId, run.id, {
+        status: 'FAILED',
+        error: `Thumbnail Lab failed: ${res.sanitized}`,
+        last_failure_reason: res.sanitized,
+        requires_manual_intervention: !res.retryEligible,
         steps: run.steps,
       }, lockToken);
     }
@@ -670,13 +885,29 @@ export class AutopilotService {
     await this.updateRunState(userId, run.id, { current_step: 'CONTENT_PACK', steps: run.steps }, lockToken);
 
     try {
+      let effectiveInstruction = run.settings.user_instruction || '';
+      const hookStep = run.steps.find((s) => s.step === 'HOOK_LAB');
+      const winningHook = hookStep?.artifacts?.hook_text;
+      if (winningHook) {
+        effectiveInstruction = effectiveInstruction
+          ? `${effectiveInstruction} [Winning Hook: "${winningHook}"]`
+          : `[Winning Hook: "${winningHook}"]`;
+      }
+      const thumbStep = run.steps.find((s) => s.step === 'THUMBNAIL_LAB');
+      const winningThumb = thumbStep?.artifacts?.title;
+      if (winningThumb) {
+        effectiveInstruction = effectiveInstruction
+          ? `${effectiveInstruction} [Thumbnail Concept: "${winningThumb}"]`
+          : `[Thumbnail Concept: "${winningThumb}"]`;
+      }
+
       const pack = await ContentPackService.generateContentPack({
         userId,
         projectId: run.project_id,
         clipId: run.clip_id,
         mode: run.settings.content_pack_mode || 'BALANCED',
         platform: run.settings.target_platform,
-        userInstruction: run.settings.user_instruction,
+        userInstruction: effectiveInstruction || undefined,
         brandBrainId: run.settings.brand_brain_id,
       });
 
@@ -779,9 +1010,9 @@ export class AutopilotService {
         );
       }
 
-      const nextAttempt = (target.attempts || 0) + 1;
+      const attemptsCount = target.attempts || 0;
       const maxAttempts = target.max_attempts || 3;
-      if (!forceRerun && nextAttempt > maxAttempts) {
+      if (!forceRerun && attemptsCount >= maxAttempts) {
         throw new AppError(
           `Step ${stepName} has exceeded maximum retry attempts (${maxAttempts}). Manual intervention required.`,
           400,
@@ -789,8 +1020,8 @@ export class AutopilotService {
         );
       }
 
-      // Calculate backoff with jitter
-      const backoffDelay = JobReliabilityService.computeBackoffDelayMs(nextAttempt, {
+      // Calculate backoff with jitter based on attempt count
+      const backoffDelay = JobReliabilityService.computeBackoffDelayMs(attemptsCount + 1, {
         baseDelayMs: 1000,
         maxDelayMs: 30000,
       });
@@ -802,7 +1033,7 @@ export class AutopilotService {
       target.output_id = undefined;
       target.output_summary = undefined;
       target.artifacts = undefined;
-      target.attempts = nextAttempt;
+      // Do not double-increment target.attempts; executing step catch increments upon failure
       target.max_attempts = maxAttempts;
       target.next_retry_at = nextRetryAt;
       target.retry_eligible = true;
@@ -811,7 +1042,7 @@ export class AutopilotService {
         status: 'RUNNING',
         error: undefined,
         current_step: stepName,
-        attempts: Math.max(run.attempts || 0, nextAttempt),
+        attempts: Math.max(run.attempts || 0, attemptsCount),
         next_retry_at: nextRetryAt,
       };
 
@@ -934,6 +1165,36 @@ export class AutopilotService {
         targetPlatform
       );
 
+      // 1. Resolve winning hook text & support optional hook override on approval
+      const hookStep = run.steps.find((s) => s.step === 'HOOK_LAB');
+      let winningHookText = hookStep?.artifacts?.hook_text || '';
+
+      if (dto.selected_hook_candidate_id && run.hook_session_id) {
+        try {
+          const { candidates } = await HookLabService.getSession(run.hook_session_id, userId);
+          const overrideCandidate = (candidates || []).find((c: any) => c.id === dto.selected_hook_candidate_id);
+          if (overrideCandidate) {
+            winningHookText = overrideCandidate.text;
+          }
+        } catch (err: any) {
+          logger.warn(`Failed to resolve hook candidate override in approveRun: ${err.message}`);
+        }
+      }
+
+      // 2. Fetch clip metadata non-fatally to enrich handoff
+      let clip: any = null;
+      try {
+        const { data: clipData } = await dataRepository
+          .from('clips')
+          .select('*')
+          .eq('id', run.clip_id)
+          .eq('user_id', userId)
+          .maybeSingle();
+        clip = clipData;
+      } catch (err: any) {
+        logger.warn(`Failed to fetch clip record in approveRun: ${err.message}`);
+      }
+
       // Add thumbnail handoff if thumbnail session and concept exist
       let thumbnailHandoff: any = null;
       if (run.thumbnail_session_id && (dto.selected_thumbnail_concept_id || run.selected_thumbnail_concept_id)) {
@@ -951,6 +1212,13 @@ export class AutopilotService {
 
       const consolidatedHandoff = {
         ...contentHandoff,
+        clip_id: run.clip_id,
+        project_id: run.project_id,
+        hook_text: winningHookText,
+        video_storage_path: clip?.output_storage_path || null,
+        video_render_status: clip?.render_status || clip?.status || null,
+        duration_seconds: clip?.duration_seconds,
+        aspect_ratio: clip?.aspect_ratio || '9:16',
         title: contentHandoff.title || thumbnailHandoff?.title || 'Social Video Clip',
         thumbnail_url: thumbnailHandoff?.thumbnail_url,
         thumbnail_title: thumbnailHandoff?.title,
@@ -972,14 +1240,23 @@ export class AutopilotService {
         return s;
       });
 
-      const updated = await this.updateRunState(userId, run.id, {
+      const runUpdates: Partial<AutopilotRunRecord> = {
         status: 'APPROVED',
         is_approved: true,
         approved_by: userId,
         approved_at: now,
         publishing_handoff: consolidatedHandoff,
         steps,
-      });
+      };
+
+      if (dto.selected_hook_candidate_id) {
+        runUpdates.selected_hook_candidate_id = dto.selected_hook_candidate_id;
+      }
+      if (dto.selected_thumbnail_concept_id) {
+        runUpdates.selected_thumbnail_concept_id = dto.selected_thumbnail_concept_id;
+      }
+
+      const updated = await this.updateRunState(userId, run.id, runUpdates);
 
       return {
         run: updated,

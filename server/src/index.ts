@@ -79,8 +79,31 @@ let oauthCleanupTimer: ReturnType<typeof setInterval> | null = null;
 
 if (process.env.NODE_ENV !== 'test') {
   const start = async () => {
-    if (isMongoConfigured) await bootstrapMongo();
+    let mongoReady = false;
     if (isMongoConfigured) {
+      const maxRetries = config.isProduction ? 2 : 3;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          await bootstrapMongo();
+          mongoReady = true;
+          break;
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          if (attempt < maxRetries) {
+            logger.warn(`Database connection attempt ${attempt}/${maxRetries} failed (${errMsg}). Retrying in 2s...`);
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          } else {
+            if (config.isProduction) {
+              throw err;
+            } else {
+              logger.error('Database bootstrap failed after retries. Starting in degraded mode (DB unavailable).', { error: errMsg });
+            }
+          }
+        }
+      }
+    }
+
+    if (mongoReady) {
       const cleanup = () => UsageService.cleanupOrphanedReservations(30)
         .then((count) => { if (count > 0) logger.info(`Released ${count} orphaned usage reservations.`); })
         .catch((error) => logger.warn('Usage reservation cleanup failed', { error: error instanceof Error ? error.message : String(error) }));
@@ -99,13 +122,14 @@ if (process.env.NODE_ENV !== 'test') {
       // Start Phase 10 persistent publishing worker
       startPublishingWorker();
     }
+
     server = app.listen(config.port, '0.0.0.0', () => {
       logger.info(`Server running in ${config.nodeEnv} mode on http://0.0.0.0:${config.port}`);
       logger.info(`Health check available at http://localhost:${config.port}/api/health`);
     });
   };
   start().catch((error) => {
-    logger.error('Database bootstrap failed', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Fatal server startup failure', { error: error instanceof Error ? error.message : String(error) });
     closeMongo().finally(() => process.exit(1));
   });
 

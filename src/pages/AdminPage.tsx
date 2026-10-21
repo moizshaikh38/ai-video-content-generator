@@ -215,7 +215,7 @@ export const AdminPage: React.FC = () => {
               }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium transition-all shrink-0 ${
                 isActive
-                  ? 'bg-clay text-white shadow-soft font-semibold'
+                  ? 'bg-[#F4F6FB] text-[#0B0C0F] shadow-soft font-semibold'
                   : 'text-muted-foreground hover:bg-cream/60 hover:text-foreground'
               }`}
             >

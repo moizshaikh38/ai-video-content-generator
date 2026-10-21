@@ -236,7 +236,7 @@ export const ProducerPanel: React.FC<ProducerPanelProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                Vireo Producer
+                VireoClip Producer
                 <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 font-mono">
                   AI AGENT
                 </span>

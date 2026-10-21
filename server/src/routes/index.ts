@@ -15,6 +15,9 @@ import autopilotRoutes from './autopilotRoutes.js';
 import abStudioRoutes from './abStudioRoutes.js';
 import workflowRoutes from './workflowRoutes.js';
 import workspaceRoutes from './workspaceRoutes.js';
+import elementsRoutes from './elementsRoutes.js';
+import paymentRoutes from './paymentRoutes.js';
+import mcpRoutes from './mcpRoutes.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { getProfiles, saveProfiles, getCreatorProfile, updateCreatorProfile } from '../controllers/profileController.js';
@@ -29,6 +32,7 @@ apiRouter.get('/creator-profile', requireAuth, asyncHandler(getCreatorProfile));
 apiRouter.put('/creator-profile', requireAuth, asyncHandler(updateCreatorProfile));
 apiRouter.patch('/creator-profile', requireAuth, asyncHandler(updateCreatorProfile));
 apiRouter.use('/', projectRoutes);
+apiRouter.use('/elements', elementsRoutes);
 apiRouter.use('/billing', billingRoutes);
 apiRouter.use('/social', socialRoutes);
 apiRouter.use('/publishing', publishingRoutes);
@@ -42,6 +46,9 @@ apiRouter.use('/autopilot', autopilotRoutes);
 apiRouter.use('/ab-studio', abStudioRoutes);
 apiRouter.use('/workflows', workflowRoutes);
 apiRouter.use('/workspaces', workspaceRoutes);
+apiRouter.use('/', paymentRoutes);
+apiRouter.use('/payments', paymentRoutes);
+apiRouter.use('/mcp', mcpRoutes);
 
 export default apiRouter;
 

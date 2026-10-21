@@ -16,8 +16,8 @@ export const ABStudioHistoryPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/40 pb-6">
         <div>
           <div className="flex items-center gap-2 text-primary font-semibold text-xs tracking-wider uppercase">
-            <FlaskConical className="w-4 h-4 text-orange-500" />
-            <span>Vireo Intelligence · Phase 32</span>
+            <FlaskConical className="w-4 h-4 text-violet-400" />
+            <span>VireoClip Intelligence · Experiment History</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight mt-1">
             A/B Experiment History & Reports

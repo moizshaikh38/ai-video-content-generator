@@ -1,0 +1,42 @@
+{
+  "$schema": "https://vireoclip.ai/schemas/vrecipe-v1.json",
+  "id": "vireo-gradient-neon",
+  "name": "Vireo Gradient Neon",
+  "description": "Cyberpunk neon aesthetic with intense electric pink and cyan glowing text.",
+  "version": "1.0.0",
+  "author": "VireoClip Native",
+  "typography": {
+    "fontFamily": "Arial Black",
+    "fontSize": 86,
+    "fontWeight": "bold",
+    "letterSpacing": 0,
+    "textCase": "uppercase"
+  },
+  "positioning": {
+    "alignment": 2,
+    "verticalMargin": 240,
+    "horizontalMargin": 70,
+    "maxWordsPerLine": 3,
+    "maxCharsPerLine": 18,
+    "lineBreakMethod": "balanced"
+  },
+  "colors": {
+    "primary": "#FFFFFF",
+    "secondary": "#94A3B8",
+    "activeWordHighlight": "#FF007F",
+    "outline": "#18002E",
+    "outlineWidth": 6,
+    "shadow": "#7928CA",
+    "shadowOffset": 3
+  },
+  "animation": {
+    "preset": "bounce",
+    "durationMs": 160,
+    "activeWordScale": 1.18,
+    "karaokeEffect": "jump"
+  },
+  "decorations": {
+    "emojisEnabled": true,
+    "autoHighlightKeywords": true
+  }
+}

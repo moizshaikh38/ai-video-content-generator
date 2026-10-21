@@ -1,0 +1,42 @@
+{
+  "$schema": "https://vireoclip.ai/schemas/vrecipe-v1.json",
+  "id": "vireo-spring-bounce",
+  "name": "Vireo Spring Bounce",
+  "description": "Kinetic spring elasticity with oversized active word emphasis and vibrant cyan highlights.",
+  "version": "1.0.0",
+  "author": "VireoClip Native",
+  "typography": {
+    "fontFamily": "Arial Black",
+    "fontSize": 90,
+    "fontWeight": "bold",
+    "letterSpacing": 0,
+    "textCase": "uppercase"
+  },
+  "positioning": {
+    "alignment": 2,
+    "verticalMargin": 240,
+    "horizontalMargin": 70,
+    "maxWordsPerLine": 3,
+    "maxCharsPerLine": 18,
+    "lineBreakMethod": "balanced"
+  },
+  "colors": {
+    "primary": "#FFFFFF",
+    "secondary": "#94A3B8",
+    "activeWordHighlight": "#00F2FE",
+    "outline": "#000000",
+    "outlineWidth": 7,
+    "shadow": "#00000099",
+    "shadowOffset": 2
+  },
+  "animation": {
+    "preset": "bounce",
+    "durationMs": 160,
+    "activeWordScale": 1.22,
+    "karaokeEffect": "jump"
+  },
+  "decorations": {
+    "emojisEnabled": true,
+    "autoHighlightKeywords": true
+  }
+}

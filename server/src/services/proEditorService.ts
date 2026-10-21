@@ -6,7 +6,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import ffmpegStatic from 'ffmpeg-static';
 
-import { dataRepository } from '../db/repositories/dataRepository.js';
+import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 import {
@@ -46,9 +46,12 @@ import {
 } from '../types/index.js';
 import { downloadObjectToFile, uploadFile, signObjectGet } from './objectStorageService.js';
 import { CaptionService } from './captionService.js';
+import { isKnownCaptionStyle } from '../shared/captionPresets.js';
 import { buildCropFilter } from './clipRenderService.js';
 import { AudioEnhancementService } from './audioEnhancementService.js';
 import { AudioDuckingService } from './audioDuckingService.js';
+import { SoundDesignService } from './soundDesignService.js';
+import { partitionCaptionCues } from '../utils/editorRippleCut.js';
 
 const execFileAsync = promisify(execFile);
 const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
@@ -72,6 +75,10 @@ export class ProEditorService {
     userId: string,
     dto: CreateEditorProjectDTO = { clip_id: clipId }
   ): Promise<EditorProject> {
+    if (!ownerContext.getStore()) {
+      return ownerContext.run(userId, () => this.getOrCreateEditorProject(clipId, userId, dto));
+    }
+
     if (!isValidUUID(clipId)) {
       throw new AppError('Invalid clip ID.', 400, 'INVALID_UUID');
     }
@@ -203,6 +210,10 @@ export class ProEditorService {
           if (item.keyframes && item.keyframes.length > EDITOR_RESOURCE_LIMITS.MAX_KEYFRAMES_PER_ITEM) {
             throw new AppError(`Keyframe limit exceeded per item (max ${EDITOR_RESOURCE_LIMITS.MAX_KEYFRAMES_PER_ITEM}).`, 400, 'LIMIT_EXCEEDED');
           }
+          // Caption preset safety: unknown styles fall back to the legacy default
+          if (item.caption && !isKnownCaptionStyle(item.caption.style)) {
+            item.caption.style = 'clean';
+          }
           // Validate font safety
           if (item.text && item.text.font_family) {
             item.text.font_family = this.validateFont(item.text.font_family);
@@ -283,6 +294,17 @@ export class ProEditorService {
     const offsetSeconds = splitTime - item.timeline_start;
     const sourceSplitPoint = item.source_start + offsetSeconds * speed;
 
+    // Partition caption cues if this is a CAPTION track or item contains caption cues
+    let firstCaption = item.caption ? JSON.parse(JSON.stringify(item.caption)) : undefined;
+    let secondCaption = item.caption ? JSON.parse(JSON.stringify(item.caption)) : undefined;
+
+    if (track.type === 'CAPTION' || (item.caption && Array.isArray((item.caption as any).cues))) {
+      const itemCues = Array.isArray((item.caption as any)?.cues) ? (item.caption as any).cues : [];
+      const { leftCues, rightCues } = partitionCaptionCues(itemCues, splitTime, item.timeline_start);
+      if (firstCaption) firstCaption.cues = leftCues;
+      if (secondCaption) secondCaption.cues = rightCues;
+    }
+
     // Create item 1 (left side)
     const item1: EditorTrackItem = {
       ...JSON.parse(JSON.stringify(item)),
@@ -290,6 +312,7 @@ export class ProEditorService {
       source_end: Number(sourceSplitPoint.toFixed(3)),
       transition_out: undefined,
       keyframes: item.keyframes.filter((k) => k.time < offsetSeconds),
+      caption: firstCaption,
     };
 
     // Create item 2 (right side) with new ID
@@ -308,6 +331,7 @@ export class ProEditorService {
       source_start: Number(sourceSplitPoint.toFixed(3)),
       transition_in: undefined,
       keyframes: item2Keyframes,
+      caption: secondCaption,
     };
 
     // Replace item with item1 and item2
@@ -345,10 +369,51 @@ export class ProEditorService {
     // Ripple shift: shift all subsequent items on ALL unlocked tracks
     for (const tr of project.tracks) {
       if (tr.locked) continue;
-      for (const itm of tr.items) {
-        if (itm.timeline_start >= deletePoint) {
-          itm.timeline_start = Math.max(0, Number((itm.timeline_start - duration).toFixed(3)));
+      if (tr.type === 'CAPTION') {
+        for (const itm of tr.items) {
           itm.timeline_end = Math.max(0, Number((itm.timeline_end - duration).toFixed(3)));
+          if (Array.isArray(itm.caption?.cues)) {
+            const cutStart = deletePoint;
+            const cutEnd = deletePoint + duration;
+            const newCues: any[] = [];
+            for (const cue of itm.caption.cues) {
+              if (cue.end <= cutStart) {
+                newCues.push(cue);
+              } else if (cue.start >= cutEnd) {
+                const shiftedWords = Array.isArray(cue.words)
+                  ? cue.words.map((w: any) => ({
+                      ...w,
+                      start: Math.max(0, Number((w.start - duration).toFixed(3))),
+                      end: Math.max(0.05, Number((w.end - duration).toFixed(3))),
+                    }))
+                  : cue.words;
+                newCues.push({
+                  ...cue,
+                  start: Math.max(0, Number((cue.start - duration).toFixed(3))),
+                  end: Math.max(0.05, Number((cue.end - duration).toFixed(3))),
+                  words: shiftedWords,
+                });
+              } else if (cue.start < cutStart && cue.end > cutEnd) {
+                newCues.push({
+                  ...cue,
+                  end: Number(cutStart.toFixed(3)),
+                });
+              } else if (cue.start < cutStart && cue.end > cutStart) {
+                newCues.push({
+                  ...cue,
+                  end: Number(cutStart.toFixed(3)),
+                });
+              }
+            }
+            itm.caption.cues = newCues;
+          }
+        }
+      } else {
+        for (const itm of tr.items) {
+          if (itm.timeline_start >= deletePoint) {
+            itm.timeline_start = Math.max(0, Number((itm.timeline_start - duration).toFixed(3)));
+            itm.timeline_end = Math.max(0, Number((itm.timeline_end - duration).toFixed(3)));
+          }
         }
       }
     }
@@ -510,6 +575,45 @@ export class ProEditorService {
   }
 
   /**
+   * Pre-downloads any remote overlay/sticker URLs (e.g. from GIPHY) to tmpDir before compiling FFmpeg arguments.
+   */
+  public static async preloadRemoteOverlayAssets(
+    project: EditorProject,
+    tmpDir: string
+  ): Promise<EditorProject> {
+    for (const track of project.tracks) {
+      for (const item of track.items) {
+        if (
+          item.source_path &&
+          (item.source_path.startsWith('http://') || item.source_path.startsWith('https://'))
+        ) {
+          try {
+            const ext = item.source_path.includes('.gif')
+              ? '.gif'
+              : item.source_path.includes('.png')
+              ? '.png'
+              : '.webp';
+            const localCachePath = path.join(tmpDir, `overlay_${item.id}${ext}`);
+            if (!fs.existsSync(localCachePath)) {
+              const res = await fetch(item.source_path, { headers: { 'User-Agent': 'VireoClip/1.0' } });
+              if (res.ok) {
+                const buf = Buffer.from(await res.arrayBuffer());
+                fs.writeFileSync(localCachePath, buf);
+                item.source_path = localCachePath;
+              }
+            } else {
+              item.source_path = localCachePath;
+            }
+          } catch (e) {
+            logger.warn(`Failed to preload remote overlay asset: ${e}`);
+          }
+        }
+      }
+    }
+    return project;
+  }
+
+  /**
    * Compiles the entire multi-track EditorProject into a valid FFmpeg RenderGraph V2.
    * Enforces argument array execution with ZERO raw shell string interpolation.
    */
@@ -546,8 +650,57 @@ export class ProEditorService {
 
     // Base video scaling & crop filter
     const baseCropFilter = buildCropFilter(project.canvas.aspect_ratio || '9:16');
-    filterComplex.push(`${videoStreamLabel}${baseCropFilter},fps=${fps}[base_v]`);
-    videoStreamLabel = '[base_v]';
+
+    if (allVideoItems.length > 1) {
+      // Multiple timeline segments: slice real video, or synthesize title cards, then concat.
+      const vLabels: string[] = [];
+      const aLabels: string[] = [];
+      for (let i = 0; i < allVideoItems.length; i++) {
+        const item = allVideoItems[i];
+        const vSlice = `[v_slice_${i}]`;
+        const aSlice = `[a_slice_${i}]`;
+        const dur = Math.max(0.1, item.timeline_end - item.timeline_start);
+
+        if ((item as any).is_title_card) {
+          // Title card: a solid-colour frame with centred text + matching silent audio.
+          const bgHex = ProEditorService.sanitizeHexColor((item as any).background_color, '0B0D12');
+          const cardText = ProEditorService.escapeDrawtext((item as any).title_card_text || item.name || '');
+          const fontSize = Math.max(32, Math.round(canvasH * 0.06));
+
+          inputArgs.push('-f', 'lavfi', '-i', `color=c=0x${bgHex}:s=${canvasW}x${canvasH}:r=${fps}:d=${dur.toFixed(2)}`);
+          currentInputIdx++;
+          const colorIdx = currentInputIdx;
+          inputArgs.push('-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100');
+          currentInputIdx++;
+          const silenceIdx = currentInputIdx;
+
+          const drawtext = cardText
+            ? `,drawtext=text='${cardText}':fontcolor=white:fontsize=${fontSize}:x=(w-text_w)/2:y=(h-text_h)/2`
+            : '';
+          filterComplex.push(`[${colorIdx}:v]setpts=PTS-STARTPTS,fps=${fps}${drawtext}[tc_v_${i}]`);
+          filterComplex.push(`[tc_v_${i}]setsar=1${vSlice}`);
+          filterComplex.push(`[${silenceIdx}:a]atrim=0:${dur.toFixed(2)},asetpts=PTS-STARTPTS${aSlice}`);
+        } else {
+          const startStr = (item.source_start || 0).toFixed(2);
+          const endStr = (item.source_end !== undefined ? item.source_end : (Number(startStr) + dur)).toFixed(2);
+          filterComplex.push(
+            `[0:v]trim=start=${startStr}:end=${endStr},setpts=PTS-STARTPTS,${baseCropFilter},fps=${fps},setsar=1${vSlice}`
+          );
+          filterComplex.push(
+            `[0:a]atrim=start=${startStr}:end=${endStr},asetpts=PTS-STARTPTS${aSlice}`
+          );
+        }
+        vLabels.push(vSlice);
+        aLabels.push(aSlice);
+      }
+      const concatInputs = vLabels.map((v, i) => `${v}${aLabels[i]}`).join('');
+      filterComplex.push(`${concatInputs}concat=n=${allVideoItems.length}:v=1:a=1[base_v][base_a]`);
+      videoStreamLabel = '[base_v]';
+      audioStreamLabel = '[base_a]';
+    } else {
+      filterComplex.push(`${videoStreamLabel}${baseCropFilter},fps=${fps}[base_v]`);
+      videoStreamLabel = '[base_v]';
+    }
 
     // Apply color adjustments, filters, and effects from first video item if available
     if (allVideoItems.length > 0) {
@@ -627,10 +780,25 @@ export class ProEditorService {
     for (const st of secondaryTracks) {
       for (const item of st.items) {
         if (item.hidden) continue;
-        const assetPath = item.source_path;
-        if (!assetPath || !fs.existsSync(assetPath)) continue;
+        let assetPath = item.source_path;
+        if (!assetPath) continue;
+
+        // Check if remote URL was already downloaded / cached into tmpDir
+        if (assetPath.startsWith('http://') || assetPath.startsWith('https://')) {
+          const ext = assetPath.includes('.gif') ? '.gif' : assetPath.includes('.png') ? '.png' : '.webp';
+          const localCachePath = path.join(tmpDir, `overlay_${item.id}${ext}`);
+          if (fs.existsSync(localCachePath)) {
+            assetPath = localCachePath;
+          }
+        }
+
+        if (!fs.existsSync(assetPath)) continue;
 
         currentInputIdx++;
+        const isGif = assetPath.toLowerCase().endsWith('.gif');
+        if (isGif) {
+          inputArgs.push('-ignore_loop', '0');
+        }
         inputArgs.push('-i', assetPath);
 
         const dur = Math.max(0.1, item.timeline_end - item.timeline_start);
@@ -639,51 +807,92 @@ export class ProEditorService {
         const brollTag = `[broll_v_${currentInputIdx}]`;
         const nextCompTag = `[comp_v_${currentInputIdx}]`;
 
-        const fitMode = item.crop?.mode || 'fill';
-        const scaleCropFilter =
-          fitMode === 'fit'
-            ? `scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,pad=${canvasW}:${canvasH}:(ow-iw)/2:(oh-ih)/2`
-            : `scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}`;
+        const isElementOrSticker =
+          st.type === 'OVERLAY' ||
+          item.type === 'OVERLAY' ||
+          (!st.name.toLowerCase().includes('b-roll') && item.type === 'IMAGE');
 
-        if (item.type === 'IMAGE') {
+        if (isElementOrSticker) {
+          const scaleVal = item.transform?.scale || 1.0;
+          const targetW = Math.round(Math.min(canvasW * 0.85, Math.max(80, 360 * scaleVal)));
+          const posX = Math.round(item.transform?.position_x || 0);
+          const posY = Math.round(item.transform?.position_y || 0);
+          const opacity = item.transform?.opacity ?? 1.0;
+          const rotation = item.transform?.rotation || 0;
+
+          const filters: string[] = [`fps=${fps}`];
+          if (isGif) {
+            filters.push(`trim=duration=${dur.toFixed(2)},setpts=PTS-STARTPTS`);
+          } else if (item.type === 'IMAGE' || item.type === 'OVERLAY') {
+            filters.unshift('loop=loop=-1:size=1:start=0');
+          }
+          filters.push(`scale=${targetW}:-1:force_original_aspect_ratio=decrease`);
+          if (opacity < 0.99) {
+            filters.push(`format=rgba,colorchannelmixer=aa=${opacity.toFixed(2)}`);
+          }
+          if (rotation !== 0) {
+            filters.push(`rotate='${rotation}*PI/180':c=none:ow='rotw(${rotation}*PI/180)':oh='roth(${rotation}*PI/180)'`);
+          }
+
+          filterComplex.push(`[${currentInputIdx}:v]${filters.join(',')}${brollTag}`);
           filterComplex.push(
-            `[${currentInputIdx}:v]loop=loop=-1:size=1:start=0,fps=${fps},${scaleCropFilter}${brollTag}`
+            `${videoStreamLabel}${brollTag}overlay=x='(W-w)/2+${posX}':y='(H-h)/2+${posY}':enable='between(t,${start.toFixed(2)},${end.toFixed(2)})':format=auto${nextCompTag}`
           );
         } else {
-          const srcStart = item.source_start || 0;
+          const fitMode = item.crop?.mode || 'fill';
+          const scaleCropFilter =
+            fitMode === 'fit'
+              ? `scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,pad=${canvasW}:${canvasH}:(ow-iw)/2:(oh-ih)/2`
+              : `scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}`;
+
+          if (item.type === 'IMAGE') {
+            filterComplex.push(
+              `[${currentInputIdx}:v]loop=loop=-1:size=1:start=0,fps=${fps},${scaleCropFilter}${brollTag}`
+            );
+          } else {
+            const srcStart = item.source_start || 0;
+            filterComplex.push(
+              `[${currentInputIdx}:v]trim=start=${srcStart.toFixed(2)}:duration=${dur.toFixed(2)},setpts=PTS-STARTPTS,fps=${fps},${scaleCropFilter}${brollTag}`
+            );
+          }
+
           filterComplex.push(
-            `[${currentInputIdx}:v]trim=start=${srcStart.toFixed(2)}:duration=${dur.toFixed(2)},setpts=PTS-STARTPTS,fps=${fps},${scaleCropFilter}${brollTag}`
+            `${videoStreamLabel}${brollTag}overlay=x=0:y=0:enable='between(t,${start.toFixed(2)},${end.toFixed(2)})'${nextCompTag}`
           );
         }
 
-        filterComplex.push(
-          `${videoStreamLabel}${brollTag}overlay=x=0:y=0:enable='between(t,${start.toFixed(2)},${end.toFixed(2)})'${nextCompTag}`
-        );
         videoStreamLabel = nextCompTag;
       }
     }
 
-    // 2. Text layers
+    // 2. Text layers (sorted by z_index)
     const textTracks = project.tracks.filter((t) => t.type === 'TEXT' && !t.hidden);
-    for (const tt of textTracks) {
-      for (const ti of tt.items) {
-        if (ti.text && ti.text.text) {
-          const safeText = ti.text.text.replace(/[\r\n]+/g, ' ').replace(/['\\]/g, '').slice(0, 60).trim();
-          if (safeText) {
-            const font = this.validateFont(ti.text.font_family);
-            const size = ti.text.font_size || 48;
-            const color = ti.text.color || 'white';
-            const start = ti.timeline_start;
-            const end = ti.timeline_end;
-            const nextLabel = `[txt_${ti.id.slice(0, 6)}]`;
+    const allTextItems: EditorTrackItem[] = textTracks
+      .flatMap((tt) => tt.items)
+      .filter((ti) => ti.text && ti.text.text && !ti.hidden)
+      .sort((a, b) => (a.z_index || 10) - (b.z_index || 10));
 
-            filterComplex.push(
-              `${videoStreamLabel}drawtext=text='${safeText}':fontcolor=${color}:fontsize=${size}:box=1:boxcolor=black@0.75:boxborderw=12:x=(w-text_w)/2:y=160:enable='between(t,${start.toFixed(2)},${end.toFixed(2)})'${nextLabel}`
-            );
-            videoStreamLabel = nextLabel;
-          }
-        }
+    for (const ti of allTextItems) {
+      const drawtextFilter = ProEditorService.compileTextLayerDrawtext(
+        ti,
+        canvasW,
+        canvasH,
+        project.canvas.aspect_ratio || '9:16'
+      );
+      if (drawtextFilter) {
+        const nextLabel = `[txt_${ti.id.slice(0, 6)}]`;
+        filterComplex.push(`${videoStreamLabel}${drawtextFilter}${nextLabel}`);
+        videoStreamLabel = nextLabel;
       }
+    }
+
+    // 2b. ASS Subtitles (burn if subtitles.ass exists in tmpDir)
+    const assPath = path.join(tmpDir, 'subtitles.ass');
+    if (fs.existsSync(assPath)) {
+      const safeAss = assPath.replace(/\\/g, '/').replace(/:/g, '\\\\:');
+      const nextLabel = `[sub_v_${currentInputIdx}]`;
+      filterComplex.push(`${videoStreamLabel}ass=${safeAss}${nextLabel}`);
+      videoStreamLabel = nextLabel;
     }
 
     // 3. Audio processing: Speech cleanup, secondary tracks, dynamic ducking & master limiting
@@ -771,6 +980,11 @@ export class ProEditorService {
             `afade=t=out:st=${Math.max(0, itemDuration - fadeOut).toFixed(2)}:d=${fadeOut.toFixed(2)}`,
           ];
 
+          if (item.timeline_start > 0) {
+            const delayMs = Math.round(item.timeline_start * 1000);
+            preFilters.push(`adelay=delays=${delayMs}|${delayMs}:all=1`);
+          }
+
           const preDuckLabel = `[sec_a_${secAudioIdx}_raw]`;
           filterComplex.push(`${rawAudioLabel}${preFilters.join(',')}${preDuckLabel}`);
 
@@ -795,9 +1009,10 @@ export class ProEditorService {
     }
 
     // Final Mix: Mix dialogue + ducked secondary audio + master peak limiter
+    // Note: normalize=0 prevents amix from attenuating speech by 1/N inputs (preserves 100% dialogue gain)
     if (streamsToMix.length > 1) {
       filterComplex.push(
-        `${streamsToMix.join('')}amix=inputs=${streamsToMix.length}:duration=first:dropout_transition=2,alimiter=limit=-1.0dB:attack=5:release=50[master_a]`
+        `${streamsToMix.join('')}amix=inputs=${streamsToMix.length}:duration=first:dropout_transition=2:normalize=0,alimiter=limit=-1.0dB:attack=5:release=50[master_a]`
       );
       audioStreamLabel = '[master_a]';
     } else {
@@ -818,6 +1033,138 @@ export class ProEditorService {
   /**
    * Helper: validates font family against curated allowlist.
    */
+  /** `#RRGGBB` or `RRGGBB` → `RRGGBB` (upper), else the fallback. For ffmpeg `color=0x…`. */
+  /** `#RRGGBB`, `#RRGGBBAA`, or `RRGGBB` → `RRGGBB` (upper), else fallback. For ffmpeg `0x…`. */
+  public static sanitizeHexColor(hex: unknown, fallback = '0B0D12'): string {
+    if (typeof hex === 'string') {
+      const clean = hex.trim().replace(/^#/, '');
+      const m = clean.match(/^([0-9a-fA-F]{6})/);
+      if (m) return m[1].toUpperCase();
+    }
+    return fallback;
+  }
+
+  /**
+   * Compiles an EditorTrackItem with EditorTextConfig into an FFmpeg drawtext filter string.
+   * Accurately maps geometry, font size, color, background box, outline, shadow, and motion animations.
+   */
+  public static compileTextLayerDrawtext(
+    item: EditorTrackItem,
+    canvasW: number,
+    canvasH: number,
+    aspectRatio: string = '9:16'
+  ): string | null {
+    if (!item.text || !item.text.text) return null;
+
+    // Sanitize user text for FFmpeg drawtext (escape backslashes, percent signs, and colons)
+    const rawText = item.text.text.replace(/[\r\n]+/g, ' ').slice(0, 100).trim();
+    if (!rawText) return null;
+
+    const safeText = rawText
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, '')
+      .replace(/:/g, '\\:')
+      .replace(/%/g, '\\%');
+
+    const font = this.validateFont(item.text.font_family);
+
+    // Compute coordinate scale ratio between preview container and export canvas
+    // Preview container reference: 9:16 is 360x640, 1:1 is 480x480, 16:9 is 640x360
+    const previewH = aspectRatio === '9:16' ? 640 : aspectRatio === '1:1' ? 480 : 360;
+    const previewW = aspectRatio === '9:16' ? 360 : aspectRatio === '1:1' ? 480 : 640;
+    const scaleRatio = canvasH / previewH;
+
+    const baseSize = item.text.font_size || 36;
+    const itemScale = item.transform?.scale || 1.0;
+    const scaledFontSize = Math.max(16, Math.round(baseSize * scaleRatio * itemScale));
+
+    const fontColor = this.sanitizeHexColor(item.text.color, 'FFFFFF');
+    const baseOpacity = item.transform?.opacity ?? 1.0;
+
+    const posX = Math.round((item.transform?.position_x || 0) * (canvasW / previewW));
+    const posY = Math.round((item.transform?.position_y || 0) * scaleRatio);
+
+    const start = Math.max(0, item.timeline_start);
+    const end = Math.max(start + 0.1, item.timeline_end);
+    const itemDur = end - start;
+    const animDur = Math.min(itemDur * 0.45, item.text.animation_duration || 0.45);
+    const anim = item.text.animation || 'none';
+
+    // Base coordinates: center is (w-text_w)/2 and (h-text_h)/2
+    let xExpr = `(w-text_w)/2+${posX}`;
+    let yExpr = `(h-text_h)/2+${posY}`;
+    let alphaExpr: string = `${baseOpacity.toFixed(2)}`;
+    let sizeExpr: string = `${scaledFontSize}`;
+
+    // Apply motion animation expressions
+    if (anim === 'fade' && animDur > 0) {
+      alphaExpr = `if(lt(t,${(start + animDur).toFixed(2)}),(t-${start.toFixed(2)})/${animDur.toFixed(2)},if(gt(t,${(end - animDur).toFixed(2)}),(${end.toFixed(2)}-t)/${animDur.toFixed(2)},1))*${baseOpacity.toFixed(2)}`;
+    } else if (anim === 'slide_up' && animDur > 0) {
+      const slidePx = Math.round(50 * scaleRatio);
+      yExpr = `((h-text_h)/2+${posY})+if(lt(t,${(start + animDur).toFixed(2)}),${slidePx}*(1-(t-${start.toFixed(2)})/${animDur.toFixed(2)}),0)`;
+      alphaExpr = `if(lt(t,${(start + animDur).toFixed(2)}),(t-${start.toFixed(2)})/${animDur.toFixed(2)},if(gt(t,${(end - animDur).toFixed(2)}),(${end.toFixed(2)}-t)/${animDur.toFixed(2)},1))*${baseOpacity.toFixed(2)}`;
+    } else if ((anim === 'pop' || anim === 'scale') && animDur > 0) {
+      sizeExpr = `${scaledFontSize}*if(lt(t,${(start + animDur).toFixed(2)}),0.6+0.4*(t-${start.toFixed(2)})/${animDur.toFixed(2)},1)`;
+      alphaExpr = `if(lt(t,${(start + animDur).toFixed(2)}),(t-${start.toFixed(2)})/${animDur.toFixed(2)},1)*${baseOpacity.toFixed(2)}`;
+    } else if (anim === 'bounce_lite' && animDur > 0) {
+      const bouncePx = Math.round(20 * scaleRatio);
+      yExpr = `((h-text_h)/2+${posY})+if(lt(t,${(start + animDur).toFixed(2)}),${bouncePx}*sin((t-${start.toFixed(2)})/${animDur.toFixed(2)}*7.85)*(1-(t-${start.toFixed(2)})/${animDur.toFixed(2)}),0)`;
+      alphaExpr = `if(lt(t,${(start + animDur).toFixed(2)}),(t-${start.toFixed(2)})/${animDur.toFixed(2)},1)*${baseOpacity.toFixed(2)}`;
+    }
+
+    const filterParts: string[] = [
+      `text='${safeText}'`,
+      `font='${font}'`,
+      `fontsize='${sizeExpr}'`,
+      `fontcolor=0x${fontColor}`,
+      `alpha='${alphaExpr}'`,
+      `x='${xExpr}'`,
+      `y='${yExpr}'`,
+    ];
+
+    // Background box
+    if (item.text.background_color) {
+      const boxHex = this.sanitizeHexColor(item.text.background_color, '000000');
+      const boxBorderW = Math.max(4, Math.round((item.text.background_padding || 8) * scaleRatio));
+      filterParts.push(`box=1:boxcolor=0x${boxHex}@0.8:boxborderw=${boxBorderW}`);
+    } else {
+      filterParts.push('box=0');
+    }
+
+    // Stroke / outline
+    if (item.text.stroke_width && item.text.stroke_width > 0) {
+      const strokeW = Math.max(1, Math.round(item.text.stroke_width * scaleRatio));
+      const strokeHex = this.sanitizeHexColor(item.text.stroke_color, '000000');
+      filterParts.push(`borderw=${strokeW}:bordercolor=0x${strokeHex}`);
+    }
+
+    // Drop shadow
+    if (item.text.shadow_blur && item.text.shadow_blur > 0) {
+      const shadowOffset = Math.max(2, Math.round(3 * scaleRatio));
+      const shadowHex = this.sanitizeHexColor(item.text.shadow_color, '000000');
+      filterParts.push(`shadowx=${shadowOffset}:shadowy=${shadowOffset}:shadowcolor=0x${shadowHex}@0.75`);
+    }
+
+    filterParts.push(`enable='between(t,${start.toFixed(2)},${end.toFixed(2)})'`);
+
+    return `drawtext=${filterParts.join(':')}`;
+  }
+
+  /**
+   * Makes user text safe for an ffmpeg drawtext filter value: strips the characters the
+   * drawtext parser treats specially (quotes, colons, backslashes, percent, braces) so no
+   * filter injection is possible, keeps it short, and collapses whitespace.
+   */
+  public static escapeDrawtext(text: unknown): string {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/[^A-Za-z0-9 .,!?&()\-]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 60);
+  }
+
   public static validateFont(font?: string): SafeEditorFont {
     if (!font || typeof font !== 'string') return 'Arial';
     const clean = font.trim();
@@ -847,20 +1194,62 @@ export class ProEditorService {
     let trimEnd = clip.trim_end_offset || 0;
     let duration = rawDuration - trimStart - trimEnd;
 
+    const hasColdOpen = Boolean(clip.cold_open && clip.cold_open.enabled && clip.cold_open.duration_seconds > 0);
+    const teaserDuration = hasColdOpen ? Number((clip.cold_open!.duration_seconds).toFixed(3)) : 0;
+    const finalDuration = Number((hasColdOpen ? duration + teaserDuration : duration).toFixed(3));
+
     const tracks: EditorTrack[] = [];
 
-    // Track 1: Main Video Track
+    // Track 1: Main Video Track (Multi-slice with Cold Open if enabled)
     const videoTrackId = crypto.randomUUID();
-    const videoItemId = crypto.randomUUID();
+    const videoItems: EditorTrackItem[] = [];
 
+    if (hasColdOpen) {
+      const co = clip.cold_open!;
+      videoItems.push({
+        id: crypto.randomUUID(),
+        track_id: videoTrackId,
+        type: 'VIDEO',
+        source_asset_id: clip.id,
+        source_path: clip.source_storage_path,
+        timeline_start: 0,
+        timeline_end: teaserDuration,
+        source_start: Number(co.start_seconds.toFixed(3)),
+        source_end: Number(co.end_seconds.toFixed(3)),
+        transform: {
+          position_x: 0,
+          position_y: 0,
+          scale: 1.0,
+          rotation: 0,
+          opacity: 1.0,
+        },
+        crop: { mode: 'fill', focusX: 0.5, focusY: 0.5 },
+        speed: { speed: 1.0, pitch_preserved: true },
+        audio: {
+          volume: clip.volume !== undefined ? clip.volume : 1.0,
+          fade_in: 0.1,
+          fade_out: 0.1,
+          normalized: true,
+          target_lufs: -16,
+        },
+        effects: [],
+        keyframes: [],
+        locked: false,
+        muted: Boolean(clip.muted),
+        hidden: false,
+        z_index: 0,
+      });
+    }
+
+    const videoItemId = crypto.randomUUID();
     const videoItem: EditorTrackItem = {
       id: videoItemId,
       track_id: videoTrackId,
       type: 'VIDEO',
       source_asset_id: clip.id,
       source_path: clip.source_storage_path,
-      timeline_start: 0,
-      timeline_end: Number(duration.toFixed(3)),
+      timeline_start: teaserDuration,
+      timeline_end: finalDuration,
       source_start: Number((clip.start_seconds + trimStart).toFixed(3)),
       source_end: Number((clip.end_seconds - trimEnd).toFixed(3)),
       transform: {
@@ -874,8 +1263,8 @@ export class ProEditorService {
       speed: { speed: 1.0, pitch_preserved: true },
       audio: {
         volume: clip.volume !== undefined ? clip.volume : 1.0,
-        fade_in: 0.15,
-        fade_out: 0.25,
+        fade_in: producerPlan?.operations.find((o) => o.type === 'AUDIO_FADE' && o.enabled)?.parameters.fade_in_sec ?? 0.15,
+        fade_out: producerPlan?.operations.find((o) => o.type === 'AUDIO_FADE' && o.enabled)?.parameters.fade_out_sec ?? 0.25,
         normalized: true,
         target_lufs: -16,
       },
@@ -886,6 +1275,7 @@ export class ProEditorService {
       hidden: false,
       z_index: 0,
     };
+    videoItems.push(videoItem);
 
     tracks.push({
       id: videoTrackId,
@@ -895,7 +1285,7 @@ export class ProEditorService {
       muted: false,
       hidden: false,
       height: 64,
-      items: [videoItem],
+      items: videoItems,
     });
 
     // Track 2: Text / Overlay Track
@@ -954,13 +1344,43 @@ export class ProEditorService {
     const captionStyle = producerPlan?.operations.find((o) => o.type === 'CAPTION_STYLE')?.parameters.style ||
       clip.caption_style || 'highlight';
 
+    let initialCues: any[] = [];
+    if (transcript) {
+      try {
+        const extracted = CaptionService.extractCuesForClipSettings(transcript, clip, aspectRatio);
+        const rawCues = extracted.cues || [];
+        if (hasColdOpen) {
+          if (clip.cold_open?.teaser_text) {
+            initialCues.push({
+              text: clip.cold_open.teaser_text,
+              start: 0.1,
+              end: Math.max(0.2, Number((teaserDuration - 0.1).toFixed(3))),
+              words: [],
+            });
+          }
+          for (const c of rawCues) {
+            initialCues.push({
+              ...c,
+              start: Number((c.start + teaserDuration).toFixed(3)),
+              end: Number((c.end + teaserDuration).toFixed(3)),
+            });
+          }
+        } else {
+          initialCues = rawCues;
+        }
+      } catch (err: any) {
+        logger.warn(`Failed to extract initial cues for EditorProject: ${err.message}`);
+      }
+    }
+
     tracks.push({
       id: captionTrackId,
       type: 'CAPTION',
       name: 'Subtitles',
       locked: false,
       muted: false,
-      hidden: false,
+      // Respect a clip saved with captions off ("No Caption")
+      hidden: clip.caption_enabled === false,
       height: 48,
       items: [
         {
@@ -968,16 +1388,16 @@ export class ProEditorService {
           track_id: captionTrackId,
           type: 'CAPTION',
           timeline_start: 0,
-          timeline_end: Number(duration.toFixed(3)),
+          timeline_end: finalDuration,
           source_start: 0,
-          source_end: Number(duration.toFixed(3)),
+          source_end: finalDuration,
           transform: { position_x: 0, position_y: 500, scale: 1.0, rotation: 0, opacity: 1.0 },
           speed: { speed: 1.0, pitch_preserved: true },
           caption: {
-            cues: [],
+            cues: initialCues,
             style: captionStyle,
-            position: 'bottom',
-            highlight_color: '#FACC15',
+            position: clip.caption_position || 'bottom',
+            highlight_color: producerPlan?.operations.find((o) => o.type === 'CAPTION_EMPHASIS' && o.enabled)?.parameters.highlight_color || '#FACC15',
             primary_color: '#FFFFFF',
             animation: 'highlight',
           },
@@ -990,6 +1410,32 @@ export class ProEditorService {
         },
       ],
     });
+
+    // Track 4: Sound Design (SFX) Track
+    if (transcript && Array.isArray(transcript.words) && transcript.words.length > 0) {
+      try {
+        const sfxCues = SoundDesignService.generateSoundDesignCues({
+          words: transcript.words
+            .filter((w: any) => w.start >= clip.start_seconds && w.end <= clip.end_seconds)
+            .map((w: any) => ({
+              ...w,
+              start: Number((w.start - clip.start_seconds + (hasColdOpen ? teaserDuration : 0)).toFixed(3)),
+              end: Number((w.end - clip.start_seconds + (hasColdOpen ? teaserDuration : 0)).toFixed(3)),
+            })),
+          durationSeconds: finalDuration,
+          coldOpenActive: hasColdOpen,
+          coldOpenDuration: teaserDuration,
+          genre: clip.genre,
+        });
+
+        if (sfxCues.length > 0) {
+          const sfxTrack = SoundDesignService.createSfxTrack(sfxCues, finalDuration);
+          tracks.push(sfxTrack);
+        }
+      } catch (err: any) {
+        logger.warn(`Failed to initialize sound design track: ${err.message}`);
+      }
+    }
 
     // If Producer had punch-in zoom, add keyframe to video item
     const punchInOp = producerPlan?.operations.find((o) => o.type === 'PUNCH_IN' && o.enabled);
@@ -1019,7 +1465,7 @@ export class ProEditorService {
         height: canvasH,
         aspect_ratio: aspectRatio,
         fps: 30,
-        duration: Number(duration.toFixed(3)),
+        duration: finalDuration,
         background_color: '#000000',
         background_mode: 'color',
       },

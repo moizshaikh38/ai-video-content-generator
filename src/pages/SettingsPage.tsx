@@ -488,7 +488,7 @@ export const SettingsPage: React.FC = () => {
                     onClick={() => setPreferredHookStyle(isSelected ? '' : style)}
                     className={`rounded-full px-3 py-1 text-xs font-medium transition-all select-none cursor-pointer ${
                       isSelected
-                        ? 'bg-clay text-white shadow-clay font-semibold'
+                        ? 'bg-[#F4F6FB] text-[#0B0C0F] shadow-black/40 font-semibold'
                         : 'border border-border/80 text-muted-foreground hover:text-foreground hover:bg-cream/60'
                     }`}
                   >

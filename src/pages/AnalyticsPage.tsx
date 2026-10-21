@@ -111,15 +111,15 @@ export const AnalyticsPage: React.FC = () => {
       <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
               Content Performance Dashboard
             </h1>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-forest/20 bg-forest/10 px-2.5 py-0.5 text-xs font-semibold text-forest">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
               <CheckCircle2 className="h-3 w-3" />
               Evidence-Backed
             </span>
           </div>
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-1 text-sm text-[#8E9AB4]">
             Unified, honest performance intelligence across published content, platform exports, and A/B Studio experiments.
           </p>
         </div>
@@ -132,7 +132,7 @@ export const AnalyticsPage: React.FC = () => {
               className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
                 activeTab === 'dashboard'
                   ? 'bg-forest text-white'
-                  : 'text-muted hover:text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Performance Dashboard
@@ -142,7 +142,7 @@ export const AnalyticsPage: React.FC = () => {
               className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
                 activeTab === 'growth'
                   ? 'bg-forest text-white'
-                  : 'text-muted hover:text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Growth Coach & Memory
@@ -181,7 +181,7 @@ export const AnalyticsPage: React.FC = () => {
           {/* Filter Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-white p-4 shadow-2xs">
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <Filter className="h-3.5 w-3.5" />
                 Filters:
               </div>
@@ -204,7 +204,7 @@ export const AnalyticsPage: React.FC = () => {
                     className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                       days === item.value
                         ? 'bg-forest text-white shadow-2xs'
-                        : 'text-muted hover:text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     {item.label}
@@ -247,7 +247,7 @@ export const AnalyticsPage: React.FC = () => {
 
             {/* Metric Highlight Selector for Timeline */}
             <div className="flex items-center gap-2">
-              <span className="text-2xs font-semibold uppercase text-muted">Chart Metric:</span>
+              <span className="text-2xs font-semibold uppercase text-muted-foreground">Chart Metric:</span>
               <div className="inline-flex rounded-lg border border-border bg-sand/30 p-0.5">
                 {[
                   { id: 'views', label: 'Views' },
@@ -261,7 +261,7 @@ export const AnalyticsPage: React.FC = () => {
                     className={`rounded-md px-2 py-0.5 text-2xs font-semibold transition-colors ${
                       metricHighlight === m.id
                         ? 'bg-white text-forest shadow-2xs border border-border/80'
-                        : 'text-muted hover:text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     {m.label}
@@ -300,7 +300,7 @@ export const AnalyticsPage: React.FC = () => {
                     </div>
                   </div>
                   {dashboard.summary.provenance_breakdown && (
-                    <span className="text-2xs text-muted">
+                    <span className="text-2xs text-muted-foreground">
                       {dashboard.summary.provenance_breakdown.platform_sync_count} sync records •{' '}
                       {dashboard.summary.provenance_breakdown.csv_import_count} CSV import batches •{' '}
                       {dashboard.summary.provenance_breakdown.ab_studio_count} A/B experiments
@@ -331,7 +331,7 @@ export const AnalyticsPage: React.FC = () => {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {/* 1. Total Content & In Experiment */}
                 <div className="rounded-2xl border border-border bg-white p-5 shadow-2xs">
-                  <div className="flex items-center justify-between text-muted">
+                  <div className="flex items-center justify-between text-muted-foreground">
                     <span className="text-xs font-semibold uppercase tracking-wider">Content Library</span>
                     <FileText className="h-4 w-4 text-forest" />
                   </div>
@@ -339,9 +339,9 @@ export const AnalyticsPage: React.FC = () => {
                     <span className="text-2xl font-bold text-foreground">
                       {summary?.total_clips || 0}
                     </span>
-                    <span className="text-xs text-muted">clips</span>
+                    <span className="text-xs text-muted-foreground">clips</span>
                   </div>
-                  <div className="mt-2 flex items-center justify-between text-xs text-muted border-t border-border/50 pt-2">
+                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground border-t border-border/50 pt-2">
                     <span>Published: {summary?.published_posts_count || 0}</span>
                     <span className="font-medium text-forest">In Exp: {summary?.in_experiment_clips_count || 0}</span>
                   </div>
@@ -349,7 +349,7 @@ export const AnalyticsPage: React.FC = () => {
 
                 {/* 2. Recorded Video Views & Watch Time */}
                 <div className="rounded-2xl border border-border bg-white p-5 shadow-2xs">
-                  <div className="flex items-center justify-between text-muted">
+                  <div className="flex items-center justify-between text-muted-foreground">
                     <span className="text-xs font-semibold uppercase tracking-wider">Recorded Views</span>
                     <Eye className="h-4 w-4 text-sage" />
                   </div>
@@ -358,7 +358,7 @@ export const AnalyticsPage: React.FC = () => {
                       {summary?.recorded_views ? summary.recorded_views.toLocaleString() : '0'}
                     </span>
                   </div>
-                  <div className="mt-2 flex items-center justify-between text-xs text-muted border-t border-border/50 pt-2">
+                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground border-t border-border/50 pt-2">
                     <span>Watch Time: {Math.round((summary?.recorded_watch_time_seconds || 0) / 60)} min</span>
                     <span>
                       Avg Eng:{' '}
@@ -371,7 +371,7 @@ export const AnalyticsPage: React.FC = () => {
 
                 {/* 3. Impressions, Clicks & Honest CTR */}
                 <div className="rounded-2xl border border-border bg-white p-5 shadow-2xs">
-                  <div className="flex items-center justify-between text-muted">
+                  <div className="flex items-center justify-between text-muted-foreground">
                     <span className="text-xs font-semibold uppercase tracking-wider">Feed Impressions</span>
                     <MousePointerClick className="h-4 w-4 text-terracotta" />
                   </div>
@@ -379,9 +379,9 @@ export const AnalyticsPage: React.FC = () => {
                     <span className="text-2xl font-bold text-foreground">
                       {summary?.recorded_impressions ? summary.recorded_impressions.toLocaleString() : '0'}
                     </span>
-                    <span className="text-xs text-muted">impressions</span>
+                    <span className="text-xs text-muted-foreground">impressions</span>
                   </div>
-                  <div className="mt-2 flex items-center justify-between text-xs text-muted border-t border-border/50 pt-2">
+                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground border-t border-border/50 pt-2">
                     <span>Clicks: {summary?.recorded_clicks ? summary.recorded_clicks.toLocaleString() : '0'}</span>
                     <span className="font-semibold text-terracotta">
                       CTR:{' '}
@@ -394,7 +394,7 @@ export const AnalyticsPage: React.FC = () => {
 
                 {/* 4. A/B Exposures, Conversions & Rate */}
                 <div className="rounded-2xl border border-border bg-white p-5 shadow-2xs">
-                  <div className="flex items-center justify-between text-muted">
+                  <div className="flex items-center justify-between text-muted-foreground">
                     <span className="text-xs font-semibold uppercase tracking-wider">A/B Conversions</span>
                     <Target className="h-4 w-4 text-olive" />
                   </div>
@@ -402,9 +402,9 @@ export const AnalyticsPage: React.FC = () => {
                     <span className="text-2xl font-bold text-foreground">
                       {summary?.recorded_conversions ? summary.recorded_conversions.toLocaleString() : '0'}
                     </span>
-                    <span className="text-xs text-muted">actions</span>
+                    <span className="text-xs text-muted-foreground">actions</span>
                   </div>
-                  <div className="mt-2 flex items-center justify-between text-xs text-muted border-t border-border/50 pt-2">
+                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground border-t border-border/50 pt-2">
                     <span>Exposures: {summary?.recorded_exposures ? summary.recorded_exposures.toLocaleString() : '0'}</span>
                     <span className="font-semibold text-olive">
                       Conv Rate:{' '}
@@ -423,7 +423,7 @@ export const AnalyticsPage: React.FC = () => {
                     <TrendingUp className="h-5 w-5 text-forest" />
                     <h2 className="text-base font-bold text-foreground">Performance Trends</h2>
                   </div>
-                  <span className="text-xs text-muted">
+                  <span className="text-xs text-muted-foreground">
                     Metric: <span className="capitalize font-semibold text-foreground">{metricHighlight}</span>
                   </span>
                 </div>
@@ -444,7 +444,7 @@ export const AnalyticsPage: React.FC = () => {
                             key={point.date}
                             className="group flex flex-1 flex-col items-center justify-end h-full min-w-8 gap-1.5"
                           >
-                            <div className="text-2xs font-semibold text-muted opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="text-2xs font-semibold text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                               {val.toLocaleString()}
                             </div>
                             <div
@@ -459,20 +459,20 @@ export const AnalyticsPage: React.FC = () => {
                                   : 'bg-olive/80 hover:bg-olive'
                               }`}
                             />
-                            <span className="text-3xs text-muted truncate max-w-10">
+                            <span className="text-3xs text-muted-foreground truncate max-w-10">
                               {point.date.slice(5)}
                             </span>
                           </div>
                         );
                       })}
                     </div>
-                    <div className="flex items-center justify-between text-2xs text-muted">
+                    <div className="flex items-center justify-between text-2xs text-muted-foreground">
                       <span>Timeline points: {dashboard.timeline.length} date entries</span>
                       <span>Measured observations chronologically grouped</span>
                     </div>
                   </div>
                 ) : (
-                  <div className="py-12 text-center text-sm text-muted">
+                  <div className="py-12 text-center text-sm text-muted-foreground">
                     No timestamped observations recorded for the selected filter range.
                   </div>
                 )}
@@ -485,13 +485,13 @@ export const AnalyticsPage: React.FC = () => {
                     <Layers className="h-5 w-5 text-forest" />
                     <h2 className="text-base font-bold text-foreground">Platform Distribution</h2>
                   </div>
-                  <span className="text-2xs text-muted">Platforms with recorded data</span>
+                  <span className="text-2xs text-muted-foreground">Platforms with recorded data</span>
                 </div>
 
                 {dashboard?.platforms && dashboard.platforms.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
-                      <thead className="border-b border-border text-2xs uppercase tracking-wider text-muted">
+                      <thead className="border-b border-border text-2xs uppercase tracking-wider text-muted-foreground">
                         <tr>
                           <th className="pb-2.5 font-semibold">Platform</th>
                           <th className="pb-2.5 font-semibold">Tracked Posts</th>
@@ -508,7 +508,7 @@ export const AnalyticsPage: React.FC = () => {
                             <td className="py-3 font-semibold text-foreground capitalize">
                               {p.platform}
                             </td>
-                            <td className="py-3 text-muted">{p.posts_count}</td>
+                            <td className="py-3 text-muted-foreground">{p.posts_count}</td>
                             <td className="py-3 text-foreground">{p.views.toLocaleString()}</td>
                             <td className="py-3 text-foreground">{p.impressions.toLocaleString()}</td>
                             <td className="py-3 text-foreground">{p.clicks.toLocaleString()}</td>
@@ -524,7 +524,7 @@ export const AnalyticsPage: React.FC = () => {
                     </table>
                   </div>
                 ) : (
-                  <div className="py-8 text-center text-sm text-muted">
+                  <div className="py-8 text-center text-sm text-muted-foreground">
                     No platform distribution recorded yet. Connect and sync social channels or import analytics to view platform breakdowns.
                   </div>
                 )}
@@ -535,11 +535,11 @@ export const AnalyticsPage: React.FC = () => {
                 <div className="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
                   <div>
                     <h2 className="text-base font-bold text-foreground">Content-Level Performance</h2>
-                    <p className="text-xs text-muted">
+                    <p className="text-xs text-muted-foreground">
                       Direct performance breakdown of workspace clips with linked A/B tests and observation provenance.
                     </p>
                   </div>
-                  <span className="text-xs text-muted">
+                  <span className="text-xs text-muted-foreground">
                     Showing {dashboard?.content_items?.length || 0} of {dashboard?.total_content_items || 0} items
                   </span>
                 </div>
@@ -547,7 +547,7 @@ export const AnalyticsPage: React.FC = () => {
                 {dashboard?.content_items && dashboard.content_items.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
-                      <thead className="border-b border-border text-2xs uppercase tracking-wider text-muted">
+                      <thead className="border-b border-border text-2xs uppercase tracking-wider text-muted-foreground">
                         <tr>
                           <th className="pb-2.5 font-semibold">Clip / Content</th>
                           <th className="pb-2.5 font-semibold">Status</th>
@@ -567,7 +567,7 @@ export const AnalyticsPage: React.FC = () => {
                               <div className="font-semibold text-foreground line-clamp-1">
                                 {item.title}
                               </div>
-                              <div className="text-2xs text-muted">
+                              <div className="text-2xs text-muted-foreground">
                                 {new Date(item.created_at).toLocaleDateString()}
                                 {item.duration_seconds ? ` • ${item.duration_seconds}s` : ''}
                               </div>
@@ -579,7 +579,7 @@ export const AnalyticsPage: React.FC = () => {
                                     ? 'bg-forest/10 text-forest'
                                     : item.status === 'in_experiment'
                                     ? 'bg-purple-100 text-purple-700'
-                                    : 'bg-sand/60 text-muted'
+                                    : 'bg-sand/60 text-muted-foreground'
                                 }`}
                               >
                                 {item.status.replace('_', ' ')}
@@ -597,12 +597,12 @@ export const AnalyticsPage: React.FC = () => {
                                   <span className="font-semibold text-foreground">
                                     {item.clicks.toLocaleString()}
                                   </span>
-                                  <span className="text-2xs text-muted ml-1">
+                                  <span className="text-2xs text-muted-foreground ml-1">
                                     ({item.ctr !== null ? `${(item.ctr * 100).toFixed(1)}%` : '—'})
                                   </span>
                                 </div>
                               ) : (
-                                <span className="text-muted">—</span>
+                                <span className="text-muted-foreground">—</span>
                               )}
                             </td>
                             <td className="py-3.5 pr-4">
@@ -611,13 +611,13 @@ export const AnalyticsPage: React.FC = () => {
                                   <span className="font-semibold text-foreground">
                                     {item.conversions.toLocaleString()}
                                   </span>
-                                  <span className="text-2xs text-muted ml-1">
+                                  <span className="text-2xs text-muted-foreground ml-1">
                                     / {item.exposures.toLocaleString()}{' '}
                                     ({item.conversion_rate !== null ? `${(item.conversion_rate * 100).toFixed(1)}%` : '—'})
                                   </span>
                                 </div>
                               ) : (
-                                <span className="text-muted">—</span>
+                                <span className="text-muted-foreground">—</span>
                               )}
                             </td>
                             <td className="py-3.5 pr-4">
@@ -637,7 +637,7 @@ export const AnalyticsPage: React.FC = () => {
                                           ? 'bg-forest/15 text-forest'
                                           : item.experiment.status === 'ACTIVE'
                                           ? 'bg-blue-100 text-blue-800'
-                                          : 'bg-sand/80 text-muted'
+                                          : 'bg-sand/80 text-muted-foreground'
                                       }`}
                                     >
                                       {item.experiment.status}
@@ -650,7 +650,7 @@ export const AnalyticsPage: React.FC = () => {
                                   </div>
                                 </div>
                               ) : (
-                                <span className="text-2xs text-muted">None</span>
+                                <span className="text-2xs text-muted-foreground">None</span>
                               )}
                             </td>
                             <td className="py-3.5 pr-4">
@@ -659,13 +659,13 @@ export const AnalyticsPage: React.FC = () => {
                                   item.provenance_sources.map((src) => (
                                     <span
                                       key={src}
-                                      className="rounded-md bg-sand/60 px-1.5 py-0.5 text-3xs font-mono text-muted"
+                                      className="rounded-md bg-sand/60 px-1.5 py-0.5 text-3xs font-mono text-muted-foreground"
                                     >
                                       {src}
                                     </span>
                                   ))
                                 ) : (
-                                  <span className="text-2xs text-muted">—</span>
+                                  <span className="text-2xs text-muted-foreground">—</span>
                                 )}
                               </div>
                             </td>
@@ -685,7 +685,7 @@ export const AnalyticsPage: React.FC = () => {
 
                     {/* Pagination */}
                     {dashboard && dashboard.total_content_items > dashboard.limit && (
-                      <div className="mt-4 flex items-center justify-between border-t border-border pt-4 text-xs text-muted">
+                      <div className="mt-4 flex items-center justify-between border-t border-border pt-4 text-xs text-muted-foreground">
                         <div>
                           Page {dashboard.page} of {Math.ceil(dashboard.total_content_items / dashboard.limit)}
                         </div>
@@ -712,9 +712,9 @@ export const AnalyticsPage: React.FC = () => {
                   </div>
                 ) : (
                   <div className="rounded-xl border border-dashed border-border p-8 text-center">
-                    <FileText className="mx-auto h-8 w-8 text-muted/60" />
+                    <FileText className="mx-auto h-8 w-8 text-muted-foreground/60" />
                     <h3 className="mt-2 text-sm font-semibold text-foreground">No content items found</h3>
-                    <p className="mt-1 text-xs text-muted">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       No clips match the current filters. Try selecting "All Content Statuses" or clear filters.
                     </p>
                   </div>
@@ -733,7 +733,7 @@ export const AnalyticsPage: React.FC = () => {
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-forest" />
-                <h2 className="text-lg font-bold text-foreground">Vireo Growth Coach</h2>
+                <h2 className="text-lg font-bold text-foreground">VireoClip Growth Coach</h2>
               </div>
               <span className="rounded-full bg-forest/10 px-2.5 py-0.5 text-xs font-semibold text-forest">
                 Evidence-Grounded Insights
@@ -756,12 +756,12 @@ export const AnalyticsPage: React.FC = () => {
                       <h3 className="text-sm font-bold text-foreground">{rec.title}</h3>
                     </div>
                     <p className="mt-2 text-xs leading-relaxed text-foreground/90">{rec.recommendation}</p>
-                    <div className="mt-3 rounded-lg border border-border/60 bg-white/70 p-2 text-2xs text-muted">
+                    <div className="mt-3 rounded-lg border border-border/60 bg-white/70 p-2 text-2xs text-muted-foreground">
                       <span className="font-semibold text-foreground">Evidence: </span>
                       {rec.evidence}
                     </div>
                   </div>
-                  <div className="mt-3 flex items-center justify-between text-2xs text-muted">
+                  <div className="mt-3 flex items-center justify-between text-2xs text-muted-foreground">
                     <span className="capitalize">Confidence: {rec.confidence}</span>
                   </div>
                 </div>
@@ -779,7 +779,7 @@ export const AnalyticsPage: React.FC = () => {
               </div>
 
               {platforms.length === 0 ? (
-                <div className="py-12 text-center text-sm text-muted">
+                <div className="py-12 text-center text-sm text-muted-foreground">
                   No published platform performance recorded yet. Connect and publish to see distribution.
                 </div>
               ) : (
@@ -788,10 +788,10 @@ export const AnalyticsPage: React.FC = () => {
                     <div key={p.platform} className="flex items-center justify-between py-3.5">
                       <div className="flex items-center gap-2.5">
                         <span className="capitalize font-semibold text-sm text-foreground">{p.platform}</span>
-                        <span className="text-xs text-muted">({p.posts} post{p.posts !== 1 ? 's' : ''})</span>
+                        <span className="text-xs text-muted-foreground">({p.posts} post{p.posts !== 1 ? 's' : ''})</span>
                       </div>
                       <div className="flex items-center gap-4 text-sm">
-                        <span className="text-muted">{p.views.toLocaleString()} views</span>
+                        <span className="text-muted-foreground">{p.views.toLocaleString()} views</span>
                         <span className="font-semibold text-foreground">{p.engagement.toLocaleString()} eng</span>
                       </div>
                     </div>
@@ -807,12 +807,12 @@ export const AnalyticsPage: React.FC = () => {
                   <Brain className="h-5 w-5 text-terracotta" />
                   <h2 className="text-base font-bold text-foreground">Creator Content Memory</h2>
                 </div>
-                <span className="text-2xs text-muted">Feeds future AI Generation</span>
+                <span className="text-2xs text-muted-foreground">Feeds future AI Generation</span>
               </div>
 
               {memories.length === 0 ? (
-                <div className="py-12 text-center text-sm text-muted">
-                  No persistent patterns locked yet. As more clips are tracked, Vireo locks successful hooks and durations here.
+                <div className="py-12 text-center text-sm text-muted-foreground">
+                  No persistent patterns locked yet. As more clips are tracked, VireoClip locks successful hooks and durations here.
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -822,11 +822,11 @@ export const AnalyticsPage: React.FC = () => {
                         <span className="text-xs font-bold uppercase tracking-wider text-forest">
                           {m.category}: {m.pattern}
                         </span>
-                        <span className="rounded-md bg-white px-2 py-0.5 text-2xs font-semibold text-muted">
+                        <span className="rounded-md bg-white px-2 py-0.5 text-2xs font-semibold text-muted-foreground">
                           {m.confidence} confidence
                         </span>
                       </div>
-                      <p className="mt-1 text-xs text-muted">{m.evidence}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{m.evidence}</p>
                     </div>
                   ))}
                 </div>

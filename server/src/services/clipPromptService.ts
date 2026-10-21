@@ -1,4 +1,11 @@
-import { TranscriptSegment, CreatorProfileData, MultimodalTimeline } from '../types/index.js';
+import {
+  TranscriptSegment,
+  CreatorProfileData,
+  MultimodalTimeline,
+  GenreProfileConfig,
+  ContentGoal,
+} from '../types/index.js';
+import { GenreIntelligenceService } from './genreIntelligenceService.js';
 
 export interface ClipPromptContext {
   segments: TranscriptSegment[];
@@ -6,44 +13,184 @@ export interface ClipPromptContext {
   creatorProfile?: Partial<CreatorProfileData> | null;
   customNotes?: string;
   multimodalTimeline?: MultimodalTimeline | null;
+  startIndexOffset?: number;
+  genreProfile?: GenreProfileConfig;
+  contentGoal?: ContentGoal;
+  customInstructions?: string;
+  topicKeywords?: string[];
 }
 
 export class ClipPromptService {
   /**
-   * System prompt establishing the persona and strict JSON output requirements
+   * System prompt establishing the persona, strict JSON output requirements,
+   * opening guardrails against dangling conjunctions/pronouns, and optional genre rules.
    */
-  public static getSystemPrompt(): string {
-    return [
+  public static getSystemPrompt(genreProfile?: GenreProfileConfig): string {
+    const lines = [
       'You are Vireo\'s elite Short-Form Video Producer and AI Clip Finder.',
       'Your job is to analyze a timestamped, segment-indexed transcript from a long-form video and identify the strongest standalone moments for YouTube Shorts, Instagram Reels, and TikTok.',
       '',
       'CORE RULES:',
       '1. Grounding: You MUST ONLY select moments that actually exist in the transcript.',
       '2. Timestamp Integrity: NEVER invent, hallucinate, or format timestamp numbers. You MUST ONLY specify the starting and ending segment indexes (start_segment_index and end_segment_index).',
-      '3. Completeness: Every clip candidate must start at a logical opening hook and finish with a complete, coherent thought. Do NOT cut off mid-sentence or mid-explanation.',
-      '4. Standalone Value: A viewer watching this clip on TikTok or Reels must completely understand the message without needing the rest of the full-length video.',
-      '5. Cut the Fluff: Avoid generic channel intros, pleasantries, sponsor reads, subscribe/like pitches, and rambling setups unless immediately tied to an exceptional hook.',
-      '6. Output Format: Return ONLY raw, valid JSON matching the exact schema specified in the user prompt. No markdown fencing, no commentary.',
-    ].join('\n');
+      '3. High-Velocity Viral Hook: Prioritize high-velocity openings. The first 3 seconds must immediately grab attention with a contrarian claim, concrete number/dollar figure, provocative tension question, or pattern interrupt.',
+      '4. Strict Opening Guardrails: NEVER begin start_segment_index on a dangling conjunction, verbal filler, transition without context, or unresolved pronoun (e.g., avoid starting on "And so...", "Because of that...", "Like I said earlier...", "He did...", "So then..."). The first sentence must make grammatical and logical sense on its own.',
+      '5. Conclusive Ending & Completeness: Every clip candidate MUST finish on a punchy takeaway, witty punchline, or fully resolved thought. Ensure end_segment_index does NOT cut off mid-explanation, mid-clause, or on an unfinished sentence.',
+      '6. Standalone Value: A viewer scrolling past this clip on TikTok or Reels must instantly grasp and enjoy the content without needing any prior context from the full-length video.',
+      '7. Cut the Fluff: Avoid generic channel intros, pleasantries, sponsor reads, subscribe/like pitches, and rambling setups unless immediately tied to an exceptional hook.',
+      '8. Cold Open Inversion (Non-Linear Hook): If the most explosive takeaway, shocking number, or decisive punchline occurs at the conclusion of a thought, specify cold_open_segment_index as that segment number. The engine will place that 2-4 second teaser at 0:00 before playing the setup.',
+      '9. Output Format: Return ONLY raw, valid JSON matching the exact schema specified in the user prompt. No markdown fencing, no commentary.',
+    ];
+
+    if (genreProfile) {
+      lines.push(
+        '',
+        `GENRE RULES (${genreProfile.displayName.toUpperCase()}):`,
+        `- Objective: ${genreProfile.selectionObjective}`,
+        `- Narrative Arc: ${genreProfile.narrativeArcPrompt}`,
+        `- Editorial Safeguard: ${genreProfile.editorialSafeguard}`,
+        `- Recommended 9:16 Framing: ${(genreProfile.recommendedLayoutMode || 'track').toUpperCase()}`,
+        `- Caption Safe Zone: ${(genreProfile.captionSafePlacement || 'bottom').toUpperCase()}`
+      );
+    }
+
+    return lines.join('\n');
   }
 
   /**
    * Builds compact segment-indexed transcript for the LLM prompt.
-   * Format: [index] (start - end) text
+   * If multimodalTimeline is provided, enriches each line with inline signals for scene cuts,
+   * high visual activity spikes ([HIGH_VISUAL]), and on-screen OCR text ([OCR: "..."]).
+   * Supports startIndexOffset for global index preservation across chunked windows.
+   * Format: [index] (start - end) [SIGNALS] text
    */
-  public static formatIndexedTranscript(segments: TranscriptSegment[]): string {
+  public static formatIndexedTranscript(
+    segments: TranscriptSegment[],
+    multimodalTimeline?: MultimodalTimeline | null,
+    startIndexOffset = 0
+  ): string {
     return segments
-      .map((seg, idx) => `[${idx}] (${seg.start.toFixed(1)}s - ${seg.end.toFixed(1)}s) ${seg.text.trim()}`)
+      .map((seg, idx) => {
+        const displayIdx = idx + (startIndexOffset || 0);
+        let signalPrefix = '';
+        if (multimodalTimeline) {
+          const signals: string[] = [];
+
+          // Scene cut detection within segment window
+          const hasSceneCut =
+            Array.isArray(multimodalTimeline.scene_cuts) &&
+            multimodalTimeline.scene_cuts.some(
+              (sc) => sc.timestamp >= seg.start && sc.timestamp <= seg.end
+            );
+          if (hasSceneCut) {
+            signals.push('[SCENE_CUT]');
+          }
+
+          // High visual activity spike (score >= 70) within segment window
+          const hasHighActivity =
+            Array.isArray(multimodalTimeline.keyframes) &&
+            multimodalTimeline.keyframes.some(
+              (k) =>
+                k.timestamp >= seg.start &&
+                k.timestamp <= seg.end &&
+                typeof k.visual_activity_score === 'number' &&
+                k.visual_activity_score >= 70
+            );
+          if (hasHighActivity) {
+            signals.push('[HIGH_ACTIVITY]');
+            signals.push('[HIGH_VISUAL]');
+          }
+
+          // On-screen OCR graphics/text
+          if (Array.isArray(multimodalTimeline.keyframes)) {
+            const ocrKf = multimodalTimeline.keyframes.find(
+              (k) =>
+                k.timestamp >= seg.start &&
+                k.timestamp <= seg.end &&
+                typeof k.ocr_text === 'string' &&
+                k.ocr_text.trim().length > 0
+            );
+            if (ocrKf?.ocr_text) {
+              const cleanOcr = ocrKf.ocr_text.replace(/["\r\n]/g, ' ').trim().slice(0, 35);
+              if (cleanOcr) {
+                signals.push(`[OCR: "${cleanOcr}"]`);
+              }
+            }
+          }
+
+          if (signals.length > 0) {
+            signalPrefix = `${signals.join(' ')} `;
+          }
+        }
+
+        return `[${displayIdx}] (${seg.start.toFixed(1)}s - ${seg.end.toFixed(1)}s) ${signalPrefix}${seg.text.trim()}`;
+      })
       .join('\n');
   }
 
   /**
-   * Assembles the complete prompt with indexed transcript and creator context
+   * Assembles the complete prompt with indexed transcript, creator context, genre intelligence, and goal modifiers.
    */
   public static buildClipAnalysisPrompt(context: ClipPromptContext): string {
-    const { segments, durationSeconds, creatorProfile, customNotes, multimodalTimeline } = context;
+    const {
+      segments,
+      durationSeconds,
+      creatorProfile,
+      customNotes,
+      multimodalTimeline,
+      startIndexOffset,
+      genreProfile: incomingGenreProfile,
+      contentGoal = 'shareable_moments',
+      customInstructions,
+      topicKeywords,
+    } = context;
 
-    const indexedTranscript = this.formatIndexedTranscript(segments);
+    const genreProfile = incomingGenreProfile || GenreIntelligenceService.getGenreProfile('general');
+    const indexedTranscript = this.formatIndexedTranscript(segments, multimodalTimeline, startIndexOffset || 0);
+
+    let genreContext = [
+      `GENRE INTELLIGENCE (${genreProfile.displayName}):`,
+      `- Selection Objective: ${genreProfile.selectionObjective}`,
+      `- Narrative Arc: ${genreProfile.narrativeArcPrompt}`,
+      `- Strict Editorial Safeguard: ${genreProfile.editorialSafeguard}`,
+      `- Recommended 9:16 Framing: ${(genreProfile.recommendedLayoutMode || 'track').toUpperCase()}`,
+      `- Caption Placement: ${(genreProfile.captionSafePlacement || 'bottom').toUpperCase()}`,
+      `- Target Duration Sweet Spot: ${genreProfile.targetDuration.optimal}s (Bounds: ${genreProfile.targetDuration.min}s–${genreProfile.targetDuration.max}s)`,
+      '',
+    ].join('\n');
+
+    const goalContext = [
+      'CONTENT GOAL DIRECTIVE:',
+      GenreIntelligenceService.getContentGoalPromptModifier(contentGoal),
+      '',
+    ].join('\n');
+
+    let instructionsContext = '';
+    const instructionParts: string[] = [];
+    const nlRaw = customInstructions || customNotes || '';
+    const nlParsed = GenreIntelligenceService.parseNaturalLanguageSearchIntent(nlRaw);
+
+    if (nlParsed.editorialDirective) {
+      instructionParts.push(`- Natural Language Discovery: ${nlParsed.editorialDirective}`);
+    }
+    if (customInstructions?.trim() && !instructionParts.some((p) => p.includes(customInstructions.trim()))) {
+      instructionParts.push(`- Creator Custom Instructions: ${customInstructions.trim()}`);
+    }
+    if (customNotes?.trim() && customNotes.trim() !== customInstructions?.trim() && !instructionParts.some((p) => p.includes(customNotes.trim()))) {
+      instructionParts.push(`- Project Notes: ${customNotes.trim()}`);
+    }
+    const mergedKeywords = Array.from(new Set([...(topicKeywords || []), ...(nlParsed.focusKeywords || [])]));
+    if (mergedKeywords.length > 0) {
+      instructionParts.push(`- Priority Topic Keywords: ${mergedKeywords.join(', ')}`);
+    }
+    if (instructionParts.length > 0) {
+      instructionsContext = [
+        'CREATOR PRIORITIES & CUSTOM TOPICS:',
+        ...instructionParts,
+        'Prioritize clips addressing these specific instructions or topics whenever present in the transcript.',
+        '',
+      ].join('\n');
+    }
 
     let personaContext = '';
     if (creatorProfile) {
@@ -51,9 +198,10 @@ export class ClipPromptService {
       if (creatorProfile.niche) parts.push(`- Creator Niche: ${creatorProfile.niche}`);
       if (creatorProfile.target_audience) parts.push(`- Target Audience: ${creatorProfile.target_audience}`);
       if (creatorProfile.tone) {
-        const toneStr = creatorProfile.tone === 'custom' && creatorProfile.custom_tone
-          ? creatorProfile.custom_tone
-          : creatorProfile.tone;
+        const toneStr =
+          creatorProfile.tone === 'custom' && creatorProfile.custom_tone
+            ? creatorProfile.custom_tone
+            : creatorProfile.tone;
         parts.push(`- Desired Tone: ${toneStr}`);
       }
       if (creatorProfile.preferred_hook_style) parts.push(`- Preferred Hook Style: ${creatorProfile.preferred_hook_style}`);
@@ -68,11 +216,6 @@ export class ClipPromptService {
           '',
         ].join('\n');
       }
-    }
-
-    let notesContext = '';
-    if (customNotes?.trim()) {
-      notesContext = `CREATOR NOTES / FOCUS AREA:\n${customNotes.trim()}\n\n`;
     }
 
     let multimodalContext = '';
@@ -92,15 +235,20 @@ export class ClipPromptService {
         multimodalContext = [
           'MULTIMODAL SIGNALS & PACING:',
           ...parts,
-          'Prioritize segments that align with high visual pacing and topic changes.',
+          'Prioritize segments that align with high visual pacing [HIGH_ACTIVITY], topic changes [SCENE_CUT], and on-screen context [OCR].',
           '',
         ].join('\n');
       }
     }
 
+    const minDur = durationSeconds && durationSeconds < 15 ? 2 : Math.max(15, genreProfile.targetDuration.min);
+    const maxDur = durationSeconds && durationSeconds < 15 ? Math.round(durationSeconds) : Math.min(90, genreProfile.targetDuration.max);
+
     return [
+      genreContext,
+      goalContext,
+      instructionsContext,
       personaContext,
-      notesContext,
       multimodalContext,
       `TRANSCRIPT SEGMENTS (${segments.length} segments, total duration ~${durationSeconds ? Math.round(durationSeconds) : 'N/A'}s):`,
       '---',
@@ -108,16 +256,14 @@ export class ClipPromptService {
       '---',
       '',
       'TASK:',
-      'Analyze the transcript segments above and identify 5 to 10 of the strongest standalone short-form clip opportunities.',
+      `Analyze the transcript segments above and identify 5 to 10 of the strongest standalone short-form clip opportunities for ${genreProfile.displayName}.`,
       '',
       'DURATION CONSTRAINTS:',
       durationSeconds && durationSeconds < 15
-        ? `- This video is short (~${Math.round(durationSeconds)}s). Clips may span between 2 seconds and ${Math.round(durationSeconds)} seconds.`
-        : '- Each clip MUST span between 15 seconds and 90 seconds in duration (preferably 20–60 seconds).',
+        ? `- This video is short (~${Math.round(durationSeconds)}s). Clips may span between ${minDur} seconds and ${maxDur} seconds.`
+        : `- Each clip MUST span between ${minDur} seconds and ${maxDur} seconds in duration (optimal sweet spot: ~${genreProfile.targetDuration.optimal}s).`,
       '- Calculate duration mentally by looking at the start timestamp of start_segment_index and the end timestamp of end_segment_index.',
-      durationSeconds && durationSeconds < 15
-        ? `- Do not return clips under 2 seconds or over ${Math.round(durationSeconds)} seconds.`
-        : '- Do not return clips under 15 seconds or over 90 seconds.',
+      `- Do not return clips under ${minDur} seconds or over ${maxDur} seconds.`,
       '',
       'CATEGORIES:',
       'Assign each clip one of these categories:',
@@ -144,6 +290,7 @@ export class ClipPromptService {
       '    {',
       '      "start_segment_index": 12,',
       '      "end_segment_index": 21,',
+      '      "cold_open_segment_index": 20,',
       '      "title": "A concise, engaging clip title (under 60 chars)",',
       '      "hook": "The captivating opening line or angle of the clip",',
       '      "reason": "Brief explanation of why this moment will succeed on short-form feeds",',

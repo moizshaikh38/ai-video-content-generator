@@ -11,7 +11,7 @@ export const PrivacyPage: React.FC = () => {
           className="inline-flex items-center gap-2 text-xs font-semibold text-[#485f4d] hover:text-[#183d2d] mb-8 transition-colors"
         >
           <ArrowLeft size={16} />
-          Back to Vireo home
+          Back to VireoClip home
         </Link>
 
         {/* Legal Review Required Callout Banner */}
@@ -23,7 +23,7 @@ export const PrivacyPage: React.FC = () => {
                 DRAFT — LEGAL REVIEW REQUIRED
               </h2>
               <p className="mt-1 text-xs leading-relaxed text-amber-800">
-                This Privacy Policy is an evidence-based draft detailing the exact data collection, processing, and storage architecture of Vireo.
+                This Privacy Policy is an evidence-based draft detailing the exact data collection, processing, and storage architecture of VireoClip.
                 It has been prepared for developer and operator review and does not constitute formal legal counsel.
                 Items marked with brackets (<span className="font-mono font-semibold">[CONFIRMATION REQUIRED]</span>) require explicit confirmation by the application owner and review by qualified legal counsel.
                 Publishing this draft does not unilaterally certify regulatory compliance (e.g., GDPR, CCPA).
@@ -49,12 +49,12 @@ export const PrivacyPage: React.FC = () => {
           <section>
             <h2 className="text-xl font-bold text-[#183d2d] mb-3">1. Data Controller and Scope</h2>
             <p>
-              This Privacy Policy explains how <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Legal Company / Registered Entity Name]</span> ("Vireo", "we", "us", or "our") collects, uses, processes, and safeguards personal data through the Vireo web application.
+              This Privacy Policy explains how <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Legal Company / Registered Entity Name]</span> ("VireoClip", "we", "us", or "our") collects, uses, processes, and safeguards personal data through the VireoClip web application.
             </p>
             <p className="mt-2">
               For privacy inquiries or data requests, contact our designated privacy representative at:
               <br />
-              <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs mt-1 inline-block">[CONFIRMATION REQUIRED: Privacy / Data Protection Contact Email, e.g. privacy@vireo.app]</span>
+              <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs mt-1 inline-block">[CONFIRMATION REQUIRED: Privacy / Data Protection Contact Email, e.g. privacy@vireoclip.ai]</span>
             </p>
           </section>
 
@@ -88,7 +88,7 @@ export const PrivacyPage: React.FC = () => {
               <div className="p-3.5 rounded-lg border border-[#e1e7db] bg-white">
                 <h3 className="font-bold text-xs uppercase text-[#183d2d] tracking-wide">D. Billing and Subscription Metadata</h3>
                 <p className="mt-1 text-xs text-[#526857]">
-                  Customer identifiers, subscription IDs, billing plan tier, current period start/end dates, and webhook event logs received from payment processors (Paddle, Razorpay, Stripe). <em>Vireo does NOT store raw credit card numbers, CVVs, or full bank account details on our servers.</em>
+                  Customer identifiers, subscription IDs, billing plan tier, current period start/end dates, and webhook event logs received from payment processors (Paddle, Razorpay, Stripe). <em>VireoClip does NOT store raw credit card numbers, CVVs, or full bank account details on our servers.</em>
                 </p>
               </div>
 
@@ -159,7 +159,7 @@ export const PrivacyPage: React.FC = () => {
           <section>
             <h2 className="text-xl font-bold text-[#183d2d] mb-3">4. Cookies and Client-Side Storage</h2>
             <p>
-              Vireo does <strong>not</strong> employ third-party advertising cookies, behavioural cross-site tracking pixels, or data-broker trackers.
+              VireoClip does <strong>not</strong> employ third-party advertising cookies, behavioural cross-site tracking pixels, or data-broker trackers.
             </p>
             <p className="mt-2">
               We utilize strictly necessary local storage mechanisms:

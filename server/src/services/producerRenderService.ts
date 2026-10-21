@@ -29,6 +29,7 @@ import {
 } from './objectStorageService.js';
 import { CaptionService } from './captionService.js';
 import { ClipRenderService, buildCropFilter } from './clipRenderService.js';
+import { ProEditorService } from './proEditorService.js';
 
 const execFileAsync = promisify(execFile);
 const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
@@ -107,8 +108,10 @@ export class ProducerRenderService {
       if (!localSourceFile || !fs.existsSync(localSourceFile)) {
         if (project.source_storage_path) {
           localSourceFile = path.join(tmpDir, 'source.mp4');
-          logger.info(`[ProducerRender] Downloading project source: ${project.source_storage_path}`);
-          await downloadObjectToFile('source', project.source_storage_path, localSourceFile);
+          await ClipRenderService.ensureSourceVideo(project.source_storage_path, localSourceFile, {
+            timeoutMs: 60000,
+            projectId: project.id,
+          });
         } else {
           throw new AppError('Source video is not available for preview rendering.', 400, 'SOURCE_NOT_FOUND');
         }
@@ -258,7 +261,10 @@ export class ProducerRenderService {
         if (op.parameters.font_size) captionConfig.fontSize = op.parameters.font_size;
         if (op.parameters.primary_color) captionConfig.primaryColor = op.parameters.primary_color;
       } else if (op.type === 'CAPTION_EMPHASIS') {
-        if (op.parameters.highlight_color) captionConfig.highlightColor = op.parameters.highlight_color;
+        if (op.parameters.highlight_color) {
+          captionConfig.highlightColor = op.parameters.highlight_color;
+          captionConfig.activeWordColor = op.parameters.highlight_color;
+        }
       } else if (op.type === 'HOOK_TEXT') {
         overlayConfig = {
           enabled: true,
@@ -317,9 +323,134 @@ export class ProducerRenderService {
       logger.warn(`Could not mark plan ${planId} as applied: ${updatePlanErr.message}`);
     }
 
+    // 6. Synchronize planned operations into the clip's EditorProject
+    try {
+      const editorProject = await ProEditorService.getOrCreateEditorProject(clip.id, userId, {
+        clip_id: clip.id,
+        from_producer_plan_id: plan.id,
+        aspect_ratio: aspectRatio,
+      });
+
+      if (editorProject && Array.isArray(editorProject.tracks)) {
+        let editorUpdated = false;
+        const videoTrack = editorProject.tracks.find((t) => t.type === 'VIDEO');
+        const videoItem = videoTrack?.items[0];
+
+        // Sync PUNCH_IN keyframe
+        const punchInOp = plan.operations.find((o: ProducerOperation) => o.type === 'PUNCH_IN' && o.enabled);
+        if (videoItem && punchInOp && punchInOp.parameters.punch_in_start_sec !== undefined) {
+          const punchTime = Math.max(0, punchInOp.parameters.punch_in_start_sec - clip.start_seconds);
+          if (!videoItem.keyframes) videoItem.keyframes = [];
+          const existingKfIdx = videoItem.keyframes.findIndex((k) => k.property === 'scale');
+          const punchKf = {
+            id: crypto.randomUUID(),
+            time: Number(punchTime.toFixed(3)),
+            property: 'scale' as const,
+            value: punchInOp.parameters.scale || 1.06,
+            easing: 'ease-in-out' as const,
+          };
+          if (existingKfIdx >= 0) {
+            videoItem.keyframes[existingKfIdx] = punchKf;
+          } else {
+            videoItem.keyframes.push(punchKf);
+          }
+          editorUpdated = true;
+        }
+
+        // Sync AUDIO_FADE
+        const fadeOp = plan.operations.find((o: ProducerOperation) => o.type === 'AUDIO_FADE' && o.enabled);
+        if (videoItem && fadeOp) {
+          if (!videoItem.audio) {
+            videoItem.audio = { volume: 1.0, fade_in: 0.15, fade_out: 0.25, normalized: true, target_lufs: -16 };
+          }
+          videoItem.audio.fade_in = fadeOp.parameters.fade_in_sec ?? 0.15;
+          videoItem.audio.fade_out = fadeOp.parameters.fade_out_sec ?? 0.25;
+          editorUpdated = true;
+        }
+
+        // Sync CAPTION_EMPHASIS
+        const emphasisOp = plan.operations.find((o: ProducerOperation) => o.type === 'CAPTION_EMPHASIS' && o.enabled);
+        const captionTrack = editorProject.tracks.find((t) => t.type === 'CAPTION');
+        if (captionTrack && emphasisOp && emphasisOp.parameters.highlight_color) {
+          for (const item of captionTrack.items) {
+            if (item.caption) {
+              item.caption.highlight_color = emphasisOp.parameters.highlight_color;
+              editorUpdated = true;
+            }
+          }
+        }
+
+        // Sync BRAND_OVERLAY
+        const brandOp = plan.operations.find((o: ProducerOperation) => o.type === 'BRAND_OVERLAY' && o.enabled);
+        if (brandOp) {
+          let textTrack = editorProject.tracks.find((t) => t.type === 'TEXT');
+          if (!textTrack) {
+            textTrack = {
+              id: crypto.randomUUID(),
+              type: 'TEXT',
+              name: 'Text & Overlays',
+              locked: false,
+              muted: false,
+              hidden: false,
+              height: 48,
+              items: [],
+            };
+            editorProject.tracks.push(textTrack);
+          }
+          const brandText = brandOp.parameters.text || brandOp.parameters.brand_name || 'Brand';
+          textTrack.items.push({
+            id: crypto.randomUUID(),
+            track_id: textTrack.id,
+            type: 'TEXT',
+            timeline_start: 0,
+            timeline_end: Number((clip.end_seconds - clip.start_seconds).toFixed(3)),
+            source_start: 0,
+            source_end: Number((clip.end_seconds - clip.start_seconds).toFixed(3)),
+            transform: { position_x: 0, position_y: -750, scale: 0.85, rotation: 0, opacity: 0.9 },
+            speed: { speed: 1.0, pitch_preserved: true },
+            text: {
+              text: String(brandText),
+              font_family: 'Arial',
+              font_size: 36,
+              font_weight: 'bold',
+              italic: false,
+              alignment: 'center',
+              color: '#FFFFFF',
+              background_color: '#00000080',
+              preset: 'minimal',
+            },
+            effects: [],
+            keyframes: [],
+            locked: false,
+            muted: true,
+            hidden: false,
+            z_index: 15,
+          });
+          editorUpdated = true;
+        }
+
+        // Sync REMOVE_RANGE
+        const removeOp = plan.operations.find((o: ProducerOperation) => o.type === 'REMOVE_RANGE' && o.enabled);
+        if (removeOp && Array.isArray(removeOp.parameters.cut_ranges) && removeOp.parameters.cut_ranges.length > 0) {
+          if (!(editorProject as any).metadata) (editorProject as any).metadata = {};
+          (editorProject as any).metadata.cut_ranges = removeOp.parameters.cut_ranges;
+          editorUpdated = true;
+        }
+
+        if (editorUpdated) {
+          await ProEditorService.updateEditorProject(editorProject.id, userId, {
+            tracks: editorProject.tracks,
+          });
+          logger.info(`[ProducerRender] Synchronized Producer plan operations into EditorProject ${editorProject.id}`);
+        }
+      }
+    } catch (eProjectErr: any) {
+      logger.warn(`Could not sync plan to EditorProject: ${eProjectErr.message}`);
+    }
+
     logger.info(`[ProducerRender] Applied plan ${planId} to clip ${clip.id} (editorVersion=${editorVersion})`);
 
-    // 6. Trigger ClipRenderService in background
+    // 7. Trigger ClipRenderService in background
     ClipRenderService.renderClipJob(clip.id, userId).catch((rErr) => {
       logger.error(`Clip re-render failed after applying Producer plan: ${rErr.message}`);
     });
@@ -367,19 +498,52 @@ export class ProducerRenderService {
     const cropFilter = buildCropFilter(targetRatio, clip.crop_config);
     videoFilters.push(cropFilter);
 
-    // 2. Visual Punch-In (Dynamic Crop Zoom on Climax)
+    // Target resolution dimensions based on aspect ratio
+    const targetW = targetRatio === '16:9' ? 1920 : 1080;
+    const targetH = targetRatio === '9:16' ? 1920 : 1080;
+
+    // 2. Remove Dead Air Ranges (REMOVE_RANGE)
+    const removeOp = plan.operations.find((o) => o.type === 'REMOVE_RANGE' && o.enabled);
+    if (removeOp && Array.isArray(removeOp.parameters.cut_ranges) && removeOp.parameters.cut_ranges.length > 0) {
+      const rawCuts = removeOp.parameters.cut_ranges;
+      const validCuts: Array<{ start: number; end: number }> = [];
+      for (const cut of rawCuts) {
+        const cStart = Math.max(0, Number(cut.start) - startSec);
+        const cEnd = Math.min(durationSec, Number(cut.end) - startSec);
+        if (cEnd > cStart + 0.05) {
+          validCuts.push({ start: cStart, end: cEnd });
+        }
+      }
+
+      if (validCuts.length > 0) {
+        const betweenConditions = validCuts
+          .map((c) => `between(t\\,${c.start.toFixed(3)}\\,${c.end.toFixed(3)})`)
+          .join('+');
+        videoFilters.push(`select='not(${betweenConditions})',setpts=N/FRAME_RATE/TB`);
+        audioFilters.push(`aselect='not(${betweenConditions})',asetpts=N/SR/TB`);
+
+        const totalCutDuration = validCuts.reduce((sum, c) => sum + (c.end - c.start), 0);
+        durationSec = Math.max(1.0, durationSec - totalCutDuration);
+      }
+    }
+
+    // 3. Visual Punch-In (Dynamic Crop Zoom on Climax)
     const punchInOp = plan.operations.find((o) => o.type === 'PUNCH_IN' && o.enabled);
     if (punchInOp && punchInOp.parameters.punch_in_start_sec !== undefined) {
       const punchStart = Math.max(0, punchInOp.parameters.punch_in_start_sec - startSec);
       const punchDuration = punchInOp.parameters.punch_in_duration_sec || 2.5;
       const punchEnd = punchStart + punchDuration;
-      const scale = punchInOp.parameters.scale || 1.06;
+      const scale = Math.max(1.02, Math.min(1.25, punchInOp.parameters.scale || 1.06));
 
-      const punchFilter = `crop=w='if(between(t,${punchStart.toFixed(2)},${punchEnd.toFixed(2)}), in_w/${scale}, in_w)':h='if(between(t,${punchStart.toFixed(2)},${punchEnd.toFixed(2)}), in_h/${scale}, in_h)':x=(in_w-out_w)/2:y=(in_h-out_h)/2,scale=1080:1920`;
+      // Calculate zoomed crop dimensions as integers matching canvas aspect ratio
+      const wPunch = Math.round(targetW / scale);
+      const hPunch = Math.round(targetH / scale);
+
+      const punchFilter = `crop=w='if(between(t,${punchStart.toFixed(2)},${punchEnd.toFixed(2)}),${wPunch},${targetW})':h='if(between(t,${punchStart.toFixed(2)},${punchEnd.toFixed(2)}),${hPunch},${targetH})':x=(in_w-out_w)/2:y=(in_h-out_h)/2,scale=${targetW}:${targetH}`;
       videoFilters.push(punchFilter);
     }
 
-    // 3. Hook Text Banner
+    // 4. Hook Text Banner
     const hookOp = plan.operations.find((o) => o.type === 'HOOK_TEXT' && o.enabled);
     if (hookOp && hookOp.parameters.text) {
       const safeText = String(hookOp.parameters.text).replace(/[\r\n]+/g, ' ').replace(/['\\]/g, '').slice(0, 50).trim();
@@ -391,7 +555,7 @@ export class ProducerRenderService {
       }
     }
 
-    // 4. Captions (Burn ASS subtitles if caption style is present)
+    // 5. Captions (Burn ASS subtitles if caption style is present)
     const captionStyleOp = plan.operations.find((o) => o.type === 'CAPTION_STYLE' && o.enabled);
     if (captionStyleOp) {
       try {
@@ -411,7 +575,7 @@ export class ProducerRenderService {
         });
 
         if (capResult.cues.length > 0 && fs.existsSync(assPath)) {
-          const safeAss = assPath.replace(/\\/g, '/').replace(':', '\\\\:');
+          const safeAss = assPath.replace(/\\/g, '/').replace(/:/g, '\\\\:');
           videoFilters.push(`ass=${safeAss}`);
         }
       } catch (capErr: any) {

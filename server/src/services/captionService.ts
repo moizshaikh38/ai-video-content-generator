@@ -1,5 +1,5 @@
 import { isMongoConfigured } from '../db/mongoClient.js';
-import { dataRepository } from '../db/repositories/dataRepository.js';
+import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { logger } from '../utils/logger.js';
@@ -16,6 +16,16 @@ import {
   SAFE_FONT_FAMILIES,
   SafeFontFamily,
 } from '../types/index.js';
+import {
+  balanceLineSplit as sharedBalanceLineSplit,
+  buildPresetAssScript,
+  enforceZeroOverlap as sharedEnforceZeroOverlap,
+  formatSegmentCueText,
+  groupWordsIntoCues,
+  resolveCaptionPreset,
+  resolveRenderPresetId,
+  ResolvedCaptionStyle,
+} from '../shared/captionPresets.js';
 
 export interface GenerateCaptionsOptions {
   clip: ClipRecord;
@@ -42,6 +52,13 @@ export interface OverlapValidationResult {
   maxActiveCues: number;
 }
 
+export interface KineticCueParams {
+  primaryColour: string;
+  secondaryColour: string;
+  animation?: string;
+  activeWordScale?: number;
+}
+
 export class CaptionService {
   /**
    * Safe font family validator strictly enforcing allowlist
@@ -58,16 +75,79 @@ export class CaptionService {
   /**
    * Sanitizes text for safe inclusion inside ASS subtitle dialogues.
    * Strips/escapes curly braces `{}` which denote ASS override tags,
-   * normalizes backslashes, and formats line breaks into `\N`.
+   * normalizes stray backslashes while strictly preserving valid ASS line breaks (`\N` and `\n`).
    */
   public static sanitizeAssText(text: string): string {
     if (!text) return '';
     return text
-      .replace(/[\r\n]+/g, ' ')
       .replace(/[{}]/g, '') // Strip ASS override command delimiters
-      .replace(/\\/g, '/')  // Normalize backslashes
-      .replace(/\s+/g, ' ')
+      .replace(/[\r\n]+/g, ' ') // Collapse raw unescaped newlines
+      .replace(/\\(?![Nn])/g, '/') // Preserve ASS line breaks (\N or \n), normalize stray backslashes
+      .replace(/[ \t]+/g, ' ')
       .trim();
+  }
+
+  /**
+   * Smart character-balanced line splitting choosing the split index
+   * that minimizes Math.abs(line1Length - line2Length) while respecting maxCharsPerLine.
+   */
+  public static balanceLineSplit(words: string[], maxCharsPerLine = 28): string {
+    return sharedBalanceLineSplit(words, maxCharsPerLine);
+  }
+
+  public static readonly COMMON_STOPWORDS = new Set([
+    'a', 'an', 'the', 'and', 'or', 'but', 'nor', 'at', 'by', 'for', 'from',
+    'in', 'into', 'of', 'off', 'on', 'onto', 'out', 'over', 'to', 'up', 'with',
+    'is', 'am', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
+    'do', 'does', 'did', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him',
+    'her', 'us', 'them', 'my', 'your', 'his', 'its', 'our', 'their', 'this', 'that',
+    'these', 'those', 'what', 'which', 'who', 'whom', 'so', 'just', 'like', 'then',
+  ]);
+
+  /**
+   * Identifies the most impactful word index in a cue for highlight/podcast styles.
+   * Priority:
+   * 1. Tokens containing numbers, currency, or percentages (e.g., "$100", "50%", "2026")
+   * 2. Longest non-stopword token
+   * 3. Falls back to index 0
+   */
+  public static findImpactfulWordIndex(words: string[]): number {
+    if (!words || words.length === 0) return 0;
+
+    // 1. Priority: digits, currency, percent
+    for (let i = 0; i < words.length; i++) {
+      if (/[\d$%€£¥#]/.test(words[i])) {
+        return i;
+      }
+    }
+
+    // 2. Priority: longest non-stopword token with length >= 4
+    let bestIndex = -1;
+    let maxLen = 0;
+    for (let i = 0; i < words.length; i++) {
+      const clean = words[i].replace(/[^\w]/g, '').toLowerCase();
+      if (clean.length >= 4 && !CaptionService.COMMON_STOPWORDS.has(clean)) {
+        if (clean.length > maxLen) {
+          maxLen = clean.length;
+          bestIndex = i;
+        }
+      }
+    }
+
+    if (bestIndex >= 0) return bestIndex;
+
+    // Fallback for non-stopwords with length > 2
+    for (let i = 0; i < words.length; i++) {
+      const clean = words[i].replace(/[^\w]/g, '').toLowerCase();
+      if (clean.length > 2 && !CaptionService.COMMON_STOPWORDS.has(clean)) {
+        if (clean.length > maxLen) {
+          maxLen = clean.length;
+          bestIndex = i;
+        }
+      }
+    }
+
+    return bestIndex >= 0 ? bestIndex : 0;
   }
 
   /**
@@ -171,31 +251,7 @@ export class CaptionService {
    * At any timestamp, normally only ONE caption cue will be active.
    */
   public static enforceZeroOverlap(cues: TimedCaptionCue[]): TimedCaptionCue[] {
-    if (!cues || cues.length <= 1) return cues || [];
-
-    // Sort cues by start timestamp ascending
-    const sorted = [...cues].sort((a, b) => a.start - b.start);
-
-    for (let i = 0; i < sorted.length - 1; i++) {
-      const current = sorted[i];
-      const next = sorted[i + 1];
-
-      // If current cue ends after next cue starts, clamp current.end
-      if (current.end > next.start) {
-        const clampedEnd = Math.max(current.start + 0.05, Number(next.start.toFixed(3)));
-        current.end = clampedEnd;
-
-        // Also clamp the last word's end if words are present
-        if (Array.isArray(current.words) && current.words.length > 0) {
-          const lastWord = current.words[current.words.length - 1];
-          if (lastWord.end > clampedEnd) {
-            lastWord.end = clampedEnd;
-          }
-        }
-      }
-    }
-
-    return sorted;
+    return sharedEnforceZeroOverlap(cues);
   }
 
   /**
@@ -255,6 +311,56 @@ export class CaptionService {
   }
 
   /**
+   * Validates that an array of ASS dialogue event lines do not have overlapping timestamps.
+   */
+  public static validateNoOverlappingDialogueLines(
+    lines: string[],
+    toleranceMs = 20
+  ): { valid: boolean; overlaps: string[] } {
+    const overlaps: string[] = [];
+    const parsed: Array<{ startCs: number; endCs: number; raw: string }> = [];
+
+    for (const line of lines) {
+      if (!line.startsWith('Dialogue:')) continue;
+      const parts = line.split(',');
+      if (parts.length < 3) continue;
+      const startStr = parts[1].trim();
+      const endStr = parts[2].trim();
+
+      const parseCs = (tStr: string): number => {
+        const [h, m, sWithCs] = tStr.split(':');
+        const [s, cs] = (sWithCs || '0.0').split('.');
+        return (
+          Number(h || 0) * 360000 +
+          Number(m || 0) * 6000 +
+          Number(s || 0) * 100 +
+          Number(cs || 0)
+        );
+      };
+
+      const startCs = parseCs(startStr);
+      const endCs = parseCs(endStr);
+      parsed.push({ startCs, endCs, raw: line });
+    }
+
+    const toleranceCs = Math.round(toleranceMs / 10);
+    for (let i = 0; i < parsed.length - 1; i++) {
+      const cur = parsed[i];
+      const next = parsed[i + 1];
+      if (cur.endCs - next.startCs > toleranceCs) {
+        overlaps.push(
+          `Overlap of ${(cur.endCs - next.startCs) * 10}ms between:\n  "${cur.raw}"\n  "${next.raw}"`
+        );
+      }
+    }
+
+    return {
+      valid: overlaps.length === 0,
+      overlaps,
+    };
+  }
+
+  /**
    * Groups timed words into short, human-friendly caption cues (default 3–5 words).
    * Natural break triggers:
    * - Max words per cue reached (default 4)
@@ -270,75 +376,7 @@ export class CaptionService {
     maxCharsPerLine = 28,
     pauseBreak = 0.45
   ): TimedCaptionCue[] {
-    if (!tokens || tokens.length === 0) return [];
-
-    const cues: TimedCaptionCue[] = [];
-    let currentWords: TimedCaptionToken[] = [];
-    const safeMaxWords = Math.min(6, Math.max(2, maxWords));
-    const totalMaxChars = maxCharsPerLine * maxLines;
-
-    const flush = () => {
-      if (currentWords.length === 0) return;
-      const start = currentWords[0].start;
-      const end = currentWords[currentWords.length - 1].end;
-      const rawText = currentWords.map((t) => t.text).join(' ');
-
-      // Split into 2 lines if exceeds single line character threshold
-      let formattedText = rawText;
-      if (maxLines > 1 && rawText.length > maxCharsPerLine && currentWords.length >= 2) {
-        const midIndex = Math.ceil(currentWords.length / 2);
-        const line1 = currentWords.slice(0, midIndex).map((t) => t.text).join(' ');
-        const line2 = currentWords.slice(midIndex).map((t) => t.text).join(' ');
-        formattedText = `${line1}\\N${line2}`;
-      }
-
-      if (end > start) {
-        const wordsCopy = currentWords.map((w) => ({ ...w }));
-        cues.push({
-          id: `cue-${cues.length + 1}`,
-          start: Number(start.toFixed(3)),
-          end: Number(end.toFixed(3)),
-          text: formattedText,
-          words: wordsCopy,
-          tokens: wordsCopy, // backward-compatibility alias
-        });
-      }
-      currentWords = [];
-    };
-
-    for (let i = 0; i < tokens.length; i++) {
-      const tok = tokens[i];
-      const prevTok = currentWords[currentWords.length - 1];
-
-      // Check timing gap (>pauseBreak second pause indicates natural pause in speech)
-      const hasPause = prevTok && tok.start - prevTok.end > pauseBreak;
-
-      // Check punctuation at end of previous word
-      const prevHasPunctuation = prevTok && /[.!?,;:]$/.test(prevTok.text);
-
-      // Check word count
-      const wouldExceedWords = currentWords.length >= safeMaxWords;
-
-      // Check character count
-      const currentText = currentWords.map((t) => t.text).join(' ');
-      const wouldExceedChars = (currentText + ' ' + tok.text).length > totalMaxChars;
-
-      // Check duration limit (avoid cues lasting longer than 3.2 seconds)
-      const wouldExceedDuration =
-        currentWords.length > 0 && tok.end - currentWords[0].start > 3.2;
-
-      if (
-        currentWords.length > 0 &&
-        (hasPause || prevHasPunctuation || wouldExceedWords || wouldExceedChars || wouldExceedDuration)
-      ) {
-        flush();
-      }
-
-      currentWords.push(tok);
-    }
-
-    flush();
-    return this.enforceZeroOverlap(cues);
+    return groupWordsIntoCues(tokens, maxWords, maxLines, maxCharsPerLine, pauseBreak);
   }
 
   /**
@@ -365,6 +403,7 @@ export class CaptionService {
 
     const maxWords = captionConfig?.maxWordsPerCue || 4;
     const maxLines = captionConfig?.maxLines || 2;
+    const maxCharsPerLine = captionConfig?.maxCharsPerLine || 28;
     const isUppercase = Boolean(captionConfig?.uppercase);
 
     // 1. Check if word-level timestamps are present
@@ -405,7 +444,8 @@ export class CaptionService {
       }
 
       if (candidateTokens.length > 0) {
-        let cues = this.groupIntoCues(candidateTokens, maxWords, maxLines);
+        candidateTokens.sort((a, b) => a.start - b.start || a.end - b.end);
+        let cues = this.groupIntoCues(candidateTokens, maxWords, maxLines, maxCharsPerLine);
 
         // Apply manual text overrides if any
         cues = this.applyOverrides(cues, captionConfig?.caption_overrides);
@@ -439,12 +479,11 @@ export class CaptionService {
             segText = segText.toUpperCase();
           }
 
-          // Format clean 2-line break if long
+          // Format clean 2-line break if long using balanced line splitting
           const words = segText.split(/\s+/).filter(Boolean);
           let displayText = segText;
           if (words.length > 7 && maxLines > 1) {
-            const midpoint = Math.ceil(words.length / 2);
-            displayText = `${words.slice(0, midpoint).join(' ')}\\N${words.slice(midpoint).join(' ')}`;
+            displayText = this.balanceLineSplit(words, maxCharsPerLine);
           }
 
           cues.push({
@@ -470,30 +509,344 @@ export class CaptionService {
   }
 
   /**
-   * Applies manual text corrections without mutating canonical transcript
+   * Applies manual text corrections without mutating canonical transcript.
+   * Synchronizes cue.words and cue.tokens with the overridden text, preserving timestamps
+   * when word counts match, and proportionally redistributing timestamps weighted by character
+   * length when word counts change.
    */
-  private static applyOverrides(
-    cues: TimedCaptionCue[],
-    overrides?: Array<{ cueId: string; text: string }>
-  ): TimedCaptionCue[] {
-    if (!overrides || overrides.length === 0) return cues;
+  public static applyOverrides(
+    cues: any[],
+    overrides?: Array<{ cueId: string; text: string }> | Record<string, string>
+  ): any[] {
+    if (!overrides) return cues;
 
     const overrideMap = new Map<string, string>();
-    for (const o of overrides) {
-      if (o.cueId && typeof o.text === 'string') {
-        overrideMap.set(o.cueId, o.text.trim());
+    if (Array.isArray(overrides)) {
+      for (const o of overrides) {
+        const id = o.cueId || (o as any).id;
+        if (o && id && typeof o.text === 'string') {
+          overrideMap.set(String(id), o.text.trim());
+        }
+      }
+    } else if (typeof overrides === 'object') {
+      for (const [key, val] of Object.entries(overrides)) {
+        if (typeof val === 'string') {
+          overrideMap.set(String(key), val.trim());
+        }
       }
     }
 
-    return cues.map((cue) => {
-      if (overrideMap.has(cue.id)) {
-        return {
+    if (overrideMap.size === 0) return cues;
+
+    return cues.map((cue, idx) => {
+      const matchKey =
+        cue.id && overrideMap.has(cue.id)
+          ? cue.id
+          : overrideMap.has(String(idx))
+          ? String(idx)
+          : null;
+
+      if (matchKey) {
+        const newText = overrideMap.get(matchKey)!;
+        const resultCue = {
           ...cue,
-          text: overrideMap.get(cue.id)!,
+          text: newText,
         };
+
+        if (Array.isArray(cue.words) && cue.words.length > 0) {
+          // Extract word tokens from overridden text (ignoring \N for tokenization)
+          const newWordTokens = newText
+            .split(/\\N|\s+/)
+            .map((w) => w.trim())
+            .filter(Boolean);
+
+          if (newWordTokens.length === cue.words.length) {
+            // Same word count: update text in place, preserving exact timestamps
+            const updatedWords = cue.words.map((w: any, wIdx: number) => ({
+              ...w,
+              word: newWordTokens[wIdx],
+              text: newWordTokens[wIdx],
+            }));
+            resultCue.words = updatedWords;
+            resultCue.tokens = updatedWords;
+          } else if (newWordTokens.length > 0) {
+            // Word count changed: proportionally redistribute cue [start, end] window weighted by character length
+            const totalChars = newWordTokens.reduce((sum, w) => sum + Math.max(1, w.length), 0);
+            const cueDuration = Math.max(0.05, cue.end - cue.start);
+            let currentStart = cue.start;
+
+            const redistributed = newWordTokens.map((wText, wIdx) => {
+              const isLast = wIdx === newWordTokens.length - 1;
+              const weight = Math.max(1, wText.length) / totalChars;
+              const dur = isLast
+                ? Math.max(0.02, cue.end - currentStart)
+                : Math.max(0.02, Number((cueDuration * weight).toFixed(3)));
+              const wEnd = isLast ? cue.end : Number(Math.min(cue.end, currentStart + dur).toFixed(3));
+              const token = {
+                word: wText,
+                text: wText,
+                start: Number(currentStart.toFixed(3)),
+                end: Number(wEnd.toFixed(3)),
+              };
+              currentStart = wEnd;
+              return token;
+            });
+
+            resultCue.words = redistributed;
+            resultCue.tokens = redistributed;
+          }
+        }
+
+        return resultCue;
       }
       return cue;
     });
+  }
+
+  /**
+   * Resolves the gallery preset for a clip's caption settings, or null for legacy styles.
+   * Unknown/invalid preset data falls back safely inside resolveCaptionPreset.
+   */
+  public static resolveClipPreset(
+    style: unknown,
+    config: CaptionConfig | undefined | null,
+    aspectRatio: ClipAspectRatio = '9:16'
+  ): ResolvedCaptionStyle | null {
+    const presetId = resolveRenderPresetId(style, config);
+    if (!presetId) return null;
+    return resolveCaptionPreset(presetId, config?.presetOverrides, aspectRatio);
+  }
+
+  /**
+   * Extracts clip-local cues using the clip's caption settings. For preset styles the
+   * grouping, casing and line-breaking rules come from the preset, exactly as the editor
+   * preview regroups them (regroupCuesForPreset).
+   */
+  public static extractCuesForClipSettings(
+    transcript: { segments?: any[]; words?: any[] },
+    clip: Pick<ClipRecord, 'start_seconds' | 'end_seconds' | 'trim_start_offset' | 'trim_end_offset' | 'caption_style' | 'caption_config' | 'aspect_ratio'> & { caption_overrides?: any },
+    aspectRatio: ClipAspectRatio = (clip.aspect_ratio as ClipAspectRatio) || '9:16',
+    options: { preserveCase?: boolean } = {}
+  ): { timingMode: CaptionTimingMode; cues: TimedCaptionCue[]; preset: ResolvedCaptionStyle | null } {
+    const baseConfig: CaptionConfig = {
+      ...(clip.caption_config || {}),
+      caption_overrides: clip.caption_config?.caption_overrides || clip.caption_overrides || [],
+    };
+    const preset = this.resolveClipPreset(clip.caption_style, baseConfig, aspectRatio);
+    const effectiveConfig: CaptionConfig = preset
+      ? {
+          ...baseConfig,
+          maxWordsPerCue: preset.maxWordsPerCue,
+          maxLines: preset.maxLines,
+          maxCharsPerLine: preset.maxCharsPerLine,
+          // Editor preview re-applies casing itself when regrouping (regroupCuesForPreset)
+          uppercase: options.preserveCase ? false : preset.uppercase,
+        }
+      : baseConfig;
+
+    const { timingMode, cues } = this.extractClipCues(
+      transcript,
+      clip.start_seconds,
+      clip.end_seconds,
+      Number(clip.trim_start_offset || 0),
+      Number(clip.trim_end_offset || 0),
+      effectiveConfig
+    );
+
+    if (preset && timingMode === 'segment' && !options.preserveCase) {
+      return { timingMode, cues: cues.map((c) => ({ ...c, text: formatSegmentCueText(c.text, preset) })), preset };
+    }
+    return { timingMode, cues, preset };
+  }
+
+  /**
+   * Generates sequential, strictly non-overlapping ASS dialogue events for a single cue
+   * in kinetic word-pop mode.
+   *
+   * Highlights the active word with secondaryColour (and subtle pop scale)
+   * while rendering remaining words in primaryColour at 100% scale.
+   * Preserves line-breaks (\N) from cue.text.
+   */
+  public static buildKineticCueEvents(
+    cue: TimedCaptionCue,
+    options: KineticCueParams
+  ): string[] {
+    const {
+      primaryColour,
+      secondaryColour,
+      animation = 'word_pop',
+      activeWordScale = 1.12,
+    } = options;
+
+    const rawWords = Array.isArray(cue.words) ? cue.words : [];
+
+    // Filter, sanitize, and validate words
+    const validWords = rawWords
+      .filter(
+        (w): w is TimedCaptionToken =>
+          Boolean(w) &&
+          typeof (w.text ?? (w as any).word) === 'string' &&
+          String(w.text ?? (w as any).word).trim().length > 0 &&
+          typeof w.start === 'number' &&
+          typeof w.end === 'number' &&
+          Number.isFinite(w.start) &&
+          Number.isFinite(w.end) &&
+          w.end >= w.start
+      )
+      .map((w) => {
+        const start = Number(w.start.toFixed(3));
+        const rawEnd = Number(w.end.toFixed(3));
+        const end = rawEnd > start ? rawEnd : Number((start + 0.05).toFixed(3));
+        return {
+          text: this.sanitizeAssText(String(w.text ?? (w as any).word)),
+          start,
+          end,
+        };
+      })
+      .filter((w) => w.text.length > 0 && w.end > w.start)
+      .sort((a, b) => a.start - b.start || a.end - b.end);
+
+    if (validWords.length === 0) {
+      return [];
+    }
+
+    // Determine line break position if cue.text had \N
+    let lineBreakIndex = -1;
+    if (cue.text && cue.text.includes('\\N')) {
+      const parts = cue.text.split('\\N');
+      const line1Words = parts[0].trim().split(/\s+/).filter(Boolean);
+      if (line1Words.length > 0 && line1Words.length < validWords.length) {
+        lineBreakIndex = line1Words.length - 1;
+      }
+    }
+
+    const popScale = Math.min(125, Math.max(105, Math.round(activeWordScale * 100)));
+
+    const formatCueText = (activeIdx: number, durationMs: number): string => {
+      const tUp = Math.min(70, Math.max(20, Math.round(durationMs * 0.35)));
+      const tDown = Math.min(140, Math.max(tUp + 20, Math.round(durationMs * 0.7)));
+
+      const popTag =
+        animation === 'none'
+          ? `{\\c${secondaryColour}}`
+          : `{\\t(0,${tUp},0.5,\\fscx${popScale}\\fscy${popScale})\\t(${tUp},${tDown},1.5,\\fscx100\\fscy100)\\c${secondaryColour}}`;
+      const resetTag = `{\\c${primaryColour}\\fscx100\\fscy100}`;
+
+      const formattedWords: string[] = [];
+      for (let i = 0; i < validWords.length; i++) {
+        const wText = validWords[i].text;
+        if (i === activeIdx) {
+          formattedWords.push(`${popTag}${wText}${resetTag}`);
+        } else {
+          formattedWords.push(wText);
+        }
+        if (i === lineBreakIndex) {
+          formattedWords.push('\\N');
+        }
+      }
+
+      let res = '';
+      for (let i = 0; i < formattedWords.length; i++) {
+        const part = formattedWords[i];
+        if (part === '\\N') {
+          res += '\\N';
+        } else if (res.endsWith('\\N') || res.length === 0) {
+          res += part;
+        } else {
+          res += ' ' + part;
+        }
+      }
+      return res;
+    };
+
+    const cueStart = Math.max(0, cue.start);
+    const cueEnd = Math.max(cueStart + 0.05, cue.end);
+
+    const slices: Array<{ start: number; end: number; activeIdx: number }> = [];
+
+    // 1. Initial silence before first word
+    const firstWordStart = Math.max(cueStart, validWords[0].start);
+    if (firstWordStart > cueStart + 0.04) {
+      slices.push({
+        start: cueStart,
+        end: firstWordStart,
+        activeIdx: -1,
+      });
+    }
+
+    // 2. Active word slices
+    for (let i = 0; i < validWords.length; i++) {
+      const cur = validWords[i];
+      const next = validWords[i + 1];
+
+      let wStart = Math.max(cueStart, cur.start);
+      if (slices.length > 0) {
+        wStart = Math.max(slices[slices.length - 1].end, wStart);
+      }
+
+      let wEnd = Math.min(cueEnd, cur.end);
+      if (next) {
+        const nextStart = Math.max(cueStart, next.start);
+        const gap = nextStart - wEnd;
+        if (gap > 0 && gap <= 0.25) {
+          // Small gap: extend active highlight until next word starts to avoid flicker
+          wEnd = nextStart;
+        } else if (gap > 0.25) {
+          // Large gap: keep word end, and later add inactive slice
+          wEnd = Math.min(nextStart - 0.05, wEnd);
+        } else if (nextStart < wEnd) {
+          // Words overlap: clamp current word end to next start
+          wEnd = Math.max(wStart + 0.02, nextStart);
+        }
+      } else {
+        // Last word: if close to cueEnd (within 0.25s), extend to cueEnd
+        if (cueEnd - wEnd <= 0.25) {
+          wEnd = cueEnd;
+        }
+      }
+
+      if (wEnd > wStart + 0.02) {
+        slices.push({
+          start: wStart,
+          end: wEnd,
+          activeIdx: i,
+        });
+
+        // If there was a large gap before next word, add inactive slice
+        if (next && next.start > wEnd + 0.04) {
+          slices.push({
+            start: wEnd,
+            end: Math.min(cueEnd, next.start),
+            activeIdx: -1,
+          });
+        }
+      }
+    }
+
+    // 3. Trailing silence after last slice
+    const lastSlice = slices[slices.length - 1];
+    if (lastSlice && lastSlice.end < cueEnd - 0.04) {
+      slices.push({
+        start: lastSlice.end,
+        end: cueEnd,
+        activeIdx: -1,
+      });
+    }
+
+    const events: string[] = [];
+    for (const s of slices) {
+      const startStr = this.formatAssTime(s.start);
+      const endStr = this.formatAssTime(s.end);
+      if (startStr === endStr) continue;
+
+      const durMs = Math.round((s.end - s.start) * 1000);
+      const lineText = formatCueText(s.activeIdx, durMs);
+      if (lineText.trim()) {
+        events.push(`Dialogue: 0,${startStr},${endStr},Default,,0,0,0,,${lineText}`);
+      }
+    }
+
+    return events;
   }
 
   /**
@@ -508,6 +861,7 @@ export class CaptionService {
       aspectRatio?: ClipAspectRatio;
       customConfig?: CaptionConfig;
       timingMode?: CaptionTimingMode;
+      kinetic?: boolean;
     }
   ): string {
     const {
@@ -516,7 +870,20 @@ export class CaptionService {
       aspectRatio = '9:16',
       customConfig = {},
       timingMode = 'segment',
+      kinetic = false,
     } = options;
+
+    const preset = this.resolveClipPreset(style, customConfig, aspectRatio);
+    if (preset) {
+      return buildPresetAssScript(cues, preset);
+    }
+
+    const isKinetic = Boolean(
+      kinetic ||
+      customConfig.kinetic ||
+      customConfig.animation === 'word_pop' ||
+      (style as string) === 'active_word_pop'
+    );
 
     const playRes = this.getPlayRes(aspectRatio);
     const posConfig = this.getPositionConfig(position, aspectRatio);
@@ -606,11 +973,19 @@ export class CaptionService {
       alignment = alignment === 8 ? 9 : alignment === 5 ? 6 : 3;
     }
 
-    // Fine vertical position (positionY: 0.0 to 1.0)
+    // Fine vertical and horizontal position (positionY, positionX: 0.0 to 1.0)
     let marginV = posConfig.marginV;
     if (customConfig.positionY !== undefined) {
       const posY = Math.min(0.92, Math.max(0.08, Number(customConfig.positionY)));
       marginV = Math.round(playRes.y * (1 - posY));
+    }
+    let marginL = 60;
+    let marginR = 60;
+    if (customConfig.positionX !== undefined) {
+      const posX = Math.min(0.92, Math.max(0.08, Number(customConfig.positionX)));
+      const centerShift = Math.round((posX - 0.5) * playRes.x);
+      marginL = Math.max(0, 60 + centerShift);
+      marginR = Math.max(0, 60 - centerShift);
     }
 
     // 4. Animation tags
@@ -625,13 +1000,56 @@ export class CaptionService {
     // Enforce strict zero overlap across cues
     const cleanCues = this.enforceZeroOverlap(cues);
 
-    // 5. Format Dialogue Events (exactly one dialogue event per cue)
+    // 5. Format Dialogue Events
     const events: string[] = [];
 
     for (const cue of cleanCues) {
       const startStr = this.formatAssTime(cue.start);
       const endStr = this.formatAssTime(cue.end);
       let dialogueText = '';
+
+      let cuePosTag = '';
+      if (cue.position_x !== undefined || cue.position_y !== undefined) {
+        const effX = Math.max(0.08, Math.min(0.92, cue.position_x ?? 0.5));
+        const defaultY =
+          posConfig.alignment === 8
+            ? posConfig.marginV / playRes.y
+            : posConfig.alignment === 5
+            ? 0.5
+            : 1 - marginV / playRes.y;
+        const effY = Math.max(0.08, Math.min(0.92, cue.position_y ?? defaultY));
+        const px = Math.round(effX * playRes.x);
+        const py = Math.round(effY * playRes.y);
+        cuePosTag = `{\\pos(${px},${py})}`;
+      }
+
+      if (isKinetic && timingMode === 'word' && Array.isArray(cue.words) && cue.words.length > 0) {
+        const kineticEvents = this.buildKineticCueEvents(cue, {
+          primaryColour,
+          secondaryColour,
+          animation: customConfig.animation,
+          activeWordScale: customConfig.activeWordScale,
+        });
+
+        if (kineticEvents.length > 0) {
+          if (cuePosTag) {
+            events.push(
+              ...kineticEvents.map((ev) => {
+                const parts = ev.split(',,');
+                if (parts.length >= 2) {
+                  const header = parts.slice(0, -1).join(',,');
+                  const body = parts[parts.length - 1];
+                  return `${header},,${cuePosTag}${body}`;
+                }
+                return ev;
+              })
+            );
+          } else {
+            events.push(...kineticEvents);
+          }
+          continue;
+        }
+      }
 
       if (style === 'karaoke' && timingMode === 'word' && Array.isArray(cue.words) && cue.words.length > 0) {
         // True Karaoke: use real word durations with ASS {\k<duration_cs>}
@@ -643,12 +1061,58 @@ export class CaptionService {
         }
         dialogueText = `${animationTag}${parts.join(' ')}`;
       } else if (style === 'highlight' || style === 'podcast') {
-        // Highlight first word with activeWordColor
-        const words = cue.text.split(' ');
-        if (words.length > 1) {
-          const highlightWord = this.sanitizeAssText(words[0]);
-          const rest = this.sanitizeAssText(words.slice(1).join(' '));
-          dialogueText = `${animationTag}{\\c${secondaryColour}}${highlightWord}{\\c${primaryColour}} ${rest}`;
+        // Tokenize text preserving \N placement
+        const rawTokens = cue.text.split(/\s+/).filter(Boolean);
+        const tokens: string[] = [];
+        for (const tok of rawTokens) {
+          if (tok.includes('\\N')) {
+            const parts = tok.split('\\N');
+            for (let p = 0; p < parts.length; p++) {
+              if (parts[p]) tokens.push(parts[p]);
+              if (p < parts.length - 1) tokens.push('\\N');
+            }
+          } else {
+            tokens.push(tok);
+          }
+        }
+
+        // Identify word indices (excluding \N)
+        const wordIndices: number[] = [];
+        for (let idx = 0; idx < tokens.length; idx++) {
+          if (tokens[idx] !== '\\N') {
+            wordIndices.push(idx);
+          }
+        }
+
+        if (wordIndices.length > 0) {
+          const wordTokens = wordIndices.map((i) => tokens[i]);
+          const chosenRelativeIndex = CaptionService.findImpactfulWordIndex(wordTokens);
+          const chosenTokenIndex = wordIndices[chosenRelativeIndex];
+
+          const formattedParts: string[] = [];
+          for (let i = 0; i < tokens.length; i++) {
+            const t = tokens[i];
+            if (t === '\\N') {
+              formattedParts.push('\\N');
+            } else if (i === chosenTokenIndex) {
+              const safeWord = this.sanitizeAssText(t);
+              formattedParts.push(`{\\c${secondaryColour}}${safeWord}{\\c${primaryColour}}`);
+            } else {
+              formattedParts.push(this.sanitizeAssText(t));
+            }
+          }
+
+          let res = '';
+          for (const p of formattedParts) {
+            if (p === '\\N') {
+              res += '\\N';
+            } else if (res.endsWith('\\N') || res.length === 0) {
+              res += p;
+            } else {
+              res += ' ' + p;
+            }
+          }
+          dialogueText = `${animationTag}${res}`;
         } else {
           dialogueText = `${animationTag}${this.sanitizeAssText(cue.text)}`;
         }
@@ -657,7 +1121,7 @@ export class CaptionService {
       }
 
       if (dialogueText.trim()) {
-        events.push(`Dialogue: 0,${startStr},${endStr},Default,,0,0,0,,${dialogueText}`);
+        events.push(`Dialogue: 0,${startStr},${endStr},Default,,0,0,0,,${cuePosTag}${dialogueText}`);
       }
     }
 
@@ -672,7 +1136,7 @@ export class CaptionService {
       '',
       '[V4+ Styles]',
       'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
-      `Style: Default,${fontName},${fontSize},${primaryColour},${secondaryColour},${outlineColour},${backColour},${bold},0,0,0,100,100,0,0,${borderStyle},${outline},${shadow},${alignment},60,60,${marginV},1`,
+      `Style: Default,${fontName},${fontSize},${primaryColour},${secondaryColour},${outlineColour},${backColour},${bold},0,0,0,100,100,0,0,${borderStyle},${outline},${shadow},${alignment},${marginL},${marginR},${marginV},1`,
       '',
       '[Events]',
       'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
@@ -681,6 +1145,136 @@ export class CaptionService {
     ].join('\n');
 
     return script;
+  }
+
+  /**
+   * Extracts, aggregates, and chronologically orders all active caption cues from an EditorProject.
+   * Handles:
+   * - Single caption item (100% backward compatible)
+   * - Multiple caption items across splits or non-zero timeline offsets
+   * - Translation of segment-relative cue timestamps when an item has timeline_start > 0
+   * - De-duplication where adjacent items share boundaries or copy-pasted cues
+   * - Respects cue styling, presets, and word tokens
+   */
+  public static extractEditorCuesFromProject(proj: any): {
+    cues: TimedCaptionCue[];
+    style?: string;
+    position?: string;
+  } | null {
+    if (!proj || !Array.isArray(proj.tracks)) return null;
+
+    const captionTrack = proj.tracks.find((t: any) => t.type === 'CAPTION' && !t.hidden);
+    if (!captionTrack || !Array.isArray(captionTrack.items)) return null;
+
+    const validItems = captionTrack.items.filter(
+      (item: any) =>
+        !item.hidden &&
+        item.caption &&
+        Array.isArray(item.caption.cues) &&
+        item.caption.cues.length > 0
+    );
+
+    if (validItems.length === 0) return null;
+
+    // Single item fast-path for maximum backward compatibility
+    if (validItems.length === 1) {
+      const item = validItems[0];
+      const itemStart = typeof item.timeline_start === 'number' ? item.timeline_start : 0;
+      const rawCues = item.caption.cues as TimedCaptionCue[];
+
+      // Detect segment-relative timing: if item starts after 0, but cues start near 0
+      const isSegmentRelative =
+        itemStart > 0 &&
+        rawCues.length > 0 &&
+        rawCues[0].start < itemStart - 0.05 &&
+        rawCues[0].start >= 0;
+
+      const finalCues = isSegmentRelative
+        ? rawCues.map((c: any) => ({
+            ...c,
+            start: Number((c.start + itemStart).toFixed(3)),
+            end: Number((c.end + itemStart).toFixed(3)),
+            words: Array.isArray(c.words)
+              ? c.words.map((w: any) => ({
+                  ...w,
+                  start: Number((w.start + itemStart).toFixed(3)),
+                  end: Number((w.end + itemStart).toFixed(3)),
+                }))
+              : c.words,
+          }))
+        : rawCues;
+
+      return {
+        cues: finalCues,
+        style: item.caption.style,
+        position: item.caption.position,
+      };
+    }
+
+    // Multiple caption items: sort chronologically by timeline_start
+    validItems.sort((a: any, b: any) => (a.timeline_start || 0) - (b.timeline_start || 0));
+
+    const aggregatedCues: TimedCaptionCue[] = [];
+    const seenCueIds = new Set<string>();
+    const seenSignatures = new Set<string>();
+
+    for (const item of validItems) {
+      const itemStart = typeof item.timeline_start === 'number' ? item.timeline_start : 0;
+      const itemEnd = typeof item.timeline_end === 'number' ? item.timeline_end : Infinity;
+      const itemCues = item.caption.cues as TimedCaptionCue[];
+
+      // Determine timestamp convention for this item
+      const isSegmentRelative =
+        itemStart > 0 &&
+        itemCues.length > 0 &&
+        itemCues[0].start < itemStart - 0.05 &&
+        itemCues[0].start >= 0;
+
+      for (const rawCue of itemCues) {
+        const cueStart = isSegmentRelative
+          ? Number((rawCue.start + itemStart).toFixed(3))
+          : rawCue.start;
+        const cueEnd = isSegmentRelative
+          ? Number((rawCue.end + itemStart).toFixed(3))
+          : rawCue.end;
+
+        // Skip cues completely outside this item's assigned timeline window
+        if (cueEnd <= itemStart - 0.05 || cueStart >= itemEnd + 0.05) {
+          continue;
+        }
+
+        // De-duplication check: avoid duplicate cues where adjacent items share boundaries
+        const signature = `${cueStart.toFixed(2)}_${cueEnd.toFixed(2)}_${(rawCue.text || '').trim().toLowerCase()}`;
+        if (seenCueIds.has(rawCue.id) || seenSignatures.has(signature)) {
+          continue;
+        }
+        seenCueIds.add(rawCue.id);
+        seenSignatures.add(signature);
+
+        const translatedWords = Array.isArray(rawCue.words)
+          ? rawCue.words.map((w: any) => ({
+              ...w,
+              start: isSegmentRelative ? Number((w.start + itemStart).toFixed(3)) : w.start,
+              end: isSegmentRelative ? Number((w.end + itemStart).toFixed(3)) : w.end,
+            }))
+          : rawCue.words;
+
+        aggregatedCues.push({
+          ...rawCue,
+          start: cueStart,
+          end: cueEnd,
+          words: translatedWords,
+        });
+      }
+    }
+
+    aggregatedCues.sort((a, b) => a.start - b.start);
+
+    return {
+      cues: aggregatedCues,
+      style: validItems[0]?.caption?.style,
+      position: validItems[0]?.caption?.position,
+    };
   }
 
   /**
@@ -695,7 +1289,33 @@ export class CaptionService {
       return { timingMode: 'segment', cues: [], assContent: '' };
     }
 
-    // Load transcript for this project
+    const runGeneration = async (): Promise<CaptionGenerationResult> => {
+      // 1. Check if an EditorProject exists with custom edited/sliced caption cues
+    let editorCues: TimedCaptionCue[] | null = null;
+    let editorStyle: string | null = null;
+    let editorPosition: string | null = null;
+
+    try {
+      const { data: proj } = await dataRepository
+        .from('editor_projects')
+        .select('*')
+        .eq('clip_id', clip.id)
+        .eq('user_id', clip.user_id)
+        .maybeSingle();
+
+      if (proj && Array.isArray(proj.tracks)) {
+        const extracted = CaptionService.extractEditorCuesFromProject(proj);
+        if (extracted && extracted.cues.length > 0) {
+          editorCues = extracted.cues;
+          editorStyle = extracted.style || null;
+          editorPosition = extracted.position || null;
+        }
+      }
+    } catch (err: any) {
+      logger.warn(`Error checking EditorProject captions for clip ${clip.id}: ${err.message}`);
+    }
+
+    // 2. Load transcript for this project if needed
     const { data: transcript, error: transErr } = await dataRepository
       .from('transcripts')
       .select('*')
@@ -703,35 +1323,52 @@ export class CaptionService {
       .eq('user_id', clip.user_id)
       .maybeSingle();
 
-    if (transErr || !transcript) {
+    if (!editorCues && (transErr || !transcript)) {
       logger.warn(`No transcript found for clip ${clip.id}, rendering without burned captions.`);
       return { timingMode: 'segment', cues: [], assContent: '' };
     }
-
-    const trimStart = Number(clip.trim_start_offset || 0);
-    const trimEnd = Number(clip.trim_end_offset || 0);
 
     const mergedConfig: CaptionConfig = {
       ...(clip.caption_config || {}),
       caption_overrides: clip.caption_config?.caption_overrides || (clip as any).caption_overrides || [],
     };
 
-    const { timingMode, cues } = this.extractClipCues(
-      transcript,
-      clip.start_seconds,
-      clip.end_seconds,
-      trimStart,
-      trimEnd,
-      mergedConfig
+    let timingMode: CaptionTimingMode = 'segment';
+    let cues: TimedCaptionCue[] = [];
+    let preset: ResolvedCaptionStyle | null = null;
+
+    if (editorCues && editorCues.length > 0) {
+      const effectiveStyle = editorStyle || clip.caption_style;
+      preset = this.resolveClipPreset(effectiveStyle, mergedConfig, targetAspectRatio);
+      const hasWords = editorCues.some((c) => Array.isArray(c.words) && c.words.length > 0);
+      timingMode = hasWords ? 'word' : 'segment';
+      cues = editorCues;
+      if (preset && timingMode === 'segment') {
+        cues = cues.map((c) => ({ ...c, text: formatSegmentCueText(c.text, preset!) }));
+      }
+    } else if (transcript) {
+      const extracted = this.extractCuesForClipSettings(transcript, clip, targetAspectRatio);
+      timingMode = extracted.timingMode;
+      cues = extracted.cues;
+      preset = extracted.preset;
+    }
+
+    const isKinetic = Boolean(
+      mergedConfig.kinetic ||
+      mergedConfig.animation === 'word_pop' ||
+      clip.caption_style === ('active_word_pop' as any)
     );
 
-    const assContent = this.buildAssScript(cues, {
-      style: (clip.caption_style as CaptionStyle) || 'clean',
-      position: (clip.caption_position as CaptionPosition) || 'bottom',
-      aspectRatio: targetAspectRatio,
-      customConfig: mergedConfig,
-      timingMode,
-    });
+    const assContent = preset
+      ? buildPresetAssScript(cues, preset)
+      : this.buildAssScript(cues, {
+          style: (editorStyle as CaptionStyle) || (clip.caption_style as CaptionStyle) || 'clean',
+          position: (editorPosition as CaptionPosition) || (clip.caption_position as CaptionPosition) || 'bottom',
+          aspectRatio: targetAspectRatio,
+          customConfig: mergedConfig,
+          timingMode,
+          kinetic: isKinetic,
+        });
 
     let assFilePath: string | undefined;
     if (outputPath) {
@@ -745,5 +1382,11 @@ export class CaptionService {
       assContent,
       assFilePath,
     };
+  };
+
+  if (clip.user_id && !ownerContext.getStore()) {
+    return ownerContext.run(clip.user_id, runGeneration);
   }
+  return runGeneration();
+}
 }

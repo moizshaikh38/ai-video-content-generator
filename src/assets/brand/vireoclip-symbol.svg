@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 920" role="img" aria-labelledby="title">
+  <title id="title">VireoClip symbol</title>
+  <defs>
+    <linearGradient id="ribbon-right" x1="554" y1="190" x2="459" y2="780" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9B86FF"/>
+      <stop offset=".42" stop-color="#6540F6"/>
+      <stop offset="1" stop-color="#3A18B8"/>
+    </linearGradient>
+    <linearGradient id="ribbon-left" x1="128" y1="90" x2="426" y2="850" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9B3BFF"/>
+      <stop offset=".37" stop-color="#B386FF"/>
+      <stop offset=".73" stop-color="#8245F2"/>
+      <stop offset="1" stop-color="#5223C9"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#ribbon-right)" d="M566 194c-12-4-20 3-17 18l9 69 67 39c22 13 28 33 13 55L469 622c-14 20-27 19-44-2l13 121c9 61 53 68 99 13l286-370c44-57 36-116-23-139L566 194Z"/>
+  <path fill="url(#ribbon-left)" d="M177 62C110 51 58 111 68 179c2 20 8 43 18 66l230 546c29 68 73 88 121 71 29-11 51-35 79-72-38 19-62-4-69-49L333 196c-4-24 9-35 29-23l262 154c-6-13-20-26-41-39L199 75c-7-5-15-10-22-13Z"/>
+</svg>

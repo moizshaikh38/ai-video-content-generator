@@ -38,7 +38,7 @@ export const config = {
   maxVideoBytes: 2 * 1024 * 1024 * 1024, // Direct R2 PUT; processing still needs local disk capacity
   defaultMonthlyQuotaMinutes: parseInt(process.env.DEFAULT_MONTHLY_QUOTA_MINUTES || '15', 10),
   // Development / Test Account Unlimited Processing Entitlement
-  devUnlimitedUserEmail: process.env.DEV_UNLIMITED_USER_EMAIL || 'vertexdigitals07@gmail.com',
+  devUnlimitedUserEmail: process.env.DEV_UNLIMITED_USER_EMAIL || 'vertexdigitals07@gmail.com,moizsh786786@gmail.com',
   // Timeouts (milliseconds)
   transcriptionTimeoutMs: parseInt(process.env.TRANSCRIPTION_TIMEOUT_MS || '120000', 10),
   contentGenerationTimeoutMs: parseInt(process.env.CONTENT_GENERATION_TIMEOUT_MS || '60000', 10),
@@ -98,7 +98,7 @@ export const config = {
   stripePortalConfigurationId: process.env.STRIPE_PORTAL_CONFIGURATION_ID || '',
 
   // Phase 12: Admin / Owner Console Authorization
-  adminEmails: (process.env.ADMIN_EMAILS || 'vertexdigitals07@gmail.com')
+  adminEmails: (process.env.ADMIN_EMAILS || 'vertexdigitals07@gmail.com,moizsh786786@gmail.com')
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean),

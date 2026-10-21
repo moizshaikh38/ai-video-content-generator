@@ -1,5 +1,6 @@
 import { User } from '@supabase/supabase-js';
 import { Request } from 'express';
+import type { CaptionPresetId, CaptionPresetOverrides, WordCustomStyle } from '../shared/captionPresets.js';
 
 // ── Canonical Video Status State Machine ──────────────────────────
 // These are the ONLY valid values for projects.video_status in the database.
@@ -40,6 +41,7 @@ export interface ProjectRecord {
   user_id: string;
   title: string;
   description?: string | null;
+  notes?: string | null;
   video_status: VideoStatus;
   source_type: 'upload' | 'url';
   source_url?: string | null;
@@ -48,6 +50,7 @@ export interface ProjectRecord {
   source_object_key?: string | null;
   duration_seconds?: number | null;
   error_message?: string | null;
+  clip_preferences?: ClipPreferences | null;
   created_at: string;
   updated_at: string;
 }
@@ -116,9 +119,12 @@ export function isValidUUID(value: string): boolean {
 // ── Transcript Types ──────────────────────────────────────────────
 
 export interface TranscriptWord {
+  id?: string;
   word: string;
+  text?: string;
   start: number;
   end: number;
+  confidence?: number;
 }
 
 export interface TranscriptSegment {
@@ -137,6 +143,14 @@ export interface TranscriptRecord {
   duration_seconds: number | null;
   segments: TranscriptSegment[];
   words?: TranscriptWord[];
+  /**
+   * Measured A/V start-PTS delta of the source container (audio stream start_time minus
+   * video stream start_time), in seconds. Diagnostic only: transcript timestamps are already
+   * expressed against the container's zero point, which is the same zero point
+   * ClipRenderService seeks against, so this is never subtracted from caption timings.
+   * Absent on transcripts created before this field existed; treat as 0.
+   */
+  av_start_offset_sec?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -283,6 +297,110 @@ export type ClipCandidateCategory =
   | 'tutorial'
   | 'general';
 
+// ── Content Genre & Preference Intelligence ───────────────────────
+
+export type ContentGenre =
+  | 'podcast_interview'
+  | 'education_tutorial'
+  | 'motivation'
+  | 'business_finance'
+  | 'gaming'
+  | 'sports'
+  | 'news_politics'
+  | 'comedy_entertainment'
+  | 'storytelling'
+  | 'product_marketing'
+  | 'general';
+
+export type ContentGoal =
+  | 'shareable_moments'
+  | 'teach_one_idea'
+  | 'quotes_soundbites'
+  | 'mini_story'
+  | 'custom_instructions';
+
+export type GenreSelectionMode = 'manual' | 'suggested' | 'auto';
+
+export interface GenreSuggestion {
+  genre: ContentGenre;
+  confidence: number; // 0.0 to 1.0
+  reasons: string[];
+  metrics: {
+    wpm: number;
+    ocrDensity: number;
+    faceCount: number;
+    sceneCutRatePerMin: number;
+    silenceRatio: number;
+  };
+}
+
+export interface ClipPreferences {
+  genre: ContentGenre;
+  genreSelectionMode: GenreSelectionMode;
+  suggestedGenre?: ContentGenre;
+  genreConfidence?: number;
+  contentGoal: ContentGoal;
+  preferredDurations: 'auto' | '15-30' | '30-60' | '60-90';
+  aspectRatio: ClipAspectRatio;
+  topicKeywords?: string[];
+  customInstructions?: string;
+  allowInteriorPauseCuts?: boolean;
+  captionStyle?: CaptionStyle;
+  targetClipCount?: number;
+  profileVersion: number;
+}
+
+export interface GenreProfileConfig {
+  genre: ContentGenre;
+  displayName: string;
+  description: string;
+  defaultGoal: ContentGoal;
+  targetDuration: { min: number; max: number; optimal: number };
+  recommendedLayoutMode?: ReframeLayoutMode;
+  captionSafePlacement?: CaptionPosition;
+  naturalLanguageKeywords?: string[];
+  scoringWeights: {
+    hook: number;
+    standalone: number;
+    insight: number;
+    audio: number;
+    visual: number;
+  };
+  reframeConfig: {
+    maxVelocity: number;
+    smoothingAlpha: number;
+    deadZone: number;
+    preferTwoShot: boolean;
+  };
+  producerDefaults: {
+    allowInteriorPauseCuts: boolean;
+    pauseThresholdSec: number;
+    captionStyle: CaptionStyle;
+    punchInClimax: boolean;
+    hookBannerEnabled: boolean;
+  };
+  selectionObjective: string;
+  narrativeArcPrompt: string;
+  editorialSafeguard: string;
+}
+
+export interface AnalyzeClipsOptions {
+  projectId: string;
+  userId: string;
+  customNotes?: string;
+  preferences?: Partial<ClipPreferences>;
+  clipPreferences?: Partial<ClipPreferences>;
+}
+
+export interface ColdOpenConfig {
+  enabled: boolean;
+  start_seconds: number;
+  end_seconds: number;
+  duration_seconds: number;
+  teaser_text?: string;
+  transition_effect?: 'flash' | 'rewind' | 'glitch' | 'whoosh';
+}
+
 export interface ClipCandidate {
   id: string;
   project_id: string;
@@ -299,7 +417,11 @@ export interface ClipCandidate {
   hook: string;
   reason: string;
   category: ClipCandidateCategory | string;
+  genre?: ContentGenre;
+  content_goal?: ContentGoal;
   engagement_score: number;
+
+  cold_open?: ColdOpenConfig | null;
 
   status: ClipCandidateStatus;
 
@@ -312,6 +434,7 @@ export interface ClipCandidate {
 export interface AIClipCandidate {
   start_segment_index: number;
   end_segment_index: number;
+  cold_open_segment_index?: number | null;
 
   title: string;
   hook: string;
@@ -401,6 +524,11 @@ export interface ClipRecord {
   render_version?: number;
   reframe_mode?: 'smart' | 'fallback_center' | 'manual';
   reframe_metadata?: Record<string, any>;
+  background_music?: QuickClipMusicConfig;
+  genre?: ContentGenre;
+  content_goal?: ContentGoal;
+  clip_preferences?: ClipPreferences;
+  cold_open?: ColdOpenConfig | null;
 }
 
 export interface CreateClipDTO {
@@ -410,19 +538,63 @@ export interface CreateClipDTO {
 
 // ── Phase 12: Caption Engine & Focused Clip Editor ───────────────
 
-export type CaptionStyle = 'clean' | 'bold' | 'minimal' | 'podcast' | 'highlight' | 'karaoke';
+export type { CaptionPresetId, CaptionPresetOverrides, WordCustomStyle } from '../shared/captionPresets.js';
+
+/** Legacy styles plus the preset-gallery styles (see shared/captionPresets.ts). */
+export type CaptionStyle =
+  | 'clean'
+  | 'bold'
+  | 'minimal'
+  | 'podcast'
+  | 'highlight'
+  | 'karaoke'
+  | 'deep_diver'
+  | 'youshaei'
+  | 'simple'
+  | 'beasty'
+  | 'mozi'
+  | 'popline'
+  | 'think_media'
+  | 'editorial'
+  | 'bold_highlight'
+  | 'soft_backdrop'
+  | 'compact_creator'
+  | 'two_color_highlight'
+  | 'vireo_oneword'
+  | 'vireo_pill'
+  | 'vireo_lime'
+  | 'vireo_hormozi'
+  | 'vireo_clean'
+  | 'vireo_spring'
+  | 'vireo_neon'
+  | 'vireo_capsule'
+  | 'vireo_editorial'
+  | 'vireo_sweep';
 export type CaptionPosition = 'top' | 'center' | 'bottom';
 export type CaptionTimingMode = 'word' | 'segment';
 
 export type CropMode = 'center' | 'manual' | 'smart';
+export type ReframeLayoutMode = 'track' | 'split' | 'screencast' | 'blur';
 
 export interface CropConfig {
   mode?: CropMode;
+  layout_mode?: ReframeLayoutMode;
   focusX?: number; // 0 to 1, default 0.5 (center)
   focusY?: number; // 0 to 1, default 0.5 (center)
   smart?: {
     trackId?: string;
     strength?: number;
+  };
+  split?: {
+    speaker1X?: number;
+    speaker2X?: number;
+    dividerColor?: string;
+  };
+  screencast?: {
+    mode?: 'split_stacked' | 'circular_inset' | 'rounded_card_inset';
+    insetPosition?: 'bottom_right' | 'bottom_left' | 'top_right' | 'top_left';
+    insetDiameter?: number;
+    screenRatio?: number;
   };
 }
 
@@ -490,9 +662,16 @@ export interface CaptionConfig {
   // Cue chunk sizing
   maxWordsPerCue?: number; // 2, 3, 4, 5, 6 (default 4)
   maxLines?: number; // 1 or 2 (default 2)
+  maxCharsPerLine?: number; // line-break budget (default 28)
+
+  // Preset gallery: stable preset ID + sanitized user adjustments layered on top of it
+  presetId?: CaptionPresetId;
+  presetOverrides?: CaptionPresetOverrides;
 
   // Animation
   animation?: CaptionAnimation;
+  kinetic?: boolean;
+  activeWordScale?: number;
 
   // Manual cue text corrections
   caption_overrides?: CaptionCueOverride[];
@@ -500,8 +679,11 @@ export interface CaptionConfig {
 
 export interface TimedCaptionToken {
   text: string;
+  word?: string;
   start: number; // local to clip (seconds)
   end: number;   // local to clip (seconds)
+  confidence?: number;
+  customStyle?: WordCustomStyle;
 }
 
 export interface TimedCaptionCue {
@@ -511,6 +693,10 @@ export interface TimedCaptionCue {
   text: string;
   words?: TimedCaptionToken[];
   tokens?: TimedCaptionToken[];
+  position_x?: number;
+  position_y?: number;
+  presetOverride?: CaptionPresetId;
+  styleOverrides?: CaptionPresetOverrides;
 }
 
 export interface ClipEditorUpdateDTO {
@@ -525,6 +711,21 @@ export interface ClipEditorUpdateDTO {
   overlayConfig?: OverlayConfig;
   volume?: number;
   muted?: boolean;
+  backgroundMusic?: QuickClipMusicConfig | null;
+}
+
+export interface QuickClipMusicConfig {
+  enabled?: boolean;
+  track_id?: string;
+  source_path?: string;
+  storage_path?: string;
+  volume?: number; // 0.0 to 2.0 (default 0.25)
+  ducking_enabled?: boolean; // default true
+  ducking_preset?: AudioDuckingPreset; // 'subtle' | 'balanced' | 'strong' | 'custom'
+  ducking_config?: AudioDuckingConfig;
+  fade_in?: number; // default 0.2
+  fade_out?: number; // default 0.5
+  loop?: boolean; // default true
 }
 
 // ── Phase 13: Smart Auto-Reframe + Face Tracking ─────────────────
@@ -539,6 +740,7 @@ export interface NormalizedFaceDetection {
   confidence: number;
   track_id?: string;
   area?: number;
+  mouth_score?: number;
 }
 
 export interface ReframeSample {
@@ -564,6 +766,7 @@ export interface ReframeTrackRecord {
   source_height: number | null;
   detected_face_count: number;
   dominant_track_id: string | null;
+  layout_mode?: ReframeLayoutMode;
   raw_samples: ReframeSample[];
   smoothed_keyframes: ReframeKeyframe[];
   metadata: Record<string, any>;
@@ -1268,9 +1471,53 @@ export const PRODUCER_OPERATION_TYPES: readonly ProducerOperationType[] = [
   'PUNCH_IN',
 ] as const;
 
+// ── Word-Anchored Semantic Timeline (Phase 5) ────────────────────
+export type AnchorDockingBehavior =
+  | 'lock_to_word_start'
+  | 'lock_to_word_end'
+  | 'span_words'
+  | 'floating';
+
+export type OnAnchorDeletedAction =
+  | 'delete_with_word'
+  | 'attach_to_next'
+  | 'attach_to_previous'
+  | 'convert_to_floating';
+
+export interface WordAnchor {
+  anchorWordId: string;
+  offsetMs?: number;
+  dockingBehavior: AnchorDockingBehavior;
+  endWordId?: string;
+  endOffsetMs?: number;
+  durationMs?: number;
+  onAnchorDeleted?: OnAnchorDeletedAction;
+}
+
+export interface AnchoredTimelineItem {
+  id: string;
+  type: 'broll' | 'hook' | 'sfx' | 'text_overlay' | 'caption' | 'sticker' | string;
+  anchor?: WordAnchor;
+  fallbackStartSec?: number;
+  fallbackEndSec?: number;
+  metadata?: Record<string, any>;
+}
+
+export interface ResolvedTimelineItem {
+  id: string;
+  type: string;
+  startSec: number;
+  endSec: number;
+  isFloating: boolean;
+  anchorWordId?: string;
+  endWordId?: string;
+  warning?: string;
+}
+
 export interface ProducerOperationParameters {
   start_sec?: number;
   end_sec?: number;
+  anchor?: WordAnchor;
   cut_ranges?: Array<{ start: number; end: number; duration: number }>;
   aspect_ratio?: ClipAspectRatio;
   crop_mode?: CropMode;
@@ -1583,10 +1830,31 @@ export interface EditorCaptionItem {
   cues: TimedCaptionCue[];
   style: CaptionStyle;
   position: CaptionPosition;
+  position_x?: number; // normalized 0.0 to 1.0 (default 0.5)
+  position_y?: number; // normalized 0.0 to 1.0 (default ~0.75 for bottom)
   highlight_color: string;
   primary_color: string;
   animation?: 'none' | 'pop' | 'bounce' | 'karaoke' | 'highlight' | 'typewriter';
+  animation_scale?: number;
   emphasis_words?: string[];
+  font_family?: string;
+  font_size?: number;
+  font_weight?: 'regular' | 'bold' | 'black' | number;
+  uppercase?: boolean;
+  letter_spacing?: number;
+  alignment?: 'left' | 'center' | 'right';
+  stroke_color?: string;
+  stroke_width?: number;
+  shadow_enabled?: boolean;
+  shadow_blur?: number;
+  shadow_depth?: number;
+  shadow_color?: string;
+  shadow_opacity?: number;
+  box_enabled?: boolean;
+  box_color?: string;
+  box_opacity?: number;
+  box_padding?: number;
+  max_lines?: 1 | 2;
 }
 
 export interface EditorAudioConfig {
@@ -1609,6 +1877,7 @@ export interface EditorTrackItem {
   id: string;
   track_id: string;
   type: EditorTrackType;
+  name?: string;
   source_asset_id?: string | null;
   source_path?: string | null;
   timeline_start: number; // seconds on master timeline
@@ -1629,6 +1898,10 @@ export interface EditorTrackItem {
   audio?: EditorAudioConfig;
   text?: EditorTextConfig;
   caption?: EditorCaptionItem;
+  // Intro/outro title card: a full-frame colored card with centered text.
+  is_title_card?: boolean;
+  title_card_text?: string;
+  background_color?: string;
   color?: EditorColorAdjustments;
   filter?: EditorFilter;
   effects: EditorEffect[];
@@ -1918,6 +2191,7 @@ export interface MediaSearchFilter {
   aspect_ratio?: ClipAspectRatio;
   orientation?: 'portrait' | 'landscape' | 'square';
   target_duration?: number;
+  duration?: number;
   min_duration?: number;
   max_duration?: number;
   source_type?: MediaSourceType;
@@ -3399,6 +3673,7 @@ export interface AutopilotRunRecord {
   user_id: string;
   project_id: string;
   clip_id: string;
+  idempotency_key?: string;
   status: AutopilotRunStatus;
   current_step: AutopilotStepName;
   settings: AutopilotSettings;

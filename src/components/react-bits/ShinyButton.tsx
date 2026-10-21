@@ -19,7 +19,7 @@ export const ShinyButton: React.FC<ShinyButtonProps> = ({
   ...props
 }) => {
   const variantStyles = {
-    clay: 'bg-clay text-clay-foreground shadow-clay hover:brightness-105 active:scale-[0.98]',
+    clay: 'bg-clay text-clay-foreground shadow-black/40 hover:brightness-105 active:scale-[0.98]',
     sage: 'bg-sage text-sage-foreground shadow-sage hover:brightness-105 active:scale-[0.98]',
     ink: 'bg-primary text-primary-foreground shadow-ink hover:bg-primary/95 active:scale-[0.98]',
   };

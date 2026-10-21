@@ -1,24 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Plus,
-  ArrowRight,
-  Video,
-  Link2,
-  FolderOpen,
-  CheckCircle2,
-  Clock3,
-  FileText,
-  UploadCloud,
-  History,
-  Sparkles,
-  Zap,
-  TrendingUp,
-} from 'lucide-react';
-import { StatusBadge } from '../components/StatusBadge';
+import { Film, Search, Clock } from 'lucide-react';
+import { HomeClippingWorkflow } from '../components/dashboard/HomeClippingWorkflow';
 import { projectService } from '../services/projectService';
 import { useAuth } from '../context/AuthContext';
-import { useBillingUsage } from '../hooks/useBillingUsage';
+import { useCinematicScrollReveal } from '../hooks/useCinematicScrollReveal';
 import { Project } from '../types';
 
 const activeStatuses = [
@@ -31,338 +17,434 @@ const activeStatuses = [
   'generating',
 ];
 const completeStatuses = ['completed', 'complete', 'transcribed'];
+const failedStatuses = ['failed', 'error'];
+
+export function formatTimeAgo(dateString?: string): string {
+  if (!dateString) return 'Recently';
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  if (isNaN(diffInSeconds) || diffInSeconds < 0) return 'Just now';
+  if (diffInSeconds < 60) return 'Just now';
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) return diffInMinutes === 1 ? '1m ago' : `${diffInMinutes}m ago`;
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return diffInHours === 1 ? '1h ago' : `${diffInHours}h ago`;
+  if (diffInHours < 48) return 'Yesterday';
+  const diffInDays = Math.floor(diffInHours / 24);
+  return `${diffInDays}d ago`;
+}
+
+function formatDuration(seconds?: number | null): string | null {
+  if (!seconds || seconds <= 0) return null;
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+export function getProgressInfo(status: string, numericProgress?: number | null): { stageText: string; isIndeterminate: boolean; percentValue: number | null } {
+  if (typeof numericProgress === 'number' && !isNaN(numericProgress) && numericProgress >= 0 && numericProgress <= 100) {
+    const rounded = Math.round(numericProgress);
+    return {
+      stageText: `${rounded}%`,
+      isIndeterminate: false,
+      percentValue: rounded,
+    };
+  }
+
+  const s = status.toLowerCase();
+  let stageName = 'Processing';
+  if (s === 'uploading') stageName = 'Uploading video';
+  else if (s === 'uploaded' || s === 'queued') stageName = 'Queued for AI';
+  else if (s === 'processing' || s === 'transcribing') stageName = 'Transcribing speech';
+  else if (s === 'analyzing' || s === 'generating') stageName = 'Finding viral clips';
+
+  return {
+    stageText: stageName,
+    isIndeterminate: true,
+    percentValue: null,
+  };
+}
+
+function getProjectThumbnail(p: Project): string | null {
+  if ((p as any).thumbnail_url) return (p as any).thumbnail_url;
+  if (p.source_url) {
+    try {
+      const parsed = new URL(p.source_url);
+      let videoId = '';
+      if (parsed.hostname.includes('youtube.com')) {
+        videoId = parsed.searchParams.get('v') || '';
+        if (!videoId && parsed.pathname.includes('/shorts/')) {
+          videoId = parsed.pathname.split('/shorts/')[1]?.split('/')[0] || '';
+        }
+      } else if (parsed.hostname.includes('youtu.be')) {
+        videoId = parsed.pathname.slice(1).split('/')[0] || '';
+      }
+      if (videoId && /^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+        return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+      }
+    } catch {}
+  }
+  return null;
+}
 
 export const DashboardPage: React.FC = () => {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
+  const pageRef = useRef<HTMLDivElement>(null);
+  const recentProjectsRef = useRef<HTMLElement>(null);
+  useCinematicScrollReveal(pageRef, { threshold: 0.08 });
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const { usage, isLoading: usageLoading, error: usageError } = useBillingUsage();
+  const [projectTab, setProjectTab] = useState<'all' | 'processing' | 'completed' | 'failed'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const load = async () => {
+  const loadProjects = async () => {
     if (!user) return;
     try {
       setError('');
-      setProjects(await projectService.fetchProjects(user.id));
+      const data = await projectService.fetchProjects(user.id);
+      setProjects(data);
     } catch (err: any) {
-      setError(err?.message || 'Unable to load projects.');
+      const msg = err?.message || '';
+      if (!msg.toLowerCase().includes('token') && !msg.toLowerCase().includes('jwt')) {
+        setError(msg || 'Unable to load projects.');
+      } else {
+        setProjects(projectService.getProjects());
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    load();
+    loadProjects();
     const update = () => setProjects(projectService.getProjects());
     window.addEventListener('vireo_project_updated', update);
     return () => window.removeEventListener('vireo_project_updated', update);
   }, [user?.id]);
 
-  const getStatus = (p: Project) => p.video_status || p.status;
-  const complete = projects.filter((p) => completeStatuses.includes(getStatus(p)));
-  const queue = projects.filter((p) => activeStatuses.includes(getStatus(p)));
-  const name =
-    profile?.full_name ||
-    user?.user_metadata?.full_name ||
-    user?.email?.split('@')[0] ||
-    'Creator';
+  // Polling loop when any project is in an active processing status
+  useEffect(() => {
+    const hasActive = projects.some((p) => activeStatuses.includes(getStatus(p)));
+    if (!hasActive || !user) return;
+    const interval = setInterval(() => {
+      loadProjects();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [projects, user?.id]);
 
-  const stats = [
-    { label: 'Total Projects', value: projects.length, icon: FolderOpen, tone: 'green' },
-    { label: 'Completed', value: complete.length, icon: CheckCircle2, tone: 'green' },
-    { label: 'In Progress', value: queue.length, icon: Clock3, tone: 'orange' },
-    {
-      label: 'Transcripts Ready',
-      value: projects.filter((p) => completeStatuses.includes(getStatus(p))).length,
-      icon: FileText,
-      tone: 'purple',
-    },
-  ];
+  const scrollToRecentProjects = () => {
+    recentProjectsRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const getStatus = (p: Project) => p.video_status || p.status;
+
+  const filteredProjects = projects.filter((p) => {
+    const s = getStatus(p);
+    let matchesTab = true;
+    if (projectTab === 'processing') matchesTab = activeStatuses.includes(s);
+    else if (projectTab === 'completed') matchesTab = completeStatuses.includes(s);
+    else if (projectTab === 'failed') matchesTab = failedStatuses.includes(s);
+    if (!matchesTab) return false;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      const titleMatch = (p.title || '').toLowerCase().includes(q);
+      const genreMatch = (p.clip_preferences?.genre || '').toLowerCase().includes(q);
+      return titleMatch || genreMatch;
+    }
+    return true;
+  });
+
+  const processingCount = projects.filter((p) => activeStatuses.includes(getStatus(p))).length;
+  const completedCount = projects.filter((p) => completeStatuses.includes(getStatus(p))).length;
+  const failedCount = projects.filter((p) => failedStatuses.includes(getStatus(p))).length;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold text-vireo-green">Creator workspace</p>
-          <h1 className="mt-1 font-display text-4xl font-semibold tracking-tight">
-            Welcome back, {name.split(' ')[0]}.
-          </h1>
-          <p className="mt-2 text-muted-foreground">Turn one video into content for every channel.</p>
-        </div>
-        <Link
-          to="/projects/new"
-          className="inline-flex items-center gap-2 rounded-xl bg-clay px-5 py-3 text-sm font-semibold text-white shadow-clay hover:bg-[#c93f1e]"
-        >
-          <Plus className="size-4" /> Clip a Video
-        </Link>
-      </div>
+    <div ref={pageRef} className="space-y-12 sm:space-y-16">
+      {/* 1. MAIN HERO & COMPLETE VIDEO CLIPPING WORKFLOW */}
+      <HomeClippingWorkflow
+        existingProjects={projects}
+        onRefreshProjects={loadProjects}
+        onScrollToProjects={scrollToRecentProjects}
+      />
 
+      {/* Error Banner */}
       {error && (
         <div
           role="alert"
-          className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"
+          className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs sm:text-sm text-rose-300 flex items-center justify-between"
         >
-          {error}{' '}
-          <button onClick={load} className="ml-2 font-semibold underline">
+          <span>{error}</span>
+          <button
+            onClick={loadProjects}
+            className="font-semibold underline hover:text-white ml-3 cursor-pointer"
+          >
             Retry
           </button>
         </div>
       )}
 
-      {/* Quota Usage Card */}
-      <div className="rounded-2xl border border-border bg-white p-5 shadow-soft">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-vireo-green font-mono">
-              <Zap className="size-3.5" />
-              <span>
-                Monthly Processing {usage?.is_unlimited ? '(UNLIMITED TEST PLAN)' : usage?.plan_tier ? `(${usage.plan_tier.toUpperCase()} TIER)` : ''}
-              </span>
-            </div>
+      {/* 2. RECENT PROJECTS SECTION */}
+      <section ref={recentProjectsRef} aria-label="Recent projects" className="space-y-4 pt-4 sm:pt-6">
+        {/* Section Header */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg sm:text-xl font-bold font-['Sora',sans-serif] text-[#F4F6FB]">
+            Recent projects
+          </h2>
 
-            {usageLoading ? (
-              <div className="h-8 w-48 animate-pulse rounded bg-cream/70 mt-1" />
-            ) : usage ? (
-              usage.is_unlimited ? (
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className="font-display text-2xl font-bold text-foreground sm:text-3xl">
-                    Unlimited
-                  </span>
-                  <span className="text-sm font-medium text-muted-foreground">
-                    ({usage.total_used_minutes.toFixed(1)} min recorded this cycle)
-                  </span>
-                  <span className="ml-2 rounded-full bg-[#e8f3e9] px-2.5 py-0.5 text-xs font-semibold text-vireo-green font-mono">
-                    ACTIVE
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className="font-display text-2xl font-bold text-foreground sm:text-3xl">
-                    {usage.total_used_minutes.toFixed(1)} / {usage.limit_minutes} min used
-                  </span>
-                  <span className="text-sm font-medium text-muted-foreground">
-                    ({usage.remaining_minutes.toFixed(1)} min remaining)
-                  </span>
-                  <span className="ml-2 rounded-full bg-cream px-2.5 py-0.5 text-xs font-semibold text-clay font-mono">
-                    {Math.min(100, Math.round((usage.total_used_minutes / (usage.limit_minutes || 1)) * 100))}%
-                  </span>
-                </div>
-              )
-            ) : (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="font-semibold text-muted-foreground">Usage unavailable</span>
-                {usageError && <span className="text-xs text-muted-foreground/80">({usageError})</span>}
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3 self-start sm:self-auto">
-            {usage?.reset_date && (
-              <span className="text-xs text-muted-foreground font-mono">
-                Cycle resets {new Date(usage.reset_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {usage && (
-          <div className="mt-3">
-            <div className="h-2 w-full overflow-hidden rounded-full bg-cream">
-              <div
-                className={`h-full transition-all duration-500 rounded-full ${
-                  usage.is_unlimited
-                    ? 'bg-vireo-green'
-                    : usage.is_quota_exceeded
-                    ? 'bg-destructive'
-                    : (usage.total_used_minutes / (usage.limit_minutes || 1)) > 0.8
-                    ? 'bg-amber-500'
-                    : 'bg-vireo-green'
-                }`}
-                style={{
-                  width: usage.is_unlimited
-                    ? '100%'
-                    : `${Math.min(
-                        100,
-                        Math.max(2, Math.round((usage.total_used_minutes / (usage.limit_minutes || 1)) * 100))
-                      )}%`,
-                }}
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+            {/* Quick Search Input */}
+            <div className="relative">
+              <Search className="size-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search projects..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-8 pl-8 pr-3 text-xs rounded-full bg-white/[0.05] border border-white/[0.09] text-[#F4F6FB] placeholder:text-slate-500 focus:outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10 w-32 sm:w-44 transition-all"
               />
             </div>
-          </div>
-        )}
-      </div>
 
-      {/* Stats */}
-      {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {stats.map((s) => (
-            <div key={s.label} className="h-28 animate-pulse rounded-2xl bg-white" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {stats.map((s) => (
-            <div
-              key={s.label}
-              className="flex items-center gap-4 rounded-2xl border border-border bg-white p-5 shadow-soft"
-            >
-              <span
-                className={`grid size-12 place-items-center rounded-xl ${
-                  s.tone === 'orange'
-                    ? 'bg-[#fff0e9] text-clay'
-                    : s.tone === 'purple'
-                    ? 'bg-[#f1eafd] text-[#7848b2]'
-                    : 'bg-[#e8f3e9] text-vireo-green'
+            {/* Status Tabs with Live Counts */}
+            <div className="flex items-center gap-1 p-1 rounded-full bg-white/[0.04] border border-white/[0.08] text-xs">
+              <button
+                type="button"
+                onClick={() => setProjectTab('all')}
+                className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                  projectTab === 'all'
+                    ? 'bg-[#8B5CF6]/25 text-white font-semibold border border-[#8B5CF6]/40'
+                    : 'text-[#8E9AB4] hover:text-[#F4F6FB]'
                 }`}
               >
-                <s.icon className="size-6" />
-              </span>
-              <div>
-                <p className="text-sm text-muted-foreground">{s.label}</p>
-                <p className="mt-1 text-2xl font-bold">{s.value}</p>
-              </div>
+                All ({projects.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setProjectTab('processing')}
+                className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                  projectTab === 'processing'
+                    ? 'bg-[#8B5CF6]/25 text-white font-semibold border border-[#8B5CF6]/40'
+                    : 'text-[#8E9AB4] hover:text-[#F4F6FB]'
+                }`}
+              >
+                Processing ({processingCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setProjectTab('completed')}
+                className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                  projectTab === 'completed'
+                    ? 'bg-[#8B5CF6]/25 text-white font-semibold border border-[#8B5CF6]/40'
+                    : 'text-[#8E9AB4] hover:text-[#F4F6FB]'
+                }`}
+              >
+                Completed ({completedCount})
+              </button>
+              {failedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setProjectTab('failed')}
+                  className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                    projectTab === 'failed'
+                      ? 'bg-rose-500/25 text-rose-200 font-semibold border border-rose-500/40'
+                      : 'text-[#8E9AB4] hover:text-rose-300'
+                  }`}
+                >
+                  Failed ({failedCount})
+                </button>
+              )}
             </div>
-          ))}
-        </div>
-      )}
 
-      {/* Quick Actions & Processing Queue */}
-      <div className="grid gap-5 xl:grid-cols-[1.55fr_1fr]">
-        <section className="rounded-2xl border border-border bg-white p-5 shadow-soft">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">Quick Actions</h2>
-              <p className="text-sm text-muted-foreground">Pick up where your content starts.</p>
-            </div>
-          </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <Link
-              to="/projects/new"
-              className="rounded-xl border border-[#f6e2d8] bg-[#fff8f5] p-5 hover:border-clay"
-            >
-              <span className="grid size-10 place-items-center rounded-full bg-[#ffebe1] text-clay">
-                <UploadCloud className="size-5" />
-              </span>
-              <h3 className="mt-5 text-sm font-semibold">Upload a video</h3>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Start a fresh content kit</p>
-            </Link>
             <Link
               to="/history"
-              className="rounded-xl border border-[#e3ece5] bg-[#f8fcf8] p-5 hover:border-vireo-green"
+              className="text-xs sm:text-sm font-semibold text-[#A78BFA] hover:text-[#C4B5FD] transition-colors"
             >
-              <span className="grid size-10 place-items-center rounded-full bg-[#e6f2e9] text-vireo-green">
-                <History className="size-5" />
-              </span>
-              <h3 className="mt-5 text-sm font-semibold">View history</h3>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Revisit previous projects</p>
-            </Link>
-            {complete[0] ? (
-              <Link
-                to={`/projects/${complete[0].id}`}
-                className="rounded-xl border border-[#ebe4f4] bg-[#fcf9ff] p-5 hover:border-[#7848b2]"
-              >
-                <span className="grid size-10 place-items-center rounded-full bg-[#f1eafd] text-[#7848b2]">
-                  <FileText className="size-5" />
-                </span>
-                <h3 className="mt-5 text-sm font-semibold">Latest transcript</h3>
-                <p className="mt-1 truncate text-xs text-muted-foreground">{complete[0].title}</p>
-              </Link>
-            ) : (
-              <div className="rounded-xl border border-border bg-cream/50 p-5">
-                <span className="grid size-10 place-items-center rounded-full bg-white text-muted-foreground">
-                  <FileText className="size-5" />
-                </span>
-                <h3 className="mt-5 text-sm font-semibold">Latest transcript</h3>
-                <p className="mt-1 text-xs text-muted-foreground">Available after processing</p>
-              </div>
-            )}
-            <Link
-              to="/analytics"
-              className="rounded-xl border border-[#e3ece5] bg-[#f8fcf8] p-5 hover:border-vireo-green"
-            >
-              <span className="grid size-10 place-items-center rounded-full bg-[#e6f2e9] text-vireo-green">
-                <TrendingUp className="size-5" />
-              </span>
-              <h3 className="mt-5 text-sm font-semibold">Growth Coach</h3>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">View performance & learned patterns</p>
+              View all &rarr;
             </Link>
           </div>
-        </section>
-
-        <section className="rounded-2xl border border-border bg-white p-5 shadow-soft">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Processing Queue</h2>
-            <Link to="/history" className="text-sm font-semibold text-vireo-green">
-              View all <ArrowRight className="inline size-4" />
-            </Link>
-          </div>
-          {queue.length ? (
-            <div className="mt-4 space-y-2">
-              {queue.slice(0, 4).map((p) => (
-                <Link
-                  key={p.id}
-                  to={`/projects/${p.id}`}
-                  className="flex items-center justify-between gap-2 rounded-xl bg-cream/70 p-3 hover:bg-[#e9f2eb]"
-                >
-                  <span className="min-w-0 truncate text-sm font-medium">{p.title}</span>
-                  <StatusBadge status={getStatus(p)} />
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-5 rounded-xl border border-dashed border-border p-8 text-center">
-              <Sparkles className="mx-auto size-6 text-vireo-green" />
-              <p className="mt-2 text-sm font-semibold">All caught up</p>
-              <p className="mt-1 text-xs text-muted-foreground">No videos are processing right now.</p>
-            </div>
-          )}
-        </section>
-      </div>
-
-      {/* Recent Projects */}
-      <section className="rounded-2xl border border-border bg-white p-5 shadow-soft">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Recent Projects</h2>
-          <Link to="/history" className="text-sm font-semibold text-vireo-green">
-            View all <ArrowRight className="inline size-4" />
-          </Link>
         </div>
-        {projects.length ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {projects.slice(0, 4).map((p) => (
-              <Link
-                to={`/projects/${p.id}`}
-                key={p.id}
-                className="rounded-xl border border-border p-4 transition-colors hover:border-vireo-green"
-              >
-                <span className="grid h-28 place-items-center rounded-lg bg-[#eff4ef] text-vireo-green">
-                  {p.source_type === 'url' ? <Link2 className="size-8" /> : <Video className="size-8" />}
-                </span>
-                <h3 className="mt-3 truncate text-sm font-semibold">{p.title}</h3>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {new Date(p.created_at).toLocaleDateString()} · {p.source_type === 'url' ? 'URL' : 'Upload'}
-                </p>
-                <div className="mt-3">
-                  <StatusBadge status={getStatus(p)} />
-                </div>
-              </Link>
+
+        {/* Projects Grid or Honest Empty State */}
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="h-64 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse"
+              />
             ))}
           </div>
-        ) : (
-          <div className="mt-5 rounded-xl border border-dashed border-border py-14 text-center">
-            <Video className="mx-auto size-8 text-vireo-green" />
-            <h3 className="mt-3 font-semibold">Your first project starts here</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Upload a video to create a transcript and a content kit.</p>
-            <Link
-              to="/projects/new"
-              className="mt-5 inline-flex rounded-xl bg-clay px-5 py-2.5 text-sm font-semibold text-white"
-            >
-              Clip Your First Video
-            </Link>
+        ) : filteredProjects.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {filteredProjects.slice(0, 8).map((p, idx) => {
+              const statusStr = getStatus(p);
+              const isComp = completeStatuses.includes(statusStr);
+              const isProc = activeStatuses.includes(statusStr);
+              const isFail = failedStatuses.includes(statusStr);
+              const thumbUrl = getProjectThumbnail(p);
+              const durationFormatted = formatDuration(p.duration_seconds);
+              const genreBadge = p.clip_preferences?.genre;
+              const { stageText, isIndeterminate, percentValue } = getProgressInfo(statusStr, (p as any).progress);
+
+              const gradientClass =
+                idx % 4 === 0
+                  ? 'from-[#4C2FB8] to-[#0F1B2D]'
+                  : idx % 4 === 1
+                  ? 'from-[#0E6F86] to-[#0F1B2D]'
+                  : idx % 4 === 2
+                  ? 'from-[#2A3350] to-[#0F1B2D]'
+                  : 'from-[#6B2B3A] to-[#0F1B2D]';
+
+              return (
+                <article
+                  key={p.id}
+                  className="vireo-dash-glass overflow-hidden rounded-2xl flex flex-col justify-between hover:border-[#8B5CF6]/50 hover:-translate-y-1 transition-all group"
+                >
+                  {/* Thumbnail / Header Area - Clickable to project */}
+                  <Link
+                    to={`/projects/${p.id}`}
+                    aria-label={`Open project ${p.title || 'Untitled'}`}
+                    className={`block h-[132px] p-2.5 relative flex items-end justify-between overflow-hidden cursor-pointer ${
+                      !thumbUrl ? `bg-gradient-to-br ${gradientClass}` : 'bg-black'
+                    }`}
+                  >
+                    {thumbUrl ? (
+                      <img
+                        src={thumbUrl}
+                        alt={p.title || 'Project thumbnail'}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none">
+                        <Film className="size-10 text-white" />
+                      </div>
+                    )}
+
+                    {/* Dark gradient overlay for badge readability */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent pointer-events-none" />
+
+                    {/* Top Overlay Badges: Duration & Genre */}
+                    <div className="absolute top-2 inset-x-2.5 flex items-center justify-between z-10 pointer-events-none">
+                      {durationFormatted ? (
+                        <span className="text-[10px] font-mono tabular-nums px-2 py-0.5 rounded-md bg-black/70 text-slate-200 border border-white/10 flex items-center gap-1 backdrop-blur-sm">
+                          <Clock className="size-2.5 text-slate-400" />
+                          <span>{durationFormatted}</span>
+                        </span>
+                      ) : <span />}
+
+                      {genreBadge ? (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-violet-950/70 text-violet-200 border border-violet-500/30 backdrop-blur-sm truncate max-w-[110px]">
+                          {genreBadge}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {/* Bottom Status Badge */}
+                    <span
+                      className={`relative z-10 text-[11.5px] font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5 backdrop-blur-md ${
+                        isComp
+                          ? 'bg-[#34D399]/20 text-[#6EE7B7] border border-[#34D399]/30'
+                          : isProc
+                          ? 'bg-[#22D3EE]/20 text-[#67E8F9] border border-[#22D3EE]/30 animate-pulse'
+                          : isFail
+                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          : 'bg-white/10 text-[#C9D2E6] border border-white/15'
+                      }`}
+                    >
+                      <span
+                        className={`size-1.5 rounded-full ${
+                          isComp
+                            ? 'bg-[#34D399]'
+                            : isProc
+                            ? 'bg-[#22D3EE]'
+                            : isFail
+                            ? 'bg-rose-400'
+                            : 'bg-white/50'
+                        }`}
+                      />
+                      <span className="capitalize">{statusStr}</span>
+                    </span>
+
+                    {/* Source / Format Badge */}
+                    <span className="relative z-10 text-[11px] font-mono tabular-nums px-2 py-0.5 rounded-full bg-black/60 text-[#C9D2E6] border border-white/10">
+                      {p.source_type === 'url' ? 'URL' : 'MP4'}
+                    </span>
+                  </Link>
+
+                  {/* Body Info */}
+                  <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between">
+                    <div>
+                      <Link
+                        to={`/projects/${p.id}`}
+                        className="font-semibold text-sm text-[#F4F6FB] truncate group-hover:text-white block hover:underline"
+                      >
+                        {p.title || 'Untitled Project'}
+                      </Link>
+                      <p className="text-[12px] text-[#8E9AB4] mt-1">
+                        Updated {formatTimeAgo(p.updated_at || p.created_at)}
+                      </p>
+                    </div>
+
+                    {/* Honest processing progress bar */}
+                    {isProc && (
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between text-[11px] text-[#8E9AB4] mb-1 font-mono">
+                          <span className="flex items-center gap-1.5 text-slate-300">
+                            <span className="size-1.5 rounded-full bg-[#22D3EE] animate-ping" />
+                            {stageText}
+                          </span>
+                          {percentValue !== null && (
+                            <span className="tabular-nums font-semibold text-white">{percentValue}%</span>
+                          )}
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-white/[0.08] overflow-hidden">
+                          {isIndeterminate ? (
+                            <div className="h-full w-full bg-gradient-to-r from-[#8B5CF6] via-[#22D3EE] to-[#8B5CF6] bg-[length:200%_100%] animate-pulse rounded-full" />
+                          ) : (
+                            <div
+                              className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#22D3EE] rounded-full transition-all duration-300"
+                              style={{ width: `${percentValue}%` }}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action Button */}
+                    <Link
+                      to={`/projects/${p.id}`}
+                      className="mt-3.5 inline-flex items-center justify-center h-9 w-full rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.12] text-xs font-semibold text-[#F4F6FB] transition-all cursor-pointer"
+                    >
+                      {isComp ? 'Open project' : isProc ? 'View status' : isFail ? 'View error & retry' : 'Continue'}
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
           </div>
-        )}
+        ) : projects.length > 0 ? (
+          <div className="vireo-dash-glass p-8 text-center rounded-2xl border border-white/10">
+            <p className="text-sm text-[#8E9AB4]">
+              No {projectTab} projects match "{searchQuery}".
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setProjectTab('all');
+                setSearchQuery('');
+              }}
+              className="mt-3 px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/15 text-xs text-white font-medium cursor-pointer"
+            >
+              Reset filters
+            </button>
+          </div>
+        ) : null}
       </section>
     </div>
   );
 };
+export default DashboardPage;

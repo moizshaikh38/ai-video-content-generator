@@ -4,39 +4,97 @@
 
 :root {
   --radius: 1rem;
-  --cream: #FBF8F3;
-  --ink: #152321;
-  --forest: #064A34;
-  --vireo-green: #16744d;
-  --background: var(--cream);
-  --foreground: var(--ink);
-  --card: #FFFFFF;
-  --card-foreground: var(--ink);
-  --popover: #FFFFFF;
-  --popover-foreground: var(--ink);
-  --primary: var(--forest);
-  --primary-foreground: var(--cream);
-  --secondary: #f4f0ea;
-  --secondary-foreground: var(--ink);
-  --muted: #f4f0ea;
-  --muted-foreground: #6e777e;
-  --accent: #e8f2e9;
-  --accent-foreground: var(--ink);
-  --sage: #177b51;
-  --sage-foreground: #FFFFFF;
-  --clay: #df4c26;
-  --clay-foreground: #FFFFFF;
-  --destructive: #B83A30;
-  --destructive-foreground: #FFFFFF;
-  --border: #eae8e3;
-  --input: #dedfdf;
-  --ring: #16744d;
+  
+  /* ─── Non-Auth Workspace Design Tokens (Milestone A) ────────────────────────
+     Obsidian / Graphite Design System for authenticated workspace surfaces */
+  --vc-canvas: #080B12;
+  --vc-surface-1: #0F1420;
+  --vc-surface-2: #151C2C;
+  --vc-surface-3: #1B2438;
+  --vc-border: rgba(255, 255, 255, 0.07);
+  --vc-border-strong: rgba(255, 255, 255, 0.12);
+  --vc-text-primary: #F4F6FB;
+  --vc-text-secondary: #94A3B8;
+  --vc-text-muted: #64748B;
 
-  --shadow-soft: 0 8px 30px rgba(27, 47, 38, 0.035);
-  --shadow-lift: 0 18px 42px rgba(27, 47, 38, 0.09);
-  --shadow-sage: 0 10px 20px rgba(94, 128, 103, 0.32);
-  --shadow-clay: 0 8px 17px rgba(223, 76, 38, 0.15);
-  --shadow-ink: 0 12px 24px rgba(38, 36, 34, 0.25);
+  /* AI signature accent — reserved strictly for genuine AI tools, generation & indicators */
+  --vc-accent-ai: #8B5CF6;
+  --vc-accent-ai-hover: #7C3AED;
+  --vc-accent-secondary: #22D3EE;
+
+  /* Semantic status accents */
+  --vc-success: #10B981;
+  --vc-warning: #F59E0B;
+  --vc-destructive: #EF4444;
+
+  /* Primary neutral action — crisp titanium white with near-black text */
+  --vc-action-primary: #F4F6FB;
+  --vc-action-primary-text: #0B0C0F;
+
+  /* Workspace aliases mapping to vc tokens */
+  --bg-canvas: var(--vc-canvas);
+  --bg-surface-1: var(--vc-surface-1);
+  --bg-surface-2: var(--vc-surface-2);
+  --bg-surface-3: var(--vc-surface-3);
+  --bg-glass: rgba(15, 20, 32, 0.82);
+  --border-subtle: var(--vc-border);
+  --border-highlight: var(--vc-border-strong);
+  --text-primary: var(--vc-text-primary);
+  --text-secondary: var(--vc-text-secondary);
+  --text-muted: var(--vc-text-muted);
+
+  /* AI signature accent */
+  --ai: var(--vc-accent-ai);
+  --ai-hover: var(--vc-accent-ai-hover);
+  --accent-primary: var(--ai);
+  --accent-primary-hover: var(--ai-hover);
+  --accent-secondary: var(--vc-accent-secondary);
+
+  /* Neutral primary action — crisp titanium white with near-black text. */
+  --primary-action: var(--vc-action-primary);
+  --primary-action-foreground: var(--vc-action-primary-text);
+
+  /* Semantic status accents. */
+  --success: var(--vc-success);
+  --warning: var(--vc-warning);
+  --destructive: var(--vc-destructive);
+  --destructive-foreground: #FFFFFF;
+
+  /* Legacy palette backward-compat */
+  --cream: var(--vc-surface-1);
+  --ink: var(--vc-action-primary-text);
+  --sage: var(--vc-success);
+  --sage-foreground: #06251A;
+  --clay: var(--vc-accent-secondary);
+  --clay-foreground: #07252B;
+  --forest: #34D399;
+  --vireo-green: var(--vc-success);
+
+  /* Theme mappings for standard component compatibility */
+  --background: var(--vc-canvas);
+  --foreground: var(--vc-text-primary);
+  --card: var(--vc-surface-1);
+  --card-foreground: var(--vc-text-primary);
+  --popover: var(--vc-surface-2);
+  --popover-foreground: var(--vc-text-primary);
+  --primary: var(--vc-action-primary);
+  --primary-foreground: var(--vc-action-primary-text);
+  --secondary: var(--vc-surface-2);
+  --secondary-foreground: var(--vc-text-primary);
+  --muted: var(--vc-surface-2);
+  --muted-foreground: var(--vc-text-muted);
+  --accent: rgba(139, 92, 246, 0.15);
+  --accent-foreground: var(--vc-text-primary);
+  --border: var(--vc-border);
+  --input: rgba(255, 255, 255, 0.08);
+  --ring: rgba(244, 246, 251, 0.40);
+
+  /* Shadows */
+  --shadow-soft: 0 8px 30px rgba(0, 0, 0, 0.5);
+  --shadow-lift: 0 18px 42px rgba(0, 0, 0, 0.65);
+  --shadow-sage: 0 10px 20px rgba(139, 92, 246, 0.25);
+  --shadow-clay: 0 8px 24px rgba(139, 92, 246, 0.35);
+  --shadow-ink: 0 12px 24px rgba(0, 0, 0, 0.4);
 }
 
 @layer base {
@@ -52,11 +110,130 @@
     padding: 0;
     overflow-x: hidden;
   }
-  h1, h2, h3, h4 {
-    font-family: 'Fraunces', ui-serif, Georgia, serif;
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Sora', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.02em;
   }
   :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 }
+
+.font-mono,
+.timecode,
+.metric {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Spatial glass surfaces — translucent charcoal panels with restrained blur and a thin
+   inner highlight. Token-driven so panels stay consistent instead of each file inventing
+   its own blur/opacity stack. */
+.glass-dock {
+  background-color: color-mix(in srgb, var(--bg-surface-1) 82%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border-left: 1px solid var(--border-subtle);
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.03);
+}
+
+.glass-panel {
+  background-color: color-mix(in srgb, var(--bg-surface-1) 82%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border-right: 1px solid var(--border-subtle);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
+}
+
+.glass-rail {
+  background-color: color-mix(in srgb, var(--bg-surface-1) 70%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-left: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
+}
+
+/* Glass is decorative only — drop it where the device can't composite it cheaply. */
+@media (prefers-reduced-transparency: reduce) {
+  .glass-dock, .glass-panel, .glass-rail {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background-color: var(--bg-surface-1);
+  }
+}
+
+/* ─── Control primitives ──────────────────────────────────────────────────────
+   Styled once here so every native select / range across the editor matches,
+   instead of each panel re-styling its own. Token-driven, no new dependency. */
+
+/* Range sliders: thin neutral track, titanium thumb. */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
+  cursor: pointer;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--primary-action);
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  transition: transform 0.12s ease;
+}
+input[type='range']::-webkit-slider-thumb:hover { transform: scale(1.12); }
+input[type='range']::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--primary-action);
+  border: 1px solid rgba(0, 0, 0, 0.45);
+}
+input[type='range']:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(244, 246, 251, 0.25);
+}
+input[type='range']:disabled { opacity: 0.45; cursor: not-allowed; }
+/* Panels that set their own accent (e.g. audio amber) keep it via `accent-*`. */
+
+/* Selects: drop the OS chrome, use one chevron and a consistent surface.
+   Declared in @layer base so Tailwind utilities (bg-*, text-*) still win — otherwise an
+   unlayered rule here outranks them and the UA's white select background leaks through. */
+@layer base {
+  select {
+    -webkit-appearance: none;
+    appearance: none;
+    background-color: var(--bg-surface-2);
+    color: var(--text-primary);
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    padding-right: 1.75rem;
+  }
+  select:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+  select option { background-color: var(--bg-surface-2); color: var(--text-primary); }
+}
+/* Unlayered on purpose: the chevron occupies this space, so a utility like `px-2` must not
+   shrink it and let the arrow overlap the label. Colours stay overridable above. */
+select { padding-right: 1.75rem; }
+
+/* Thin, unobtrusive scrollbars that only show where content actually scrolls. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.13);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.24); }
+*::-webkit-scrollbar-corner { background: transparent; }
 
 .card-soft {
   background-color: var(--card);
@@ -64,13 +241,50 @@
   box-shadow: var(--shadow-soft);
   border: 1px solid var(--border);
 }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
-.scrollbar-none {
+.scrollbar-none,
+.no-scrollbar {
   scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-.scrollbar-none::-webkit-scrollbar {
+.scrollbar-none::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+@keyframes panelSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-panelSlideIn {
+  animation: panelSlideIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-panelSlideIn {
+    animation: none !important;
+  }
+}
+
+/* ─── Authenticated Non-Auth Workspace Scope ──────────────────────────────────
+   Ensures authenticated layout and page components bind to the Obsidian /
+   Graphite tokens while strictly isolating Login, Signup and auth pages. */
+.vc-app-scope {
+  --background: var(--vc-canvas);
+  --foreground: var(--vc-text-primary);
+  background-color: var(--vc-canvas);
+  color: var(--vc-text-primary);
+}
+
+

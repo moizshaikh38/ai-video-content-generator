@@ -1,13 +1,16 @@
 import { isMongoConfigured } from '../db/mongoClient.js';
-import { dataRepository } from '../db/repositories/dataRepository.js';
+import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { Response } from 'express';
 import { AuthenticatedRequest, isValidUUID, ClipCandidateStatus, ClipAspectRatio, ClipEditorUpdateDTO } from '../types/index.js';
 import { ClipAnalysisService, activeClipAnalysisSet } from '../services/clipAnalysisService.js';
 import { ClipRenderService, isClipRenderActive } from '../services/clipRenderService.js';
 import { CaptionService } from '../services/captionService.js';
+import { WaveformService } from '../services/waveformService.js';
+import { ThumbnailService } from '../services/thumbnailService.js';
 import { SmartReframeService, activeReframeAnalysisSet } from '../services/smartReframeService.js';
 import { ProducerPlanningService } from '../services/producerPlanningService.js';
 import { ProducerRenderService } from '../services/producerRenderService.js';
+import { GenreIntelligenceService } from '../services/genreIntelligenceService.js';
 
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
@@ -46,11 +49,26 @@ export const analyzeProjectClips = async (req: AuthenticatedRequest, res: Respon
 
   try {
     const customNotes = typeof req.body?.customNotes === 'string' ? req.body.customNotes : undefined;
+    const rawPreferences = req.body?.clip_preferences || req.body?.clipPreferences;
+    const normalizedPreferences = rawPreferences
+      ? GenreIntelligenceService.normalizePreferences(rawPreferences, customNotes)
+      : undefined;
+
+    if (normalizedPreferences) {
+      await dataRepository
+        .from('projects')
+        .update({ clip_preferences: normalizedPreferences })
+        .eq('id', projectId)
+        .eq('user_id', userId);
+    }
+
     const clipService = new ClipAnalysisService();
     const candidates = await clipService.analyzeAndPersistClips({
       projectId,
       userId,
       customNotes,
+      preferences: normalizedPreferences,
+      clipPreferences: normalizedPreferences,
     });
 
     res.status(200).json({
@@ -643,6 +661,99 @@ export const getClipEditorData = async (req: AuthenticatedRequest, res: Response
 };
 
 /**
+ * GET /api/clips/:clipId/waveform
+ * Returns normalized audio peaks for the clip's source window (cached, see WaveformService).
+ */
+export const getClipWaveform = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const clipId = req.params.clipId;
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });
+    return;
+  }
+  if (!clipId || !isValidUUID(clipId)) {
+    res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid clip UUID is required.' });
+    return;
+  }
+
+  try {
+    const forceRefresh = req.query.refresh === '1' || req.query.refresh === 'true';
+    const result = await WaveformService.getWaveformForClip(clipId, userId, { forceRefresh });
+    res.status(200).json({ status: 'ok', ...result });
+  } catch (err: any) {
+    const code = err.code || 'INTERNAL_ERROR';
+    const status = code === 'CLIP_NOT_FOUND' ? 404 : code === 'SOURCE_PATH_MISSING' ? 400 : 500;
+    // Waveform is a non-critical visualization; report the failure but keep it distinct
+    // from the editor data load so the client can fall back to a placeholder.
+    res.status(status).json({
+      status: 'error',
+      code,
+      message: err.message || 'Failed to generate clip waveform.',
+    });
+  }
+};
+
+/**
+ * GET /api/audio-assets/:assetId/waveform
+ * Returns normalized audio peaks for an uploaded audio asset (music / SFX), cached by asset.
+ */
+export const getAssetWaveform = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const assetId = req.params.assetId;
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });
+    return;
+  }
+  if (!assetId || !isValidUUID(assetId)) {
+    res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid asset UUID is required.' });
+    return;
+  }
+
+  try {
+    const result = await WaveformService.getWaveformForAsset(assetId, userId);
+    res.status(200).json({ status: 'ok', ...result });
+  } catch (err: any) {
+    const code = err.code || 'INTERNAL_ERROR';
+    res.status(500).json({ status: 'error', code, message: err.message || 'Failed to generate asset waveform.' });
+  }
+};
+
+/**
+ * GET /api/clips/:clipId/thumbnails?count=N
+ * Returns a cached base64 sprite-sheet filmstrip for the clip's source window.
+ */
+export const getClipThumbnails = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const clipId = req.params.clipId;
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });
+    return;
+  }
+  if (!clipId || !isValidUUID(clipId)) {
+    res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid clip UUID is required.' });
+    return;
+  }
+
+  try {
+    const forceRefresh = req.query.refresh === '1' || req.query.refresh === 'true';
+    const count = req.query.count !== undefined ? Number(req.query.count) : undefined;
+    const result = await ThumbnailService.getThumbnailsForClip(clipId, userId, { count, forceRefresh });
+    res.status(200).json({ status: 'ok', ...result });
+  } catch (err: any) {
+    const code = err.code || 'INTERNAL_ERROR';
+    const status = code === 'CLIP_NOT_FOUND' ? 404 : code === 'SOURCE_PATH_MISSING' ? 400 : 500;
+    res.status(status).json({
+      status: 'error',
+      code,
+      message: err.message || 'Failed to generate clip thumbnails.',
+    });
+  }
+};
+
+/**
  * PATCH /api/clips/:clipId/editor
  * Updates editor configuration fields securely (whitelist only)
  */
@@ -769,8 +880,34 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
     return;
   }
 
+  if (!ownerContext.getStore()) {
+    return ownerContext.run(userId, () => getClipCaptions(req, res));
+  }
+
   try {
     const clip = await ClipRenderService.getClip(clipId, userId);
+
+    // 1. Check if an EditorProject exists with custom edited/saved cues for this clip (matching generateCaptionsForClip export)
+    const { data: proj } = await dataRepository
+      .from('editor_projects')
+      .select('*')
+      .eq('clip_id', clipId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (proj && Array.isArray(proj.tracks)) {
+      const captionTrack = proj.tracks.find((t: any) => t.type === 'CAPTION' && !t.hidden);
+      const captionItem = captionTrack?.items?.[0];
+      if (captionItem?.caption && Array.isArray(captionItem.caption.cues) && captionItem.caption.cues.length > 0) {
+        const hasWords = captionItem.caption.cues.some((c: any) => Array.isArray(c.words) && c.words.length > 0);
+        res.status(200).json({
+          status: 'ok',
+          timingMode: hasWords ? 'word' : 'segment',
+          cues: captionItem.caption.cues,
+        });
+        return;
+      }
+    }
 
     const { data: transcript, error: transErr } = await dataRepository
       .from('transcripts')
@@ -788,14 +925,8 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
       return;
     }
 
-    const { timingMode, cues } = CaptionService.extractClipCues(
-      transcript,
-      clip.start_seconds,
-      clip.end_seconds,
-      Number(clip.trim_start_offset || 0),
-      Number(clip.trim_end_offset || 0),
-      clip.caption_config || {}
-    );
+    // Same extraction the export uses, so preview cues match the burned-in captions.
+    const { timingMode, cues } = CaptionService.extractCuesForClipSettings(transcript, clip, undefined, { preserveCase: true });
 
     res.status(200).json({
       status: 'ok',
@@ -804,7 +935,7 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
     });
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';
-    const status = code === 'CLIP_NOT_FOUND' ? 404 : 500;
+    const status = (code === 'CLIP_NOT_FOUND' || code === 'NOT_FOUND' || err.status === 404) ? 404 : 500;
     res.status(status).json({
       status: 'error',
       code,

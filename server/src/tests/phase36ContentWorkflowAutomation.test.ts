@@ -48,6 +48,15 @@ describe('Phase 36 — Vireo Content Workflow Automation Tests', () => {
         status: 'ready',
       });
 
+      await dataRepository.from('content_packs').insert({
+        id: crypto.randomUUID(),
+        user_id: userA,
+        project_id: projectId,
+        clip_id: clip1Id,
+        status: 'READY',
+        items: [{ id: 'item-1', status: 'APPROVED', text: 'Hook item' }],
+      });
+
       await dataRepository.from('clips').insert({
         id: clip2Id,
         user_id: userA,
@@ -66,6 +75,7 @@ describe('Phase 36 — Vireo Content Workflow Automation Tests', () => {
     const db = await getMongoDb();
     await db.collection('content_workflows').deleteMany({ user_id: { $in: [userA, userB] } });
     await db.collection('clips').deleteMany({ user_id: { $in: [userA, userB] } });
+    await db.collection('content_packs').deleteMany({ user_id: { $in: [userA, userB] } });
     await db.collection('projects').deleteMany({ user_id: { $in: [userA, userB] } });
     await db.collection('published_posts').deleteMany({ user_id: { $in: [userA, userB] } });
   });

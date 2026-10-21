@@ -51,6 +51,7 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
     formData.append('response_format', 'verbose_json');
     formData.append('timestamp_granularities[]', 'word');
     formData.append('timestamp_granularities[]', 'segment');
+    formData.append('temperature', '0');
 
     const headers: Record<string, string> = {
       Authorization: `Bearer ${apiKey}`,
@@ -133,12 +134,17 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
       : rawSegments.flatMap((s: any) => (Array.isArray(s?.words) ? s.words : []));
 
     const words: NormalizedTranscriptWord[] = rawWords
-      .map((w: any) => ({
-        word: String(w.word || w.text || '').trim(),
-        start: Number(w.start ?? 0),
-        end: Number(w.end ?? 0),
-      }))
-      .filter((w: NormalizedTranscriptWord) => w.word.length > 0 && w.end >= w.start);
+      .map((w: any) => {
+        const start = Number(w.start ?? 0);
+        const rawEnd = Number(w.end ?? 0);
+        const end = rawEnd > start ? rawEnd : Number((start + 0.05).toFixed(3));
+        return {
+          word: String(w.word || w.text || '').trim(),
+          start: Number(start.toFixed(3)),
+          end: Number(end.toFixed(3)),
+        };
+      })
+      .filter((w: NormalizedTranscriptWord) => w.word.length > 0 && w.end > w.start);
 
     const durationSeconds = typeof result?.duration === 'number' ? result.duration : null;
     const language = typeof result?.language === 'string' ? result.language : 'en';

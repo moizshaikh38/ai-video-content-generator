@@ -54,12 +54,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   if (!isOpen) return null;
 
   const commands = [
-    { id: 'split', title: 'Split Selected Clip', icon: <Scissors className="w-4 h-4 text-orange-400" />, shortcut: 'S', action: onSplit },
+    { id: 'split', title: 'Split Selected Clip', icon: <Scissors className="w-4 h-4 text-neutral-300" />, shortcut: 'S', action: onSplit },
     { id: 'add-text', title: 'Add Text Layer', icon: <Type className="w-4 h-4 text-purple-400" />, action: onAddText },
     { id: 'add-caption', title: 'Add Caption Track', icon: <Subtitles className="w-4 h-4 text-amber-400" />, action: onAddCaption },
     { id: 'reframe', title: 'Reframe to 9:16 Vertical', icon: <Crop className="w-4 h-4 text-blue-400" />, action: onReframe },
     { id: 'normalize-audio', title: 'Normalize Speech Audio (Loudnorm)', icon: <Volume2 className="w-4 h-4 text-emerald-400" />, action: onNormalizeAudio },
-    { id: 'producer', title: 'Open AI Producer Assistant', icon: <Wand2 className="w-4 h-4 text-indigo-400" />, action: onOpenProducer },
+    { id: 'producer', title: 'Open AI Producer Assistant', icon: <Wand2 className="w-4 h-4 text-violet-400" />, action: onOpenProducer },
     { id: 'render', title: 'Render Final Video', icon: <Play className="w-4 h-4 text-green-400" />, action: onRender },
     { id: 'undo', title: 'Undo Last Edit', icon: <RotateCcw className="w-4 h-4 text-neutral-400" />, shortcut: '⌘Z', action: onUndo },
     { id: 'redo', title: 'Redo Edit', icon: <RotateCw className="w-4 h-4 text-neutral-400" />, shortcut: '⌘⇧Z', action: onRedo },
@@ -75,10 +75,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        className="w-full max-w-lg bg-[#0E1017] border border-white/[0.08] rounded-xl shadow-2xl overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center px-4 py-3 border-b border-neutral-800 gap-2.5">
+        <div className="flex items-center px-4 py-3 border-b border-white/[0.08] gap-2.5">
           <Search className="w-4 h-4 text-neutral-400" />
           <input
             autoFocus
@@ -88,7 +88,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             onChange={(e) => setQuery(e.target.value)}
             className="w-full bg-transparent text-sm text-white focus:outline-none placeholder-neutral-500"
           />
-          <span className="text-[10px] font-mono text-neutral-500 bg-neutral-800 px-1.5 py-0.5 rounded">
+          <span className="text-[10px] font-mono text-neutral-400 bg-white/[0.06] border border-white/[0.08] px-1.5 py-0.5 rounded">
             ESC
           </span>
         </div>
@@ -103,14 +103,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   cmd.action();
                   onClose();
                 }}
-                className="w-full px-3 py-2.5 rounded-lg flex items-center justify-between hover:bg-neutral-800/80 transition text-left text-xs text-neutral-200 group"
+                className="w-full px-3 py-2.5 rounded-lg flex items-center justify-between hover:bg-white/[0.06] transition text-left text-xs text-neutral-200 group"
               >
                 <div className="flex items-center gap-2.5">
                   {cmd.icon}
                   <span className="font-medium group-hover:text-white">{cmd.title}</span>
                 </div>
                 {cmd.shortcut && (
-                  <span className="font-mono text-[10px] text-neutral-500 bg-neutral-950 px-2 py-0.5 rounded border border-neutral-800">
+                  <span className="font-mono text-[10px] text-neutral-400 bg-[#07080D] px-2 py-0.5 rounded border border-white/[0.08]">
                     {cmd.shortcut}
                   </span>
                 )}

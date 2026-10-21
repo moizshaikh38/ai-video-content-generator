@@ -68,3 +68,25 @@ __pycache__/
 *.pyc
 # Local artifacts
 artifacts/
+
+# Test and investigation artifacts
+public/demo/auth/
+public/demo/caption_studio/
+public/demo/editor_transformation/
+public/demo/elements_polish/
+public/demo/milestone_a/
+public/demo/milestone_b/
+public/demo/milestone_c/
+public/demo/sidebar_audit/
+public/demo/sidebar_cleanup/
+public/demo/sidebar_creative_tools/
+public/demo/timeline_investigation/
+public/demo/timeline_redesign/
+public/demo/transcript_investigation/
+public/demo/transcript_redesign/
+public/demo/current_editor_state.png
+public/demo/landing/mrbeast_investigation/
+public/demo/landing/approval/
+public/demo/landing/contact_sheets/
+prototypes/
+reference/landing/

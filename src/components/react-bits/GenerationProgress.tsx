@@ -77,7 +77,7 @@ export const GenerationProgress: React.FC<GenerationProgressProps> = ({
               <div
                 className={cn(
                   'flex size-6 shrink-0 items-center justify-center rounded-full transition-colors',
-                  isCurrent ? 'bg-sage text-white' : isPast ? 'bg-sage/30 text-foreground' : 'bg-muted text-muted-foreground'
+                  isCurrent ? 'bg-[#F4F6FB] text-[#0B0C0F]' : isPast ? 'bg-sage/30 text-foreground' : 'bg-muted text-muted-foreground'
                 )}
               >
                 <Icon className="size-3.5" />

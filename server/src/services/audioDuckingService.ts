@@ -110,7 +110,8 @@ export class AudioDuckingService {
     // 2. Mix dialogue and ducked background together using amix
     // duration=first ensures the final mix matches dialogue length
     // dropout_transition=2 prevents abrupt volume jumps when a stream ends
-    statements.push(`${dialogueLabel}${duckedBgLabel}amix=inputs=2:duration=first:dropout_transition=2${mixedOutLabel}`);
+    // normalize=0 prevents automatic 50% (-6dB) dialogue volume drop
+    statements.push(`${dialogueLabel}${duckedBgLabel}amix=inputs=2:duration=first:dropout_transition=2:normalize=0${mixedOutLabel}`);
 
     return statements;
   }

@@ -4,8 +4,11 @@ import {
   PlatformFitDetail,
   OutputPlatform,
   ClipCandidateCategory,
+  GenreProfileConfig,
+  ContentGoal,
 } from '../../types/index.js';
 import { AudioFeatureService } from './audioFeatureService.js';
+import { GenreIntelligenceService } from '../genreIntelligenceService.js';
 
 export interface ScoreCandidateInput {
   start_seconds: number;
@@ -18,6 +21,8 @@ export interface ScoreCandidateInput {
   baseHookScore?: number;
   baseStandaloneScore?: number;
   baseInsightScore?: number;
+  genreProfile?: GenreProfileConfig;
+  contentGoal?: ContentGoal;
 }
 
 export interface ScoredCandidateResult {
@@ -30,13 +35,13 @@ export interface ScoredCandidateResult {
 }
 
 /**
- * Phase 16: Multimodal Scoring Service
- * Computes deterministic, explainable 0–100 Vireo Scores fusing visual, auditory, and speech data.
+ * Phase 16 + Phase C: Multimodal Scoring Service
+ * Computes deterministic, explainable 0–100 Vireo Scores fusing visual, auditory, speech, and genre signals.
  * Refines boundaries with conversational pauses and generates multi-platform suitability.
  */
 export class MultimodalScoringService {
   /**
-   * Evaluates a candidate clip against multimodal signals.
+   * Evaluates a candidate clip against multimodal signals and genre profile directives.
    */
   public static scoreCandidate(input: ScoreCandidateInput): ScoredCandidateResult {
     const {
@@ -47,7 +52,11 @@ export class MultimodalScoringService {
       baseHookScore = 75,
       baseStandaloneScore = 75,
       baseInsightScore = 75,
+      genreProfile: incomingGenreProfile,
+      contentGoal,
     } = input;
+
+    const genreProfile = incomingGenreProfile || GenreIntelligenceService.getGenreProfile('general');
 
     // 1. Boundary snapping to silence pauses
     let start_seconds = rawStart;
@@ -88,6 +97,7 @@ export class MultimodalScoringService {
     let hasFaceOverall = false;
     let hasCleanSilenceEnd = false;
     let hasOcrText = false;
+    let speechRatio = 0.85;
 
     if (timeline) {
       // Overlapping segments
@@ -117,8 +127,45 @@ export class MultimodalScoringService {
         (s) => Math.abs(s.start - end_seconds) <= 0.8 || (end_seconds >= s.start && end_seconds <= s.end)
       );
 
-      // Audio energy from metadata or default
-      audioEnergyScore = 78;
+      // Compute Active Speech Ratio in Candidate Window
+      let totalSilenceInWindow = 0;
+      for (const sil of timeline.silence_intervals) {
+        const silOverlap = Math.max(0, Math.min(end_seconds, sil.end) - Math.max(start_seconds, sil.start));
+        totalSilenceInWindow += silOverlap;
+      }
+      speechRatio = Math.max(0.0, Math.min(1.0, 1.0 - totalSilenceInWindow / duration_seconds));
+
+      // Dynamic Audio Energy Scoring (replacing hardcoded 78)
+      // Combines real segment audio_energy_db with active speech density and hook audio attack
+      let dynamicEnergy = 68;
+
+      if (overlappingSegs.length > 0) {
+        const validDbs = overlappingSegs
+          .map((s) => s.audio_energy_db)
+          .filter((db): db is number => typeof db === 'number' && Number.isFinite(db));
+
+        if (validDbs.length > 0) {
+          const meanDb = validDbs.reduce((acc, v) => acc + v, 0) / validDbs.length;
+          // Normalized mapping: -50 dB (quiet ambient) to -14 dB (broadcast peak) -> 35 to 98
+          const norm = Math.min(1.0, Math.max(0.0, (meanDb - -50) / (-14 - -50)));
+          dynamicEnergy = Math.round(35 + norm * 63);
+        } else {
+          // Fallback based on speech-to-silence ratio (0% -> 45, 100% -> 88)
+          dynamicEnergy = Math.round(45 + speechRatio * 43);
+        }
+      }
+
+      // Opening audio attack bonus: immediate speech in opening 1.5s
+      const openingHasSilence = timeline.silence_intervals.some(
+        (s) => s.start <= start_seconds + 0.15 && s.end >= start_seconds + 1.2
+      );
+      if (!openingHasSilence) {
+        dynamicEnergy = Math.min(100, dynamicEnergy + 5);
+      } else {
+        dynamicEnergy = Math.max(30, dynamicEnergy - 8);
+      }
+
+      audioEnergyScore = Math.min(100, Math.max(30, dynamicEnergy));
     }
 
     // 3. Compute Component Scores (0–100)
@@ -132,8 +179,13 @@ export class MultimodalScoringService {
     // Standalone Score
     let standalone_score = baseStandaloneScore;
     if (hasCleanSilenceEnd) standalone_score += 10;
-    if (duration_seconds >= 20 && duration_seconds <= 60) standalone_score += 8;
-    else if (duration_seconds < 15 || duration_seconds > 75) standalone_score -= 10;
+    const targetMin = genreProfile.targetDuration.min;
+    const targetMax = genreProfile.targetDuration.max;
+    if (duration_seconds >= targetMin && duration_seconds <= targetMax) {
+      standalone_score += 8;
+    } else if (duration_seconds < targetMin || duration_seconds > targetMax + 10) {
+      standalone_score -= 8;
+    }
     standalone_score = Math.min(100, Math.max(0, standalone_score));
 
     // Insight / Value Score
@@ -150,22 +202,31 @@ export class MultimodalScoringService {
 
     // Platform Fit Score
     let platform_fit_score = 75;
-    if (duration_seconds >= 20 && duration_seconds <= 45) platform_fit_score = 92;
+    if (duration_seconds >= targetMin && duration_seconds <= Math.min(60, targetMax)) platform_fit_score = 92;
     else if (duration_seconds <= 60) platform_fit_score = 85;
     else platform_fit_score = 70;
 
-    // 4. Overall Weighted Score
-    const overall_score = Math.round(
-      hook_score * 0.25 +
-        standalone_score * 0.20 +
-        insight_score * 0.15 +
-        visual_activity_score * 0.15 +
-        audio_energy_score * 0.15 +
-        platform_fit_score * 0.10
-    );
+    // 4. Overall Weighted Score (Using Genre-Specific Scoring Weights)
+    const weights = genreProfile.scoringWeights;
+    const baseWeighted =
+      hook_score * weights.hook +
+      standalone_score * weights.standalone +
+      insight_score * weights.insight +
+      visual_activity_score * weights.visual +
+      audio_energy_score * weights.audio;
+
+    const overall_score = Math.round(baseWeighted * 0.90 + platform_fit_score * 0.10);
 
     // 5. Generate Transparent Explainability Reasons
     const reasons: string[] = [];
+
+    // Genre-specific reason
+    reasons.push(`Targeted for ${genreProfile.displayName}: ${genreProfile.selectionObjective}`);
+
+    if (contentGoal) {
+      const formattedGoal = contentGoal.replace(/_/g, ' ');
+      reasons.push(`Curated for ${formattedGoal} narrative objective`);
+    }
 
     if (hasFaceInHook) {
       reasons.push('High-engagement face presence detected in the opening 3 seconds for strong viewer hook');
@@ -178,11 +239,16 @@ export class MultimodalScoringService {
     } else {
       reasons.push('Steady single-shot framing ideal for focused direct-to-camera delivery');
     }
-    if (duration_seconds >= 20 && duration_seconds <= 60) {
-      reasons.push(`Optimal short-form duration (${Math.round(duration_seconds)}s) within the sweet spot for maximum completion rate`);
+    if (duration_seconds >= targetMin && duration_seconds <= targetMax) {
+      reasons.push(
+        `Optimal duration (${Math.round(duration_seconds)}s) matching ${genreProfile.displayName} sweet spot (${genreProfile.targetDuration.optimal}s)`
+      );
     }
     if (hasOcrText) {
       reasons.push('On-screen graphic text reinforces topic retention');
+    }
+    if (audio_energy_score >= 75) {
+      reasons.push(`Strong vocal presence and speech clarity (${audio_energy_score}/100 audio energy)`);
     }
 
     // 6. Platform Suitability Breakdown
