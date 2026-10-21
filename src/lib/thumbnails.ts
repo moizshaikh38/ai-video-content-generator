@@ -21,9 +21,32 @@ const MAX_CACHE_ENTRIES = 24;
 const cache = new Map<string, { data: ThumbnailStripData; image: HTMLImageElement }>();
 const inflight = new Map<string, Promise<{ data: ThumbnailStripData; image: HTMLImageElement }>>();
 
+function getFromStorage(key: string): ThumbnailStripData | null {
+  try {
+    if (typeof window === 'undefined' || !window.sessionStorage) return null;
+    const raw = sessionStorage.getItem(`vireo_thumb_${key}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveToStorage(key: string, data: ThumbnailStripData): void {
+  try {
+    if (typeof window === 'undefined' || !window.sessionStorage) return;
+    // Only cache valid dataUrls to conserve storage
+    if (data.dataUrl && data.frameCount > 0) {
+      sessionStorage.setItem(`vireo_thumb_${key}`, JSON.stringify(data));
+    }
+  } catch {
+    // If sessionStorage quota exceeded, safely ignore
+  }
+}
+
 function remember(key: string, entry: { data: ThumbnailStripData; image: HTMLImageElement }) {
   cache.delete(key);
   cache.set(key, entry);
+  saveToStorage(key, entry.data);
   while (cache.size > MAX_CACHE_ENTRIES) {
     const oldest = cache.keys().next().value as string | undefined;
     if (oldest === undefined) break;
@@ -49,6 +72,19 @@ async function fetchStrip(clipId: string, count: number): Promise<{ data: Thumbn
   const key = `${clipId}:${count}`;
   const cached = cache.get(key);
   if (cached) return cached;
+
+  const stored = getFromStorage(key);
+  if (stored && stored.dataUrl && stored.frameCount > 0) {
+    try {
+      const img = await loadImage(stored.dataUrl);
+      const entry = { data: stored, image: img };
+      cache.set(key, entry);
+      return entry;
+    } catch {
+      // Fall through to network fetch
+    }
+  }
+
   const existing = inflight.get(key);
   if (existing) return existing;
 

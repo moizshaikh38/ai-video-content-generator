@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import {
   ArrowRight,
   ChevronDown,
@@ -621,7 +622,15 @@ function FinalCTA() {
 
 export function LandingPage() {
   const pageRef = useRef<HTMLElement>(null);
+  const { isAuthenticated, loading } = useAuth();
+  const navigate = useNavigate();
   useLandingMotion(pageRef);
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [loading, isAuthenticated, navigate]);
 
   useEffect(() => {
     if ('scrollRestoration' in window.history) {

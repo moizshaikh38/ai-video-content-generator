@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../components/AuthLayout';
 import { GoogleIcon } from '../components/GoogleIcon';
@@ -14,13 +14,19 @@ export const LoginPage: React.FC = () => {
     location.search,
     (location.state as { from?: { pathname?: string; search?: string } } | null)?.from,
   );
-  const { signInWithPassword, isConfigured } = useAuth();
+  const { signInWithPassword, isConfigured, isAuthenticated, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate(destination || '/dashboard', { replace: true });
+    }
+  }, [loading, isAuthenticated, destination, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +48,7 @@ export const LoginPage: React.FC = () => {
         return;
       }
 
-      navigate(destination);
+      navigate(destination || '/dashboard', { replace: true });
     } catch (err) {
       setErrorMessage((err as Error).message || 'An unexpected error occurred.');
       setBusy(false);
@@ -76,10 +82,11 @@ export const LoginPage: React.FC = () => {
     }
 
     try {
+      const redirectTarget = destination && destination !== '/' ? destination : '/dashboard';
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + destination,
+          redirectTo: `${window.location.origin}${redirectTarget}`,
         },
       });
       if (error) {

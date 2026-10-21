@@ -44,9 +44,9 @@ const navSections: { title: string; items: NavItem[] }[] = [
     items: [
       { to: '/dashboard', label: 'Home', icon: LayoutDashboard },
       { to: '/projects/new', label: 'Create Clips', icon: Scissors },
-      { to: '/history', label: 'Video Editor', icon: Video },
+      { to: '/history?tab=projects', label: 'Video Projects', icon: Video },
       { to: '/dashboard#studio', label: 'Content Studio', icon: Sparkles },
-      { to: '/history', label: 'Media Library', icon: FolderClosed },
+      { to: '/history?tab=clips', label: 'Media Library', icon: FolderClosed },
     ],
   },
   {

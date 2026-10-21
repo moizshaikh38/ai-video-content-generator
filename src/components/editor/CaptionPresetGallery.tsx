@@ -143,7 +143,6 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
 }) => {
   const reducedMotion = usePrefersReducedMotion();
   const [hoveredId, setHoveredId] = useState<CaptionPresetId | null>(null);
-  const [autoAnimate, setAutoAnimate] = useState(true);
   const [cardWidth, setCardWidth] = useState(150);
   const galleryRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -170,7 +169,7 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
   const renderPresetTile = (id: CaptionPresetId, index: number) => {
           const isSelected = selectedId === id;
           const isHovered = hoveredId === id;
-          const isAnimating = (isSelected || isHovered || autoAnimate) && !reducedMotion;
+          const isAnimating = (isSelected || isHovered) && !reducedMotion;
           const preset = id === 'none' ? null : CAPTION_PRESETS[id];
           return (
             <button
@@ -247,23 +246,9 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
           <span className="text-[10px] font-semibold text-vc-text-secondary uppercase tracking-wider">
             Preset Styles
           </span>
-          <button
-            type="button"
-            onClick={() => setAutoAnimate((prev) => !prev)}
-            className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border transition-all duration-150 ${
-              autoAnimate
-                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 shadow-sm'
-                : 'bg-white/[0.04] border-white/[0.08] text-vc-text-muted hover:text-vc-text-secondary hover:border-white/20'
-            }`}
-            title={autoAnimate ? 'Live animation active (click for hover only)' : 'Hover preview mode (click for live kinetic loop)'}
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                autoAnimate ? 'bg-emerald-400 animate-pulse' : 'bg-white/30'
-              }`}
-            />
-            <span>{autoAnimate ? 'Live' : 'Hover'}</span>
-          </button>
+          <span className="text-[10px] text-vc-text-muted">
+            (Hover or select to preview kinetic loop)
+          </span>
         </div>
         {onToggleKeepColors && (
           <button

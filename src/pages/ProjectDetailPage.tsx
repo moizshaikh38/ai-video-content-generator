@@ -25,6 +25,7 @@ import {
   Send,
   Search,
   X,
+  Plus,
 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -41,6 +42,7 @@ import { SpotlightCard } from '../components/react-bits/SpotlightCard';
 import { QuotaExceededModal } from '../components/QuotaExceededModal';
 import { ClipWorkspace } from '../components/clips/ClipWorkspace';
 import { PublishModal } from '../components/PublishModal';
+import { getProjectThumbnail } from './DashboardPage';
 
 interface TabConfig {
   key: OutputPlatform;
@@ -301,35 +303,58 @@ export const ProjectDetailPage: React.FC = () => {
   const isUploaded = statusVal === 'uploaded';
   const hasOutputs = outputs && outputs.length > 0;
 
+  const thumb = getProjectThumbnail(project);
+
   return (
-    <div className="space-y-6 pt-4">
+    <div className="space-y-6 pt-2">
       {/* Back Link */}
       <Link
         to="/history"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
       >
         <ArrowLeft className="size-4" />
         <span>Back to Projects</span>
       </Link>
 
-      {/* Project Header */}
-      <div className="flex flex-col items-start gap-5 rounded-2xl bg-white p-5 shadow-soft border border-border sm:flex-row sm:items-center md:p-6">
-        <div className="grid aspect-video w-full shrink-0 place-items-center overflow-hidden rounded-xl bg-[#eaf3eb] text-vireo-green sm:w-48">{videoPreviewUrl?<video src={videoPreviewUrl} controls preload="metadata" aria-label={`Preview ${project.title}`} className="h-full w-full object-cover"/>:<Video className="size-9" />}</div>
-        <div className="space-y-1.5 min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="min-w-0 break-words text-2xl font-semibold tracking-tight md:text-3xl font-display text-foreground">
+      {/* Project Header - World Class Obsidian Studio */}
+      <div className="flex flex-col items-start gap-5 rounded-2xl bg-[#0E1017]/90 p-5 shadow-2xl border border-white/[0.08] sm:flex-row sm:items-center md:p-6 backdrop-blur-xl">
+        <div className="grid aspect-video w-full shrink-0 place-items-center overflow-hidden rounded-xl bg-black/90 border border-white/10 sm:w-52 relative group shadow-inner">
+          {videoPreviewUrl ? (
+            <video
+              src={videoPreviewUrl}
+              controls
+              preload="metadata"
+              aria-label={`Preview ${project.title}`}
+              className="h-full w-full object-cover"
+            />
+          ) : thumb ? (
+            <img
+              src={thumb}
+              alt={project.title}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center text-slate-500">
+              <Video className="size-8 text-violet-400/60 mb-1" />
+              <span className="text-[10px] font-mono text-slate-400">Source Video</span>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2 min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight md:text-3xl font-['Sora',sans-serif] text-white">
               {project.title}
             </h1>
             <StatusBadge status={statusVal} />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Calendar className="size-3.5" />
+          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+            <span className="flex items-center gap-1 font-mono">
+              <Calendar className="size-3.5 text-violet-400" />
               <span>
-                Created on{' '}
                 {new Date(project.created_at).toLocaleDateString(undefined, {
-                  month: 'long',
+                  month: 'short',
                   day: 'numeric',
                   year: 'numeric',
                 })}
@@ -339,22 +364,36 @@ export const ProjectDetailPage: React.FC = () => {
             <span className="inline-flex items-center gap-1 font-medium">
               {isUrl ? (
                 <>
-                  <Link2 className="size-3.5" />
-                  <span>External URL</span>
+                  <Link2 className="size-3.5 text-cyan-400" />
+                  <span>External Link</span>
                 </>
               ) : (
                 <>
-                  <Video className="size-3.5" />
+                  <Video className="size-3.5 text-violet-400" />
                   <span>Direct Upload</span>
                 </>
               )}
             </span>
+            {transcript?.segments && transcript.segments.length > 0 && (
+              <>
+                <span>•</span>
+                <span className="font-mono text-emerald-400 font-semibold">
+                  {transcript.segments.length} spoken segments
+                </span>
+              </>
+            )}
           </div>
         </div>
 
-        <Button variant="outline" size="sm" className="sm:ml-auto" asChild>
-          <Link to="/projects/new">New Project</Link>
-        </Button>
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <Link
+            to="/projects/new"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-xs font-semibold text-white transition-colors"
+          >
+            <Plus className="size-3.5" />
+            <span>New Project</span>
+          </Link>
+        </div>
       </div>
 
 
@@ -371,21 +410,21 @@ export const ProjectDetailPage: React.FC = () => {
       )}
 
       {quotaError && (
-        <div className="rounded-2xl border border-clay/40 bg-clay/5 p-6 text-center space-y-3">
-          <div className="size-10 rounded-xl bg-clay/15 text-clay mx-auto flex items-center justify-center">
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 text-center space-y-3">
+          <div className="size-10 rounded-xl bg-amber-500/15 text-amber-400 mx-auto flex items-center justify-center border border-amber-500/25">
             <Clock className="size-5" />
           </div>
           <div className="space-y-1">
-            <h3 className="font-semibold text-base text-foreground font-display">
+            <h3 className="font-bold text-base text-white font-['Sora',sans-serif]">
               Monthly Processing Limit Reached
             </h3>
-            <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto">
-              You have <span className="font-semibold text-foreground">{quotaError.remaining_minutes ?? 0} minutes</span> remaining in your plan this month.
+            <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto">
+              You have <span className="font-semibold text-white">{quotaError.remaining_minutes ?? 0} minutes</span> remaining in your plan this month.
               {quotaError.requested_minutes ? (
-                <> This video requires an estimated <span className="font-semibold text-foreground">~{quotaError.requested_minutes.toFixed(1)} minutes</span>.</>
+                <> This video requires an estimated <span className="font-semibold text-white">~{quotaError.requested_minutes.toFixed(1)} minutes</span>.</>
               ) : null}
               {quotaError.reset_date && (
-                <span className="block mt-1 font-mono text-clay text-xs">
+                <span className="block mt-1 font-mono text-amber-300 text-xs">
                   Resets on {new Date(quotaError.reset_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })} (UTC).
                 </span>
               )}
@@ -395,7 +434,7 @@ export const ProjectDetailPage: React.FC = () => {
             <Button variant="outline" size="sm" onClick={() => setIsQuotaModalOpen(true)}>
               View Quota Details
             </Button>
-            <Button variant="clay" size="sm" onClick={handleRetryProcessing} disabled={isRetrying}>
+            <Button variant="primary" size="sm" onClick={handleRetryProcessing} disabled={isRetrying} className="bg-amber-500 text-black hover:bg-amber-400 font-bold">
               Check Again
             </Button>
           </div>
@@ -404,21 +443,22 @@ export const ProjectDetailPage: React.FC = () => {
 
       {/* Failed State */}
       {statusVal === 'failed' ? (
-        <div className="card-soft p-8 text-center space-y-4 border-destructive/20 bg-destructive/5">
-          <div className="w-12 h-12 rounded-2xl bg-destructive/15 text-destructive mx-auto flex items-center justify-center">
+        <div className="rounded-2xl p-8 text-center space-y-4 border border-rose-500/30 bg-rose-500/10">
+          <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-400 mx-auto flex items-center justify-center border border-rose-500/25">
             <RefreshCw className="size-6" />
           </div>
           <div>
-            <p className="font-semibold text-lg text-foreground font-display">Video Processing Failed</p>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto mt-1">
+            <p className="font-bold text-lg text-white font-['Sora',sans-serif]">Video Processing Failed</p>
+            <p className="text-sm text-slate-300 max-w-md mx-auto mt-1">
               {actionError || 'The video processing or transcription failed. Please verify your video audio or try again.'}
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <Button
-              variant="clay"
+              variant="primary"
               disabled={isRetrying}
               onClick={handleRetryProcessing}
+              className="bg-rose-600 hover:bg-rose-500 text-white font-bold"
             >
               {isRetrying ? (
                 <>
@@ -677,11 +717,11 @@ export const ProjectDetailPage: React.FC = () => {
                 <div className="space-y-4 animate-in fade-in duration-200">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-lg font-semibold font-display text-foreground flex items-center gap-2">
-                  <Sparkles className="size-5 text-clay" />
-                  <span>Platform Content</span>
+                <h3 className="text-lg font-bold font-['Sora',sans-serif] text-white flex items-center gap-2">
+                  <Sparkles className="size-5 text-violet-400" />
+                  <span>Platform Content Kits</span>
                 </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs text-slate-400 mt-0.5">
                   Repurpose video transcript into platform-native content kits for YouTube, Instagram, Shorts/Reels, TikTok, LinkedIn, and X.
                 </p>
               </div>
@@ -689,22 +729,22 @@ export const ProjectDetailPage: React.FC = () => {
               {transcript ? (
                 <div className="flex items-center gap-2">
                   <Button
-                    variant={hasTuningOverrides ? 'clay' : 'outline'}
+                    variant="outline"
                     size="sm"
                     onClick={() => setShowTuning(!showTuning)}
-                    className="gap-1.5"
+                    className="gap-1.5 border-white/10 text-slate-300 hover:text-white"
                   >
-                    <SlidersHorizontal className="size-3.5" />
+                    <SlidersHorizontal className="size-3.5 text-violet-400" />
                     <span>{hasTuningOverrides ? 'Tuned for video' : 'Tune Persona'}</span>
                     {showTuning ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
                   </Button>
 
                   <Button
-                    variant="clay"
+                    variant="primary"
                     size="sm"
                     onClick={() => handleGenerateContent()}
                     disabled={isGenerating}
-                    className="shadow-black/40"
+                    className="bg-violet-600 hover:bg-violet-500 text-white font-bold shadow-lg"
                   >
                     {isGenerating ? (
                       <>
@@ -730,19 +770,19 @@ export const ProjectDetailPage: React.FC = () => {
             {/* Video-Level Persona Tuning Expandable AI Control Surface */}
             {transcript && showTuning && (
               <SpotlightCard
-                spotlightColor="rgba(192, 98, 62, 0.12)"
-                className="p-5 md:p-6 border-clay/30 bg-cream/50 animate-in fade-in slide-in-from-top-2 duration-300"
+                spotlightColor="rgba(139, 92, 246, 0.15)"
+                className="p-5 md:p-6 border-white/[0.08] bg-[#0E1017]/90 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-2 duration-300"
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/50 pb-3 gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/[0.08] pb-3 gap-2">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-clay/15 text-clay">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/15 text-violet-400 border border-violet-500/25">
                       <SlidersHorizontal className="size-4" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-semibold font-display text-foreground">
+                      <h4 className="text-sm font-bold font-['Sora',sans-serif] text-white">
                         AI Control Surface — Customize for this video
                       </h4>
-                      <p className="text-[11px] text-muted-foreground">
+                      <p className="text-[11px] text-slate-400">
                         {hasTuningOverrides
                           ? 'Only applies to this project · Does not modify your saved creator profile'
                           : 'Currently using your saved creator profile defaults'}
@@ -820,14 +860,14 @@ export const ProjectDetailPage: React.FC = () => {
 
             {/* If transcript is not available yet, honestly communicate waiting state */}
             {!transcript && !hasOutputs && (
-              <div className="card-soft p-6 sm:p-8 text-center space-y-3 border-dashed border-border/80 bg-cream/30">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center">
+              <div className="rounded-2xl border border-dashed border-white/10 bg-[#0E1017]/60 p-6 sm:p-8 text-center space-y-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-400 mx-auto flex items-center justify-center border border-amber-500/20">
                   <FileText className="size-5" />
                 </div>
                 <div className="space-y-1">
-                  <h4 className="text-sm font-semibold text-foreground">Waiting for Transcript</h4>
-                  <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-                    AI content generation requires a real video transcript. Once transcription is completed, you can generate drafts for YouTube, Instagram, Shorts/Reels, TikTok, LinkedIn, and X.
+                  <h4 className="text-sm font-bold text-white font-['Sora',sans-serif]">Waiting for Transcript</h4>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                    AI content generation requires a video transcript. Once transcription is completed, you can generate platform-specific drafts for YouTube, Instagram, Shorts, TikTok, LinkedIn, and X.
                   </p>
                 </div>
               </div>
@@ -835,8 +875,8 @@ export const ProjectDetailPage: React.FC = () => {
 
             {/* If transcript is ready but no outputs yet */}
             {transcript && !hasOutputs && !isGenerating && (
-              <div className="card-soft p-6 text-center space-y-3 bg-cream/40">
-                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+              <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017]/80 p-6 text-center space-y-3 shadow-lg">
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
                   Transcript is ready! Click "Generate Content Kits" to create platform-specific content packages for this project.
                 </p>
               </div>
@@ -1139,15 +1179,15 @@ function Workspace({
                 id={`tab-${tab.key}`}
                 aria-controls={`panel-${tab.key}`}
                 onClick={() => setActiveTab(tab.key)}
-                className={`rounded-xl px-4 py-2.5 text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                className={`rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                   isActive
-                    ? 'bg-clay text-clay-foreground shadow-black/40'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-cream/60'
+                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/30'
+                    : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
                 }`}
               >
                 <span>{tab.label}</span>
                 {count > 0 && (
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-white/20' : 'bg-muted'}`}>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-white/20 text-white font-mono' : 'bg-white/10 text-slate-300 font-mono'}`}>
                     {count}
                   </span>
                 )}
@@ -1162,7 +1202,7 @@ function Workspace({
             size="sm"
             onClick={() => onRegeneratePlatform(activeTab)}
             disabled={isGenerating}
-            className="text-xs h-8"
+            className="text-xs h-8 border-white/10 text-slate-300 hover:text-white"
           >
             {isPlatformGenerating ? (
               <>
@@ -1176,7 +1216,7 @@ function Workspace({
               </>
             ) : (
               <>
-                <RefreshCw className="size-3 mr-1" />
+                <RefreshCw className="size-3 mr-1 text-violet-400" />
                 <span>Regenerate {tabConfig.label}</span>
               </>
             )}
@@ -1186,7 +1226,13 @@ function Workspace({
 
       {/* Tab Group Content */}
       <div role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={`tab-${activeTab}`} className="space-y-6">
-        {tabOutputs.length===0 && <div className="rounded-2xl border border-dashed border-border bg-white p-8 text-center"><Sparkles className="mx-auto size-6 text-clay"/><p className="mt-3 font-semibold">No {tabConfig.label} content yet</p><p className="mt-1 text-sm text-muted-foreground">Generate this platform’s content to see drafts here.</p></div>}
+        {tabOutputs.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-white/10 bg-[#0E1017]/60 p-8 text-center">
+            <Sparkles className="mx-auto size-6 text-violet-400" />
+            <p className="mt-3 font-bold text-white font-['Sora',sans-serif]">No {tabConfig.label} content yet</p>
+            <p className="mt-1 text-sm text-slate-400">Generate this platform’s content kit to see drafts here.</p>
+          </div>
+        )}
         {tabConfig.groups.map((group) => {
           const items = tabOutputs.filter((o) => o.content_type === group.type);
           if (items.length === 0) return null;
@@ -1204,7 +1250,7 @@ function Workspace({
                   return (
                     <div
                       key={item.id}
-                      className="card-soft p-4 sm:p-5 transition-all hover:border-border/80 group"
+                      className="rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 p-4 sm:p-5 transition-all hover:border-violet-500/30 group shadow-md"
                     >
                       {isEditing ? (
                         <div className="space-y-3">
@@ -1223,9 +1269,10 @@ function Workspace({
                             </Button>
                             <Button
                               size="sm"
-                              variant="clay"
+                              variant="primary"
                               onClick={() => saveEdit(item.id)}
                               disabled={isSavingEdit}
+                              className="bg-violet-600 hover:bg-violet-500 text-white font-semibold"
                             >
                               {isSavingEdit ? (
                                 <>
@@ -1240,11 +1287,11 @@ function Workspace({
                         </div>
                       ) : (
                         <div className="space-y-3">
-                          <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground font-sans">
+                          <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-200 font-sans">
                             {item.content}
                           </p>
-                          <div className="flex items-center justify-between border-t border-border/50 pt-3 text-xs">
-                            <span className="text-muted-foreground capitalize">
+                          <div className="flex items-center justify-between border-t border-white/[0.08] pt-3 text-xs">
+                            <span className="text-slate-400 capitalize font-mono text-[11px]">
                               {item.content_type}
                             </span>
                             <div className="flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
@@ -1252,7 +1299,7 @@ function Workspace({
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => startEdit(item)}
-                                className="h-7 px-2 text-xs"
+                                className="h-7 px-2 text-xs text-slate-300 hover:text-white"
                               >
                                 <Pencil className="size-3 mr-1" />
                                 <span>Edit</span>
@@ -1261,12 +1308,12 @@ function Workspace({
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleCopy(item.content, item.id)}
-                                className="h-7 px-2 text-xs"
+                                className="h-7 px-2 text-xs border-white/10 text-slate-300 hover:text-white"
                               >
                                 {isCopied ? (
                                   <>
-                                    <Check className="size-3 mr-1 text-sage" />
-                                    <span className="text-sage">Copied</span>
+                                    <Check className="size-3 mr-1 text-emerald-400" />
+                                    <span className="text-emerald-400">Copied</span>
                                   </>
                                 ) : (
                                   <>
@@ -1277,9 +1324,9 @@ function Workspace({
                               </Button>
                               <Button
                                 size="sm"
-                                variant="clay"
+                                variant="primary"
                                 onClick={() => setPublishingItem(item)}
-                                className="h-7 px-2 text-xs"
+                                className="h-7 px-2.5 text-xs bg-violet-600 hover:bg-violet-500 text-white font-semibold"
                                 title="Publish or schedule this content"
                               >
                                 <Send className="size-3 mr-1" />

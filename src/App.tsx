@@ -57,6 +57,7 @@ export const App: React.FC = () => {
               <Route path="/new" element={<Navigate to="/projects/new" replace />} />
               <Route path="/projects/:id" element={<ProjectDetailPage />} />
               <Route path="/history" element={<HistoryPage />} />
+              <Route path="/media-library" element={<HistoryPage initialTab="clips" />} />
               <Route path="/brand" element={<BrandPage />} />
               <Route path="/publishing" element={<PublishingHistoryPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />

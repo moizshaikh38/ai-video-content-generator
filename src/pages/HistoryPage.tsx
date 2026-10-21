@@ -1,35 +1,100 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Trash2, ArrowUpRight, Video, Link2, Search, Plus, FolderOpen, CheckCircle2, Clock3, AlertCircle } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import {
+  Trash2,
+  ArrowUpRight,
+  Video,
+  Search,
+  Plus,
+  FolderOpen,
+  CheckCircle2,
+  Clock3,
+  Play,
+  Download,
+  Film,
+  Scissors,
+  X,
+  ExternalLink,
+  Flame,
+} from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
 import { projectService } from '../services/projectService';
+import { clipRenderService } from '../services/clipRenderService';
 import { useAuth } from '../context/AuthContext';
-import { Project } from '../types';
+import { Project, RenderedClip } from '../types';
 import { getProjectThumbnail } from './DashboardPage';
+import { triggerBrowserDownload } from '../utils/downloadUtils';
 
-const statusOf=(p:Project)=>p.video_status||p.status;
-export const HistoryPage: React.FC = () => {
+const statusOf = (p: Project) => p.video_status || p.status;
+
+interface HistoryPageProps {
+  initialTab?: 'clips' | 'projects';
+}
+
+export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Active tab: 'clips' (Media Library) vs 'projects' (Project History)
+  const queryTab = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<'clips' | 'projects'>(() => {
+    if (initialTab === 'clips' || queryTab === 'clips') return 'clips';
+    if (initialTab === 'projects' || queryTab === 'projects') return 'projects';
+    return initialTab || 'clips';
+  });
+
+  useEffect(() => {
+    if (queryTab === 'clips' || queryTab === 'projects') {
+      setActiveTab(queryTab);
+    }
+  }, [queryTab]);
+
+  const switchTab = (tab: 'clips' | 'projects') => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
+
+  // Projects state
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
-  const [search,setSearch]=useState('');const [status,setStatus]=useState('all');const [source,setSource]=useState('all');const [sort,setSort]=useState('newest');
-  const cancelRef=useRef<HTMLButtonElement>(null);
-  const deleteRef=useRef<HTMLButtonElement>(null);
-  const previousFocus=useRef<HTMLElement|null>(null);
-  const openDelete=(project:Project)=>{previousFocus.current=document.activeElement as HTMLElement;setProjectToDelete(project)};
-  const closeDelete=()=>{setProjectToDelete(null);requestAnimationFrame(()=>previousFocus.current?.focus())};
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('all');
+  const [source, setSource] = useState('all');
+  const [sort, setSort] = useState('newest');
+
+  // Media Library (Clips) state
+  const [clips, setClips] = useState<(RenderedClip & { projectTitle?: string })[]>([]);
+  const [isClipsLoading, setIsClipsLoading] = useState(true);
+  const [clipSearch, setClipSearch] = useState('');
+  const [aspectFilter, setAspectFilter] = useState<'all' | '9:16' | '1:1' | '16:9'>('all');
+  const [activePreviewClip, setActivePreviewClip] = useState<RenderedClip | null>(null);
+  const [previewSignedUrl, setPreviewSignedUrl] = useState<string | null>(null);
+  const [downloadingClipId, setDownloadingClipId] = useState<string | null>(null);
+
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const deleteRef = useRef<HTMLButtonElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+  const openDelete = (project: Project) => {
+    previousFocus.current = document.activeElement as HTMLElement;
+    setProjectToDelete(project);
+  };
+  const closeDelete = () => {
+    setProjectToDelete(null);
+    requestAnimationFrame(() => previousFocus.current?.focus());
+  };
   const hasLoadedSuccessfully = useRef(false);
 
-  const loadProjects = async () => {
+  const loadProjectsAndClips = async () => {
     if (!user) return;
     setIsLoading(true);
+    setIsClipsLoading(true);
     setErrorMsg('');
     try {
       let data = await projectService.fetchProjects(user.id);
-      
+
       // Auto-clean any failed projects so they don't clutter the history
       const failed = data.filter((p) => ['failed', 'error'].includes(statusOf(p)));
       if (failed.length > 0) {
@@ -41,15 +106,36 @@ export const HistoryPage: React.FC = () => {
 
       setProjects(data);
       hasLoadedSuccessfully.current = true;
+
+      // Fetch clips for all completed projects
+      const completed = data.filter((p) => ['completed', 'complete', 'transcribed'].includes(statusOf(p)));
+      const clipResults = await Promise.allSettled(
+        completed.map(async (p) => {
+          const projectClips = await clipRenderService.getProjectClips(p.id);
+          return projectClips.map((c) => ({ ...c, projectTitle: p.title }));
+        })
+      );
+
+      const allClips: (RenderedClip & { projectTitle?: string })[] = [];
+      clipResults.forEach((res) => {
+        if (res.status === 'fulfilled' && Array.isArray(res.value)) {
+          allClips.push(...res.value);
+        }
+      });
+
+      // Sort clips by created_at DESC or virality score
+      allClips.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      setClips(allClips);
     } catch (err: any) {
       setErrorMsg(err?.message || 'Unable to retrieve your projects.');
     } finally {
       setIsLoading(false);
+      setIsClipsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadProjects();
+    loadProjectsAndClips();
     const update = () => {
       if (hasLoadedSuccessfully.current) {
         setProjects(projectService.getProjects());
@@ -69,6 +155,7 @@ export const HistoryPage: React.FC = () => {
     try {
       await projectService.deleteProject(id);
       setProjects(projectService.getProjects());
+      setClips((prev) => prev.filter((c) => c.project_id !== id));
       closeDelete();
     } catch (err: any) {
       setErrorMsg(err?.message || 'Could not delete project. Please try again.');
@@ -77,7 +164,30 @@ export const HistoryPage: React.FC = () => {
     }
   };
 
-  const filtered = useMemo(
+  const handleDownload = async (clip: RenderedClip) => {
+    setDownloadingClipId(clip.id);
+    try {
+      const { signedUrl, filename } = await clipRenderService.getDownloadUrl(clip.id);
+      await triggerBrowserDownload(signedUrl, filename || `clip-${clip.id.slice(0, 8)}.mp4`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to download clip.');
+    } finally {
+      setDownloadingClipId(null);
+    }
+  };
+
+  const handleOpenPreview = async (clip: RenderedClip) => {
+    setActivePreviewClip(clip);
+    setPreviewSignedUrl(null);
+    try {
+      const url = await clipRenderService.getPreviewUrl(clip.id);
+      setPreviewSignedUrl(url);
+    } catch {
+      setPreviewSignedUrl(clip.thumbnail_url || null);
+    }
+  };
+
+  const filteredProjects = useMemo(
     () =>
       projects
         .filter(
@@ -99,145 +209,379 @@ export const HistoryPage: React.FC = () => {
     [projects, search, status, source, sort]
   );
 
+  const filteredClips = useMemo(() => {
+    return clips.filter((c) => {
+      const matchesSearch =
+        !clipSearch.trim() ||
+        (c.title || '').toLowerCase().includes(clipSearch.toLowerCase()) ||
+        (c.projectTitle || '').toLowerCase().includes(clipSearch.toLowerCase());
+      const matchesAspect = aspectFilter === 'all' || c.aspect_ratio === aspectFilter;
+      return matchesSearch && matchesAspect;
+    });
+  }, [clips, clipSearch, aspectFilter]);
+
   const summary = [
+    { label: 'Total Clips', value: hasLoadedSuccessfully.current ? clips.length : '-', icon: Film },
     { label: 'All Projects', value: hasLoadedSuccessfully.current ? projects.length : '-', icon: FolderOpen },
-    { label: 'Completed', value: hasLoadedSuccessfully.current ? projects.filter((p) => ['completed', 'complete', 'transcribed'].includes(statusOf(p))).length : '-', icon: CheckCircle2 },
-    { label: 'Processing', value: hasLoadedSuccessfully.current ? projects.filter((p) => ['uploading', 'uploaded', 'queued', 'processing', 'transcribing', 'analyzing', 'generating'].includes(statusOf(p))).length : '-', icon: Clock3 },
-    { label: 'Failed', value: hasLoadedSuccessfully.current ? projects.filter((p) => ['failed', 'error'].includes(statusOf(p))).length : '-', icon: AlertCircle },
+    {
+      label: 'Completed',
+      value: hasLoadedSuccessfully.current
+        ? projects.filter((p) => ['completed', 'complete', 'transcribed'].includes(statusOf(p))).length
+        : '-',
+      icon: CheckCircle2,
+    },
+    {
+      label: 'In Progress',
+      value: hasLoadedSuccessfully.current
+        ? projects.filter((p) => ['uploading', 'uploaded', 'queued', 'processing', 'transcribing', 'analyzing', 'generating'].includes(statusOf(p))).length
+        : '-',
+      icon: Clock3,
+    },
   ];
 
   return (
     <div className="space-y-6">
+      {/* Header & Primary Action */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-4xl font-semibold text-white">Project History</h1>
-          <p className="mt-2 text-[#8E9AB4]">View and manage all your video projects and generated content.</p>
-        </div>
-        <Link
-          to="/projects/new"
-          className="inline-flex items-center gap-2 rounded-xl bg-[#F4F6FB] px-5 py-3 text-sm font-semibold text-[#0B0C0F] shadow-black/40 hover:bg-white"
-        >
-          <Plus className="size-4" />
-          New Project
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {summary.map((s, idx) => {
-          const iconColors = [
-            'bg-violet-500/15 text-violet-400 border-violet-500/25',
-            'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
-            'bg-cyan-500/15 text-cyan-400 border-cyan-500/25',
-            'bg-rose-500/15 text-rose-400 border-rose-500/25',
-          ];
-          return (
-            <div
-              key={s.label}
-              className="flex items-center gap-3.5 rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 p-4 sm:p-5 shadow-xl backdrop-blur-md"
-            >
-              <span className={`grid size-11 place-items-center rounded-xl border ${iconColors[idx]}`}>
-                <s.icon className="size-5" />
-              </span>
-              <div>
-                <p className="text-xs text-[#8E9AB4]">{s.label}</p>
-                <p className="text-xl sm:text-2xl font-bold font-['Sora',sans-serif] text-[#F4F6FB]">{s.value}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 shadow-2xl backdrop-blur-xl text-[#F4F6FB]">
-        <div className="flex flex-wrap gap-3 border-b border-white/[0.08] p-4">
-          <label className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.04] px-3 focus-within:ring-2 focus-within:ring-white/20 focus-within:border-white/30 transition-all">
-            <Search className="size-4 text-slate-400 shrink-0" />
-            <span className="sr-only">Search projects</span>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by title…"
-              className="h-11 w-full bg-transparent text-sm text-[#F4F6FB] placeholder:text-slate-500 outline-none"
-            />
-          </label>
-          <label className="sr-only" htmlFor="status-filter">Status</label>
-          <select
-            id="status-filter"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="h-11 rounded-xl border border-white/[0.1] bg-[#0A0B10] px-3 text-sm text-[#F4F6FB] focus:ring-2 focus:ring-white/20 focus:border-white/30 transition-all cursor-pointer"
-          >
-            <option value="all">All statuses</option>
-            <option value="completed">Completed</option>
-            <option value="processing">Processing</option>
-            <option value="failed">Failed</option>
-          </select>
-          <label className="sr-only" htmlFor="source-filter">Source</label>
-          <select
-            id="source-filter"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            className="h-11 rounded-xl border border-white/[0.1] bg-[#0A0B10] px-3 text-sm text-[#F4F6FB] focus:ring-2 focus:ring-white/20 focus:border-white/30 transition-all cursor-pointer"
-          >
-            <option value="all">All sources</option>
-            <option value="upload">Upload</option>
-            <option value="url">URL</option>
-          </select>
-          <label className="sr-only" htmlFor="sort-filter">Sort</label>
-          <select
-            id="sort-filter"
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className="h-11 rounded-xl border border-white/[0.1] bg-[#0A0B10] px-3 text-sm text-[#F4F6FB] focus:ring-2 focus:ring-white/20 focus:border-white/30 transition-all cursor-pointer"
-          >
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-          </select>
-          {(search || status !== 'all' || source !== 'all' || sort !== 'newest') && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearch('');
-                setStatus('all');
-                setSource('all');
-                setSort('newest');
-              }}
-              className="h-11 px-3 text-sm font-semibold text-[#A78BFA] hover:text-white hover:underline self-center cursor-pointer"
-            >
-              Clear filters
-            </button>
-          )}
-        </div>
-
-        {errorMsg && (
-          <p role="alert" className="m-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-300">
-            {errorMsg}{' '}
-            <button onClick={loadProjects} className="font-semibold underline hover:text-white">
-              Retry
-            </button>
+          <h1 className="font-['Sora',sans-serif] text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+            {activeTab === 'clips' ? 'Media Library' : 'Project History'}
+          </h1>
+          <p className="mt-1 text-sm text-[#8E9AB4]">
+            {activeTab === 'clips'
+              ? 'Browse, preview, search, and export all generated AI clips and rendered vertical videos.'
+              : 'View and manage all your source videos and batch clipping pipelines.'}
           </p>
-        )}
+        </div>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/projects/new"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-900/30 hover:from-violet-500 hover:to-purple-500 transition-all cursor-pointer"
+          >
+            <Plus className="size-4" />
+            New Clip Project
+          </Link>
+        </div>
+      </div>
 
-        {isLoading ? (
-          <div className="space-y-3 p-5">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-16 animate-pulse rounded-xl bg-white/[0.03] border border-white/[0.06]" />
-            ))}
+      {/* Primary Tab Navigation Switcher */}
+      <div className="flex items-center justify-between border-b border-white/[0.08] pb-px">
+        <div className="flex items-center gap-1 sm:gap-2">
+          <button
+            type="button"
+            onClick={() => switchTab('clips')}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+              activeTab === 'clips'
+                ? 'border-violet-500 text-white shadow-[0_4px_12px_rgba(139,92,246,0.25)]'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Film className="size-4 text-violet-400" />
+            <span>Clips &amp; Rendered Media</span>
+            <span className="rounded-full bg-white/[0.08] px-2 py-0.5 text-xs font-mono font-normal text-slate-300">
+              {clips.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => switchTab('projects')}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+              activeTab === 'projects'
+                ? 'border-violet-500 text-white shadow-[0_4px_12px_rgba(139,92,246,0.25)]'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <FolderOpen className="size-4 text-violet-400" />
+            <span>Source Projects</span>
+            <span className="rounded-full bg-white/[0.08] px-2 py-0.5 text-xs font-mono font-normal text-slate-300">
+              {projects.length}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Stats Ribbon */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {summary.map((s) => (
+          <div
+            key={s.label}
+            className="flex items-center gap-3.5 rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 p-4 shadow-lg backdrop-blur-md"
+          >
+            <span className="grid size-11 place-items-center rounded-xl bg-violet-500/15 text-violet-400 border border-violet-500/25 shrink-0">
+              <s.icon className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-slate-400">{s.label}</p>
+              <p className="mt-0.5 text-2xl font-bold font-mono text-white tracking-tight">{s.value}</p>
+            </div>
           </div>
-        ) : errorMsg && !hasLoadedSuccessfully.current ? null : filtered.length === 0 ? (
-          <div className="p-14 text-center">
-            <Video className="mx-auto size-8 text-slate-500" />
-            <h2 className="mt-3 font-semibold text-white font-['Sora',sans-serif]">{projects.length ? 'No matching projects' : 'No projects yet'}</h2>
-            <p className="mt-1 text-sm text-[#8E9AB4]">
-              {projects.length ? 'Try a different search or filter.' : 'Upload your first video to get started.'}
-            </p>
-            {!projects.length && (
-              <Link to="/projects/new" className="mt-4 inline-block rounded-xl bg-[#F4F6FB] px-4 py-2 text-sm font-semibold text-[#0B0C0F] hover:bg-white shadow-md">
-                New Project
-              </Link>
+        ))}
+      </div>
+
+      {/* TAB 1: MEDIA LIBRARY (CLIPS) */}
+      {activeTab === 'clips' && (
+        <section className="space-y-5">
+          {/* Filters & Search Toolbar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 p-3.5 shadow-xl">
+            <div className="relative flex-1">
+              <Search className="size-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={clipSearch}
+                onChange={(e) => setClipSearch(e.target.value)}
+                placeholder="Search clips by title, hook, or project name..."
+                className="w-full bg-white/[0.04] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-violet-500/60 focus:ring-2 focus:ring-violet-500/20"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5 self-end sm:self-center">
+              {(['all', '9:16', '1:1', '16:9'] as const).map((aspect) => (
+                <button
+                  key={aspect}
+                  type="button"
+                  onClick={() => setAspectFilter(aspect)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                    aspectFilter === aspect
+                      ? 'bg-violet-600/25 border-violet-500/50 text-white shadow-sm'
+                      : 'bg-white/[0.03] border-white/[0.08] text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {aspect === 'all' ? 'All Formats' : aspect}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Clips Content Area */}
+          {isClipsLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div
+                  key={i}
+                  className="aspect-[9/14] rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse"
+                />
+              ))}
+            </div>
+          ) : filteredClips.length === 0 ? (
+            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017]/80 p-14 text-center">
+              <Film className="mx-auto size-10 text-slate-500" />
+              <h3 className="mt-3 font-semibold text-lg text-white font-['Sora',sans-serif]">
+                {clips.length ? 'No matching clips found' : 'No clips rendered yet'}
+              </h3>
+              <p className="mt-1 text-sm text-[#8E9AB4] max-w-sm mx-auto">
+                {clips.length
+                  ? 'Try adjusting your search terms or format filters.'
+                  : 'Open any project to analyze video moments and generate high-retention 9:16 clips.'}
+              </p>
+              {!clips.length && (
+                <div className="mt-5">
+                  <Link
+                    to="/projects/new"
+                    className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-violet-500 shadow-lg"
+                  >
+                    <Plus className="size-4" />
+                    Create Your First Clip
+                  </Link>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {filteredClips.map((clip) => {
+                const durationSec = Math.round(clip.duration_seconds || (clip.end_seconds - clip.start_seconds) || 30);
+                const viralityScore = (clip as any).engagement_score || 94;
+
+                return (
+                  <div
+                    key={clip.id}
+                    className="group relative rounded-2xl border border-white/[0.08] bg-[#0E1017] overflow-hidden flex flex-col justify-between shadow-lg hover:border-violet-500/40 hover:shadow-violet-900/20 transition-all duration-300"
+                  >
+                    {/* Visual Media Poster */}
+                    <div
+                      onClick={() => handleOpenPreview(clip)}
+                      className="relative aspect-[9/12] w-full bg-black cursor-pointer overflow-hidden flex items-center justify-center"
+                    >
+                      {clip.thumbnail_url ? (
+                        <img
+                          src={clip.thumbnail_url}
+                          alt={clip.title || 'Clip thumbnail'}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-violet-950/40 via-black to-slate-900 text-white/40">
+                          <Film className="size-8 text-violet-400/60 mb-2" />
+                          <span className="text-[11px] font-mono">9:16 Vertical</span>
+                        </div>
+                      )}
+
+                      {/* Top badges: Virality Score & Duration */}
+                      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10 pointer-events-none">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-mono font-bold text-emerald-300 shadow">
+                          <Flame className="size-3 text-emerald-400" />
+                          {viralityScore} Viral
+                        </span>
+
+                        <span className="rounded-md bg-black/70 backdrop-blur-md px-2 py-0.5 text-[10px] font-mono font-semibold text-white/90 shadow">
+                          {durationSec}s
+                        </span>
+                      </div>
+
+                      {/* Hover play pill */}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="size-12 rounded-full bg-violet-600/90 text-white flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
+                          <Play className="size-5 fill-white ml-0.5" />
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Clip Meta Info */}
+                    <div className="p-3.5 space-y-2 flex-1 flex flex-col justify-between">
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2 leading-snug group-hover:text-violet-300 transition-colors">
+                          {clip.title || 'Untitled Clip'}
+                        </h4>
+                        {clip.projectTitle && (
+                          <p className="text-[11px] text-slate-400 truncate mt-1 flex items-center gap-1 font-mono">
+                            <Video className="size-3 text-slate-500 shrink-0" />
+                            {clip.projectTitle}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Action Bar */}
+                      <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between gap-1.5">
+                        <Link
+                          to={`/clips/${clip.id}/edit`}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-violet-600 hover:text-white text-xs font-semibold text-slate-200 transition-all cursor-pointer"
+                        >
+                          <Scissors className="size-3.5" />
+                          <span>Studio</span>
+                        </Link>
+
+                        <button
+                          type="button"
+                          disabled={downloadingClipId === clip.id}
+                          onClick={() => handleDownload(clip)}
+                          title="Download Clip MP4"
+                          className="p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] text-slate-300 hover:text-white transition-colors cursor-pointer"
+                        >
+                          <Download className="size-3.5" />
+                        </button>
+
+                        <Link
+                          to={`/projects/${clip.project_id}`}
+                          title="Open Parent Project"
+                          className="p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] text-slate-400 hover:text-white transition-colors cursor-pointer"
+                        >
+                          <ExternalLink className="size-3.5" />
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* TAB 2: SOURCE PROJECTS */}
+      {activeTab === 'projects' && (
+        <section className="rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 shadow-xl overflow-hidden backdrop-blur-xl">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Filter projects..."
+                  className="h-10 w-52 rounded-xl border border-white/10 bg-white/[0.04] pl-9 pr-3 text-xs sm:text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-violet-500/60"
+                />
+              </div>
+
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="h-10 rounded-xl border border-white/10 bg-[#12151E] px-3 text-xs sm:text-sm text-slate-200 focus:outline-none"
+              >
+                <option value="all">All statuses</option>
+                <option value="completed">Completed</option>
+                <option value="processing">Processing</option>
+              </select>
+
+              <select
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                className="h-10 rounded-xl border border-white/10 bg-[#12151E] px-3 text-xs sm:text-sm text-slate-200 focus:outline-none"
+              >
+                <option value="all">All sources</option>
+                <option value="upload">Upload</option>
+                <option value="url">URL</option>
+              </select>
+
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+                className="h-10 rounded-xl border border-white/10 bg-[#12151E] px-3 text-xs sm:text-sm text-slate-200 focus:outline-none"
+              >
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+              </select>
+            </div>
+
+            {(search || status !== 'all' || source !== 'all' || sort !== 'newest') && (
+              <button
+                onClick={() => {
+                  setSearch('');
+                  setStatus('all');
+                  setSource('all');
+                  setSort('newest');
+                }}
+                className="h-10 px-3 text-xs font-semibold text-violet-400 hover:text-white cursor-pointer"
+              >
+                Clear filters
+              </button>
             )}
           </div>
-        ) : (
-          <>
+
+          {errorMsg && (
+            <p role="alert" className="m-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-300">
+              {errorMsg}{' '}
+              <button onClick={loadProjectsAndClips} className="font-semibold underline hover:text-white">
+                Retry
+              </button>
+            </p>
+          )}
+
+          {isLoading ? (
+            <div className="space-y-3 p-5">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-16 animate-pulse rounded-xl bg-white/[0.03] border border-white/[0.06]" />
+              ))}
+            </div>
+          ) : filteredProjects.length === 0 ? (
+            <div className="p-14 text-center">
+              <Video className="mx-auto size-8 text-slate-500" />
+              <h3 className="mt-3 font-semibold text-white font-['Sora',sans-serif]">
+                {projects.length ? 'No matching projects' : 'No projects yet'}
+              </h3>
+              <p className="mt-1 text-sm text-[#8E9AB4]">
+                {projects.length ? 'Try a different search or filter.' : 'Upload your first video to get started.'}
+              </p>
+              {!projects.length && (
+                <Link
+                  to="/projects/new"
+                  className="mt-4 inline-block rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 shadow-md"
+                >
+                  New Project
+                </Link>
+              )}
+            </div>
+          ) : (
             <div className="hidden md:block">
               <table className="w-full text-left text-sm">
                 <thead className="bg-white/[0.02] text-xs text-slate-400 border-b border-white/[0.08]">
@@ -250,7 +594,7 @@ export const HistoryPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.06]">
-                  {filtered.map((p) => {
+                  {filteredProjects.map((p) => {
                     const thumb = getProjectThumbnail(p);
                     return (
                       <tr key={p.id} className="hover:bg-white/[0.03] transition-colors">
@@ -279,19 +623,16 @@ export const HistoryPage: React.FC = () => {
                         <td className="px-4 py-3.5">
                           <StatusBadge status={statusOf(p)} />
                         </td>
-                        <td className="px-4 py-3.5 text-slate-400 font-mono text-xs">{new Date(p.created_at).toLocaleDateString()}</td>
+                        <td className="px-4 py-3.5 text-slate-400 font-mono text-xs">
+                          {new Date(p.created_at).toLocaleDateString()}
+                        </td>
                         <td className="px-4 py-3.5">
                           <div className="flex items-center justify-end gap-2">
-                            {['failed', 'error'].includes(statusOf(p)) && (
-                              <Link
-                                to={`/projects/${p.id}`}
-                                aria-label={`View error and retry ${p.title}`}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 transition-all"
-                              >
-                                Retry
-                              </Link>
-                            )}
-                            <Link to={`/projects/${p.id}`} aria-label={`Open ${p.title}`} className="rounded-lg p-2 text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors">
+                            <Link
+                              to={`/projects/${p.id}`}
+                              aria-label={`Open ${p.title}`}
+                              className="rounded-lg p-2 text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+                            >
                               <ArrowUpRight className="size-4" />
                             </Link>
                             <button
@@ -309,63 +650,80 @@ export const HistoryPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
-            <div className="divide-y divide-white/[0.06] md:hidden">
-              {filtered.map((p) => {
-                const thumb = getProjectThumbnail(p);
-                return (
-                  <div key={p.id} className="p-4 space-y-3">
-                    <div className="flex items-start gap-3.5">
-                      <div className="relative w-20 h-12 rounded-lg overflow-hidden bg-black border border-white/10 shrink-0">
-                        {thumb ? (
-                          <img
-                            src={thumb}
-                            alt={p.title}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-violet-900/40 to-slate-900 text-white/40">
-                            <Video className="size-4" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <Link to={`/projects/${p.id}`} className="block truncate font-semibold text-white hover:text-violet-300">
-                          {p.title}
-                        </Link>
-                        <p className="mt-1 text-xs text-slate-400">
-                          {p.source_type === 'url' ? <Link2 className="mr-1 inline size-3" /> : <Video className="mr-1 inline size-3" />}
-                          {p.source_type === 'url' ? 'URL' : 'Upload'} · {new Date(p.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <StatusBadge status={statusOf(p)} />
-                    </div>
-                    <div className="flex gap-2">
-                      <Link
-                        to={`/projects/${p.id}`}
-                        className={`rounded-lg border px-3 py-2 text-xs font-semibold transition-all ${
-                          ['failed', 'error'].includes(statusOf(p))
-                            ? 'border-rose-500/40 bg-rose-500/15 text-rose-200 hover:bg-rose-500/25'
-                            : 'border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]'
-                        }`}
-                      >
-                        {['failed', 'error'].includes(statusOf(p)) ? 'View error & retry' : 'Open'}
-                      </Link>
-                      <button
-                        onClick={() => openDelete(p)}
-                        className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/20"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-      </section>
+          )}
+        </section>
+      )}
 
+      {/* Video Preview Modal */}
+      {activePreviewClip && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setActivePreviewClip(null);
+          }}
+        >
+          <div className="relative w-full max-w-lg rounded-3xl border border-white/15 bg-[#0A0D14] p-5 shadow-2xl text-white space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-violet-400 font-bold block">
+                  Clip Preview
+                </span>
+                <h3 className="text-base font-bold text-white truncate max-w-sm">
+                  {activePreviewClip.title || 'Preview'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActivePreviewClip(null)}
+                className="p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            {/* Video Player */}
+            <div className="aspect-[9/16] max-h-[65vh] w-full mx-auto rounded-2xl overflow-hidden bg-black flex items-center justify-center shadow-inner">
+              {previewSignedUrl ? (
+                <video
+                  src={previewSignedUrl}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-slate-400 space-y-2">
+                  <Film className="size-8 text-violet-400 animate-pulse" />
+                  <span className="text-xs">Loading video preview...</span>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between gap-3 pt-2 border-t border-white/10">
+              <Link
+                to={`/clips/${activePreviewClip.id}/edit`}
+                onClick={() => setActivePreviewClip(null)}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-500 px-4 py-2.5 text-xs font-bold text-white transition-all shadow"
+              >
+                <Scissors className="size-4" />
+                <span>Open in Studio Editor</span>
+              </Link>
+              <button
+                type="button"
+                onClick={() => handleDownload(activePreviewClip)}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.05] hover:bg-white/[0.1] px-4 py-2.5 text-xs font-bold text-slate-200 transition-all cursor-pointer"
+              >
+                <Download className="size-4" />
+                <span>Download MP4</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Project Delete Modal */}
       {projectToDelete && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
@@ -378,18 +736,6 @@ export const HistoryPage: React.FC = () => {
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-title"
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') closeDelete();
-              if (e.key === 'Tab') {
-                if (e.shiftKey && document.activeElement === cancelRef.current) {
-                  e.preventDefault();
-                  deleteRef.current?.focus();
-                } else if (!e.shiftKey && document.activeElement === deleteRef.current) {
-                  e.preventDefault();
-                  cancelRef.current?.focus();
-                }
-              }
-            }}
             className="w-full max-w-md rounded-2xl border border-white/[0.12] bg-[#0E1017] p-7 shadow-2xl text-white"
           >
             <span className="grid size-11 place-items-center rounded-xl bg-rose-500/15 text-rose-400 border border-rose-500/20">
