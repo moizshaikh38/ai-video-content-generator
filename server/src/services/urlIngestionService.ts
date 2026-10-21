@@ -424,6 +424,69 @@ export class UrlIngestionService {
   }
 
   /**
+   * Resolves a cookies file if provided via environment variable, file path, or secret.
+   */
+  private static getCookiesFilePath(): string | null {
+    if (config.youtubeCookiesPath && fs.existsSync(config.youtubeCookiesPath)) {
+      return config.youtubeCookiesPath;
+    }
+    const directPath = path.resolve(process.cwd(), 'cookies.txt');
+    if (fs.existsSync(directPath)) {
+      return directPath;
+    }
+    const serverPath = path.resolve(process.cwd(), 'server/cookies.txt');
+    if (fs.existsSync(serverPath)) {
+      return serverPath;
+    }
+
+    const content = config.youtubeCookiesContent?.trim();
+    if (content) {
+      try {
+        const dest = path.join(os.tmpdir(), 'vireo-yt-cookies.txt');
+        let rawContent = content;
+        if (!content.includes('\n') && content.length > 20) {
+          try {
+            const decoded = Buffer.from(content, 'base64').toString('utf8');
+            if (decoded.includes('\t') || decoded.includes('cookie') || decoded.includes('Netscape')) {
+              rawContent = decoded;
+            }
+          } catch {}
+        }
+        fs.writeFileSync(dest, rawContent, { mode: 0o600 });
+        return dest;
+      } catch (err: any) {
+        logger.warn('Failed to write temporary YouTube cookies file', { error: err.message });
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Common yt-dlp arguments optimized for datacenter and cloud provider resilience.
+   * Uses mobile and TV player clients to bypass aggressive datacenter web challenges.
+   */
+  private static getCommonYtDlpArgs(): string[] {
+    const commonArgs = [
+      '--no-warnings',
+      '--no-playlist',
+      '--socket-timeout', '20',
+      '--extractor-args', 'youtube:player_client=tv,web_embedded,android,mweb',
+    ];
+
+    const cookiesFile = this.getCookiesFilePath();
+    if (cookiesFile) {
+      commonArgs.push('--cookies', cookiesFile);
+    }
+
+    if (config.youtubeProxy) {
+      commonArgs.push('--proxy', config.youtubeProxy);
+    }
+
+    return commonArgs;
+  }
+
+  /**
    * Fetches metadata for a public YouTube video using yt-dlp without downloading media.
    * Extracts rich metadata (chapters, categories, tags, channel, thumbnail) and computes
    * local genre suggestions.
@@ -433,7 +496,8 @@ export class UrlIngestionService {
     timeoutMs = 25000
   ): Promise<YouTubeMetadataResult> {
     const { command: dlCommand, prefixArgs } = this.resolveYtDlpCommand();
-    const args = [...prefixArgs, '--dump-json', '--no-warnings', '--no-playlist', '--skip-download', url];
+    const commonArgs = this.getCommonYtDlpArgs();
+    const args = [...prefixArgs, ...commonArgs, '--dump-json', '--skip-download', url];
 
     try {
       const { stdout } = await execFileAsync(dlCommand, args, {
@@ -526,13 +590,29 @@ export class UrlIngestionService {
       const stderr = String(err.stderr || '');
       logger.warn('yt-dlp metadata probe warning', { error: err.message, stderr });
 
+      if (
+        stderr.includes('Sign in to confirm you’re not a bot') ||
+        stderr.includes("Sign in to confirm you're not a bot") ||
+        stderr.includes('bot detection')
+      ) {
+        throw new AppError(
+          'YouTube is temporarily blocking datacenter requests (bot challenge). Please configure YOUTUBE_COOKIES in Render settings or upload the video directly.',
+          429,
+          'YOUTUBE_RATE_LIMITED'
+        );
+      }
       if (stderr.includes('Private video') || stderr.includes('Sign in if you') || stderr.includes('this video is private')) {
         throw new AppError('This YouTube video is private and cannot be imported.', 400, 'YOUTUBE_PRIVATE_VIDEO');
       }
       if (stderr.includes('Video unavailable') || stderr.includes('This video is unavailable') || stderr.includes('has been removed')) {
         throw new AppError('This YouTube video is unavailable or has been removed.', 400, 'YOUTUBE_VIDEO_UNAVAILABLE');
       }
-      if (stderr.includes('Sign in') || stderr.includes('age-restricted') || stderr.includes('confirm your age')) {
+      if (
+        stderr.includes('age-restricted') ||
+        stderr.includes('confirm your age') ||
+        stderr.includes('Sign in to confirm your age') ||
+        stderr.includes('Sign in to view this video')
+      ) {
         throw new AppError('This YouTube video has access or age restrictions and cannot be imported.', 400, 'YOUTUBE_ACCESS_RESTRICTED');
       }
 
@@ -557,6 +637,7 @@ export class UrlIngestionService {
     const expectedMp4 = path.join(tempDir, `${uniqueId}.mp4`);
 
     const { command: dlCommand, prefixArgs } = this.resolveYtDlpCommand();
+    const commonArgs = this.getCommonYtDlpArgs();
     const ffmpegPath = (ffmpegStatic as unknown as string) || 'ffmpeg';
     const ffmpegDir = path.dirname(ffmpegPath);
 
@@ -566,10 +647,8 @@ export class UrlIngestionService {
 
     const args = [
       ...prefixArgs,
-      '--no-warnings',
-      '--no-playlist',
+      ...commonArgs,
       '--concurrent-fragments', '4',
-      '--socket-timeout', '20',
       '--ffmpeg-location', ffmpegDir,
       '-f', formatSpec,
       '--merge-output-format', 'mp4',
@@ -621,7 +700,23 @@ export class UrlIngestionService {
       if (stderr.includes('Video unavailable') || stderr.includes('This video is unavailable')) {
         throw new AppError('This YouTube video is unavailable.', 400, 'YOUTUBE_VIDEO_UNAVAILABLE');
       }
-      if (stderr.includes('Sign in') || stderr.includes('age-restricted')) {
+      if (
+        stderr.includes('Sign in to confirm you’re not a bot') ||
+        stderr.includes("Sign in to confirm you're not a bot") ||
+        stderr.includes('bot detection')
+      ) {
+        throw new AppError(
+          'YouTube is temporarily blocking datacenter requests (bot challenge). Please configure YOUTUBE_COOKIES in Render settings or upload the video directly.',
+          429,
+          'YOUTUBE_RATE_LIMITED'
+        );
+      }
+      if (
+        stderr.includes('age-restricted') ||
+        stderr.includes('confirm your age') ||
+        stderr.includes('Sign in to confirm your age') ||
+        stderr.includes('Sign in to view this video')
+      ) {
         throw new AppError('This YouTube video has access or age restrictions and cannot be imported.', 400, 'YOUTUBE_ACCESS_RESTRICTED');
       }
       if (
@@ -631,9 +726,6 @@ export class UrlIngestionService {
         stderr.includes('command not found')
       ) {
         throw new AppError('YouTube downloader utility is not configured or available on the server.', 500, 'YOUTUBE_DOWNLOADER_UNAVAILABLE');
-      }
-      if (stderr.includes('Sign in to confirm you’re not a bot') || stderr.includes('bot detection')) {
-        throw new AppError('YouTube is temporarily rate limiting or blocking automated requests. Please try again shortly or upload directly.', 429, 'YOUTUBE_RATE_LIMITED');
       }
 
       throw new AppError('Could not download this YouTube video. Please verify that the video is publicly accessible.', 400, 'YOUTUBE_DOWNLOAD_FAILED');

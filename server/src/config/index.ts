@@ -33,6 +33,9 @@ export const config = {
   groqApiKey: process.env.GROQ_API_KEY || '',
   transcriptionProvider: process.env.TRANSCRIPTION_PROVIDER || 'groq',
   appUrl: process.env.APP_URL || process.env.CORS_ORIGIN || 'http://localhost:5173',
+  youtubeCookiesContent: process.env.YOUTUBE_COOKIES_CONTENT || process.env.YOUTUBE_COOKIES || '',
+  youtubeCookiesPath: process.env.YOUTUBE_COOKIES_PATH || '',
+  youtubeProxy: process.env.YOUTUBE_PROXY || process.env.HTTP_PROXY || '',
   // Processing configuration
   processingStaleMinutes: parseInt(process.env.PROCESSING_STALE_MINUTES || '15', 10),
   maxVideoBytes: 2 * 1024 * 1024 * 1024, // Direct R2 PUT; processing still needs local disk capacity
