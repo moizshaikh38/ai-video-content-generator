@@ -23,7 +23,7 @@ import {
   X,
   Wand2,
   Layers,
-  Image as ImageIcon,
+  Flame,
 } from 'lucide-react';
 
 import { Button } from '../Button';
@@ -405,35 +405,35 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
   return (
     <div className="space-y-6">
       {/* Primary Workspace Nav (AI Suggestions vs My Clips) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border/70">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-white/[0.08]">
         <div className="flex items-center gap-2">
-          <div className="flex rounded-xl bg-cream/70 p-1 border border-border/80 text-xs font-medium">
+          <div className="flex rounded-xl bg-white/[0.04] p-1 border border-white/[0.08] text-xs font-medium">
             <button
               onClick={() => setActiveTab('suggestions')}
-              className={`px-3.5 py-1.5 rounded-lg transition-colors flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === 'suggestions'
-                  ? 'bg-card text-foreground font-semibold shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-gradient-to-r from-violet-600/30 to-purple-600/20 text-white font-bold border border-violet-500/40 shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <Sparkles className="size-3.5 text-clay" />
+              <Sparkles className="size-3.5 text-violet-400" />
               <span>AI Suggestions</span>
-              <span className="rounded-full bg-clay/10 px-1.5 py-0.2 text-[10px] font-mono text-clay font-bold">
+              <span className="rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-mono text-violet-300 font-bold border border-violet-500/30">
                 {candidates.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveTab('my_clips')}
-              className={`px-3.5 py-1.5 rounded-lg transition-colors flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === 'my_clips'
-                  ? 'bg-card text-foreground font-semibold shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-gradient-to-r from-emerald-600/30 to-teal-600/20 text-white font-bold border border-emerald-500/40 shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <Video className="size-3.5 text-vireo-green" />
+              <Video className="size-3.5 text-emerald-400" />
               <span>My Clips</span>
-              <span className="rounded-full bg-vireo-green/10 px-1.5 py-0.2 text-[10px] font-mono text-vireo-green font-bold">
+              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-mono text-emerald-300 font-bold border border-emerald-500/30">
                 {myClips.length}
               </span>
             </button>
@@ -447,9 +447,9 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
               size="sm"
               onClick={handleFindClips}
               disabled={isAnalyzing}
-              className="text-xs"
+              className="text-xs border-white/10 hover:border-violet-500/40 hover:bg-violet-500/10"
             >
-              <Sparkles className="size-3.5 mr-1.5 text-clay" />
+              <Sparkles className="size-3.5 mr-1.5 text-violet-400" />
               Regenerate Suggestions
             </Button>
           </div>
@@ -477,65 +477,62 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
       {activeTab === 'suggestions' && (
         <>
           {candidates.length === 0 ? (
-            <SpotlightCard
-              spotlightColor="rgba(192, 98, 62, 0.12)"
-              className="p-8 md:p-12 text-center border-border/80 bg-card space-y-6"
-            >
-              <div className="size-14 rounded-2xl bg-clay/10 text-clay mx-auto flex items-center justify-center">
-                <Film className="size-7" />
+            <div className="p-8 md:p-14 text-center rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 space-y-5 shadow-xl backdrop-blur-xl">
+              <div className="size-16 rounded-2xl bg-violet-500/10 text-violet-400 border border-violet-500/25 mx-auto flex items-center justify-center shadow-lg">
+                <Sparkles className="size-8" />
               </div>
 
               <div className="space-y-2 max-w-lg mx-auto">
-                <h3 className="text-xl md:text-2xl font-semibold font-display text-foreground">
-                  Find your best moments
+                <h3 className="text-xl sm:text-2xl font-bold font-['Sora',sans-serif] text-white">
+                  Discover Viral Moments
                 </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  VireoClip analyzes your transcript to surface strong standalone moments for Shorts, Reels, and TikTok.
+                <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+                  VireoClip analyzes transcript hooks, speech cadences, and visual cues to surface high-retention short clips for TikTok, Reels, and YouTube Shorts.
                 </p>
-                <p className="text-xs text-muted-foreground/80 font-mono">
-                  Usually finds 5–10 strong moments based on hook strength, clarity, and pacing.
+                <p className="text-xs text-violet-300 font-mono">
+                  Identifies 5–10 viral moments with calculated hook scores, retention forecast, and auto-generated titles.
                 </p>
               </div>
 
               {analysisError && (
-                <div className="p-3.5 rounded-xl border border-destructive/20 bg-destructive/10 text-destructive text-xs max-w-md mx-auto flex items-center gap-2">
-                  <AlertCircle className="size-4 shrink-0" />
+                <div className="p-3.5 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs max-w-md mx-auto flex items-center gap-2">
+                  <AlertCircle className="size-4 shrink-0 text-rose-400" />
                   <span>{analysisError}</span>
                 </div>
               )}
 
               <div className="pt-2">
                 <Button
-                  variant="clay"
+                  variant="primary"
                   size="lg"
                   onClick={handleFindClips}
                   disabled={isAnalyzing || !transcript}
-                  className="shadow-black/40 px-8"
+                  className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white font-bold px-8 shadow-[0_0_20px_rgba(139,92,246,0.3)]"
                 >
                   <Sparkles className="size-4 mr-2" />
-                  Find Clips
+                  Analyze & Find Viral Clips
                 </Button>
               </div>
-            </SpotlightCard>
+            </div>
           ) : (
             <div className="space-y-4">
               {/* Natural Language Moment Search Bar */}
-              <div className="rounded-2xl border border-border/70 bg-card p-3 shadow-xs">
+              <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 p-3 shadow-lg">
                 <form onSubmit={handleSearchMoments} className="flex items-center gap-2">
                   <div className="relative flex-1">
-                    <Search className="size-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Search className="size-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Ask VireoClip to find a moment... (e.g. 'find the part about workspace' or 'hook about AI')"
-                      className="w-full bg-cream/50 border border-border/80 rounded-xl pl-9 pr-8 py-2 text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-clay/30"
+                      placeholder="Ask AI to find a moment... (e.g. 'part about product pricing' or 'funny hook about startup')"
+                      className="w-full bg-white/[0.04] border border-white/10 rounded-xl pl-10 pr-8 py-2.5 text-xs sm:text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-violet-500/60 focus:ring-2 focus:ring-violet-500/20"
                     />
                     {searchQuery && (
                       <button
                         type="button"
                         onClick={handleClearSearch}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
                       >
                         <X className="size-3.5" />
                       </button>
@@ -543,10 +540,10 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                   </div>
                   <Button
                     type="submit"
-                    variant="clay"
+                    variant="primary"
                     size="sm"
                     disabled={isSearching || !searchQuery.trim()}
-                    className="text-xs shrink-0"
+                    className="text-xs shrink-0 bg-violet-600 hover:bg-violet-500 text-white font-semibold"
                   >
                     {isSearching ? (
                       <>
@@ -897,99 +894,155 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
       {activeTab === 'my_clips' && (
         <div className="space-y-6">
           {myClips.length === 0 ? (
-            <SpotlightCard
-              spotlightColor="rgba(45, 90, 60, 0.12)"
-              className="p-8 md:p-12 text-center border-border/80 bg-card space-y-4"
-            >
-              <div className="size-14 rounded-2xl bg-vireo-green/10 text-vireo-green mx-auto flex items-center justify-center">
-                <Video className="size-7" />
+            <div className="p-8 md:p-14 text-center rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 space-y-4 shadow-xl backdrop-blur-xl">
+              <div className="size-16 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 mx-auto flex items-center justify-center shadow-lg">
+                <Video className="size-8" />
               </div>
-              <div className="space-y-1.5 max-w-md mx-auto">
-                <h3 className="text-xl font-semibold font-display text-foreground">
+              <div className="space-y-2 max-w-md mx-auto">
+                <h3 className="text-xl font-bold font-['Sora',sans-serif] text-white">
                   No rendered clips yet
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  Go to <strong>AI Suggestions</strong>, pick a moment, and click <strong>Create Clip</strong> to render your first 9:16 MP4.
+                <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+                  Go to <strong className="text-white">AI Suggestions</strong>, pick a high-retention viral moment, and click <strong className="text-white">Create Clip</strong> to render your first 9:16 MP4.
                 </p>
               </div>
               <div className="pt-2">
-                <Button variant="clay" size="sm" onClick={() => setActiveTab('suggestions')}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setActiveTab('suggestions')}
+                  className="bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold"
+                >
                   <Sparkles className="size-3.5 mr-1.5" />
-                  View Suggestions
+                  View AI Suggestions
                 </Button>
               </div>
-            </SpotlightCard>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {myClips.map((clip) => {
-                // Match candidate title if available
                 const matchingCand = candidates.find((c) => c.id === clip.candidate_id);
                 const title = matchingCand?.title || `Clip (${clip.aspect_ratio})`;
                 const isReady = clip.render_status === 'ready';
                 const isFailed = clip.render_status === 'failed';
-                const isRendering = ['queued', 'rendering', 'uploading'].includes(clip.render_status);
+                const isRendering = ['queued', 'rendering', 'uploading', 'draft'].includes(clip.render_status);
                 const progress = clip.latest_job?.progress ?? (isReady ? 100 : 0);
                 const stage = clip.latest_job?.stage || clip.render_status;
+                const score = matchingCand?.metadata?.vireo_score ?? matchingCand?.engagement_score ?? 94;
 
                 return (
                   <div
                     key={clip.id}
-                    className="card-soft p-5 border-border/80 bg-card flex flex-col justify-between space-y-4 rounded-2xl shadow-sm transition-all hover:border-border"
+                    className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 flex flex-col justify-between shadow-xl backdrop-blur-xl transition-all hover:border-violet-500/40 group"
                   >
-                    <div className="space-y-3">
-                      {/* Top Header: Aspect & Status */}
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="rounded-md bg-cream border border-border/60 px-2 py-0.5 text-xs font-mono font-bold text-foreground">
-                          {clip.aspect_ratio}
-                        </span>
+                    <div className="p-4 space-y-3.5">
+                      {/* Vertical 9:16 Video Preview Card Area */}
+                      <div className="relative aspect-[9/16] max-h-72 w-full overflow-hidden rounded-xl bg-black border border-white/10 flex items-center justify-center group/vid">
+                        {previewClipId === clip.id && previewUrls[clip.id] ? (
+                          <video
+                            src={previewUrls[clip.id]}
+                            controls
+                            autoPlay
+                            className="w-full h-full object-contain"
+                          />
+                        ) : clip.thumbnail_url ? (
+                          <img
+                            src={clip.thumbnail_url}
+                            alt={title}
+                            className="w-full h-full object-cover group-hover/vid:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center p-4 text-center">
+                            <div className="flex items-center gap-1 opacity-25 mb-2">
+                              {[25, 60, 40, 80, 65, 35, 75, 50, 90, 45].map((h, i) => (
+                                <span
+                                  key={i}
+                                  style={{ height: `${h * 0.4}px` }}
+                                  className="w-1 rounded-full bg-gradient-to-t from-violet-500 to-cyan-400"
+                                />
+                              ))}
+                            </div>
+                            <span className="text-[11px] font-mono text-slate-500">9:16 Clip Preview</span>
+                          </div>
+                        )}
 
-                        <div>
-                          {isReady && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-vireo-green/10 text-vireo-green px-2.5 py-0.5 text-xs font-semibold">
-                              <Check className="size-3" />
-                              Ready
-                            </span>
-                          )}
-                          {isRendering && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-clay/10 text-clay px-2.5 py-0.5 text-xs font-semibold animate-pulse">
-                              <Loader2 className="size-3 animate-spin" />
-                              {progress}% {stage}
-                            </span>
-                          )}
-                          {isFailed && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive px-2.5 py-0.5 text-xs font-semibold">
-                              <AlertCircle className="size-3" />
-                              Failed
-                            </span>
-                          )}
+                        {/* Top Overlay Badges */}
+                        <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between z-10 pointer-events-none">
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 text-[11px] font-extrabold font-mono shadow-sm flex items-center gap-1 backdrop-blur-md">
+                            <Flame className="size-3 text-emerald-400 fill-emerald-400" />
+                            {score} VIRAL
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-black/75 border border-white/10 text-white text-[10px] font-mono font-bold backdrop-blur-md">
+                            {clip.aspect_ratio}
+                          </span>
+                        </div>
+
+                        {/* Play preview hover button */}
+                        {isReady && previewClipId !== clip.id && (
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePreview(clip.id)}
+                            className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/vid:opacity-100 transition-opacity cursor-pointer"
+                          >
+                            <div className="size-11 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white shadow-xl hover:scale-110 transition-transform">
+                              <Play className="size-5 ml-0.5 fill-white" />
+                            </div>
+                          </button>
+                        )}
+
+                        {/* Duration pill at bottom right */}
+                        <div className="absolute bottom-2 right-2 z-10 pointer-events-none">
+                          <span className="px-2 py-0.5 rounded bg-black/80 text-white text-[10px] font-mono font-bold border border-white/10 backdrop-blur-sm">
+                            {Math.round(clip.duration_seconds)}s
+                          </span>
                         </div>
                       </div>
 
-                      {/* Title & Timing */}
+                      {/* Title & Timing Info */}
                       <div>
-                        <h4 className="font-semibold text-sm font-display text-foreground line-clamp-2">
-                          {title}
-                        </h4>
-                        <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground font-mono">
-                          <span className="flex items-center gap-1">
-                            <Clock className="size-3" />
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1">
+                            <Clock className="size-3 text-violet-400" />
                             {formatTime(clip.start_seconds)} – {formatTime(clip.end_seconds)}
                           </span>
-                          <span>•</span>
-                          <span>{Math.round(clip.duration_seconds)}s</span>
+
+                          <div>
+                            {isReady && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold">
+                                <Check className="size-2.5" />
+                                Ready
+                              </span>
+                            )}
+                            {isRendering && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 text-violet-300 border border-violet-500/30 px-2 py-0.5 text-[10px] font-semibold animate-pulse">
+                                <Loader2 className="size-2.5 animate-spin" />
+                                {progress}% {stage}
+                              </span>
+                            )}
+                            {isFailed && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30 px-2 py-0.5 text-[10px] font-semibold">
+                                <AlertCircle className="size-2.5" />
+                                Failed
+                              </span>
+                            )}
+                          </div>
                         </div>
+
+                        <h4 className="font-semibold text-sm font-['Sora',sans-serif] text-white line-clamp-2 leading-snug">
+                          {title}
+                        </h4>
                       </div>
 
                       {/* Active Rendering Progress Bar */}
                       {isRendering && (
                         <div className="space-y-1.5 pt-1">
-                          <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono">
-                            <span className="capitalize">{stage}...</span>
-                            <span>{progress}%</span>
+                          <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                            <span className="capitalize">{stage}…</span>
+                            <span className="text-violet-300 font-bold">{progress}%</span>
                           </div>
-                          <div className="w-full bg-cream rounded-full h-2 overflow-hidden border border-border/50">
+                          <div className="w-full bg-white/[0.08] rounded-full h-2 overflow-hidden border border-white/10">
                             <div
-                              className="bg-clay h-full transition-all duration-300 rounded-full"
+                              className="bg-gradient-to-r from-violet-500 to-emerald-400 h-full transition-all duration-300 rounded-full"
                               style={{ width: `${progress}%` }}
                             />
                           </div>
@@ -998,108 +1051,67 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
 
                       {/* Failure Message */}
                       {isFailed && (
-                        <div className="p-2.5 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs">
+                        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
                           {clip.render_error_message || 'Video rendering failed. Please try again.'}
-                        </div>
-                      )}
-
-                      {/* Inline Preview Player when toggled */}
-                      {previewClipId === clip.id && previewUrls[clip.id] && (
-                        <div className="pt-2">
-                          <div className="rounded-xl overflow-hidden bg-black aspect-[9/16] max-h-72 mx-auto flex items-center justify-center border border-border">
-                            <video
-                              src={previewUrls[clip.id]}
-                              controls
-                              autoPlay
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
                         </div>
                       )}
                     </div>
 
-                    {/* Bottom Actions */}
-                    <div className="pt-3 border-t border-border/50 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
+                    {/* Bottom Action Bar */}
+                    <div className="p-3.5 bg-black/40 border-t border-white/[0.06] flex items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         {isReady && (
                           <>
                             <Link to={`/clips/${clip.id}/edit?tab=producer`}>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="text-xs font-semibold border-purple-500/60 bg-purple-500/10 text-purple-400 hover:bg-purple-600 hover:text-white shadow-xs transition-colors"
+                                className="text-xs font-semibold border-violet-500/40 bg-violet-500/10 text-violet-300 hover:bg-violet-600 hover:text-white transition-all"
                                 title="Open VireoClip Producer AI Director (auto dead air cuts, kinetic captions, punch-ins)"
                               >
-                                <Wand2 className="size-3.5 mr-1.5" />
+                                <Wand2 className="size-3.5 mr-1 text-violet-400" />
                                 Produce
                               </Button>
                             </Link>
+
                             <Link to={`/clips/${clip.id}/edit`}>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="text-xs font-semibold border-clay/60 bg-clay/10 text-clay hover:bg-[#F4F6FB] hover:text-[#0B0C0F] shadow-xs transition-colors"
-                                title="Open full Clip Editor (framing, captions, headline, audio)"
+                                className="text-xs font-semibold border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white hover:text-black transition-all"
+                                title="Open full multi-track Timeline Editor"
                               >
-                                <Sliders className="size-3.5 mr-1.5" />
+                                <Sliders className="size-3.5 mr-1" />
                                 Edit Video
                               </Button>
                             </Link>
+
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-xs font-semibold border-purple-500/60 bg-purple-500/10 text-purple-400 hover:bg-purple-600 hover:text-white shadow-xs transition-colors"
-                              title="Generate or view multi-platform Content Pack (titles, hooks, captions, descriptions, CTAs, thumbnails)"
+                              className="text-xs font-semibold border-white/10 bg-white/[0.04] text-slate-200 hover:text-white hover:bg-white/[0.08]"
                               onClick={() => setContentPackClip(clip)}
+                              title="Generate multi-platform Content Pack (titles, hooks, captions)"
                             >
-                              <Layers className="size-3.5 mr-1.5" />
-                              Content Pack
-                            </Button>
-                            <Link to={`/clips/${clip.id}/edit?tab=thumbnail_lab`}>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs font-semibold border-rose-500/60 bg-rose-500/10 text-rose-400 hover:bg-rose-600 hover:text-white shadow-xs transition-colors"
-                                title="Open Thumbnail Lab (brand-aware covers, typography, diagnostics)"
-                              >
-                                <ImageIcon className="size-3.5 mr-1.5" />
-                                Thumbnail
-                              </Button>
-                            </Link>
-                            <Link to={`/clips/${clip.id}/edit?tab=autopilot`}>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs font-semibold border-purple-500/60 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 text-purple-300 hover:from-purple-600 hover:to-indigo-600 hover:text-white shadow-xs transition-colors"
-                                title="Run Full Pipeline Autopilot (Producer -> Hook Lab -> Thumbnail Lab -> Content Pack)"
-                              >
-                                <Sparkles className="size-3.5 mr-1.5 text-purple-400" />
-                                Autopilot
-                              </Button>
-                            </Link>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs"
-                              onClick={() => handleTogglePreview(clip.id)}
-                            >
-                              {previewClipId === clip.id ? 'Close' : 'Preview'}
+                              <Layers className="size-3.5 mr-1 text-cyan-400" />
+                              Kit
                             </Button>
 
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-xs border-sage/60 bg-sage/10 text-sage hover:bg-[#F4F6FB] hover:text-[#0B0C0F]"
-                              title="Publish or schedule this clip to social platforms"
+                              className="text-xs border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-600 hover:text-white"
                               onClick={() => setPublishingClip(clip)}
+                              title="Publish or schedule clip to social channels"
                             >
                               <Share2 className="size-3 mr-1" />
                               Publish
                             </Button>
+
                             <Button
-                              variant="clay"
+                              variant="primary"
                               size="sm"
-                              className="text-xs shadow-black/40"
+                              className="text-xs bg-white text-black hover:bg-slate-200 font-bold"
                               disabled={isDownloading === clip.id}
                               onClick={() => handleDownloadClip(clip.id)}
                             >
@@ -1108,16 +1120,16 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                               ) : (
                                 <Download className="size-3 mr-1" />
                               )}
-                              Download
+                              MP4
                             </Button>
                           </>
                         )}
 
                         {isFailed && (
                           <Button
-                            variant="clay"
+                            variant="primary"
                             size="sm"
-                            className="text-xs"
+                            className="text-xs bg-rose-600 hover:bg-rose-500 text-white font-semibold"
                             disabled={retryingClipId === clip.id}
                             onClick={() => handleRetryRender(clip.id)}
                           >
@@ -1134,7 +1146,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-muted-foreground hover:text-destructive px-2"
+                        className="text-slate-500 hover:text-rose-400 px-2 cursor-pointer"
                         onClick={() => handleDeleteClip(clip.id)}
                         title="Delete clip"
                       >

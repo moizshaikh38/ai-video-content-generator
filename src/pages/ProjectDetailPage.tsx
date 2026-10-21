@@ -442,37 +442,65 @@ export const ProjectDetailPage: React.FC = () => {
         <div className="space-y-6">
           {/* Main Single Video / Processing Tracker Card */}
           {!['transcribed', 'completed', 'complete'].includes(statusVal) && (
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 p-6 md:p-8 space-y-8 shadow-2xl backdrop-blur-xl text-white">
+            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 p-6 md:p-8 space-y-6 shadow-2xl backdrop-blur-xl text-white">
               {/* Card Header with Estimated Time */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-300 text-xs font-semibold">
+                    <Sparkles className="size-3 text-violet-400 animate-pulse" />
+                    <span>Autonomous AI Processing</span>
+                  </div>
                   <h2 className="font-['Sora',sans-serif] text-xl sm:text-2xl font-bold text-white tracking-tight">
-                    Processing Your Video
+                    Clipping & Analyzing Your Video
                   </h2>
-                  <p className="mt-1 text-xs sm:text-sm text-slate-400">
-                    This usually takes 2–5 minutes. You can leave this page — we'll notify you when it's ready.
+                  <p className="text-xs sm:text-sm text-slate-400">
+                    Our AI is extracting dialogue, detecting viral hooks, and generating 9:16 vertical clips.
                   </p>
                 </div>
-                <div className="inline-flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2 shrink-0 self-start sm:self-auto backdrop-blur-sm">
-                  <div className="grid size-8 place-items-center rounded-lg bg-[#8B5CF6]/20 text-[#A78BFA]">
-                    <Clock className="size-4" />
+
+                <div className="inline-flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 shrink-0 self-start sm:self-auto backdrop-blur-sm shadow-md">
+                  <div className="grid size-9 place-items-center rounded-lg bg-violet-500/20 text-violet-300">
+                    <Clock className="size-4.5" />
                   </div>
                   <div className="text-left">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Estimated remaining</p>
-                    <p className="text-sm font-bold font-mono text-white leading-tight">~2 minutes</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Estimated time</p>
+                    <p className="text-sm font-bold font-mono text-white leading-tight">~60–90 seconds</p>
                   </div>
                 </div>
               </div>
+
+              {/* Progress Bar */}
+              {(() => {
+                const currentIdx = ['uploading', 'uploaded', 'queued', 'processing', 'transcribing', 'analyzing', 'generating', 'transcribed', 'complete', 'completed'].indexOf(statusVal);
+                const percent = Math.min(95, Math.max(15, Math.round((Math.max(1, currentIdx + 1) / 8) * 100)));
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-slate-300 font-mono">
+                      <span className="flex items-center gap-2 font-semibold text-violet-300">
+                        <span className="size-2 rounded-full bg-violet-400 animate-ping" />
+                        Status: <span className="capitalize text-white">{statusVal}</span>
+                      </span>
+                      <span className="font-bold text-emerald-400">{percent}%</span>
+                    </div>
+                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/[0.06] border border-white/10">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-violet-600 via-cyan-400 to-emerald-400 transition-all duration-500 shadow-[0_0_12px_rgba(139,92,246,0.5)]"
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Connected Stepper */}
               <div className="pt-2">
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-5 relative">
                   {[
-                    { key: 'uploaded', label: 'Uploaded', desc: 'Completed', icon: CircleCheck },
-                    { key: 'processing', label: 'Processing', desc: 'Analyzing video, extracting audio…', icon: Video },
-                    { key: 'transcribing', label: 'Transcribing', desc: 'Converting speech to text…', icon: Volume2 },
-                    { key: 'generating', label: 'Generating', desc: 'Detecting viral hooks & clips…', icon: Sparkles },
-                    { key: 'complete', label: 'Complete', desc: 'Your content will be ready soon!', icon: CircleCheck },
+                    { key: 'uploaded', label: 'Uploaded', desc: 'Source Secured', icon: CircleCheck },
+                    { key: 'processing', label: 'Processing', desc: 'Audio Extraction', icon: Video },
+                    { key: 'transcribing', label: 'Transcribing', desc: 'Speech-to-Text', icon: Volume2 },
+                    { key: 'generating', label: 'Generating', desc: 'Hook & Virality', icon: Sparkles },
+                    { key: 'complete', label: 'Ready', desc: 'Clips Produced', icon: CircleCheck },
                   ].map((step, index) => {
                     const current = ['uploading', 'uploaded', 'queued', 'processing', 'transcribing', 'analyzing', 'generating', 'transcribed', 'complete', 'completed'].indexOf(statusVal);
                     const stage = [1, 3, 4, 6, 8][index];
@@ -482,29 +510,39 @@ export const ProjectDetailPage: React.FC = () => {
                     return (
                       <div key={step.key} className="text-center relative flex flex-col items-center">
                         <span
-                          className={`grid size-11 place-items-center rounded-full border-2 transition-all ${
+                          className={`grid size-12 place-items-center rounded-2xl border-2 transition-all shadow-md ${
                             done
-                              ? 'border-emerald-400/80 bg-emerald-500/20 text-emerald-300 shadow-sm'
+                              ? 'border-emerald-400/80 bg-emerald-500/20 text-emerald-300'
                               : active
-                              ? 'border-[#8B5CF6] bg-[#8B5CF6]/20 text-[#A78BFA] shadow-sm ring-4 ring-[#8B5CF6]/30 animate-pulse'
+                              ? 'border-violet-400 bg-violet-500/20 text-violet-300 ring-4 ring-violet-500/30 animate-pulse'
                               : 'border-white/10 bg-white/[0.03] text-slate-500'
                           }`}
                         >
                           <step.icon className="size-5" />
                         </span>
-                        <p className="mt-3 text-xs sm:text-sm font-semibold text-white font-['Sora',sans-serif]">{step.label}</p>
-                        <p className="mt-0.5 text-xs text-slate-400 line-clamp-2 leading-relaxed">
-                          {done ? (index === 0 ? 'Completed' : 'Finished') : active ? step.desc : 'Pending'}
+                        <p className="mt-3 text-xs sm:text-sm font-bold text-white font-['Sora',sans-serif]">{step.label}</p>
+                        <p className="mt-0.5 text-xs text-slate-400 line-clamp-1">
+                          {done ? 'Complete' : active ? step.desc : 'Pending'}
                         </p>
-                        {(done || active) && (
-                          <span className="mt-1 text-[11px] font-mono text-slate-500">
-                            {new Date(project.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        )}
                       </div>
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Opus-style Viral Clipping Tip Box */}
+              <div className="p-4 rounded-xl border border-white/[0.08] bg-white/[0.02] flex items-center justify-between gap-4 text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="size-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 grid place-items-center shrink-0">
+                    <Sparkles className="size-4" />
+                  </div>
+                  <p className="text-slate-300 leading-relaxed">
+                    <strong className="text-white">Pro Tip:</strong> 85% of viewers watch short-form videos with sound muted. Our engine automatically adds kinetic word-pop captions to maximize retention.
+                  </p>
+                </div>
+                <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 font-mono text-[11px] shrink-0 font-medium">
+                  ✓ Safe to close tab
+                </span>
               </div>
 
               {/* Action Error if any - with Retry button directly beside message */}

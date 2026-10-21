@@ -5,6 +5,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { projectService } from '../services/projectService';
 import { useAuth } from '../context/AuthContext';
 import { Project } from '../types';
+import { getProjectThumbnail } from './DashboardPage';
 
 const statusOf=(p:Project)=>p.video_status||p.status;
 export const HistoryPage: React.FC = () => {
@@ -27,7 +28,17 @@ export const HistoryPage: React.FC = () => {
     setIsLoading(true);
     setErrorMsg('');
     try {
-      const data = await projectService.fetchProjects(user.id);
+      let data = await projectService.fetchProjects(user.id);
+      
+      // Auto-clean any failed projects so they don't clutter the history
+      const failed = data.filter((p) => ['failed', 'error'].includes(statusOf(p)));
+      if (failed.length > 0) {
+        failed.forEach((fp) => {
+          projectService.deleteProject(fp.id).catch((err) => console.warn('Auto cleanup failed project:', fp.id, err));
+        });
+        data = data.filter((p) => !['failed', 'error'].includes(statusOf(p)));
+      }
+
       setProjects(data);
       hasLoadedSuccessfully.current = true;
     } catch (err: any) {
@@ -239,81 +250,117 @@ export const HistoryPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.06]">
-                  {filtered.map((p) => (
-                    <tr key={p.id} className="hover:bg-white/[0.03] transition-colors">
-                      <td className="max-w-[300px] px-5 py-4">
-                        <Link to={`/projects/${p.id}`} className="block truncate font-semibold text-white hover:text-[#A78BFA] transition-colors">
-                          {p.title}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-4 text-slate-400">{p.source_type === 'url' ? 'URL' : 'Upload'}</td>
-                      <td className="px-4 py-4">
-                        <StatusBadge status={statusOf(p)} />
-                      </td>
-                      <td className="px-4 py-4 text-slate-400 font-mono text-xs">{new Date(p.created_at).toLocaleDateString()}</td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          {['failed', 'error'].includes(statusOf(p)) && (
-                            <Link
-                              to={`/projects/${p.id}`}
-                              aria-label={`View error and retry ${p.title}`}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 transition-all"
-                            >
-                              Retry
-                            </Link>
-                          )}
-                          <Link to={`/projects/${p.id}`} aria-label={`Open ${p.title}`} className="rounded-lg p-2 text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors">
-                            <ArrowUpRight className="size-4" />
+                  {filtered.map((p) => {
+                    const thumb = getProjectThumbnail(p);
+                    return (
+                      <tr key={p.id} className="hover:bg-white/[0.03] transition-colors">
+                        <td className="max-w-[340px] px-5 py-3.5">
+                          <Link to={`/projects/${p.id}`} className="flex items-center gap-3.5 group">
+                            <div className="relative w-16 h-10 rounded-lg overflow-hidden bg-black border border-white/10 shrink-0">
+                              {thumb ? (
+                                <img
+                                  src={thumb}
+                                  alt={p.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-violet-900/40 to-slate-900 text-white/40">
+                                  <Video className="size-4" />
+                                </div>
+                              )}
+                            </div>
+                            <span className="block truncate font-semibold text-white group-hover:text-violet-300 transition-colors">
+                              {p.title}
+                            </span>
                           </Link>
-                          <button
-                            onClick={() => openDelete(p)}
-                            aria-label={`Delete ${p.title}`}
-                            className="rounded-lg p-2 text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-400">{p.source_type === 'url' ? 'URL' : 'Upload'}</td>
+                        <td className="px-4 py-3.5">
+                          <StatusBadge status={statusOf(p)} />
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-400 font-mono text-xs">{new Date(p.created_at).toLocaleDateString()}</td>
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center justify-end gap-2">
+                            {['failed', 'error'].includes(statusOf(p)) && (
+                              <Link
+                                to={`/projects/${p.id}`}
+                                aria-label={`View error and retry ${p.title}`}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 transition-all"
+                              >
+                                Retry
+                              </Link>
+                            )}
+                            <Link to={`/projects/${p.id}`} aria-label={`Open ${p.title}`} className="rounded-lg p-2 text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors">
+                              <ArrowUpRight className="size-4" />
+                            </Link>
+                            <button
+                              onClick={() => openDelete(p)}
+                              aria-label={`Delete ${p.title}`}
+                              className="rounded-lg p-2 text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
             <div className="divide-y divide-white/[0.06] md:hidden">
-              {filtered.map((p) => (
-                <div key={p.id} className="p-5 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <Link to={`/projects/${p.id}`} className="block truncate font-semibold text-white hover:text-[#A78BFA]">
-                        {p.title}
-                      </Link>
-                      <p className="mt-1 text-xs text-slate-400">
-                        {p.source_type === 'url' ? <Link2 className="mr-1 inline size-3" /> : <Video className="mr-1 inline size-3" />}
-                        {p.source_type === 'url' ? 'URL' : 'Upload'} · {new Date(p.created_at).toLocaleDateString()}
-                      </p>
+              {filtered.map((p) => {
+                const thumb = getProjectThumbnail(p);
+                return (
+                  <div key={p.id} className="p-4 space-y-3">
+                    <div className="flex items-start gap-3.5">
+                      <div className="relative w-20 h-12 rounded-lg overflow-hidden bg-black border border-white/10 shrink-0">
+                        {thumb ? (
+                          <img
+                            src={thumb}
+                            alt={p.title}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-violet-900/40 to-slate-900 text-white/40">
+                            <Video className="size-4" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <Link to={`/projects/${p.id}`} className="block truncate font-semibold text-white hover:text-violet-300">
+                          {p.title}
+                        </Link>
+                        <p className="mt-1 text-xs text-slate-400">
+                          {p.source_type === 'url' ? <Link2 className="mr-1 inline size-3" /> : <Video className="mr-1 inline size-3" />}
+                          {p.source_type === 'url' ? 'URL' : 'Upload'} · {new Date(p.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <StatusBadge status={statusOf(p)} />
                     </div>
-                    <StatusBadge status={statusOf(p)} />
+                    <div className="flex gap-2">
+                      <Link
+                        to={`/projects/${p.id}`}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold transition-all ${
+                          ['failed', 'error'].includes(statusOf(p))
+                            ? 'border-rose-500/40 bg-rose-500/15 text-rose-200 hover:bg-rose-500/25'
+                            : 'border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]'
+                        }`}
+                      >
+                        {['failed', 'error'].includes(statusOf(p)) ? 'View error & retry' : 'Open'}
+                      </Link>
+                      <button
+                        onClick={() => openDelete(p)}
+                        className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/20"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Link
-                      to={`/projects/${p.id}`}
-                      className={`rounded-lg border px-3 py-2 text-xs font-semibold transition-all ${
-                        ['failed', 'error'].includes(statusOf(p))
-                          ? 'border-rose-500/40 bg-rose-500/15 text-rose-200 hover:bg-rose-500/25'
-                          : 'border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]'
-                      }`}
-                    >
-                      {['failed', 'error'].includes(statusOf(p)) ? 'View error & retry' : 'Open'}
-                    </Link>
-                    <button
-                      onClick={() => openDelete(p)}
-                      className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/20"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </>
         )}

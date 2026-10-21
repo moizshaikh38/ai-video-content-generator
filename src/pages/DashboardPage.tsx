@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Film, Search, Clock } from 'lucide-react';
+import { Search, Clock, Play } from 'lucide-react';
 import { HomeClippingWorkflow } from '../components/dashboard/HomeClippingWorkflow';
 import { projectService } from '../services/projectService';
 import { useAuth } from '../context/AuthContext';
@@ -66,24 +66,26 @@ export function getProgressInfo(status: string, numericProgress?: number | null)
   };
 }
 
-function getProjectThumbnail(p: Project): string | null {
+export function getProjectThumbnail(p: Project): string | null {
   if ((p as any).thumbnail_url) return (p as any).thumbnail_url;
-  if (p.source_url) {
-    try {
-      const parsed = new URL(p.source_url);
-      let videoId = '';
-      if (parsed.hostname.includes('youtube.com')) {
-        videoId = parsed.searchParams.get('v') || '';
-        if (!videoId && parsed.pathname.includes('/shorts/')) {
-          videoId = parsed.pathname.split('/shorts/')[1]?.split('/')[0] || '';
-        }
-      } else if (parsed.hostname.includes('youtu.be')) {
-        videoId = parsed.pathname.slice(1).split('/')[0] || '';
-      }
-      if (videoId && /^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
-        return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-      }
-    } catch {}
+  if ((p as any).thumbnail) return (p as any).thumbnail;
+  if ((p as any).cover_url) return (p as any).cover_url;
+  if ((p as any).poster_url) return (p as any).poster_url;
+
+  const url = p.source_url || (p as any).url || (p as any).source_path;
+  if (url && typeof url === 'string') {
+    // Regex covers:
+    // - https://www.youtube.com/watch?v=VIDEO_ID
+    // - https://youtu.be/VIDEO_ID
+    // - https://www.youtube.com/shorts/VIDEO_ID
+    // - https://www.youtube.com/embed/VIDEO_ID
+    // - https://www.youtube.com/live/VIDEO_ID
+    const ytMatch = url.match(
+      /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i
+    );
+    if (ytMatch && ytMatch[1]) {
+      return `https://img.youtube.com/vi/${ytMatch[1]}/hqdefault.jpg`;
+    }
   }
   return null;
 }
@@ -104,14 +106,27 @@ export const DashboardPage: React.FC = () => {
     if (!user) return;
     try {
       setError('');
-      const data = await projectService.fetchProjects(user.id);
+      let data = await projectService.fetchProjects(user.id);
+
+      // Auto-cleanup failed projects so they don't clutter recent projects
+      const failed = data.filter((p) => failedStatuses.includes(getStatus(p)));
+      if (failed.length > 0) {
+        failed.forEach((fp) => {
+          projectService.deleteProject(fp.id).catch((err) => {
+            console.warn('Auto-deleted failed project:', fp.id, err);
+          });
+        });
+        data = data.filter((p) => !failedStatuses.includes(getStatus(p)));
+      }
+
       setProjects(data);
     } catch (err: any) {
       const msg = err?.message || '';
       if (!msg.toLowerCase().includes('token') && !msg.toLowerCase().includes('jwt')) {
         setError(msg || 'Unable to load projects.');
       } else {
-        setProjects(projectService.getProjects());
+        const cached = projectService.getProjects().filter((p) => !failedStatuses.includes(getStatus(p)));
+        setProjects(cached);
       }
     } finally {
       setLoading(false);
@@ -319,8 +334,20 @@ export const DashboardPage: React.FC = () => {
                         loading="lazy"
                       />
                     ) : (
-                      <div className="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none">
-                        <Film className="size-10 text-white" />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none overflow-hidden">
+                        {/* High-tech audio waveform backdrop */}
+                        <div className="flex items-center gap-1 opacity-25 mb-1">
+                          {[30, 65, 45, 90, 75, 40, 85, 60, 95, 50, 70, 35, 80, 55, 40, 65].map((h, i) => (
+                            <span
+                              key={i}
+                              style={{ height: `${h * 0.45}px` }}
+                              className="w-1 rounded-full bg-gradient-to-t from-violet-500 to-cyan-400"
+                            />
+                          ))}
+                        </div>
+                        <div className="size-9 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white/80 shadow-lg group-hover:scale-110 group-hover:bg-white/20 transition-all">
+                          <Play className="size-4 ml-0.5 fill-white/80" />
+                        </div>
                       </div>
                     )}
 

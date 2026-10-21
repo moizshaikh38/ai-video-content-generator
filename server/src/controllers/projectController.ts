@@ -71,10 +71,26 @@ export const listProjects = async (req: AuthenticatedRequest, res: Response): Pr
       return;
     }
 
+    const rawList = data || [];
+    // Auto-clean any failed projects so they don't clutter the user's dashboard
+    const failedList = rawList.filter(
+      (p: any) => p.video_status === 'failed' || p.status === 'failed' || p.status === 'error'
+    );
+    if (failedList.length > 0) {
+      for (const fp of failedList) {
+        try {
+          await dataRepository.from('projects').delete().eq('id', fp.id).eq('user_id', userId);
+        } catch {}
+      }
+    }
+    const cleanProjects = rawList.filter(
+      (p: any) => p.video_status !== 'failed' && p.status !== 'failed' && p.status !== 'error'
+    );
+
     res.status(200).json({
       status: 'ok',
-      projects: data || [],
-      total: count ?? (data?.length || 0),
+      projects: cleanProjects,
+      total: Math.max(0, (count ?? rawList.length) - failedList.length),
       limit,
       offset,
     });
