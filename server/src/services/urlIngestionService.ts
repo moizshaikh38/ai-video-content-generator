@@ -467,11 +467,12 @@ export class UrlIngestionService {
    * Uses mobile and TV player clients to bypass aggressive datacenter web challenges.
    */
   private static getCommonYtDlpArgs(): string[] {
+    const playerClient = process.env.YOUTUBE_PLAYER_CLIENT || 'android,ios';
     const commonArgs = [
       '--no-warnings',
       '--no-playlist',
       '--socket-timeout', '20',
-      '--extractor-args', 'youtube:player_client=tv,web_embedded,android,mweb',
+      '--extractor-args', `youtube:player_client=${playerClient}`,
     ];
 
     const cookiesFile = this.getCookiesFilePath();
