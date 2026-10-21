@@ -889,6 +889,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                             sourceEnd={item.source_end}
                             width={itemWidth}
                             enabled={showFilmstrip}
+                            thumbnailUrl={clip.thumbnail_url}
                           />
                         )}
 

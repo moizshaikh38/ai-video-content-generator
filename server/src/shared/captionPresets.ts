@@ -1488,10 +1488,10 @@ export function getPreviewCss(style: ResolvedCaptionStyle, scale: number): Previ
     }
     const fontMultiplier = typeof cs?.fontSizeMultiplier === 'number' && cs.fontSizeMultiplier > 0 ? cs.fontSizeMultiplier : 1;
     const effectiveScale = w.scale * fontMultiplier;
-    if (effectiveScale !== 1) {
-      css.fontSize = px(fontSize * effectiveScale);
-      css.lineHeight = px(style.fontSize * effectiveScale);
-    }
+    css.display = 'inline-block';
+    css.transform = `scale(${effectiveScale.toFixed(3)})`;
+    css.transformOrigin = 'center bottom';
+    css.transition = 'transform 0.08s ease-out, color 0.1s ease';
     if (cs?.uppercase) {
       css.textTransform = 'uppercase';
     }

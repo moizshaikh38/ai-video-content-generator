@@ -310,6 +310,7 @@ export interface RenderedClip {
   render_status: ClipRenderStatus;
   source_storage_path: string;
   output_storage_path?: string | null;
+  thumbnail_url?: string | null;
   render_error_code?: string | null;
   render_error_message?: string | null;
   created_at: string;

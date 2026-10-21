@@ -114,7 +114,7 @@ const PresetCardPreview: React.FC<PresetCardPreviewProps> = React.memo(({
     };
   }, [isAnimating, reducedMotion, duration]);
 
-  if (!width) return null;
+  const effectiveWidth = width > 0 ? width : 150;
 
   // When not animating, clock is fixed at STATIC_PREVIEW_CLOCK (static thumbnail poster).
   // When animating, clock advances smoothly and loops across duration.
@@ -125,9 +125,9 @@ const PresetCardPreview: React.FC<PresetCardPreviewProps> = React.memo(({
   // Card mode: keep preset typography but center the block inside the card.
   const cardStyle: ResolvedCaptionStyle = { ...style, alignment: 5, marginL: 0, marginR: 0 };
   // Enlarge for legibility, but never so far that a line would exceed the card (no re-wrapping).
-  const base = width / style.playResX;
+  const base = effectiveWidth / style.playResX;
   const approxLinePx = longestLine * style.fontSize * FONT_EM_PER_ASS_SIZE[style.fontFamily] * 0.66 * base;
-  const zoom = Math.min(CARD_ZOOM, (width - 20) / Math.max(1, approxLinePx));
+  const zoom = Math.min(CARD_ZOOM, (effectiveWidth - 20) / Math.max(1, approxLinePx));
 
   return <CaptionPresetRenderer style={cardStyle} frame={frame} scale={base * zoom} noWrap />;
 });
@@ -143,14 +143,22 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
 }) => {
   const reducedMotion = usePrefersReducedMotion();
   const [hoveredId, setHoveredId] = useState<CaptionPresetId | null>(null);
-  const [cardWidth, setCardWidth] = useState(0);
-  const measureRef = useRef<HTMLDivElement>(null);
+  const [autoAnimate, setAutoAnimate] = useState(true);
+  const [cardWidth, setCardWidth] = useState(150);
+  const galleryRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
-    const el = measureRef.current;
+    const el = galleryRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver((entries) => setCardWidth(entries[0].contentRect.width));
+    const ro = new ResizeObserver((entries) => {
+      const containerW = entries[0]?.contentRect?.width;
+      if (containerW && containerW > 0) {
+        // Grid is 2 columns with 10px gap
+        const itemW = Math.max(110, Math.floor((containerW - 10) / 2));
+        setCardWidth(itemW);
+      }
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -162,7 +170,7 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
   const renderPresetTile = (id: CaptionPresetId, index: number) => {
           const isSelected = selectedId === id;
           const isHovered = hoveredId === id;
-          const isAnimating = (isSelected || isHovered) && !reducedMotion;
+          const isAnimating = (isSelected || isHovered || autoAnimate) && !reducedMotion;
           const preset = id === 'none' ? null : CAPTION_PRESETS[id];
           return (
             <button
@@ -188,7 +196,6 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
               }`}
             >
               <div
-                ref={index === 1 ? measureRef : undefined}
                 className="relative h-[88px] w-full overflow-hidden bg-[radial-gradient(ellipse_at_top,_#1B2438_0%,_#080B12_85%)] border-b border-vc-border"
               >
                 {preset ? (
@@ -234,12 +241,31 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
   };
 
   return (
-    <div className="space-y-2">
-      {onToggleKeepColors && (
-        <div className="flex items-center justify-between pb-1">
+    <div ref={galleryRef} className="space-y-2">
+      <div className="flex items-center justify-between pb-1">
+        <div className="flex items-center gap-2">
           <span className="text-[10px] font-semibold text-vc-text-secondary uppercase tracking-wider">
             Preset Styles
           </span>
+          <button
+            type="button"
+            onClick={() => setAutoAnimate((prev) => !prev)}
+            className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border transition-all duration-150 ${
+              autoAnimate
+                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 shadow-sm'
+                : 'bg-white/[0.04] border-white/[0.08] text-vc-text-muted hover:text-vc-text-secondary hover:border-white/20'
+            }`}
+            title={autoAnimate ? 'Live animation active (click for hover only)' : 'Hover preview mode (click for live kinetic loop)'}
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                autoAnimate ? 'bg-emerald-400 animate-pulse' : 'bg-white/30'
+              }`}
+            />
+            <span>{autoAnimate ? 'Live' : 'Hover'}</span>
+          </button>
+        </div>
+        {onToggleKeepColors && (
           <button
             type="button"
             onClick={() => onToggleKeepColors(!keepColors)}
@@ -253,8 +279,8 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
             <Lock className={`w-3 h-3 ${keepColors ? 'text-vc-text-primary' : 'text-vc-text-muted'}`} />
             <span>Keep My Colors</span>
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* "No captions" is not a style, so it gets its own full-width row rather than competing
           with 23 preview tiles. */}

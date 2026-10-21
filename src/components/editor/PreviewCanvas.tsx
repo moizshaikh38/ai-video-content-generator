@@ -21,6 +21,7 @@ import {
   resolveEditorCaptionStyle,
   resolveCaptionPreset,
   isRenderablePresetId,
+  getEditorCaptionPresetId,
 } from '../../lib/captionPresets';
 import { computeCanvasFitScale } from '../../lib/canvasFit';
 import { CaptionPresetRenderer } from './CaptionPresetRenderer';
@@ -1129,16 +1130,19 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               const cue = presetCues.find((c) => playhead >= c.start && playhead < c.end);
               if (!cue) return null;
               const frameWidthPx = parseFloat(canvasDims.width);
-              const effectiveCue = cues.find((c) => playhead >= c.start && playhead < c.end) || cue;
-              const effectivePresetId = effectiveCue.presetOverride || cue.presetOverride;
+              const rawCue = cues.find((c) => playhead >= c.start && playhead < c.end);
+              const effectivePresetId = cue.presetOverride || rawCue?.presetOverride;
+              const effectiveOverrides = cue.styleOverrides || rawCue?.styleOverrides;
               const effectiveStyle = effectivePresetId && isRenderablePresetId(effectivePresetId)
-                ? resolveCaptionPreset(effectivePresetId, effectiveCue.styleOverrides || cue.styleOverrides, aspectRatio)
+                ? resolveCaptionPreset(effectivePresetId, effectiveOverrides, aspectRatio)
+                : effectiveOverrides
+                ? resolveCaptionPreset(getEditorCaptionPresetId(captionData), effectiveOverrides, aspectRatio)
                 : presetStyle;
 
               return (
                 <CaptionPresetRenderer
                   style={effectiveStyle}
-                  frame={getPreviewFrame(effectiveCue, playhead, effectiveStyle)}
+                  frame={getPreviewFrame(cue, playhead, effectiveStyle)}
                   scale={frameWidthPx / effectiveStyle.playResX}
                   interactive={true}
                   isSelected={isCaptionSelected}

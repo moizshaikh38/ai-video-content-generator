@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Loader2, Film } from 'lucide-react';
 import { frameIndexForTime, useClipThumbnails, ThumbnailStripData } from '../../lib/thumbnails';
 
-interface FilmstripClipProps {
+export interface FilmstripClipProps {
   clipId: string | null | undefined;
   /** Absolute source-second start of the sprite window (clip.start_seconds). */
   windowStart: number;
@@ -13,6 +13,8 @@ interface FilmstripClipProps {
   width: number;
   /** Only fetch/draw when the clip is on-screen and backed by the clip's own source. */
   enabled: boolean;
+  /** Instant preview thumbnail poster while sprite is generating */
+  thumbnailUrl?: string | null;
 }
 
 const FilmstripCanvas: React.FC<{
@@ -67,37 +69,47 @@ export const FilmstripClip: React.FC<FilmstripClipProps> = ({
   sourceEnd,
   width,
   enabled,
+  thumbnailUrl,
 }) => {
   const { status, data, image } = useClipThumbnails(clipId, enabled);
 
   if (!enabled) return null;
 
-  if (status === 'loading') {
-    return (
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">
-        <Loader2 className="w-3.5 h-3.5 animate-spin text-white/50" />
-      </div>
-    );
-  }
-  if (status === 'error') {
-    return (
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25" aria-hidden="true">
-        <Film className="w-4 h-4 text-white/70" />
-      </div>
-    );
-  }
-  if (status !== 'ready' || !data || !image) return null;
-
   const clipLocalStart = Math.max(0, sourceStart - windowStart);
   const clipLocalEnd = Math.max(clipLocalStart, sourceEnd - windowStart);
 
   return (
-    <FilmstripCanvas
-      data={data}
-      image={image}
-      clipLocalStart={clipLocalStart}
-      clipLocalEnd={clipLocalEnd}
-      width={width}
-    />
+    <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+      {/* Instant fallback/preview poster while sprite is loading or on error */}
+      {thumbnailUrl && status !== 'ready' && (
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-70 transition-opacity duration-300"
+          style={{ backgroundImage: `url(${thumbnailUrl})` }}
+          aria-hidden="true"
+        />
+      )}
+
+      {status === 'loading' && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-white/70 drop-shadow" />
+        </div>
+      )}
+
+      {status === 'error' && !thumbnailUrl && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25" aria-hidden="true">
+          <Film className="w-4 h-4 text-white/70" />
+        </div>
+      )}
+
+      {status === 'ready' && data && image && (
+        <FilmstripCanvas
+          data={data}
+          image={image}
+          clipLocalStart={clipLocalStart}
+          clipLocalEnd={clipLocalEnd}
+          width={width}
+        />
+      )}
+    </div>
   );
 };

@@ -75,13 +75,30 @@ export class ThumbnailService {
     const spritePath = path.join(tmpDir, 'sprite.jpg');
 
     try {
-      await ClipRenderService.ensureSourceVideo(clip.source_storage_path, sourcePath, {
-        timeoutMs: GEN_TIMEOUT_MS,
-        projectId: clip.project_id,
-        clipId: clip.id,
-      });
+      let useOutput = false;
+      if (clip.output_storage_path && (clip.render_status === 'ready' || (clip.render_status as any) === 'completed')) {
+        try {
+          await ClipRenderService.ensureSourceVideo(clip.output_storage_path, sourcePath, {
+            timeoutMs: GEN_TIMEOUT_MS,
+            projectId: clip.project_id,
+            clipId: clip.id,
+          });
+          useOutput = true;
+        } catch (err: any) {
+          logger.warn(`[Thumbnails] Could not use output_storage_path for clip ${clip.id}, falling back to source: ${err?.message}`);
+        }
+      }
 
-      const args = buildThumbnailArgs(sourcePath, Number(clip.start_seconds), genDuration, count, THUMBNAIL_HEIGHT, spritePath);
+      if (!useOutput) {
+        await ClipRenderService.ensureSourceVideo(clip.source_storage_path, sourcePath, {
+          timeoutMs: GEN_TIMEOUT_MS,
+          projectId: clip.project_id,
+          clipId: clip.id,
+        });
+      }
+
+      const offsetSeconds = useOutput ? 0 : Number(clip.start_seconds);
+      const args = buildThumbnailArgs(sourcePath, offsetSeconds, genDuration, count, THUMBNAIL_HEIGHT, spritePath);
       await execFileAsync(ffmpegBin, args, { timeout: GEN_TIMEOUT_MS });
 
       if (!fs.existsSync(spritePath) || fs.statSync(spritePath).size === 0) {
