@@ -11,6 +11,12 @@ import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
 import { AppError, ClipPreferences, ContentGenre } from '../types/index.js';
 import { UrlValidator } from '../utils/urlValidator.js';
+import {
+  classifyYouTubeFailure,
+  mostInformativeFailure,
+  toAppError,
+  type YouTubeFailure,
+} from '../utils/youtubeErrorClassifier.js';
 import { uploadFile, sourceObjectKey } from './objectStorageService.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
 import { GenreIntelligenceService } from './genreIntelligenceService.js';
@@ -476,17 +482,51 @@ export class UrlIngestionService {
   }
 
   /**
-   * Common yt-dlp arguments optimized for datacenter and cloud provider resilience.
-   * Uses mobile and TV player clients to bypass aggressive datacenter web challenges.
+   * Ordered extraction profiles, tried in turn until one yields formats.
+   *
+   * The first profile passes no `player_client` at all, which lets yt-dlp use the client set it
+   * ships with — the only set that currently returns YouTube's full adaptive format ladder.
+   * Pinning a client here is what previously capped every import at 360p and broke extraction
+   * outright whenever YouTube retired that client's formats, so the pinned profiles exist only
+   * as fallbacks for when the default set is blocked for our IP.
+   *
+   * `YOUTUBE_PLAYER_CLIENT` remains an operator escape hatch: when set it is tried first.
    */
-  private static getCommonYtDlpArgs(): string[] {
-    const playerClient = process.env.YOUTUBE_PLAYER_CLIENT || 'android,ios';
+  private static getYtDlpStrategies(): Array<{ label: string; extractorArgs?: string }> {
+    const strategies: Array<{ label: string; extractorArgs?: string }> = [];
+
+    const override = (process.env.YOUTUBE_PLAYER_CLIENT || '').trim();
+    if (override) {
+      strategies.push({ label: `env:${override}`, extractorArgs: `youtube:player_client=${override}` });
+    }
+
+    strategies.push({ label: 'yt-dlp-default' });
+    strategies.push({
+      label: 'broad-clients',
+      extractorArgs: 'youtube:player_client=default,web_safari,mweb,android_vr',
+    });
+    // Last resort: android_vr needs no PO token but usually only offers muxed 360p.
+    strategies.push({ label: 'android_vr-muxed', extractorArgs: 'youtube:player_client=android_vr' });
+
+    return strategies;
+  }
+
+  /**
+   * Common yt-dlp arguments shared by the metadata probe and the download.
+   * `extractorArgs` comes from the strategy currently being attempted.
+   */
+  private static getCommonYtDlpArgs(extractorArgs?: string): string[] {
     const commonArgs = [
       '--no-warnings',
       '--no-playlist',
       '--socket-timeout', '30',
-      '--extractor-args', `youtube:player_skip=configs,webpage;player_client=${playerClient}`,
+      '--retries', '3',
+      '--extractor-retries', '3',
     ];
+
+    if (extractorArgs) {
+      commonArgs.push('--extractor-args', extractorArgs);
+    }
 
     const cookiesFile = this.getCookiesFilePath();
     if (cookiesFile) {
@@ -509,18 +549,13 @@ export class UrlIngestionService {
     url: string,
     timeoutMs = 25000
   ): Promise<YouTubeMetadataResult> {
-    const { command: dlCommand, prefixArgs } = this.resolveYtDlpCommand();
-    const commonArgs = this.getCommonYtDlpArgs();
-    const args = [...prefixArgs, ...commonArgs, '--dump-json', '--skip-download', url];
+    const info = await this.dumpYouTubeJson(url, timeoutMs);
+    if (!info) {
+      // Non-terminal probe failure: let the download step try, and classify there.
+      return {};
+    }
 
     try {
-      const { stdout } = await execFileAsync(dlCommand, args, {
-        timeout: timeoutMs,
-        maxBuffer: 10 * 1024 * 1024,
-      });
-
-      const info = JSON.parse(stdout);
-
       const title = typeof info.title === 'string' ? info.title.trim() : undefined;
       const duration = typeof info.duration === 'number' ? info.duration : undefined;
       const videoId = typeof info.id === 'string' ? info.id : undefined;
@@ -601,38 +636,66 @@ export class UrlIngestionService {
         genreConfidence,
       };
     } catch (err: any) {
-      const stderr = String(err.stderr || '');
-      logger.warn('yt-dlp metadata probe warning', { error: err.message, stderr });
-
-      if (
-        stderr.includes('Sign in to confirm you’re not a bot') ||
-        stderr.includes("Sign in to confirm you're not a bot") ||
-        stderr.includes('bot detection')
-      ) {
-        throw new AppError(
-          'YouTube is temporarily blocking datacenter requests (bot challenge). Please configure YOUTUBE_COOKIES in Render settings or upload the video directly.',
-          429,
-          'YOUTUBE_RATE_LIMITED'
-        );
-      }
-      if (stderr.includes('Private video') || stderr.includes('Sign in if you') || stderr.includes('this video is private')) {
-        throw new AppError('This YouTube video is private and cannot be imported.', 400, 'YOUTUBE_PRIVATE_VIDEO');
-      }
-      if (stderr.includes('Video unavailable') || stderr.includes('This video is unavailable') || stderr.includes('has been removed')) {
-        throw new AppError('This YouTube video is unavailable or has been removed.', 400, 'YOUTUBE_VIDEO_UNAVAILABLE');
-      }
-      if (
-        stderr.includes('age-restricted') ||
-        stderr.includes('confirm your age') ||
-        stderr.includes('Sign in to confirm your age') ||
-        stderr.includes('Sign in to view this video')
-      ) {
-        throw new AppError('This YouTube video has access or age restrictions and cannot be imported.', 400, 'YOUTUBE_ACCESS_RESTRICTED');
-      }
-
-      // If metadata probe fails for non-fatal reasons, return empty object so download step can try
+      // The payload came back but a field was shaped unexpectedly; metadata is optional, so
+      // degrade to empty rather than failing the whole ingestion.
+      logger.warn('Failed to map yt-dlp metadata payload', { error: err?.message });
       return {};
     }
+  }
+
+  /**
+   * Runs `yt-dlp --dump-json` across the extraction strategies until one succeeds.
+   *
+   * Throws an AppError for failures that describe the video itself (private, removed,
+   * members-only, ...) since no other player client can fix those. Returns null when every
+   * strategy failed for a reason that the download step may still get past.
+   */
+  private static async dumpYouTubeJson(url: string, timeoutMs: number): Promise<any | null> {
+    const { command: dlCommand, prefixArgs } = this.resolveYtDlpCommand();
+    const strategies = this.getYtDlpStrategies();
+    const failures: YouTubeFailure[] = [];
+
+    for (const strategy of strategies) {
+      const args = [
+        ...prefixArgs,
+        ...this.getCommonYtDlpArgs(strategy.extractorArgs),
+        '--dump-json',
+        '--skip-download',
+        url,
+      ];
+
+      try {
+        const { stdout } = await execFileAsync(dlCommand, args, {
+          timeout: timeoutMs,
+          maxBuffer: 10 * 1024 * 1024,
+        });
+        return JSON.parse(stdout);
+      } catch (err: any) {
+        const failure = classifyYouTubeFailure({
+          stderr: err?.stderr,
+          stdout: err?.stdout,
+          message: err?.message,
+          killed: err?.killed,
+          errCode: err?.code,
+          signal: err?.signal,
+        });
+
+        logger.warn('yt-dlp metadata probe failed', {
+          strategy: strategy.label,
+          kind: failure.kind,
+          reason: failure.reason,
+        });
+
+        if (failure.terminal) {
+          throw toAppError(failure);
+        }
+        failures.push(failure);
+      }
+    }
+
+    const worst = mostInformativeFailure(failures);
+    logger.warn('All yt-dlp metadata strategies failed', { kind: worst?.kind, reason: worst?.reason });
+    return null;
   }
 
   /**
@@ -651,24 +714,21 @@ export class UrlIngestionService {
     const expectedMp4 = path.join(tempDir, `${uniqueId}.mp4`);
 
     const { command: dlCommand, prefixArgs } = this.resolveYtDlpCommand();
-    const commonArgs = this.getCommonYtDlpArgs();
     const ffmpegPath = (ffmpegStatic as unknown as string) || 'ffmpeg';
     const ffmpegDir = path.dirname(ffmpegPath);
 
-    // Format selection: flexible format spec with automatic MP4 merge
-    const formatSpec =
-      'bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best';
+    // Prefer H.264 + AAC so the rest of the pipeline never has to transcode, then fall back
+    // through any adaptive pair, then any muxed progressive format. The final `/best` keeps a
+    // 360p-only video ingesting rather than failing outright.
+    const formatSpec = [
+      'bestvideo[vcodec^=avc1][height<=1080]+bestaudio[acodec^=mp4a]',
+      'bestvideo[height<=1080]+bestaudio',
+      'best[height<=1080]',
+      'bestvideo+bestaudio',
+      'best',
+    ].join('/');
 
-    const args = [
-      ...prefixArgs,
-      ...commonArgs,
-      '--concurrent-fragments', '4',
-      '--ffmpeg-location', ffmpegDir,
-      '-f', formatSpec,
-      '--merge-output-format', 'mp4',
-      '--max-filesize', `${Math.round(maxBytes / (1024 * 1024))}M`,
-    ];
-
+    const rangeArgs: string[] = [];
     if (range && (range.startSec !== undefined || range.endSec !== undefined)) {
       const s = Math.max(0, range.startSec ?? 0);
       const e = range.endSec !== undefined ? range.endSec : 'inf';
@@ -678,84 +738,88 @@ export class UrlIngestionService {
           throw new AppError('Video duration exceeds the maximum allowed limit of 2 hours.', 400, 'YOUTUBE_DURATION_TOO_LONG');
         }
       }
-      args.push('--download-sections', `*${s}-${e}`, '--force-keyframes-at-cuts');
+      rangeArgs.push('--download-sections', `*${s}-${e}`, '--force-keyframes-at-cuts');
     }
 
-    args.push('-o', outTemplate, url);
+    const maxFilesizeMb = Math.max(1, Math.round(maxBytes / (1024 * 1024)));
+    const strategies = this.getYtDlpStrategies();
+    const failures: YouTubeFailure[] = [];
 
-    logger.info(`Starting YouTube download via yt-dlp: ${url} (maxBytes: ${maxBytes}, range: ${JSON.stringify(range || 'full')})`);
-
-    try {
-      await execFileAsync(dlCommand, args, {
-        timeout: timeoutMs,
-        maxBuffer: 10 * 1024 * 1024,
-      });
-    } catch (dlErr: any) {
-      // Find and delete any incomplete fragments
+    const purgePartials = () => {
       try {
-        const files = fs.readdirSync(tempDir).filter((f) => f.startsWith(uniqueId));
-        for (const f of files) {
+        for (const f of fs.readdirSync(tempDir).filter((f) => f.startsWith(uniqueId))) {
           fs.unlinkSync(path.join(tempDir, f));
         }
       } catch {}
+    };
 
-      const stderr = String(dlErr.stderr || '');
-      logger.error('yt-dlp download failed', { error: dlErr.message, stderr });
+    logger.info(
+      `Starting YouTube download via yt-dlp: ${url} (maxBytes: ${maxBytes}, range: ${JSON.stringify(range || 'full')})`
+    );
 
-      if (dlErr.killed || dlErr.code === 'ETIMEDOUT' || dlErr.signal === 'SIGTERM') {
-        throw new AppError('YouTube download timed out. The video took too long to download.', 408, 'YOUTUBE_TIMEOUT');
-      }
-      if (stderr.includes('File is larger than max-filesize') || stderr.includes('max-filesize')) {
-        throw new AppError(`YouTube video exceeds maximum allowed size of ${Math.round(maxBytes / (1024 * 1024))} MB.`, 400, 'YOUTUBE_FILE_TOO_LARGE');
-      }
-      if (stderr.includes('Private video') || stderr.includes('this video is private')) {
-        throw new AppError('This YouTube video is private and cannot be imported.', 400, 'YOUTUBE_PRIVATE_VIDEO');
-      }
-      if (stderr.includes('Video unavailable') || stderr.includes('This video is unavailable')) {
-        throw new AppError('This YouTube video is unavailable.', 400, 'YOUTUBE_VIDEO_UNAVAILABLE');
-      }
-      if (
-        stderr.includes('Sign in to confirm you’re not a bot') ||
-        stderr.includes("Sign in to confirm you're not a bot") ||
-        stderr.includes('bot detection')
-      ) {
-        throw new AppError(
-          'YouTube is temporarily blocking datacenter requests (bot challenge). Please configure YOUTUBE_COOKIES in Render settings or upload the video directly.',
-          429,
-          'YOUTUBE_RATE_LIMITED'
+    let downloaded = false;
+    for (const strategy of strategies) {
+      const args = [
+        ...prefixArgs,
+        ...this.getCommonYtDlpArgs(strategy.extractorArgs),
+        '--concurrent-fragments', '4',
+        '--ffmpeg-location', ffmpegDir,
+        '-f', formatSpec,
+        '--merge-output-format', 'mp4',
+        '--max-filesize', `${maxFilesizeMb}M`,
+        ...rangeArgs,
+        '-o', outTemplate,
+        url,
+      ];
+
+      try {
+        await execFileAsync(dlCommand, args, {
+          timeout: timeoutMs,
+          maxBuffer: 10 * 1024 * 1024,
+        });
+        logger.info(`yt-dlp download succeeded using strategy ${strategy.label}`);
+        downloaded = true;
+        break;
+      } catch (dlErr: any) {
+        purgePartials();
+
+        const failure = classifyYouTubeFailure(
+          {
+            stderr: dlErr?.stderr,
+            stdout: dlErr?.stdout,
+            message: dlErr?.message,
+            killed: dlErr?.killed,
+            errCode: dlErr?.code,
+            signal: dlErr?.signal,
+          },
+          { maxBytes }
         );
-      }
-      if (
-        stderr.includes('age-restricted') ||
-        stderr.includes('confirm your age') ||
-        stderr.includes('Sign in to confirm your age') ||
-        stderr.includes('Sign in to view this video')
-      ) {
-        throw new AppError('This YouTube video has access or age restrictions and cannot be imported.', 400, 'YOUTUBE_ACCESS_RESTRICTED');
-      }
-      if (
-        stderr.includes('No module named yt_dlp') ||
-        dlErr.message.includes('ENOENT') ||
-        dlErr.message.includes('not found') ||
-        stderr.includes('command not found')
-      ) {
-        throw new AppError('YouTube downloader utility is not configured or available on the server.', 500, 'YOUTUBE_DOWNLOADER_UNAVAILABLE');
-      }
 
-      // Extract the most informative error line from yt-dlp stderr
-      const errorLines = stderr
-        .split('\n')
-        .map((l) => l.trim())
-        .filter((l) => l.startsWith('ERROR:') || l.includes('Error') || l.includes('HTTP'));
-      const specificReason = errorLines[0]
-        ? errorLines[0].replace(/^ERROR:\s*(\[youtube\]\s*)?/, '').trim()
-        : null;
+        logger.error('yt-dlp download failed', {
+          strategy: strategy.label,
+          kind: failure.kind,
+          reason: failure.reason,
+          stderr: String(dlErr?.stderr || '').slice(0, 4000),
+        });
 
-      const message = specificReason
-        ? `Could not download this YouTube video: ${specificReason}`
-        : 'Could not download this YouTube video. Please verify that the video is publicly accessible, or configure YOUTUBE_COOKIES in Render.';
+        if (failure.terminal) {
+          throw toAppError(failure);
+        }
+        failures.push(failure);
+      }
+    }
 
-      throw new AppError(message, 400, 'YOUTUBE_DOWNLOAD_FAILED');
+    if (!downloaded) {
+      const worst = mostInformativeFailure(failures);
+      throw toAppError(
+        worst ?? {
+          kind: 'unknown',
+          message: 'The YouTube download failed for an unrecognised reason. The server logs hold the downloader output.',
+          statusCode: 502,
+          code: 'YOUTUBE_DOWNLOAD_FAILED',
+          terminal: false,
+        }
+      );
     }
 
     // Identify final merged output file
@@ -868,8 +932,15 @@ export class UrlIngestionService {
         // YouTube Ingestion Path via yt-dlp
         logger.info(`Starting YouTube video ingestion: ${validated.normalizedUrl} (ID: ${validated.youtubeVideoId}) for project ${projectId}`);
 
-        // Quick metadata pre-fetch for title, duration bounds, chapters, and auto-genre
-        ytMeta = await this.fetchYouTubeMetadata(validated.normalizedUrl).catch(() => ({}));
+        // Quick metadata pre-fetch for title, duration bounds, chapters, and auto-genre.
+        // A classified AppError here means the video itself is restricted (private, removed,
+        // members-only, ...), so fail fast with that reason instead of attempting a download
+        // that can only fail the same way. Anything else is non-fatal metadata loss.
+        ytMeta = await this.fetchYouTubeMetadata(validated.normalizedUrl).catch((metaErr) => {
+          if (metaErr instanceof AppError) throw metaErr;
+          logger.warn('YouTube metadata pre-fetch failed', { error: metaErr?.message });
+          return {};
+        });
         if (ytMeta.title) ytMetaTitle = ytMeta.title;
 
         // Duration guard: if range is specified, validate range window; otherwise validate full duration
