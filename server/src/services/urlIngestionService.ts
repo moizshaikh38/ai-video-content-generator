@@ -378,6 +378,7 @@ export class UrlIngestionService {
       path.resolve(process.cwd(), 'python/.venv/Scripts/python.exe'),
       path.resolve(process.cwd(), 'server/python/.venv/bin/python'),
       path.resolve(process.cwd(), 'python/.venv/bin/python'),
+      path.resolve(process.cwd(), '../server/python/.venv/bin/python'),
       'python3',
       'python',
     ];
@@ -391,6 +392,38 @@ export class UrlIngestionService {
   }
 
   /**
+   * Resolves the command and prefix arguments required to invoke yt-dlp,
+   * supporting standalone yt-dlp executables, venv binaries, and Python module execution ('-m yt_dlp').
+   */
+  public static resolveYtDlpCommand(): { command: string; prefixArgs: string[] } {
+    if (process.env.YT_DLP_PATH && fs.existsSync(process.env.YT_DLP_PATH)) {
+      return { command: process.env.YT_DLP_PATH, prefixArgs: [] };
+    }
+
+    const standaloneCandidates = [
+      path.resolve(process.cwd(), 'yt-dlp'),
+      path.resolve(process.cwd(), 'server/yt-dlp'),
+      path.resolve(process.cwd(), '../server/yt-dlp'),
+      path.resolve(process.cwd(), 'yt-dlp.exe'),
+      path.resolve(process.cwd(), 'server/yt-dlp.exe'),
+      path.resolve(process.cwd(), 'python/.venv/bin/yt-dlp'),
+      path.resolve(process.cwd(), 'server/python/.venv/bin/yt-dlp'),
+      path.resolve(process.cwd(), '../server/python/.venv/bin/yt-dlp'),
+      path.resolve(process.cwd(), 'python/.venv/Scripts/yt-dlp.exe'),
+      path.resolve(process.cwd(), 'server/python/.venv/Scripts/yt-dlp.exe'),
+    ];
+
+    for (const bin of standaloneCandidates) {
+      if (fs.existsSync(bin)) {
+        return { command: bin, prefixArgs: [] };
+      }
+    }
+
+    const pythonBin = this.getPythonPath();
+    return { command: pythonBin, prefixArgs: ['-m', 'yt_dlp'] };
+  }
+
+  /**
    * Fetches metadata for a public YouTube video using yt-dlp without downloading media.
    * Extracts rich metadata (chapters, categories, tags, channel, thumbnail) and computes
    * local genre suggestions.
@@ -399,11 +432,11 @@ export class UrlIngestionService {
     url: string,
     timeoutMs = 25000
   ): Promise<YouTubeMetadataResult> {
-    const pythonBin = this.getPythonPath();
-    const args = ['-m', 'yt_dlp', '--dump-json', '--no-warnings', '--no-playlist', '--skip-download', url];
+    const { command: dlCommand, prefixArgs } = this.resolveYtDlpCommand();
+    const args = [...prefixArgs, '--dump-json', '--no-warnings', '--no-playlist', '--skip-download', url];
 
     try {
-      const { stdout } = await execFileAsync(pythonBin, args, {
+      const { stdout } = await execFileAsync(dlCommand, args, {
         timeout: timeoutMs,
         maxBuffer: 10 * 1024 * 1024,
       });
@@ -523,7 +556,7 @@ export class UrlIngestionService {
     const outTemplate = path.join(tempDir, `${uniqueId}.%(ext)s`);
     const expectedMp4 = path.join(tempDir, `${uniqueId}.mp4`);
 
-    const pythonBin = this.getPythonPath();
+    const { command: dlCommand, prefixArgs } = this.resolveYtDlpCommand();
     const ffmpegPath = (ffmpegStatic as unknown as string) || 'ffmpeg';
     const ffmpegDir = path.dirname(ffmpegPath);
 
@@ -532,7 +565,7 @@ export class UrlIngestionService {
       'bestvideo[ext=mp4][vcodec^=avc1][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4][height<=1080]/best[height<=1080]/best';
 
     const args = [
-      '-m', 'yt_dlp',
+      ...prefixArgs,
       '--no-warnings',
       '--no-playlist',
       '--concurrent-fragments', '4',
@@ -560,7 +593,7 @@ export class UrlIngestionService {
     logger.info(`Starting YouTube download via yt-dlp: ${url} (maxBytes: ${maxBytes}, range: ${JSON.stringify(range || 'full')})`);
 
     try {
-      await execFileAsync(pythonBin, args, {
+      await execFileAsync(dlCommand, args, {
         timeout: timeoutMs,
         maxBuffer: 10 * 1024 * 1024,
       });
@@ -591,7 +624,12 @@ export class UrlIngestionService {
       if (stderr.includes('Sign in') || stderr.includes('age-restricted')) {
         throw new AppError('This YouTube video has access or age restrictions and cannot be imported.', 400, 'YOUTUBE_ACCESS_RESTRICTED');
       }
-      if (stderr.includes('No module named yt_dlp') || dlErr.message.includes('ENOENT')) {
+      if (
+        stderr.includes('No module named yt_dlp') ||
+        dlErr.message.includes('ENOENT') ||
+        dlErr.message.includes('not found') ||
+        stderr.includes('command not found')
+      ) {
         throw new AppError('YouTube downloader utility is not configured or available on the server.', 500, 'YOUTUBE_DOWNLOADER_UNAVAILABLE');
       }
       if (stderr.includes('Sign in to confirm you’re not a bot') || stderr.includes('bot detection')) {

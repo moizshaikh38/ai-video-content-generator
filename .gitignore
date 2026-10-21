@@ -64,6 +64,10 @@ Thumbs.db
 server/python/.venv/
 server/python_embed/
 server/get-pip.py
+server/yt-dlp
+server/yt-dlp.exe
+yt-dlp
+yt-dlp.exe
 __pycache__/
 *.pyc
 # Local artifacts
