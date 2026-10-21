@@ -468,8 +468,13 @@ function describe(
         terminal: false,
       };
     case 'extractor_stale':
+      // Two causes produce this and we cannot tell them apart from the output alone: the
+      // downloader being behind YouTube's current player, or YouTube refusing to hand our
+      // server a player response at all (routine for datacenter IPs without cookies). Naming
+      // only the first one sends operators to update an already-current downloader.
       return {
-        message: 'We could not read this video from YouTube because YouTube changed its player. The downloader on the server needs updating.',
+        message:
+          'YouTube would not return playable data for this video to our server. Either the downloader needs updating, or YouTube is refusing our server and YOUTUBE_COOKIES needs configuring. Uploading the file directly will work in the meantime.',
         statusCode: 502,
         code: 'YOUTUBE_EXTRACTOR_STALE',
         terminal: false,

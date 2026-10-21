@@ -76,9 +76,24 @@ export async function uploadVideoFile({ file, projectId, onProgress, signal }: U
     xhr.onerror = () => {
       signal?.removeEventListener('abort', cancel);
       if (import.meta.env.DEV) {
-        console.warn('[StorageUpload] Network or CORS error during direct upload', { code: 'UPLOAD_NETWORK_FAILED' });
+        console.warn('[StorageUpload] Network or CORS error during direct upload', {
+          code: 'UPLOAD_NETWORK_FAILED',
+          origin: window.location.origin,
+          uploadHost: (() => { try { return new URL(grant.uploadUrl).host; } catch { return 'unparseable'; } })(),
+          hint: 'If the browser is online, the storage bucket almost certainly does not allow this origin in its CORS policy.',
+        });
       }
-      reject(new Error('Upload failed due to a network error. Please check your connection and try again.'));
+      // The browser deliberately hides whether this was a transport failure or a blocked
+      // cross-origin request, so only being offline is evidence of a connection problem.
+      // Blaming the user's connection for a bucket CORS misconfiguration sends them chasing
+      // the wrong thing, so say which of the two it actually is.
+      reject(
+        new Error(
+          navigator.onLine
+            ? `Upload was blocked before it reached storage. The storage bucket is not accepting uploads from ${window.location.origin}, which is usually a CORS configuration problem rather than your connection.`
+            : 'Upload failed because your device is offline. Reconnect and try again.'
+        )
+      );
     };
     xhr.onabort = () => {
       signal?.removeEventListener('abort', cancel);
