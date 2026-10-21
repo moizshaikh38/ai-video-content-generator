@@ -78,27 +78,41 @@ let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 let oauthCleanupTimer: ReturnType<typeof setInterval> | null = null;
 
 if (process.env.NODE_ENV !== 'test') {
-  const start = async () => {
+  // 1. Immediately bind HTTP port so Render and cloud port scanners detect open port in < 1 second
+  server = app.listen(config.port, '0.0.0.0', () => {
+    logger.info(`Server running in ${config.nodeEnv} mode on http://0.0.0.0:${config.port}`);
+    logger.info(`Health check available at http://0.0.0.0:${config.port}/health`);
+  });
+
+  // 2. Initialize database & background workers asynchronously
+  const initDatabase = async () => {
+    if (!isMongoConfigured) {
+      logger.info('MongoDB is not configured; running in degraded/stateless mode.');
+      return;
+    }
+
     let mongoReady = false;
-    if (isMongoConfigured) {
-      const maxRetries = config.isProduction ? 2 : 3;
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          await bootstrapMongo();
-          mongoReady = true;
-          break;
-        } catch (err) {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          if (attempt < maxRetries) {
-            logger.warn(`Database connection attempt ${attempt}/${maxRetries} failed (${errMsg}). Retrying in 2s...`);
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-          } else {
-            if (config.isProduction) {
-              throw err;
-            } else {
-              logger.error('Database bootstrap failed after retries. Starting in degraded mode (DB unavailable).', { error: errMsg });
-            }
-          }
+    const maxRetries = config.isProduction ? 2 : 3;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Enforce a 15-second timeout per attempt to prevent indefinite hanging
+        await Promise.race([
+          bootstrapMongo(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('MongoDB bootstrap connection timeout (15s)')), 15_000)
+          ),
+        ]);
+        mongoReady = true;
+        logger.info('Database bootstrap completed successfully.');
+        break;
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        if (attempt < maxRetries) {
+          logger.warn(`Database connection attempt ${attempt}/${maxRetries} failed (${errMsg}). Retrying in 2s...`);
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        } else {
+          logger.error('Database bootstrap failed after retries. Operating in degraded mode (requests requiring DB will return 503).', { error: errMsg });
         }
       }
     }
@@ -122,15 +136,10 @@ if (process.env.NODE_ENV !== 'test') {
       // Start Phase 10 persistent publishing worker
       startPublishingWorker();
     }
-
-    server = app.listen(config.port, '0.0.0.0', () => {
-      logger.info(`Server running in ${config.nodeEnv} mode on http://0.0.0.0:${config.port}`);
-      logger.info(`Health check available at http://localhost:${config.port}/api/health`);
-    });
   };
-  start().catch((error) => {
-    logger.error('Fatal server startup failure', { error: error instanceof Error ? error.message : String(error) });
-    closeMongo().finally(() => process.exit(1));
+
+  initDatabase().catch((error) => {
+    logger.error('Background database initialization error', { error: error instanceof Error ? error.message : String(error) });
   });
 
   // Graceful shutdown handling (H8 & Step 15)
