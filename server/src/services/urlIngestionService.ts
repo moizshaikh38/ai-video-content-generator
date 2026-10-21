@@ -439,20 +439,33 @@ export class UrlIngestionService {
       return serverPath;
     }
 
-    const content = config.youtubeCookiesContent?.trim();
+    const content = (config.youtubeCookiesContent || process.env.YOUTUBE_COOKIES || process.env.YOUTUBE_COOKIES_CONTENT || '').trim();
     if (content) {
       try {
         const dest = path.join(os.tmpdir(), 'vireo-yt-cookies.txt');
         let rawContent = content;
-        if (!content.includes('\n') && content.length > 20) {
+        if (rawContent.startsWith('"') && rawContent.endsWith('"')) {
+          rawContent = rawContent.slice(1, -1);
+        }
+        if (rawContent.includes('\\n')) {
+          rawContent = rawContent.replace(/\\n/g, '\n');
+        }
+        if (rawContent.includes('\\t')) {
+          rawContent = rawContent.replace(/\\t/g, '\t');
+        }
+        if (!rawContent.includes('\n') && rawContent.length > 20) {
           try {
-            const decoded = Buffer.from(content, 'base64').toString('utf8');
+            const decoded = Buffer.from(rawContent, 'base64').toString('utf8');
             if (decoded.includes('\t') || decoded.includes('cookie') || decoded.includes('Netscape')) {
               rawContent = decoded;
             }
           } catch {}
         }
+        if (!rawContent.includes('# Netscape HTTP Cookie File')) {
+          rawContent = `# Netscape HTTP Cookie File\n${rawContent}`;
+        }
         fs.writeFileSync(dest, rawContent, { mode: 0o600 });
+        logger.info(`YouTube cookies file prepared at ${dest} (${rawContent.length} bytes)`);
         return dest;
       } catch (err: any) {
         logger.warn('Failed to write temporary YouTube cookies file', { error: err.message });
@@ -471,8 +484,8 @@ export class UrlIngestionService {
     const commonArgs = [
       '--no-warnings',
       '--no-playlist',
-      '--socket-timeout', '20',
-      '--extractor-args', `youtube:player_client=${playerClient}`,
+      '--socket-timeout', '30',
+      '--extractor-args', `youtube:player_skip=configs,webpage;player_client=${playerClient}`,
     ];
 
     const cookiesFile = this.getCookiesFilePath();
@@ -642,9 +655,9 @@ export class UrlIngestionService {
     const ffmpegPath = (ffmpegStatic as unknown as string) || 'ffmpeg';
     const ffmpegDir = path.dirname(ffmpegPath);
 
-    // Format selection: prefer hardware/FFmpeg-friendly H.264 (avc1) with m4a audio, falling back gracefully
+    // Format selection: flexible format spec with automatic MP4 merge
     const formatSpec =
-      'bestvideo[ext=mp4][vcodec^=avc1][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4][height<=1080]/best[height<=1080]/best';
+      'bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best';
 
     const args = [
       ...prefixArgs,
@@ -729,7 +742,20 @@ export class UrlIngestionService {
         throw new AppError('YouTube downloader utility is not configured or available on the server.', 500, 'YOUTUBE_DOWNLOADER_UNAVAILABLE');
       }
 
-      throw new AppError('Could not download this YouTube video. Please verify that the video is publicly accessible.', 400, 'YOUTUBE_DOWNLOAD_FAILED');
+      // Extract the most informative error line from yt-dlp stderr
+      const errorLines = stderr
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.startsWith('ERROR:') || l.includes('Error') || l.includes('HTTP'));
+      const specificReason = errorLines[0]
+        ? errorLines[0].replace(/^ERROR:\s*(\[youtube\]\s*)?/, '').trim()
+        : null;
+
+      const message = specificReason
+        ? `Could not download this YouTube video: ${specificReason}`
+        : 'Could not download this YouTube video. Please verify that the video is publicly accessible, or configure YOUTUBE_COOKIES in Render.';
+
+      throw new AppError(message, 400, 'YOUTUBE_DOWNLOAD_FAILED');
     }
 
     // Identify final merged output file
