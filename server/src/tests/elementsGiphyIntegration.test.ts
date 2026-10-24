@@ -14,20 +14,26 @@ import os from 'node:os';
 describe('Phase 7: Elements & Stickers (GIPHY Integration)', () => {
   describe('GiphyService & API Proxy Behavior', () => {
     it('returns valid curated fallback elements when GIPHY_API_KEY is not configured', async () => {
-      assert.ok(CURATED_FALLBACK_ELEMENTS.length >= 8, 'Curated fallback should have at least 8 items');
-      const stickers = CURATED_FALLBACK_ELEMENTS.filter((item) => item.type === 'sticker');
-      const gifs = CURATED_FALLBACK_ELEMENTS.filter((item) => item.type === 'gif');
-      assert.ok(stickers.length >= 4, 'Should have multiple stickers');
-      assert.ok(gifs.length >= 4, 'Should have multiple gifs');
+      const origKey = process.env.GIPHY_API_KEY;
+      try {
+        delete process.env.GIPHY_API_KEY;
+        assert.ok(CURATED_FALLBACK_ELEMENTS.length >= 8, 'Curated fallback should have at least 8 items');
+        const stickers = CURATED_FALLBACK_ELEMENTS.filter((item) => item.type === 'sticker');
+        const gifs = CURATED_FALLBACK_ELEMENTS.filter((item) => item.type === 'gif');
+        assert.ok(stickers.length >= 4, 'Should have multiple stickers');
+        assert.ok(gifs.length >= 4, 'Should have multiple gifs');
 
-      const res = await GiphyService.searchElements({ query: '', type: 'sticker', limit: 10 });
-      assert.equal(res.isFallback, true);
-      assert.equal(res.attribution, 'Powered by GIPHY');
-      assert.ok(res.items.length > 0);
-      for (const item of res.items) {
-        assert.equal(item.type, 'sticker');
-        assert.ok(item.sourceUrl.startsWith('http'), 'sourceUrl must be a valid URL');
-        assert.ok(item.previewUrl.startsWith('http'), 'previewUrl must be a valid URL');
+        const res = await GiphyService.searchElements({ query: '', type: 'sticker', limit: 10 });
+        assert.equal(res.isFallback, true);
+        assert.equal(res.attribution, 'Powered by GIPHY');
+        assert.ok(res.items.length > 0);
+        for (const item of res.items) {
+          assert.equal(item.type, 'sticker');
+          assert.ok(item.sourceUrl.startsWith('http'), 'sourceUrl must be a valid URL');
+          assert.ok(item.previewUrl.startsWith('http'), 'previewUrl must be a valid URL');
+        }
+      } finally {
+        if (origKey !== undefined) process.env.GIPHY_API_KEY = origKey;
       }
     });
 

@@ -47,6 +47,7 @@ export const config = {
   youtubeCookiesContent: process.env.YOUTUBE_COOKIES_CONTENT || process.env.YOUTUBE_COOKIES || '',
   youtubeCookiesPath: process.env.YOUTUBE_COOKIES_PATH || '',
   youtubeProxy: process.env.YOUTUBE_PROXY || process.env.HTTP_PROXY || '',
+  giphyApiKey: process.env.GIPHY_API_KEY || '',
   // Processing configuration
   processingStaleMinutes: parseInt(process.env.PROCESSING_STALE_MINUTES || '15', 10),
   maxVideoBytes: 2 * 1024 * 1024 * 1024, // Direct R2 PUT; processing still needs local disk capacity

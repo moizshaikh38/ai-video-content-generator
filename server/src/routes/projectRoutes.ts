@@ -61,6 +61,7 @@ import {
   splitEditorItem,
   rippleDeleteEditorItem,
   duplicateEditorItem,
+  removeEditorProjectFillers,
   freezeEditorItem,
   captureEditorSnapshot,
   renderEditorProject,
@@ -150,6 +151,7 @@ router.patch('/editor-projects/:id', requireAuth, asyncHandler(updateEditorProje
 router.post('/editor-projects/:id/split', requireAuth, asyncHandler(splitEditorItem));
 router.post('/editor-projects/:id/ripple-delete', requireAuth, asyncHandler(rippleDeleteEditorItem));
 router.post('/editor-projects/:id/duplicate', requireAuth, asyncHandler(duplicateEditorItem));
+router.post('/editor-projects/:id/remove-fillers', requireAuth, asyncHandler(removeEditorProjectFillers));
 router.post('/editor-projects/:id/freeze', requireAuth, asyncHandler(freezeEditorItem));
 router.post('/editor-projects/:id/freeze-frame', requireAuth, asyncHandler(freezeEditorItem));
 router.post('/editor-projects/:id/snapshot', requireAuth, asyncHandler(captureEditorSnapshot));

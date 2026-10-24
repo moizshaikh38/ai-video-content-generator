@@ -1685,18 +1685,38 @@ export type EditorTransitionType =
   | 'cross_dissolve'
   | 'fade'
   | 'dip_to_black'
+  | 'dip_to_white'
   | 'slide'
   | 'push'
-  | 'zoom_lite';
+  | 'smooth_slide'
+  | 'wipe'
+  | 'zoom_lite'
+  | 'blur'
+  | 'pixelate'
+  | 'radial'
+  | 'circle_open'
+  | 'circle_crop'
+  | 'squeeze_h'
+  | 'squeeze_v';
 
 export const EDITOR_TRANSITION_TYPES: readonly EditorTransitionType[] = [
   'cut',
   'cross_dissolve',
   'fade',
   'dip_to_black',
+  'dip_to_white',
   'slide',
   'push',
+  'smooth_slide',
+  'wipe',
   'zoom_lite',
+  'blur',
+  'pixelate',
+  'radial',
+  'circle_open',
+  'circle_crop',
+  'squeeze_h',
+  'squeeze_v',
 ] as const;
 
 export interface EditorTransition {

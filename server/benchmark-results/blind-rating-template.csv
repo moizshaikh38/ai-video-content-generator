@@ -1,0 +1,7 @@
+rater_id,source_id,platform_code,clip_code,selection,completeness,captions,framing,overall,notes
+R1,S1,B,B1,5,4,5,4,5,
+R1,S1,V,V1,4,4,4,5,4,
+R1,S1,O,O1,3,3,4,3,3,
+R2,S1,B,B1,5,5,4,5,5,
+R2,S1,V,V1,4,3,4,4,4,
+R2,S1,O,O1,3,4,3,3,3,

@@ -149,6 +149,39 @@ export const splitEditorItem = async (
  * POST /api/editor-projects/:id/ripple-delete
  * Deletes an item and closes the gap on the timeline.
  */
+/**
+ * POST /api/editor-projects/:id/remove-fillers
+ * Preview (default) or confirmed temporal filler-word removal via ripple cuts.
+ */
+export const removeEditorProjectFillers = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  const userId = req.user?.id;
+  const projectId = req.params.id;
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });
+    return;
+  }
+  if (!projectId || !isValidUUID(projectId)) {
+    res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid editor project UUID required.' });
+    return;
+  }
+
+  try {
+    const result = await ProEditorService.removeFillers(projectId, userId, {
+      confirmed: req.body?.confirmed === true,
+      includeTier2: req.body?.includeTier2 !== false,
+    });
+    res.status(200).json({ status: 'ok', ...result });
+  } catch (err: any) {
+    const code = err.code || 'FILLER_REMOVAL_FAILED';
+    const status = err.statusCode || (code === 'NO_WORD_TIMINGS' ? 400 : code === 'PROJECT_NOT_FOUND' ? 404 : 500);
+    res.status(status).json({ status: 'error', code, message: err.message || 'Filler removal failed.' });
+  }
+};
+
 export const rippleDeleteEditorItem = async (
   req: AuthenticatedRequest,
   res: Response

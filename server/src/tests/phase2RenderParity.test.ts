@@ -168,7 +168,11 @@ describe('Phase 2 — per-slice crop parity in compileRenderGraph', () => {
       reframeContext({ mode: 'smart', layoutMode: 'track', track: dynamicTrack })
     );
 
-    const cardLine = graph.filterComplex.find((l) => l.includes('[tc_v_0]'))!;
+    // Title-card slices are the only video lines without a source trim.
+    const cardLine = graph.filterComplex.find(
+      (l) => l.includes('[v_slice_0]') && !l.includes('trim=')
+    )!;
+    assert.ok(cardLine, 'title card slice line should exist');
     assert.doesNotMatch(cardLine, /crop=/);
     // Single-slice branch: whole-clip framing from the shared decision.
     const single = makeProject([makeVideoItem({ id: 'only', source_start: 0, source_end: 4 })]);

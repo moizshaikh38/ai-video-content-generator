@@ -2,7 +2,8 @@ import React from 'react';
 import {
   Infinity as InfinityIcon,
 } from 'lucide-react';
-import { EditorProject, EditorTextAnimation } from '../../types';
+import { EditorProject, EditorTextAnimation, EditorTransition, EditorTrackItem } from '../../types';
+import { TransitionPicker } from './TransitionPicker';
 
 interface MotionWorkspacePanelProps {
   project: EditorProject;
@@ -28,13 +29,6 @@ const MOTION_PRESETS: AnimationPreset[] = [
   { id: 'none', label: 'Static (None)', description: 'Clean instant appearance with no animation', category: 'entrance' },
 ];
 
-const TRANSITION_PRESETS = [
-  { id: 'cut', label: 'Hard Cut', desc: 'Direct frame cut' },
-  { id: 'cross_dissolve', label: 'Cross Dissolve', desc: 'Smooth blended dissolve' },
-  { id: 'dip_black', label: 'Dip to Black', desc: 'Cinematic scene transition' },
-  { id: 'whip_pan', label: 'Whip Pan', desc: 'Fast kinetic lateral blur' },
-];
-
 export const MotionWorkspacePanel: React.FC<MotionWorkspacePanelProps> = ({
   project,
   selectedItemId,
@@ -43,6 +37,29 @@ export const MotionWorkspacePanel: React.FC<MotionWorkspacePanelProps> = ({
   // Find selected item if any
   const selectedItem = project.tracks.flatMap((t) => t.items).find((i) => i.id === selectedItemId);
   const currentAnimation = selectedItem?.text?.animation || 'pop';
+
+  // Video transitions apply at the boundary between consecutive VIDEO items.
+  const videoItems: EditorTrackItem[] = project.tracks
+    .filter((t) => t.type === 'VIDEO' && !t.hidden)
+    .flatMap((t) => t.items.filter((i) => !i.hidden))
+    .sort((a, b) => a.timeline_start - b.timeline_start);
+  const selectedVideoItem = videoItems.find((i) => i.id === selectedItemId) ?? null;
+  const transitionTarget: EditorTrackItem | null =
+    selectedVideoItem && videoItems.indexOf(selectedVideoItem) > 0 ? selectedVideoItem : null;
+
+  const handleSelectTransition = (transition: EditorTransition | undefined) => {
+    const target = transitionTarget;
+    if (!target) return;
+    onUpdateProject((prev) => ({
+      ...prev,
+      tracks: prev.tracks.map((t) => ({
+        ...t,
+        items: t.items.map((i) =>
+          i.id === target.id ? { ...i, transition_in: transition } : i
+        ),
+      })),
+    }));
+  };
 
   const handleSelectAnimation = (anim: EditorTextAnimation) => {
     if (selectedItem) {
@@ -136,23 +153,23 @@ export const MotionWorkspacePanel: React.FC<MotionWorkspacePanelProps> = ({
         </div>
       </div>
 
-      {/* Section 2: Video Transition Style */}
+      {/* Section 2: Video Transition Style (CapCut-style animated presets) */}
       <div className="pt-3 border-t border-white/[0.08]">
-        <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block mb-2">
+        <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block mb-1">
           Timeline Cut Transitions
         </label>
-        <div className="grid grid-cols-2 gap-2">
-          {TRANSITION_PRESETS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className="p-2.5 rounded-xl bg-vc-canvas border border-white/[0.06] hover:border-white/20 text-neutral-300 text-left transition"
-            >
-              <div className="font-semibold text-xs text-white">{t.label}</div>
-              <div className="text-[10px] text-neutral-500 mt-0.5">{t.desc}</div>
-            </button>
-          ))}
-        </div>
+        <p className="text-[10px] text-neutral-500 mb-2">
+          {transitionTarget ? (
+            <>Applied at the start of <span className="text-violet-300">{transitionTarget.name || 'the selected clip'}</span>.</>
+          ) : (
+            'Select the second or later clip on the video track to set its entrance transition.'
+          )}
+        </p>
+        <TransitionPicker
+          currentTransition={transitionTarget?.transition_in}
+          onSelect={handleSelectTransition}
+          disabled={!transitionTarget}
+        />
       </div>
     </div>
   );

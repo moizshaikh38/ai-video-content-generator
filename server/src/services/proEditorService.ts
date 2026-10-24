@@ -59,6 +59,7 @@ import { SoundDesignService } from './soundDesignService.js';
 import { SmartReframeService } from './smartReframeService.js';
 import { partitionCaptionCues, shiftCaptionItemsForRippleDelete, cloneCaptionCuesForDuplicate } from '../utils/editorRippleCut.js';
 import { validateEditorSourcePath, isAllowedEditorSourcePath, overlayAssetExtension } from '../utils/editorAssetValidator.js';
+import { resolveXfadeName, getTransitionPreset, clampTransitionDuration } from '../shared/transitionPresets.js';
 
 const execFileAsync = promisify(execFile);
 const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
@@ -426,6 +427,77 @@ export class ProEditorService {
   /**
    * Duplicates an item placing it immediately after on the same track.
    */
+  /**
+   * Filler-word removal (quality roadmap E-3, Descript parity).
+   * Preview mode returns the proposal (count, seconds, ranges) without touching
+   * the project; confirmed mode removes the ranges through applyBatchRippleCuts,
+   * cutting video, audio, and caption cues together. Never silent: the response
+   * always reports exactly what was removed.
+   */
+  public static async removeFillers(
+    projectId: string,
+    userId: string,
+    options: { confirmed?: boolean; includeTier2?: boolean } = {}
+  ): Promise<{
+    preview: boolean;
+    summary: {
+      totalRanges: number;
+      tier1Ranges: number;
+      tier2Ranges: number;
+      totalDurationSec: number;
+      ranges: Array<{ start: number; end: number; tier: number; words: string[]; reason: string }>;
+    };
+    project?: EditorProject;
+  }> {
+    const { detectFillerRanges, summarizeFillerRanges } = await import('../utils/fillerDetection.js');
+    const { applyBatchRippleCuts } = await import('../utils/editorRippleCut.js');
+
+    const project = await this.getEditorProject(projectId, userId);
+
+    // Word timings come from the caption track (timeline-absolute, same clock as ripple cuts).
+    const captionTrack = project.tracks.find((t) => t.type === 'CAPTION' && !t.hidden);
+    const words = (captionTrack?.items ?? []).flatMap((item) =>
+      (Array.isArray(item.caption?.cues) ? item.caption!.cues : []).flatMap((cue: any) =>
+        (Array.isArray(cue.words) ? cue.words : []).map((w: any) => ({
+          text: String(w.text ?? w.word ?? ''),
+          start: Number(w.start),
+          end: Number(w.end),
+        }))
+      )
+    );
+
+    if (words.length === 0) {
+      const err = new AppError('No word-level timings available for filler removal; re-analyze captions first.', 400, 'NO_WORD_TIMINGS');
+      throw err;
+    }
+
+    const ranges = detectFillerRanges(words, { includeTier2: options.includeTier2 !== false });
+    const summary = summarizeFillerRanges(ranges);
+
+    if (!options.confirmed) {
+      return { preview: true, summary };
+    }
+
+    if (ranges.length === 0) {
+      return { preview: false, summary, project };
+    }
+
+    const next = applyBatchRippleCuts(
+      project as any,
+      ranges.map((r) => ({ startSec: r.start, endSec: r.end }))
+    ) as EditorProject;
+
+    const updated = await this.updateEditorProject(projectId, userId, {
+      tracks: next.tracks,
+      canvas: next.canvas,
+    });
+
+    logger.info(
+      `[ProEditor] Removed ${summary.totalRanges} filler range(s), ${summary.totalDurationSec}s from project ${projectId}`
+    );
+    return { preview: false, summary, project: updated };
+  }
+
   public static async duplicateItem(
     projectId: string,
     userId: string,
@@ -786,6 +858,20 @@ export class ProEditorService {
   }
 
   /**
+   * Audio tempo chain for a playback speed: atempo is limited to [0.5, 2.0], so
+   * out-of-range speeds chain multiple atempo stages (e.g. 4x = 2.0 × 2.0).
+   */
+  private static audioAtempoChain(speed: number): string {
+    if (!Number.isFinite(speed) || speed === 1) return '';
+    const factors: number[] = [];
+    let s = Math.min(4, Math.max(0.25, speed));
+    while (s > 2) { factors.push(2); s /= 2; }
+    while (s < 0.5) { factors.push(0.5); s /= 0.5; }
+    factors.push(Number(s.toFixed(4)));
+    return factors.map((f) => `atempo=${f}`).join(',');
+  }
+
+  /**
    * Compiles the entire multi-track EditorProject into a valid FFmpeg RenderGraph V2.
    * Enforces argument array execution with ZERO raw shell string interpolation.
    */
@@ -825,14 +911,28 @@ export class ProEditorService {
     const canvasDuration = Number((project.canvas.duration || 0).toFixed(3));
 
     if (allVideoItems.length > 1) {
-      // Multiple timeline segments: slice real video, or synthesize title cards, then concat.
+      // Multiple timeline segments: slice real video, or synthesize title cards,
+      // then concat (no transitions) or an xfade/acrossfade chain (transitions).
+      // Each slice honors its playback speed; deliberate timeline gaps are padded
+      // so the export preserves the canvas layout the preview shows.
       const vLabels: string[] = [];
       const aLabels: string[] = [];
+      const sliceDurations: number[] = [];
+      const UNIFORM_AUDIO = 'aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo';
+      let prevTimelineEnd: number | null = null;
+
       for (let i = 0; i < allVideoItems.length; i++) {
         const item = allVideoItems[i];
         const vSlice = `[v_slice_${i}]`;
         const aSlice = `[a_slice_${i}]`;
-        const dur = Math.max(0.1, item.timeline_end - item.timeline_start);
+        const timelineDur = Math.max(0.1, item.timeline_end - item.timeline_start);
+        const speed = Math.min(4, Math.max(0.25, item.speed?.speed || 1.0));
+        const speedVideo = speed !== 1 ? `,setpts=PTS/${speed}` : '';
+        const speedAudio = ProEditorService.audioAtempoChain(speed);
+        const gap =
+          prevTimelineEnd !== null ? Math.max(0, item.timeline_start - prevTimelineEnd) : 0;
+        const gapPad = gap > 0.05;
+        prevTimelineEnd = item.timeline_end;
 
         if ((item as any).is_title_card) {
           // Title card: a solid-colour frame with centred text + matching silent audio.
@@ -840,7 +940,7 @@ export class ProEditorService {
           const cardText = ProEditorService.escapeDrawtext((item as any).title_card_text || item.name || '');
           const fontSize = Math.max(32, Math.round(canvasH * 0.06));
 
-          inputArgs.push('-f', 'lavfi', '-i', `color=c=0x${bgHex}:s=${canvasW}x${canvasH}:r=${fps}:d=${dur.toFixed(2)}`);
+          inputArgs.push('-f', 'lavfi', '-i', `color=c=0x${bgHex}:s=${canvasW}x${canvasH}:r=${fps}:d=${(timelineDur * speed).toFixed(2)}`);
           currentInputIdx++;
           const colorIdx = currentInputIdx;
           inputArgs.push('-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100');
@@ -850,42 +950,110 @@ export class ProEditorService {
           const drawtext = cardText
             ? `,drawtext=text='${cardText}':fontcolor=white:fontsize=${fontSize}:x=(w-text_w)/2:y=(h-text_h)/2`
             : '';
-          filterComplex.push(`[${colorIdx}:v]setpts=PTS-STARTPTS,fps=${fps}${drawtext}[tc_v_${i}]`);
-          filterComplex.push(`[tc_v_${i}]setsar=1${vSlice}`);
-          filterComplex.push(`[${silenceIdx}:a]atrim=0:${dur.toFixed(2)},asetpts=PTS-STARTPTS${aSlice}`);
+          const padV = gapPad ? `,tpad=stop_duration=${gap.toFixed(3)}:color=black` : '';
+          const padA = gapPad ? `,apad=pad_dur=${gap.toFixed(3)}` : '';
+          filterComplex.push(`[${colorIdx}:v]setpts=PTS-STARTPTS,fps=${fps}${drawtext}${speedVideo},setsar=1,format=yuv420p${padV}${vSlice}`);
+          filterComplex.push(`[${silenceIdx}:a]atrim=0:${(timelineDur * speed).toFixed(2)},asetpts=PTS-STARTPTS${speedAudio ? ',' + speedAudio : ''},${UNIFORM_AUDIO}${padA}${aSlice}`);
+          sliceDurations.push(timelineDur + gap);
         } else {
           const startStr = (item.source_start || 0).toFixed(2);
-          const endStr = (item.source_end !== undefined ? item.source_end : (Number(startStr) + dur)).toFixed(2);
+          const srcEnd = item.source_end !== undefined ? item.source_end : (item.source_start || 0) + timelineDur * speed;
+          const endStr = srcEnd.toFixed(2);
+          const sourceWindowSec = Math.max(0.1, srcEnd - (item.source_start || 0));
+          const sliceDur = sourceWindowSec / speed;
           // Keyframes are clip-relative; slices trim straight from the source file, so
           // the slice-local window starts at source_start - clipStart.
           const windowStartClipRel = (item.source_start || 0) - (reframe?.clipStartSec ?? 0);
-          const sliceCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRel, dur);
+          const sliceCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRel, timelineDur);
           const styleFilters = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH);
           const chain = [`trim=start=${startStr}:end=${endStr}`, 'setpts=PTS-STARTPTS'];
           if (sliceCrop) chain.push(sliceCrop);
           chain.push(...styleFilters);
-          chain.push(`fps=${fps}`, 'setsar=1');
+          chain.push(`fps=${fps}`, 'setsar=1', 'format=yuv420p');
+          if (speed !== 1) chain.push(`setpts=PTS/${speed}`);
+          if (gapPad) chain.push(`tpad=stop_duration=${gap.toFixed(3)}:color=black`);
           filterComplex.push(`[0:v]${chain.join(',')}${vSlice}`);
-          filterComplex.push(
-            `[0:a]atrim=start=${startStr}:end=${endStr},asetpts=PTS-STARTPTS${aSlice}`
-          );
+
+          const aChain = [`atrim=start=${startStr}:end=${endStr}`, 'asetpts=PTS-STARTPTS'];
+          if (speedAudio) aChain.push(speedAudio);
+          aChain.push(UNIFORM_AUDIO);
+          if (gapPad) aChain.push(`apad=pad_dur=${gap.toFixed(3)}`);
+          filterComplex.push(`[0:a]${aChain.join(',')}${aSlice}`);
+          sliceDurations.push(sliceDur + gap);
         }
         vLabels.push(vSlice);
         aLabels.push(aSlice);
       }
-      const concatInputs = vLabels.map((v, i) => `${v}${aLabels[i]}`).join('');
-      filterComplex.push(`${concatInputs}concat=n=${allVideoItems.length}:v=1:a=1[base_v][base_a]`);
-      videoStreamLabel = '[base_v]';
-      audioStreamLabel = '[base_a]';
+
+      // Transition chain: xfade for video, acrossfade for audio. Only entered when
+      // at least one real (non-cut) transition exists — renders without transitions
+      // keep the previous concat path byte-for-byte.
+      const boundaryHasTransition = allVideoItems
+        .slice(1)
+        .some((item) => item.transition_in && resolveXfadeName(item.transition_in.type, item.transition_in.direction));
+
+      if (!boundaryHasTransition) {
+        const concatInputs = vLabels.map((v, i) => `${v}${aLabels[i]}`).join('');
+        filterComplex.push(`${concatInputs}concat=n=${allVideoItems.length}:v=1:a=1[base_v][base_a]`);
+        videoStreamLabel = '[base_v]';
+        audioStreamLabel = '[base_a]';
+      } else {
+        let accV = vLabels[0];
+        let accA = aLabels[0];
+        let accDur = sliceDurations[0];
+        for (let i = 1; i < allVideoItems.length; i++) {
+          const transition = allVideoItems[i].transition_in;
+          const isLast = i === allVideoItems.length - 1;
+          const outV = isLast ? '[base_v]' : `[xv_${i}]`;
+          const outA = isLast ? '[base_a]' : `[xa_${i}]`;
+
+          let xfadeName = transition ? resolveXfadeName(transition.type, transition.direction) : null;
+          let duration = 0;
+          if (xfadeName) {
+            const preset = getTransitionPreset(transition!.type);
+            duration = clampTransitionDuration(
+              transition!.duration ?? preset?.defaultDurationSec ?? 0.5,
+              preset?.defaultDurationSec ?? 0.5
+            );
+            duration = Math.min(duration, sliceDurations[i - 1] * 0.45, sliceDurations[i] * 0.45);
+          }
+          if (!xfadeName || duration < 0.05) {
+            // Hard cut inside the linear xfade chain: a single-frame crossfade is
+            // visually a cut and keeps the graph a single filter path.
+            xfadeName = 'fade';
+            duration = 1 / fps;
+          }
+          const offset = Math.max(0, accDur - duration);
+          filterComplex.push(
+            `${accV}${vLabels[i]}xfade=transition=${xfadeName}:duration=${duration.toFixed(3)}:offset=${offset.toFixed(3)}${outV}`
+          );
+          filterComplex.push(`${accA}${aLabels[i]}acrossfade=d=${duration.toFixed(3)}${outA}`);
+          accV = outV;
+          accA = outA;
+          accDur = accDur + sliceDurations[i] - duration;
+        }
+        videoStreamLabel = '[base_v]';
+        audioStreamLabel = '[base_a]';
+      }
     } else {
       // Single video item: the caller input-seeks with -ss clipStart, so filter time
       // is already clip-relative and the item keeps its own crop + styling.
       const single = allVideoItems[0];
       const singleCrop = single ? ProEditorService.buildSliceCropFilter(single, reframe, 0, canvasDuration || 10) : null;
       const styleFilters = single ? ProEditorService.buildItemStyleFilters(single, canvasW, canvasH) : [];
-      const chain = [singleCrop, ...styleFilters].filter(Boolean) as string[];
-      filterComplex.push(`${videoStreamLabel}${chain.length ? ',' + chain.join(',') : ''},fps=${fps}[base_v]`);
+      const singleSpeed = single ? Math.min(4, Math.max(0.25, single.speed?.speed || 1.0)) : 1.0;
+      const parts: string[] = [];
+      if (singleCrop) parts.push(singleCrop);
+      parts.push(...styleFilters);
+      if (singleSpeed !== 1) parts.push(`setpts=PTS/${singleSpeed}`);
+      parts.push(`fps=${fps}`, 'format=yuv420p');
+      filterComplex.push(`${videoStreamLabel}${parts.length ? ',' + parts.join(',') : ''}[base_v]`);
       videoStreamLabel = '[base_v]';
+      if (singleSpeed !== 1) {
+        const atempo = ProEditorService.audioAtempoChain(singleSpeed);
+        if (atempo) filterComplex.push(`${audioStreamLabel}${atempo}[base_a_speed]`);
+        audioStreamLabel = atempo ? '[base_a_speed]' : audioStreamLabel;
+      }
     }
 
     // 1b. Overlay / B-Roll Video & Image Layers

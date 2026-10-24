@@ -22,6 +22,7 @@ import { TimedCaptionCue, CaptionPresetId, WordCustomStyle } from '../../types';
 import { CAPTION_PRESETS } from '../../lib/captionPresets';
 import { WordMicroToolbar } from './WordMicroToolbar';
 import { SpeechCleanupTool, COMMON_FILLER_WORDS } from './SpeechCleanupTool';
+import { detectFillerRanges, summarizeFillerRanges } from '../../lib/fillerDetection';
 import {
   formatTranscriptTime,
   flattenTranscriptWords,
@@ -405,7 +406,38 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
   };
 
   // Batch filler cleaner
+  // Filler cleanup: when the ripple-cut hook is available, remove fillers
+  // temporally (video + audio + captions together) after an explicit confirm
+  // that reports exactly what will be cut. Falls back to text-only cleanup
+  // for hosts without timeline-cut wiring.
   const handleCleanAllFillers = () => {
+    if (onDeleteTimeRanges) {
+      const words = cues.flatMap((cue) =>
+        (Array.isArray(cue.words) ? cue.words : []).map((w: any) => ({
+          text: String(w.text ?? w.word ?? ''),
+          start: Number(w.start),
+          end: Number(w.end),
+        }))
+      );
+      if (words.length === 0) {
+        window.alert('Filler removal needs word-level timings. Re-analyze captions first.');
+        return;
+      }
+      const summary = summarizeFillerRanges(detectFillerRanges(words));
+      if (summary.totalRanges === 0) {
+        window.alert('No filler words detected.');
+        return;
+      }
+      const ok = window.confirm(
+        `Remove ${summary.totalRanges} filler moment(s), ~${summary.totalDurationSec.toFixed(1)}s total?\n` +
+          `(${summary.tier1Ranges} disfluencies, ${summary.tier2Ranges} discourse markers)\n` +
+          'This cuts video, audio, and captions together.'
+      );
+      if (!ok) return;
+      onDeleteTimeRanges(summary.ranges.map((r) => ({ startSec: r.start, endSec: r.end })));
+      return;
+    }
+
     for (const cue of cues) {
       const words = cue.text.split(/\s+/);
       const cleaned = words

@@ -391,3 +391,43 @@ select { padding-right: 1.75rem; }
     background-color: rgba(139, 92, 246, 0.45) !important;
   }
 }
+
+/* ─── Editor transition picker animations (CapCut-style looping previews) ────
+   Each thumbnail shows clip A and clip B looping the transition effect.
+   All disabled under prefers-reduced-motion with a static end-state. */
+@keyframes tt-fadeB { 0%, 35% { opacity: 0; } 65%, 100% { opacity: 1; } }
+@keyframes tt-flash { 0%, 30% { opacity: 0; } 45% { opacity: 1; } 60%, 100% { opacity: 0; } }
+@keyframes tt-slideB-left  { 0%, 30% { transform: translateX(-100%); } 70%, 100% { transform: translateX(0); } }
+@keyframes tt-slideB-right { 0%, 30% { transform: translateX(100%); } 70%, 100% { transform: translateX(0); } }
+@keyframes tt-slideB-up    { 0%, 30% { transform: translateY(100%); } 70%, 100% { transform: translateY(0); } }
+@keyframes tt-slideB-down  { 0%, 30% { transform: translateY(-100%); } 70%, 100% { transform: translateY(0); } }
+@keyframes tt-wipe-left  { 0%, 30% { clip-path: inset(0 100% 0 0); } 70%, 100% { clip-path: inset(0 0 0 0); } }
+@keyframes tt-wipe-right { 0%, 30% { clip-path: inset(0 0 0 100%); } 70%, 100% { clip-path: inset(0 0 0 0); } }
+@keyframes tt-wipe-up    { 0%, 30% { clip-path: inset(100% 0 0 0); } 70%, 100% { clip-path: inset(0 0 0 0); } }
+@keyframes tt-wipe-down  { 0%, 30% { clip-path: inset(0 0 100% 0); } 70%, 100% { clip-path: inset(0 0 0 0); } }
+@keyframes tt-zoomB { 0%, 30% { transform: scale(2.4); opacity: 0; } 55% { opacity: 1; } 70%, 100% { transform: scale(1); opacity: 1; } }
+@keyframes tt-blurA { 0%, 30% { filter: blur(0); opacity: 1; } 60% { filter: blur(6px); opacity: 0.3; } 70%, 100% { filter: blur(0); opacity: 0; } }
+@keyframes tt-blurB { 0%, 30% { filter: blur(6px); opacity: 0; } 60% { filter: blur(6px); opacity: 0.7; } 70%, 100% { filter: blur(0); opacity: 1; } }
+@keyframes tt-pixelB { 0%, 30% { opacity: 0; transform: scale(1); } 45% { opacity: 1; } 70%, 100% { opacity: 1; transform: scale(1); } }
+@keyframes tt-pixelOverlay {
+  0%, 30% { opacity: 0; }
+  45% { opacity: 1; }
+  70%, 100% { opacity: 0; }
+}
+@keyframes tt-circleB { 0%, 30% { clip-path: circle(0% at 50% 50%); } 70%, 100% { clip-path: circle(75% at 50% 50%); } }
+@keyframes tt-circleWarp { 0%, 30% { clip-path: circle(0% at 50% 50%); transform: scale(1.6); } 70%, 100% { clip-path: circle(75% at 50% 50%); transform: scale(1); } }
+@keyframes tt-radialB {
+  0%, 30% { clip-path: conic-gradient(from 0deg, black 0deg, transparent 0deg); }
+  70%, 100% { clip-path: conic-gradient(from 0deg, black 360deg, transparent 360deg); }
+}
+@keyframes tt-squeeze-h-a { 0%, 30% { transform: scaleX(1); } 70%, 100% { transform: scaleX(0); } }
+@keyframes tt-squeeze-h-b { 0%, 30% { transform: scaleX(0); } 70%, 100% { transform: scaleX(1); } }
+@keyframes tt-squeeze-v-a { 0%, 30% { transform: scaleY(1); } 70%, 100% { transform: scaleY(0); } }
+@keyframes tt-squeeze-v-b { 0%, 30% { transform: scaleY(0); } 70%, 100% { transform: scaleY(1); } }
+@keyframes tt-cutB { 0%, 48% { opacity: 0; } 50%, 100% { opacity: 1; } }
+
+.tt-anim { animation-duration: 2.2s; animation-iteration-count: infinite; animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tt-anim { animation: none !important; }
+}

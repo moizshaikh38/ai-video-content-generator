@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T17:56:05.987Z",
+  "generatedAt": "2026-10-24T19:30:25.837Z",
   "runner": "selection-benchmark-v0",
   "modelVersion": "not-applicable (deterministic metric harness; no LLM invoked)",
   "hardware": "8 CPUs / darwin arm64",

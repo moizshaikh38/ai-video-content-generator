@@ -32,6 +32,16 @@ Plus audit low findings: L-1 ripple-copy drift **eliminated** (`rippleCutParity.
 | 6 | Boundary & cross-pipeline parity: property tests P1–P4 through the real refiner (3 fixtures × 4 genres), whole-word priority, sweep/CORS wiring guards | ✅ Shipped (`genreRoadmapPhase6.test.ts`) |
 | 7 | Performance, cost & regression validation | ⛔ Needs real runs |
 
+## Platform quality roadmap (E-series)
+
+| Phase | Scope | Status |
+|---|---|---|
+| E1 | Editor renders what it previews: 17 CapCut-style transition presets (shared registry + xfade/acrossfade chain + animated `TransitionPicker` UI), per-slice playback speed (setpts/atempo), timeline gap preservation | ✅ Shipped (`phaseE1Transitions.test.ts`, real FFmpeg per family) |
+| E2 | Caption competitive polish: auto-emoji + keyword highlighting (Opus parity, flag-gated), readability audit (CPS + font, warn-first), burned-caption render gate (presence + placement PSNR) | ✅ Shipped (`phaseE2Captions.test.ts`) |
+| E3 | Filler-word removal via ripple-cut infra (tiered detector, preview/confirm API + editor confirm flow) | ✅ Shipped (`phaseE3Fillers.test.ts`) |
+| E4 | Settle experiments: **E4a** gated ablation (`ABLATION_APPROVED=on npm run bench:ablation`, paid LLM); **E4b** blind-rating kit READY (`server/benchmark-results/blind-rating-protocol.md` + CSV template) — needs your subscriptions + raters | 🟡 Kit ready, execution owner-gated |
+| E5 | CI quality gates: `npm run verify:all` (typecheck + build + 281 safe tests + benchmark sanity) and `.github/workflows/ci.yml` making all gates blocking on push/PR | ✅ Shipped |
+
 ## Benchmark state
 
 `npm run bench:selection` — **sanity PASS**: golden fixtures perfect on every automatable metric; degraded fixtures trip every embedded trap; the real deterministic engine chain (multimodal scoring → word-boundary refinement → dedup → MMR) preserves ground truth on both engine fixtures (reference recall 1.0, zero mid-word boundaries, zero redundancy, boundary error ≤ 0.23s — attributable to acoustic padding).

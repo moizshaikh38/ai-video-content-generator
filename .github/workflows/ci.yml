@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Typecheck, build, safe tests, benchmark sanity gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      - name: Install ffmpeg (render + caption parity tests)
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install server dependencies
+        run: npm ci --prefix server
+
+      - name: Server typecheck
+        run: npm --prefix server run typecheck
+
+      - name: Frontend typecheck + production build
+        run: npm run build:frontend
+
+      - name: Safe test suite (no DB, no network, no paid APIs)
+        run: npm --prefix server run test:safe
+
+      - name: Selection benchmark sanity gate (golden + engine chain)
+        run: npm --prefix server run bench:selection
+
+      - name: Upload benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selection-benchmark
+          path: server/benchmark-results/selection-benchmark.json
+          if-no-files-found: warn

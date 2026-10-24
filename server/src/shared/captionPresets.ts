@@ -653,6 +653,11 @@ export interface CaptionPresetOverrides {
   wordAnimationHold?: boolean;
   maxLines?: number;
   position?: CaptionAnchor;
+  /** Auto-emoji captions (Opus `emojiSwitch` / Vizard parity). */
+  emoji?: boolean;
+  /** Topic keywords to statically highlight (Opus `highlightSwitch` parity). */
+  highlightKeywords?: string[];
+  highlightKeywordColor?: string;
   /** Normalized 0..1 bottom edge of the caption block (legacy `positionY` semantics). */
   positionY?: number;
   /** Normalized 0..1 horizontal center of the caption block (0.5 = center). */
@@ -690,8 +695,41 @@ export interface ResolvedCaptionStyle {
   maxLines: 1 | 2;
   maxCharsPerLine: number;
   highlight: CaptionHighlightMode;
+  /** Opus/Vizard-parity: auto-append a contextual emoji to matching words. */
+  emoji: boolean;
+  /** Opus/Vizard-parity: statically colour these keywords even when inactive. */
+  highlightKeywords: string[];
+  highlightKeywordColor: string;
   wordAnimation: CaptionPresetDefinition['wordAnimation'];
   entrance: CaptionPresetDefinition['entrance'];
+}
+
+/**
+ * Auto-emoji lexicon (Opus `emojiSwitch` parity): keyword → emoji appended to
+ * the rendered word. Keys match case-insensitively on the whole word.
+ */
+export const CAPTION_EMOJI_LEXICON: Readonly<Record<string, string>> = {
+  time: '⏰', timer: '⏰', clock: '⏰', hour: '⏰', hours: '⏰', minute: '⌛', minutes: '⌛',
+  money: '💰', dollar: '💵', dollars: '💵', cash: '💸', revenue: '📈', profit: '📈',
+  fire: '🔥', hot: '🔥', growth: '📈', grow: '🌱', stock: '📉', stocks: '📈',
+  love: '❤️', heart: '❤️', laugh: '😂', funny: '😂', joke: '😂',
+  idea: '💡', ideas: '💡', think: '🧠', brain: '🧠', learn: '📚', book: '📚',
+  win: '🏆', won: '🏆', winner: '🏆', lose: '💀', lost: '💀', fail: '💀',
+  work: '💼', fast: '⚡', slow: '🐢', best: '🥇', worst: '🥴', secret: '🤫',
+  warning: '⚠️', stop: '🛑', go: '🚀', launch: '🚀', world: '🌍', magic: '✨',
+};
+
+export function lookupCaptionEmoji(word: string): string | null {
+  const clean = word.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return CAPTION_EMOJI_LEXICON[clean] ?? null;
+}
+
+export function isHighlightKeyword(word: string, keywords: string[]): boolean {
+  if (!keywords.length) return false;
+  const clean = word.toLowerCase().replace(/[^a-z0-9\s-]/g, '');
+  return keywords.some(
+    (k) => k.trim().length > 0 && clean === k.trim().toLowerCase()
+  );
 }
 
 const HEX_RE = /^#?([0-9a-fA-F]{6})$/;
@@ -781,6 +819,15 @@ export function sanitizePresetOverrides(input: unknown): CaptionPresetOverrides 
   if (o.maxLines !== undefined) {
     const n = Math.round(clampNum(o.maxLines, 1, 2, NaN));
     if (n === 1 || n === 2) out.maxLines = n;
+  }
+  if (typeof o.emoji === 'boolean') out.emoji = o.emoji;
+  if (Array.isArray(o.highlightKeywords)) {
+    out.highlightKeywords = o.highlightKeywords
+      .filter((k): k is string => typeof k === 'string' && k.trim().length > 0 && k.length <= 40)
+      .slice(0, 40);
+  }
+  if (typeof o.highlightKeywordColor === 'string' && HEX_RE.test(o.highlightKeywordColor.trim())) {
+    out.highlightKeywordColor = sanitizeHexColor(o.highlightKeywordColor, '#FFE500');
   }
   if (o.fontSize !== undefined) {
     const n = clampNum(o.fontSize, 32, 110, NaN);
@@ -912,6 +959,9 @@ export function resolveCaptionPreset(
     maxLines: o.maxLines === 1 || o.maxLines === 2 ? o.maxLines : p.layout.maxLines,
     maxCharsPerLine: p.layout.maxCharsPerLine,
     highlight: p.highlight,
+    emoji: o.emoji === true,
+    highlightKeywords: (o.highlightKeywords ?? []).map((k) => String(k).trim()).filter(Boolean).slice(0, 40),
+    highlightKeywordColor: o.highlightKeywordColor ?? p.colors.active,
     wordAnimation,
     entrance: { ...p.entrance },
   };
@@ -1646,7 +1696,14 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
     validWords.forEach((w, i) => {
       const st = states[i];
       const cs = w.customStyle;
-      const wordText = cs?.uppercase ? w.text.toUpperCase() : w.text;
+      // Opus/Vizard parity: append a contextual emoji to matching words and/or
+      // statically colour topic keywords — both flag-gated on the resolved style.
+      const emoji = style.emoji && !cs ? lookupCaptionEmoji(w.text) : null;
+      const renderedText = emoji ? `${w.text} ${emoji}` : w.text;
+      const wordText = cs?.uppercase ? renderedText.toUpperCase() : renderedText;
+      const keywordHit =
+        !cs && st.active !== true && isHighlightKeyword(w.text, style.highlightKeywords);
+      const keywordColour = hexToAssColor(style.highlightKeywordColor);
       const tokenTextColour = cs?.color ? hexToAssColor(cs.color) : textColour;
       const tokenHighlightColour = cs?.highlightColor ? hexToAssColor(cs.highlightColor) : highlightColour;
       const fontMult = typeof cs?.fontSizeMultiplier === 'number' && cs.fontSizeMultiplier > 0 ? cs.fontSizeMultiplier : 1;
@@ -1677,6 +1734,9 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
           ? `{\\c${tokenTextColour}\\3c${hexToAssColor(style.outlineColor)}\\bord${style.outlineWidth}\\fscx100\\fscy100\\blur0}`
           : `{\\c${tokenTextColour}\\3c${hexToAssColor(style.outlineColor)}\\bord${style.outlineWidth}\\fscx100\\fscy100\\blur0}`;
         piece = `{${tags.join('')}}${wordText}${reset}`;
+      } else if (keywordHit) {
+        // Static keyword highlight keeps its colour until the word becomes active.
+        piece = `{\\c${keywordColour}\\b1}${wordText}{\\c${tokenTextColour}\\b0}`;
       } else if (st.highlighted) {
         if (cs?.color || fontMult !== 1 || cs?.effect) {
           const preTags: string[] = [`\\c${tokenHighlightColour}`];
@@ -1706,9 +1766,47 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
   return events;
 }
 
+/**
+ * Readability audit (E2, warn-first): dense cues and undersized effective fonts
+ * are reported, never silently emitted. Thresholds are advisory for short-form:
+ * 28 chars/sec and 42px effective size on a 1080-wide portrait frame.
+ */
+export const CAPTION_READABILITY = {
+  maxCharsPerSecond: 28,
+  minEffectiveFontSizePx: 42,
+} as const;
+
+export interface CaptionReadabilityReport {
+  maxCps: number;
+  minFontSize: number;
+  warnings: string[];
+}
+
+export function auditCaptionReadability(cues: PresetTimedCue[], style: ResolvedCaptionStyle): CaptionReadabilityReport {
+  const warnings: string[] = [];
+  let maxCps = 0;
+  for (const cue of cues) {
+    const duration = cue.end - cue.start;
+    if (duration <= 0.05) continue;
+    const cps = cue.text.replace(/\s+/g, ' ').trim().length / duration;
+    maxCps = Math.max(maxCps, cps);
+    if (cps > CAPTION_READABILITY.maxCharsPerSecond) {
+      warnings.push(
+        `cue@${cue.start.toFixed(1)}s ${cps.toFixed(0)} cps exceeds ${CAPTION_READABILITY.maxCharsPerSecond} cps`
+      );
+    }
+  }
+  const effectiveFont = style.fontSize;
+  if (effectiveFont < CAPTION_READABILITY.minEffectiveFontSizePx) {
+    warnings.push(`effective font ${effectiveFont}px below ${CAPTION_READABILITY.minEffectiveFontSizePx}px minimum`);
+  }
+  return { maxCps, minFontSize: effectiveFont, warnings };
+}
+
 /** Full ASS script for preset-rendered captions (supporting multi-preset styles and token-level overrides). */
 export function buildPresetAssScript(cues: PresetTimedCue[], style: ResolvedCaptionStyle): string {
   const zeroOverlapCues = enforceZeroOverlap(cues.map((c) => ({ ...c })));
+  const readability = auditCaptionReadability(zeroOverlapCues, style);
 
   // 1. Collect all distinct styles used across the project (track default + cue overrides)
   const styleLinesMap = new Map<string, string>();
@@ -1740,6 +1838,7 @@ export function buildPresetAssScript(cues: PresetTimedCue[], style: ResolvedCapt
     'ScaledBorderAndShadow: yes',
     'WrapStyle: 0',
     `; VireoPreset: ${style.presetId}`,
+    ...readability.warnings.map((w) => `; VireoWarning: ${w}`),
     '',
     '[V4+ Styles]',
     'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',

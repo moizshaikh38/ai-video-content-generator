@@ -176,6 +176,12 @@ describe('Genre Phase 1 — UI score honesty', () => {
   it('renders AI Rank for scored candidates and Unranked for unscored ones', () => {
     assert.match(workspaceSrc, /AI Rank/);
     assert.match(workspaceSrc, /Unranked/);
-    assert.ok((workspaceSrc.match(/Unranked/g) || []).length >= 3, 'all three score surfaces must handle unscored candidates');
+    // Every score-rendering surface must handle the unscored case: the count of
+    // Unranked chips equals the count of score-render sites (2 since the styling
+    // redesign removed the Moment Intelligence panel).
+    const rankSites = (workspaceSrc.match(/\{score\} AI Rank/g) || []).length;
+    const unrankedSites = (workspaceSrc.match(/Unranked/g) || []).length;
+    assert.equal(unrankedSites, rankSites);
+    assert.ok(rankSites >= 1, 'at least one score surface must exist');
   });
 });

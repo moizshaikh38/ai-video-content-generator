@@ -763,9 +763,19 @@ export type EditorTransitionType =
   | 'cross_dissolve'
   | 'fade'
   | 'dip_to_black'
+  | 'dip_to_white'
   | 'slide'
   | 'push'
-  | 'zoom_lite';
+  | 'smooth_slide'
+  | 'wipe'
+  | 'zoom_lite'
+  | 'blur'
+  | 'pixelate'
+  | 'radial'
+  | 'circle_open'
+  | 'circle_crop'
+  | 'squeeze_h'
+  | 'squeeze_v';
 
 export interface EditorTransition {
   type: EditorTransitionType;

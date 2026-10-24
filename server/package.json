@@ -13,7 +13,10 @@
     "start": "node dist/index.js",
     "test": "tsx --test --test-concurrency=1 \"src/__tests__/**/*.test.ts\" \"src/tests/**/*.test.ts\"",
     "bench:selection": "tsx src/tests/benchmarks/runSelectionBenchmark.ts",
-    "bench:ablation": "tsx src/tests/benchmarks/runGenreAblation.ts"
+    "bench:ablation": "tsx src/tests/benchmarks/runGenreAblation.ts",
+    "test:safe": "tsx --test --test-concurrency=1 src/tests/benchmarks/selectionMetrics.test.ts src/tests/genreRoadmapPhase1.test.ts src/tests/genreRoadmapPhase4.test.ts src/tests/genreRoadmapPhase6.test.ts src/tests/phaseACGenreIntelligence.test.ts src/tests/phase16Multimodal.test.ts src/tests/phase14ContentIntelligence.test.ts src/tests/phase15UrlIngestion.test.ts src/tests/phase1CaptionRippleIntegrity.test.ts src/tests/phase2RenderParity.test.ts src/tests/phase3RenderRecovery.test.ts src/tests/phase4EditorAssetSecurity.test.ts src/tests/phase6SensesReliability.test.ts src/tests/phase10ClipFinder.test.ts src/tests/captionSplitAndExportIntegrity.test.ts src/tests/p0RippleCutAndRender.test.ts src/tests/phase12_5CaptionTiming.test.ts src/tests/captionAudioSync.test.ts src/tests/phase13SmartReframe.test.ts src/tests/phase13_1ShotAwareReframe.test.ts src/tests/rippleCutParity.test.ts src/tests/phaseE1Transitions.test.ts src/tests/phaseE2Captions.test.ts src/tests/phaseE3Fillers.test.ts",
+    "verify": "tsc --noEmit && npm run test:safe && npm run bench:selection",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1146.0",
