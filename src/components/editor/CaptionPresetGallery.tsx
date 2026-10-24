@@ -298,14 +298,14 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
       </p>
 
       {legacyStyleLabel && (
-        <p className="text-[10px] leading-relaxed text-vc-text-secondary rounded-lg border border-vc-border bg-white/[0.03] px-2.5 py-2">
+        <p className="text-[10px] leading-relaxed text-vc-text-secondary rounded-lg bg-white/[0.03] px-2.5 py-2">
           This clip uses the legacy <span className="font-semibold text-vc-text-primary">{legacyStyleLabel}</span> style. Pick a
           preset to switch; legacy styles keep rendering as before until you do.
         </p>
       )}
 
       {!hasWordTiming && selectedId !== 'none' && (
-        <p className="flex gap-1.5 text-[10px] leading-relaxed text-amber-300 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2">
+        <p className="flex gap-1.5 text-[10px] leading-relaxed text-amber-300 rounded-lg bg-amber-500/10 px-2.5 py-2">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" aria-hidden="true" />
           <span>
             This transcript has no word-level timestamps, so captions show whole phrases without word highlighting or
@@ -315,7 +315,7 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
       )}
 
       {resolvedStyle?.fontFallback && (
-        <p className="flex gap-1.5 text-[10px] leading-relaxed text-amber-300 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2">
+        <p className="flex gap-1.5 text-[10px] leading-relaxed text-amber-300 rounded-lg bg-amber-500/10 px-2.5 py-2">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" aria-hidden="true" />
           <span>
             “{resolvedStyle.requestedFontFamily}” isn't available to the video renderer, so captions use{' '}

@@ -239,16 +239,16 @@ export const BillingPage: React.FC = () => {
   if (loading) {
     return (
       <div className="mx-auto max-w-6xl space-y-8 animate-pulse">
-        <div className="h-8 w-64 bg-cream/80 rounded-2xl" />
+        <div className="h-8 w-64 bg-white/[0.04] rounded-2xl" />
         <div className="grid gap-6 md:grid-cols-12">
-          <div className="h-48 md:col-span-6 bg-cream/60 rounded-3xl" />
-          <div className="h-48 md:col-span-6 bg-cream/60 rounded-3xl" />
+          <div className="h-48 md:col-span-6 bg-white/[0.04] rounded-3xl" />
+          <div className="h-48 md:col-span-6 bg-white/[0.04] rounded-3xl" />
         </div>
         <div className="grid gap-6 md:grid-cols-4">
-          <div className="h-96 bg-cream/50 rounded-3xl" />
-          <div className="h-96 bg-cream/50 rounded-3xl" />
-          <div className="h-96 bg-cream/50 rounded-3xl" />
-          <div className="h-96 bg-cream/50 rounded-3xl" />
+          <div className="h-96 bg-white/[0.04] rounded-3xl" />
+          <div className="h-96 bg-white/[0.04] rounded-3xl" />
+          <div className="h-96 bg-white/[0.04] rounded-3xl" />
+          <div className="h-96 bg-white/[0.04] rounded-3xl" />
         </div>
       </div>
     );
@@ -294,7 +294,7 @@ export const BillingPage: React.FC = () => {
               className="gap-2"
             >
               {portalLoading ? (
-                <span className="size-3.5 rounded-full border-2 border-clay/60 border-t-clay animate-spin" />
+                <span className="size-3.5 rounded-full border-2 border-violet-500/60 border-t-violet-500 animate-spin" />
               ) : (
                 <ExternalLink className="size-4" />
               )}
@@ -311,7 +311,7 @@ export const BillingPage: React.FC = () => {
           className={`p-4 rounded-2xl border text-sm flex items-start justify-between gap-3 ${
             notice.type === 'error'
               ? 'bg-destructive/10 border-destructive/20 text-destructive'
-              : 'bg-clay/10 border-clay/30 text-clay'
+              : 'bg-violet-500/10 border-violet-500/30 text-violet-300'
           }`}
         >
           <div className="flex items-center gap-2.5">
@@ -332,7 +332,7 @@ export const BillingPage: React.FC = () => {
         {/* Left Card: Active Plan Status */}
         <SpotlightCard
           spotlightColor="rgba(46, 125, 82, 0.12)"
-          className="p-6 md:col-span-6 bg-card border-border/80 shadow-soft space-y-4"
+          className="p-6 md:col-span-6 bg-card space-y-4"
         >
           <div className="flex items-center justify-between border-b border-border/60 pb-3">
             <div className="flex items-center gap-2 font-display font-semibold text-foreground text-sm uppercase tracking-wider">
@@ -342,10 +342,10 @@ export const BillingPage: React.FC = () => {
             <span
               className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold ${
                 isUnlimited
-                  ? 'bg-clay/15 text-clay border border-clay/30'
+                  ? 'bg-violet-500/15 text-violet-300 border border-violet-500/30'
                   : currentPlanId === 'free'
                   ? 'bg-muted text-muted-foreground'
-                  : 'bg-sage/15 text-sage border border-sage/30'
+                  : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
               }`}
             >
               {isUnlimited ? 'DEVELOPER UNLIMITED' : `${currentPlanId.toUpperCase()} TIER`}
@@ -370,7 +370,7 @@ export const BillingPage: React.FC = () => {
           </div>
 
           {entitlement?.subscription?.cancel_at_period_end && (
-            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs">
+            <div className="p-3 rounded-xl bg-amber-500/10 text-amber-500 text-xs">
               <span className="font-semibold">Cancellation scheduled:</span> Your subscription remains active until{' '}
               {new Date(entitlement.subscription.current_period_end).toLocaleDateString()}, after which your account will revert to Free.
             </div>
@@ -380,11 +380,11 @@ export const BillingPage: React.FC = () => {
         {/* Right Card: Processing Quota Status */}
         <SpotlightCard
           spotlightColor="rgba(192, 98, 62, 0.12)"
-          className="p-6 md:col-span-6 bg-card border-border/80 shadow-soft space-y-4"
+          className="p-6 md:col-span-6 bg-card space-y-4"
         >
           <div className="flex items-center justify-between border-b border-border/60 pb-3">
             <div className="flex items-center gap-2 font-display font-semibold text-foreground text-sm uppercase tracking-wider">
-              <Zap className="size-4 text-clay" />
+              <Zap className="size-4 text-violet-300" />
               <span>Monthly Processing Cycle</span>
             </div>
             {usage?.reset_date && (
@@ -408,7 +408,7 @@ export const BillingPage: React.FC = () => {
                 )}
               </div>
               {!isUnlimited && (
-                <span className="text-xs font-semibold text-sage font-mono">
+                <span className="text-xs font-semibold text-emerald-400 font-mono">
                   {usage?.remaining_minutes.toFixed(1)} min remaining
                 </span>
               )}
@@ -416,12 +416,12 @@ export const BillingPage: React.FC = () => {
 
             {/* Progress Bar */}
             {!isUnlimited && usage && (
-              <div className="h-2 w-full rounded-full bg-cream overflow-hidden">
+              <div className="h-2 w-full rounded-full bg-vc-surface2 overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all ${
                     usage.total_used_minutes >= usage.limit_minutes
                       ? 'bg-destructive'
-                      : 'bg-clay'
+                      : 'bg-violet-500'
                   }`}
                   style={{
                     width: `${Math.min(100, (usage.total_used_minutes / usage.limit_minutes) * 100)}%`,
@@ -438,9 +438,9 @@ export const BillingPage: React.FC = () => {
       </div>
 
       {/* Plan Controls: Billing Interval & Provider Selector */}
-      <div className="p-4 rounded-3xl bg-card border border-border/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="p-4 rounded-3xl bg-card flex flex-col sm:flex-row items-center justify-between gap-4">
         {/* Interval Toggle */}
-        <div className="flex items-center gap-2 bg-cream/60 p-1 rounded-2xl border border-border/50">
+        <div className="flex items-center gap-2 bg-white/[0.04] p-1 rounded-2xl ">
           <button
             onClick={() => setBillingInterval('month')}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
@@ -478,11 +478,11 @@ export const BillingPage: React.FC = () => {
           >
             <span>Yearly Billing</span>
             {!isProviderIntervalSupported(selectedProvider, 'year', plans) ? (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-800">
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300">
                 Unavailable for INR
               </span>
             ) : (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-sage/20 text-sage">
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
                 Save ~17%
               </span>
             )}
@@ -495,7 +495,7 @@ export const BillingPage: React.FC = () => {
             <CreditCard className="size-3.5" />
             <span>Payment Provider:</span>
           </span>
-          <div className="flex items-center gap-1.5 bg-cream/60 p-1 rounded-2xl border border-border/50">
+          <div className="flex items-center gap-1.5 bg-white/[0.04] p-1 rounded-2xl ">
             {providers.map((prov) => (
               <button
                 key={prov.name}
@@ -535,7 +535,6 @@ export const BillingPage: React.FC = () => {
           {plans.map((p) => {
             const isCurrent = currentPlanId === p.id;
             const isPro = p.id === 'pro';
-            const isStudio = p.id === 'studio';
             const isFree = p.id === 'free';
 
             const priceDisplay = getPlanPriceDisplay(p, billingInterval, selectedProvider);
@@ -543,17 +542,17 @@ export const BillingPage: React.FC = () => {
             return (
               <SpotlightCard
                 key={p.id}
-                spotlightColor={isPro ? 'rgba(46, 125, 82, 0.18)' : 'rgba(192, 98, 62, 0.1)'}
+                spotlightColor={isPro ? 'rgba(139, 92, 246, 0.16)' : 'rgba(255, 255, 255, 0.06)'}
                 className={`p-6 bg-card border rounded-3xl flex flex-col justify-between transition-all relative ${
                   isCurrent
-                    ? 'border-clay/60 shadow-black/40 ring-1 ring-white/20'
+                    ? 'border-violet-500/60 shadow-black/40 ring-1 ring-white/20'
                     : isPro
-                    ? 'border-vireo-green/60 shadow-soft ring-1 ring-vireo-green/30'
+                    ? 'border-violet-500/60 shadow-soft ring-1 ring-violet-500/30'
                     : 'border-border/80'
                 }`}
               >
                 {isPro && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-[#F4F6FB] text-[#0B0C0F] text-[10px] font-bold flex items-center gap-1 shadow-sm">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-violet-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-[10px] font-bold flex items-center gap-1">
                     <Star className="size-3 fill-white" />
                     <span>RECOMMENDED</span>
                   </div>
@@ -566,7 +565,7 @@ export const BillingPage: React.FC = () => {
                       {isPro && <span className="text-amber-500">⭐</span>}
                     </span>
                     {isCurrent && (
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-clay/10 text-clay font-mono">
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-500/10 text-violet-300 font-mono">
                         Active Plan
                       </span>
                     )}
@@ -588,7 +587,7 @@ export const BillingPage: React.FC = () => {
                         </div>
                       )}
                       {priceDisplay.unavailableReason && (
-                        <div className="text-[11px] font-medium text-amber-800 bg-amber-500/15 border border-amber-500/25 rounded-lg px-2.5 py-1.5 mt-1">
+                        <div className="text-[11px] font-medium text-amber-300 bg-amber-500/15 rounded-lg px-2.5 py-1.5 mt-1">
                           {priceDisplay.unavailableReason}
                         </div>
                       )}
@@ -628,7 +627,7 @@ export const BillingPage: React.FC = () => {
                     </Button>
                   ) : (
                     <ShinyButton
-                      variant={isPro ? 'sage' : isStudio ? 'clay' : 'ink'}
+                      variant="clay"
                       className={`w-full h-10 text-xs font-semibold ${!priceDisplay.isAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
                       disabled={checkoutLoading === p.id || !priceDisplay.isAvailable}
                       onClick={() => {
@@ -656,7 +655,7 @@ export const BillingPage: React.FC = () => {
       {/* Razorpay Standard Web Checkout Section */}
       <SpotlightCard
         spotlightColor="rgba(124, 58, 237, 0.14)"
-        className="p-6 bg-card border border-border/80 rounded-3xl space-y-5"
+        className="p-6 bg-card rounded-3xl space-y-5"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-4">
           <div>
@@ -664,10 +663,10 @@ export const BillingPage: React.FC = () => {
               <span className="text-base font-bold font-display text-foreground">
                 Razorpay Standard Web Checkout
               </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-violet-500/15 text-violet-400 border border-violet-500/30">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-violet-500/15 text-violet-400 ">
                 STANDARD MODAL FLOW
               </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/15 text-emerald-400 ">
                 ACTIVE
               </span>
             </div>
@@ -676,14 +675,14 @@ export const BillingPage: React.FC = () => {
             </p>
           </div>
           <div className="text-right sm:text-right shrink-0">
-            <span className="text-[11px] font-mono text-muted-foreground bg-muted/60 px-2.5 py-1 rounded-lg border border-border/60">
+            <span className="text-[11px] font-mono text-muted-foreground bg-muted/60 px-2.5 py-1 rounded-lg ">
               Key: rzp_test_...HySy
             </span>
           </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3 text-xs">
-          <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-border/60 space-y-1">
+          <div className="p-3.5 rounded-2xl bg-white/[0.02] space-y-1">
             <div className="font-semibold text-foreground flex items-center gap-1.5">
               <span className="size-5 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-[10px] font-mono font-bold">1</span>
               <span>Backend Order API</span>
@@ -693,7 +692,7 @@ export const BillingPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-border/60 space-y-1">
+          <div className="p-3.5 rounded-2xl bg-white/[0.02] space-y-1">
             <div className="font-semibold text-foreground flex items-center gap-1.5">
               <span className="size-5 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-[10px] font-mono font-bold">2</span>
               <span>Checkout.js Modal</span>
@@ -703,7 +702,7 @@ export const BillingPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-border/60 space-y-1">
+          <div className="p-3.5 rounded-2xl bg-white/[0.02] space-y-1">
             <div className="font-semibold text-foreground flex items-center gap-1.5">
               <span className="size-5 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-[10px] font-mono font-bold">3</span>
               <span>HMAC-SHA256 Verification</span>
@@ -802,7 +801,7 @@ export const BillingPage: React.FC = () => {
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold ${
                         inv.status === 'paid'
-                          ? 'bg-sage/15 text-sage'
+                          ? 'bg-emerald-500/15 text-emerald-400'
                           : 'bg-amber-500/15 text-amber-500'
                       }`}
                     >
@@ -822,7 +821,7 @@ export const BillingPage: React.FC = () => {
                     href={inv.hosted_invoice_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-clay font-semibold hover:underline"
+                    className="inline-flex items-center gap-1.5 text-xs text-violet-300 font-semibold hover:underline"
                   >
                     <span>View Receipt</span>
                     <ExternalLink className="size-3" />

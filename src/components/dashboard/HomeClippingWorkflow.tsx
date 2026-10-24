@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BTN_PILL_BRAND, BTN_PILL_PRIMARY } from '../../lib/buttonStyles';
 import {
   UploadCloud,
   Link2,
@@ -783,7 +784,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       {workflowState === 'no_source' && (
         <section
           aria-label="Create clips"
-          className="vireo-dash-glass vireo-dash-hero p-6 sm:p-8 lg:p-10 xl:p-12 2xl:py-14 text-center rounded-[28px] shadow-[0_24px_70px_rgba(0,0,0,0.6)] border border-[#8B5CF6]/35 relative transition-all duration-300 flex flex-col justify-between lg:min-h-[clamp(520px,calc(100vh-170px),740px)]"
+          className="vireo-dash-glass vireo-dash-hero p-6 sm:p-8 lg:p-10 xl:p-12 2xl:py-14 text-center rounded-[28px] shadow-[0_24px_70px_rgba(0,0,0,0.6)] relative transition-all duration-300 flex flex-col justify-between lg:min-h-[clamp(520px,calc(100vh-170px),740px)]"
           onDragOver={(e) => {
             e.preventDefault();
             setIsDragOver(true);
@@ -809,15 +810,15 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               loading="eager"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-b from-[#8B5CF6]/20 via-transparent to-transparent pointer-events-none" />
-            <div className="relative z-10 self-start flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md border border-white/15 text-[10px] font-mono text-white/90 shadow-sm">
+            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+            <div className="relative z-10 self-start flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-mono text-white/90 shadow-sm">
               <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
               <span>0:18</span>
             </div>
             <div className="relative z-10 self-start">
-              <span className="font-['Sora',sans-serif] text-[11px] font-bold text-white bg-[#080B12]/85 backdrop-blur-md px-2.5 py-1.5 rounded-lg border border-white/15 shadow-md flex items-center gap-1.5">
+              <span className="font-['Sora',sans-serif] text-[11px] font-bold text-white bg-vc-canvas/85 backdrop-blur-md px-2.5 py-1.5 rounded-lg shadow-md flex items-center gap-1.5">
                 <span>Your</span>
-                <b className="text-[#22D3EE] font-extrabold tracking-wide">hook</b>
+                <b className="text-zinc-200 font-extrabold tracking-wide">hook</b>
               </span>
             </div>
           </div>
@@ -835,34 +836,34 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               loading="eager"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-b from-[#22D3EE]/20 via-transparent to-transparent pointer-events-none" />
-            <div className="relative z-10 self-end flex items-center gap-1 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md border border-white/15 text-[10px] font-mono text-[#DDD6FE] shadow-sm">
-              <Sparkles className="size-3 text-[#22D3EE]" />
+            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+            <div className="relative z-10 self-end flex items-center gap-1 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-mono text-violet-200 shadow-sm">
+              <Sparkles className="size-3 text-zinc-200" />
               <span>Viral 98</span>
             </div>
             <div className="relative z-10 self-end">
-              <span className="font-['Sora',sans-serif] text-[11px] font-bold text-white bg-[#080B12]/85 backdrop-blur-md px-2.5 py-1.5 rounded-lg border border-white/15 shadow-md flex items-center gap-1.5">
+              <span className="font-['Sora',sans-serif] text-[11px] font-bold text-white bg-vc-canvas/85 backdrop-blur-md px-2.5 py-1.5 rounded-lg shadow-md flex items-center gap-1.5">
                 <span>Best</span>
-                <b className="text-[#A78BFA] font-extrabold tracking-wide">moment</b>
+                <b className="text-violet-400 font-extrabold tracking-wide">moment</b>
               </span>
             </div>
           </div>
 
           {/* Main Hero Header */}
           <div className="relative z-10 max-w-2xl mx-auto flex-1 flex flex-col justify-center">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/[0.04] border border-[#8B5CF6]/40 text-[#C4B5FD] text-xs font-semibold tracking-wide self-center">
-              <span className="size-1.5 rounded-full bg-[#22D3EE] animate-pulse" />
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/[0.04] text-violet-300 text-xs font-semibold tracking-wide self-center">
+              <span className="size-1.5 rounded-full bg-white animate-pulse" />
               <span>AI video clipping journey</span>
             </div>
 
-            <h1 className="mt-4 sm:mt-5 text-3xl sm:text-4xl lg:text-[44px] font-extrabold tracking-tight font-['Sora',sans-serif] text-[#F4F6FB] leading-[1.14]">
+            <h1 className="mt-4 sm:mt-5 text-3xl sm:text-4xl lg:text-[44px] font-extrabold tracking-tight font-['Sora',sans-serif] text-vc-text-primary leading-[1.14]">
               Turn Your Videos Into{' '}
-              <span className="bg-gradient-to-r from-[#A78BFA] via-[#C084FC] to-[#22D3EE] bg-clip-text text-transparent">
+              <span className="text-violet-300">
                 Great Clips
               </span>
             </h1>
 
-            <p className="mt-3 sm:mt-3.5 text-sm sm:text-base text-[#8E9AB4] leading-relaxed max-w-lg mx-auto">
+            <p className="mt-3 sm:mt-3.5 text-sm sm:text-base text-vc-text-secondary leading-relaxed max-w-lg mx-auto">
               Upload video files, paste a YouTube/Vimeo link, or select an existing project to extract viral shorts in one seamless workflow.
             </p>
 
@@ -877,24 +878,24 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             {/* URL Ingestion Input Form Bar */}
             <form
               onSubmit={handleUrlSubmit}
-              className={`mt-5 sm:mt-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-1.5 sm:p-2.5 rounded-2xl sm:rounded-full bg-[#080B12]/80 border shadow-[0_20px_50px_rgba(0,0,0,0.4)] focus-within:ring-4 focus-within:ring-[#8B5CF6]/20 transition-all text-left ${
-                isDragOver ? 'border-[#22D3EE] ring-4 ring-[#22D3EE]/20' : 'border-white/[0.14] focus-within:border-[#8B5CF6]/80'
+              className={`mt-5 sm:mt-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-1.5 sm:p-2.5 rounded-2xl sm:rounded-full bg-vc-canvas/80 border shadow-[0_20px_50px_rgba(0,0,0,0.4)] focus-within:ring-4 focus-within:ring-violet-500/20 transition-all text-left ${
+                isDragOver ? 'border-white/60 ring-4 ring-white/15' : 'border-white/[0.14] focus-within:border-violet-500/80'
               }`}
             >
               <div className="flex items-center gap-2.5 flex-1 min-w-0 px-2 sm:px-3 py-1 sm:py-0">
-                <Link2 className="size-5 text-[#8E9AB4] shrink-0" />
+                <Link2 className="size-5 text-vc-text-secondary shrink-0" />
                 <input
                   type="url"
                   value={inputUrl}
                   onChange={(e) => setInputUrl(e.target.value)}
                   placeholder="Paste a supported video URL (YouTube, Vimeo, MP4)..."
                   aria-label="Video URL"
-                  className="flex-1 min-w-0 bg-transparent border-0 outline-none text-sm sm:text-[15px] text-[#F4F6FB] placeholder:text-[#8E9AB4]"
+                  className="flex-1 min-w-0 bg-transparent border-0 outline-none text-sm sm:text-[15px] text-vc-text-primary placeholder:text-vc-text-secondary"
                 />
               </div>
               <button
                 type="submit"
-                className="h-10 sm:h-12 px-5 sm:px-7 rounded-xl sm:rounded-full vireo-btn-purple text-xs sm:text-sm font-semibold text-white shrink-0 cursor-pointer w-full sm:w-auto text-center"
+                className={`h-10 sm:h-12 px-5 sm:px-7 text-xs sm:text-sm font-semibold shrink-0 cursor-pointer w-full sm:w-auto text-center ${BTN_PILL_BRAND}`}
               >
                 Continue with URL
               </button>
@@ -905,24 +906,24 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-2 h-10 sm:h-11 px-5 sm:px-6 rounded-full bg-white/[0.06] border border-white/[0.14] hover:bg-white/[0.12] hover:border-white/[0.22] text-xs sm:text-[13px] font-semibold text-[#E4E9F5] shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                className="inline-flex items-center gap-2 h-10 sm:h-11 px-5 sm:px-6 rounded-full bg-white/[0.06] border border-white/[0.14] hover:bg-white/[0.12] hover:border-white/[0.22] text-xs sm:text-[13px] font-semibold text-zinc-100 shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
               >
-                <UploadCloud className="size-4 text-[#A78BFA]" />
+                <UploadCloud className="size-4 text-violet-400" />
                 <span>Upload Video (MP4, MOV, WebM)</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setIsBrowseModalOpen(true)}
-                className="inline-flex items-center gap-2 h-10 sm:h-11 px-5 sm:px-6 rounded-full bg-white/[0.06] border border-white/[0.14] hover:bg-white/[0.12] hover:border-white/[0.22] text-xs sm:text-[13px] font-semibold text-[#E4E9F5] shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                className="inline-flex items-center gap-2 h-10 sm:h-11 px-5 sm:px-6 rounded-full bg-white/[0.06] border border-white/[0.14] hover:bg-white/[0.12] hover:border-white/[0.22] text-xs sm:text-[13px] font-semibold text-zinc-100 shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
               >
-                <FolderOpen className="size-4 text-[#22D3EE]" />
+                <FolderOpen className="size-4 text-zinc-200" />
                 <span>Browse Projects ({existingProjects.length})</span>
               </button>
             </div>
 
             {/* Drag & Drop Indicator */}
-            <p className="mt-2.5 sm:mt-3 text-[11.5px] text-[#8E9AB4]">
+            <p className="mt-2.5 sm:mt-3 text-[11.5px] text-vc-text-secondary">
               Drag and drop any video file directly onto this panel (up to 2 GB)
             </p>
 
@@ -939,11 +940,11 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               ].map((item) => (
                 <li
                   key={item.step}
-                  className="p-3 sm:p-3.5 rounded-xl bg-white/[0.025] border border-white/[0.06] transition-colors hover:border-white/[0.12]"
+                  className="p-3 sm:p-3.5 rounded-xl bg-white/[0.025] transition-colors "
                 >
-                  <div className="font-mono text-[10px] font-bold text-[#A78BFA]">{item.step}</div>
-                  <div className="mt-1 font-semibold text-xs text-[#E4E9F5]">{item.title}</div>
-                  <div className="mt-0.5 text-[11px] text-[#8E9AB4] leading-tight">{item.desc}</div>
+                  <div className="font-mono text-[10px] font-bold text-violet-400">{item.step}</div>
+                  <div className="mt-1 font-semibold text-xs text-zinc-100">{item.title}</div>
+                  <div className="mt-0.5 text-[11px] text-vc-text-secondary leading-tight">{item.desc}</div>
                 </li>
               ))}
             </ol>
@@ -957,17 +958,17 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       {workflowState === 'source_selected' && selectedSource && (
         <section
           aria-label="Clipping configuration"
-          className="vireo-dash-glass p-6 sm:p-8 rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.55)] border border-[#8B5CF6]/40 relative space-y-6"
+          className="vireo-dash-glass p-6 sm:p-8 rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.55)] relative space-y-6"
         >
           {/* Header Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-white/[0.08]">
             <div className="flex items-center gap-3">
-              <div className="size-10 rounded-xl bg-[#8B5CF6]/20 border border-[#8B5CF6]/40 flex items-center justify-center text-[#C4B5FD]">
-                <Film className="size-5 text-[#A78BFA]" />
+              <div className="size-10 rounded-xl bg-violet-500/20 border border-violet-500/40 flex items-center justify-center text-violet-300">
+                <Film className="size-5 text-violet-400" />
               </div>
               <div>
-                <span className="text-[11px] font-semibold tracking-wider text-[#A78BFA] uppercase">Step 2 of 4</span>
-                <h2 className="text-xl sm:text-2xl font-bold text-[#F4F6FB] font-['Sora',sans-serif]">
+                <span className="text-[11px] font-semibold tracking-wider text-violet-400 uppercase">Step 2 of 4</span>
+                <h2 className="text-xl sm:text-2xl font-bold text-vc-text-primary font-['Sora',sans-serif]">
                   Configure Video Clipping
                 </h2>
               </div>
@@ -976,15 +977,15 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             <button
               type="button"
               onClick={handleReplaceSource}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.05] border border-white/10 hover:bg-white/10 text-xs text-[#C9D2E6] transition-all cursor-pointer self-start sm:self-auto"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.05] border border-white/10 hover:bg-white/10 text-xs text-zinc-200 transition-all cursor-pointer self-start sm:self-auto"
             >
-              <RotateCcw className="size-3.5 text-[#8E9AB4]" />
+              <RotateCcw className="size-3.5 text-vc-text-secondary" />
               <span>Replace video</span>
             </button>
           </div>
 
           {/* Selected Source Overview Card */}
-          <div className="p-4 rounded-2xl bg-[#080B12]/80 border border-white/[0.1] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="p-4 rounded-2xl bg-vc-canvas/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0">
               {/* Thumbnail or Video Preview Frame */}
               <div className="relative size-20 sm:size-24 rounded-xl overflow-hidden bg-black/60 border border-white/15 shrink-0 flex items-center justify-center">
@@ -1002,7 +1003,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <Film className="size-8 text-[#8B5CF6]" />
+                  <Film className="size-8 text-violet-500" />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
                 {selectedSource.duration ? (
@@ -1015,26 +1016,26 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               {/* Source Info */}
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-[#8B5CF6]/20 text-[#DDD6FE] border border-[#8B5CF6]/30">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-violet-500/20 text-violet-200 ">
                     {selectedSource.type === 'file' ? 'Local Video' : selectedSource.type === 'url' ? 'Web URL' : 'Existing Project'}
                   </span>
                   {selectedSource.fileSizeFormatted && (
-                    <span className="text-[11px] text-[#8E9AB4] font-mono">
+                    <span className="text-[11px] text-vc-text-secondary font-mono">
                       {selectedSource.fileSizeFormatted}
                     </span>
                   )}
                 </div>
-                <h3 className="mt-1 text-base font-semibold text-[#F4F6FB] truncate">
+                <h3 className="mt-1 text-base font-semibold text-vc-text-primary truncate">
                   {selectedSource.title}
                 </h3>
-                <p className="text-xs text-[#8E9AB4] truncate max-w-md">
+                <p className="text-xs text-vc-text-secondary truncate max-w-md">
                   {selectedSource.url || selectedSource.file?.name || 'Ready for AI processing'}
                 </p>
               </div>
             </div>
 
             {/* Source Status Badge */}
-            <div className="flex items-center gap-2 text-xs text-[#22D3EE] bg-[#22D3EE]/10 border border-[#22D3EE]/30 px-3 py-1.5 rounded-full shrink-0">
+            <div className="flex items-center gap-2 text-xs text-zinc-200 bg-white/[0.06] px-3 py-1.5 rounded-full shrink-0">
               <Check className="size-3.5" />
               <span>Source verified & ready</span>
             </div>
@@ -1050,14 +1051,14 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           {/* Setting: Smart Captions, Language, & Target Count */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Smart Captions Toggle */}
-            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between gap-4">
+            <div className="p-4 rounded-xl bg-white/[0.02] flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="size-9 rounded-lg bg-[#8B5CF6]/15 border border-[#8B5CF6]/30 flex items-center justify-center text-[#C4B5FD]">
+                <div className="size-9 rounded-lg bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-300">
                   <Volume2 className="size-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-[#F4F6FB]">Generate Smart Captions</div>
-                  <div className="text-[11px] text-[#8E9AB4]">Auto-synced word-level captions</div>
+                  <div className="text-xs font-semibold text-vc-text-primary">Generate Smart Captions</div>
+                  <div className="text-[11px] text-vc-text-secondary">Auto-synced word-level captions</div>
                 </div>
               </div>
 
@@ -1065,7 +1066,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                 type="button"
                 onClick={() => setCaptionsEnabled(!captionsEnabled)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
-                  captionsEnabled ? 'bg-[#8B5CF6]' : 'bg-white/20'
+                  captionsEnabled ? 'bg-violet-500' : 'bg-white/20'
                 }`}
               >
                 <span
@@ -1077,14 +1078,14 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             </div>
 
             {/* Language Selector */}
-            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between gap-4">
+            <div className="p-4 rounded-xl bg-white/[0.02] flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="size-9 rounded-lg bg-[#22D3EE]/15 border border-[#22D3EE]/30 flex items-center justify-center text-[#22D3EE]">
+                <div className="size-9 rounded-lg bg-white/[0.08] border border-white/20 flex items-center justify-center text-zinc-200">
                   <Globe className="size-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-[#F4F6FB]">Audio Language</div>
-                  <div className="text-[11px] text-[#8E9AB4]">Whisper multilingual transcription</div>
+                  <div className="text-xs font-semibold text-vc-text-primary">Audio Language</div>
+                  <div className="text-[11px] text-vc-text-secondary">Whisper multilingual transcription</div>
                 </div>
               </div>
 
@@ -1092,7 +1093,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                 value={captionLang}
                 onChange={(e) => setCaptionLang(e.target.value as CaptionLang)}
                 disabled={!captionsEnabled}
-                className="bg-[#080B12] border border-white/[0.14] text-xs text-[#F4F6FB] rounded-lg px-2.5 py-1.5 outline-none focus:border-[#8B5CF6] disabled:opacity-50 cursor-pointer"
+                className="bg-vc-canvas border border-white/[0.14] text-xs text-vc-text-primary rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500 disabled:opacity-50 cursor-pointer"
               >
                 <option value="auto">Auto-detect</option>
                 <option value="en">English (en)</option>
@@ -1104,10 +1105,10 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             </div>
 
             {/* Target Clip Count */}
-            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between gap-2">
+            <div className="p-4 rounded-xl bg-white/[0.02] flex items-center justify-between gap-2">
               <div>
-                <div className="text-xs font-semibold text-[#F4F6FB]">Target Clip Count</div>
-                <div className="text-[11px] text-[#8E9AB4]">Max suggested moments</div>
+                <div className="text-xs font-semibold text-vc-text-primary">Target Clip Count</div>
+                <div className="text-[11px] text-vc-text-secondary">Max suggested moments</div>
               </div>
               <div className="flex gap-1.5">
                 {[
@@ -1121,8 +1122,8 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                     onClick={() => setClipCount(c.id as ClipCountPref)}
                     className={`px-2.5 py-1 rounded-lg border text-xs font-medium cursor-pointer transition-all ${
                       clipCount === c.id
-                        ? 'bg-[#8B5CF6]/20 border-[#8B5CF6] text-white'
-                        : 'bg-[#080B12] border-white/10 text-[#8E9AB4]'
+                        ? 'bg-violet-500/20 border-violet-500 text-white'
+                        : 'bg-vc-canvas border-white/10 text-vc-text-secondary'
                     }`}
                   >
                     {c.label}
@@ -1134,7 +1135,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
           {/* Primary Action Button: Generate Clips */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-[#8E9AB4]">
+            <p className="text-xs text-vc-text-secondary">
               Ready to process. AI will transcribe audio, detect viral hooks, and auto-crop to {aspectRatio}.
             </p>
 
@@ -1142,7 +1143,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               type="button"
               onClick={handleGenerateClips}
               disabled={isSubmitting}
-              className="h-12 px-8 rounded-full vireo-btn-purple text-sm font-bold text-white shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:shadow-[0_0_40px_rgba(139,92,246,0.6)] flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-60 disabled:cursor-not-allowed w-full sm:w-auto"
+              className={`h-12 px-8 text-sm font-bold flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed w-full sm:w-auto ${BTN_PILL_BRAND}`}
             >
               {isSubmitting ? (
                 <>
@@ -1151,7 +1152,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                 </>
               ) : (
                 <>
-                  <Sparkles className="size-4 text-[#22D3EE]" />
+                  <Sparkles className="size-4 text-zinc-200" />
                   <span>Generate Clips</span>
                 </>
               )}
@@ -1166,26 +1167,25 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       {workflowState === 'processing' && (
         <section
           aria-label="Processing job"
-          className="vireo-dash-glass p-8 sm:p-10 rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.55)] border border-[#8B5CF6]/40 relative text-center space-y-6"
+          className="vireo-dash-glass p-8 sm:p-10 rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.55)] relative text-center space-y-6"
         >
           {/* Animated Ambient Pulsing Spinner */}
           <div className="relative mx-auto size-20 flex items-center justify-center">
-            <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#8B5CF6] to-[#22D3EE] opacity-20 blur-xl animate-pulse" />
-            <div className="size-16 rounded-full border-2 border-white/10 border-t-[#8B5CF6] border-r-[#22D3EE] animate-spin flex items-center justify-center">
-              <Film className="size-6 text-[#A78BFA] animate-pulse" />
+            <div className="size-16 rounded-full border-2 border-white/10 border-t-violet-500 border-r-white/60 animate-spin flex items-center justify-center">
+              <Film className="size-6 text-violet-400" />
             </div>
           </div>
 
           <div className="max-w-md mx-auto space-y-2">
-            <span className="px-3 py-1 rounded-full bg-[#8B5CF6]/20 border border-[#8B5CF6]/40 text-[#DDD6FE] text-xs font-semibold tracking-wide uppercase">
+            <span className="px-3 py-1 rounded-full bg-violet-500/20 text-violet-200 text-xs font-semibold tracking-wide uppercase">
               Stage: {activeProjectStatus}
             </span>
 
-            <h2 className="text-2xl font-bold text-[#F4F6FB] font-['Sora',sans-serif]">
+            <h2 className="text-2xl font-bold text-vc-text-primary font-['Sora',sans-serif]">
               {selectedSource?.title || 'Processing Video'}
             </h2>
 
-            <p className="text-sm text-[#8E9AB4]">
+            <p className="text-sm text-vc-text-secondary">
               {processingStageMessage || 'Analyzing video frames and speech transcript with AI...'}
             </p>
           </div>
@@ -1193,13 +1193,13 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           {/* Byte Upload Progress Bar (Only shown during actual file upload) */}
           {activeProjectStatus === 'uploading' && uploadProgress !== null && (
             <div className="max-w-md mx-auto space-y-1.5">
-              <div className="flex justify-between text-xs font-mono text-[#8E9AB4]">
+              <div className="flex justify-between text-xs font-mono text-vc-text-secondary">
                 <span>Upload Progress</span>
-                <span className="text-[#22D3EE] font-bold">{uploadProgress}%</span>
+                <span className="text-zinc-200 font-bold">{uploadProgress}%</span>
               </div>
               <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#22D3EE] transition-all duration-300"
+                  className="h-full bg-violet-500 transition-all duration-300"
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>
@@ -1214,15 +1214,15 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               { id: 'analyze', label: '3. Hook AI', done: ['analyzing', 'generating', 'completed', 'transcribed'].includes(activeProjectStatus) },
               { id: 'render', label: '4. Framing', done: ['generating', 'completed'].includes(activeProjectStatus) },
             ].map((st) => (
-              <div key={st.id} className="p-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-                <div className="text-[10px] font-mono text-[#8E9AB4]">{st.label}</div>
+              <div key={st.id} className="p-2 rounded-lg bg-white/[0.02] ">
+                <div className="text-[10px] font-mono text-vc-text-secondary">{st.label}</div>
                 <div className="flex items-center gap-1 mt-1">
                   {st.done ? (
-                    <span className="size-2 rounded-full bg-[#22D3EE]" />
+                    <span className="size-2 rounded-full bg-white" />
                   ) : (
                     <span className="size-2 rounded-full bg-white/20 animate-pulse" />
                   )}
-                  <span className="text-[11px] text-[#E4E9F5]">
+                  <span className="text-[11px] text-zinc-100">
                     {st.done ? 'Active' : 'Pending'}
                   </span>
                 </div>
@@ -1234,7 +1234,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             <button
               type="button"
               onClick={handleReplaceSource}
-              className="text-xs text-[#8E9AB4] hover:text-[#C4B5FD] transition-colors cursor-pointer"
+              className="text-xs text-vc-text-secondary hover:text-violet-300 transition-colors cursor-pointer"
             >
               Cancel & Start Over
             </button>
@@ -1248,24 +1248,24 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       {workflowState === 'clips_ready' && (
         <section
           aria-label="Generated clips review"
-          className="vireo-dash-glass p-6 sm:p-8 rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.55)] border border-[#8B5CF6]/40 relative space-y-6"
+          className="vireo-dash-glass p-6 sm:p-8 rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.55)] relative space-y-6"
         >
           {/* Header & Source Association */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-white/[0.08]">
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-[#22D3EE]/15 border border-[#22D3EE]/30 text-[#22D3EE] text-[10px] font-bold uppercase tracking-wider">
+                <span className="px-2.5 py-0.5 rounded-full bg-white/[0.08] text-zinc-200 text-[10px] font-bold uppercase tracking-wider">
                   Success
                 </span>
-                <span className="text-xs text-[#8E9AB4]">
+                <span className="text-xs text-vc-text-secondary">
                   {candidates.length + renderedClips.length} Viral Clips Extracted
                 </span>
               </div>
-              <h2 className="mt-1 text-xl sm:text-2xl font-bold text-[#F4F6FB] font-['Sora',sans-serif]">
+              <h2 className="mt-1 text-xl sm:text-2xl font-bold text-vc-text-primary font-['Sora',sans-serif]">
                 Review Generated Clips
               </h2>
-              <p className="text-xs text-[#8E9AB4]">
-                Source: <span className="text-[#DDD6FE] font-medium">{selectedSource?.title}</span>
+              <p className="text-xs text-vc-text-secondary">
+                Source: <span className="text-violet-200 font-medium">{selectedSource?.title}</span>
               </p>
             </div>
 
@@ -1274,16 +1274,16 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               <button
                 type="button"
                 onClick={handleSelectAllClips}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/10 hover:bg-white/10 text-xs text-[#E4E9F5] transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/10 hover:bg-white/10 text-xs text-zinc-100 transition-all cursor-pointer"
               >
                 {selectedClipIds.size === candidates.length + renderedClips.length ? (
                   <>
-                    <CheckSquare className="size-3.5 text-[#22D3EE]" />
+                    <CheckSquare className="size-3.5 text-zinc-200" />
                     <span>Deselect All</span>
                   </>
                 ) : (
                   <>
-                    <Square className="size-3.5 text-[#8E9AB4]" />
+                    <Square className="size-3.5 text-vc-text-secondary" />
                     <span>Select All</span>
                   </>
                 )}
@@ -1293,7 +1293,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                 <button
                   type="button"
                   onClick={handleBatchExport}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#8B5CF6] hover:bg-[#7C3AED] text-xs font-semibold text-white transition-all cursor-pointer shadow-md"
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold cursor-pointer ${BTN_PILL_PRIMARY}`}
                 >
                   <Download className="size-3.5" />
                   <span>Export ({selectedClipIds.size})</span>
@@ -1303,9 +1303,9 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               <button
                 type="button"
                 onClick={handleReplaceSource}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/10 text-xs text-[#C9D2E6] transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/10 text-xs text-zinc-200 transition-all cursor-pointer"
               >
-                <RotateCcw className="size-3.5 text-[#8E9AB4]" />
+                <RotateCcw className="size-3.5 text-vc-text-secondary" />
                 <span>New Video</span>
               </button>
             </div>
@@ -1313,9 +1313,9 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
           {/* Export Status Toast Banner */}
           {exportStatusMessage && (
-            <div className="p-3 rounded-xl bg-[#8B5CF6]/20 border border-[#8B5CF6]/50 text-white text-xs font-semibold flex items-center justify-between gap-3 animate-fade-in">
+            <div className="p-3 rounded-xl bg-violet-500/20 text-white text-xs font-semibold flex items-center justify-between gap-3 animate-fade-in">
               <div className="flex items-center gap-2">
-                <Loader2 className="size-4 animate-spin text-[#22D3EE]" />
+                <Loader2 className="size-4 animate-spin text-zinc-200" />
                 <span>{exportStatusMessage}</span>
               </div>
               <button
@@ -1330,7 +1330,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
           {/* Active Preview Player Section (Seeked to selected clip timestamp) */}
           {(sourceVideoStreamingUrl || localVideoPreviewUrl) && (
-            <div className="p-4 rounded-2xl bg-[#080B12]/80 border border-white/[0.1] flex flex-col md:flex-row items-center gap-6">
+            <div className="p-4 rounded-2xl bg-vc-canvas/80 flex flex-col md:flex-row items-center gap-6">
               <div className="relative w-full md:w-72 aspect-[9/16] rounded-xl overflow-hidden bg-black/90 border border-white/15 shadow-xl shrink-0 flex items-center justify-center">
                 <video
                   ref={videoPlayerRef}
@@ -1366,21 +1366,21 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               {/* Player Details & Clip Info */}
               <div className="flex-1 space-y-3 text-left w-full">
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-[#8B5CF6]/20 text-[#DDD6FE] border border-[#8B5CF6]/30">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-violet-500/20 text-violet-200 ">
                     Live Player
                   </span>
-                  <span className="text-xs text-[#8E9AB4]">
+                  <span className="text-xs text-vc-text-secondary">
                     Aspect: {aspectRatio}
                   </span>
                 </div>
 
-                <h3 className="text-lg font-bold text-[#F4F6FB]">
+                <h3 className="text-lg font-bold text-vc-text-primary">
                   {renderedClips.find((c) => c.id === activePreviewClipId)?.title ||
                     candidates.find((c) => c.id === activePreviewClipId)?.title ||
                     'Select a clip below to preview'}
                 </h3>
 
-                <p className="text-xs text-[#8E9AB4] leading-relaxed line-clamp-3">
+                <p className="text-xs text-vc-text-secondary leading-relaxed line-clamp-3">
                   {candidates.find((c) => c.id === activePreviewClipId)?.hook ||
                     'Preview the exact start timestamp and AI hook extracted for this segment.'}
                 </p>
@@ -1393,7 +1393,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                         const isCand = candidates.some((c) => c.id === activePreviewClipId);
                         handleEditClip(activePreviewClipId, isCand);
                       }}
-                      className="px-4 py-2 rounded-xl vireo-btn-purple text-xs font-semibold text-white flex items-center gap-1.5 cursor-pointer shadow-md"
+                      className={`px-4 py-2 text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${BTN_PILL_PRIMARY}`}
                     >
                       <Film className="size-3.5" />
                       <span>Open in Timeline Editor</span>
@@ -1406,12 +1406,12 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                         handleExportClip(activePreviewClipId, isCand);
                       }}
                       disabled={isExportingClipId === activePreviewClipId}
-                      className="px-4 py-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/15 text-xs font-semibold text-[#E4E9F5] flex items-center gap-1.5 cursor-pointer transition-all"
+                      className="px-4 py-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/15 text-xs font-semibold text-zinc-100 flex items-center gap-1.5 cursor-pointer transition-all"
                     >
                       {isExportingClipId === activePreviewClipId ? (
                         <Loader2 className="size-3.5 animate-spin" />
                       ) : (
-                        <Download className="size-3.5 text-[#22D3EE]" />
+                        <Download className="size-3.5 text-zinc-200" />
                       )}
                       <span>Export MP4</span>
                     </button>
@@ -1433,8 +1433,8 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                   key={clip.id}
                   className={`p-4 rounded-2xl border transition-all space-y-3 relative flex flex-col justify-between ${
                     isActive
-                      ? 'bg-[#8B5CF6]/15 border-[#8B5CF6] shadow-[0_0_20px_rgba(139,92,246,0.2)]'
-                      : 'bg-[#080B12]/80 border-white/[0.08] hover:border-white/20'
+                      ? 'bg-violet-500/15 border-violet-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+                      : 'bg-vc-canvas/80 border-white/[0.08] hover:border-white/20'
                   }`}
                 >
                   <div className="space-y-3">
@@ -1443,20 +1443,20 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                       <button
                         type="button"
                         onClick={() => handleSelectClip(clip.id)}
-                        className="text-[#8E9AB4] hover:text-[#22D3EE] transition-colors cursor-pointer"
+                        className="text-vc-text-secondary hover:text-zinc-200 transition-colors cursor-pointer"
                       >
                         {isSelected ? (
-                          <CheckSquare className="size-4 text-[#22D3EE]" />
+                          <CheckSquare className="size-4 text-zinc-200" />
                         ) : (
                           <Square className="size-4" />
                         )}
                       </button>
 
                       <div className="flex items-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded bg-black/60 border border-white/10 font-mono text-[10px] text-white">
+                        <span className="px-2 py-0.5 rounded bg-black/60 font-mono text-[10px] text-white">
                           {formatDuration(clip.duration_seconds)}
                         </span>
-                        <span className="px-2 py-0.5 rounded bg-[#22D3EE]/20 border border-[#22D3EE]/40 text-[#22D3EE] text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded bg-white/[0.10] text-zinc-200 text-[10px] font-bold">
                           Rendered
                         </span>
                       </div>
@@ -1464,10 +1464,10 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
                     {/* Clip Title & Timestamps */}
                     <div>
-                      <h4 className="text-sm font-bold text-[#F4F6FB] line-clamp-1">
+                      <h4 className="text-sm font-bold text-vc-text-primary line-clamp-1">
                         {clip.title || 'Viral Clip'}
                       </h4>
-                      <p className="text-[11px] text-[#8E9AB4] font-mono mt-0.5">
+                      <p className="text-[11px] text-vc-text-secondary font-mono mt-0.5">
                         {formatDuration(clip.start_seconds)} – {formatDuration(clip.end_seconds)}
                       </p>
                     </div>
@@ -1478,9 +1478,9 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                     <button
                       type="button"
                       onClick={() => handlePlayClipPreview(clip.id, clip.start_seconds)}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#C4B5FD] hover:text-white transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-violet-300 hover:text-white transition-colors cursor-pointer"
                     >
-                      <Play className="size-3.5 text-[#22D3EE]" />
+                      <Play className="size-3.5 text-zinc-200" />
                       <span>Preview</span>
                     </button>
 
@@ -1488,7 +1488,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                       <button
                         type="button"
                         onClick={() => handleEditClip(clip.id, false)}
-                        className="px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-xs text-[#E4E9F5] font-medium transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-xs text-zinc-100 font-medium transition-colors cursor-pointer"
                       >
                         Edit
                       </button>
@@ -1497,7 +1497,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                         type="button"
                         onClick={() => handleExportClip(clip.id, false)}
                         disabled={isExportingClipId === clip.id}
-                        className="px-2.5 py-1 rounded-lg bg-[#8B5CF6]/30 hover:bg-[#8B5CF6]/50 text-xs text-white font-medium transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-violet-500/30 hover:bg-violet-500/50 text-xs text-white font-medium transition-colors cursor-pointer"
                       >
                         {isExportingClipId === clip.id ? (
                           <Loader2 className="size-3 animate-spin" />
@@ -1509,7 +1509,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                       <button
                         type="button"
                         onClick={() => setPublishingClip(clip)}
-                        className="p-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-[#8E9AB4] hover:text-white transition-colors cursor-pointer"
+                        className="p-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-vc-text-secondary hover:text-white transition-colors cursor-pointer"
                         title="Publish clip"
                       >
                         <Share2 className="size-3.5" />
@@ -1530,8 +1530,8 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                   key={cand.id}
                   className={`p-4 rounded-2xl border transition-all space-y-3 relative flex flex-col justify-between ${
                     isActive
-                      ? 'bg-[#8B5CF6]/15 border-[#8B5CF6] shadow-[0_0_20px_rgba(139,92,246,0.2)]'
-                      : 'bg-[#080B12]/80 border-white/[0.08] hover:border-white/20'
+                      ? 'bg-violet-500/15 border-violet-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+                      : 'bg-vc-canvas/80 border-white/[0.08] hover:border-white/20'
                   }`}
                 >
                   <div className="space-y-2.5">
@@ -1540,22 +1540,22 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                       <button
                         type="button"
                         onClick={() => handleSelectClip(cand.id)}
-                        className="text-[#8E9AB4] hover:text-[#22D3EE] transition-colors cursor-pointer"
+                        className="text-vc-text-secondary hover:text-zinc-200 transition-colors cursor-pointer"
                       >
                         {isSelected ? (
-                          <CheckSquare className="size-4 text-[#22D3EE]" />
+                          <CheckSquare className="size-4 text-zinc-200" />
                         ) : (
                           <Square className="size-4" />
                         )}
                       </button>
 
                       <div className="flex items-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded bg-black/60 border border-white/10 font-mono text-[10px] text-white">
+                        <span className="px-2 py-0.5 rounded bg-black/60 font-mono text-[10px] text-white">
                           {formatDuration(cand.duration_seconds)}
                         </span>
                         {cand.engagement_score !== undefined && (
-                          <span className="px-2 py-0.5 rounded bg-[#8B5CF6]/30 border border-[#8B5CF6]/50 text-[#DDD6FE] text-[10px] font-bold flex items-center gap-1">
-                            <Sparkles className="size-2.5 text-[#22D3EE]" />
+                          <span className="px-2 py-0.5 rounded bg-violet-500/30 text-violet-200 text-[10px] font-bold flex items-center gap-1">
+                            <Sparkles className="size-2.5 text-zinc-200" />
                             <span>Score: {Math.round(cand.engagement_score)}</span>
                           </span>
                         )}
@@ -1564,13 +1564,13 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
                     {/* Clip Title & Hook */}
                     <div>
-                      <h4 className="text-sm font-bold text-[#F4F6FB] line-clamp-1">
+                      <h4 className="text-sm font-bold text-vc-text-primary line-clamp-1">
                         {cand.title}
                       </h4>
-                      <p className="text-[11px] text-[#8E9AB4] font-mono mt-0.5">
+                      <p className="text-[11px] text-vc-text-secondary font-mono mt-0.5">
                         {formatDuration(cand.start_seconds)} – {formatDuration(cand.end_seconds)}
                       </p>
-                      <p className="text-xs text-[#C9D2E6] line-clamp-2 mt-1.5 leading-relaxed">
+                      <p className="text-xs text-zinc-200 line-clamp-2 mt-1.5 leading-relaxed">
                         {cand.hook || cand.reason}
                       </p>
                     </div>
@@ -1584,9 +1584,9 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                     <button
                       type="button"
                       onClick={() => handlePlayClipPreview(cand.id, cand.start_seconds)}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#C4B5FD] hover:text-white transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-violet-300 hover:text-white transition-colors cursor-pointer"
                     >
-                      <Play className="size-3.5 text-[#22D3EE]" />
+                      <Play className="size-3.5 text-zinc-200" />
                       <span>Preview</span>
                     </button>
 
@@ -1594,7 +1594,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                       <button
                         type="button"
                         onClick={() => handleEditClip(cand.id, true)}
-                        className="px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-xs text-[#E4E9F5] font-medium transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-xs text-zinc-100 font-medium transition-colors cursor-pointer"
                       >
                         Edit
                       </button>
@@ -1603,7 +1603,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                         type="button"
                         onClick={() => handleExportClip(cand.id, true)}
                         disabled={isExportingClipId === cand.id}
-                        className="px-2.5 py-1 rounded-lg bg-[#8B5CF6]/30 hover:bg-[#8B5CF6]/50 text-xs text-white font-medium transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-violet-500/30 hover:bg-violet-500/50 text-xs text-white font-medium transition-colors cursor-pointer"
                       >
                         {isExportingClipId === cand.id ? (
                           <Loader2 className="size-3 animate-spin" />
@@ -1634,7 +1634,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             </div>
 
             <div className="space-y-1">
-              <h2 className="text-lg font-bold text-[#F4F6FB]">
+              <h2 className="text-lg font-bold text-vc-text-primary">
                 Unable to complete video clipping
               </h2>
               <p className="text-xs sm:text-sm text-destructive leading-relaxed">
@@ -1644,20 +1644,20 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           </div>
 
           {/* Actionable Direct Upload Fallback if YouTube / external video download failed */}
-          <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-[#8E9AB4]">
+          <div className="p-3.5 rounded-xl bg-white/[0.03] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-vc-text-secondary">
             <div className="space-y-0.5">
-              <div className="font-semibold text-[#F4F6FB] flex items-center gap-1.5">
-                <UploadCloud className="size-3.5 text-[#22D3EE]" />
+              <div className="font-semibold text-vc-text-primary flex items-center gap-1.5">
+                <UploadCloud className="size-3.5 text-zinc-200" />
                 <span>Supported Alternative: Direct Video Upload</span>
               </div>
-              <p className="text-[11px] text-[#8E9AB4]">
+              <p className="text-[11px] text-vc-text-secondary">
                 If YouTube restricts automated downloads for this video, you can upload the video file directly (MP4, MOV, WebM up to 2 GB) to continue clipping with full AI transcription.
               </p>
             </div>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="px-3.5 py-1.5 rounded-lg bg-[#22D3EE]/15 hover:bg-[#22D3EE]/25 border border-[#22D3EE]/30 text-xs font-semibold text-[#22D3EE] transition-all cursor-pointer shrink-0"
+              className="px-3.5 py-1.5 rounded-lg bg-white/[0.08] hover:bg-white/[0.12] border border-white/20 text-xs font-semibold text-zinc-200 transition-all cursor-pointer shrink-0"
             >
               Upload Video File
             </button>
@@ -1669,7 +1669,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                 type="button"
                 onClick={handleGenerateClips}
                 disabled={isSubmitting}
-                className="px-5 py-2.5 rounded-full vireo-btn-purple text-xs font-semibold text-white cursor-pointer shadow-md flex items-center gap-1.5 disabled:opacity-50"
+                className={`px-5 py-2.5 text-xs font-semibold cursor-pointer flex items-center gap-1.5 ${BTN_PILL_BRAND}`}
               >
                 {isSubmitting ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
                 <span>{isSubmitting ? 'Retrying...' : 'Retry Generation'}</span>
@@ -1679,7 +1679,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             <button
               type="button"
               onClick={handleReplaceSource}
-              className="px-5 py-2.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-xs font-semibold text-[#E4E9F5] cursor-pointer transition-colors"
+              className="px-5 py-2.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-xs font-semibold text-zinc-100 cursor-pointer transition-colors"
             >
               Select Another Source
             </button>
@@ -1691,17 +1691,17 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           BROWSE PROJECTS MODAL PICKER
           ========================================================================= */}
       {isBrowseModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-lg rounded-2xl bg-[#080B12] border border-white/15 p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-scrim">
+          <div className="w-full max-w-lg rounded-3xl glass-float p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2 text-base font-bold text-[#F4F6FB]">
-                <FolderOpen className="size-5 text-[#22D3EE]" />
+              <div className="flex items-center gap-2 text-base font-bold text-vc-text-primary">
+                <FolderOpen className="size-5 text-zinc-200" />
                 <span>Select a Video Project</span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsBrowseModalOpen(false)}
-                className="text-[#8E9AB4] hover:text-white p-1"
+                className="text-vc-text-secondary hover:text-white p-1"
               >
                 <X className="size-5" />
               </button>
@@ -1709,20 +1709,20 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
             {/* Search Input */}
             <div className="relative">
-              <Search className="size-4 text-[#8E9AB4] absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="size-4 text-vc-text-secondary absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={projectSearchTerm}
                 onChange={(e) => setProjectSearchTerm(e.target.value)}
                 placeholder="Search projects by title..."
-                className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-[#F4F6FB] placeholder:text-[#8E9AB4] outline-none focus:border-[#8B5CF6]"
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-vc-text-primary placeholder:text-vc-text-secondary outline-none focus:border-violet-500"
               />
             </div>
 
             {/* Project list */}
             <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
               {existingProjects.length === 0 ? (
-                <div className="py-8 text-center text-xs text-[#8E9AB4]">
+                <div className="py-8 text-center text-xs text-vc-text-secondary">
                   No existing projects found. Upload a video to start your first project.
                 </div>
               ) : (
@@ -1736,14 +1736,14 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                       className="w-full p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/20 transition-all flex items-center justify-between gap-3 text-left cursor-pointer group"
                     >
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold text-[#F4F6FB] group-hover:text-[#22D3EE] transition-colors truncate">
+                        <div className="text-xs font-semibold text-vc-text-primary group-hover:text-zinc-200 transition-colors truncate">
                           {p.title}
                         </div>
-                        <div className="text-[10px] text-[#8E9AB4] mt-0.5">
+                        <div className="text-[10px] text-vc-text-secondary mt-0.5">
                           Status: {p.video_status || p.status}
                         </div>
                       </div>
-                      <span className="text-xs text-[#A78BFA] font-medium shrink-0">
+                      <span className="text-xs text-violet-400 font-medium shrink-0">
                         Select →
                       </span>
                     </button>
@@ -1751,7 +1751,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               )}
             </div>
 
-            <div className="pt-2 flex justify-between items-center text-xs text-[#8E9AB4]">
+            <div className="pt-2 flex justify-between items-center text-xs text-vc-text-secondary">
               {onScrollToProjects && (
                 <button
                   type="button"

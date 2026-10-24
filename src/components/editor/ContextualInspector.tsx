@@ -214,21 +214,21 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
           <div className="flex items-center gap-1">
             <button
               onClick={handleDuplicateItem}
-              className="p-1.5 rounded hover:bg-white/[0.08] text-vc-text-secondary hover:text-white transition"
+              className="p-1.5 rounded-lg hover:bg-white/[0.08] text-vc-text-secondary hover:text-white transition"
               title="Duplicate Text Element"
             >
               <Copy className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleResetTransform}
-              className="p-1.5 rounded hover:bg-white/[0.08] text-vc-text-secondary hover:text-white transition"
+              className="p-1.5 rounded-lg hover:bg-white/[0.08] text-vc-text-secondary hover:text-white transition"
               title="Reset Transform (Center)"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleDeleteItem}
-              className="p-1.5 rounded hover:bg-rose-950/40 text-vc-text-secondary hover:text-rose-400 transition"
+              className="p-1.5 rounded-lg hover:bg-rose-950/40 text-vc-text-secondary hover:text-rose-400 transition"
               title="Delete Text Element"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -337,7 +337,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <span className="text-vc-text-muted text-[10px] block mb-1">Weight</span>
-              <div className="grid grid-cols-4 gap-0.5 bg-vc-canvas p-0.5 rounded-lg border border-vc-border">
+              <div className="grid grid-cols-4 gap-0.5 bg-vc-canvas p-0.5 rounded-lg ">
                 {(['normal', 'medium', 'bold', 'black'] as const).map((w) => (
                   <button
                     key={w}
@@ -356,7 +356,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
 
             <div>
               <span className="text-vc-text-muted text-[10px] block mb-1">Alignment</span>
-              <div className="grid grid-cols-3 gap-0.5 bg-vc-canvas p-0.5 rounded-lg border border-vc-border">
+              <div className="grid grid-cols-3 gap-0.5 bg-vc-canvas p-0.5 rounded-lg ">
                 {(['left', 'center', 'right'] as const).map((a) => (
                   <button
                     key={a}
@@ -422,7 +422,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
 
           <div className="grid grid-cols-2 gap-2">
             {/* Text Color */}
-            <div className="bg-vc-canvas p-2 rounded-lg border border-vc-border">
+            <div className="bg-vc-canvas p-2 rounded-lg ">
               <span className="text-vc-text-muted text-[10px] block mb-1">Text Color</span>
               <div className="flex items-center gap-2">
                 <input
@@ -441,7 +441,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
             </div>
 
             {/* Stroke / Outline */}
-            <div className="bg-vc-canvas p-2 rounded-lg border border-vc-border">
+            <div className="bg-vc-canvas p-2 rounded-lg ">
               <div className="flex items-center justify-between text-[10px] mb-1">
                 <span className="text-vc-text-muted">Stroke</span>
                 <span className="text-vc-text-secondary font-mono">{textConfig.stroke_width || 0}px</span>
@@ -467,7 +467,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
           </div>
 
           {/* Drop Shadow */}
-          <div className="bg-vc-canvas p-2 rounded-lg border border-vc-border">
+          <div className="bg-vc-canvas p-2 rounded-lg ">
             <div className="flex items-center justify-between text-[10px] mb-1">
               <span className="text-vc-text-muted">Drop Shadow</span>
               <span className="text-vc-text-secondary font-mono">{textConfig.shadow_blur || 0}px</span>
@@ -499,7 +499,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
           </label>
 
           <div className="grid grid-cols-3 gap-2">
-            <div className="bg-vc-canvas p-2 rounded-lg border border-vc-border">
+            <div className="bg-vc-canvas p-2 rounded-lg ">
               <span className="text-vc-text-muted text-[10px] block mb-1">Color</span>
               <input
                 type="color"
@@ -509,7 +509,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
               />
             </div>
 
-            <div className="bg-vc-canvas p-2 rounded-lg border border-vc-border">
+            <div className="bg-vc-canvas p-2 rounded-lg ">
               <div className="flex items-center justify-between text-[10px] mb-1">
                 <span className="text-vc-text-muted">Padding</span>
                 <span className="font-mono text-vc-text-secondary">{textConfig.background_padding || 0}px</span>
@@ -527,7 +527,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
               />
             </div>
 
-            <div className="bg-vc-canvas p-2 rounded-lg border border-vc-border">
+            <div className="bg-vc-canvas p-2 rounded-lg ">
               <div className="flex items-center justify-between text-[10px] mb-1">
                 <span className="text-vc-text-muted">Radius</span>
                 <span className="font-mono text-vc-text-secondary">
@@ -608,7 +608,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
           </label>
 
           <div className="grid grid-cols-2 gap-2">
-            <div className="bg-vc-canvas p-2 rounded-lg border border-vc-border">
+            <div className="bg-vc-canvas p-2 rounded-lg ">
               <span className="text-vc-text-muted text-[10px] block mb-1">Position X</span>
               <input
                 type="number"
@@ -625,7 +625,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
               />
             </div>
 
-            <div className="bg-vc-canvas p-2 rounded-lg border border-vc-border">
+            <div className="bg-vc-canvas p-2 rounded-lg ">
               <span className="text-vc-text-muted text-[10px] block mb-1">Position Y</span>
               <input
                 type="number"
@@ -642,7 +642,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
               />
             </div>
 
-            <div className="bg-vc-canvas p-2 rounded-lg border border-vc-border">
+            <div className="bg-vc-canvas p-2 rounded-lg ">
               <div className="flex items-center justify-between text-[10px] mb-1">
                 <span className="text-vc-text-muted">Scale</span>
                 <span className="font-mono text-vc-text-secondary">
@@ -667,7 +667,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
               />
             </div>
 
-            <div className="bg-vc-canvas p-2 rounded-lg border border-vc-border">
+            <div className="bg-vc-canvas p-2 rounded-lg ">
               <div className="flex items-center justify-between text-[10px] mb-1">
                 <span className="text-vc-text-muted">Opacity</span>
                 <span className="font-mono text-vc-text-secondary">
@@ -736,7 +736,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
             <Sliders className="w-4 h-4 text-vc-text-secondary" />
             <h3 className="font-semibold text-white text-sm">Item Properties</h3>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/[0.06] border border-vc-border text-vc-text-secondary uppercase">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/[0.06] text-vc-text-secondary uppercase">
             {selectedItem.type}
           </span>
         </div>
@@ -747,7 +747,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
             Transform
           </label>
           <div className="grid grid-cols-2 gap-2">
-            <div className="bg-vc-canvas p-2.5 rounded-lg border border-vc-border">
+            <div className="bg-vc-canvas p-2.5 rounded-lg ">
               <span className="text-vc-text-muted block mb-1">Position X</span>
               <input
                 type="number"
@@ -764,7 +764,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
               />
             </div>
 
-            <div className="bg-vc-canvas p-2.5 rounded-lg border border-vc-border">
+            <div className="bg-vc-canvas p-2.5 rounded-lg ">
               <span className="text-vc-text-muted block mb-1">Position Y</span>
               <input
                 type="number"
@@ -781,7 +781,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
               />
             </div>
 
-            <div className="bg-vc-canvas p-2.5 rounded-lg border border-vc-border">
+            <div className="bg-vc-canvas p-2.5 rounded-lg ">
               <span className="text-vc-text-muted block mb-1">Scale</span>
               <input
                 type="range"
@@ -804,7 +804,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
               </span>
             </div>
 
-            <div className="bg-vc-canvas p-2.5 rounded-lg border border-vc-border">
+            <div className="bg-vc-canvas p-2.5 rounded-lg ">
               <span className="text-vc-text-muted block mb-1">Opacity</span>
               <input
                 type="range"
@@ -1035,7 +1035,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                 </div>
               </div>
               {selectedPresetId && selectedPresetId !== 'none' && (
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.08] border border-white/[0.12] text-vc-text-primary capitalize">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.08] text-vc-text-primary capitalize">
                   {selectedPresetId.replace('_', ' ')}
                 </span>
               )}
@@ -1234,7 +1234,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                     onAddTextLayer(newTextString.trim());
                   }
                 }}
-                className="px-3 py-2 rounded-lg bg-[#F4F6FB] text-[#0B0C0F] hover:bg-white flex items-center gap-1 font-medium transition shadow-sm"
+                className="px-3 py-2 rounded-lg bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] text-white hover:bg-vc-ai flex items-center gap-1 font-medium transition shadow-sm"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add</span>
@@ -1255,7 +1255,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
 
       {/* Fallback info when another tab is active */}
       {['transcript', 'audio', 'broll', 'translate', 'brand', 'media'].includes(activeSidebarTab) && (
-        <div className="p-4 bg-vc-canvas rounded-xl border border-vc-border text-xs text-vc-text-secondary leading-relaxed text-center">
+        <div className="p-4 bg-vc-canvas rounded-xl text-xs text-vc-text-secondary leading-relaxed text-center">
           <span className="capitalize font-semibold text-vc-text-primary block mb-1">
             {activeSidebarTab === 'broll' ? 'B-Roll' : activeSidebarTab === 'media' ? 'Library' : activeSidebarTab} Active
           </span>

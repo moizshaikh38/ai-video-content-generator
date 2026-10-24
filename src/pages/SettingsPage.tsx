@@ -339,7 +339,7 @@ export const SettingsPage: React.FC = () => {
           className="p-6 md:p-7 space-y-4"
         >
           <div className="flex items-center gap-2 border-b border-border/50 pb-3">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-sage/15 text-sage">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
               <User className="size-3.5" />
             </div>
             <div>
@@ -404,7 +404,7 @@ export const SettingsPage: React.FC = () => {
           className="p-6 md:p-7 space-y-4"
         >
           <div className="flex items-center gap-2 border-b border-border/50 pb-3">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-clay/15 text-clay">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
               <Sparkles className="size-3.5" />
             </div>
             <div>
@@ -421,7 +421,7 @@ export const SettingsPage: React.FC = () => {
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
-                className="flex h-10 w-full rounded-2xl border border-input bg-card px-3.5 text-xs shadow-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-10 w-full rounded-2xl bg-white/[0.04] shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)] px-3.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {LANGUAGES.map((lang) => (
                   <option key={lang} value={lang}>
@@ -438,7 +438,7 @@ export const SettingsPage: React.FC = () => {
               <select
                 value={tone}
                 onChange={(e) => setTone(e.target.value)}
-                className="flex h-10 w-full rounded-2xl border border-input bg-card px-3.5 text-xs shadow-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-10 w-full rounded-2xl bg-white/[0.04] shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)] px-3.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {TONES.map((t) => (
                   <option key={t} value={t}>
@@ -488,8 +488,8 @@ export const SettingsPage: React.FC = () => {
                     onClick={() => setPreferredHookStyle(isSelected ? '' : style)}
                     className={`rounded-full px-3 py-1 text-xs font-medium transition-all select-none cursor-pointer ${
                       isSelected
-                        ? 'bg-[#F4F6FB] text-[#0B0C0F] shadow-black/40 font-semibold'
-                        : 'border border-border/80 text-muted-foreground hover:text-foreground hover:bg-cream/60'
+                        ? 'bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 text-white shadow-black/40 font-semibold'
+                        : 'border border-border/80 text-muted-foreground hover:text-foreground hover:bg-vc-ai/[0.04]'
                     }`}
                   >
                     {style}
@@ -540,7 +540,7 @@ export const SettingsPage: React.FC = () => {
           className="p-6 md:p-7 space-y-4"
         >
           <div className="flex items-center gap-2 border-b border-border/50 pb-3">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-sage/15 text-sage">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
               <LinkIcon className="size-3.5" />
             </div>
             <div>
@@ -615,13 +615,13 @@ export const SettingsPage: React.FC = () => {
         </SpotlightCard>
 
         {errorMessage && (
-          <div role="alert" className="rounded-2xl bg-destructive/10 border border-destructive/20 p-3.5 text-xs text-destructive font-medium text-center">
+          <div role="alert" className="rounded-2xl bg-destructive/10 p-3.5 text-xs text-destructive font-medium text-center">
             {errorMessage}
           </div>
         )}
 
         {savedSuccess && (
-          <div role="status" className="rounded-2xl bg-sage/15 border border-sage/30 p-3.5 text-xs text-sage font-medium text-center flex items-center justify-center gap-1.5">
+          <div role="status" className="rounded-2xl bg-emerald-500/15 p-3.5 text-xs text-emerald-400 font-medium text-center flex items-center justify-center gap-1.5">
             <Check className="size-4" />
             <span>Creator profile settings saved successfully!</span>
           </div>
@@ -629,7 +629,7 @@ export const SettingsPage: React.FC = () => {
 
         <ShinyButton
           type="submit"
-          variant="sage"
+          variant="ink"
           className="w-full h-11 text-sm font-semibold"
           disabled={saving}
           leftIcon={
@@ -660,7 +660,7 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         {accountMessage && (
-          <p className="text-xs font-medium text-sage">{accountMessage}</p>
+          <p className="text-xs font-medium text-emerald-400">{accountMessage}</p>
         )}
 
         <div className="flex flex-wrap gap-2.5 pt-1">
@@ -685,7 +685,7 @@ export const SettingsPage: React.FC = () => {
       >
         <div className="flex items-center justify-between border-b border-border/50 pb-3">
           <div className="flex items-center gap-2">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-sage/20 text-sage">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
               <Share2 className="size-3.5" />
             </div>
             <div>
@@ -711,8 +711,8 @@ export const SettingsPage: React.FC = () => {
             role="alert"
             className={`rounded-2xl p-3.5 text-xs font-medium text-center flex items-center justify-center gap-2 ${
               socialFeedback.type === 'success'
-                ? 'bg-sage/15 border border-sage/30 text-sage'
-                : 'bg-destructive/10 border border-destructive/20 text-destructive'
+                ? 'bg-emerald-500/15 text-emerald-400'
+                : 'bg-destructive/10 text-destructive'
             }`}
           >
             {socialFeedback.type === 'success' ? (
@@ -771,10 +771,10 @@ export const SettingsPage: React.FC = () => {
             return (
               <div
                 key={platform.id}
-                className={`rounded-2xl border p-4 flex flex-col justify-between space-y-3 transition-all ${
+                className={`rounded-2xl p-4 flex flex-col justify-between space-y-3 transition-all ${
                   connection
-                    ? 'border-sage/40 bg-sage/5'
-                    : 'border-border/60 bg-card/40 hover:border-border'
+                    ? 'bg-emerald-500/[0.07]'
+                    : 'bg-vc-surface1 hover:bg-vc-surface2'
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -787,7 +787,7 @@ export const SettingsPage: React.FC = () => {
                       />
                     ) : (
                       <div
-                        className={`size-9 rounded-xl flex items-center justify-center font-bold text-xs border ${platform.bgColor} ${platform.color}`}
+                        className={`size-9 rounded-xl flex items-center justify-center font-bold text-xs ${platform.bgColor} ${platform.color}`}
                       >
                         {platform.name[0]}
                       </div>
@@ -798,8 +798,8 @@ export const SettingsPage: React.FC = () => {
                           {platform.name}
                         </h4>
                         {connection && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-sage/20 px-1.5 py-0.2 text-[9px] font-medium text-sage">
-                            <span className="size-1 rounded-full bg-sage animate-pulse" />
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-1.5 py-0.2 text-[9px] font-medium text-emerald-400">
+                            <span className="size-1 rounded-full bg-emerald-500 animate-pulse" />
                             Connected
                           </span>
                         )}

@@ -275,7 +275,7 @@ export const AICopilotPanel: React.FC<AICopilotPanelProps> = ({
             </p>
           </div>
         </div>
-        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-950/40 border border-violet-800/30 text-violet-400">
+        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-950/40 text-violet-400">
           STUDIO AI
         </span>
       </div>
@@ -350,7 +350,7 @@ export const AICopilotPanel: React.FC<AICopilotPanelProps> = ({
           <button
             onClick={() => handleGeneratePlan(prompt)}
             disabled={!prompt.trim() || isGenerating}
-            className="absolute right-2.5 bottom-2.5 p-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white disabled:opacity-40 transition shadow-sm"
+            className="absolute right-2.5 bottom-2.5 p-1.5 rounded-xl bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 text-white border border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] active:translate-y-px disabled:opacity-40 transition shadow-sm"
             title="Generate Plan"
           >
             {isGenerating ? (
@@ -364,7 +364,7 @@ export const AICopilotPanel: React.FC<AICopilotPanelProps> = ({
 
       {/* Error Notice */}
       {errorMessage && (
-        <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-800/40 text-rose-300 text-xs flex items-center gap-2">
+        <div className="p-2.5 rounded-xl bg-rose-950/40 text-rose-300 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{errorMessage}</span>
         </div>
@@ -372,7 +372,7 @@ export const AICopilotPanel: React.FC<AICopilotPanelProps> = ({
 
       {/* Loading Skeleton */}
       {isGenerating && (
-        <div className="p-4 rounded-xl bg-vc-canvas border border-violet-500/30 flex flex-col items-center justify-center gap-2 text-center py-6">
+        <div className="p-4 rounded-xl bg-vc-canvas flex flex-col items-center justify-center gap-2 text-center py-6">
           <Loader2 className="w-5 h-5 animate-spin text-violet-400" />
           <span className="text-xs font-medium text-white">Analyzing Speech Timing & Scene Cuts</span>
           <span className="text-[10px] text-vc-text-secondary">Synthesizing reversible timeline keyframe plan...</span>
@@ -382,7 +382,7 @@ export const AICopilotPanel: React.FC<AICopilotPanelProps> = ({
       {/* Generated Structured Operation Plan */}
       {!isGenerating && currentPlan && (
         <div className="space-y-3 pt-1">
-          <div className="p-3 rounded-xl bg-violet-950/30 border border-violet-800/40 text-xs text-vc-text-secondary space-y-1">
+          <div className="p-3 rounded-xl bg-violet-950/30 text-xs text-vc-text-secondary space-y-1">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-violet-300 text-xs flex items-center gap-1.5">
                 <Sliders className="w-3.5 h-3.5 text-violet-400" />
@@ -457,7 +457,7 @@ export const AICopilotPanel: React.FC<AICopilotPanelProps> = ({
             <button
               onClick={handleApplySelected}
               disabled={selectedOpIds.size === 0}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:opacity-40 text-white text-xs font-semibold shadow-lg shadow-violet-950/50 flex items-center gap-1.5 transition active:scale-95"
+              className="px-4 py-2 rounded-full bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 text-white border border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] active:translate-y-px disabled:opacity-40 text-xs font-semibold shadow-lg shadow-violet-950/50 flex items-center gap-1.5 transition active:scale-95"
             >
               <Check className="w-3.5 h-3.5" />
               <span>Apply to Timeline</span>
@@ -466,7 +466,7 @@ export const AICopilotPanel: React.FC<AICopilotPanelProps> = ({
 
           {/* Undo/Redo feedback */}
           {appliedCount > 0 && (
-            <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-800/40 text-emerald-300 text-xs flex items-center justify-between">
+            <div className="p-2.5 rounded-xl bg-emerald-950/40 text-emerald-300 text-xs flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
                 <span>Successfully committed {appliedCount} edits!</span>

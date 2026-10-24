@@ -135,8 +135,8 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   const estimatedSizeMb = Math.round((duration * 0.45 * (resolution === '1080p' ? 1.5 : 0.9)) * 10) / 10;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
-      <div className="relative w-full max-w-lg bg-[#0E1017] border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden text-neutral-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-scrim select-none">
+      <div className="relative w-full max-w-lg glass-float rounded-3xl overflow-hidden text-neutral-200">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
           <div className="flex items-center gap-2">
@@ -167,7 +167,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                     className={`p-3 rounded-xl border text-left transition ${
                       resolution === '1080p'
                         ? 'bg-white/[0.06] border-white/40 text-white shadow-sm ring-1 ring-white/20'
-                        : 'bg-[#07080D] border-white/[0.08] text-neutral-400 hover:border-white/20 hover:text-neutral-200'
+                        : 'bg-vc-canvas border-white/[0.08] text-neutral-400 hover:border-white/20 hover:text-neutral-200'
                     }`}
                   >
                     <div className="text-sm font-semibold">1080p Full HD</div>
@@ -179,7 +179,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                     className={`p-3 rounded-xl border text-left transition ${
                       resolution === '720p'
                         ? 'bg-white/[0.06] border-white/40 text-white shadow-sm ring-1 ring-white/20'
-                        : 'bg-[#07080D] border-white/[0.08] text-neutral-400 hover:border-white/20 hover:text-neutral-200'
+                        : 'bg-vc-canvas border-white/[0.08] text-neutral-400 hover:border-white/20 hover:text-neutral-200'
                     }`}
                   >
                     <div className="text-sm font-semibold">720p HD</div>
@@ -189,7 +189,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
               </div>
 
               {/* Subtitle burn-in toggle */}
-              <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#07080D] border border-white/[0.08]">
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-vc-canvas ">
                 <div>
                   <div className="text-sm font-medium text-white">Burn-in Subtitles</div>
                   <div className="text-xs text-neutral-400">Hardcode kinetic captions directly into the MP4 video</div>
@@ -204,13 +204,13 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
               {/* Pro NLE Timeline XML Export Bridge */}
               {project && (
-                <div className="p-3.5 rounded-xl bg-[#07080D] border border-white/[0.08] space-y-2.5">
+                <div className="p-3.5 rounded-xl bg-vc-canvas space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <FileCode className="w-4 h-4 text-neutral-300" />
                       <span className="text-xs font-semibold text-white">Pro NLE Timeline XML Export</span>
                     </div>
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/[0.08] text-white border border-white/[0.12]">
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/[0.08] text-white ">
                       PREMIERE / DAVINCI / FCP
                     </span>
                   </div>
@@ -221,7 +221,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                     <button
                       type="button"
                       onClick={handleExportPremiereXml}
-                      className="flex-1 py-1.5 px-2.5 rounded-lg bg-[#0E1017] border border-white/[0.08] hover:border-white/20 hover:text-white text-neutral-300 text-xs font-medium transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+                      className="flex-1 py-1.5 px-2.5 rounded-lg bg-vc-surface1 border border-white/[0.08] hover:border-white/20 hover:text-white text-neutral-300 text-xs font-medium transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
                     >
                       <Download className="w-3.5 h-3.5 text-neutral-300" />
                       <span>Premiere / DaVinci XML</span>
@@ -229,9 +229,9 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                     <button
                       type="button"
                       onClick={handleExportFcpxml}
-                      className="flex-1 py-1.5 px-2.5 rounded-lg bg-[#0E1017] border border-white/[0.08] hover:border-white/20 hover:text-white text-neutral-300 text-xs font-medium transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+                      className="flex-1 py-1.5 px-2.5 rounded-lg bg-vc-surface1 border border-white/[0.08] hover:border-white/20 hover:text-white text-neutral-300 text-xs font-medium transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
                     >
-                      <Download className="w-3.5 h-3.5 text-cyan-400" />
+                      <Download className="w-3.5 h-3.5 text-zinc-300" />
                       <span>Final Cut Pro (.fcpxml)</span>
                     </button>
                   </div>
@@ -240,7 +240,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
               {/* Existing rendered version available */}
               {clip?.render_status === 'ready' && (
-                <div className="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-800/30 flex items-center justify-between gap-3">
+                <div className="p-3.5 rounded-xl bg-emerald-950/20 flex items-center justify-between gap-3">
                   <div className="text-left">
                     <div className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
@@ -254,7 +254,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                     type="button"
                     onClick={handleDownloadClip}
                     disabled={isDownloading}
-                    className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-medium transition flex items-center gap-1.5 active:scale-95 cursor-pointer shadow"
+                    className="px-3.5 py-1.5 rounded-full bg-vc-ai-hover text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai active:bg-violet-700 active:translate-y-px disabled:opacity-60 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
                   >
                     {isDownloading ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -267,7 +267,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
               )}
 
               {/* Clip Specs Summary */}
-              <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-[#07080D] border border-white/[0.06] text-xs text-center font-mono">
+              <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-vc-canvas text-xs text-center font-mono">
                 <div>
                   <div className="text-neutral-500">Duration</div>
                   <div className="text-neutral-200 font-semibold mt-0.5">{duration.toFixed(1)}s</div>
@@ -295,7 +295,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                 </p>
               </div>
 
-              <div className="w-full bg-[#07080D] border border-white/[0.08] h-2.5 rounded-full overflow-hidden">
+              <div className="w-full bg-vc-canvas border border-white/[0.08] h-2.5 rounded-full overflow-hidden">
                 <div
                   className="bg-white/80 h-full transition-all duration-300 rounded-full"
                   style={{ width: `${Math.max(5, renderProgress)}%` }}
@@ -319,7 +319,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                   type="button"
                   onClick={handleDownloadClip}
                   disabled={isDownloading}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium text-sm shadow-lg shadow-emerald-950/50 transition active:scale-95 cursor-pointer"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-vc-ai-hover text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai active:bg-violet-700 active:translate-y-px disabled:opacity-60 disabled:cursor-not-allowed font-semibold text-sm transition cursor-pointer"
                 >
                   {isDownloading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -343,7 +343,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                 )}
 
                 {downloadError && (
-                  <div className="p-2.5 text-xs text-rose-300 bg-rose-950/40 border border-rose-800/40 rounded-xl max-w-sm text-center">
+                  <div className="p-2.5 text-xs text-rose-300 bg-rose-950/40 rounded-xl max-w-sm text-center">
                     {downloadError}
                   </div>
                 )}
@@ -353,7 +353,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
           {/* Error Message */}
           {renderError && !isRendering && (
-            <div className="p-3 rounded-xl bg-rose-950/50 border border-rose-800/60 text-xs text-rose-300 flex items-start gap-2">
+            <div className="p-3 rounded-xl bg-rose-950/50 text-xs text-rose-300 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
               <span>{renderError}</span>
             </div>
@@ -361,10 +361,10 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-6 py-4 bg-[#0A0B0E] border-t border-white/[0.08]">
+        <div className="flex items-center justify-end gap-2 px-6 py-4 bg-vc-surface1 border-t border-white/[0.08]">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-neutral-300 hover:text-white border border-white/[0.08] text-xs font-medium transition"
+            className="px-4 py-2 rounded-full bg-white/[0.06] hover:bg-white/[0.10] text-neutral-200 hover:text-white border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] active:bg-white/[0.04] text-xs font-medium transition"
           >
             {renderSuccessMsg ? 'Close' : 'Cancel'}
           </button>
@@ -372,7 +372,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
           {!isRendering && !renderSuccessMsg && (
             <button
               onClick={onTriggerRender}
-              className="px-5 py-2 rounded-xl bg-[#F4F6FB] text-[#0B0C0F] hover:bg-white text-xs font-medium shadow-lg shadow-black/50 flex items-center gap-1.5 transition active:scale-95"
+              className="px-5 py-2 rounded-full bg-vc-ai-hover text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai active:bg-violet-700 active:translate-y-px text-xs font-semibold flex items-center gap-1.5 transition"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>Start Render</span>

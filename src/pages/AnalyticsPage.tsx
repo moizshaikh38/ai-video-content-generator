@@ -114,24 +114,24 @@ export const AnalyticsPage: React.FC = () => {
             <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
               Content Performance Dashboard
             </h1>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
               <CheckCircle2 className="h-3 w-3" />
               Evidence-Backed
             </span>
           </div>
-          <p className="mt-1 text-sm text-[#8E9AB4]">
+          <p className="mt-1 text-sm text-vc-text-secondary">
             Unified, honest performance intelligence across published content, platform exports, and A/B Studio experiments.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           {/* Top Tabs Toggle */}
-          <div className="inline-flex rounded-xl border border-border bg-white p-1 shadow-2xs">
+          <div className="inline-flex rounded-xl bg-vc-surface1 p-1 shadow-2xs">
             <button
               onClick={() => setActiveTab('dashboard')}
               className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
                 activeTab === 'dashboard'
-                  ? 'bg-forest text-white'
+                  ? 'bg-violet-500 text-white'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -141,7 +141,7 @@ export const AnalyticsPage: React.FC = () => {
               onClick={() => setActiveTab('growth')}
               className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
                 activeTab === 'growth'
-                  ? 'bg-forest text-white'
+                  ? 'bg-violet-500 text-white'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -152,7 +152,7 @@ export const AnalyticsPage: React.FC = () => {
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-3.5 py-2 text-xs font-semibold text-foreground shadow-2xs hover:bg-cream transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-border bg-vc-surface1 px-3.5 py-2 text-xs font-semibold text-foreground shadow-2xs hover:bg-white/[0.06] transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'Syncing...' : 'Sync Now'}
@@ -161,14 +161,14 @@ export const AnalyticsPage: React.FC = () => {
       </div>
 
       {error && (
-        <div className="mb-6 flex items-center justify-between rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="mb-6 flex items-center justify-between rounded-xl bg-red-500/10 p-4 text-sm text-red-300">
           <div className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <p>{error}</p>
           </div>
           <button
             onClick={loadData}
-            className="rounded-lg bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-800 hover:bg-red-200 transition-colors"
+            className="rounded-lg bg-red-500/15 px-2.5 py-1 text-xs font-semibold text-red-300 hover:bg-red-500/20 transition-colors"
           >
             Retry
           </button>
@@ -179,7 +179,7 @@ export const AnalyticsPage: React.FC = () => {
       {activeTab === 'dashboard' && (
         <div className="space-y-6">
           {/* Filter Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-white p-4 shadow-2xs">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-vc-surface1 p-4 shadow-2xs">
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <Filter className="h-3.5 w-3.5" />
@@ -187,7 +187,7 @@ export const AnalyticsPage: React.FC = () => {
               </div>
 
               {/* Date Range Selector */}
-              <div className="inline-flex rounded-lg border border-border bg-sand/30 p-0.5">
+              <div className="inline-flex rounded-lg bg-sand/30 p-0.5">
                 {[
                   { label: '7d', value: 7 },
                   { label: '14d', value: 14 },
@@ -203,7 +203,7 @@ export const AnalyticsPage: React.FC = () => {
                     }}
                     className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                       days === item.value
-                        ? 'bg-forest text-white shadow-2xs'
+                        ? 'bg-violet-500 text-white shadow-2xs'
                         : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
@@ -219,7 +219,7 @@ export const AnalyticsPage: React.FC = () => {
                   setPlatformFilter(e.target.value);
                   setPage(1);
                 }}
-                className="rounded-lg border border-border bg-white px-2.5 py-1 text-xs font-medium text-foreground outline-hidden focus:border-forest"
+                className="rounded-lg border border-border bg-vc-surface1 px-2.5 py-1 text-xs font-medium text-foreground outline-hidden focus:border-violet-500"
               >
                 <option value="">All Platforms</option>
                 <option value="youtube">YouTube</option>
@@ -236,7 +236,7 @@ export const AnalyticsPage: React.FC = () => {
                   setStatusFilter(e.target.value);
                   setPage(1);
                 }}
-                className="rounded-lg border border-border bg-white px-2.5 py-1 text-xs font-medium text-foreground outline-hidden focus:border-forest"
+                className="rounded-lg border border-border bg-vc-surface1 px-2.5 py-1 text-xs font-medium text-foreground outline-hidden focus:border-violet-500"
               >
                 <option value="all">All Content Statuses</option>
                 <option value="ready">Ready</option>
@@ -248,7 +248,7 @@ export const AnalyticsPage: React.FC = () => {
             {/* Metric Highlight Selector for Timeline */}
             <div className="flex items-center gap-2">
               <span className="text-2xs font-semibold uppercase text-muted-foreground">Chart Metric:</span>
-              <div className="inline-flex rounded-lg border border-border bg-sand/30 p-0.5">
+              <div className="inline-flex rounded-lg bg-sand/30 p-0.5">
                 {[
                   { id: 'views', label: 'Views' },
                   { id: 'impressions', label: 'Impressions' },
@@ -260,7 +260,7 @@ export const AnalyticsPage: React.FC = () => {
                     onClick={() => setMetricHighlight(m.id as any)}
                     className={`rounded-md px-2 py-0.5 text-2xs font-semibold transition-colors ${
                       metricHighlight === m.id
-                        ? 'bg-white text-forest shadow-2xs border border-border/80'
+                        ? 'bg-vc-surface1 text-violet-300 shadow-2xs border border-border/80'
                         : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
@@ -275,24 +275,24 @@ export const AnalyticsPage: React.FC = () => {
             <div className="space-y-6">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="h-32 animate-pulse rounded-2xl bg-white border border-border/50" />
+                  <div key={i} className="h-32 animate-pulse rounded-2xl bg-vc-surface1 border border-border/50" />
                 ))}
               </div>
-              <div className="h-64 animate-pulse rounded-2xl bg-white border border-border/50" />
+              <div className="h-64 animate-pulse rounded-2xl bg-vc-surface1 border border-border/50" />
             </div>
           ) : (
             <>
               {/* Provenance & Data Sufficiency Banner */}
               {dashboard?.data_provenance_sources && dashboard.data_provenance_sources.length > 0 && (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-forest/20 bg-forest/5 px-4 py-2.5 text-xs text-foreground">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-violet-500/5 px-4 py-2.5 text-xs text-foreground">
                   <div className="flex items-center gap-2">
-                    <Database className="h-4 w-4 text-forest" />
+                    <Database className="h-4 w-4 text-violet-300" />
                     <span className="font-semibold">Underlying Provenance Sources:</span>
                     <div className="flex flex-wrap gap-1.5">
                       {dashboard.data_provenance_sources.map((src) => (
                         <span
                           key={src}
-                          className="rounded-md border border-forest/30 bg-white px-2 py-0.5 text-2xs font-mono font-medium text-forest"
+                          className="rounded-md bg-vc-surface1 px-2 py-0.5 text-2xs font-mono font-medium text-violet-300"
                         >
                           {src}
                         </span>
@@ -311,17 +311,17 @@ export const AnalyticsPage: React.FC = () => {
 
               {/* Insufficient Data Warning / Explanation */}
               {!summary?.has_sufficient_data && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-xs text-amber-900">
+                <div className="rounded-xl bg-amber-500/10 p-4 text-xs text-amber-300">
                   <div className="flex items-center gap-2 font-semibold">
                     <Info className="h-4 w-4 text-amber-600" />
                     <span>Data Sufficiency Advisory:</span>
                   </div>
-                  <ul className="mt-2 list-disc list-inside space-y-1 text-amber-800">
+                  <ul className="mt-2 list-disc list-inside space-y-1 text-amber-300">
                     {summary?.insufficient_data_reasons?.map((reason, idx) => (
                       <li key={idx}>{reason}</li>
                     ))}
                   </ul>
-                  <p className="mt-2 text-2xs text-amber-700">
+                  <p className="mt-2 text-2xs text-amber-300">
                     Metrics are computed strictly from real recorded data without synthetic interpolation or assumed zero baselines.
                   </p>
                 </div>
@@ -330,31 +330,31 @@ export const AnalyticsPage: React.FC = () => {
               {/* 4 Core KPI Summary Cards */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {/* 1. Total Content & In Experiment */}
-                <div className="rounded-2xl border border-border bg-white p-5 shadow-2xs">
+                <div className="rounded-2xl bg-vc-surface1 p-5 shadow-2xs">
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span className="text-xs font-semibold uppercase tracking-wider">Content Library</span>
-                    <FileText className="h-4 w-4 text-forest" />
+                    <FileText className="h-4 w-4 text-violet-300" />
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-2xl font-bold text-foreground">
+                    <span className="text-[28px] leading-none font-semibold tracking-tight tabular-nums text-foreground">
                       {summary?.total_clips || 0}
                     </span>
                     <span className="text-xs text-muted-foreground">clips</span>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground border-t border-border/50 pt-2">
                     <span>Published: {summary?.published_posts_count || 0}</span>
-                    <span className="font-medium text-forest">In Exp: {summary?.in_experiment_clips_count || 0}</span>
+                    <span className="font-medium text-violet-300">In Exp: {summary?.in_experiment_clips_count || 0}</span>
                   </div>
                 </div>
 
                 {/* 2. Recorded Video Views & Watch Time */}
-                <div className="rounded-2xl border border-border bg-white p-5 shadow-2xs">
+                <div className="rounded-2xl bg-vc-surface1 p-5 shadow-2xs">
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span className="text-xs font-semibold uppercase tracking-wider">Recorded Views</span>
-                    <Eye className="h-4 w-4 text-sage" />
+                    <Eye className="h-4 w-4 text-emerald-400" />
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-2xl font-bold text-foreground">
+                    <span className="text-[28px] leading-none font-semibold tracking-tight tabular-nums text-foreground">
                       {summary?.recorded_views ? summary.recorded_views.toLocaleString() : '0'}
                     </span>
                   </div>
@@ -370,13 +370,13 @@ export const AnalyticsPage: React.FC = () => {
                 </div>
 
                 {/* 3. Impressions, Clicks & Honest CTR */}
-                <div className="rounded-2xl border border-border bg-white p-5 shadow-2xs">
+                <div className="rounded-2xl bg-vc-surface1 p-5 shadow-2xs">
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span className="text-xs font-semibold uppercase tracking-wider">Feed Impressions</span>
                     <MousePointerClick className="h-4 w-4 text-terracotta" />
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-2xl font-bold text-foreground">
+                    <span className="text-[28px] leading-none font-semibold tracking-tight tabular-nums text-foreground">
                       {summary?.recorded_impressions ? summary.recorded_impressions.toLocaleString() : '0'}
                     </span>
                     <span className="text-xs text-muted-foreground">impressions</span>
@@ -393,13 +393,13 @@ export const AnalyticsPage: React.FC = () => {
                 </div>
 
                 {/* 4. A/B Exposures, Conversions & Rate */}
-                <div className="rounded-2xl border border-border bg-white p-5 shadow-2xs">
+                <div className="rounded-2xl bg-vc-surface1 p-5 shadow-2xs">
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span className="text-xs font-semibold uppercase tracking-wider">A/B Conversions</span>
                     <Target className="h-4 w-4 text-olive" />
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-2xl font-bold text-foreground">
+                    <span className="text-[28px] leading-none font-semibold tracking-tight tabular-nums text-foreground">
                       {summary?.recorded_conversions ? summary.recorded_conversions.toLocaleString() : '0'}
                     </span>
                     <span className="text-xs text-muted-foreground">actions</span>
@@ -417,10 +417,10 @@ export const AnalyticsPage: React.FC = () => {
               </div>
 
               {/* Performance Trends Timeline Visualizer */}
-              <div className="rounded-2xl border border-border bg-white p-6 shadow-2xs">
+              <div className="rounded-2xl bg-vc-surface1 p-6 shadow-2xs">
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-forest" />
+                    <TrendingUp className="h-5 w-5 text-violet-300" />
                     <h2 className="text-base font-bold text-foreground">Performance Trends</h2>
                   </div>
                   <span className="text-xs text-muted-foreground">
@@ -451,9 +451,9 @@ export const AnalyticsPage: React.FC = () => {
                               style={{ height: `${heightPct}%` }}
                               className={`w-full rounded-t-md transition-all ${
                                 metricHighlight === 'views'
-                                  ? 'bg-sage/80 hover:bg-sage'
+                                  ? 'bg-emerald-500/80 hover:bg-emerald-500'
                                   : metricHighlight === 'impressions'
-                                  ? 'bg-forest/80 hover:bg-forest'
+                                  ? 'bg-violet-500/80 hover:bg-violet-500'
                                   : metricHighlight === 'clicks'
                                   ? 'bg-terracotta/80 hover:bg-terracotta'
                                   : 'bg-olive/80 hover:bg-olive'
@@ -479,10 +479,10 @@ export const AnalyticsPage: React.FC = () => {
               </div>
 
               {/* Platform Performance Breakdown (Only Platforms with Stored Data) */}
-              <div className="rounded-2xl border border-border bg-white p-6 shadow-2xs">
+              <div className="rounded-2xl bg-vc-surface1 p-6 shadow-2xs">
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Layers className="h-5 w-5 text-forest" />
+                    <Layers className="h-5 w-5 text-violet-300" />
                     <h2 className="text-base font-bold text-foreground">Platform Distribution</h2>
                   </div>
                   <span className="text-2xs text-muted-foreground">Platforms with recorded data</span>
@@ -531,7 +531,7 @@ export const AnalyticsPage: React.FC = () => {
               </div>
 
               {/* Content-Level Performance Comparison Table */}
-              <div className="rounded-2xl border border-border bg-white p-6 shadow-2xs">
+              <div className="rounded-2xl bg-vc-surface1 p-6 shadow-2xs">
                 <div className="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
                   <div>
                     <h2 className="text-base font-bold text-foreground">Content-Level Performance</h2>
@@ -576,9 +576,9 @@ export const AnalyticsPage: React.FC = () => {
                               <span
                                 className={`inline-flex rounded-full px-2 py-0.5 text-2xs font-semibold capitalize ${
                                   item.status === 'published'
-                                    ? 'bg-forest/10 text-forest'
+                                    ? 'bg-violet-500/10 text-violet-300'
                                     : item.status === 'in_experiment'
-                                    ? 'bg-purple-100 text-purple-700'
+                                    ? 'bg-violet-500/15 text-violet-300'
                                     : 'bg-sand/60 text-muted-foreground'
                                 }`}
                               >
@@ -625,7 +625,7 @@ export const AnalyticsPage: React.FC = () => {
                                 <div>
                                   <Link
                                     to={`/clips/${item.clip_id}/edit?tab=ab_studio`}
-                                    className="font-medium text-forest hover:underline text-xs flex items-center gap-1"
+                                    className="font-medium text-violet-300 hover:underline text-xs flex items-center gap-1"
                                   >
                                     <span className="line-clamp-1">{item.experiment.name}</span>
                                     <ExternalLink className="h-3 w-3 shrink-0" />
@@ -634,16 +634,16 @@ export const AnalyticsPage: React.FC = () => {
                                     <span
                                       className={`rounded-md px-1.5 py-0.2 text-3xs font-semibold ${
                                         item.experiment.status === 'CONCLUDED'
-                                          ? 'bg-forest/15 text-forest'
+                                          ? 'bg-violet-500/15 text-violet-300'
                                           : item.experiment.status === 'ACTIVE'
-                                          ? 'bg-blue-100 text-blue-800'
+                                          ? 'bg-white/[0.06] text-zinc-200'
                                           : 'bg-sand/80 text-muted-foreground'
                                       }`}
                                     >
                                       {item.experiment.status}
                                     </span>
                                     {item.experiment.is_significant && (
-                                      <span className="rounded-md bg-sage/20 px-1.5 py-0.2 text-3xs font-semibold text-forest">
+                                      <span className="rounded-md bg-emerald-500/20 px-1.5 py-0.2 text-3xs font-semibold text-violet-300">
                                         Significant
                                       </span>
                                     )}
@@ -672,7 +672,7 @@ export const AnalyticsPage: React.FC = () => {
                             <td className="py-3.5">
                               <Link
                                 to={`/clips/${item.clip_id}/edit`}
-                                className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-cream transition-colors"
+                                className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-white/[0.06] transition-colors"
                               >
                                 Edit Clip
                                 <ArrowUpRight className="h-3 w-3" />
@@ -693,7 +693,7 @@ export const AnalyticsPage: React.FC = () => {
                           <button
                             onClick={() => setPage((p) => Math.max(1, p - 1))}
                             disabled={dashboard.page <= 1}
-                            className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-cream transition-colors disabled:opacity-40"
+                            className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-white/[0.06] transition-colors disabled:opacity-40"
                           >
                             <ChevronLeft className="h-3.5 w-3.5" />
                             Previous
@@ -701,7 +701,7 @@ export const AnalyticsPage: React.FC = () => {
                           <button
                             onClick={() => setPage((p) => p + 1)}
                             disabled={dashboard.page * dashboard.limit >= dashboard.total_content_items}
-                            className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-cream transition-colors disabled:opacity-40"
+                            className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-white/[0.06] transition-colors disabled:opacity-40"
                           >
                             Next
                             <ChevronRight className="h-3.5 w-3.5" />
@@ -729,13 +729,13 @@ export const AnalyticsPage: React.FC = () => {
       {activeTab === 'growth' && (
         <div className="space-y-8">
           {/* Growth Coach Recommendations Section */}
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-2xs">
+          <div className="rounded-2xl bg-vc-surface1 p-6 shadow-2xs">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-forest" />
+                <Sparkles className="h-5 w-5 text-violet-300" />
                 <h2 className="text-lg font-bold text-foreground">VireoClip Growth Coach</h2>
               </div>
-              <span className="rounded-full bg-forest/10 px-2.5 py-0.5 text-xs font-semibold text-forest">
+              <span className="rounded-full bg-violet-500/10 px-2.5 py-0.5 text-xs font-semibold text-violet-300">
                 Evidence-Grounded Insights
               </span>
             </div>
@@ -744,19 +744,19 @@ export const AnalyticsPage: React.FC = () => {
               {recommendations.map((rec) => (
                 <div
                   key={rec.id}
-                  className="flex flex-col justify-between rounded-xl border border-border/80 bg-cream/40 p-4"
+                  className="flex flex-col justify-between rounded-xl bg-white/[0.04] p-4"
                 >
                   <div>
                     <div className="flex items-center gap-2">
                       {rec.category === 'working' ? (
-                        <Award className="h-4 w-4 text-sage" />
+                        <Award className="h-4 w-4 text-emerald-400" />
                       ) : (
                         <Lightbulb className="h-4 w-4 text-terracotta" />
                       )}
                       <h3 className="text-sm font-bold text-foreground">{rec.title}</h3>
                     </div>
                     <p className="mt-2 text-xs leading-relaxed text-foreground/90">{rec.recommendation}</p>
-                    <div className="mt-3 rounded-lg border border-border/60 bg-white/70 p-2 text-2xs text-muted-foreground">
+                    <div className="mt-3 rounded-lg bg-white/70 p-2 text-2xs text-muted-foreground">
                       <span className="font-semibold text-foreground">Evidence: </span>
                       {rec.evidence}
                     </div>
@@ -772,9 +772,9 @@ export const AnalyticsPage: React.FC = () => {
           {/* Platform Performance & Content Memory Grid */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {/* Platform Comparison */}
-            <div className="rounded-2xl border border-border bg-white p-6 shadow-2xs">
+            <div className="rounded-2xl bg-vc-surface1 p-6 shadow-2xs">
               <div className="mb-4 flex items-center gap-2">
-                <Layers className="h-5 w-5 text-forest" />
+                <Layers className="h-5 w-5 text-violet-300" />
                 <h2 className="text-base font-bold text-foreground">Platform Performance</h2>
               </div>
 
@@ -801,7 +801,7 @@ export const AnalyticsPage: React.FC = () => {
             </div>
 
             {/* Content Memory */}
-            <div className="rounded-2xl border border-border bg-white p-6 shadow-2xs">
+            <div className="rounded-2xl bg-vc-surface1 p-6 shadow-2xs">
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Brain className="h-5 w-5 text-terracotta" />
@@ -817,12 +817,12 @@ export const AnalyticsPage: React.FC = () => {
               ) : (
                 <div className="space-y-3">
                   {memories.map((m) => (
-                    <div key={m.id} className="rounded-xl border border-border/70 bg-cream/30 p-3">
+                    <div key={m.id} className="rounded-xl bg-white/[0.04] p-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-forest">
+                        <span className="text-xs font-bold uppercase tracking-wider text-violet-300">
                           {m.category}: {m.pattern}
                         </span>
-                        <span className="rounded-md bg-white px-2 py-0.5 text-2xs font-semibold text-muted-foreground">
+                        <span className="rounded-md bg-vc-surface1 px-2 py-0.5 text-2xs font-semibold text-muted-foreground">
                           {m.confidence} confidence
                         </span>
                       </div>

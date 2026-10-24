@@ -43,6 +43,11 @@ import {
   EDITOR_TRANSITION_TYPES,
   EDITOR_EFFECT_TYPES,
   EDITOR_FILTER_PRESETS,
+  ClipAspectRatio,
+  CropConfig,
+  ReframeKeyframe,
+  ReframeLayoutMode,
+  ReframeTrackRecord,
 } from '../types/index.js';
 import { downloadObjectToFile, uploadFile, signObjectGet } from './objectStorageService.js';
 import { CaptionService } from './captionService.js';
@@ -51,7 +56,9 @@ import { buildCropFilter } from './clipRenderService.js';
 import { AudioEnhancementService } from './audioEnhancementService.js';
 import { AudioDuckingService } from './audioDuckingService.js';
 import { SoundDesignService } from './soundDesignService.js';
-import { partitionCaptionCues } from '../utils/editorRippleCut.js';
+import { SmartReframeService } from './smartReframeService.js';
+import { partitionCaptionCues, shiftCaptionItemsForRippleDelete, cloneCaptionCuesForDuplicate } from '../utils/editorRippleCut.js';
+import { validateEditorSourcePath, isAllowedEditorSourcePath, overlayAssetExtension } from '../utils/editorAssetValidator.js';
 
 const execFileAsync = promisify(execFile);
 const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
@@ -63,6 +70,22 @@ export interface CompiledRenderGraph {
   audioMap: string;
   outputArgs: string[];
   duration: number;
+}
+
+/**
+ * Clip-level reframing context resolved once by ClipRenderService.resolveReframeDecision
+ * and handed to compileRenderGraph so Pro renders frame slices exactly like the Quick
+ * path would frame the same source (audit finding H-1).
+ * Reframe keyframes are clip-relative; slices rebase them into slice-local time.
+ */
+export interface ProReframeContext {
+  aspectRatio: ClipAspectRatio;
+  cropConfig: CropConfig | null;
+  /** Effective clip start in source-file seconds (start_seconds + trim_start_offset). */
+  clipStartSec: number;
+  mode: 'smart' | 'fallback_center' | 'manual';
+  layoutMode: ReframeLayoutMode | string;
+  track: (ReframeTrackRecord & { isStale?: boolean }) | null;
 }
 
 export class ProEditorService {
@@ -225,6 +248,10 @@ export class ProEditorService {
           if (item.transition_out && !EDITOR_TRANSITION_TYPES.includes(item.transition_out.type)) {
             throw new AppError(`Invalid transition type: ${item.transition_out.type}`, 400, 'INVALID_TRANSITION');
           }
+          // Source paths become server-side fetches and FFmpeg inputs — validate strictly.
+          if (item.source_path !== undefined && item.source_path !== null) {
+            await validateEditorSourcePath(userId, item.source_path);
+          }
         }
       }
 
@@ -370,44 +397,9 @@ export class ProEditorService {
     for (const tr of project.tracks) {
       if (tr.locked) continue;
       if (tr.type === 'CAPTION') {
-        for (const itm of tr.items) {
-          itm.timeline_end = Math.max(0, Number((itm.timeline_end - duration).toFixed(3)));
-          if (Array.isArray(itm.caption?.cues)) {
-            const cutStart = deletePoint;
-            const cutEnd = deletePoint + duration;
-            const newCues: any[] = [];
-            for (const cue of itm.caption.cues) {
-              if (cue.end <= cutStart) {
-                newCues.push(cue);
-              } else if (cue.start >= cutEnd) {
-                const shiftedWords = Array.isArray(cue.words)
-                  ? cue.words.map((w: any) => ({
-                      ...w,
-                      start: Math.max(0, Number((w.start - duration).toFixed(3))),
-                      end: Math.max(0.05, Number((w.end - duration).toFixed(3))),
-                    }))
-                  : cue.words;
-                newCues.push({
-                  ...cue,
-                  start: Math.max(0, Number((cue.start - duration).toFixed(3))),
-                  end: Math.max(0.05, Number((cue.end - duration).toFixed(3))),
-                  words: shiftedWords,
-                });
-              } else if (cue.start < cutStart && cue.end > cutEnd) {
-                newCues.push({
-                  ...cue,
-                  end: Number(cutStart.toFixed(3)),
-                });
-              } else if (cue.start < cutStart && cue.end > cutStart) {
-                newCues.push({
-                  ...cue,
-                  end: Number(cutStart.toFixed(3)),
-                });
-              }
-            }
-            itm.caption.cues = newCues;
-          }
-        }
+        // Bounds + cue slicing/shift handled by the shared pure helper so items
+        // before the cut stay untouched and items after it slide with the timeline.
+        tr.items = shiftCaptionItemsForRippleDelete(tr.items, deletePoint, duration);
       } else {
         for (const itm of tr.items) {
           if (itm.timeline_start >= deletePoint) {
@@ -451,6 +443,26 @@ export class ProEditorService {
     const newItemStart = item.timeline_end;
     const newItemEnd = newItemStart + duration;
 
+    // Caption cues are timeline-absolute in service-maintained projects: a duplicated
+    // item must rebase its cues to the new placement and get fresh cue IDs, or the
+    // export aggregation drops them as seen-duplicates and they render at the old position.
+    let duplicatedCaption = item.caption ? JSON.parse(JSON.stringify(item.caption)) : undefined;
+    if (
+      duplicatedCaption &&
+      Array.isArray(duplicatedCaption.cues) &&
+      duplicatedCaption.cues.length > 0
+    ) {
+      const sourceStart = item.timeline_start;
+      const firstStart = duplicatedCaption.cues[0].start;
+      const isSegmentRelative = sourceStart > 0 && firstStart < sourceStart - 0.05 && firstStart >= 0;
+      if (!isSegmentRelative) {
+        duplicatedCaption = {
+          ...duplicatedCaption,
+          cues: cloneCaptionCuesForDuplicate(duplicatedCaption.cues, newItemStart - sourceStart),
+        };
+      }
+    }
+
     const duplicatedItem: EditorTrackItem = {
       ...JSON.parse(JSON.stringify(item)),
       id: crypto.randomUUID(),
@@ -460,6 +472,7 @@ export class ProEditorService {
         ...k,
         id: crypto.randomUUID(),
       })),
+      caption: duplicatedCaption,
     };
 
     track.items.push(duplicatedItem);
@@ -583,19 +596,24 @@ export class ProEditorService {
   ): Promise<EditorProject> {
     for (const track of project.tracks) {
       for (const item of track.items) {
-        if (
-          item.source_path &&
-          (item.source_path.startsWith('http://') || item.source_path.startsWith('https://'))
-        ) {
+        const rawPath = item.source_path;
+        if (!rawPath) continue;
+
+        // Defense in depth: items persisted before source-path validation existed
+        // must not be fetched server-side. Disallowed sources are skipped.
+        if (!isAllowedEditorSourcePath(project.user_id, rawPath)) {
+          logger.warn(`[ProEditor] Skipping disallowed overlay asset for item ${item.id} during preload`);
+          continue;
+        }
+
+        if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) {
           try {
-            const ext = item.source_path.includes('.gif')
-              ? '.gif'
-              : item.source_path.includes('.png')
-              ? '.png'
-              : '.webp';
+            const ext = overlayAssetExtension(rawPath);
             const localCachePath = path.join(tmpDir, `overlay_${item.id}${ext}`);
             if (!fs.existsSync(localCachePath)) {
-              const res = await fetch(item.source_path, { headers: { 'User-Agent': 'VireoClip/1.0' } });
+              // Redirects are not followed: an allowlisted host must not be able
+              // to bounce the server-side fetch onto an internal address.
+              const res = await fetch(rawPath, { headers: { 'User-Agent': 'VireoClip/1.0' }, redirect: 'manual' });
               if (res.ok) {
                 const buf = Buffer.from(await res.arrayBuffer());
                 fs.writeFileSync(localCachePath, buf);
@@ -614,6 +632,160 @@ export class ProEditorService {
   }
 
   /**
+   * Crop filter for one video item slice, mirroring the Quick Clip decision order:
+   * per-item manual crop → clip-level smart reframe (dynamic, rebased to the slice
+   * window) → blurred layout when no subject → center crop. Title cards need no crop.
+   */
+  private static buildSliceCropFilter(
+    item: EditorTrackItem,
+    reframe: ProReframeContext | undefined,
+    sliceWindowStartClipRel: number,
+    sliceDuration: number
+  ): string | null {
+    const ratio = (reframe?.aspectRatio || '9:16') as ClipAspectRatio;
+
+    if (item.is_title_card) return null;
+
+    // Per-item manual crop override wins over clip-level reframing.
+    if (item.crop && (item.crop.mode === 'custom' || item.crop.mode === 'fit' || item.crop.mode === 'fill')) {
+      return buildCropFilter(ratio, { focusX: item.crop.focusX ?? 0.5, focusY: item.crop.focusY ?? 0.5 });
+    }
+
+    const track = reframe?.track;
+    const hasUsableTrack = Boolean(
+      reframe &&
+      reframe.mode === 'smart' &&
+      track &&
+      Array.isArray(track.smoothed_keyframes) &&
+      track.smoothed_keyframes.length > 0 &&
+      !track.isStale
+    );
+
+    if (hasUsableTrack && track) {
+      if (reframe!.layoutMode === 'blur') {
+        return SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: 1080, canvasHeight: 1920 });
+      }
+
+      if (reframe!.layoutMode === 'split' || reframe!.layoutMode === 'screencast') {
+        return SmartReframeService.buildLayoutCropFilter({
+          layoutMode: reframe!.layoutMode as any,
+          aspectRatio: ratio,
+          keyframes: track.smoothed_keyframes,
+          sourceWidth: track.source_width || 1920,
+          sourceHeight: track.source_height || 1080,
+          duration: sliceDuration,
+          speaker1X: reframe!.cropConfig?.split?.speaker1X,
+          speaker2X: reframe!.cropConfig?.split?.speaker2X,
+          screencastMode: reframe!.cropConfig?.screencast?.mode,
+        });
+      }
+
+      // 'track' layout: rebase clip-relative keyframes into slice-local time and
+      // extend boundary keyframes so the expression covers the full slice window.
+      // Boundary extensions are skipped when an in-window keyframe already sits at
+      // the edge — duplicate times would zero-divide the slope pruning downstream.
+      const kfs = track.smoothed_keyframes;
+      const windowEnd = sliceWindowStartClipRel + sliceDuration;
+      const EPS = 1e-6;
+      const rebased: ReframeKeyframe[] = [];
+      const hasKfAtStart = kfs.some((k) => Math.abs(k.time - sliceWindowStartClipRel) <= EPS);
+      const hasKfAtEnd = kfs.some((k) => Math.abs(k.time - windowEnd) <= EPS);
+      const before = [...kfs].reverse().find((k) => k.time < sliceWindowStartClipRel - EPS);
+      const after = kfs.find((k) => k.time > windowEnd + EPS);
+      if (before && !hasKfAtStart) rebased.push({ time: 0, centerX: before.centerX, centerY: before.centerY });
+      for (const k of kfs) {
+        if (k.time >= sliceWindowStartClipRel - EPS && k.time <= windowEnd + EPS) {
+          rebased.push({
+            time: Number(Math.max(0, k.time - sliceWindowStartClipRel).toFixed(3)),
+            centerX: k.centerX,
+            centerY: k.centerY,
+          });
+        }
+      }
+      if (after && !hasKfAtEnd) rebased.push({ time: Number(sliceDuration.toFixed(3)), centerX: after.centerX, centerY: after.centerY });
+
+      if (rebased.length === 0) {
+        return buildCropFilter(ratio, { focusX: 0.5, focusY: 0.5 });
+      }
+      if (rebased.length === 1) {
+        return buildCropFilter(ratio, { focusX: rebased[0].centerX, focusY: rebased[0].centerY });
+      }
+      return SmartReframeService.buildLayoutCropFilter({
+        layoutMode: 'track',
+        aspectRatio: ratio,
+        keyframes: rebased,
+        sourceWidth: track.source_width || 1920,
+        sourceHeight: track.source_height || 1080,
+        duration: sliceDuration,
+      });
+    }
+
+    return buildCropFilter(ratio, { focusX: 0.5, focusY: 0.5 });
+  }
+
+  /**
+   * Per-item look chain (color adjustments, filter preset, effects, punch-in zoom).
+   * Applied inside each slice so every timeline item keeps its own styling instead
+   * of the whole render inheriting the first item's look (audit finding M-2).
+   * Keyframe times are item-relative, which equals slice-local time after setpts.
+   */
+  private static buildItemStyleFilters(item: EditorTrackItem, canvasW: number, canvasH: number): string[] {
+    const videoFilters: string[] = [];
+
+    if (item.color) {
+      const c = item.color;
+      const b = (c.brightness || 0).toFixed(2);
+      const cont = (1.0 + (c.contrast || 0)).toFixed(2);
+      const sat = (1.0 + (c.saturation || 0)).toFixed(2);
+      videoFilters.push(`eq=brightness=${b}:contrast=${cont}:saturation=${sat}`);
+    }
+
+    if (item.filter && item.filter.preset && item.filter.preset !== 'none') {
+      switch (item.filter.preset) {
+        case 'warm':
+          videoFilters.push('colorbalance=rs=0.1:gs=0.05:bs=-0.1');
+          break;
+        case 'cool':
+          videoFilters.push('colorbalance=rs=-0.1:gs=0.0:bs=0.15');
+          break;
+        case 'mono':
+          videoFilters.push('hue=s=0');
+          break;
+        case 'punch':
+          videoFilters.push('eq=contrast=1.2:saturation=1.25');
+          break;
+        case 'film':
+          videoFilters.push('curves=preset=vintage');
+          break;
+      }
+    }
+
+    for (const eff of item.effects || []) {
+      if (eff.type === 'vignette') {
+        videoFilters.push('vignette=PI/4');
+      } else if (eff.type === 'blur') {
+        const r = Math.max(1, Math.round((eff.intensity || 0.5) * 10));
+        videoFilters.push(`boxblur=${r}:1`);
+      } else if (eff.type === 'sharpen') {
+        videoFilters.push('unsharp=5:5:1.0:5:5:0.0');
+      }
+    }
+
+    const scaleKeyframes = (item.keyframes || []).filter((k) => k.property === 'scale');
+    if (scaleKeyframes.length > 0) {
+      const kf = scaleKeyframes[0];
+      const kfStart = Math.max(0, kf.time);
+      const kfDur = 2.5;
+      const scaleVal = kf.value || 1.06;
+      videoFilters.push(
+        `crop=w='if(between(t,${kfStart.toFixed(2)},${(kfStart + kfDur).toFixed(2)}), in_w/${scaleVal}, in_w)':h='if(between(t,${kfStart.toFixed(2)},${(kfStart + kfDur).toFixed(2)}), in_h/${scaleVal}, in_h)':x=(in_w-out_w)/2:y=(in_h-out_h)/2,scale=${canvasW}:${canvasH}`
+      );
+    }
+
+    return videoFilters;
+  }
+
+  /**
    * Compiles the entire multi-track EditorProject into a valid FFmpeg RenderGraph V2.
    * Enforces argument array execution with ZERO raw shell string interpolation.
    */
@@ -621,7 +793,8 @@ export class ProEditorService {
     project: EditorProject,
     sourceVideoPath: string,
     outputPath = '/tmp/render.mp4',
-    tmpDir = os.tmpdir()
+    tmpDir = os.tmpdir(),
+    reframe?: ProReframeContext
   ): CompiledRenderGraph {
     const inputArgs: string[] = [];
     const filterComplex: string[] = [];
@@ -648,8 +821,8 @@ export class ProEditorService {
     let videoStreamLabel = '[0:v]';
     let audioStreamLabel = '[0:a]';
 
-    // Base video scaling & crop filter
-    const baseCropFilter = buildCropFilter(project.canvas.aspect_ratio || '9:16');
+    // Base video scaling & crop filter — resolved per slice below (parity with Quick path).
+    const canvasDuration = Number((project.canvas.duration || 0).toFixed(3));
 
     if (allVideoItems.length > 1) {
       // Multiple timeline segments: slice real video, or synthesize title cards, then concat.
@@ -683,9 +856,16 @@ export class ProEditorService {
         } else {
           const startStr = (item.source_start || 0).toFixed(2);
           const endStr = (item.source_end !== undefined ? item.source_end : (Number(startStr) + dur)).toFixed(2);
-          filterComplex.push(
-            `[0:v]trim=start=${startStr}:end=${endStr},setpts=PTS-STARTPTS,${baseCropFilter},fps=${fps},setsar=1${vSlice}`
-          );
+          // Keyframes are clip-relative; slices trim straight from the source file, so
+          // the slice-local window starts at source_start - clipStart.
+          const windowStartClipRel = (item.source_start || 0) - (reframe?.clipStartSec ?? 0);
+          const sliceCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRel, dur);
+          const styleFilters = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH);
+          const chain = [`trim=start=${startStr}:end=${endStr}`, 'setpts=PTS-STARTPTS'];
+          if (sliceCrop) chain.push(sliceCrop);
+          chain.push(...styleFilters);
+          chain.push(`fps=${fps}`, 'setsar=1');
+          filterComplex.push(`[0:v]${chain.join(',')}${vSlice}`);
           filterComplex.push(
             `[0:a]atrim=start=${startStr}:end=${endStr},asetpts=PTS-STARTPTS${aSlice}`
           );
@@ -698,73 +878,14 @@ export class ProEditorService {
       videoStreamLabel = '[base_v]';
       audioStreamLabel = '[base_a]';
     } else {
-      filterComplex.push(`${videoStreamLabel}${baseCropFilter},fps=${fps}[base_v]`);
+      // Single video item: the caller input-seeks with -ss clipStart, so filter time
+      // is already clip-relative and the item keeps its own crop + styling.
+      const single = allVideoItems[0];
+      const singleCrop = single ? ProEditorService.buildSliceCropFilter(single, reframe, 0, canvasDuration || 10) : null;
+      const styleFilters = single ? ProEditorService.buildItemStyleFilters(single, canvasW, canvasH) : [];
+      const chain = [singleCrop, ...styleFilters].filter(Boolean) as string[];
+      filterComplex.push(`${videoStreamLabel}${chain.length ? ',' + chain.join(',') : ''},fps=${fps}[base_v]`);
       videoStreamLabel = '[base_v]';
-    }
-
-    // Apply color adjustments, filters, and effects from first video item if available
-    if (allVideoItems.length > 0) {
-      const primary = allVideoItems[0];
-      const videoFilters: string[] = [];
-
-      // Color adjustments
-      if (primary.color) {
-        const c = primary.color;
-        const b = (c.brightness || 0).toFixed(2);
-        const cont = (1.0 + (c.contrast || 0)).toFixed(2);
-        const sat = (1.0 + (c.saturation || 0)).toFixed(2);
-        videoFilters.push(`eq=brightness=${b}:contrast=${cont}:saturation=${sat}`);
-      }
-
-      // Filter preset
-      if (primary.filter && primary.filter.preset !== 'none') {
-        switch (primary.filter.preset) {
-          case 'warm':
-            videoFilters.push('colorbalance=rs=0.1:gs=0.05:bs=-0.1');
-            break;
-          case 'cool':
-            videoFilters.push('colorbalance=rs=-0.1:gs=0.0:bs=0.15');
-            break;
-          case 'mono':
-            videoFilters.push('hue=s=0');
-            break;
-          case 'punch':
-            videoFilters.push('eq=contrast=1.2:saturation=1.25');
-            break;
-          case 'film':
-            videoFilters.push('curves=preset=vintage');
-            break;
-        }
-      }
-
-      // Effects
-      for (const eff of primary.effects) {
-        if (eff.type === 'vignette') {
-          videoFilters.push('vignette=PI/4');
-        } else if (eff.type === 'blur') {
-          const r = Math.max(1, Math.round((eff.intensity || 0.5) * 10));
-          videoFilters.push(`boxblur=${r}:1`);
-        } else if (eff.type === 'sharpen') {
-          videoFilters.push('unsharp=5:5:1.0:5:5:0.0');
-        }
-      }
-
-      // Keyframe dynamic zoom / transform (e.g. punch-in)
-      const scaleKeyframes = primary.keyframes.filter((k) => k.property === 'scale');
-      if (scaleKeyframes.length > 0) {
-        const kf = scaleKeyframes[0];
-        const kfStart = primary.timeline_start + kf.time;
-        const kfDur = 2.5;
-        const scaleVal = kf.value || 1.06;
-        videoFilters.push(
-          `crop=w='if(between(t,${kfStart.toFixed(2)},${(kfStart + kfDur).toFixed(2)}), in_w/${scaleVal}, in_w)':h='if(between(t,${kfStart.toFixed(2)},${(kfStart + kfDur).toFixed(2)}), in_h/${scaleVal}, in_h)':x=(in_w-out_w)/2:y=(in_h-out_h)/2,scale=${canvasW}:${canvasH}`
-        );
-      }
-
-      if (videoFilters.length > 0) {
-        filterComplex.push(`${videoStreamLabel}${videoFilters.join(',')}[styled_v]`);
-        videoStreamLabel = '[styled_v]';
-      }
     }
 
     // 1b. Overlay / B-Roll Video & Image Layers
@@ -783,9 +904,16 @@ export class ProEditorService {
         let assetPath = item.source_path;
         if (!assetPath) continue;
 
+        // Defense in depth: items persisted before validation existed must not
+        // reach FFmpeg. Disallowed sources are skipped with a warning.
+        if (!isAllowedEditorSourcePath(project.user_id, assetPath)) {
+          logger.warn(`[ProEditor] Skipping disallowed overlay asset for item ${item.id}: ${assetPath.slice(0, 80)}`);
+          continue;
+        }
+
         // Check if remote URL was already downloaded / cached into tmpDir
         if (assetPath.startsWith('http://') || assetPath.startsWith('https://')) {
-          const ext = assetPath.includes('.gif') ? '.gif' : assetPath.includes('.png') ? '.png' : '.webp';
+          const ext = overlayAssetExtension(assetPath);
           const localCachePath = path.join(tmpDir, `overlay_${item.id}${ext}`);
           if (fs.existsSync(localCachePath)) {
             assetPath = localCachePath;
@@ -959,6 +1087,10 @@ export class ProEditorService {
     for (const track of secondaryAudioTracks) {
       for (const item of track.items) {
         if (!item.hidden && !item.muted && item.source_path && fs.existsSync(item.source_path)) {
+          if (!isAllowedEditorSourcePath(project.user_id, item.source_path)) {
+            logger.warn(`[ProEditor] Skipping disallowed audio asset for item ${item.id} in render graph`);
+            continue;
+          }
           inputArgs.push('-i', item.source_path);
           currentInputIdx++;
           const rawAudioLabel = `[${currentInputIdx}:a]`;

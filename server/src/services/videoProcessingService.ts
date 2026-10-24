@@ -7,12 +7,14 @@ import fs from 'node:fs/promises';
 import { downloadObjectToFile } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
 import { extractAudioFromVideo } from './audioExtractionService.js';
-import { getTranscriptionProvider } from './transcription/transcriptionProviderFactory.js';
+import { getTranscriptionProviderWithFailover } from './transcription/failoverTranscriptionProvider.js';
 import { TranscriptRecord } from '../types/index.js';
 import { UsageService } from './usageService.js';
 import { ClipRenderService } from './clipRenderService.js';
 import { GenreIntelligenceService } from './genreIntelligenceService.js';
+import { config } from '../config/index.js';
 import { assignWordIds } from '../utils/wordIdentityUtils.js';
+import { ProjectPosterService } from './projectPosterService.js';
 
 // In-memory set to guard against duplicate concurrent processing runs for the same project
 const activeProcessingSet = new Set<string>();
@@ -79,6 +81,17 @@ export async function processProjectVideo(
     const sourceResolution = await ClipRenderService.ensureSourceVideo(storagePath, videoPath);
     logger.info(`Source video resolved for project ${projectId} via ${sourceResolution}: ${videoPath}`);
 
+    // 2b. HD poster frame for the dashboard while we have the file locally (best-effort, ~100ms).
+    const { data: posterRow } = await dataRepository
+      .from('projects')
+      .select('source_type, duration_seconds')
+      .eq('id', projectId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (posterRow?.source_type === 'upload') {
+      await ProjectPosterService.generateFromLocalFile(userId, projectId, videoPath, posterRow.duration_seconds);
+    }
+
     // 3. Extract audio via FFmpeg without buffering the video in Node memory.
     const extractedAudio = await extractAudioFromVideo(videoPath, originalFileName);
     cleanupAudio = extractedAudio.cleanup;
@@ -90,8 +103,9 @@ export async function processProjectVideo(
       .eq('id', projectId)
       .eq('user_id', userId);
 
-    // 5. Transcribe audio with configured provider (Groq default / OpenRouter)
-    const provider = getTranscriptionProvider();
+    // 5. Transcribe audio with the configured provider, failing over to the
+    // alternate provider on transient runtime failures (rate limit, 5xx, timeout).
+    const provider = getTranscriptionProviderWithFailover();
     logger.info(`Using transcription provider: ${provider.name}`, { projectId, provider: provider.name });
     const transcription = await provider.transcribeAudio(
       extractedAudio.audioBuffer,
@@ -211,6 +225,28 @@ export async function processProjectVideo(
     }
 
     logger.info(`Project ${projectId} successfully transcribed via ${provider.name}!`, { projectId, provider: provider.name });
+
+    // Genre roadmap Phase 2 (audit F1): optionally build the multimodal timeline
+    // (scene cuts, silence, faces, OCR) so clip selection receives real visual and
+    // audio signals instead of constants. Fire-and-forget: transcription success
+    // must never fail because enrichment did; analyze-clips also works
+    // transcript-only when this has not completed yet.
+    if (config.multimodalAutoAnalysis) {
+      try {
+        const { VideoAnalysisWorker } = await import('./multimodal/videoAnalysisWorker.js');
+        const job = await VideoAnalysisWorker.enqueueJob(projectId, userId);
+        logger.info(`[MultimodalAuto] Enqueued timeline analysis job ${job?.id ?? '(unknown)'} for project ${projectId}`);
+        setImmediate(async () => {
+          try {
+            await VideoAnalysisWorker.processNext();
+          } catch (e: any) {
+            logger.warn(`[MultimodalAuto] Background analysis run notice for project ${projectId}: ${e.message}`);
+          }
+        });
+      } catch (mmErr: any) {
+        logger.warn(`[MultimodalAuto] Could not enqueue multimodal analysis for project ${projectId}: ${mmErr.message}`);
+      }
+    }
 
     return {
       status: 'transcribed',

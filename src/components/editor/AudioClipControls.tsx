@@ -50,7 +50,7 @@ export const AudioClipControls: React.FC<AudioClipControlsProps> = ({ item, onUp
           className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
             muted
               ? 'bg-red-500/15 border-red-500/40 text-red-300'
-              : 'bg-[#07080D] border-white/[0.08] text-neutral-300 hover:border-white/20'
+              : 'bg-vc-canvas border-white/[0.08] text-neutral-300 hover:border-white/20'
           }`}
         >
           {muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}

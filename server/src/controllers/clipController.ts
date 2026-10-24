@@ -3,7 +3,7 @@ import { dataRepository, ownerContext } from '../db/repositories/dataRepository.
 import { Response } from 'express';
 import { AuthenticatedRequest, isValidUUID, ClipCandidateStatus, ClipAspectRatio, ClipEditorUpdateDTO } from '../types/index.js';
 import { ClipAnalysisService, activeClipAnalysisSet } from '../services/clipAnalysisService.js';
-import { ClipRenderService, isClipRenderActive } from '../services/clipRenderService.js';
+import { ClipRenderService, isClipRenderActive, launchInlineRender } from '../services/clipRenderService.js';
 import { CaptionService } from '../services/captionService.js';
 import { WaveformService } from '../services/waveformService.js';
 import { ThumbnailService } from '../services/thumbnailService.js';
@@ -493,10 +493,8 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
       .select()
       .maybeSingle();
 
-    // Launch rendering asynchronously
-    ClipRenderService.renderClipJob(clipId, userId, newJob?.id).catch((err) => {
-      logger.error('Background re-render caught error', { clipId, error: err.message });
-    });
+    // Launch rendering asynchronously (deferred to the sweep when at concurrency cap)
+    launchInlineRender(clipId, userId, newJob?.id);
 
     res.status(202).json({
       status: 'ok',

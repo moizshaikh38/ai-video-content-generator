@@ -32,13 +32,13 @@ import {
 
 const renderEvidenceValue = (value: any) => {
   if (value === null || value === undefined) {
-    return <span className="text-[#9AA2B2] italic">None</span>;
+    return <span className="text-vc-text-secondary italic">None</span>;
   }
   if (typeof value === 'string') {
-    return <span className="text-[#F4F6FB] font-medium">{value}</span>;
+    return <span className="text-vc-text-primary font-medium">{value}</span>;
   }
   if (typeof value === 'number' || typeof value === 'boolean') {
-    return <span className="text-[#F4F6FB] font-semibold">{String(value)}</span>;
+    return <span className="text-vc-text-primary font-semibold">{String(value)}</span>;
   }
   if (Array.isArray(value)) {
     return (
@@ -46,7 +46,7 @@ const renderEvidenceValue = (value: any) => {
         {value.map((item, idx) => (
           <span
             key={idx}
-            className="rounded-md bg-white/[0.06] border border-white/[0.08] px-2 py-0.5 text-xs text-[#F4F6FB]"
+            className="rounded-md bg-white/[0.06] px-2 py-0.5 text-xs text-vc-text-primary"
           >
             {typeof item === 'object' ? JSON.stringify(item) : String(item)}
           </span>
@@ -60,16 +60,16 @@ const renderEvidenceValue = (value: any) => {
         {Object.entries(value).map(([k, v]) => (
           <span
             key={k}
-            className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] border border-white/[0.08] px-2 py-0.5 text-xs"
+            className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-0.5 text-xs"
           >
-            <span className="text-[#9AA2B2] capitalize">{k.replace(/_/g, ' ')}:</span>
-            <span className="font-semibold text-[#F4F6FB]">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+            <span className="text-vc-text-secondary capitalize">{k.replace(/_/g, ' ')}:</span>
+            <span className="font-semibold text-vc-text-primary">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
           </span>
         ))}
       </div>
     );
   }
-  return <span className="text-[#F4F6FB]">{String(value)}</span>;
+  return <span className="text-vc-text-primary">{String(value)}</span>;
 };
 
 const BrandVideoPreview916: React.FC<{
@@ -84,7 +84,7 @@ const BrandVideoPreview916: React.FC<{
 
   return (
     <div className="flex flex-col items-center w-full">
-      <div className="w-full max-w-[280px] aspect-[9/16] rounded-3xl border border-white/[0.12] bg-[#07080D] shadow-2xl relative overflow-hidden flex flex-col justify-between p-4 group select-none">
+      <div className="w-full max-w-[280px] aspect-[9/16] rounded-3xl bg-vc-canvas shadow-2xl relative overflow-hidden flex flex-col justify-between p-4 group select-none">
         {/* Subtle Video Background Gradient */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/85 via-black/50 to-black/90 pointer-events-none" />
         <div
@@ -176,7 +176,7 @@ const BrandVideoPreview916: React.FC<{
           </div>
         </div>
       </div>
-      <p className="mt-2 text-[11px] text-[#9AA2B2] text-center">Interactive 9:16 vertical video preview</p>
+      <p className="mt-2 text-[11px] text-vc-text-secondary text-center">Interactive 9:16 vertical video preview</p>
     </div>
   );
 };
@@ -481,8 +481,8 @@ export const BrandPage: React.FC = () => {
     return (
       <div className="flex h-96 items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <Brain className="size-8 animate-pulse text-vireo-green" />
-          <p className="text-sm font-medium text-[#9AA2B2]">Loading VireoClip Brand Brain...</p>
+          <Brain className="size-8 animate-pulse text-violet-400" />
+          <p className="text-sm font-medium text-vc-text-secondary">Loading VireoClip Brand Brain...</p>
         </div>
       </div>
     );
@@ -493,20 +493,20 @@ export const BrandPage: React.FC = () => {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 text-[#F4F6FB]">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 text-vc-text-primary">
       {/* Header Banner */}
-      <div className="mb-8 flex flex-col justify-between gap-4 rounded-3xl border border-white/[0.08] bg-gradient-to-r from-[#0d2a1b] via-[#0E1017] to-[#07080D] p-8 text-white shadow-xl md:flex-row md:items-center">
+      <div className="mb-8 flex flex-col justify-between gap-4 rounded-3xl bg-vc-surface1 p-8 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_24px_60px_-20px_rgba(0,0,0,0.8)] md:flex-row md:items-center">
         <div>
           <div className="flex items-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-2xl bg-vireo-green/20 backdrop-blur-md">
-              <Brain className="size-6 text-vireo-green" />
+            <div className="flex size-11 items-center justify-center rounded-2xl bg-violet-500/15 border border-violet-500/30">
+              <Brain className="size-6 text-violet-300" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl text-[#F4F6FB]">VireoClip Brand Brain</h1>
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl text-vc-text-primary">VireoClip Brand Brain</h1>
               <p className="text-xs text-emerald-300/80">Persistent Brand Memory, Creator Voice & Visual Identity</p>
             </div>
           </div>
-          <p className="mt-2 max-w-2xl text-sm text-[#9AA2B2]">
+          <p className="mt-2 max-w-2xl text-sm text-vc-text-secondary">
             Advisory brand intelligence powering your Producer plans, Pro Editor timeline, Captions, B-Roll, and Multilingual Dubbing.
           </p>
         </div>
@@ -514,7 +514,7 @@ export const BrandPage: React.FC = () => {
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => setShowWizard(true)}
-            className="flex items-center gap-2 rounded-xl bg-[#F4F6FB] px-4 py-2.5 text-xs font-semibold text-[#0B0C0F] shadow-sm transition hover:bg-white"
+            className="flex items-center gap-2 rounded-full bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 px-4 py-2.5 text-xs font-semibold text-white  transition hover:bg-vc-ai"
           >
             <Sparkles className="size-4" />
             Fast Setup Wizard
@@ -596,27 +596,27 @@ export const BrandPage: React.FC = () => {
                 }}
                 className={`flex flex-col items-start gap-1 rounded-2xl border p-4 text-left transition ${
                   isGroupActive
-                    ? 'border-emerald-500/50 bg-[#0E1017] shadow-lg shadow-emerald-950/20 ring-1 ring-emerald-500/30'
-                    : 'border-white/[0.08] bg-[#0E1017]/60 hover:border-white/[0.16] hover:bg-[#0E1017]'
+                    ? 'border-emerald-500/50 bg-vc-surface1 shadow-lg shadow-emerald-950/20 ring-1 ring-emerald-500/30'
+                    : 'border-white/[0.08] bg-vc-surface1/60 hover:border-white/[0.16] hover:bg-vc-surface1'
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <div
                     className={`p-1.5 rounded-lg ${
-                      isGroupActive ? 'bg-vireo-green text-black' : 'bg-white/[0.06] text-[#9AA2B2]'
+                      isGroupActive ? 'bg-violet-500/15 text-white ring-1 ring-violet-500/30' : 'bg-white/[0.06] text-vc-text-secondary'
                     }`}
                   >
                     <group.icon className="size-4" />
                   </div>
                   <span
                     className={`text-xs font-bold ${
-                      isGroupActive ? 'text-[#F4F6FB]' : 'text-[#9AA2B2]'
+                      isGroupActive ? 'text-vc-text-primary' : 'text-vc-text-secondary'
                     }`}
                   >
                     {group.label}
                   </span>
                 </div>
-                <span className="text-[10px] text-[#9AA2B2]">{group.desc}</span>
+                <span className="text-[10px] text-vc-text-secondary">{group.desc}</span>
               </button>
             );
           })}
@@ -628,10 +628,10 @@ export const BrandPage: React.FC = () => {
             <>
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 transition ${
                   activeTab === 'overview'
-                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
-                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                    ? 'bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 text-white font-semibold '
+                    : 'text-vc-text-secondary hover:bg-vc-ai/[0.04] hover:text-vc-text-primary'
                 }`}
               >
                 <Brain className="size-3.5" />
@@ -639,10 +639,10 @@ export const BrandPage: React.FC = () => {
               </button>
               <button
                 onClick={() => setActiveTab('voice')}
-                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 transition ${
                   activeTab === 'voice'
-                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
-                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                    ? 'bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 text-white font-semibold '
+                    : 'text-vc-text-secondary hover:bg-vc-ai/[0.04] hover:text-vc-text-primary'
                 }`}
               >
                 <Mic className="size-3.5" />
@@ -650,10 +650,10 @@ export const BrandPage: React.FC = () => {
               </button>
               <button
                 onClick={() => setActiveTab('hooks_cta')}
-                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 transition ${
                   activeTab === 'hooks_cta'
-                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
-                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                    ? 'bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 text-white font-semibold '
+                    : 'text-vc-text-secondary hover:bg-vc-ai/[0.04] hover:text-vc-text-primary'
                 }`}
               >
                 <Sparkles className="size-3.5" />
@@ -666,10 +666,10 @@ export const BrandPage: React.FC = () => {
             <>
               <button
                 onClick={() => setActiveTab('visual')}
-                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 transition ${
                   activeTab === 'visual'
-                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
-                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                    ? 'bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 text-white font-semibold '
+                    : 'text-vc-text-secondary hover:bg-vc-ai/[0.04] hover:text-vc-text-primary'
                 }`}
               >
                 <Palette className="size-3.5" />
@@ -677,10 +677,10 @@ export const BrandPage: React.FC = () => {
               </button>
               <button
                 onClick={() => setActiveTab('captions')}
-                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 transition ${
                   activeTab === 'captions'
-                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
-                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                    ? 'bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 text-white font-semibold '
+                    : 'text-vc-text-secondary hover:bg-vc-ai/[0.04] hover:text-vc-text-primary'
                 }`}
               >
                 <Subtitles className="size-3.5" />
@@ -688,10 +688,10 @@ export const BrandPage: React.FC = () => {
               </button>
               <button
                 onClick={() => setActiveTab('editing_audio')}
-                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 transition ${
                   activeTab === 'editing_audio'
-                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
-                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                    ? 'bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 text-white font-semibold '
+                    : 'text-vc-text-secondary hover:bg-vc-ai/[0.04] hover:text-vc-text-primary'
                 }`}
               >
                 <Film className="size-3.5" />
@@ -704,10 +704,10 @@ export const BrandPage: React.FC = () => {
             <>
               <button
                 onClick={() => setActiveTab('intelligence')}
-                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 transition ${
                   activeTab === 'intelligence'
-                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
-                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                    ? 'bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 text-white font-semibold '
+                    : 'text-vc-text-secondary hover:bg-vc-ai/[0.04] hover:text-vc-text-primary'
                 }`}
               >
                 <Target className="size-3.5" />
@@ -715,10 +715,10 @@ export const BrandPage: React.FC = () => {
               </button>
               <button
                 onClick={() => setActiveTab('learned')}
-                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 transition ${
                   activeTab === 'learned'
-                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
-                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                    ? 'bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 text-white font-semibold '
+                    : 'text-vc-text-secondary hover:bg-vc-ai/[0.04] hover:text-vc-text-primary'
                 }`}
               >
                 <CheckCircle2 className="size-3.5" />
@@ -731,10 +731,10 @@ export const BrandPage: React.FC = () => {
             <>
               <button
                 onClick={() => setActiveTab('check')}
-                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 transition ${
                   activeTab === 'check'
-                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
-                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                    ? 'bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 text-white font-semibold '
+                    : 'text-vc-text-secondary hover:bg-vc-ai/[0.04] hover:text-vc-text-primary'
                 }`}
               >
                 <Shield className="size-3.5" />
@@ -742,10 +742,10 @@ export const BrandPage: React.FC = () => {
               </button>
               <button
                 onClick={() => setActiveTab('versions')}
-                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 transition ${
                   activeTab === 'versions'
-                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
-                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                    ? 'bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 text-white font-semibold '
+                    : 'text-vc-text-secondary hover:bg-vc-ai/[0.04] hover:text-vc-text-primary'
                 }`}
               >
                 <History className="size-3.5" />
@@ -753,10 +753,10 @@ export const BrandPage: React.FC = () => {
               </button>
               <button
                 onClick={() => setActiveTab('import')}
-                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 transition ${
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 transition ${
                   activeTab === 'import'
-                    ? 'bg-[#F4F6FB] text-[#0B0C0F] font-semibold shadow-xs'
-                    : 'text-[#9AA2B2] hover:bg-white/[0.04] hover:text-[#F4F6FB]'
+                    ? 'bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 text-white font-semibold '
+                    : 'text-vc-text-secondary hover:bg-vc-ai/[0.04] hover:text-vc-text-primary'
                 }`}
               >
                 <Upload className="size-3.5" />
@@ -770,34 +770,34 @@ export const BrandPage: React.FC = () => {
       {/* TAB CONTENT: Overview */}
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB] lg:col-span-2">
-            <h2 className="text-lg font-bold text-[#F4F6FB]">Brand Identity Summary</h2>
+          <div className="rounded-2xl bg-vc-surface1 p-6 shadow-md text-vc-text-primary lg:col-span-2">
+            <h2 className="text-lg font-bold text-vc-text-primary">Brand Identity Summary</h2>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-xs font-medium text-[#9AA2B2]">Brand Name</label>
-                <p className="text-base font-semibold text-[#F4F6FB]">{profile.identity.brand_name || 'Not set'}</p>
+                <label className="text-xs font-medium text-vc-text-secondary">Brand Name</label>
+                <p className="text-base font-semibold text-vc-text-primary">{profile.identity.brand_name || 'Not set'}</p>
               </div>
               <div>
-                <label className="text-xs font-medium text-[#9AA2B2]">Industry / Niche</label>
-                <p className="text-base font-semibold text-[#F4F6FB]">{profile.identity.industry || 'General'}</p>
+                <label className="text-xs font-medium text-vc-text-secondary">Industry / Niche</label>
+                <p className="text-base font-semibold text-vc-text-primary">{profile.identity.industry || 'General'}</p>
               </div>
               <div className="sm:col-span-2">
-                <label className="text-xs font-medium text-[#9AA2B2]">Target Audience</label>
-                <p className="text-sm font-medium text-[#F4F6FB]">
+                <label className="text-xs font-medium text-vc-text-secondary">Target Audience</label>
+                <p className="text-sm font-medium text-vc-text-primary">
                   {profile.identity.target_audience || 'Not defined yet. Review proposed intelligence or define in Audience & Positioning.'}
                 </p>
               </div>
               <div className="sm:col-span-2">
-                <label className="text-xs font-medium text-[#9AA2B2]">Core Value Proposition</label>
-                <p className="text-sm font-medium text-[#F4F6FB]">
+                <label className="text-xs font-medium text-vc-text-secondary">Core Value Proposition</label>
+                <p className="text-sm font-medium text-vc-text-primary">
                   {profile.identity.core_messaging || 'Not defined yet. Add in Audience & Positioning.'}
                 </p>
               </div>
               <div>
-                <label className="text-xs font-medium text-[#9AA2B2]">Primary Palette</label>
+                <label className="text-xs font-medium text-vc-text-secondary">Primary Palette</label>
                 <div className="mt-1 flex items-center gap-2">
                   {profile.visual.primary_colors.map((c, i) => (
-                    <div key={i} className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs font-mono text-[#F4F6FB]">
+                    <div key={i} className="flex items-center gap-1.5 rounded-xl bg-white/[0.04] px-2.5 py-1 text-xs font-mono text-vc-text-primary">
                       <span className="size-3.5 rounded-full border border-black/20" style={{ backgroundColor: c }} />
                       <span>{c}</span>
                     </div>
@@ -805,16 +805,16 @@ export const BrandPage: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-[#9AA2B2]">Primary Brand Font</label>
-                <p className="text-base font-semibold text-[#F4F6FB]">{profile.visual.fonts[0] || 'Inter'}</p>
+                <label className="text-xs font-medium text-vc-text-secondary">Primary Brand Font</label>
+                <p className="text-base font-semibold text-vc-text-primary">{profile.visual.fonts[0] || 'Inter'}</p>
               </div>
             </div>
 
             <div className="mt-6 border-t border-white/[0.08] pt-4">
-              <h3 className="text-sm font-semibold text-[#F4F6FB]">Core Writing Tone</h3>
+              <h3 className="text-sm font-semibold text-vc-text-primary">Core Writing Tone</h3>
               <div className="mt-2 flex flex-wrap gap-2">
                 {profile.voice.tones.map((t, idx) => (
-                  <span key={idx} className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
+                  <span key={idx} className="rounded-xl bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
                     {t}
                   </span>
                 ))}
@@ -822,31 +822,31 @@ export const BrandPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
-            <h2 className="text-lg font-bold text-[#F4F6FB]">Governance & Learning</h2>
+          <div className="rounded-2xl bg-vc-surface1 p-6 shadow-md text-vc-text-primary">
+            <h2 className="text-lg font-bold text-vc-text-primary">Governance & Learning</h2>
             <div className="mt-4 space-y-4">
               <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
-                <span className="text-xs text-[#9AA2B2]">Profile Version</span>
-                <span className="rounded-lg border border-white/[0.1] bg-white/[0.06] px-2 py-1 text-xs font-bold text-[#F4F6FB]">v{profile.version}</span>
+                <span className="text-xs text-vc-text-secondary">Profile Version</span>
+                <span className="rounded-lg bg-white/[0.06] px-2 py-1 text-xs font-bold text-vc-text-primary">v{profile.version}</span>
               </div>
               <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
-                <span className="text-xs text-[#9AA2B2]">Evidence Records</span>
-                <span className="text-xs font-semibold text-[#F4F6FB]">{profile.learning.evidence_count} events recorded</span>
+                <span className="text-xs text-vc-text-secondary">Evidence Records</span>
+                <span className="text-xs font-semibold text-vc-text-primary">{profile.learning.evidence_count} events recorded</span>
               </div>
               <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
-                <span className="text-xs text-[#9AA2B2]">Evidence References</span>
-                <span className="text-xs font-semibold text-[#F4F6FB]">
+                <span className="text-xs text-vc-text-secondary">Evidence References</span>
+                <span className="text-xs font-semibold text-vc-text-primary">
                   {(profile.evidence_references || []).length} linked citations
                 </span>
               </div>
               <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
-                <span className="text-xs text-[#9AA2B2]">Locked Brand Rules</span>
+                <span className="text-xs text-vc-text-secondary">Locked Brand Rules</span>
                 <span className="text-xs font-semibold text-emerald-400">
                   {Object.values(profile.locks || {}).filter(Boolean).length} rules locked
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-[#9AA2B2]">Performance Signals</span>
+                <span className="text-xs text-vc-text-secondary">Performance Signals</span>
                 <span className={`rounded-lg px-2.5 py-1 text-xs font-medium ${
                   analyticsStatus === 'SUFFICIENT_DATA'
                     ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
@@ -860,7 +860,7 @@ export const BrandPage: React.FC = () => {
 
           {/* Insufficient Evidence Notice */}
           {analyticsStatus === 'INSUFFICIENT_DATA' && (
-            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 shadow-sm lg:col-span-3 text-amber-200">
+            <div className="rounded-2xl bg-amber-500/10 p-5 shadow-sm lg:col-span-3 text-amber-200">
               <div className="flex items-start gap-3">
                 <AlertTriangle className="size-5 shrink-0 text-amber-400 mt-0.5" />
                 <div>
@@ -881,33 +881,33 @@ export const BrandPage: React.FC = () => {
 
           {/* Explainable Proposed Brand Insights */}
           {recommendations.length > 0 && (
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB] lg:col-span-3">
+            <div className="rounded-2xl bg-vc-surface1 p-6 shadow-md text-vc-text-primary lg:col-span-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-[#F4F6FB]">Proposed Brand Intelligence Insights</h3>
-                  <p className="text-xs text-[#9AA2B2]">
+                  <h3 className="text-sm font-bold text-vc-text-primary">Proposed Brand Intelligence Insights</h3>
+                  <p className="text-xs text-vc-text-secondary">
                     Evidence-derived recommendations for voice, audience, and content pillars. Human approval required before applying to brand guidelines.
                   </p>
                 </div>
-                <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-bold text-emerald-300">
+                <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-bold text-emerald-300">
                   {recommendations.length} Pending Review
                 </span>
               </div>
 
               <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 {recommendations.map((r) => (
-                  <div key={r.id} className="flex flex-col justify-between rounded-xl border border-white/[0.08] bg-[#07080D] p-4 transition hover:border-emerald-500/40">
+                  <div key={r.id} className="flex flex-col justify-between rounded-xl bg-vc-canvas p-4 transition ">
                     <div>
                       <div className="flex items-start justify-between gap-2">
-                        <span className="text-xs font-bold text-[#F4F6FB] leading-snug">{r.title}</span>
+                        <span className="text-xs font-bold text-vc-text-primary leading-snug">{r.title}</span>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <span
                             className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
                               r.source === 'EVIDENCE_LEARNED'
                                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                                 : r.source === 'USER_PROVIDED'
-                                ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                                : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                ? 'bg-white/[0.08] text-zinc-200 border border-white/20'
+                                : 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
                             }`}
                           >
                             {r.source || 'AI_DERIVED'}
@@ -918,7 +918,7 @@ export const BrandPage: React.FC = () => {
                                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                                 : r.confidence === 'MEDIUM'
                                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                : 'bg-white/[0.06] text-[#9AA2B2] border border-white/[0.08]'
+                                : 'bg-white/[0.06] text-vc-text-secondary border border-white/[0.08]'
                             }`}
                           >
                             {r.confidence}
@@ -926,23 +926,23 @@ export const BrandPage: React.FC = () => {
                         </div>
                       </div>
 
-                      <p className="mt-2 text-xs text-[#9AA2B2] leading-relaxed">{r.description}</p>
+                      <p className="mt-2 text-xs text-vc-text-secondary leading-relaxed">{r.description}</p>
 
                       {/* Source snippet citation */}
                       {r.source_snippet && (
-                        <div className="mt-2 rounded-lg border-l-2 border-emerald-400 bg-white/[0.03] p-2 text-[11px] italic text-[#9AA2B2]">
+                        <div className="mt-2 rounded-lg border-l-2 border-emerald-400 bg-white/[0.03] p-2 text-[11px] italic text-vc-text-secondary">
                           {r.source_snippet}
                         </div>
                       )}
 
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <span className="text-[11px] font-mono text-[#9AA2B2]">Evidence: {r.evidence}</span>
+                        <span className="text-[11px] font-mono text-vc-text-secondary">Evidence: {r.evidence}</span>
                       </div>
 
                       {r.evidence_references && r.evidence_references.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1">
                           {r.evidence_references.map((ref, idx) => (
-                            <span key={idx} className="rounded bg-white/[0.04] border border-white/[0.08] px-1.5 py-0.5 text-[9px] font-mono text-[#9AA2B2]">
+                            <span key={idx} className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-mono text-vc-text-secondary">
                               {ref}
                             </span>
                           ))}
@@ -954,13 +954,13 @@ export const BrandPage: React.FC = () => {
                     <div className="mt-4 flex items-center justify-end gap-2 border-t border-white/[0.06] pt-3">
                       <button
                         onClick={() => handleDismissInsight(r)}
-                        className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs font-medium text-[#9AA2B2] hover:bg-white/[0.08] hover:text-[#F4F6FB]"
+                        className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs font-medium text-vc-text-secondary hover:bg-white/[0.08] hover:text-vc-text-primary"
                       >
                         Dismiss
                       </button>
                       <button
                         onClick={() => handleApproveInsight(r)}
-                        className="flex items-center gap-1.5 rounded-xl bg-[#F4F6FB] px-3 py-1 text-xs font-semibold text-[#0B0C0F] shadow-xs hover:bg-white"
+                        className="flex items-center gap-1.5 rounded-full bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 px-3 py-1 text-xs font-semibold text-white  hover:bg-vc-ai"
                       >
                         <Check className="size-3.5" />
                         Approve Insight
@@ -974,12 +974,12 @@ export const BrandPage: React.FC = () => {
 
           {/* Conflicts */}
           {conflicts.length > 0 && (
-            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 shadow-sm lg:col-span-3 text-amber-200">
+            <div className="rounded-2xl bg-amber-500/10 p-6 shadow-sm lg:col-span-3 text-amber-200">
               <h3 className="text-sm font-bold text-amber-300">Performance Divergence & Conflict Resolution</h3>
               <div className="mt-3 space-y-3">
                 {conflicts.map((c, i) => (
-                  <div key={i} className="rounded-xl border border-amber-500/20 bg-[#07080D] p-4">
-                    <p className="text-xs font-medium text-[#F4F6FB]">{c.message}</p>
+                  <div key={i} className="rounded-xl bg-vc-canvas p-4">
+                    <p className="text-xs font-medium text-vc-text-primary">{c.message}</p>
                     <p className="mt-2 text-xs font-semibold text-amber-400">{c.action_prompt}</p>
                   </div>
                 ))}
@@ -992,11 +992,11 @@ export const BrandPage: React.FC = () => {
       {/* TAB CONTENT: Audience & Positioning */}
       {activeTab === 'intelligence' && (
         <div className="space-y-6">
-          <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+          <div className="rounded-2xl bg-vc-surface1 p-6 shadow-md text-vc-text-primary">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
               <div>
-                <h2 className="text-lg font-bold text-[#F4F6FB]">Target Audience & Needs</h2>
-                <p className="text-xs text-[#9AA2B2]">
+                <h2 className="text-lg font-bold text-vc-text-primary">Target Audience & Needs</h2>
+                <p className="text-xs text-vc-text-secondary">
                   Grounded audience definitions used across Hook Lab, Thumbnail Lab, Content Packs, and Autopilot.
                 </p>
               </div>
@@ -1004,10 +1004,10 @@ export const BrandPage: React.FC = () => {
 
             <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="md:col-span-2">
-                <label className="text-xs font-semibold text-[#F4F6FB]">Primary Target Audience</label>
+                <label className="text-xs font-semibold text-vc-text-primary">Primary Target Audience</label>
                 <textarea
                   rows={3}
-                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                   value={profile.identity.target_audience || ''}
                   onChange={(e) =>
                     setProfile({
@@ -1020,10 +1020,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#F4F6FB]">Audience Needs & Goals (one per line)</label>
+                <label className="text-xs font-semibold text-vc-text-primary">Audience Needs & Goals (one per line)</label>
                 <textarea
                   rows={4}
-                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                   value={(profile.identity.audience_needs || []).join('\n')}
                   onChange={(e) =>
                     setProfile({
@@ -1039,10 +1039,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#F4F6FB]">Audience Pain Points (one per line)</label>
+                <label className="text-xs font-semibold text-vc-text-primary">Audience Pain Points (one per line)</label>
                 <textarea
                   rows={4}
-                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                   value={(profile.identity.audience_pain_points || []).join('\n')}
                   onChange={(e) =>
                     setProfile({
@@ -1058,10 +1058,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div className="md:col-span-2">
-                <label className="text-xs font-semibold text-[#F4F6FB]">Target Demographics / Professional Level</label>
+                <label className="text-xs font-semibold text-vc-text-primary">Target Demographics / Professional Level</label>
                 <input
                   type="text"
-                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-2.5 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                   value={profile.identity.target_demographics || ''}
                   onChange={(e) =>
                     setProfile({
@@ -1075,11 +1075,11 @@ export const BrandPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+          <div className="rounded-2xl bg-vc-surface1 p-6 shadow-md text-vc-text-primary">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
               <div>
-                <h2 className="text-lg font-bold text-[#F4F6FB]">Core Messaging & Positioning</h2>
-                <p className="text-xs text-[#9AA2B2]">
+                <h2 className="text-lg font-bold text-vc-text-primary">Core Messaging & Positioning</h2>
+                <p className="text-xs text-vc-text-secondary">
                   The central thesis and distinct angle of your brand.
                 </p>
               </div>
@@ -1087,10 +1087,10 @@ export const BrandPage: React.FC = () => {
 
             <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="md:col-span-2">
-                <label className="text-xs font-semibold text-[#F4F6FB]">Positioning Statement</label>
+                <label className="text-xs font-semibold text-vc-text-primary">Positioning Statement</label>
                 <textarea
                   rows={2}
-                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                   value={profile.identity.positioning_statement || ''}
                   onChange={(e) =>
                     setProfile({
@@ -1103,10 +1103,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div className="md:col-span-2">
-                <label className="text-xs font-semibold text-[#F4F6FB]">Core Messaging & Value Proposition</label>
+                <label className="text-xs font-semibold text-vc-text-primary">Core Messaging & Value Proposition</label>
                 <textarea
                   rows={3}
-                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                   value={profile.identity.core_messaging || ''}
                   onChange={(e) =>
                     setProfile({
@@ -1119,10 +1119,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#F4F6FB]">Brand Mission / Vision</label>
+                <label className="text-xs font-semibold text-vc-text-primary">Brand Mission / Vision</label>
                 <input
                   type="text"
-                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-2.5 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                   value={profile.identity.brand_mission || ''}
                   onChange={(e) =>
                     setProfile({
@@ -1135,10 +1135,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#F4F6FB]">Supporting Value Propositions (one per line)</label>
+                <label className="text-xs font-semibold text-vc-text-primary">Supporting Value Propositions (one per line)</label>
                 <textarea
                   rows={3}
-                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                   value={(profile.identity.value_propositions || []).join('\n')}
                   onChange={(e) =>
                     setProfile({
@@ -1155,11 +1155,11 @@ export const BrandPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+          <div className="rounded-2xl bg-vc-surface1 p-6 shadow-md text-vc-text-primary">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
               <div>
-                <h2 className="text-lg font-bold text-[#F4F6FB]">Content Pillars & Recurring Themes</h2>
-                <p className="text-xs text-[#9AA2B2]">
+                <h2 className="text-lg font-bold text-vc-text-primary">Content Pillars & Recurring Themes</h2>
+                <p className="text-xs text-vc-text-secondary">
                   The primary content buckets that structure your videos and Content Packs.
                 </p>
               </div>
@@ -1179,7 +1179,7 @@ export const BrandPage: React.FC = () => {
                     },
                   });
                 }}
-                className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
+                className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-vc-text-primary hover:bg-white/[0.08]"
               >
                 + Add Content Pillar
               </button>
@@ -1188,17 +1188,17 @@ export const BrandPage: React.FC = () => {
             <div className="mt-4 space-y-4">
               {(!profile.identity.content_pillars || profile.identity.content_pillars.length === 0) ? (
                 <div className="rounded-xl border border-dashed border-white/[0.1] p-8 text-center">
-                  <p className="text-xs text-[#9AA2B2]">
+                  <p className="text-xs text-vc-text-secondary">
                     No content pillars set yet. Click &quot;+ Add Content Pillar&quot; or approve evidence recommendations in Overview.
                   </p>
                 </div>
               ) : (
                 profile.identity.content_pillars.map((pillar, idx) => (
-                  <div key={idx} className="rounded-xl border border-white/[0.08] p-4 bg-[#07080D]">
+                  <div key={idx} className="rounded-xl p-4 bg-vc-canvas">
                     <div className="flex items-center justify-between gap-4">
                       <input
                         type="text"
-                        className="font-bold text-sm bg-transparent border-b border-white/[0.1] pb-1 text-[#F4F6FB] focus:outline-none focus:border-vireo-green flex-1"
+                        className="font-bold text-sm bg-transparent border-b border-white/[0.1] pb-1 text-vc-text-primary focus:outline-none focus:border-white/25 flex-1"
                         value={pillar.name}
                         onChange={(e) => {
                           const updated = [...(profile.identity.content_pillars || [])];
@@ -1219,7 +1219,7 @@ export const BrandPage: React.FC = () => {
                     </div>
                     <textarea
                       rows={2}
-                      className="mt-3 w-full rounded-xl border border-white/[0.1] bg-[#0E1017] p-2.5 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                      className="mt-3 w-full rounded-xl border border-white/[0.1] bg-vc-surface1 p-2.5 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                       value={pillar.description}
                       onChange={(e) => {
                         const updated = [...(profile.identity.content_pillars || [])];
@@ -1231,7 +1231,7 @@ export const BrandPage: React.FC = () => {
                     <div className="mt-2">
                       <input
                         type="text"
-                        className="w-full rounded-xl border border-white/[0.1] bg-[#0E1017] px-2.5 py-1.5 text-xs font-mono text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                        className="w-full rounded-xl border border-white/[0.1] bg-vc-surface1 px-2.5 py-1.5 text-xs font-mono text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                         value={(pillar.keywords || []).join(', ')}
                         onChange={(e) => {
                           const updated = [...(profile.identity.content_pillars || [])];
@@ -1250,9 +1250,9 @@ export const BrandPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
-            <h2 className="text-lg font-bold text-[#F4F6FB]">Platform-Specific Content Guidance</h2>
-            <p className="text-xs text-[#9AA2B2]">
+          <div className="rounded-2xl bg-vc-surface1 p-6 shadow-md text-vc-text-primary">
+            <h2 className="text-lg font-bold text-vc-text-primary">Platform-Specific Content Guidance</h2>
+            <p className="text-xs text-vc-text-secondary">
               Approved tone and duration parameters consumed by Content Pack and Autopilot generators.
             </p>
 
@@ -1265,14 +1265,14 @@ export const BrandPage: React.FC = () => {
               ].map((plat) => {
                 const guidance = (profile.platform_guidance || {})[plat.key] || {};
                 return (
-                  <div key={plat.key} className="rounded-xl border border-white/[0.08] p-4 bg-[#07080D]">
-                    <h4 className="text-xs font-bold text-[#F4F6FB] uppercase tracking-wider">{plat.name}</h4>
+                  <div key={plat.key} className="rounded-xl p-4 bg-vc-canvas">
+                    <h4 className="text-xs font-bold text-vc-text-primary uppercase tracking-wider">{plat.name}</h4>
                     <div className="mt-3 space-y-2">
                       <div>
-                        <label className="text-[10px] font-medium text-[#9AA2B2]">Platform Tone</label>
+                        <label className="text-[10px] font-medium text-vc-text-secondary">Platform Tone</label>
                         <input
                           type="text"
-                          className="mt-1 w-full rounded-lg border border-white/[0.1] bg-[#0E1017] p-1.5 text-xs text-white focus:border-vireo-green focus:outline-none"
+                          className="mt-1 w-full rounded-lg border border-white/[0.1] bg-vc-surface1 p-1.5 text-xs text-white focus:border-white/25 focus:outline-none"
                           value={guidance.tone || plat.defaultTone}
                           onChange={(e) => {
                             const updated = {
@@ -1284,10 +1284,10 @@ export const BrandPage: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-medium text-[#9AA2B2]">CTA Style</label>
+                        <label className="text-[10px] font-medium text-vc-text-secondary">CTA Style</label>
                         <input
                           type="text"
-                          className="mt-1 w-full rounded-lg border border-white/[0.1] bg-[#0E1017] p-1.5 text-xs text-white focus:border-vireo-green focus:outline-none"
+                          className="mt-1 w-full rounded-lg border border-white/[0.1] bg-vc-surface1 p-1.5 text-xs text-white focus:border-white/25 focus:outline-none"
                           value={guidance.cta_style || 'FOLLOW'}
                           onChange={(e) => {
                             const updated = {
@@ -1314,7 +1314,7 @@ export const BrandPage: React.FC = () => {
                 })
               }
               disabled={saving}
-              className="rounded-xl bg-[#F4F6FB] px-6 py-2.5 text-xs font-semibold text-[#0B0C0F] shadow-xs hover:bg-white disabled:opacity-50"
+              className="rounded-full bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 px-6 py-2.5 text-xs font-semibold text-white  hover:bg-vc-ai disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Save Audience & Positioning Guidelines'}
             </button>
@@ -1324,15 +1324,15 @@ export const BrandPage: React.FC = () => {
 
       {/* TAB CONTENT: Voice */}
       {activeTab === 'voice' && (
-        <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+        <div className="space-y-6 rounded-2xl bg-vc-surface1 p-6 shadow-md text-vc-text-primary">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-[#F4F6FB]">Creator Voice & Terminology</h2>
-              <p className="text-xs text-[#9AA2B2]">Defines how AI writes hooks, scripts, and captions.</p>
+              <h2 className="text-lg font-bold text-vc-text-primary">Creator Voice & Terminology</h2>
+              <p className="text-xs text-vc-text-secondary">Defines how AI writes hooks, scripts, and captions.</p>
             </div>
             <button
               onClick={() => handleToggleLock('voice.avoid_phrasing')}
-              className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
+              className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-vc-text-primary hover:bg-white/[0.08]"
             >
               {profile.locks['voice.avoid_phrasing'] ? (
                 <>
@@ -1340,7 +1340,7 @@ export const BrandPage: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <Unlock className="size-3.5 text-[#9AA2B2]" /> Unlocked
+                  <Unlock className="size-3.5 text-vc-text-secondary" /> Unlocked
                 </>
               )}
             </button>
@@ -1348,10 +1348,10 @@ export const BrandPage: React.FC = () => {
 
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-semibold text-[#F4F6FB]">Voice & Tone Summary</label>
+              <label className="text-xs font-semibold text-vc-text-primary">Voice & Tone Summary</label>
               <textarea
                 rows={2}
-                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                 value={profile.voice.voice_summary || ''}
                 onChange={(e) =>
                   setProfile({
@@ -1365,10 +1365,10 @@ export const BrandPage: React.FC = () => {
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div>
-                <label className="text-xs font-semibold text-[#F4F6FB]">Preferred Phrasing / Signatures</label>
+                <label className="text-xs font-semibold text-vc-text-primary">Preferred Phrasing / Signatures</label>
                 <textarea
                   rows={4}
-                  className="mt-2 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                  className="mt-2 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                   value={profile.voice.preferred_phrasing.join('\n')}
                   onChange={(e) =>
                     setProfile({
@@ -1381,10 +1381,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#F4F6FB]">Prohibited / Avoid Phrasing</label>
+                <label className="text-xs font-semibold text-vc-text-primary">Prohibited / Avoid Phrasing</label>
                 <textarea
                   rows={4}
-                  className="mt-2 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                  className="mt-2 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                   value={profile.voice.avoid_phrasing.join('\n')}
                   onChange={(e) =>
                     setProfile({
@@ -1397,10 +1397,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#F4F6FB]">Forbidden Claims & Guarantees (one per line)</label>
+                <label className="text-xs font-semibold text-vc-text-primary">Forbidden Claims & Guarantees (one per line)</label>
                 <textarea
                   rows={3}
-                  className="mt-2 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                  className="mt-2 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                   value={(profile.voice.forbidden_claims || []).join('\n')}
                   onChange={(e) =>
                     setProfile({
@@ -1416,10 +1416,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#F4F6FB]">Styles & Tropes to Avoid (one per line)</label>
+                <label className="text-xs font-semibold text-vc-text-primary">Styles & Tropes to Avoid (one per line)</label>
                 <textarea
                   rows={3}
-                  className="mt-2 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                  className="mt-2 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                   value={(profile.voice.styles_to_avoid || []).join('\n')}
                   onChange={(e) =>
                     setProfile({
@@ -1439,8 +1439,8 @@ export const BrandPage: React.FC = () => {
             <div className="pt-2">
               <div className="flex items-center justify-between border-t border-white/[0.06] pt-4">
                 <div>
-                  <h3 className="text-xs font-bold text-[#F4F6FB] uppercase tracking-wider">Approved Terminology Glossary</h3>
-                  <p className="text-[11px] text-[#9AA2B2]">Standardized terms and phrasing VireoClip should favor in hooks and scripts.</p>
+                  <h3 className="text-xs font-bold text-vc-text-primary uppercase tracking-wider">Approved Terminology Glossary</h3>
+                  <p className="text-[11px] text-vc-text-secondary">Standardized terms and phrasing VireoClip should favor in hooks and scripts.</p>
                 </div>
                 <button
                   onClick={() => {
@@ -1451,7 +1451,7 @@ export const BrandPage: React.FC = () => {
                       voice: { ...profile.voice, approved_terminology: [...currentTerms, newTerm] },
                     });
                   }}
-                  className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
+                  className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs font-medium text-vc-text-primary hover:bg-white/[0.08]"
                 >
                   + Add Term
                 </button>
@@ -1459,13 +1459,13 @@ export const BrandPage: React.FC = () => {
 
               <div className="mt-3 space-y-2">
                 {(!profile.voice.approved_terminology || profile.voice.approved_terminology.length === 0) ? (
-                  <p className="text-xs italic text-[#9AA2B2]">No approved terminology registered yet.</p>
+                  <p className="text-xs italic text-vc-text-secondary">No approved terminology registered yet.</p>
                 ) : (
                   profile.voice.approved_terminology.map((t, idx) => (
                     <div key={idx} className="flex items-center gap-2">
                       <input
                         type="text"
-                        className="w-1/3 rounded-xl border border-white/[0.1] bg-[#07080D] p-2 text-xs font-semibold text-white focus:border-vireo-green focus:outline-none"
+                        className="w-1/3 rounded-xl border border-white/[0.1] bg-vc-canvas p-2 text-xs font-semibold text-white focus:border-white/25 focus:outline-none"
                         placeholder="Approved Term"
                         value={t.term}
                         onChange={(e) => {
@@ -1476,7 +1476,7 @@ export const BrandPage: React.FC = () => {
                       />
                       <input
                         type="text"
-                        className="flex-1 rounded-xl border border-white/[0.1] bg-[#07080D] p-2 text-xs text-white focus:border-vireo-green focus:outline-none"
+                        className="flex-1 rounded-xl border border-white/[0.1] bg-vc-canvas p-2 text-xs text-white focus:border-white/25 focus:outline-none"
                         placeholder="Definition / Preferred context"
                         value={t.definition || ''}
                         onChange={(e) => {
@@ -1490,7 +1490,7 @@ export const BrandPage: React.FC = () => {
                           const updated = (profile.voice.approved_terminology || []).filter((_, i) => i !== idx);
                           setProfile({ ...profile, voice: { ...profile.voice, approved_terminology: updated } });
                         }}
-                        className="p-1 text-[#9AA2B2] hover:text-rose-400"
+                        className="p-1 text-vc-text-secondary hover:text-rose-400"
                       >
                         <X className="size-4" />
                       </button>
@@ -1505,7 +1505,7 @@ export const BrandPage: React.FC = () => {
             <button
               onClick={() => handleSaveProfile({ voice: profile.voice })}
               disabled={saving}
-              className="rounded-xl bg-[#F4F6FB] px-5 py-2.5 text-xs font-semibold text-[#0B0C0F] shadow-xs hover:bg-white"
+              className="rounded-full bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 px-5 py-2.5 text-xs font-semibold text-white  hover:bg-vc-ai"
             >
               {saving ? 'Saving...' : 'Save Voice Rules'}
             </button>
@@ -1515,17 +1515,17 @@ export const BrandPage: React.FC = () => {
 
       {/* TAB CONTENT: Hooks & CTA */}
       {activeTab === 'hooks_cta' && (
-        <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+        <div className="space-y-6 rounded-2xl bg-vc-surface1 p-6 shadow-md text-vc-text-primary">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-[#F4F6FB]">Opening Hooks & Call-To-Action (CTA)</h2>
-              <p className="text-xs text-[#9AA2B2]">
+              <h2 className="text-lg font-bold text-vc-text-primary">Opening Hooks & Call-To-Action (CTA)</h2>
+              <p className="text-xs text-vc-text-secondary">
                 Proven viral hook formulas, forbidden opening phrases, and approved sign-offs.
               </p>
             </div>
             <button
               onClick={() => handleToggleLock('hooks.banned_patterns')}
-              className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
+              className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-vc-text-primary hover:bg-white/[0.08]"
             >
               {profile.locks?.['hooks.banned_patterns'] ? (
                 <>
@@ -1533,7 +1533,7 @@ export const BrandPage: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <Unlock className="size-3.5 text-[#9AA2B2]" /> Unlocked
+                  <Unlock className="size-3.5 text-vc-text-secondary" /> Unlocked
                 </>
               )}
             </button>
@@ -1541,9 +1541,9 @@ export const BrandPage: React.FC = () => {
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
-              <label className="text-xs font-semibold text-[#F4F6FB]">Preferred Hook Length</label>
+              <label className="text-xs font-semibold text-vc-text-primary">Preferred Hook Length</label>
               <select
-                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-2.5 text-xs text-white"
                 value={profile.hooks?.preferred_hook_length || 'short'}
                 onChange={(e) =>
                   setProfile({
@@ -1559,10 +1559,10 @@ export const BrandPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-[#F4F6FB]">Example Hooks (one per line)</label>
+              <label className="text-xs font-semibold text-vc-text-primary">Example Hooks (one per line)</label>
               <textarea
                 rows={3}
-                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                 value={(profile.hooks?.example_hooks || []).join('\n')}
                 onChange={(e) =>
                   setProfile({
@@ -1578,10 +1578,10 @@ export const BrandPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-[#F4F6FB]">Banned Hook Patterns (one per line)</label>
+              <label className="text-xs font-semibold text-vc-text-primary">Banned Hook Patterns (one per line)</label>
               <textarea
                 rows={3}
-                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                 value={(profile.hooks?.banned_patterns || []).join('\n')}
                 onChange={(e) =>
                   setProfile({
@@ -1597,10 +1597,10 @@ export const BrandPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-[#F4F6FB]">Approved CTA Phrases (one per line)</label>
+              <label className="text-xs font-semibold text-vc-text-primary">Approved CTA Phrases (one per line)</label>
               <textarea
                 rows={3}
-                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                 value={(profile.cta?.approved_phrases || []).join('\n')}
                 onChange={(e) =>
                   setProfile({
@@ -1616,10 +1616,10 @@ export const BrandPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-[#F4F6FB]">Blocked CTA Tropes (one per line)</label>
+              <label className="text-xs font-semibold text-vc-text-primary">Blocked CTA Tropes (one per line)</label>
               <textarea
                 rows={3}
-                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-xs text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+                className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-xs text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
                 value={(profile.cta?.blocked_phrases || []).join('\n')}
                 onChange={(e) =>
                   setProfile({
@@ -1644,7 +1644,7 @@ export const BrandPage: React.FC = () => {
                 })
               }
               disabled={saving}
-              className="rounded-xl bg-[#F4F6FB] px-5 py-2.5 text-xs font-semibold text-[#0B0C0F] hover:bg-white"
+              className="rounded-full bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 px-5 py-2.5 text-xs font-semibold text-white hover:bg-vc-ai"
             >
               {saving ? 'Saving...' : 'Save Hooks & CTA'}
             </button>
@@ -1659,15 +1659,15 @@ export const BrandPage: React.FC = () => {
           <div className="lg:col-span-2 space-y-6">
             {/* TAB CONTENT: Visual */}
             {activeTab === 'visual' && (
-              <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+              <div className="space-y-6 rounded-2xl bg-vc-surface1 p-6 shadow-md text-vc-text-primary">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-lg font-bold text-[#F4F6FB]">Visual Identity & Colors</h2>
-                    <p className="text-xs text-[#9AA2B2]">Palettes and allowlisted typography for Pro Editor & renders.</p>
+                    <h2 className="text-lg font-bold text-vc-text-primary">Visual Identity & Colors</h2>
+                    <p className="text-xs text-vc-text-secondary">Palettes and allowlisted typography for Pro Editor & renders.</p>
                   </div>
                   <button
                     onClick={() => handleToggleLock('visual.primary_colors')}
-                    className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
+                    className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-vc-text-primary hover:bg-white/[0.08]"
                   >
                     {profile.locks?.['visual.primary_colors'] ? (
                       <>
@@ -1675,7 +1675,7 @@ export const BrandPage: React.FC = () => {
                       </>
                     ) : (
                       <>
-                        <Unlock className="size-3.5 text-[#9AA2B2]" /> Unlocked
+                        <Unlock className="size-3.5 text-vc-text-secondary" /> Unlocked
                       </>
                     )}
                   </button>
@@ -1683,11 +1683,11 @@ export const BrandPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <div>
-                    <label className="text-xs font-semibold text-[#F4F6FB]">Primary Brand Color (Hex)</label>
+                    <label className="text-xs font-semibold text-vc-text-primary">Primary Brand Color (Hex)</label>
                     <div className="mt-2 flex items-center gap-3">
                       <input
                         type="color"
-                        className="size-10 cursor-pointer rounded-xl border border-white/[0.1] bg-[#07080D] p-1"
+                        className="size-10 cursor-pointer rounded-xl border border-white/[0.1] bg-vc-canvas p-1"
                         value={profile.visual.primary_colors[0] || '#3B82F6'}
                         onChange={(e) =>
                           setProfile({
@@ -1698,7 +1698,7 @@ export const BrandPage: React.FC = () => {
                       />
                       <input
                         type="text"
-                        className="w-32 rounded-xl border border-white/[0.1] bg-[#07080D] px-3 py-2 text-sm font-mono text-white focus:border-vireo-green focus:outline-none"
+                        className="w-32 rounded-xl border border-white/[0.1] bg-vc-canvas px-3 py-2 text-sm font-mono text-white focus:border-white/25 focus:outline-none"
                         value={profile.visual.primary_colors[0] || '#3B82F6'}
                         onChange={(e) =>
                           setProfile({
@@ -1711,11 +1711,11 @@ export const BrandPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-[#F4F6FB]">Primary Accent Highlight (Hex)</label>
+                    <label className="text-xs font-semibold text-vc-text-primary">Primary Accent Highlight (Hex)</label>
                     <div className="mt-2 flex items-center gap-3">
                       <input
                         type="color"
-                        className="size-10 cursor-pointer rounded-xl border border-white/[0.1] bg-[#07080D] p-1"
+                        className="size-10 cursor-pointer rounded-xl border border-white/[0.1] bg-vc-canvas p-1"
                         value={profile.visual.accent_colors[0] || '#10B981'}
                         onChange={(e) =>
                           setProfile({
@@ -1726,7 +1726,7 @@ export const BrandPage: React.FC = () => {
                       />
                       <input
                         type="text"
-                        className="w-32 rounded-xl border border-white/[0.1] bg-[#07080D] px-3 py-2 text-sm font-mono text-white focus:border-vireo-green focus:outline-none"
+                        className="w-32 rounded-xl border border-white/[0.1] bg-vc-canvas px-3 py-2 text-sm font-mono text-white focus:border-white/25 focus:outline-none"
                         value={profile.visual.accent_colors[0] || '#10B981'}
                         onChange={(e) =>
                           setProfile({
@@ -1739,9 +1739,9 @@ export const BrandPage: React.FC = () => {
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="text-xs font-semibold text-[#F4F6FB]">Safe Editor Font</label>
+                    <label className="text-xs font-semibold text-vc-text-primary">Safe Editor Font</label>
                     <select
-                      className="mt-2 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-sm text-white focus:border-vireo-green focus:outline-none"
+                      className="mt-2 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-2.5 text-sm text-white focus:border-white/25 focus:outline-none"
                       value={profile.visual.fonts[0] || 'Inter'}
                       onChange={(e) =>
                         setProfile({
@@ -1763,7 +1763,7 @@ export const BrandPage: React.FC = () => {
                   <button
                     onClick={() => handleSaveProfile({ visual: profile.visual })}
                     disabled={saving}
-                    className="rounded-xl bg-[#F4F6FB] px-5 py-2.5 text-xs font-semibold text-[#0B0C0F] hover:bg-white"
+                    className="rounded-full bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 px-5 py-2.5 text-xs font-semibold text-white hover:bg-vc-ai"
                   >
                     {saving ? 'Saving...' : 'Save Visual Rules'}
                   </button>
@@ -1773,17 +1773,17 @@ export const BrandPage: React.FC = () => {
 
             {/* TAB CONTENT: Captions DNA */}
             {activeTab === 'captions' && (
-              <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+              <div className="space-y-6 rounded-2xl bg-vc-surface1 p-6 shadow-md text-vc-text-primary">
                 <div>
-                  <h2 className="text-lg font-bold text-[#F4F6FB]">Captions DNA & Formatting</h2>
-                  <p className="text-xs text-[#9AA2B2]">Default subtitle animation preset, case style, line density, and highlight behavior.</p>
+                  <h2 className="text-lg font-bold text-vc-text-primary">Captions DNA & Formatting</h2>
+                  <p className="text-xs text-vc-text-secondary">Default subtitle animation preset, case style, line density, and highlight behavior.</p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="text-xs font-semibold text-[#F4F6FB]">Default Caption Style</label>
+                    <label className="text-xs font-semibold text-vc-text-primary">Default Caption Style</label>
                     <select
-                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-2.5 text-xs text-white"
                       value={profile.captions?.default_style || 'active_word_pop'}
                       onChange={(e) =>
                         setProfile({
@@ -1801,9 +1801,9 @@ export const BrandPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-[#F4F6FB]">Typography Case</label>
+                    <label className="text-xs font-semibold text-vc-text-primary">Typography Case</label>
                     <select
-                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-2.5 text-xs text-white"
                       value={profile.captions?.case_style || 'uppercase'}
                       onChange={(e) =>
                         setProfile({
@@ -1819,14 +1819,14 @@ export const BrandPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-[#F4F6FB]">
+                    <label className="text-xs font-semibold text-vc-text-primary">
                       Max Words Per Line ({profile.captions?.max_words_per_line || 3})
                     </label>
                     <input
                       type="range"
                       min={1}
                       max={6}
-                      className="mt-2 w-full accent-vireo-green cursor-pointer"
+                      className="mt-2 w-full accent-violet-500 cursor-pointer"
                       value={profile.captions?.max_words_per_line || 3}
                       onChange={(e) =>
                         setProfile({
@@ -1838,9 +1838,9 @@ export const BrandPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-[#F4F6FB]">Highlight Style</label>
+                    <label className="text-xs font-semibold text-vc-text-primary">Highlight Style</label>
                     <select
-                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-2.5 text-xs text-white"
                       value={profile.captions?.highlight_style || 'color_pop'}
                       onChange={(e) =>
                         setProfile({
@@ -1861,7 +1861,7 @@ export const BrandPage: React.FC = () => {
                   <button
                     onClick={() => handleSaveProfile({ captions: profile.captions })}
                     disabled={saving}
-                    className="rounded-xl bg-[#F4F6FB] px-5 py-2.5 text-xs font-semibold text-[#0B0C0F] hover:bg-white"
+                    className="rounded-full bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 px-5 py-2.5 text-xs font-semibold text-white hover:bg-vc-ai"
                   >
                     {saving ? 'Saving...' : 'Save Captions DNA'}
                   </button>
@@ -1871,17 +1871,17 @@ export const BrandPage: React.FC = () => {
 
             {/* TAB CONTENT: Editing & Audio Dynamics */}
             {activeTab === 'editing_audio' && (
-              <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+              <div className="space-y-6 rounded-2xl bg-vc-surface1 p-6 shadow-md text-vc-text-primary">
                 <div>
-                  <h2 className="text-lg font-bold text-[#F4F6FB]">Editing & Audio Dynamics</h2>
-                  <p className="text-xs text-[#9AA2B2]">Pacing speed, B-Roll frequency, dynamic zoom cuts, and music ducking.</p>
+                  <h2 className="text-lg font-bold text-vc-text-primary">Editing & Audio Dynamics</h2>
+                  <p className="text-xs text-vc-text-secondary">Pacing speed, B-Roll frequency, dynamic zoom cuts, and music ducking.</p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="text-xs font-semibold text-[#F4F6FB]">Pacing Style</label>
+                    <label className="text-xs font-semibold text-vc-text-primary">Pacing Style</label>
                     <select
-                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-2.5 text-xs text-white"
                       value={profile.editing?.pacing_style || 'fast'}
                       onChange={(e) =>
                         setProfile({
@@ -1898,9 +1898,9 @@ export const BrandPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-[#F4F6FB]">B-Roll Density</label>
+                    <label className="text-xs font-semibold text-vc-text-primary">B-Roll Density</label>
                     <select
-                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-2.5 text-xs text-white"
                       value={profile.editing?.broll_density || 'balanced'}
                       onChange={(e) =>
                         setProfile({
@@ -1916,9 +1916,9 @@ export const BrandPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-[#F4F6FB]">Punch-in Frequency</label>
+                    <label className="text-xs font-semibold text-vc-text-primary">Punch-in Frequency</label>
                     <select
-                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-2.5 text-xs text-white"
                       value={profile.editing?.punch_in_frequency || 'moderate'}
                       onChange={(e) =>
                         setProfile({
@@ -1935,9 +1935,9 @@ export const BrandPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-[#F4F6FB]">Silence Trimming Style</label>
+                    <label className="text-xs font-semibold text-vc-text-primary">Silence Trimming Style</label>
                     <select
-                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-2.5 text-xs text-white"
                       value={profile.editing?.silence_style || 'tight'}
                       onChange={(e) =>
                         setProfile({
@@ -1953,9 +1953,9 @@ export const BrandPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-[#F4F6FB]">Audio Cleanup Preset</label>
+                    <label className="text-xs font-semibold text-vc-text-primary">Audio Cleanup Preset</label>
                     <select
-                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-2.5 text-xs text-white"
                       value={profile.audio?.cleanup_preset || 'clean'}
                       onChange={(e) =>
                         setProfile({
@@ -1973,9 +1973,9 @@ export const BrandPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-[#F4F6FB]">Music Ducking Style</label>
+                    <label className="text-xs font-semibold text-vc-text-primary">Music Ducking Style</label>
                     <select
-                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-xs text-white"
+                      className="mt-1.5 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-2.5 text-xs text-white"
                       value={profile.audio?.ducking_style || 'broadcast'}
                       onChange={(e) =>
                         setProfile({
@@ -2001,7 +2001,7 @@ export const BrandPage: React.FC = () => {
                       })
                     }
                     disabled={saving}
-                    className="rounded-xl bg-[#F4F6FB] px-5 py-2.5 text-xs font-semibold text-[#0B0C0F] hover:bg-white"
+                    className="rounded-full bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 px-5 py-2.5 text-xs font-semibold text-white hover:bg-vc-ai"
                   >
                     {saving ? 'Saving...' : 'Save Editing & Audio Dynamics'}
                   </button>
@@ -2012,8 +2012,8 @@ export const BrandPage: React.FC = () => {
 
           {/* Live 9:16 Interactive Brand Preview Column */}
           <div className="lg:col-span-1">
-            <div className="sticky top-24 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md flex flex-col items-center">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#F4F6FB] mb-4">
+            <div className="sticky top-24 rounded-2xl bg-vc-surface1 p-6 shadow-md flex flex-col items-center">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-vc-text-primary mb-4">
                 Live 9:16 Brand Preview
               </h3>
               <BrandVideoPreview916 profile={profile} />
@@ -2025,35 +2025,35 @@ export const BrandPage: React.FC = () => {
       {/* TAB CONTENT: Learned Intelligence */}
       {activeTab === 'learned' && (
         <div className="space-y-6">
-          <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+          <div className="rounded-2xl bg-vc-surface1 p-6 shadow-md text-vc-text-primary">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-[#F4F6FB]">VireoClip Has Learned</h2>
-                <p className="text-xs text-[#9AA2B2]">
+                <h2 className="text-lg font-bold text-vc-text-primary">VireoClip Has Learned</h2>
+                <p className="text-xs text-vc-text-secondary">
                   Observed only from your approved video exports and finalized Producer plans.
                 </p>
               </div>
-              <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-300">
+              <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300">
                 {evidenceList.length} evidence records
               </span>
             </div>
 
             <div className="mt-6 space-y-4">
               {evidenceList.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-white/[0.08] p-8 text-center text-sm text-[#9AA2B2]">
+                <div className="rounded-xl border border-dashed border-white/[0.08] p-8 text-center text-sm text-vc-text-secondary">
                   No approved projects recorded yet. As you edit and export videos, VireoClip will organically learn your editing and caption style here.
                 </div>
               ) : (
                 evidenceList.slice(0, 10).map((ev) => (
-                  <div key={ev.id} className="flex flex-col justify-between gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 sm:flex-row sm:items-center">
+                  <div key={ev.id} className="flex flex-col justify-between gap-3 rounded-xl bg-white/[0.03] p-4 sm:flex-row sm:items-center">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="rounded-md bg-white/[0.08] border border-white/[0.1] px-2 py-0.5 text-xs font-bold uppercase text-[#F4F6FB]">
+                        <span className="rounded-md bg-white/[0.08] px-2 py-0.5 text-xs font-bold uppercase text-vc-text-primary">
                           {ev.dimension}
                         </span>
-                        <span className="text-xs text-[#9AA2B2]">Source: {ev.source_type}</span>
+                        <span className="text-xs text-vc-text-secondary">Source: {ev.source_type}</span>
                       </div>
-                      <div className="mt-2 text-sm text-[#F4F6FB]">{renderEvidenceValue(ev.value)}</div>
+                      <div className="mt-2 text-sm text-vc-text-primary">{renderEvidenceValue(ev.value)}</div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <span
@@ -2061,8 +2061,8 @@ export const BrandPage: React.FC = () => {
                           ev.confidence === 'HIGH'
                             ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
                             : ev.confidence === 'MEDIUM'
-                            ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
-                            : 'bg-white/[0.06] text-[#9AA2B2] border-white/[0.08]'
+                            ? 'bg-white/[0.06] text-zinc-200 border-white/20'
+                            : 'bg-white/[0.06] text-vc-text-secondary border-white/[0.08]'
                         }`}
                       >
                         Confidence: {ev.confidence}
@@ -2078,19 +2078,19 @@ export const BrandPage: React.FC = () => {
 
       {/* TAB CONTENT: Brand Check & Compliance */}
       {activeTab === 'check' && (
-        <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+        <div className="space-y-6 rounded-2xl bg-vc-surface1 p-6 shadow-md text-vc-text-primary">
           <div>
-            <h2 className="text-lg font-bold text-[#F4F6FB]">Brand Check & Compliance Test</h2>
-            <p className="text-xs text-[#9AA2B2]">
+            <h2 className="text-lg font-bold text-vc-text-primary">Brand Check & Compliance Test</h2>
+            <p className="text-xs text-vc-text-secondary">
               Test copy or video transcripts against brand avoid phrasing, typography, and tone governance.
             </p>
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-[#F4F6FB]">Content Text / Script to Evaluate</label>
+            <label className="text-xs font-semibold text-vc-text-primary">Content Text / Script to Evaluate</label>
             <textarea
               rows={4}
-              className="mt-2 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-sm text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+              className="mt-2 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-sm text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
               value={checkText}
               onChange={(e) => setCheckText(e.target.value)}
               placeholder="Paste video hook, transcript, or caption text here..."
@@ -2100,28 +2100,28 @@ export const BrandPage: React.FC = () => {
           <button
             onClick={handleRunCheck}
             disabled={isChecking || !checkText}
-            className="rounded-xl bg-[#F4F6FB] px-5 py-2.5 text-xs font-semibold text-[#0B0C0F] shadow-sm hover:bg-white disabled:opacity-50"
+            className="rounded-full bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 px-5 py-2.5 text-xs font-semibold text-white  hover:bg-vc-ai disabled:opacity-50"
           >
             {isChecking ? 'Evaluating...' : 'Run Compliance Check'}
           </button>
 
           {checkResult && (
-            <div className="mt-6 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6">
+            <div className="mt-6 rounded-2xl bg-white/[0.03] p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold text-[#F4F6FB]">Deterministic Brand Match</h3>
-                  <p className="text-xs text-[#9AA2B2]">Strict evaluation of brand alignment</p>
+                  <h3 className="text-base font-bold text-vc-text-primary">Deterministic Brand Match</h3>
+                  <p className="text-xs text-vc-text-secondary">Strict evaluation of brand alignment</p>
                 </div>
                 <div className="text-right">
                   <span className="text-3xl font-extrabold text-vireo-green">{checkResult.score}</span>
-                  <span className="text-xs text-[#9AA2B2]"> / 100</span>
+                  <span className="text-xs text-vc-text-secondary"> / 100</span>
                 </div>
               </div>
 
               <div className="mt-4 space-y-2">
                 {Object.entries(checkResult.match_breakdown).map(([key, val]) => (
-                  <div key={key} className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-[#07080D] p-3 text-xs">
-                    <span className="font-semibold uppercase text-[#9AA2B2]">{key}</span>
+                  <div key={key} className="flex items-center justify-between rounded-xl bg-vc-canvas p-3 text-xs">
+                    <span className="font-semibold uppercase text-vc-text-secondary">{key}</span>
                     <span className={val.matched ? 'text-emerald-400 font-medium' : 'text-amber-400 font-medium'}>
                       {val.details}
                     </span>
@@ -2147,29 +2147,29 @@ export const BrandPage: React.FC = () => {
 
       {/* TAB CONTENT: Version History */}
       {activeTab === 'versions' && (
-        <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+        <div className="space-y-6 rounded-2xl bg-vc-surface1 p-6 shadow-md text-vc-text-primary">
           <div>
-            <h2 className="text-lg font-bold text-[#F4F6FB]">Brand Brain Version History</h2>
-            <p className="text-xs text-[#9AA2B2]">Every setting change is snapshotted and reversible.</p>
+            <h2 className="text-lg font-bold text-vc-text-primary">Brand Brain Version History</h2>
+            <p className="text-xs text-vc-text-secondary">Every setting change is snapshotted and reversible.</p>
           </div>
 
           <div className="space-y-3">
             {versions.map((ver) => (
-              <div key={ver.id} className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
+              <div key={ver.id} className="flex items-center justify-between rounded-xl bg-white/[0.03] p-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="rounded-md bg-white/[0.08] border border-white/[0.1] px-2 py-0.5 text-xs font-bold text-[#F4F6FB]">
+                    <span className="rounded-md bg-white/[0.08] px-2 py-0.5 text-xs font-bold text-vc-text-primary">
                       v{ver.version}
                     </span>
-                    <span className="text-xs font-medium text-[#F4F6FB]">{ver.change_summary}</span>
+                    <span className="text-xs font-medium text-vc-text-primary">{ver.change_summary}</span>
                   </div>
-                  <p className="mt-1 text-xs text-[#9AA2B2]">
+                  <p className="mt-1 text-xs text-vc-text-secondary">
                     {new Date(ver.created_at).toLocaleString()} • Source: {ver.source}
                   </p>
                 </div>
                 <button
                   onClick={() => handleRestoreVersion(ver.version)}
-                  className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
+                  className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-vc-text-primary hover:bg-white/[0.08]"
                 >
                   Restore
                 </button>
@@ -2181,17 +2181,17 @@ export const BrandPage: React.FC = () => {
 
       {/* TAB CONTENT: Import Guidelines */}
       {activeTab === 'import' && (
-        <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-md text-[#F4F6FB]">
+        <div className="space-y-6 rounded-2xl bg-vc-surface1 p-6 shadow-md text-vc-text-primary">
           <div>
-            <h2 className="text-lg font-bold text-[#F4F6FB]">Brand Guidelines Document Import</h2>
-            <p className="text-xs text-[#9AA2B2]">
+            <h2 className="text-lg font-bold text-vc-text-primary">Brand Guidelines Document Import</h2>
+            <p className="text-xs text-vc-text-secondary">
               Paste public brand guideline text or style guides. Text is processed strictly as data with prompt injection defense.
             </p>
           </div>
 
           <textarea
             rows={6}
-            className="w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-3 text-sm text-white placeholder:text-[#64748B] focus:border-vireo-green focus:outline-none"
+            className="w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-3 text-sm text-white placeholder:text-vc-text-muted focus:border-white/25 focus:outline-none"
             value={guidelinesText}
             onChange={(e) => setGuidelinesText(e.target.value)}
             placeholder="Paste brand guidelines, tone rules, brand colors (#HEX), or banned phrases..."
@@ -2200,13 +2200,13 @@ export const BrandPage: React.FC = () => {
           <button
             onClick={handleParseGuidelines}
             disabled={isParsing || !guidelinesText}
-            className="rounded-xl bg-[#F4F6FB] px-5 py-2.5 text-xs font-semibold text-[#0B0C0F] shadow-sm hover:bg-white disabled:opacity-50"
+            className="rounded-full bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 px-5 py-2.5 text-xs font-semibold text-white  hover:bg-vc-ai disabled:opacity-50"
           >
             {isParsing ? 'Parsing...' : 'Analyze Document'}
           </button>
 
           {importedDraft && (
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-6 text-[#F4F6FB]">
+            <div className="rounded-xl bg-emerald-950/20 p-6 text-vc-text-primary">
               <h3 className="text-sm font-bold text-emerald-300">Detected Guidelines Draft</h3>
               <p className="text-xs text-emerald-400/80">{importedDraft.review_notice}</p>
 
@@ -2236,13 +2236,13 @@ export const BrandPage: React.FC = () => {
               <div className="mt-4 flex gap-3">
                 <button
                   onClick={handleConfirmImport}
-                  className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-500"
+                  className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(0,0,0,0.4)] active:bg-emerald-700 active:translate-y-px hover:bg-emerald-500"
                 >
                   Confirm & Apply to Brand Brain
                 </button>
                 <button
                   onClick={() => setImportedDraft(null)}
-                  className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
+                  className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-xs font-medium text-vc-text-primary hover:bg-white/[0.08]"
                 >
                   Discard
                 </button>
@@ -2254,16 +2254,16 @@ export const BrandPage: React.FC = () => {
 
       {/* FAST SETUP WIZARD MODAL */}
       {showWizard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-3xl border border-white/[0.08] bg-[#0E1017] p-6 shadow-2xl text-[#F4F6FB]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center glass-scrim p-4">
+          <div className="w-full max-w-lg rounded-3xl glass-float p-6 text-vc-text-primary">
             <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
               <div className="flex items-center gap-2">
-                <Sparkles className="size-5 text-vireo-green" />
-                <h3 className="text-base font-bold text-[#F4F6FB]">Fast Brand Setup Wizard</h3>
+                <Sparkles className="size-5 text-violet-300" />
+                <h3 className="text-base font-bold text-vc-text-primary">Fast Brand Setup Wizard</h3>
               </div>
               <button
                 onClick={() => setShowWizard(false)}
-                className="text-xs font-semibold text-[#9AA2B2] hover:text-[#F4F6FB]"
+                className="text-xs font-semibold text-vc-text-secondary hover:text-vc-text-primary"
               >
                 Close
               </button>
@@ -2271,10 +2271,10 @@ export const BrandPage: React.FC = () => {
 
             <div className="py-6 space-y-4">
               <div>
-                <label className="text-xs font-semibold text-[#F4F6FB]">Brand Name</label>
+                <label className="text-xs font-semibold text-vc-text-primary">Brand Name</label>
                 <input
                   type="text"
-                  className="mt-1 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-sm text-white focus:border-vireo-green focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-2.5 text-sm text-white focus:border-white/25 focus:outline-none"
                   value={wizardData.brand_name}
                   onChange={(e) => setWizardData({ ...wizardData, brand_name: e.target.value })}
                   placeholder="e.g. Acme Studio"
@@ -2282,10 +2282,10 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#F4F6FB]">What do you create? (Industry / Niche)</label>
+                <label className="text-xs font-semibold text-vc-text-primary">What do you create? (Industry / Niche)</label>
                 <input
                   type="text"
-                  className="mt-1 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-sm text-white focus:border-vireo-green focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-2.5 text-sm text-white focus:border-white/25 focus:outline-none"
                   value={wizardData.industry}
                   onChange={(e) => setWizardData({ ...wizardData, industry: e.target.value })}
                   placeholder="e.g. AI Engineering, Tech Tutorials, Fitness..."
@@ -2293,17 +2293,17 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#F4F6FB]">Primary Brand Color</label>
+                <label className="text-xs font-semibold text-vc-text-primary">Primary Brand Color</label>
                 <div className="mt-1 flex items-center gap-3">
                   <input
                     type="color"
-                    className="size-10 cursor-pointer rounded-xl border border-white/[0.1] bg-[#07080D] p-1"
+                    className="size-10 cursor-pointer rounded-xl border border-white/[0.1] bg-vc-canvas p-1"
                     value={wizardData.primary_color}
                     onChange={(e) => setWizardData({ ...wizardData, primary_color: e.target.value })}
                   />
                   <input
                     type="text"
-                    className="w-32 rounded-xl border border-white/[0.1] bg-[#07080D] px-3 py-2 text-sm font-mono text-white focus:border-vireo-green focus:outline-none"
+                    className="w-32 rounded-xl border border-white/[0.1] bg-vc-canvas px-3 py-2 text-sm font-mono text-white focus:border-white/25 focus:outline-none"
                     value={wizardData.primary_color}
                     onChange={(e) => setWizardData({ ...wizardData, primary_color: e.target.value })}
                   />
@@ -2311,9 +2311,9 @@ export const BrandPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#F4F6FB]">Pacing Preference</label>
+                <label className="text-xs font-semibold text-vc-text-primary">Pacing Preference</label>
                 <select
-                  className="mt-1 w-full rounded-xl border border-white/[0.1] bg-[#07080D] p-2.5 text-sm text-white focus:border-vireo-green focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-white/[0.1] bg-vc-canvas p-2.5 text-sm text-white focus:border-white/25 focus:outline-none"
                   value={wizardData.pacing_style}
                   onChange={(e) => setWizardData({ ...wizardData, pacing_style: e.target.value as any })}
                 >
@@ -2327,14 +2327,14 @@ export const BrandPage: React.FC = () => {
             <div className="flex justify-end gap-3 border-t border-white/[0.08] pt-4">
               <button
                 onClick={() => setShowWizard(false)}
-                className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
+                className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-xs font-medium text-vc-text-primary hover:bg-white/[0.08]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCompleteWizard}
                 disabled={saving}
-                className="rounded-xl bg-[#F4F6FB] px-5 py-2 text-xs font-semibold text-[#0B0C0F] shadow-sm hover:bg-white"
+                className="rounded-full bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 px-5 py-2 text-xs font-semibold text-white  hover:bg-vc-ai"
               >
                 {saving ? 'Completing...' : 'Finish Setup'}
               </button>
@@ -2345,26 +2345,26 @@ export const BrandPage: React.FC = () => {
 
       {/* OVERWRITE CONFIRMATION MODAL */}
       {overwriteModal.isOpen && overwriteModal.recommendation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-amber-500/30 bg-[#0E1017] p-6 shadow-2xl text-[#F4F6FB]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center glass-scrim p-4">
+          <div className="w-full max-w-md rounded-3xl glass-float !border-amber-500/30 p-6 text-vc-text-primary">
             <div className="flex items-center gap-2 text-amber-400">
               <AlertTriangle className="size-5 shrink-0 text-amber-400" />
-              <h3 className="text-base font-bold text-[#F4F6FB]">Confirm Overwriting Brand Guideline</h3>
+              <h3 className="text-base font-bold text-vc-text-primary">Confirm Overwriting Brand Guideline</h3>
             </div>
-            <p className="mt-3 text-xs text-[#9AA2B2] leading-relaxed">
+            <p className="mt-3 text-xs text-vc-text-secondary leading-relaxed">
               {overwriteModal.message ||
                 'This approved recommendation will replace your currently approved brand guideline. This change will be snapshotted in version history.'}
             </p>
 
-            <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs">
+            <div className="mt-4 rounded-xl bg-amber-950/20 p-3 text-xs">
               <div className="font-semibold text-amber-300">{overwriteModal.recommendation.title}</div>
-              <p className="mt-1 text-[#9AA2B2] text-[11px]">{overwriteModal.recommendation.description}</p>
+              <p className="mt-1 text-vc-text-secondary text-[11px]">{overwriteModal.recommendation.description}</p>
             </div>
 
             <div className="mt-6 flex justify-end gap-2.5">
               <button
                 onClick={() => setOverwriteModal({ isOpen: false, recommendation: null, message: '' })}
-                className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-xs font-medium text-[#F4F6FB] hover:bg-white/[0.08]"
+                className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-xs font-medium text-vc-text-primary hover:bg-white/[0.08]"
               >
                 Cancel
               </button>

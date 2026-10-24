@@ -14,8 +14,11 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { execFile, ChildProcess } from 'node:child_process';
+import { promisify } from 'node:util';
 import { downloadObjectToFile } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
+
+const execFileAsync = promisify(execFile);
 import type {
   ClipAspectRatio,
   NormalizedFaceDetection,
@@ -1055,7 +1058,6 @@ export class SmartReframeService {
       path.resolve(process.cwd(), 'server/python/.venv/bin/python'),
       path.resolve(process.cwd(), 'python/.venv/bin/python'),
       path.resolve(process.cwd(), '../server/python/.venv/bin/python'),
-      path.resolve('/tmp/test_venv/bin/python'),
       'python3',
       'python',
     ];
@@ -1067,6 +1069,45 @@ export class SmartReframeService {
     }
     return 'python3';
   }
+
+  /**
+   * One-time, cached capability check: can this host actually run the OpenCV
+   * reframe analysis? A missing python/OpenCV runtime silently degraded every
+   * render to center-crop before (audit M-6); the result is now cached, logged
+   * once, and surfaced as an advisory degradation on /ready.
+   */
+  public static async checkReframeRuntime(force = false): Promise<{
+    available: boolean;
+    pythonPath: string;
+    detail?: string;
+  }> {
+    if (this.reframeRuntimeCheck && !force) return this.reframeRuntimeCheck;
+
+    this.reframeRuntimeCheck = (async () => {
+      const pythonPath = this.getPythonPath();
+      try {
+        await execFileAsync(
+          pythonPath,
+          ['-c', 'import cv2, numpy'],
+          { timeout: 20000 }
+        );
+        logger.info(`[SmartReframe] OpenCV runtime available via '${pythonPath}'.`);
+        return { available: true, pythonPath };
+      } catch (err: any) {
+        logger.warn(
+          `[SmartReframe] OpenCV runtime unavailable via '${pythonPath}' (${err.message}). Smart reframing will degrade to center crop until a Python environment with opencv-python is provided.`
+        );
+        return { available: false, pythonPath, detail: err.message };
+      }
+    })();
+
+    return this.reframeRuntimeCheck;
+  }
+  private static reframeRuntimeCheck: Promise<{
+    available: boolean;
+    pythonPath: string;
+    detail?: string;
+  }> | null = null;
 
   /**
    * Invokes Python face detection script via execFile with strict timeout and input isolation.

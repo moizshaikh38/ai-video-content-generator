@@ -38,14 +38,14 @@ export const PANEL_TOOLBAR =
 
 /* ── Cards & tiles ─────────────────────────────────────────────────────── */
 
-export const CARD = 'rounded-xl border border-vc-border bg-vc-surface2/60 p-3';
+export const CARD = 'rounded-xl bg-vc-surface2/60 p-3';
 export const CARD_HOVER =
-  'transition-colors duration-150 hover:border-vc-border-strong hover:bg-vc-surface2';
-export const CARD_SELECTED = 'border-white/40 bg-white/[0.06] ring-1 ring-white/20';
+  'transition-colors duration-150 hover:bg-vc-surface2';
+export const CARD_SELECTED = 'bg-violet-500/10 ring-1 ring-violet-400/50';
 
 export const TILE =
-  'group relative overflow-hidden rounded-xl border border-vc-border bg-vc-canvas/80 text-left transition-colors duration-150 hover:border-vc-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60';
-export const TILE_SELECTED = 'border-white/50 ring-1 ring-white/25';
+  'group relative overflow-hidden rounded-xl bg-vc-canvas/80 text-left transition-colors duration-150 hover:bg-vc-surface2/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60';
+export const TILE_SELECTED = 'ring-2 ring-violet-400/60';
 export const TILE_MEDIA = 'w-full border-b border-white/[0.06] bg-vc-canvas';
 export const TILE_CAPTION =
   'flex items-center justify-between gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-vc-text-primary';
@@ -54,8 +54,8 @@ export const TILE_SKELETON =
 
 /** Fixed-height list row — the AiToolsPanel shape, now shared. */
 export const ROW =
-  'group flex h-11 w-full items-center gap-2.5 rounded-lg border border-transparent px-2.5 text-left transition-colors hover:border-vc-border hover:bg-white/[0.04] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50';
-export const ROW_ACTIVE = 'bg-white/[0.07] border-vc-border-strong';
+  'group flex h-11 w-full items-center gap-2.5 rounded-lg border border-transparent px-2.5 text-left transition-colors hover:bg-white/[0.05] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50';
+export const ROW_ACTIVE = 'bg-violet-500/10';
 export const ROW_ICON =
   'shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-colors';
 
@@ -99,10 +99,10 @@ export const FIELD_VALUE = 'font-mono tabular-nums text-vc-text-primary';
 export const FIELD_INPUT =
   'h-9 w-full rounded-lg border border-vc-border bg-vc-canvas/80 px-2.5 text-[12px] text-vc-text-primary transition-colors focus:outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10';
 
-export const SEGMENTED_GROUP = 'flex gap-0.5 rounded-lg bg-vc-canvas/80 p-0.5';
+export const SEGMENTED_GROUP = 'flex gap-0.5 rounded-xl border border-white/[0.06] bg-black/40 p-0.5';
 export const SEGMENTED_ITEM =
   'flex-1 flex items-center justify-center gap-1.5 h-7 rounded-lg text-[11px] font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50';
-export const SEGMENTED_ITEM_ACTIVE = 'bg-white/[0.12] text-vc-text-primary';
+export const SEGMENTED_ITEM_ACTIVE = 'bg-white/[0.10] text-vc-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]';
 export const SEGMENTED_ITEM_IDLE = 'text-vc-text-muted hover:text-vc-text-primary';
 
 export const SWATCH =
@@ -136,14 +136,15 @@ export const STATE_ICON =
 export const STATE_TITLE = 'text-[12.5px] font-medium text-vc-text-primary';
 export const STATE_HINT = 'text-[11px] text-vc-text-muted leading-snug max-w-[26ch]';
 
+/** Same pill recipes as `src/lib/buttonStyles.ts`, sized for the 350px panels. */
 export const ACTION_PRIMARY =
-  'h-8 px-3 rounded-lg bg-vc-action text-vc-action-foreground text-[12px] font-semibold flex items-center justify-center gap-1.5 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60';
+  'h-8 px-3 rounded-full border border-white/[0.12] bg-vc-ai-hover text-white text-[12px] font-semibold flex items-center justify-center gap-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] transition-colors hover:bg-vc-ai active:bg-violet-700 active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60';
 export const ACTION_GHOST =
-  'h-8 px-3 rounded-lg border border-vc-border text-[12px] font-medium text-vc-text-secondary transition-colors hover:text-vc-text-primary hover:bg-white/[0.05] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50';
+  'h-8 px-3 rounded-full border border-white/10 bg-white/[0.06] text-[12px] font-medium text-vc-text-secondary shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-colors hover:text-vc-text-primary hover:bg-white/[0.10] active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50';
 
 /* ── Scales (documented so reviewers can enforce them) ─────────────────── */
 
-/** Containers use `rounded-xl`; anything inside a card uses `rounded-lg`. Nothing else. */
+/** Containers use `rounded-xl`; anything inside a card uses `rounded-lg`; action buttons are pills. */
 export const RADIUS_SCALE = ['rounded-lg', 'rounded-xl'] as const;
 /** gap-1.5 intra-control · gap-2.5 intra-card · space-y-4 between sections · p-3 card. */
 export const SPACING_SCALE = ['gap-1.5', 'gap-2.5', 'space-y-4', 'p-3'] as const;

@@ -807,7 +807,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   );
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#07080D] text-white overflow-hidden font-sans select-none">
+    <div className="flex flex-col h-screen w-screen bg-vc-canvas text-white overflow-hidden font-sans select-none">
       {/* 1. TOP NAVIGATION BAR */}
       <EditorTopBar
         title={project.title || clip.title || 'Untitled Clip'}
@@ -1097,7 +1097,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         )}
 
         {/* CENTER VIEWPORT (VIDEO PREVIEW + TRANSPORT) */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#08090B] overflow-hidden relative">
+        <div className="flex-1 flex flex-col min-w-0 bg-vc-surface1 overflow-hidden relative">
           <PreviewCanvas
             project={project}
             playhead={currentTime}
@@ -1220,7 +1220,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* TRANSCRIPT DOCK — persistent on the far right, independent of the selected tool */}
         {transcriptCollapsed ? (
-          <div className="w-10 shrink-0 glass-rail flex flex-col items-center py-3 z-20 border-l border-white/[0.08] bg-[#07080D]/95">
+          <div className="w-10 shrink-0 glass-rail flex flex-col items-center py-3 z-20 border-l border-white/[0.08]">
             <button
               onClick={toggleTranscriptCollapsed}
               title="Show transcript"
@@ -1234,16 +1234,16 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             </span>
           </div>
         ) : (
-          <div className="w-[320px] md:w-[340px] xl:w-[360px] shrink-0 glass-dock flex flex-col min-h-0 z-20 border-l border-white/[0.08] bg-[#07080D]/95 backdrop-blur-md">
+          <div className="w-[320px] md:w-[340px] xl:w-[360px] shrink-0 glass-dock flex flex-col min-h-0 z-20 border-l border-white/[0.08]">
             <div className="flex-1 min-h-0 overflow-hidden flex flex-col">{transcriptPanel}</div>
           </div>
         )}
 
         {/* FULLSCREEN / EXPANDED AI WORKSPACE MODAL OVERLAY */}
         {activeSidebarTab === 'ai_tools' && activeAiTool !== 'copilot' && (
-          <div className="absolute inset-0 z-40 bg-[#07080D]/95 flex flex-col overflow-hidden animate-fadeIn">
+          <div className="absolute inset-0 z-40 bg-vc-canvas/95 flex flex-col overflow-hidden animate-fadeIn">
             {/* Header */}
-            <div className="h-12 px-6 border-b border-white/[0.08] flex items-center justify-between bg-[#0E1017]">
+            <div className="h-12 px-6 border-b border-white/[0.08] flex items-center justify-between bg-vc-surface1">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-violet-400" />
                 <span className="font-semibold text-white capitalize text-sm">
@@ -1354,7 +1354,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
           title="Drag to adjust timeline height"
         >
           <div className="h-[1px] w-full bg-white/[0.08] group-hover:bg-violet-400 group-active:bg-violet-400 transition-colors" />
-          <div className="absolute left-1/2 -translate-x-1/2 w-12 h-2 rounded-full bg-[#12141C] border border-white/20 group-hover:border-violet-400 transition-all shadow-md flex items-center justify-center gap-0.5">
+          <div className="absolute left-1/2 -translate-x-1/2 w-12 h-2 rounded-full bg-vc-surface2 border border-white/20 group-hover:border-violet-400 transition-all shadow-md flex items-center justify-center gap-0.5">
             <div className="w-0.5 h-1 bg-white/60 rounded-full" />
             <div className="w-0.5 h-1 bg-white/60 rounded-full" />
             <div className="w-0.5 h-1 bg-white/60 rounded-full" />
@@ -1367,6 +1367,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         height={timelineHeight}
         project={project}
         clip={clip}
+        sourceVideoUrl={cleanSourceUrl}
         playhead={currentTime}
         isPlaying={isPlaying}
         transportSlot={
@@ -1464,11 +1465,11 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       {/* INTRO / OUTRO CHOICE POPOVER */}
       {introOutroMenu && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          className="fixed inset-0 z-50 flex items-center justify-center glass-scrim"
           onClick={() => setIntroOutroMenu(null)}
         >
           <div
-            className="bg-[#0E1017] border border-white/[0.1] rounded-2xl p-5 w-[320px] shadow-2xl"
+            className="glass-float rounded-3xl p-5 w-[320px]"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-label={`Add ${introOutroMenu}`}
@@ -1488,7 +1489,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               <button
                 type="button"
                 onClick={() => handleInsertTitleCard(introOutroMenu)}
-                className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[#07080D] border border-white/[0.08] hover:border-white/30 hover:bg-white/[0.06] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                className="flex flex-col items-center gap-2 p-4 rounded-xl bg-vc-canvas border border-white/[0.08] hover:border-white/30 hover:bg-white/[0.06] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
               >
                 <TypeIcon className="w-5 h-5 text-neutral-300" />
                 <span className="text-xs font-medium text-white">Title card</span>
@@ -1497,9 +1498,9 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               <button
                 type="button"
                 onClick={() => handlePickMediaForIntroOutro(introOutroMenu)}
-                className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[#07080D] border border-white/[0.08] hover:border-white/30 hover:bg-white/[0.06] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                className="flex flex-col items-center gap-2 p-4 rounded-xl bg-vc-canvas border border-white/[0.08] hover:border-white/30 hover:bg-white/[0.06] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
               >
-                <Film className="w-5 h-5 text-sky-400" />
+                <Film className="w-5 h-5 text-zinc-300" />
                 <span className="text-xs font-medium text-white">From media</span>
                 <span className="text-[10px] text-neutral-500 text-center leading-snug">Pick a clip or image from your library</span>
               </button>

@@ -701,11 +701,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           onSelectItem(null);
         }
       }}
-      className="flex-1 bg-[#08090B] flex flex-col items-center p-3 overflow-hidden relative select-none"
+      className="flex-1 bg-vc-surface1 flex flex-col items-center p-3 overflow-hidden relative select-none"
     >
       {/* OPUS-STYLE TOP PREVIEW TOOLBAR */}
       <div className="w-full shrink-0 flex items-center justify-center gap-3 pb-2 z-30">
-        <div className="flex items-center gap-2 bg-[#12141C]/90 backdrop-blur-md border border-white/[0.08] px-3 py-1 rounded-xl shadow-lg text-xs">
+        <div className="flex items-center gap-2 glass-float px-3 py-1 rounded-full text-xs">
           {/* 1. Aspect Ratio Pill */}
           {onChangeAspectRatio && (
             <button
@@ -982,7 +982,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     }}
                     className={`absolute pointer-events-auto cursor-move max-w-[90%] leading-tight select-none transition-shadow ${
                       isSelected
-                        ? 'ring-2 ring-white/30 ring-offset-2 ring-offset-black/80 shadow-[0_0_20px_rgba(139,92,246,0.4)]'
+                        ? 'ring-2 ring-white/30 ring-offset-2 ring-offset-black/80'
                         : 'hover:ring-1 hover:ring-white/40'
                     }`}
                   >
@@ -1057,7 +1057,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     }}
                     className={`absolute pointer-events-auto cursor-move select-none transition-shadow ${
                       isSelected
-                        ? 'ring-2 ring-white/30 ring-offset-2 ring-offset-black/80 shadow-[0_0_20px_rgba(139,92,246,0.4)]'
+                        ? 'ring-2 ring-white/30 ring-offset-2 ring-offset-black/80'
                         : 'hover:ring-1 hover:ring-white/40'
                     }`}
                   >
@@ -1266,7 +1266,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                       isDraggingCaption
                         ? 'cursor-grabbing opacity-90'
                         : isInDangerZone
-                        ? 'ring-2 ring-rose-500 rounded-xl shadow-[0_0_15px_rgba(244,63,94,0.5)]'
+                        ? 'ring-2 ring-rose-500 rounded-xl'
                         : isCaptionSelected
                         ? 'ring-2 ring-white/30 rounded-xl shadow-lg'
                         : 'hover:ring-1 hover:ring-white/30 rounded-xl'
@@ -1389,8 +1389,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     style={{ left: `${activeSnapGuides.x * 100}%` }}
                     className={`absolute top-0 bottom-0 w-0 border-l-2 border-dashed z-30 pointer-events-none ${
                       activeSnapGuides.isDanger
-                        ? 'border-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.8)]'
-                        : 'border-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]'
+                        ? 'border-rose-400'
+                        : 'border-violet-400'
                     }`}
                   />
                 )}
@@ -1399,8 +1399,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     style={{ top: `${activeSnapGuides.y * 100}%` }}
                     className={`absolute left-0 right-0 h-0 border-t-2 border-dashed z-30 pointer-events-none ${
                       activeSnapGuides.isDanger
-                        ? 'border-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.8)]'
-                        : 'border-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]'
+                        ? 'border-rose-400'
+                        : 'border-violet-400'
                     }`}
                   />
                 )}
@@ -1408,13 +1408,13 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                   <div
                     className={`absolute top-12 left-1/2 -translate-x-1/2 z-40 px-3 py-1 rounded-full text-[11px] font-mono font-medium shadow-2xl backdrop-blur-md flex items-center gap-1.5 animate-fadeIn pointer-events-none whitespace-nowrap ${
                       activeSnapGuides.isDanger
-                        ? 'bg-rose-950/95 border border-rose-500 text-rose-200 shadow-[0_0_15px_rgba(244,63,94,0.4)]'
-                        : 'bg-neutral-950/95 border border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(34,211,238,0.4)]'
+                        ? 'bg-rose-950/95 border border-rose-500 text-rose-200'
+                        : 'bg-neutral-950/95 border border-violet-400 text-violet-100'
                     }`}
                   >
                     <span
                       className={`w-2 h-2 rounded-full animate-pulse ${
-                        activeSnapGuides.isDanger ? 'bg-rose-400' : 'bg-cyan-400'
+                        activeSnapGuides.isDanger ? 'bg-rose-400' : 'bg-violet-400'
                       }`}
                     />
                     <span>{activeSnapGuides.label}</span>
@@ -1425,7 +1425,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
 
             {/* FONT SIZE HUD DURING CORNER SCALING */}
             {fontSizeHud !== null && (
-              <div className="absolute top-12 left-1/2 -translate-x-1/2 z-40 px-3 py-1 rounded-full text-[11px] font-mono font-medium bg-neutral-950/95 border border-white/50 text-white shadow-[0_0_15px_rgba(167,139,250,0.4)] backdrop-blur-md flex items-center gap-1.5 animate-fadeIn pointer-events-none">
+              <div className="absolute top-12 left-1/2 -translate-x-1/2 z-40 px-3 py-1 rounded-full text-[11px] font-mono font-medium bg-neutral-950/95 text-white backdrop-blur-md flex items-center gap-1.5 animate-fadeIn pointer-events-none">
                 <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
                 <span>Font Size: {fontSizeHud}px</span>
               </div>
@@ -1433,9 +1433,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
 
             {/* FLOATING SCOPE PILL & QUICK PRESETS MICRO-BAR */}
             {isCaptionSelected && !isDraggingCaption && viewMode === 'edit' && (
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 bg-neutral-900/95 border border-neutral-700/80 rounded-xl px-2 py-1 shadow-2xl backdrop-blur-md animate-fadeIn select-none whitespace-nowrap">
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 glass-overlay rounded-xl px-2 py-1 shadow-2xl animate-fadeIn select-none whitespace-nowrap">
                 {/* Scope Toggle */}
-                <div className="flex items-center bg-black/60 rounded-lg p-0.5 border border-neutral-800">
+                <div className="flex items-center bg-black/60 rounded-lg p-0.5 ">
                   <button
                     type="button"
                     onClick={(e) => {
@@ -1555,7 +1555,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
 
                   {/* Interactive Safe-Zone Collision Warning Badge */}
                   {hasHazard && (
-                    <div className="absolute bottom-24 z-30 px-3 py-1.5 rounded-full bg-neutral-900/95 border border-amber-500/80 shadow-2xl backdrop-blur-md flex items-center gap-2 text-xs text-amber-300 animate-fadeIn pointer-events-auto">
+                    <div className="absolute bottom-24 z-30 px-3 py-1.5 rounded-full glass-overlay !border-amber-500/80 shadow-2xl flex items-center gap-2 text-xs text-amber-300 animate-fadeIn pointer-events-auto">
                       <span>⚠️ Captions in {isBottomHazard ? 'bottom' : 'top'} UI danger area</span>
                       {onUpdateCaptionPosition && (
                         <button
@@ -1585,7 +1585,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     selectedItem.transform?.rotation || 0
                   }deg)`,
                 }}
-                className="absolute w-48 h-48 border-2 border-white/40 rounded-lg pointer-events-auto cursor-move flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.25)]"
+                className="absolute w-48 h-48 border-2 border-white/40 rounded-lg pointer-events-auto cursor-move flex items-center justify-center"
                 onMouseDown={(e) => {
                   e.stopPropagation();
                   preTransformProjectRef.current = JSON.parse(JSON.stringify(projectRef.current));

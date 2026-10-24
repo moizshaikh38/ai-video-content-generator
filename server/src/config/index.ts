@@ -16,6 +16,17 @@ export const config = {
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean),
+  // Extra hosts the Pro editor may pull overlay/element assets from (beyond the
+  // built-in defaults in editorAssetValidator.ts). Comma-separated.
+  editorAssetHosts: (process.env.EDITOR_ASSET_HOSTS || '')
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean),
+  // When 'on', finished transcriptions automatically enqueue multimodal timeline
+  // analysis (scene cuts, silence, faces, OCR) so clip selection gets real
+  // visual/audio signals. Default off — enable per deployment after reviewing
+  // the added local compute cost (audit finding F1 / genre roadmap Phase 2).
+  multimodalAutoAnalysis: process.env.MULTIMODAL_AUTO === 'on',
   supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
   supabaseSecretKey: process.env.SUPABASE_SECRET_KEY || '',
   mongodbUri: process.env.MONGODB_URI || '',

@@ -134,7 +134,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
 
   // Render Live Preview Stage Box
   const renderSamplePreview = () => (
-    <div className="p-3 rounded-xl bg-vc-canvas/90 border border-vc-border text-center select-none overflow-hidden relative shadow-[inset_0_2px_12px_rgba(0,0,0,0.8)]">
+    <div className="p-3 rounded-xl bg-vc-canvas/90 text-center select-none overflow-hidden relative shadow-[inset_0_2px_12px_rgba(0,0,0,0.8)]">
       {hasCustomPos && (
         <button
           type="button"
@@ -236,7 +236,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
           {/* Size Numeric Pill */}
           <div className="col-span-4">
             <span className="text-[10px] text-vc-text-secondary font-medium block mb-1">Size</span>
-            <div className="h-8 rounded-xl bg-vc-surface1 border border-vc-border px-2 flex items-center justify-between text-xs font-mono tabular-nums text-white">
+            <div className="h-8 rounded-xl bg-vc-surface1 px-2 flex items-center justify-between text-xs font-mono tabular-nums text-white">
               <input
                 type="number"
                 min="32"
@@ -269,7 +269,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
       <div className="grid grid-cols-2 gap-2">
         <div>
           <span className="text-[10px] text-vc-text-secondary font-medium block mb-1">Weight</span>
-          <div className="grid grid-cols-2 p-0.5 bg-vc-surface1 rounded-lg border border-vc-border">
+          <div className="grid grid-cols-2 p-0.5 bg-vc-surface1 rounded-lg ">
             <button
               type="button"
               onClick={() => onChange({ font_weight: 'regular' })}
@@ -317,7 +317,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
         {/* Casing */}
         <div>
           <span className="text-[10px] text-vc-text-secondary font-medium block mb-1">Casing</span>
-          <div className="grid grid-cols-2 p-0.5 bg-vc-surface1 rounded-lg border border-vc-border">
+          <div className="grid grid-cols-2 p-0.5 bg-vc-surface1 rounded-lg ">
             <button
               type="button"
               onClick={() => onChange({ uppercase: true })}
@@ -348,7 +348,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
         {/* Lines */}
         <div>
           <span className="text-[10px] text-vc-text-secondary font-medium block mb-1">Lines</span>
-          <div className="grid grid-cols-2 p-0.5 bg-vc-surface1 rounded-lg border border-vc-border">
+          <div className="grid grid-cols-2 p-0.5 bg-vc-surface1 rounded-lg ">
             <button
               type="button"
               onClick={() => onChange({ max_lines: 1 })}
@@ -378,7 +378,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
       {/* Alignment */}
       <div>
         <span className="text-[10px] text-vc-text-secondary font-medium block mb-1">Alignment</span>
-        <div className="grid grid-cols-3 p-0.5 bg-vc-surface1 rounded-lg border border-vc-border">
+        <div className="grid grid-cols-3 p-0.5 bg-vc-surface1 rounded-lg ">
           {[
             { id: 'left', icon: AlignLeft, label: 'Left' },
             { id: 'center', icon: AlignCenter, label: 'Center' },
@@ -415,7 +415,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
       </div>
 
       {/* 4-Channel Color Switcher */}
-      <div className="space-y-2 bg-vc-surface1 border border-vc-border rounded-xl p-2.5">
+      <div className="space-y-2 bg-vc-surface1 rounded-xl p-2.5">
         <div className="grid grid-cols-4 gap-1">
           {[
             { id: 'text', label: 'Text', color: primaryColor },
@@ -494,7 +494,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
       {/* Stroke Width & Shadow */}
       <div className="grid grid-cols-12 gap-1.5">
         {/* Stroke Width Slider */}
-        <div className="col-span-8 bg-vc-surface1 border border-vc-border rounded-xl px-2.5 py-1.5 flex flex-col justify-between">
+        <div className="col-span-8 bg-vc-surface1 rounded-xl px-2.5 py-1.5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-[10px] mb-1">
             <span className="text-vc-text-secondary font-medium flex items-center gap-1">
               <SunMedium className="w-3 h-3 text-vc-text-secondary" />
@@ -514,9 +514,9 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
         </div>
 
         {/* Shadow Toggle */}
-        <div className="col-span-4 bg-vc-surface1 border border-vc-border rounded-xl px-2 py-1.5 flex flex-col justify-between">
+        <div className="col-span-4 bg-vc-surface1 rounded-xl px-2 py-1.5 flex flex-col justify-between">
           <span className="text-[10px] text-vc-text-secondary font-medium block mb-0.5">Shadow</span>
-          <div className="grid grid-cols-2 p-0.5 bg-vc-canvas rounded-lg border border-vc-border text-[10px]">
+          <div className="grid grid-cols-2 p-0.5 bg-vc-canvas rounded-lg text-[10px]">
             <button
               type="button"
               onClick={() => onChange({ shadow_enabled: false })}
@@ -544,7 +544,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
       </div>
 
       {/* Background Box & Padding */}
-      <div className="bg-vc-surface1 border border-vc-border rounded-xl p-2.5 space-y-1.5">
+      <div className="bg-vc-surface1 rounded-xl p-2.5 space-y-1.5">
         <div className="flex items-center justify-between text-[10px]">
           <span className="text-vc-text-secondary font-medium flex items-center gap-1">
             <Box className="w-3 h-3 text-vc-text-secondary" />
@@ -608,7 +608,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
       </div>
 
       {/* Word Pop Scale */}
-      <div className="bg-vc-surface1 border border-vc-border rounded-xl px-2.5 py-1.5">
+      <div className="bg-vc-surface1 rounded-xl px-2.5 py-1.5">
         <div className="flex items-center justify-between text-[10px] mb-1">
           <span className="text-vc-text-secondary font-medium flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-vc-text-secondary" />
@@ -618,7 +618,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
             <span className="text-[10px] font-mono text-white">{animationScale.toFixed(2)}x</span>
           )}
         </div>
-        <div className="grid grid-cols-3 p-0.5 bg-vc-canvas rounded-lg border border-vc-border text-[11px]">
+        <div className="grid grid-cols-3 p-0.5 bg-vc-canvas rounded-lg text-[11px]">
           <button
             type="button"
             onClick={() => onChange({ animation: 'none' })}
@@ -669,7 +669,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
             </button>
           )}
         </div>
-        <div className="grid grid-cols-3 p-0.5 bg-vc-surface1 rounded-lg border border-vc-border">
+        <div className="grid grid-cols-3 p-0.5 bg-vc-surface1 rounded-lg ">
           <button
             type="button"
             onClick={() => onChange({ position: 'top', position_y: 0.20 })}

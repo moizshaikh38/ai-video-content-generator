@@ -137,7 +137,7 @@ export const SpeechCleanupTool: React.FC<SpeechCleanupToolProps> = ({
   }
 
   return (
-    <div className="bg-[#0C0E15] border-b border-white/[0.08] text-neutral-200 select-none animate-fadeIn">
+    <div className="bg-vc-surface1 border-b border-white/[0.08] text-neutral-200 select-none animate-fadeIn">
       {/* Header bar of drawer */}
       <div className="px-3.5 py-2.5 flex items-center justify-between border-b border-white/[0.04]">
         <div className="flex items-center gap-2">
@@ -145,11 +145,11 @@ export const SpeechCleanupTool: React.FC<SpeechCleanupToolProps> = ({
             <Sparkles className="w-3 h-3" />
           </div>
           <span className="text-xs font-semibold text-white">Speech Tools</span>
-          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
+          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 ">
             {detectedPauses.length} pauses ({totalDeadAirSec.toFixed(1)}s)
           </span>
           {fillerCount > 0 && (
-            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20">
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-rose-500/10 text-rose-300 ">
               {fillerCount} fillers
             </span>
           )}
@@ -197,7 +197,7 @@ export const SpeechCleanupTool: React.FC<SpeechCleanupToolProps> = ({
         </div>
 
         {/* Silence Duration Threshold */}
-        <div className="space-y-1.5 bg-black/20 p-2.5 rounded-lg border border-white/[0.04]">
+        <div className="space-y-1.5 bg-black/20 p-2.5 rounded-lg ">
           <div className="flex items-center justify-between text-xs">
             <span className="text-neutral-400 flex items-center gap-1.5 text-[11px]">
               <Sliders className="w-3 h-3 text-neutral-400" />
@@ -234,7 +234,7 @@ export const SpeechCleanupTool: React.FC<SpeechCleanupToolProps> = ({
             detectedPauses.map((pause, idx) => (
               <div
                 key={pause.id}
-                className="flex items-center justify-between px-2 py-1 rounded-md bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] text-xs transition"
+                className="flex items-center justify-between px-2 py-1 rounded-md bg-white/[0.02] hover:bg-white/[0.04] text-xs transition"
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-[10px] font-mono text-neutral-500 shrink-0">#{idx + 1}</span>

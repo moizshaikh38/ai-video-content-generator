@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -22,14 +22,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
-  Bell,
   Plus,
   Zap,
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
+import { NotificationsPopover } from '../components/NotificationsPopover';
 import { useAuth } from '../context/AuthContext';
 import { useBillingUsage } from '../hooks/useBillingUsage';
 import '../styles/cinematic-motion.css';
+import { BTN_PILL_BRAND, BTN_PILL_BRAND_SOFT } from '../lib/buttonStyles';
 
 interface NavItem {
   to: string;
@@ -75,13 +76,22 @@ export const DashboardLayout: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const submitSearch = () => {
+    const q = searchQuery.trim();
+    navigate(q ? `/history?tab=projects&q=${encodeURIComponent(q)}` : '/history?tab=projects');
+    searchInputRef.current?.blur();
+  };
 
   // Global Ctrl+K / Cmd+K keyboard shortcut listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        navigate('/history');
+        if (searchInputRef.current && searchInputRef.current.offsetParent !== null) searchInputRef.current.focus();
+        else navigate('/history?tab=projects');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -120,12 +130,12 @@ export const DashboardLayout: React.FC = () => {
       );
 
   return (
-    <div className="min-h-screen bg-[var(--vc-canvas)] text-[var(--vc-text-primary)] flex flex-col lg:flex-row antialiased selection:bg-[#8B5CF6]/30 selection:text-white vc-app-scope">
+    <div className="min-h-screen bg-[var(--vc-canvas)] text-[var(--vc-text-primary)] flex flex-col lg:flex-row antialiased selection:bg-white/20 selection:text-white vc-app-scope">
       {/* Mobile Drawer Overlay */}
       {menuOpen && (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden cursor-default"
+          className="glass-scrim fixed inset-0 z-40 lg:hidden cursor-default"
           aria-label="Close navigation drawer"
           onClick={() => setMenuOpen(false)}
         />
@@ -133,11 +143,11 @@ export const DashboardLayout: React.FC = () => {
 
       {/* Left Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-[var(--vc-border)] bg-[var(--vc-surface-1)]/95 backdrop-blur-2xl transition-all duration-300 lg:sticky lg:top-0 lg:h-screen ${
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col glass-chrome border-r border-[var(--vc-border)] transition-all duration-300 lg:sticky lg:top-0 lg:h-screen ${
           collapsed ? 'w-[78px] px-2.5 py-4' : 'w-[252px] px-3.5 py-4'
         } ${
           menuOpen
-            ? 'translate-x-0 shadow-[0_0_50px_rgba(0,0,0,0.8)]'
+            ? 'translate-x-0 shadow-[24px_0_60px_-12px_rgba(0,0,0,0.85)]'
             : '-translate-x-full lg:translate-x-0'
         }`}
         aria-label="Main sidebar navigation"
@@ -161,7 +171,7 @@ export const DashboardLayout: React.FC = () => {
           {/* Desktop collapse toggle */}
           <button
             type="button"
-            className="hidden lg:grid size-8 place-items-center rounded-lg border border-[var(--vc-border)] bg-white/[0.04] text-[#8E9AB4] hover:text-[#F4F6FB] hover:bg-white/[0.08] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+            className="hidden lg:grid size-8 place-items-center rounded-xl border border-[var(--vc-border)] bg-white/[0.04] text-vc-text-secondary hover:text-vc-text-primary hover:bg-white/[0.08] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             onClick={() => setCollapsed(!collapsed)}
           >
@@ -175,7 +185,7 @@ export const DashboardLayout: React.FC = () => {
           {/* Mobile close button */}
           <button
             type="button"
-            className="lg:hidden p-1.5 rounded-lg text-[#8E9AB4] hover:bg-white/[0.06] hover:text-[#F4F6FB] transition-colors"
+            className="lg:hidden p-1.5 rounded-xl text-vc-text-secondary hover:bg-white/[0.06] hover:text-vc-text-primary transition-colors"
             aria-label="Close menu"
             onClick={() => setMenuOpen(false)}
           >
@@ -191,18 +201,18 @@ export const DashboardLayout: React.FC = () => {
             className="mt-3.5 flex items-center gap-2.5 w-full p-2 rounded-xl bg-white/[0.03] border border-[var(--vc-border)] hover:border-[var(--vc-border-strong)] hover:bg-white/[0.06] text-left transition-all group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
             title="Switch or manage workspaces"
           >
-            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[#8B5CF6] to-[#6D4AFF] text-white text-xs font-bold font-['Sora',sans-serif] shadow-[0_2px_8px_rgba(109,74,255,0.35)]">
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-violet-600 text-white text-xs font-bold font-['Sora',sans-serif] shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]">
               {displayName.charAt(0).toUpperCase()}
             </span>
             <span className="flex-1 min-w-0">
-              <span className="block truncate text-xs font-semibold text-[#F4F6FB] leading-tight group-hover:text-white">
+              <span className="block truncate text-xs font-semibold text-vc-text-primary leading-tight group-hover:text-white">
                 {displayName}&apos;s Studio
               </span>
-              <span className="block truncate text-[11px] text-[#8E9AB4] leading-tight">
+              <span className="block truncate text-[11px] text-vc-text-secondary leading-tight">
                 {planLabel} · 1 member
               </span>
             </span>
-            <ChevronDown className="size-3.5 text-[#8E9AB4] shrink-0 group-hover:text-[#F4F6FB] transition-colors" />
+            <ChevronDown className="size-3.5 text-vc-text-secondary shrink-0 group-hover:text-vc-text-primary transition-colors" />
           </button>
         )}
 
@@ -214,7 +224,7 @@ export const DashboardLayout: React.FC = () => {
           {navSections.map((section) => (
             <div key={section.title} className="space-y-0.5">
               {!collapsed && (
-                <div className="px-2.5 pt-2 pb-1 text-[10.5px] font-bold tracking-wider uppercase text-[#64748B] font-['Sora',sans-serif]">
+                <div className="px-2.5 pt-2 pb-1 text-[10.5px] font-bold tracking-wider uppercase text-vc-text-muted font-['Sora',sans-serif]">
                   {section.title}
                 </div>
               )}
@@ -239,7 +249,7 @@ export const DashboardLayout: React.FC = () => {
                         ? item.to === '/dashboard#studio'
                           ? 'vireo-nav-active-ai font-semibold'
                           : 'vireo-nav-active font-semibold'
-                        : 'text-[#9AA6BF] hover:bg-white/[0.05] hover:text-[#F4F6FB] border border-transparent'
+                        : 'text-vc-text-secondary hover:bg-white/[0.05] hover:text-vc-text-primary border border-transparent'
                     }`}
                   >
                     <item.icon className="size-[17px] shrink-0" />
@@ -288,7 +298,7 @@ export const DashboardLayout: React.FC = () => {
                 } ${
                   isActive
                     ? 'vireo-nav-active font-semibold'
-                    : 'text-[#9AA6BF] hover:bg-white/[0.05] hover:text-[#F4F6FB] border border-transparent'
+                    : 'text-vc-text-secondary hover:bg-white/[0.05] hover:text-vc-text-primary border border-transparent'
                 }`
               }
             >
@@ -296,7 +306,7 @@ export const DashboardLayout: React.FC = () => {
               {!collapsed && <span>Settings</span>}
             </NavLink>
             <NavLink
-              to="/history"
+              to="/help"
               onClick={() => setMenuOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-xl px-2.5 py-2 text-[13.5px] font-medium transition-all ${
@@ -304,7 +314,7 @@ export const DashboardLayout: React.FC = () => {
                 } ${
                   isActive
                     ? 'vireo-nav-active font-semibold'
-                    : 'text-[#9AA6BF] hover:bg-white/[0.05] hover:text-[#F4F6FB] border border-transparent'
+                    : 'text-vc-text-secondary hover:bg-white/[0.05] hover:text-vc-text-primary border border-transparent'
                 }`
               }
             >
@@ -317,10 +327,10 @@ export const DashboardLayout: React.FC = () => {
         {/* Sidebar Footer: Actual Plan and Usage */}
         {!collapsed && (
           <div className="mt-auto pt-3 border-t border-[var(--vc-border)]">
-            <div className="rounded-2xl border border-[var(--vc-border)] bg-[var(--vc-surface-2)] p-3 backdrop-blur-md">
+            <div className="rounded-2xl bg-[var(--vc-surface-2)] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
               <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="font-semibold text-[#F4F6FB]">{planLabel}</span>
-                <span className="text-[11px] font-mono text-[#8E9AB4]">
+                <span className="font-semibold text-vc-text-primary">{planLabel}</span>
+                <span className="text-[11px] font-mono text-vc-text-secondary">
                   {usage?.is_unlimited
                     ? 'Unlimited'
                     : `${Math.round(usage?.total_used_minutes || 0)} / ${usage?.limit_minutes || 15}m`}
@@ -328,13 +338,13 @@ export const DashboardLayout: React.FC = () => {
               </div>
               <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#8B5CF6] to-[#22D3EE] transition-all duration-500"
+                  className="h-full rounded-full bg-vc-ai transition-all duration-500"
                   style={{ width: `${usagePercent}%` }}
                 />
               </div>
               <NavLink
                 to="/billing"
-                className="mt-3 block w-full text-center py-1.5 rounded-xl vireo-btn-purple text-xs font-semibold text-white shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                className={`mt-3 block w-full text-center py-1.5 text-xs font-semibold ${BTN_PILL_BRAND}`}
               >
                 Upgrade Plan
               </NavLink>
@@ -346,41 +356,54 @@ export const DashboardLayout: React.FC = () => {
       {/* Main Content Area */}
       <div className="min-w-0 flex-1 flex flex-col">
         {/* Top Navigation Bar Matching Reference */}
-        <header className="sticky top-0 z-30 flex h-[64px] sm:h-[68px] items-center justify-between gap-2.5 sm:gap-3 border-b border-[var(--vc-border)] bg-[var(--vc-canvas)]/90 px-3.5 sm:px-6 lg:px-8 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 flex h-[64px] sm:h-[68px] items-center justify-between gap-2.5 sm:gap-3 glass-chrome border-b border-[var(--vc-border)] px-3.5 sm:px-6 lg:px-8">
           {/* Mobile hamburger menu toggle */}
           <button
             type="button"
-            className="lg:hidden p-2 rounded-xl text-[#8E9AB4] hover:bg-white/[0.06] hover:text-[#F4F6FB] transition-colors shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+            className="lg:hidden p-2 rounded-xl text-vc-text-secondary hover:bg-white/[0.06] hover:text-vc-text-primary transition-colors shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
             aria-label="Open navigation drawer"
             onClick={() => setMenuOpen(true)}
           >
             <Menu className="size-5" />
           </button>
 
-          {/* Search bar with real Ctrl K shortcut navigating to /history */}
-          <div className="hidden sm:flex items-center flex-1 max-w-[420px]">
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => navigate('/history')}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') navigate('/history');
-              }}
-              className="flex items-center gap-2.5 w-full h-[38px] sm:h-[40px] px-3.5 rounded-xl border border-[var(--vc-border)] bg-[var(--vc-surface-1)] text-xs sm:text-[13px] text-[#8E9AB4] hover:border-[var(--vc-border-strong)] hover:bg-[var(--vc-surface-2)] transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20"
-            >
-              <Search className="size-4 shrink-0 text-[#8E9AB4]" />
-              <span className="flex-1 truncate">Search projects, clips, and tools</span>
-              <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[10px] font-mono text-[#8E9AB4] border border-white/10 rounded-md bg-white/[0.03]">
+          {/* Search: type a project name, Enter opens the filtered project list (Ctrl/⌘ K focuses it) */}
+          <form
+            role="search"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitSearch();
+            }}
+            className="hidden sm:flex items-center flex-1 max-w-[420px]"
+          >
+            <label className="flex items-center gap-2.5 w-full h-[38px] sm:h-[40px] px-3.5 rounded-full bg-white/[0.05] shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)] text-xs sm:text-[13px] text-vc-text-secondary hover:bg-white/[0.07] focus-within:bg-white/[0.08] focus-within:ring-2 focus-within:ring-violet-500/40 transition-all cursor-text">
+              <Search className="size-4 shrink-0 text-vc-text-secondary" />
+              <input
+                ref={searchInputRef}
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setSearchQuery('');
+                    e.currentTarget.blur();
+                  }
+                }}
+                placeholder="Search projects"
+                aria-label="Search projects"
+                className="flex-1 min-w-0 bg-transparent text-vc-text-primary placeholder:text-vc-text-secondary outline-none [&::-webkit-search-cancel-button]:hidden"
+              />
+              <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[10px] font-mono text-vc-text-secondary rounded-md bg-white/[0.06]">
                 Ctrl K
               </kbd>
-            </div>
-          </div>
+            </label>
+          </form>
 
           {/* Mobile search icon button */}
           <button
             type="button"
             onClick={() => navigate('/history')}
-            className="sm:hidden grid size-9 place-items-center rounded-xl border border-[var(--vc-border)] bg-[var(--vc-surface-1)] text-[#8E9AB4] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+            className="sm:hidden grid size-9 place-items-center rounded-xl border border-[var(--vc-border)] bg-[var(--vc-surface-1)] text-vc-text-secondary cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
             aria-label="Search"
           >
             <Search className="size-4" />
@@ -389,8 +412,8 @@ export const DashboardLayout: React.FC = () => {
           {/* Right actions */}
           <div className="flex items-center gap-2 sm:gap-2.5 ml-auto shrink-0">
             {/* Minutes left quota badge */}
-            <div className="hidden xl:inline-flex items-center gap-1.5 h-[36px] sm:h-[38px] px-3 rounded-xl border border-[var(--vc-border)] bg-white/[0.04] text-xs font-medium text-[#C9D2E6]">
-              <Zap className="size-3.5 text-[#22D3EE]" />
+            <div className="hidden xl:inline-flex items-center gap-1.5 h-[36px] sm:h-[38px] px-3 rounded-full bg-white/[0.04] text-xs font-medium text-zinc-200">
+              <Zap className="size-3.5 text-zinc-300" />
               <span>
                 {usage?.is_unlimited
                   ? 'Unlimited'
@@ -401,7 +424,7 @@ export const DashboardLayout: React.FC = () => {
             {/* Upgrade Plan button */}
             <NavLink
               to="/billing"
-              className="hidden lg:inline-flex items-center justify-center h-[36px] sm:h-[38px] px-3.5 rounded-xl border border-[var(--vc-border-strong)] bg-white/[0.05] hover:bg-white/[0.09] text-xs font-semibold text-[#E4E9F5] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+              className={`hidden lg:inline-flex items-center justify-center h-[36px] sm:h-[38px] px-3.5 text-xs font-semibold ${BTN_PILL_BRAND_SOFT}`}
             >
               Upgrade
             </NavLink>
@@ -410,22 +433,14 @@ export const DashboardLayout: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate('/projects/new')}
-              className="inline-flex items-center justify-center gap-1.5 h-[36px] sm:h-[38px] px-3 sm:px-4 rounded-xl vireo-btn-purple text-xs sm:text-sm font-semibold text-white cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+              className={`inline-flex items-center justify-center gap-1.5 h-[36px] sm:h-[38px] px-3 sm:px-4 text-xs sm:text-sm font-semibold cursor-pointer shrink-0 ${BTN_PILL_BRAND}`}
             >
               <Plus className="size-4 stroke-[2.5]" />
               <span>Create</span>
             </button>
 
-            {/* Notifications Button */}
-            <button
-              type="button"
-              aria-label="Notifications"
-              onClick={() => navigate('/history')}
-              className="relative grid size-9 sm:size-[38px] place-items-center rounded-xl border border-[var(--vc-border)] bg-white/[0.04] text-[#C9D2E6] hover:bg-white/[0.08] hover:text-[#F4F6FB] transition-all shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-            >
-              <Bell className="size-4" />
-              <span className="absolute top-2 right-2 size-1.5 rounded-full bg-[#22D3EE] ring-2 ring-[#080B12]" />
-            </button>
+            {/* Notifications: recent project activity */}
+            <NotificationsPopover buttonClassName="relative grid size-9 sm:size-[38px] place-items-center rounded-xl bg-white/[0.05] text-zinc-200 hover:bg-white/[0.09] hover:text-vc-text-primary transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40" />
 
             {/* User Profile dropdown */}
             <div className="relative shrink-0">
@@ -433,49 +448,49 @@ export const DashboardLayout: React.FC = () => {
                 type="button"
                 onClick={() => setAccountOpen(!accountOpen)}
                 aria-expanded={accountOpen}
-                className="flex items-center gap-1.5 sm:gap-2 h-9 sm:h-[38px] px-1.5 sm:px-2 rounded-xl border border-[var(--vc-border)] bg-white/[0.04] hover:bg-white/[0.08] text-[#C9D2E6] transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                className="flex items-center gap-1.5 sm:gap-2 h-9 sm:h-[38px] px-1.5 sm:px-2 rounded-full border border-[var(--vc-border)] bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
               >
-                <span className="grid size-6 place-items-center rounded-full bg-gradient-to-br from-[#8B5CF6] to-[#22D3EE] font-bold text-white text-[11px]">
+                <span className="grid size-6 place-items-center rounded-full bg-zinc-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] font-bold text-white text-[11px]">
                   {userInitial}
                 </span>
-                <span className="hidden md:inline-block max-w-[100px] truncate text-xs font-semibold text-[#F4F6FB]">
+                <span className="hidden md:inline-block max-w-[100px] truncate text-xs font-semibold text-vc-text-primary">
                   {displayName}
                 </span>
-                <ChevronDown className="size-3 text-[#8E9AB4]" />
+                <ChevronDown className="size-3 text-vc-text-secondary" />
               </button>
 
               {accountOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-[var(--vc-border-strong)] bg-[var(--vc-surface-1)]/98 p-1.5 shadow-[0_16px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl z-50">
+                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl glass-float p-1.5 z-50">
                   <div className="px-3 py-2.5 border-b border-[var(--vc-border)] mb-1">
-                    <p className="text-xs font-semibold text-[#F4F6FB] truncate">{displayName}</p>
-                    <p className="text-[11px] text-[#8E9AB4] truncate">{user?.email}</p>
-                    <span className="mt-1.5 inline-block text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-white/[0.06] text-[#A78BFA] border border-white/[0.08]">
+                    <p className="text-xs font-semibold text-vc-text-primary truncate">{displayName}</p>
+                    <p className="text-[11px] text-vc-text-secondary truncate">{user?.email}</p>
+                    <span className="mt-1.5 inline-block text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-white/[0.06] text-zinc-300 ">
                       {planLabel}
                     </span>
                   </div>
                   <NavLink
                     to="/settings"
                     onClick={() => setAccountOpen(false)}
-                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs text-[#C9D2E6] hover:text-[#F4F6FB] hover:bg-white/[0.06] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs text-zinc-200 hover:text-vc-text-primary hover:bg-white/[0.06] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
                   >
-                    <Settings className="size-3.5 text-[#8E9AB4]" />
+                    <Settings className="size-3.5 text-vc-text-secondary" />
                     Account Settings
                   </NavLink>
                   <NavLink
                     to="/billing"
                     onClick={() => setAccountOpen(false)}
-                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs text-[#C9D2E6] hover:text-[#F4F6FB] hover:bg-white/[0.06] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs text-zinc-200 hover:text-vc-text-primary hover:bg-white/[0.06] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
                   >
-                    <Zap className="size-3.5 text-[#8E9AB4]" />
+                    <Zap className="size-3.5 text-vc-text-secondary" />
                     Billing &amp; Subscription
                   </NavLink>
                   <NavLink
-                    to="/history"
+                    to="/help"
                     onClick={() => setAccountOpen(false)}
-                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs text-[#C9D2E6] hover:text-[#F4F6FB] hover:bg-white/[0.06] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs text-zinc-200 hover:text-vc-text-primary hover:bg-white/[0.06] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
                   >
-                    <HelpCircle className="size-3.5 text-[#8E9AB4]" />
-                    Media Library &amp; Help
+                    <HelpCircle className="size-3.5 text-vc-text-secondary" />
+                    Help &amp; tutorials
                   </NavLink>
                   <div className="my-1 border-t border-[var(--vc-border)]" />
                   <button

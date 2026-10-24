@@ -11,7 +11,23 @@ import {
   ShieldCheck,
   Tag,
   FileText,
+  Mic,
+  GraduationCap,
+  Flame,
+  Briefcase,
+  Gamepad2,
+  Trophy,
+  Newspaper,
+  Laugh,
+  Clapperboard,
+  Megaphone,
+  Zap,
+  TrendingUp,
+  Lightbulb,
+  Quote,
+  BookOpen,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import {
   ContentGenre,
   ContentGoal,
@@ -24,7 +40,7 @@ export const CLIP_PREFERENCES_STORAGE_KEY = 'vireo_last_clip_preferences_v1';
 export const GENRE_OPTIONS: Array<{
   id: ContentGenre | 'auto';
   label: string;
-  icon: string;
+  icon: LucideIcon;
   badge: string;
   layoutBadge?: string;
   defaultGoal: ContentGoal;
@@ -34,7 +50,7 @@ export const GENRE_OPTIONS: Array<{
   {
     id: 'auto',
     label: 'Auto-Detect',
-    icon: '✨',
+    icon: Sparkles,
     badge: 'AI Classifier',
     layoutBadge: 'Adaptive',
     defaultGoal: 'shareable_moments',
@@ -44,7 +60,7 @@ export const GENRE_OPTIONS: Array<{
   {
     id: 'podcast_interview',
     label: 'Podcast / Interview',
-    icon: '🎙️',
+    icon: Mic,
     badge: 'Active Speaker',
     layoutBadge: 'Split Dual-Stack',
     defaultGoal: 'shareable_moments',
@@ -54,7 +70,7 @@ export const GENRE_OPTIONS: Array<{
   {
     id: 'education_tutorial',
     label: 'Education / Tutorial',
-    icon: '📚',
+    icon: GraduationCap,
     badge: 'OCR & Slides',
     defaultGoal: 'teach_one_idea',
     safeguardBadge: 'Preserves setup and conclusion • Retains on-screen slides and steps',
@@ -63,7 +79,7 @@ export const GENRE_OPTIONS: Array<{
   {
     id: 'motivation',
     label: 'Motivation',
-    icon: '🔥',
+    icon: Flame,
     badge: 'Dramatic Arc',
     defaultGoal: 'quotes_soundbites',
     safeguardBadge: 'Preserves dramatic oratorical pauses • Emotional transformation arc',
@@ -72,7 +88,7 @@ export const GENRE_OPTIONS: Array<{
   {
     id: 'business_finance',
     label: 'Business / Finance',
-    icon: '💼',
+    icon: Briefcase,
     badge: 'Metrics & ROI',
     defaultGoal: 'teach_one_idea',
     safeguardBadge: 'Preserves financial context & qualifiers • Highlights key metrics',
@@ -81,7 +97,7 @@ export const GENRE_OPTIONS: Array<{
   {
     id: 'gaming',
     label: 'Gaming',
-    icon: '🎮',
+    icon: Gamepad2,
     badge: 'Clutch Plays',
     defaultGoal: 'shareable_moments',
     safeguardBadge: 'Prioritizes clutch plays & genuine reactions over pure noise',
@@ -90,7 +106,7 @@ export const GENRE_OPTIONS: Array<{
   {
     id: 'sports',
     label: 'Sports',
-    icon: '🏆',
+    icon: Trophy,
     badge: 'Pause Cuts OFF',
     defaultGoal: 'shareable_moments',
     safeguardBadge: 'Continuous game momentum • NEVER jump-cuts continuous play action',
@@ -99,7 +115,7 @@ export const GENRE_OPTIONS: Array<{
   {
     id: 'news_politics',
     label: 'News / Politics',
-    icon: '📰',
+    icon: Newspaper,
     badge: 'Context Protection',
     defaultGoal: 'quotes_soundbites',
     safeguardBadge: 'Strict safeguard against out-of-context quote truncations',
@@ -108,7 +124,7 @@ export const GENRE_OPTIONS: Array<{
   {
     id: 'comedy_entertainment',
     label: 'Comedy / Standup',
-    icon: '😂',
+    icon: Laugh,
     badge: 'Pause Cuts OFF',
     defaultGoal: 'shareable_moments',
     safeguardBadge: 'Protects comedic timing pauses • Punchline delivery and laugh payoff',
@@ -117,7 +133,7 @@ export const GENRE_OPTIONS: Array<{
   {
     id: 'storytelling',
     label: 'Storytelling',
-    icon: '🎬',
+    icon: Clapperboard,
     badge: '3-Act Arc',
     defaultGoal: 'mini_story',
     safeguardBadge: 'Hook -> rising journey -> payoff • Coherent narrative arc',
@@ -126,7 +142,7 @@ export const GENRE_OPTIONS: Array<{
   {
     id: 'product_marketing',
     label: 'Product / Marketing',
-    icon: '📣',
+    icon: Megaphone,
     badge: 'Demo & Proof',
     defaultGoal: 'shareable_moments',
     safeguardBadge: 'Problem -> demo -> benefit -> proof • Zero fabricated claims',
@@ -135,7 +151,7 @@ export const GENRE_OPTIONS: Array<{
   {
     id: 'general',
     label: 'General / Variety',
-    icon: '⚡',
+    icon: Zap,
     badge: 'Balanced Baseline',
     defaultGoal: 'shareable_moments',
     safeguardBadge: 'Balanced virality, hook strength, and standalone clarity',
@@ -147,13 +163,13 @@ export const GOAL_OPTIONS: Array<{
   id: ContentGoal;
   label: string;
   desc: string;
-  icon: string;
+  icon: LucideIcon;
 }> = [
-  { id: 'shareable_moments', label: 'Shareable Moments', desc: 'Viral hooks & punchy takeaways designed for sharing', icon: '🔥' },
-  { id: 'teach_one_idea', label: 'Teach One Idea', desc: 'Isolates one atomic concept with clear explanation', icon: '💡' },
-  { id: 'quotes_soundbites', label: 'Quotes & Soundbites', desc: 'Memorable conviction, concise punchy wisdom (15–35s)', icon: '💬' },
-  { id: 'mini_story', label: 'Mini Story', desc: 'Full 3-act narrative arc (hook → escalation → reveal)', icon: '📖' },
-  { id: 'custom_instructions', label: 'Custom Focus', desc: 'Prioritizes clips strictly adhering to your custom prompt', icon: '🎯' },
+  { id: 'shareable_moments', label: 'Shareable Moments', desc: 'Viral hooks & punchy takeaways designed for sharing', icon: TrendingUp },
+  { id: 'teach_one_idea', label: 'Teach One Idea', desc: 'Isolates one atomic concept with clear explanation', icon: Lightbulb },
+  { id: 'quotes_soundbites', label: 'Quotes & Soundbites', desc: 'Memorable conviction, concise punchy wisdom (15–35s)', icon: Quote },
+  { id: 'mini_story', label: 'Mini Story', desc: 'Full 3-act narrative arc (hook → escalation → reveal)', icon: BookOpen },
+  { id: 'custom_instructions', label: 'Custom Focus', desc: 'Prioritizes clips strictly adhering to your custom prompt', icon: Target },
 ];
 
 export const DURATION_OPTIONS = [
@@ -323,14 +339,21 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
   return (
     <div className={`${compact ? 'space-y-2.5' : 'space-y-4'} ${className}`}>
       {/* ── 1. Content Genre Selection ── */}
-      <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-3">
+      <div className="p-4 rounded-2xl bg-white/[0.02] space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <label className="text-xs font-semibold text-[#DDD6FE] flex items-center gap-1.5">
-            <Sparkles className="size-3.5 text-[#22D3EE]" />
+          <label className="text-[13px] font-semibold text-vc-text-primary flex items-center gap-1.5">
+            <Sparkles className="size-3.5 text-violet-300" />
             <span>Content Genre & Narrative Rubric</span>
           </label>
-          <span className="text-[10px] text-[#8E9AB4] font-mono">
-            {activeGenreOption.id === 'auto' ? '✨ Auto-Detect' : activeGenreOption.label}
+          <span className="inline-flex items-center gap-1 text-[10px] text-vc-text-secondary font-mono">
+            {activeGenreOption.id === 'auto' ? (
+              <>
+                <Sparkles className="size-3 text-zinc-200" />
+                Auto-Detect
+              </>
+            ) : (
+              activeGenreOption.label
+            )}
           </span>
         </div>
 
@@ -348,29 +371,29 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
                 type="button"
                 disabled={disabled}
                 onClick={() => handleGenreSelect(g.id)}
-                className={`relative p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                className={`relative p-2.5 rounded-xl text-left transition-all cursor-pointer flex flex-col justify-between ${
                   isSelected
-                    ? 'bg-[#8B5CF6]/20 border-[#22D3EE] text-white shadow-[0_0_15px_rgba(34,211,238,0.15)] ring-1 ring-[#22D3EE]/30'
-                    : 'bg-[#080B12]/60 border-white/[0.06] text-[#8E9AB4] hover:border-white/20 hover:text-white'
+                    ? 'bg-violet-500/15 text-white ring-1 ring-violet-400/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_20px_-10px_rgba(124,58,237,0.7)]'
+                    : 'bg-white/[0.04] text-vc-text-secondary hover:bg-white/[0.07] hover:text-white'
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <div>
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-base">{g.icon}</span>
-                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-1 py-0.2 rounded bg-white/5 text-[#22D3EE]">
+                    <g.icon className="size-4 text-violet-300" aria-hidden="true" />
+                    <span className="text-[10px] font-medium px-1.5 py-px rounded-full bg-white/[0.06] text-zinc-400">
                       {g.badge}
                     </span>
                   </div>
-                  <div className="font-semibold text-xs text-[#F4F6FB] mt-1.5 leading-snug">
+                  <div className="font-semibold text-[13px] text-vc-text-primary mt-2 leading-snug">
                     {g.label}
                   </div>
                   {g.layoutBadge && (
-                    <div className="text-[9px] text-violet-300/80 font-mono mt-0.5">
-                      📐 {g.layoutBadge}
+                    <div className="text-[10px] text-violet-300/80 font-mono mt-0.5">
+                      {g.layoutBadge}
                     </div>
                   )}
                 </div>
-                <div className="text-[10px] text-[#8E9AB4] font-mono mt-1">
+                <div className="text-[11px] text-vc-text-muted tabular-nums mt-1">
                   {g.sweetSpot}
                 </div>
               </button>
@@ -379,23 +402,23 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
         </div>
 
         {/* Active Genre Safeguard Badge */}
-        <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#22D3EE]/10 border border-[#22D3EE]/20 text-[11px] text-[#C9D2E6]">
-          <ShieldCheck className="size-3.5 text-[#22D3EE] shrink-0" />
+        <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white/[0.06] text-[11px] text-zinc-200">
+          <ShieldCheck className="size-3.5 text-zinc-200 shrink-0" />
           <span className="font-medium">
-            <strong className="text-[#22D3EE] font-semibold">Active Safeguard: </strong>
+            <strong className="text-zinc-200 font-semibold">Active Safeguard: </strong>
             {activeGenreOption.safeguardBadge}
           </span>
         </div>
       </div>
 
       {/* ── 2. Content Goal Selector ── */}
-      <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-3">
+      <div className="p-4 rounded-2xl bg-white/[0.02] space-y-3">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-semibold text-[#DDD6FE] flex items-center gap-1.5">
-            <Target className="size-3.5 text-[#8B5CF6]" />
+          <label className="text-[13px] font-semibold text-vc-text-primary flex items-center gap-1.5">
+            <Target className="size-3.5 text-violet-500" />
             <span>Content Goal</span>
           </label>
-          <span className="text-[10px] text-[#8E9AB4]">Clip selection objective</span>
+          <span className="text-[10px] text-vc-text-secondary">Clip selection objective</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
@@ -407,18 +430,18 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
                 type="button"
                 disabled={disabled}
                 onClick={() => handleGoalSelect(goal.id)}
-                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                className={`p-3 rounded-xl text-left transition-all cursor-pointer flex flex-col justify-between ${
                   isSelected
-                    ? 'bg-[#8B5CF6]/20 border-[#8B5CF6] text-white ring-1 ring-[#8B5CF6]/30'
-                    : 'bg-[#080B12]/60 border-white/[0.06] text-[#8E9AB4] hover:border-white/20 hover:text-white'
+                    ? 'bg-violet-500/15 text-white ring-1 ring-violet-400/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_20px_-10px_rgba(124,58,237,0.7)]'
+                    : 'bg-white/[0.04] text-vc-text-secondary hover:bg-white/[0.07] hover:text-white'
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#F4F6FB]">
-                    <span>{goal.icon}</span>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-vc-text-primary">
+                    <goal.icon className="size-3.5 shrink-0 text-violet-300" aria-hidden="true" />
                     <span>{goal.label}</span>
                   </div>
-                  <p className="text-[10px] text-[#8E9AB4] mt-1 leading-tight line-clamp-2">
+                  <p className="text-[10px] text-vc-text-secondary mt-1 leading-tight line-clamp-2">
                     {goal.desc}
                   </p>
                 </div>
@@ -431,13 +454,13 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
       {/* ── 3. Duration & Aspect Ratio ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Preferred Clip Length */}
-        <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-3">
+        <div className="p-4 rounded-2xl bg-white/[0.02] space-y-3">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-[#DDD6FE] flex items-center gap-1.5">
-              <Clock className="size-3.5 text-[#22D3EE]" />
+            <label className="text-[13px] font-semibold text-vc-text-primary flex items-center gap-1.5">
+              <Clock className="size-3.5 text-zinc-200" />
               <span>Preferred Clip Length</span>
             </label>
-            <span className="text-[10px] text-[#8E9AB4]">Hook to resolution</span>
+            <span className="text-[10px] text-vc-text-secondary">Hook to resolution</span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -449,14 +472,14 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
                   type="button"
                   disabled={disabled}
                   onClick={() => handleDurationSelect(item.id)}
-                  className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                  className={`p-2.5 rounded-xl text-center transition-all cursor-pointer ${
                     isSelected
-                      ? 'bg-[#22D3EE]/20 border-[#22D3EE] text-white ring-1 ring-[#22D3EE]/30'
-                      : 'bg-[#080B12]/60 border-white/[0.06] text-[#8E9AB4] hover:border-white/20 hover:text-white'
+                      ? 'bg-violet-500/15 text-white ring-1 ring-violet-400/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_20px_-10px_rgba(124,58,237,0.7)]'
+                      : 'bg-white/[0.04] text-vc-text-secondary hover:bg-white/[0.07] hover:text-white'
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  <div className="font-semibold text-xs text-[#F4F6FB]">{item.label}</div>
-                  <div className="text-[10px] text-[#8E9AB4] mt-0.5">{item.sub}</div>
+                  <div className="font-semibold text-xs text-vc-text-primary">{item.label}</div>
+                  <div className="text-[10px] text-vc-text-secondary mt-0.5">{item.sub}</div>
                 </button>
               );
             })}
@@ -464,13 +487,13 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
         </div>
 
         {/* Output Aspect Ratio */}
-        <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-3">
+        <div className="p-4 rounded-2xl bg-white/[0.02] space-y-3">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-[#DDD6FE] flex items-center gap-1.5">
-              <Crop className="size-3.5 text-[#C4B5FD]" />
+            <label className="text-[13px] font-semibold text-vc-text-primary flex items-center gap-1.5">
+              <Crop className="size-3.5 text-violet-300" />
               <span>Output Aspect Ratio</span>
             </label>
-            <span className="text-[10px] text-[#8E9AB4]">Smart Reframe target</span>
+            <span className="text-[10px] text-vc-text-secondary">Smart Reframe target</span>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
@@ -482,19 +505,19 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
                   type="button"
                   disabled={disabled}
                   onClick={() => handleAspectRatioSelect(item.id as ClipAspectRatio)}
-                  className={`relative p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                  className={`relative p-2.5 rounded-xl text-center transition-all cursor-pointer ${
                     isSelected
-                      ? 'bg-[#8B5CF6]/25 border-[#8B5CF6] text-white ring-1 ring-[#8B5CF6]/30'
-                      : 'bg-[#080B12]/60 border-white/[0.06] text-[#8E9AB4] hover:border-white/20 hover:text-white'
+                      ? 'bg-violet-500/15 text-white ring-1 ring-violet-400/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_20px_-10px_rgba(124,58,237,0.7)]'
+                      : 'bg-white/[0.04] text-vc-text-secondary hover:bg-white/[0.07] hover:text-white'
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {item.recommended && (
-                    <span className="absolute -top-2 right-2 px-1.5 py-0.2 rounded-full bg-[#22D3EE] text-[#080B12] text-[8px] font-extrabold uppercase">
+                    <span className="absolute -top-2 right-2 px-1.5 py-px rounded-full bg-white text-vc-action-foreground text-[9px] font-extrabold uppercase">
                       Best
                     </span>
                   )}
-                  <div className="font-semibold text-xs text-[#F4F6FB]">{item.label}</div>
-                  <div className="text-[10px] text-[#8E9AB4] leading-tight mt-0.5">{item.sub}</div>
+                  <div className="font-semibold text-xs text-vc-text-primary">{item.label}</div>
+                  <div className="text-[10px] text-vc-text-secondary leading-tight mt-0.5">{item.sub}</div>
                 </button>
               );
             })}
@@ -507,10 +530,10 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
         <button
           type="button"
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="w-full p-3.5 flex items-center justify-between text-xs font-medium text-[#C4B5FD] hover:text-white transition-colors cursor-pointer"
+          className="w-full p-3.5 flex items-center justify-between text-xs font-medium text-violet-300 hover:text-white transition-colors cursor-pointer"
         >
           <span className="flex items-center gap-2">
-            <Sliders className="size-3.5 text-[#22D3EE]" />
+            <Sliders className="size-3.5 text-zinc-200" />
             <span>Advanced / Focus Instructions (Topic Keywords & Prompt)</span>
           </span>
           {showAdvanced ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
@@ -520,27 +543,28 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
           <div className="p-4 pt-1 space-y-4 border-t border-white/[0.06]">
             {/* Topic Keywords Input */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#DDD6FE] flex items-center justify-between">
+              <label htmlFor="clip-topic-keywords" className="text-[13px] font-semibold text-vc-text-primary flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
-                  <Tag className="size-3.5 text-[#22D3EE]" />
+                  <Tag className="size-3.5 text-zinc-200" />
                   <span>Topic Keywords (Comma-separated)</span>
                 </span>
-                <span className="text-[10px] text-[#8E9AB4]">e.g. AI agents, pricing, revenue model</span>
+                <span className="text-[10px] text-vc-text-secondary">e.g. AI agents, pricing, revenue model</span>
               </label>
               <input
+                id="clip-topic-keywords"
                 type="text"
                 disabled={disabled}
                 placeholder="e.g. artificial intelligence, marketing, customer acquisition"
                 value={keywordInput}
                 onChange={(e) => handleKeywordsChange(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-[#080B12] border border-white/[0.12] text-xs text-[#F4F6FB] placeholder-[#8E9AB4]/50 focus:border-[#22D3EE] outline-none disabled:opacity-50"
+                className="w-full px-3 py-2 rounded-xl bg-vc-canvas border border-white/[0.12] text-xs text-vc-text-primary placeholder-zinc-500 focus:border-white/60 outline-none disabled:opacity-50"
               />
               {Array.isArray(preferences.topicKeywords) && preferences.topicKeywords.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {preferences.topicKeywords.map((tag, idx) => (
                     <span
                       key={idx}
-                      className="px-2 py-0.5 rounded-full bg-[#22D3EE]/15 border border-[#22D3EE]/30 text-[10px] font-mono text-[#22D3EE]"
+                      className="px-2 py-0.5 rounded-full bg-white/[0.08] text-[10px] font-mono text-zinc-200"
                     >
                       #{tag}
                     </span>
@@ -551,17 +575,18 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
 
             {/* Custom Instructions Textarea */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#DDD6FE] flex items-center gap-1.5">
-                <FileText className="size-3.5 text-[#8B5CF6]" />
+              <label htmlFor="clip-custom-instructions" className="text-[13px] font-semibold text-vc-text-primary flex items-center gap-1.5">
+                <FileText className="size-3.5 text-violet-500" />
                 <span>Custom AI Focus Instructions</span>
               </label>
               <textarea
+                id="clip-custom-instructions"
                 rows={3}
                 disabled={disabled}
                 placeholder="Give the AI specific instructions (e.g. 'Focus on our customer case study in the middle', 'Find the moment where we discuss churn rates')..."
                 value={preferences.customInstructions || ''}
                 onChange={(e) => handleCustomInstructionsChange(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-[#080B12] border border-white/[0.12] text-xs text-[#F4F6FB] placeholder-[#8E9AB4]/50 focus:border-[#8B5CF6] outline-none resize-none disabled:opacity-50"
+                className="w-full px-3 py-2 rounded-xl bg-vc-canvas border border-white/[0.12] text-xs text-vc-text-primary placeholder-zinc-500 focus:border-violet-500 outline-none resize-none disabled:opacity-50"
               />
             </div>
 
@@ -571,7 +596,7 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
                 type="button"
                 disabled={disabled}
                 onClick={handleResetDefaults}
-                className="inline-flex items-center gap-1.5 text-xs text-[#8E9AB4] hover:text-[#DDD6FE] transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 text-xs text-vc-text-secondary hover:text-violet-200 transition-colors cursor-pointer"
               >
                 <RotateCcw className="size-3" />
                 <span>Reset to Defaults</span>

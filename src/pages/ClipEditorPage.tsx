@@ -42,7 +42,7 @@ export const ClipEditorPage: React.FC = () => {
   // Loading State
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#07080D] text-neutral-300 select-none">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-vc-canvas text-neutral-300 select-none">
         <div className="flex flex-col items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-white/[0.06] border border-white/[0.12] flex items-center justify-center shadow-lg shadow-violet-950/40">
             <Loader2 className="w-6 h-6 animate-spin text-neutral-300" />
@@ -59,8 +59,8 @@ export const ClipEditorPage: React.FC = () => {
   // Error State
   if (error || !clip || !project) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#07080D] text-neutral-300 p-6 select-none">
-        <div className="max-w-md w-full bg-[#0E1017] border border-white/[0.08] rounded-2xl p-6 text-center space-y-4 shadow-2xl">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-vc-canvas text-neutral-300 p-6 select-none">
+        <div className="max-w-md w-full bg-vc-surface1 rounded-2xl p-6 text-center space-y-4 shadow-2xl">
           <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-400">
             <AlertCircle className="w-6 h-6" />
           </div>
@@ -87,7 +87,7 @@ export const ClipEditorPage: React.FC = () => {
             </button>
             <button
               onClick={() => navigate('/history')}
-              className="px-4 py-2 rounded-xl bg-[#F4F6FB] text-[#0B0C0F] hover:bg-white text-xs font-medium flex items-center gap-1.5 shadow-md shadow-black/40 transition cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] text-white hover:bg-vc-ai text-xs font-medium flex items-center gap-1.5 shadow-md shadow-black/40 transition cursor-pointer"
             >
               <FolderClosed className="w-3.5 h-3.5" />
               <span>Browse Available Clips</span>

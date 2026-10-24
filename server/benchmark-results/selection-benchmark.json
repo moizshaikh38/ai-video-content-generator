@@ -1,0 +1,210 @@
+{
+  "generatedAt": "2026-10-24T17:56:05.987Z",
+  "runner": "selection-benchmark-v0",
+  "modelVersion": "not-applicable (deterministic metric harness; no LLM invoked)",
+  "hardware": "8 CPUs / darwin arm64",
+  "harnessSanity": {
+    "pass": true,
+    "note": "Golden sets score perfectly and the real deterministic engine chain preserves ground truth on every fixture."
+  },
+  "fixtures": [
+    {
+      "fixtureId": "podcast_complete_arcs",
+      "genre": "podcast_interview",
+      "golden": {
+        "candidateCount": 2,
+        "midWordRate": 0,
+        "midSentenceRate": 0,
+        "endTruncationRate": 0,
+        "deadAirRate": 0,
+        "redundancyRate": 0,
+        "meanBoundaryErrorSec": 0,
+        "referenceRecall": 1,
+        "precisionAtK": 1,
+        "recallAtK": 1,
+        "kUsed": 2,
+        "rankCorrelation": null,
+        "notes": [
+          "Rank correlation NOT MEASURED: requires a human ranking covering all scored candidates."
+        ]
+      },
+      "degraded": {
+        "candidateCount": 3,
+        "midWordRate": 0.6666666666666666,
+        "midSentenceRate": 0.8333333333333334,
+        "endTruncationRate": 1,
+        "deadAirRate": 0.04046242774566474,
+        "redundancyRate": 0.18032786885245897,
+        "meanBoundaryErrorSec": 0.19999999999999973,
+        "referenceRecall": 0.5,
+        "precisionAtK": 0.3333333333333333,
+        "recallAtK": 0.5,
+        "kUsed": 3,
+        "rankCorrelation": null,
+        "notes": [
+          "Rank correlation NOT MEASURED: requires a human ranking covering all scored candidates."
+        ]
+      },
+      "goldenSanity": {
+        "pass": true,
+        "failures": []
+      }
+    },
+    {
+      "fixtureId": "gaming_lowdialogue",
+      "genre": "gaming",
+      "golden": {
+        "candidateCount": 2,
+        "midWordRate": 0,
+        "midSentenceRate": 0,
+        "endTruncationRate": 0,
+        "deadAirRate": 0,
+        "redundancyRate": 0,
+        "meanBoundaryErrorSec": 0,
+        "referenceRecall": 1,
+        "precisionAtK": 1,
+        "recallAtK": 1,
+        "kUsed": 2,
+        "rankCorrelation": null,
+        "notes": [
+          "Rank correlation NOT MEASURED: requires a human ranking covering all scored candidates."
+        ]
+      },
+      "degraded": {
+        "candidateCount": 3,
+        "midWordRate": 0.6666666666666666,
+        "midSentenceRate": 0.8333333333333334,
+        "endTruncationRate": 1,
+        "deadAirRate": 0.5560747663551402,
+        "redundancyRate": 0.22580645161290328,
+        "meanBoundaryErrorSec": 0.19999999999999996,
+        "referenceRecall": 0.5,
+        "precisionAtK": 0.3333333333333333,
+        "recallAtK": 0.5,
+        "kUsed": 3,
+        "rankCorrelation": null,
+        "notes": [
+          "Rank correlation NOT MEASURED: requires a human ranking covering all scored candidates."
+        ]
+      },
+      "goldenSanity": {
+        "pass": true,
+        "failures": []
+      }
+    },
+    {
+      "fixtureId": "tutorial_steps",
+      "genre": "education_tutorial",
+      "golden": {
+        "candidateCount": 2,
+        "midWordRate": 0,
+        "midSentenceRate": 0,
+        "endTruncationRate": 0,
+        "deadAirRate": 0,
+        "redundancyRate": 0,
+        "meanBoundaryErrorSec": 0,
+        "referenceRecall": 1,
+        "precisionAtK": 1,
+        "recallAtK": 1,
+        "kUsed": 2,
+        "rankCorrelation": null,
+        "notes": [
+          "Rank correlation NOT MEASURED: requires a human ranking covering all scored candidates."
+        ]
+      },
+      "degraded": {
+        "candidateCount": 2,
+        "midWordRate": 0.75,
+        "midSentenceRate": 1,
+        "endTruncationRate": 1,
+        "deadAirRate": 0,
+        "redundancyRate": 1,
+        "meanBoundaryErrorSec": 0.19999999999999973,
+        "referenceRecall": 0.5,
+        "precisionAtK": 0.5,
+        "recallAtK": 0.5,
+        "kUsed": 2,
+        "rankCorrelation": null,
+        "notes": [
+          "Rank correlation NOT MEASURED: requires a human ranking covering all scored candidates."
+        ]
+      },
+      "goldenSanity": {
+        "pass": true,
+        "failures": []
+      }
+    }
+  ],
+  "enginePipeline": {
+    "note": "Real deterministic chain (score → refine → dedup → MMR) over genre-clamped reference arcs. LLM subscores proxied by reference quality scores — the LLM itself is NOT MEASURED here.",
+    "fixtures": [
+      {
+        "fixtureId": "podcast_engine",
+        "genre": "podcast_interview",
+        "stageCounts": {
+          "scored": 3,
+          "refined": 3,
+          "deduped": 3,
+          "selected": 3
+        },
+        "metrics": {
+          "candidateCount": 3,
+          "midWordRate": 0,
+          "midSentenceRate": 0,
+          "endTruncationRate": 0,
+          "deadAirRate": 2.0412218338025306e-15,
+          "redundancyRate": 0,
+          "meanBoundaryErrorSec": 0.23333333333340533,
+          "referenceRecall": 1,
+          "precisionAtK": 1,
+          "recallAtK": 1,
+          "kUsed": 3,
+          "rankCorrelation": null,
+          "notes": [
+            "Rank correlation NOT MEASURED: requires a human ranking covering all scored candidates."
+          ]
+        },
+        "sanity": {
+          "pass": true,
+          "failures": []
+        }
+      },
+      {
+        "fixtureId": "gaming_engine",
+        "genre": "gaming",
+        "stageCounts": {
+          "scored": 2,
+          "refined": 2,
+          "deduped": 2,
+          "selected": 2
+        },
+        "metrics": {
+          "candidateCount": 2,
+          "midWordRate": 0,
+          "midSentenceRate": 0,
+          "endTruncationRate": 0,
+          "deadAirRate": 4.721214191097012e-16,
+          "redundancyRate": 0,
+          "meanBoundaryErrorSec": 0.17500000000001847,
+          "referenceRecall": 1,
+          "precisionAtK": 1,
+          "recallAtK": 1,
+          "kUsed": 2,
+          "rankCorrelation": null,
+          "notes": [
+            "Rank correlation NOT MEASURED: requires a human ranking covering all scored candidates."
+          ]
+        },
+        "sanity": {
+          "pass": true,
+          "failures": []
+        }
+      }
+    ]
+  },
+  "unmeasured": {
+    "llm_selection": "LLM selection quality NOT MEASURED: requires an approved provider run with recorded candidate output (genre roadmap Phase 3).",
+    "human_rated": "Human-rated completeness/genre relevance NOT MEASURED: requires rated reference clips (genre roadmap Phase 3).",
+    "latency_and_cost": "NOT MEASURED: requires an approved end-to-end run; this runner executes no models."
+  }
+}

@@ -79,19 +79,19 @@ export const PublishingHistoryPage: React.FC = () => {
     switch (status) {
       case 'published':
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-sage/20 px-2 py-0.5 text-[10px] font-semibold text-sage">
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
             <CheckCircle2 className="size-3" /> Published
           </span>
         );
       case 'publishing':
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-clay/20 px-2 py-0.5 text-[10px] font-semibold text-clay animate-pulse">
+          <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-semibold text-violet-300 animate-pulse">
             <RefreshCw className="size-3 animate-spin" /> Publishing
           </span>
         );
       case 'scheduled':
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] font-semibold text-blue-500">
+          <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.08] px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
             <Calendar className="size-3" /> Scheduled
           </span>
         );
@@ -118,7 +118,7 @@ export const PublishingHistoryPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/50 pb-5">
         <div>
           <h1 className="text-2xl font-bold font-display text-foreground flex items-center gap-2.5">
-            <Share2 className="size-6 text-sage" />
+            <Share2 className="size-6 text-emerald-400" />
             <span>Publishing & Scheduling</span>
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
@@ -148,14 +148,14 @@ export const PublishingHistoryPage: React.FC = () => {
         </div>
       )}
       {actionSuccess && (
-        <div role="status" className="p-3.5 rounded-2xl bg-sage/15 border border-sage/30 text-sage text-xs flex items-center gap-2">
+        <div role="status" className="p-3.5 rounded-2xl bg-emerald-500/15 text-emerald-400 text-xs flex items-center gap-2">
           <CheckCircle2 className="size-4 shrink-0" />
           <span>{actionSuccess}</span>
         </div>
       )}
 
       {/* Filters Bar */}
-      <div className="flex flex-wrap items-center gap-3 p-3.5 rounded-2xl bg-card border border-border/60">
+      <div className="flex flex-wrap items-center gap-3 p-3.5 rounded-2xl bg-card ">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mr-2 font-medium">
           <Filter className="size-3.5" />
           <span>Filter:</span>
@@ -195,7 +195,7 @@ export const PublishingHistoryPage: React.FC = () => {
           <p className="text-xs text-muted-foreground">Loading published and scheduled posts…</p>
         </div>
       ) : posts.length === 0 ? (
-        <div className="card-soft p-12 text-center space-y-3 bg-cream/40 border-dashed border-border/80">
+        <div className="card-soft p-12 text-center space-y-3 bg-white/[0.04] border-dashed border-border/80">
           <Share2 className="size-8 mx-auto text-muted-foreground/60" />
           <div className="space-y-1">
             <h4 className="text-sm font-semibold text-foreground">No posts found</h4>
@@ -251,7 +251,7 @@ export const PublishingHistoryPage: React.FC = () => {
                       href={post.provider_post_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-sage hover:underline"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:underline"
                     >
                       <span>View Live</span>
                       <ExternalLink className="size-3" />

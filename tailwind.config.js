@@ -1,3 +1,13 @@
+/**
+ * Theme colours are CSS variables (some hold rgba values), so Tailwind cannot split them
+ * into channels. This makes opacity modifiers (`bg-destructive/10`, `border-border/60`)
+ * work by mixing the variable with transparent instead of silently emitting nothing.
+ */
+const withAlpha = (variable) => ({ opacityValue }) =>
+  opacityValue === undefined || opacityValue === '1'
+    ? `var(${variable})`
+    : `color-mix(in srgb, var(${variable}) calc(${opacityValue} * 100%), transparent)`;
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -7,56 +17,56 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: 'var(--background)',
-        foreground: 'var(--foreground)',
+        background: withAlpha('--background'),
+        foreground: withAlpha('--foreground'),
         card: {
-          DEFAULT: 'var(--card)',
+          DEFAULT: withAlpha('--card'),
           foreground: 'var(--card-foreground)',
         },
         popover: {
-          DEFAULT: 'var(--popover)',
+          DEFAULT: withAlpha('--popover'),
           foreground: 'var(--popover-foreground)',
         },
         primary: {
-          DEFAULT: 'var(--primary)',
+          DEFAULT: withAlpha('--primary'),
           foreground: 'var(--primary-foreground)',
         },
         secondary: {
-          DEFAULT: 'var(--secondary)',
+          DEFAULT: withAlpha('--secondary'),
           foreground: 'var(--secondary-foreground)',
         },
         muted: {
-          DEFAULT: 'var(--muted)',
+          DEFAULT: withAlpha('--muted'),
           foreground: 'var(--muted-foreground)',
         },
         accent: {
-          DEFAULT: 'var(--accent)',
+          DEFAULT: withAlpha('--accent'),
           foreground: 'var(--accent-foreground)',
         },
         destructive: {
-          DEFAULT: 'var(--destructive)',
+          DEFAULT: withAlpha('--destructive'),
           foreground: 'var(--destructive-foreground)',
         },
-        border: 'var(--border)',
-        input: 'var(--input)',
-        ring: 'var(--ring)',
+        border: withAlpha('--border'),
+        input: withAlpha('--input'),
+        ring: withAlpha('--ring'),
         sage: {
-          DEFAULT: 'var(--sage)',
+          DEFAULT: withAlpha('--sage'),
           foreground: 'var(--sage-foreground)',
         },
         clay: {
-          DEFAULT: 'var(--clay)',
+          DEFAULT: withAlpha('--clay'),
           foreground: 'var(--clay-foreground)',
         },
-        ink: 'var(--ink)',
-        cream: 'var(--cream)',
-        forest: 'var(--forest)',
-        'vireo-green': 'var(--vireo-green)',
+        ink: withAlpha('--ink'),
+        cream: withAlpha('--cream'),
+        forest: withAlpha('--forest'),
+        'vireo-green': withAlpha('--vireo-green'),
         vc: {
-          canvas: 'var(--vc-canvas)',
-          surface1: 'var(--vc-surface-1)',
-          surface2: 'var(--vc-surface-2)',
-          surface3: 'var(--vc-surface-3)',
+          canvas: 'rgb(var(--vc-canvas-rgb) / <alpha-value>)',
+          surface1: 'rgb(var(--vc-surface-1-rgb) / <alpha-value>)',
+          surface2: 'rgb(var(--vc-surface-2-rgb) / <alpha-value>)',
+          surface3: 'rgb(var(--vc-surface-3-rgb) / <alpha-value>)',
           border: 'var(--vc-border)',
           'border-strong': 'var(--vc-border-strong)',
           'text-primary': 'var(--vc-text-primary)',
@@ -67,7 +77,7 @@ export default {
           success: 'var(--vc-success)',
           warning: 'var(--vc-warning)',
           destructive: 'var(--vc-destructive)',
-          action: 'var(--vc-action-primary)',
+          action: 'rgb(var(--vc-action-primary-rgb) / <alpha-value>)',
           'action-foreground': 'var(--vc-action-primary-text)',
         },
       },

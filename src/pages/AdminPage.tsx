@@ -167,14 +167,14 @@ export const AdminPage: React.FC = () => {
             <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
               VireoClip Owner Console
             </h1>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-clay/15 text-clay border border-clay/30">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-violet-500/15 text-violet-300 ">
               OWNER PRIVILEGES
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
             Internal telemetry, user metrics, real processing jobs, and billing diagnostics.
             {activeTab !== 'overview' && activeTab !== 'health' && (
-              <span className="ml-2 font-mono text-clay font-medium">({totalItems} records loaded)</span>
+              <span className="ml-2 font-mono text-violet-300 font-medium">({totalItems} records loaded)</span>
             )}
           </p>
         </div>
@@ -213,10 +213,10 @@ export const AdminPage: React.FC = () => {
                 setActiveTab(tab.id as Tab);
                 setPage(1);
               }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium transition-all shrink-0 ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium transition-all shrink-0 ${
                 isActive
-                  ? 'bg-[#F4F6FB] text-[#0B0C0F] shadow-soft font-semibold'
-                  : 'text-muted-foreground hover:bg-cream/60 hover:text-foreground'
+                  ? 'bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 text-white shadow-soft font-semibold'
+                  : 'text-muted-foreground hover:bg-vc-ai/[0.04] hover:text-foreground'
               }`}
             >
               <Icon className="size-3.5" />
@@ -229,10 +229,10 @@ export const AdminPage: React.FC = () => {
       {/* Main Tab Content */}
       {loading ? (
         <div className="grid gap-4 md:grid-cols-4 animate-pulse">
-          <div className="h-32 bg-cream/70 rounded-2xl" />
-          <div className="h-32 bg-cream/70 rounded-2xl" />
-          <div className="h-32 bg-cream/70 rounded-2xl" />
-          <div className="h-32 bg-cream/70 rounded-2xl" />
+          <div className="h-32 bg-white/[0.04] rounded-2xl" />
+          <div className="h-32 bg-white/[0.04] rounded-2xl" />
+          <div className="h-32 bg-white/[0.04] rounded-2xl" />
+          <div className="h-32 bg-white/[0.04] rounded-2xl" />
         </div>
       ) : error ? (
         <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center justify-between">
@@ -248,23 +248,23 @@ export const AdminPage: React.FC = () => {
             <div className="space-y-6">
               {/* Top Stats Cards */}
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <SpotlightCard className="p-5 bg-card border rounded-2xl space-y-2">
+                <SpotlightCard className="p-5 bg-card rounded-2xl space-y-2">
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span className="text-xs font-semibold uppercase tracking-wider">Total Users</span>
-                    <Users className="size-4 text-clay" />
+                    <Users className="size-4 text-violet-300" />
                   </div>
-                  <div className="text-2xl font-bold font-display text-foreground">{overview.users.total}</div>
+                  <div className="text-[28px] leading-none font-semibold tracking-tight tabular-nums text-foreground">{overview.users.total}</div>
                   <div className="text-[11px] text-muted-foreground">
                     +{overview.users.createdToday} today · +{overview.users.createdThisWeek} this week
                   </div>
                 </SpotlightCard>
 
-                <SpotlightCard className="p-5 bg-card border rounded-2xl space-y-2">
+                <SpotlightCard className="p-5 bg-card rounded-2xl space-y-2">
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span className="text-xs font-semibold uppercase tracking-wider">Active Subscriptions</span>
                     <CreditCard className="size-4 text-vireo-green" />
                   </div>
-                  <div className="text-2xl font-bold font-display text-foreground">
+                  <div className="text-[28px] leading-none font-semibold tracking-tight tabular-nums text-foreground">
                     {overview.subscriptions.activeSubscriptions}
                   </div>
                   <div className="text-[11px] text-muted-foreground">
@@ -272,23 +272,23 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </SpotlightCard>
 
-                <SpotlightCard className="p-5 bg-card border rounded-2xl space-y-2">
+                <SpotlightCard className="p-5 bg-card rounded-2xl space-y-2">
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span className="text-xs font-semibold uppercase tracking-wider">Total Projects</span>
-                    <Film className="size-4 text-clay" />
+                    <Film className="size-4 text-violet-300" />
                   </div>
-                  <div className="text-2xl font-bold font-display text-foreground">{overview.projects.total}</div>
+                  <div className="text-[28px] leading-none font-semibold tracking-tight tabular-nums text-foreground">{overview.projects.total}</div>
                   <div className="text-[11px] text-muted-foreground">
                     {overview.projects.processing} processing · {overview.projects.failed} failed
                   </div>
                 </SpotlightCard>
 
-                <SpotlightCard className="p-5 bg-card border rounded-2xl space-y-2">
+                <SpotlightCard className="p-5 bg-card rounded-2xl space-y-2">
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span className="text-xs font-semibold uppercase tracking-wider">Minutes Processed</span>
                     <Zap className="size-4 text-amber-500" />
                   </div>
-                  <div className="text-2xl font-bold font-display text-foreground">
+                  <div className="text-[28px] leading-none font-semibold tracking-tight tabular-nums text-foreground">
                     {overview.usage.sourceMinutesCurrentMonth.toFixed(1)}m
                   </div>
                   <div className="text-[11px] text-muted-foreground">
@@ -299,7 +299,7 @@ export const AdminPage: React.FC = () => {
 
               {/* Subscriptions & Operational Breakdown */}
               <div className="grid gap-6 md:grid-cols-2">
-                <div className="p-5 rounded-2xl border border-border/80 bg-card space-y-4">
+                <div className="p-5 rounded-2xl bg-card space-y-4">
                   <h3 className="font-display font-bold text-sm text-foreground flex items-center gap-2">
                     <CreditCard className="size-4 text-muted-foreground" />
                     <span>Subscription Plan Distribution</span>
@@ -328,7 +328,7 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-5 rounded-2xl border border-border/80 bg-card space-y-4">
+                <div className="p-5 rounded-2xl bg-card space-y-4">
                   <h3 className="font-display font-bold text-sm text-foreground flex items-center gap-2">
                     <Activity className="size-4 text-muted-foreground" />
                     <span>Real-time Operational Status</span>
@@ -373,7 +373,7 @@ export const AdminPage: React.FC = () => {
                     placeholder="Search by email or name..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-border/80 bg-card text-xs focus:outline-none focus:ring-1 focus:ring-clay"
+                    className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-border/80 bg-card text-xs focus:outline-none focus:ring-1 focus:ring-violet-500/40"
                   />
                 </div>
                 <Button type="submit" size="sm" variant="outline">
@@ -383,7 +383,7 @@ export const AdminPage: React.FC = () => {
 
               <div className="rounded-2xl border border-border/80 bg-card overflow-hidden">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-cream/60 border-b border-border/60 text-muted-foreground font-semibold">
+                  <thead className="bg-white/[0.04] border-b border-border/60 text-muted-foreground font-semibold">
                     <tr>
                       <th className="p-3">User</th>
                       <th className="p-3">Plan</th>
@@ -395,7 +395,7 @@ export const AdminPage: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-border/50">
                     {users.map((u) => (
-                      <tr key={u.id} className="hover:bg-cream/30">
+                      <tr key={u.id} className="hover:bg-white/[0.04]">
                         <td className="p-3">
                           <div className="font-semibold text-foreground">{u.email}</div>
                           <div className="text-[10px] text-muted-foreground font-mono">{u.id}</div>
@@ -422,7 +422,7 @@ export const AdminPage: React.FC = () => {
             <div className="space-y-4">
               <div className="rounded-2xl border border-border/80 bg-card overflow-hidden">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-cream/60 border-b border-border/60 text-muted-foreground font-semibold">
+                  <thead className="bg-white/[0.04] border-b border-border/60 text-muted-foreground font-semibold">
                     <tr>
                       <th className="p-3">Title</th>
                       <th className="p-3">User ID</th>
@@ -433,7 +433,7 @@ export const AdminPage: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-border/50">
                     {projects.map((p) => (
-                      <tr key={p.id} className="hover:bg-cream/30">
+                      <tr key={p.id} className="hover:bg-white/[0.04]">
                         <td className="p-3 font-semibold text-foreground">{p.title}</td>
                         <td className="p-3 font-mono text-[10px] text-muted-foreground">{p.user_id}</td>
                         <td className="p-3 uppercase text-[10px]">{p.source_type}</td>
@@ -441,7 +441,7 @@ export const AdminPage: React.FC = () => {
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold ${
                               p.video_status === 'ready'
-                                ? 'bg-sage/15 text-sage'
+                                ? 'bg-emerald-500/15 text-emerald-400'
                                 : p.video_status === 'failed'
                                 ? 'bg-destructive/15 text-destructive'
                                 : 'bg-amber-500/15 text-amber-500'
@@ -464,7 +464,7 @@ export const AdminPage: React.FC = () => {
             <div className="space-y-4">
               <div className="rounded-2xl border border-border/80 bg-card overflow-hidden">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-cream/60 border-b border-border/60 text-muted-foreground font-semibold">
+                  <thead className="bg-white/[0.04] border-b border-border/60 text-muted-foreground font-semibold">
                     <tr>
                       <th className="p-3">Job ID</th>
                       <th className="p-3">Clip ID</th>
@@ -476,14 +476,14 @@ export const AdminPage: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-border/50">
                     {renderJobs.map((j) => (
-                      <tr key={j.id} className="hover:bg-cream/30">
+                      <tr key={j.id} className="hover:bg-white/[0.04]">
                         <td className="p-3 font-mono text-[10px]">{j.id}</td>
                         <td className="p-3 font-mono text-[10px] text-muted-foreground">{j.clip_id}</td>
                         <td className="p-3">
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold ${
                               j.status === 'completed'
-                                ? 'bg-sage/15 text-sage'
+                                ? 'bg-emerald-500/15 text-emerald-400'
                                 : j.status === 'failed'
                                 ? 'bg-destructive/15 text-destructive'
                                 : 'bg-amber-500/15 text-amber-500'
@@ -508,7 +508,7 @@ export const AdminPage: React.FC = () => {
             <div className="space-y-4">
               <div className="rounded-2xl border border-border/80 bg-card overflow-hidden">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-cream/60 border-b border-border/60 text-muted-foreground font-semibold">
+                  <thead className="bg-white/[0.04] border-b border-border/60 text-muted-foreground font-semibold">
                     <tr>
                       <th className="p-3">Subscription</th>
                       <th className="p-3">Provider</th>
@@ -527,12 +527,12 @@ export const AdminPage: React.FC = () => {
                       </tr>
                     ) : (
                       subscriptions.map((s) => (
-                        <tr key={s.id} className="hover:bg-cream/30">
+                        <tr key={s.id} className="hover:bg-white/[0.04]">
                           <td className="p-3 font-mono text-[10px]">{s.provider_subscription_id}</td>
                           <td className="p-3 uppercase text-[10px] font-semibold">{s.provider}</td>
                           <td className="p-3 uppercase text-[10px]">{s.plan_id}</td>
                           <td className="p-3">
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-sage/15 text-sage">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/15 text-emerald-400">
                               {s.status.toUpperCase()}
                             </span>
                           </td>
@@ -554,7 +554,7 @@ export const AdminPage: React.FC = () => {
             <div className="space-y-4">
               <div className="rounded-2xl border border-border/80 bg-card overflow-hidden">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-cream/60 border-b border-border/60 text-muted-foreground font-semibold">
+                  <thead className="bg-white/[0.04] border-b border-border/60 text-muted-foreground font-semibold">
                     <tr>
                       <th className="p-3">Job ID</th>
                       <th className="p-3">Provider</th>
@@ -572,7 +572,7 @@ export const AdminPage: React.FC = () => {
                       </tr>
                     ) : (
                       publishingJobs.map((p) => (
-                        <tr key={p.id} className="hover:bg-cream/30">
+                        <tr key={p.id} className="hover:bg-white/[0.04]">
                           <td className="p-3 font-mono text-[10px]">{p.id}</td>
                           <td className="p-3 uppercase font-semibold text-[10px]">{p.provider}</td>
                           <td className="p-3">
@@ -598,7 +598,7 @@ export const AdminPage: React.FC = () => {
             <div className="space-y-4">
               <div className="rounded-2xl border border-border/80 bg-card overflow-hidden">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-cream/60 border-b border-border/60 text-muted-foreground font-semibold">
+                  <thead className="bg-white/[0.04] border-b border-border/60 text-muted-foreground font-semibold">
                     <tr>
                       <th className="p-3">Account</th>
                       <th className="p-3">Provider</th>
@@ -615,11 +615,11 @@ export const AdminPage: React.FC = () => {
                       </tr>
                     ) : (
                       socialAccounts.map((a) => (
-                        <tr key={a.id} className="hover:bg-cream/30">
+                        <tr key={a.id} className="hover:bg-white/[0.04]">
                           <td className="p-3 font-semibold text-foreground">{a.account_name}</td>
                           <td className="p-3 uppercase text-[10px] font-semibold">{a.provider}</td>
                           <td className="p-3">
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-sage/15 text-sage">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/15 text-emerald-400">
                               {a.status.toUpperCase()}
                             </span>
                           </td>
@@ -638,22 +638,22 @@ export const AdminPage: React.FC = () => {
           {/* TAB: USAGE */}
           {activeTab === 'usage' && overview && (
             <div className="space-y-4">
-              <SpotlightCard className="p-6 bg-card border rounded-2xl space-y-4">
+              <SpotlightCard className="p-6 bg-card rounded-2xl space-y-4">
                 <h3 className="font-display font-bold text-base text-foreground">Usage Summary</h3>
                 <div className="grid gap-4 sm:grid-cols-3 text-xs">
-                  <div className="p-4 rounded-xl bg-cream/40 border border-border/50">
+                  <div className="p-4 rounded-xl bg-white/[0.04] ">
                     <span className="text-muted-foreground">Source Minutes (Month)</span>
                     <div className="text-xl font-bold font-display mt-1">
                       {overview.usage.sourceMinutesCurrentMonth.toFixed(1)}m
                     </div>
                   </div>
-                  <div className="p-4 rounded-xl bg-cream/40 border border-border/50">
+                  <div className="p-4 rounded-xl bg-white/[0.04] ">
                     <span className="text-muted-foreground">Clip Renders (Month)</span>
                     <div className="text-xl font-bold font-display mt-1">
                       {overview.usage.clipRendersCurrentMonth}
                     </div>
                   </div>
-                  <div className="p-4 rounded-xl bg-cream/40 border border-border/50">
+                  <div className="p-4 rounded-xl bg-white/[0.04] ">
                     <span className="text-muted-foreground">Total Metering Events</span>
                     <div className="text-xl font-bold font-display mt-1">
                       {overview.usage.totalUsageEvents}
@@ -668,7 +668,7 @@ export const AdminPage: React.FC = () => {
           {activeTab === 'health' && health && (
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="p-5 rounded-2xl border border-border/80 bg-card space-y-3">
+                <div className="p-5 rounded-2xl bg-card space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1.5">
                       <Server className="size-4" />
@@ -688,7 +688,7 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-5 rounded-2xl border border-border/80 bg-card space-y-3">
+                <div className="p-5 rounded-2xl bg-card space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1.5">
                       <HardDrive className="size-4" />
@@ -708,7 +708,7 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-5 rounded-2xl border border-border/80 bg-card space-y-3">
+                <div className="p-5 rounded-2xl bg-card space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1.5">
                       <Cpu className="size-4" />
@@ -728,7 +728,7 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-5 rounded-2xl border border-border/80 bg-card space-y-3">
+                <div className="p-5 rounded-2xl bg-card space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1.5">
                       <CreditCard className="size-4" />
@@ -748,7 +748,7 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-5 rounded-2xl border border-border/80 bg-card space-y-3">
+                <div className="p-5 rounded-2xl bg-card space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1.5">
                       <CreditCard className="size-4" />
@@ -768,7 +768,7 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-5 rounded-2xl border border-border/80 bg-card space-y-3">
+                <div className="p-5 rounded-2xl bg-card space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1.5">
                       <Zap className="size-4" />

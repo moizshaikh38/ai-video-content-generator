@@ -13,10 +13,14 @@ const extensionMime: Record<string, string> = {
 const videoMime = (file: File): string => file.type || extensionMime[file.name.match(/\.[^.]+$/)?.[0].toLowerCase() || ''] || '';
 
 export interface ValidationResult { valid: boolean; error?: string }
+export interface UploadProgressStats {
+  loaded: number;
+  total: number;
+}
 export interface UploadOptions {
   file: File;
   projectId: string;
-  onProgress?: (percentage: number) => void;
+  onProgress?: (percentage: number, stats?: UploadProgressStats) => void;
   signal?: AbortSignal;
 }
 export interface UploadResult { fileName: string; fileSize: number; mimeType: string }
@@ -54,7 +58,10 @@ export async function uploadVideoFile({ file, projectId, onProgress, signal }: U
     for (const [name, value] of Object.entries(grant.headers)) xhr.setRequestHeader(name, value);
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable && event.total > 0) {
-        onProgress?.(Math.min(99, Math.round(event.loaded / event.total * 100)));
+        onProgress?.(
+          Math.min(99, Math.round(event.loaded / event.total * 100)),
+          { loaded: event.loaded, total: event.total }
+        );
       }
     };
     xhr.onload = () => {

@@ -120,8 +120,10 @@ describe('VireoClip — Milestone C: Creative Workspace Redesign', () => {
     test('BrandPage uses Obsidian dark theme tokens throughout', () => {
       assert.ok(!brandPageContent.includes('border-border'), 'BrandPage must not contain legacy border-border');
       assert.ok(!brandPageContent.includes('bg-cream'), 'BrandPage must not contain legacy bg-cream');
-      assert.match(brandPageContent, /bg-\[#0E1017\]/);
-      assert.match(brandPageContent, /text-\[#F4F6FB\]/);
+      // Black Glass: neutral token scale instead of navy / blue-white literals.
+      assert.ok(!/#(0E1017|07080D|F4F6FB|9AA2B2)\b/i.test(brandPageContent), 'no navy / blue-grey literals');
+      assert.match(brandPageContent, /bg-vc-surface1/);
+      assert.match(brandPageContent, /text-vc-text-primary/);
     });
   });
 
@@ -136,8 +138,9 @@ describe('VireoClip — Milestone C: Creative Workspace Redesign', () => {
     });
 
     test('WorkflowPage slide-over drawer features Obsidian dark glass treatment', () => {
-      assert.match(workflowPageContent, /bg-black\/70 backdrop-blur-sm/);
-      assert.match(workflowPageContent, /bg-\[#0E1017\]/);
+      // Black Glass: shared scrim + floating glass drawer.
+      assert.match(workflowPageContent, /glass-scrim flex justify-end/);
+      assert.match(workflowPageContent, /max-w-xl glass-float/);
     });
   });
 

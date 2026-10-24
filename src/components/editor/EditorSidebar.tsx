@@ -131,10 +131,10 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
   }, [activeTab]);
 
   return (
-    <aside className="w-[68px] h-full max-h-full bg-[#090B10] border-r border-white/[0.08] flex flex-col items-center select-none z-20 shrink-0 relative overflow-hidden">
+    <aside className="w-[68px] h-full max-h-full glass-chrome border-r border-white/[0.08] flex flex-col items-center select-none z-20 shrink-0 relative overflow-hidden">
       {/* Top scroll fade effect */}
       <div
-        className={`pointer-events-none absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-[#07080D] via-[#07080D]/90 to-transparent z-10 transition-opacity duration-200 ${
+        className={`pointer-events-none absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-[#0A0A0A] via-[#0A0A0A]/90 to-transparent z-10 transition-opacity duration-200 ${
           canScrollUp ? 'opacity-100' : 'opacity-0'
         }`}
         aria-hidden="true"
@@ -168,7 +168,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
               {isActive && (
                 <span
                   className={`absolute left-0 w-0.5 h-5 rounded-r ${
-                    isAi ? 'bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,0.8)]' : 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.6)]'
+                    isAi ? 'bg-violet-400' : 'bg-white'
                   }`}
                 />
               )}
@@ -200,7 +200,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
 
       {/* Bottom scroll fade effect */}
       <div
-        className={`pointer-events-none absolute ${activeTab === 'ai_tools' ? 'bottom-9' : 'bottom-0'} left-0 right-0 h-6 bg-gradient-to-t from-[#07080D] via-[#07080D]/90 to-transparent z-10 transition-opacity duration-200 ${
+        className={`pointer-events-none absolute ${activeTab === 'ai_tools' ? 'bottom-9' : 'bottom-0'} left-0 right-0 h-6 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/90 to-transparent z-10 transition-opacity duration-200 ${
           canScrollDown ? 'opacity-100' : 'opacity-0'
         }`}
         aria-hidden="true"
@@ -208,8 +208,8 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
 
       {/* If AI tools is selected, display pinned active AI tool badge */}
       {activeTab === 'ai_tools' && (
-        <div className="shrink-0 w-full px-1.5 pb-2 pt-1.5 border-t border-white/[0.06] bg-[#07080D] text-center z-20">
-          <div className="text-[9px] font-mono uppercase tracking-wider text-violet-400/90 bg-violet-950/40 border border-violet-800/30 py-1 rounded truncate px-0.5 shadow-sm">
+        <div className="shrink-0 w-full px-1.5 pb-2 pt-1.5 border-t border-white/[0.06] bg-vc-canvas text-center z-20">
+          <div className="text-[9px] font-mono uppercase tracking-wider text-violet-400/90 bg-violet-950/40 py-1 rounded truncate px-0.5 shadow-sm">
             {activeAiTool.replace('_', ' ')}
           </div>
         </div>

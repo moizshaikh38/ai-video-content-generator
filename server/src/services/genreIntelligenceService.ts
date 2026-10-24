@@ -8,6 +8,7 @@ import {
   CreatorProfileData,
   CaptionStyle,
 } from '../types/index.js';
+import { logger } from '../utils/logger.js';
 
 export interface ClassifyGenreMetricsInput {
   wpm?: number;
@@ -47,6 +48,7 @@ export class GenreIntelligenceService {
         audio: 0.10,
         visual: 0.10,
       },
+      redundancyPenalty: 0.6,
       reframeConfig: {
         maxVelocity: 1.2,
         smoothingAlpha: 0.22,
@@ -84,6 +86,7 @@ export class GenreIntelligenceService {
         audio: 0.05,
         visual: 0.10,
       },
+      redundancyPenalty: 0.6,
       reframeConfig: {
         maxVelocity: 0.8,
         smoothingAlpha: 0.15,
@@ -121,6 +124,7 @@ export class GenreIntelligenceService {
         audio: 0.10,
         visual: 0.10,
       },
+      redundancyPenalty: 0.6,
       reframeConfig: {
         maxVelocity: 1.0,
         smoothingAlpha: 0.18,
@@ -158,6 +162,7 @@ export class GenreIntelligenceService {
         audio: 0.05,
         visual: 0.10,
       },
+      redundancyPenalty: 0.6,
       reframeConfig: {
         maxVelocity: 0.9,
         smoothingAlpha: 0.16,
@@ -195,6 +200,7 @@ export class GenreIntelligenceService {
         audio: 0.20,
         visual: 0.15,
       },
+      redundancyPenalty: 0.3,
       reframeConfig: {
         maxVelocity: 1.6,
         smoothingAlpha: 0.30,
@@ -232,6 +238,7 @@ export class GenreIntelligenceService {
         audio: 0.20,
         visual: 0.15,
       },
+      redundancyPenalty: 0.3,
       reframeConfig: {
         maxVelocity: 1.8,
         smoothingAlpha: 0.35,
@@ -269,6 +276,7 @@ export class GenreIntelligenceService {
         audio: 0.05,
         visual: 0.05,
       },
+      redundancyPenalty: 0.7,
       reframeConfig: {
         maxVelocity: 0.8,
         smoothingAlpha: 0.14,
@@ -306,6 +314,7 @@ export class GenreIntelligenceService {
         audio: 0.10,
         visual: 0.15,
       },
+      redundancyPenalty: 0.4,
       reframeConfig: {
         maxVelocity: 1.2,
         smoothingAlpha: 0.24,
@@ -343,6 +352,7 @@ export class GenreIntelligenceService {
         audio: 0.05,
         visual: 0.10,
       },
+      redundancyPenalty: 0.8,
       reframeConfig: {
         maxVelocity: 0.9,
         smoothingAlpha: 0.15,
@@ -380,6 +390,7 @@ export class GenreIntelligenceService {
         audio: 0.05,
         visual: 0.10,
       },
+      redundancyPenalty: 0.5,
       reframeConfig: {
         maxVelocity: 0.9,
         smoothingAlpha: 0.18,
@@ -417,6 +428,7 @@ export class GenreIntelligenceService {
         audio: 0.10,
         visual: 0.15,
       },
+      redundancyPenalty: 0.5,
       reframeConfig: {
         maxVelocity: 1.0,
         smoothingAlpha: 0.20,
@@ -440,11 +452,15 @@ export class GenreIntelligenceService {
   };
 
   /**
-   * Retrieves the profile configuration for a given genre, falling back to 'general'
+   * Retrieves the profile configuration for a given genre, falling back to 'general'.
+   * Unknown/misspelled genres are logged so silent quality degradation is diagnosable.
    */
   public static getGenreProfile(genre?: ContentGenre | string | null): GenreProfileConfig {
     if (genre && genre in this.GENRE_PROFILES) {
       return this.GENRE_PROFILES[genre as ContentGenre];
+    }
+    if (genre) {
+      logger.warn(`[GenreIntelligence] Unknown genre "${genre}" requested; falling back to 'general'.`);
     }
     return this.GENRE_PROFILES.general;
   }
@@ -791,6 +807,12 @@ export class GenreIntelligenceService {
         ? input.genre
         : parsedGenre || 'general';
 
+    if (input?.genre && !(input.genre in this.GENRE_PROFILES)) {
+      logger.warn(
+        `[GenreIntelligence] Unrecognized genre "${input.genre}" in clip preferences; coerced to '${resolvedGenre}'.`
+      );
+    }
+
     const defaultProfile = this.getGenreProfile(resolvedGenre);
 
     const resolvedGoal: ContentGoal =
@@ -803,7 +825,10 @@ export class GenreIntelligenceService {
 
     return {
       genre: resolvedGenre,
-      genreSelectionMode: input?.genreSelectionMode || 'manual',
+      // Selection-mode default follows the UI: 'auto' when no genre was chosen
+      // (enables classification), 'manual' when a client set an explicit genre
+      // but omitted the mode (preserves explicit intent).
+      genreSelectionMode: input?.genreSelectionMode || (input?.genre ? 'manual' : 'auto'),
       suggestedGenre: input?.suggestedGenre,
       genreConfidence: input?.genreConfidence,
       contentGoal: resolvedGoal,

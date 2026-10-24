@@ -44,6 +44,8 @@ interface TimelineProps {
   project: EditorProject;
   /** Source clip for this editor session; its window backs the audio waveform overlay. */
   clip?: RenderedClip | null;
+  /** Source video the preview plays; the filmstrip grabs instant frames from it. */
+  sourceVideoUrl?: string | null;
   playhead: number;
   isPlaying: boolean;
   onPlayheadChange: (time: number) => void;
@@ -70,6 +72,7 @@ interface TimelineProps {
 export const Timeline: React.FC<TimelineProps> = ({
   project,
   clip,
+  sourceVideoUrl,
   playhead,
   isPlaying: _isPlaying,
   onPlayheadChange,
@@ -427,13 +430,13 @@ export const Timeline: React.FC<TimelineProps> = ({
   return (
     <div
       ref={containerRef}
-      className="flex flex-col bg-[#0A0B0E] border-t border-white/[0.07] select-none overflow-hidden h-full flex-1"
+      className="flex flex-col bg-vc-surface1 border-t border-white/[0.07] select-none overflow-hidden h-full flex-1"
     >
       {/* TIMELINE TOOLBAR — three true zones matching Opus.pro:
           Left: [📹 Hide timeline] | [⬚] [🔗] [🗑️] [✂️] [📋]
           Center: [⏮] [▶] [⏭] 01:07.03 / 02:23.08
           Right: [🔍-] [====O====] [🔍+] [⤢] */}
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-1.5 bg-[#090A0E] border-b border-white/[0.07] text-xs">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-1.5 bg-vc-surface1 border-b border-white/[0.07] text-xs">
         {/* Left: edit actions */}
         <div className="flex items-center gap-1.5 justify-self-start min-w-0 overflow-x-auto no-scrollbar">
           {/* Hide timeline toggle button matching Opus */}
@@ -443,7 +446,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               onClick={onToggleCollapse}
               aria-label={isCollapsed ? 'Show Timeline' : 'Hide Timeline'}
               title={isCollapsed ? 'Show Timeline' : 'Hide timeline'}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 hover:text-white text-xs font-medium border border-white/[0.06] transition shrink-0"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 hover:text-white text-xs font-medium border border-white/[0.06] transition shrink-0"
             >
               <Video className="w-3.5 h-3.5 text-neutral-400" />
               <span>{isCollapsed ? 'Show Timeline' : 'Hide timeline'}</span>
@@ -455,7 +458,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           {/* Frame/aspect tool */}
           <button
             type="button"
-            className="p-1.5 rounded-md hover:bg-white/[0.08] text-neutral-400 hover:text-white transition shrink-0"
+            className="p-1.5 rounded-lg hover:bg-white/[0.08] text-neutral-400 hover:text-white transition shrink-0"
             title="Frame"
             aria-label="Frame"
           >
@@ -465,7 +468,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           {/* Link tool */}
           <button
             type="button"
-            className="p-1.5 rounded-md hover:bg-white/[0.08] text-neutral-400 hover:text-white transition shrink-0"
+            className="p-1.5 rounded-lg hover:bg-white/[0.08] text-neutral-400 hover:text-white transition shrink-0"
             title="Link tracks"
             aria-label="Link tracks"
           >
@@ -479,7 +482,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             disabled={!selectedItemId}
             title="Ripple Delete Clip"
             aria-label="Ripple Delete Clip"
-            className="p-1.5 rounded-md hover:bg-white/[0.08] text-neutral-400 hover:text-red-400 disabled:opacity-30 transition shrink-0"
+            className="p-1.5 rounded-lg hover:bg-white/[0.08] text-neutral-400 hover:text-red-400 disabled:opacity-30 transition shrink-0"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -491,9 +494,9 @@ export const Timeline: React.FC<TimelineProps> = ({
             disabled={!selectedItemId}
             title="Split Clip at Playhead (S)"
             aria-label="Split Clip at Playhead"
-            className={`p-1.5 rounded-md transition shrink-0 ${
+            className={`p-1.5 rounded-lg transition shrink-0 ${
               selectedItemId
-                ? 'bg-[#232734] border border-white/[0.1] text-white hover:bg-[#2C3142] shadow-sm'
+                ? 'bg-[#272727] border border-white/[0.1] text-white hover:bg-[#313131] shadow-sm'
                 : 'hover:bg-white/[0.08] text-neutral-400 disabled:opacity-30'
             }`}
           >
@@ -507,7 +510,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             disabled={!selectedItemId}
             title="Duplicate Selected Clip"
             aria-label="Duplicate Selected Clip"
-            className="p-1.5 rounded-md hover:bg-white/[0.08] text-neutral-400 hover:text-white disabled:opacity-30 transition shrink-0"
+            className="p-1.5 rounded-lg hover:bg-white/[0.08] text-neutral-400 hover:text-white disabled:opacity-30 transition shrink-0"
           >
             <Copy className="w-3.5 h-3.5" />
           </button>
@@ -520,7 +523,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               disabled={!selectedItemId}
               title="Freeze Frame at Playhead"
               aria-label="Freeze Frame at Playhead"
-              className="p-1.5 rounded-md hover:bg-white/[0.08] disabled:opacity-30 text-neutral-400 hover:text-sky-300 transition shrink-0"
+              className="p-1.5 rounded-lg hover:bg-white/[0.08] disabled:opacity-30 text-neutral-400 hover:text-white transition shrink-0"
             >
               <Snowflake className="w-3.5 h-3.5" />
             </button>
@@ -534,7 +537,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               disabled={!selectedItemId}
               title="Export Current Frame as Image"
               aria-label="Export Current Frame as Image"
-              className="p-1.5 rounded-md hover:bg-white/[0.08] disabled:opacity-30 text-neutral-400 hover:text-teal-300 transition shrink-0"
+              className="p-1.5 rounded-lg hover:bg-white/[0.08] disabled:opacity-30 text-neutral-400 hover:text-white transition shrink-0"
             >
               <Camera className="w-3.5 h-3.5" />
             </button>
@@ -562,7 +565,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               max="200"
               value={pixelsPerSec}
               onChange={(e) => setPixelsPerSec(parseInt(e.target.value, 10))}
-              className="w-24 h-1.5 bg-[#232734] rounded-full appearance-none cursor-pointer accent-white hover:bg-[#2C3142] transition-colors"
+              className="w-24 h-1.5 bg-[#272727] rounded-full appearance-none cursor-pointer accent-white hover:bg-[#313131] transition-colors"
               title="Timeline Zoom Slider"
               aria-label="Timeline Zoom"
             />
@@ -598,7 +601,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               onClick={onToggleCollapse}
               aria-label={isCollapsed ? 'Show Timeline' : 'Hide Timeline'}
               title={isCollapsed ? 'Show Timeline' : 'Hide Timeline'}
-              className="p-1 rounded-md text-neutral-400 hover:text-white hover:bg-white/[0.06] transition ml-1"
+              className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-white/[0.06] transition ml-1"
             >
               {isCollapsed ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             </button>
@@ -622,7 +625,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             <div
               ref={rulerRef}
               onClick={handleRulerClick}
-              className="h-7 border-b border-white/[0.07] bg-[#0C0D11]/80 sticky top-0 z-30 cursor-pointer overflow-hidden relative"
+              className="h-7 border-b border-white/[0.07] bg-vc-surface1/80 sticky top-0 z-30 cursor-pointer overflow-hidden relative"
             >
               {renderRulerTicks()}
             </div>
@@ -630,7 +633,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             {/* SNAP INDICATOR LINE */}
             {snapIndicatorX !== null && (
               <div
-                className="absolute top-0 bottom-0 w-0.5 bg-yellow-400 z-40 pointer-events-none shadow-[0_0_8px_rgba(250,204,21,0.8)]"
+                className="absolute top-0 bottom-0 w-0.5 bg-yellow-400 z-40 pointer-events-none shadow-[1px_0_0_rgba(0,0,0,0.6)]"
                 style={{ left: `${TRACK_INSET_LEFT + snapIndicatorX}px` }}
               />
             )}
@@ -645,13 +648,13 @@ export const Timeline: React.FC<TimelineProps> = ({
             >
               {/* Vertical capsule pill head matching Opus.pro reference */}
               <div
-                className="w-3.5 h-5 rounded-full border-2 border-white bg-[#0A0C11] -mt-1 shadow-sm flex items-center justify-center cursor-ew-resize select-none pointer-events-auto"
+                className="w-3.5 h-5 rounded-full border-2 border-white bg-vc-surface1 -mt-1 shadow-sm flex items-center justify-center cursor-ew-resize select-none pointer-events-auto"
                 aria-label="Playhead scrubber"
               >
                 <div className="w-0.5 h-1.5 bg-white/50 rounded-full" />
               </div>
               {/* Razor-thin 1px vertical needle */}
-              <div className="w-px flex-1 bg-white shadow-[0_0_8px_rgba(255,255,255,0.55)]" />
+              <div className="w-px flex-1 bg-white shadow-[1px_0_0_rgba(0,0,0,0.6)]" />
             </div>
 
             {/* TRACK LANES */}
@@ -670,7 +673,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                       className="relative group/waveRow"
                     >
                       {/* Dialogue Audio Hover Badge */}
-                      <div className="sticky left-2 top-0.5 z-20 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#0E1017]/90 border border-white/[0.08] backdrop-blur-md text-[10px] text-emerald-400 font-medium shadow pointer-events-none opacity-0 group-hover/waveRow:opacity-100 transition-opacity">
+                      <div className="sticky left-2 top-0.5 z-20 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-vc-surface1/90 backdrop-blur-md text-[10px] text-emerald-400 font-medium shadow pointer-events-none opacity-0 group-hover/waveRow:opacity-100 transition-opacity">
                         <Music className="w-3 h-3" />
                         <span>Dialogue Audio</span>
                       </div>
@@ -680,7 +683,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         return (
                           <div
                             key={`dialogue-wave-${item.id}`}
-                            className="absolute top-0 bottom-0 rounded-lg overflow-hidden bg-[#12151E] border border-white/[0.08]"
+                            className="absolute top-0 bottom-0 rounded-lg overflow-hidden bg-vc-surface2 border border-white/[0.08]"
                             style={{ left: `${waveLeft}px`, width: `${waveWidth}px` }}
                           >
                             <WaveformClip
@@ -714,7 +717,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                 >
                   {/* Clean Track Controls on Hover */}
                   <div
-                    className={`sticky left-2 top-1.5 z-20 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#0E1017]/90 border border-white/[0.08] backdrop-blur-md text-[10px] text-neutral-400 transition-opacity shadow pointer-events-auto ${
+                    className={`sticky left-2 top-1.5 z-20 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-vc-surface1/90 backdrop-blur-md text-[10px] text-neutral-400 transition-opacity shadow pointer-events-auto ${
                       track.muted || track.locked || track.hidden ? 'opacity-100' : 'opacity-0 group-hover/trackRow:opacity-100'
                     }`}
                     onClick={(e) => e.stopPropagation()}
@@ -766,7 +769,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         title="Add intro"
                         aria-label="Add intro"
                         onClick={(e) => { e.stopPropagation(); onAddIntroOutro('intro'); }}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-lg bg-[#141724] hover:bg-[#1E2336] border border-white/[0.08] hover:border-white/20 text-neutral-400 hover:text-white flex items-center justify-center transition shadow-sm"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-lg bg-vc-surface2 hover:bg-[#242424] border border-white/[0.08] hover:border-white/20 text-neutral-400 hover:text-white flex items-center justify-center transition shadow-sm"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -776,7 +779,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         aria-label="Add outro"
                         onClick={(e) => { e.stopPropagation(); onAddIntroOutro('outro'); }}
                         style={{ left: `${TRACK_INSET_LEFT + duration * pixelsPerSec + 10}px` }}
-                        className="absolute top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-lg bg-[#141724] hover:bg-[#1E2336] border border-white/[0.08] hover:border-white/20 text-neutral-400 hover:text-white flex items-center justify-center transition shadow-sm"
+                        className="absolute top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-lg bg-vc-surface2 hover:bg-[#242424] border border-white/[0.08] hover:border-white/20 text-neutral-400 hover:text-white flex items-center justify-center transition shadow-sm"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -875,8 +878,8 @@ export const Timeline: React.FC<TimelineProps> = ({
                         className={`absolute top-1 bottom-1 rounded-lg border text-xs flex items-center overflow-hidden cursor-move select-none transition-shadow ${
                           hasMedia
                             ? isSelected
-                              ? 'bg-[#12151E] ring-2 ring-white border-white/90 shadow-xl shadow-black/50'
-                              : 'bg-[#12151E] border-white/10 hover:border-white/25'
+                              ? 'bg-vc-surface2 ring-2 ring-white border-white/90 shadow-xl shadow-black/50'
+                              : 'bg-vc-surface2 border-white/10 hover:border-white/25'
                             : getItemColor(track.type, isSelected)
                         }`}
                       >
@@ -890,13 +893,14 @@ export const Timeline: React.FC<TimelineProps> = ({
                             width={itemWidth}
                             enabled={showFilmstrip}
                             thumbnailUrl={clip.thumbnail_url}
+                            videoSrc={sourceVideoUrl}
                           />
                         )}
 
                         {/* Floating Fill layout badge at top-left matching Opus.pro */}
                         {showFilmstrip && (
                           <div className="absolute left-2.5 top-1.5 z-20 pointer-events-none">
-                            <span className="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-medium text-white shadow">
+                            <span className="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[10px] font-medium text-white shadow">
                               Fill
                             </span>
                           </div>

@@ -412,7 +412,7 @@ export const ElementsWorkspacePanel: React.FC<ElementsWorkspacePanelProps> = ({
         </div>
 
         {/* TYPE SWITCHER (Stickers vs GIFs) */}
-        <div className="grid grid-cols-2 gap-1 bg-vc-canvas p-1 rounded-lg border border-white/[0.08] mb-3">
+        <div className="grid grid-cols-2 gap-1 bg-vc-canvas p-1 rounded-lg mb-3">
           <button
             type="button"
             onClick={() => {
@@ -494,7 +494,7 @@ export const ElementsWorkspacePanel: React.FC<ElementsWorkspacePanelProps> = ({
 
       {/* RATE LIMIT / WARNING BANNER */}
       {isRateLimited && (
-        <div className="mx-4 mt-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+        <div className="mx-4 mt-3 p-2.5 rounded-lg bg-amber-500/10 text-amber-300 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>GIPHY live limit reached. Showing curated collection.</span>
         </div>
@@ -502,7 +502,7 @@ export const ElementsWorkspacePanel: React.FC<ElementsWorkspacePanelProps> = ({
 
       {/* ERROR BANNER */}
       {error && !isRateLimited && (
-        <div className="mx-4 mt-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
+        <div className="mx-4 mt-3 p-2.5 rounded-lg bg-red-500/10 text-red-300 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
@@ -565,7 +565,7 @@ export const ElementsWorkspacePanel: React.FC<ElementsWorkspacePanelProps> = ({
                   />
 
                   {/* Tag Pill (Top Left) */}
-                  <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-black/75 border border-white/10 text-neutral-300">
+                  <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-black/75 text-neutral-300">
                     {item.type}
                   </div>
 

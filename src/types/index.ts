@@ -74,6 +74,10 @@ export interface Project {
   genre?: string | null;
   clip_preferences?: ClipPreferences | null;
   error_message?: string | null;
+  /** Short-lived signed URL of the HD poster frame (uploaded videos), when one exists. */
+  poster_url?: string | null;
+  /** Ingestion metadata (YouTube id, original thumbnail, channel, …) as stored by the server. */
+  metadata?: Record<string, any> | null;
   created_at: string;
   updated_at?: string;
 }

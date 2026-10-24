@@ -88,7 +88,7 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
           isDragging
             ? 'cursor-grabbing opacity-90'
             : isInDangerZone
-            ? 'ring-2 ring-rose-500 rounded-xl shadow-[0_0_15px_rgba(244,63,94,0.5)]'
+            ? 'ring-2 ring-rose-500 rounded-xl'
             : isSelected
             ? 'ring-2 ring-white/30 rounded-xl shadow-lg'
             : interactive

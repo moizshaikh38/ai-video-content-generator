@@ -132,7 +132,8 @@ describe('VireoClip — Milestone B: Core Project Workflow Redesign', () => {
     });
 
     test('Primary workspace navigation (Clips, Content Kit, Transcript) is styled with Obsidian tokens', () => {
-      assert.match(projectDetailContent, /border-\[#8B5CF6\]/);
+      // Black Glass: active tab underline uses the named violet brand colour.
+      assert.match(projectDetailContent, /'border-violet-500 text-white'/);
       assert.match(projectDetailContent, /ClipWorkspace/);
     });
   });
@@ -142,20 +143,23 @@ describe('VireoClip — Milestone B: Core Project Workflow Redesign', () => {
       assert.ok(!historyPageContent.includes('bg-[#fafaf8]'), 'Must not contain legacy #fafaf8 header');
       assert.ok(!historyPageContent.includes('bg-[#eaf3eb]'), 'Must not contain legacy #eaf3eb icon background');
       assert.ok(!historyPageContent.includes('bg-cream'), 'Must not contain legacy cream background');
-      assert.match(historyPageContent, /bg-\[#0E1017\]/);
+      // Black Glass: neutral token scale, no navy or blue-grey literals.
+      assert.ok(!/#(0E1017|080B12|0A0D14|F4F6FB|8E9AB4)\b/i.test(historyPageContent), 'no navy / blue-grey literals');
       assert.match(historyPageContent, /border-white\/\[0\.08\]/);
-      assert.match(historyPageContent, /text-\[#F4F6FB\]/);
+      assert.match(historyPageContent, /text-vc-text-primary|text-zinc-/);
     });
 
     test('HistoryPage delete confirmation modal uses dark backdrop and container', () => {
-      assert.match(historyPageContent, /bg-black\/75/);
-      assert.match(historyPageContent, /bg-\[#0E1017\]/);
+      // Black Glass: shared scrim + floating glass panel instead of per-file hexes.
+      assert.match(historyPageContent, /z-\[60\][^"]*glass-scrim/);
+      assert.match(historyPageContent, /max-w-md rounded-3xl glass-float/);
       assert.match(historyPageContent, /Delete this project\?/);
     });
 
     test('StatusBadge provides modern high-contrast dark classes', () => {
       assert.match(statusBadgeContent, /bg-emerald-500\/15 text-emerald-300 border border-emerald-500\/30/);
-      assert.match(statusBadgeContent, /bg-cyan-500\/15 text-cyan-300 border border-cyan-500\/30/);
+      // In-progress states are neutral white (Black Glass): no decorative cyan.
+      assert.match(statusBadgeContent, /processing: \{ label: 'Processing', cls: 'bg-white\/\[0\.08\] text-zinc-200 border border-white\/15'/);
       assert.match(statusBadgeContent, /bg-rose-500\/15 text-rose-300 border border-rose-500\/30/);
     });
 

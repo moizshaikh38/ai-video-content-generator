@@ -48,6 +48,44 @@ export interface ReadinessStatus {
     storage: boolean;
     aiProvider: boolean;
   };
+  /** Render-job queue depth (informational; never affects readiness). */
+  renderQueue?: {
+    queued: number;
+    processing: number;
+    activeRendersInProcess: number;
+    concurrencyCap: number;
+  } | null;
+  /** Smart-reframe runtime capability (informational; false degrades renders to center crop). */
+  reframeRuntime?: {
+    available: boolean;
+    pythonPath: string;
+  } | null;
+}
+
+/**
+ * Best-effort render queue snapshot for observability. Counts are advisory:
+ * a deep queue must not flip readiness — it is drained by the background sweep.
+ */
+async function getRenderQueueStats(): Promise<ReadinessStatus['renderQueue']> {
+  if (!isMongoConfigured) return null;
+  try {
+    const { getMongoDb } = await import('../db/mongoClient.js');
+    const { activeRenderSet, maxConcurrentRenders } = await import('./clipRenderService.js');
+    const db = await getMongoDb();
+    const col = db.collection('render_jobs');
+    const [queued, processing] = await Promise.all([
+      col.countDocuments({ status: 'queued' }),
+      col.countDocuments({ status: 'processing' }),
+    ]);
+    return {
+      queued,
+      processing,
+      activeRendersInProcess: activeRenderSet.size,
+      concurrencyCap: maxConcurrentRenders(),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function getReadinessStatus(): Promise<ReadinessStatus> {
@@ -67,5 +105,17 @@ export async function getReadinessStatus(): Promise<ReadinessStatus> {
       storage: storageOk,
       aiProvider: aiOk,
     },
+    renderQueue: await getRenderQueueStats(),
+    reframeRuntime: await getReframeRuntimeStats(),
   };
+}
+
+async function getReframeRuntimeStats(): Promise<ReadinessStatus['reframeRuntime']> {
+  try {
+    const { SmartReframeService } = await import('./smartReframeService.js');
+    const runtime = await SmartReframeService.checkReframeRuntime();
+    return { available: runtime.available, pythonPath: runtime.pythonPath };
+  } catch {
+    return null;
+  }
 }

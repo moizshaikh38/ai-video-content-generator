@@ -19,9 +19,12 @@ export const ShinyButton: React.FC<ShinyButtonProps> = ({
   ...props
 }) => {
   const variantStyles = {
-    clay: 'bg-clay text-clay-foreground shadow-black/40 hover:brightness-105 active:scale-[0.98]',
-    sage: 'bg-sage text-sage-foreground shadow-sage hover:brightness-105 active:scale-[0.98]',
-    ink: 'bg-primary text-primary-foreground shadow-ink hover:bg-primary/95 active:scale-[0.98]',
+    // Brand violet (Upgrade / Create / AI) — pressed goes darker, never white.
+    clay: 'border border-white/[0.12] bg-vc-ai-hover text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai active:bg-violet-700 active:translate-y-px',
+    // Success green — confirming a positive state change.
+    sage: 'border border-white/10 bg-emerald-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(0,0,0,0.4)] hover:bg-emerald-500 active:bg-emerald-700 active:translate-y-px',
+    // Primary confirm (Save, Publish) — same violet brand pill.
+    ink: 'border border-white/[0.12] bg-vc-ai-hover text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai active:bg-violet-700 active:translate-y-px',
   };
 
   return (

@@ -31,7 +31,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
   const activeLayoutMode = (videoItem as any)?.layout_mode || 'track';
 
   return (
-    <div className="flex flex-col h-full bg-[#0E1017] text-neutral-300 text-xs select-none overflow-y-auto p-4 space-y-4 animate-panelSlideIn">
+    <div className="flex flex-col h-full bg-vc-surface1 text-neutral-300 text-xs select-none overflow-y-auto p-4 space-y-4 animate-panelSlideIn">
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
         <div className="flex items-center gap-2">
@@ -58,7 +58,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
             className={`p-3 rounded-xl border text-left transition ${
               activeCropMode === 'smart'
                 ? 'bg-violet-500/15 border-violet-500/40 text-violet-200 ring-1 ring-violet-500/30'
-                : 'bg-[#07080D] border-white/[0.06] hover:border-white/20 text-neutral-300'
+                : 'bg-vc-canvas border-white/[0.06] hover:border-white/20 text-neutral-300'
             }`}
           >
             <div className="font-semibold text-xs flex items-center gap-1.5 text-white">
@@ -77,7 +77,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
             className={`p-3 rounded-xl border text-left transition ${
               activeCropMode === 'center'
                 ? 'bg-white/[0.12] border-white/40 text-white ring-1 ring-white/20'
-                : 'bg-[#07080D] border-white/[0.06] hover:border-white/20 text-neutral-300'
+                : 'bg-vc-canvas border-white/[0.06] hover:border-white/20 text-neutral-300'
             }`}
           >
             <div className="font-semibold text-xs flex items-center gap-1.5 text-white">
@@ -104,7 +104,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
             className={`p-2.5 rounded-xl border text-left transition ${
               activeLayoutMode === 'track'
                 ? 'bg-violet-500/15 border-violet-500/40 text-violet-200 ring-1 ring-violet-500/30'
-                : 'bg-[#07080D] border-white/[0.06] hover:border-white/20 text-neutral-300'
+                : 'bg-vc-canvas border-white/[0.06] hover:border-white/20 text-neutral-300'
             }`}
           >
             <div className="font-semibold text-xs flex items-center gap-1.5 text-white">
@@ -120,7 +120,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
             className={`p-2.5 rounded-xl border text-left transition ${
               activeLayoutMode === 'split'
                 ? 'bg-violet-500/15 border-violet-500/40 text-violet-200 ring-1 ring-violet-500/30'
-                : 'bg-[#07080D] border-white/[0.06] hover:border-white/20 text-neutral-300'
+                : 'bg-vc-canvas border-white/[0.06] hover:border-white/20 text-neutral-300'
             }`}
           >
             <div className="font-semibold text-xs flex items-center gap-1.5 text-white">
@@ -136,7 +136,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
             className={`p-2.5 rounded-xl border text-left transition ${
               activeLayoutMode === 'screencast'
                 ? 'bg-violet-500/15 border-violet-500/40 text-violet-200 ring-1 ring-violet-500/30'
-                : 'bg-[#07080D] border-white/[0.06] hover:border-white/20 text-neutral-300'
+                : 'bg-vc-canvas border-white/[0.06] hover:border-white/20 text-neutral-300'
             }`}
           >
             <div className="font-semibold text-xs flex items-center gap-1.5 text-white">
@@ -152,7 +152,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
             className={`p-2.5 rounded-xl border text-left transition ${
               activeLayoutMode === 'blur'
                 ? 'bg-violet-500/15 border-violet-500/40 text-violet-200 ring-1 ring-violet-500/30'
-                : 'bg-[#07080D] border-white/[0.06] hover:border-white/20 text-neutral-300'
+                : 'bg-vc-canvas border-white/[0.06] hover:border-white/20 text-neutral-300'
             }`}
           >
             <div className="font-semibold text-xs flex items-center gap-1.5 text-white">
@@ -172,7 +172,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
           <button
             type="button"
             onClick={() => onUpdateCropMode('center')}
-            className="p-2.5 rounded-xl bg-[#07080D] border border-white/[0.06] hover:border-white/20 text-white text-left transition"
+            className="p-2.5 rounded-xl bg-vc-canvas border border-white/[0.06] hover:border-white/20 text-white text-left transition"
           >
             <div className="font-semibold text-xs">Fill Stage</div>
             <div className="text-[10px] text-neutral-500 mt-0.5">Edge-to-edge without black bars</div>
@@ -180,7 +180,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
           <button
             type="button"
             onClick={() => onUpdateCropMode('fit')}
-            className="p-2.5 rounded-xl bg-[#07080D] border border-white/[0.06] hover:border-white/20 text-white text-left transition"
+            className="p-2.5 rounded-xl bg-vc-canvas border border-white/[0.06] hover:border-white/20 text-white text-left transition"
           >
             <div className="font-semibold text-xs">Fit to Stage</div>
             <div className="text-[10px] text-neutral-500 mt-0.5">Show 100% of video with borders</div>
@@ -190,7 +190,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
 
       {/* Platform Safe Zone Overlay Toggle */}
       <div className="pt-3 border-t border-white/[0.08]">
-        <div className="flex items-center justify-between p-3 rounded-xl bg-[#07080D] border border-white/[0.08]">
+        <div className="flex items-center justify-between p-3 rounded-xl bg-vc-canvas ">
           <div className="flex items-center gap-2.5">
             <Shield className="w-4 h-4 text-neutral-300" />
             <div>

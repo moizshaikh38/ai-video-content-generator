@@ -13,6 +13,7 @@ const NewProjectPage = React.lazy(() => import('./pages/NewProjectPage').then(m 
 const ProjectDetailPage = React.lazy(() => import('./pages/ProjectDetailPage').then(m => ({ default: m.ProjectDetailPage })));
 const HistoryPage = React.lazy(() => import('./pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const HelpPage = React.lazy(() => import('./pages/HelpPage').then(m => ({ default: m.HelpPage })));
 const BrandPage = React.lazy(() => import('./pages/BrandPage').then(m => ({ default: m.BrandPage })));
 const PublishingHistoryPage = React.lazy(() => import('./pages/PublishingHistoryPage').then(m => ({ default: m.PublishingHistoryPage })));
 const AnalyticsPage = React.lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })));
@@ -64,6 +65,7 @@ export const App: React.FC = () => {
               <Route path="/ab-testing" element={<ABStudioHistoryPage />} />
               <Route path="/billing" element={<BillingPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/help" element={<HelpPage />} />
               <Route path="/admin" element={<AdminPage />} />
             </Route>
 

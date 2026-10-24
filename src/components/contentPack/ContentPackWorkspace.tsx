@@ -300,7 +300,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
       {/* Top Header */}
       <div className="p-5 border-b border-border/60 bg-card/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shadow-xs">
+          <div className="size-10 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-400 shadow-xs">
             <Layers className="size-5" />
           </div>
           <div>
@@ -311,7 +311,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
                   className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border ${
                     pack.status === 'APPROVED'
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                      : 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                      : 'bg-white/[0.04] text-zinc-300 border-white/20'
                   }`}
                 >
                   {pack.status} (v{pack.version})
@@ -319,7 +319,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
               )}
               {pack?.brand_brain_id && (
                 <span
-                  className="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/30 flex items-center gap-1 font-medium"
+                  className="text-xs px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-300 flex items-center gap-1 font-medium"
                   title="Grounded in Brand Brain DNA"
                 >
                   <Sparkles className="size-3" /> Using Brand Brain
@@ -348,7 +348,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
               <Button
                 variant="outline"
                 size="sm"
-                className="text-xs border-sage/60 bg-sage/10 text-sage hover:bg-[#F4F6FB] hover:text-[#0B0C0F]"
+                className="text-xs border-emerald-500/60 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
                 onClick={() => handleOpenPublish(selectedPlatform !== 'all' ? selectedPlatform : 'shorts')}
               >
                 <Share2 className="size-3.5 mr-1" />
@@ -384,7 +384,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
       {/* Control Bar: Platform Selector + Generation Options */}
       <div className="px-5 py-3 border-b border-border/40 bg-muted/20 flex flex-wrap items-center justify-between gap-3 text-xs">
         {/* Platform Tabs */}
-        <div className="flex items-center gap-1 bg-background/80 p-1 rounded-xl border border-border/60">
+        <div className="flex items-center gap-1 bg-background/80 p-1 rounded-xl ">
           {(['all', 'shorts', 'youtube', 'instagram', 'tiktok', 'linkedin', 'x'] as const).map(
             (p) => (
               <button
@@ -392,7 +392,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
                 onClick={() => setSelectedPlatform(p)}
                 className={`px-3 py-1 rounded-lg font-medium transition-all capitalize ${
                   selectedPlatform === p
-                    ? 'bg-purple-600 text-white shadow-xs'
+                    ? 'bg-violet-600 text-white shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -475,12 +475,12 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
       <div className="flex-1 overflow-y-auto p-5 space-y-5">
         {loading ? (
           <div className="py-20 text-center space-y-3">
-            <RefreshCw className="size-8 animate-spin mx-auto text-purple-400" />
+            <RefreshCw className="size-8 animate-spin mx-auto text-violet-400" />
             <p className="text-sm text-muted-foreground">Loading Content Pack...</p>
           </div>
         ) : !pack ? (
           <div className="py-16 text-center space-y-4 max-w-md mx-auto">
-            <div className="size-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 mx-auto flex items-center justify-center">
+            <div className="size-16 rounded-2xl bg-violet-500/10 border border-violet-500/20 text-violet-400 mx-auto flex items-center justify-center">
               <Sparkles className="size-8" />
             </div>
             <div>
@@ -502,9 +502,9 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
         ) : (
           <>
             {/* Summary Metrics Bar */}
-            <div className="p-3.5 rounded-xl bg-purple-500/5 border border-purple-500/20 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2 text-purple-300 font-medium">
-                <Bookmark className="size-4 text-purple-400" />
+            <div className="p-3.5 rounded-xl bg-violet-500/5 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-violet-300 font-medium">
+                <Bookmark className="size-4 text-violet-400" />
                 <span>Pack Breakdown:</span>
                 <span className="text-muted-foreground font-normal">
                   {altTitles.length + (primaryTitle ? 1 : 0)} titles • {hooks.length} hooks •{' '}
@@ -526,7 +526,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
               >
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-sm">Titles</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/30">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-300 ">
                     {altTitles.length + (primaryTitle ? 1 : 0)} variants
                   </span>
                 </div>
@@ -537,9 +537,9 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
                 <div className="p-4 space-y-3">
                   {/* Recommended Primary Title */}
                   {primaryTitle && (
-                    <div className="p-3.5 rounded-xl bg-gradient-to-r from-purple-500/10 to-transparent border border-purple-500/30 space-y-2">
+                    <div className="p-3.5 rounded-xl bg-violet-500/[0.08] space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-purple-400 tracking-wider uppercase flex items-center gap-1">
+                        <span className="text-xs font-bold text-violet-400 tracking-wider uppercase flex items-center gap-1">
                           <Sparkles className="size-3" /> Recommended Primary Title
                         </span>
                         <div className="flex items-center gap-1.5">
@@ -560,7 +560,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
                         {altTitles.map((alt) => (
                           <div
                             key={alt.id}
-                            className="p-3 rounded-lg border border-border/60 bg-background/50 hover:bg-background transition-colors space-y-2"
+                            className="p-3 rounded-lg bg-background/50 hover:bg-background transition-colors space-y-2"
                           >
                             <div className="flex items-center justify-between">
                               <span className="text-[11px] font-medium text-muted-foreground">
@@ -588,7 +588,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
               >
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-sm">Hook Variants</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/30">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-white/[0.04] text-zinc-200 ">
                     {hooks.length} options
                   </span>
                   <span className="text-[11px] text-muted-foreground">
@@ -603,11 +603,11 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
                   {hooks.map((hook, idx) => (
                     <div
                       key={hook.id}
-                      className="p-3.5 rounded-xl border border-border/60 bg-background/50 space-y-2 flex flex-col justify-between"
+                      className="p-3.5 rounded-xl bg-background/50 space-y-2 flex flex-col justify-between"
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-blue-400">
+                          <span className="text-xs font-semibold text-zinc-300">
                             Hook {idx + 1}
                           </span>
                           <div className="flex items-center gap-1">
@@ -630,7 +630,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
               >
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-sm">Captions & Descriptions</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 ">
                     Social Copy
                   </span>
                 </div>
@@ -641,7 +641,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
                 <div className="p-4 space-y-4">
                   {/* Short Captions */}
                   {shortCaptions.map((sc) => (
-                    <div key={sc.id} className="p-3.5 rounded-xl border border-border/60 bg-background/50 space-y-2">
+                    <div key={sc.id} className="p-3.5 rounded-xl bg-background/50 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold text-emerald-400">
                           Short Social Caption (Shorts / Reels / TikTok)
@@ -656,7 +656,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
 
                   {/* Long Captions */}
                   {longCaptions.map((lc) => (
-                    <div key={lc.id} className="p-3.5 rounded-xl border border-border/60 bg-background/50 space-y-2">
+                    <div key={lc.id} className="p-3.5 rounded-xl bg-background/50 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold text-emerald-400">
                           Long Context Caption (LinkedIn / Long Posts)
@@ -671,7 +671,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
 
                   {/* Descriptions */}
                   {descriptions.map((desc) => (
-                    <div key={desc.id} className="p-3.5 rounded-xl border border-border/60 bg-background/50 space-y-2">
+                    <div key={desc.id} className="p-3.5 rounded-xl bg-background/50 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold text-muted-foreground">
                           {desc.type === 'LONG_DESCRIPTION' ? 'Full Video Description' : 'Summary Description'}
@@ -690,15 +690,15 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
             {/* 4. CTAs, HASHTAGS & KEYWORDS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* CTAs */}
-              <div className="rounded-xl border border-border/60 bg-card p-4 space-y-3">
+              <div className="rounded-xl bg-card p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold flex items-center gap-1.5">
-                    <MessageSquare className="size-4 text-purple-400" /> Call to Action (CTA)
+                    <MessageSquare className="size-4 text-violet-400" /> Call to Action (CTA)
                   </span>
                 </div>
                 <div className="space-y-2">
                   {ctas.map((cta) => (
-                    <div key={cta.id} className="p-2.5 rounded-lg border border-border/60 bg-background/50 space-y-1.5">
+                    <div key={cta.id} className="p-2.5 rounded-lg bg-background/50 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-medium text-muted-foreground">Option</span>
                         <div className="flex items-center gap-1">{renderItemActions(cta)}</div>
@@ -710,15 +710,15 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
               </div>
 
               {/* Hashtags */}
-              <div className="rounded-xl border border-border/60 bg-card p-4 space-y-3">
+              <div className="rounded-xl bg-card p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold flex items-center gap-1.5">
-                    <Tag className="size-4 text-blue-400" /> Hashtag Set
+                    <Tag className="size-4 text-zinc-300" /> Hashtag Set
                   </span>
                 </div>
                 <div className="space-y-2">
                   {hashtags.map((ht) => (
-                    <div key={ht.id} className="p-2.5 rounded-lg border border-border/60 bg-background/50 space-y-1.5">
+                    <div key={ht.id} className="p-2.5 rounded-lg bg-background/50 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-medium text-muted-foreground">Tags</span>
                         <div className="flex items-center gap-1">{renderItemActions(ht)}</div>
@@ -730,7 +730,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
               </div>
 
               {/* Keywords / Topics */}
-              <div className="rounded-xl border border-border/60 bg-card p-4 space-y-3">
+              <div className="rounded-xl bg-card p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold flex items-center gap-1.5">
                     <Bookmark className="size-4 text-amber-400" /> Topics & Keywords
@@ -738,7 +738,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
                 </div>
                 <div className="space-y-2">
                   {keywords.map((kw) => (
-                    <div key={kw.id} className="p-2.5 rounded-lg border border-border/60 bg-background/50 space-y-1.5">
+                    <div key={kw.id} className="p-2.5 rounded-lg bg-background/50 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-medium text-muted-foreground">Extracted Topics</span>
                         <div className="flex items-center gap-1">{renderItemActions(kw)}</div>
@@ -787,7 +787,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
               {!collapsedSections['thumbnail'] && (
                 <div className="p-4 space-y-4">
                   {thumbnailDirection && (
-                    <div className="p-3.5 rounded-xl border border-border/60 bg-background/50 space-y-2">
+                    <div className="p-3.5 rounded-xl bg-background/50 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold text-rose-400">
                           Textual Visual Brief (Framing, Mood, Focal Point)
@@ -805,7 +805,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
                         {thumbnailTexts.map((tt, idx) => (
-                          <div key={tt.id} className="p-3 rounded-lg border border-border/60 bg-background/50 space-y-1.5">
+                          <div key={tt.id} className="p-3 rounded-lg bg-background/50 space-y-1.5">
                             <div className="flex items-center justify-between">
                               <span className="text-[11px] font-medium text-muted-foreground">Text {idx + 1}</span>
                               <div className="flex items-center gap-1">{renderItemActions(tt)}</div>
@@ -818,7 +818,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
                   )}
 
                   {altText && (
-                    <div className="p-3 rounded-xl border border-border/60 bg-background/40 space-y-1.5">
+                    <div className="p-3 rounded-xl bg-background/40 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-muted-foreground">
                           Accessibility Alt-Text
@@ -834,10 +834,10 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
 
             {/* 6. PINNED COMMENT */}
             {pinnedComment && (
-              <div className="rounded-xl border border-border/60 bg-card p-4 space-y-2">
+              <div className="rounded-xl bg-card p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold flex items-center gap-1.5">
-                    <MessageSquare className="size-4 text-cyan-400" /> Pinned Comment Prompt
+                    <MessageSquare className="size-4 text-zinc-300" /> Pinned Comment Prompt
                   </span>
                   <div className="flex items-center gap-1.5">{renderItemActions(pinnedComment)}</div>
                 </div>
@@ -870,7 +870,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
     return (
       <>
         {item.approved && (
-          <span className="text-[10px] text-emerald-400 px-1.5 py-0.5 rounded bg-emerald-500/10 font-semibold border border-emerald-500/20">
+          <span className="text-[10px] text-emerald-400 px-1.5 py-0.5 rounded bg-emerald-500/10 font-semibold ">
             Approved
           </span>
         )}
@@ -966,7 +966,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
 
         {/* Validation warnings / Claim guard alerts */}
         {item.validation_warnings && item.validation_warnings.length > 0 && (
-          <div className="text-[11px] text-amber-400 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20 flex items-center gap-1.5">
+          <div className="text-[11px] text-amber-400 bg-amber-500/10 px-2 py-1 rounded flex items-center gap-1.5">
             <AlertTriangle className="size-3 shrink-0" />
             <span>{item.validation_warnings.join(' • ')}</span>
           </div>

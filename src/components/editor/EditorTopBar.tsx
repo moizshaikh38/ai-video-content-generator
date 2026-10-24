@@ -68,12 +68,12 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
   };
 
   return (
-    <header className="h-14 bg-[#07080D] px-4 flex items-center justify-between select-none z-30 shrink-0">
+    <header className="h-14 glass-chrome px-4 flex items-center justify-between select-none z-30 shrink-0">
       {/* Left: Navigation, Title & Save Status */}
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/[0.06] transition flex items-center gap-1.5 text-xs font-medium"
+          className="p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-white/[0.06] transition flex items-center gap-1.5 text-xs font-medium"
           title="Back to Project"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -98,7 +98,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
                 }
               }}
               autoFocus
-              className="bg-[#0E1017] border border-white/20 rounded px-2 py-1 text-sm text-white font-medium focus:outline-none max-w-[200px] sm:max-w-[320px]"
+              className="bg-vc-surface1 border border-white/20 rounded px-2 py-1 text-sm text-white font-medium focus:outline-none max-w-[200px] sm:max-w-[320px]"
             />
             <button
               onClick={handleTitleSubmit}
@@ -123,13 +123,13 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
         {/* Save Status Pill */}
         <div className="flex items-center ml-1">
           {saveStatus === 'saving' && (
-            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#0E1017] border border-white/[0.08] text-[11px] font-mono text-neutral-400">
+            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-vc-surface1 text-[11px] font-mono text-neutral-400">
               <Loader2 className="w-3 h-3 animate-spin text-neutral-400" />
               <span>Saving...</span>
             </span>
           )}
           {saveStatus === 'saved' && (
-            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/40 border border-emerald-800/40 text-[11px] font-mono text-emerald-400">
+            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/40 text-[11px] font-mono text-emerald-400">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span>Saved</span>
             </span>
@@ -160,11 +160,11 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
       {/* Center: Undo / Redo & Workspace Preset Switcher */}
       <div className="flex items-center gap-2">
         {/* Undo / Redo */}
-        <div className="flex items-center bg-[#0E1017] rounded-lg p-0.5 border border-white/[0.08]">
+        <div className="flex items-center bg-black/40 rounded-xl p-0.5 ">
           <button
             onClick={onUndo}
             disabled={!canUndo}
-            className="p-1.5 rounded text-neutral-400 hover:text-white disabled:opacity-30 disabled:hover:text-neutral-400 transition"
+            className="p-1.5 rounded-lg text-neutral-400 hover:text-white disabled:opacity-30 disabled:hover:text-neutral-400 transition"
             title="Undo (Cmd+Z)"
           >
             <Undo2 className="w-3.5 h-3.5" />
@@ -173,7 +173,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
           <button
             onClick={onRedo}
             disabled={!canRedo}
-            className="p-1.5 rounded text-neutral-400 hover:text-white disabled:opacity-30 disabled:hover:text-neutral-400 transition"
+            className="p-1.5 rounded-lg text-neutral-400 hover:text-white disabled:opacity-30 disabled:hover:text-neutral-400 transition"
             title="Redo (Cmd+Shift+Z)"
           >
             <Redo2 className="w-3.5 h-3.5" />
@@ -181,12 +181,12 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
         </div>
 
         {/* View Mode (Edit Canvas vs Export Review) */}
-        <div className="hidden sm:flex items-center bg-[#0E1017] rounded-lg p-0.5 border border-white/[0.08] text-xs">
+        <div className="hidden sm:flex items-center bg-black/40 rounded-xl p-0.5 text-xs">
           <button
             onClick={() => onChangeViewMode('edit')}
-            className={`px-2.5 py-1 rounded-md transition font-medium text-xs ${
+            className={`px-2.5 py-1 rounded-lg transition font-medium text-xs ${
               viewMode === 'edit'
-                ? 'bg-white/[0.1] text-white shadow-sm'
+                ? 'bg-white/[0.10] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
                 : 'text-neutral-400 hover:text-neutral-200'
             }`}
             title="Clean Source Preview with Live CSS Layers"
@@ -195,9 +195,9 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
           </button>
           <button
             onClick={() => onChangeViewMode('export_review')}
-            className={`px-2.5 py-1 rounded-md transition font-medium text-xs flex items-center gap-1.5 ${
+            className={`px-2.5 py-1 rounded-lg transition font-medium text-xs flex items-center gap-1.5 ${
               viewMode === 'export_review'
-                ? 'bg-white/[0.1] text-white shadow-sm'
+                ? 'bg-white/[0.10] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
                 : 'text-neutral-400 hover:text-neutral-200'
             }`}
             title="Inspect Burned-In Rendered Export"
@@ -213,7 +213,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
         {/* Command Palette Trigger */}
         <button
           onClick={onOpenCommandPalette}
-          className="hidden xl:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#0E1017] border border-white/[0.08] text-neutral-400 hover:text-neutral-200 text-xs transition"
+          className="hidden xl:flex items-center gap-1.5 px-2 py-1 rounded-full bg-vc-surface1 border border-white/[0.08] text-neutral-400 hover:text-neutral-200 text-xs transition"
           title="Command Palette (Cmd+K)"
         >
           <Command className="w-3 h-3" />
@@ -223,10 +223,10 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
         {/* Safe Guides Toggle */}
         <button
           onClick={onToggleSafeGuides}
-          className={`p-1.5 rounded-lg border transition ${
+          className={`p-1.5 rounded-xl border transition ${
             showSafeGuides
               ? 'bg-white/[0.12] border-white/25 text-white'
-              : 'bg-[#0E1017] border-white/[0.08] text-neutral-500 hover:text-neutral-300'
+              : 'bg-vc-surface1 border-white/[0.08] text-neutral-500 hover:text-neutral-300'
           }`}
           title="Toggle Platform Safe Zones"
         >
@@ -239,7 +239,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
           onChange={(e) =>
             onChangePreviewQuality(e.target.value as 'auto' | '360p' | '540p' | '720p')
           }
-          className="hidden sm:block bg-[#0E1017] border border-white/[0.08] rounded-lg px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-white/20"
+          className="hidden sm:block bg-vc-surface1 border border-white/[0.08] rounded-xl px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-white/20"
         >
           <option value="auto">Auto Res</option>
           <option value="720p">720p HD</option>
@@ -251,7 +251,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
         <button
           onClick={onOpenExportDialog}
           disabled={isRendering}
-          className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-neutral-200 text-black font-semibold text-xs shadow-sm flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50"
+          className="px-3.5 py-1.5 rounded-full bg-vc-ai-hover text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai active:bg-violet-700 active:translate-y-px font-semibold text-xs flex items-center gap-1.5 transition disabled:opacity-50"
         >
           {isRendering ? (
             <>

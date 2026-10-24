@@ -12,6 +12,7 @@ import {
   createProjectUploadUrl,
   confirmProjectUpload,
   getProjectSourcePreviewUrl,
+  getProjectPoster,
   deleteProject,
   processProject,
   getProjectTranscript,
@@ -91,6 +92,7 @@ router.post('/projects/probe-url', requireAuth, expensiveLimiter, asyncHandler(p
 router.post('/projects/:id/upload-url', requireAuth, asyncHandler(createProjectUploadUrl));
 router.post('/projects/:id/confirm-upload', requireAuth, asyncHandler(confirmProjectUpload));
 router.get('/projects/:id/source-preview-url', requireAuth, asyncHandler(getProjectSourcePreviewUrl));
+router.get('/projects/:id/poster', requireAuth, asyncHandler(getProjectPoster));
 router.get('/projects/:id', requireAuth, asyncHandler(getProject));
 router.patch('/projects/:id', requireAuth, asyncHandler(updateProject));
 router.delete('/projects/:id', requireAuth, asyncHandler(deleteProject));

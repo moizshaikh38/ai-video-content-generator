@@ -103,12 +103,12 @@ export const WordMicroToolbar: React.FC<WordMicroToolbarProps> = ({
     <div
       ref={popoverRef}
       style={{ top: `${topPos}px`, left: `${leftPos}px`, width: `${popoverWidth}px` }}
-      className="fixed z-50 bg-[#0E1017]/95 backdrop-blur-xl border border-white/[0.1] rounded-2xl shadow-2xl p-3 text-neutral-200 animate-in fade-in zoom-in-95 duration-150 select-none"
+      className="fixed z-50 glass-float rounded-2xl p-3 text-neutral-200 animate-in fade-in zoom-in-95 duration-150 select-none"
       onClick={(e) => e.stopPropagation()}
     >
       {/* Top Navigation Tabs */}
       <div className="flex items-center justify-between border-b border-white/[0.08] pb-2 mb-2">
-        <div className="flex items-center gap-1 bg-white/[0.04] p-0.5 rounded-xl border border-white/[0.08]">
+        <div className="flex items-center gap-1 bg-white/[0.04] p-0.5 rounded-xl ">
           <button
             onClick={() => setActiveTab('edit')}
             className={`px-2 py-1 rounded-lg text-xs font-medium flex items-center gap-1 transition ${
@@ -184,7 +184,7 @@ export const WordMicroToolbar: React.FC<WordMicroToolbarProps> = ({
                 }
               }}
               autoFocus
-              className="w-full bg-[#07080D] border border-white/[0.1] rounded-xl px-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white/30 shadow-inner"
+              className="w-full bg-vc-canvas border border-white/[0.1] rounded-xl px-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white/30 shadow-inner"
               placeholder="Correct word..."
             />
           </div>
@@ -263,7 +263,7 @@ export const WordMicroToolbar: React.FC<WordMicroToolbarProps> = ({
                   onApplyWordCustomStyle?.({ effect: 'glow', highlightColor: '#A855F7' });
                   onClose();
                 }}
-                className="py-1 px-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-300 text-[10px] font-semibold flex items-center justify-center gap-1 transition"
+                className="py-1 px-1.5 rounded-lg bg-violet-500/15 hover:bg-violet-500/25 border border-violet-500/30 text-violet-300 text-[10px] font-semibold flex items-center justify-center gap-1 transition"
                 title="Neon Glow"
               >
                 <span>⚡</span>
@@ -276,7 +276,7 @@ export const WordMicroToolbar: React.FC<WordMicroToolbarProps> = ({
                   onApplyWordCustomStyle?.({ uppercase: true });
                   onClose();
                 }}
-                className="py-1 px-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-sky-300 text-[10px] font-mono font-bold flex items-center justify-center gap-1 transition"
+                className="py-1 px-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.10] border border-white/15 text-zinc-200 text-[10px] font-mono font-bold flex items-center justify-center gap-1 transition"
                 title="Force Uppercase"
               >
                 <span>🔠</span>
@@ -322,7 +322,7 @@ export const WordMicroToolbar: React.FC<WordMicroToolbarProps> = ({
                     onInsertEmoji(emoji);
                     onClose();
                   }}
-                  className="w-7 h-7 rounded-lg bg-[#07080D] hover:bg-white/[0.08] text-sm flex items-center justify-center hover:scale-110 transition"
+                  className="w-7 h-7 rounded-lg bg-vc-canvas hover:bg-white/[0.08] text-sm flex items-center justify-center hover:scale-110 transition"
                 >
                   {emoji}
                 </button>
@@ -361,7 +361,7 @@ export const WordMicroToolbar: React.FC<WordMicroToolbarProps> = ({
           </div>
 
           {/* Start Stepper */}
-          <div className="flex items-center justify-between bg-neutral-900 p-1.5 rounded-xl border border-neutral-800 text-xs">
+          <div className="flex items-center justify-between bg-neutral-900 p-1.5 rounded-xl text-xs">
             <span className="text-neutral-400 text-[11px]">Start:</span>
             <div className="flex items-center gap-1">
               <button
@@ -383,7 +383,7 @@ export const WordMicroToolbar: React.FC<WordMicroToolbarProps> = ({
           </div>
 
           {/* End Stepper */}
-          <div className="flex items-center justify-between bg-neutral-900 p-1.5 rounded-xl border border-neutral-800 text-xs">
+          <div className="flex items-center justify-between bg-neutral-900 p-1.5 rounded-xl text-xs">
             <span className="text-neutral-400 text-[11px]">End:</span>
             <div className="flex items-center gap-1">
               <button

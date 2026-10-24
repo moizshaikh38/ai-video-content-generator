@@ -126,12 +126,12 @@ export const ToggleField: React.FC<{
     </span>
     <span
       className={`shrink-0 w-8 h-[18px] rounded-full p-0.5 transition-colors ${
-        checked ? 'bg-vc-action' : 'bg-white/[0.12]'
+        checked ? 'bg-violet-500' : 'bg-white/[0.12]'
       }`}
     >
       <span
         className={`block w-[14px] h-[14px] rounded-full transition-transform ${
-          checked ? 'translate-x-[14px] bg-vc-action-foreground' : 'bg-white/70'
+          checked ? 'translate-x-[14px] bg-white' : 'bg-white/70'
         }`}
       />
     </span>

@@ -168,13 +168,13 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
   const getStepIcon = (name: AutopilotStepName) => {
     switch (name) {
       case 'PRODUCER':
-        return <Wand2 className="w-4 h-4 text-purple-400" />;
+        return <Wand2 className="w-4 h-4 text-violet-400" />;
       case 'HOOK_LAB':
         return <Flame className="w-4 h-4 text-amber-400" />;
       case 'THUMBNAIL_LAB':
         return <ImageIcon className="w-4 h-4 text-rose-400" />;
       case 'CONTENT_PACK':
-        return <Layers className="w-4 h-4 text-blue-400" />;
+        return <Layers className="w-4 h-4 text-zinc-300" />;
       case 'APPROVAL':
         return <ShieldCheck className="w-4 h-4 text-emerald-400" />;
     }
@@ -184,32 +184,32 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
     switch (status) {
       case 'COMPLETED':
         return (
-          <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+          <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded-full">
             <CheckCircle2 className="w-3 h-3" /> Completed
           </span>
         );
       case 'RUNNING':
         return (
-          <span className="flex items-center gap-1 text-[11px] font-semibold text-sky-400 bg-sky-950/40 border border-sky-500/30 px-2 py-0.5 rounded-full animate-pulse">
-            <div className="w-2.5 h-2.5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" /> In Progress
+          <span className="flex items-center gap-1 text-[11px] font-semibold text-zinc-300 bg-white/[0.03] px-2 py-0.5 rounded-full animate-pulse">
+            <div className="w-2.5 h-2.5 border-2 border-white/20 border-t-transparent rounded-full animate-spin" /> In Progress
           </span>
         );
       case 'FAILED':
         return (
-          <span className="flex items-center gap-1 text-[11px] font-semibold text-red-400 bg-red-950/40 border border-red-500/30 px-2 py-0.5 rounded-full">
+          <span className="flex items-center gap-1 text-[11px] font-semibold text-red-400 bg-red-950/40 px-2 py-0.5 rounded-full">
             <XCircle className="w-3 h-3" /> Failed
           </span>
         );
       case 'BLOCKED':
         return (
-          <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-400 bg-amber-950/40 border border-amber-500/30 px-2 py-0.5 rounded-full">
+          <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded-full">
             <AlertTriangle className="w-3 h-3" /> Blocked
           </span>
         );
       case 'PENDING':
       default:
         return (
-          <span className="flex items-center gap-1 text-[11px] font-medium text-neutral-400 bg-neutral-900 border border-neutral-800 px-2 py-0.5 rounded-full">
+          <span className="flex items-center gap-1 text-[11px] font-medium text-neutral-400 bg-neutral-900 px-2 py-0.5 rounded-full">
             <Clock className="w-3 h-3" /> Ready
           </span>
         );
@@ -219,7 +219,7 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-12 text-center text-neutral-400">
-        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mb-3" />
+        <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mb-3" />
         <p className="text-sm font-medium">Initializing Autopilot Orchestrator...</p>
       </div>
     );
@@ -234,11 +234,11 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between pb-4 border-b border-neutral-800 gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/40 text-purple-300 text-xs font-bold rounded">
+            <span className="px-2 py-0.5 bg-violet-500/15 text-violet-300 text-xs font-bold rounded">
               Phase 26
             </span>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-400" />
+              <Sparkles className="w-5 h-5 text-violet-400" />
               Full Pipeline Autopilot
             </h2>
           </div>
@@ -252,7 +252,7 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
             <button
               onClick={handleStartPipeline}
               disabled={executing}
-              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-md flex items-center gap-2 transition"
+              className="px-4 py-2 bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] disabled:opacity-50 text-white font-semibold text-xs rounded-full shadow-md flex items-center gap-2 transition"
             >
               {executing ? (
                 <>
@@ -272,7 +272,7 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
             <button
               onClick={handleApprove}
               disabled={executing}
-              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-md flex items-center gap-2 transition"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(0,0,0,0.4)] disabled:opacity-50 text-white font-semibold text-xs rounded-full flex items-center gap-2 transition"
             >
               <Check className="w-3.5 h-3.5" />
               Approve for Publishing
@@ -282,7 +282,7 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
           {isApproved && (
             <button
               onClick={() => onOpenPublish && run?.publishing_handoff && onOpenPublish(run.publishing_handoff)}
-              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold text-xs rounded-lg shadow-md flex items-center gap-2 transition"
+              className="px-4 py-2 bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-white font-semibold text-xs rounded-full shadow-md flex items-center gap-2 transition"
             >
               <Share2 className="w-3.5 h-3.5" />
               Open Publishing Composer
@@ -292,7 +292,7 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
       </div>
 
       {error && (
-        <div className="p-3 bg-red-950/40 border border-red-500/50 rounded-lg text-xs text-red-200 flex items-center justify-between">
+        <div className="p-3 bg-red-950/40 rounded-lg text-xs text-red-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <XCircle className="w-4 h-4 text-red-400 shrink-0" />
             <span>{error}</span>
@@ -308,7 +308,7 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
 
       {/* Settings Grid */}
       {!executing && run?.status === 'PENDING' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-neutral-900/50 border border-neutral-800 rounded-xl">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-neutral-900/50 rounded-xl">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-neutral-300">Producer Editing Mode</label>
             <select
@@ -361,7 +361,7 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
               key={step.step}
               className={`p-4 rounded-xl border transition ${
                 step.status === 'RUNNING'
-                  ? 'bg-neutral-900 border-sky-500/50 shadow-md ring-1 ring-sky-500/20'
+                  ? 'bg-neutral-900 border-white/20 shadow-md ring-1 ring-white/15'
                   : step.status === 'COMPLETED'
                   ? 'bg-neutral-900/60 border-neutral-800'
                   : step.status === 'FAILED'
@@ -397,7 +397,7 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
                     <button
                       onClick={handleApprove}
                       disabled={executing}
-                      className="px-3 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-sm flex items-center gap-1.5 transition"
+                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(0,0,0,0.4)] disabled:opacity-50 text-white font-semibold text-xs rounded-full flex items-center gap-1.5 transition"
                     >
                       <Check className="w-3 h-3" />
                       Approve for Publishing
@@ -406,7 +406,7 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
                   {step.step === 'APPROVAL' && isApproved && onOpenPublish && Boolean(run?.publishing_handoff) && (
                     <button
                       onClick={() => onOpenPublish(run!.publishing_handoff!)}
-                      className="px-3 py-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold text-xs rounded-lg shadow-sm flex items-center gap-1.5 transition"
+                      className="px-3 py-1 bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-white font-semibold text-xs rounded-full shadow-sm flex items-center gap-1.5 transition"
                     >
                       <Share2 className="w-3 h-3" />
                       Publish
@@ -433,7 +433,7 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
 
       {/* Review & Outputs Summary */}
       {(isPipelineCompleted || isApproved) && (
-        <div className="p-5 bg-gradient-to-br from-neutral-900 to-neutral-950 border border-neutral-800 rounded-xl space-y-4">
+        <div className="p-5 bg-vc-surface1 rounded-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
             <h4 className="text-sm font-bold text-white flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
@@ -446,7 +446,7 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
             {run?.hook_selection_rationale && (
-              <div className="p-3 bg-neutral-900 border border-neutral-800 rounded-lg space-y-1">
+              <div className="p-3 bg-neutral-900 rounded-lg space-y-1">
                 <span className="font-semibold text-amber-400 flex items-center gap-1">
                   <Flame className="w-3.5 h-3.5" /> Selected Hook
                 </span>
@@ -457,7 +457,7 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
             )}
 
             {run?.thumbnail_selection_rationale && (
-              <div className="p-3 bg-neutral-900 border border-neutral-800 rounded-lg space-y-1">
+              <div className="p-3 bg-neutral-900 rounded-lg space-y-1">
                 <span className="font-semibold text-rose-400 flex items-center gap-1">
                   <ImageIcon className="w-3.5 h-3.5" /> Selected Thumbnail
                 </span>
@@ -468,8 +468,8 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
             )}
 
             {run?.content_pack_id && (
-              <div className="p-3 bg-neutral-900 border border-neutral-800 rounded-lg space-y-1">
-                <span className="font-semibold text-blue-400 flex items-center gap-1">
+              <div className="p-3 bg-neutral-900 rounded-lg space-y-1">
+                <span className="font-semibold text-zinc-300 flex items-center gap-1">
                   <Layers className="w-3.5 h-3.5" /> Content Pack
                 </span>
                 <p className="text-neutral-300 leading-relaxed">

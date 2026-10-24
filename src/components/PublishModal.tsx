@@ -202,12 +202,12 @@ export const PublishModal: React.FC<PublishModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-2xl bg-card border border-border/80 rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-scrim animate-fade-in">
+      <div className="relative w-full max-w-2xl glass-float rounded-3xl overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4.5 border-b border-border/60 flex items-center justify-between bg-card/50">
+        <div className="px-6 py-4.5 border-b border-border/60 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="flex size-8 items-center justify-center rounded-xl bg-sage/20 text-sage font-bold">
+            <div className="flex size-8 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 font-bold">
               <Share2 className="size-4" />
             </div>
             <div>
@@ -234,7 +234,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
               role="alert"
               className={`p-3.5 rounded-2xl text-xs font-medium flex items-center gap-2 ${
                 feedback.type === 'success'
-                  ? 'bg-sage/15 border border-sage/30 text-sage'
+                  ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400'
                   : 'bg-destructive/10 border border-destructive/20 text-destructive'
               }`}
             >
@@ -248,12 +248,12 @@ export const PublishModal: React.FC<PublishModalProps> = ({
             <label className="text-xs font-semibold text-foreground flex items-center justify-between">
               <span>Select Destination Account</span>
               {loadingAccounts && <span className="text-[10px] text-muted-foreground animate-pulse">Loading accounts…</span>}
-              {!loadingAccounts && isValidating && <span className="text-[10px] text-clay animate-pulse">Checking platform requirements…</span>}
+              {!loadingAccounts && isValidating && <span className="text-[10px] text-violet-300 animate-pulse">Checking platform requirements…</span>}
             </label>
             {accounts.length === 0 ? (
               <div className="p-3.5 rounded-2xl border border-dashed border-border text-center space-y-2">
                 <p className="text-xs text-muted-foreground">No social accounts connected yet.</p>
-                <a href="/settings" className="inline-block text-xs font-semibold text-sage hover:underline">
+                <a href="/settings" className="inline-block text-xs font-semibold text-emerald-400 hover:underline">
                   Connect in Settings →
                 </a>
               </div>
@@ -266,7 +266,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
                     onClick={() => setSelectedConnectionId(acc.id)}
                     className={`p-3 rounded-2xl border text-left flex items-center gap-2.5 transition-all ${
                       selectedConnectionId === acc.id
-                        ? 'border-sage bg-sage/10 text-foreground ring-1 ring-sage'
+                        ? 'border-emerald-500 bg-emerald-500/10 text-foreground ring-1 ring-emerald-500/40'
                         : 'border-border/60 hover:border-border text-muted-foreground'
                     }`}
                   >
@@ -288,7 +288,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
           </div>
 
           {/* Publish Mode Toggle */}
-          <div className="flex rounded-2xl bg-muted/60 p-1 border border-border/40">
+          <div className="flex rounded-2xl bg-muted/60 p-1 ">
             <button
               type="button"
               onClick={() => setPublishMode('now')}
@@ -313,7 +313,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
 
           {/* Scheduling inputs */}
           {publishMode === 'scheduled' && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3 rounded-2xl bg-muted/30 border border-border/40">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3 rounded-2xl bg-muted/30 ">
               <div>
                 <label className="text-[10px] font-semibold text-muted-foreground block mb-1">Date</label>
                 <input
@@ -394,7 +394,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
 
           {/* Validation Warnings */}
           {preview && preview.warnings.length > 0 && (
-            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs space-y-1">
+            <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-500 text-xs space-y-1">
               <div className="font-semibold flex items-center gap-1">
                 <AlertCircle className="size-3.5" />
                 <span>Notice:</span>
@@ -411,7 +411,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
           <div className="pt-2">
             <ShinyButton
               type="submit"
-              variant="sage"
+              variant="ink"
               className="w-full h-11 text-sm font-semibold"
               disabled={isSubmitting || accounts.length === 0}
               leftIcon={

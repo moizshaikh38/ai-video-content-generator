@@ -25,6 +25,7 @@ import {
   AppError,
   isValidUUID,
   ReframeKeyframe,
+  ReframeLayoutMode,
   QuickClipMusicConfig,
 } from '../types/index.js';
 import { CaptionService } from './captionService.js';
@@ -47,6 +48,37 @@ if (ffmpegStatic) {
 
 // In-memory set to prevent duplicate simultaneous render jobs for the same clip
 export const activeRenderSet = new Set<string>();
+
+// CPU-bound FFmpeg renders must not run unbounded inside the web process.
+// Inline (request-triggered) launches defer to the background sweep once the
+// per-process cap is reached; the job stays 'queued' and is picked up later.
+export function maxConcurrentRenders(): number {
+  const cpus = os.cpus().length || 1;
+  return Math.max(1, Math.min(4, Math.floor(cpus / 2)));
+}
+
+export function shouldLaunchInlineRender(): boolean {
+  return activeRenderSet.size < maxConcurrentRenders();
+}
+
+/**
+ * Fires an inline render only when the per-process concurrency cap allows it.
+ * When deferred, the job stays 'queued' in render_jobs and the background sweep
+ * started in index.ts picks it up.
+ */
+export function launchInlineRender(clipId: string, userId: string, jobId: string | undefined): boolean {
+  if (!shouldLaunchInlineRender()) {
+    logger.warn(`[ClipRender] Inline render deferred to background sweep for clip ${clipId} (concurrency cap ${maxConcurrentRenders()} reached)`);
+    return false;
+  }
+  ClipRenderService.renderClipJob(clipId, userId, jobId).catch((renderErr) => {
+    logger.error('Background clip rendering caught top-level error', {
+      clipId,
+      error: renderErr instanceof Error ? renderErr.message : String(renderErr),
+    });
+  });
+  return true;
+}
 
 export interface CreateClipResult {
   clip: ClipRecord;
@@ -183,13 +215,8 @@ export class ClipRenderService {
     const validAspectRatio = validRatios.includes(aspectRatio) ? aspectRatio : '9:16';
     const { clip, renderJob } = await createClipWithJob(projectId, candidateId, userId, validAspectRatio, cropMode);
 
-    // 6. Launch in-process background rendering
-    ClipRenderService.renderClipJob(clip.id, userId, renderJob.id).catch((renderErr) => {
-      logger.error('Background clip rendering caught top-level error', {
-        clipId: clip.id,
-        error: renderErr instanceof Error ? renderErr.message : String(renderErr),
-      });
-    });
+    // 6. Launch in-process background rendering (deferred to the sweep when at cap)
+    launchInlineRender(clip.id, userId, renderJob.id);
 
     return {
       clip: clip as ClipRecord,
@@ -436,91 +463,11 @@ export class ClipRenderService {
       const originalDuration = Number(clip.duration_seconds || (clip.end_seconds - clip.start_seconds));
       const durationSec = Math.max(0.1, Number((originalDuration - trimStart - trimEnd).toFixed(3)));
 
-      let cropFilter = buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config);
-
-      let actualReframeMode: 'smart' | 'fallback_center' | 'manual' = 
-        clip.crop_config?.mode === 'manual' ? 'manual' : 'fallback_center';
-      let reframeMetadata: Record<string, any> | undefined = undefined;
-
-      // Phase 13: Dynamic Smart Auto-Reframe
-      if (clip.crop_config?.mode === 'smart') {
-        try {
-          const track = await SmartReframeService.getReframeTrack(clipId, clip.user_id);
-          if (
-            track &&
-            track.status === 'ready' &&
-            Array.isArray(track.smoothed_keyframes) &&
-            track.smoothed_keyframes.length > 0
-          ) {
-            if (track.isStale) {
-              logger.warn(`[ClipRender] Smart reframe track is stale for clip ${clipId}. Falling back to center crop.`);
-              actualReframeMode = 'fallback_center';
-              reframeMetadata = {
-                reason: 'stale_track',
-                detected_face_count: track.detected_face_count || 0,
-              };
-              cropFilter = buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 });
-            } else if ((track.detected_face_count || 0) === 0 || !track.dominant_track_id) {
-              const targetLayout = clip.crop_config?.layout_mode || 'blur';
-              if (targetLayout === 'blur' && (clip.aspect_ratio === '9:16' || !clip.aspect_ratio)) {
-                logger.info(`[ClipRender] No subject detected in smart reframe track for clip ${clipId}. Using modern blurred background layout.`);
-                cropFilter = SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: 1080, canvasHeight: 1920 });
-                actualReframeMode = 'smart';
-                reframeMetadata = {
-                  layout_mode: 'blur',
-                  reason: 'broll_or_no_face',
-                  detected_face_count: 0,
-                };
-              } else {
-                logger.info(`[ClipRender] No subject detected in smart reframe track for clip ${clipId}. Using fallback center.`);
-                actualReframeMode = 'fallback_center';
-                reframeMetadata = {
-                  reason: 'no_subject_detected',
-                  detected_face_count: 0,
-                };
-                cropFilter = buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 });
-              }
-            } else {
-              const targetLayout = clip.crop_config?.layout_mode || track.layout_mode || 'track';
-              cropFilter = SmartReframeService.buildLayoutCropFilter({
-                layoutMode: targetLayout,
-                aspectRatio: clip.aspect_ratio as ClipAspectRatio,
-                keyframes: track.smoothed_keyframes,
-                sourceWidth: track.source_width || 1920,
-                sourceHeight: track.source_height || 1080,
-                duration: durationSec,
-                speaker1X: clip.crop_config?.split?.speaker1X,
-                speaker2X: clip.crop_config?.split?.speaker2X,
-                screencastMode: clip.crop_config?.screencast?.mode,
-              });
-              actualReframeMode = 'smart';
-              reframeMetadata = {
-                layout_mode: targetLayout,
-                dominant_track_id: track.dominant_track_id,
-                detected_face_count: track.detected_face_count,
-                keyframe_count: track.smoothed_keyframes.length,
-                dominant_score: track.metadata?.dominant_score,
-              };
-              logger.info(`[ClipRender] Applied dynamic smart reframe filter (${targetLayout}) with ${track.smoothed_keyframes.length} keyframes for clip ${clipId}`);
-            }
-          } else {
-            logger.warn(`[ClipRender] No ready smart reframe track found for clip ${clipId}. Falling back to center crop.`);
-            actualReframeMode = 'fallback_center';
-            reframeMetadata = {
-              reason: 'no_ready_track',
-            };
-            cropFilter = buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 });
-          }
-        } catch (reframeErr: any) {
-          logger.warn(`[ClipRender] Smart reframe resolution error for clip ${clipId}: ${reframeErr.message}. Falling back to center crop.`);
-          actualReframeMode = 'fallback_center';
-          reframeMetadata = {
-            reason: 'error',
-            error: reframeErr.message,
-          };
-          cropFilter = buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 });
-        }
-      }
+      // Shared reframing decision (Quick path filter + Pro per-slice context).
+      const reframeDecision = await ClipRenderService.resolveReframeDecision(clip, durationSec);
+      const cropFilter = reframeDecision.cropFilter;
+      const actualReframeMode = reframeDecision.mode;
+      const reframeMetadata = reframeDecision.metadata;
 
       const videoFilters: string[] = [cropFilter];
 
@@ -598,15 +545,24 @@ export class ClipRenderService {
         }
       }
 
+      let expectedDurationSec = durationSec;
       if (hasCustomProTracks && editorProject) {
         logger.info(`[ClipRender] Compiling and executing multi-track EditorProject graph for clip ${clipId}`);
         await ProEditorService.preloadRemoteOverlayAssets(editorProject, tempDir);
-        const graph = ProEditorService.compileRenderGraph(editorProject, sourcePath, outputPath, tempDir);
+        const graph = ProEditorService.compileRenderGraph(editorProject, sourcePath, outputPath, tempDir, {
+          aspectRatio: clip.aspect_ratio as ClipAspectRatio,
+          cropConfig: clip.crop_config || null,
+          clipStartSec: startSec,
+          mode: actualReframeMode,
+          layoutMode: reframeDecision.layoutMode,
+          track: reframeDecision.track,
+        });
         const videoTrackItems = editorProject.tracks
           ?.filter((t: any) => t.type === 'VIDEO' && !t.hidden)
           ?.flatMap((t: any) => t.items || []) || [];
         const isMultiSlice = videoTrackItems.length > 1;
         const renderDuration = Number((editorProject.canvas?.duration || durationSec).toFixed(3));
+        expectedDurationSec = renderDuration;
 
         const filterBuilder = new FilterGraphBuilder(graph.filterComplex);
         const scriptExec = await filterBuilder.compileForExecution(tempDir);
@@ -765,6 +721,9 @@ export class ClipRenderService {
         (err as any).code = 'FFMPEG_FAILED';
         throw err;
       }
+
+      // Output validation gate: streams + duration must match what was requested.
+      await ClipRenderService.validateRenderedOutput(outputPath, expectedDurationSec, { expectAudio: !clip.muted });
 
       // 3. Upload rendered MP4 to storage with revision versioning
       await ClipRenderService.updateJobStage(jobId, clipId, 'uploading', 90, 'uploading', workerId);
@@ -967,6 +926,156 @@ export class ClipRenderService {
         })
         .eq('id', clipId);
     } catch {}
+  }
+
+  /**
+   * Shared reframing decision for both render paths (audit H-1).
+   * Quick Clip render consumes `cropFilter` directly; the Pro editor path consumes
+   * `track`/`layoutMode` to build per-slice dynamic crops in compileRenderGraph,
+   * guaranteeing both paths frame identical source identically.
+   *
+   * Reframe keyframes are clip-relative (t=0 at clip start incl. trim), matching
+   * the `-ss startSec` input seek used by both quick and single-slice pro renders.
+   */
+  public static async resolveReframeDecision(
+    clip: ClipRecord,
+    durationSec: number
+  ): Promise<{
+    cropFilter: string;
+    mode: 'smart' | 'fallback_center' | 'manual';
+    metadata?: Record<string, any>;
+    layoutMode: ReframeLayoutMode | string;
+    track: Awaited<ReturnType<typeof SmartReframeService.getReframeTrack>>;
+  }> {
+    const centerCrop = () => buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 });
+
+    if (clip.crop_config?.mode === 'manual') {
+      return { cropFilter: buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config), mode: 'manual', layoutMode: 'manual', track: null };
+    }
+
+    if (clip.crop_config?.mode !== 'smart') {
+      return { cropFilter: buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config), mode: 'fallback_center', layoutMode: 'manual', track: null };
+    }
+
+    try {
+      const track = await SmartReframeService.getReframeTrack(clip.id, clip.user_id);
+      if (
+        track &&
+        track.status === 'ready' &&
+        Array.isArray(track.smoothed_keyframes) &&
+        track.smoothed_keyframes.length > 0
+      ) {
+        if (track.isStale) {
+          logger.warn(`[ClipRender] Smart reframe track is stale for clip ${clip.id}. Falling back to center crop.`);
+          return { cropFilter: centerCrop(), mode: 'fallback_center', metadata: { reason: 'stale_track', detected_face_count: track.detected_face_count || 0 }, layoutMode: 'track', track };
+        }
+
+        if ((track.detected_face_count || 0) === 0 || !track.dominant_track_id) {
+          const targetLayout = clip.crop_config?.layout_mode || 'blur';
+          if (targetLayout === 'blur' && (clip.aspect_ratio === '9:16' || !clip.aspect_ratio)) {
+            logger.info(`[ClipRender] No subject detected in smart reframe track for clip ${clip.id}. Using modern blurred background layout.`);
+            return {
+              cropFilter: SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: 1080, canvasHeight: 1920 }),
+              mode: 'smart',
+              metadata: { layout_mode: 'blur', reason: 'broll_or_no_face', detected_face_count: 0 },
+              layoutMode: 'blur',
+              track,
+            };
+          }
+          logger.info(`[ClipRender] No subject detected in smart reframe track for clip ${clip.id}. Using fallback center.`);
+          return { cropFilter: centerCrop(), mode: 'fallback_center', metadata: { reason: 'no_subject_detected', detected_face_count: 0 }, layoutMode: targetLayout, track };
+        }
+
+        const targetLayout = clip.crop_config?.layout_mode || track.layout_mode || 'track';
+        const cropFilter = SmartReframeService.buildLayoutCropFilter({
+          layoutMode: targetLayout as any,
+          aspectRatio: clip.aspect_ratio as ClipAspectRatio,
+          keyframes: track.smoothed_keyframes,
+          sourceWidth: track.source_width || 1920,
+          sourceHeight: track.source_height || 1080,
+          duration: durationSec,
+          speaker1X: clip.crop_config?.split?.speaker1X,
+          speaker2X: clip.crop_config?.split?.speaker2X,
+          screencastMode: clip.crop_config?.screencast?.mode,
+        });
+        logger.info(`[ClipRender] Applied dynamic smart reframe filter (${targetLayout}) with ${track.smoothed_keyframes.length} keyframes for clip ${clip.id}`);
+        return {
+          cropFilter,
+          mode: 'smart',
+          metadata: {
+            layout_mode: targetLayout,
+            dominant_track_id: track.dominant_track_id,
+            detected_face_count: track.detected_face_count,
+            keyframe_count: track.smoothed_keyframes.length,
+            dominant_score: track.metadata?.dominant_score,
+          },
+          layoutMode: targetLayout,
+          track,
+        };
+      }
+
+      logger.warn(`[ClipRender] No ready smart reframe track found for clip ${clip.id}. Falling back to center crop.`);
+      return { cropFilter: centerCrop(), mode: 'fallback_center', metadata: { reason: 'no_ready_track' }, layoutMode: clip.crop_config?.layout_mode || 'track', track };
+    } catch (reframeErr: any) {
+      logger.warn(`[ClipRender] Smart reframe resolution error for clip ${clip.id}: ${reframeErr.message}. Falling back to center crop.`);
+      return { cropFilter: centerCrop(), mode: 'fallback_center', metadata: { reason: 'error', error: reframeErr.message }, layoutMode: clip.crop_config?.layout_mode || 'track', track: null };
+    }
+  }
+
+  /**
+   * Post-render output gate (audit M-1): the rendered file must contain a video
+   * stream, the expected audio presence, and a duration within 0.5s of the
+   * requested render duration before the job may be marked ready.
+   * Failures are permanent (non-transient) — a retry re-renders, it does not
+   * re-validate the same broken file.
+   * A missing/unavailable ffprobe degrades to a warning, matching the policy of
+   * probeAvStartTimes, rather than failing renders on ops environments without ffprobe.
+   */
+  public static async validateRenderedOutput(
+    filePath: string,
+    expectedDurationSec: number,
+    options: { expectAudio: boolean }
+  ): Promise<void> {
+    try {
+      const { stdout } = await execFileAsync(
+        'ffprobe',
+        [
+          '-v', 'error',
+          '-show_entries', 'stream=codec_type',
+          '-show_entries', 'format=duration',
+          '-of', 'json',
+          filePath,
+        ],
+        { timeout: 15000, maxBuffer: 4 * 1024 * 1024 }
+      );
+
+      const probe = JSON.parse(stdout) as {
+        streams?: Array<{ codec_type?: string }>;
+        format?: { duration?: string };
+      };
+      const streams = Array.isArray(probe.streams) ? probe.streams : [];
+      const hasVideo = streams.some((s) => s?.codec_type === 'video');
+      const hasAudio = streams.some((s) => s?.codec_type === 'audio');
+      const duration = Number.parseFloat(probe.format?.duration || '0');
+
+      const problems: string[] = [];
+      if (!hasVideo) problems.push('no video stream');
+      if (options.expectAudio && !hasAudio) problems.push('missing audio stream');
+      if (!Number.isFinite(duration) || duration <= 0) {
+        problems.push('unreadable duration');
+      } else if (Math.abs(duration - expectedDurationSec) > 0.5) {
+        problems.push(`duration ${duration.toFixed(2)}s differs from expected ${expectedDurationSec.toFixed(2)}s by more than 0.5s`);
+      }
+
+      if (problems.length > 0) {
+        const err = new Error(`Rendered output failed validation: ${problems.join('; ')}.`);
+        (err as any).code = 'OUTPUT_VALIDATION_FAILED';
+        throw err;
+      }
+    } catch (err: any) {
+      if (err?.code === 'OUTPUT_VALIDATION_FAILED') throw err;
+      logger.warn(`[ClipRender] Output validation probe unavailable, accepting render without stream checks: ${err.message}`);
+    }
   }
 
   /**

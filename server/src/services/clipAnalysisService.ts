@@ -25,6 +25,7 @@ import {
   calculateAdaptiveClipCount,
   deduplicateCandidatesByOverlap,
 } from '../utils/wordSnappingUtils.js';
+import { selectDiverseCandidates } from '../utils/diverseSelection.js';
 
 // In-memory set to prevent multiple simultaneous analysis runs for the same project
 export const activeClipAnalysisSet = new Set<string>();
@@ -343,23 +344,19 @@ export class ClipAnalysisService {
   }
 
   /**
-   * Deterministic hybrid engagement score (0–100 integer)
-   * Weights:
-   * - Hook Strength: 25%
-   * - Standalone Clarity: 20%
-   * - Insight/Value: 20%
-   * - Emotion/Novelty: 15%
-   * - Platform Suitability: 10%
-   * - Duration Quality: 10%
+   * LEGACY / TEST-ONLY scoring helper. This is NOT the live ranking score:
+   * production candidates are ranked by the genre-weighted `vireo_score`
+   * computed in MultimodalScoringService.scoreCandidate. Kept because existing
+   * test suites pin its behavior; do not wire it into new product paths.
    */
   public static computeHybridScore(ai: AIClipCandidate, durationSeconds: number): number {
     const clamp = (val: number) => Math.min(100, Math.max(0, Number(val) || 0));
 
-    const hook = clamp(ai.hook_score);
-    const standalone = clamp(ai.standalone_score);
-    const insight = clamp(ai.insight_score);
-    const emotion = clamp(ai.emotion_score);
-    const platform = clamp(ai.platform_score);
+    const hook = clamp(ai.hook_score ?? 0);
+    const standalone = clamp(ai.standalone_score ?? 0);
+    const insight = clamp(ai.insight_score ?? 0);
+    const emotion = clamp(ai.emotion_score ?? 0);
+    const platform = clamp(ai.platform_score ?? 0);
     const duration = this.calculateDurationScore(durationSeconds);
 
     const weighted =
@@ -557,6 +554,11 @@ export class ClipAnalysisService {
         : null;
       const cold_open_segment_index = Number.isInteger(rawColdOpen) && (rawColdOpen as number) >= 0 ? rawColdOpen : null;
 
+      const parseSubscore = (v: unknown): number | undefined => {
+        const n = typeof v === 'string' ? Number(v) : v;
+        return typeof n === 'number' && Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : undefined;
+      };
+
       candidates.push({
         start_segment_index: startIndex,
         end_segment_index: endIndex,
@@ -565,11 +567,11 @@ export class ClipAnalysisService {
         hook,
         reason,
         category,
-        hook_score: Number(item.hook_score) || 70,
-        standalone_score: Number(item.standalone_score) || 70,
-        insight_score: Number(item.insight_score) || 70,
-        emotion_score: Number(item.emotion_score) || 70,
-        platform_score: Number(item.platform_score) || 70,
+        hook_score: parseSubscore(item.hook_score),
+        standalone_score: parseSubscore(item.standalone_score),
+        insight_score: parseSubscore(item.insight_score),
+        emotion_score: parseSubscore(item.emotion_score),
+        platform_score: parseSubscore(item.platform_score),
       });
     }
 
@@ -686,6 +688,11 @@ export class ClipAnalysisService {
       let faceCount = 1;
       let sceneCutRatePerMin = 3.5;
       let silenceRatio = 0.12;
+      // Real audio/visual signals for the local genre classifier (genre audit F4).
+      // Laughter and screen-share detectors do not exist yet — those classifier
+      // inputs stay unset rather than fabricated.
+      let audioPeakEnergyDb: number | undefined = undefined;
+      let visualMotionScore: number | undefined = undefined;
 
       if (multimodalTimeline) {
         if (Array.isArray(multimodalTimeline.keyframes)) {
@@ -707,6 +714,17 @@ export class ClipAnalysisService {
         if (typeof multimodalTimeline.summary_metadata?.detected_face_count === 'number') {
           faceCount = multimodalTimeline.summary_metadata.detected_face_count;
         }
+        if (Array.isArray(multimodalTimeline.segments)) {
+          const dbValues = multimodalTimeline.segments
+            .map((s: any) => s.audio_energy_db)
+            .filter((db: any) => typeof db === 'number' && Number.isFinite(db));
+          if (dbValues.length > 0) {
+            audioPeakEnergyDb = Math.max(...dbValues);
+          }
+        }
+        if (typeof multimodalTimeline.summary_metadata?.average_visual_activity === 'number') {
+          visualMotionScore = Math.round(multimodalTimeline.summary_metadata.average_visual_activity);
+        }
       }
 
       const questionCount = (fullTranscriptText.match(/\?/g) || []).length;
@@ -721,6 +739,8 @@ export class ClipAnalysisService {
         transcriptText: fullTranscriptText,
         questionDensityPerMin,
         durationSeconds: transcript.duration_seconds || durationMinutes * 60,
+        audioPeakEnergyDb,
+        visualMotionScore,
       });
 
       const rawIncomingPrefs = options.preferences || project.clip_preferences;
@@ -964,6 +984,11 @@ export class ClipAnalysisService {
         const raw_end = Number(endSeg.end.toFixed(3));
 
         // Evaluate multimodal scoring and silence boundary snapping with genre intelligence
+        const precedingSeg = ai.start_segment_index > 0 ? segments[ai.start_segment_index - 1] : null;
+        const candidateText = segments
+          .slice(ai.start_segment_index, ai.end_segment_index + 1)
+          .map((s) => s.text)
+          .join(' ');
         const scored = MultimodalScoringService.scoreCandidate({
           start_seconds: raw_start,
           end_seconds: raw_end,
@@ -975,6 +1000,11 @@ export class ClipAnalysisService {
           baseHookScore: ai.hook_score,
           baseStandaloneScore: ai.standalone_score,
           baseInsightScore: ai.insight_score,
+          precedingSegment:
+            precedingSeg && typeof precedingSeg.text === 'string'
+              ? { text: precedingSeg.text, end: Number(precedingSeg.end) }
+              : null,
+          candidateText,
           genreProfile,
           contentGoal,
         });
@@ -1073,7 +1103,13 @@ export class ClipAnalysisService {
         normalizedPrefs?.targetClipCount
       );
 
-      const topCandidates = deduped.slice(0, adaptiveTargets.maxClips);
+      // Diversity-aware final selection (genre roadmap Phase 4): greedy MMR with a
+      // genre-tunable redundancy penalty instead of a flat top-N slice, so the
+      // output set covers distinct moments (storytelling strict, gaming looser).
+      const topCandidates = selectDiverseCandidates(deduped, {
+        maxClips: adaptiveTargets.maxClips,
+        redundancyPenalty: genreProfile.redundancyPenalty ?? 0.5,
+      });
 
       // 9. Replace suggestions in one Mongo transaction, preserving selected clips.
       const allProjectCandidates = await replaceSuggestedCandidates(userId, projectId,

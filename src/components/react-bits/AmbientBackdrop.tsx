@@ -22,12 +22,12 @@ export const AmbientBackdrop: React.FC<AmbientBackdropProps> = ({
         <>
           {/* Subtle Sage Glow Orb */}
           <div
-            className="absolute -top-32 left-1/4 h-96 w-96 rounded-full bg-sage/10 blur-3xl transform-gpu -translate-x-1/2 motion-reduce:opacity-40"
+            className="absolute -top-32 left-1/4 h-96 w-96 rounded-full bg-white/[0.03] blur-3xl transform-gpu -translate-x-1/2 motion-reduce:opacity-40"
             style={{ filter: 'blur(90px)' }}
           />
           {/* Subtle Terracotta/Clay Glow Orb */}
           <div
-            className="absolute top-20 right-1/4 h-96 w-96 rounded-full bg-clay/10 blur-3xl transform-gpu translate-x-1/2 motion-reduce:opacity-40"
+            className="absolute top-20 right-1/4 h-96 w-96 rounded-full bg-white/[0.02] blur-3xl transform-gpu translate-x-1/2 motion-reduce:opacity-40"
             style={{ filter: 'blur(100px)' }}
           />
         </>
@@ -46,7 +46,7 @@ export const AmbientBackdrop: React.FC<AmbientBackdropProps> = ({
               patternUnits="userSpaceOnUse"
               patternContentUnits="userSpaceOnUse"
             >
-              <circle cx="2" cy="2" r="1" className="fill-ink/15" />
+              <circle cx="2" cy="2" r="1" className="fill-white/10" />
             </pattern>
           </defs>
           <rect width="100%" height="100%" strokeWidth="0" fill="url(#dot-pattern)" />

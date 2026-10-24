@@ -402,7 +402,7 @@ export const AudioWorkspacePanel: React.FC<AudioWorkspacePanelProps> = ({
         </div>
 
         {/* Music / SFX / Upload */}
-        <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-vc-canvas border border-vc-border">
+        <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-vc-canvas ">
           <button
             type="button"
             onClick={() => setSubSection('music')}
@@ -555,7 +555,7 @@ export const AudioWorkspacePanel: React.FC<AudioWorkspacePanelProps> = ({
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition shrink-0 flex items-center gap-1 ${
                           isJustAdded
                             ? 'bg-emerald-500 text-white'
-                            : 'bg-[#F4F6FB] text-[#0B0C0F] hover:bg-white active:scale-95 shadow-sm'
+                            : 'bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] text-white hover:bg-vc-ai active:scale-95 shadow-sm'
                         }`}
                         title="Add to Timeline"
                       >
@@ -641,7 +641,7 @@ export const AudioWorkspacePanel: React.FC<AudioWorkspacePanelProps> = ({
                 return (
                   <div
                     key={sfx.id}
-                    className="p-3 rounded-xl bg-vc-canvas/80 border border-vc-border hover:border-white/20 transition flex items-center justify-between gap-3"
+                    className="p-3 rounded-xl bg-vc-canvas/80 transition flex items-center justify-between gap-3"
                   >
                     <button
                       type="button"
@@ -673,7 +673,7 @@ export const AudioWorkspacePanel: React.FC<AudioWorkspacePanelProps> = ({
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition shrink-0 flex items-center gap-1 ${
                         isJustAdded
                           ? 'bg-emerald-500 text-white'
-                          : 'bg-[#F4F6FB] text-[#0B0C0F] hover:bg-white active:scale-95'
+                          : 'bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] text-white hover:bg-vc-ai active:scale-95'
                       }`}
                     >
                       {isJustAdded ? (
@@ -735,7 +735,7 @@ export const AudioWorkspacePanel: React.FC<AudioWorkspacePanelProps> = ({
             </h4>
 
             {uploadedTracks.length === 0 ? (
-              <div className="p-4 rounded-xl bg-vc-canvas/40 border border-vc-border text-center text-vc-text-muted text-xs">
+              <div className="p-4 rounded-xl bg-vc-canvas/40 text-center text-vc-text-muted text-xs">
                 No custom audio uploaded yet.
               </div>
             ) : (
@@ -743,7 +743,7 @@ export const AudioWorkspacePanel: React.FC<AudioWorkspacePanelProps> = ({
                 {uploadedTracks.map((track) => (
                   <div
                     key={track.id}
-                    className="p-3 rounded-xl bg-vc-canvas border border-vc-border flex items-center justify-between gap-3"
+                    className="p-3 rounded-xl bg-vc-canvas flex items-center justify-between gap-3"
                   >
                     <FileAudio className="w-4 h-4 text-vc-text-secondary shrink-0" />
                     <div className="flex-1 min-w-0">

@@ -21,14 +21,14 @@ export const CreatorPersonaCard: React.FC<CreatorPersonaCardProps> = ({
 
   return (
     <SpotlightCard
-      spotlightColor="rgba(94, 128, 103, 0.12)"
+      spotlightColor="rgba(139, 92, 246, 0.10)"
       className={className}
     >
       <div className="p-5 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/50 pb-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sage/15 text-sage">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
               <User className="size-3.5" />
             </div>
             <div>
@@ -40,12 +40,12 @@ export const CreatorPersonaCard: React.FC<CreatorPersonaCardProps> = ({
 
           <div className="flex items-center gap-1.5">
             {hasOverrides ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-clay/15 px-2 py-0.5 text-[10px] font-medium text-clay">
+              <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-medium text-violet-300">
                 <Sparkles className="size-2.5" />
                 Customized for video
               </span>
             ) : isProfileConfigured ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-sage/15 px-2 py-0.5 text-[10px] font-medium text-sage">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                 Active
               </span>
             ) : null}
@@ -89,7 +89,7 @@ export const CreatorPersonaCard: React.FC<CreatorPersonaCardProps> = ({
                 <span className="text-[10px] uppercase font-mono tracking-wider text-muted-foreground block">
                   Hook Style
                 </span>
-                <p className="font-medium text-sage truncate">
+                <p className="font-medium text-emerald-400 truncate">
                   {profile.preferred_hook_style}
                 </p>
               </div>
@@ -102,7 +102,7 @@ export const CreatorPersonaCard: React.FC<CreatorPersonaCardProps> = ({
             </p>
             <Link
               to="/settings"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-clay hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-violet-300 hover:underline"
             >
               <span>Complete creator profile</span>
               <ChevronRight className="size-3" />

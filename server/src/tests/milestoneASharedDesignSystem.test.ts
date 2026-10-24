@@ -46,27 +46,28 @@ describe('VireoClip — Milestone A: Shared Design System, Tokens & Navigation',
   const authLayoutContent = fs.readFileSync(authLayoutPath, 'utf-8');
 
   describe('1. Non-Auth Design Tokens Source of Truth', () => {
-    test('defines canonical Obsidian/Graphite tokens in src/index.css', () => {
-      assert.match(indexCssContent, /--vc-canvas:\s*#080B12;/, 'Canvas token must be #080B12');
-      assert.match(indexCssContent, /--vc-surface-1:\s*#0F1420;/, 'Surface 1 token must be #0F1420');
-      assert.match(indexCssContent, /--vc-surface-2:\s*#151C2C;/, 'Surface 2 token must be #151C2C');
-      assert.match(indexCssContent, /--vc-surface-3:\s*#1B2438;/, 'Surface 3 token must be #1B2438');
-      assert.match(indexCssContent, /--vc-border:\s*rgba\(255,\s*255,\s*255,\s*0\.07\);/, 'Subtle border must be rgba(255,255,255,0.07)');
-      assert.match(indexCssContent, /--vc-border-strong:\s*rgba\(255,\s*255,\s*255,\s*0\.12\);/, 'Strong border must be rgba(255,255,255,0.12)');
-      assert.match(indexCssContent, /--vc-text-primary:\s*#F4F6FB;/, 'Primary text must be #F4F6FB');
-      assert.match(indexCssContent, /--vc-text-secondary:\s*#94A3B8;/, 'Secondary text must be #94A3B8');
+    test('defines the canonical Black Glass tokens in src/index.css (no navy tint)', () => {
+      assert.match(indexCssContent, /--vc-canvas:\s*#000000;/, 'Canvas token must be pure black #000000');
+      assert.match(indexCssContent, /--vc-surface-1:\s*#0E0E0E;/, 'Surface 1 token must be #0E0E0E');
+      assert.match(indexCssContent, /--vc-surface-2:\s*#161616;/, 'Surface 2 token must be #161616');
+      assert.match(indexCssContent, /--vc-surface-3:\s*#1E1E1E;/, 'Surface 3 token must be #1E1E1E');
+      assert.match(indexCssContent, /--vc-border:\s*rgba\(255,\s*255,\s*255,\s*0\.08\);/, 'Subtle border must be rgba(255,255,255,0.08)');
+      assert.match(indexCssContent, /--vc-border-strong:\s*rgba\(255,\s*255,\s*255,\s*0\.14\);/, 'Strong border must be rgba(255,255,255,0.14)');
+      assert.match(indexCssContent, /--vc-text-primary:\s*#FAFAFA;/, 'Primary text must be #FAFAFA');
+      assert.match(indexCssContent, /--vc-text-secondary:\s*#A1A1AA;/, 'Secondary text must be zinc #A1A1AA');
+      assert.match(indexCssContent, /--vc-text-muted:\s*#71717A;/, 'Muted text must be zinc #71717A');
       assert.match(indexCssContent, /--vc-accent-ai:\s*#8B5CF6;/, 'AI accent must be #8B5CF6');
       assert.match(indexCssContent, /--vc-success:\s*#10B981;/, 'Success token must be #10B981');
       assert.match(indexCssContent, /--vc-warning:\s*#F59E0B;/, 'Warning token must be #F59E0B');
       assert.match(indexCssContent, /--vc-destructive:\s*#EF4444;/, 'Destructive token must be #EF4444');
-      assert.match(indexCssContent, /--vc-action-primary:\s*#F4F6FB;/, 'Primary action must be #F4F6FB');
-      assert.match(indexCssContent, /--vc-action-primary-text:\s*#0B0C0F;/, 'Primary action text must be #0B0C0F');
+      assert.match(indexCssContent, /--vc-action-primary:\s*#FAFAFA;/, 'Primary action must be #FAFAFA');
+      assert.match(indexCssContent, /--vc-action-primary-text:\s*#0A0A0A;/, 'Primary action text must be #0A0A0A');
     });
 
     test('tailwind.config.js exposes vc namespace mapped to CSS variables', () => {
-      assert.match(tailwindConfigContent, /canvas:\s*'var\(--vc-canvas\)'/);
-      assert.match(tailwindConfigContent, /surface1:\s*'var\(--vc-surface-1\)'/);
-      assert.match(tailwindConfigContent, /surface2:\s*'var\(--vc-surface-2\)'/);
+      assert.match(tailwindConfigContent, /canvas:\s*'rgb\(var\(--vc-canvas-rgb\) \/ <alpha-value>\)'/);
+      assert.match(tailwindConfigContent, /surface1:\s*'rgb\(var\(--vc-surface-1-rgb\) \/ <alpha-value>\)'/);
+      assert.match(tailwindConfigContent, /surface2:\s*'rgb\(var\(--vc-surface-2-rgb\) \/ <alpha-value>\)'/);
       assert.match(tailwindConfigContent, /'border':\s*'var\(--vc-border\)'|border:\s*'var\(--vc-border\)'/);
       assert.match(tailwindConfigContent, /'text-primary':\s*'var\(--vc-text-primary\)'/);
       assert.match(tailwindConfigContent, /ai:\s*'var\(--vc-accent-ai\)'/);
@@ -101,44 +102,43 @@ describe('VireoClip — Milestone A: Shared Design System, Tokens & Navigation',
 
   describe('3. Standardized Shared Components (Button, Input, Textarea, Select, Card)', () => {
     test('Button establishes clear semantic variants without making primary action violet', () => {
-      // Primary action uses titanium white #F4F6FB with dark text #0B0C0F
-      assert.match(buttonContent, /const neutralPrimaryClass =\s*['"]bg-\[#F4F6FB\] text-\[#0B0C0F\]/);
-      // AI action is reserved for AI features with violet gradient
-      assert.match(buttonContent, /const aiActionClass =\s*['"]bg-gradient-to-b from-\[#9B6BFF\] to-\[#7C3AED\]/);
-      // Secondary action uses surface 2 #151C2C with titanium text
-      assert.match(buttonContent, /secondary:\s*['"]bg-\[#151C2C\] hover:bg-\[#1C253B\] text-\[#F4F6FB\]/);
-      // Destructive uses rose/red
-      assert.match(buttonContent, /destructive:\s*['"]bg-rose-600/);
+      // Primary and AI variants come from the shared pill recipes.
+      assert.match(buttonContent, /default:\s*BTN_PILL_PRIMARY/);
+      assert.match(buttonContent, /primary:\s*BTN_PILL_PRIMARY/);
+      assert.match(buttonContent, /ai:\s*BTN_PILL_AI/);
+      assert.match(buttonContent, /secondary:\s*BTN_PILL_SECONDARY/);
+      assert.match(buttonContent, /destructive:\s*BTN_PILL_DESTRUCTIVE/);
+      assert.ok(!/bg-gradient-to/.test(buttonContent), 'Button must not use gradients');
     });
 
-    test('Input uses consistent height, curved glass surface, and visible focus ring', () => {
+    test('Input uses consistent height, recessed surface, and visible focus ring', () => {
       assert.match(inputContent, /h-10/);
       assert.match(inputContent, /rounded-xl/);
-      assert.match(inputContent, /bg-\[#0F1420\]/);
-      assert.match(inputContent, /text-\[#F4F6FB\]/);
+      assert.match(inputContent, /bg-white\/\[0\.03\]/);
+      assert.match(inputContent, /text-vc-text-primary/);
       assert.match(inputContent, /focus-visible:ring-2/);
       assert.match(inputContent, /border-white\/\[0\.08\]/);
     });
 
     test('Textarea matches Input styling and curvature', () => {
       assert.match(textareaContent, /rounded-xl/);
-      assert.match(textareaContent, /bg-\[#0F1420\]/);
-      assert.match(textareaContent, /text-\[#F4F6FB\]/);
+      assert.match(textareaContent, /bg-white\/\[0\.03\]/);
+      assert.match(textareaContent, /text-vc-text-primary/);
       assert.match(textareaContent, /focus-visible:ring-2/);
     });
 
     test('Select matches Input dimensions and provides custom chevron', () => {
       assert.match(selectContent, /h-10/);
       assert.match(selectContent, /rounded-xl/);
-      assert.match(selectContent, /bg-\[#0F1420\]/);
+      assert.match(selectContent, /bg-white\/\[0\.03\]/);
       assert.match(selectContent, /ChevronDown/);
     });
 
-    test('Card and SpotlightCard use consistent token-driven surfaces and borders', () => {
+    test('Card and SpotlightCard use token-driven surfaces without decorative outlines', () => {
       assert.match(cardContent, /bg-card/);
-      assert.match(cardContent, /border-border/);
+      assert.ok(!/border border-border/.test(cardContent), 'Card must not draw an outline');
       assert.match(spotlightCardContent, /bg-card/);
-      assert.match(spotlightCardContent, /border-border/);
+      assert.ok(!/border border-border/.test(spotlightCardContent), 'SpotlightCard must not draw an outline');
     });
   });
 

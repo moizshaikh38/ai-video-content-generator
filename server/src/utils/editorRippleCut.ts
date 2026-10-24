@@ -12,7 +12,8 @@ export type AnyCaptionCue = TimedCaptionCue | {
   end: number;
   text: string;
   words?: Array<{
-    word: string;
+    word?: string;
+    text?: string;
     start: number;
     end: number;
     confidence?: number;
@@ -39,15 +40,19 @@ export function sliceAndShiftCues<T extends AnyCaptionCue>(
       continue;
     }
 
-    // 2. Completely after cut: shift timestamps left by cutDuration
-    if (cue.start >= cutEnd) {
-      const shiftedWords = Array.isArray(cue.words)
-        ? cue.words.map((w) => ({
-            ...w,
-            start: Math.max(0, Number((w.start - cutDuration).toFixed(3))),
-            end: Math.max(0.05, Number((w.end - cutDuration).toFixed(3))),
-          }))
-        : cue.words;
+      // 2. Completely after cut: shift timestamps left by cutDuration
+      if (cue.start >= cutEnd) {
+        const shiftedWords = Array.isArray(cue.words)
+          ? cue.words.map((w) => ({
+              ...w,
+              // Normalize both text shapes (parity with the frontend copy —
+              // locked by rippleCutParity.test.ts).
+              text: w.text || w.word || '',
+              word: w.word || w.text || '',
+              start: Math.max(0, Number((w.start - cutDuration).toFixed(3))),
+              end: Math.max(0.05, Number((w.end - cutDuration).toFixed(3))),
+            }))
+          : cue.words;
 
       result.push({
         ...cue,
@@ -68,24 +73,29 @@ export function sliceAndShiftCues<T extends AnyCaptionCue>(
       const survivingWords = cue.words
         .filter((w) => !(w.start >= cutStart && w.end <= cutEnd))
         .map((w) => {
+          const wordText = w.text || w.word || '';
           if (w.start >= cutEnd) {
             return {
               ...w,
+              text: wordText,
+              word: wordText,
               start: Math.max(0, Number((w.start - cutDuration).toFixed(3))),
               end: Math.max(0.05, Number((w.end - cutDuration).toFixed(3))),
             };
           }
           if (w.start < cutStart && w.end > cutStart && w.end <= cutEnd) {
-            return { ...w, end: Number(cutStart.toFixed(3)) };
+            return { ...w, text: wordText, word: wordText, end: Number(cutStart.toFixed(3)) };
           }
           if (w.start >= cutStart && w.start < cutEnd && w.end > cutEnd) {
             return {
               ...w,
+              text: wordText,
+              word: wordText,
               start: Number(cutStart.toFixed(3)),
               end: Math.max(cutStart + 0.05, Number((w.end - cutDuration).toFixed(3))),
             };
           }
-          return w;
+          return { ...w, text: wordText, word: wordText };
         });
 
       if (survivingWords.length > 0) {
@@ -288,6 +298,76 @@ export function partitionCaptionCues(
     : rightCues;
 
   return { leftCues, rightCues: finalRightCues };
+}
+
+export interface RippleDeleteCaptionItem {
+  timeline_start: number;
+  timeline_end: number;
+  caption?: { cues?: AnyCaptionCue[] } | null;
+}
+
+/**
+ * Closes a ripple-delete gap ([deletePoint, deletePoint + duration)) across CAPTION
+ * track items, keeping item bounds and cue times consistent:
+ * - Items entirely before the deleted range are returned untouched.
+ * - Items entirely at/after the delete point shift both bounds and all cues left by `duration`.
+ * - Items spanning the delete point keep their start, lose `duration` from their end,
+ *   and have cues inside the range excised via sliceAndShiftCues.
+ *
+ * This is the item-level counterpart to the media-item branch of ripple deletion;
+ * without the before/after guard, items preceding the cut lose duration they never contained.
+ */
+export function shiftCaptionItemsForRippleDelete<T extends RippleDeleteCaptionItem>(
+  items: T[],
+  deletePoint: number,
+  duration: number
+): T[] {
+  if (!Number.isFinite(duration) || duration <= 0) return items;
+  const cutEnd = deletePoint + duration;
+
+  return items.map((item) => {
+    // Entirely before the deleted range: untouched.
+    if (item.timeline_end <= deletePoint) return item;
+
+    const next: T = { ...item };
+    // Items at/after the delete point slide left with the timeline, like media items.
+    if (item.timeline_start >= deletePoint) {
+      next.timeline_start = Math.max(0, Number((item.timeline_start - duration).toFixed(3)));
+    }
+    next.timeline_end = Math.max(0, Number((item.timeline_end - duration).toFixed(3)));
+
+    const cues = item.caption?.cues;
+    if (Array.isArray(cues)) {
+      next.caption = {
+        ...(item.caption as Record<string, unknown>),
+        cues: sliceAndShiftCues(cues, deletePoint, cutEnd, duration),
+      } as T['caption'];
+    }
+    return next;
+  });
+}
+
+/**
+ * Produces an independent copy of caption cues for a duplicated timeline item:
+ * cue/word times are rebased by `offset` (the placement delta) and cue IDs are
+ * regenerated so the export aggregation's seen-ID de-duplication cannot drop
+ * the duplicate's cues.
+ */
+export function cloneCaptionCuesForDuplicate<T extends AnyCaptionCue>(cues: T[], offset: number): T[] {
+  const safeOffset = Number.isFinite(offset) ? offset : 0;
+  return cues.map((cue) => ({
+    ...cue,
+    id: cue.id ? crypto.randomUUID() : cue.id,
+    start: Number((cue.start + safeOffset).toFixed(3)),
+    end: Number((cue.end + safeOffset).toFixed(3)),
+    words: Array.isArray(cue.words)
+      ? cue.words.map((w) => ({
+          ...w,
+          start: Number((w.start + safeOffset).toFixed(3)),
+          end: Number((w.end + safeOffset).toFixed(3)),
+        }))
+      : cue.words,
+  }));
 }
 
 /**

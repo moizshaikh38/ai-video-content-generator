@@ -366,6 +366,8 @@ export interface GenreProfileConfig {
     audio: number;
     visual: number;
   };
+  /** MMR diversity pressure for final selection (0 relevance-only, 1 strongest). Absent = 0.5. */
+  redundancyPenalty?: number;
   reframeConfig: {
     maxVelocity: number;
     smoothingAlpha: number;
@@ -442,11 +444,13 @@ export interface AIClipCandidate {
 
   category: ClipCandidateCategory;
 
-  hook_score: number;
-  standalone_score: number;
-  insight_score: number;
-  emotion_score: number;
-  platform_score: number;
+  // LLM subscores: absent when the model omitted them (never fabricated —
+  // scoring renormalizes over the dimensions actually returned).
+  hook_score?: number;
+  standalone_score?: number;
+  insight_score?: number;
+  emotion_score?: number;
+  platform_score?: number;
 }
 
 export interface AIClipAnalysisResponse {
@@ -1343,9 +1347,11 @@ export interface PlatformFitDetail {
 
 export interface VireoClipScoreExplanation {
   overall_score: number; // 0–100
-  hook_score: number; // 0–100
-  standalone_score: number; // 0–100
-  insight_score: number; // 0–100
+  // LLM-derived dimensions: null when the model did not return a subscore
+  // (weight is redistributed across the scored dimensions — no fabricated defaults).
+  hook_score: number | null;
+  standalone_score: number | null;
+  insight_score: number | null;
   visual_activity_score: number; // 0–100
   audio_energy_score: number; // 0–100
   platform_fit_score: number; // 0–100

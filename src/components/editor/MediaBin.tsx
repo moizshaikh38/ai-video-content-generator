@@ -338,7 +338,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
             <Film className="w-4 h-4 text-vc-text-secondary" />
             <span className="text-sm">B-Roll Studio</span>
           </div>
-          <div className="text-[10px] text-vc-text-secondary font-mono px-2 py-0.5 rounded bg-white/[0.04] border border-vc-border">
+          <div className="text-[10px] text-vc-text-secondary font-mono px-2 py-0.5 rounded bg-white/[0.04] ">
             Playhead: {currentTime.toFixed(1)}s
           </div>
         </div>
@@ -414,7 +414,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
           <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
             {/* Pinned Source Footage Card */}
             {librarySubTab === 'Project' && sourceVideoUrl && (
-              <div className="p-2.5 rounded-xl bg-vc-canvas border border-white/[0.12] hover:border-white/25 transition flex flex-col gap-2 shadow-sm">
+              <div className="p-2.5 rounded-xl bg-vc-canvas transition flex flex-col gap-2 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 font-medium text-white truncate max-w-[190px]">
                     <Video className="w-3.5 h-3.5 text-vc-text-secondary shrink-0" />
@@ -428,7 +428,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
                   <button
                     type="button"
                     onClick={() => onAddMediaToTimeline('VIDEO', 'Source Video Track', sourceVideoUrl, project.canvas.duration || 10)}
-                    className="flex-1 py-1.5 rounded-lg bg-[#F4F6FB] text-[#0B0C0F] hover:bg-white font-medium flex items-center justify-center gap-1 transition shadow-sm"
+                    className="flex-1 py-1.5 rounded-lg bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] text-white hover:bg-vc-ai font-medium flex items-center justify-center gap-1 transition shadow-sm"
                   >
                     <Plus className="w-3 h-3" />
                     <span>Add to Timeline</span>
@@ -463,7 +463,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
               mediaItems.map((item) => (
                 <div
                   key={item.id}
-                  className="p-2.5 rounded-xl bg-vc-surface2/60 border border-vc-border hover:border-vc-border-strong transition-colors flex flex-col gap-2 group"
+                  className="p-2.5 rounded-xl bg-vc-surface2/60 transition-colors flex flex-col gap-2 group"
                 >
                   <div className="flex items-start gap-2.5">
                     <AssetThumb item={item} />
@@ -566,14 +566,14 @@ export const MediaBin: React.FC<MediaBinProps> = ({
                   type="button"
                   disabled={isDetectingBroll}
                   onClick={handleDetectBroll}
-                  className="w-full py-2 rounded-xl bg-[#F4F6FB] text-[#0B0C0F] hover:bg-white disabled:opacity-50 font-semibold flex items-center justify-center gap-1.5 transition shadow-md shadow-black/40"
+                  className="w-full py-2 rounded-full bg-vc-ai-hover text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai active:bg-violet-700 disabled:opacity-50 font-semibold flex items-center justify-center gap-1.5 transition shadow-md shadow-black/40"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>{isDetectingBroll ? 'Detecting Moments...' : 'Detect & Plan B-Roll'}</span>
                 </button>
 
                 {brollMessage && (
-                  <div className="text-[10px] p-2 rounded-lg bg-white/[0.08] border border-white/[0.12] text-white">
+                  <div className="text-[10px] p-2 rounded-lg bg-white/[0.08] text-white">
                     {brollMessage}
                   </div>
                 )}
@@ -612,7 +612,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
                       return (
                         <div
                           key={sug.id || idx}
-                          className="p-2.5 rounded-xl bg-vc-canvas border border-vc-border hover:border-white/20 transition flex flex-col gap-2 shadow-sm"
+                          className="p-2.5 rounded-xl bg-vc-canvas transition flex flex-col gap-2 shadow-sm"
                         >
                           {/* Interval & Concept Header */}
                           <div className="flex items-center justify-between">
@@ -636,7 +636,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
 
                           {/* Candidate Asset Info */}
                           {asset && (
-                            <div className="p-1.5 rounded-lg bg-white/[0.04] border border-vc-border flex items-center justify-between text-[10px]">
+                            <div className="p-1.5 rounded-lg bg-white/[0.04] flex items-center justify-between text-[10px]">
                               <span className="truncate max-w-[160px] text-vc-text-secondary">{asset.title}</span>
                               <span className="text-vc-text-secondary font-mono">
                                 {asset.duration ? `${asset.duration.toFixed(1)}s` : asset.aspect_ratio || '9:16'}
@@ -693,7 +693,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
 
               {/* Provider Notices when keys are missing */}
               {stockCap?.status === 'NOT_CONFIGURED' && (
-                <div className="p-3.5 rounded-xl bg-vc-canvas border border-amber-500/30 text-vc-text-secondary flex flex-col gap-2">
+                <div className="p-3.5 rounded-xl bg-vc-canvas text-vc-text-secondary flex flex-col gap-2">
                   <div className="flex items-center gap-2 text-amber-400 font-medium">
                     <ShieldAlert className="w-4 h-4 shrink-0" />
                     <span>Stock Provider Not Configured</span>
@@ -703,14 +703,14 @@ export const MediaBin: React.FC<MediaBinProps> = ({
                     <code className="text-amber-300 bg-neutral-900 px-1 py-0.5 rounded">PEXELS_API_KEY</code> or{' '}
                     <code className="text-amber-300 bg-neutral-900 px-1 py-0.5 rounded">PIXABAY_API_KEY</code> in your environment.
                   </p>
-                  <div className="text-[10px] text-vc-text-secondary bg-white/[0.03] p-2 rounded-lg border border-vc-border">
+                  <div className="text-[10px] text-vc-text-secondary bg-white/[0.03] p-2 rounded-lg ">
                     Real project source footage, clips, and local uploads remain fully available in the Media Library.
                   </div>
                 </div>
               )}
 
               {genCap?.status === 'NOT_CONFIGURED' && (
-                <div className="p-3.5 rounded-xl bg-vc-canvas border border-amber-500/30 text-vc-text-secondary flex flex-col gap-2">
+                <div className="p-3.5 rounded-xl bg-vc-canvas text-vc-text-secondary flex flex-col gap-2">
                   <div className="flex items-center gap-2 text-amber-400 font-medium">
                     <ShieldAlert className="w-4 h-4 shrink-0" />
                     <span>AI Generation Not Configured</span>
@@ -754,7 +754,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
                   stockItems.map((item) => (
                     <div
                       key={item.id}
-                      className="p-2.5 rounded-xl bg-vc-canvas border border-vc-border hover:border-white/20 transition flex flex-col gap-2 shadow-sm"
+                      className="p-2.5 rounded-xl bg-vc-canvas transition flex flex-col gap-2 shadow-sm"
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-white truncate max-w-[180px]">{item.title}</span>
@@ -767,7 +767,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
                         <button
                           type="button"
                           onClick={() => handleInsertDirectAsset(item)}
-                          className="flex-1 py-1 rounded-lg bg-[#F4F6FB] text-[#0B0C0F] hover:bg-white font-medium flex items-center justify-center gap-1 transition text-xs shadow-sm"
+                          className="flex-1 py-1 rounded-lg bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] text-white hover:bg-vc-ai font-medium flex items-center justify-center gap-1 transition text-xs shadow-sm"
                         >
                           <Plus className="w-3 h-3" />
                           <span>Place at {currentTime.toFixed(1)}s</span>
@@ -793,8 +793,8 @@ export const MediaBin: React.FC<MediaBinProps> = ({
 
       {/* Asset Preview Modal */}
       {previewItem && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-vc-surface1 border border-vc-border rounded-xl max-w-md w-full overflow-hidden flex flex-col shadow-2xl">
+        <div className="fixed inset-0 glass-scrim glass-scrim-deep z-50 flex items-center justify-center p-4">
+          <div className="glass-float rounded-2xl max-w-md w-full overflow-hidden flex flex-col">
             <div className="p-3 border-b border-white/[0.08] flex items-center justify-between">
               <span className="font-semibold text-white truncate text-xs">{previewItem.title}</span>
               <button
@@ -842,7 +842,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
                   handleInsertDirectAsset(previewItem);
                   setPreviewItem(null);
                 }}
-                className="px-3.5 py-1.5 rounded-xl bg-[#F4F6FB] text-[#0B0C0F] hover:bg-white font-medium flex items-center gap-1 shadow-md shadow-black/50 text-xs"
+                className="px-3.5 py-1.5 rounded-xl bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] text-white hover:bg-vc-ai font-medium flex items-center gap-1 shadow-md shadow-black/50 text-xs"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Insert into Timeline</span>

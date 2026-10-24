@@ -18,9 +18,18 @@ export interface ScoreCandidateInput {
   reason?: string;
   category?: ClipCandidateCategory;
   timeline?: MultimodalTimeline | null;
-  baseHookScore?: number;
-  baseStandaloneScore?: number;
-  baseInsightScore?: number;
+  baseHookScore?: number | null;
+  baseStandaloneScore?: number | null;
+  baseInsightScore?: number | null;
+  /**
+   * Contextual completeness (genre roadmap Phase 4): the transcript segment
+   * immediately before the candidate, when one exists. If it poses a question
+   * the candidate answers without including it, standalone clarity is
+   * penalized mechanically (podcast safeguard made measurable, not just prompted).
+   */
+  precedingSegment?: { text: string; end: number } | null;
+  /** Concatenated transcript text INSIDE the candidate window. */
+  candidateText?: string;
   genreProfile?: GenreProfileConfig;
   contentGoal?: ContentGoal;
 }
@@ -49,9 +58,11 @@ export class MultimodalScoringService {
       end_seconds: rawEnd,
       hook,
       timeline,
-      baseHookScore = 75,
-      baseStandaloneScore = 75,
-      baseInsightScore = 75,
+      baseHookScore,
+      baseStandaloneScore,
+      baseInsightScore,
+      precedingSegment,
+      candidateText,
       genreProfile: incomingGenreProfile,
       contentGoal,
     } = input;
@@ -169,29 +180,54 @@ export class MultimodalScoringService {
     }
 
     // 3. Compute Component Scores (0–100)
+    // LLM-derived components: when the model did not return a subscore, the
+    // dimension is dropped from the blend and its genre weight is redistributed
+    // (no fabricated mid-scale defaults). Signal bonuses only apply to a base
+    // that actually exists.
+    const clampScore = (v: number) => Math.min(100, Math.max(0, v));
+    const hasBase = (v: number | null | undefined): v is number =>
+      typeof v === 'number' && Number.isFinite(v);
+
     // Hook Score
-    let hook_score = baseHookScore;
-    if (hasFaceInHook) hook_score += 8;
-    if (visualActivityScore >= 70) hook_score += 5;
-    if (hook && hook.length >= 10) hook_score += 4;
-    hook_score = Math.min(100, Math.max(0, hook_score));
+    let hook_score: number | null = hasBase(baseHookScore) ? clampScore(baseHookScore) : null;
+    if (hook_score !== null) {
+      if (hasFaceInHook) hook_score = clampScore(hook_score + 8);
+      if (visualActivityScore >= 70) hook_score = clampScore(hook_score + 5);
+      if (hook && hook.length >= 10) hook_score = clampScore(hook_score + 4);
+    }
 
     // Standalone Score
-    let standalone_score = baseStandaloneScore;
-    if (hasCleanSilenceEnd) standalone_score += 10;
     const targetMin = genreProfile.targetDuration.min;
     const targetMax = genreProfile.targetDuration.max;
-    if (duration_seconds >= targetMin && duration_seconds <= targetMax) {
-      standalone_score += 8;
-    } else if (duration_seconds < targetMin || duration_seconds > targetMax + 10) {
-      standalone_score -= 8;
+    let standalone_score: number | null = hasBase(baseStandaloneScore) ? clampScore(baseStandaloneScore) : null;
+    let contextPenaltyApplied = false;
+    if (standalone_score !== null) {
+      if (hasCleanSilenceEnd) standalone_score = clampScore(standalone_score + 10);
+      if (duration_seconds >= targetMin && duration_seconds <= targetMax) {
+        standalone_score = clampScore(standalone_score + 8);
+      } else if (duration_seconds < targetMin || duration_seconds > targetMax + 10) {
+        standalone_score = clampScore(standalone_score - 8);
+      }
+      // The clip answers a question posed immediately before it without including
+      // the setup — a new viewer lacks the antecedent.
+      const answersUnheardQuestion =
+        precedingSegment &&
+        typeof precedingSegment.text === 'string' &&
+        precedingSegment.text.includes('?') &&
+        start_seconds >= precedingSegment.end &&
+        start_seconds - precedingSegment.end <= 2.5 &&
+        !(typeof candidateText === 'string' && candidateText.includes('?'));
+      if (answersUnheardQuestion) {
+        standalone_score = clampScore(standalone_score - 10);
+        contextPenaltyApplied = true;
+      }
     }
-    standalone_score = Math.min(100, Math.max(0, standalone_score));
 
     // Insight / Value Score
-    let insight_score = baseInsightScore;
-    if (hasOcrText) insight_score += 6; // visual slide or graphic reinforcing concept
-    insight_score = Math.min(100, Math.max(0, insight_score));
+    let insight_score: number | null = hasBase(baseInsightScore) ? clampScore(baseInsightScore) : null;
+    if (insight_score !== null && hasOcrText) {
+      insight_score = clampScore(insight_score + 6); // visual slide or graphic reinforcing concept
+    }
 
     // Visual Activity Score
     let visual_activity_score = visualActivityScore;
@@ -206,14 +242,24 @@ export class MultimodalScoringService {
     else if (duration_seconds <= 60) platform_fit_score = 85;
     else platform_fit_score = 70;
 
-    // 4. Overall Weighted Score (Using Genre-Specific Scoring Weights)
+    // 4. Overall Weighted Score (genre-specific weights, renormalized over the
+    // dimensions that were actually scored)
     const weights = genreProfile.scoringWeights;
+    const weightedDims: Array<{ label: string; weight: number; value: number | null }> = [
+      { label: 'hook', weight: weights.hook, value: hook_score },
+      { label: 'standalone', weight: weights.standalone, value: standalone_score },
+      { label: 'insight', weight: weights.insight, value: insight_score },
+      { label: 'visual', weight: weights.visual, value: visual_activity_score },
+      { label: 'audio', weight: weights.audio, value: audio_energy_score },
+    ];
+    const scoredDims = weightedDims.filter(
+      (d): d is { label: string; weight: number; value: number } => d.value !== null
+    );
+    const weightSum = scoredDims.reduce((acc, d) => acc + d.weight, 0);
     const baseWeighted =
-      hook_score * weights.hook +
-      standalone_score * weights.standalone +
-      insight_score * weights.insight +
-      visual_activity_score * weights.visual +
-      audio_energy_score * weights.audio;
+      weightSum > 0
+        ? scoredDims.reduce((acc, d) => acc + d.weight * d.value, 0) / weightSum
+        : 60;
 
     const overall_score = Math.round(baseWeighted * 0.90 + platform_fit_score * 0.10);
 
@@ -222,6 +268,10 @@ export class MultimodalScoringService {
 
     // Genre-specific reason
     reasons.push(`Targeted for ${genreProfile.displayName}: ${genreProfile.selectionObjective}`);
+
+    if (contextPenaltyApplied) {
+      reasons.push('Clip answers a question posed immediately before it without including that setup; standalone clarity penalized.');
+    }
 
     if (contentGoal) {
       const formattedGoal = contentGoal.replace(/_/g, ' ');
@@ -276,7 +326,7 @@ export class MultimodalScoringService {
       },
       linkedin: {
         suitable: true,
-        score: Math.min(100, insight_score + 5),
+        score: Math.min(100, (insight_score ?? 50) + 5),
         recommended_ratio: '1:1',
         reason: 'Substantive professional insight suitable for feed autoplay with captions',
       },
@@ -305,6 +355,14 @@ export class MultimodalScoringService {
       reasons,
       platform_suitability,
     };
+
+    // Transparency: record which LLM dimensions were missing so weight
+    // redistribution is auditable from the stored explanation alone.
+    for (const d of weightedDims) {
+      if (d.value === null) {
+        reasons.push(`LLM did not return a ${d.label} subscore; its genre weight was redistributed across the scored dimensions.`);
+      }
+    }
 
     return {
       start_seconds,

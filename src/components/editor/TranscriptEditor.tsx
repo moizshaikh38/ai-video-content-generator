@@ -594,12 +594,12 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
 
   return (
     <div
-      className="flex flex-col h-full bg-[#07080D] text-neutral-200 select-none relative"
+      className="flex flex-col h-full bg-vc-canvas text-neutral-200 select-none relative"
       onClick={clearSelection}
     >
       {/* 1. OPUS-STYLE ELEVATED HEADER WITH SPEECH CLEANUP & ACTIONS */}
       <div
-        className="h-11 px-3 shrink-0 flex items-center justify-between border-b border-white/[0.06] bg-[#090A10]/95 backdrop-blur-md z-10"
+        className="h-11 px-3 shrink-0 flex items-center justify-between border-b border-white/[0.06] bg-vc-surface1/95 backdrop-blur-md z-10"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Left: Speech Cleanup Action Pill */}
@@ -653,7 +653,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
           {/* Download Transcript */}
           <button
             onClick={handleExportSrt}
-            className="w-7 h-7 rounded-md flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors"
             title="Download Transcript (.srt)"
           >
             <Download className="w-3.5 h-3.5" />
@@ -674,7 +674,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
             </button>
 
             {isOverflowOpen && (
-              <div className="absolute right-0 top-8 w-48 rounded-lg bg-[#12141C] border border-white/[0.1] shadow-xl py-1 text-xs z-30 animate-fadeIn">
+              <div className="absolute right-0 top-8 w-48 rounded-lg bg-vc-surface2 shadow-xl py-1 text-xs z-30 animate-fadeIn">
                 <button
                   onClick={handleCleanAllFillers}
                   className="w-full px-3 py-1.5 text-left text-neutral-300 hover:text-white hover:bg-white/[0.06] flex items-center gap-2"
@@ -704,7 +704,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
           {onToggleCollapse && (
             <button
               onClick={onToggleCollapse}
-              className="w-7 h-7 rounded-md text-neutral-500 hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors ml-0.5"
+              className="w-7 h-7 rounded-lg text-neutral-500 hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors ml-0.5"
               title="Hide transcript dock"
             >
               <PanelRightClose className="w-3.5 h-3.5" />
@@ -716,7 +716,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
       {/* 2. COLLAPSIBLE SEARCH BAR */}
       {isSearchOpen && (
         <div
-          className="px-3 py-2 border-b border-white/[0.06] bg-[#090A0F]/80 backdrop-blur-sm animate-fadeIn"
+          className="px-3 py-2 border-b border-white/[0.06] bg-vc-surface1/80 backdrop-blur-sm animate-fadeIn"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="relative flex items-center">
@@ -727,7 +727,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search words in transcript..."
               autoFocus
-              className="w-full bg-[#12141C] border border-white/[0.08] rounded-lg pl-8 pr-7 py-1 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-white/25 focus:ring-1 focus:ring-white/10"
+              className="w-full bg-vc-surface2 border border-white/[0.08] rounded-lg pl-8 pr-7 py-1 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-white/25 focus:ring-1 focus:ring-white/10"
             />
             {searchQuery && (
               <button
@@ -870,7 +870,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
                       isActiveCue
                         ? 'bg-violet-400'
                         : isCueSelected
-                        ? 'bg-sky-400/60'
+                        ? 'bg-white/50'
                         : 'bg-transparent group-hover/cue:bg-white/10'
                     }`}
                   />
@@ -878,7 +878,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
                   {/* Sentence Metadata Header (Speaker + Timings + Quiet Actions) */}
                   <div className="flex items-center justify-between text-[11px] mb-1.5 select-none">
                     <div className="flex items-center gap-2">
-                      <span className="text-[9px] font-semibold tracking-wider uppercase text-neutral-400 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06]">
+                      <span className="text-[9px] font-semibold tracking-wider uppercase text-neutral-400 bg-white/[0.04] px-1.5 py-0.5 rounded ">
                         Speaker 1
                       </span>
                       {showTimings && (
@@ -906,7 +906,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
                             const val = e.target.value as CaptionPresetId | '';
                             onUpdateCuePreset?.(cue.id, val ? val : undefined);
                           }}
-                          className={`bg-[#0B0D14] border text-[9px] font-mono rounded px-1.5 py-0.5 cursor-pointer focus:outline-none transition-colors ${
+                          className={`bg-vc-surface1 border text-[9px] font-mono rounded px-1.5 py-0.5 cursor-pointer focus:outline-none transition-colors ${
                             cue.presetOverride
                               ? 'border-violet-500/50 text-violet-300 bg-violet-950/20'
                               : 'border-white/[0.08] text-neutral-500 hover:text-neutral-300'
@@ -970,7 +970,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
                           }
                         }}
                         rows={2}
-                        className="w-full bg-[#10121A] border border-white/20 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-white/40 leading-relaxed resize-none"
+                        className="w-full bg-vc-surface1 border border-white/20 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-white/40 leading-relaxed resize-none"
                         autoFocus
                       />
                       <div className="flex items-center justify-between">
@@ -1027,7 +1027,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
                                 autoFocus
                                 onClick={(e) => e.stopPropagation()}
                                 onPointerDown={(e) => e.stopPropagation()}
-                                className="bg-[#141721] border border-white/60 text-white rounded px-1.5 py-0.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-white/90 inline-block min-w-[50px] shadow-sm mr-1 select-text"
+                                className="bg-vc-surface2 border border-white/60 text-white rounded px-1.5 py-0.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-white/90 inline-block min-w-[50px] shadow-sm mr-1 select-text"
                               />
                             );
                           }
@@ -1039,10 +1039,10 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
                           let wordClass = 'hover:bg-white/[0.08] text-neutral-200';
                           if (isWordPlaying && isWordSelected) {
                             wordClass =
-                              'bg-sky-500/30 text-white font-medium ring-1 ring-violet-400/80 border-b-2 border-sky-300 shadow-sm';
+                              'bg-white/[0.16] text-white font-medium ring-1 ring-violet-400/80 border-b-2 border-white/70 shadow-sm';
                           } else if (isWordSelected) {
                             wordClass =
-                              'bg-sky-500/20 text-sky-100 border-b-2 border-sky-400/80 font-medium shadow-sm';
+                              'bg-white/[0.12] text-white border-b-2 border-white/60 font-medium shadow-sm';
                           } else if (isWordPlaying) {
                             wordClass =
                               'bg-violet-500/25 text-white border-b border-violet-400 font-medium shadow-sm';
@@ -1073,7 +1073,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
 
                               {/* Duration Badge (Opus.pro style) */}
                               {showTimings && wordDur > 0.3 && (
-                                <span className="inline-flex items-center text-[9px] font-mono px-1 py-0.2 rounded bg-white/[0.06] border border-white/[0.08] text-neutral-400 mx-0.5 select-none opacity-80 hover:opacity-100">
+                                <span className="inline-flex items-center text-[9px] font-mono px-1 py-0.2 rounded bg-white/[0.06] text-neutral-400 mx-0.5 select-none opacity-80 hover:opacity-100">
                                   {wordDur}s
                                 </span>
                               )}
@@ -1118,7 +1118,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
                   {confirmDeleteId === cue.id && (
                     <div
                       onClick={(e) => e.stopPropagation()}
-                      className="mt-2 p-2 rounded-lg bg-[#141620] border border-rose-500/30 flex items-center justify-between text-xs animate-fadeIn"
+                      className="mt-2 p-2 rounded-lg bg-vc-surface2 border border-rose-500/30 flex items-center justify-between text-xs animate-fadeIn"
                     >
                       <span className="text-neutral-300 text-[11px]">Delete cue:</span>
                       <div className="flex items-center gap-1.5">
@@ -1169,7 +1169,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
                   activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
               }}
-              className="pointer-events-auto flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#141622]/90 hover:bg-[#1A1D2B] text-neutral-200 hover:text-white text-[11px] font-medium shadow-lg border border-white/[0.12] backdrop-blur-md transition-all select-none group"
+              className="pointer-events-auto flex items-center gap-1.5 px-3 py-1 rounded-full bg-vc-surface2/90 hover:bg-vc-surface3 text-neutral-200 hover:text-white text-[11px] font-medium shadow-lg border border-white/[0.12] backdrop-blur-md transition-all select-none group"
               title="Resume following playback"
             >
               <ArrowDown className="w-3 h-3 text-neutral-400 group-hover:text-white transition-colors" />
@@ -1186,7 +1186,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
       {selectionRange && selectionRange.count >= 2 && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="p-2.5 border-t border-white/[0.08] bg-[#0E1017]/95 backdrop-blur-md z-30 flex flex-col gap-2 select-none shadow-2xl"
+          className="p-2.5 border-t border-white/[0.08] bg-vc-surface1/95 backdrop-blur-md z-30 flex flex-col gap-2 select-none shadow-2xl"
         >
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
@@ -1194,11 +1194,11 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
                 {selectionRange.count} words • {selectionRange.duration}s
               </span>
               {selectionRange.isValid ? (
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-medium">
+                <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/15 text-emerald-300 font-medium">
                   Valid Clip
                 </span>
               ) : (
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/15 border border-amber-500/30 text-amber-300 font-medium">
+                <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/15 text-amber-300 font-medium">
                   &lt; 0.5s
                 </span>
               )}
@@ -1206,7 +1206,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
 
             <button
               onClick={clearSelection}
-              className="p-1 rounded text-neutral-400 hover:text-white transition-colors"
+              className="p-1 rounded-lg text-neutral-400 hover:text-white transition-colors"
               title="Clear Selection (Esc)"
             >
               <X className="w-3.5 h-3.5" />
@@ -1252,7 +1252,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
           </div>
 
           {showRangeCutModal && (
-            <div className="mt-1 p-2 rounded-lg bg-[#141620] border border-rose-500/30 flex flex-col gap-2 text-xs">
+            <div className="mt-1 p-2 rounded-lg bg-vc-surface2 flex flex-col gap-2 text-xs">
               <span className="text-neutral-300 text-[11px]">
                 Cut {selectionRange.count} words ({selectionRange.duration}s):
               </span>

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Loader2, Film } from 'lucide-react';
 import { frameIndexForTime, useClipThumbnails, ThumbnailStripData } from '../../lib/thumbnails';
+import { CapturedFrame, nearestFrame, useVideoFrameStrip } from '../../lib/videoFrameStrip';
 
 export interface FilmstripClipProps {
   clipId: string | null | undefined;
@@ -15,7 +16,46 @@ export interface FilmstripClipProps {
   enabled: boolean;
   /** Instant preview thumbnail poster while sprite is generating */
   thumbnailUrl?: string | null;
+  /** Source video the preview plays (absolute source time). Frames are grabbed from it in
+   *  the browser so the strip appears immediately, before the server sprite is ready. */
+  videoSrc?: string | null;
 }
+
+/** Draws browser-captured frames across the item while the server sprite is generating. */
+const LiveFramesCanvas: React.FC<{ frames: CapturedFrame[]; sourceStart: number; sourceEnd: number; width: number }> = ({
+  frames,
+  sourceStart,
+  sourceEnd,
+  width,
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !frames.length) return;
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const cssH = canvas.clientHeight;
+    const cssW = canvas.clientWidth;
+    if (cssW <= 0 || cssH <= 0) return;
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+
+    const sample = frames[0].canvas;
+    const displayW = Math.max(8, cssH * (sample.width / sample.height));
+    const cells = Math.max(1, Math.ceil(cssW / displayW));
+    const span = Math.max(0.001, sourceEnd - sourceStart);
+    for (let k = 0; k < cells; k++) {
+      const frame = nearestFrame(frames, sourceStart + ((k + 0.5) / cells) * span);
+      if (frame) ctx.drawImage(frame.canvas, k * displayW, 0, displayW, cssH);
+    }
+  }, [frames, sourceStart, sourceEnd, width]);
+
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none opacity-90" aria-hidden="true" />;
+};
 
 const FilmstripCanvas: React.FC<{
   data: ThumbnailStripData;
@@ -70,9 +110,12 @@ export const FilmstripClip: React.FC<FilmstripClipProps> = ({
   width,
   enabled,
   thumbnailUrl,
+  videoSrc,
 }) => {
   // Use 8 frames for rapid 3x faster extraction and sub-second caching
   const { status, data, image } = useClipThumbnails(clipId, enabled, 8);
+  // Browser-side frames bridge the gap until the cached server sprite arrives.
+  const liveFrames = useVideoFrameStrip(videoSrc, sourceStart, sourceEnd, 8, enabled && status !== 'ready');
 
   if (!enabled) return null;
 
@@ -90,7 +133,7 @@ export const FilmstripClip: React.FC<FilmstripClipProps> = ({
         />
       ) : status === 'loading' ? (
         /* Instant skeleton filmstrip frames with cell divisions matching Opus Clip */
-        <div className="absolute inset-0 flex divide-x divide-white/[0.08] bg-[#121520]/80">
+        <div className="absolute inset-0 flex divide-x divide-white/[0.08] bg-vc-surface2/80">
           {[...Array(6)].map((_, i) => (
             <div
               key={i}
@@ -104,7 +147,11 @@ export const FilmstripClip: React.FC<FilmstripClipProps> = ({
         </div>
       ) : null}
 
-      {status === 'error' && !thumbnailUrl && (
+      {status !== 'ready' && liveFrames.length > 0 && (
+        <LiveFramesCanvas frames={liveFrames} sourceStart={sourceStart} sourceEnd={sourceEnd} width={width} />
+      )}
+
+      {status === 'error' && !thumbnailUrl && liveFrames.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25" aria-hidden="true">
           <Film className="w-4 h-4 text-white/70" />
         </div>

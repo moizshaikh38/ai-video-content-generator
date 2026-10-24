@@ -197,7 +197,7 @@ const TemplateCardPreview: React.FC<TemplateCardPreviewProps> = React.memo(
 
         {/* Animation pulse indicator when active */}
         {isAnimating && (
-          <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 bg-black/80 border border-white/20 rounded px-1.5 py-0.5 text-[9px] font-mono text-white">
+          <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 bg-black/80 rounded px-1.5 py-0.5 text-[9px] font-mono text-white">
             <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
             <span className="capitalize">{template.textConfig.animation}</span>
           </div>
@@ -298,7 +298,7 @@ export const TextWorkspacePanel: React.FC<TextWorkspacePanelProps> = ({
       id: 'name_tag',
       label: 'Name tag',
       sample: (
-        <div className="px-2 py-1 rounded-lg bg-white/[0.08] border border-vc-border text-[10px] font-medium text-white truncate max-w-[110px]">
+        <div className="px-2 py-1 rounded-lg bg-white/[0.08] text-[10px] font-medium text-white truncate max-w-[110px]">
           Alejandro Coleman
         </div>
       ),
@@ -308,7 +308,7 @@ export const TextWorkspacePanel: React.FC<TextWorkspacePanelProps> = ({
       id: 'verified',
       label: 'Verified',
       sample: (
-        <div className="px-2 py-0.5 rounded-full bg-white/[0.10] border border-vc-border-strong text-[10px] font-medium text-white truncate max-w-[110px]">
+        <div className="px-2 py-0.5 rounded-full bg-white/[0.10] text-[10px] font-medium text-white truncate max-w-[110px]">
           Jeremiah Chesterton
         </div>
       ),

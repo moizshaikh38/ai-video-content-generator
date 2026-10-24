@@ -55,9 +55,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   const commands = [
     { id: 'split', title: 'Split Selected Clip', icon: <Scissors className="w-4 h-4 text-neutral-300" />, shortcut: 'S', action: onSplit },
-    { id: 'add-text', title: 'Add Text Layer', icon: <Type className="w-4 h-4 text-purple-400" />, action: onAddText },
+    { id: 'add-text', title: 'Add Text Layer', icon: <Type className="w-4 h-4 text-zinc-300" />, action: onAddText },
     { id: 'add-caption', title: 'Add Caption Track', icon: <Subtitles className="w-4 h-4 text-amber-400" />, action: onAddCaption },
-    { id: 'reframe', title: 'Reframe to 9:16 Vertical', icon: <Crop className="w-4 h-4 text-blue-400" />, action: onReframe },
+    { id: 'reframe', title: 'Reframe to 9:16 Vertical', icon: <Crop className="w-4 h-4 text-zinc-300" />, action: onReframe },
     { id: 'normalize-audio', title: 'Normalize Speech Audio (Loudnorm)', icon: <Volume2 className="w-4 h-4 text-emerald-400" />, action: onNormalizeAudio },
     { id: 'producer', title: 'Open AI Producer Assistant', icon: <Wand2 className="w-4 h-4 text-violet-400" />, action: onOpenProducer },
     { id: 'render', title: 'Render Final Video', icon: <Play className="w-4 h-4 text-green-400" />, action: onRender },
@@ -71,11 +71,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center pt-24 px-4"
+      className="fixed inset-0 z-50 glass-scrim flex items-start justify-center pt-24 px-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-[#0E1017] border border-white/[0.08] rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        className="w-full max-w-lg glass-float rounded-2xl overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center px-4 py-3 border-b border-white/[0.08] gap-2.5">
@@ -88,7 +88,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             onChange={(e) => setQuery(e.target.value)}
             className="w-full bg-transparent text-sm text-white focus:outline-none placeholder-neutral-500"
           />
-          <span className="text-[10px] font-mono text-neutral-400 bg-white/[0.06] border border-white/[0.08] px-1.5 py-0.5 rounded">
+          <span className="text-[10px] font-mono text-neutral-400 bg-white/[0.06] px-1.5 py-0.5 rounded">
             ESC
           </span>
         </div>
@@ -110,7 +110,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   <span className="font-medium group-hover:text-white">{cmd.title}</span>
                 </div>
                 {cmd.shortcut && (
-                  <span className="font-mono text-[10px] text-neutral-400 bg-[#07080D] px-2 py-0.5 rounded border border-white/[0.08]">
+                  <span className="font-mono text-[10px] text-neutral-400 bg-vc-canvas px-2 py-0.5 rounded ">
                     {cmd.shortcut}
                   </span>
                 )}

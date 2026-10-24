@@ -27,7 +27,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         className
       )}
     >
-      <div className="w-14 h-14 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-neutral-400 mb-4">
+      <div className="w-14 h-14 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-zinc-400 mb-4">
         {icon || <FolderOpen className="w-7 h-7" />}
       </div>
       <h3 className="text-lg font-semibold font-display text-foreground mb-1.5">{title}</h3>
@@ -35,7 +35,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         {description}
       </p>
       {actionLabel && onAction && (
-        <Button variant="clay" size="default" onClick={onAction}>
+        <Button variant="primary" size="default" onClick={onAction}>
           {actionLabel}
         </Button>
       )}

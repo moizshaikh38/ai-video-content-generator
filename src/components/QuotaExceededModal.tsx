@@ -37,13 +37,13 @@ export const QuotaExceededModal: React.FC<QuotaExceededModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="quota-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-scrim animate-in fade-in duration-200"
     >
-      <div className="relative w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-md rounded-3xl glass-float p-6 space-y-5 animate-in zoom-in-95 duration-200">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 rounded-lg p-1.5 text-muted-foreground hover:bg-cream hover:text-foreground transition-colors"
+          className="absolute top-4 right-4 rounded-xl p-1.5 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground transition-colors"
           aria-label="Close modal"
         >
           <X className="size-4" />
@@ -65,7 +65,7 @@ export const QuotaExceededModal: React.FC<QuotaExceededModalProps> = ({
         </div>
 
         {/* Quota Stats Ledger Card */}
-        <div className="rounded-xl border border-border/80 bg-cream/50 p-4 space-y-2.5 text-xs">
+        <div className="rounded-xl bg-white/[0.04] p-4 space-y-2.5 text-xs">
           <div className="flex items-center justify-between py-1 border-b border-border/40">
             <span className="text-muted-foreground flex items-center gap-1.5">
               <Zap className="size-3.5 text-vireo-green" /> Monthly Quota:
@@ -91,14 +91,14 @@ export const QuotaExceededModal: React.FC<QuotaExceededModalProps> = ({
 
           <div className="flex items-center justify-between py-1">
             <span className="text-muted-foreground flex items-center gap-1.5">
-              <Calendar className="size-3.5 text-clay" /> Quota Resets:
+              <Calendar className="size-3.5 text-violet-300" /> Quota Resets:
             </span>
             <span className="font-semibold text-foreground">{formattedResetDate}</span>
           </div>
         </div>
 
         {showPlanNotice && (
-          <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-700 dark:text-amber-300">
+          <div className="rounded-xl bg-amber-500/10 p-3 text-xs text-amber-300 dark:text-amber-300">
             <strong>Paid plans coming soon!</strong> Higher quota tiers and team seats are currently in private beta.
           </div>
         )}

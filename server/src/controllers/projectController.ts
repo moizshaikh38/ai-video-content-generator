@@ -10,6 +10,7 @@ import {
   PROCESSABLE_STATUSES,
 } from '../types/index.js';
 import { deletePrefix, projectObjectPrefix, sourceObjectKey, signSourceUpload, headObject, signObjectGet } from '../services/objectStorageService.js';
+import { ProjectPosterService } from '../services/projectPosterService.js';
 import { deleteProjectRecords } from '../db/repositories/deletionRepository.js';
 import { claimProjectProcessing } from '../db/repositories/projectRepository.js';
 import { UrlIngestionService } from '../services/urlIngestionService.js';
@@ -87,9 +88,12 @@ export const listProjects = async (req: AuthenticatedRequest, res: Response): Pr
       (p: any) => p.video_status !== 'failed' && p.status !== 'failed' && p.status !== 'error'
     );
 
+    // Sign existing HD posters inline so the dashboard needs no extra request per card.
+    const projectsWithPosters = await Promise.all(cleanProjects.map(withPosterUrl));
+
     res.status(200).json({
       status: 'ok',
-      projects: cleanProjects,
+      projects: projectsWithPosters,
       total: Math.max(0, (count ?? rawList.length) - failedList.length),
       limit,
       offset,
@@ -155,7 +159,7 @@ export const getProject = async (req: AuthenticatedRequest, res: Response): Prom
       return;
     }
 
-    res.status(200).json({ status: 'ok', project: data });
+    res.status(200).json({ status: 'ok', project: await withPosterUrl(data) });
   } catch (err) {
     logger.error('Unexpected error fetching project', {
       requestId: req.requestId,
@@ -510,6 +514,39 @@ export const getProjectSourcePreviewUrl = async (req: AuthenticatedRequest, res:
   if (!project.source_url) { res.status(409).json({ status: 'error', code: 'SOURCE_NOT_READY', message: 'Source video is not uploaded.' }); return; }
   const signedUrl = await signObjectGet('source', project.source_url);
   res.status(200).json({ status: 'ok', signedUrl, expiresInSeconds: 300 });
+};
+
+/** Adds a short-lived signed `poster_url` when the project already has a poster. */
+async function withPosterUrl<T extends { poster_key?: string | null } | null>(project: T): Promise<T> {
+  if (!project?.poster_key) return project;
+  try {
+    return { ...project, poster_url: await signObjectGet('clips', project.poster_key) };
+  } catch {
+    return project;
+  }
+}
+
+/**
+ * GET /api/projects/:id/poster
+ * Signed URL for the project's HD poster frame (uploaded videos), generated on first request.
+ */
+export const getProjectPoster = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  if (!userId) { res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'Authentication required.' }); return; }
+  const projectId = req.params.id;
+  if (!projectId || !isValidUUID(projectId)) { res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid project UUID required.' }); return; }
+  const { data: project } = await dataRepository
+    .from('projects')
+    .select('id, user_id, source_type, source_url, video_status, duration_seconds, poster_key')
+    .eq('id', projectId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!project) { res.status(404).json({ status: 'error', code: 'PROJECT_NOT_FOUND', message: 'Project not found.' }); return; }
+  const url = await ProjectPosterService.getPosterUrl(project);
+  if (!url) { res.status(404).json({ status: 'error', code: 'POSTER_UNAVAILABLE', message: 'No poster frame is available for this project yet.' }); return; }
+  // Signed URLs live 5 minutes; let the browser reuse the JSON briefly.
+  res.setHeader('Cache-Control', 'private, max-age=240');
+  res.status(200).json({ status: 'ok', url, expiresInSeconds: 300 });
 };
 
 /**

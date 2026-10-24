@@ -299,13 +299,13 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
       <div className="border-b border-neutral-800 bg-neutral-900/60 p-4 sticky top-0 z-10 backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400">
+            <div className="p-2 rounded-xl bg-violet-500/10 text-violet-400">
               <FlaskConical className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-base font-semibold text-white">A/B Testing Studio</h1>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-white/[0.06] text-neutral-300 border border-white/[0.08]">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-white/[0.06] text-neutral-300 ">
                   Studio Experiment Engine
                 </span>
                 {selectedExperiment && (
@@ -314,7 +314,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                       selectedExperiment.status === 'ACTIVE'
                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                         : selectedExperiment.status === 'CONCLUDED'
-                        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
+                        ? 'bg-white/[0.04] text-zinc-300 border border-white/20'
                         : selectedExperiment.status === 'PAUSED'
                         ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
                         : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
@@ -331,7 +331,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center bg-neutral-950 border border-neutral-800 rounded-lg p-0.5">
+            <div className="flex items-center bg-neutral-950 rounded-lg p-0.5">
               <button
                 onClick={() => setActiveWorkspaceTab('WORKSPACE')}
                 className={`px-2.5 py-1 text-xs font-medium rounded-md transition ${
@@ -355,7 +355,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
             </div>
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg transition shadow-md shadow-violet-950/40"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-white rounded-full transition shadow-md shadow-violet-950/40"
             >
               <Plus className="w-3.5 h-3.5" />
               New Experiment
@@ -393,7 +393,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
 
       {/* Notifications */}
       {error && (
-        <div className="m-4 p-3 bg-red-950/40 border border-red-500/40 text-red-300 text-xs rounded-xl flex items-center justify-between">
+        <div className="m-4 p-3 bg-red-950/40 text-red-300 text-xs rounded-xl flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
@@ -404,7 +404,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
         </div>
       )}
       {successMessage && (
-        <div className="m-4 p-3 bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs rounded-xl flex items-center justify-between">
+        <div className="m-4 p-3 bg-emerald-950/40 text-emerald-300 text-xs rounded-xl flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             <span>{successMessage}</span>
@@ -433,7 +433,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
         </div>
       ) : !selectedExperiment ? (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto">
-          <div className="p-3 bg-[#0E1017] border border-white/[0.08] rounded-2xl mb-3 text-violet-400">
+          <div className="p-3 bg-vc-surface1 rounded-2xl mb-3 text-violet-400">
             <FlaskConical className="w-8 h-8" />
           </div>
           <h2 className="text-sm font-semibold text-white mb-1">No Experiments for this Clip</h2>
@@ -442,7 +442,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
           </p>
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg text-xs font-medium transition shadow-lg shadow-violet-950/50"
+            className="flex items-center gap-1.5 px-4 py-2 bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-white rounded-full text-xs font-medium transition shadow-lg shadow-violet-950/50"
           >
             <Plus className="w-4 h-4" />
             Create Your First Experiment
@@ -451,20 +451,20 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
       ) : (
         <div className="p-4 space-y-5 flex-1 min-w-0">
           {/* Experiment Meta & Decision Bar */}
-          <div className="bg-[#0E1017] border border-white/[0.08] rounded-2xl p-4 space-y-3 min-w-0">
+          <div className="bg-vc-surface1 rounded-2xl p-4 space-y-3 min-w-0">
             <div className="flex flex-wrap items-center justify-between gap-3 min-w-0">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2 min-w-0">
                   <h2 className="text-sm font-semibold text-white truncate max-w-[220px]" title={selectedExperiment.name}>
                     {selectedExperiment.name}
                   </h2>
-                  <span className="text-[11px] px-2 py-0.5 rounded bg-white/[0.06] text-neutral-300 border border-white/[0.08] flex items-center gap-1 shrink-0">
+                  <span className="text-[11px] px-2 py-0.5 rounded bg-white/[0.06] text-neutral-300 flex items-center gap-1 shrink-0">
                     {selectedExperiment.test_type === 'THUMBNAIL_ONLY' && <ImageIcon className="w-3 h-3 text-violet-400" />}
-                    {selectedExperiment.test_type === 'TITLE_ONLY' && <Type className="w-3 h-3 text-blue-400" />}
+                    {selectedExperiment.test_type === 'TITLE_ONLY' && <Type className="w-3 h-3 text-zinc-300" />}
                     {selectedExperiment.test_type === 'HOOK_LINE' && <Mic className="w-3 h-3 text-emerald-400" />}
                     {selectedExperiment.test_type}
                   </span>
-                  <span className="text-[11px] px-2 py-0.5 rounded bg-white/[0.06] text-neutral-300 border border-white/[0.08] shrink-0">
+                  <span className="text-[11px] px-2 py-0.5 rounded bg-white/[0.06] text-neutral-300 shrink-0">
                     Metric: {selectedExperiment.target_metric}
                   </span>
                 </div>
@@ -479,7 +479,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   <button
                     onClick={handleStartExperiment}
                     disabled={isSubmitting}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-lg transition"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-full transition"
                   >
                     <Play className="w-3.5 h-3.5" />
                     Start Experiment
@@ -489,7 +489,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   <>
                     <button
                       onClick={() => setIsObservationModalOpen(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-medium rounded-lg transition shadow-md shadow-violet-950/40"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-white text-xs font-medium rounded-full transition shadow-md shadow-violet-950/40"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       Log Observations
@@ -516,7 +516,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   <button
                     onClick={handleStartExperiment}
                     disabled={isSubmitting}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-lg transition"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-full transition"
                   >
                     <Play className="w-3.5 h-3.5" />
                     Resume
@@ -528,14 +528,14 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                       setConfirmPromotionCheck(false);
                       setIsPromoteModalOpen(true);
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-medium rounded-lg transition shadow-lg shadow-violet-950/40"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-white text-xs font-medium rounded-full transition shadow-lg shadow-violet-950/40"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     Promote Winner to Clip
                   </button>
                 )}
                 {selectedExperiment.promoted_to_clip && (
-                  <span className="flex items-center gap-1 text-xs text-emerald-400 font-medium px-2 py-1 bg-emerald-950/40 border border-emerald-500/30 rounded-lg">
+                  <span className="flex items-center gap-1 text-xs text-emerald-400 font-medium px-2 py-1 bg-emerald-950/40 rounded-lg">
                     <ShieldCheck className="w-3.5 h-3.5" />
                     Promoted to Clip & Brand Brain
                   </span>
@@ -553,7 +553,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
             </div>
 
             {/* Statistical Decision Rationale Banner */}
-            <div className="p-3 bg-[#07080D] border border-white/[0.08] rounded-xl text-xs flex items-start gap-2.5 min-w-0">
+            <div className="p-3 bg-vc-canvas rounded-xl text-xs flex items-start gap-2.5 min-w-0">
               <BarChart3 className="w-4 h-4 text-violet-400 shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <span className="font-semibold text-neutral-200">Decision Engine: </span>
@@ -607,7 +607,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
               return (
                 <div
                   key={v.id}
-                  className={`bg-[#0E1017] border rounded-2xl p-4 flex flex-col justify-between transition min-w-0 overflow-hidden ${
+                  className={`bg-vc-surface1 border rounded-2xl p-4 flex flex-col justify-between transition min-w-0 overflow-hidden ${
                     isWinner
                       ? 'border-amber-500/80 bg-amber-950/20 shadow-xl shadow-amber-950/30'
                       : v.is_control
@@ -618,7 +618,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   <div className="space-y-3 min-w-0">
                     {/* Top Winner Ribbon */}
                     {isWinner && (
-                      <div className="flex items-center gap-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 text-xs font-bold text-amber-300">
+                      <div className="flex items-center gap-1.5 rounded-lg bg-amber-500/15 px-2.5 py-1 text-xs font-bold text-amber-300">
                         <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                         <span>Declared Winner</span>
                       </div>
@@ -642,7 +642,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                             : v.performance_status === 'STATISTICALLY_SIGNIFICANT_WINNER' || isWinner
                             ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
                             : v.performance_status === 'LEADER'
-                            ? 'bg-blue-500/15 text-blue-300 border border-blue-500/30'
+                            ? 'bg-white/[0.06] text-zinc-200 border border-white/20'
                             : v.performance_status === 'UNDERPERFORMING'
                             ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
                             : 'bg-white/[0.06] text-neutral-400 border border-white/[0.08]'
@@ -657,7 +657,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                           </>
                         ) : v.performance_status === 'LEADER' ? (
                           <>
-                            <CheckCircle2 className="w-3 h-3 text-blue-400 shrink-0" />
+                            <CheckCircle2 className="w-3 h-3 text-zinc-300 shrink-0" />
                             <span>LEADER</span>
                           </>
                         ) : v.performance_status === 'UNDERPERFORMING' ? (
@@ -672,7 +672,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                     </div>
 
                     {/* Variant Asset Preview */}
-                    <div className="p-3 bg-neutral-950 rounded-xl border border-neutral-800/80 min-h-[70px] flex flex-col justify-center min-w-0 overflow-hidden">
+                    <div className="p-3 bg-neutral-950 rounded-xl min-h-[70px] flex flex-col justify-center min-w-0 overflow-hidden">
                       {selectedExperiment.test_type === 'THUMBNAIL_ONLY' && (
                         <div className="flex items-center gap-2.5 min-w-0">
                           {v.thumbnail_image_url ? (
@@ -682,7 +682,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                               className="w-16 h-10 object-cover rounded border border-neutral-800 shrink-0"
                             />
                           ) : (
-                            <div className="w-16 h-10 bg-neutral-900 rounded border border-neutral-800 flex items-center justify-center text-neutral-600 shrink-0">
+                            <div className="w-16 h-10 bg-neutral-900 rounded border border-neutral-800 flex items-center justify-center text-zinc-300 shrink-0">
                               <ImageIcon className="w-4 h-4" />
                             </div>
                           )}
@@ -732,7 +732,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                     </div>
 
                     {/* Conversion Rate & Lift */}
-                    <div className="p-2.5 bg-neutral-950/80 rounded-xl border border-neutral-800/60 space-y-1.5 min-w-0">
+                    <div className="p-2.5 bg-neutral-950/80 rounded-xl space-y-1.5 min-w-0">
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-[11px] text-neutral-400 truncate">{selectedExperiment.target_metric}</span>
                         <span className="text-sm font-bold text-white shrink-0">{ratePercent}%</span>
@@ -781,7 +781,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   {/* Winner Action */}
                   <div className="pt-3 mt-3 border-t border-neutral-800/80">
                     {isWinner ? (
-                      <div className="flex items-center justify-center gap-1.5 text-xs text-amber-400 font-bold py-1.5 bg-amber-500/10 rounded-lg border border-amber-500/30">
+                      <div className="flex items-center justify-center gap-1.5 text-xs text-amber-400 font-bold py-1.5 bg-amber-500/10 rounded-lg ">
                         <Trophy className="w-3.5 h-3.5" />
                         Declared Winner
                       </div>
@@ -809,8 +809,8 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
 
       {/* Observation Ingestion Modal */}
       {isObservationModalOpen && selectedExperiment && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-[#0E1017] border border-white/[0.08] rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 glass-scrim flex items-center justify-center p-4">
+          <div className="glass-float rounded-3xl w-full max-w-md p-5 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-violet-400" />
@@ -831,7 +831,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   value={selectedVariantId}
                   onChange={(e) => setSelectedVariantId(e.target.value)}
                   required
-                  className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
+                  className="w-full px-3 py-2 bg-vc-canvas border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                 >
                   <option value="">Select variant...</option>
                   {selectedExperiment.variants.map((v) => (
@@ -853,7 +853,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                     value={observationExposures}
                     onChange={(e) => setObservationExposures(Number(e.target.value))}
                     required
-                    className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
+                    className="w-full px-3 py-2 bg-vc-canvas border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                   />
                 </div>
                 <div>
@@ -867,7 +867,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                     value={observationConversions}
                     onChange={(e) => setObservationConversions(Number(e.target.value))}
                     required
-                    className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
+                    className="w-full px-3 py-2 bg-vc-canvas border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                   />
                 </div>
               </div>
@@ -877,7 +877,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                 <select
                   value={observationProvenance}
                   onChange={(e) => setObservationProvenance(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
+                  className="w-full px-3 py-2 bg-vc-canvas border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                 >
                   <option value="MANUAL_ENTRY">Manual Entry from Creator Studio</option>
                   <option value="CSV_IMPORT">CSV / Spreadsheet Import</option>
@@ -894,7 +894,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   placeholder="e.g. YouTube Studio batch Oct 1-3"
                   value={observationSourceLabel}
                   onChange={(e) => setObservationSourceLabel(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
+                  className="w-full px-3 py-2 bg-vc-canvas border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                 />
               </div>
 
@@ -909,7 +909,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-1.5 text-xs font-medium bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg transition shadow-md shadow-violet-950/40"
+                  className="px-4 py-1.5 text-xs font-medium bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-white rounded-full transition shadow-md shadow-violet-950/40"
                 >
                   Save Observations
                 </button>
@@ -921,8 +921,8 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
 
       {/* Create Experiment Modal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-[#0E1017] border border-white/[0.08] rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 glass-scrim flex items-center justify-center p-4">
+          <div className="glass-float rounded-3xl w-full max-w-lg p-5 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 <FlaskConical className="w-4 h-4 text-violet-400" />
@@ -941,7 +941,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   placeholder={`e.g. ${clipTitle} Thumbnail Split Test`}
                   value={newExpName}
                   onChange={(e) => setNewExpName(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
+                  className="w-full px-3 py-2 bg-vc-canvas border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                 />
               </div>
 
@@ -953,7 +953,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   value={newExpHypothesis}
                   onChange={(e) => setNewExpHypothesis(e.target.value)}
                   required
-                  className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
+                  className="w-full px-3 py-2 bg-vc-canvas border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                 />
               </div>
 
@@ -965,7 +965,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   <select
                     value={newExpTestType}
                     onChange={(e) => setNewExpTestType(e.target.value as ABTestType)}
-                    className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
+                    className="w-full px-3 py-2 bg-vc-canvas border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                   >
                     <option value="THUMBNAIL_ONLY">Thumbnail Only (Visuals / Layout)</option>
                     <option value="TITLE_ONLY">Title Only (Headlines / Hooks)</option>
@@ -978,7 +978,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   <select
                     value={newExpTargetMetric}
                     onChange={(e) => setNewExpTargetMetric(e.target.value as ABTargetMetric)}
-                    className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
+                    className="w-full px-3 py-2 bg-vc-canvas border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                   >
                     <option value="CTR">Click-Through Rate (CTR)</option>
                     <option value="RETENTION_RATE">Completion / Retention Rate</option>
@@ -998,7 +998,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                     value={newVarBTitle}
                     onChange={(e) => setNewVarBTitle(e.target.value)}
                     required
-                    className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
+                    className="w-full px-3 py-2 bg-vc-canvas border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                   />
                 </div>
               )}
@@ -1025,7 +1025,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                     value={newVarBTitle}
                     onChange={(e) => setNewVarBTitle(e.target.value)}
                     required
-                    className="w-full px-3 py-2 bg-[#07080D] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
+                    className="w-full px-3 py-2 bg-vc-canvas border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-violet-500"
                   />
                   {hookVariants.length > 0 && (
                     <div className="space-y-2 pt-1 max-h-48 overflow-y-auto pr-1">
@@ -1049,7 +1049,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                             <span className="font-semibold capitalize text-violet-300">
                               {v.hook_type.replace('_', ' ')}
                             </span>
-                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 ">
                               {v.predicted_retention_lift}
                             </span>
                           </div>
@@ -1073,7 +1073,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                 </div>
               )}
 
-              <div className="p-3 bg-[#07080D] border border-white/[0.08] rounded-xl text-[11px] text-neutral-400">
+              <div className="p-3 bg-vc-canvas rounded-xl text-[11px] text-neutral-400">
                 <span className="font-semibold text-neutral-200">Statistical Planning: </span>
                 Default parameters: 95% Confidence ($\alpha=0.05$), 80% Power, 20% relative MDE. The system will
                 calculate minimum required sample size mathematically (Evan Miller formula).
@@ -1090,7 +1090,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-1.5 text-xs font-medium bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg transition shadow-md shadow-violet-950/40"
+                  className="px-4 py-1.5 text-xs font-medium bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-white rounded-full transition shadow-md shadow-violet-950/40"
                 >
                   Create Experiment
                 </button>
@@ -1102,8 +1102,8 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
 
       {/* Human-Approved Promotion Confirmation Modal */}
       {isPromoteModalOpen && selectedExperiment && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-[#0E1017] border border-white/[0.08] rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 glass-scrim flex items-center justify-center p-4">
+          <div className="glass-float rounded-3xl w-full max-w-md p-5 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-amber-400" />
@@ -1119,7 +1119,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                 Promoting the winning variant will update your active clip and store learned traits into Brand Brain.
               </p>
 
-              <div className="p-3 bg-[#07080D] border border-white/[0.08] rounded-xl space-y-1.5">
+              <div className="p-3 bg-vc-canvas rounded-xl space-y-1.5">
                 <div className="font-semibold text-white">What will happen:</div>
                 <ul className="list-disc list-inside text-neutral-400 space-y-1">
                   <li>Active clip state will adopt the winning asset.</li>
@@ -1137,7 +1137,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                   type="checkbox"
                   checked={confirmPromotionCheck}
                   onChange={(e) => setConfirmPromotionCheck(e.target.checked)}
-                  className="mt-0.5 rounded border-white/20 bg-[#07080D] text-violet-500 focus:ring-violet-500"
+                  className="mt-0.5 rounded border-white/20 bg-vc-canvas text-violet-500 focus:ring-violet-500"
                 />
                 <span className="text-[11px] text-neutral-200">
                   I explicitly confirm promoting this winning variant to my active clip.
@@ -1157,7 +1157,7 @@ export const ABStudioWorkspace: React.FC<ABStudioWorkspaceProps> = ({
                 type="button"
                 onClick={handlePromoteWinner}
                 disabled={!confirmPromotionCheck || isSubmitting}
-                className="px-4 py-1.5 text-xs font-medium bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-lg transition shadow-md shadow-violet-950/40"
+                className="px-4 py-1.5 text-xs font-medium bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] disabled:opacity-50 text-white rounded-full transition shadow-md shadow-violet-950/40"
               >
                 Promote Winner
               </button>

@@ -94,7 +94,7 @@ export const AspectRatioWorkspacePanel: React.FC<AspectRatioWorkspacePanelProps>
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#0E1017] text-neutral-300 text-xs select-none overflow-y-auto p-4 space-y-4 animate-panelSlideIn">
+    <div className="flex flex-col h-full bg-vc-surface1 text-neutral-300 text-xs select-none overflow-y-auto p-4 space-y-4 animate-panelSlideIn">
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
         <div className="flex items-center gap-2">
@@ -126,12 +126,12 @@ export const AspectRatioWorkspacePanel: React.FC<AspectRatioWorkspacePanelProps>
                 className={`p-3 rounded-xl border text-left transition flex flex-col justify-between h-24 ${
                   isActive
                     ? 'bg-white/[0.14] border-white/40 text-white shadow-sm ring-1 ring-white/20'
-                    : 'bg-[#07080D] border-white/[0.06] hover:border-white/20 text-neutral-300'
+                    : 'bg-vc-canvas border-white/[0.06] hover:border-white/20 text-neutral-300'
                 }`}
               >
                 <div className="flex items-center justify-between w-full">
                   <Icon className="w-4 h-4 text-neutral-300" />
-                  {isActive && <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />}
+                  {isActive && <div className="w-2 h-2 rounded-full bg-white" />}
                 </div>
 
                 <div>
@@ -145,7 +145,7 @@ export const AspectRatioWorkspacePanel: React.FC<AspectRatioWorkspacePanelProps>
       </div>
 
       {/* Resolution Spec Card */}
-      <div className="p-3 rounded-xl bg-[#07080D] border border-white/[0.06] flex items-center justify-between text-neutral-400">
+      <div className="p-3 rounded-xl bg-vc-canvas flex items-center justify-between text-neutral-400">
         <span>Current Resolution</span>
         <span className="font-mono text-white font-semibold">
           {project.canvas.width || 1080} × {project.canvas.height || 1920} px
@@ -168,7 +168,7 @@ export const AspectRatioWorkspacePanel: React.FC<AspectRatioWorkspacePanelProps>
                 className={`p-2.5 rounded-xl border flex items-center gap-2.5 text-left transition ${
                   isSelected
                     ? 'bg-white/[0.12] border-white/40 text-white'
-                    : 'bg-[#07080D] border-white/[0.06] hover:border-white/20 text-neutral-300'
+                    : 'bg-vc-canvas border-white/[0.06] hover:border-white/20 text-neutral-300'
                 }`}
               >
                 <div

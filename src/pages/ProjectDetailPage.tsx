@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { BTN_PILL_BRAND_SOFT } from '../lib/buttonStyles';
 import {
   AlertCircle,
   ArrowLeft,
@@ -7,9 +8,7 @@ import {
   Copy,
   Pencil,
   Video,
-  Link2,
   FileText,
-  Calendar,
   Loader2,
   RefreshCw,
   Sparkles,
@@ -42,7 +41,7 @@ import { SpotlightCard } from '../components/react-bits/SpotlightCard';
 import { QuotaExceededModal } from '../components/QuotaExceededModal';
 import { ClipWorkspace } from '../components/clips/ClipWorkspace';
 import { PublishModal } from '../components/PublishModal';
-import { getProjectThumbnail } from './DashboardPage';
+import { ProjectThumbImage } from '../components/ProjectThumbImage';
 
 interface TabConfig {
   key: OutputPlatform;
@@ -303,99 +302,54 @@ export const ProjectDetailPage: React.FC = () => {
   const isUploaded = statusVal === 'uploaded';
   const hasOutputs = outputs && outputs.length > 0;
 
-  const thumb = getProjectThumbnail(project);
 
   return (
-    <div className="space-y-6 pt-2">
+    <div className="space-y-4">
       {/* Back Link */}
       <Link
         to="/history"
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-white transition-colors"
       >
         <ArrowLeft className="size-4" />
         <span>Back to Projects</span>
       </Link>
 
-      {/* Project Header - World Class Obsidian Studio */}
-      <div className="flex flex-col items-start gap-5 rounded-2xl bg-[#0E1017]/90 p-5 shadow-2xl border border-white/[0.08] sm:flex-row sm:items-center md:p-6 backdrop-blur-xl">
-        <div className="grid aspect-video w-full shrink-0 place-items-center overflow-hidden rounded-xl bg-black/90 border border-white/10 sm:w-52 relative group shadow-inner">
-          {videoPreviewUrl ? (
-            <video
-              src={videoPreviewUrl}
-              controls
-              preload="metadata"
-              aria-label={`Preview ${project.title}`}
-              className="h-full w-full object-cover"
-            />
-          ) : thumb ? (
-            <img
-              src={thumb}
-              alt={project.title}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center text-slate-500">
-              <Video className="size-8 text-violet-400/60 mb-1" />
-              <span className="text-[10px] font-mono text-slate-400">Source Video</span>
-            </div>
-          )}
-        </div>
+      {/* Project header — one slim row: thumbnail, title, status, meta, action */}
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+        <ProjectThumbImage
+          project={project}
+          className="hidden sm:block h-14 aspect-video shrink-0 rounded-lg object-cover bg-black"
+        />
 
-        <div className="space-y-2 min-w-0 flex-1">
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight md:text-3xl font-['Sora',sans-serif] text-white">
+            <h1 className="min-w-0 truncate text-xl font-semibold tracking-tight md:text-2xl font-['Sora',sans-serif] text-white">
               {project.title}
             </h1>
             <StatusBadge status={statusVal} />
           </div>
-
-          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-            <span className="flex items-center gap-1 font-mono">
-              <Calendar className="size-3.5 text-violet-400" />
-              <span>
-                {new Date(project.created_at).toLocaleDateString(undefined, {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
-              </span>
-            </span>
-            <span>•</span>
-            <span className="inline-flex items-center gap-1 font-medium">
-              {isUrl ? (
-                <>
-                  <Link2 className="size-3.5 text-cyan-400" />
-                  <span>External Link</span>
-                </>
-              ) : (
-                <>
-                  <Video className="size-3.5 text-violet-400" />
-                  <span>Direct Upload</span>
-                </>
-              )}
-            </span>
-            {transcript?.segments && transcript.segments.length > 0 && (
-              <>
-                <span>•</span>
-                <span className="font-mono text-emerald-400 font-semibold">
-                  {transcript.segments.length} spoken segments
-                </span>
-              </>
-            )}
-          </div>
+          <p className="mt-1 text-xs text-zinc-400">
+            {new Date(project.created_at).toLocaleDateString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })}
+            {' · '}
+            {isUrl ? 'From link' : 'Uploaded video'}
+            {transcript?.segments && transcript.segments.length > 0 && <> · {transcript.segments.length} spoken segments</>}
+          </p>
         </div>
 
         <div className="flex items-center gap-2 sm:ml-auto">
           <Link
             to="/projects/new"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-xs font-semibold text-white transition-colors"
+            className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold ${BTN_PILL_BRAND_SOFT}`}
           >
             <Plus className="size-3.5" />
             <span>New Project</span>
           </Link>
         </div>
       </div>
-
 
       {/* Quota Exceeded Modal & Alert */}
       {quotaError && (
@@ -410,7 +364,7 @@ export const ProjectDetailPage: React.FC = () => {
       )}
 
       {quotaError && (
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 text-center space-y-3">
+        <div className="rounded-2xl bg-amber-500/10 p-6 text-center space-y-3">
           <div className="size-10 rounded-xl bg-amber-500/15 text-amber-400 mx-auto flex items-center justify-center border border-amber-500/25">
             <Clock className="size-5" />
           </div>
@@ -418,7 +372,7 @@ export const ProjectDetailPage: React.FC = () => {
             <h3 className="font-bold text-base text-white font-['Sora',sans-serif]">
               Monthly Processing Limit Reached
             </h3>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto">
+            <p className="text-xs sm:text-sm text-zinc-300 max-w-md mx-auto">
               You have <span className="font-semibold text-white">{quotaError.remaining_minutes ?? 0} minutes</span> remaining in your plan this month.
               {quotaError.requested_minutes ? (
                 <> This video requires an estimated <span className="font-semibold text-white">~{quotaError.requested_minutes.toFixed(1)} minutes</span>.</>
@@ -443,13 +397,13 @@ export const ProjectDetailPage: React.FC = () => {
 
       {/* Failed State */}
       {statusVal === 'failed' ? (
-        <div className="rounded-2xl p-8 text-center space-y-4 border border-rose-500/30 bg-rose-500/10">
+        <div className="rounded-2xl p-8 text-center space-y-4 bg-rose-500/10">
           <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-400 mx-auto flex items-center justify-center border border-rose-500/25">
             <RefreshCw className="size-6" />
           </div>
           <div>
             <p className="font-bold text-lg text-white font-['Sora',sans-serif]">Video Processing Failed</p>
-            <p className="text-sm text-slate-300 max-w-md mx-auto mt-1">
+            <p className="text-sm text-zinc-300 max-w-md mx-auto mt-1">
               {actionError || 'The video processing or transcription failed. Please verify your video audio or try again.'}
             </p>
           </div>
@@ -482,28 +436,28 @@ export const ProjectDetailPage: React.FC = () => {
         <div className="space-y-6">
           {/* Main Single Video / Processing Tracker Card */}
           {!['transcribed', 'completed', 'complete'].includes(statusVal) && (
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 p-6 md:p-8 space-y-6 shadow-2xl backdrop-blur-xl text-white">
+            <div className="rounded-2xl bg-vc-surface1/90 p-6 md:p-8 space-y-6 shadow-2xl backdrop-blur-xl text-white">
               {/* Card Header with Estimated Time */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-300 text-xs font-semibold">
-                    <Sparkles className="size-3 text-violet-400 animate-pulse" />
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-violet-500/15 text-violet-300 text-xs font-semibold">
+                    <Sparkles className="size-3 text-violet-400" />
                     <span>Autonomous AI Processing</span>
                   </div>
                   <h2 className="font-['Sora',sans-serif] text-xl sm:text-2xl font-bold text-white tracking-tight">
                     Clipping & Analyzing Your Video
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-400">
+                  <p className="text-xs sm:text-sm text-zinc-400">
                     Our AI is extracting dialogue, detecting viral hooks, and generating 9:16 vertical clips.
                   </p>
                 </div>
 
-                <div className="inline-flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 shrink-0 self-start sm:self-auto backdrop-blur-sm shadow-md">
+                <div className="inline-flex items-center gap-2.5 rounded-xl bg-white/[0.04] px-4 py-2.5 shrink-0 self-start sm:self-auto backdrop-blur-sm shadow-md">
                   <div className="grid size-9 place-items-center rounded-lg bg-violet-500/20 text-violet-300">
                     <Clock className="size-4.5" />
                   </div>
                   <div className="text-left">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Estimated time</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Estimated time</p>
                     <p className="text-sm font-bold font-mono text-white leading-tight">~60–90 seconds</p>
                   </div>
                 </div>
@@ -515,7 +469,7 @@ export const ProjectDetailPage: React.FC = () => {
                 const percent = Math.min(95, Math.max(15, Math.round((Math.max(1, currentIdx + 1) / 8) * 100)));
                 return (
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs text-slate-300 font-mono">
+                    <div className="flex items-center justify-between text-xs text-zinc-300 font-mono">
                       <span className="flex items-center gap-2 font-semibold text-violet-300">
                         <span className="size-2 rounded-full bg-violet-400 animate-ping" />
                         Status: <span className="capitalize text-white">{statusVal}</span>
@@ -524,7 +478,7 @@ export const ProjectDetailPage: React.FC = () => {
                     </div>
                     <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/[0.06] border border-white/10">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-violet-600 via-cyan-400 to-emerald-400 transition-all duration-500 shadow-[0_0_12px_rgba(139,92,246,0.5)]"
+                        className="h-full rounded-full bg-violet-500 transition-all duration-500"
                         style={{ width: `${percent}%` }}
                       />
                     </div>
@@ -555,13 +509,13 @@ export const ProjectDetailPage: React.FC = () => {
                               ? 'border-emerald-400/80 bg-emerald-500/20 text-emerald-300'
                               : active
                               ? 'border-violet-400 bg-violet-500/20 text-violet-300 ring-4 ring-violet-500/30 animate-pulse'
-                              : 'border-white/10 bg-white/[0.03] text-slate-500'
+                              : 'border-white/10 bg-white/[0.03] text-zinc-500'
                           }`}
                         >
                           <step.icon className="size-5" />
                         </span>
                         <p className="mt-3 text-xs sm:text-sm font-bold text-white font-['Sora',sans-serif]">{step.label}</p>
-                        <p className="mt-0.5 text-xs text-slate-400 line-clamp-1">
+                        <p className="mt-0.5 text-xs text-zinc-400 line-clamp-1">
                           {done ? 'Complete' : active ? step.desc : 'Pending'}
                         </p>
                       </div>
@@ -571,23 +525,23 @@ export const ProjectDetailPage: React.FC = () => {
               </div>
 
               {/* Opus-style Viral Clipping Tip Box */}
-              <div className="p-4 rounded-xl border border-white/[0.08] bg-white/[0.02] flex items-center justify-between gap-4 text-xs">
+              <div className="p-4 rounded-xl bg-white/[0.02] flex items-center justify-between gap-4 text-xs">
                 <div className="flex items-center gap-3">
                   <div className="size-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 grid place-items-center shrink-0">
                     <Sparkles className="size-4" />
                   </div>
-                  <p className="text-slate-300 leading-relaxed">
+                  <p className="text-zinc-300 leading-relaxed">
                     <strong className="text-white">Pro Tip:</strong> 85% of viewers watch short-form videos with sound muted. Our engine automatically adds kinetic word-pop captions to maximize retention.
                   </p>
                 </div>
-                <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 font-mono text-[11px] shrink-0 font-medium">
+                <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 font-mono text-[11px] shrink-0 font-medium">
                   ✓ Safe to close tab
                 </span>
               </div>
 
               {/* Action Error if any - with Retry button directly beside message */}
               {actionError && (
-                <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between gap-3">
+                <div className="p-4 rounded-xl bg-rose-500/10 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
                     <AlertCircle className="size-4 text-rose-400 shrink-0" />
                     <div className="text-xs sm:text-sm text-rose-300">
@@ -608,7 +562,7 @@ export const ProjectDetailPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setActionError(null)}
-                      className="text-xs text-slate-400 hover:text-white font-medium underline"
+                      className="text-xs text-zinc-400 hover:text-white font-medium underline"
                     >
                       Dismiss
                     </button>
@@ -618,8 +572,8 @@ export const ProjectDetailPage: React.FC = () => {
 
               {/* Manual trigger button if uploaded and idle */}
               {isUploaded && !isProcessing(statusVal) && (
-                <div className="flex items-center justify-between p-4 rounded-xl border border-white/10 bg-white/[0.04]">
-                  <div className="text-xs sm:text-sm text-slate-300">
+                <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.04]">
+                  <div className="text-xs sm:text-sm text-zinc-300">
                     <span className="font-semibold text-white">Ready to start processing:</span> Audio extraction, transcription, and AI content kits are queued.
                   </div>
                   <Button
@@ -643,19 +597,19 @@ export const ProjectDetailPage: React.FC = () => {
 
           {/* Primary Workspace Navigation (Clips / Content Kit / Transcript) */}
           {transcript && (
-            <div className="space-y-6 pt-2">
+            <div className="space-y-4">
               <div className="flex border-b border-white/[0.08] gap-6">
                 <button
                   onClick={() => setWorkspaceTab('clips')}
                   className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
                     workspaceTab === 'clips'
-                      ? 'border-[#8B5CF6] text-white'
-                      : 'border-transparent text-slate-400 hover:text-white'
+                      ? 'border-violet-500 text-white'
+                      : 'border-transparent text-zinc-400 hover:text-white'
                   }`}
                 >
-                  <Film className="size-4 text-[#A78BFA]" />
+                  <Film className="size-4 text-violet-400" />
                   <span>Clips</span>
-                  <span className="rounded-full bg-[#8B5CF6]/20 text-[#C4B5FD] border border-[#8B5CF6]/30 text-[11px] font-mono px-2 py-0.5 font-bold">
+                  <span className="rounded-full bg-violet-500/20 text-violet-300 text-[11px] font-mono px-2 py-0.5 font-bold">
                     Primary
                   </span>
                 </button>
@@ -664,14 +618,14 @@ export const ProjectDetailPage: React.FC = () => {
                   onClick={() => setWorkspaceTab('content')}
                   className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
                     workspaceTab === 'content'
-                      ? 'border-[#8B5CF6] text-white'
-                      : 'border-transparent text-slate-400 hover:text-white'
+                      ? 'border-violet-500 text-white'
+                      : 'border-transparent text-zinc-400 hover:text-white'
                   }`}
                 >
                   <Sparkles className="size-4 text-emerald-400" />
                   <span>Content Kit</span>
                   {hasOutputs && (
-                    <span className="rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-mono px-2 py-0.5 font-bold">
+                    <span className="rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-mono px-2 py-0.5 font-bold">
                       {outputs.length}
                     </span>
                   )}
@@ -681,11 +635,11 @@ export const ProjectDetailPage: React.FC = () => {
                   onClick={() => setWorkspaceTab('transcript')}
                   className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
                     workspaceTab === 'transcript'
-                      ? 'border-[#8B5CF6] text-white'
-                      : 'border-transparent text-slate-400 hover:text-white'
+                      ? 'border-violet-500 text-white'
+                      : 'border-transparent text-zinc-400 hover:text-white'
                   }`}
                 >
-                  <FileText className="size-4 text-slate-400" />
+                  <FileText className="size-4 text-zinc-400" />
                   <span>Transcript</span>
                 </button>
               </div>
@@ -721,7 +675,7 @@ export const ProjectDetailPage: React.FC = () => {
                   <Sparkles className="size-5 text-violet-400" />
                   <span>Platform Content Kits</span>
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-zinc-400 mt-0.5">
                   Repurpose video transcript into platform-native content kits for YouTube, Instagram, Shorts/Reels, TikTok, LinkedIn, and X.
                 </p>
               </div>
@@ -732,7 +686,7 @@ export const ProjectDetailPage: React.FC = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => setShowTuning(!showTuning)}
-                    className="gap-1.5 border-white/10 text-slate-300 hover:text-white"
+                    className="gap-1.5 border-white/10 text-zinc-300 hover:text-white"
                   >
                     <SlidersHorizontal className="size-3.5 text-violet-400" />
                     <span>{hasTuningOverrides ? 'Tuned for video' : 'Tune Persona'}</span>
@@ -740,11 +694,11 @@ export const ProjectDetailPage: React.FC = () => {
                   </Button>
 
                   <Button
-                    variant="primary"
+                    variant="brand"
                     size="sm"
                     onClick={() => handleGenerateContent()}
                     disabled={isGenerating}
-                    className="bg-violet-600 hover:bg-violet-500 text-white font-bold shadow-lg"
+                    className="font-bold"
                   >
                     {isGenerating ? (
                       <>
@@ -771,7 +725,7 @@ export const ProjectDetailPage: React.FC = () => {
             {transcript && showTuning && (
               <SpotlightCard
                 spotlightColor="rgba(139, 92, 246, 0.15)"
-                className="p-5 md:p-6 border-white/[0.08] bg-[#0E1017]/90 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-2 duration-300"
+                className="p-5 md:p-6 bg-vc-surface1 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/[0.08] pb-3 gap-2">
                   <div className="flex items-center gap-2">
@@ -782,7 +736,7 @@ export const ProjectDetailPage: React.FC = () => {
                       <h4 className="text-sm font-bold font-['Sora',sans-serif] text-white">
                         AI Control Surface — Customize for this video
                       </h4>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-zinc-400">
                         {hasTuningOverrides
                           ? 'Only applies to this project · Does not modify your saved creator profile'
                           : 'Currently using your saved creator profile defaults'}
@@ -860,13 +814,13 @@ export const ProjectDetailPage: React.FC = () => {
 
             {/* If transcript is not available yet, honestly communicate waiting state */}
             {!transcript && !hasOutputs && (
-              <div className="rounded-2xl border border-dashed border-white/10 bg-[#0E1017]/60 p-6 sm:p-8 text-center space-y-3">
+              <div className="rounded-2xl border border-dashed border-white/10 bg-vc-surface1/60 p-6 sm:p-8 text-center space-y-3">
                 <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-400 mx-auto flex items-center justify-center border border-amber-500/20">
                   <FileText className="size-5" />
                 </div>
                 <div className="space-y-1">
                   <h4 className="text-sm font-bold text-white font-['Sora',sans-serif]">Waiting for Transcript</h4>
-                  <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                  <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
                     AI content generation requires a video transcript. Once transcription is completed, you can generate platform-specific drafts for YouTube, Instagram, Shorts, TikTok, LinkedIn, and X.
                   </p>
                 </div>
@@ -875,8 +829,8 @@ export const ProjectDetailPage: React.FC = () => {
 
             {/* If transcript is ready but no outputs yet */}
             {transcript && !hasOutputs && !isGenerating && (
-              <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017]/80 p-6 text-center space-y-3 shadow-lg">
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              <div className="rounded-2xl bg-vc-surface1/80 p-6 text-center space-y-3 shadow-lg">
+                <p className="text-xs text-zinc-400 max-w-sm mx-auto">
                   Transcript is ready! Click "Generate Content Kits" to create platform-specific content packages for this project.
                 </p>
               </div>
@@ -939,7 +893,7 @@ function TranscriptSection({ transcript }: { transcript: Transcript }) {
     const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
     return parts.map((part, i) =>
       part.toLowerCase() === q.toLowerCase() ? (
-        <mark key={i} className="bg-[#8B5CF6]/40 text-[#C4B5FD] font-semibold px-0.5 rounded">
+        <mark key={i} className="bg-violet-500/40 text-violet-300 font-semibold px-0.5 rounded">
           {part}
         </mark>
       ) : (
@@ -949,26 +903,26 @@ function TranscriptSection({ transcript }: { transcript: Transcript }) {
   };
 
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 p-5 sm:p-7 space-y-6 shadow-xl backdrop-blur-md text-white">
+    <div className="rounded-2xl bg-vc-surface1/90 p-5 sm:p-7 space-y-6 shadow-xl backdrop-blur-md text-white">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
         <div className="flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-[#8B5CF6]/15 text-[#A78BFA] border border-[#8B5CF6]/25 flex items-center justify-center shrink-0">
+          <div className="size-10 rounded-xl bg-violet-500/15 text-violet-400 border border-violet-500/25 flex items-center justify-center shrink-0">
             <Volume2 className="size-5" />
           </div>
           <div>
             <h3 className="text-base sm:text-lg font-bold font-['Sora',sans-serif] text-white">
               Video Transcript
             </h3>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 mt-0.5">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400 mt-0.5">
               <span className="flex items-center gap-1">
-                <Globe className="size-3 text-slate-500" />
+                <Globe className="size-3 text-zinc-500" />
                 <span className="uppercase">{transcript.language || 'en'}</span>
               </span>
               {transcript.duration_seconds !== null && (
                 <>
                   <span>•</span>
                   <span className="flex items-center gap-1">
-                    <Clock className="size-3 text-slate-500" />
+                    <Clock className="size-3 text-zinc-500" />
                     <span>{formatTimestamp(transcript.duration_seconds)}</span>
                   </span>
                 </>
@@ -988,19 +942,19 @@ function TranscriptSection({ transcript }: { transcript: Transcript }) {
         <div className="flex flex-wrap items-center gap-2">
           {/* Reactive Keyword Search Input */}
           <div className="relative">
-            <Search className="size-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="size-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               placeholder="Search transcript…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 pl-8 pr-7 text-xs rounded-lg bg-white/[0.05] border border-white/[0.1] text-white placeholder:text-slate-500 focus:outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10 w-36 sm:w-48 transition-all"
+              className="h-8 pl-8 pr-7 text-xs rounded-lg bg-white/[0.05] border border-white/[0.1] text-white placeholder:text-zinc-500 focus:outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10 w-36 sm:w-48 transition-all"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white cursor-pointer"
                 aria-label="Clear search"
               >
                 <X className="size-3" />
@@ -1052,7 +1006,7 @@ function TranscriptSection({ transcript }: { transcript: Transcript }) {
 
       {/* Search results banner if search is active */}
       {query && (
-        <div className="flex items-center justify-between text-xs text-slate-400 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-1.5 font-mono">
+        <div className="flex items-center justify-between text-xs text-zinc-400 bg-white/[0.03] rounded-lg px-3 py-1.5 font-mono">
           <span>
             {filteredSegments.length === 0
               ? `No segments match "${searchQuery}"`
@@ -1063,7 +1017,7 @@ function TranscriptSection({ transcript }: { transcript: Transcript }) {
           <button
             type="button"
             onClick={() => setSearchQuery('')}
-            className="text-[#A78BFA] hover:text-white underline cursor-pointer"
+            className="text-violet-400 hover:text-white underline cursor-pointer"
           >
             Reset search
           </button>
@@ -1077,27 +1031,27 @@ function TranscriptSection({ transcript }: { transcript: Transcript }) {
             {filteredSegments.map((seg, idx) => (
               <div
                 key={idx}
-                className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors"
+                className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] transition-colors"
               >
-                <span className="font-mono text-xs font-semibold text-[#22D3EE] px-2 py-0.5 rounded-md bg-[#22D3EE]/10 border border-[#22D3EE]/25 shrink-0 select-all">
+                <span className="font-mono text-xs font-semibold text-zinc-200 px-2 py-0.5 rounded-md bg-white/[0.06] shrink-0 select-all">
                   {formatTimestamp(seg.start)}
                 </span>
-                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed flex-1">
+                <p className="text-xs sm:text-sm text-zinc-200 leading-relaxed flex-1">
                   {highlightMatch(seg.text, query)}
                 </p>
               </div>
             ))}
           </div>
         ) : (
-          <div className="py-10 text-center rounded-xl border border-white/[0.06] bg-white/[0.02] space-y-2">
-            <Search className="size-6 text-slate-500 mx-auto" />
-            <p className="text-xs text-slate-400">
+          <div className="py-10 text-center rounded-xl bg-white/[0.02] space-y-2">
+            <Search className="size-6 text-zinc-500 mx-auto" />
+            <p className="text-xs text-zinc-400">
               No transcript segments found matching "{searchQuery}".
             </p>
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="text-xs font-semibold text-[#A78BFA] hover:underline cursor-pointer"
+              className="text-xs font-semibold text-violet-400 hover:underline cursor-pointer"
             >
               Clear search
             </button>
@@ -1105,8 +1059,8 @@ function TranscriptSection({ transcript }: { transcript: Transcript }) {
         )
       ) : (
         /* Full text fallback */
-        <div className="rounded-xl bg-white/[0.03] p-4 border border-white/[0.06] max-h-80 overflow-y-auto">
-          <p className="text-xs sm:text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">
+        <div className="rounded-xl bg-white/[0.03] p-4 max-h-80 overflow-y-auto">
+          <p className="text-xs sm:text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed">
             {highlightMatch(transcript.transcript_text, query)}
           </p>
         </div>
@@ -1182,12 +1136,12 @@ function Workspace({
                 className={`rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                   isActive
                     ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/30'
-                    : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
                 }`}
               >
                 <span>{tab.label}</span>
                 {count > 0 && (
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-white/20 text-white font-mono' : 'bg-white/10 text-slate-300 font-mono'}`}>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-white/20 text-white font-mono' : 'bg-white/10 text-zinc-300 font-mono'}`}>
                     {count}
                   </span>
                 )}
@@ -1202,7 +1156,7 @@ function Workspace({
             size="sm"
             onClick={() => onRegeneratePlatform(activeTab)}
             disabled={isGenerating}
-            className="text-xs h-8 border-white/10 text-slate-300 hover:text-white"
+            className="text-xs h-8 border-white/10 text-zinc-300 hover:text-white"
           >
             {isPlatformGenerating ? (
               <>
@@ -1227,10 +1181,10 @@ function Workspace({
       {/* Tab Group Content */}
       <div role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={`tab-${activeTab}`} className="space-y-6">
         {tabOutputs.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-white/10 bg-[#0E1017]/60 p-8 text-center">
+          <div className="rounded-2xl border border-dashed border-white/10 bg-vc-surface1/60 p-8 text-center">
             <Sparkles className="mx-auto size-6 text-violet-400" />
             <p className="mt-3 font-bold text-white font-['Sora',sans-serif]">No {tabConfig.label} content yet</p>
-            <p className="mt-1 text-sm text-slate-400">Generate this platform’s content kit to see drafts here.</p>
+            <p className="mt-1 text-sm text-zinc-400">Generate this platform’s content kit to see drafts here.</p>
           </div>
         )}
         {tabConfig.groups.map((group) => {
@@ -1250,7 +1204,7 @@ function Workspace({
                   return (
                     <div
                       key={item.id}
-                      className="rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 p-4 sm:p-5 transition-all hover:border-violet-500/30 group shadow-md"
+                      className="rounded-2xl bg-vc-surface1/90 p-4 sm:p-5 transition-all group shadow-md"
                     >
                       {isEditing ? (
                         <div className="space-y-3">
@@ -1287,11 +1241,11 @@ function Workspace({
                         </div>
                       ) : (
                         <div className="space-y-3">
-                          <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-200 font-sans">
+                          <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200 font-sans">
                             {item.content}
                           </p>
                           <div className="flex items-center justify-between border-t border-white/[0.08] pt-3 text-xs">
-                            <span className="text-slate-400 capitalize font-mono text-[11px]">
+                            <span className="text-zinc-400 capitalize font-mono text-[11px]">
                               {item.content_type}
                             </span>
                             <div className="flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
@@ -1299,7 +1253,7 @@ function Workspace({
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => startEdit(item)}
-                                className="h-7 px-2 text-xs text-slate-300 hover:text-white"
+                                className="h-7 px-2 text-xs text-zinc-300 hover:text-white"
                               >
                                 <Pencil className="size-3 mr-1" />
                                 <span>Edit</span>
@@ -1308,7 +1262,7 @@ function Workspace({
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleCopy(item.content, item.id)}
-                                className="h-7 px-2 text-xs border-white/10 text-slate-300 hover:text-white"
+                                className="h-7 px-2 text-xs border-white/10 text-zinc-300 hover:text-white"
                               >
                                 {isCopied ? (
                                   <>

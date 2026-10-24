@@ -14,10 +14,10 @@ import { workspaceService, WorkspaceDetailResponse, InviteMemberResponse } from 
 import { WorkspaceRecord, WorkspaceMemberRecord, WorkspaceInvitationRecord, WorkspaceRole } from '../types';
 
 const ROLE_BADGES: Record<WorkspaceRole, { label: string; tone: string; desc: string }> = {
-  OWNER: { label: 'Owner', tone: 'bg-amber-100 text-amber-800 border-amber-300', desc: 'Full workspace control, billing, role transfer & deletion' },
-  ADMIN: { label: 'Admin', tone: 'bg-purple-100 text-purple-800 border-purple-300', desc: 'Manage editors, viewers, invitations & workspace settings' },
-  EDITOR: { label: 'Editor', tone: 'bg-blue-100 text-blue-800 border-blue-300', desc: 'Create, edit & manage video content and creative assets' },
-  VIEWER: { label: 'Viewer', tone: 'bg-zinc-100 text-zinc-700 border-zinc-300', desc: 'Read-only access to review videos, workflows & reports' },
+  OWNER: { label: 'Owner', tone: 'bg-amber-500/15 text-amber-300 border-amber-500/30', desc: 'Full workspace control, billing, role transfer & deletion' },
+  ADMIN: { label: 'Admin', tone: 'bg-violet-500/15 text-violet-300 border-violet-500/30', desc: 'Manage editors, viewers, invitations & workspace settings' },
+  EDITOR: { label: 'Editor', tone: 'bg-white/[0.06] text-zinc-200 border-white/20', desc: 'Create, edit & manage video content and creative assets' },
+  VIEWER: { label: 'Viewer', tone: 'bg-white/[0.06] text-zinc-300 border-white/15', desc: 'Read-only access to review videos, workflows & reports' },
 };
 
 export const WorkspacePage: React.FC = () => {
@@ -239,7 +239,7 @@ export const WorkspacePage: React.FC = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl flex items-center gap-2">
-            <Building2 className="size-7 text-forest" />
+            <Building2 className="size-7 text-violet-300" />
             Workspaces & Team Permissions
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -250,14 +250,14 @@ export const WorkspacePage: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowAcceptModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3.5 py-2 text-sm font-medium text-foreground hover:bg-cream transition-colors shadow-2xs"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-vc-surface1 px-3.5 py-2 text-sm font-medium text-foreground hover:bg-white/[0.06] transition-colors shadow-2xs"
           >
-            <KeyRound className="size-4 text-forest" />
+            <KeyRound className="size-4 text-violet-300" />
             Join with Token
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-forest px-4 py-2 text-sm font-medium text-white hover:bg-forest/90 transition-colors shadow-2xs"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500/90 transition-colors shadow-2xs"
           >
             <Plus className="size-4" />
             Create Workspace
@@ -270,8 +270,8 @@ export const WorkspacePage: React.FC = () => {
         <div
           className={`mt-4 flex items-center justify-between rounded-lg p-3 text-sm border ${
             message.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-              : 'bg-rose-50 text-rose-800 border-rose-200'
+              ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+              : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
           }`}
         >
           <span>{message.text}</span>
@@ -280,7 +280,7 @@ export const WorkspacePage: React.FC = () => {
       )}
 
       {error && (
-        <div className="mt-4 flex items-center gap-2 rounded-lg bg-rose-50 p-3 text-sm text-rose-800 border border-rose-200">
+        <div className="mt-4 flex items-center gap-2 rounded-lg bg-rose-500/10 p-3 text-sm text-rose-300 ">
           <AlertCircle className="size-4 shrink-0" />
           <span>{error}</span>
         </div>
@@ -314,13 +314,13 @@ export const WorkspacePage: React.FC = () => {
                 onClick={() => setActiveWorkspaceId(ws.id)}
                 className={`flex items-center gap-2 rounded-lg border px-3.5 py-2 text-sm font-medium transition-all ${
                   isActive
-                    ? 'border-forest bg-forest/5 text-forest shadow-2xs ring-1 ring-forest'
-                    : 'border-border bg-white text-muted-foreground hover:bg-cream hover:text-foreground'
+                    ? 'border-violet-500 bg-violet-500/5 text-violet-300 shadow-2xs ring-1 ring-violet-500/40'
+                    : 'border-border bg-vc-surface1 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground'
                 }`}
               >
                 <span className="font-medium">{ws.name}</span>
                 {ws.is_personal && (
-                  <span className="rounded bg-zinc-200/80 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600">
+                  <span className="rounded bg-zinc-200/80 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-300">
                     Personal
                   </span>
                 )}
@@ -340,7 +340,7 @@ export const WorkspacePage: React.FC = () => {
       {/* Active Workspace Header & Details */}
       {activeWorkspace && (
         <div className="mt-6">
-          <div className="rounded-xl border border-border bg-white p-5 shadow-2xs">
+          <div className="rounded-xl bg-vc-surface1 p-5 shadow-2xs">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="flex items-center gap-3">
@@ -355,13 +355,13 @@ export const WorkspacePage: React.FC = () => {
                     {ROLE_BADGES[activeWorkspace.current_user_role].label}
                   </span>
                   {activeWorkspace.workspace.is_personal && (
-                    <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                    <span className="rounded-md bg-white/[0.06] px-2 py-0.5 text-xs font-medium text-zinc-300">
                       Default Personal
                     </span>
                   )}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Workspace ID: <code className="font-mono text-zinc-600">{activeWorkspace.workspace.id}</code> • {activeWorkspace.member_count} member{activeWorkspace.member_count === 1 ? '' : 's'}
+                  Workspace ID: <code className="font-mono text-zinc-300">{activeWorkspace.workspace.id}</code> • {activeWorkspace.member_count} member{activeWorkspace.member_count === 1 ? '' : 's'}
                 </p>
               </div>
 
@@ -373,7 +373,7 @@ export const WorkspacePage: React.FC = () => {
                       setInviteResult(null);
                       setShowInviteModal(true);
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-forest px-3.5 py-2 text-sm font-medium text-white hover:bg-forest/90 transition-colors shadow-2xs"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500 px-3.5 py-2 text-sm font-medium text-white hover:bg-violet-500/90 transition-colors shadow-2xs"
                   >
                     <UserPlus className="size-4" />
                     Invite Member
@@ -388,7 +388,7 @@ export const WorkspacePage: React.FC = () => {
                 onClick={() => setActiveTab('members')}
                 className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
                   activeTab === 'members'
-                    ? 'border-forest text-forest font-semibold'
+                    ? 'border-violet-500 text-violet-300 font-semibold'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -399,7 +399,7 @@ export const WorkspacePage: React.FC = () => {
                   onClick={() => setActiveTab('invitations')}
                   className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
                     activeTab === 'invitations'
-                      ? 'border-forest text-forest font-semibold'
+                      ? 'border-violet-500 text-violet-300 font-semibold'
                       : 'border-transparent text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -411,7 +411,7 @@ export const WorkspacePage: React.FC = () => {
                   onClick={() => setActiveTab('settings')}
                   className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
                     activeTab === 'settings'
-                      ? 'border-forest text-forest font-semibold'
+                      ? 'border-violet-500 text-violet-300 font-semibold'
                       : 'border-transparent text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -424,7 +424,7 @@ export const WorkspacePage: React.FC = () => {
             {activeTab === 'members' && (
               <div className="mt-5 overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-cream/50 text-xs uppercase tracking-wider text-muted-foreground border-y border-border">
+                  <thead className="bg-white/[0.04] text-xs uppercase tracking-wider text-muted-foreground border-y border-border">
                     <tr>
                       <th className="px-4 py-3">Member</th>
                       <th className="px-4 py-3">Role</th>
@@ -438,17 +438,17 @@ export const WorkspacePage: React.FC = () => {
                       const badge = ROLE_BADGES[member.role] || ROLE_BADGES.VIEWER;
 
                       return (
-                        <tr key={member.id} className="hover:bg-cream/20 transition-colors">
+                        <tr key={member.id} className="hover:bg-white/[0.04] transition-colors">
                           <td className="px-4 py-3.5">
                             <div className="flex items-center gap-3">
-                              <div className="flex size-8 items-center justify-center rounded-full bg-forest/10 font-bold text-forest text-xs">
+                              <div className="flex size-8 items-center justify-center rounded-full bg-violet-500/10 font-bold text-violet-300 text-xs">
                                 {(member.user_email || member.user_name || 'U')[0].toUpperCase()}
                               </div>
                               <div>
                                 <div className="font-medium text-foreground flex items-center gap-1.5">
                                   <span>{member.user_name || member.user_email || 'Workspace Member'}</span>
                                   {isCurrentUser && (
-                                    <span className="rounded bg-zinc-100 px-1.5 py-0.2 text-[10px] font-semibold text-zinc-600">
+                                    <span className="rounded bg-white/[0.06] px-1.5 py-0.2 text-[10px] font-semibold text-zinc-300">
                                       Owner
                                     </span>
                                   )}
@@ -465,7 +465,7 @@ export const WorkspacePage: React.FC = () => {
                               <select
                                 value={member.role}
                                 onChange={(e) => handleUpdateRole(member.id, e.target.value as WorkspaceRole)}
-                                className="rounded border border-border bg-white px-2 py-1 text-xs font-medium text-foreground shadow-2xs focus:border-forest focus:outline-hidden"
+                                className="rounded border border-border bg-vc-surface1 px-2 py-1 text-xs font-medium text-foreground shadow-2xs focus:border-violet-500 focus:outline-hidden"
                               >
                                 {userRole === 'OWNER' && <option value="ADMIN">ADMIN</option>}
                                 <option value="EDITOR">EDITOR</option>
@@ -487,7 +487,7 @@ export const WorkspacePage: React.FC = () => {
                             {member.role !== 'OWNER' && isOwnerOrAdmin && (
                               <button
                                 onClick={() => handleRemoveMember(member.id, false)}
-                                className="rounded p-1 text-rose-600 hover:bg-rose-50 transition-colors"
+                                className="rounded p-1 text-rose-400 hover:bg-rose-500/10 transition-colors"
                                 title="Remove member"
                               >
                                 <Trash2 className="size-4" />
@@ -512,7 +512,7 @@ export const WorkspacePage: React.FC = () => {
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
-                      <thead className="bg-cream/50 text-xs uppercase tracking-wider text-muted-foreground border-y border-border">
+                      <thead className="bg-white/[0.04] text-xs uppercase tracking-wider text-muted-foreground border-y border-border">
                         <tr>
                           <th className="px-4 py-3">Invitee Email</th>
                           <th className="px-4 py-3">Invited Role</th>
@@ -523,7 +523,7 @@ export const WorkspacePage: React.FC = () => {
                       </thead>
                       <tbody className="divide-y divide-border">
                         {invitations.map((invite) => (
-                          <tr key={invite.id} className="hover:bg-cream/20">
+                          <tr key={invite.id} className="hover:bg-white/[0.04]">
                             <td className="px-4 py-3 font-medium text-foreground">
                               {invite.invitee_email}
                             </td>
@@ -533,7 +533,7 @@ export const WorkspacePage: React.FC = () => {
                               </span>
                             </td>
                             <td className="px-4 py-3">
-                              <span className="rounded bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-200">
+                              <span className="rounded bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-300 ">
                                 {invite.status}
                               </span>
                             </td>
@@ -543,7 +543,7 @@ export const WorkspacePage: React.FC = () => {
                             <td className="px-4 py-3 text-right">
                               <button
                                 onClick={() => handleRevokeInvite(invite.id)}
-                                className="text-xs text-rose-600 hover:underline font-medium"
+                                className="text-xs text-rose-400 hover:underline font-medium"
                               >
                                 Revoke
                               </button>
@@ -564,7 +564,7 @@ export const WorkspacePage: React.FC = () => {
                   <h3 className="text-sm font-semibold text-foreground">Role Permissions Guide</h3>
                   <div className="mt-3 space-y-2">
                     {(Object.keys(ROLE_BADGES) as WorkspaceRole[]).map((role) => (
-                      <div key={role} className="flex items-start gap-3 rounded-lg border border-border p-3 bg-cream/30">
+                      <div key={role} className="flex items-start gap-3 rounded-lg p-3 bg-white/[0.04]">
                         <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border shrink-0 ${ROLE_BADGES[role].tone}`}>
                           {ROLE_BADGES[role].label}
                         </span>
@@ -575,14 +575,14 @@ export const WorkspacePage: React.FC = () => {
                 </div>
 
                 {userRole === 'OWNER' && !activeWorkspace.workspace.is_personal && (
-                  <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-4">
-                    <h4 className="text-sm font-semibold text-rose-900">Danger Zone</h4>
-                    <p className="mt-1 text-xs text-rose-700">
+                  <div className="rounded-lg bg-rose-500/10 p-4">
+                    <h4 className="text-sm font-semibold text-rose-300">Danger Zone</h4>
+                    <p className="mt-1 text-xs text-rose-300">
                       Permanently delete this workspace and all associated member links. This action cannot be undone.
                     </p>
                     <button
                       onClick={handleDeleteWorkspace}
-                      className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-rose-700 transition-colors"
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-rose-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-rose-700 active:bg-rose-700 active:translate-y-px shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(0,0,0,0.4)] transition-colors"
                     >
                       <Trash2 className="size-3.5" />
                       Delete Workspace
@@ -597,8 +597,8 @@ export const WorkspacePage: React.FC = () => {
 
       {/* Modal: Create Workspace */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl border border-border">
+        <div className="fixed inset-0 z-50 flex items-center justify-center glass-scrim p-4">
+          <div className="w-full max-w-md rounded-3xl glass-float p-6">
             <h3 className="text-lg font-bold text-foreground">Create New Workspace</h3>
             <p className="mt-1 text-xs text-muted-foreground">
               Create a shared workspace to collaborate with your team on video content and campaigns.
@@ -615,7 +615,7 @@ export const WorkspacePage: React.FC = () => {
                   placeholder="e.g. Media Agency Alpha"
                   value={newWorkspaceName}
                   onChange={(e) => setNewWorkspaceName(e.target.value)}
-                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-forest focus:outline-hidden"
+                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)] px-3 py-2 text-sm text-vc-text-primary placeholder:text-zinc-500 focus:border-white/25 focus:outline-none"
                 />
               </div>
 
@@ -623,14 +623,14 @@ export const WorkspacePage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-cream"
+                  className="rounded-full px-4 py-2 text-sm font-medium text-vc-text-secondary hover:text-vc-text-primary hover:bg-white/[0.06] transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={createLoading}
-                  className="rounded-lg bg-forest px-4 py-2 text-sm font-medium text-white hover:bg-forest/90 disabled:opacity-50"
+                  className="rounded-full bg-vc-ai-hover px-4 py-2 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai/[0.06] active:translate-y-px transition-colors disabled:opacity-50"
                 >
                   {createLoading ? 'Creating...' : 'Create'}
                 </button>
@@ -642,8 +642,8 @@ export const WorkspacePage: React.FC = () => {
 
       {/* Modal: Invite Member */}
       {showInviteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl border border-border">
+        <div className="fixed inset-0 z-50 flex items-center justify-center glass-scrim p-4">
+          <div className="w-full max-w-md rounded-3xl glass-float p-6">
             <h3 className="text-lg font-bold text-foreground">Invite Workspace Member</h3>
             <p className="mt-1 text-xs text-muted-foreground">
               Generate a cryptographically secure, single-use invitation token for team collaboration.
@@ -661,7 +661,7 @@ export const WorkspacePage: React.FC = () => {
                     placeholder="colleague@example.com"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
-                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-forest focus:outline-hidden"
+                    className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)] px-3 py-2 text-sm text-vc-text-primary placeholder:text-zinc-500 focus:border-white/25 focus:outline-none"
                   />
                 </div>
 
@@ -672,7 +672,7 @@ export const WorkspacePage: React.FC = () => {
                   <select
                     value={inviteRole}
                     onChange={(e) => setInviteRole(e.target.value as WorkspaceRole)}
-                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-forest focus:outline-hidden"
+                    className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)] px-3 py-2 text-sm text-vc-text-primary placeholder:text-zinc-500 focus:border-white/25 focus:outline-none"
                   >
                     {userRole === 'OWNER' && <option value="ADMIN">ADMIN — Full management except ownership</option>}
                     <option value="EDITOR">EDITOR — Create and manage content</option>
@@ -684,14 +684,14 @@ export const WorkspacePage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowInviteModal(false)}
-                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-cream"
+                    className="rounded-full px-4 py-2 text-sm font-medium text-vc-text-secondary hover:text-vc-text-primary hover:bg-white/[0.06] transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={inviteLoading}
-                    className="rounded-lg bg-forest px-4 py-2 text-sm font-medium text-white hover:bg-forest/90 disabled:opacity-50"
+                    className="rounded-full bg-vc-ai-hover px-4 py-2 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai/[0.06] active:translate-y-px transition-colors disabled:opacity-50"
                   >
                     {inviteLoading ? 'Generating...' : 'Generate Invitation'}
                   </button>
@@ -699,7 +699,7 @@ export const WorkspacePage: React.FC = () => {
               </form>
             ) : (
               <div className="mt-4 space-y-4">
-                <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800">
+                <div className="rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-200">
                   <div className="font-semibold mb-1">Invitation Token Generated!</div>
                   Share this single-use secret key with <span className="font-bold">{inviteResult.invitation.invitee_email}</span>. It expires in 7 days.
                 </div>
@@ -713,13 +713,13 @@ export const WorkspacePage: React.FC = () => {
                       type="text"
                       readOnly
                       value={inviteResult.invitation_token}
-                      className="w-full rounded-lg border border-border bg-cream/40 px-3 py-2 font-mono text-xs text-foreground select-all"
+                      className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 font-mono text-xs text-foreground select-all"
                     />
                     <button
                       onClick={() => copyInviteToClipboard(inviteResult.invitation_token)}
-                      className="flex items-center gap-1 rounded-lg border border-border bg-white px-3 py-2 text-xs font-medium text-foreground hover:bg-cream"
+                      className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-medium text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:bg-white/[0.10] transition-colors"
                     >
-                      {inviteCopied ? <Check className="size-4 text-emerald-600" /> : <Copy className="size-4" />}
+                      {inviteCopied ? <Check className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
                       {inviteCopied ? 'Copied' : 'Copy'}
                     </button>
                   </div>
@@ -728,7 +728,7 @@ export const WorkspacePage: React.FC = () => {
                 <div className="flex justify-end pt-2">
                   <button
                     onClick={() => setShowInviteModal(false)}
-                    className="rounded-lg bg-forest px-4 py-2 text-sm font-medium text-white hover:bg-forest/90"
+                    className="rounded-full bg-vc-ai-hover px-4 py-2 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai/[0.06] active:translate-y-px transition-colors"
                   >
                     Done
                   </button>
@@ -741,8 +741,8 @@ export const WorkspacePage: React.FC = () => {
 
       {/* Modal: Accept Invitation */}
       {showAcceptModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl border border-border">
+        <div className="fixed inset-0 z-50 flex items-center justify-center glass-scrim p-4">
+          <div className="w-full max-w-md rounded-3xl glass-float p-6">
             <h3 className="text-lg font-bold text-foreground">Join a Workspace</h3>
             <p className="mt-1 text-xs text-muted-foreground">
               Paste the single-use invitation token provided by your workspace admin.
@@ -759,7 +759,7 @@ export const WorkspacePage: React.FC = () => {
                   placeholder="Paste 64-character token..."
                   value={acceptToken}
                   onChange={(e) => setAcceptToken(e.target.value)}
-                  className="w-full font-mono text-xs rounded-lg border border-border px-3 py-2 focus:border-forest focus:outline-hidden"
+                  className="w-full font-mono text-xs rounded-lg border border-border px-3 py-2 focus:border-violet-500 focus:outline-hidden"
                 />
               </div>
 
@@ -767,14 +767,14 @@ export const WorkspacePage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowAcceptModal(false)}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-cream"
+                  className="rounded-full px-4 py-2 text-sm font-medium text-vc-text-secondary hover:text-vc-text-primary hover:bg-white/[0.06] transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={acceptLoading}
-                  className="rounded-lg bg-forest px-4 py-2 text-sm font-medium text-white hover:bg-forest/90 disabled:opacity-50"
+                  className="rounded-full bg-vc-ai-hover px-4 py-2 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai/[0.06] active:translate-y-px transition-colors disabled:opacity-50"
                 >
                   {acceptLoading ? 'Verifying...' : 'Join Workspace'}
                 </button>

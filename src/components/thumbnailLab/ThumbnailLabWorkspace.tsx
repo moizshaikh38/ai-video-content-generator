@@ -256,11 +256,11 @@ export const ThumbnailLabWorkspace: React.FC<ThumbnailLabWorkspaceProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold font-display">Thumbnail Lab</h2>
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-emerald-500/10 text-emerald-400 ">
                 Phase 25 Studio
               </span>
               {capabilities?.image_provider_status === 'NOT_CONFIGURED' && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-amber-500/10 text-amber-400 ">
                   Frame Compositor Mode (AI Gen Unconfigured)
                 </span>
               )}
@@ -273,7 +273,7 @@ export const ThumbnailLabWorkspace: React.FC<ThumbnailLabWorkspaceProps> = ({
 
         <div className="flex items-center gap-2">
           {/* Aspect Ratio Switcher */}
-          <div className="flex items-center rounded-lg border border-border/60 bg-muted/40 p-0.5 text-xs">
+          <div className="flex items-center rounded-lg bg-muted/40 p-0.5 text-xs">
             <button
               onClick={() => setAspectRatio('16:9')}
               className={`px-2.5 py-1 rounded-md transition ${
@@ -396,7 +396,7 @@ export const ThumbnailLabWorkspace: React.FC<ThumbnailLabWorkspaceProps> = ({
 
           {/* Inspector Tabs (Text vs Composition vs Source Frames) */}
           <div className="pt-2 border-t border-border/60">
-            <div className="flex rounded-lg border border-border/60 bg-muted/40 p-0.5 text-xs mb-3">
+            <div className="flex rounded-lg bg-muted/40 p-0.5 text-xs mb-3">
               <button
                 onClick={() => setActiveTab('text')}
                 className={`flex-1 py-1 rounded-md transition text-center ${
@@ -620,7 +620,7 @@ export const ThumbnailLabWorkspace: React.FC<ThumbnailLabWorkspaceProps> = ({
         {/* CENTER PANEL: Canvas Preview & Safe Area (6 cols) */}
         <div className="col-span-6 flex flex-col bg-neutral-950 p-6 overflow-auto items-center justify-center relative">
           {/* Canvas Zoom & Safe Area Toolbar */}
-          <div className="absolute top-4 left-6 flex items-center gap-2 z-20 bg-background/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-border/60 text-xs shadow-md">
+          <div className="absolute top-4 left-6 flex items-center gap-2 z-20 bg-background/80 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs shadow-md">
             <button
               onClick={() => setSafeAreaOverlay(!safeAreaOverlay)}
               className={`flex items-center gap-1.5 px-2 py-0.5 rounded transition ${
@@ -693,7 +693,7 @@ export const ThumbnailLabWorkspace: React.FC<ThumbnailLabWorkspaceProps> = ({
                   <div className="absolute inset-0 pointer-events-none border border-rose-500/30 m-4 rounded-lg">
                     {/* Duration badge safe zone marker in 16:9 */}
                     {aspectRatio === '16:9' && (
-                      <div className="absolute bottom-2 right-2 bg-neutral-900/80 border border-neutral-700 text-[10px] text-neutral-400 font-mono px-2 py-0.5 rounded">
+                      <div className="absolute bottom-2 right-2 bg-neutral-900/80 text-[10px] text-neutral-400 font-mono px-2 py-0.5 rounded">
                         03:45 (UI Badge Area)
                       </div>
                     )}
@@ -776,7 +776,7 @@ export const ThumbnailLabWorkspace: React.FC<ThumbnailLabWorkspaceProps> = ({
 
           {/* Active Concept Diagnostics Card */}
           {activeConcept && (
-            <div className="p-3.5 rounded-xl border border-border/70 bg-background/60 space-y-3">
+            <div className="p-3.5 rounded-xl bg-background/60 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-[11px] font-medium text-muted-foreground block">Quality Score</span>
@@ -895,7 +895,7 @@ export const ThumbnailLabWorkspace: React.FC<ThumbnailLabWorkspaceProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-mono font-bold text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">
+                    <span className="text-xs font-mono font-bold text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded ">
                       {concept.diagnostics.overall_score}
                     </span>
                     {concept.approved && (

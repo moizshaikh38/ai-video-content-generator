@@ -1243,12 +1243,14 @@ export class CaptionService {
           continue;
         }
 
-        // De-duplication check: avoid duplicate cues where adjacent items share boundaries
+        // De-duplication check: avoid duplicate cues where adjacent items share boundaries.
+        // Only cue IDs that actually exist participate — cues without IDs must not
+        // collapse into the first one via an `undefined` Set key.
         const signature = `${cueStart.toFixed(2)}_${cueEnd.toFixed(2)}_${(rawCue.text || '').trim().toLowerCase()}`;
-        if (seenCueIds.has(rawCue.id) || seenSignatures.has(signature)) {
+        if ((rawCue.id != null && seenCueIds.has(rawCue.id)) || seenSignatures.has(signature)) {
           continue;
         }
-        seenCueIds.add(rawCue.id);
+        if (rawCue.id != null) seenCueIds.add(rawCue.id);
         seenSignatures.add(signature);
 
         const translatedWords = Array.isArray(rawCue.words)

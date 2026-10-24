@@ -111,7 +111,7 @@ export const PlaybackController: React.FC<PlaybackControllerProps> = ({
         onClick={onTogglePlay}
         title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
         aria-label={isPlaying ? 'Pause' : 'Play'}
-        className="w-7 h-7 mx-0.5 rounded-full bg-white hover:bg-neutral-100 text-[#0B0C0F] flex items-center justify-center shadow-sm transition-transform active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+        className="w-7 h-7 mx-0.5 rounded-full bg-white hover:bg-neutral-100 active:bg-zinc-200 text-vc-action-foreground flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_1px_2px_rgba(0,0,0,0.4)] transition-transform active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
       >
         {isPlaying ? (
           <Pause className="w-3.5 h-3.5 fill-current" />
@@ -140,7 +140,7 @@ export const PlaybackController: React.FC<PlaybackControllerProps> = ({
       <div className="relative ml-0.5" ref={settingsRef}>
         <button
           onClick={toggleSettings}
-          className={`p-1.5 rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 ${
+          className={`p-1.5 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 ${
             showSettings || secondaryActive
               ? 'bg-white/[0.12] text-white'
               : 'text-neutral-400 hover:text-white hover:bg-white/[0.08]'
@@ -153,13 +153,13 @@ export const PlaybackController: React.FC<PlaybackControllerProps> = ({
         </button>
 
         {showSettings && (
-          <div className={`absolute left-1/2 -translate-x-1/2 z-50 w-56 rounded-xl glass-dock border border-white/[0.12] shadow-2xl shadow-black/60 p-3 space-y-3 ${openUp ? "bottom-full mb-2" : "top-full mt-2"}`}>
+          <div className={`absolute left-1/2 -translate-x-1/2 z-50 w-56 rounded-2xl glass-float p-3 space-y-3 ${openUp ? "bottom-full mb-2" : "top-full mt-2"}`}>
             <div className="flex items-center justify-between gap-2">
               <label className="text-[11px] text-neutral-400">Speed</label>
               <select
                 value={playbackRate}
                 onChange={(e) => onChangePlaybackRate(parseFloat(e.target.value))}
-                className="bg-[#101216] border border-white/[0.1] rounded-md px-1.5 py-0.5 text-[11px] font-mono text-neutral-200"
+                className="bg-vc-surface1 border border-white/[0.1] rounded-md px-1.5 py-0.5 text-[11px] font-mono text-neutral-200"
               >
                 <option value="0.5">0.5x</option>
                 <option value="1">1.0x</option>
@@ -202,7 +202,7 @@ export const PlaybackController: React.FC<PlaybackControllerProps> = ({
             <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/[0.06]">
               <button
                 onClick={onToggleLoop}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
                   isLooping
                     ? 'bg-white/[0.12] border-white/25 text-white'
                     : 'bg-transparent border-white/[0.08] text-neutral-400 hover:text-white'
@@ -215,7 +215,7 @@ export const PlaybackController: React.FC<PlaybackControllerProps> = ({
               </button>
               <button
                 onClick={onToggleSafeGuides}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
                   showSafeGuides
                     ? 'bg-white/[0.12] border-white/25 text-white'
                     : 'bg-transparent border-white/[0.08] text-neutral-400 hover:text-white'

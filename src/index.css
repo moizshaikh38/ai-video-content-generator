@@ -6,16 +6,23 @@
   --radius: 1rem;
   
   /* ─── Non-Auth Workspace Design Tokens (Milestone A) ────────────────────────
-     Obsidian / Graphite Design System for authenticated workspace surfaces */
-  --vc-canvas: #080B12;
-  --vc-surface-1: #0F1420;
-  --vc-surface-2: #151C2C;
-  --vc-surface-3: #1B2438;
-  --vc-border: rgba(255, 255, 255, 0.07);
-  --vc-border-strong: rgba(255, 255, 255, 0.12);
-  --vc-text-primary: #F4F6FB;
-  --vc-text-secondary: #94A3B8;
-  --vc-text-muted: #64748B;
+     Black Glass: pure-black canvas with neutral (zero blue) graphite surfaces and
+     zinc text, so video and the white primary action carry all the contrast. */
+  --vc-canvas: #000000;
+  --vc-surface-1: #0E0E0E;
+  --vc-surface-2: #161616;
+  --vc-surface-3: #1E1E1E;
+  --vc-border: rgba(255, 255, 255, 0.08);
+  --vc-border-strong: rgba(255, 255, 255, 0.14);
+  --vc-text-primary: #FAFAFA;
+  --vc-text-secondary: #A1A1AA;
+  --vc-text-muted: #71717A;
+  /* Space-separated channels so Tailwind opacity modifiers work (bg-vc-surface2/60). */
+  --vc-canvas-rgb: 0 0 0;
+  --vc-surface-1-rgb: 14 14 14;
+  --vc-surface-2-rgb: 22 22 22;
+  --vc-surface-3-rgb: 30 30 30;
+  --vc-action-primary-rgb: 250 250 250;
 
   /* AI signature accent — reserved strictly for genuine AI tools, generation & indicators */
   --vc-accent-ai: #8B5CF6;
@@ -27,16 +34,16 @@
   --vc-warning: #F59E0B;
   --vc-destructive: #EF4444;
 
-  /* Primary neutral action — crisp titanium white with near-black text */
-  --vc-action-primary: #F4F6FB;
-  --vc-action-primary-text: #0B0C0F;
+  /* Primary neutral action — bright white pill with near-black text */
+  --vc-action-primary: #FAFAFA;
+  --vc-action-primary-text: #0A0A0A;
 
   /* Workspace aliases mapping to vc tokens */
   --bg-canvas: var(--vc-canvas);
   --bg-surface-1: var(--vc-surface-1);
   --bg-surface-2: var(--vc-surface-2);
   --bg-surface-3: var(--vc-surface-3);
-  --bg-glass: rgba(15, 20, 32, 0.82);
+  --bg-glass: rgba(14, 14, 14, 0.72);
   --border-subtle: var(--vc-border);
   --border-highlight: var(--vc-border-strong);
   --text-primary: var(--vc-text-primary);
@@ -87,7 +94,7 @@
   --accent-foreground: var(--vc-text-primary);
   --border: var(--vc-border);
   --input: rgba(255, 255, 255, 0.08);
-  --ring: rgba(244, 246, 251, 0.40);
+  --ring: rgba(250, 250, 250, 0.40);
 
   /* Shadows */
   --shadow-soft: 0 8px 30px rgba(0, 0, 0, 0.5);
@@ -123,40 +130,74 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Spatial glass surfaces — translucent charcoal panels with restrained blur and a thin
-   inner highlight. Token-driven so panels stay consistent instead of each file inventing
-   its own blur/opacity stack. */
-.glass-dock {
-  background-color: color-mix(in srgb, var(--bg-surface-1) 82%, transparent);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border-left: 1px solid var(--border-subtle);
-  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.03);
-}
-
-.glass-panel {
-  background-color: color-mix(in srgb, var(--bg-surface-1) 82%, transparent);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border-right: 1px solid var(--border-subtle);
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
-}
-
+/* ─── Spatial glass ──────────────────────────────────────────────────────────
+   Glass is reserved for chrome that floats or has content scrolling beneath it;
+   content cards stay solid so text stays crisp. Depth comes from a 1px hairline
+   and a faint inner top highlight — never a coloured glow. */
+.glass-chrome,
+.glass-dock,
+.glass-panel,
 .glass-rail {
-  background-color: color-mix(in srgb, var(--bg-surface-1) 70%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background-color: rgba(14, 14, 14, 0.72);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Editor side panels keep their single edge hairline. */
+.glass-dock { border-left: 1px solid var(--border-subtle); }
+.glass-panel { border-right: 1px solid var(--border-subtle); }
+.glass-rail {
   border-left: 1px solid var(--border-subtle);
   border-right: 1px solid var(--border-subtle);
 }
 
-/* Glass is decorative only — drop it where the device can't composite it cheaply. */
+/* Modals, popovers, menus, command palette. */
+.glass-float {
+  background-color: rgba(22, 22, 22, 0.78);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 24px 60px -12px rgba(0, 0, 0, 0.85);
+}
+
+/* Controls that sit on top of video or thumbnails. */
+.glass-overlay {
+  background-color: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+/* Dimmed backdrop behind modals. */
+.glass-scrim {
+  background-color: rgba(0, 0, 0, 0.60);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+/* Media lightboxes: video needs a darker surround to read. */
+.glass-scrim.glass-scrim-deep { background-color: rgba(0, 0, 0, 0.82); }
+
+/* Glass is decorative only — fall back to solid surfaces where it can't be
+   composited or the user asked for less transparency. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-chrome, .glass-dock, .glass-panel, .glass-rail { background-color: var(--bg-surface-1); }
+  .glass-float { background-color: var(--bg-surface-2); }
+  .glass-overlay { background-color: rgba(0, 0, 0, 0.75); }
+}
 @media (prefers-reduced-transparency: reduce) {
-  .glass-dock, .glass-panel, .glass-rail {
+  .glass-chrome, .glass-dock, .glass-panel, .glass-rail,
+  .glass-float, .glass-overlay, .glass-scrim {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    background-color: var(--bg-surface-1);
   }
+  .glass-chrome, .glass-dock, .glass-panel, .glass-rail { background-color: var(--bg-surface-1); }
+  .glass-float { background-color: var(--bg-surface-2); }
+  .glass-overlay { background-color: rgba(0, 0, 0, 0.75); }
+  .glass-scrim { background-color: rgba(0, 0, 0, 0.75); }
 }
 
 /* ─── Control primitives ──────────────────────────────────────────────────────
@@ -193,7 +234,7 @@ input[type='range']::-moz-range-thumb {
   border: 1px solid rgba(0, 0, 0, 0.45);
 }
 input[type='range']:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px rgba(244, 246, 251, 0.25);
+  box-shadow: 0 0 0 3px rgba(250, 250, 250, 0.25);
 }
 input[type='range']:disabled { opacity: 0.45; cursor: not-allowed; }
 /* Panels that set their own accent (e.g. audio amber) keep it via `accent-*`. */
@@ -207,7 +248,7 @@ input[type='range']:disabled { opacity: 0.45; cursor: not-allowed; }
     appearance: none;
     background-color: var(--bg-surface-2);
     color: var(--text-primary);
-    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A1A1AA' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.5rem center;
     padding-right: 1.75rem;
@@ -288,3 +329,65 @@ select { padding-right: 1.75rem; }
 }
 
 
+
+/* ─── New Project page motion ─────────────────────────────────────────────────
+   Entrance, caption word-pop, and indeterminate shimmer choreography. All
+   disabled under prefers-reduced-motion with end-states forced visible. */
+@keyframes np-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+.np-rise {
+  animation: np-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes np-pop {
+  0% { opacity: 0; transform: scale(0.6) translateY(6px); }
+  60% { opacity: 1; transform: scale(1.08) translateY(0); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.np-word {
+  display: inline-block;
+  animation: np-pop 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes np-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.np-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    rgba(139, 92, 246, 0.2) 25%,
+    rgba(139, 92, 246, 0.55) 50%,
+    rgba(139, 92, 246, 0.2) 75%
+  );
+  background-size: 200% 100%;
+  animation: np-shimmer 1.6s linear infinite;
+}
+
+@keyframes np-breathe {
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.4); }
+}
+.np-breathe {
+  animation: np-breathe 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .np-rise,
+  .np-word,
+  .np-shimmer,
+  .np-breathe {
+    animation: none !important;
+  }
+  .np-rise,
+  .np-word {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .np-shimmer {
+    background-image: none !important;
+    background-color: rgba(139, 92, 246, 0.45) !important;
+  }
+}

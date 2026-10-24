@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { BTN_PILL_BRAND, BTN_PILL_DESTRUCTIVE, BTN_PILL_SECONDARY } from '../lib/buttonStyles';
 import {
   Trash2,
   ArrowUpRight,
@@ -22,7 +23,7 @@ import { projectService } from '../services/projectService';
 import { clipRenderService } from '../services/clipRenderService';
 import { useAuth } from '../context/AuthContext';
 import { Project, RenderedClip } from '../types';
-import { getProjectThumbnail } from './DashboardPage';
+import { ProjectThumbImage } from '../components/ProjectThumbImage';
 import { triggerBrowserDownload } from '../utils/downloadUtils';
 
 const statusOf = (p: Project) => p.video_status || p.status;
@@ -60,7 +61,12 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
-  const [search, setSearch] = useState('');
+  const queryText = searchParams.get('q') ?? '';
+  const [search, setSearch] = useState(queryText);
+  // Header search hands the query over via ?q=
+  useEffect(() => {
+    setSearch(queryText);
+  }, [queryText]);
   const [status, setStatus] = useState('all');
   const [source, setSource] = useState('all');
   const [sort, setSort] = useState('newest');
@@ -247,7 +253,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
           <h1 className="font-['Sora',sans-serif] text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
             {activeTab === 'clips' ? 'Media Library' : 'Project History'}
           </h1>
-          <p className="mt-1 text-sm text-[#8E9AB4]">
+          <p className="mt-1 text-sm text-vc-text-secondary">
             {activeTab === 'clips'
               ? 'Browse, preview, search, and export all generated AI clips and rendered vertical videos.'
               : 'View and manage all your source videos and batch clipping pipelines.'}
@@ -256,7 +262,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
         <div className="flex items-center gap-3">
           <Link
             to="/projects/new"
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-900/30 hover:from-violet-500 hover:to-purple-500 transition-all cursor-pointer"
+            className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold cursor-pointer ${BTN_PILL_BRAND}`}
           >
             <Plus className="size-4" />
             New Clip Project
@@ -273,12 +279,12 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
             className={`flex items-center gap-2 px-4 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
               activeTab === 'clips'
                 ? 'border-violet-500 text-white shadow-[0_4px_12px_rgba(139,92,246,0.25)]'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                : 'border-transparent text-zinc-400 hover:text-zinc-200'
             }`}
           >
             <Film className="size-4 text-violet-400" />
             <span>Clips &amp; Rendered Media</span>
-            <span className="rounded-full bg-white/[0.08] px-2 py-0.5 text-xs font-mono font-normal text-slate-300">
+            <span className="rounded-full bg-white/[0.08] px-2 py-0.5 text-xs font-mono font-normal text-zinc-300">
               {clips.length}
             </span>
           </button>
@@ -289,12 +295,12 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
             className={`flex items-center gap-2 px-4 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
               activeTab === 'projects'
                 ? 'border-violet-500 text-white shadow-[0_4px_12px_rgba(139,92,246,0.25)]'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                : 'border-transparent text-zinc-400 hover:text-zinc-200'
             }`}
           >
             <FolderOpen className="size-4 text-violet-400" />
             <span>Source Projects</span>
-            <span className="rounded-full bg-white/[0.08] px-2 py-0.5 text-xs font-mono font-normal text-slate-300">
+            <span className="rounded-full bg-white/[0.08] px-2 py-0.5 text-xs font-mono font-normal text-zinc-300">
               {projects.length}
             </span>
           </button>
@@ -306,15 +312,19 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
         {summary.map((s) => (
           <div
             key={s.label}
-            className="flex items-center gap-3.5 rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 p-4 shadow-lg backdrop-blur-md"
+            className="rounded-2xl bg-vc-surface1 px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
           >
-            <span className="grid size-11 place-items-center rounded-xl bg-violet-500/15 text-violet-400 border border-violet-500/25 shrink-0">
-              <s.icon className="size-5" />
-            </span>
-            <div>
-              <p className="text-xs font-medium text-slate-400">{s.label}</p>
-              <p className="mt-0.5 text-2xl font-bold font-mono text-white tracking-tight">{s.value}</p>
-            </div>
+            <p className="flex items-center gap-1.5 text-[12px] font-medium text-vc-text-secondary">
+              <s.icon className="size-3.5 text-vc-text-muted" />
+              {s.label}
+            </p>
+            <p
+              className={`mt-2.5 text-[28px] leading-none font-semibold tracking-tight tabular-nums ${
+                s.value === '-' ? 'text-vc-text-muted' : 'text-vc-text-primary'
+              }`}
+            >
+              {s.value === '-' ? '—' : s.value}
+            </p>
           </div>
         ))}
       </div>
@@ -323,15 +333,15 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
       {activeTab === 'clips' && (
         <section className="space-y-5">
           {/* Filters & Search Toolbar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 p-3.5 shadow-xl">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 rounded-2xl bg-vc-surface1/90 p-3.5 shadow-xl">
             <div className="relative flex-1">
-              <Search className="size-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="size-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={clipSearch}
                 onChange={(e) => setClipSearch(e.target.value)}
                 placeholder="Search clips by title, hook, or project name..."
-                className="w-full bg-white/[0.04] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-violet-500/60 focus:ring-2 focus:ring-violet-500/20"
+                className="w-full bg-white/[0.04] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-violet-500/60 focus:ring-2 focus:ring-violet-500/20"
               />
             </div>
 
@@ -344,7 +354,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                     aspectFilter === aspect
                       ? 'bg-violet-600/25 border-violet-500/50 text-white shadow-sm'
-                      : 'bg-white/[0.03] border-white/[0.08] text-slate-400 hover:text-white'
+                      : 'bg-white/[0.03] border-white/[0.08] text-zinc-400 hover:text-white'
                   }`}
                 >
                   {aspect === 'all' ? 'All Formats' : aspect}
@@ -364,12 +374,12 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
               ))}
             </div>
           ) : filteredClips.length === 0 ? (
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1017]/80 p-14 text-center">
-              <Film className="mx-auto size-10 text-slate-500" />
+            <div className="rounded-2xl bg-vc-surface1/80 p-14 text-center">
+              <Film className="mx-auto size-10 text-zinc-500" />
               <h3 className="mt-3 font-semibold text-lg text-white font-['Sora',sans-serif]">
                 {clips.length ? 'No matching clips found' : 'No clips rendered yet'}
               </h3>
-              <p className="mt-1 text-sm text-[#8E9AB4] max-w-sm mx-auto">
+              <p className="mt-1 text-sm text-vc-text-secondary max-w-sm mx-auto">
                 {clips.length
                   ? 'Try adjusting your search terms or format filters.'
                   : 'Open any project to analyze video moments and generate high-retention 9:16 clips.'}
@@ -378,7 +388,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                 <div className="mt-5">
                   <Link
                     to="/projects/new"
-                    className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-violet-500 shadow-lg"
+                    className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold ${BTN_PILL_BRAND}`}
                   >
                     <Plus className="size-4" />
                     Create Your First Clip
@@ -390,12 +400,14 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filteredClips.map((clip) => {
                 const durationSec = Math.round(clip.duration_seconds || (clip.end_seconds - clip.start_seconds) || 30);
-                const viralityScore = (clip as any).engagement_score || 94;
+                // Show the internal AI ranking only when the clip actually has one —
+                // never fabricate a score for clips that were not ranked.
+                const engagementScore = typeof (clip as any).engagement_score === 'number' ? (clip as any).engagement_score : null;
 
                 return (
                   <div
                     key={clip.id}
-                    className="group relative rounded-2xl border border-white/[0.08] bg-[#0E1017] overflow-hidden flex flex-col justify-between shadow-lg hover:border-violet-500/40 hover:shadow-violet-900/20 transition-all duration-300"
+                    className="group relative rounded-2xl border border-white/[0.08] bg-vc-surface1 overflow-hidden flex flex-col justify-between shadow-lg hover:border-violet-500/40 hover:shadow-violet-900/20 transition-all duration-300"
                   >
                     {/* Visual Media Poster */}
                     <div
@@ -410,18 +422,24 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                           loading="lazy"
                         />
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-violet-950/40 via-black to-slate-900 text-white/40">
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-zinc-900 to-black text-white/40">
                           <Film className="size-8 text-violet-400/60 mb-2" />
                           <span className="text-[11px] font-mono">9:16 Vertical</span>
                         </div>
                       )}
 
-                      {/* Top badges: Virality Score & Duration */}
+                      {/* Top badges: AI rank (when scored) & duration */}
                       <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10 pointer-events-none">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-mono font-bold text-emerald-300 shadow">
-                          <Flame className="size-3 text-emerald-400" />
-                          {viralityScore} Viral
-                        </span>
+                        {engagementScore !== null ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-mono font-bold text-emerald-300 shadow">
+                            <Flame className="size-3 text-emerald-400" />
+                            {engagementScore} AI Rank
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-white/10 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-mono font-semibold text-white/60 shadow">
+                            Unranked
+                          </span>
+                        )}
 
                         <span className="rounded-md bg-black/70 backdrop-blur-md px-2 py-0.5 text-[10px] font-mono font-semibold text-white/90 shadow">
                           {durationSec}s
@@ -443,8 +461,8 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                           {clip.title || 'Untitled Clip'}
                         </h4>
                         {clip.projectTitle && (
-                          <p className="text-[11px] text-slate-400 truncate mt-1 flex items-center gap-1 font-mono">
-                            <Video className="size-3 text-slate-500 shrink-0" />
+                          <p className="text-[11px] text-zinc-400 truncate mt-1 flex items-center gap-1 font-mono">
+                            <Video className="size-3 text-zinc-500 shrink-0" />
                             {clip.projectTitle}
                           </p>
                         )}
@@ -454,7 +472,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                       <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between gap-1.5">
                         <Link
                           to={`/clips/${clip.id}/edit`}
-                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-violet-600 hover:text-white text-xs font-semibold text-slate-200 transition-all cursor-pointer"
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.10] hover:text-white text-xs font-semibold text-zinc-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-all cursor-pointer"
                         >
                           <Scissors className="size-3.5" />
                           <span>Studio</span>
@@ -465,7 +483,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                           disabled={downloadingClipId === clip.id}
                           onClick={() => handleDownload(clip)}
                           title="Download Clip MP4"
-                          className="p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] text-slate-300 hover:text-white transition-colors cursor-pointer"
+                          className="p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] text-zinc-300 hover:text-white transition-colors cursor-pointer"
                         >
                           <Download className="size-3.5" />
                         </button>
@@ -473,7 +491,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                         <Link
                           to={`/projects/${clip.project_id}`}
                           title="Open Parent Project"
-                          className="p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] text-slate-400 hover:text-white transition-colors cursor-pointer"
+                          className="p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] text-zinc-400 hover:text-white transition-colors cursor-pointer"
                         >
                           <ExternalLink className="size-3.5" />
                         </Link>
@@ -489,24 +507,24 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
 
       {/* TAB 2: SOURCE PROJECTS */}
       {activeTab === 'projects' && (
-        <section className="rounded-2xl border border-white/[0.08] bg-[#0E1017]/90 shadow-xl overflow-hidden backdrop-blur-xl">
+        <section className="rounded-2xl border border-white/[0.08] bg-vc-surface1/90 shadow-xl overflow-hidden backdrop-blur-xl">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] p-4">
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
                 <input
                   type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Filter projects..."
-                  className="h-10 w-52 rounded-xl border border-white/10 bg-white/[0.04] pl-9 pr-3 text-xs sm:text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-violet-500/60"
+                  className="h-10 w-52 rounded-xl border border-white/10 bg-white/[0.04] pl-9 pr-3 text-xs sm:text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-violet-500/60"
                 />
               </div>
 
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="h-10 rounded-xl border border-white/10 bg-[#12151E] px-3 text-xs sm:text-sm text-slate-200 focus:outline-none"
+                className="h-10 rounded-xl border border-white/10 bg-vc-surface2 px-3 text-xs sm:text-sm text-zinc-200 focus:outline-none"
               >
                 <option value="all">All statuses</option>
                 <option value="completed">Completed</option>
@@ -516,7 +534,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
               <select
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
-                className="h-10 rounded-xl border border-white/10 bg-[#12151E] px-3 text-xs sm:text-sm text-slate-200 focus:outline-none"
+                className="h-10 rounded-xl border border-white/10 bg-vc-surface2 px-3 text-xs sm:text-sm text-zinc-200 focus:outline-none"
               >
                 <option value="all">All sources</option>
                 <option value="upload">Upload</option>
@@ -526,7 +544,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value)}
-                className="h-10 rounded-xl border border-white/10 bg-[#12151E] px-3 text-xs sm:text-sm text-slate-200 focus:outline-none"
+                className="h-10 rounded-xl border border-white/10 bg-vc-surface2 px-3 text-xs sm:text-sm text-zinc-200 focus:outline-none"
               >
                 <option value="newest">Newest</option>
                 <option value="oldest">Oldest</option>
@@ -549,7 +567,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
           </div>
 
           {errorMsg && (
-            <p role="alert" className="m-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-300">
+            <p role="alert" className="m-4 rounded-xl bg-rose-500/10 p-3 text-sm text-rose-300">
               {errorMsg}{' '}
               <button onClick={loadProjectsAndClips} className="font-semibold underline hover:text-white">
                 Retry
@@ -565,17 +583,17 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
             </div>
           ) : filteredProjects.length === 0 ? (
             <div className="p-14 text-center">
-              <Video className="mx-auto size-8 text-slate-500" />
+              <Video className="mx-auto size-8 text-zinc-500" />
               <h3 className="mt-3 font-semibold text-white font-['Sora',sans-serif]">
                 {projects.length ? 'No matching projects' : 'No projects yet'}
               </h3>
-              <p className="mt-1 text-sm text-[#8E9AB4]">
+              <p className="mt-1 text-sm text-vc-text-secondary">
                 {projects.length ? 'Try a different search or filter.' : 'Upload your first video to get started.'}
               </p>
               {!projects.length && (
                 <Link
                   to="/projects/new"
-                  className="mt-4 inline-block rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 shadow-md"
+                  className={`mt-4 inline-block px-4 py-2 text-sm font-semibold ${BTN_PILL_BRAND}`}
                 >
                   New Project
                 </Link>
@@ -584,7 +602,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
           ) : (
             <div className="hidden md:block">
               <table className="w-full text-left text-sm">
-                <thead className="bg-white/[0.02] text-xs text-slate-400 border-b border-white/[0.08]">
+                <thead className="bg-white/[0.02] text-xs text-zinc-400 border-b border-white/[0.08]">
                   <tr>
                     <th className="px-5 py-4 font-semibold font-['Sora',sans-serif]">Project</th>
                     <th className="px-4 py-4 font-semibold font-['Sora',sans-serif]">Source</th>
@@ -595,35 +613,32 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                 </thead>
                 <tbody className="divide-y divide-white/[0.06]">
                   {filteredProjects.map((p) => {
-                    const thumb = getProjectThumbnail(p);
                     return (
                       <tr key={p.id} className="hover:bg-white/[0.03] transition-colors">
                         <td className="max-w-[340px] px-5 py-3.5">
                           <Link to={`/projects/${p.id}`} className="flex items-center gap-3.5 group">
-                            <div className="relative w-16 h-10 rounded-lg overflow-hidden bg-black border border-white/10 shrink-0">
-                              {thumb ? (
-                                <img
-                                  src={thumb}
-                                  alt={p.title}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-violet-900/40 to-slate-900 text-white/40">
+                            <div className="relative w-16 h-10 rounded-lg overflow-hidden bg-black shrink-0">
+                              <ProjectThumbImage
+                                project={p}
+                                alt={p.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                fallback={
+                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-900 to-black text-white/40">
                                   <Video className="size-4" />
                                 </div>
-                              )}
+                                }
+                              />
                             </div>
                             <span className="block truncate font-semibold text-white group-hover:text-violet-300 transition-colors">
                               {p.title}
                             </span>
                           </Link>
                         </td>
-                        <td className="px-4 py-3.5 text-slate-400">{p.source_type === 'url' ? 'URL' : 'Upload'}</td>
+                        <td className="px-4 py-3.5 text-zinc-400">{p.source_type === 'url' ? 'URL' : 'Upload'}</td>
                         <td className="px-4 py-3.5">
                           <StatusBadge status={statusOf(p)} />
                         </td>
-                        <td className="px-4 py-3.5 text-slate-400 font-mono text-xs">
+                        <td className="px-4 py-3.5 text-zinc-400 font-mono text-xs">
                           {new Date(p.created_at).toLocaleDateString()}
                         </td>
                         <td className="px-4 py-3.5">
@@ -631,7 +646,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                             <Link
                               to={`/projects/${p.id}`}
                               aria-label={`Open ${p.title}`}
-                              className="rounded-lg p-2 text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+                              className="rounded-lg p-2 text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors"
                             >
                               <ArrowUpRight className="size-4" />
                             </Link>
@@ -657,13 +672,13 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
       {/* Video Preview Modal */}
       {activePreviewClip && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md"
+          className="fixed inset-0 z-[70] flex items-center justify-center glass-scrim glass-scrim-deep p-4"
           role="presentation"
           onClick={(e) => {
             if (e.target === e.currentTarget) setActivePreviewClip(null);
           }}
         >
-          <div className="relative w-full max-w-lg rounded-3xl border border-white/15 bg-[#0A0D14] p-5 shadow-2xl text-white space-y-4">
+          <div className="relative w-full max-w-lg rounded-3xl glass-float p-5 text-white space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-mono uppercase tracking-wider text-violet-400 font-bold block">
@@ -676,7 +691,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
               <button
                 type="button"
                 onClick={() => setActivePreviewClip(null)}
-                className="p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                className="p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
               >
                 <X className="size-5" />
               </button>
@@ -693,7 +708,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                   className="w-full h-full object-contain"
                 />
               ) : (
-                <div className="flex flex-col items-center justify-center text-slate-400 space-y-2">
+                <div className="flex flex-col items-center justify-center text-zinc-400 space-y-2">
                   <Film className="size-8 text-violet-400 animate-pulse" />
                   <span className="text-xs">Loading video preview...</span>
                 </div>
@@ -713,7 +728,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
               <button
                 type="button"
                 onClick={() => handleDownload(activePreviewClip)}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.05] hover:bg-white/[0.1] px-4 py-2.5 text-xs font-bold text-slate-200 transition-all cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.05] hover:bg-white/[0.1] px-4 py-2.5 text-xs font-bold text-zinc-200 transition-all cursor-pointer"
               >
                 <Download className="size-4" />
                 <span>Download MP4</span>
@@ -726,7 +741,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
       {/* Project Delete Modal */}
       {projectToDelete && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center glass-scrim p-4"
           role="presentation"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) closeDelete();
@@ -736,7 +751,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-title"
-            className="w-full max-w-md rounded-2xl border border-white/[0.12] bg-[#0E1017] p-7 shadow-2xl text-white"
+            className="w-full max-w-md rounded-3xl glass-float p-7 text-white"
           >
             <span className="grid size-11 place-items-center rounded-xl bg-rose-500/15 text-rose-400 border border-rose-500/20">
               <Trash2 className="size-5" />
@@ -744,14 +759,14 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
             <h2 id="delete-title" className="mt-4 font-['Sora',sans-serif] text-xl font-bold text-white">
               Delete this project?
             </h2>
-            <p className="mt-2 text-sm text-slate-400">
+            <p className="mt-2 text-sm text-zinc-400">
               “{projectToDelete.title}” and its associated records will be permanently removed.
             </p>
             <div className="mt-7 flex justify-end gap-3">
               <button
                 ref={cancelRef}
                 onClick={closeDelete}
-                className="rounded-xl border border-white/10 bg-white/[0.05] hover:bg-white/[0.1] px-4 py-2 text-sm font-semibold text-slate-200 cursor-pointer"
+                className={`px-4 py-2 text-sm font-semibold cursor-pointer ${BTN_PILL_SECONDARY}`}
               >
                 Cancel
               </button>
@@ -759,7 +774,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                 ref={deleteRef}
                 disabled={isDeleting}
                 onClick={() => handleDelete(projectToDelete.id)}
-                className="rounded-xl bg-rose-600 hover:bg-rose-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 cursor-pointer transition-colors"
+                className={`px-4 py-2 text-sm font-semibold cursor-pointer ${BTN_PILL_DESTRUCTIVE}`}
               >
                 {isDeleting ? 'Deleting…' : 'Delete project'}
               </button>

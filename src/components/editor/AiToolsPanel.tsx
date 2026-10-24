@@ -189,7 +189,7 @@ const ToolPreviewCard: React.FC<{ tool: AiToolDef; onActivate: (t: AiToolDef) =>
   return (
     <div className="rounded-xl border border-vc-border-strong bg-vc-surface3 ring-1 ring-black/40 shadow-2xl shadow-black/70 overflow-hidden">
       {/* Fixed-ratio media frame — consistent across every tool. */}
-      <div className="h-[104px] bg-[#0B0D12] border-b border-white/[0.06]">
+      <div className="h-[104px] bg-vc-surface1 border-b border-white/[0.06]">
         <div className="w-full h-full flex items-center justify-center">
           <PreviewVisual kind={tool.preview} />
         </div>

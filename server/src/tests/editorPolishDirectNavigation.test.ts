@@ -204,23 +204,22 @@ describe('Editor UX Polish: Theme Consistency & Legacy Color Removal', () => {
     assert.ok(!mediaBinContent.includes('text-orange-400'), 'MediaBin must not use legacy text-orange-400');
     assert.ok(!mediaBinContent.includes('bg-orange-500'), 'MediaBin must not use legacy bg-orange-500');
     // Violet is reserved for AI surfaces; MediaBin is an ordinary panel and uses titanium white.
-    assert.ok(!mediaBinContent.includes('violet'), 'MediaBin must not use violet (AI-only accent)');
-    assert.match(mediaBinContent, /bg-\[#F4F6FB\]/, 'MediaBin must use the titanium primary action');
+    // Primary actions are the violet brand pill app-wide.
+    assert.match(mediaBinContent, /bg-vc-ai-hover/, 'MediaBin must use the violet primary action');
   });
 
   test('AICopilotPanel replaces legacy orange styling with violet design tokens', () => {
     assert.ok(!copilotContent.includes('text-orange-400'), 'AICopilotPanel must not use text-orange-400');
     assert.ok(!copilotContent.includes('bg-orange-600'), 'AICopilotPanel must not use bg-orange-600');
     assert.match(copilotContent, /text-violet-400/, 'AICopilotPanel must use text-violet-400');
-    assert.match(copilotContent, /bg-gradient-to-r from-violet-600 to-indigo-600/, 'AICopilotPanel must use violet gradient');
+    assert.match(copilotContent, /bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700/, 'AICopilotPanel must use the solid violet brand action (no gradient)');
   });
 
   test('BrandKitPanel replaces legacy orange styling with violet design tokens', () => {
     assert.ok(!brandKitContent.includes('text-orange-400'), 'BrandKitPanel must not use text-orange-400');
     assert.ok(!brandKitContent.includes('bg-orange-600'), 'BrandKitPanel must not use bg-orange-600');
-    // Violet is reserved for AI surfaces; the brand kit uses the neutral titanium primary.
-    assert.ok(!brandKitContent.includes('violet'), 'BrandKitPanel must not use violet (AI-only accent)');
-    assert.match(brandKitContent, /bg-\[#F4F6FB\]/, 'BrandKitPanel must use the titanium primary action');
+    // Primary actions are the violet brand pill app-wide.
+    assert.match(brandKitContent, /bg-vc-ai-hover/, 'BrandKitPanel must use the violet primary action');
   });
 
   test('Timeline replaces legacy needle, selection and trim orange styling with violet', () => {
@@ -228,7 +227,7 @@ describe('Editor UX Polish: Theme Consistency & Legacy Color Removal', () => {
     assert.ok(!timelineContent.includes('bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.8)]'), 'Timeline must not use orange needle');
     // Selection and playhead are titanium so colour never competes with the AI accent.
     assert.match(timelineContent, /ring-2 ring-white\/70/, 'Timeline must use the titanium selection ring');
-    assert.match(timelineContent, /bg-white shadow-\[0_0_8px_rgba\(255,255,255,0.55\)\]/, 'Timeline must use the titanium playhead needle');
+    assert.match(timelineContent, /bg-white shadow-\[1px_0_0_rgba\(0,0,0,0\.6\)\]/, 'Timeline must use the white playhead needle (outlined, no glow)');
   });
 
   test('TranslationWorkspace replaces legacy orange accents with violet design tokens', () => {

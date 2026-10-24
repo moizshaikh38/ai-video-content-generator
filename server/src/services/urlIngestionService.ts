@@ -908,8 +908,7 @@ export class UrlIngestionService {
   /**
    * High-level workflow orchestrating URL validation, temporary download, FFmpeg probe,
    * R2 upload, source cache seeding, and project database persistence.
-   */
-  public static async ingestUrlToProject(options: IngestUrlOptions): Promise<IngestUrlResult> {
+   */  public static async ingestUrlToProject(options: IngestUrlOptions): Promise<IngestUrlResult> {
     const { userId, url, title, notes, clipPreferences, startTimeSec, endTimeSec } = options;
     const projectId = options.projectId || crypto.randomUUID();
 
@@ -990,7 +989,7 @@ export class UrlIngestionService {
       await uploadFile('source', key, tempFile, download.totalBytes, mime);
 
       // 5. Seed project source disk cache (vireo-source-cache) so subsequent services get instant cache hit
-      const cacheDir = path.join(os.tmpdir(), 'vireo-source-cache');
+      const cacheDir = UrlIngestionService.getSourceCacheDir();
       try {
         if (!fs.existsSync(cacheDir)) {
           fs.mkdirSync(cacheDir, { recursive: true });
@@ -1005,7 +1004,14 @@ export class UrlIngestionService {
 
       // 6. Normalize clip preferences and attach auto-genre suggestions
       let normalizedPrefs = GenreIntelligenceService.normalizePreferences(clipPreferences, notes);
-      if (normalizedPrefs.genreSelectionMode === 'auto' && ytMeta?.suggestedGenre) {
+      // Auto-apply the YouTube-metadata genre suggestion only when the creator did
+      // not explicitly choose a genre (missing or the general baseline) — an
+      // explicit selection always wins, matching analyze-clips semantics.
+      if (
+        normalizedPrefs.genreSelectionMode === 'auto' &&
+        ytMeta?.suggestedGenre &&
+        normalizedPrefs.genre === 'general'
+      ) {
         normalizedPrefs = {
           ...normalizedPrefs,
           genre: ytMeta.suggestedGenre,
@@ -1093,6 +1099,44 @@ export class UrlIngestionService {
           logger.warn(`Failed to cleanup temp file ${tempFile}: ${cleanupErr.message}`);
         }
       }
+    }
+  }
+
+  /** Shared on-disk source cache location (also referenced by ClipRenderService lookups). */
+  public static getSourceCacheDir(): string {
+    return path.join(os.tmpdir(), 'vireo-source-cache');
+  }
+
+  /**
+   * Deletes cached source files older than maxAgeMs. The cache exists to make
+   * services following ingestion hit the disk instead of R2; without pruning it
+   * grows without bound on long-lived hosts. Returns the number of files removed.
+   */
+  public static async pruneSourceCache(maxAgeMs = 24 * 60 * 60 * 1000): Promise<number> {
+    const cacheDir = UrlIngestionService.getSourceCacheDir();
+    try {
+      if (!fs.existsSync(cacheDir)) return 0;
+      const cutoff = Date.now() - maxAgeMs;
+      let pruned = 0;
+      for (const entry of fs.readdirSync(cacheDir)) {
+        const file = path.join(cacheDir, entry);
+        try {
+          const stat = fs.statSync(file);
+          if (stat.isFile() && stat.mtimeMs < cutoff) {
+            fs.unlinkSync(file);
+            pruned++;
+          }
+        } catch {
+          // Entries vanishing mid-sweep are harmless.
+        }
+      }
+      if (pruned > 0) {
+        logger.info(`[SourceCache] Pruned ${pruned} stale entries older than ${Math.round(maxAgeMs / 3600000)}h.`);
+      }
+      return pruned;
+    } catch (err: any) {
+      logger.warn(`[SourceCache] Prune failed: ${err.message}`);
+      return 0;
     }
   }
 }

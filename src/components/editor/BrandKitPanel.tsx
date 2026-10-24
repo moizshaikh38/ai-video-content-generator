@@ -130,12 +130,12 @@ export const BrandKitPanel: React.FC<BrandKitPanelProps> = ({
       ) : profile ? (
         <div className="space-y-4 flex-1 overflow-y-auto">
           {/* Brand Identity Card */}
-          <div className="p-3 rounded-xl bg-vc-surface2/60 border border-vc-border space-y-2">
+          <div className="p-3 rounded-xl bg-vc-surface2/60 space-y-2">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-white text-xs">
                 {profile.identity.brand_name || 'Active Brand'}
               </span>
-              <span className="px-2 py-0.5 rounded-lg text-[10px] bg-white/[0.08] text-vc-text-primary border border-vc-border-strong">
+              <span className="px-2 py-0.5 rounded-lg text-[10px] bg-white/[0.08] text-vc-text-primary ">
                 v{profile.version}
               </span>
             </div>
@@ -165,7 +165,7 @@ export const BrandKitPanel: React.FC<BrandKitPanelProps> = ({
               ].map((color, idx) => (
                 <div
                   key={idx}
-                  className="flex flex-col items-center p-2 rounded-lg bg-vc-canvas/80 border border-vc-border"
+                  className="flex flex-col items-center p-2 rounded-lg bg-vc-canvas/80 "
                 >
                   <div
                     className="w-7 h-7 rounded-md border border-white/20 shadow-sm mb-1"
@@ -183,7 +183,7 @@ export const BrandKitPanel: React.FC<BrandKitPanelProps> = ({
               <Type className="w-3.5 h-3.5 text-vc-text-secondary" />
               <span>Brand Typography</span>
             </div>
-            <div className="p-3 rounded-xl bg-vc-surface2/60 border border-vc-border text-xs text-vc-text-secondary">
+            <div className="p-3 rounded-xl bg-vc-surface2/60 text-xs text-vc-text-secondary">
               <div className="font-semibold text-white text-sm">
                 {profile.visual.fonts?.[0] || 'Inter'}
               </div>
@@ -194,7 +194,7 @@ export const BrandKitPanel: React.FC<BrandKitPanelProps> = ({
           </div>
 
           {/* Consistency Guarantee */}
-          <div className="p-3 rounded-xl bg-emerald-950/20 border border-emerald-800/30 flex items-start gap-2.5">
+          <div className="p-3 rounded-xl bg-emerald-950/20 flex items-start gap-2.5">
             <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
             <div className="text-[11px] text-emerald-300/90 leading-relaxed">
               Applying Brand Brain overrides current caption colors and typography while preserving existing word timestamps and ripple edits.
@@ -204,10 +204,10 @@ export const BrandKitPanel: React.FC<BrandKitPanelProps> = ({
           {/* Apply Button */}
           <button
             onClick={handleApplyBrandKit}
-            className={`w-full py-2.5 px-4 rounded-xl font-medium text-xs flex items-center justify-center gap-2 transition ${
+            className={`w-full py-2.5 px-4 rounded-full font-medium text-xs flex items-center justify-center gap-2 transition ${
               applied
                 ? 'bg-emerald-600 text-white'
-                : 'bg-[#F4F6FB] text-[#0B0C0F] hover:bg-white shadow-lg shadow-black/50'
+                : 'bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] text-white hover:bg-vc-ai shadow-lg shadow-black/50'
             }`}
           >
             {applied ? (

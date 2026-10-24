@@ -6,9 +6,18 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": [
         "run",
-        "dev"
+        "dev:frontend"
       ],
       "port": 5173
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:backend"
+      ],
+      "port": 5000
     }
   ]
 }

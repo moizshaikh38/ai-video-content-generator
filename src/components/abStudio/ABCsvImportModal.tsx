@@ -181,18 +181,18 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden my-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-scrim overflow-y-auto">
+      <div className="glass-float rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden my-auto">
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-orange-950/60 border border-orange-500/30 text-orange-400">
+            <div className="p-2 rounded-xl bg-violet-950/60 text-violet-400">
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base font-bold text-neutral-100 flex items-center gap-2">
                 Import Analytics Observations
-                <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-neutral-800 border border-neutral-700 text-neutral-400">
+                <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400">
                   CSV Import
                 </span>
               </h2>
@@ -212,13 +212,13 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Target Experiment Selector (if not locked to one) */}
-          <div className="p-4 rounded-xl bg-neutral-950/60 border border-neutral-800 space-y-2">
+          <div className="p-4 rounded-xl bg-neutral-950/60 space-y-2">
             <label className="text-xs font-semibold text-neutral-300 block">
               Target Experiment
             </label>
             {propExperiment ? (
-              <div className="flex items-center justify-between text-xs text-neutral-200 bg-neutral-900 p-2.5 rounded-lg border border-neutral-800">
-                <span className="font-semibold text-orange-400">{propExperiment.name}</span>
+              <div className="flex items-center justify-between text-xs text-neutral-200 bg-neutral-900 p-2.5 rounded-lg ">
+                <span className="font-semibold text-violet-400">{propExperiment.name}</span>
                 <span className="text-neutral-400">
                   Status: <strong className="text-neutral-200">{propExperiment.status}</strong> • Metric:{' '}
                   <strong className="text-neutral-200">{propExperiment.target_metric}</strong>
@@ -233,7 +233,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
                     runPreview(csvContent, columnMapping);
                   }
                 }}
-                className="w-full bg-neutral-900 border border-neutral-700 text-neutral-200 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-orange-500"
+                className="w-full bg-neutral-900 border border-neutral-700 text-neutral-200 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-violet-500"
               >
                 {availableExperiments.map((exp) => (
                   <option key={exp.id} value={exp.id}>
@@ -244,7 +244,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
             )}
 
             {currentExperiment && currentExperiment.status === 'DRAFT' && (
-              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-950/40 border border-amber-600/30 text-amber-300 text-xs mt-2">
+              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-950/40 text-amber-300 text-xs mt-2">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <div>
                   <strong>Notice:</strong> This experiment is currently in{' '}
@@ -258,7 +258,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
 
           {/* Success State */}
           {importResult && (
-            <div className="p-5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 space-y-4">
+            <div className="p-5 rounded-xl bg-emerald-950/40 space-y-4">
               <div className="flex items-center gap-3 text-emerald-400">
                 <CheckCircle2 className="w-6 h-6" />
                 <div>
@@ -270,26 +270,26 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
               </div>
 
               <div className="grid grid-cols-4 gap-3 text-center">
-                <div className="bg-neutral-900/80 p-2.5 rounded-lg border border-neutral-800">
+                <div className="bg-neutral-900/80 p-2.5 rounded-lg ">
                   <div className="text-xs text-neutral-400">Total Rows</div>
                   <div className="text-lg font-bold text-neutral-200">{importResult.total_rows}</div>
                 </div>
-                <div className="bg-neutral-900/80 p-2.5 rounded-lg border border-emerald-500/30">
+                <div className="bg-neutral-900/80 p-2.5 rounded-lg ">
                   <div className="text-xs text-emerald-400">Imported</div>
                   <div className="text-lg font-bold text-emerald-300">{importResult.imported_count}</div>
                 </div>
-                <div className="bg-neutral-900/80 p-2.5 rounded-lg border border-amber-500/30">
+                <div className="bg-neutral-900/80 p-2.5 rounded-lg ">
                   <div className="text-xs text-amber-400">Duplicates Skipped</div>
                   <div className="text-lg font-bold text-amber-300">{importResult.duplicate_count}</div>
                 </div>
-                <div className="bg-neutral-900/80 p-2.5 rounded-lg border border-red-500/30">
+                <div className="bg-neutral-900/80 p-2.5 rounded-lg ">
                   <div className="text-xs text-red-400">Rejected</div>
                   <div className="text-lg font-bold text-red-300">{importResult.rejected_count}</div>
                 </div>
               </div>
 
               {importResult.row_errors.length > 0 && (
-                <div className="bg-neutral-950/60 p-3 rounded-lg border border-neutral-800 space-y-1.5">
+                <div className="bg-neutral-950/60 p-3 rounded-lg space-y-1.5">
                   <div className="text-xs font-semibold text-red-400">Rejected Row Reasons:</div>
                   <ul className="text-[11px] text-neutral-400 space-y-1 max-h-28 overflow-y-auto">
                     {importResult.row_errors.map((err, i) => (
@@ -316,7 +316,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
                 </button>
                 <button
                   onClick={onClose}
-                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition"
+                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-full transition"
                 >
                   Done
                 </button>
@@ -335,7 +335,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
                     onClick={() => setInputMode('FILE')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                       inputMode === 'FILE'
-                        ? 'bg-orange-600 text-white'
+                        ? 'bg-white/[0.10] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
                         : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
                     }`}
                   >
@@ -347,7 +347,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
                     onClick={() => setInputMode('PASTE')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                       inputMode === 'PASTE'
-                        ? 'bg-orange-600 text-white'
+                        ? 'bg-white/[0.10] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
                         : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
                     }`}
                   >
@@ -357,7 +357,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
                 </div>
                 {fileName && (
                   <span className="text-xs text-neutral-400 font-mono flex items-center gap-1">
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-orange-400" />
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-violet-400" />
                     {fileName}
                   </span>
                 )}
@@ -367,7 +367,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
               {inputMode === 'FILE' ? (
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-neutral-800 hover:border-orange-500/50 hover:bg-neutral-800/30 rounded-2xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center space-y-2 group"
+                  className="border-2 border-dashed border-neutral-800 hover:border-violet-500/50 hover:bg-neutral-800/30 rounded-2xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center space-y-2 group"
                 >
                   <input
                     ref={fileInputRef}
@@ -376,7 +376,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
                     onChange={handleFileUpload}
                     className="hidden"
                   />
-                  <div className="p-3 bg-neutral-800 rounded-full text-neutral-400 group-hover:text-orange-400 group-hover:scale-110 transition">
+                  <div className="p-3 bg-neutral-800 rounded-full text-neutral-400 group-hover:text-violet-400 group-hover:scale-110 transition">
                     <Upload className="w-6 h-6" />
                   </div>
                   <div className="text-xs font-semibold text-neutral-200">
@@ -393,7 +393,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
                     value={csvContent}
                     onChange={(e) => handlePasteChange(e.target.value)}
                     placeholder="variant,exposures,conversions&#10;A,1000,50&#10;B,1000,75"
-                    className="w-full bg-neutral-950 font-mono text-xs text-neutral-200 p-3 rounded-xl border border-neutral-800 focus:outline-none focus:border-orange-500"
+                    className="w-full bg-neutral-950 font-mono text-xs text-neutral-200 p-3 rounded-xl border border-neutral-800 focus:outline-none focus:border-violet-500"
                   />
                   <div className="text-[11px] text-neutral-500 flex justify-between">
                     <span>Paste raw CSV data with headers.</span>
@@ -404,7 +404,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
 
               {/* Preview Error Banner */}
               {previewError && (
-                <div className="p-3 bg-red-950/40 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-start gap-2">
+                <div className="p-3 bg-red-950/40 rounded-xl text-xs text-red-300 flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                   <span>{previewError}</span>
                 </div>
@@ -413,7 +413,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
               {/* Loading Indicator */}
               {isPreviewLoading && (
                 <div className="p-6 text-center text-xs text-neutral-400 flex items-center justify-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin text-orange-400" />
+                  <RefreshCw className="w-4 h-4 animate-spin text-violet-400" />
                   Analyzing CSV and validating rows...
                 </div>
               )}
@@ -422,10 +422,10 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
               {previewData && !isPreviewLoading && (
                 <div className="space-y-5 pt-2 border-t border-neutral-800">
                   {/* Column Mapping Section */}
-                  <div className="p-4 bg-neutral-950/60 border border-neutral-800 rounded-xl space-y-3">
+                  <div className="p-4 bg-neutral-950/60 rounded-xl space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-neutral-200 flex items-center gap-1.5">
-                        <Database className="w-3.5 h-3.5 text-orange-400" />
+                        <Database className="w-3.5 h-3.5 text-violet-400" />
                         Column Mapping
                       </span>
                       <span className="text-[11px] text-neutral-400">
@@ -441,7 +441,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
                         <select
                           value={columnMapping.variant_column || ''}
                           onChange={(e) => handleMappingChange('variant_column', e.target.value)}
-                          className="w-full bg-neutral-900 border border-neutral-700 text-neutral-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-orange-500"
+                          className="w-full bg-neutral-900 border border-neutral-700 text-neutral-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-violet-500"
                         >
                           {previewData.headers.map((h) => (
                             <option key={h} value={h}>
@@ -458,7 +458,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
                         <select
                           value={columnMapping.exposures_column || ''}
                           onChange={(e) => handleMappingChange('exposures_column', e.target.value)}
-                          className="w-full bg-neutral-900 border border-neutral-700 text-neutral-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-orange-500"
+                          className="w-full bg-neutral-900 border border-neutral-700 text-neutral-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-violet-500"
                         >
                           {previewData.headers.map((h) => (
                             <option key={h} value={h}>
@@ -475,7 +475,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
                         <select
                           value={columnMapping.conversions_column || ''}
                           onChange={(e) => handleMappingChange('conversions_column', e.target.value)}
-                          className="w-full bg-neutral-900 border border-neutral-700 text-neutral-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-orange-500"
+                          className="w-full bg-neutral-900 border border-neutral-700 text-neutral-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-violet-500"
                         >
                           {previewData.headers.map((h) => (
                             <option key={h} value={h}>
@@ -489,23 +489,23 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
 
                   {/* Summary Metric Pills */}
                   <div className="grid grid-cols-4 gap-3">
-                    <div className="bg-neutral-950/60 p-2.5 rounded-xl border border-neutral-800 text-center">
+                    <div className="bg-neutral-950/60 p-2.5 rounded-xl text-center">
                       <div className="text-[11px] text-neutral-400">Total Rows</div>
                       <div className="text-base font-bold text-neutral-100">{previewData.total_rows}</div>
                     </div>
-                    <div className="bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-500/30 text-center">
+                    <div className="bg-emerald-950/30 p-2.5 rounded-xl text-center">
                       <div className="text-[11px] text-emerald-400">Valid Rows</div>
                       <div className="text-base font-bold text-emerald-300">
                         {previewData.valid_rows_count}
                       </div>
                     </div>
-                    <div className="bg-amber-950/30 p-2.5 rounded-xl border border-amber-500/30 text-center">
+                    <div className="bg-amber-950/30 p-2.5 rounded-xl text-center">
                       <div className="text-[11px] text-amber-400">Duplicates</div>
                       <div className="text-base font-bold text-amber-300">
                         {previewData.duplicate_rows_count}
                       </div>
                     </div>
-                    <div className="bg-red-950/30 p-2.5 rounded-xl border border-red-500/30 text-center">
+                    <div className="bg-red-950/30 p-2.5 rounded-xl text-center">
                       <div className="text-[11px] text-red-400">Invalid Rows</div>
                       <div className="text-base font-bold text-red-300">
                         {previewData.invalid_rows_count}
@@ -527,10 +527,10 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
                         return (
                           <div
                             key={v.variant_id}
-                            className="p-2.5 bg-neutral-950/60 rounded-xl border border-neutral-800 text-xs"
+                            className="p-2.5 bg-neutral-950/60 rounded-xl text-xs"
                           >
                             <div className="flex items-center justify-between mb-1">
-                              <span className="font-bold text-orange-400">Variant {v.variant_letter}</span>
+                              <span className="font-bold text-violet-400">Variant {v.variant_letter}</span>
                               <span className="text-[10px] text-neutral-500">{v.valid_rows} rows</span>
                             </div>
                             <div className="text-[11px] text-neutral-400 truncate">{v.name}</div>
@@ -544,7 +544,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
                             </div>
                             <div className="text-[11px] text-neutral-300 flex justify-between pt-1 border-t border-neutral-800/80 mt-1">
                               <span>Batch CTR:</span>
-                              <strong className="text-orange-300">{impliedCtr}%</strong>
+                              <strong className="text-violet-300">{impliedCtr}%</strong>
                             </div>
                           </div>
                         );
@@ -580,17 +580,17 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
                               </td>
                               <td className="py-1.5 px-3">
                                 {row.status === 'VALID' && (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-950/60 text-emerald-400 ">
                                     VALID
                                   </span>
                                 )}
                                 {row.status === 'DUPLICATE' && (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-950/60 text-amber-400 border border-amber-500/30">
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-950/60 text-amber-400 ">
                                     DUPLICATE
                                   </span>
                                 )}
                                 {row.status === 'INVALID' && (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-950/60 text-red-400 border border-red-500/30">
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-950/60 text-red-400 ">
                                     INVALID
                                   </span>
                                 )}
@@ -622,7 +622,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
 
               {/* Execution Error Banner */}
               {importError && (
-                <div className="p-3 bg-red-950/40 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-start gap-2">
+                <div className="p-3 bg-red-950/40 rounded-xl text-xs text-red-300 flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                   <span>{importError}</span>
                 </div>
@@ -656,7 +656,7 @@ export const ABCsvImportModal: React.FC<ABCsvImportModalProps> = ({
                   isImporting ||
                   previewData.valid_rows_count === 0
                 }
-                className="flex items-center gap-1.5 px-4 py-1.5 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition shadow-lg shadow-orange-950/50"
+                className="flex items-center gap-1.5 px-4 py-1.5 bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-full transition shadow-lg shadow-violet-950/50"
               >
                 {isImporting ? (
                   <>

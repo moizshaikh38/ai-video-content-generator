@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthenticatedRequest, isValidUUID } from '../types/index.js';
 import { ProEditorService } from '../services/proEditorService.js';
-import { ClipRenderService } from '../services/clipRenderService.js';
+import { ClipRenderService, launchInlineRender } from '../services/clipRenderService.js';
 import { NleExportService } from '../services/nleExportService.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
 import { logger } from '../utils/logger.js';
@@ -349,10 +349,8 @@ export const renderEditorProject = async (
       .select()
       .maybeSingle();
 
-    // Launch rendering asynchronously
-    ClipRenderService.renderClipJob(project.clip_id, userId, newJob?.id).catch((err) => {
-      logger.error('ProEditor render job error', { projectId, clipId: project.clip_id, error: err.message });
-    });
+    // Launch rendering asynchronously (deferred to the sweep when at concurrency cap)
+    launchInlineRender(project.clip_id, userId, newJob?.id);
 
     res.status(202).json({
       status: 'ok',

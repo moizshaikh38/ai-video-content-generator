@@ -81,7 +81,7 @@ export const MotionWorkspacePanel: React.FC<MotionWorkspacePanelProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#0E1017] text-neutral-300 text-xs select-none overflow-y-auto p-4 space-y-4 animate-panelSlideIn">
+    <div className="flex flex-col h-full bg-vc-surface1 text-neutral-300 text-xs select-none overflow-y-auto p-4 space-y-4 animate-panelSlideIn">
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
         <div className="flex items-center gap-2">
@@ -96,7 +96,7 @@ export const MotionWorkspacePanel: React.FC<MotionWorkspacePanelProps> = ({
       </div>
 
       {/* Target Notification */}
-      <div className="p-2.5 rounded-xl bg-[#07080D] border border-white/[0.06] text-[11px] text-neutral-400">
+      <div className="p-2.5 rounded-xl bg-vc-canvas text-[11px] text-neutral-400">
         {selectedItem ? (
           <span className="text-white font-medium">
             Applying motion to: <span className="text-violet-300">{selectedItem.name || selectedItem.type}</span>
@@ -122,7 +122,7 @@ export const MotionWorkspacePanel: React.FC<MotionWorkspacePanelProps> = ({
                 className={`p-3 rounded-xl border text-left transition ${
                   isActive
                     ? 'bg-white/[0.12] border-white/40 text-white shadow-sm ring-1 ring-white/20'
-                    : 'bg-[#07080D] border-white/[0.06] hover:border-white/20 text-neutral-300'
+                    : 'bg-vc-canvas border-white/[0.06] hover:border-white/20 text-neutral-300'
                 }`}
               >
                 <div className="font-semibold text-xs flex items-center justify-between">
@@ -146,7 +146,7 @@ export const MotionWorkspacePanel: React.FC<MotionWorkspacePanelProps> = ({
             <button
               key={t.id}
               type="button"
-              className="p-2.5 rounded-xl bg-[#07080D] border border-white/[0.06] hover:border-white/20 text-neutral-300 text-left transition"
+              className="p-2.5 rounded-xl bg-vc-canvas border border-white/[0.06] hover:border-white/20 text-neutral-300 text-left transition"
             >
               <div className="font-semibold text-xs text-white">{t.label}</div>
               <div className="text-[10px] text-neutral-500 mt-0.5">{t.desc}</div>
