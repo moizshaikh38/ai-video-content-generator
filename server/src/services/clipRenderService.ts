@@ -30,13 +30,14 @@ import {
 } from '../types/index.js';
 import { CaptionService } from './captionService.js';
 import { ALL_CAPTION_STYLES, CAPTION_PRESET_IDS, isCaptionPresetId, sanitizePresetOverrides } from '../shared/captionPresets.js';
-import { SmartReframeService } from './smartReframeService.js';
+import { SmartReframeService, activeReframeAnalysisSet } from './smartReframeService.js';
 import { JobReliabilityService } from './queue/jobReliabilityService.js';
 import { ProEditorService } from './proEditorService.js';
 import { AudioDuckingService } from './audioDuckingService.js';
 import { FilterGraphBuilder } from './ffmpeg/filterGraphBuilder.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { ClipPosterService } from './clipPosterService.js';
 
 const execFileAsync = promisify(execFile);
 const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
@@ -463,6 +464,10 @@ export class ClipRenderService {
       const originalDuration = Number(clip.duration_seconds || (clip.end_seconds - clip.start_seconds));
       const durationSec = Math.max(0.1, Number((originalDuration - trimStart - trimEnd).toFixed(3)));
 
+      // Speaker-following guarantee: generate the smart-reframe track on demand
+      // so active-speaker framing works out of the box.
+      await ClipRenderService.ensureReframeTrackAtRender(clip, sourcePath, jobId);
+
       // Shared reframing decision (Quick path filter + Pro per-slice context).
       const reframeDecision = await ClipRenderService.resolveReframeDecision(clip, durationSec);
       const cropFilter = reframeDecision.cropFilter;
@@ -578,7 +583,7 @@ export class ClipRenderService {
             '-map', graph.videoMap,
             '-map', graph.audioMap,
             '-c:v', 'libx264',
-            '-preset', 'fast',
+            '-preset', config.renderPreset,
             '-crf', '22',
             '-c:a', 'aac',
             '-b:a', '128k',
@@ -620,7 +625,7 @@ export class ClipRenderService {
             '-map', '[out_v]',
             '-map', audioGraph.audioMap,
             '-c:v', 'libx264',
-            '-preset', 'fast',
+            '-preset', config.renderPreset,
             '-crf', '22',
             '-c:a', 'aac',
             '-b:a', '128k',
@@ -655,7 +660,7 @@ export class ClipRenderService {
 
           const outputOpts = [
             '-pix_fmt yuv420p',
-            '-preset fast',
+            `-preset ${config.renderPreset}`,
             '-crf', '22',
             '-movflags +faststart',
           ];
@@ -755,6 +760,12 @@ export class ClipRenderService {
           updated_at: new Date().toISOString(),
         })
         .eq('id', clipId);
+
+      // 4b. Poster frame for the Media Library while the rendered file is still local (best-effort).
+      await ClipPosterService.generateFromRenderedFile(
+        { ...clip, output_storage_path: finalStoragePath, render_version: renderVersion },
+        outputPath,
+      );
 
       // 5. Update render job -> 'completed' (100%) - only if worker still owns it
       if (jobId) {
@@ -926,6 +937,40 @@ export class ClipRenderService {
         })
         .eq('id', clipId);
     } catch {}
+  }
+
+  /**
+   * Render-time speaker-following guarantee (quality roadmap: active-speaker
+   * framing). When the clip's crop mode is 'smart' but no ready reframe track
+   * exists, run the CV analyzer on the ALREADY-downloaded source and persist
+   * the track before the reframing decision. Failures fall back to the
+   * existing center-crop path — this must never break a render.
+   */
+  private static async ensureReframeTrackAtRender(
+    clip: ClipRecord,
+    localSourcePath: string,
+    jobId?: string
+  ): Promise<void> {
+    if (!config.smartReframeEnabled || !config.reframeAutoGenerate) return;
+    if (clip.crop_config?.mode !== 'smart') return;
+
+    const existing = await SmartReframeService.getReframeTrack(clip.id, clip.user_id);
+    if (existing && existing.status === 'ready' && !existing.isStale &&
+        Array.isArray(existing.smoothed_keyframes) && existing.smoothed_keyframes.length > 0) {
+      return;
+    }
+
+    if (existing && activeReframeAnalysisSet.has(clip.id)) return; // analysis already in flight
+
+    logger.info(`[ClipRender] No ready reframe track for smart clip ${clip.id}; auto-generating from local source`);
+    try {
+      if (jobId) {
+        await ClipRenderService.updateJobStage(jobId, clip.id, 'analyzing_speakers', 8, 'rendering');
+      }
+      await SmartReframeService.analyzeClipFraming(clip.id, clip.user_id, { localSourcePath });
+    } catch (err: any) {
+      logger.warn(`[ClipRender] Auto reframe analysis failed for clip ${clip.id}: ${err?.message || err}. Falling back to center crop.`);
+    }
   }
 
   /**

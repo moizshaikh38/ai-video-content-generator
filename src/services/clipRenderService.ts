@@ -34,11 +34,12 @@ class ClipRenderService {
   async createClipFromCandidate(
     projectId: string,
     candidateId: string,
-    aspectRatio: ClipAspectRatio = '9:16'
+    aspectRatio: ClipAspectRatio = '9:16',
+    cropMode: 'smart' | 'center' = 'smart'
   ): Promise<CreateClipResponse> {
     return backendRequest<CreateClipResponse>(`/projects/${projectId}/clips`, {
       method: 'POST',
-      body: JSON.stringify({ candidateId, aspectRatio }),
+      body: JSON.stringify({ candidateId, aspectRatio, cropMode }),
     });
   }
 

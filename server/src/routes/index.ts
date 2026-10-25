@@ -17,6 +17,7 @@ import workflowRoutes from './workflowRoutes.js';
 import workspaceRoutes from './workspaceRoutes.js';
 import elementsRoutes from './elementsRoutes.js';
 import paymentRoutes from './paymentRoutes.js';
+import supportRoutes from './supportRoutes.js';
 import mcpRoutes from './mcpRoutes.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
@@ -34,6 +35,7 @@ apiRouter.patch('/creator-profile', requireAuth, asyncHandler(updateCreatorProfi
 apiRouter.use('/', projectRoutes);
 apiRouter.use('/elements', elementsRoutes);
 apiRouter.use('/billing', billingRoutes);
+apiRouter.use('/support', supportRoutes);
 apiRouter.use('/social', socialRoutes);
 apiRouter.use('/publishing', publishingRoutes);
 apiRouter.use('/analytics', analyticsRoutes);

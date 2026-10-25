@@ -9,12 +9,22 @@ import {
   CreateCheckoutInput,
   CheckoutResult,
   SubscriptionResult,
-  PortalResult,
   NormalizedBillingEvent,
   NormalizedBillingEventType,
 } from '../types.js';
 
 let razorpayInstance: any = null;
+
+/** Expected first/renewal charge in paise for a plan, or null when no INR price is configured. */
+export function expectedRazorpayAmountPaise(planId: PlanId, interval: BillingInterval): number | null {
+  const plan = getPlanDefinition(planId);
+  if (!plan) return null;
+  const rupees =
+    interval === 'year'
+      ? ({ creator: config.razorpayYearlyInrCreator, pro: config.razorpayYearlyInrPro, studio: config.razorpayYearlyInrStudio } as Record<string, number>)[planId] || 0
+      : plan.inr_monthly_price || 0;
+  return rupees > 0 ? Math.round(rupees * 100) : null;
+}
 
 export class RazorpayBillingProvider implements BillingProvider {
   public readonly provider = 'razorpay' as const;
@@ -110,14 +120,6 @@ export class RazorpayBillingProvider implements BillingProvider {
     }
   }
 
-  public async createCustomerPortal(): Promise<PortalResult> {
-    // Razorpay does not offer an external hosted billing portal session URL like Stripe.
-    // Return direct account settings / billing management link.
-    return {
-      url: `${config.appUrl}/billing`,
-    };
-  }
-
   public async verifyWebhook(
     rawBody: string | Buffer,
     headers: Record<string, string | string[] | undefined>
@@ -170,12 +172,16 @@ export class RazorpayBillingProvider implements BillingProvider {
 
     const eventType: string = parsed.event || '';
     const occurredAt = parsed.created_at ? new Date(parsed.created_at * 1000) : new Date();
-    // Razorpay webhooks often do not contain a top-level event_id; use event + entity id or fallback to sha256
     const payloadPayload = parsed.payload || {};
     const subEntity = payloadPayload.subscription?.entity;
     const paymentEntity = payloadPayload.payment?.entity;
     const entityId = subEntity?.id || paymentEntity?.id || '';
-    const eventId = parsed.event_id || (entityId ? `${eventType}_${entityId}_${parsed.created_at || Date.now()}` : crypto.createHash('sha256').update(bodyStr).digest('hex'));
+    // Razorpay sends a unique id per event in x-razorpay-event-id (stable across retries).
+    const headerEventId = headers['x-razorpay-event-id'];
+    const eventId =
+      (Array.isArray(headerEventId) ? headerEventId[0] : headerEventId) ||
+      parsed.event_id ||
+      (entityId ? `${eventType}_${entityId}_${parsed.created_at || 0}` : crypto.createHash('sha256').update(bodyStr).digest('hex'));
 
     let normalizedType: NormalizedBillingEventType | null = null;
     let userId: string | null = subEntity?.notes?.userId || paymentEntity?.notes?.userId || null;
@@ -203,18 +209,19 @@ export class RazorpayBillingProvider implements BillingProvider {
         canceledAt = new Date(subEntity.ended_at * 1000);
       }
 
-      if (subEntity.plan_id && (!planId || !interval)) {
-        const resolved = resolvePlanFromProviderId('razorpay', subEntity.plan_id);
-        if (resolved) {
-          planId = resolved.planId;
-          interval = resolved.interval;
-        }
+      // The server-configured Razorpay plan id is authoritative; notes are only a fallback.
+      const resolved = subEntity.plan_id ? resolvePlanFromProviderId('razorpay', subEntity.plan_id) : null;
+      if (resolved) {
+        planId = resolved.planId;
+        interval = resolved.interval;
       }
 
       switch (eventType) {
         case 'subscription.created':
         case 'subscription.authenticated':
+          // Mandate set up, nothing charged yet: record it, grant nothing.
           normalizedType = 'subscription.created';
+          status = 'incomplete';
           break;
         case 'subscription.activated':
         case 'subscription.charged':
@@ -252,7 +259,7 @@ export class RazorpayBillingProvider implements BillingProvider {
       currency = paymentEntity.currency ? paymentEntity.currency.toUpperCase() : 'INR';
 
       switch (eventType) {
-        case 'payment.authorized':
+        // payment.authorized is not money received; only a capture counts.
         case 'payment.captured':
           if (!normalizedType) normalizedType = 'payment.completed';
           break;
@@ -264,6 +271,20 @@ export class RazorpayBillingProvider implements BillingProvider {
 
     if (!normalizedType) {
       return null;
+    }
+
+    // A charge must match the configured plan price; otherwise record it but grant nothing.
+    if (eventType === 'subscription.charged' && paymentEntity && planId && interval) {
+      const expected = expectedRazorpayAmountPaise(planId, interval);
+      const paid = Number(paymentEntity.amount);
+      const paidCurrency = String(paymentEntity.currency || '').toUpperCase();
+      if (expected !== null && (paid !== expected || paidCurrency !== 'INR')) {
+        logger.warn(
+          `[RazorpayBillingProvider] Charge for ${subscriptionId} was ${paid} ${paidCurrency}, expected ${expected} INR; not activating.`
+        );
+        normalizedType = 'subscription.updated';
+        status = null;
+      }
     }
 
     return {
@@ -292,9 +313,10 @@ export class RazorpayBillingProvider implements BillingProvider {
     switch (status?.toLowerCase()) {
       case 'active':
         return 'active';
+      // Authorised mandate / created but not yet charged: no paid access.
       case 'authenticated':
       case 'created':
-        return 'trialing';
+        return 'incomplete';
       case 'pending':
       case 'halted':
         return 'past_due';
@@ -305,14 +327,15 @@ export class RazorpayBillingProvider implements BillingProvider {
       case 'expired':
         return 'canceled';
       default:
-        return 'active';
+        // Unknown states never unlock paid access.
+        return 'incomplete';
     }
   }
 
   private mapRazorpaySubscription(sub: any): SubscriptionResult {
     const status = this.mapRazorpayStatus(sub.status);
     const resolved = resolvePlanFromProviderId('razorpay', sub.plan_id);
-    const planId: PlanId = resolved?.planId || (sub.notes?.planId as PlanId) || 'pro';
+    const planId: PlanId = resolved?.planId || (getPlanDefinition(String(sub.notes?.planId || ''))?.id ?? 'free');
     const interval: BillingInterval = resolved?.interval || (sub.notes?.interval as BillingInterval) || 'month';
 
     const currentPeriodStart = sub.current_start ? new Date(sub.current_start * 1000) : new Date();

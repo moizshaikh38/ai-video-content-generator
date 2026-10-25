@@ -759,6 +759,61 @@ export interface ReframeKeyframe {
   centerY: number;
 }
 
+// ─── AI Clip Director ────────────────────────────────────────────────────────
+
+export type MomentPhase = 'setup' | 'event' | 'reaction' | 'payoff';
+
+/** A grounded signal observation from analyzed media. */
+export interface DirectorEvidence {
+  signal: 'transcript' | 'audio_spike' | 'scene_cut' | 'ocr' | 'face' | 'game_event' | 'reaction_spike' | 'silence' | 'visual_activity';
+  timestamp: number;
+  confidence: number;
+  detail?: string;
+}
+
+/** The structural skeleton of a moment: when each phase lands on the clock. */
+export interface MomentStructure {
+  setup_at?: number;
+  event_at?: number;
+  reaction_at?: number;
+  payoff_at?: number;
+  /** Dominant pattern this structure matches. */
+  pattern: 'reaction_arc' | 'dialogue_qa' | 'gameplay_play' | 'tutorial_step' | 'story_beat' | 'standalone';
+}
+
+export interface DirectorCreativeDecisions {
+  /** Reaction-synchronized punch-in (timestamp + zoom factor). */
+  punch_in?: { at: number; zoom: number; duration: number };
+  /** Framing strategy for this moment. */
+  framing: 'face_track' | 'face_focus_during_event' | 'split' | 'screencast' | 'blur' | 'center';
+  /** Caption emphasis window (words in this range get emphasis styling). */
+  caption_emphasis?: { start: number; end: number };
+  /** Optional SFX at a timestamp. */
+  sfx?: { at: number; kind: 'whoosh' | 'ding' | 'impact' };
+}
+
+export interface DirectorValidationCheck {
+  check: string;
+  passed: boolean;
+  detail?: string;
+}
+
+export interface ClipDirectorPlan {
+  clip_id: string;
+  project_id: string;
+  user_id: string;
+  genre: ContentGenre;
+  source_interval: { start: number; end: number };
+  structure: MomentStructure;
+  evidence: DirectorEvidence[];
+  selection_reason: string;
+  confidence: number;
+  creative: DirectorCreativeDecisions;
+  validation: DirectorValidationCheck[];
+  warnings: string[];
+  created_at: string;
+}
+
 export interface ReframeTrackRecord {
   id: string;
   clip_id: string;
@@ -942,7 +997,8 @@ export interface PublishPreviewResult {
 
 // ── Phase 11: Billing, Plans & Subscriptions Types ────────────────
 
-export type BillingProviderName = 'paddle' | 'razorpay' | 'stripe';
+/** Active gateways: Razorpay for India, Paddle everywhere else. */
+export type BillingProviderName = 'paddle' | 'razorpay';
 
 export type PlanId = 'free' | 'creator' | 'pro' | 'studio';
 
@@ -976,7 +1032,6 @@ export interface PlanDefinition {
   paddle_price_id_yearly?: string;
   razorpay_plan_id_monthly?: string;
   razorpay_plan_id_yearly?: string;
-  stripe_price_id?: string;
 }
 
 export interface BillingCustomerRecord {
@@ -1012,6 +1067,25 @@ export interface SubscriptionRecord {
   scheduled_change?: Record<string, unknown> | null;
   last_provider_event_id?: string | null;
   last_provider_event_at?: Date | null;
+  /** ISO alpha-2 billing country the gateway was chosen for (absent on pre-routing records). */
+  billing_country?: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * A checkout the server started. Binds the provider reference (Razorpay subscription id /
+ * Paddle transaction id) to the user so webhooks can never be attributed to someone else.
+ */
+export interface BillingCheckoutRecord {
+  id: string;
+  user_id: string;
+  provider: BillingProviderName;
+  provider_ref: string;
+  plan_id: PlanId;
+  billing_interval: BillingInterval;
+  billing_country: string;
+  status: 'pending' | 'completed' | 'failed' | 'expired';
   created_at: Date;
   updated_at: Date;
 }
@@ -1022,7 +1096,7 @@ export interface BillingEventRecord {
   provider_event_id: string;
   event_type: string;
   processed_at: Date;
-  status: 'processed' | 'failed' | 'ignored';
+  status: 'processing' | 'processed' | 'failed' | 'ignored';
   payload_hash?: string;
   error_code?: string | null;
   error_message?: string | null;

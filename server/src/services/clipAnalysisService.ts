@@ -2,6 +2,7 @@ import { replaceSuggestedCandidates } from '../db/repositories/clipCandidateRepo
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { logger } from '../utils/logger.js';
+import { config } from '../config/index.js';
 import { defaultAiProvider, AIProviderClient } from './aiProviderClient.js';
 import { ClipPromptService } from './clipPromptService.js';
 import {
@@ -26,6 +27,8 @@ import {
   deduplicateCandidatesByOverlap,
 } from '../utils/wordSnappingUtils.js';
 import { selectDiverseCandidates } from '../utils/diverseSelection.js';
+import { deduplicateSemantically } from '../utils/semanticDedup.js';
+import { tryIncludeQuestion, isQaCriticalGenre } from '../utils/questionInclusion.js';
 
 // In-memory set to prevent multiple simultaneous analysis runs for the same project
 export const activeClipAnalysisSet = new Set<string>();
@@ -675,6 +678,19 @@ export class ClipAnalysisService {
         logger.info(`No prior multimodal timeline for project ${projectId}: ${mmErr.message}`);
       }
 
+      // Gaming advantage: VLM game events (HUD reads + audio-corroborated
+      // reaction spikes) when stored; absent events change nothing.
+      let gameplayEvents: Array<{ time: number; type: string; confidence: number; corroborated_by_audio?: boolean }> = [];
+      try {
+        const { GameEventService } = await import('./gameEventService.js');
+        const gameAnalysis = await GameEventService.getEvents(projectId);
+        if (gameAnalysis?.events?.length) {
+          gameplayEvents = gameAnalysis.events;
+        }
+      } catch {
+        // Optional enrichment — never blocks analysis.
+      }
+
       // 4. Resolve Genre Intelligence & Clip Preferences
       const fullTranscriptText = transcript.transcript_text || segments.map((s) => s.text).join(' ');
       const totalWords = fullTranscriptText.split(/\s+/).filter(Boolean).length;
@@ -834,7 +850,7 @@ export class ClipAnalysisService {
           `Divided project ${projectId} into ${chunks.length} sliding windows. Running LLM analysis with bounded concurrency of 2...`
         );
 
-        const concurrency = 2;
+        const concurrency = config.analysisConcurrency;
         const systemPrompt = ClipPromptService.getSystemPrompt(genreProfile);
 
         for (let i = 0; i < chunks.length; i += concurrency) {
@@ -1004,6 +1020,7 @@ export class ClipAnalysisService {
             precedingSeg && typeof precedingSeg.text === 'string'
               ? { text: precedingSeg.text, end: Number(precedingSeg.end) }
               : null,
+          gameplayEvents: genreProfile.genre === 'gaming' ? gameplayEvents : undefined,
           candidateText,
           genreProfile,
           contentGoal,
@@ -1026,9 +1043,37 @@ export class ClipAnalysisService {
           postRollMs: 150,
         });
 
-        const start_seconds = wordSnapped.start_seconds;
-        const end_seconds = wordSnapped.end_seconds;
-        const duration_seconds = wordSnapped.duration_seconds;
+        let start_seconds = wordSnapped.start_seconds;
+        let end_seconds = wordSnapped.end_seconds;
+        let duration_seconds = wordSnapped.duration_seconds;
+
+        // Use hybrid multimodal Vireo Score
+        const engagement_score = scored.vireo_score;
+
+        // Question auto-inclusion (advantage B4): when the clip answers a
+        // question it doesn't include and the exchange fits the genre clamps,
+        // repair the boundary instead of only penalizing completeness.
+        let questionInclusion: { extendedBySec: number; includedQuestionText: string } | null = null;
+        if (isQaCriticalGenre(genreProfile.genre) && precedingSeg) {
+          const inclusion = tryIncludeQuestion(
+            {
+              start_seconds,
+              end_seconds,
+              candidateText,
+            },
+            { start: Number(precedingSeg.start), end: Number(precedingSeg.end), text: String(precedingSeg.text || '') },
+            { minDurationSec: minDurationLimit, maxDurationSec: maxDurationLimit }
+          );
+          if (inclusion) {
+            start_seconds = inclusion.start_seconds;
+            end_seconds = inclusion.end_seconds;
+            duration_seconds = Number((end_seconds - start_seconds).toFixed(3));
+            questionInclusion = {
+              extendedBySec: inclusion.extendedBySec,
+              includedQuestionText: inclusion.includedQuestionText,
+            };
+          }
+        }
 
         // Duration constraints: strictly minDurationLimit to maxDurationLimit (adaptive for short test videos under 15s)
         if (duration_seconds < minDurationLimit || duration_seconds > maxDurationLimit) {
@@ -1036,8 +1081,7 @@ export class ClipAnalysisService {
           continue;
         }
 
-        // Use hybrid multimodal Vireo Score
-        const engagement_score = scored.vireo_score;
+
 
         let cold_open: ColdOpenConfig | null = null;
         if (typeof ai.cold_open_segment_index === 'number' && segments[ai.cold_open_segment_index]) {
@@ -1081,6 +1125,7 @@ export class ClipAnalysisService {
             suggested_genre: localSuggestion.genre,
             genre_confidence: localSuggestion.confidence,
             cold_open,
+            question_included: questionInclusion,
             was_snapped: scored.was_snapped || wordSnapped.was_snapped,
             silence_snapped: scored.was_snapped,
             word_snapped: wordSnapped.was_snapped,
@@ -1090,11 +1135,21 @@ export class ClipAnalysisService {
         });
       }
 
-      // 7. Deduplicate overlapping moments (0.25 ratio prevents duplicate punchlines)
-      const deduped = deduplicateCandidatesByOverlap(
+      // 7. Deduplicate overlapping moments (0.25 ratio) then SEMANTICALLY
+      // (advantage B2): two moments far apart making the same point are
+      // duplicates time-overlap can't see. Token-Jaccard fallback (embeddings
+      // plug in later without touching this call site).
+      const overlapDeduped = deduplicateCandidatesByOverlap(
         groundedCandidates,
         0.25
       );
+      const deduped = deduplicateSemantically(
+        overlapDeduped.map((c) => ({ ...c, text: (c as any).candidateText || `${c.title} ${c.hook} ${c.reason}`, score: c.engagement_score })),
+        { threshold: 0.68, mode: 'token' }
+      ).map((c) => {
+        const { text: _t, score: _s, ...rest } = c as any;
+        return rest as typeof overlapDeduped[number];
+      });
 
       // 8. Adaptive clip count targeting with empirical 4+ floor for long-form content
       const adaptiveTargets = calculateAdaptiveClipCount(
@@ -1110,6 +1165,63 @@ export class ClipAnalysisService {
         maxClips: adaptiveTargets.maxClips,
         redundancyPenalty: genreProfile.redundancyPenalty ?? 0.5,
       });
+
+      // 9a. AI Clip Director: compile structured plans for each selected
+      // candidate. Grounded in multimodal timeline + game events + spikes.
+      // A failed plan degrades gracefully — candidate persists without one.
+      let directorPlans: Record<string, any> = {};
+      try {
+        const { structureMoments, wordsFromTranscript, energyFromTimeline } = await import('./momentStructurer.js');
+        const { buildDirectorPlan } = await import('./directorPlanBuilder.js');
+        const { detectReactionSpikes } = await import('../utils/reactionSpikes.js');
+
+        const timelineSegments = multimodalTimeline?.segments ?? [];
+        const wordTimings = wordsFromTranscript(
+          transcript.words || (transcript as any).words || []
+        );
+        const energySegments = energyFromTimeline(timelineSegments);
+        const spikes = detectReactionSpikes(energySegments);
+        const sceneCuts = (multimodalTimeline?.scene_cuts ?? []).map((c: any) => c.timestamp);
+        const faceIntervals = (multimodalTimeline?.face_intervals ?? []).map((f: any) => ({ start: f.start, end: f.end }));
+        const gameEvents = (gameplayEvents ?? []).map((e) => ({ time: e.time, confidence: e.confidence, type: e.type }));
+
+        const moments = structureMoments({
+          durationSec: transcript.duration_seconds || durationMinutes * 60,
+          words: wordTimings,
+          energySegments,
+          spikes,
+          sceneCuts,
+          faceIntervals,
+          gameEvents,
+          genre: genreProfile.genre,
+        });
+
+        // Match moments to top candidates by temporal overlap
+        for (const candidate of topCandidates) {
+          const cStart = candidate.start_seconds;
+          const cEnd = candidate.end_seconds;
+          const matching = moments.find((m) => {
+            const shorter = Math.min(m.end - m.start, cEnd - cStart);
+            if (shorter <= 0) return false;
+            const overlap = Math.max(0, Math.min(cEnd, m.end) - Math.max(cStart, m.start));
+            return overlap / shorter > 0.3;
+          });
+          if (matching) {
+            const buildResult = buildDirectorPlan(matching, {
+              genre: genreProfile.genre,
+              project_id: projectId,
+              user_id: userId,
+              words: wordTimings,
+              layoutMode: genreProfile.recommendedLayoutMode,
+            });
+            if (buildResult.plan) {
+              directorPlans[`${candidate.start_seconds}`] = buildResult.plan;
+            }
+          }
+        }
+      } catch (dirErr: any) {
+        logger.info(`[DirectorPlan] Moment structuring unavailable for ${projectId}: ${dirErr?.message || dirErr}`);
+      }
 
       // 9. Replace suggestions in one Mongo transaction, preserving selected clips.
       const allProjectCandidates = await replaceSuggestedCandidates(userId, projectId,
@@ -1127,6 +1239,7 @@ export class ClipAnalysisService {
           content_goal: candidate.content_goal,
           engagement_score: candidate.engagement_score,
           cold_open: candidate.cold_open,
+          director_plan: directorPlans[`${candidate.start_seconds}`] || null,
           metadata: candidate.metadata || {},
         })));
       return allProjectCandidates as unknown as ClipCandidate[];

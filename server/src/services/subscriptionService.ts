@@ -1,10 +1,12 @@
 import crypto from 'node:crypto';
+import type { Db } from 'mongodb';
 import { getMongoDb } from '../db/mongoClient.js';
 import {
   BillingCustomerRecord,
   SubscriptionRecord,
   BillingEventRecord,
   BillingInvoiceRecord,
+  BillingCheckoutRecord,
   UserEntitlement,
   PlanId,
   BillingProviderName,
@@ -14,6 +16,16 @@ import { isUserUnlimited } from './usageService.js';
 import { PLANS, getPlanDefinition } from './billing/planConfig.js';
 import { NormalizedBillingEvent } from './billing/types.js';
 import { logger } from '../utils/logger.js';
+
+/** A verified webhook tried to touch a subscription owned by someone else. Never retried. */
+export class BillingOwnershipError extends Error {
+  readonly code = 'OWNERSHIP_MISMATCH';
+  constructor(event: NormalizedBillingEvent, owners: string[]) {
+    super(
+      `Event ${event.eventId} (${event.provider} ${event.eventType}) names user ${event.userId || 'unknown'} but the subscription/customer/checkout belongs to ${owners.join(', ')}.`
+    );
+  }
+}
 
 export class SubscriptionService {
   /**
@@ -25,8 +37,8 @@ export class SubscriptionService {
    * 4. Past due subscription with grace period (< 3 days) -> paid plan with warning
    * 5. Expired / unpaid / no subscription -> 'free'
    */
-  static async resolveUserEntitlement(userId: string, userEmail?: string): Promise<UserEntitlement> {
-    const db = await getMongoDb();
+  static async resolveUserEntitlement(userId: string, userEmail?: string, database?: Db): Promise<UserEntitlement> {
+    const db = database ?? (await getMongoDb());
 
     let email = userEmail;
     if (!email && userId) {
@@ -206,61 +218,90 @@ export class SubscriptionService {
   }
 
   /**
-   * Authoritative handler consuming a NormalizedBillingEvent.
-   * Updates database subscription, quota limits, and invoices atomically.
+   * Authoritative handler consuming a verified NormalizedBillingEvent.
+   *
+   * Invariants (each one pinned by phaseBillingWebhookIntegrity.test.ts):
+   *  - Ownership: an event is applied only to the user the server bound to it at checkout
+   *    (billing_checkouts) or who already owns the provider subscription/customer. A webhook
+   *    that names a different user throws BillingOwnershipError and changes nothing.
+   *  - No default plan: an event whose price/plan id doesn't map to a configured plan never
+   *    creates a subscription.
+   *  - No access before payment: a new subscription without an explicit provider status is
+   *    stored as 'incomplete'; only active/trialing (and the past_due grace window) unlock limits.
+   *  - Idempotent writes: limits and invoices use $set/upsert keyed by provider ids, so a
+   *    replayed event cannot grant more than once.
    */
-  static async processNormalizedEvent(event: NormalizedBillingEvent): Promise<void> {
-    const db = await getMongoDb();
+  static async processNormalizedEvent(event: NormalizedBillingEvent, database?: Db): Promise<void> {
+    const db = database ?? (await getMongoDb());
     const subCol = db.collection<SubscriptionRecord>('subscriptions');
     const limitsCol = db.collection('subscription_limits');
     const invCol = db.collection<BillingInvoiceRecord>('billing_invoices');
     const customerCol = db.collection<BillingCustomerRecord>('billing_customers');
+    const checkoutCol = db.collection<BillingCheckoutRecord>('billing_checkouts');
 
     const now = new Date();
 
-    // 1. Resolve userId if not directly on the event
-    let targetUserId = event.userId;
-    if (!targetUserId && event.customerId) {
-      const customer = await customerCol.findOne({
-        provider: event.provider,
-        provider_customer_id: event.customerId,
-      });
-      if (customer) {
-        targetUserId = customer.user_id;
-      }
-    }
+    // 1. Who does this event belong to? Collect every server-side binding and require agreement.
+    const existing = event.subscriptionId
+      ? await subCol.findOne({ provider: event.provider, provider_subscription_id: event.subscriptionId })
+      : null;
+    const customer = event.customerId
+      ? await customerCol.findOne({ provider: event.provider, provider_customer_id: event.customerId })
+      : null;
+    // Razorpay checkouts are keyed by subscription id; Paddle by the checkout transaction id,
+    // which subscription.* events carry as data.transaction_id.
+    const rawData = (event.rawPayload as any)?.data || {};
+    const checkoutRefs = [event.subscriptionId, rawData.id, rawData.transaction_id].filter(Boolean) as string[];
+    const checkout = checkoutRefs.length
+      ? await checkoutCol.findOne({ provider: event.provider, provider_ref: { $in: checkoutRefs } })
+      : null;
 
-    if (!targetUserId && event.subscriptionId) {
-      const existingSub = await subCol.findOne({
-        provider: event.provider,
-        provider_subscription_id: event.subscriptionId,
-      });
-      if (existingSub) {
-        targetUserId = existingSub.user_id;
-      }
+    const owners = new Set(
+      [existing?.user_id, customer?.user_id, checkout?.user_id].filter((v): v is string => Boolean(v))
+    );
+    if (event.userId && owners.size > 0 && !owners.has(event.userId)) {
+      throw new BillingOwnershipError(event, Array.from(owners));
     }
+    if (owners.size > 1) {
+      throw new BillingOwnershipError(event, Array.from(owners));
+    }
+    const targetUserId = event.userId || Array.from(owners)[0] || null;
 
     if (!targetUserId) {
       logger.warn(`[SubscriptionService] Unable to map event ${event.eventId} (${event.eventType}) to a user.`);
       return;
     }
 
-    // 2. Process Subscription Events
-    if (event.subscriptionId && (event.eventType.startsWith('subscription.') || event.eventType === 'checkout.completed')) {
-      const existing = await subCol.findOne({
-        provider: event.provider,
-        provider_subscription_id: event.subscriptionId,
-      });
+    if (event.customerId && !customer) {
+      await customerCol.updateOne(
+        { user_id: targetUserId, provider: event.provider },
+        {
+          $set: { provider_customer_id: event.customerId, updated_at: now },
+          $setOnInsert: { id: crypto.randomUUID(), user_id: targetUserId, provider: event.provider, email: '', created_at: now },
+        },
+        { upsert: true }
+      );
+    }
 
+    // 2. Subscription lifecycle.
+    if (event.subscriptionId && (event.eventType.startsWith('subscription.') || event.eventType === 'checkout.completed')) {
       // Avoid applying out-of-order stale events
       if (existing && existing.last_provider_event_at && existing.last_provider_event_at > event.occurredAt) {
         logger.info(`[SubscriptionService] Ignored out-of-order event ${event.eventId} for sub ${event.subscriptionId}`);
         return;
       }
 
-      const planId = event.planId || existing?.plan_id || 'pro';
-      const interval = event.interval || existing?.billing_interval || 'month';
-      const status: SubscriptionStatus = event.status || (event.eventType === 'subscription.canceled' ? 'canceled' : 'active');
+      const planId = event.planId || existing?.plan_id || checkout?.plan_id || null;
+      if (!planId || !getPlanDefinition(planId) || planId === 'free') {
+        logger.warn(
+          `[SubscriptionService] Event ${event.eventId} for sub ${event.subscriptionId} has no configured plan; not creating a subscription.`
+        );
+        return;
+      }
+      const interval = event.interval || existing?.billing_interval || checkout?.billing_interval || 'month';
+      const status: SubscriptionStatus =
+        event.status ||
+        (event.eventType === 'subscription.canceled' ? 'canceled' : existing?.status || 'incomplete');
       const plan = getPlanDefinition(planId) || PLANS.free;
 
       const subRecord: Partial<SubscriptionRecord> = {
@@ -276,6 +317,8 @@ export class SubscriptionService {
         last_provider_event_at: event.occurredAt,
         updated_at: now,
       };
+      const billingCountry = checkout?.billing_country || existing?.billing_country || (event.provider === 'razorpay' ? 'IN' : null);
+      if (billingCountry) subRecord.billing_country = billingCountry;
 
       if (event.currentPeriodStart) subRecord.current_period_start = event.currentPeriodStart;
       else if (!existing) subRecord.current_period_start = now;
@@ -299,7 +342,11 @@ export class SubscriptionService {
         { upsert: true }
       );
 
-      // Update current UTC billing period limits
+      if (checkout && (status === 'active' || status === 'trialing')) {
+        await checkoutCol.updateOne({ id: checkout.id }, { $set: { status: 'completed', updated_at: now } });
+      }
+
+      // Update current UTC billing period limits ($set: replaying the event cannot add more)
       const currentPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
       if (status === 'active' || status === 'trialing') {
         await limitsCol.updateOne(
@@ -314,7 +361,7 @@ export class SubscriptionService {
         );
       } else if (status === 'canceled') {
         // If canceled and past period, restore free plan limit
-        const activeEntitlement = await this.resolveUserEntitlement(targetUserId);
+        const activeEntitlement = await this.resolveUserEntitlement(targetUserId, undefined, db);
         if (activeEntitlement.plan_id === 'free') {
           await limitsCol.updateOne(
             { user_id: targetUserId, billing_period: currentPeriod },
@@ -329,11 +376,10 @@ export class SubscriptionService {
       }
     }
 
-    // 3. Process Payment Completed / Failed Events
+    // 3. Payment history (never changes access by itself).
     if (event.eventType === 'payment.completed' || event.eventType === 'payment.failed') {
-      const invoiceId = event.invoiceId || `${event.provider}_inv_${event.eventId}`;
-      const invRecord: BillingInvoiceRecord = {
-        id: crypto.randomUUID(),
+      const invoiceId = event.invoiceId || (event.rawPayload as any)?.data?.id || `${event.provider}_inv_${event.eventId}`;
+      const invRecord: Omit<BillingInvoiceRecord, 'id' | 'created_at'> = {
         user_id: targetUserId,
         provider: event.provider,
         provider_invoice_id: invoiceId,
@@ -341,21 +387,77 @@ export class SubscriptionService {
         subscription_id: event.subscriptionId || null,
         amount_due: event.amount || 0,
         amount_paid: event.eventType === 'payment.completed' ? (event.amount || 0) : 0,
-        currency: event.currency || 'USD',
+        currency: event.currency || (event.provider === 'razorpay' ? 'INR' : 'USD'),
         status: event.eventType === 'payment.completed' ? 'paid' : 'open',
         hosted_invoice_url: event.invoiceUrl || null,
         period_start: event.currentPeriodStart || now,
         period_end: event.currentPeriodEnd || now,
-        created_at: now,
         updated_at: now,
       };
 
       await invCol.updateOne(
         { provider: event.provider, provider_invoice_id: invoiceId },
-        { $set: invRecord },
+        { $set: invRecord, $setOnInsert: { id: crypto.randomUUID(), created_at: now } },
         { upsert: true }
       );
     }
+  }
+
+  /**
+   * Atomically claims a webhook event for processing (unique index on provider+event id).
+   * Returns false when the event was already processed or another worker holds it, so a
+   * provider retry or a concurrent duplicate delivery is a no-op.
+   */
+  static async claimEvent(provider: BillingProviderName, eventId: string, database?: Db): Promise<boolean> {
+    const db = database ?? (await getMongoDb());
+    const col = db.collection<BillingEventRecord>('billing_events');
+    const now = new Date();
+    try {
+      const res = await col.updateOne(
+        { provider, provider_event_id: eventId, status: { $in: ['failed'] } },
+        { $set: { status: 'processing', processed_at: now } }
+      );
+      if (res.modifiedCount === 1) return true; // retrying a previously failed attempt
+      await col.insertOne({
+        id: crypto.randomUUID(),
+        provider,
+        provider_event_id: eventId,
+        event_type: '',
+        status: 'processing',
+        processed_at: now,
+        created_at: now,
+      });
+      return true;
+    } catch (err: any) {
+      if (err?.code === 11000) return false; // duplicate key: already claimed/processed
+      throw err;
+    }
+  }
+
+  /** Binds a provider checkout reference to the user who started it (see processNormalizedEvent). */
+  static async recordPendingCheckout(
+    input: Omit<BillingCheckoutRecord, 'id' | 'status' | 'created_at' | 'updated_at'>,
+    database?: Db
+  ): Promise<void> {
+    const db = database ?? (await getMongoDb());
+    const now = new Date();
+    await db.collection<BillingCheckoutRecord>('billing_checkouts').updateOne(
+      { provider: input.provider, provider_ref: input.provider_ref },
+      {
+        $set: { ...input, status: 'pending', updated_at: now },
+        $setOnInsert: { id: crypto.randomUUID(), created_at: now },
+      },
+      { upsert: true }
+    );
+  }
+
+  /** A paid subscription that must be managed (not duplicated) before a new checkout. */
+  static async findBlockingSubscription(userId: string, database?: Db): Promise<SubscriptionRecord | null> {
+    const db = database ?? (await getMongoDb());
+    return db.collection<SubscriptionRecord>('subscriptions').findOne(
+      { user_id: userId, status: { $in: ['active', 'trialing', 'past_due'] } },
+      { sort: { updated_at: -1 } }
+    );
   }
 
   /**

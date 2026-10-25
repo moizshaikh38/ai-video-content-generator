@@ -1,838 +1,652 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
-  Zap,
+  AlertTriangle,
   Check,
-  AlertCircle,
-  ExternalLink,
-  ShieldCheck,
-  Sparkles,
+  CheckCircle2,
   Clock,
-  Receipt,
   CreditCard,
-  XCircle,
-  Star,
+  ExternalLink,
+  Globe2,
+  Loader2,
+  Receipt,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '../components/Button';
-import { SpotlightCard } from '../components/react-bits/SpotlightCard';
-import { ShinyButton } from '../components/react-bits/ShinyButton';
+import { useAuth } from '../context/AuthContext';
 import {
-  BillingService,
-  PlanDefinition,
-  UserEntitlement,
-  BillingUsage,
-  BillingInvoice,
-  ProviderOption,
-  BillingProviderName,
+  BillingContext,
   BillingInterval,
+  BillingInvoice,
+  BillingService,
+  BillingUsage,
+  PlanOffer,
+  UserEntitlement,
 } from '../services/billingService';
-import { getPlanPriceDisplay, isProviderIntervalSupported } from '../utils/pricingUtils';
-import { openRazorpayCheckout } from '../services/razorpayService';
-import { RazorpayCheckoutButton } from '../components/RazorpayCheckoutButton';
+import { openRazorpaySubscriptionCheckout } from '../services/razorpayService';
+
+type Notice = { tone: 'success' | 'info' | 'warning' | 'error'; message: string } | null;
+
+const PAID_ACCESS = ['active', 'trialing'];
+const CONFIRM_POLL_MS = 3000;
+const CONFIRM_TIMEOUT_MS = 90_000;
+
+const NON_BILLING_REGIONS = new Set(['EU', 'UN', 'EZ', 'QO', 'ZZ', 'XA', 'XB', 'AQ']);
+
+/** Every ISO 3166-1 alpha-2 region the browser can name, sorted by display name. */
+function countryOptions(): Array<{ code: string; name: string }> {
+  let names: Intl.DisplayNames | null = null;
+  try {
+    names = new Intl.DisplayNames(['en'], { type: 'region' });
+  } catch {
+    return [];
+  }
+  const out: Array<{ code: string; name: string }> = [];
+  for (let a = 65; a <= 90; a++) {
+    for (let b = 65; b <= 90; b++) {
+      const code = String.fromCharCode(a, b);
+      if (NON_BILLING_REGIONS.has(code)) continue;
+      const name = names.of(code);
+      if (name && name !== code) out.push({ code, name });
+    }
+  }
+  return out.sort((x, y) => x.name.localeCompare(y.name));
+}
+
+function formatMoney(amount: number, currency: 'INR' | 'USD' | string) {
+  try {
+    return new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : 'en-US', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    }).format(amount);
+  } catch {
+    return `${amount} ${currency}`;
+  }
+}
+
+function formatDate(iso?: string | null) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+const STATUS_LABEL: Record<string, { label: string; tone: string }> = {
+  active: { label: 'Active', tone: 'bg-emerald-500/15 text-emerald-300' },
+  trialing: { label: 'Trial', tone: 'bg-emerald-500/15 text-emerald-300' },
+  past_due: { label: 'Payment failed', tone: 'bg-amber-500/15 text-amber-300' },
+  canceled: { label: 'Canceled', tone: 'bg-white/[0.08] text-zinc-300' },
+  incomplete: { label: 'Awaiting payment', tone: 'bg-white/[0.08] text-zinc-300' },
+  paused: { label: 'Paused', tone: 'bg-white/[0.08] text-zinc-300' },
+  unpaid: { label: 'Unpaid', tone: 'bg-rose-500/15 text-rose-300' },
+};
+
+const GATEWAY_COPY = {
+  razorpay: 'Prices in Indian rupees. Payments are processed securely by Razorpay (UPI, cards, netbanking).',
+  paddle: 'Prices in US dollars. Payments are processed by Paddle, our reseller; local taxes may be added at checkout.',
+} as const;
+
+const NOTICE_TONE = {
+  success: 'bg-emerald-500/10 text-emerald-200',
+  info: 'bg-white/[0.05] text-zinc-200',
+  warning: 'bg-amber-500/10 text-amber-200',
+  error: 'bg-rose-500/10 text-rose-200',
+} as const;
+
+const Skeleton: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <div className={`animate-pulse rounded-2xl bg-white/[0.04] ${className}`} />
+);
 
 export const BillingPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const [plans, setPlans] = useState<PlanDefinition[]>([]);
-  const [providers, setProviders] = useState<ProviderOption[]>([]);
-  const [selectedProvider, setSelectedProvider] = useState<BillingProviderName>('paddle');
-  const [billingInterval, setBillingInterval] = useState<BillingInterval>('month');
+  const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const [context, setContext] = useState<BillingContext | null>(null);
+  const [contextError, setContextError] = useState<string | null>(null);
   const [entitlement, setEntitlement] = useState<UserEntitlement | null>(null);
   const [usage, setUsage] = useState<BillingUsage | null>(null);
   const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
-  const [cancelLoading, setCancelLoading] = useState(false);
-  const [portalLoading, setPortalLoading] = useState(false);
-  const [notice, setNotice] = useState<{ type: 'success' | 'info' | 'error'; message: string } | null>(null);
 
-  const isSuccessRedirect = searchParams.get('success') === 'true';
-  const isCanceledRedirect = searchParams.get('canceled') === 'true';
-  const providerParam = searchParams.get('provider');
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>('month');
+  const [notice, setNotice] = useState<Notice>(null);
+  const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [portalBusy, setPortalBusy] = useState(false);
 
-  useEffect(() => {
-    if (isSuccessRedirect) {
-      setNotice({
-        type: 'info',
-        message: `Payment initiated via ${providerParam || 'provider'}! Webhook sync in progress...`,
-      });
-    } else if (isCanceledRedirect) {
-      setNotice({
-        type: 'info',
-        message: 'Checkout canceled. Your current plan was not modified.',
-      });
+  const [countryDraft, setCountryDraft] = useState('');
+  const [countryBusy, setCountryBusy] = useState(false);
+  const [editingCountry, setEditingCountry] = useState(false);
+  const countries = useMemo(countryOptions, []);
+  const pollTimer = useRef<number | null>(null);
+
+  const loadAll = useCallback(async () => {
+    setContextError(null);
+    const [ctx, sub, use, inv] = await Promise.allSettled([
+      BillingService.getBillingContext(),
+      BillingService.getSubscription(),
+      BillingService.getUsage(),
+      BillingService.getInvoices(),
+    ]);
+    if (ctx.status === 'fulfilled') {
+      setContext(ctx.value);
+      setCountryDraft(ctx.value.country || '');
+    } else {
+      setContextError(ctx.reason?.message || 'Could not load billing details.');
     }
-  }, [isSuccessRedirect, isCanceledRedirect, providerParam]);
-
-  const loadBillingData = async () => {
-    try {
-      setLoading(true);
-      const [plansRes, subRes, usageRes, invoicesRes] = await Promise.allSettled([
-        BillingService.getPlans(),
-        BillingService.getSubscription(),
-        BillingService.getUsage(),
-        BillingService.getInvoices(),
-      ]);
-
-      if (plansRes.status === 'fulfilled') {
-        setPlans(plansRes.value.plans);
-        setProviders(plansRes.value.providers);
-        if (plansRes.value.defaultProvider) {
-          setSelectedProvider(plansRes.value.defaultProvider);
-        }
-      }
-
-      if (subRes.status === 'fulfilled') {
-        setEntitlement(subRes.value.entitlement);
-        if (subRes.value.providers) {
-          setProviders(subRes.value.providers);
-        }
-      }
-
-      if (usageRes.status === 'fulfilled' && usageRes.value) {
-        setUsage(usageRes.value);
-      }
-
-      if (invoicesRes.status === 'fulfilled') {
-        setInvoices(invoicesRes.value);
-      }
-    } catch (err: any) {
-      console.warn('Could not load billing details:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadBillingData();
+    if (sub.status === 'fulfilled') setEntitlement(sub.value.entitlement);
+    if (use.status === 'fulfilled') setUsage(use.value);
+    if (inv.status === 'fulfilled') setInvoices(inv.value);
+    setLoading(false);
+    return sub.status === 'fulfilled' ? sub.value.entitlement : null;
   }, []);
 
-  useEffect(() => {
-    if (!isProviderIntervalSupported(selectedProvider, billingInterval, plans)) {
-      setBillingInterval('month');
-    }
-  }, [selectedProvider, billingInterval, plans]);
-
-  const handleStartCheckout = async (planId: 'creator' | 'pro' | 'studio') => {
-    const currentProv = providers.find((p) => p.name === selectedProvider);
-    if (currentProv && !currentProv.isConfigured) {
-      setNotice({
-        type: 'error',
-        message: `${currentProv.displayName} is not configured on the server. Please configure sandbox credentials.`,
-      });
-      return;
-    }
-
-    if (!isProviderIntervalSupported(selectedProvider, billingInterval, plans)) {
-      setNotice({
-        type: 'error',
-        message: 'Annual billing is currently unavailable for INR (Razorpay). Please select Monthly billing or choose Paddle (Global USD).',
-      });
-      return;
-    }
-
-    try {
-      setCheckoutLoading(planId);
-
-      // Razorpay Standard Web Checkout (Order-based flow with signature verification)
-      if (selectedProvider === 'razorpay') {
-        const targetPlan = plans.find((p) => p.id === planId);
-        const amountInPaise = Math.round((targetPlan?.inr_monthly_price || 999) * 100);
-        await openRazorpayCheckout({
-          amount: amountInPaise,
-          currency: 'INR',
-          name: 'VireoClip',
-          description: `${(targetPlan?.display_name || planId).toUpperCase()} Plan Subscription (${billingInterval})`,
-          notes: {
-            planId,
-            interval: billingInterval,
-          },
-          onSuccess: (verifyRes) => {
-            setNotice({
-              type: 'success',
-              message: `Payment successful! Order ID: ${verifyRes.order_id}, Payment ID: ${verifyRes.payment_id}. Signature verified via Razorpay HMAC-SHA256.`,
-            });
-            loadBillingData();
-          },
-          onError: (err) => {
-            setNotice({
-              type: 'error',
-              message: err.message || 'Razorpay checkout failed or was declined.',
-            });
-          },
-          onDismiss: () => {
-            setNotice({
-              type: 'info',
-              message: 'Razorpay checkout modal closed.',
-            });
-          },
+  /** Access is granted by verified webhooks; after checkout we only watch for it to land. */
+  const awaitActivation = useCallback(() => {
+    setConfirming(true);
+    setNotice({ tone: 'info', message: 'Payment received. Confirming with your payment provider…' });
+    const started = Date.now();
+    const tick = async () => {
+      const ent = await loadAll().catch(() => null);
+      if (ent?.subscription && PAID_ACCESS.includes(ent.subscription.status)) {
+        setConfirming(false);
+        setNotice({ tone: 'success', message: `You're on ${ent.display_name}. Your new limits are active.` });
+        return;
+      }
+      if (Date.now() - started > CONFIRM_TIMEOUT_MS) {
+        setConfirming(false);
+        setNotice({
+          tone: 'warning',
+          message: "We haven't received confirmation yet. This can take a few minutes — refresh this page shortly. You won't be charged twice.",
         });
         return;
       }
+      pollTimer.current = window.setTimeout(tick, CONFIRM_POLL_MS);
+    };
+    tick();
+  }, [loadAll]);
 
-      const checkoutRes = await BillingService.createCheckout(planId, billingInterval, selectedProvider);
+  useEffect(() => {
+    loadAll();
+    if (searchParams.get('success') === 'true') {
+      awaitActivation();
+    } else if (searchParams.get('canceled') === 'true') {
+      setNotice({ tone: 'info', message: 'Checkout canceled. Nothing was charged and your plan is unchanged.' });
+    }
+    if (searchParams.has('success') || searchParams.has('canceled')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('success');
+      next.delete('canceled');
+      next.delete('provider');
+      setSearchParams(next, { replace: true });
+    }
+    return () => {
+      if (pollTimer.current) window.clearTimeout(pollTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-      if (checkoutRes.provider === 'paddle') {
-        if (checkoutRes.url) {
-          window.location.href = checkoutRes.url;
+  const subscription = entitlement?.subscription || null;
+  const hasPaidAccess = Boolean(subscription && PAID_ACCESS.includes(subscription.status));
+  const isPastDue = subscription?.status === 'past_due';
+  const blocksCheckout = Boolean(subscription && ['active', 'trialing', 'past_due'].includes(subscription.status));
+  const yearlyOffered = Boolean(context?.plans.some((p) => p.id !== 'free' && p.prices.year.available));
+
+  useEffect(() => {
+    if (!yearlyOffered && billingInterval === 'year') setBillingInterval('month');
+  }, [yearlyOffered, billingInterval]);
+
+  const saveCountry = async (code: string, confirmConflict = false) => {
+    if (!code) return;
+    setCountryBusy(true);
+    try {
+      const res = await BillingService.confirmBillingCountry(code, confirmConflict);
+      if (!res.ok) {
+        if (res.conflict && window.confirm(`${res.message}\n\nUse ${res.conflict.confirmedCountry} as your billing country anyway?`)) {
+          await saveCountry(code, true);
         } else {
-          setNotice({
-            type: 'info',
-            message: `Paddle transaction created (${checkoutRes.transactionId}). Redirecting to checkout...`,
-          });
+          setNotice({ tone: 'warning', message: res.message });
         }
-      } else if (checkoutRes.url) {
-        window.location.href = checkoutRes.url;
+        return;
       }
+      setContext(res.data.context);
+      setEditingCountry(false);
+      setNotice(null);
     } catch (err: any) {
-      setNotice({
-        type: 'error',
-        message: err.message || 'Could not initiate checkout.',
-      });
+      setNotice({ tone: 'error', message: err.message || 'Could not save your billing country.' });
     } finally {
-      setCheckoutLoading(null);
+      setCountryBusy(false);
     }
   };
 
-  const handleCancelSubscription = async () => {
-    if (!window.confirm('Are you sure you want to cancel your subscription? Access will remain until the end of your billing cycle.')) {
-      return;
-    }
-
+  const startCheckout = async (plan: PlanOffer) => {
+    if (plan.id === 'free') return;
+    setCheckoutPlan(plan.id);
+    setNotice(null);
     try {
-      setCancelLoading(true);
+      const checkout = await BillingService.createCheckout(plan.id, billingInterval);
+      if (checkout.provider === 'razorpay') {
+        if (!checkout.subscriptionId || !checkout.keyId) throw new Error('Razorpay checkout could not be started.');
+        await openRazorpaySubscriptionCheckout({
+          subscriptionId: checkout.subscriptionId,
+          keyId: checkout.keyId,
+          description: `${plan.display_name} plan`,
+          prefill: { email: user?.email || undefined },
+          theme: { color: '#7C3AED' },
+          onPaymentSuccess: () => awaitActivation(),
+          onError: (err) => setNotice({ tone: 'error', message: `${err.message} You have not been charged for a plan.` }),
+          onDismiss: () => setNotice({ tone: 'info', message: 'Checkout closed. Nothing was charged.' }),
+        });
+      } else {
+        if (!checkout.url) throw new Error('Paddle did not return a checkout link. Please try again.');
+        window.location.assign(checkout.url);
+      }
+    } catch (err: any) {
+      setNotice({ tone: 'error', message: err.message || 'Could not start checkout.' });
+    } finally {
+      setCheckoutPlan(null);
+    }
+  };
+
+  const cancelPlan = async () => {
+    if (!subscription) return;
+    if (!window.confirm(`Cancel your ${entitlement?.display_name} plan? You keep access until ${formatDate(subscription.current_period_end)}.`)) return;
+    setCancelBusy(true);
+    try {
       await BillingService.cancelSubscription();
-      setNotice({
-        type: 'info',
-        message: 'Subscription canceled. Your paid access remains active until the end of the billing period.',
-      });
-      await loadBillingData();
+      await loadAll();
+      setNotice({ tone: 'info', message: `Cancellation scheduled. Your plan stays active until ${formatDate(subscription.current_period_end)}.` });
     } catch (err: any) {
-      setNotice({
-        type: 'error',
-        message: err.message || 'Failed to cancel subscription.',
-      });
+      setNotice({ tone: 'error', message: err.message || 'Could not cancel the subscription.' });
     } finally {
-      setCancelLoading(false);
+      setCancelBusy(false);
     }
   };
 
-  const handleOpenPortal = async () => {
+  const openPortal = async () => {
+    setPortalBusy(true);
     try {
-      setPortalLoading(true);
       const { url } = await BillingService.createPortal();
-      if (url) {
-        window.location.href = url;
-      }
+      window.location.assign(url);
     } catch (err: any) {
-      setNotice({
-        type: 'error',
-        message: err.message || 'Could not open billing management portal.',
-      });
-    } finally {
-      setPortalLoading(false);
+      setNotice({ tone: 'error', message: err.message || 'Could not open the billing portal.' });
+      setPortalBusy(false);
     }
   };
 
-  const currentPlanId = entitlement?.plan_id || 'free';
-  const isUnlimited = entitlement?.is_unlimited || usage?.is_unlimited;
-
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-6xl space-y-8 animate-pulse">
-        <div className="h-8 w-64 bg-white/[0.04] rounded-2xl" />
-        <div className="grid gap-6 md:grid-cols-12">
-          <div className="h-48 md:col-span-6 bg-white/[0.04] rounded-3xl" />
-          <div className="h-48 md:col-span-6 bg-white/[0.04] rounded-3xl" />
-        </div>
-        <div className="grid gap-6 md:grid-cols-4">
-          <div className="h-96 bg-white/[0.04] rounded-3xl" />
-          <div className="h-96 bg-white/[0.04] rounded-3xl" />
-          <div className="h-96 bg-white/[0.04] rounded-3xl" />
-          <div className="h-96 bg-white/[0.04] rounded-3xl" />
-        </div>
-      </div>
-    );
-  }
+  const usedPct = usage && !usage.is_unlimited && usage.limit_minutes > 0
+    ? Math.min(100, Math.round((usage.total_used_minutes / usage.limit_minutes) * 100))
+    : 0;
+  const status = subscription ? STATUS_LABEL[subscription.status] || STATUS_LABEL.incomplete : null;
+  const provider = subscription?.provider || context?.provider || null;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 animate-in fade-in duration-300">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mx-auto max-w-6xl space-y-8">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Billing & Plans
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Manage your subscription, processing limits, and payment providers (Paddle & Razorpay).
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-vc-text-primary">Billing</h1>
+          <p className="mt-1 text-sm text-vc-text-secondary">Your plan, usage and payments in one place.</p>
         </div>
-
-        <div className="flex items-center gap-3">
-          {entitlement?.subscription && !entitlement.subscription.cancel_at_period_end && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCancelSubscription}
-              disabled={cancelLoading}
-              className="gap-2 text-destructive border-destructive/20 hover:bg-destructive/10"
-            >
-              {cancelLoading ? (
-                <span className="size-3.5 rounded-full border-2 border-destructive/60 border-t-destructive animate-spin" />
-              ) : (
-                <XCircle className="size-4" />
-              )}
-              <span>Cancel Plan</span>
+        <div className="flex flex-wrap gap-2">
+          {subscription?.provider === 'paddle' && (
+            <Button variant="secondary" size="sm" onClick={openPortal} disabled={portalBusy}>
+              {portalBusy ? <Loader2 className="size-3.5 animate-spin" /> : <ExternalLink className="size-3.5" />}
+              Manage payment & invoices
             </Button>
           )}
-
-          {entitlement?.subscription && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleOpenPortal}
-              disabled={portalLoading}
-              className="gap-2"
-            >
-              {portalLoading ? (
-                <span className="size-3.5 rounded-full border-2 border-violet-500/60 border-t-violet-500 animate-spin" />
-              ) : (
-                <ExternalLink className="size-4" />
-              )}
-              <span>Billing Portal</span>
+          {subscription && blocksCheckout && !subscription.cancel_at_period_end && (
+            <Button variant="ghost" size="sm" onClick={cancelPlan} disabled={cancelBusy}>
+              {cancelBusy && <Loader2 className="size-3.5 animate-spin" />}
+              Cancel plan
             </Button>
           )}
         </div>
-      </div>
+      </header>
 
-      {/* Notice Banner */}
       {notice && (
-        <div
-          role="alert"
-          className={`p-4 rounded-2xl border text-sm flex items-start justify-between gap-3 ${
-            notice.type === 'error'
-              ? 'bg-destructive/10 border-destructive/20 text-destructive'
-              : 'bg-violet-500/10 border-violet-500/30 text-violet-300'
-          }`}
-        >
-          <div className="flex items-center gap-2.5">
-            {notice.type === 'error' ? <AlertCircle className="size-4 shrink-0" /> : <Sparkles className="size-4 shrink-0" />}
-            <span>{notice.message}</span>
-          </div>
-          <button
-            onClick={() => setNotice(null)}
-            className="text-xs font-semibold underline shrink-0 hover:opacity-80"
-          >
-            Dismiss
-          </button>
+        <div role="status" aria-live="polite" className={`flex items-start gap-2.5 rounded-2xl px-4 py-3 text-sm ${NOTICE_TONE[notice.tone]}`}>
+          {confirming ? (
+            <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" />
+          ) : notice.tone === 'success' ? (
+            <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+          ) : notice.tone === 'info' ? (
+            <Clock className="mt-0.5 size-4 shrink-0" />
+          ) : (
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          )}
+          <span>{notice.message}</span>
         </div>
       )}
 
-      {/* Current Plan & Quota Overview Grid */}
-      <div className="grid gap-6 md:grid-cols-12">
-        {/* Left Card: Active Plan Status */}
-        <SpotlightCard
-          spotlightColor="rgba(46, 125, 82, 0.12)"
-          className="p-6 md:col-span-6 bg-card space-y-4"
-        >
-          <div className="flex items-center justify-between border-b border-border/60 pb-3">
-            <div className="flex items-center gap-2 font-display font-semibold text-foreground text-sm uppercase tracking-wider">
-              <ShieldCheck className="size-4 text-vireo-green" />
-              <span>Current Plan</span>
-            </div>
-            <span
-              className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold ${
-                isUnlimited
-                  ? 'bg-violet-500/15 text-violet-300 border border-violet-500/30'
-                  : currentPlanId === 'free'
-                  ? 'bg-muted text-muted-foreground'
-                  : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-              }`}
-            >
-              {isUnlimited ? 'DEVELOPER UNLIMITED' : `${currentPlanId.toUpperCase()} TIER`}
-            </span>
-          </div>
+      {isPastDue && (
+        <div className="flex items-start gap-2.5 rounded-2xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          <span>
+            Your last payment didn't go through.{' '}
+            {subscription?.provider === 'paddle'
+              ? 'Update your payment method in the billing portal to keep your plan.'
+              : 'Razorpay will retry the charge automatically; make sure your UPI mandate or card is active.'}{' '}
+            Access continues for a short grace period.
+          </span>
+        </div>
+      )}
 
-          <div>
-            <h3 className="text-2xl font-bold font-display text-foreground">
-              {isUnlimited
-                ? 'Developer Unlimited Access'
-                : entitlement?.display_name || 'Free'}
-            </h3>
-            <p className="text-xs text-muted-foreground mt-1">
-              {isUnlimited
-                ? 'Internal development entitlement active. Bypasses quota checks for vertexdigitals07@gmail.com.'
-                : entitlement?.subscription
-                ? `Provider: ${(entitlement.subscription.provider || 'default').toUpperCase()} · Status: ${
-                    entitlement.subscription.status
-                  } · Renews ${new Date(entitlement.subscription.current_period_end).toLocaleDateString()}.`
-                : 'Free tier active. Upgrade to Creator, Pro, or Studio for higher processing limits.'}
-            </p>
-          </div>
-
-          {entitlement?.subscription?.cancel_at_period_end && (
-            <div className="p-3 rounded-xl bg-amber-500/10 text-amber-500 text-xs">
-              <span className="font-semibold">Cancellation scheduled:</span> Your subscription remains active until{' '}
-              {new Date(entitlement.subscription.current_period_end).toLocaleDateString()}, after which your account will revert to Free.
-            </div>
-          )}
-        </SpotlightCard>
-
-        {/* Right Card: Processing Quota Status */}
-        <SpotlightCard
-          spotlightColor="rgba(192, 98, 62, 0.12)"
-          className="p-6 md:col-span-6 bg-card space-y-4"
-        >
-          <div className="flex items-center justify-between border-b border-border/60 pb-3">
-            <div className="flex items-center gap-2 font-display font-semibold text-foreground text-sm uppercase tracking-wider">
-              <Zap className="size-4 text-violet-300" />
-              <span>Monthly Processing Cycle</span>
-            </div>
-            {usage?.reset_date && (
-              <span className="text-xs font-mono text-muted-foreground flex items-center gap-1">
-                <Clock className="size-3" />
-                <span>Resets {new Date(usage.reset_date).toLocaleDateString()}</span>
-              </span>
-            )}
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-baseline justify-between">
-              <div>
-                <span className="text-2xl font-bold font-display text-foreground">
-                  {isUnlimited ? 'Unlimited' : `${usage?.total_used_minutes.toFixed(1) || '0.0'} min`}
-                </span>
-                {!isUnlimited && (
-                  <span className="text-xs text-muted-foreground ml-1.5">
-                    used of {usage?.limit_minutes || 15} min
-                  </span>
-                )}
+      {/* Overview */}
+      <section className="grid gap-4 md:grid-cols-2">
+        {loading ? (
+          <>
+            <Skeleton className="h-40" />
+            <Skeleton className="h-40" />
+          </>
+        ) : (
+          <>
+            <div className="rounded-2xl bg-vc-surface1 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <p className="text-[12px] font-medium text-vc-text-secondary">Current plan</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2.5">
+                <span className="text-2xl font-semibold tracking-tight text-vc-text-primary">{entitlement?.display_name || 'Free'}</span>
+                {status && <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${status.tone}`}>{status.label}</span>}
               </div>
-              {!isUnlimited && (
-                <span className="text-xs font-semibold text-emerald-400 font-mono">
-                  {usage?.remaining_minutes.toFixed(1)} min remaining
-                </span>
+              <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <dt className="text-[12px] text-vc-text-muted">Billing</dt>
+                  <dd className="mt-0.5 text-vc-text-primary">
+                    {subscription ? (subscription.billing_interval === 'year' ? 'Yearly' : 'Monthly') : 'Free forever'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[12px] text-vc-text-muted">
+                    {subscription?.cancel_at_period_end || subscription?.status === 'canceled' ? 'Access ends' : 'Renews'}
+                  </dt>
+                  <dd className="mt-0.5 text-vc-text-primary">{subscription ? formatDate(subscription.current_period_end) : '—'}</dd>
+                </div>
+              </dl>
+              {subscription?.cancel_at_period_end && (
+                <p className="mt-4 text-[12.5px] text-vc-text-secondary">
+                  Canceled — you keep {entitlement?.display_name} until {formatDate(subscription.current_period_end)}, then move to Free.
+                </p>
               )}
             </div>
 
-            {/* Progress Bar */}
-            {!isUnlimited && usage && (
-              <div className="h-2 w-full rounded-full bg-vc-surface2 overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${
-                    usage.total_used_minutes >= usage.limit_minutes
-                      ? 'bg-destructive'
-                      : 'bg-violet-500'
-                  }`}
-                  style={{
-                    width: `${Math.min(100, (usage.total_used_minutes / usage.limit_minutes) * 100)}%`,
-                  }}
-                />
+            <div className="rounded-2xl bg-vc-surface1 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <p className="text-[12px] font-medium text-vc-text-secondary">Processing this month</p>
+              {usage?.is_unlimited ? (
+                <p className="mt-2 text-2xl font-semibold text-vc-text-primary">Unlimited</p>
+              ) : usage ? (
+                <>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-vc-text-primary">
+                    {Math.round(usage.total_used_minutes)}
+                    <span className="text-base font-medium text-vc-text-secondary"> / {usage.limit_minutes} min</span>
+                  </p>
+                  <div
+                    className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.06]"
+                    role="progressbar"
+                    aria-valuenow={usedPct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="Minutes used"
+                  >
+                    <div className={`h-full rounded-full ${usedPct >= 90 ? 'bg-amber-400' : 'bg-violet-500'}`} style={{ width: `${usedPct}%` }} />
+                  </div>
+                  <p className="mt-3 text-[12.5px] text-vc-text-secondary">
+                    {Math.max(0, Math.round(usage.remaining_minutes))} min left · resets {formatDate(usage.reset_date)}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-2 text-sm text-vc-text-secondary">Usage is unavailable right now.</p>
+              )}
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* Billing country & gateway */}
+      <section className="rounded-2xl bg-vc-surface1 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        {loading ? (
+          <Skeleton className="h-10" />
+        ) : contextError ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+            <span className="text-rose-300">{contextError}</span>
+            <Button variant="secondary" size="sm" onClick={() => loadAll()}>
+              <RefreshCw className="size-3.5" /> Try again
+            </Button>
+          </div>
+        ) : context && (context.requiresCountry || editingCountry) ? (
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium text-vc-text-primary">Where are you billed?</p>
+              <p className="mt-1 text-[12.5px] text-vc-text-secondary">
+                Choose the country on your payment method's billing address. It decides your currency and how you pay.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <label className="sr-only" htmlFor="billing-country">Billing country</label>
+              <select
+                id="billing-country"
+                value={countryDraft}
+                onChange={(e) => setCountryDraft(e.target.value)}
+                className="h-10 w-full rounded-full bg-white/[0.05] px-4 text-sm text-vc-text-primary shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)] focus:outline-none focus:ring-2 focus:ring-violet-500/50 sm:max-w-xs"
+              >
+                <option value="">Select a country…</option>
+                {countries.map((c) => (
+                  <option key={c.code} value={c.code}>{c.name}</option>
+                ))}
+              </select>
+              <Button variant="primary" size="default" disabled={!countryDraft || countryBusy} onClick={() => saveCountry(countryDraft)}>
+                {countryBusy && <Loader2 className="size-3.5 animate-spin" />}
+                Save country
+              </Button>
+              {editingCountry && !context.requiresCountry && (
+                <Button variant="ghost" size="default" onClick={() => { setEditingCountry(false); setCountryDraft(context.country || ''); }}>
+                  Keep {context.countryName}
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : context ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 grid size-8 place-items-center rounded-xl bg-white/[0.06] text-vc-text-secondary">
+                <Globe2 className="size-4" />
+              </span>
+              <div>
+                <p className="text-sm text-vc-text-primary">
+                  Billing country: <span className="font-semibold">{context.countryName}</span>
+                </p>
+                <p className="mt-0.5 text-[12.5px] text-vc-text-secondary">
+                  {context.provider ? GATEWAY_COPY[context.provider] : context.unsupportedReason}
+                </p>
               </div>
-            )}
-
-            <p className="text-[11px] text-muted-foreground">
-              Billing period strictly follows UTC months ({usage?.billing_period || 'current'}).
-            </p>
-          </div>
-        </SpotlightCard>
-      </div>
-
-      {/* Plan Controls: Billing Interval & Provider Selector */}
-      <div className="p-4 rounded-3xl bg-card flex flex-col sm:flex-row items-center justify-between gap-4">
-        {/* Interval Toggle */}
-        <div className="flex items-center gap-2 bg-white/[0.04] p-1 rounded-2xl ">
-          <button
-            onClick={() => setBillingInterval('month')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-              billingInterval === 'month'
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Monthly Billing
-          </button>
-          <button
-            onClick={() => {
-              if (!isProviderIntervalSupported(selectedProvider, 'year', plans)) {
-                setNotice({
-                  type: 'info',
-                  message: 'Annual billing is unavailable for INR (Razorpay). Please select Paddle (Global USD) to pay annually.',
-                });
-                return;
-              }
-              setBillingInterval('year');
-            }}
-            disabled={!isProviderIntervalSupported(selectedProvider, 'year', plans)}
-            title={
-              !isProviderIntervalSupported(selectedProvider, 'year', plans)
-                ? 'Annual billing unavailable for INR (Razorpay)'
-                : 'Yearly Billing (Save ~17%)'
-            }
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              !isProviderIntervalSupported(selectedProvider, 'year', plans)
-                ? 'opacity-50 cursor-not-allowed text-muted-foreground'
-                : billingInterval === 'year'
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <span>Yearly Billing</span>
-            {!isProviderIntervalSupported(selectedProvider, 'year', plans) ? (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300">
-                Unavailable for INR
-              </span>
+            </div>
+            {context.countryLocked ? (
+              <span className="text-[12px] text-vc-text-muted">Locked while your subscription is active</span>
             ) : (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
-                Save ~17%
-              </span>
+              <Button variant="ghost" size="sm" onClick={() => setEditingCountry(true)}>Change</Button>
             )}
-          </button>
-        </div>
-
-        {/* Provider Selector */}
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-muted-foreground flex items-center gap-1">
-            <CreditCard className="size-3.5" />
-            <span>Payment Provider:</span>
-          </span>
-          <div className="flex items-center gap-1.5 bg-white/[0.04] p-1 rounded-2xl ">
-            {providers.map((prov) => (
-              <button
-                key={prov.name}
-                onClick={() => {
-                  setSelectedProvider(prov.name);
-                  if (!isProviderIntervalSupported(prov.name, billingInterval, plans)) {
-                    setBillingInterval('month');
-                    setNotice({
-                      type: 'info',
-                      message: 'Switched to Monthly billing — annual billing is currently unavailable for INR.',
-                    });
-                  }
-                }}
-                className={`px-2.5 py-1 rounded-xl font-medium transition-all ${
-                  selectedProvider === prov.name
-                    ? 'bg-card text-foreground font-semibold shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {prov.name === 'paddle' ? 'Paddle (Global)' : prov.name === 'razorpay' ? 'Razorpay (India)' : 'Stripe'}
-              </button>
-            ))}
           </div>
-        </div>
-      </div>
+        ) : null}
 
-      {/* Available Plans Comparison */}
-      <div className="space-y-4 pt-2">
-        <div>
-          <h2 className="text-xl font-bold font-display text-foreground">Available Plans</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Select the plan that fits your video volume and production requirements.
+        {context?.conflict && !editingCountry && (
+          <div className="mt-4 flex flex-col gap-3 rounded-xl bg-amber-500/10 p-4 text-[13px] text-amber-200 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              You're billed in {context.countryName}, but you appear to be in {context.ipCountryName}. Confirm your billing country before
+              checkout.
+            </span>
+            <div className="flex gap-2">
+              <Button variant="secondary" size="sm" onClick={() => saveCountry(context.conflict!.confirmedCountry, true)} disabled={countryBusy}>
+                Keep {context.countryName}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setEditingCountry(true)}>Change</Button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Plans */}
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-vc-text-primary">Plans</h2>
+            {context?.provider && <p className="mt-0.5 text-[12.5px] text-vc-text-secondary">{GATEWAY_COPY[context.provider]}</p>}
+          </div>
+          {yearlyOffered && (
+            <div role="radiogroup" aria-label="Billing interval" className="flex gap-0.5 rounded-full bg-black/40 p-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.45)]">
+              {(['month', 'year'] as BillingInterval[]).map((iv) => (
+                <button
+                  key={iv}
+                  type="button"
+                  role="radio"
+                  aria-checked={billingInterval === iv}
+                  onClick={() => setBillingInterval(iv)}
+                  className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 ${
+                    billingInterval === iv ? 'bg-white/[0.10] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]' : 'text-vc-text-muted hover:text-white'
+                  }`}
+                >
+                  {iv === 'month' ? 'Monthly' : 'Yearly'}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-80" />)}
+          </div>
+        ) : !context || context.requiresCountry ? (
+          <p className="rounded-2xl bg-vc-surface1 px-5 py-8 text-center text-sm text-vc-text-secondary">
+            Choose your billing country above to see prices in your currency.
           </p>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-4">
-          {plans.map((p) => {
-            const isCurrent = currentPlanId === p.id;
-            const isPro = p.id === 'pro';
-            const isFree = p.id === 'free';
-
-            const priceDisplay = getPlanPriceDisplay(p, billingInterval, selectedProvider);
-
-            return (
-              <SpotlightCard
-                key={p.id}
-                spotlightColor={isPro ? 'rgba(139, 92, 246, 0.16)' : 'rgba(255, 255, 255, 0.06)'}
-                className={`p-6 bg-card border rounded-3xl flex flex-col justify-between transition-all relative ${
-                  isCurrent
-                    ? 'border-violet-500/60 shadow-black/40 ring-1 ring-white/20'
-                    : isPro
-                    ? 'border-violet-500/60 shadow-soft ring-1 ring-violet-500/30'
-                    : 'border-border/80'
-                }`}
-              >
-                {isPro && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-violet-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-[10px] font-bold flex items-center gap-1">
-                    <Star className="size-3 fill-white" />
-                    <span>RECOMMENDED</span>
-                  </div>
-                )}
-
-                <div className="space-y-5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold font-display uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <span>{p.display_name}</span>
-                      {isPro && <span className="text-amber-500">⭐</span>}
+        ) : !context.provider ? (
+          <p className="rounded-2xl bg-vc-surface1 px-5 py-8 text-center text-sm text-vc-text-secondary">{context.unsupportedReason}</p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {context.plans.map((plan) => {
+              const price = plan.prices[billingInterval];
+              const isCurrent = entitlement?.plan_id === plan.id && (plan.id === 'free' ? !hasPaidAccess : hasPaidAccess);
+              const busy = checkoutPlan === plan.id;
+              let cta: React.ReactNode;
+              if (isCurrent) {
+                cta = <Button variant="secondary" className="w-full" disabled>Current plan</Button>;
+              } else if (plan.id === 'free') {
+                cta = <p className="text-center text-[12px] text-vc-text-muted">{hasPaidAccess ? 'Cancel your plan to return to Free' : 'Included'}</p>;
+              } else if (blocksCheckout) {
+                cta = (
+                  <p className="text-center text-[12px] text-vc-text-muted">
+                    {subscription?.provider === 'paddle' ? 'Switch plans from the billing portal' : 'Cancel your current plan to switch'}
+                  </p>
+                );
+              } else if (!price.available || !context.providerReady) {
+                cta = <Button variant="secondary" className="w-full" disabled>Not available yet</Button>;
+              } else {
+                cta = (
+                  <Button variant="brand" className="w-full" onClick={() => startCheckout(plan)} disabled={Boolean(checkoutPlan) || confirming}>
+                    {busy && <Loader2 className="size-4 animate-spin" />}
+                    Upgrade to {plan.display_name}
+                  </Button>
+                );
+              }
+              return (
+                <article
+                  key={plan.id}
+                  className={`relative flex flex-col rounded-2xl p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${
+                    plan.is_recommended ? 'bg-violet-500/[0.08] ring-1 ring-violet-500/40' : 'bg-vc-surface1'
+                  }`}
+                >
+                  {plan.is_recommended && (
+                    <span className="absolute -top-2.5 left-6 rounded-full bg-violet-600 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                      Most popular
                     </span>
-                    {isCurrent && (
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-500/10 text-violet-300 font-mono">
-                        Active Plan
-                      </span>
-                    )}
-                  </div>
-
-                  <div>
-                    <div className="flex flex-col gap-0.5">
-                      <div className="flex items-baseline gap-1.5">
-                        <span className={`text-2xl font-extrabold font-display ${!priceDisplay.isAvailable ? 'text-muted-foreground' : 'text-foreground'}`}>
-                          {priceDisplay.symbol}{priceDisplay.amount}
-                        </span>
-                        <span className="text-xs text-muted-foreground font-medium">
-                          / {priceDisplay.interval}
-                        </span>
-                      </div>
-                      {priceDisplay.savingsBadge && (
-                        <div className="flex items-center gap-1.5 text-[11px] text-vireo-green font-semibold">
-                          <span>{priceDisplay.savingsBadge}</span>
-                        </div>
-                      )}
-                      {priceDisplay.unavailableReason && (
-                        <div className="text-[11px] font-medium text-amber-300 bg-amber-500/15 rounded-lg px-2.5 py-1.5 mt-1">
-                          {priceDisplay.unavailableReason}
-                        </div>
-                      )}
-                      <span className="text-xs text-muted-foreground font-mono">
-                        {priceDisplay.secondaryText}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Includes {p.monthly_minutes} source minutes / month.
-                    </p>
-                  </div>
-
-                  <ul className="space-y-2.5 text-xs text-foreground/90 border-t border-border/60 pt-4">
-                    {p.features.map((feat, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <Check className="size-3.5 text-vireo-green shrink-0 mt-0.5" />
-                        <span>{feat}</span>
+                  )}
+                  <h3 className="text-base font-semibold text-vc-text-primary">{plan.display_name}</h3>
+                  <p className="mt-3 flex items-baseline gap-1">
+                    <span className="text-3xl font-semibold tabular-nums tracking-tight text-vc-text-primary">
+                      {formatMoney(price.amount, price.currency)}
+                    </span>
+                    <span className="text-sm text-vc-text-secondary">/{billingInterval === 'year' ? 'yr' : 'mo'}</span>
+                  </p>
+                  <p className="mt-1 text-[12.5px] text-vc-text-secondary">{plan.monthly_minutes.toLocaleString()} source minutes / month</p>
+                  <ul className="mt-5 flex-1 space-y-2 text-[13px] text-vc-text-secondary">
+                    {plan.features.map((f) => (
+                      <li key={f} className="flex gap-2">
+                        <Check className="mt-0.5 size-3.5 shrink-0 text-violet-300" />
+                        <span>{f}</span>
                       </li>
                     ))}
                   </ul>
-                </div>
-
-                <div className="pt-6">
-                  {isCurrent ? (
-                    <Button variant="outline" size="sm" className="w-full text-xs" disabled>
-                      Current Plan
-                    </Button>
-                  ) : isFree ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full text-xs"
-                      onClick={handleCancelSubscription}
-                      disabled={!entitlement?.subscription}
-                    >
-                      Revert to Free
-                    </Button>
-                  ) : (
-                    <ShinyButton
-                      variant="clay"
-                      className={`w-full h-10 text-xs font-semibold ${!priceDisplay.isAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      disabled={checkoutLoading === p.id || !priceDisplay.isAvailable}
-                      onClick={() => {
-                        if (!priceDisplay.isAvailable) return;
-                        handleStartCheckout(p.id as any);
-                      }}
-                      title={priceDisplay.unavailableReason || undefined}
-                    >
-                      {checkoutLoading === p.id ? (
-                        <span className="size-3.5 rounded-full border-2 border-white/60 border-t-white animate-spin" />
-                      ) : (
-                        <span>
-                          {priceDisplay.ctaText}
-                        </span>
-                      )}
-                    </ShinyButton>
-                  )}
-                </div>
-              </SpotlightCard>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Razorpay Standard Web Checkout Section */}
-      <SpotlightCard
-        spotlightColor="rgba(124, 58, 237, 0.14)"
-        className="p-6 bg-card rounded-3xl space-y-5"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-base font-bold font-display text-foreground">
-                Razorpay Standard Web Checkout
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-violet-500/15 text-violet-400 ">
-                STANDARD MODAL FLOW
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/15 text-emerald-400 ">
-                ACTIVE
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Direct checkout powered by Razorpay Standard Checkout SDK. Automatically triggers order generation, modal presentation, and backend HMAC-SHA256 signature verification.
-            </p>
-          </div>
-          <div className="text-right sm:text-right shrink-0">
-            <span className="text-[11px] font-mono text-muted-foreground bg-muted/60 px-2.5 py-1 rounded-lg ">
-              Key: rzp_test_...HySy
-            </span>
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-3 text-xs">
-          <div className="p-3.5 rounded-2xl bg-white/[0.02] space-y-1">
-            <div className="font-semibold text-foreground flex items-center gap-1.5">
-              <span className="size-5 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-[10px] font-mono font-bold">1</span>
-              <span>Backend Order API</span>
-            </div>
-            <p className="text-muted-foreground text-[11px]">
-              POST /api/create-order generates an authenticated Razorpay order ID.
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-white/[0.02] space-y-1">
-            <div className="font-semibold text-foreground flex items-center gap-1.5">
-              <span className="size-5 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-[10px] font-mono font-bold">2</span>
-              <span>Checkout.js Modal</span>
-            </div>
-            <p className="text-muted-foreground text-[11px]">
-              Native popup handles UPI, Cards, Netbanking and Test Mode cards securely.
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-white/[0.02] space-y-1">
-            <div className="font-semibold text-foreground flex items-center gap-1.5">
-              <span className="size-5 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-[10px] font-mono font-bold">3</span>
-              <span>HMAC-SHA256 Verification</span>
-            </div>
-            <p className="text-muted-foreground text-[11px]">
-              POST /api/verify-payment cryptographically validates Razorpay signatures.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 pt-2">
-          {/* ₹1 Quick Test Order */}
-          <RazorpayCheckoutButton
-            amountInPaise={100}
-            name="VireoClip Test"
-            description="Minimum amount ₹1 test transaction"
-            variant="ai"
-            size="sm"
-            onSuccess={(res) => {
-              setNotice({
-                type: 'success',
-                message: `₹1 Test Payment Verified! Order: ${res.order_id}, Payment ID: ${res.payment_id}`,
-              });
-            }}
-            onError={(err) => {
-              setNotice({
-                type: 'error',
-                message: `Payment test failed: ${err.message}`,
-              });
-            }}
-          >
-            <span className="flex items-center gap-1.5">
-              <CreditCard className="size-3.5" />
-              <span>Test ₹1 Payment (100 paise)</span>
-            </span>
-          </RazorpayCheckoutButton>
-
-          {/* ₹499 Creator Credits Test */}
-          <RazorpayCheckoutButton
-            amountInPaise={49900}
-            name="VireoClip Creator Credits"
-            description="500 Extra Processing Minutes"
-            variant="secondary"
-            size="sm"
-            onSuccess={(res) => {
-              setNotice({
-                type: 'success',
-                message: `Credits purchased! Order: ${res.order_id}, Payment ID: ${res.payment_id}`,
-              });
-            }}
-            onError={(err) => {
-              setNotice({
-                type: 'error',
-                message: `Credits payment failed: ${err.message}`,
-              });
-            }}
-          >
-            <span className="flex items-center gap-1.5">
-              <Sparkles className="size-3.5 text-violet-400" />
-              <span>Buy Extra Credits (₹499)</span>
-            </span>
-          </RazorpayCheckoutButton>
-        </div>
-      </SpotlightCard>
-
-      {/* Billing Invoices History */}
-      <div className="space-y-4 pt-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold font-display text-foreground flex items-center gap-2">
-              <Receipt className="size-4 text-muted-foreground" />
-              <span>Invoices & Billing History</span>
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              Official invoices and receipts for accounting and records.
-            </p>
-          </div>
-        </div>
-
-        {invoices.length === 0 ? (
-          <div className="p-8 rounded-3xl border border-dashed border-border/80 bg-card text-center space-y-2">
-            <p className="text-xs text-muted-foreground">No invoices generated yet.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-border/60 rounded-3xl border border-border/80 bg-card overflow-hidden shadow-soft">
-            {invoices.map((inv) => (
-              <div
-                key={inv.id}
-                className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-foreground">
-                      ${inv.amount_paid.toFixed(2)} {inv.currency}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold ${
-                        inv.status === 'paid'
-                          ? 'bg-emerald-500/15 text-emerald-400'
-                          : 'bg-amber-500/15 text-amber-500'
-                      }`}
-                    >
-                      {inv.status.toUpperCase()}
-                    </span>
-                    <span className="px-1.5 py-0.2 rounded text-[10px] bg-muted text-muted-foreground font-mono">
-                      {inv.provider?.toUpperCase()}
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-muted-foreground">
-                    {new Date(inv.created_at).toLocaleDateString()} · Invoice {inv.provider_invoice_id}
-                  </span>
-                </div>
-
-                {inv.hosted_invoice_url && (
-                  <a
-                    href={inv.hosted_invoice_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-violet-300 font-semibold hover:underline"
-                  >
-                    <span>View Receipt</span>
-                    <ExternalLink className="size-3" />
-                  </a>
-                )}
-              </div>
-            ))}
+                  <div className="mt-6">{cta}</div>
+                </article>
+              );
+            })}
           </div>
         )}
-      </div>
+        {context?.provider && !context.providerReady && !loading && (
+          <p className="text-[12.5px] text-amber-200/80">
+            Checkout through {context.provider === 'razorpay' ? 'Razorpay' : 'Paddle'} isn't configured on this server yet.
+          </p>
+        )}
+      </section>
+
+      {/* Payment history */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight text-vc-text-primary">Payment history</h2>
+        {loading ? (
+          <Skeleton className="h-24" />
+        ) : invoices.length === 0 ? (
+          <div className="flex items-center gap-3 rounded-2xl bg-vc-surface1 px-5 py-6 text-sm text-vc-text-secondary">
+            <Receipt className="size-4 text-vc-text-muted" /> No payments yet.
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-2xl bg-vc-surface1">
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead className="text-[12px] text-vc-text-muted">
+                <tr>
+                  <th className="px-5 py-3 font-medium">Date</th>
+                  <th className="px-5 py-3 font-medium">Amount</th>
+                  <th className="px-5 py-3 font-medium">Status</th>
+                  <th className="px-5 py-3 font-medium">Paid via</th>
+                  <th className="px-5 py-3 font-medium sr-only">Receipt</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.06]">
+                {invoices.map((inv) => (
+                  <tr key={inv.id}>
+                    <td className="px-5 py-3 text-vc-text-primary">{formatDate(inv.created_at)}</td>
+                    <td className="px-5 py-3 tabular-nums text-vc-text-primary">
+                      {formatMoney(inv.status === 'paid' ? inv.amount_paid : inv.amount_due, inv.currency)}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${inv.status === 'paid' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>
+                        {inv.status === 'paid' ? 'Paid' : 'Failed'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-vc-text-secondary">
+                      <span className="inline-flex items-center gap-1.5">
+                        <CreditCard className="size-3.5" />
+                        {inv.provider === 'razorpay' ? 'Razorpay' : inv.provider === 'paddle' ? 'Paddle' : 'Card'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      {inv.hosted_invoice_url && (
+                        <a href={inv.hosted_invoice_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[12.5px] text-violet-300 hover:text-violet-200">
+                          Receipt <ExternalLink className="size-3" />
+                        </a>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {provider && (
+        <p className="text-[12px] text-vc-text-muted">
+          Questions about a charge? Payments are handled by {provider === 'razorpay' ? 'Razorpay' : 'Paddle'}.{' '}
+          <Link to="/support" className="text-violet-300 hover:text-violet-200">Contact support</Link> and we'll sort it out.
+        </p>
+      )}
     </div>
   );
 };
-export default BillingPage;

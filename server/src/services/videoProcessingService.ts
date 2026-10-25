@@ -89,7 +89,10 @@ export async function processProjectVideo(
       .eq('user_id', userId)
       .maybeSingle();
     if (posterRow?.source_type === 'upload') {
-      await ProjectPosterService.generateFromLocalFile(userId, projectId, videoPath, posterRow.duration_seconds);
+      // Fire-and-forget: the poster is a dashboard nicety and must not delay
+      // audio extraction/transcription (which are the latency-critical stages).
+      ProjectPosterService.generateFromLocalFile(userId, projectId, videoPath, posterRow.duration_seconds)
+        .catch((err: any) => logger.warn(`Poster generation failed for project ${projectId}: ${err?.message || err}`));
     }
 
     // 3. Extract audio via FFmpeg without buffering the video in Node memory.
@@ -211,8 +214,31 @@ export async function processProjectVideo(
       .eq('id', projectId)
       .eq('user_id', userId);
 
-    // 8. Settle usage reservation atomically using measured audio duration
+    // 8. Settle usage reservation atomically using measured audio duration.
+    // Billing hardening: before settling, grow the reservation to the measured
+    // duration with a fresh ceiling check — a provisional low estimate can
+    // never let usage run past the approved quota. A refused extension fails
+    // the job (and releases the reservation) rather than over-consuming.
     if (processingAttemptId) {
+      const extension = await UsageService.extendReservationToMeasuredDuration(processingAttemptId, effectiveDuration);
+      if (!extension.ok && extension.code === 'QUOTA_EXCEEDED') {
+        await UsageService.releaseReservation(processingAttemptId, 'Measured duration exceeded remaining quota mid-processing');
+        try {
+          await dataRepository
+            .from('projects')
+            .update({
+              video_status: 'failed',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', projectId)
+            .eq('user_id', userId);
+        } catch {}
+        const quotaErr: any = new Error(
+          `Monthly processing quota exceeded mid-run: this video measures ${Math.ceil(effectiveDuration / 60)} minute(s) but ${extension.remainingMinutes.toFixed(1)} remain.`
+        );
+        quotaErr.code = 'QUOTA_EXCEEDED';
+        throw quotaErr;
+      }
       await UsageService.settleReservation(
         processingAttemptId,
         effectiveDuration,
@@ -231,6 +257,27 @@ export async function processProjectVideo(
     // audio signals instead of constants. Fire-and-forget: transcription success
     // must never fail because enrichment did; analyze-clips also works
     // transcript-only when this has not completed yet.
+    // Gaming advantage: for gaming-genre projects with the flag on, run VLM
+    // game-event detection on the local source (HUD reads + reaction spikes).
+    // Fire-and-forget — absence of events never affects clipping.
+    try {
+      const { data: prefsRow } = await dataRepository
+        .from('projects')
+        .select('clip_preferences')
+        .eq('id', projectId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      const genre = prefsRow?.clip_preferences?.genre;
+      if (config.gameEventsAuto && (genre === 'gaming' || genre === 'sports')) {
+        const { GameEventService } = await import('./gameEventService.js');
+        const duration = effectiveDuration > 0 ? effectiveDuration : 60;
+        GameEventService.analyzeLocalVideo(projectId, userId, videoPath, 0, Math.min(duration, 600))
+          .catch(() => undefined);
+      }
+    } catch {
+      // Optional enrichment.
+    }
+
     if (config.multimodalAutoAnalysis) {
       try {
         const { VideoAnalysisWorker } = await import('./multimodal/videoAnalysisWorker.js');

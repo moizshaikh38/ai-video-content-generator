@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { PublicOnlyRoute } from './components/PublicOnlyRoute';
 import { RootLayout } from './layouts/RootLayout';
 import { DashboardLayout } from './layouts/DashboardLayout';
@@ -25,12 +26,14 @@ const WorkflowPage = React.lazy(() => import('./pages/WorkflowPage').then(m => (
 const WorkspacePage = React.lazy(() => import('./pages/WorkspacePage').then(m => ({ default: m.WorkspacePage })));
 const TermsPage = React.lazy(() => import('./pages/TermsPage').then(m => ({ default: m.TermsPage })));
 const PrivacyPage = React.lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
+const SupportPage = React.lazy(() => import('./pages/SupportPage').then(m => ({ default: m.SupportPage })));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 import { CookieNotice } from './components/CookieNotice';
 
 export const App: React.FC = () => {
   return (
     <AuthProvider>
+      <AppErrorBoundary>
       <BrowserRouter>
         <CookieNotice />
         <React.Suspense fallback={<div className="mx-auto mt-20 h-40 w-full max-w-6xl animate-pulse rounded-2xl bg-white" aria-label="Loading page" />}><Routes>
@@ -39,6 +42,7 @@ export const App: React.FC = () => {
             <Route path="/" element={<LandingPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/support" element={<SupportPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
 
@@ -74,6 +78,7 @@ export const App: React.FC = () => {
           </Route>
         </Routes></React.Suspense>
       </BrowserRouter>
+      </AppErrorBoundary>
     </AuthProvider>
   );
 };

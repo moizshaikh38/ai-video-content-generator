@@ -24,20 +24,24 @@ const enums: Record<string, Record<string, readonly string[]>> = {
     status: ['scheduled', 'publishing', 'completed', 'failed', 'cancelled'],
   },
   billing_customers: {
-    provider: ['paddle', 'razorpay', 'stripe'],
+    provider: ['paddle', 'razorpay'],
   },
   subscriptions: {
-    provider: ['paddle', 'razorpay', 'stripe'],
+    provider: ['paddle', 'razorpay'],
     plan_id: ['free', 'creator', 'pro', 'studio'],
     status: ['incomplete', 'trialing', 'active', 'past_due', 'unpaid', 'canceled', 'paused', 'incomplete_expired'],
     billing_interval: ['month', 'year'],
   },
   billing_events: {
-    provider: ['paddle', 'razorpay', 'stripe'],
-    status: ['processed', 'failed', 'ignored'],
+    provider: ['paddle', 'razorpay'],
+    status: ['processing', 'processed', 'failed', 'ignored'],
+  },
+  billing_checkouts: {
+    provider: ['paddle', 'razorpay'],
+    status: ['pending', 'completed', 'failed', 'expired'],
   },
   billing_invoices: {
-    provider: ['paddle', 'razorpay', 'stripe'],
+    provider: ['paddle', 'razorpay'],
     status: ['paid', 'open', 'void', 'uncollectible', 'draft'],
   },
   content_analytics: {

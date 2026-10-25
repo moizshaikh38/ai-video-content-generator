@@ -28,6 +28,12 @@ export interface ScoreCandidateInput {
    * penalized mechanically (podcast safeguard made measurable, not just prompted).
    */
   precedingSegment?: { text: string; end: number } | null;
+  /**
+   * Gameplay context (gaming advantage roadmap): events from the VLM game-HUD
+   * pass, audio-corroborated. Aligned candidates earn a hook bonus with a
+   * disclosed reason.
+   */
+  gameplayEvents?: Array<{ time: number; type: string; confidence: number; corroborated_by_audio?: boolean }>;
   /** Concatenated transcript text INSIDE the candidate window. */
   candidateText?: string;
   genreProfile?: GenreProfileConfig;
@@ -63,6 +69,7 @@ export class MultimodalScoringService {
       baseInsightScore,
       precedingSegment,
       candidateText,
+      gameplayEvents,
       genreProfile: incomingGenreProfile,
       contentGoal,
     } = input;
@@ -188,12 +195,26 @@ export class MultimodalScoringService {
     const hasBase = (v: number | null | undefined): v is number =>
       typeof v === 'number' && Number.isFinite(v);
 
-    // Hook Score
+    // Hook Score (+ gameplay-event alignment for gaming)
     let hook_score: number | null = hasBase(baseHookScore) ? clampScore(baseHookScore) : null;
+    let gameplayAlignment: { type: string; confidence: number; corroborated: boolean } | null = null;
+    if (gameplayEvents && gameplayEvents.length > 0) {
+      const inside = gameplayEvents
+        .filter((e) => e.time >= start_seconds - 0.5 && e.time <= end_seconds + 0.5)
+        .sort((a, b) => b.confidence - a.confidence);
+      if (inside.length > 0) {
+        gameplayAlignment = {
+          type: inside[0].type,
+          confidence: inside[0].confidence,
+          corroborated: Boolean(inside[0].corroborated_by_audio),
+        };
+      }
+    }
     if (hook_score !== null) {
       if (hasFaceInHook) hook_score = clampScore(hook_score + 8);
       if (visualActivityScore >= 70) hook_score = clampScore(hook_score + 5);
       if (hook && hook.length >= 10) hook_score = clampScore(hook_score + 4);
+      if (gameplayAlignment) hook_score = clampScore(hook_score + (gameplayAlignment.corroborated ? 10 : 6));
     }
 
     // Standalone Score
@@ -271,6 +292,13 @@ export class MultimodalScoringService {
 
     if (contextPenaltyApplied) {
       reasons.push('Clip answers a question posed immediately before it without including that setup; standalone clarity penalized.');
+    }
+    if (gameplayAlignment) {
+      reasons.push(
+        gameplayAlignment.corroborated
+          ? `Aligned with a corroborated gameplay event (${gameplayAlignment.type}, ${Math.round(gameplayAlignment.confidence * 100)}% — vision + audio agree).`
+          : `Contains a detected gameplay event (${gameplayAlignment.type}, ${Math.round(gameplayAlignment.confidence * 100)}%).`
+      );
     }
 
     if (contentGoal) {

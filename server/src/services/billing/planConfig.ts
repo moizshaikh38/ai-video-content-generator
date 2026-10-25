@@ -63,7 +63,6 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     paddle_price_id_yearly: config.paddlePriceProYearly || undefined,
     razorpay_plan_id_monthly: config.razorpayPlanProMonthly || undefined,
     razorpay_plan_id_yearly: config.razorpayPlanProYearly || undefined,
-    stripe_price_id: config.stripeProPriceId || undefined,
     features: [
       '360 source minutes / month',
       '100 projects',
@@ -90,7 +89,6 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     paddle_price_id_yearly: config.paddlePriceStudioYearly || undefined,
     razorpay_plan_id_monthly: config.razorpayPlanStudioMonthly || undefined,
     razorpay_plan_id_yearly: config.razorpayPlanStudioYearly || undefined,
-    stripe_price_id: config.stripeBusinessPriceId || undefined,
     features: [
       '900 source minutes / month',
       '250 projects',
@@ -113,7 +111,7 @@ export function getAllPlans(): PlanDefinition[] {
 }
 
 export function resolvePlanFromProviderId(
-  provider: 'paddle' | 'razorpay' | 'stripe',
+  provider: 'paddle' | 'razorpay',
   providerId: string
 ): { planId: PlanId; interval: 'month' | 'year' } | null {
   if (!providerId) return null;
@@ -160,19 +158,5 @@ export function resolvePlanFromProviderId(
     }
   }
 
-  if (provider === 'stripe') {
-    if (config.stripeProPriceId && providerId === config.stripeProPriceId) {
-      return { planId: 'pro', interval: 'month' };
-    }
-    if (config.stripeBusinessPriceId && providerId === config.stripeBusinessPriceId) {
-      return { planId: 'studio', interval: 'month' };
-    }
-  }
-
   return null;
-}
-
-export function resolvePlanFromPriceId(priceId: string): PlanId | null {
-  const res = resolvePlanFromProviderId('stripe', priceId);
-  return res ? res.planId : null;
 }

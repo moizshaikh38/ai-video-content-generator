@@ -237,3 +237,53 @@ export async function openRazorpayCheckout(options: RazorpayModalOptions): Promi
 
   rzpInstance.open();
 }
+
+export interface RazorpaySubscriptionModalOptions {
+  /** Server-created Razorpay subscription id (from POST /billing/checkout). */
+  subscriptionId: string;
+  /** Public key id returned by the server — never the secret. */
+  keyId: string;
+  name?: string;
+  description?: string;
+  notes?: Record<string, string>;
+  prefill?: { name?: string; email?: string; contact?: string };
+  theme?: { color?: string };
+  onPaymentSuccess?: (paymentId: string) => void;
+  onError?: (error: Error) => void;
+  onDismiss?: () => void;
+}
+
+/**
+ * Opens Razorpay Checkout for a SERVER-created subscription. The plan, price,
+ * and currency live entirely in the server-created subscription record — the
+ * browser never supplies an amount (billing spec §10: no client-supplied prices).
+ * Entitlement activation happens via the verified Razorpay webhook.
+ */
+export async function openRazorpaySubscriptionCheckout(options: RazorpaySubscriptionModalOptions): Promise<void> {
+  const isLoaded = await loadRazorpayScript();
+  if (!isLoaded || !(window as any).Razorpay) {
+    const err = new Error('Razorpay SDK failed to load. Please check your internet connection.');
+    options.onError?.(err);
+    throw err;
+  }
+
+  const rzp = new (window as any).Razorpay({
+    key: options.keyId,
+    subscription_id: options.subscriptionId,
+    name: options.name || 'VireoClip',
+    description: options.description || 'VireoClip Subscription',
+    prefill: options.prefill || {},
+    notes: options.notes || {},
+    theme: { color: options.theme?.color || '#0070F3' },
+    modal: { ondismiss: () => options.onDismiss?.() },
+    handler: (response: { razorpay_payment_id: string }) => {
+      // Subscription entitlements are granted by the signed webhook; the modal
+      // response is only a UX signal.
+      options.onPaymentSuccess?.(response?.razorpay_payment_id || '');
+    },
+  });
+  rzp.on('payment.failed', (resp: any) => {
+    options.onError?.(new Error(resp?.error?.description || 'Razorpay subscription payment failed.'));
+  });
+  rzp.open();
+}

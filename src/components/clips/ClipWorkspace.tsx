@@ -39,6 +39,7 @@ import { triggerBrowserDownload } from '../../utils/downloadUtils';
 import { PublishModal } from '../PublishModal';
 import { ContentPackWorkspace } from '../contentPack/ContentPackWorkspace';
 import { WhyThisClipSection } from './WhyThisClipSection';
+import { ClipThumbImage } from '../ClipThumbImage';
 
 export interface ClipWorkspaceProps {
   projectId: string;
@@ -1128,25 +1129,26 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                             autoPlay
                             className="w-full h-full object-contain"
                           />
-                        ) : clip.thumbnail_url ? (
-                          <img
-                            src={clip.thumbnail_url}
+                        ) : (
+                          <ClipThumbImage
+                            clip={clip}
                             alt={title}
                             className="w-full h-full object-cover group-hover/vid:scale-105 transition-transform duration-300"
+                            fallback={
+                              <div className="flex flex-col items-center justify-center p-4 text-center">
+                                <div className="flex items-center gap-1 opacity-25 mb-2">
+                                  {[25, 60, 40, 80, 65, 35, 75, 50, 90, 45].map((h, i) => (
+                                    <span
+                                      key={i}
+                                      style={{ height: `${h * 0.4}px` }}
+                                      className="w-1 rounded-full bg-white/40"
+                                    />
+                                  ))}
+                                </div>
+                                <span className="text-[11px] font-mono text-zinc-500">9:16 Clip Preview</span>
+                              </div>
+                            }
                           />
-                        ) : (
-                          <div className="flex flex-col items-center justify-center p-4 text-center">
-                            <div className="flex items-center gap-1 opacity-25 mb-2">
-                              {[25, 60, 40, 80, 65, 35, 75, 50, 90, 45].map((h, i) => (
-                                <span
-                                  key={i}
-                                  style={{ height: `${h * 0.4}px` }}
-                                  className="w-1 rounded-full bg-white/40"
-                                />
-                              ))}
-                            </div>
-                            <span className="text-[11px] font-mono text-zinc-500">9:16 Clip Preview</span>
-                          </div>
                         )}
 
                         {/* Top Overlay Badges */}

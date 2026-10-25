@@ -60,28 +60,37 @@ export class ProjectPosterService {
     ];
   }
 
-  /** Extracts a poster from a local path or a signed URL and uploads it. Returns the key or null. */
-  static async generate(userId: string, projectId: string, input: string, durationSeconds?: number | null): Promise<string | null> {
+  /**
+   * Extracts one HD frame from a local path or signed URL (trying each time in order until a
+   * frame comes out) and uploads it to the clips bucket under `key`. True when uploaded.
+   */
+  static async extractAndUpload(input: string, times: number[], key: string, label: string): Promise<boolean> {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vireo-poster-'));
     const outPath = path.join(tmpDir, `${crypto.randomUUID()}.jpg`);
     try {
-      for (const at of [this.frameTime(durationSeconds), 0]) {
+      for (const at of times) {
         try {
           await execFileAsync(ffmpegBin, this.buildArgs(input, at, outPath), { timeout: EXTRACT_TIMEOUT_MS });
         } catch (err: any) {
-          logger.warn(`[Poster] ffmpeg failed for project ${projectId} at ${at}s: ${err?.message}`);
+          logger.warn(`[Poster] ffmpeg failed for ${label} at ${at}s: ${err?.message}`);
         }
         if (fs.existsSync(outPath) && fs.statSync(outPath).size > 0) break;
       }
-      if (!fs.existsSync(outPath) || fs.statSync(outPath).size === 0) return null;
-
-      const key = this.posterKey(userId, projectId);
+      if (!fs.existsSync(outPath) || fs.statSync(outPath).size === 0) return false;
       await uploadFile('clips', key, outPath, fs.statSync(outPath).size, 'image/jpeg');
-      await dataRepository.from('projects').update({ poster_key: key }).eq('id', projectId).eq('user_id', userId);
-      return key;
+      return true;
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
+  }
+
+  /** Extracts a project poster from a local path or a signed URL and uploads it. Returns the key or null. */
+  static async generate(userId: string, projectId: string, input: string, durationSeconds?: number | null): Promise<string | null> {
+    const key = this.posterKey(userId, projectId);
+    const ok = await this.extractAndUpload(input, [this.frameTime(durationSeconds), 0], key, `project ${projectId}`);
+    if (!ok) return null;
+    await dataRepository.from('projects').update({ poster_key: key }).eq('id', projectId).eq('user_id', userId);
+    return key;
   }
 
   /** Best-effort during processing, from the already-downloaded source file. Never throws. */

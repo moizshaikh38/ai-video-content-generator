@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Link2, Play, UploadCloud } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { Reveal } from '../../lib/motion';
 import { AiClippingPreview } from './AiClippingPreview';
 import './cinematic-hero.css';
 
@@ -67,8 +68,10 @@ function HeroVideoInput() {
 function HeroCreators() {
   return (
     <div className="vc-creators" aria-label="Examples of sample creator footage">
-      {creators.map((creator) => (
-        <div
+      {creators.map((creator, i) => (
+        <Reveal
+          variant="scale"
+          delay={250 + i * 110}
           className={`vc-creator vc-creator--${creator.placement}`}
           key={creator.name}
         >
@@ -77,7 +80,7 @@ function HeroCreators() {
           <span className="vc-creator-glint" aria-hidden="true" />
           <span className="vc-creator-play" aria-hidden="true"><Play size={18} fill="currentColor" /></span>
           <span className="vc-creator-label"><strong>{creator.name}</strong><small>{creator.category}</small></span>
-        </div>
+        </Reveal>
       ))}
     </div>
   );
@@ -88,14 +91,22 @@ export function LandingHero() {
     <section className="vc-hero" aria-labelledby="hero-title">
       <div className="vc-hero-orbit">
         <div className="vc-hero-content">
-          <p className="vc-hero-eyebrow">BEST FREE VIDEO CLIPPING TOOL</p>
-          <h1 id="hero-title"><span>One video in.</span><span>Your <em>best clips</em> out.</span></h1>
-          <p className="vc-hero-description">Find the strongest moments, clip them, add captions, reframe, and create ready-to-post content for every platform — in minutes.</p>
-          <HeroVideoInput />
-          <div className="vc-hero-benefits" aria-label="Getting started details">
-            <span><Check size={15} aria-hidden="true" /> Free plan available</span>
-            <span><Check size={15} aria-hidden="true" /> No credit card required</span>
-          </div>
+          <Reveal variant="down" as="p" className="vc-hero-eyebrow block">BEST FREE VIDEO CLIPPING TOOL</Reveal>
+          <Reveal variant="up" delay={90}>
+            <h1 id="hero-title"><span>One video in.</span><span>Your <em>best clips</em> out.</span></h1>
+          </Reveal>
+          <Reveal variant="up" delay={200}>
+            <p className="vc-hero-description">Find the strongest moments, clip them, add captions, reframe, and create ready-to-post content for every platform — in minutes.</p>
+          </Reveal>
+          <Reveal variant="up" delay={320}>
+            <HeroVideoInput />
+          </Reveal>
+          <Reveal variant="fade" delay={440}>
+            <div className="vc-hero-benefits" aria-label="Getting started details">
+              <span><Check size={15} aria-hidden="true" /> Free plan available</span>
+              <span><Check size={15} aria-hidden="true" /> No credit card required</span>
+            </div>
+          </Reveal>
         </div>
         <HeroCreators />
       </div>

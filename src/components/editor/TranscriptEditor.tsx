@@ -859,7 +859,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
             const cueWords = filteredWords.filter((w) => w.cueId === cue.id);
 
             return (
-              <div key={cue.id} className="group/cue">
+              <div key={cue.id} className="mv-cv-auto group/cue">
                 {/* Subtle Inter-cue pause divider */}
                 {interCueGap >= 0.35 && (
                   <div className="py-1 flex items-center justify-center gap-2 group/gap select-none">

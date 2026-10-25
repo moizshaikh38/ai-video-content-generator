@@ -19,7 +19,7 @@ interface PlanPriceDisplay {
  * Checks whether the given billing interval is supported for the selected provider.
  */
 function isProviderIntervalSupported(
-  provider: 'paddle' | 'razorpay' | 'stripe',
+  provider: 'paddle' | 'razorpay',
   interval: 'month' | 'year',
   plans?: any[]
 ): boolean {
@@ -39,7 +39,7 @@ function isProviderIntervalSupported(
 function getPlanPriceDisplay(
   plan: any,
   billingInterval: 'month' | 'year',
-  selectedProvider: 'paddle' | 'razorpay' | 'stripe'
+  selectedProvider: 'paddle' | 'razorpay'
 ): PlanPriceDisplay {
   const isFree = plan.id === 'free';
   const isYearly = billingInterval === 'year';
@@ -106,7 +106,7 @@ function getPlanPriceDisplay(
     };
   }
 
-  // Paddle or Stripe (Global USD)
+  // Paddle (Global USD)
   const usdMonthly = plan.monthly_price;
   const usdYearly = plan.yearly_price;
 
@@ -369,27 +369,6 @@ describe('Yearly Plan Pricing Toggle & Pricing Display Bug Fix', () => {
       const studioSaving = studio.monthly_price * 12 - studio.yearly_price;
       assert.equal(studioSaving, 98);
       assert.equal(Math.round((studioSaving / (studio.monthly_price * 12)) * 100), 17);
-    });
-  });
-
-  describe('7. Stripe Global USD Monthly and Yearly Consistency', () => {
-    it('displays identical USD monthly and yearly rates for Stripe provider', () => {
-      const pro = getPlanDefinition('pro')!;
-      const proMonthlyStripe = getPlanPriceDisplay(pro, 'month', 'stripe');
-      assert.equal(proMonthlyStripe.symbol, '$');
-      assert.equal(proMonthlyStripe.amount, '24');
-      assert.equal(proMonthlyStripe.interval, 'month');
-      assert.equal(proMonthlyStripe.ctaText, 'Choose Pro ($24/mo)');
-      assert.equal(proMonthlyStripe.isAvailable, true);
-
-      const proYearlyStripe = getPlanPriceDisplay(pro, 'year', 'stripe');
-      assert.equal(proYearlyStripe.symbol, '$');
-      assert.equal(proYearlyStripe.amount, '240');
-      assert.equal(proYearlyStripe.interval, 'year');
-      assert.equal(proYearlyStripe.effectiveMonthly, '$20 / mo');
-      assert.ok(proYearlyStripe.savingsBadge?.includes('Save $48/yr'));
-      assert.equal(proYearlyStripe.ctaText, 'Choose Pro ($240/yr)');
-      assert.equal(proYearlyStripe.isAvailable, true);
     });
   });
 

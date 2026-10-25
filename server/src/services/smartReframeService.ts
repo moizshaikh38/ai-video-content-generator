@@ -17,6 +17,7 @@ import { execFile, ChildProcess } from 'node:child_process';
 import { promisify } from 'node:util';
 import { downloadObjectToFile } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
+import { applyWordEnergyFusion } from '../utils/wordEnergyFusion.js';
 
 const execFileAsync = promisify(execFile);
 import type {
@@ -1228,7 +1229,7 @@ export class SmartReframeService {
   public static async analyzeClipFraming(
     clipId: string,
     userId: string,
-    options: SmartReframeOptions = {}
+    options: SmartReframeOptions & { localSourcePath?: string } = {}
   ): Promise<ReframeTrackRecord> {
     if (!isMongoConfigured) {
       const err = new Error('Database service is not configured.');
@@ -1275,11 +1276,15 @@ export class SmartReframeService {
       }
 
       fs.mkdirSync(tempDir, { recursive: true });
-      const localSourcePath = path.join(tempDir, 'source.mp4');
+      // Reuse the render's already-downloaded source when provided (avoids a
+      // second full-source download during render-time auto-generation).
+      const localSourcePath = options.localSourcePath ?? path.join(tempDir, 'source.mp4');
 
       // 3. Download source video to temp location
       logger.info(`[SmartReframe] Downloading source video from Storage for clip ${clipId}: ${clip.source_storage_path}`);
-      await downloadObjectToFile('source', clip.source_storage_path, localSourcePath);
+      if (!options.localSourcePath || !fs.existsSync(options.localSourcePath)) {
+        await downloadObjectToFile('source', clip.source_storage_path, localSourcePath);
+      }
 
       // 4. Determine effective clip boundaries
       const trimStart = Number(clip.trim_start_offset || 0);
@@ -1298,6 +1303,7 @@ export class SmartReframeService {
       // 6. Gather scene cuts and speech intervals for audio-visual shot-aware reframe
       let clipSceneCuts = options.sceneCuts ? [...options.sceneCuts] : [];
       let speechIntervals = options.speechIntervals;
+      let wordTimings: Array<{ start: number; end: number; word?: string }> = [];
 
       try {
         if (clipSceneCuts.length === 0) {
@@ -1335,12 +1341,14 @@ export class SmartReframeService {
 
           const words = (transcriptRec as any)?.words;
           if (Array.isArray(words)) {
-            speechIntervals = words
+            wordTimings = words
               .filter((w: any) => Number(w.end) >= startSec && Number(w.start) <= startSec + durationSec)
               .map((w: any) => ({
                 start: Math.max(0, Number((Number(w.start) - startSec).toFixed(3))),
                 end: Math.min(durationSec, Number((Number(w.end) - startSec).toFixed(3))),
+                word: typeof w.word === 'string' ? w.word : undefined,
               }));
+            speechIntervals = wordTimings.map((w: any) => ({ start: w.start, end: w.end }));
           }
         }
       } catch (ctxErr: any) {
@@ -1373,6 +1381,10 @@ export class SmartReframeService {
         speechIntervals,
       });
 
+      // 8b. Word-energy diarization fusion: speaker switches only at word
+      // boundaries — never mid-word. No-op without word timings.
+      const fusedKeyframes = applyWordEnergyFusion(smoothedKeyframes, wordTimings);
+
       // 9. Persist to public.reframe_tracks table
       const trackPayload: Partial<ReframeTrackRecord> = {
         clip_id: clipId,
@@ -1387,7 +1399,7 @@ export class SmartReframeService {
         dominant_track_id: dominantTrackId,
         layout_mode: layoutMode,
         raw_samples: cvResult.samples,
-        smoothed_keyframes: smoothedKeyframes,
+        smoothed_keyframes: fusedKeyframes,
         metadata: {
           dominant_score: score,
           layout_mode: layoutMode,
@@ -1396,7 +1408,7 @@ export class SmartReframeService {
           cv_duration: cvResult.duration,
           sample_fps: cvResult.sample_fps,
           total_samples: cvResult.samples.length,
-          keyframe_count: smoothedKeyframes.length,
+          keyframe_count: fusedKeyframes.length, word_energy_fused: wordTimings.length > 0,
         },
         analyzed_trim_start: trimStart,
         analyzed_trim_end: trimEnd,

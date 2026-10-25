@@ -283,7 +283,7 @@ describe('Black Glass theme', () => {
     const shiny = read('src/components/react-bits/ShinyButton.tsx');
     assert.match(shiny, /clay: '[^']*bg-vc-ai-hover[^']*active:bg-violet-700/);
     assert.match(shiny, /ink: '[^']*bg-vc-ai-hover[^']*active:bg-violet-700/);
-    assert.match(read('src/pages/BillingPage.tsx'), /<ShinyButton\s+variant="clay"/);
+    assert.match(read('src/pages/BillingPage.tsx'), /<Button variant="brand"[^>]*onClick=\{\(\) => startCheckout\(plan\)\}/);
     assert.match(read('src/pages/SettingsPage.tsx'), /type="submit"\s+variant="ink"/);
   });
 

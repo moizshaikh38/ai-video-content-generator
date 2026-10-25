@@ -110,27 +110,21 @@ export class PaddleBillingProvider implements BillingProvider {
     }
   }
 
-  public async createCustomerPortal(customerId: string): Promise<PortalResult> {
-    // Paddle Billing uses Customer Portal Sessions or returns documentation link/auth token
-    if (!this.isConfigured()) {
-      throw new Error('Paddle is not configured.');
+  /**
+   * Authenticated Paddle customer portal (payment method, invoices, cancellation) via
+   * customer portal sessions. Throws rather than returning a generic, unauthenticated link.
+   */
+  public async createCustomerPortal(customerId: string, _returnUrl: string, subscriptionIds: string[] = []): Promise<PortalResult> {
+    if (!customerId) {
+      throw new Error('No Paddle customer is linked to this account yet.');
     }
     const client = this.getClient();
-    try {
-      if ((client.customers as any).createPortalSession) {
-        const portal = await (client.customers as any).createPortalSession(customerId);
-        if (portal && portal.urls?.general?.overview) {
-          return { url: portal.urls.general.overview };
-        }
-      }
-    } catch (err: any) {
-      logger.warn('[PaddleBillingProvider] Portal session generation warning:', err?.message);
+    const session = await client.customerPortalSessions.create(customerId, subscriptionIds);
+    const url = session.urls?.general?.overview;
+    if (!url) {
+      throw new Error('Paddle did not return a customer portal URL.');
     }
-
-    // Default portal redirect if session API not provisioned
-    return {
-      url: `https://${config.paddleEnv === 'production' ? 'checkout' : 'sandbox-checkout'}.paddle.com/customer-portal`,
-    };
+    return { url };
   }
 
   public async verifyWebhook(
@@ -153,9 +147,9 @@ export class PaddleBillingProvider implements BillingProvider {
 
     try {
       const client = this.getClient();
-      // Paddle Node SDK verifies and unmarshals webhook payload using secret
-      const eventData = await client.webhooks.unmarshal(bodyStr, config.paddleWebhookSecret, signatureStr);
-      return Boolean(eventData && eventData.eventType);
+      // Pure signature check (HMAC of "ts:rawBody", 5s replay window) via the SDK. Parsing happens
+      // separately in normalizeWebhook, so an unfamiliar event schema can't fail verification.
+      return await client.webhooks.isSignatureValid(bodyStr, config.paddleWebhookSecret, signatureStr);
     } catch (err: any) {
       logger.warn(`[PaddleBillingProvider] Webhook signature verification failed: ${err.message}`);
       return false;
@@ -204,15 +198,13 @@ export class PaddleBillingProvider implements BillingProvider {
       cancelAtPeriodEnd = Boolean(data.scheduled_change?.action === 'cancel');
       if (data.canceled_at) canceledAt = new Date(data.canceled_at);
 
-      // Resolve plan & interval from items if not in custom data
+      // The server-configured Paddle price id is authoritative; custom data is only a fallback.
       const firstItem = data.items?.[0];
       const priceId = firstItem?.price?.id || firstItem?.price_id;
-      if (priceId && (!planId || !interval)) {
-        const resolved = resolvePlanFromProviderId('paddle', priceId);
-        if (resolved) {
-          planId = resolved.planId;
-          interval = resolved.interval;
-        }
+      const resolved = priceId ? resolvePlanFromProviderId('paddle', priceId) : null;
+      if (resolved) {
+        planId = resolved.planId;
+        interval = resolved.interval;
       }
 
       switch (eventType) {
@@ -263,7 +255,8 @@ export class PaddleBillingProvider implements BillingProvider {
           normalizedType = 'payment.failed';
           break;
         default:
-          normalizedType = 'payment.completed';
+          // created / ready / billed / updated / canceled are not payments.
+          normalizedType = null;
           break;
       }
     }
@@ -307,7 +300,8 @@ export class PaddleBillingProvider implements BillingProvider {
       case 'canceled':
         return 'canceled';
       default:
-        return 'active';
+        // Unknown states never unlock paid access.
+        return 'incomplete';
     }
   }
 
@@ -316,7 +310,7 @@ export class PaddleBillingProvider implements BillingProvider {
     const firstItem = sub.items?.[0];
     const priceId = firstItem?.price?.id || firstItem?.price_id || '';
     const resolved = resolvePlanFromProviderId('paddle', priceId);
-    const planId: PlanId = resolved?.planId || (sub.custom_data?.planId as PlanId) || 'pro';
+    const planId: PlanId = resolved?.planId || (getPlanDefinition(String(sub.custom_data?.planId || ''))?.id ?? 'free');
     const interval: BillingInterval = resolved?.interval || (sub.custom_data?.interval as BillingInterval) || 'month';
 
     const currentPeriodStart = sub.current_billing_period?.starts_at

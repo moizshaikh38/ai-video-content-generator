@@ -1,5 +1,20 @@
 import { config } from '../config/index.js';
-import { cleanupUsage, releaseUsage, reserveUsage, settleUsage, usageBalance } from '../db/repositories/usageRepository.js';
+import { cleanupUsage, releaseUsage, reserveUsage, settleUsage, usageBalance, extendUsageReservation } from '../db/repositories/usageRepository.js';
+
+/**
+ * Server-authoritative processing estimate (billing hardening).
+ * Derived ONLY from the project's server-measured duration_seconds — the
+ * client's `estimated_minutes` is never trusted for quota. A 1-minute safety
+ * margin covers transcription drift; unknown durations get a provisional
+ * estimate that mid-processing extendReservation() trues up once ffprobe
+ * measures the real length.
+ */
+export function computeProcessingEstimateMinutes(durationSeconds: unknown): number {
+  const n = Number(durationSeconds);
+  if (!Number.isFinite(n) || n <= 0) return 12; // provisional; extended after measurement
+  const minutes = Math.ceil(n / 60) + 1;
+  return Math.min(125, Math.max(0.5, Math.round(minutes * 100) / 100)); // 2h source cap + margin
+}
 
 export interface UsageQuotaReservationResult {
   allowed: boolean;
@@ -125,6 +140,21 @@ export class UsageService {
     metadata: Record<string, unknown> = {}): Promise<void> {
     const actual = Math.max(0.1, Math.round(durationSeconds / 60 * 100) / 100);
     await settleUsage(attemptId, actual, durationSeconds, metadata);
+  }
+
+  /**
+   * Extends a live reservation to the server-measured duration before settle,
+   * re-checking the plan ceiling atomically. Callers MUST fail the job when
+   * this returns ok:false — settling after a refused extension would consume
+   * beyond the quota the reservation approved.
+   */
+  static async extendReservationToMeasuredDuration(
+    attemptId: string,
+    durationSeconds: number
+  ): Promise<{ ok: true; reservedMinutes: number } | { ok: false; code: string; remainingMinutes: number }> {
+    if (!attemptId) return { ok: true, reservedMinutes: 0 };
+    const target = computeProcessingEstimateMinutes(durationSeconds);
+    return extendUsageReservation(attemptId, target);
   }
 
   static async releaseReservation(attemptId: string, reason: string): Promise<void> {

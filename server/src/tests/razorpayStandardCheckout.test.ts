@@ -191,17 +191,13 @@ describe('Razorpay Standard Web Checkout Integration', () => {
       assert.match(serviceFile, /\/verify-payment/);
     });
 
-    test('src/components/RazorpayCheckoutButton.tsx exists and is exported', () => {
-      const componentFile = fs.readFileSync(path.join(projectRoot, 'src/components/RazorpayCheckoutButton.tsx'), 'utf-8');
-      assert.match(componentFile, /export const RazorpayCheckoutButton/);
-      assert.match(componentFile, /openRazorpayCheckout/);
-    });
-
-    test('src/pages/BillingPage.tsx integrates Razorpay Standard Checkout and test buttons', () => {
+    test('BillingPage uses server-created Razorpay subscriptions, never ad-hoc amount orders', () => {
+      // The old ₹1 / ₹499 test-order widget let the browser pick an amount; plans now go only
+      // through POST /billing/checkout → openRazorpaySubscriptionCheckout (webhook-activated).
       const billingPage = fs.readFileSync(path.join(projectRoot, 'src/pages/BillingPage.tsx'), 'utf-8');
-      assert.match(billingPage, /openRazorpayCheckout/);
-      assert.match(billingPage, /RazorpayCheckoutButton/);
-      assert.match(billingPage, /Razorpay Standard Web Checkout/);
+      assert.match(billingPage, /openRazorpaySubscriptionCheckout/);
+      assert.doesNotMatch(billingPage, /RazorpayCheckoutButton/);
+      assert.doesNotMatch(billingPage, /createRazorpayOrder|openRazorpayCheckout\(/);
     });
   });
 

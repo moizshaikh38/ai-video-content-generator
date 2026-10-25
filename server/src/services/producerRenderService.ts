@@ -134,7 +134,7 @@ export class ProducerRenderService {
         ffmpegArgs.push('-vf', renderGraph.videoFilters.join(','));
       }
 
-      ffmpegArgs.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '26', '-pix_fmt', 'yuv420p');
+      ffmpegArgs.push('-c:v', 'libx264', '-preset', config.renderPreset, '-crf', '26', '-pix_fmt', 'yuv420p');
 
       if (renderGraph.audioFilters.length > 0) {
         ffmpegArgs.push('-af', renderGraph.audioFilters.join(','));

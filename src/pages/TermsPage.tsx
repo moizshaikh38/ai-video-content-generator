@@ -1,19 +1,16 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
+import { LegalPageShell } from '../components/legal/LegalPageShell';
 
 export const TermsPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-[#fafbf7] text-[#1a2e22] py-16 px-5 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-[#485f4d] hover:text-[#183d2d] mb-8 transition-colors"
-        >
-          <ArrowLeft size={16} />
-          Back to VireoClip home
-        </Link>
-
+    <LegalPageShell
+      eyebrow="Legal Agreement"
+      title="Terms of Service"
+      subtitle="The rules that keep VireoClip fair, safe, and reliable for every creator."
+      lastUpdated="October 2026"
+      statusChip={{ label: 'Draft — Owner Review', tone: 'draft' }}
+    >
         {/* Legal Review Required Callout Banner */}
         <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-5 mb-10 text-amber-900 shadow-sm">
           <div className="flex items-start gap-3">
@@ -31,17 +28,7 @@ export const TermsPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="border-b border-[#dfe7da] pb-8 mb-8">
-          <span className="text-xs font-bold uppercase tracking-widest text-[#36764c]">Legal Agreement</span>
-          <h1 className="font-display text-4xl sm:text-5xl font-semibold text-[#183d2d] mt-2 tracking-tight">
-            Terms of Service
-          </h1>
-          <p className="mt-3 text-xs text-[#78867a]">
-            Status: Draft for Owner Review • Last updated: October 2026
-          </p>
-        </div>
-
-        <div className="prose prose-sm max-w-none text-[#2d4233] space-y-8 leading-relaxed text-sm">
+        <div className="max-w-none text-[#2d4233] space-y-8 leading-relaxed text-sm">
           <section>
             <h2 className="text-xl font-bold text-[#183d2d] mb-3">1. Operating Entity and Acceptance of Terms</h2>
             <p>
@@ -126,7 +113,7 @@ export const TermsPage: React.FC = () => {
               <strong>Pre-Launch Billing Status Notice:</strong> Live paid checkout is undergoing payment gateway sandbox verification. Paid subscriptions are not currently actively charged to public consumer cards. Once live checkout is commercially activated:
             </p>
             <ul className="list-disc pl-5 mt-2 space-y-1 text-xs">
-              <li>Fees will be billed in advance on a recurring monthly or annual basis via authorized processors (Paddle, Razorpay, or Stripe).</li>
+              <li>Fees will be billed in advance on a recurring monthly or annual basis via our payment processors: Razorpay for customers billed in India, and Paddle (as reseller and merchant of record) for customers billed in all other supported countries.</li>
               <li>Usage quotas reset on the first day of each calendar month (UTC). Unused processing minutes do not roll over.</li>
               <li>Cancellations will take effect at the conclusion of the active prepaid billing cycle.</li>
               <li>Refund policy terms: <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Refund policy terms, e.g. 14-day statutory EU right of withdrawal vs non-refundable consumed quotas]</span>.</li>
@@ -160,7 +147,6 @@ export const TermsPage: React.FC = () => {
             </p>
           </section>
         </div>
-      </div>
-    </div>
+    </LegalPageShell>
   );
 };

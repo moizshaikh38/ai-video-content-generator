@@ -1,17 +1,16 @@
 import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
-import { PLANS, getPlanDefinition, resolvePlanFromPriceId, resolvePlanFromProviderId, getAllPlans } from '../services/billing/planConfig.js';
+import { PLANS, getPlanDefinition, resolvePlanFromProviderId, getAllPlans } from '../services/billing/planConfig.js';
 import { SubscriptionService } from '../services/subscriptionService.js';
 import { isUserUnlimited } from '../services/usageService.js';
 import { BillingRegistry } from '../services/billing/billingRegistry.js';
 import { PaddleBillingProvider } from '../services/billing/providers/paddleBillingProvider.js';
 import { RazorpayBillingProvider } from '../services/billing/providers/razorpayBillingProvider.js';
-import { StripeBillingProvider } from '../services/billing/providers/stripeBillingProvider.js';
 import { config } from '../config/index.js';
 import { closeMongo } from '../db/mongoClient.js';
 
-describe('Phase 11: Billing, Plans & Subscriptions (Paddle + Razorpay + Stripe) Tests', () => {
+describe('Phase 11: Billing, Plans & Subscriptions (Paddle + Razorpay) Tests', () => {
   after(async () => {
     await closeMongo();
   });
@@ -117,14 +116,13 @@ describe('Phase 11: Billing, Plans & Subscriptions (Paddle + Razorpay + Stripe) 
   });
 
   describe('4. Billing Provider Registry & Providers', () => {
-    it('registers paddle, razorpay, and stripe providers', () => {
+    it('registers only paddle and razorpay (Stripe was removed)', () => {
       const paddle = BillingRegistry.getProvider('paddle');
       const razorpay = BillingRegistry.getProvider('razorpay');
-      const stripe = BillingRegistry.getProvider('stripe');
 
       assert.equal(paddle.provider, 'paddle');
       assert.equal(razorpay.provider, 'razorpay');
-      assert.equal(stripe.provider, 'stripe');
+      assert.throws(() => BillingRegistry.getProvider('stripe' as any), /not registered/);
     });
 
     it('throws error for unknown provider', () => {
@@ -133,8 +131,8 @@ describe('Phase 11: Billing, Plans & Subscriptions (Paddle + Razorpay + Stripe) 
 
     it('exposes provider configuration statuses', () => {
       const providers = BillingRegistry.getAvailableProviders();
-      assert.equal(providers.length, 3);
-      assert.deepEqual(providers.map(p => p.name), ['paddle', 'razorpay', 'stripe']);
+      assert.equal(providers.length, 2);
+      assert.deepEqual(providers.map(p => p.name), ['paddle', 'razorpay']);
     });
   });
 
@@ -275,9 +273,8 @@ describe('Phase 11: Billing, Plans & Subscriptions (Paddle + Razorpay + Stripe) 
     it('returns null when provider price ID is unknown or empty', () => {
       assert.equal(resolvePlanFromProviderId('paddle', 'pri_fake_123'), null);
       assert.equal(resolvePlanFromProviderId('razorpay', 'plan_fake_123'), null);
-      assert.equal(resolvePlanFromProviderId('stripe', 'price_fake_123'), null);
-      assert.equal(resolvePlanFromPriceId('price_malicious_123'), null);
-      assert.equal(resolvePlanFromPriceId(''), null);
+      assert.equal(resolvePlanFromProviderId('paddle', ''), null);
+      assert.equal(resolvePlanFromProviderId('razorpay', ''), null);
     });
   });
 
@@ -285,7 +282,6 @@ describe('Phase 11: Billing, Plans & Subscriptions (Paddle + Razorpay + Stripe) 
     it('ensures billing secrets are not exposed in public environment', () => {
       assert.ok(!config.paddleClientToken.startsWith('paddlesecret_'));
       assert.ok(!config.razorpayKeyId.includes(config.razorpayKeySecret || 'UNDEFINED'));
-      assert.ok(!config.stripePublishableKey.startsWith('sk_'));
     });
   });
 });

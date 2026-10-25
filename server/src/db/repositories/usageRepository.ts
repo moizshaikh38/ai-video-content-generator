@@ -151,17 +151,84 @@ async function transitionEvent(attemptId: string, next: 'settled' | 'released', 
     const balances = db.collection<Balance>('subscription_limits');
     const event = await events.findOne({ processing_attempt_id: attemptId }, { session });
     if (!event || event.status === next || event.status !== 'reserved') return;
+
+    // Hard invariant: settled can never exceed what the quota ceiling approved.
+    // If the measured duration outran the reservation, settle at the reserved
+    // amount and record the overflow — the caller is expected to have extended
+    // the reservation first (extendUsageReservation); a clamp here means the
+    // user consumed beyond their plan and billing must NOT silently follow.
+    const measured = round(actualMinutes);
+    const settledMinutes = Math.min(measured, event.reserved_minutes);
+    const finalMetadata = measured > event.reserved_minutes
+      ? { ...metadata, settled_clamped_to_reservation: true, measured_minutes: measured }
+      : metadata;
+
     const updated = await events.updateOne({ id: event.id, status: 'reserved' }, {
-      $set: { status: next, actual_minutes: next === 'settled' ? round(actualMinutes) : 0,
-        duration_seconds: durationSeconds, metadata, updated_at: new Date() },
+      $set: { status: next, actual_minutes: next === 'settled' ? settledMinutes : 0,
+        duration_seconds: durationSeconds, metadata: finalMetadata, updated_at: new Date() },
     }, { session });
     if (updated.modifiedCount !== 1) return;
     const result = await balances.updateOne({ user_id: event.user_id, billing_period: event.billing_period,
       reserved_minutes: { $gte: event.reserved_minutes } }, {
       $inc: { reserved_minutes: -event.reserved_minutes,
-        settled_minutes: next === 'settled' ? round(actualMinutes) : 0 },
+        settled_minutes: next === 'settled' ? settledMinutes : 0 },
     }, { session });
     if (result.modifiedCount !== 1) throw new Error('Quota balance inconsistent.');
+  });
+}
+
+/**
+ * Atomically grows a live reservation to `targetMinutes` (never shrinks it),
+ * re-checking the plan ceiling inside the same transaction. Used mid-processing
+ * once the server-measured duration is known, so a too-low initial estimate can
+ * never let usage run past the quota the ceiling approved.
+ * Returns { ok: true } or { ok: false, code: 'QUOTA_EXCEEDED', ... }.
+ */
+export async function extendUsageReservation(
+  attemptId: string,
+  targetMinutes: number
+): Promise<{ ok: true; reservedMinutes: number } | { ok: false; code: string; remainingMinutes: number }> {
+  const target = round(targetMinutes);
+  if (!Number.isFinite(target) || target <= 0) throw new Error('Invalid extension target.');
+
+  return await runTransaction(async (session) => {
+    const db = await getMongoDb();
+    const events = db.collection<Event>('usage_events');
+    const balances = db.collection<Balance>('subscription_limits');
+    const event = await events.findOne({ processing_attempt_id: attemptId }, { session });
+    if (!event || event.status !== 'reserved') {
+      return { ok: false as const, code: 'RESERVATION_NOT_ACTIVE', remainingMinutes: 0 };
+    }
+    const delta = round(target - event.reserved_minutes);
+    if (delta <= 0) return { ok: true as const, reservedMinutes: event.reserved_minutes };
+
+    const balance = await balances.findOne({ user_id: event.user_id, billing_period: event.billing_period }, { session });
+    if (!balance) return { ok: false as const, code: 'BALANCE_MISSING', remainingMinutes: 0 };
+
+    // Unlimited developer accounts skip the ceiling.
+    if (balance.monthly_minutes_limit >= 999999) {
+      await balances.updateOne({ user_id: event.user_id, billing_period: event.billing_period },
+        { $inc: { reserved_minutes: delta } }, { session });
+      await events.updateOne({ id: event.id }, { $set: { reserved_minutes: target, updated_at: new Date() } }, { session });
+      return { ok: true as const, reservedMinutes: target };
+    }
+
+    const updated = await balances.updateOne({
+      user_id: event.user_id,
+      billing_period: event.billing_period,
+      $expr: { $lte: [{ $add: ['$settled_minutes', '$reserved_minutes', delta] }, '$monthly_minutes_limit'] },
+    }, { $inc: { reserved_minutes: delta } }, { session });
+
+    if (updated.modifiedCount !== 1) {
+      const fresh = await balances.findOne({ user_id: event.user_id, billing_period: event.billing_period }, { session });
+      return {
+        ok: false as const,
+        code: 'QUOTA_EXCEEDED',
+        remainingMinutes: Math.max(0, round((fresh?.monthly_minutes_limit ?? 0) - (fresh?.settled_minutes ?? 0) - (fresh?.reserved_minutes ?? 0))),
+      };
+    }
+    await events.updateOne({ id: event.id }, { $set: { reserved_minutes: target, updated_at: new Date() } }, { session });
+    return { ok: true as const, reservedMinutes: target };
   });
 }
 

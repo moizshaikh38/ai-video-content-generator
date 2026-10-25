@@ -27,6 +27,21 @@ export const config = {
   // visual/audio signals. Default off — enable per deployment after reviewing
   // the added local compute cost (audit finding F1 / genre roadmap Phase 2).
   multimodalAutoAnalysis: process.env.MULTIMODAL_AUTO === 'on',
+  // FFmpeg encoder preset for clip renders. 'veryfast' benchmarks 2.35x faster
+  // than 'fast' on 1080x1920 social output with near-identical quality/size.
+  // Override only with a deliberate quality decision (e.g. 'medium' for masters).
+  renderPreset: process.env.RENDER_FFMPEG_PRESET || 'veryfast',
+  // Hardware encoder override: 'auto' detects videotoolbox/nvenc/qsv at startup;
+  // 'libx264' forces software encoding. Hardware encoders are 5-20x faster but
+  // use bitrate-based quality (not CRF); quality is tuned via RENDER_HW_BITRATE.
+  renderEncoder: process.env.RENDER_ENCODER || 'auto',
+  renderHwBitrate: process.env.RENDER_HW_BITRATE || '8M',
+  // Parallel LLM windows for long-transcript clip analysis (provider-limited).
+  analysisConcurrency: Math.max(1, Math.min(8, parseInt(process.env.ANALYSIS_CONCURRENCY || '4', 10) || 4)),
+  // Only enable Express trust-proxy when ACTUALLY deployed behind a reverse
+  // proxy. Unconditional trust lets a direct client spoof X-Forwarded-For and
+  // rotate rate-limit buckets (security hardening).
+  trustProxy: ['1', 'true', 'on'].includes((process.env.TRUST_PROXY || '').toLowerCase()),
   supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
   supabaseSecretKey: process.env.SUPABASE_SECRET_KEY || '',
   mongodbUri: process.env.MONGODB_URI || '',
@@ -37,7 +52,17 @@ export const config = {
   r2Endpoint: process.env.R2_ENDPOINT || '',
   r2SourceBucket: process.env.R2_SOURCE_BUCKET || 'vireo-source-videos',
   r2ClipsBucket: process.env.R2_CLIPS_BUCKET || 'vireo-rendered-clips',
-  smartReframeEnabled: process.env.SMART_REFRAME_ENABLED === 'true',
+  // Smart reframe (active-speaker face tracking) defaults ON; set
+  // SMART_REFRAME_ENABLED=false to disable CV analysis on this host.
+  smartReframeEnabled: process.env.SMART_REFRAME_ENABLED !== 'false',
+  // Renders with crop mode 'smart' auto-generate a missing reframe track at
+  // render time (the CV analyzer runs on the already-downloaded source).
+  // Set REFRAME_AUTO_GENERATE=false to require the manual analyze endpoint.
+  reframeAutoGenerate: process.env.REFRAME_AUTO_GENERATE !== 'false',
+  // VLM game-event detection (gaming advantage: any game, no per-game
+  // training). Costs one vision LLM call per analyzed clip; default off
+  // until billing sign-off. Audio-spike detection needs no flag (local).
+  gameEventsAuto: process.env.GAME_EVENTS_AUTO === 'on',
   openrouterApiKey: process.env.OPENROUTER_API_KEY || '',
   openrouterTextModel: process.env.OPENROUTER_TEXT_MODEL || 'openai/gpt-4o-mini',
   transcriptionModel: process.env.TRANSCRIPTION_MODEL || 'openai/whisper-large-v3-turbo',
@@ -78,8 +103,19 @@ export const config = {
   xClientId: process.env.X_CLIENT_ID || '',
   xClientSecret: process.env.X_CLIENT_SECRET || '',
   xRedirectUri: process.env.X_REDIRECT_URI || 'http://localhost:5000/api/social/x/callback',
-  // Billing Providers Configuration (Phase 11: Paddle, Razorpay, Stripe)
-  billingProviderDefault: (process.env.BILLING_PROVIDER_DEFAULT || 'paddle') as 'paddle' | 'razorpay' | 'stripe',
+  // Billing providers: Razorpay serves India (IN), Paddle serves every other supported country.
+  // The gateway is chosen per customer by billing country (services/billing/billingCountryService.ts);
+  // BILLING_PROVIDER_DEFAULT only feeds the "enabled" heuristic below.
+  billingProviderDefault: (process.env.BILLING_PROVIDER_DEFAULT || 'paddle') as 'paddle' | 'razorpay',
+  // Optional trusted edge header carrying the visitor's ISO country (e.g. "cf-ipcountry" behind
+  // Cloudflare). Leave empty unless your edge sets it and strips client-supplied copies.
+  billingTrustedCountryHeader: (process.env.BILLING_TRUSTED_COUNTRY_HEADER || '').trim().toLowerCase(),
+  // Buyer countries Paddle cannot serve (sanctions). Comma-separated ISO alpha-2 override; the default
+  // mirrors Paddle's published unsupported-country list — re-check it against Paddle before launch.
+  paddleBlockedCountries: (process.env.PADDLE_BLOCKED_COUNTRIES || 'AF,BY,CU,IR,IQ,KP,LY,RU,SD,SY,VE,YE,ZW')
+    .split(',')
+    .map((c) => c.trim().toUpperCase())
+    .filter(Boolean),
   
   // Paddle Billing (Sandbox by default)
   paddleEnv: (process.env.PADDLE_ENV || 'sandbox') as 'sandbox' | 'production',
@@ -104,13 +140,11 @@ export const config = {
   razorpayPlanStudioMonthly: process.env.RAZORPAY_PLAN_STUDIO_MONTHLY || '',
   razorpayPlanStudioYearly: process.env.RAZORPAY_PLAN_STUDIO_YEARLY || '',
 
-  // Stripe (Preserved for future / multi-provider routing)
-  stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
-  stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_PUBLISHABLE_KEY || '',
-  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
-  stripeProPriceId: process.env.STRIPE_PRO_PRICE_ID || '',
-  stripeBusinessPriceId: process.env.STRIPE_BUSINESS_PRICE_ID || '',
-  stripePortalConfigurationId: process.env.STRIPE_PORTAL_CONFIGURATION_ID || '',
+  // Yearly INR display prices for Razorpay plans (whole rupees). India yearly billing is offered only
+  // when both the Razorpay yearly plan ID and its display price are configured.
+  razorpayYearlyInrCreator: Number(process.env.RAZORPAY_YEARLY_INR_CREATOR || 0) || 0,
+  razorpayYearlyInrPro: Number(process.env.RAZORPAY_YEARLY_INR_PRO || 0) || 0,
+  razorpayYearlyInrStudio: Number(process.env.RAZORPAY_YEARLY_INR_STUDIO || 0) || 0,
 
   // Phase 12: Admin / Owner Console Authorization
   adminEmails: (process.env.ADMIN_EMAILS || 'vertexdigitals07@gmail.com,moizsh786786@gmail.com')
@@ -182,7 +216,7 @@ export function validateSocialTokenEncryptionKey(
  *    or its API credentials are configured in the environment.
  */
 export function isBillingProviderEnabled(
-  provider: 'paddle' | 'razorpay' | 'stripe',
+  provider: 'paddle' | 'razorpay',
   env: NodeJS.ProcessEnv = process.env
 ): boolean {
   const providerLower = provider.toLowerCase();
@@ -199,13 +233,6 @@ export function isBillingProviderEnabled(
     if (env.RAZORPAY_ENABLED === 'true') return true;
     const defaultProvider = env.BILLING_PROVIDER_DEFAULT || config.billingProviderDefault;
     return defaultProvider === 'razorpay' || Boolean(env.RAZORPAY_KEY_ID || env.RAZORPAY_KEY_SECRET || config.razorpayKeyId || config.razorpayKeySecret);
-  }
-
-  if (providerLower === 'stripe') {
-    if (env.STRIPE_ENABLED === 'false') return false;
-    if (env.STRIPE_ENABLED === 'true') return true;
-    const defaultProvider = env.BILLING_PROVIDER_DEFAULT || config.billingProviderDefault;
-    return defaultProvider === 'stripe' || Boolean(env.STRIPE_SECRET_KEY || config.stripeSecretKey);
   }
 
   return false;
@@ -312,21 +339,6 @@ export function validateEnvironment(options: ValidateEnvironmentOptions = {}): E
       } else {
         warnings.push(
           'RAZORPAY_WEBHOOK_SECRET is not configured for enabled Razorpay provider. Webhook signature verification will fail.'
-        );
-      }
-    }
-  }
-
-  if (isBillingProviderEnabled('stripe', env)) {
-    const stripeSecret = env.STRIPE_WEBHOOK_SECRET || config.stripeWebhookSecret;
-    if (!stripeSecret || stripeSecret.trim().length === 0) {
-      if (isProd) {
-        errors.push(
-          'Missing required environment variable for enabled billing provider: STRIPE_WEBHOOK_SECRET. Required for Stripe webhook signature verification.'
-        );
-      } else {
-        warnings.push(
-          'STRIPE_WEBHOOK_SECRET is not configured for enabled Stripe provider. Webhook signature verification will fail.'
         );
       }
     }

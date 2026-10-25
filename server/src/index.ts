@@ -23,8 +23,12 @@ validateEnvironment();
 
 const app = express();
 
-// Trust reverse proxy (Vercel, Cloudflare, ALB, Nginx) for accurate client IP and protocol
-app.set('trust proxy', 1);
+// Trust reverse proxy ONLY when explicitly deployed behind one (TRUST_PROXY=on).
+// Unconditional trust lets direct clients spoof X-Forwarded-For and evade
+// IP-based rate limits.
+if (config.trustProxy) {
+  app.set('trust proxy', 1);
+}
 
 // Root health & readiness probes (Step 14: /health and /ready)
 app.get('/health', asyncHandler(checkHealth));
@@ -65,10 +69,17 @@ app.use('/api', generalLimiter);
 // Webhooks require the raw request body Buffer for cryptographic signature verification
 app.use('/api/billing/webhooks/paddle', express.raw({ type: 'application/json' }));
 app.use('/api/billing/webhooks/razorpay', express.raw({ type: 'application/json' }));
-app.use('/api/billing/webhook', express.raw({ type: 'application/json' }));
 
-// Request body size limits (H3)
-app.use(express.json({ limit: '1mb' }));
+// Request body size limits (H3) + prototype-pollution guard: strip dangerous
+// keys from every parsed JSON body before any service touches them.
+const pollutionSafeReviver = (key: string, value: unknown) => {
+  if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+    return undefined;
+  }
+  return value;
+};
+
+app.use(express.json({ limit: '1mb', reviver: pollutionSafeReviver }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // API Routes

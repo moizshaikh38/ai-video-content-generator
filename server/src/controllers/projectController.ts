@@ -744,9 +744,14 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
     const rawAttemptId = req.headers['x-processing-attempt-id'] as string;
     const attemptId = rawAttemptId && isValidUUID(rawAttemptId) ? rawAttemptId : crypto.randomUUID();
 
-    // Clamp client-supplied estimated minutes between 0.5 and 60.0 (prevents abuse)
-    const rawEstimate = Number(req.body?.estimated_minutes);
-    const estimatedMinutes = !isNaN(rawEstimate) && rawEstimate > 0 ? Math.min(Math.max(rawEstimate, 0.5), 60.0) : 3.0;
+    // Billing hardening: the estimate is SERVER-authoritative, derived from the
+    // project's measured duration_seconds. req.body.estimated_minutes is
+    // deliberately ignored — a client claiming 0.5 min for a 2-hour video must
+    // never shrink what the quota ceiling validates against. Unknown durations
+    // get a provisional estimate that is extended to the measured length (with
+    // a fresh ceiling check) once ffprobe runs mid-processing.
+    const { computeProcessingEstimateMinutes } = await import('../services/usageService.js');
+    const estimatedMinutes = computeProcessingEstimateMinutes((project as any).duration_seconds);
 
     const reservation = await UsageService.reserveQuota(userId, projectId, attemptId, estimatedMinutes, req.user?.email);
 

@@ -59,7 +59,6 @@ export interface AdminOverviewStats {
     ffmpegAvailable: boolean;
     paddleConfigured: boolean;
     razorpayConfigured: boolean;
-    stripeConfigured: boolean;
   };
 }
 
@@ -162,7 +161,6 @@ export class AdminService {
 
     const paddleProvider = BillingRegistry.getProvider('paddle');
     const razorpayProvider = BillingRegistry.getProvider('razorpay');
-    const stripeProvider = BillingRegistry.getProvider('stripe');
 
     return {
       users: {
@@ -213,7 +211,6 @@ export class AdminService {
         ffmpegAvailable,
         paddleConfigured: paddleProvider.isConfigured(),
         razorpayConfigured: razorpayProvider.isConfigured(),
-        stripeConfigured: stripeProvider.isConfigured(),
       },
     };
   }
@@ -677,7 +674,6 @@ export class AdminService {
 
     const paddle = BillingRegistry.getProvider('paddle');
     const razorpay = BillingRegistry.getProvider('razorpay');
-    const stripe = BillingRegistry.getProvider('stripe');
 
     return {
       status: mongoConnected ? 'healthy' : 'degraded',
@@ -713,9 +709,6 @@ export class AdminService {
           razorpay: {
             configured: razorpay.isConfigured(),
             mode: config.razorpayKeyId.startsWith('rzp_test_') ? 'test' : 'live',
-          },
-          stripe: {
-            configured: stripe.isConfigured(),
           },
         },
       },

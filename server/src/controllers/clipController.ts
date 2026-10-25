@@ -13,6 +13,7 @@ import { ProducerRenderService } from '../services/producerRenderService.js';
 import { GenreIntelligenceService } from '../services/genreIntelligenceService.js';
 
 import { logger } from '../utils/logger.js';
+import { ClipPosterService } from '../services/clipPosterService.js';
 import { config } from '../config/index.js';
 
 /**
@@ -299,7 +300,10 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
     return;
   }
 
-  const { candidateId, aspectRatio = '9:16', cropMode = 'center' } = req.body || {};
+  // Default to smart framing: renders auto-generate the active-speaker track
+    // (see ClipRenderService.ensureReframeTrackAtRender); 'center' stays
+    // available via an explicit request.
+    const { candidateId, aspectRatio = '9:16', cropMode = 'smart' } = req.body || {};
 
   if (!candidateId || !isValidUUID(candidateId)) {
     res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid candidate UUID is required.' });
@@ -379,7 +383,13 @@ export const getProjectClips = async (req: AuthenticatedRequest, res: Response):
   }
 
   try {
-    const clips = await ClipRenderService.getProjectClips(projectId, userId);
+    const rawClips = await ClipRenderService.getProjectClips(projectId, userId);
+    // Sign existing poster frames inline; clips without one fetch /clips/:id/poster lazily.
+    const clips = await Promise.all(
+      rawClips.map(async (clip: any) =>
+        clip.thumbnail_url ? clip : { ...clip, thumbnail_url: await ClipPosterService.signedUrlIfReady(clip) }
+      )
+    );
     res.status(200).json({
       status: 'ok',
       projectId,
@@ -749,6 +759,40 @@ export const getClipThumbnails = async (req: AuthenticatedRequest, res: Response
       message: err.message || 'Failed to generate clip thumbnails.',
     });
   }
+};
+
+/**
+ * GET /api/clips/:clipId/poster
+ * Signed URL of the clip's poster frame, generated on first request.
+ */
+export const getClipPoster = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const clipId = req.params.clipId;
+  if (!userId) {
+    res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });
+    return;
+  }
+  if (!clipId || !isValidUUID(clipId)) {
+    res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid clip UUID is required.' });
+    return;
+  }
+  const { data: clip } = await dataRepository
+    .from('clips')
+    .select('id, user_id, project_id, start_seconds, end_seconds, render_status, render_version, output_storage_path, source_storage_path, poster_key')
+    .eq('id', clipId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!clip) {
+    res.status(404).json({ status: 'error', code: 'CLIP_NOT_FOUND', message: 'Clip not found.' });
+    return;
+  }
+  const url = await ClipPosterService.getPosterUrl(clip);
+  if (!url) {
+    res.status(404).json({ status: 'error', code: 'POSTER_UNAVAILABLE', message: 'No poster frame is available for this clip yet.' });
+    return;
+  }
+  res.setHeader('Cache-Control', 'private, max-age=240');
+  res.status(200).json({ status: 'ok', url, expiresInSeconds: 300 });
 };
 
 /**

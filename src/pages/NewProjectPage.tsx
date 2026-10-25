@@ -41,6 +41,7 @@ import {
 } from '../components/clips/ClipPreferencesControl';
 import { LivePreviewPanel } from '../components/newProject/LivePreviewPanel';
 import { ClipPreferences } from '../types';
+import { getGenreLayoutMode } from '../lib/genreLayoutModes';
 import {
   extractYouTubeId,
   probeVideoUrl,
@@ -476,6 +477,10 @@ export const NewProjectPage: React.FC = () => {
   const goalLabel = GOAL_OPTIONS.find((g) => g.id === clipPreferences.contentGoal)?.label || '';
   const durationLabel = DURATION_OPTIONS.find((d) => d.id === clipPreferences.preferredDurations)?.label || '';
   const previewGenre = clipPreferences.genreSelectionMode === 'auto' ? 'auto' : clipPreferences.genre;
+  const previewLayout = clipPreferences.genreSelectionMode === 'auto'
+    ? 'face_track' as const
+    : (getGenreLayoutMode(clipPreferences.genre)) as any;
+  const previewThumbnail = (probe.status === 'ok' && probe.thumbnail) || (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : null);
 
   const sourceSummary = () => {
     if (mode === 'upload' && file) {
@@ -1190,6 +1195,8 @@ export const NewProjectPage: React.FC = () => {
               genreLabel={genreLabel}
               durationLabel={durationLabel}
               goalLabel={goalLabel}
+              thumbnailUrl={previewThumbnail}
+              layoutMode={previewLayout}
             />
           </div>
         </form>

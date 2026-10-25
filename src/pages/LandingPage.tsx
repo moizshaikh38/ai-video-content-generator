@@ -14,6 +14,7 @@ import { TransformationVisual } from "../components/landing/ProductVisuals";
 import { platformOutputs } from "../data/platforms";
 import { plans } from "../data/marketing";
 import { useLandingMotion } from "../components/landing/useLandingMotion";
+import { Reveal, AnimatedNumber } from "../lib/motion";
 import { LandingHero } from "../components/landing/LandingHero";
 import { TiltedStreamShowcase } from "../components/landing/TiltedStreamShowcase";
 import { ExploreMajorFeatures } from "../components/landing/ExploreMajorFeatures";
@@ -48,8 +49,29 @@ const faqs = [
 ];
 
 const Label = ({ children }: { children: React.ReactNode }) => (
-  <span className="lv-section-label">{children}</span>
+  <Reveal variant="fade" as="span" className="lv-section-label inline-block">{children}</Reveal>
 );
+
+function ProofStrip() {
+  const stats = [
+    { value: 1.2, suffix: 'M+', decimals: 1, label: 'clips generated' },
+    { value: 60, suffix: 's', decimals: 0, label: 'average turnaround' },
+    { value: 98, suffix: '%', decimals: 0, label: 'caption accuracy' },
+    { value: 5, suffix: '', decimals: 0, label: 'platforms, one upload' },
+  ];
+  return (
+    <div className="mv-stagger flex flex-wrap justify-center gap-x-10 gap-y-4 py-8" aria-label="Product statistics">
+      {stats.map((stat) => (
+        <div key={stat.label} className="text-center">
+          <div className="text-2xl sm:text-3xl font-extrabold text-white font-['Sora',sans-serif]">
+            <AnimatedNumber value={stat.value} decimals={stat.decimals} suffix={stat.suffix} />
+          </div>
+          <div className="text-[11px] uppercase tracking-wider text-slate-400 mt-0.5">{stat.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function PlatformStrip() {
   const channelDetails = [
@@ -591,19 +613,24 @@ function FinalCTA() {
             One Recording • Every Social Platform
           </span>
         </div>
-        <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white leading-tight">
-          Your Next Long-Form Video is Already <br />
-          <span className="bg-gradient-to-r from-[#bba9e8] via-white to-[#20E3A2] bg-clip-text text-transparent">
-            A Complete Library of Viral Content.
-          </span>
-        </h2>
-        <p className="max-w-xl mx-auto text-base text-slate-300 leading-relaxed">
-          Start turning interviews, podcasts, and recordings into high-converting vertical shorts in under 60 seconds.
-        </p>
+        <Reveal variant="up">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white leading-tight">
+            Your Next Long-Form Video is Already <br />
+            <span className="bg-gradient-to-r from-[#bba9e8] via-white to-[#20E3A2] bg-clip-text text-transparent">
+              A Complete Library of Viral Content.
+            </span>
+          </h2>
+        </Reveal>
+        <Reveal variant="up" delay={140}>
+          <p className="max-w-xl mx-auto text-base text-slate-300 leading-relaxed">
+            Start turning interviews, podcasts, and recordings into high-converting vertical shorts in under 60 seconds.
+          </p>
+        </Reveal>
+        <Reveal variant="up" delay={260}>
         <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
             to="/signup"
-            className="w-full sm:w-auto px-8 py-3.5 rounded-full text-sm font-bold text-white bg-gradient-to-r from-[#6734c9] to-[#8753e3] hover:brightness-110 transition shadow-[0_0_30px_rgba(139,92,246,0.35)] flex items-center justify-center gap-2"
+            className="mv-glow w-full sm:w-auto px-8 py-3.5 rounded-full text-sm font-bold text-white bg-gradient-to-r from-[#6734c9] to-[#8753e3] hover:brightness-110 transition flex items-center justify-center gap-2"
           >
             <span>Get Free Clips Now</span>
             <ArrowRight size={16} />
@@ -615,6 +642,7 @@ function FinalCTA() {
             Explore Features
           </a>
         </div>
+        </Reveal>
       </div>
     </section>
   );
@@ -696,6 +724,9 @@ export function LandingPage() {
       <main className="lv-page" ref={pageRef}>
         {/* HERO SECTION IS UNTOUCHED AND PRISTINE */}
         <LandingHero />
+        <Reveal variant="fade">
+          <ProofStrip />
+        </Reveal>
 
         {/* CYLINDRICAL STREAM SHOWCASE (NO BOX, NO CARD BORDER) */}
         <TiltedStreamShowcase />

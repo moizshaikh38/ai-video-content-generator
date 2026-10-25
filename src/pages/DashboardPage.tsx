@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Clock, Play } from 'lucide-react';
 import { HomeClippingWorkflow } from '../components/dashboard/HomeClippingWorkflow';
@@ -8,6 +8,9 @@ import { useCinematicScrollReveal } from '../hooks/useCinematicScrollReveal';
 import { Project } from '../types';
 import { getProjectThumbnail } from '../lib/projectThumbnail';
 import { ProjectThumbImage } from '../components/ProjectThumbImage';
+import { Reveal } from "../lib/motion";
+// Hover prefetch: warm the detail-page chunk before the click lands.
+const prefetchProjectDetail = () => { void import('../pages/ProjectDetailPage'); };
 
 const activeStatuses = [
   'uploading',
@@ -137,22 +140,27 @@ export const DashboardPage: React.FC = () => {
 
   const getStatus = (p: Project) => p.video_status || p.status;
 
-  const filteredProjects = projects.filter((p) => {
-    const s = getStatus(p);
-    let matchesTab = true;
-    if (projectTab === 'processing') matchesTab = activeStatuses.includes(s);
-    else if (projectTab === 'completed') matchesTab = completeStatuses.includes(s);
-    else if (projectTab === 'failed') matchesTab = failedStatuses.includes(s);
-    if (!matchesTab) return false;
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      const titleMatch = (p.title || '').toLowerCase().includes(q);
-      const genreMatch = (p.clip_preferences?.genre || '').toLowerCase().includes(q);
-      return titleMatch || genreMatch;
-    }
-    return true;
-  });
+  // Deferred query keeps typing instant on large libraries; the filter runs on
+  // the previous frame's value and catches up without blocking input.
+  const deferredSearch = useDeferredValue(searchQuery);
+  const filteredProjects = useMemo(() => {
+    const q = deferredSearch.trim().toLowerCase();
+    return projects.filter((p) => {
+      const st = p.video_status || p.status;
+      let matchesTab = true;
+      if (projectTab === 'processing') matchesTab = activeStatuses.includes(st);
+      else if (projectTab === 'completed') matchesTab = completeStatuses.includes(st);
+      else if (projectTab === 'failed') matchesTab = failedStatuses.includes(st);
+      if (!matchesTab) return false;
+      if (q) {
+        return (
+          (p.title || '').toLowerCase().includes(q) ||
+          (p.clip_preferences?.genre || '').toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [projects, projectTab, deferredSearch]);
 
   const processingCount = projects.filter((p) => activeStatuses.includes(getStatus(p))).length;
   const completedCount = projects.filter((p) => completeStatuses.includes(getStatus(p))).length;
@@ -269,12 +277,12 @@ export const DashboardPage: React.FC = () => {
             {[1, 2, 3, 4].map((i) => (
               <div
                 key={i}
-                className="h-64 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse"
+                className="h-64 rounded-2xl bg-white/[0.03] border border-white/[0.06] mv-shimmer"
               />
             ))}
           </div>
         ) : filteredProjects.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Reveal variant="fade" as="div" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mv-stagger">
             {filteredProjects.slice(0, 8).map((p, idx) => {
               const statusStr = getStatus(p);
               const isComp = completeStatuses.includes(statusStr);
@@ -303,6 +311,8 @@ export const DashboardPage: React.FC = () => {
                   <Link
                     to={`/projects/${p.id}`}
                     aria-label={`Open project ${p.title || 'Untitled'}`}
+                    onMouseEnter={prefetchProjectDetail}
+                    onFocus={prefetchProjectDetail}
                     className={`block h-[132px] p-2.5 relative flex items-end justify-between overflow-hidden cursor-pointer ${
                       !thumbUrl ? `bg-gradient-to-br ${gradientClass}` : 'bg-black'
                     }`}
@@ -431,7 +441,7 @@ export const DashboardPage: React.FC = () => {
                 </article>
               );
             })}
-          </div>
+          </Reveal>
         ) : projects.length > 0 ? (
           <div className="vireo-dash-glass p-8 text-center rounded-2xl ">
             <p className="text-sm text-vc-text-secondary">

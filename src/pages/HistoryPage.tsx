@@ -24,6 +24,7 @@ import { clipRenderService } from '../services/clipRenderService';
 import { useAuth } from '../context/AuthContext';
 import { Project, RenderedClip } from '../types';
 import { ProjectThumbImage } from '../components/ProjectThumbImage';
+import { ClipThumbImage } from '../components/ClipThumbImage';
 import { triggerBrowserDownload } from '../utils/downloadUtils';
 
 const statusOf = (p: Project) => p.video_status || p.status;
@@ -407,26 +408,24 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                 return (
                   <div
                     key={clip.id}
-                    className="group relative rounded-2xl border border-white/[0.08] bg-vc-surface1 overflow-hidden flex flex-col justify-between shadow-lg hover:border-violet-500/40 hover:shadow-violet-900/20 transition-all duration-300"
+                    className="group relative rounded-2xl border border-white/[0.08] mv-cv-auto bg-vc-surface1 overflow-hidden flex flex-col justify-between shadow-lg hover:border-violet-500/40 hover:shadow-violet-900/20 transition-all duration-300"
                   >
                     {/* Visual Media Poster */}
                     <div
                       onClick={() => handleOpenPreview(clip)}
                       className="relative aspect-[9/12] w-full bg-black cursor-pointer overflow-hidden flex items-center justify-center"
                     >
-                      {clip.thumbnail_url ? (
-                        <img
-                          src={clip.thumbnail_url}
-                          alt={clip.title || 'Clip thumbnail'}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-zinc-900 to-black text-white/40">
-                          <Film className="size-8 text-violet-400/60 mb-2" />
-                          <span className="text-[11px] font-mono">9:16 Vertical</span>
-                        </div>
-                      )}
+                      <ClipThumbImage
+                        clip={clip}
+                        alt={clip.title || 'Clip thumbnail'}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        fallback={
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-zinc-900 to-black text-white/40">
+                            <Film className="size-8 text-violet-400/60 mb-2" />
+                            <span className="text-[11px] font-mono">9:16 Vertical</span>
+                          </div>
+                        }
+                      />
 
                       {/* Top badges: AI rank (when scored) & duration */}
                       <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10 pointer-events-none">

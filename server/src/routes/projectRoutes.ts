@@ -35,6 +35,7 @@ import {
   getClipWaveform,
   getAssetWaveform,
   getClipThumbnails,
+  getClipPoster,
   updateClipEditor,
   resetClipEditor,
   getClipCaptions,
@@ -127,6 +128,7 @@ router.post('/clips/:clipId/editor/reset', requireAuth, asyncHandler(resetClipEd
 router.get('/clips/:clipId/captions', requireAuth, asyncHandler(getClipCaptions));
 router.get('/clips/:clipId/waveform', requireAuth, asyncHandler(getClipWaveform));
 router.get('/clips/:clipId/thumbnails', requireAuth, asyncHandler(getClipThumbnails));
+router.get('/clips/:clipId/poster', requireAuth, asyncHandler(getClipPoster));
 router.get('/audio-assets/:assetId/waveform', requireAuth, asyncHandler(getAssetWaveform));
 
 // Phase 13: Smart Auto-Reframe Routes
