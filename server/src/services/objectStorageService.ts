@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { createWriteStream } from 'node:fs';
+import { open } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import {
@@ -100,31 +101,131 @@ export async function signObjectGet(bucket: ObjectBucket, key: string, filename?
   }), { expiresIn: 300 });
 }
 
-/** Stream to a unique caller-owned temp path with strict timeout protection. The caller removes the file. */
+/** Objects at least this big are fetched as parallel byte ranges instead of one stream. */
+const PARALLEL_DOWNLOAD_MIN_BYTES = 24 * 1024 * 1024;
+const DOWNLOAD_PART_BYTES = 8 * 1024 * 1024;
+const DOWNLOAD_CONCURRENCY = 8;
+/** Slowest throughput a healthy download is allowed before the timeout fires (1 MB/s). */
+const MIN_DOWNLOAD_BYTES_PER_MS = 1024 * 1024 / 1000;
+const MAX_DOWNLOAD_TIMEOUT_MS = 30 * 60 * 1000;
+
+class RangeNotHonoredError extends Error {}
+
+/** A fixed timeout either kills big downloads or never fires on small ones, so the budget scales with size. */
+export function downloadTimeoutForSize(sizeBytes: number, minimumMs: number): number {
+  const sizeBudget = 30000 + Math.ceil(sizeBytes / MIN_DOWNLOAD_BYTES_PER_MS);
+  return Math.max(minimumMs, Math.min(sizeBudget, MAX_DOWNLOAD_TIMEOUT_MS));
+}
+
+async function streamObjectToFile(bucket: ObjectBucket, key: string, path: string, signal: AbortSignal): Promise<void> {
+  const result = await storageClient().send(
+    new GetObjectCommand({ Bucket: bucketName(bucket), Key: key }),
+    { abortSignal: signal }
+  );
+  if (!result.Body) throw new Error('Empty object body');
+  await pipeline(result.Body as Readable, createWriteStream(path, { flags: 'w' }), { signal });
+}
+
+/**
+ * Same bytes as streamObjectToFile, fetched as DOWNLOAD_CONCURRENCY concurrent ranged GETs written at their
+ * offsets (what `aws s3 cp` does). One TCP stream from R2 tops out far below the link speed; eight don't.
+ */
+async function rangedObjectToFile(
+  bucket: ObjectBucket, key: string, path: string, size: number, etag: string | undefined, signal: AbortSignal
+): Promise<void> {
+  const handle = await open(path, 'w');
+  // The first failed part stops the rest, and every worker settles before the handle closes.
+  const parts = new AbortController();
+  const stopParts = () => parts.abort(signal.reason);
+  signal.addEventListener('abort', stopParts, { once: true });
+  let firstError: unknown = null;
+  try {
+    let nextOffset = 0;
+    const fetchPart = async (start: number, end: number): Promise<void> => {
+      for (let attempt = 1; ; attempt += 1) {
+        try {
+          const result = await storageClient().send(
+            new GetObjectCommand({ Bucket: bucketName(bucket), Key: key, Range: `bytes=${start}-${end}`, IfMatch: etag }),
+            { abortSignal: parts.signal }
+          );
+          if (!result.Body) throw new Error('Empty object body');
+          if (!result.ContentRange || Number(result.ContentLength) !== end - start + 1) {
+            throw new RangeNotHonoredError('Storage ignored the Range header');
+          }
+          let position = start;
+          for await (const chunk of result.Body as Readable) {
+            const buffer = chunk as Buffer;
+            await handle.write(buffer, 0, buffer.length, position);
+            position += buffer.length;
+          }
+          if (position !== end + 1) throw new Error(`Short ranged read at ${start}`);
+          return;
+        } catch (err) {
+          if (parts.signal.aborted || err instanceof RangeNotHonoredError || attempt >= 3) throw err;
+        }
+      }
+    };
+    const worker = async (): Promise<void> => {
+      while (nextOffset < size && !parts.signal.aborted) {
+        const start = nextOffset;
+        const end = Math.min(size, start + DOWNLOAD_PART_BYTES) - 1;
+        nextOffset = end + 1;
+        try {
+          await fetchPart(start, end);
+        } catch (err) {
+          firstError ??= err;
+          parts.abort(err);
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: DOWNLOAD_CONCURRENCY }, worker));
+    if (firstError) throw firstError;
+  } finally {
+    signal.removeEventListener('abort', stopParts);
+    await handle.close();
+  }
+}
+
+/** Download to a unique caller-owned temp path with timeout protection. The caller removes the file. */
 export async function downloadObjectToFile(
   bucket: ObjectBucket,
   key: string,
   path: string,
   options?: { timeoutMs?: number }
 ): Promise<void> {
-  const timeoutMs = options?.timeoutMs || 60000;
+  let timeoutMs = options?.timeoutMs || 60000;
   const controller = new AbortController();
-  const timer = setTimeout(() => {
-    controller.abort(new Error(`Download timed out after ${timeoutMs}ms`));
-  }, timeoutMs);
-  timer.unref();
+  const armTimer = (ms: number) => {
+    const timer = setTimeout(() => {
+      controller.abort(new Error(`Download timed out after ${ms}ms`));
+    }, ms);
+    timer.unref();
+    return timer;
+  };
+  let timer = armTimer(timeoutMs);
 
   try {
-    const result = await storageClient().send(
-      new GetObjectCommand({ Bucket: bucketName(bucket), Key: key }),
+    const head = await storageClient().send(
+      new HeadObjectCommand({ Bucket: bucketName(bucket), Key: key }),
       { abortSignal: controller.signal }
     );
-    if (!result.Body) throw new Error('Empty object body');
-    await pipeline(
-      result.Body as Readable,
-      createWriteStream(path, { flags: 'w' }),
-      { signal: controller.signal }
-    );
+    const size = Number(head.ContentLength || 0);
+    const sizedTimeout = downloadTimeoutForSize(size, timeoutMs);
+    if (sizedTimeout > timeoutMs) {
+      clearTimeout(timer);
+      timeoutMs = sizedTimeout;
+      timer = armTimer(timeoutMs);
+    }
+
+    if (size >= PARALLEL_DOWNLOAD_MIN_BYTES) {
+      try {
+        await rangedObjectToFile(bucket, key, path, size, head.ETag, controller.signal);
+        return;
+      } catch (err) {
+        if (!(err instanceof RangeNotHonoredError)) throw err;
+      }
+    }
+    await streamObjectToFile(bucket, key, path, controller.signal);
   } catch (err: any) {
     if (controller.signal.aborted || err?.name === 'AbortError') {
       throw new AppError(`Source object download timed out after ${timeoutMs / 1000}s.`, 504, 'DOWNLOAD_TIMEOUT');

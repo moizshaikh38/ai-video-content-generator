@@ -18,6 +18,7 @@ import {
   ExternalLink,
   Flame,
 } from 'lucide-react';
+import { projectPath } from '../lib/projectUrls';
 import { StatusBadge } from '../components/StatusBadge';
 import { projectService } from '../services/projectService';
 import { clipRenderService } from '../services/clipRenderService';
@@ -488,7 +489,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                         </button>
 
                         <Link
-                          to={`/projects/${clip.project_id}`}
+                          to={projectPath({ id: clip.project_id })}
                           title="Open Parent Project"
                           className="p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] text-zinc-400 hover:text-white transition-colors cursor-pointer"
                         >
@@ -615,7 +616,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                     return (
                       <tr key={p.id} className="hover:bg-white/[0.03] transition-colors">
                         <td className="max-w-[340px] px-5 py-3.5">
-                          <Link to={`/projects/${p.id}`} className="flex items-center gap-3.5 group">
+                          <Link to={projectPath(p)} className="flex items-center gap-3.5 group">
                             <div className="relative w-16 h-10 rounded-lg overflow-hidden bg-black shrink-0">
                               <ProjectThumbImage
                                 project={p}
@@ -643,7 +644,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                         <td className="px-4 py-3.5">
                           <div className="flex items-center justify-end gap-2">
                             <Link
-                              to={`/projects/${p.id}`}
+                              to={projectPath(p)}
                               aria-label={`Open ${p.title}`}
                               className="rounded-lg p-2 text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors"
                             >

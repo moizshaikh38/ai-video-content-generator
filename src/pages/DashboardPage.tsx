@@ -9,6 +9,7 @@ import { Project } from '../types';
 import { getProjectThumbnail } from '../lib/projectThumbnail';
 import { ProjectThumbImage } from '../components/ProjectThumbImage';
 import { Reveal } from "../lib/motion";
+import { projectPath } from "../lib/projectUrls";
 // Hover prefetch: warm the detail-page chunk before the click lands.
 const prefetchProjectDetail = () => { void import('../pages/ProjectDetailPage'); };
 
@@ -309,7 +310,7 @@ export const DashboardPage: React.FC = () => {
                 >
                   {/* Thumbnail / Header Area - Clickable to project */}
                   <Link
-                    to={`/projects/${p.id}`}
+                    to={projectPath(p)}
                     aria-label={`Open project ${p.title || 'Untitled'}`}
                     onMouseEnter={prefetchProjectDetail}
                     onFocus={prefetchProjectDetail}
@@ -395,7 +396,7 @@ export const DashboardPage: React.FC = () => {
                   <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between">
                     <div>
                       <Link
-                        to={`/projects/${p.id}`}
+                        to={projectPath(p)}
                         className="font-semibold text-sm text-vc-text-primary truncate group-hover:text-white block hover:underline"
                       >
                         {p.title || 'Untitled Project'}
@@ -432,7 +433,7 @@ export const DashboardPage: React.FC = () => {
 
                     {/* Action Button */}
                     <Link
-                      to={`/projects/${p.id}`}
+                      to={projectPath(p)}
                       className="mt-3.5 inline-flex items-center justify-center h-9 w-full rounded-full bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] text-xs font-semibold text-vc-text-primary transition-all cursor-pointer"
                     >
                       {isComp ? 'Open project' : isProc ? 'View status' : isFail ? 'View error & retry' : 'Continue'}

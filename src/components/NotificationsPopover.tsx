@@ -4,6 +4,7 @@ import { Bell, CheckCircle2, Loader2, AlertCircle, Clock3 } from 'lucide-react';
 import { projectService } from '../services/projectService';
 import { useAuth } from '../context/AuthContext';
 import { Project } from '../types';
+import { projectPath } from '../lib/projectUrls';
 
 const statusOf = (p: Project) => p.video_status || p.status;
 const READY = ['completed', 'complete', 'transcribed'];
@@ -114,7 +115,7 @@ export const NotificationsPopover: React.FC<{ buttonClassName: string }> = ({ bu
                 return (
                   <li key={p.id}>
                     <Link
-                      to={`/projects/${p.id}`}
+                      to={projectPath(p)}
                       onClick={() => setOpen(false)}
                       className="flex items-start gap-3 rounded-xl px-3 py-2.5 hover:bg-white/[0.06] transition-colors"
                     >

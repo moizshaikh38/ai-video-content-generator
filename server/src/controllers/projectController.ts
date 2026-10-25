@@ -14,6 +14,7 @@ import { ProjectPosterService } from '../services/projectPosterService.js';
 import { deleteProjectRecords } from '../db/repositories/deletionRepository.js';
 import { claimProjectProcessing } from '../db/repositories/projectRepository.js';
 import { UrlIngestionService } from '../services/urlIngestionService.js';
+import { registerPublicId } from '../middleware/publicIdMiddleware.js';
 import { GenreIntelligenceService } from '../services/genreIntelligenceService.js';
 import { ClipPreferences } from '../types/index.js';
 import { logger } from '../utils/logger.js';
@@ -279,8 +280,9 @@ export const createProject = async (req: AuthenticatedRequest, res: Response): P
     normalizedPreferences = GenreIntelligenceService.normalizePreferences(rawPreferences, notes);
   }
 
+  const internalProjectId = id || crypto.randomUUID();
   const projectRecord: any = {
-    id: id || crypto.randomUUID(),
+    id: internalProjectId,
     user_id: userId,
     title: title.trim(),
     source_type,
@@ -307,7 +309,14 @@ export const createProject = async (req: AuthenticatedRequest, res: Response): P
       return;
     }
 
-    res.status(201).json({ status: 'ok', project: data });
+    // Register the public ID for URL-safe external references
+    try {
+      const publicId = await registerPublicId(internalProjectId, 'projects', userId);
+      res.status(201).json({ status: 'ok', project: { ...data, public_id: publicId } });
+    } catch {
+      // Public ID registration is best-effort; the project is already created
+      res.status(201).json({ status: 'ok', project: data });
+    }
   } catch (err) {
     logger.error('Unexpected error creating project', {
       requestId: req.requestId,

@@ -17,6 +17,7 @@ import creator3 from '../../assets/creators/creator-3.jpg';
 import creator4 from '../../assets/creators/creator-4.jpg';
 import '../../styles/feature-carousel.css';
 import '../../styles/cinematic-motion.css';
+import { projectPath } from '../../lib/projectUrls';
 
 export interface AiClippingPreviewProps {
   className?: string;
@@ -834,7 +835,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
       } else {
         setIsIngesting(false);
         setLoadingStep(null);
-        navigate(`/projects/${project.id}`);
+        navigate(projectPath(project));
       }
     } catch (err: any) {
       setIsIngesting(false);

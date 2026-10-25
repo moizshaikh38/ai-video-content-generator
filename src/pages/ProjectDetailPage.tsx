@@ -245,7 +245,7 @@ export const ProjectDetailPage: React.FC = () => {
 
     const interval = setInterval(() => {
       refreshData();
-    }, 2500);
+    }, 1500);
 
     return () => clearInterval(interval);
   }, [id, project?.video_status, project?.status]);

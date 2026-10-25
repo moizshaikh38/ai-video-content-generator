@@ -124,7 +124,13 @@ export interface ExtractedAudioResult {
  */
 export async function extractAudioFromVideo(
   videoBuffer: Buffer | string,
-  originalFileName: string = 'video.mp4'
+  originalFileName: string = 'video.mp4',
+  options: {
+    /** Known source duration; lets the bitrate be chosen up front instead of encoding twice. */
+    durationHintSec?: number | null;
+    /** Largest MP3 the caller can send on. Defaults to the 25 MB single-request provider limit. */
+    maxAudioBytes?: number;
+  } = {}
 ): Promise<ExtractedAudioResult> {
   if (!videoBuffer || videoBuffer.length === 0) {
     throw new Error('Video buffer is empty.');
@@ -166,13 +172,15 @@ export async function extractAudioFromVideo(
     // Record how far the source's audio stream starts from its video stream. The extraction
     // below normalises the MP3 to start at the container's zero, so this is captured purely
     // as a diagnostic; see AvStartTimes for why it is not subtracted from caption timings.
-    const avStartTimes = await probeAvStartTimes(tempVideoPath);
-    if (avStartTimes.probed) {
+    // The probe only reads headers, so it runs alongside the encode instead of ahead of it.
+    const avStartTimesProbe = probeAvStartTimes(tempVideoPath);
+    avStartTimesProbe.then((avStartTimes) => {
+      if (!avStartTimes.probed) return;
       logger.info(
         `Source A/V start times: video=${avStartTimes.videoStartTimeSec}s audio=${avStartTimes.audioStartTimeSec}s ` +
           `container=${avStartTimes.containerStartTimeSec}s av_start_offset=${avStartTimes.avStartOffsetSec}s`
       );
-    }
+    });
 
     logger.info(`Extracting audio with FFmpeg: ${tempVideoPath} -> ${tempAudioPath}`);
 
@@ -221,8 +229,16 @@ export async function extractAudioFromVideo(
       });
     };
 
+    const maxAudioBytes = options.maxAudioBytes ?? 25 * 1024 * 1024;
+    const reencodeAboveBytes = maxAudioBytes - 1024 * 1024;
+    // 64 kbps mono is ~8 KB/s plus framing. When the duration is known and 64k can't fit, go
+    // straight to 32k: a long video used to be encoded once at 64k, measured, then encoded again.
+    const durationHintSec = Number(options.durationHintSec) || 0;
+    const firstBitrate = durationHintSec > 0 && durationHintSec * 8200 > reencodeAboveBytes ? 32 : 64;
+
     // Extract at 64 kbps mono (enables up to ~53 min speech under 25MB with crisp Whisper accuracy)
-    await extractWithBitrate(64);
+    await extractWithBitrate(firstBitrate);
+    const avStartTimes = await avStartTimesProbe;
 
     if (!fs.existsSync(tempAudioPath)) {
       throw new Error('Extracted audio file does not exist after FFmpeg completion.');
@@ -231,9 +247,9 @@ export async function extractAudioFromVideo(
     let audioSize = (await fs.promises.stat(tempAudioPath)).size;
 
     // If extracted MP3 exceeds 24MB, automatically re-encode at 32 kbps mono (enables up to 105 min podcasts under 25MB)
-    if (audioSize > 24 * 1024 * 1024) {
+    if (firstBitrate === 64 && audioSize > reencodeAboveBytes) {
       logger.warn(
-        `Extracted audio (${(audioSize / (1024 * 1024)).toFixed(2)} MB) exceeds 24 MB; re-encoding at 32 kbps mono for Whisper compliance.`
+        `Extracted audio (${(audioSize / (1024 * 1024)).toFixed(2)} MB) exceeds ${(reencodeAboveBytes / (1024 * 1024)).toFixed(0)} MB; re-encoding at 32 kbps mono for Whisper compliance.`
       );
       try {
         if (fs.existsSync(tempAudioPath)) {
@@ -245,8 +261,8 @@ export async function extractAudioFromVideo(
       audioSize = (await fs.promises.stat(tempAudioPath)).size;
     }
 
-    if (audioSize > 25 * 1024 * 1024) {
-      throw new Error('Extracted audio exceeds the transcription provider limit of 25 MB. Please provide a shorter video.');
+    if (audioSize > maxAudioBytes) {
+      throw new Error(`Extracted audio exceeds the transcription provider limit of ${(maxAudioBytes / (1024 * 1024)).toFixed(0)} MB. Please provide a shorter video.`);
     }
     const audioBuffer = await fs.promises.readFile(tempAudioPath);
     if (audioBuffer.length === 0) {

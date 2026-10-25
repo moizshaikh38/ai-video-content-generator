@@ -226,6 +226,19 @@ export class ClipRenderService {
   }
 
   /**
+   * Puts a read-only working copy of a source video at targetLocalPath. A hard link is instant
+   * where a full copy of a multi-GB source takes seconds; callers only read and then unlink the
+   * target, which never touches the cached file. Falls back to a copy across filesystems.
+   */
+  private static placeSourceFile(sourcePath: string, targetLocalPath: string): void {
+    try {
+      fs.linkSync(sourcePath, targetLocalPath);
+    } catch {
+      fs.copyFileSync(sourcePath, targetLocalPath);
+    }
+  }
+
+  /**
    * Resolves, caches, or downloads the source video to targetLocalPath.
    * 1. Checks if sourceStoragePath points to a valid local file on disk (absolute or repo-relative).
    * 2. Checks if the source is already cached in a shared project/source disk cache in os.tmpdir().
@@ -252,7 +265,7 @@ export class ClipRenderService {
       try {
         if (fs.existsSync(p) && fs.statSync(p).isFile() && fs.statSync(p).size > 0) {
           logger.info(`[ClipRender] Using local source video fallback: ${p}`);
-          fs.copyFileSync(p, targetLocalPath);
+          ClipRenderService.placeSourceFile(p, targetLocalPath);
           return 'local_fallback';
         }
       } catch {}
@@ -272,7 +285,7 @@ export class ClipRenderService {
     try {
       if (fs.existsSync(cachedFile) && fs.statSync(cachedFile).size > 0) {
         logger.info(`[ClipRender] Reused cached source video: ${cachedFile}`);
-        fs.copyFileSync(cachedFile, targetLocalPath);
+        ClipRenderService.placeSourceFile(cachedFile, targetLocalPath);
         return 'cache_hit';
       }
     } catch {}
@@ -296,7 +309,7 @@ export class ClipRenderService {
         try { fs.unlinkSync(stagingFile); } catch {}
       }
 
-      fs.copyFileSync(cachedFile, targetLocalPath);
+      ClipRenderService.placeSourceFile(cachedFile, targetLocalPath);
       logger.info(`[ClipRender] Downloaded and cached source video to ${cachedFile}`);
       return 'downloaded';
     } catch (err: any) {

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/authMiddleware.js';
+import { resolvePublicId } from '../middleware/publicIdMiddleware.js';
 import { expensiveLimiter } from '../middleware/rateLimiter.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import {
@@ -91,14 +92,14 @@ router.get('/projects', requireAuth, asyncHandler(listProjects));
 router.post('/projects', requireAuth, asyncHandler(createProject));
 router.post('/projects/ingest-url', requireAuth, expensiveLimiter, asyncHandler(ingestProjectUrl));
 router.post('/projects/probe-url', requireAuth, expensiveLimiter, asyncHandler(probeProjectUrl));
-router.post('/projects/:id/upload-url', requireAuth, asyncHandler(createProjectUploadUrl));
-router.post('/projects/:id/confirm-upload', requireAuth, asyncHandler(confirmProjectUpload));
+router.post('/projects/:id/upload-url', requireAuth, resolvePublicId('id', 'projects'), asyncHandler(createProjectUploadUrl));
+router.post('/projects/:id/confirm-upload', requireAuth, resolvePublicId('id', 'projects'), asyncHandler(confirmProjectUpload));
 router.get('/projects/:id/source-preview-url', requireAuth, asyncHandler(getProjectSourcePreviewUrl));
 router.get('/projects/:id/poster', requireAuth, asyncHandler(getProjectPoster));
-router.get('/projects/:id', requireAuth, asyncHandler(getProject));
-router.patch('/projects/:id', requireAuth, asyncHandler(updateProject));
-router.delete('/projects/:id', requireAuth, asyncHandler(deleteProject));
-router.post('/projects/:id/process', requireAuth, expensiveLimiter, asyncHandler(processProject));
+router.get('/projects/:id', requireAuth, resolvePublicId('id', 'projects'), asyncHandler(getProject));
+router.patch('/projects/:id', requireAuth, resolvePublicId('id', 'projects'), asyncHandler(updateProject));
+router.delete('/projects/:id', requireAuth, resolvePublicId('id', 'projects'), asyncHandler(deleteProject));
+router.post('/projects/:id/process', requireAuth, resolvePublicId('id', 'projects'), expensiveLimiter, asyncHandler(processProject));
 router.get('/projects/:id/transcript', requireAuth, asyncHandler(getProjectTranscript));
 
 // Phase 10: AI Auto Clip Finder Routes
@@ -115,9 +116,9 @@ router.get('/projects/:id/multimodal-job', requireAuth, asyncHandler(getMultimod
 // Phase 11: Clip Rendering Engine Routes
 router.post('/projects/:id/clips', requireAuth, expensiveLimiter, asyncHandler(createProjectClip));
 router.get('/projects/:id/clips', requireAuth, asyncHandler(getProjectClips));
-router.get('/clips/:clipId', requireAuth, asyncHandler(getClip));
-router.post('/clips/:clipId/render', requireAuth, expensiveLimiter, asyncHandler(renderClip));
-router.delete('/clips/:clipId', requireAuth, asyncHandler(deleteClip));
+router.get('/clips/:clipId', requireAuth, resolvePublicId('clipId', 'clips'), asyncHandler(getClip));
+router.post('/clips/:clipId/render', requireAuth, resolvePublicId('clipId', 'clips'), expensiveLimiter, asyncHandler(renderClip));
+router.delete('/clips/:clipId', requireAuth, resolvePublicId('clipId', 'clips'), asyncHandler(deleteClip));
 router.get('/clips/:clipId/preview-url', requireAuth, asyncHandler(getClipPreviewUrl));
 router.get('/clips/:clipId/download-url', requireAuth, asyncHandler(getClipDownloadUrl));
 

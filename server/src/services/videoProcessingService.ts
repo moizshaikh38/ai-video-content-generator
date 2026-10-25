@@ -8,6 +8,7 @@ import { downloadObjectToFile } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
 import { extractAudioFromVideo } from './audioExtractionService.js';
 import { getTranscriptionProviderWithFailover } from './transcription/failoverTranscriptionProvider.js';
+import { transcribeAudioFast } from './transcription/chunkedTranscription.js';
 import { TranscriptRecord } from '../types/index.js';
 import { UsageService } from './usageService.js';
 import { ClipRenderService } from './clipRenderService.js';
@@ -96,7 +97,12 @@ export async function processProjectVideo(
     }
 
     // 3. Extract audio via FFmpeg without buffering the video in Node memory.
-    const extractedAudio = await extractAudioFromVideo(videoPath, originalFileName);
+    // The known duration picks the bitrate up front (one encode), and because long audio is
+    // transcribed in parallel windows the full file is not held to the 25 MB single-request cap.
+    const extractedAudio = await extractAudioFromVideo(videoPath, originalFileName, {
+      durationHintSec: posterRow?.duration_seconds,
+      maxAudioBytes: 200 * 1024 * 1024,
+    });
     cleanupAudio = extractedAudio.cleanup;
 
     // 4. Update status to 'transcribing'
@@ -110,10 +116,11 @@ export async function processProjectVideo(
     // alternate provider on transient runtime failures (rate limit, 5xx, timeout).
     const provider = getTranscriptionProviderWithFailover();
     logger.info(`Using transcription provider: ${provider.name}`, { projectId, provider: provider.name });
-    const transcription = await provider.transcribeAudio(
-      extractedAudio.audioBuffer,
-      `${projectId}.mp3`,
-      'audio/mp3'
+    const transcription = await transcribeAudioFast(
+      provider,
+      extractedAudio,
+      posterRow?.duration_seconds,
+      `${projectId}.mp3`
     );
 
     // Compute effective duration from audio probe or last transcript segment timestamp
