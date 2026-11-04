@@ -63,7 +63,7 @@ export const LoginPage: React.FC = () => {
     setBusy(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/settings`,
+        redirectTo: `${window.location.origin}/reset-password`,
       });
       if (error) throw error;
       setInfoMessage('Password reset instructions sent. Please check your inbox.');

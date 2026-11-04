@@ -103,15 +103,6 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
     try {
       let data = await projectService.fetchProjects(user.id);
 
-      // Auto-clean any failed projects so they don't clutter the history
-      const failed = data.filter((p) => ['failed', 'error'].includes(statusOf(p)));
-      if (failed.length > 0) {
-        failed.forEach((fp) => {
-          projectService.deleteProject(fp.id).catch((err) => console.warn('Auto cleanup failed project:', fp.id, err));
-        });
-        data = data.filter((p) => !['failed', 'error'].includes(statusOf(p)));
-      }
-
       setProjects(data);
       hasLoadedSuccessfully.current = true;
 

@@ -93,24 +93,13 @@ export const DashboardPage: React.FC = () => {
       setError('');
       let data = await projectService.fetchProjects(user.id);
 
-      // Auto-cleanup failed projects so they don't clutter recent projects
-      const failed = data.filter((p) => failedStatuses.includes(getStatus(p)));
-      if (failed.length > 0) {
-        failed.forEach((fp) => {
-          projectService.deleteProject(fp.id).catch((err) => {
-            console.warn('Auto-deleted failed project:', fp.id, err);
-          });
-        });
-        data = data.filter((p) => !failedStatuses.includes(getStatus(p)));
-      }
-
       setProjects(data);
     } catch (err: any) {
       const msg = err?.message || '';
       if (!msg.toLowerCase().includes('token') && !msg.toLowerCase().includes('jwt')) {
         setError(msg || 'Unable to load projects.');
       } else {
-        const cached = projectService.getProjects().filter((p) => !failedStatuses.includes(getStatus(p)));
+        const cached = projectService.getProjects();
         setProjects(cached);
       }
     } finally {
