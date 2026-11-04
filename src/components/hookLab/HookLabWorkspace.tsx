@@ -214,7 +214,7 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-neutral-400 space-y-3">
-        <RotateCw className="w-6 h-6 animate-spin text-purple-400" />
+        <RotateCw className="w-6 h-6 animate-spin text-violet-400" />
         <p className="text-sm">Analyzing opening moments and transcript signals...</p>
       </div>
     );
@@ -225,13 +225,13 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
       {/* Top Header */}
       <div className="px-6 py-4 border-b border-neutral-800/80 bg-neutral-900/40 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+          <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
             <Zap className="w-4 h-4" />
           </div>
           <div>
             <h2 className="text-base font-semibold tracking-tight text-white flex items-center gap-2">
               Hook Lab
-              <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 ">
                 Opening Intelligence
               </span>
             </h2>
@@ -250,7 +250,7 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
         {/* Analytics Advisory Signal */}
         <div className="flex items-center space-x-3">
           {analyticsAdvisory && (
-            <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs border border-neutral-800 bg-neutral-900/80 text-neutral-400">
+            <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs bg-neutral-900/80 text-neutral-400">
               <TrendingUp className="w-3.5 h-3.5 text-neutral-400" />
               <span>
                 {analyticsAdvisory.status === 'INSUFFICIENT_DATA'
@@ -273,7 +273,7 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
 
       {/* Notifications */}
       {error && (
-        <div className="mx-6 mt-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center justify-between">
+        <div className="mx-6 mt-4 p-3 rounded-lg bg-rose-500/10 text-rose-400 text-xs flex items-center justify-between">
           <span className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             {error}
@@ -282,7 +282,7 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
         </div>
       )}
       {actionSuccess && (
-        <div className="mx-6 mt-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
+        <div className="mx-6 mt-4 p-3 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs flex items-center gap-2">
           <Check className="w-4 h-4 flex-shrink-0" />
           {actionSuccess}
         </div>
@@ -292,10 +292,10 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {/* 1. Opening Analysis Diagnostic Panel */}
         {session && (
-          <div className="p-4 rounded-xl border border-neutral-800 bg-neutral-900/40 space-y-4">
+          <div className="p-4 rounded-xl bg-neutral-900/40 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400 flex items-center gap-2">
-                <Scissors className="w-3.5 h-3.5 text-purple-400" />
+                <Scissors className="w-3.5 h-3.5 text-violet-400" />
                 Current Opening Diagnostics (0–{session.opening_window.end_seconds}s)
               </span>
               <div className="flex items-center space-x-2">
@@ -307,7 +307,7 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
             </div>
 
             {/* Current Hook Text */}
-            <div className="p-3 rounded-lg bg-neutral-950/60 border border-neutral-800/80">
+            <div className="p-3 rounded-lg bg-neutral-950/60 ">
               <p className="text-xs text-neutral-400 mb-1 font-mono">
                 Source: {session.analysis.current_hook_source}
               </p>
@@ -331,13 +331,13 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
               </span>
 
               {session.analysis.issues.map((iss, i) => (
-                <span key={i} className="text-xs px-2 py-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-300">
+                <span key={i} className="text-xs px-2 py-1 rounded-md bg-rose-500/10 text-rose-300">
                   ⚠️ {iss.replace(/_/g, ' ')}
                 </span>
               ))}
 
               {session.analysis.strengths.map((str, i) => (
-                <span key={i} className="text-xs px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
+                <span key={i} className="text-xs px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-300">
                   ✓ {str.replace(/_/g, ' ')}
                 </span>
               ))}
@@ -347,23 +347,23 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
 
         {/* 2. Source-First Reordering / Strongest Existing Lines */}
         {existingLines.length > 0 && (
-          <div className="p-4 rounded-xl border border-indigo-500/20 bg-indigo-950/10 space-y-3">
+          <div className="p-4 rounded-xl bg-white/[0.03] space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                 <Sparkles className="w-3.5 h-3.5" />
                 Stronger Existing Lines Discovered Later in Video
               </span>
-              <span className="text-xs text-indigo-300/70">Source-First Non-Destructive Move</span>
+              <span className="text-xs text-zinc-200/70">Source-First Non-Destructive Move</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {existingLines.map((line, idx) => (
-                <div key={idx} className="p-3 rounded-lg border border-indigo-500/20 bg-neutral-900/60 space-y-2">
+                <div key={idx} className="p-3 rounded-lg bg-neutral-900/60 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono text-indigo-300">
+                    <span className="text-xs font-mono text-zinc-200">
                       {line.start_seconds}s – {line.end_seconds}s
                     </span>
-                    <span className="text-xs px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold">
+                    <span className="text-xs px-2 py-0.5 rounded bg-white/[0.08] text-zinc-200 font-bold">
                       Impact: {line.punchiness_score}/100
                     </span>
                   </div>
@@ -404,12 +404,12 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
               value={userInstruction}
               onChange={(e) => setUserInstruction(e.target.value)}
               placeholder="e.g. Punchier, emphasize the mistake, keep under 8 words..."
-              className="flex-1 px-4 py-2 text-xs rounded-lg bg-neutral-900 border border-neutral-800 focus:border-purple-500 focus:outline-none text-white placeholder-neutral-500"
+              className="flex-1 px-4 py-2 text-xs rounded-lg bg-neutral-900 border border-neutral-800 focus:border-violet-500 focus:outline-none text-white placeholder-neutral-500"
             />
             <button
               onClick={() => handleGenerate()}
               disabled={isGenerating}
-              className="px-4 py-2 text-xs font-semibold rounded-lg bg-purple-600 hover:bg-purple-500 text-white flex items-center gap-1.5 disabled:opacity-50 transition-colors shadow-lg shadow-purple-600/20"
+              className="px-4 py-2 text-xs font-semibold rounded-full bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-white flex items-center gap-1.5 disabled:opacity-50 transition-colors shadow-lg shadow-violet-600/20"
             >
               {isGenerating ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
               Generate Hooks
@@ -419,10 +419,10 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
 
         {/* 4. Prominent Recommended Hook Candidate */}
         {recommendedCandidate && (
-          <div className="p-5 rounded-xl border border-purple-500/30 bg-gradient-to-br from-purple-950/20 via-neutral-900/60 to-neutral-950 space-y-4 shadow-xl">
+          <div className="p-5 rounded-xl bg-violet-500/[0.05] space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 font-bold tracking-wide">
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-violet-500/20 text-violet-300 font-bold tracking-wide">
                   RECOMMENDED HOOK
                 </span>
                 <span className="text-xs px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 font-mono">
@@ -441,7 +441,7 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
                   onClick={() =>
                     setExpandedScoreId(expandedScoreId === recommendedCandidate.id ? null : recommendedCandidate.id)
                   }
-                  className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300"
+                  className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300"
                 >
                   Score Breakdown
                   {expandedScoreId === recommendedCandidate.id ? (
@@ -450,7 +450,7 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
                     <ChevronDown className="w-3.5 h-3.5" />
                   )}
                 </button>
-                <div className="w-10 h-10 rounded-full bg-purple-600/20 border border-purple-500/40 flex items-center justify-center font-bold text-sm text-purple-300">
+                <div className="w-10 h-10 rounded-full bg-violet-600/20 border border-violet-500/40 flex items-center justify-center font-bold text-sm text-violet-300">
                   {recommendedCandidate.overall_hook_fit}
                 </div>
               </div>
@@ -462,7 +462,7 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
                 <textarea
                   value={editedText}
                   onChange={(e) => setEditedText(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-neutral-900 border border-purple-500/40 text-sm text-white focus:outline-none"
+                  className="w-full p-3 rounded-lg bg-neutral-900 border border-violet-500/40 text-sm text-white focus:outline-none"
                   rows={2}
                 />
                 <div className="flex justify-end gap-2">
@@ -474,7 +474,7 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
                   </button>
                   <button
                     onClick={() => handleSaveEdit(recommendedCandidate.id)}
-                    className="text-xs px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-500 text-white font-medium"
+                    className="text-xs px-3 py-1.5 rounded-full bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-white font-medium"
                   >
                     Save & Re-Score
                   </button>
@@ -491,7 +491,7 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
 
             {/* Score Breakdown Drawer */}
             {expandedScoreId === recommendedCandidate.id && (
-              <div className="p-3 rounded-lg bg-neutral-950/80 border border-neutral-800/80 space-y-2 text-xs">
+              <div className="p-3 rounded-lg bg-neutral-950/80 space-y-2 text-xs">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-neutral-400">
                   <div>Grounding: <span className="font-bold text-white">{recommendedCandidate.scores.grounding}%</span></div>
                   <div>Clarity: <span className="font-bold text-white">{recommendedCandidate.scores.clarity}%</span></div>
@@ -568,7 +568,7 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
                   ) : (
                     <button
                       onClick={() => handleApplyToEditor(recommendedCandidate)}
-                      className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs flex items-center gap-1.5 transition-colors shadow-lg shadow-purple-600/20"
+                      className="px-4 py-1.5 rounded-full bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-white font-medium text-xs flex items-center gap-1.5 transition-colors shadow-lg shadow-violet-600/20"
                     >
                       <ArrowRight className="w-3.5 h-3.5" />
                       Apply to Editor
@@ -603,7 +603,7 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
               {alternateCandidates.map((cand) => (
                 <div
                   key={cand.id}
-                  className="p-4 rounded-xl border border-neutral-800 bg-neutral-900/40 hover:border-neutral-700 transition-all space-y-3"
+                  className="p-4 rounded-xl bg-neutral-900/40 transition-all space-y-3"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 font-mono">
@@ -660,8 +660,8 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
 
       {/* Preview Modal */}
       {previewData && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl max-w-md w-full p-5 space-y-4">
+        <div className="fixed inset-0 z-50 glass-scrim flex items-center justify-center p-4">
+          <div className="glass-float rounded-3xl max-w-md w-full p-5 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-white">Opening Hook Preview</h3>
               <button

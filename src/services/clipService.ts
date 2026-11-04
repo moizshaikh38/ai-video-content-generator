@@ -1,5 +1,5 @@
 import { backendRequest } from './backendClient';
-import { ClipCandidate, ClipCandidateStatus } from '../types';
+import { ClipCandidate, ClipCandidateStatus, ClipPreferences } from '../types';
 
 export interface AnalyzeClipsResponse {
   status: 'ok';
@@ -22,12 +22,16 @@ export interface UpdateClipCandidateResponse {
 
 class ClipService {
   /**
-   * Triggers AI clip analysis for a transcribed project
+   * Triggers AI clip analysis for a transcribed project with genre & clip preferences
    */
-  async analyzeClips(projectId: string, customNotes?: string): Promise<AnalyzeClipsResponse> {
+  async analyzeClips(
+    projectId: string,
+    customNotes?: string,
+    clipPreferences?: Partial<ClipPreferences>
+  ): Promise<AnalyzeClipsResponse> {
     return backendRequest<AnalyzeClipsResponse>(`/projects/${projectId}/analyze-clips`, {
       method: 'POST',
-      body: JSON.stringify({ customNotes }),
+      body: JSON.stringify({ customNotes, clip_preferences: clipPreferences }),
     });
   }
 

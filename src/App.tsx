@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { PublicOnlyRoute } from './components/PublicOnlyRoute';
 import { RootLayout } from './layouts/RootLayout';
 import { DashboardLayout } from './layouts/DashboardLayout';
@@ -13,6 +14,7 @@ const NewProjectPage = React.lazy(() => import('./pages/NewProjectPage').then(m 
 const ProjectDetailPage = React.lazy(() => import('./pages/ProjectDetailPage').then(m => ({ default: m.ProjectDetailPage })));
 const HistoryPage = React.lazy(() => import('./pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const HelpPage = React.lazy(() => import('./pages/HelpPage').then(m => ({ default: m.HelpPage })));
 const BrandPage = React.lazy(() => import('./pages/BrandPage').then(m => ({ default: m.BrandPage })));
 const PublishingHistoryPage = React.lazy(() => import('./pages/PublishingHistoryPage').then(m => ({ default: m.PublishingHistoryPage })));
 const AnalyticsPage = React.lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })));
@@ -22,10 +24,8 @@ const AdminPage = React.lazy(() => import('./pages/AdminPage').then(m => ({ defa
 const ABStudioHistoryPage = React.lazy(() => import('./pages/ABStudioHistoryPage').then(m => ({ default: m.ABStudioHistoryPage })));
 const WorkflowPage = React.lazy(() => import('./pages/WorkflowPage').then(m => ({ default: m.WorkflowPage })));
 const WorkspacePage = React.lazy(() => import('./pages/WorkspacePage').then(m => ({ default: m.WorkspacePage })));
-import { CurrencyProvider } from './context/CurrencyContext';
 const TermsPage = React.lazy(() => import('./pages/TermsPage').then(m => ({ default: m.TermsPage })));
 const PrivacyPage = React.lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
-const ComparisonsPage = React.lazy(() => import('./pages/ComparisonsPage').then(m => ({ default: m.ComparisonsPage })));
 const SupportPage = React.lazy(() => import('./pages/SupportPage').then(m => ({ default: m.SupportPage })));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 import { CookieNotice } from './components/CookieNotice';
@@ -33,20 +33,18 @@ import { CookieNotice } from './components/CookieNotice';
 export const App: React.FC = () => {
   return (
     <AuthProvider>
-      <CurrencyProvider>
-        <BrowserRouter>
-          <CookieNotice />
-          <React.Suspense fallback={<div className="mx-auto mt-20 h-40 w-full max-w-6xl animate-pulse rounded-2xl bg-white" aria-label="Loading page" />}><Routes>
-            {/* Public marketing layout with top navbar & footer */}
-            <Route element={<RootLayout />}>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/comparisons" element={<ComparisonsPage />} />
-              <Route path="/support" element={<SupportPage />} />
-              <Route path="/contact" element={<Navigate to="/support" replace />} />
-              <Route path="/terms" element={<TermsPage />} />
-              <Route path="/privacy" element={<PrivacyPage />} />
-              <Route path="*" element={<NotFoundPage />} />
-            </Route>
+      <AppErrorBoundary>
+      <BrowserRouter>
+        <CookieNotice />
+        <React.Suspense fallback={<div className="mx-auto mt-20 h-40 w-full max-w-6xl animate-pulse rounded-2xl bg-white" aria-label="Loading page" />}><Routes>
+          {/* Public marketing layout with top navbar & footer */}
+          <Route element={<RootLayout />}>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/support" element={<SupportPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
 
           {/* Auth routes: only accessible when not logged in */}
           <Route element={<PublicOnlyRoute />}>
@@ -64,12 +62,14 @@ export const App: React.FC = () => {
               <Route path="/new" element={<Navigate to="/projects/new" replace />} />
               <Route path="/projects/:id" element={<ProjectDetailPage />} />
               <Route path="/history" element={<HistoryPage />} />
+              <Route path="/media-library" element={<HistoryPage initialTab="clips" />} />
               <Route path="/brand" element={<BrandPage />} />
               <Route path="/publishing" element={<PublishingHistoryPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/ab-testing" element={<ABStudioHistoryPage />} />
               <Route path="/billing" element={<BillingPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/help" element={<HelpPage />} />
               <Route path="/admin" element={<AdminPage />} />
             </Route>
 
@@ -77,8 +77,8 @@ export const App: React.FC = () => {
             <Route path="/clips/:clipId/edit" element={<ClipEditorPage />} />
           </Route>
         </Routes></React.Suspense>
-        </BrowserRouter>
-      </CurrencyProvider>
+      </BrowserRouter>
+      </AppErrorBoundary>
     </AuthProvider>
   );
 };

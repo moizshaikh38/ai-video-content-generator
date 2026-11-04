@@ -1,0 +1,49 @@
+{
+  "$schema": "https://vireoclip.ai/schemas/vrecipe-v1.json",
+  "id": "aliabdaal-clean",
+  "name": "Ali Abdaal Clean",
+  "description": "Minimalist, aesthetic typography with sleek dark pill backdrop and smooth blue karaoke progress.",
+  "version": "1.0.0",
+  "author": "VireoClip",
+  "typography": {
+    "fontFamily": "Inter",
+    "fontSize": 64,
+    "fontWeight": "medium",
+    "letterSpacing": 0,
+    "textCase": "none"
+  },
+  "positioning": {
+    "alignment": 2,
+    "verticalMargin": 240,
+    "horizontalMargin": 80,
+    "maxWordsPerLine": 5,
+    "maxCharsPerLine": 32,
+    "lineBreakMethod": "balanced"
+  },
+  "colors": {
+    "primary": "#FFFFFF",
+    "secondary": "#94A3B8",
+    "activeWordHighlight": "#60A5FA",
+    "outline": "#000000",
+    "outlineWidth": 2,
+    "shadow": "#00000044",
+    "shadowOffset": 1,
+    "backgroundPill": {
+      "enabled": true,
+      "color": "#0F172AEE",
+      "paddingX": 16,
+      "paddingY": 8,
+      "borderRadius": 8
+    }
+  },
+  "animation": {
+    "preset": "karaoke",
+    "durationMs": 200,
+    "activeWordScale": 1.05,
+    "karaokeEffect": "sweep"
+  },
+  "decorations": {
+    "emojisEnabled": false,
+    "autoHighlightKeywords": false
+  }
+}

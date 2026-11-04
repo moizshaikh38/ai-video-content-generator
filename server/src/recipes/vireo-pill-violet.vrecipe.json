@@ -1,0 +1,49 @@
+{
+  "$schema": "https://vireoclip.ai/schemas/vrecipe-v1.json",
+  "id": "vireo-pill-violet",
+  "name": "Vireo Pill Violet",
+  "description": "Rounded pill badge backdrop with vivid violet and crisp white text.",
+  "version": "1.0.0",
+  "author": "VireoClip Native",
+  "typography": {
+    "fontFamily": "Arial Black",
+    "fontSize": 83,
+    "fontWeight": "bold",
+    "letterSpacing": 0,
+    "textCase": "uppercase"
+  },
+  "positioning": {
+    "alignment": 2,
+    "verticalMargin": 260,
+    "horizontalMargin": 60,
+    "maxWordsPerLine": 4,
+    "maxCharsPerLine": 14,
+    "lineBreakMethod": "balanced"
+  },
+  "colors": {
+    "primary": "#FFFFFF",
+    "secondary": "#CCCCCC",
+    "activeWordHighlight": "#7C3AED",
+    "outline": "#000000",
+    "outlineWidth": 4,
+    "shadow": "#00000099",
+    "shadowOffset": 2,
+    "backgroundPill": {
+      "enabled": true,
+      "color": "#7C3AED",
+      "paddingX": 18,
+      "paddingY": 8,
+      "borderRadius": 8
+    }
+  },
+  "animation": {
+    "preset": "karaoke",
+    "durationMs": 140,
+    "activeWordScale": 1.15,
+    "karaokeEffect": "jump"
+  },
+  "decorations": {
+    "emojisEnabled": true,
+    "autoHighlightKeywords": true
+  }
+}

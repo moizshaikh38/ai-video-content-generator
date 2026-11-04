@@ -3,7 +3,6 @@ import { BillingProviderName } from '../../types/index.js';
 import { BillingProvider } from './types.js';
 import { PaddleBillingProvider } from './providers/paddleBillingProvider.js';
 import { RazorpayBillingProvider } from './providers/razorpayBillingProvider.js';
-import { StripeBillingProvider } from './providers/stripeBillingProvider.js';
 
 export class BillingRegistry {
   private static providers: Map<BillingProviderName, BillingProvider> = new Map();
@@ -13,11 +12,9 @@ export class BillingRegistry {
 
     const paddle = new PaddleBillingProvider();
     const razorpay = new RazorpayBillingProvider();
-    const stripe = new StripeBillingProvider();
 
     this.providers.set('paddle', paddle);
     this.providers.set('razorpay', razorpay);
-    this.providers.set('stripe', stripe);
   }
 
   static getProvider(name?: BillingProviderName): BillingProvider {
@@ -41,18 +38,13 @@ export class BillingRegistry {
     return [
       {
         name: 'paddle',
-        displayName: 'Paddle Billing (Global / Cards & PayPal)',
+        displayName: 'Paddle (outside India)',
         isConfigured: this.getProvider('paddle').isConfigured(),
       },
       {
         name: 'razorpay',
-        displayName: 'Razorpay Subscriptions (UPI & Netbanking)',
+        displayName: 'Razorpay (India)',
         isConfigured: this.getProvider('razorpay').isConfigured(),
-      },
-      {
-        name: 'stripe',
-        displayName: 'Stripe',
-        isConfigured: this.getProvider('stripe').isConfigured(),
       },
     ];
   }

@@ -38,6 +38,32 @@ export const requireAuth = async (
     return;
   }
 
+interface CachedAuthUser {
+  user: any;
+  expiresAt: number;
+}
+const tokenUserCache = new Map<string, CachedAuthUser>();
+
+function getCachedUser(token: string): any | null {
+  const cached = tokenUserCache.get(token);
+  if (!cached) return null;
+  if (Date.now() > cached.expiresAt) {
+    tokenUserCache.delete(token);
+    return null;
+  }
+  return cached.user;
+}
+
+function setCachedUser(token: string, user: any, ttlMs = 45_000): void {
+  if (tokenUserCache.size > 2000) {
+    const now = Date.now();
+    for (const [k, v] of tokenUserCache.entries()) {
+      if (now > v.expiresAt) tokenUserCache.delete(k);
+    }
+  }
+  tokenUserCache.set(token, { user, expiresAt: Date.now() + ttlMs });
+}
+
   const token = authHeader.split(' ')[1]?.trim();
 
   if (!token) {
@@ -46,6 +72,13 @@ export const requireAuth = async (
       code: 'AUTH_EMPTY',
       message: 'Authentication token is empty.',
     });
+    return;
+  }
+
+  const cachedUser = getCachedUser(token);
+  if (cachedUser) {
+    req.user = cachedUser;
+    ownerContext.run(cachedUser.id, next);
     return;
   }
 
@@ -65,6 +98,7 @@ export const requireAuth = async (
       return;
     }
 
+    setCachedUser(token, user);
     req.user = user;
     ownerContext.run(user.id, next);
   } catch (err) {

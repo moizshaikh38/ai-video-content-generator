@@ -25,10 +25,20 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
         throw new AppError('Candidate timestamps are invalid.', 400, 'INVALID_TIMESTAMPS');
       }
       const now = new Date();
+      const candidateMeta = (candidate as any)?.metadata || {};
+      const layoutMode = candidateMeta.layout_mode || 'track';
+      const captionPos = candidateMeta.caption_position || (layoutMode === 'split' ? 'center' : 'bottom');
+      const coldOpen = (candidate as any)?.cold_open || candidateMeta.cold_open || null;
       const clip = {
         id: crypto.randomUUID(), project_id: projectId, candidate_id: candidateId, user_id: userId,
         start_seconds: start, end_seconds: end, duration_seconds: end - start,
         aspect_ratio: aspectRatio, crop_mode: cropMode, render_status: 'queued',
+        crop_config: {
+          mode: cropMode,
+          layout_mode: layoutMode,
+        },
+        caption_position: captionPos,
+        cold_open: coldOpen,
         source_storage_path: project.source_url, source_object_key: project.source_url,
         output_object_key: null, render_version: 1, editor_version: 1,
         created_at: now, updated_at: now,

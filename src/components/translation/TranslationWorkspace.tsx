@@ -57,7 +57,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
   const [languages, setLanguages] = useState<LanguageDefinition[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('hi');
   const [translationStyle, setTranslationStyle] = useState<TranslationStyle>('creator');
-  const [lockedTermsInput, setLockedTermsInput] = useState<string>('Vireo, YouTube, AI');
+  const [lockedTermsInput, setLockedTermsInput] = useState<string>('VireoClip, YouTube, AI');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -121,7 +121,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                 id: 'seg-1',
                 start: 0.0,
                 end: 3.5,
-                text: sourceTranscriptText || 'Welcome to Vireo Video AI. Create studio-quality videos effortlessly.',
+                text: sourceTranscriptText || 'Welcome to VireoClip AI. Create studio-quality videos effortlessly.',
                 speaker_id: 'speaker-0',
               },
             ];
@@ -276,17 +276,17 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
   const currentSegments = activeTranslationProject?.segments || [];
 
   return (
-    <div className="flex flex-col h-full bg-neutral-950 text-neutral-200 text-xs overflow-hidden">
+    <div className="flex flex-col h-full bg-vc-surface1 text-neutral-200 text-xs overflow-hidden select-none animate-panelSlideIn">
       {/* Workspace Header */}
       <div className="p-3 border-b border-neutral-800 bg-neutral-900/60 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20">
+          <div className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400 ">
             <Globe className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-white text-sm">Vireo Translate & Dubbing</span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-neutral-800 text-orange-400 border border-neutral-700">
+              <span className="font-semibold text-white text-sm">VireoClip Translate & Dubbing</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-neutral-800 text-violet-300 ">
                 Phase 21
               </span>
             </div>
@@ -297,7 +297,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
         </div>
 
         {/* Immutability & Trust Badge */}
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-neutral-800/80 border border-neutral-700/60 text-[10px] text-neutral-300">
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-neutral-800/80 text-[10px] text-neutral-300">
           <Lock className="w-3 h-3 text-emerald-400" />
           <span>Source Media & Audio 100% Immutable</span>
         </div>
@@ -314,7 +314,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
               : 'text-neutral-400 hover:text-neutral-200'
           }`}
         >
-          <Languages className="w-3.5 h-3.5 text-orange-400" />
+          <Languages className="w-3.5 h-3.5 text-violet-400" />
           <span>Script Translation</span>
         </button>
         <button
@@ -326,7 +326,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
               : 'text-neutral-400 hover:text-neutral-200'
           }`}
         >
-          <FileText className="w-3.5 h-3.5 text-blue-400" />
+          <FileText className="w-3.5 h-3.5 text-zinc-300" />
           <span>Localized Captions & SRT</span>
         </button>
         <button
@@ -338,7 +338,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
               : 'text-neutral-400 hover:text-neutral-200'
           }`}
         >
-          <Volume2 className="w-3.5 h-3.5 text-purple-400" />
+          <Volume2 className="w-3.5 h-3.5 text-violet-400" />
           <span>Voice Dubbing & Timing</span>
         </button>
       </div>
@@ -361,14 +361,14 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
       {activeTab === 'translate' && (
         <div className="flex-1 flex flex-col overflow-hidden p-3 gap-3">
           {/* Target Language & Config Bar */}
-          <div className="bg-neutral-900/80 p-3 rounded-lg border border-neutral-800 flex flex-col gap-2.5">
+          <div className="bg-neutral-900/80 p-3 rounded-lg flex flex-col gap-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-semibold text-neutral-300">Target Language:</span>
                 <select
                   value={selectedLanguage}
                   onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="bg-neutral-800 border border-neutral-700 text-white rounded px-2.5 py-1 text-xs focus:ring-1 focus:ring-orange-500"
+                  className="bg-neutral-800 border border-neutral-700 text-white rounded px-2.5 py-1 text-xs focus:ring-1 focus:ring-violet-500"
                 >
                   {languages.map((l) => (
                     <option key={l.code} value={l.code}>
@@ -396,7 +396,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                 type="button"
                 onClick={handleStartTranslation}
                 disabled={loading}
-                className="px-4 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white font-medium flex items-center gap-1.5 shadow transition ml-auto"
+                className="px-4 py-1.5 rounded-full bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] disabled:opacity-50 text-white font-medium flex items-center gap-1.5 shadow transition ml-auto"
               >
                 {loading ? (
                   <>
@@ -419,7 +419,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                 type="text"
                 value={lockedTermsInput}
                 onChange={(e) => setLockedTermsInput(e.target.value)}
-                placeholder="Comma separated brand names (e.g. Vireo, YouTube, AI)"
+                placeholder="Comma separated brand names (e.g. VireoClip, YouTube, AI)"
                 className="flex-1 bg-neutral-950 border border-neutral-800 rounded px-2 py-0.5 text-[11px] text-neutral-300 focus:outline-none focus:border-neutral-600"
               />
               <span className="text-[10px] text-neutral-500">URLs & @handles preserved automatically</span>
@@ -463,7 +463,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
             <div className="flex-1 overflow-y-auto p-2 space-y-2">
               {currentSegments.length === 0 ? (
                 <div className="h-48 flex flex-col items-center justify-center text-center text-neutral-500 p-4">
-                  <Globe className="w-8 h-8 mb-2 stroke-1 text-neutral-600" />
+                  <Globe className="w-8 h-8 mb-2 stroke-1 text-zinc-300" />
                   <p className="font-medium text-neutral-400">No translated segments yet</p>
                   <p className="text-[11px] text-neutral-500 max-w-sm mt-1">
                     Select a target language above and click "Translate Script" to localize dialogue while keeping the source media strictly immutable.
@@ -502,14 +502,14 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
 
                         <div className="flex items-center gap-2">
                           {seg.locked_terms && seg.locked_terms.length > 0 && (
-                            <span className="px-1.5 py-0.2 rounded bg-amber-950/40 text-amber-400 border border-amber-800/60 text-[9px]">
+                            <span className="px-1.5 py-0.2 rounded bg-amber-950/40 text-amber-400 text-[9px]">
                               {seg.locked_terms.length} Protected Term(s)
                             </span>
                           )}
                           <span
                             className={`text-[9px] px-1.5 py-0.2 rounded ${
                               expansionRatio > 0.25
-                                ? 'bg-orange-950/60 text-orange-400 border border-orange-800/60'
+                                ? 'bg-violet-950/40 text-violet-300 border border-violet-800/40'
                                 : 'text-neutral-500'
                             }`}
                           >
@@ -535,7 +535,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                       {/* Source & Target Comparison Grid */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                         {/* Source Segment (Immutable) */}
-                        <div className="p-2 rounded bg-neutral-950/60 border border-neutral-800/80 text-neutral-400">
+                        <div className="p-2 rounded bg-neutral-950/60 text-neutral-400">
                           <div className="text-[9px] text-neutral-500 uppercase tracking-wider mb-0.5 font-semibold">
                             Source (Original)
                           </div>
@@ -543,14 +543,14 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                         </div>
 
                         {/* Target Segment (Editable) */}
-                        <div className="p-2 rounded bg-neutral-950/80 border border-neutral-700/80 text-white">
+                        <div className="p-2 rounded bg-neutral-950/80 text-white">
                           <div className="flex items-center justify-between text-[9px] text-neutral-500 uppercase tracking-wider mb-0.5 font-semibold">
                             <span>Target ({selectedLanguage.toUpperCase()})</span>
                             {!isEditing && (
                               <button
                                 type="button"
                                 onClick={() => handleStartEdit(seg)}
-                                className="text-orange-400 hover:text-orange-300 flex items-center gap-0.5 lowercase"
+                                className="text-violet-400 hover:text-violet-300 flex items-center gap-0.5 lowercase"
                               >
                                 <Edit2 className="w-2.5 h-2.5" />
                                 <span>edit</span>
@@ -564,7 +564,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                                 value={editText}
                                 onChange={(e) => setEditText(e.target.value)}
                                 rows={2}
-                                className="w-full bg-neutral-900 border border-orange-500/60 rounded p-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                className="w-full bg-neutral-900 border border-violet-500/60 rounded p-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
                               />
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
@@ -578,7 +578,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                                   type="button"
                                   onClick={() => handleSaveEdit(seg.segment_id, true)}
                                   disabled={isSaving}
-                                  className="px-2.5 py-0.5 rounded bg-orange-600 hover:bg-orange-500 text-white text-[10px] font-medium"
+                                  className="px-2.5 py-0.5 rounded-full bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-white text-[10px] font-medium"
                                 >
                                   {isSaving ? 'Saving...' : 'Save & Approve'}
                                 </button>
@@ -606,9 +606,9 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
       {/* TAB 2: LOCALIZED CAPTIONS & SUBTITLES */}
       {activeTab === 'subtitles' && (
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <div className="bg-neutral-900/60 p-4 rounded-lg border border-neutral-800 space-y-3">
+          <div className="bg-neutral-900/60 p-4 rounded-lg space-y-3">
             <h3 className="font-semibold text-white text-sm flex items-center gap-2">
-              <FileText className="w-4 h-4 text-blue-400" />
+              <FileText className="w-4 h-4 text-zinc-300" />
               <span>Subtitle Files Export (SRT / VTT)</span>
             </h3>
             <p className="text-[11px] text-neutral-400 leading-relaxed">
@@ -622,7 +622,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                 disabled={!activeTranslationProject}
                 className="px-3.5 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 text-white font-medium flex items-center gap-2 border border-neutral-700 transition"
               >
-                <Download className="w-3.5 h-3.5 text-blue-400" />
+                <Download className="w-3.5 h-3.5 text-zinc-300" />
                 <span>Download SubRip (.SRT)</span>
               </button>
 
@@ -639,9 +639,9 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
           </div>
 
           {/* Apply to Timeline Captions Track */}
-          <div className="bg-neutral-900/60 p-4 rounded-lg border border-neutral-800 space-y-3">
+          <div className="bg-neutral-900/60 p-4 rounded-lg space-y-3">
             <h3 className="font-semibold text-white text-sm flex items-center gap-2">
-              <Layers className="w-4 h-4 text-orange-400" />
+              <Layers className="w-4 h-4 text-violet-400" />
               <span>Timeline Captions Integration</span>
             </h3>
             <p className="text-[11px] text-neutral-400 leading-relaxed">
@@ -657,7 +657,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                 }
               }}
               disabled={currentSegments.length === 0}
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 disabled:opacity-40 text-white font-medium flex items-center gap-2 shadow transition"
+              className="px-4 py-2 rounded-full bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] disabled:opacity-40 text-white font-medium flex items-center gap-2 shadow transition"
             >
               <Sparkles className="w-4 h-4" />
               <span>Apply {getLanguageName(selectedLanguage)} Captions to Video</span>
@@ -670,13 +670,13 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
       {activeTab === 'dubbing' && (
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Provider Transparency Banner */}
-          <div className="bg-neutral-900/80 p-3.5 rounded-lg border border-neutral-800 space-y-2">
+          <div className="bg-neutral-900/80 p-3.5 rounded-lg space-y-2">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-white text-xs flex items-center gap-1.5">
-                <Volume2 className="w-3.5 h-3.5 text-purple-400" />
+                <Volume2 className="w-3.5 h-3.5 text-violet-400" />
                 <span>Voice Dubbing Pipeline</span>
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] bg-purple-950/50 text-purple-300 border border-purple-800/60 font-mono">
+              <span className="px-2 py-0.5 rounded text-[10px] bg-violet-950/50 text-violet-300 font-mono">
                 Phase 20 Voice Engine
               </span>
             </div>
@@ -686,7 +686,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
           </div>
 
           {/* Dubbing Configuration Form */}
-          <div className="bg-neutral-900/60 p-4 rounded-lg border border-neutral-800 space-y-3.5">
+          <div className="bg-neutral-900/60 p-4 rounded-lg space-y-3.5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block mb-1">
@@ -745,7 +745,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                   type="checkbox"
                   checked={smartShortening}
                   onChange={(e) => setSmartShortening(e.target.checked)}
-                  className="accent-orange-500 rounded"
+                  className="accent-violet-500 rounded"
                 />
                 <span className="text-neutral-300">Smart Shortening</span>
               </label>
@@ -757,7 +757,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
                 type="button"
                 onClick={handleGenerateDub}
                 disabled={isDubbing || !activeTranslationProject}
-                className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-medium flex items-center gap-2 transition shadow"
+                className="px-4 py-2 rounded-full bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] disabled:opacity-40 text-white font-medium flex items-center gap-2 transition shadow"
               >
                 {isDubbing ? (
                   <>
@@ -787,7 +787,7 @@ export const TranslationWorkspace: React.FC<TranslationWorkspaceProps> = ({
           </div>
 
           {/* Honest Lip-Sync Status Banner */}
-          <div className="p-3.5 rounded-lg bg-neutral-900/60 border border-neutral-800 text-neutral-400 space-y-1 text-xs">
+          <div className="p-3.5 rounded-lg bg-neutral-900/60 text-neutral-400 space-y-1 text-xs">
             <div className="flex items-center gap-2 text-neutral-300 font-semibold">
               <ShieldAlert className="w-4 h-4 text-amber-400" />
               <span>Lip-Sync & Visual Alignment Status</span>

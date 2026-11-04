@@ -17,7 +17,8 @@ async function main() {
     console.log(`  Caption Style: ${clip.caption_style}`);
     console.log(`  Caption Config:`, JSON.stringify(clip.caption_config));
     console.log(`  Caption Overrides:`, JSON.stringify(clip.caption_overrides));
-    console.log(`  Start Time: ${clip.start_time}, End Time: ${clip.end_time}`);
+    console.log(`  Start Seconds: ${clip.start_seconds}, End Seconds: ${clip.end_seconds}, Duration: ${clip.duration_seconds}`);
+    console.log(`  Trim Start: ${clip.trim_start_offset}, Trim End: ${clip.trim_end_offset}`);
 
     const { data: transcript } = await supabaseAuthClient
       .from('transcripts')

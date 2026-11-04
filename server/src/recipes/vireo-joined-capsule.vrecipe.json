@@ -1,0 +1,49 @@
+{
+  "$schema": "https://vireoclip.ai/schemas/vrecipe-v1.json",
+  "id": "vireo-joined-capsule",
+  "name": "Vireo Joined Capsule",
+  "description": "Continuous capsule badge with dark backdrop and crisp modern typography.",
+  "version": "1.0.0",
+  "author": "VireoClip Native",
+  "typography": {
+    "fontFamily": "Inter",
+    "fontSize": 77,
+    "fontWeight": "bold",
+    "letterSpacing": 0,
+    "textCase": "uppercase"
+  },
+  "positioning": {
+    "alignment": 2,
+    "verticalMargin": 240,
+    "horizontalMargin": 70,
+    "maxWordsPerLine": 4,
+    "maxCharsPerLine": 24,
+    "lineBreakMethod": "balanced"
+  },
+  "colors": {
+    "primary": "#F8FAFC",
+    "secondary": "#94A3B8",
+    "activeWordHighlight": "#60A5FA",
+    "outline": "#020617",
+    "outlineWidth": 3,
+    "shadow": "#00000066",
+    "shadowOffset": 2,
+    "backgroundPill": {
+      "enabled": true,
+      "color": "rgba(15, 23, 42, 0.92)",
+      "paddingX": 16,
+      "paddingY": 8,
+      "borderRadius": 18
+    }
+  },
+  "animation": {
+    "preset": "pop",
+    "durationMs": 160,
+    "activeWordScale": 1.08,
+    "karaokeEffect": "jump"
+  },
+  "decorations": {
+    "emojisEnabled": true,
+    "autoHighlightKeywords": true
+  }
+}

@@ -42,7 +42,7 @@ export class GrowthCoachService {
           id: 'rec-accumulate',
           category: 'try',
           title: 'Keep Publishing for Better Accuracy',
-          recommendation: 'Vireo is still learning what works for your audience. Publish at least 3–5 clips to uncover statistical patterns.',
+          recommendation: 'VireoClip is still learning what works for your audience. Publish at least 3–5 clips to uncover statistical patterns.',
           evidence: `Currently analyzed sample size: ${analytics.length} published clip(s).`,
           confidence: 'low',
           supporting_metrics: { sample_size: analytics.length },

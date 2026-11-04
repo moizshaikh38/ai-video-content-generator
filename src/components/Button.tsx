@@ -1,24 +1,53 @@
 import * as React from 'react';
 import { cn } from '../lib/utils';
+import {
+  BTN_PILL_AI,
+  BTN_PILL_BRAND,
+  BTN_PILL_DESTRUCTIVE,
+  BTN_PILL_GHOST,
+  BTN_PILL_PRIMARY,
+  BTN_PILL_SECONDARY,
+} from '../lib/buttonStyles';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'default' | 'primary' | 'sage' | 'clay' | 'outline' | 'secondary' | 'ghost' | 'destructive' | 'link';
+  variant?:
+    | 'default'
+    | 'primary'
+    | 'brand'
+    | 'ai'
+    | 'violet'
+    | 'studio'
+    | 'sage'
+    | 'clay'
+    | 'outline'
+    | 'secondary'
+    | 'ghost'
+    | 'destructive'
+    | 'link';
   size?: 'default' | 'sm' | 'lg' | 'icon';
+  /** Text buttons are pills; icon buttons are rounded-xl. `rounded` opts a text button
+   *  sitting in a dense toolbar into the tool radius. */
+  shape?: 'pill' | 'rounded';
   asChild?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
 }
 
+// Primary actions are the violet brand pill; secondary actions are quiet glass.
 const variantStyles: Record<NonNullable<ButtonProps['variant']>, string> = {
-  default: 'bg-primary text-primary-foreground shadow-ink hover:bg-primary/90',
-  primary: 'bg-clay text-white shadow-clay hover:bg-[#c93f1e]',
-  sage: 'bg-sage text-sage-foreground shadow-sage hover:-translate-y-0.5',
-  clay: 'bg-clay text-clay-foreground shadow-clay hover:bg-[#c93f1e]',
-  destructive: 'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
-  outline: 'border border-input bg-card hover:bg-secondary text-foreground',
-  secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-  ghost: 'hover:bg-secondary text-foreground',
-  link: 'text-primary underline-offset-4 hover:underline',
+  default: BTN_PILL_PRIMARY,
+  primary: BTN_PILL_PRIMARY,
+  brand: BTN_PILL_BRAND,
+  ai: BTN_PILL_AI,
+  violet: BTN_PILL_AI,
+  studio: BTN_PILL_AI,
+  clay: BTN_PILL_AI, // brand/AI accent
+  secondary: BTN_PILL_SECONDARY,
+  outline: BTN_PILL_SECONDARY,
+  ghost: BTN_PILL_GHOST,
+  sage: `${BTN_PILL_SECONDARY} border-emerald-500/30 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 hover:border-emerald-500/40`,
+  destructive: BTN_PILL_DESTRUCTIVE,
+  link: 'text-vc-text-primary underline-offset-4 hover:underline hover:text-white',
 };
 
 const sizeStyles: Record<NonNullable<ButtonProps['size']>, string> = {
@@ -34,6 +63,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       className,
       variant = 'default',
       size = 'default',
+      shape,
       asChild = false,
       children,
       leftIcon,
@@ -44,8 +74,16 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const baseClasses =
-      'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl font-semibold cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed select-none';
-    const computedClassName = cn(baseClasses, variantStyles[variant], sizeStyles[size], className);
+      'inline-flex items-center justify-center gap-2 whitespace-nowrap font-semibold cursor-pointer select-none disabled:cursor-not-allowed';
+    // Recipes are pills; icon buttons and opted-in toolbar buttons take the tool radius.
+    const resolvedShape = shape ?? (size === 'icon' ? 'rounded' : 'pill');
+    const computedClassName = cn(
+      baseClasses,
+      variantStyles[variant],
+      resolvedShape === 'rounded' && 'rounded-xl',
+      sizeStyles[size],
+      className
+    );
 
     if (asChild && React.isValidElement(children)) {
       const child = children as React.ReactElement<any>;

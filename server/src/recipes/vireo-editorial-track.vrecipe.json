@@ -1,0 +1,42 @@
+{
+  "$schema": "https://vireoclip.ai/schemas/vrecipe-v1.json",
+  "id": "vireo-editorial-track",
+  "name": "Vireo Editorial Track",
+  "description": "High-end cinematic editorial typography with generous tracking and warm gold active highlight.",
+  "version": "1.0.0",
+  "author": "VireoClip Native",
+  "typography": {
+    "fontFamily": "Inter",
+    "fontSize": 74,
+    "fontWeight": "bold",
+    "letterSpacing": 2.5,
+    "textCase": "uppercase"
+  },
+  "positioning": {
+    "alignment": 2,
+    "verticalMargin": 240,
+    "horizontalMargin": 70,
+    "maxWordsPerLine": 4,
+    "maxCharsPerLine": 24,
+    "lineBreakMethod": "balanced"
+  },
+  "colors": {
+    "primary": "#FFFFFF",
+    "secondary": "#94A3B8",
+    "activeWordHighlight": "#FFB800",
+    "outline": "#18181B",
+    "outlineWidth": 2,
+    "shadow": "#00000099",
+    "shadowOffset": 2
+  },
+  "animation": {
+    "preset": "pop",
+    "durationMs": 160,
+    "activeWordScale": 1.05,
+    "karaokeEffect": "jump"
+  },
+  "decorations": {
+    "emojisEnabled": true,
+    "autoHighlightKeywords": true
+  }
+}

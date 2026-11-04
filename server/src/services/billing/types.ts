@@ -91,7 +91,7 @@ export interface BillingProvider {
 
   updateSubscription?(subscriptionId: string, input: { planId: PlanId; interval: BillingInterval }): Promise<SubscriptionResult>;
 
-  createCustomerPortal?(customerId: string, returnUrl: string): Promise<PortalResult>;
+  createCustomerPortal?(customerId: string, returnUrl: string, subscriptionIds?: string[]): Promise<PortalResult>;
 
   verifyWebhook(rawBody: string | Buffer, headers: Record<string, string | string[] | undefined>): Promise<boolean>;
 

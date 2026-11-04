@@ -1,0 +1,42 @@
+{
+  "$schema": "https://vireoclip.ai/schemas/vrecipe-v1.json",
+  "id": "vireo-oneword",
+  "name": "Vireo OneWord",
+  "description": "Bold single-word punchy display with Montserrat/Impact styling and subtle backdrop.",
+  "version": "1.0.0",
+  "author": "VireoClip Native",
+  "typography": {
+    "fontFamily": "Arial Black",
+    "fontSize": 94,
+    "fontWeight": "black",
+    "letterSpacing": 2,
+    "textCase": "uppercase"
+  },
+  "positioning": {
+    "alignment": 2,
+    "verticalMargin": 320,
+    "horizontalMargin": 60,
+    "maxWordsPerLine": 1,
+    "maxCharsPerLine": 1,
+    "lineBreakMethod": "single"
+  },
+  "colors": {
+    "primary": "#FFFFFF",
+    "secondary": "#CCCCCC",
+    "activeWordHighlight": "#FFE600",
+    "outline": "#000000",
+    "outlineWidth": 8,
+    "shadow": "#00000099",
+    "shadowOffset": 4
+  },
+  "animation": {
+    "preset": "pop",
+    "durationMs": 140,
+    "activeWordScale": 1.05,
+    "karaokeEffect": "jump"
+  },
+  "decorations": {
+    "emojisEnabled": true,
+    "autoHighlightKeywords": true
+  }
+}

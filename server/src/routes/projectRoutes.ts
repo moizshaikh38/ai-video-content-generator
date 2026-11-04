@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/authMiddleware.js';
+import { resolvePublicId } from '../middleware/publicIdMiddleware.js';
 import { expensiveLimiter } from '../middleware/rateLimiter.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import {
@@ -8,9 +9,11 @@ import {
   updateProject,
   createProject,
   ingestProjectUrl,
+  probeProjectUrl,
   createProjectUploadUrl,
   confirmProjectUpload,
   getProjectSourcePreviewUrl,
+  getProjectPoster,
   deleteProject,
   processProject,
   getProjectTranscript,
@@ -30,6 +33,10 @@ import {
   getClipPreviewUrl,
   getClipDownloadUrl,
   getClipEditorData,
+  getClipWaveform,
+  getAssetWaveform,
+  getClipThumbnails,
+  getClipPoster,
   updateClipEditor,
   resetClipEditor,
   getClipCaptions,
@@ -56,8 +63,11 @@ import {
   splitEditorItem,
   rippleDeleteEditorItem,
   duplicateEditorItem,
+  removeEditorProjectFillers,
   freezeEditorItem,
   captureEditorSnapshot,
+  renderEditorProject,
+  exportClipNleXml,
 } from '../controllers/proEditorController.js';
 import {
   getMediaCapabilities,
@@ -81,13 +91,15 @@ const router = Router();
 router.get('/projects', requireAuth, asyncHandler(listProjects));
 router.post('/projects', requireAuth, asyncHandler(createProject));
 router.post('/projects/ingest-url', requireAuth, expensiveLimiter, asyncHandler(ingestProjectUrl));
-router.post('/projects/:id/upload-url', requireAuth, asyncHandler(createProjectUploadUrl));
-router.post('/projects/:id/confirm-upload', requireAuth, asyncHandler(confirmProjectUpload));
+router.post('/projects/probe-url', requireAuth, expensiveLimiter, asyncHandler(probeProjectUrl));
+router.post('/projects/:id/upload-url', requireAuth, resolvePublicId('id', 'projects'), asyncHandler(createProjectUploadUrl));
+router.post('/projects/:id/confirm-upload', requireAuth, resolvePublicId('id', 'projects'), asyncHandler(confirmProjectUpload));
 router.get('/projects/:id/source-preview-url', requireAuth, asyncHandler(getProjectSourcePreviewUrl));
-router.get('/projects/:id', requireAuth, asyncHandler(getProject));
-router.patch('/projects/:id', requireAuth, asyncHandler(updateProject));
-router.delete('/projects/:id', requireAuth, asyncHandler(deleteProject));
-router.post('/projects/:id/process', requireAuth, expensiveLimiter, asyncHandler(processProject));
+router.get('/projects/:id/poster', requireAuth, asyncHandler(getProjectPoster));
+router.get('/projects/:id', requireAuth, resolvePublicId('id', 'projects'), asyncHandler(getProject));
+router.patch('/projects/:id', requireAuth, resolvePublicId('id', 'projects'), asyncHandler(updateProject));
+router.delete('/projects/:id', requireAuth, resolvePublicId('id', 'projects'), asyncHandler(deleteProject));
+router.post('/projects/:id/process', requireAuth, resolvePublicId('id', 'projects'), expensiveLimiter, asyncHandler(processProject));
 router.get('/projects/:id/transcript', requireAuth, asyncHandler(getProjectTranscript));
 
 // Phase 10: AI Auto Clip Finder Routes
@@ -104,9 +116,9 @@ router.get('/projects/:id/multimodal-job', requireAuth, asyncHandler(getMultimod
 // Phase 11: Clip Rendering Engine Routes
 router.post('/projects/:id/clips', requireAuth, expensiveLimiter, asyncHandler(createProjectClip));
 router.get('/projects/:id/clips', requireAuth, asyncHandler(getProjectClips));
-router.get('/clips/:clipId', requireAuth, asyncHandler(getClip));
-router.post('/clips/:clipId/render', requireAuth, expensiveLimiter, asyncHandler(renderClip));
-router.delete('/clips/:clipId', requireAuth, asyncHandler(deleteClip));
+router.get('/clips/:clipId', requireAuth, resolvePublicId('clipId', 'clips'), asyncHandler(getClip));
+router.post('/clips/:clipId/render', requireAuth, resolvePublicId('clipId', 'clips'), expensiveLimiter, asyncHandler(renderClip));
+router.delete('/clips/:clipId', requireAuth, resolvePublicId('clipId', 'clips'), asyncHandler(deleteClip));
 router.get('/clips/:clipId/preview-url', requireAuth, asyncHandler(getClipPreviewUrl));
 router.get('/clips/:clipId/download-url', requireAuth, asyncHandler(getClipDownloadUrl));
 
@@ -115,6 +127,10 @@ router.get('/clips/:clipId/editor', requireAuth, asyncHandler(getClipEditorData)
 router.patch('/clips/:clipId/editor', requireAuth, asyncHandler(updateClipEditor));
 router.post('/clips/:clipId/editor/reset', requireAuth, asyncHandler(resetClipEditor));
 router.get('/clips/:clipId/captions', requireAuth, asyncHandler(getClipCaptions));
+router.get('/clips/:clipId/waveform', requireAuth, asyncHandler(getClipWaveform));
+router.get('/clips/:clipId/thumbnails', requireAuth, asyncHandler(getClipThumbnails));
+router.get('/clips/:clipId/poster', requireAuth, asyncHandler(getClipPoster));
+router.get('/audio-assets/:assetId/waveform', requireAuth, asyncHandler(getAssetWaveform));
 
 // Phase 13: Smart Auto-Reframe Routes
 router.post('/clips/:clipId/reframe/analyze', requireAuth, expensiveLimiter, asyncHandler(analyzeClipReframe));
@@ -131,14 +147,19 @@ router.delete('/clips/:clipId/producer/plans/:planId', requireAuth, asyncHandler
 
 // Phase 18: Vireo Pro Video Editor (Multi-Track Timeline) Routes
 router.post('/clips/:clipId/editor-project', requireAuth, asyncHandler(getOrCreateClipEditorProject));
+router.get('/clips/:clipId/export/nle-xml', requireAuth, asyncHandler(exportClipNleXml));
+router.post('/clips/:clipId/export/nle-xml', requireAuth, asyncHandler(exportClipNleXml));
 router.get('/editor-projects/:id', requireAuth, asyncHandler(getEditorProject));
 router.patch('/editor-projects/:id', requireAuth, asyncHandler(updateEditorProject));
 router.post('/editor-projects/:id/split', requireAuth, asyncHandler(splitEditorItem));
 router.post('/editor-projects/:id/ripple-delete', requireAuth, asyncHandler(rippleDeleteEditorItem));
 router.post('/editor-projects/:id/duplicate', requireAuth, asyncHandler(duplicateEditorItem));
+router.post('/editor-projects/:id/remove-fillers', requireAuth, asyncHandler(removeEditorProjectFillers));
 router.post('/editor-projects/:id/freeze', requireAuth, asyncHandler(freezeEditorItem));
+router.post('/editor-projects/:id/freeze-frame', requireAuth, asyncHandler(freezeEditorItem));
 router.post('/editor-projects/:id/snapshot', requireAuth, asyncHandler(captureEditorSnapshot));
 router.post('/editor-projects/:id/insert-broll', requireAuth, asyncHandler(insertDirectBroll));
+router.post('/editor-projects/:id/render', requireAuth, asyncHandler(renderEditorProject));
 
 // Phase 19: Vireo AI B-Roll & Media Intelligence Routes
 router.get('/media/capabilities', requireAuth, asyncHandler(getMediaCapabilities));

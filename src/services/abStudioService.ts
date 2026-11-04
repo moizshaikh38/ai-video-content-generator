@@ -38,6 +38,26 @@ export const abStudioService = {
   },
 
   /**
+   * Generates 5 distinct high-converting viral hook variants using Vireo SVML engine.
+   */
+  async generateHookVariants(topic: string): Promise<Array<{
+    hook_type: string;
+    hook_text: string;
+    predicted_retention_lift: string;
+    suggested_caption_burst: string[];
+  }>> {
+    return await request<Array<{
+      hook_type: string;
+      hook_text: string;
+      predicted_retention_lift: string;
+      suggested_caption_burst: string[];
+    }>>('/generate-hook-variants', {
+      method: 'POST',
+      body: JSON.stringify({ topic }),
+    });
+  },
+
+  /**
    * Creates a new A/B experiment in draft.
    */
   async createExperiment(dto: CreateABExperimentDTO): Promise<ABExperiment> {

@@ -104,6 +104,30 @@ class ProEditorService {
   }
 
   /**
+   * Filler-word removal: preview (confirmed=false) or temporal removal
+   * (confirmed=true) cutting video, audio, and captions together.
+   */
+  async removeFillers(
+    projectId: string,
+    opts: { confirmed?: boolean; includeTier2?: boolean } = {}
+  ): Promise<{
+    preview: boolean;
+    summary: {
+      totalRanges: number;
+      tier1Ranges: number;
+      tier2Ranges: number;
+      totalDurationSec: number;
+      ranges: Array<{ start: number; end: number; tier: number; words: string[]; reason: string }>;
+    };
+    data?: EditorProject;
+  }> {
+    return backendRequest(`/editor-projects/${projectId}/remove-fillers`, {
+      method: 'POST',
+      body: JSON.stringify(opts),
+    });
+  }
+
+  /**
    * Freezes a frame at playhead and inserts a still segment
    */
   async freezeFrame(projectId: string, dto: FreezeFrameDTO): Promise<EditorProject> {

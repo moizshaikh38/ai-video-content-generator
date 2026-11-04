@@ -1,13 +1,14 @@
-import { Project, ContentOutput, OutputPlatform, CreatorProfile, ProjectStatus, Transcript, GenerationOverrides } from '../types';
+import { Project, ContentOutput, OutputPlatform, CreatorProfile, ProjectStatus, Transcript, GenerationOverrides, ClipPreferences } from '../types';
 import { backendRequest } from './backendClient';
 
 export interface CreateProjectInput {
   id?: string; userId?: string; title: string; sourceType?: 'upload' | 'url';
   sourceUrl?: string | null; videoStatus?: ProjectStatus; notes?: string;
+  clip_preferences?: Partial<ClipPreferences>;
 }
 
 const INITIAL_PROFILE: CreatorProfile = {
-  name: 'Creator', email: 'creator@vireo.app', niche: 'Tech, SaaS & Solopreneurship',
+  name: 'Creator', email: 'creator@vireoclip.ai', niche: 'Tech, SaaS & Solopreneurship',
   audience: 'Founders, builders, and content creators', language: 'English', tone: 'Friendly',
 };
 
@@ -23,7 +24,12 @@ class ProjectService {
     return {
       id: row.id, user_id: row.user_id, title: row.title || 'Untitled Project',
       source_type: row.source_type || 'upload', source_url: row.source_url || null,
-      video_url: row.source_url || null, notes: row.notes || '', status, video_status: status,
+      video_url: row.source_url || null, notes: row.notes || '',
+      clip_preferences: row.clip_preferences,
+      duration_seconds: row.duration_seconds ?? null,
+      metadata: row.metadata ?? null,
+      poster_url: row.poster_url ?? null,
+      status, video_status: status,
       created_at: row.created_at || new Date().toISOString(), updated_at: row.updated_at || new Date().toISOString(),
     };
   }
@@ -89,20 +95,34 @@ class ProjectService {
   async createProjectAsync(input: CreateProjectInput): Promise<Project> {
     const data = await backendRequest<{ project: any }>('/projects', {
       method: 'POST', body: JSON.stringify({
-        id: input.id || crypto.randomUUID(), title: input.title, source_type: input.sourceType || 'upload', notes: input.notes || '',
+        id: input.id || crypto.randomUUID(),
+        title: input.title,
+        source_type: input.sourceType || 'upload',
+        notes: input.notes || '',
+        clip_preferences: input.clip_preferences,
       }),
     });
     return this.cacheProject(data.project);
   }
 
-  async ingestProjectUrlAsync(input: { url: string; title?: string; notes?: string; id?: string }): Promise<Project> {
+  async ingestProjectUrlAsync(input: {
+    url: string;
+    title?: string;
+    notes?: string;
+    id?: string;
+    clip_preferences?: Partial<ClipPreferences>;
+    /** Aborts the client-side wait; the server may still finish the ingestion. */
+    signal?: AbortSignal;
+  }): Promise<Project> {
     const data = await backendRequest<{ project: any }>('/projects/ingest-url', {
       method: 'POST',
+      signal: input.signal,
       body: JSON.stringify({
         id: input.id || crypto.randomUUID(),
         url: input.url,
         title: input.title,
         notes: input.notes,
+        clip_preferences: input.clip_preferences,
       }),
     });
     return this.cacheProject(data.project);
@@ -112,6 +132,7 @@ class ProjectService {
     const patch: Record<string, unknown> = {};
     if (updates.title !== undefined) patch.title = updates.title;
     if (updates.notes !== undefined) patch.notes = updates.notes;
+    if (updates.clip_preferences !== undefined) patch.clip_preferences = updates.clip_preferences;
     if (!Object.keys(patch).length) return this.fetchProject(id);
     const data = await backendRequest<{ project: any }>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
     return this.cacheProject(data.project);

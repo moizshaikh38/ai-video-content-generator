@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Film,
@@ -8,7 +8,6 @@ import {
   Clock,
   Play,
   Pause,
-  Lightbulb,
   Check,
   Loader2,
   AlertCircle,
@@ -24,16 +23,23 @@ import {
   X,
   Wand2,
   Layers,
-  Image as ImageIcon,
+  Flame,
+  Smartphone,
+  Monitor,
+  Square,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 import { Button } from '../Button';
-import { SpotlightCard } from '../react-bits/SpotlightCard';
 import { ClipCandidate, ClipCandidateStatus, Transcript, RenderedClip, MomentSearchResult } from '../../types';
 import { clipService } from '../../services/clipService';
 import { clipRenderService } from '../../services/clipRenderService';
+import { triggerBrowserDownload } from '../../utils/downloadUtils';
 import { PublishModal } from '../PublishModal';
 import { ContentPackWorkspace } from '../contentPack/ContentPackWorkspace';
+import { WhyThisClipSection } from './WhyThisClipSection';
+import { ClipThumbImage } from '../ClipThumbImage';
 
 export interface ClipWorkspaceProps {
   projectId: string;
@@ -58,6 +64,11 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
   const [filter, setFilter] = useState<'all' | 'selected'>('all');
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+
+  // Aspect Ratio & Phone Framing Studio state
+  const [aspectRatio, setAspectRatio] = useState<'9:16' | '1:1' | '16:9'>('9:16');
+  const [showSafeZones, setShowSafeZones] = useState<boolean>(false);
+  const [captionPreset, setCaptionPreset] = useState<'hormozi' | 'neon' | 'beast' | 'karaoke' | 'clean'>('hormozi');
 
   // Phase 16: Multimodal Moment Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -119,8 +130,9 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
       ]);
 
       setCandidates(candData);
-      if (candData.length > 0 && !selectedCandidateId) {
-        setSelectedCandidateId(candData[0].id);
+      const initialFiltered = candData.filter((c) => c.status !== 'dismissed');
+      if (initialFiltered.length > 0 && !selectedCandidateId) {
+        setSelectedCandidateId(initialFiltered[0].id);
       }
 
       setMyClips(clipsData);
@@ -164,8 +176,9 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
     try {
       const response = await clipService.analyzeClips(projectId);
       setCandidates(response.candidates);
-      if (response.candidates.length > 0) {
-        setSelectedCandidateId(response.candidates[0].id);
+      const initialFiltered = (response.candidates || []).filter((c: any) => c.status !== 'dismissed');
+      if (initialFiltered.length > 0) {
+        setSelectedCandidateId(initialFiltered[0].id);
       }
     } catch (err: any) {
       setAnalysisError(err.message || 'Failed to analyze video clips.');
@@ -264,12 +277,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
     setIsDownloading(clipId);
     try {
       const { signedUrl, filename } = await clipRenderService.getDownloadUrl(clipId);
-      const link = document.createElement('a');
-      link.href = signedUrl;
-      link.download = filename || 'clip.mp4';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      await triggerBrowserDownload(signedUrl, filename || `clip-${clipId.slice(0, 8)}.mp4`);
     } catch (err: any) {
       alert(err.message || 'Failed to download clip.');
     } finally {
@@ -284,7 +292,30 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const activeCandidate = candidates.find((c) => c.id === selectedCandidateId) || candidates[0];
+  const filteredCandidates = useMemo<ClipCandidate[]>(() => {
+    return candidates.filter((c: ClipCandidate) => {
+      if (filter === 'selected') return c.status === 'selected';
+      return c.status !== 'dismissed';
+    });
+  }, [candidates, filter]);
+
+  const activeCandidate = useMemo<ClipCandidate | undefined>(() => {
+    return (
+      filteredCandidates.find((c: ClipCandidate) => c.id === selectedCandidateId) ||
+      filteredCandidates[0] ||
+      candidates[0]
+    );
+  }, [filteredCandidates, selectedCandidateId, candidates]);
+
+  // Keep selectedCandidateId pointing to an available candidate in filteredCandidates
+  useEffect(() => {
+    if (filteredCandidates.length > 0) {
+      const match = filteredCandidates.some((c: ClipCandidate) => c.id === selectedCandidateId);
+      if (!match) {
+        setSelectedCandidateId(filteredCandidates[0].id);
+      }
+    }
+  }, [filteredCandidates, selectedCandidateId]);
 
   // Sync video seek position when selected candidate changes
   useEffect(() => {
@@ -328,19 +359,14 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
     }
   };
 
-  const filteredCandidates = candidates.filter((c) => {
-    if (filter === 'selected') return c.status === 'selected';
-    return c.status !== 'dismissed';
-  });
-
   const selectedCount = candidates.filter((c) => c.status === 'selected').length;
 
   // 1. Initial Loading State
   if (isLoading) {
     return (
-      <div className="card-soft p-12 text-center space-y-4">
-        <Loader2 className="size-8 text-clay animate-spin mx-auto" />
-        <p className="text-sm font-medium text-muted-foreground">Loading clips workspace...</p>
+      <div className="rounded-2xl bg-vc-surface1/90 p-12 text-center space-y-4 shadow-xl">
+        <Loader2 className="size-8 text-violet-400 animate-spin mx-auto" />
+        <p className="text-sm font-medium text-zinc-400">Loading clips studio...</p>
       </div>
     );
   }
@@ -348,20 +374,17 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
   // 2. AI Analysis In-Progress State
   if (isAnalyzing) {
     return (
-      <SpotlightCard
-        spotlightColor="rgba(192, 98, 62, 0.14)"
-        className="p-8 md:p-12 text-center border-clay/30 bg-card/90 space-y-6 animate-in fade-in duration-300"
-      >
-        <div className="size-14 rounded-2xl bg-clay/15 text-clay mx-auto flex items-center justify-center animate-pulse">
-          <Film className="size-7" />
+      <div className="rounded-2xl bg-vc-surface1/90 p-8 md:p-12 text-center space-y-6 shadow-2xl backdrop-blur-xl animate-in fade-in duration-300">
+        <div className="size-16 rounded-2xl bg-violet-500/15 text-violet-400 border border-violet-500/30 mx-auto flex items-center justify-center animate-pulse">
+          <Film className="size-8" />
         </div>
 
         <div className="space-y-2 max-w-md mx-auto">
-          <h3 className="text-xl font-semibold font-display text-foreground">
-            Finding your strongest moments...
+          <h3 className="text-xl font-bold font-['Sora',sans-serif] text-white">
+            Finding your strongest viral moments...
           </h3>
-          <p className="text-sm text-muted-foreground">
-            Vireo is analyzing your video transcript to detect high-engagement standalone clips.
+          <p className="text-xs sm:text-sm text-zinc-400">
+            VireoClip is scanning multimodal audio, transcript sentiment, and visual peaks to detect high-retention standalone clips.
           </p>
         </div>
 
@@ -374,14 +397,14 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
           ].map((step) => (
             <div
               key={step}
-              className="rounded-xl border border-border/80 bg-cream/50 p-2.5 text-center text-xs font-medium text-foreground flex flex-col items-center justify-center gap-1.5"
+              className="rounded-xl bg-white/[0.03] p-2.5 text-center text-xs font-medium text-white flex flex-col items-center justify-center gap-1.5"
             >
-              <div className="size-2 rounded-full bg-clay animate-ping" />
-              <span className="text-[11px] text-muted-foreground">{step}</span>
+              <div className="size-2 rounded-full bg-violet-400 animate-ping" />
+              <span className="text-[11px] text-zinc-400">{step}</span>
             </div>
           ))}
         </div>
-      </SpotlightCard>
+      </div>
     );
   }
 
@@ -389,35 +412,35 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
   return (
     <div className="space-y-6">
       {/* Primary Workspace Nav (AI Suggestions vs My Clips) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border/70">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-white/[0.08]">
         <div className="flex items-center gap-2">
-          <div className="flex rounded-xl bg-cream/70 p-1 border border-border/80 text-xs font-medium">
+          <div className="flex rounded-xl bg-white/[0.04] p-1 text-xs font-medium">
             <button
               onClick={() => setActiveTab('suggestions')}
-              className={`px-3.5 py-1.5 rounded-lg transition-colors flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === 'suggestions'
-                  ? 'bg-card text-foreground font-semibold shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-violet-500/20 text-white font-bold border border-violet-500/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <Sparkles className="size-3.5 text-clay" />
+              <Sparkles className="size-3.5 text-violet-400" />
               <span>AI Suggestions</span>
-              <span className="rounded-full bg-clay/10 px-1.5 py-0.2 text-[10px] font-mono text-clay font-bold">
+              <span className="rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-mono text-violet-300 font-bold ">
                 {candidates.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveTab('my_clips')}
-              className={`px-3.5 py-1.5 rounded-lg transition-colors flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === 'my_clips'
-                  ? 'bg-card text-foreground font-semibold shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-emerald-500/15 text-white font-bold border border-emerald-500/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <Video className="size-3.5 text-vireo-green" />
+              <Video className="size-3.5 text-emerald-400" />
               <span>My Clips</span>
-              <span className="rounded-full bg-vireo-green/10 px-1.5 py-0.2 text-[10px] font-mono text-vireo-green font-bold">
+              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-mono text-emerald-300 font-bold ">
                 {myClips.length}
               </span>
             </button>
@@ -431,9 +454,9 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
               size="sm"
               onClick={handleFindClips}
               disabled={isAnalyzing}
-              className="text-xs"
+              className="text-xs border-white/10 hover:border-violet-500/40 hover:bg-violet-500/10"
             >
-              <Sparkles className="size-3.5 mr-1.5 text-clay" />
+              <Sparkles className="size-3.5 mr-1.5 text-violet-400" />
               Regenerate Suggestions
             </Button>
           </div>
@@ -461,65 +484,62 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
       {activeTab === 'suggestions' && (
         <>
           {candidates.length === 0 ? (
-            <SpotlightCard
-              spotlightColor="rgba(192, 98, 62, 0.12)"
-              className="p-8 md:p-12 text-center border-border/80 bg-card space-y-6"
-            >
-              <div className="size-14 rounded-2xl bg-clay/10 text-clay mx-auto flex items-center justify-center">
-                <Film className="size-7" />
+            <div className="p-8 md:p-14 text-center rounded-2xl bg-vc-surface1/90 space-y-5 shadow-xl backdrop-blur-xl">
+              <div className="size-16 rounded-2xl bg-violet-500/10 text-violet-400 border border-violet-500/25 mx-auto flex items-center justify-center shadow-lg">
+                <Sparkles className="size-8" />
               </div>
 
               <div className="space-y-2 max-w-lg mx-auto">
-                <h3 className="text-xl md:text-2xl font-semibold font-display text-foreground">
-                  Find your best moments
+                <h3 className="text-xl sm:text-2xl font-bold font-['Sora',sans-serif] text-white">
+                  Discover Viral Moments
                 </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Vireo analyzes your transcript to surface strong standalone moments for Shorts, Reels, and TikTok.
+                <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
+                  VireoClip analyzes transcript hooks, speech cadences, and visual cues to surface high-retention short clips for TikTok, Reels, and YouTube Shorts.
                 </p>
-                <p className="text-xs text-muted-foreground/80 font-mono">
-                  Usually finds 5–10 strong moments based on hook strength, clarity, and pacing.
+                <p className="text-xs text-violet-300 font-mono">
+                  Identifies 5–10 viral moments with calculated hook scores, retention forecast, and auto-generated titles.
                 </p>
               </div>
 
               {analysisError && (
-                <div className="p-3.5 rounded-xl border border-destructive/20 bg-destructive/10 text-destructive text-xs max-w-md mx-auto flex items-center gap-2">
-                  <AlertCircle className="size-4 shrink-0" />
+                <div className="p-3.5 rounded-xl bg-rose-500/10 text-rose-300 text-xs max-w-md mx-auto flex items-center gap-2">
+                  <AlertCircle className="size-4 shrink-0 text-rose-400" />
                   <span>{analysisError}</span>
                 </div>
               )}
 
               <div className="pt-2">
                 <Button
-                  variant="clay"
+                  variant="brand"
                   size="lg"
                   onClick={handleFindClips}
                   disabled={isAnalyzing || !transcript}
-                  className="shadow-clay px-8"
+                  className="font-bold px-8"
                 >
                   <Sparkles className="size-4 mr-2" />
-                  Find Clips
+                  Analyze & Find Viral Clips
                 </Button>
               </div>
-            </SpotlightCard>
+            </div>
           ) : (
             <div className="space-y-4">
               {/* Natural Language Moment Search Bar */}
-              <div className="rounded-2xl border border-border/70 bg-card p-3 shadow-xs">
+              <div className="rounded-2xl bg-vc-surface1/90 p-3 shadow-lg">
                 <form onSubmit={handleSearchMoments} className="flex items-center gap-2">
                   <div className="relative flex-1">
-                    <Search className="size-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Search className="size-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Ask Vireo to find a moment... (e.g. 'find the part about workspace' or 'hook about AI')"
-                      className="w-full bg-cream/50 border border-border/80 rounded-xl pl-9 pr-8 py-2 text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-clay/30"
+                      placeholder="Ask AI to find a moment... (e.g. 'part about product pricing' or 'funny hook about startup')"
+                      className="w-full bg-white/[0.04] border border-white/10 rounded-xl pl-10 pr-8 py-2.5 text-xs sm:text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-violet-500/60 focus:ring-2 focus:ring-violet-500/20"
                     />
                     {searchQuery && (
                       <button
                         type="button"
                         onClick={handleClearSearch}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white cursor-pointer"
                       >
                         <X className="size-3.5" />
                       </button>
@@ -527,10 +547,10 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                   </div>
                   <Button
                     type="submit"
-                    variant="clay"
+                    variant="primary"
                     size="sm"
                     disabled={isSearching || !searchQuery.trim()}
-                    className="text-xs shrink-0"
+                    className="text-xs shrink-0 font-semibold"
                   >
                     {isSearching ? (
                       <>
@@ -555,15 +575,15 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
 
                 {/* Found Moments List */}
                 {searchMoments.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-border/60 space-y-2">
+                  <div className="mt-3 pt-3 border-t border-white/[0.08] space-y-2">
                     <div className="flex items-center justify-between text-xs px-1">
-                      <span className="font-semibold text-foreground flex items-center gap-1.5 font-mono">
-                        <Sparkles className="size-3.5 text-clay" />
+                      <span className="font-semibold text-white flex items-center gap-1.5 font-mono">
+                        <Sparkles className="size-3.5 text-violet-400" />
                         Found {searchMoments.length} Moment{searchMoments.length > 1 ? 's' : ''} for "{searchQuery}"
                       </span>
                       <button
                         onClick={handleClearSearch}
-                        className="text-[11px] text-muted-foreground hover:text-foreground underline"
+                        className="text-[11px] text-zinc-400 hover:text-white underline"
                       >
                         Close
                       </button>
@@ -574,23 +594,23 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                         <div
                           key={mIdx}
                           onClick={() => handlePreviewMoment(moment)}
-                          className="rounded-xl border border-clay/30 bg-cream/40 p-2.5 cursor-pointer hover:bg-cream/70 transition-all text-left flex flex-col justify-between"
+                          className="rounded-xl border border-white/[0.08] bg-white/[0.04] p-2.5 cursor-pointer hover:bg-white/[0.08] hover:border-violet-500/30 transition-all text-left flex flex-col justify-between"
                         >
                           <div>
                             <div className="flex items-center justify-between text-[11px]">
-                              <span className="font-bold text-foreground line-clamp-1">{moment.title}</span>
-                              <span className="rounded bg-clay/10 px-1.5 py-0.2 font-mono text-clay font-bold text-[10px]">
+                              <span className="font-bold text-white line-clamp-1">{moment.title}</span>
+                              <span className="rounded bg-violet-500/15 px-1.5 py-0.2 font-mono text-violet-300 font-bold text-[10px]">
                                 {moment.vireo_score} Score
                               </span>
                             </div>
-                            <p className="text-[11px] text-muted-foreground line-clamp-2 mt-1 italic">
+                            <p className="text-[11px] text-zinc-300 line-clamp-2 mt-1 italic">
                               "{moment.hook}"
                             </p>
                           </div>
-                          <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground font-mono border-t border-border/40 pt-1.5">
+                          <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-400 font-mono border-t border-white/[0.06] pt-1.5">
                             <span>{formatTime(moment.start_seconds)} – {formatTime(moment.end_seconds)}</span>
-                            <span className="text-clay font-semibold flex items-center gap-1">
-                              <Play className="size-2.5 fill-clay" /> Preview
+                            <span className="text-violet-400 font-semibold flex items-center gap-1">
+                              <Play className="size-2.5 fill-violet-400" /> Preview
                             </span>
                           </div>
                         </div>
@@ -605,32 +625,34 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                 <div className="flex items-center gap-2 font-medium">
                   <button
                     onClick={() => setFilter('all')}
-                    className={`px-2.5 py-1 rounded-md transition-colors ${
-                      filter === 'all' ? 'bg-cream text-foreground font-semibold' : 'text-muted-foreground'
+                    className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                      filter === 'all' ? 'bg-white/[0.08] text-white font-bold' : 'text-zinc-400 hover:text-white'
                     }`}
                   >
                     All ({candidates.filter((c) => c.status !== 'dismissed').length})
                   </button>
                   <button
                     onClick={() => setFilter('selected')}
-                    className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1 ${
-                      filter === 'selected' ? 'bg-cream text-vireo-green font-semibold' : 'text-muted-foreground'
+                    className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
+                      filter === 'selected' ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold' : 'text-zinc-400 hover:text-white'
                     }`}
                   >
-                    <CheckCircle2 className="size-3 text-vireo-green" />
+                    <CheckCircle2 className="size-3 text-emerald-400" />
                     <span>Selected ({selectedCount})</span>
                   </button>
                 </div>
               </div>
 
-              {/* 3-Column Layout: Candidates | Video Preview | Details & Create Action */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* LEFT: Candidate List */}
-                <div className="lg:col-span-4 space-y-2.5 max-h-[600px] overflow-y-auto pr-1">
-                  {filteredCandidates.map((candidate, index) => {
+              {/* Two-column studio: ranked moments | player with the selected moment's actions */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                {/* LEFT: Candidate List (Ranked Viral Moments) */}
+                <div className="lg:col-span-4 space-y-2.5 max-h-[660px] lg:max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
+                  {filteredCandidates.map((candidate: ClipCandidate, index: number) => {
                     const isSelected = candidate.id === activeCandidate?.id;
                     const isChosen = candidate.status === 'selected';
-                    const score = candidate.metadata?.vireo_score ?? candidate.engagement_score;
+                    // Show the internal AI ranking only when one exists — never fabricate a score.
+                    const rawScore = candidate.metadata?.vireo_score ?? candidate.engagement_score;
+                    const score = typeof rawScore === 'number' ? rawScore : null;
                     const visualScore = candidate.metadata?.explanation?.visual_activity_score;
                     const wasSnapped = candidate.metadata?.was_snapped;
 
@@ -640,61 +662,78 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                         onClick={() => setSelectedCandidateId(candidate.id)}
                         className={`group relative rounded-2xl border p-4 cursor-pointer transition-all duration-200 text-left ${
                           isSelected
-                            ? 'border-clay/50 bg-cream/70 shadow-sm ring-1 ring-clay/20'
-                            : 'border-border/80 bg-card hover:bg-cream/30 hover:border-border'
+                            ? 'border-violet-500/50 bg-vc-surface2 shadow-xl ring-1 ring-violet-500/30'
+                            : 'border-white/[0.08] bg-vc-surface1/90 hover:bg-vc-surface2 hover:border-white/20'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-semibold text-muted-foreground">
+                            <span className="font-mono text-xs font-bold text-zinc-400">
                               #{index + 1}
                             </span>
-                            <span
-                              className={`rounded-md px-2 py-0.5 text-xs font-bold font-mono ${
-                                score >= 85
-                                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                                  : 'bg-clay/10 text-clay'
-                              }`}
-                            >
-                              {score} Vireo
-                            </span>
+                            {score !== null ? (
+                              <span
+                                className={`rounded-full px-2.5 py-0.5 text-xs font-bold font-mono border flex items-center gap-1 ${
+                                  score >= 85
+                                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                                    : 'bg-violet-500/15 border-violet-500/30 text-violet-300'
+                                }`}
+                              >
+                                <Flame className="size-3 text-emerald-400" />
+                                {score} AI Rank
+                              </span>
+                            ) : (
+                              <span className="rounded-full px-2.5 py-0.5 text-xs font-bold font-mono border bg-white/[0.06] border-white/15 text-zinc-300 flex items-center gap-1">
+                                Unranked
+                              </span>
+                            )}
                           </div>
 
                           {isChosen ? (
-                            <span className="flex items-center gap-1 rounded-full bg-vireo-green/10 text-vireo-green px-2 py-0.5 text-[11px] font-semibold">
+                            <span className="flex items-center gap-1 rounded-full bg-emerald-500/20 text-emerald-300 px-2 py-0.5 text-[11px] font-semibold">
                               <Check className="size-3" />
                               Selected
                             </span>
                           ) : (
-                            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider capitalize">
+                            <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider capitalize">
                               {candidate.category}
                             </span>
                           )}
                         </div>
 
-                        <h4 className="mt-2 text-sm font-semibold text-foreground font-display line-clamp-2">
+                        <h4 className="mt-2 text-sm font-bold text-white font-['Sora',sans-serif] line-clamp-2 leading-snug group-hover:text-violet-300 transition-colors">
                           {candidate.title}
                         </h4>
 
-                        {/* Multimodal Signal Badges */}
+                        {/* Multimodal & Genre Signal Badges */}
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          {visualScore && (
-                            <span className="inline-flex items-center gap-1 rounded bg-cream/70 border border-border/50 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
-                              <Activity className="size-2.5 text-clay" />
+                          {(candidate.genre || candidate.metadata?.genre) && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/15 border border-purple-500/25 px-1.5 py-0.5 text-[10px] font-mono text-purple-300">
+                              {candidate.genre || candidate.metadata?.genre}
+                            </span>
+                          )}
+                          {candidate.content_goal && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-mono text-zinc-300">
+                              {candidate.content_goal}
+                            </span>
+                          )}
+                          {visualScore !== undefined && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-mono text-zinc-300">
+                              <Activity className="size-2.5 text-violet-400" />
                               {visualScore} Visual
                             </span>
                           )}
                           {wasSnapped && (
-                            <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-mono text-amber-600 dark:text-amber-400">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-mono text-amber-300">
                               <Zap className="size-2.5" />
                               Snapped
                             </span>
                           )}
                         </div>
 
-                        <div className="mt-2.5 flex items-center justify-between text-xs text-muted-foreground font-mono border-t border-border/50 pt-2">
+                        <div className="mt-2.5 flex items-center justify-between text-xs text-zinc-400 font-mono border-t border-white/[0.06] pt-2">
                           <span className="flex items-center gap-1">
-                            <Clock className="size-3" />
+                            <Clock className="size-3 text-violet-400" />
                             {formatTime(candidate.start_seconds)} – {formatTime(candidate.end_seconds)}
                           </span>
                           <span>{Math.round(candidate.duration_seconds)}s</span>
@@ -704,37 +743,180 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                   })}
                 </div>
 
-                {/* CENTER: Source Video Player */}
-                <div className="lg:col-span-5 space-y-4">
-                  <div className="card-soft overflow-hidden border-border/80 bg-black/95 rounded-2xl relative shadow-lg">
+                {/* CENTER: High-Fidelity Video Player Studio */}
+                <div className="lg:col-span-8 space-y-3">
+                  {/* Top Aspect Ratio & Safe Zone Toolbar */}
+                  <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-vc-surface1 shadow-md">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setAspectRatio('9:16')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                          aspectRatio === '9:16'
+                            ? 'bg-violet-600 text-white shadow-sm'
+                            : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                        }`}
+                      >
+                        <Smartphone className="size-3.5" />
+                        <span>9:16</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setAspectRatio('1:1')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                          aspectRatio === '1:1'
+                            ? 'bg-violet-600 text-white shadow-sm'
+                            : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                        }`}
+                      >
+                        <Square className="size-3.5" />
+                        <span>1:1</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setAspectRatio('16:9')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                          aspectRatio === '16:9'
+                            ? 'bg-violet-600 text-white shadow-sm'
+                            : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                        }`}
+                      >
+                        <Monitor className="size-3.5" />
+                        <span>16:9</span>
+                      </button>
+                    </div>
+
+                    {aspectRatio === '9:16' && (
+                      <button
+                        type="button"
+                        onClick={() => setShowSafeZones((prev) => !prev)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-all cursor-pointer ${
+                          showSafeZones
+                            ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                            : 'bg-white/[0.03] border-white/10 text-zinc-400 hover:text-white'
+                        }`}
+                        title="Toggle TikTok / Shorts UI Safe Zones overlay"
+                      >
+                        {showSafeZones ? <Eye className="size-3 text-emerald-400" /> : <EyeOff className="size-3" />}
+                        <span>Safe Zones</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Main Player Display Box */}
+                  <div className="rounded-2xl bg-vc-canvas p-3 shadow-2xl relative flex flex-col items-center justify-center min-h-[440px]">
                     {videoPreviewUrl ? (
-                      <div className="relative aspect-video w-full bg-black flex items-center justify-center">
+                      <div
+                        className={`relative overflow-hidden bg-black flex items-center justify-center transition-all duration-300 ${
+                          aspectRatio === '9:16'
+                            ? 'w-full max-w-[270px] aspect-[9/16] rounded-[36px] border-[4px] border-white/20 shadow-2xl ring-1 ring-white/10'
+                            : aspectRatio === '1:1'
+                            ? 'w-full max-w-[360px] aspect-square rounded-2xl border border-white/15 shadow-xl'
+                            : 'w-full aspect-video rounded-2xl border border-white/15 shadow-xl'
+                        }`}
+                      >
                         <video
                           ref={videoRef}
                           src={videoPreviewUrl}
-                          className="w-full h-full object-contain"
+                          className="w-full h-full object-cover"
                           onTimeUpdate={handleTimeUpdate}
+                          onLoadedMetadata={() => {
+                            if (videoRef.current && activeCandidate) {
+                              videoRef.current.currentTime = activeCandidate.start_seconds;
+                            }
+                          }}
                           onEnded={() => setIsPlaying(false)}
                         />
 
-                        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between bg-black/60 backdrop-blur-md px-3 py-2 rounded-xl text-white text-xs">
-                          <button
-                            onClick={togglePlay}
-                            className="flex items-center gap-1.5 font-semibold hover:text-clay transition-colors"
-                          >
-                            {isPlaying ? <Pause className="size-4" /> : <Play className="size-4 fill-white" />}
-                            <span>{isPlaying ? 'Pause' : 'Preview Cut'}</span>
-                          </button>
+                        {/* Live Kinetic Caption Preview Overlay */}
+                        {activeCandidate && (
+                          <div className="absolute top-[62%] inset-x-3 z-20 pointer-events-none text-center flex justify-center">
+                            {captionPreset === 'hormozi' && (
+                              <span className="font-black text-amber-300 uppercase tracking-wider text-xs sm:text-sm px-3 py-1 bg-black/75 rounded-lg drop-shadow-[0_2px_0_rgba(0,0,0,1)] shadow-xl animate-in fade-in zoom-in-95 duration-200">
+                                {activeCandidate.hook || activeCandidate.title}
+                              </span>
+                            )}
+                            {captionPreset === 'neon' && (
+                              <span className="font-extrabold text-emerald-300 text-xs sm:text-sm px-3 py-1 bg-black/75 rounded-lg shadow-xl animate-in fade-in zoom-in-95 duration-200">
+                                {activeCandidate.hook || activeCandidate.title}
+                              </span>
+                            )}
+                            {captionPreset === 'beast' && (
+                              <span className="font-black text-white uppercase text-xs sm:text-sm px-3 py-1 bg-red-600 rounded drop-shadow-md shadow-xl animate-in fade-in zoom-in-95 duration-200">
+                                {activeCandidate.hook || activeCandidate.title}
+                              </span>
+                            )}
+                            {captionPreset === 'karaoke' && (
+                              <span className="font-bold text-white text-xs sm:text-sm px-3 py-1 bg-black/75 rounded-lg shadow-xl animate-in fade-in zoom-in-95 duration-200">
+                                <span className="text-zinc-300 font-extrabold mr-1">WATCH:</span>
+                                {activeCandidate.hook || activeCandidate.title}
+                              </span>
+                            )}
+                            {captionPreset === 'clean' && (
+                              <span className="font-semibold text-white text-xs sm:text-sm px-3 py-1 bg-black/60 rounded-lg backdrop-blur-sm drop-shadow shadow-xl animate-in fade-in zoom-in-95 duration-200">
+                                {activeCandidate.hook || activeCandidate.title}
+                              </span>
+                            )}
+                          </div>
+                        )}
 
-                          <div className="font-mono text-[11px] text-white/80">
-                            {formatTime(currentTime)} / {activeCandidate ? formatTime(activeCandidate.end_seconds) : '00:00'}
+                        {/* TikTok / Reels UI Safe Zone Overlay */}
+                        {aspectRatio === '9:16' && showSafeZones && (
+                          <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-3.5 border-2 border-dashed border-white/20">
+                            {/* Top info */}
+                            <div className="flex items-center justify-between text-[9px] font-mono text-zinc-300/80 bg-black/40 px-2 py-0.5 rounded">
+                              <span>Safe Header (120px)</span>
+                              <span>Following | For You</span>
+                            </div>
+
+                            {/* Right Action Rail */}
+                            <div className="self-end space-y-3 pr-1 text-center text-white/90">
+                              <div className="size-7 rounded-full bg-violet-600 border border-white flex items-center justify-center text-[10px] font-bold">
+                                +
+                              </div>
+                              <div className="flex flex-col items-center">
+                                <span className="text-xs">❤️</span>
+                                <span className="text-[8px] font-bold">48.2K</span>
+                              </div>
+                              <div className="flex flex-col items-center">
+                                <span className="text-xs">💬</span>
+                                <span className="text-[8px] font-bold">814</span>
+                              </div>
+                              <div className="flex flex-col items-center">
+                                <span className="text-xs">🔖</span>
+                                <span className="text-[8px] font-bold">3.2K</span>
+                              </div>
+                              <div className="size-6 rounded-full bg-zinc-800 border border-zinc-600 animate-spin mx-auto text-[8px] flex items-center justify-center">
+                                🎵
+                              </div>
+                            </div>
+
+                            {/* Bottom Caption Area */}
+                            <div className="space-y-0.5 text-left text-white/80 bg-black/40 p-2 rounded">
+                              <p className="text-[10px] font-bold">@creator</p>
+                              <p className="text-[9px] text-zinc-300 line-clamp-1">
+                                #viral #podcast #vireoclip
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Play / Pause Big Center Overlay Button on Hover */}
+                        <div
+                          onClick={togglePlay}
+                          className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity cursor-pointer z-30"
+                        >
+                          <div className="size-12 rounded-full bg-violet-600/90 text-white flex items-center justify-center shadow-2xl hover:scale-110 transition-transform">
+                            {isPlaying ? <Pause className="size-5" /> : <Play className="size-5 fill-white ml-0.5" />}
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="aspect-video w-full flex flex-col items-center justify-center text-center p-6 space-y-2 bg-[#1a1c1a] text-white">
-                        <Film className="size-8 text-clay" />
-                        <p className="text-xs text-white/70 max-w-xs">
+                      <div className="aspect-video w-full flex flex-col items-center justify-center text-center p-6 space-y-2 bg-vc-surface1 text-white">
+                        <Film className="size-8 text-violet-400" />
+                        <p className="text-xs text-zinc-400 max-w-xs">
                           {activeCandidate
                             ? `Active Moment: ${formatTime(activeCandidate.start_seconds)} – ${formatTime(activeCandidate.end_seconds)}`
                             : 'No candidate selected'}
@@ -743,141 +925,99 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                     )}
                   </div>
 
-                  {activeCandidate && (
-                    <div className="rounded-xl border border-border/60 bg-cream/40 p-3.5 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="size-2 rounded-full bg-vireo-green animate-pulse" />
-                        <span className="font-medium text-foreground">Active Segment:</span>
-                        <span className="font-mono text-muted-foreground">
-                          {formatTime(activeCandidate.start_seconds)} – {formatTime(activeCandidate.end_seconds)}
-                        </span>
-                      </div>
-                      <span className="font-mono text-muted-foreground font-semibold">
-                        {Math.round(activeCandidate.duration_seconds)}s duration
-                      </span>
+                  {/* Caption Preset Quick Selector Ribbon */}
+                  <div className="rounded-xl bg-vc-surface1 p-2.5 space-y-1.5 shadow-md">
+                    <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
+                      <span>Live Caption Preset:</span>
+                      <span className="text-violet-400 font-bold uppercase">{captionPreset}</span>
                     </div>
-                  )}
-                </div>
-
-                {/* RIGHT: Candidate Actions & Phase 16 Explainable Intelligence */}
-                {activeCandidate && (
-                  <div className="lg:col-span-3 space-y-4">
-                    <div className="card-soft p-5 border-border/80 bg-card space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-mono">
-                          MOMENT DETAILS
-                        </span>
-                        <span
-                          className={`rounded-md px-2.5 py-0.5 text-xs font-bold font-mono ${
-                            (activeCandidate.metadata?.vireo_score ?? activeCandidate.engagement_score) >= 85
-                              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                              : 'bg-clay/10 text-clay'
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                      {[
+                        { id: 'hormozi', label: '🔥 Hormozi' },
+                        { id: 'neon', label: '⚡ Neon Glow' },
+                        { id: 'beast', label: '💥 Beast Red' },
+                        { id: 'karaoke', label: '🎤 Karaoke' },
+                        { id: 'clean', label: '✨ Minimal' },
+                      ].map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setCaptionPreset(p.id as any)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                            captionPreset === p.id
+                              ? 'bg-violet-600 text-white shadow-sm'
+                              : 'bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.08]'
                           }`}
                         >
-                          {activeCandidate.metadata?.vireo_score ?? activeCandidate.engagement_score} Score
-                        </span>
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Transport & Seeker Bar */}
+                  {activeCandidate && (
+                    <div className="rounded-xl bg-vc-surface1 p-3 flex items-center justify-between text-xs shadow-md">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={togglePlay}
+                          className="flex items-center gap-1.5 font-bold text-white hover:text-violet-300 transition-colors cursor-pointer"
+                        >
+                          {isPlaying ? <Pause className="size-4 text-violet-400" /> : <Play className="size-4 fill-white text-violet-400" />}
+                          <span>{isPlaying ? 'Pause' : 'Play Cut'}</span>
+                        </button>
+                        <span className="text-zinc-500">•</span>
+                        <div className="font-mono text-[11px] text-zinc-300">
+                          {formatTime(currentTime)} / {formatTime(activeCandidate.end_seconds)}
+                        </div>
                       </div>
 
-                      <h3 className="text-base font-bold font-display text-foreground leading-snug">
-                        {activeCandidate.title}
-                      </h3>
-
-                      <div className="space-y-1.5 rounded-xl bg-cream/50 p-3 border border-border/50 text-xs">
-                        <span className="font-semibold text-foreground flex items-center gap-1.5">
-                          <Sparkles className="size-3.5 text-clay" />
-                          Hook
-                        </span>
-                        <p className="text-muted-foreground leading-relaxed italic">
-                          "{activeCandidate.hook}"
-                        </p>
+                      <div className="flex items-center gap-2 font-mono text-[11px] text-zinc-400">
+                        <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>{Math.round(activeCandidate.duration_seconds)}s</span>
+                      </div>
+                    </div>
+                  )}
+                
+                  {/* Selected moment: compact summary + actions (replaces the old side panel) */}
+                  {activeCandidate && (
+                    <div className="rounded-2xl bg-vc-surface1 p-4 space-y-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate text-sm font-semibold text-white">{activeCandidate.title}</h3>
+                          {activeCandidate.hook && (
+                            <p className="mt-0.5 truncate text-xs text-zinc-400">“{activeCandidate.hook}”</p>
+                          )}
+                        </div>
+                        {(() => {
+                          const raw = activeCandidate.metadata?.vireo_score ?? activeCandidate.engagement_score;
+                          const activeScore = typeof raw === 'number' ? raw : null;
+                          return activeScore !== null ? (
+                            <span
+                              className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums ${
+                                activeScore >= 85 ? 'bg-emerald-500/15 text-emerald-300' : 'bg-violet-500/15 text-violet-200'
+                              }`}
+                            >
+                              <Flame className="size-3" />
+                              {activeScore}
+                            </span>
+                          ) : null;
+                        })()}
                       </div>
 
-                      {/* Phase 16 Explainable Multimodal Signals */}
-                      {activeCandidate.metadata?.explanation && (
-                        <div className="space-y-2 rounded-xl bg-cream/30 border border-border/60 p-3 text-xs">
-                          <span className="font-semibold text-foreground text-[11px] font-mono uppercase tracking-wider block">
-                            Multimodal Intelligence
-                          </span>
-                          <div className="grid grid-cols-3 gap-1 text-[10px] font-mono">
-                            <div className="rounded bg-card p-1.5 text-center border border-border/40">
-                              <span className="text-muted-foreground block text-[9px]">Hook</span>
-                              <span className="font-bold text-foreground">{activeCandidate.metadata.explanation.hook_score}</span>
-                            </div>
-                            <div className="rounded bg-card p-1.5 text-center border border-border/40">
-                              <span className="text-muted-foreground block text-[9px]">Visual</span>
-                              <span className="font-bold text-foreground">{activeCandidate.metadata.explanation.visual_activity_score}</span>
-                            </div>
-                            <div className="rounded bg-card p-1.5 text-center border border-border/40">
-                              <span className="text-muted-foreground block text-[9px]">Audio</span>
-                              <span className="font-bold text-foreground">{activeCandidate.metadata.explanation.audio_energy_score}</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Why it works / Reasons breakdown */}
-                      {activeCandidate.metadata?.explanation?.reasons?.length ? (
-                        <div className="space-y-1.5 text-xs">
-                          <span className="font-semibold text-foreground flex items-center gap-1.5">
-                            <Lightbulb className="size-3.5 text-sage" />
-                            Why it works
-                          </span>
-                          <ul className="space-y-1">
-                            {activeCandidate.metadata.explanation.reasons.map((r: string, rIdx: number) => (
-                              <li key={rIdx} className="text-muted-foreground text-[11px] leading-relaxed flex items-start gap-1.5">
-                                <span className="text-clay font-bold">•</span>
-                                <span>{r}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : activeCandidate.reason ? (
-                        <div className="space-y-1 text-xs">
-                          <span className="font-semibold text-foreground flex items-center gap-1.5">
-                            <Lightbulb className="size-3.5 text-sage" />
-                            Why it works
-                          </span>
-                          <p className="text-muted-foreground text-[11px] leading-relaxed">
-                            {activeCandidate.reason}
-                          </p>
-                        </div>
-                      ) : null}
-
-                      {/* Platform Suitability */}
-                      {activeCandidate.metadata?.explanation?.platform_suitability && (
-                        <div className="space-y-1.5 text-xs border-t border-border/50 pt-2.5">
-                          <span className="font-semibold text-foreground text-[11px] uppercase tracking-wider font-mono block">
-                            Platform Suitability
-                          </span>
-                          <div className="flex flex-wrap gap-1">
-                            {Object.entries(activeCandidate.metadata.explanation.platform_suitability).map(([plat, detail]: any) => (
-                              <span
-                                key={plat}
-                                title={detail.reason}
-                                className={`rounded px-1.5 py-0.5 text-[9px] font-mono uppercase font-semibold ${
-                                  detail.suitable ? 'bg-vireo-green/10 text-vireo-green' : 'bg-muted text-muted-foreground line-through'
-                                }`}
-                              >
-                                {plat}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* PHASE 11 PRIMARY ACTION: Create Clip */}
-                      <div className="pt-2 space-y-2 border-t border-border/60">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Button
-                          variant="clay"
+                          variant="brand"
                           size="sm"
-                          className="w-full text-xs shadow-clay py-2.5"
+                          className="flex-1 min-w-[180px] text-xs font-bold cursor-pointer"
                           disabled={isCreatingClip === activeCandidate.id}
                           onClick={() => handleCreateClip(activeCandidate.id)}
                         >
                           {isCreatingClip === activeCandidate.id ? (
                             <>
                               <Loader2 className="size-3.5 mr-1.5 animate-spin" />
-                              Creating Clip...
+                              Rendering 9:16 Clip...
                             </>
                           ) : (
                             <>
@@ -886,44 +1026,44 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                             </>
                           )}
                         </Button>
-
-                        {/* Select / Dismiss Toggle */}
-                        <div className="flex items-center gap-2 pt-1">
-                          {activeCandidate.status === 'selected' ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 text-xs text-muted-foreground hover:text-foreground"
-                              onClick={() => handleUpdateStatus(activeCandidate.id, 'suggested')}
-                            >
-                              Unselect
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 text-xs text-vireo-green hover:bg-vireo-green/5"
-                              onClick={() => handleUpdateStatus(activeCandidate.id, 'selected')}
-                            >
-                              <CheckCircle2 className="size-3.5 mr-1 text-vireo-green" />
-                              Select
-                            </Button>
-                          )}
-
+                        {activeCandidate.status === 'selected' ? (
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
-                            className="text-xs text-muted-foreground hover:text-destructive px-2"
-                            onClick={() => handleUpdateStatus(activeCandidate.id, 'dismissed')}
-                            title="Dismiss moment"
+                            className="text-xs"
+                            onClick={() => handleUpdateStatus(activeCandidate.id, 'suggested')}
                           >
-                            <XCircle className="size-4" />
+                            Unselect
                           </Button>
-                        </div>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs text-emerald-300"
+                            onClick={() => handleUpdateStatus(activeCandidate.id, 'selected')}
+                          >
+                            <CheckCircle2 className="size-3.5 mr-1" />
+                            Select
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-9 text-zinc-400 hover:text-rose-400"
+                          onClick={() => handleUpdateStatus(activeCandidate.id, 'dismissed')}
+                          title="Dismiss moment"
+                          aria-label="Dismiss moment"
+                        >
+                          <XCircle className="size-4" />
+                        </Button>
                       </div>
+
+                      {/* Why this clip — collapsed by default to keep the page on one screen */}
+                      <WhyThisClipSection candidate={activeCandidate} defaultExpanded={false} />
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
+
               </div>
             </div>
           )}
@@ -936,99 +1076,164 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
       {activeTab === 'my_clips' && (
         <div className="space-y-6">
           {myClips.length === 0 ? (
-            <SpotlightCard
-              spotlightColor="rgba(45, 90, 60, 0.12)"
-              className="p-8 md:p-12 text-center border-border/80 bg-card space-y-4"
-            >
-              <div className="size-14 rounded-2xl bg-vireo-green/10 text-vireo-green mx-auto flex items-center justify-center">
-                <Video className="size-7" />
+            <div className="p-8 md:p-14 text-center rounded-2xl bg-vc-surface1/90 space-y-4 shadow-xl backdrop-blur-xl">
+              <div className="size-16 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 mx-auto flex items-center justify-center shadow-lg">
+                <Video className="size-8" />
               </div>
-              <div className="space-y-1.5 max-w-md mx-auto">
-                <h3 className="text-xl font-semibold font-display text-foreground">
+              <div className="space-y-2 max-w-md mx-auto">
+                <h3 className="text-xl font-bold font-['Sora',sans-serif] text-white">
                   No rendered clips yet
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  Go to <strong>AI Suggestions</strong>, pick a moment, and click <strong>Create Clip</strong> to render your first 9:16 MP4.
+                <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
+                  Go to <strong className="text-white">AI Suggestions</strong>, pick a high-retention viral moment, and click <strong className="text-white">Create Clip</strong> to render your first 9:16 MP4.
                 </p>
               </div>
               <div className="pt-2">
-                <Button variant="clay" size="sm" onClick={() => setActiveTab('suggestions')}>
+                <Button
+                  variant="brand"
+                  size="sm"
+                  onClick={() => setActiveTab('suggestions')}
+                  className="font-semibold"
+                >
                   <Sparkles className="size-3.5 mr-1.5" />
-                  View Suggestions
+                  View AI Suggestions
                 </Button>
               </div>
-            </SpotlightCard>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {myClips.map((clip) => {
-                // Match candidate title if available
                 const matchingCand = candidates.find((c) => c.id === clip.candidate_id);
                 const title = matchingCand?.title || `Clip (${clip.aspect_ratio})`;
                 const isReady = clip.render_status === 'ready';
                 const isFailed = clip.render_status === 'failed';
-                const isRendering = ['queued', 'rendering', 'uploading'].includes(clip.render_status);
+                const isRendering = ['queued', 'rendering', 'uploading', 'draft'].includes(clip.render_status);
                 const progress = clip.latest_job?.progress ?? (isReady ? 100 : 0);
                 const stage = clip.latest_job?.stage || clip.render_status;
+                // Never fabricate a rank for clips whose candidate was not scored.
+                const rawScore = matchingCand?.metadata?.vireo_score ?? matchingCand?.engagement_score;
+                const score = typeof rawScore === 'number' ? rawScore : null;
 
                 return (
                   <div
                     key={clip.id}
-                    className="card-soft p-5 border-border/80 bg-card flex flex-col justify-between space-y-4 rounded-2xl shadow-sm transition-all hover:border-border"
+                    className="overflow-hidden rounded-2xl border border-white/[0.08] bg-vc-surface1/90 flex flex-col justify-between shadow-xl backdrop-blur-xl transition-all hover:border-violet-500/40 group"
                   >
-                    <div className="space-y-3">
-                      {/* Top Header: Aspect & Status */}
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="rounded-md bg-cream border border-border/60 px-2 py-0.5 text-xs font-mono font-bold text-foreground">
-                          {clip.aspect_ratio}
-                        </span>
+                    <div className="p-4 space-y-3.5">
+                      {/* Vertical 9:16 Video Preview Card Area */}
+                      <div className="relative aspect-[9/16] max-h-72 w-full overflow-hidden rounded-xl bg-black border border-white/10 flex items-center justify-center group/vid">
+                        {previewClipId === clip.id && previewUrls[clip.id] ? (
+                          <video
+                            src={previewUrls[clip.id]}
+                            controls
+                            autoPlay
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <ClipThumbImage
+                            clip={clip}
+                            alt={title}
+                            className="w-full h-full object-cover group-hover/vid:scale-105 transition-transform duration-300"
+                            fallback={
+                              <div className="flex flex-col items-center justify-center p-4 text-center">
+                                <div className="flex items-center gap-1 opacity-25 mb-2">
+                                  {[25, 60, 40, 80, 65, 35, 75, 50, 90, 45].map((h, i) => (
+                                    <span
+                                      key={i}
+                                      style={{ height: `${h * 0.4}px` }}
+                                      className="w-1 rounded-full bg-white/40"
+                                    />
+                                  ))}
+                                </div>
+                                <span className="text-[11px] font-mono text-zinc-500">9:16 Clip Preview</span>
+                              </div>
+                            }
+                          />
+                        )}
 
-                        <div>
-                          {isReady && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-vireo-green/10 text-vireo-green px-2.5 py-0.5 text-xs font-semibold">
-                              <Check className="size-3" />
-                              Ready
+                        {/* Top Overlay Badges */}
+                        <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between z-10 pointer-events-none">
+                          {score !== null ? (
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-500/25 text-emerald-300 text-[11px] font-extrabold font-mono shadow-sm flex items-center gap-1 backdrop-blur-md">
+                              <Flame className="size-3 text-emerald-400 fill-emerald-400" />
+                              {score} AI Rank
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-md bg-white/10 text-zinc-300 text-[11px] font-bold font-mono shadow-sm backdrop-blur-md">
+                              Unranked
                             </span>
                           )}
-                          {isRendering && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-clay/10 text-clay px-2.5 py-0.5 text-xs font-semibold animate-pulse">
-                              <Loader2 className="size-3 animate-spin" />
-                              {progress}% {stage}
-                            </span>
-                          )}
-                          {isFailed && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive px-2.5 py-0.5 text-xs font-semibold">
-                              <AlertCircle className="size-3" />
-                              Failed
-                            </span>
-                          )}
+                          <span className="px-2 py-0.5 rounded-md bg-black/75 text-white text-[10px] font-mono font-bold backdrop-blur-md">
+                            {clip.aspect_ratio}
+                          </span>
+                        </div>
+
+                        {/* Play preview hover button */}
+                        {isReady && previewClipId !== clip.id && (
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePreview(clip.id)}
+                            className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/vid:opacity-100 transition-opacity cursor-pointer"
+                          >
+                            <div className="size-11 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white shadow-xl hover:scale-110 transition-transform">
+                              <Play className="size-5 ml-0.5 fill-white" />
+                            </div>
+                          </button>
+                        )}
+
+                        {/* Duration pill at bottom right */}
+                        <div className="absolute bottom-2 right-2 z-10 pointer-events-none">
+                          <span className="px-2 py-0.5 rounded bg-black/80 text-white text-[10px] font-mono font-bold backdrop-blur-sm">
+                            {Math.round(clip.duration_seconds)}s
+                          </span>
                         </div>
                       </div>
 
-                      {/* Title & Timing */}
+                      {/* Title & Timing Info */}
                       <div>
-                        <h4 className="font-semibold text-sm font-display text-foreground line-clamp-2">
-                          {title}
-                        </h4>
-                        <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground font-mono">
-                          <span className="flex items-center gap-1">
-                            <Clock className="size-3" />
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className="text-[11px] font-mono text-zinc-400 flex items-center gap-1">
+                            <Clock className="size-3 text-violet-400" />
                             {formatTime(clip.start_seconds)} – {formatTime(clip.end_seconds)}
                           </span>
-                          <span>•</span>
-                          <span>{Math.round(clip.duration_seconds)}s</span>
+
+                          <div>
+                            {isReady && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 text-emerald-400 px-2 py-0.5 text-[10px] font-semibold">
+                                <Check className="size-2.5" />
+                                Ready
+                              </span>
+                            )}
+                            {isRendering && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 text-violet-300 px-2 py-0.5 text-[10px] font-semibold animate-pulse">
+                                <Loader2 className="size-2.5 animate-spin" />
+                                {progress}% {stage}
+                              </span>
+                            )}
+                            {isFailed && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 text-rose-300 px-2 py-0.5 text-[10px] font-semibold">
+                                <AlertCircle className="size-2.5" />
+                                Failed
+                              </span>
+                            )}
+                          </div>
                         </div>
+
+                        <h4 className="font-semibold text-sm font-['Sora',sans-serif] text-white line-clamp-2 leading-snug">
+                          {title}
+                        </h4>
                       </div>
 
                       {/* Active Rendering Progress Bar */}
                       {isRendering && (
                         <div className="space-y-1.5 pt-1">
-                          <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono">
-                            <span className="capitalize">{stage}...</span>
-                            <span>{progress}%</span>
+                          <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
+                            <span className="capitalize">{stage}…</span>
+                            <span className="text-violet-300 font-bold">{progress}%</span>
                           </div>
-                          <div className="w-full bg-cream rounded-full h-2 overflow-hidden border border-border/50">
+                          <div className="w-full bg-white/[0.08] rounded-full h-2 overflow-hidden border border-white/10">
                             <div
-                              className="bg-clay h-full transition-all duration-300 rounded-full"
+                              className="bg-violet-500 h-full transition-all duration-300 rounded-full"
                               style={{ width: `${progress}%` }}
                             />
                           </div>
@@ -1037,108 +1242,67 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
 
                       {/* Failure Message */}
                       {isFailed && (
-                        <div className="p-2.5 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs">
+                        <div className="p-3 rounded-xl bg-rose-500/10 text-rose-300 text-xs">
                           {clip.render_error_message || 'Video rendering failed. Please try again.'}
-                        </div>
-                      )}
-
-                      {/* Inline Preview Player when toggled */}
-                      {previewClipId === clip.id && previewUrls[clip.id] && (
-                        <div className="pt-2">
-                          <div className="rounded-xl overflow-hidden bg-black aspect-[9/16] max-h-72 mx-auto flex items-center justify-center border border-border">
-                            <video
-                              src={previewUrls[clip.id]}
-                              controls
-                              autoPlay
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
                         </div>
                       )}
                     </div>
 
-                    {/* Bottom Actions */}
-                    <div className="pt-3 border-t border-border/50 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
+                    {/* Bottom Action Bar */}
+                    <div className="p-3.5 bg-black/40 border-t border-white/[0.06] flex items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         {isReady && (
                           <>
                             <Link to={`/clips/${clip.id}/edit?tab=producer`}>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="text-xs font-semibold border-purple-500/60 bg-purple-500/10 text-purple-400 hover:bg-purple-600 hover:text-white shadow-xs transition-colors"
-                                title="Open Vireo Producer AI Director (auto dead air cuts, kinetic captions, punch-ins)"
+                                className="text-xs font-semibold border-violet-500/40 bg-violet-500/10 text-violet-300 hover:bg-violet-600 hover:text-white transition-all"
+                                title="Open VireoClip Producer AI Director (auto dead air cuts, kinetic captions, punch-ins)"
                               >
-                                <Wand2 className="size-3.5 mr-1.5" />
+                                <Wand2 className="size-3.5 mr-1 text-violet-400" />
                                 Produce
                               </Button>
                             </Link>
+
                             <Link to={`/clips/${clip.id}/edit`}>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="text-xs font-semibold border-clay/60 bg-clay/10 text-clay hover:bg-clay hover:text-white shadow-xs transition-colors"
-                                title="Open full Clip Editor (framing, captions, headline, audio)"
+                                className="text-xs font-semibold border-white/10 bg-white/[0.04] text-zinc-200 hover:bg-white hover:text-black transition-all"
+                                title="Open full multi-track Timeline Editor"
                               >
-                                <Sliders className="size-3.5 mr-1.5" />
+                                <Sliders className="size-3.5 mr-1" />
                                 Edit Video
                               </Button>
                             </Link>
+
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-xs font-semibold border-purple-500/60 bg-purple-500/10 text-purple-400 hover:bg-purple-600 hover:text-white shadow-xs transition-colors"
-                              title="Generate or view multi-platform Content Pack (titles, hooks, captions, descriptions, CTAs, thumbnails)"
+                              className="text-xs font-semibold border-white/10 bg-white/[0.04] text-zinc-200 hover:text-white hover:bg-white/[0.08]"
                               onClick={() => setContentPackClip(clip)}
+                              title="Generate multi-platform Content Pack (titles, hooks, captions)"
                             >
-                              <Layers className="size-3.5 mr-1.5" />
-                              Content Pack
-                            </Button>
-                            <Link to={`/clips/${clip.id}/edit?tab=thumbnail_lab`}>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs font-semibold border-rose-500/60 bg-rose-500/10 text-rose-400 hover:bg-rose-600 hover:text-white shadow-xs transition-colors"
-                                title="Open Thumbnail Lab (brand-aware covers, typography, diagnostics)"
-                              >
-                                <ImageIcon className="size-3.5 mr-1.5" />
-                                Thumbnail
-                              </Button>
-                            </Link>
-                            <Link to={`/clips/${clip.id}/edit?tab=autopilot`}>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs font-semibold border-purple-500/60 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 text-purple-300 hover:from-purple-600 hover:to-indigo-600 hover:text-white shadow-xs transition-colors"
-                                title="Run Full Pipeline Autopilot (Producer -> Hook Lab -> Thumbnail Lab -> Content Pack)"
-                              >
-                                <Sparkles className="size-3.5 mr-1.5 text-purple-400" />
-                                Autopilot
-                              </Button>
-                            </Link>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs"
-                              onClick={() => handleTogglePreview(clip.id)}
-                            >
-                              {previewClipId === clip.id ? 'Close' : 'Preview'}
+                              <Layers className="size-3.5 mr-1 text-zinc-300" />
+                              Kit
                             </Button>
 
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-xs border-sage/60 bg-sage/10 text-sage hover:bg-sage hover:text-white"
-                              title="Publish or schedule this clip to social platforms"
+                              className="text-xs border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-600 hover:text-white"
                               onClick={() => setPublishingClip(clip)}
+                              title="Publish or schedule clip to social channels"
                             >
                               <Share2 className="size-3 mr-1" />
                               Publish
                             </Button>
+
                             <Button
-                              variant="clay"
+                              variant="primary"
                               size="sm"
-                              className="text-xs shadow-clay"
+                              className="text-xs font-bold"
                               disabled={isDownloading === clip.id}
                               onClick={() => handleDownloadClip(clip.id)}
                             >
@@ -1147,16 +1311,16 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                               ) : (
                                 <Download className="size-3 mr-1" />
                               )}
-                              Download
+                              MP4
                             </Button>
                           </>
                         )}
 
                         {isFailed && (
                           <Button
-                            variant="clay"
+                            variant="primary"
                             size="sm"
-                            className="text-xs"
+                            className="text-xs bg-rose-600 hover:bg-rose-500 text-white font-semibold"
                             disabled={retryingClipId === clip.id}
                             onClick={() => handleRetryRender(clip.id)}
                           >
@@ -1173,7 +1337,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-muted-foreground hover:text-destructive px-2"
+                        className="text-zinc-500 hover:text-rose-400 px-2 cursor-pointer"
                         onClick={() => handleDeleteClip(clip.id)}
                         title="Delete clip"
                       >
@@ -1202,7 +1366,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
 
       {/* Phase 23: Content Pack Workspace Modal */}
       {contentPackClip && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-scrim glass-scrim-deep animate-in fade-in duration-200">
           <div className="w-full max-w-5xl">
             <ContentPackWorkspace
               projectId={projectId}

@@ -49,7 +49,6 @@ export interface AdminOverviewData {
     ffmpegAvailable: boolean;
     paddleConfigured: boolean;
     razorpayConfigured: boolean;
-    stripeConfigured: boolean;
   };
 }
 
@@ -140,7 +139,6 @@ export interface AdminHealthData {
     billing: {
       paddle: { configured: boolean; environment: string };
       razorpay: { configured: boolean; mode: string };
-      stripe: { configured: boolean };
     };
   };
 }

@@ -25,11 +25,22 @@ import {
   AppError,
   isValidUUID,
   ReframeKeyframe,
+  ReframeLayoutMode,
+  QuickClipMusicConfig,
 } from '../types/index.js';
 import { CaptionService } from './captionService.js';
-import { SmartReframeService } from './smartReframeService.js';
+import { ALL_CAPTION_STYLES, CAPTION_PRESET_IDS, isCaptionPresetId, sanitizePresetOverrides } from '../shared/captionPresets.js';
+import { SmartReframeService, activeReframeAnalysisSet } from './smartReframeService.js';
 import { JobReliabilityService } from './queue/jobReliabilityService.js';
+import { ProEditorService } from './proEditorService.js';
+import { AudioDuckingService } from './audioDuckingService.js';
+import { FilterGraphBuilder } from './ffmpeg/filterGraphBuilder.js';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { ClipPosterService } from './clipPosterService.js';
 
+const execFileAsync = promisify(execFile);
+const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
 
 // Configure fluent-ffmpeg to use ffmpeg-static binary
 if (ffmpegStatic) {
@@ -38,6 +49,37 @@ if (ffmpegStatic) {
 
 // In-memory set to prevent duplicate simultaneous render jobs for the same clip
 export const activeRenderSet = new Set<string>();
+
+// CPU-bound FFmpeg renders must not run unbounded inside the web process.
+// Inline (request-triggered) launches defer to the background sweep once the
+// per-process cap is reached; the job stays 'queued' and is picked up later.
+export function maxConcurrentRenders(): number {
+  const cpus = os.cpus().length || 1;
+  return Math.max(1, Math.min(4, Math.floor(cpus / 2)));
+}
+
+export function shouldLaunchInlineRender(): boolean {
+  return activeRenderSet.size < maxConcurrentRenders();
+}
+
+/**
+ * Fires an inline render only when the per-process concurrency cap allows it.
+ * When deferred, the job stays 'queued' in render_jobs and the background sweep
+ * started in index.ts picks it up.
+ */
+export function launchInlineRender(clipId: string, userId: string, jobId: string | undefined): boolean {
+  if (!shouldLaunchInlineRender()) {
+    logger.warn(`[ClipRender] Inline render deferred to background sweep for clip ${clipId} (concurrency cap ${maxConcurrentRenders()} reached)`);
+    return false;
+  }
+  ClipRenderService.renderClipJob(clipId, userId, jobId).catch((renderErr) => {
+    logger.error('Background clip rendering caught top-level error', {
+      clipId,
+      error: renderErr instanceof Error ? renderErr.message : String(renderErr),
+    });
+  });
+  return true;
+}
 
 export interface CreateClipResult {
   clip: ClipRecord;
@@ -48,6 +90,14 @@ export interface SignedUrlResult {
   signedUrl: string;
   filename?: string;
   expiresInSeconds: number;
+}
+
+export interface QuickClipAudioGraph {
+  hasBackgroundMusic: boolean;
+  musicPath?: string;
+  inputArgs: string[];
+  filterComplex: string[];
+  audioMap: string;
 }
 
 /**
@@ -166,18 +216,108 @@ export class ClipRenderService {
     const validAspectRatio = validRatios.includes(aspectRatio) ? aspectRatio : '9:16';
     const { clip, renderJob } = await createClipWithJob(projectId, candidateId, userId, validAspectRatio, cropMode);
 
-    // 6. Launch in-process background rendering
-    ClipRenderService.renderClipJob(clip.id, userId, renderJob.id).catch((renderErr) => {
-      logger.error('Background clip rendering caught top-level error', {
-        clipId: clip.id,
-        error: renderErr instanceof Error ? renderErr.message : String(renderErr),
-      });
-    });
+    // 6. Launch in-process background rendering (deferred to the sweep when at cap)
+    launchInlineRender(clip.id, userId, renderJob.id);
 
     return {
       clip: clip as ClipRecord,
       renderJob: renderJob as RenderJobRecord,
     };
+  }
+
+  /**
+   * Puts a read-only working copy of a source video at targetLocalPath. A hard link is instant
+   * where a full copy of a multi-GB source takes seconds; callers only read and then unlink the
+   * target, which never touches the cached file. Falls back to a copy across filesystems.
+   */
+  private static placeSourceFile(sourcePath: string, targetLocalPath: string): void {
+    try {
+      fs.linkSync(sourcePath, targetLocalPath);
+    } catch {
+      fs.copyFileSync(sourcePath, targetLocalPath);
+    }
+  }
+
+  /**
+   * Resolves, caches, or downloads the source video to targetLocalPath.
+   * 1. Checks if sourceStoragePath points to a valid local file on disk (absolute or repo-relative).
+   * 2. Checks if the source is already cached in a shared project/source disk cache in os.tmpdir().
+   * 3. Otherwise downloads from R2 with strict timeout protection and caches it atomically.
+   */
+  public static async ensureSourceVideo(
+    sourceStoragePath: string | null | undefined,
+    targetLocalPath: string,
+    options: { timeoutMs?: number; projectId?: string; clipId?: string } = {}
+  ): Promise<'local_fallback' | 'cache_hit' | 'downloaded'> {
+    if (!sourceStoragePath) {
+      throw new AppError('Source storage path is missing for clip.', 400, 'SOURCE_PATH_MISSING');
+    }
+
+    // 1. Local filesystem fallback check
+    const candidatePaths = [
+      sourceStoragePath,
+      path.resolve(process.cwd(), sourceStoragePath),
+      path.resolve(process.cwd(), '..', sourceStoragePath),
+      path.resolve(process.cwd(), '../..', sourceStoragePath),
+    ];
+
+    for (const p of candidatePaths) {
+      try {
+        if (fs.existsSync(p) && fs.statSync(p).isFile() && fs.statSync(p).size > 0) {
+          logger.info(`[ClipRender] Using local source video fallback: ${p}`);
+          ClipRenderService.placeSourceFile(p, targetLocalPath);
+          return 'local_fallback';
+        }
+      } catch {}
+    }
+
+    // 2. Shared Source Disk Cache Check
+    const cacheDir = path.join(os.tmpdir(), 'vireo-source-cache');
+    try {
+      if (!fs.existsSync(cacheDir)) {
+        fs.mkdirSync(cacheDir, { recursive: true });
+      }
+    } catch {}
+
+    const hash = crypto.createHash('sha256').update(sourceStoragePath).digest('hex');
+    const cachedFile = path.join(cacheDir, `${hash}.mp4`);
+
+    try {
+      if (fs.existsSync(cachedFile) && fs.statSync(cachedFile).size > 0) {
+        logger.info(`[ClipRender] Reused cached source video: ${cachedFile}`);
+        ClipRenderService.placeSourceFile(cachedFile, targetLocalPath);
+        return 'cache_hit';
+      }
+    } catch {}
+
+    // 3. Strict Download from R2 with Timeout and Atomic Cache Placement
+    const downloadTimeout = Math.min(options.timeoutMs || 60000, 120000);
+    const stagingFile = path.join(cacheDir, `${hash}.tmp.${Date.now()}`);
+
+    try {
+      await downloadObjectToFile('source', sourceStoragePath, stagingFile, { timeoutMs: downloadTimeout });
+
+      if (!fs.existsSync(stagingFile) || fs.statSync(stagingFile).size === 0) {
+        throw new AppError('Downloaded source file is empty.', 500, 'EMPTY_SOURCE_FILE');
+      }
+
+      // Atomically move staging file into cache
+      try {
+        fs.renameSync(stagingFile, cachedFile);
+      } catch {
+        fs.copyFileSync(stagingFile, cachedFile);
+        try { fs.unlinkSync(stagingFile); } catch {}
+      }
+
+      ClipRenderService.placeSourceFile(cachedFile, targetLocalPath);
+      logger.info(`[ClipRender] Downloaded and cached source video to ${cachedFile}`);
+      return 'downloaded';
+    } catch (err: any) {
+      try {
+        if (fs.existsSync(stagingFile)) fs.unlinkSync(stagingFile);
+      } catch {}
+      throw err;
+    }
   }
 
   /**
@@ -315,12 +455,18 @@ export class ClipRenderService {
       const sourcePath = path.join(tempDir, 'source.mp4');
       const outputPath = path.join(tempDir, 'rendered.mp4');
 
+      const timeoutMs = config.clipRenderTimeoutMs || 300000;
+
       logger.info(`[ClipRender] Downloading source video from Storage: ${clip.source_storage_path}`, {
         clipId,
         sourcePath: clip.source_storage_path,
       });
 
-      await downloadObjectToFile('source', clip.source_storage_path, sourcePath);
+      await ClipRenderService.ensureSourceVideo(clip.source_storage_path, sourcePath, {
+        timeoutMs: Math.min(timeoutMs, 60000),
+        projectId: clip.project_id,
+        clipId,
+      });
 
       // 2. FFmpeg cut, manual framing, ASS subtitles, text overlay, and MP4 encode
       await ClipRenderService.updateJobStage(jobId, clipId, 'cutting', 10, 'rendering', workerId);
@@ -330,75 +476,16 @@ export class ClipRenderService {
       const startSec = Number(clip.start_seconds) + trimStart;
       const originalDuration = Number(clip.duration_seconds || (clip.end_seconds - clip.start_seconds));
       const durationSec = Math.max(0.1, Number((originalDuration - trimStart - trimEnd).toFixed(3)));
-      const timeoutMs = config.clipRenderTimeoutMs || 300000;
 
-      let cropFilter = buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config);
+      // Speaker-following guarantee: generate the smart-reframe track on demand
+      // so active-speaker framing works out of the box.
+      await ClipRenderService.ensureReframeTrackAtRender(clip, sourcePath, jobId);
 
-      let actualReframeMode: 'smart' | 'fallback_center' | 'manual' = 
-        clip.crop_config?.mode === 'manual' ? 'manual' : 'fallback_center';
-      let reframeMetadata: Record<string, any> | undefined = undefined;
-
-      // Phase 13: Dynamic Smart Auto-Reframe
-      if (clip.crop_config?.mode === 'smart') {
-        try {
-          const track = await SmartReframeService.getReframeTrack(clipId, clip.user_id);
-          if (
-            track &&
-            track.status === 'ready' &&
-            Array.isArray(track.smoothed_keyframes) &&
-            track.smoothed_keyframes.length > 0
-          ) {
-            if (track.isStale) {
-              logger.warn(`[ClipRender] Smart reframe track is stale for clip ${clipId}. Falling back to center crop.`);
-              actualReframeMode = 'fallback_center';
-              reframeMetadata = {
-                reason: 'stale_track',
-                detected_face_count: track.detected_face_count || 0,
-              };
-              cropFilter = buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 });
-            } else if ((track.detected_face_count || 0) === 0 || !track.dominant_track_id) {
-              logger.info(`[ClipRender] No subject detected in smart reframe track for clip ${clipId}. Using fallback center.`);
-              actualReframeMode = 'fallback_center';
-              reframeMetadata = {
-                reason: 'no_subject_detected',
-                detected_face_count: 0,
-              };
-              cropFilter = buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 });
-            } else {
-              cropFilter = SmartReframeService.buildSmartCropFilter(
-                track.smoothed_keyframes,
-                clip.aspect_ratio as ClipAspectRatio,
-                track.source_width || 1920,
-                track.source_height || 1080,
-                durationSec
-              );
-              actualReframeMode = 'smart';
-              reframeMetadata = {
-                dominant_track_id: track.dominant_track_id,
-                detected_face_count: track.detected_face_count,
-                keyframe_count: track.smoothed_keyframes.length,
-                dominant_score: track.metadata?.dominant_score,
-              };
-              logger.info(`[ClipRender] Applied dynamic smart reframe filter with ${track.smoothed_keyframes.length} keyframes for clip ${clipId}`);
-            }
-          } else {
-            logger.warn(`[ClipRender] No ready smart reframe track found for clip ${clipId}. Falling back to center crop.`);
-            actualReframeMode = 'fallback_center';
-            reframeMetadata = {
-              reason: 'no_ready_track',
-            };
-            cropFilter = buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 });
-          }
-        } catch (reframeErr: any) {
-          logger.warn(`[ClipRender] Smart reframe resolution error for clip ${clipId}: ${reframeErr.message}. Falling back to center crop.`);
-          actualReframeMode = 'fallback_center';
-          reframeMetadata = {
-            reason: 'error',
-            error: reframeErr.message,
-          };
-          cropFilter = buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 });
-        }
-      }
+      // Shared reframing decision (Quick path filter + Pro per-slice context).
+      const reframeDecision = await ClipRenderService.resolveReframeDecision(clip, durationSec);
+      const cropFilter = reframeDecision.cropFilter;
+      const actualReframeMode = reframeDecision.mode;
+      const reframeMetadata = reframeDecision.metadata;
 
       const videoFilters: string[] = [cropFilter];
 
@@ -415,7 +502,7 @@ export class ClipRenderService {
           });
 
           if (captionResult.cues.length > 0 && fs.existsSync(assPath)) {
-            const safeAss = assPath.replace(/\\/g, '/').replace(':', '\\\\:');
+            const safeAss = assPath.replace(/\\/g, '/').replace(/:/g, '\\\\:');
             videoFilters.push(`ass=${safeAss}`);
             logger.info(`[ClipRender] Burning ${captionResult.cues.length} caption cues using style "${clip.caption_style || 'clean'}"`);
           }
@@ -443,88 +530,208 @@ export class ClipRenderService {
       }
 
       logger.info(
-        `[ClipRender] Executing FFmpeg for clip ${clipId}: start=${startSec}s, dur=${durationSec}s, filters=${videoFilters.length}`
+        `[ClipRender] Preparing FFmpeg for clip ${clipId}: start=${startSec}s, dur=${durationSec}s, filters=${videoFilters.length}`
       );
 
-      await new Promise<void>((resolve, reject) => {
-        let isResolved = false;
-        let lastProgressUpdate = 0;
+      // Check if a multi-track EditorProject exists with custom pro edits (splits, cuts, B-roll, secondary audio, keyframes, text layers)
+      let hasCustomProTracks = false;
+      let editorProject: any = null;
+      try {
+        const { data: proj } = await dataRepository
+          .from('editor_projects')
+          .select('*')
+          .eq('clip_id', clipId)
+          .eq('user_id', userId)
+          .maybeSingle();
 
-        const cmd = ffmpeg(sourcePath)
-          .setStartTime(startSec)
-          .setDuration(durationSec)
-          .videoFilters(videoFilters)
-          .videoCodec('libx264');
+        if (proj && Array.isArray(proj.tracks)) {
+          hasCustomProTracks = ClipRenderService.hasCustomProEdits(proj, clip);
+          if (hasCustomProTracks) {
+            editorProject = proj;
+          }
+        }
+      } catch (err: any) {
+        logger.warn(`[ClipRender] Error checking EditorProject for clip ${clipId}: ${err.message}`);
+      }
 
-        if (clip.muted) {
-          cmd.noAudio();
+      // Resolve optional background music for Quick Clips
+      let resolvedMusicPath: string | null = null;
+      if (clip.background_music && clip.background_music.enabled !== false && !clip.muted) {
+        resolvedMusicPath = await ClipRenderService.resolveBackgroundMusicPath(clip.background_music, userId);
+        if (!resolvedMusicPath) {
+          logger.warn(`[ClipRender] Background music configured for clip ${clipId} but file could not be resolved. Falling back to dialogue-only audio.`);
+        }
+      }
+
+      let expectedDurationSec = durationSec;
+      if (hasCustomProTracks && editorProject) {
+        logger.info(`[ClipRender] Compiling and executing multi-track EditorProject graph for clip ${clipId}`);
+        await ProEditorService.preloadRemoteOverlayAssets(editorProject, tempDir);
+        const graph = ProEditorService.compileRenderGraph(editorProject, sourcePath, outputPath, tempDir, {
+          aspectRatio: clip.aspect_ratio as ClipAspectRatio,
+          cropConfig: clip.crop_config || null,
+          clipStartSec: startSec,
+          mode: actualReframeMode,
+          layoutMode: reframeDecision.layoutMode,
+          track: reframeDecision.track,
+        });
+        const videoTrackItems = editorProject.tracks
+          ?.filter((t: any) => t.type === 'VIDEO' && !t.hidden)
+          ?.flatMap((t: any) => t.items || []) || [];
+        const isMultiSlice = videoTrackItems.length > 1;
+        const renderDuration = Number((editorProject.canvas?.duration || durationSec).toFixed(3));
+        expectedDurationSec = renderDuration;
+
+        const filterBuilder = new FilterGraphBuilder(graph.filterComplex);
+        const scriptExec = await filterBuilder.compileForExecution(tempDir);
+
+        try {
+          const ffmpegArgs = [
+            '-y',
+            ...(!isMultiSlice
+              ? ['-ss', startSec.toFixed(3), '-t', durationSec.toFixed(3)]
+              : []),
+            ...graph.inputArgs,
+            ...scriptExec.args,
+            '-map', graph.videoMap,
+            '-map', graph.audioMap,
+            '-c:v', 'libx264',
+            '-preset', config.renderPreset,
+            '-crf', '22',
+            '-c:a', 'aac',
+            '-b:a', '128k',
+            '-movflags', '+faststart',
+            '-t', renderDuration.toFixed(3),
+            outputPath,
+          ];
+
+          await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: timeoutMs });
+        } finally {
+          await scriptExec.cleanup();
+        }
+        await ClipRenderService.updateJobProgress(jobId, 85, 'encoding');
+      } else {
+        const audioGraph = ClipRenderService.compileQuickClipAudioGraph({
+          durationSec,
+          clipVolume: clip.volume,
+          backgroundMusic: clip.background_music,
+          resolvedMusicPath,
+        });
+
+        if (audioGraph.hasBackgroundMusic && !clip.muted) {
+          logger.info(`[ClipRender] Executing Quick Clips render with background music and ducking: ${audioGraph.musicPath}`);
+          await ClipRenderService.updateJobProgress(jobId, 25, 'encoding');
+
+          const fullFilterComplex = [
+            `[0:v]${videoFilters.join(',')}[out_v]`,
+            ...audioGraph.filterComplex,
+          ];
+
+          const ffmpegArgs = [
+            '-nostdin',
+            '-y',
+            '-ss', startSec.toFixed(3),
+            '-t', durationSec.toFixed(3),
+            '-i', sourcePath,
+            ...audioGraph.inputArgs,
+            '-filter_complex', fullFilterComplex.join(';'),
+            '-map', '[out_v]',
+            '-map', audioGraph.audioMap,
+            '-c:v', 'libx264',
+            '-preset', config.renderPreset,
+            '-crf', '22',
+            '-c:a', 'aac',
+            '-b:a', '128k',
+            '-pix_fmt', 'yuv420p',
+            '-movflags', '+faststart',
+            '-t', durationSec.toFixed(3),
+            outputPath,
+          ];
+
+          await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: timeoutMs });
+          await ClipRenderService.updateJobProgress(jobId, 85, 'encoding');
         } else {
-          cmd.audioCodec('aac');
-          if (clip.volume !== undefined && Number(clip.volume) !== 1.0) {
-            const vol = Math.min(2.0, Math.max(0.0, Number(clip.volume)));
-            cmd.audioFilters(`volume=${vol}`);
+          await new Promise<void>((resolve, reject) => {
+          let isResolved = false;
+          let lastProgressUpdate = 0;
+
+          const cmd = ffmpeg(sourcePath)
+            .setStartTime(startSec)
+            .setDuration(durationSec)
+            .videoFilters(videoFilters)
+            .videoCodec('libx264');
+
+          if (clip.muted) {
+            cmd.noAudio();
+          } else {
+            cmd.audioCodec('aac');
+            if (clip.volume !== undefined && Number(clip.volume) !== 1.0) {
+              const vol = Math.min(2.0, Math.max(0.0, Number(clip.volume)));
+              cmd.audioFilters(`volume=${vol}`);
+            }
           }
+
+          const outputOpts = [
+            '-pix_fmt yuv420p',
+            `-preset ${config.renderPreset}`,
+            '-crf', '22',
+            '-movflags +faststart',
+          ];
+          if (!clip.muted) {
+            outputOpts.push('-b:a 128k');
+          }
+
+          cmd.outputOptions(outputOpts)
+          .output(outputPath);
+
+          // Explicit timeout enforcement
+          const timer = setTimeout(() => {
+            if (!isResolved) {
+              isResolved = true;
+              try {
+                cmd.kill('SIGKILL');
+              } catch (kErr) {}
+              const err = new Error(`FFmpeg rendering timed out after ${timeoutMs / 1000}s`);
+              (err as any).code = 'RENDER_TIMEOUT';
+              reject(err);
+            }
+          }, timeoutMs);
+
+          // Progress listener
+          cmd.on('progress', (progress) => {
+            const now = Date.now();
+            if (now - lastProgressUpdate > 1500) {
+              lastProgressUpdate = now;
+              const currentSec = parseTimemarkToSeconds(progress.timemark);
+              const rawProgress = 15 + Math.round((currentSec / durationSec) * 70);
+              const clampedProgress = Math.min(85, Math.max(15, rawProgress));
+
+              ClipRenderService.updateJobProgress(jobId, clampedProgress, 'encoding').catch(() => {});
+            }
+          });
+
+          cmd.on('end', () => {
+            if (!isResolved) {
+              isResolved = true;
+              clearTimeout(timer);
+              resolve();
+            }
+          });
+
+          cmd.on('error', (err) => {
+            if (!isResolved) {
+              isResolved = true;
+              clearTimeout(timer);
+              const wrappedErr = new Error(`FFmpeg processing failed: ${err.message}`);
+              (wrappedErr as any).code = 'FFMPEG_FAILED';
+              reject(wrappedErr);
+            }
+          });
+
+          cmd.run();
+        });
         }
-
-        const outputOpts = [
-          '-pix_fmt yuv420p',
-          '-preset fast',
-          '-crf 22',
-          '-movflags +faststart',
-        ];
-        if (!clip.muted) {
-          outputOpts.push('-b:a 128k');
-        }
-
-        cmd.outputOptions(outputOpts)
-        .output(outputPath);
-
-        // Explicit timeout enforcement
-        const timer = setTimeout(() => {
-          if (!isResolved) {
-            isResolved = true;
-            try {
-              cmd.kill('SIGKILL');
-            } catch (kErr) {}
-            const err = new Error(`FFmpeg rendering timed out after ${timeoutMs / 1000}s`);
-            (err as any).code = 'RENDER_TIMEOUT';
-            reject(err);
-          }
-        }, timeoutMs);
-
-        // Progress listener
-        cmd.on('progress', (progress) => {
-          const now = Date.now();
-          if (now - lastProgressUpdate > 1500) {
-            lastProgressUpdate = now;
-            const currentSec = parseTimemarkToSeconds(progress.timemark);
-            const rawProgress = 15 + Math.round((currentSec / durationSec) * 70);
-            const clampedProgress = Math.min(85, Math.max(15, rawProgress));
-
-            ClipRenderService.updateJobProgress(jobId, clampedProgress, 'encoding').catch(() => {});
-          }
-        });
-
-        cmd.on('end', () => {
-          if (!isResolved) {
-            isResolved = true;
-            clearTimeout(timer);
-            resolve();
-          }
-        });
-
-        cmd.on('error', (err) => {
-          if (!isResolved) {
-            isResolved = true;
-            clearTimeout(timer);
-            const wrappedErr = new Error(`FFmpeg processing failed: ${err.message}`);
-            (wrappedErr as any).code = 'FFMPEG_FAILED';
-            reject(wrappedErr);
-          }
-        });
-
-        cmd.run();
-      });
+      }
 
       // Verify output file exists and has size
       if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
@@ -532,6 +739,9 @@ export class ClipRenderService {
         (err as any).code = 'FFMPEG_FAILED';
         throw err;
       }
+
+      // Output validation gate: streams + duration must match what was requested.
+      await ClipRenderService.validateRenderedOutput(outputPath, expectedDurationSec, { expectAudio: !clip.muted });
 
       // 3. Upload rendered MP4 to storage with revision versioning
       await ClipRenderService.updateJobStage(jobId, clipId, 'uploading', 90, 'uploading', workerId);
@@ -563,6 +773,12 @@ export class ClipRenderService {
           updated_at: new Date().toISOString(),
         })
         .eq('id', clipId);
+
+      // 4b. Poster frame for the Media Library while the rendered file is still local (best-effort).
+      await ClipPosterService.generateFromRenderedFile(
+        { ...clip, output_storage_path: finalStoragePath, render_version: renderVersion },
+        outputPath,
+      );
 
       // 5. Update render job -> 'completed' (100%) - only if worker still owns it
       if (jobId) {
@@ -734,6 +950,190 @@ export class ClipRenderService {
         })
         .eq('id', clipId);
     } catch {}
+  }
+
+  /**
+   * Render-time speaker-following guarantee (quality roadmap: active-speaker
+   * framing). When the clip's crop mode is 'smart' but no ready reframe track
+   * exists, run the CV analyzer on the ALREADY-downloaded source and persist
+   * the track before the reframing decision. Failures fall back to the
+   * existing center-crop path — this must never break a render.
+   */
+  private static async ensureReframeTrackAtRender(
+    clip: ClipRecord,
+    localSourcePath: string,
+    jobId?: string
+  ): Promise<void> {
+    if (!config.smartReframeEnabled || !config.reframeAutoGenerate) return;
+    if (clip.crop_config?.mode !== 'smart') return;
+
+    const existing = await SmartReframeService.getReframeTrack(clip.id, clip.user_id);
+    if (existing && existing.status === 'ready' && !existing.isStale &&
+        Array.isArray(existing.smoothed_keyframes) && existing.smoothed_keyframes.length > 0) {
+      return;
+    }
+
+    if (existing && activeReframeAnalysisSet.has(clip.id)) return; // analysis already in flight
+
+    logger.info(`[ClipRender] No ready reframe track for smart clip ${clip.id}; auto-generating from local source`);
+    try {
+      if (jobId) {
+        await ClipRenderService.updateJobStage(jobId, clip.id, 'analyzing_speakers', 8, 'rendering');
+      }
+      await SmartReframeService.analyzeClipFraming(clip.id, clip.user_id, { localSourcePath });
+    } catch (err: any) {
+      logger.warn(`[ClipRender] Auto reframe analysis failed for clip ${clip.id}: ${err?.message || err}. Falling back to center crop.`);
+    }
+  }
+
+  /**
+   * Shared reframing decision for both render paths (audit H-1).
+   * Quick Clip render consumes `cropFilter` directly; the Pro editor path consumes
+   * `track`/`layoutMode` to build per-slice dynamic crops in compileRenderGraph,
+   * guaranteeing both paths frame identical source identically.
+   *
+   * Reframe keyframes are clip-relative (t=0 at clip start incl. trim), matching
+   * the `-ss startSec` input seek used by both quick and single-slice pro renders.
+   */
+  public static async resolveReframeDecision(
+    clip: ClipRecord,
+    durationSec: number
+  ): Promise<{
+    cropFilter: string;
+    mode: 'smart' | 'fallback_center' | 'manual';
+    metadata?: Record<string, any>;
+    layoutMode: ReframeLayoutMode | string;
+    track: Awaited<ReturnType<typeof SmartReframeService.getReframeTrack>>;
+  }> {
+    const centerCrop = () => buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 });
+
+    if (clip.crop_config?.mode === 'manual') {
+      return { cropFilter: buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config), mode: 'manual', layoutMode: 'manual', track: null };
+    }
+
+    if (clip.crop_config?.mode !== 'smart') {
+      return { cropFilter: buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config), mode: 'fallback_center', layoutMode: 'manual', track: null };
+    }
+
+    try {
+      const track = await SmartReframeService.getReframeTrack(clip.id, clip.user_id);
+      if (
+        track &&
+        track.status === 'ready' &&
+        Array.isArray(track.smoothed_keyframes) &&
+        track.smoothed_keyframes.length > 0
+      ) {
+        if (track.isStale) {
+          logger.warn(`[ClipRender] Smart reframe track is stale for clip ${clip.id}. Falling back to center crop.`);
+          return { cropFilter: centerCrop(), mode: 'fallback_center', metadata: { reason: 'stale_track', detected_face_count: track.detected_face_count || 0 }, layoutMode: 'track', track };
+        }
+
+        if ((track.detected_face_count || 0) === 0 || !track.dominant_track_id) {
+          const targetLayout = clip.crop_config?.layout_mode || 'blur';
+          if (targetLayout === 'blur' && (clip.aspect_ratio === '9:16' || !clip.aspect_ratio)) {
+            logger.info(`[ClipRender] No subject detected in smart reframe track for clip ${clip.id}. Using modern blurred background layout.`);
+            return {
+              cropFilter: SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: 1080, canvasHeight: 1920 }),
+              mode: 'smart',
+              metadata: { layout_mode: 'blur', reason: 'broll_or_no_face', detected_face_count: 0 },
+              layoutMode: 'blur',
+              track,
+            };
+          }
+          logger.info(`[ClipRender] No subject detected in smart reframe track for clip ${clip.id}. Using fallback center.`);
+          return { cropFilter: centerCrop(), mode: 'fallback_center', metadata: { reason: 'no_subject_detected', detected_face_count: 0 }, layoutMode: targetLayout, track };
+        }
+
+        const targetLayout = clip.crop_config?.layout_mode || track.layout_mode || 'track';
+        const cropFilter = SmartReframeService.buildLayoutCropFilter({
+          layoutMode: targetLayout as any,
+          aspectRatio: clip.aspect_ratio as ClipAspectRatio,
+          keyframes: track.smoothed_keyframes,
+          sourceWidth: track.source_width || 1920,
+          sourceHeight: track.source_height || 1080,
+          duration: durationSec,
+          speaker1X: clip.crop_config?.split?.speaker1X,
+          speaker2X: clip.crop_config?.split?.speaker2X,
+          screencastMode: clip.crop_config?.screencast?.mode,
+        });
+        logger.info(`[ClipRender] Applied dynamic smart reframe filter (${targetLayout}) with ${track.smoothed_keyframes.length} keyframes for clip ${clip.id}`);
+        return {
+          cropFilter,
+          mode: 'smart',
+          metadata: {
+            layout_mode: targetLayout,
+            dominant_track_id: track.dominant_track_id,
+            detected_face_count: track.detected_face_count,
+            keyframe_count: track.smoothed_keyframes.length,
+            dominant_score: track.metadata?.dominant_score,
+          },
+          layoutMode: targetLayout,
+          track,
+        };
+      }
+
+      logger.warn(`[ClipRender] No ready smart reframe track found for clip ${clip.id}. Falling back to center crop.`);
+      return { cropFilter: centerCrop(), mode: 'fallback_center', metadata: { reason: 'no_ready_track' }, layoutMode: clip.crop_config?.layout_mode || 'track', track };
+    } catch (reframeErr: any) {
+      logger.warn(`[ClipRender] Smart reframe resolution error for clip ${clip.id}: ${reframeErr.message}. Falling back to center crop.`);
+      return { cropFilter: centerCrop(), mode: 'fallback_center', metadata: { reason: 'error', error: reframeErr.message }, layoutMode: clip.crop_config?.layout_mode || 'track', track: null };
+    }
+  }
+
+  /**
+   * Post-render output gate (audit M-1): the rendered file must contain a video
+   * stream, the expected audio presence, and a duration within 0.5s of the
+   * requested render duration before the job may be marked ready.
+   * Failures are permanent (non-transient) — a retry re-renders, it does not
+   * re-validate the same broken file.
+   * A missing/unavailable ffprobe degrades to a warning, matching the policy of
+   * probeAvStartTimes, rather than failing renders on ops environments without ffprobe.
+   */
+  public static async validateRenderedOutput(
+    filePath: string,
+    expectedDurationSec: number,
+    options: { expectAudio: boolean }
+  ): Promise<void> {
+    try {
+      const { stdout } = await execFileAsync(
+        'ffprobe',
+        [
+          '-v', 'error',
+          '-show_entries', 'stream=codec_type',
+          '-show_entries', 'format=duration',
+          '-of', 'json',
+          filePath,
+        ],
+        { timeout: 15000, maxBuffer: 4 * 1024 * 1024 }
+      );
+
+      const probe = JSON.parse(stdout) as {
+        streams?: Array<{ codec_type?: string }>;
+        format?: { duration?: string };
+      };
+      const streams = Array.isArray(probe.streams) ? probe.streams : [];
+      const hasVideo = streams.some((s) => s?.codec_type === 'video');
+      const hasAudio = streams.some((s) => s?.codec_type === 'audio');
+      const duration = Number.parseFloat(probe.format?.duration || '0');
+
+      const problems: string[] = [];
+      if (!hasVideo) problems.push('no video stream');
+      if (options.expectAudio && !hasAudio) problems.push('missing audio stream');
+      if (!Number.isFinite(duration) || duration <= 0) {
+        problems.push('unreadable duration');
+      } else if (Math.abs(duration - expectedDurationSec) > 0.5) {
+        problems.push(`duration ${duration.toFixed(2)}s differs from expected ${expectedDurationSec.toFixed(2)}s by more than 0.5s`);
+      }
+
+      if (problems.length > 0) {
+        const err = new Error(`Rendered output failed validation: ${problems.join('; ')}.`);
+        (err as any).code = 'OUTPUT_VALIDATION_FAILED';
+        throw err;
+      }
+    } catch (err: any) {
+      if (err?.code === 'OUTPUT_VALIDATION_FAILED') throw err;
+      logger.warn(`[ClipRender] Output validation probe unavailable, accepting render without stream checks: ${err.message}`);
+    }
   }
 
   /**
@@ -952,7 +1352,7 @@ export class ClipRenderService {
       throw err;
     }
 
-    const validStyles: CaptionStyle[] = ['clean', 'bold', 'minimal', 'podcast', 'highlight', 'karaoke'];
+    const validStyles = ALL_CAPTION_STYLES as readonly CaptionStyle[];
     if (update.captionStyle && !validStyles.includes(update.captionStyle)) {
       const err = new Error(`Invalid caption style. Supported: ${validStyles.join(', ')}`);
       (err as any).code = 'INVALID_CAPTION_STYLE';
@@ -1106,6 +1506,23 @@ export class ClipRenderService {
       if (incoming.animation && ['none', 'fade', 'pop', 'word_pop'].includes(incoming.animation)) {
         sanitized.animation = incoming.animation as any;
       }
+      if (incoming.kinetic !== undefined) {
+        sanitized.kinetic = Boolean(incoming.kinetic);
+      }
+      if (incoming.activeWordScale !== undefined) {
+        sanitized.activeWordScale = Math.min(1.25, Math.max(1.05, Number(Number(incoming.activeWordScale).toFixed(2))));
+      }
+
+      // Preset gallery: keep only a known preset ID; unknown IDs are dropped (render falls back safely)
+      const hasPresetPayload = incoming.presetId !== undefined;
+      if (hasPresetPayload) {
+        if (isCaptionPresetId(incoming.presetId)) {
+          sanitized.presetId = incoming.presetId;
+        } else {
+          logger.warn(`[ClipEditor] Ignoring unknown caption presetId for clip ${clipId}. Supported: ${CAPTION_PRESET_IDS.join(', ')}`);
+        }
+        sanitized.presetOverrides = sanitizePresetOverrides(incoming.presetOverrides);
+      }
 
       if (Array.isArray(incoming.caption_overrides)) {
         sanitized.caption_overrides = incoming.caption_overrides
@@ -1118,7 +1535,37 @@ export class ClipRenderService {
         sanitized.caption_overrides = clip.caption_config.caption_overrides;
       }
 
-      safeCaptionConfig = { ...safeCaptionConfig, ...sanitized };
+      if (hasPresetPayload) {
+        // A preset payload is the complete preset selection: replace stale preset fields instead of
+        // merging them, while keeping manual cue corrections and unrelated legacy settings.
+        const { presetId: _oldPreset, presetOverrides: _oldOverrides, ...rest } = safeCaptionConfig;
+        safeCaptionConfig = { ...rest, ...sanitized };
+        if (!sanitized.presetId) delete safeCaptionConfig.presetId;
+      } else {
+        safeCaptionConfig = { ...safeCaptionConfig, ...sanitized };
+      }
+    }
+
+    // Background Music config validation & sanitization
+    let safeBackgroundMusic = clip.background_music;
+    if (update.backgroundMusic !== undefined) {
+      if (update.backgroundMusic === null) {
+        safeBackgroundMusic = undefined;
+      } else {
+        const incoming = update.backgroundMusic;
+        safeBackgroundMusic = {
+          enabled: incoming.enabled !== undefined ? Boolean(incoming.enabled) : true,
+          track_id: incoming.track_id ? String(incoming.track_id).slice(0, 100) : undefined,
+          source_path: incoming.source_path ? String(incoming.source_path).slice(0, 500) : undefined,
+          storage_path: incoming.storage_path ? String(incoming.storage_path).slice(0, 500) : undefined,
+          volume: incoming.volume !== undefined ? Math.min(2.0, Math.max(0.0, Number(incoming.volume))) : 0.25,
+          ducking_enabled: incoming.ducking_enabled !== undefined ? Boolean(incoming.ducking_enabled) : true,
+          ducking_preset: incoming.ducking_preset && ['subtle', 'balanced', 'strong', 'custom'].includes(incoming.ducking_preset) ? incoming.ducking_preset : 'balanced',
+          fade_in: incoming.fade_in !== undefined ? Math.min(5.0, Math.max(0.0, Number(incoming.fade_in))) : 0.2,
+          fade_out: incoming.fade_out !== undefined ? Math.min(5.0, Math.max(0.0, Number(incoming.fade_out))) : 0.5,
+          loop: incoming.loop !== undefined ? Boolean(incoming.loop) : true,
+        };
+      }
     }
 
     // Audio
@@ -1141,6 +1588,7 @@ export class ClipRenderService {
       overlay_config: safeOverlay,
       volume: safeVolume,
       muted: safeMuted,
+      background_music: safeBackgroundMusic,
       editor_version: nextEditorVersion,
       updated_at: new Date().toISOString(),
     };
@@ -1179,6 +1627,7 @@ export class ClipRenderService {
       overlay_config: { enabled: false, text: '' },
       volume: 1.0,
       muted: false,
+      background_music: null,
       editor_version: Number(clip.editor_version || 1) + 1,
       updated_at: new Date().toISOString(),
     };
@@ -1206,6 +1655,9 @@ export class ClipRenderService {
     timingMode: string;
     availablePresets: CaptionStyle[];
     previewUrl?: string;
+    cleanSourceUrl?: string;
+    renderedPreviewUrl?: string;
+    editorProject?: any;
   }> {
     const clip = await ClipRenderService.getClip(clipId, userId);
 
@@ -1224,12 +1676,28 @@ export class ClipRenderService {
       }
     } catch {}
 
-    let previewUrl: string | undefined;
-    if (clip.render_status === 'ready') {
+    let cleanSourceUrl: string | undefined;
+    try {
+      if (clip.source_storage_path) {
+        cleanSourceUrl = await signObjectGet('source', clip.source_storage_path);
+      }
+    } catch (e: any) {
+      logger.warn(`Failed to sign clean source for clip ${clipId}: ${e.message}`);
+    }
+
+    let renderedPreviewUrl: string | undefined;
+    if (clip.render_status === 'ready' && clip.output_storage_path) {
       try {
         const preview = await ClipRenderService.getSignedPreviewUrl(clipId, userId);
-        previewUrl = preview.signedUrl;
+        renderedPreviewUrl = preview.signedUrl;
       } catch {}
+    }
+
+    let editorProject: any = null;
+    try {
+      editorProject = await ProEditorService.getOrCreateEditorProject(clipId, userId);
+    } catch (e: any) {
+      logger.warn(`Could not load or create EditorProject for clip ${clipId}: ${e.message}`);
     }
 
     const availablePresets: CaptionStyle[] = [
@@ -1241,11 +1709,203 @@ export class ClipRenderService {
       'karaoke',
     ];
 
+    const previewUrl = renderedPreviewUrl || cleanSourceUrl;
+
     return {
       clip,
       timingMode,
       availablePresets,
       previewUrl,
+      cleanSourceUrl,
+      renderedPreviewUrl,
+      editorProject,
     };
+  }
+
+  /**
+   * Resolves a local file path for background music from track_id, source_path, or storage_path.
+   * Returns null if missing, inaccessible, or disabled.
+   */
+  public static async resolveBackgroundMusicPath(
+    musicConfig?: QuickClipMusicConfig,
+    userId?: string
+  ): Promise<string | null> {
+    if (!musicConfig || musicConfig.enabled === false) return null;
+
+    if (musicConfig.source_path && typeof musicConfig.source_path === 'string' && fs.existsSync(musicConfig.source_path)) {
+      return musicConfig.source_path;
+    }
+    if (musicConfig.storage_path && typeof musicConfig.storage_path === 'string' && fs.existsSync(musicConfig.storage_path)) {
+      return musicConfig.storage_path;
+    }
+    if (musicConfig.track_id && typeof musicConfig.track_id === 'string') {
+      try {
+        let query = dataRepository.from('audio_assets').select('*').eq('id', musicConfig.track_id);
+        if (userId) {
+          query = query.eq('user_id', userId);
+        }
+        const { data: asset } = await query.maybeSingle();
+        if (asset?.storage_path && fs.existsSync(asset.storage_path)) {
+          return asset.storage_path;
+        }
+      } catch (err: any) {
+        logger.warn(`[ClipRender] Error resolving audio asset ${musicConfig.track_id}: ${err.message}`);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Compiles the FFmpeg audio filter complex for Quick Clips with optional background music and dynamic ducking.
+   */
+  public static compileQuickClipAudioGraph(options: {
+    durationSec: number;
+    clipVolume?: number;
+    backgroundMusic?: QuickClipMusicConfig;
+    resolvedMusicPath?: string | null;
+  }): QuickClipAudioGraph {
+    const {
+      durationSec,
+      clipVolume = 1.0,
+      backgroundMusic,
+      resolvedMusicPath,
+    } = options;
+
+    const safeDuration = Math.max(0.1, Number(durationSec.toFixed(3)));
+    const dialogueVol = Math.min(2.0, Math.max(0.0, Number(clipVolume ?? 1.0)));
+
+    if (
+      !backgroundMusic ||
+      backgroundMusic.enabled === false ||
+      !resolvedMusicPath ||
+      !fs.existsSync(resolvedMusicPath)
+    ) {
+      return {
+        hasBackgroundMusic: false,
+        inputArgs: [],
+        filterComplex: [],
+        audioMap: '0:a',
+      };
+    }
+
+    const musicVol = Math.min(2.0, Math.max(0.0, Number(backgroundMusic.volume ?? 0.25)));
+    const fadeIn = Math.min(5.0, Math.max(0.0, Number(backgroundMusic.fade_in ?? 0.2)));
+    const fadeOut = Math.min(5.0, Math.max(0.0, Number(backgroundMusic.fade_out ?? 0.5)));
+    const fadeOutStart = Math.max(0.0, Number((safeDuration - fadeOut).toFixed(2)));
+    const shouldLoop = backgroundMusic.loop !== false;
+
+    const inputArgs: string[] = ['-i', resolvedMusicPath];
+
+    const isDucking = backgroundMusic.ducking_enabled !== false;
+    const filterComplex: string[] = [];
+
+    // 1. Dialogue path
+    if (isDucking) {
+      filterComplex.push(`[0:a]volume=${dialogueVol.toFixed(2)},asplit=2[a_dialogue_mix][a_dialogue_sc]`);
+    } else {
+      filterComplex.push(`[0:a]volume=${dialogueVol.toFixed(2)}[a_dialogue_mix]`);
+    }
+
+    // 2. Music path: loop if requested, trim to clip duration, reset PTS, apply volume, fade in and out
+    const musicPreFilters: string[] = [];
+    if (shouldLoop) {
+      musicPreFilters.push('aloop=loop=-1:size=2e+09');
+    }
+    musicPreFilters.push(
+      `atrim=0:${safeDuration.toFixed(3)}`,
+      'asetpts=PTS-STARTPTS',
+      `volume=${musicVol.toFixed(2)}`,
+      `afade=t=in:ss=0:d=${fadeIn.toFixed(2)}`,
+      `afade=t=out:st=${fadeOutStart.toFixed(2)}:d=${fadeOut.toFixed(2)}`
+    );
+    filterComplex.push(`[1:a]${musicPreFilters.join(',')}[a_music_prep]`);
+
+    // 3. Sidechain Ducking filter
+    if (isDucking) {
+      const duckingPreset = backgroundMusic.ducking_preset || 'balanced';
+      const duckingConfig = AudioDuckingService.resolveDuckingConfig(
+        backgroundMusic.ducking_config || duckingPreset
+      );
+      const duckFilters = AudioDuckingService.compileSidechainFilter(
+        '[a_dialogue_sc]',
+        '[a_music_prep]',
+        '[a_music_ducked]',
+        duckingConfig
+      );
+      filterComplex.push(...duckFilters);
+    } else {
+      filterComplex.push('[a_music_prep]anull[a_music_ducked]');
+    }
+
+    // 4. Mix dialogue + ducked music + master peak limiter
+    filterComplex.push(
+      '[a_dialogue_mix][a_music_ducked]amix=inputs=2:duration=first:dropout_transition=2,alimiter=limit=-1.0dB:attack=5:release=50[out_a]'
+    );
+
+    return {
+      hasBackgroundMusic: true,
+      musicPath: resolvedMusicPath,
+      inputArgs,
+      filterComplex,
+      audioMap: '[out_a]',
+    };
+  }
+
+  /**
+   * Evaluates whether an EditorProject contains custom pro edits (cuts, splits, trims,
+   * speed/volume changes, keyframes, effects, color grading, B-roll, audio, images, or overlays).
+   */
+  public static hasCustomProEdits(project: any, clip?: any): boolean {
+    if (!project || !Array.isArray(project.tracks)) return false;
+
+    const clipStart = Number(clip?.start_seconds || 0);
+    const trimStart = Number(clip?.trim_start_offset || 0);
+    const expectedBaseSourceStart = Number((clipStart + trimStart).toFixed(3));
+
+    return project.tracks.some((t: any) => {
+      if (t.type === 'VIDEO') {
+        // Multi-slice from cuts or splits
+        if (t.items && t.items.length > 1) return true;
+        if (!t.items || t.items.length === 0) return false;
+
+        return t.items.some((i: any) => {
+          const hasKeyframes = Array.isArray(i.keyframes) && i.keyframes.length > 0;
+          const hasEffects = Array.isArray(i.effects) && i.effects.length > 0;
+          const hasColor = Boolean(i.color);
+          const hasFilter = i.filter && i.filter.preset && i.filter.preset !== 'none';
+          const hasCustomSpeed =
+            i.speed !== undefined &&
+            (typeof i.speed === 'number' ? i.speed !== 1 : i.speed?.speed !== 1);
+          const hasCustomAudio =
+            i.audio &&
+            ((i.audio.volume !== undefined && i.audio.volume !== 1) ||
+              i.audio.fade_in ||
+              i.audio.fade_out);
+          const hasModifiedTimelineStart = i.timeline_start !== 0;
+          const hasModifiedSourceStart =
+            clip &&
+            i.source_start !== undefined &&
+            Math.abs(i.source_start - expectedBaseSourceStart) > 0.05;
+
+          return (
+            hasKeyframes ||
+            hasEffects ||
+            hasColor ||
+            hasFilter ||
+            hasCustomSpeed ||
+            hasCustomAudio ||
+            hasModifiedTimelineStart ||
+            hasModifiedSourceStart
+          );
+        });
+      }
+
+      if (t.type === 'TEXT' && t.items && t.items.length > 0) return true;
+      if (t.type === 'AUDIO' && t.items && t.items.length > 0) return true;
+      if (t.type === 'IMAGE' && t.items && t.items.length > 0) return true;
+      if (t.name?.toLowerCase().includes('b-roll') && t.items && t.items.length > 0) return true;
+
+      return false;
+    });
   }
 }

@@ -12,6 +12,9 @@ import { closeMongo, isMongoConfigured } from './db/mongoClient.js';
 import { UsageService } from './services/usageService.js';
 import { socialService } from './services/socialService.js';
 import { startPublishingWorker, stopPublishingWorker } from './services/publishing/publishingWorker.js';
+import { ClipRenderService } from './services/clipRenderService.js';
+import { UrlIngestionService } from './services/urlIngestionService.js';
+import { VideoAnalysisWorker } from './services/multimodal/videoAnalysisWorker.js';
 import { checkHealth, checkReadiness } from './controllers/healthController.js';
 import { asyncHandler } from './middleware/errorHandler.js';
 
@@ -20,8 +23,12 @@ validateEnvironment();
 
 const app = express();
 
-// Trust reverse proxy (Vercel, Cloudflare, ALB, Nginx) for accurate client IP and protocol
-app.set('trust proxy', 1);
+// Trust reverse proxy ONLY when explicitly deployed behind one (TRUST_PROXY=on).
+// Unconditional trust lets direct clients spoof X-Forwarded-For and evade
+// IP-based rate limits.
+if (config.trustProxy) {
+  app.set('trust proxy', 1);
+}
 
 // Root health & readiness probes (Step 14: /health and /ready)
 app.get('/health', asyncHandler(checkHealth));
@@ -39,14 +46,17 @@ app.use(
 app.use(requestIdMiddleware);
 
 // CORS configuration (L3 & Step 6 CORS Hardening)
+// Dev convenience: exact loopback hosts only — a substring check would admit
+// attacker-controlled hosts like https://evil-localhost.attacker.com (audit L-2).
+const LOOPBACK_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow server-to-server, curl, mobile, and same-origin requests (no Origin header)
       if (!origin) return callback(null, true);
-      if (config.corsAllowedOrigins.includes(origin) || (!config.isProduction && origin.includes('localhost'))) {
-        return callback(null, true);
-      }
+      if (config.corsAllowedOrigins.includes(origin)) return callback(null, true);
+      if (!config.isProduction && LOOPBACK_ORIGIN_PATTERN.test(origin)) return callback(null, true);
       return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
@@ -59,10 +69,17 @@ app.use('/api', generalLimiter);
 // Webhooks require the raw request body Buffer for cryptographic signature verification
 app.use('/api/billing/webhooks/paddle', express.raw({ type: 'application/json' }));
 app.use('/api/billing/webhooks/razorpay', express.raw({ type: 'application/json' }));
-app.use('/api/billing/webhook', express.raw({ type: 'application/json' }));
 
-// Request body size limits (H3)
-app.use(express.json({ limit: '1mb' }));
+// Request body size limits (H3) + prototype-pollution guard: strip dangerous
+// keys from every parsed JSON body before any service touches them.
+const pollutionSafeReviver = (key: string, value: unknown) => {
+  if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+    return undefined;
+  }
+  return value;
+};
+
+app.use(express.json({ limit: '1mb', reviver: pollutionSafeReviver }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // API Routes
@@ -76,14 +93,56 @@ app.use(errorHandler);
 let server: ReturnType<typeof app.listen> | null = null;
 let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 let oauthCleanupTimer: ReturnType<typeof setInterval> | null = null;
+let renderSweepTimer: ReturnType<typeof setInterval> | null = null;
+let multimodalSweepTimer: ReturnType<typeof setInterval> | null = null;
 
 if (process.env.NODE_ENV !== 'test') {
-  const start = async () => {
-    if (isMongoConfigured) await bootstrapMongo();
-    if (isMongoConfigured) {
+  // 1. Immediately bind HTTP port so Render and cloud port scanners detect open port in < 1 second
+  server = app.listen(config.port, '0.0.0.0', () => {
+    logger.info(`Server running in ${config.nodeEnv} mode on http://0.0.0.0:${config.port}`);
+    logger.info(`Health check available at http://0.0.0.0:${config.port}/health`);
+  });
+
+  // 2. Initialize database & background workers asynchronously
+  const initDatabase = async () => {
+    if (!isMongoConfigured) {
+      logger.info('MongoDB is not configured; running in degraded/stateless mode.');
+      return;
+    }
+
+    let mongoReady = false;
+    const maxRetries = config.isProduction ? 2 : 3;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Enforce a 15-second timeout per attempt to prevent indefinite hanging
+        await Promise.race([
+          bootstrapMongo(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('MongoDB bootstrap connection timeout (15s)')), 15_000)
+          ),
+        ]);
+        mongoReady = true;
+        logger.info('Database bootstrap completed successfully.');
+        break;
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        if (attempt < maxRetries) {
+          logger.warn(`Database connection attempt ${attempt}/${maxRetries} failed (${errMsg}). Retrying in 2s...`);
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        } else {
+          logger.error('Database bootstrap failed after retries. Operating in degraded mode (requests requiring DB will return 503).', { error: errMsg });
+        }
+      }
+    }
+
+    if (mongoReady) {
       const cleanup = () => UsageService.cleanupOrphanedReservations(30)
         .then((count) => { if (count > 0) logger.info(`Released ${count} orphaned usage reservations.`); })
-        .catch((error) => logger.warn('Usage reservation cleanup failed', { error: error instanceof Error ? error.message : String(error) }));
+        .catch((error) => logger.warn('Usage reservation cleanup failed', { error: error instanceof Error ? error.message : String(error) }))
+        .then(() => UrlIngestionService.pruneSourceCache())
+        .then((pruned) => { if (pruned > 0) logger.info(`Pruned ${pruned} stale source-cache entries.`); })
+        .catch((error) => logger.warn('Source cache prune failed', { error: error instanceof Error ? error.message : String(error) }));
       cleanup();
       cleanupTimer = setInterval(cleanup, 10 * 60_000);
       cleanupTimer.unref();
@@ -98,15 +157,70 @@ if (process.env.NODE_ENV !== 'test') {
 
       // Start Phase 10 persistent publishing worker
       startPublishingWorker();
+
+      // Render job sweep: retries transient render failures, recovers stale leases
+      // left by crashes/restarts, and drains jobs deferred by the inline concurrency cap.
+      // Each tick claims at most a few jobs; renders themselves serialize behind the
+      // per-process concurrency cap in clipRenderService.
+      const RENDER_SWEEP_INTERVAL_MS = 60_000;
+      const RENDER_SWEEP_MAX_JOBS_PER_TICK = 3;
+      let renderSweepRunning = false;
+      const runRenderSweep = async (trigger: string) => {
+        if (renderSweepRunning) return;
+        renderSweepRunning = true;
+        try {
+          for (let i = 0; i < RENDER_SWEEP_MAX_JOBS_PER_TICK; i++) {
+            const processed = await ClipRenderService.processDueRenderJobs();
+            if (processed > 0) {
+              logger.info(`[RenderSweep] Processed render job ${i + 1}/${RENDER_SWEEP_MAX_JOBS_PER_TICK} (${trigger})`);
+            }
+            if (processed === 0) break;
+          }
+        } catch (err) {
+          logger.warn('[RenderSweep] Sweep iteration failed', {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        } finally {
+          renderSweepRunning = false;
+        }
+      };
+      // Immediate recovery pass for jobs stranded by a previous crash/restart.
+      runRenderSweep('startup-recovery');
+      renderSweepTimer = setInterval(() => runRenderSweep('interval'), RENDER_SWEEP_INTERVAL_MS);
+      renderSweepTimer.unref();
+
+      // Multimodal timeline sweep: same stuck-job class as renders (audit C-1).
+      // claimNextJob atomically claims queued jobs and processing jobs whose
+      // 5-minute lease expired, so multi-replica deployments stay safe.
+      const MULTIMODAL_SWEEP_INTERVAL_MS = 45_000;
+      const MULTIMODAL_SWEEP_MAX_PER_TICK = 2;
+      let multimodalSweepRunning = false;
+      const runMultimodalSweep = async () => {
+        if (multimodalSweepRunning) return;
+        multimodalSweepRunning = true;
+        try {
+          for (let i = 0; i < MULTIMODAL_SWEEP_MAX_PER_TICK; i++) {
+            const processed = await VideoAnalysisWorker.processNext();
+            if (processed) {
+              logger.info(`[MultimodalSweep] Processed analysis job ${i + 1}/${MULTIMODAL_SWEEP_MAX_PER_TICK}`);
+            }
+            if (!processed) break;
+          }
+        } catch (err) {
+          logger.warn('[MultimodalSweep] Sweep iteration failed', {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        } finally {
+          multimodalSweepRunning = false;
+        }
+      };
+      multimodalSweepTimer = setInterval(() => runMultimodalSweep(), MULTIMODAL_SWEEP_INTERVAL_MS);
+      multimodalSweepTimer.unref();
     }
-    server = app.listen(config.port, '0.0.0.0', () => {
-      logger.info(`Server running in ${config.nodeEnv} mode on http://0.0.0.0:${config.port}`);
-      logger.info(`Health check available at http://localhost:${config.port}/api/health`);
-    });
   };
-  start().catch((error) => {
-    logger.error('Database bootstrap failed', { error: error instanceof Error ? error.message : String(error) });
-    closeMongo().finally(() => process.exit(1));
+
+  initDatabase().catch((error) => {
+    logger.error('Background database initialization error', { error: error instanceof Error ? error.message : String(error) });
   });
 
   // Graceful shutdown handling (H8 & Step 15)
@@ -115,6 +229,8 @@ if (process.env.NODE_ENV !== 'test') {
     stopPublishingWorker();
     if (cleanupTimer) clearInterval(cleanupTimer);
     if (oauthCleanupTimer) clearInterval(oauthCleanupTimer);
+    if (renderSweepTimer) clearInterval(renderSweepTimer);
+    if (multimodalSweepTimer) clearInterval(multimodalSweepTimer);
     if (server) {
       server.close(async (err) => {
         if (err) {

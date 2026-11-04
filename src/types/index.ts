@@ -1,3 +1,7 @@
+import type { CaptionPresetId, CaptionPresetOverrides, WordCustomStyle } from '../lib/captionPresets';
+export type { CaptionPresetId, CaptionPresetOverrides, WordCustomStyle } from '../lib/captionPresets';
+
+
 export type ProjectStatus =
   | 'uploading'
   | 'uploaded'
@@ -66,6 +70,14 @@ export interface Project {
   description?: string | null;
   status: ProjectStatus;
   video_status?: ProjectStatus;
+  duration_seconds?: number | null;
+  genre?: string | null;
+  clip_preferences?: ClipPreferences | null;
+  error_message?: string | null;
+  /** Short-lived signed URL of the HD poster frame (uploaded videos), when one exists. */
+  poster_url?: string | null;
+  /** Ingestion metadata (YouTube id, original thumbnail, channel, …) as stored by the server. */
+  metadata?: Record<string, any> | null;
   created_at: string;
   updated_at?: string;
 }
@@ -131,6 +143,101 @@ export type ClipCandidateCategory =
   | 'tutorial'
   | 'general';
 
+// ── Content Genre & Preference Intelligence ───────────────────────
+
+export type ContentGenre =
+  | 'podcast_interview'
+  | 'education_tutorial'
+  | 'motivation'
+  | 'business_finance'
+  | 'gaming'
+  | 'sports'
+  | 'news_politics'
+  | 'comedy_entertainment'
+  | 'storytelling'
+  | 'product_marketing'
+  | 'general';
+
+export type ContentGoal =
+  | 'shareable_moments'
+  | 'teach_one_idea'
+  | 'quotes_soundbites'
+  | 'mini_story'
+  | 'custom_instructions';
+
+export type GenreSelectionMode = 'manual' | 'suggested' | 'auto';
+
+export interface GenreSuggestion {
+  genre: ContentGenre;
+  confidence: number; // 0.0 to 1.0
+  reasons: string[];
+  metrics: {
+    wpm: number;
+    ocrDensity: number;
+    faceCount: number;
+    sceneCutRatePerMin: number;
+    silenceRatio: number;
+  };
+}
+
+export interface ClipPreferences {
+  genre: ContentGenre;
+  genreSelectionMode: GenreSelectionMode;
+  suggestedGenre?: ContentGenre;
+  genreConfidence?: number;
+  contentGoal: ContentGoal;
+  preferredDurations: 'auto' | '15-30' | '30-60' | '60-90';
+  aspectRatio: ClipAspectRatio;
+  topicKeywords?: string[];
+  customInstructions?: string;
+  allowInteriorPauseCuts?: boolean;
+  captionStyle?: CaptionStyle;
+  profileVersion: number;
+}
+
+export interface GenreProfileConfig {
+  genre: ContentGenre;
+  displayName: string;
+  description: string;
+  defaultGoal: ContentGoal;
+  targetDuration: { min: number; max: number; optimal: number };
+  recommendedLayoutMode?: ReframeLayoutMode;
+  captionSafePlacement?: CaptionPosition;
+  naturalLanguageKeywords?: string[];
+  scoringWeights: {
+    hook: number;
+    standalone: number;
+    insight: number;
+    audio: number;
+    visual: number;
+  };
+  reframeConfig: {
+    maxVelocity: number;
+    smoothingAlpha: number;
+    deadZone: number;
+    preferTwoShot: boolean;
+  };
+  producerDefaults: {
+    allowInteriorPauseCuts: boolean;
+    pauseThresholdSec: number;
+    captionStyle: CaptionStyle;
+    punchInClimax: boolean;
+    hookBannerEnabled: boolean;
+  };
+  selectionObjective: string;
+  narrativeArcPrompt: string;
+  editorialSafeguard: string;
+}
+
+export interface ColdOpenConfig {
+  enabled: boolean;
+  start_seconds: number;
+  end_seconds: number;
+  duration_seconds: number;
+  teaser_text?: string;
+  transition_effect?: 'flash' | 'rewind' | 'glitch' | 'whoosh';
+}
+
 export interface ClipCandidate {
   id: string;
   project_id: string;
@@ -147,7 +254,11 @@ export interface ClipCandidate {
   hook: string;
   reason: string;
   category: ClipCandidateCategory | string;
+  genre?: ContentGenre;
+  content_goal?: ContentGoal;
   engagement_score: number;
+
+  cold_open?: ColdOpenConfig | null;
 
   status: ClipCandidateStatus;
 
@@ -203,6 +314,7 @@ export interface RenderedClip {
   render_status: ClipRenderStatus;
   source_storage_path: string;
   output_storage_path?: string | null;
+  thumbnail_url?: string | null;
   render_error_code?: string | null;
   render_error_message?: string | null;
   created_at: string;
@@ -224,23 +336,69 @@ export interface RenderedClip {
   render_version?: number;
   reframe_mode?: 'smart' | 'fallback_center' | 'manual';
   reframe_metadata?: Record<string, any>;
+  genre?: ContentGenre;
+  content_goal?: ContentGoal;
+  clip_preferences?: ClipPreferences;
+  cold_open?: ColdOpenConfig | null;
 }
 
 // ── Phase 12: Caption Engine & Focused Clip Editor ───────────────
 
-export type CaptionStyle = 'clean' | 'bold' | 'minimal' | 'podcast' | 'highlight' | 'karaoke';
+/** Legacy styles plus the preset-gallery styles (see server/src/shared/captionPresets.ts). */
+export type CaptionStyle =
+  | 'clean'
+  | 'bold'
+  | 'minimal'
+  | 'podcast'
+  | 'highlight'
+  | 'karaoke'
+  | 'deep_diver'
+  | 'youshaei'
+  | 'simple'
+  | 'beasty'
+  | 'mozi'
+  | 'popline'
+  | 'think_media'
+  | 'editorial'
+  | 'bold_highlight'
+  | 'soft_backdrop'
+  | 'compact_creator'
+  | 'two_color_highlight'
+  | 'vireo_oneword'
+  | 'vireo_pill'
+  | 'vireo_lime'
+  | 'vireo_hormozi'
+  | 'vireo_clean'
+  | 'vireo_spring'
+  | 'vireo_neon'
+  | 'vireo_capsule'
+  | 'vireo_editorial'
+  | 'vireo_sweep';
 export type CaptionPosition = 'top' | 'center' | 'bottom';
 export type CaptionTimingMode = 'word' | 'segment';
 
 export type CropMode = 'center' | 'manual' | 'smart';
+export type ReframeLayoutMode = 'track' | 'split' | 'screencast' | 'blur';
 
 export interface CropConfig {
   mode?: CropMode;
-  focusX: number; // 0 to 1, default 0.5 (center)
-  focusY: number; // 0 to 1, default 0.5 (center)
+  layout_mode?: ReframeLayoutMode;
+  focusX?: number; // 0 to 1, default 0.5 (center)
+  focusY?: number; // 0 to 1, default 0.5 (center)
   smart?: {
     trackId?: string;
     strength?: number;
+  };
+  split?: {
+    speaker1X?: number;
+    speaker2X?: number;
+    dividerColor?: string;
+  };
+  screencast?: {
+    mode?: 'split_stacked' | 'circular_inset' | 'rounded_card_inset';
+    insetPosition?: 'bottom_right' | 'bottom_left' | 'top_right' | 'top_left';
+    insetDiameter?: number;
+    screenRatio?: number;
   };
 }
 
@@ -321,16 +479,26 @@ export interface CaptionConfig {
 
   maxWordsPerCue?: number; // 2..6
   maxLines?: number; // 1..2
+  maxCharsPerLine?: number;
+
+  // Preset gallery selection + user adjustments (sanitized server-side)
+  presetId?: CaptionPresetId;
+  presetOverrides?: CaptionPresetOverrides;
 
   animation?: CaptionAnimation;
+  kinetic?: boolean;
+  activeWordScale?: number;
 
   caption_overrides?: CaptionCueOverride[];
 }
 
 export interface TimedCaptionToken {
   text: string;
+  word?: string;
   start: number;
   end: number;
+  confidence?: number;
+  customStyle?: WordCustomStyle;
 }
 
 export interface TimedCaptionCue {
@@ -340,6 +508,10 @@ export interface TimedCaptionCue {
   text: string;
   words?: TimedCaptionToken[];
   tokens?: TimedCaptionToken[];
+  position_x?: number;
+  position_y?: number;
+  presetOverride?: CaptionPresetId;
+  styleOverrides?: CaptionPresetOverrides;
 }
 
 export interface ClipEditorConfig {
@@ -354,6 +526,21 @@ export interface ClipEditorConfig {
   overlayConfig: OverlayConfig;
   volume: number;
   muted: boolean;
+  backgroundMusic?: QuickClipMusicConfig;
+}
+
+export interface QuickClipMusicConfig {
+  enabled?: boolean;
+  track_id?: string;
+  source_path?: string;
+  storage_path?: string;
+  volume?: number;
+  ducking_enabled?: boolean;
+  ducking_preset?: AudioDuckingPreset;
+  ducking_config?: AudioDuckingConfig;
+  fade_in?: number;
+  fade_out?: number;
+  loop?: boolean;
 }
 
 // ── Phase 16: Multimodal Video Intelligence ───────────────────────
@@ -391,7 +578,7 @@ export interface MomentSearchResult {
   category: ClipCandidateCategory;
 }
 
-// ── Phase 17: Vireo Producer (AI Editing Agent) ───────────────────
+// ── Phase 17: VireoClip Producer (AI Editing Agent) ───────────────────
 
 export type ProducerMode = 'LIGHT' | 'BALANCED' | 'AGGRESSIVE';
 
@@ -522,7 +709,7 @@ export interface ReviseProducerPlanDTO {
   }>;
 }
 
-// ── Phase 18: Vireo Pro Video Editor (Multi-Track Timeline) ───────
+// ── Phase 18: VireoClip Pro Video Editor (Multi-Track Timeline) ───────
 
 export type EditorTrackType =
   | 'VIDEO'
@@ -576,9 +763,19 @@ export type EditorTransitionType =
   | 'cross_dissolve'
   | 'fade'
   | 'dip_to_black'
+  | 'dip_to_white'
   | 'slide'
   | 'push'
-  | 'zoom_lite';
+  | 'smooth_slide'
+  | 'wipe'
+  | 'zoom_lite'
+  | 'blur'
+  | 'pixelate'
+  | 'radial'
+  | 'circle_open'
+  | 'circle_crop'
+  | 'squeeze_h'
+  | 'squeeze_v';
 
 export interface EditorTransition {
   type: EditorTransitionType;
@@ -718,10 +915,31 @@ export interface EditorCaptionItem {
   cues: TimedCaptionCue[];
   style: CaptionStyle;
   position: CaptionPosition;
+  position_x?: number; // normalized 0.0 to 1.0 (default 0.5)
+  position_y?: number; // normalized 0.0 to 1.0 (default ~0.75 for bottom)
   highlight_color: string;
   primary_color: string;
   animation?: 'none' | 'pop' | 'bounce' | 'karaoke' | 'highlight' | 'typewriter';
+  animation_scale?: number;
   emphasis_words?: string[];
+  font_family?: string;
+  font_size?: number;
+  font_weight?: 'regular' | 'bold' | 'black' | number;
+  uppercase?: boolean;
+  letter_spacing?: number;
+  alignment?: 'left' | 'center' | 'right';
+  stroke_color?: string;
+  stroke_width?: number;
+  shadow_enabled?: boolean;
+  shadow_blur?: number;
+  shadow_depth?: number;
+  shadow_color?: string;
+  shadow_opacity?: number;
+  box_enabled?: boolean;
+  box_color?: string;
+  box_opacity?: number;
+  box_padding?: number;
+  max_lines?: 1 | 2;
 }
 
 export interface EditorAudioConfig {
@@ -744,6 +962,7 @@ export interface EditorTrackItem {
   id: string;
   track_id: string;
   type: EditorTrackType;
+  name?: string;
   source_asset_id?: string | null;
   source_path?: string | null;
   timeline_start: number;
@@ -764,6 +983,10 @@ export interface EditorTrackItem {
   audio?: EditorAudioConfig;
   text?: EditorTextConfig;
   caption?: EditorCaptionItem;
+  // Intro/outro title card: a full-frame colored card with centered text.
+  is_title_card?: boolean;
+  title_card_text?: string;
+  background_color?: string;
   color?: EditorColorAdjustments;
   filter?: EditorFilter;
   effects: EditorEffect[];
@@ -888,7 +1111,7 @@ export interface FreezeFrameDTO {
   duration?: number;
 }
 
-// ── Phase 19: Vireo AI B-Roll & Media Intelligence ───────────────────
+// ── Phase 19: VireoClip AI B-Roll & Media Intelligence ───────────────────
 
 export type MediaSourceType =
   | 'USER_UPLOAD'
@@ -1402,7 +1625,7 @@ export const AUDIO_CLEAN_PRESETS: Record<AudioCleanPreset, AudioEnhancementConfi
 };
 
 // ============================================================================
-// Phase 21: Vireo Translate & Multilingual Dubbing Types
+// Phase 21: VireoClip Translate & Multilingual Dubbing Types
 // ============================================================================
 
 export type ScriptFamily = 'latin' | 'devanagari' | 'cjk' | 'arabic' | 'other';
@@ -1538,7 +1761,7 @@ export const TRANSLATION_RESOURCE_LIMITS = {
 } as const;
 
 // ============================================================================
-// Phase 22: Vireo Brand Brain Types
+// Phase 22: VireoClip Brand Brain Types
 // ============================================================================
 
 export type RuleState = 'LOCKED' | 'PREFERRED' | 'LEARNED' | 'DEFAULT';
@@ -1854,7 +2077,7 @@ export const BRAND_RESOURCE_LIMITS = {
   MAX_IMPORTED_GUIDELINE_SIZE_BYTES: 2 * 1024 * 1024,
 } as const;
 
-// ── Phase 23: Vireo Content Pack Types ──────────────────────────────
+// ── Phase 23: VireoClip Content Pack Types ──────────────────────────────
 
 export type ContentPackStatus =
   | 'DRAFT'
@@ -2113,7 +2336,7 @@ export const CONTENT_PACK_LIMITS = {
 } as const;
 
 // ============================================================================
-// PHASE 24: VIREO HOOK LAB TYPES
+// PHASE 24: VIREOCLIP HOOK LAB TYPES
 // ============================================================================
 
 export type HookLabStatus =
@@ -2291,7 +2514,7 @@ export interface HookLabCapabilityModel {
 }
 
 
-// ── Phase 25: Vireo Thumbnail Lab Types ─────────────────────────────
+// ── Phase 25: VireoClip Thumbnail Lab Types ─────────────────────────────
 
 export type ThumbnailStyleDirection =
   | 'EXPRESSIVE_CREATOR_PORTRAIT'
@@ -2531,6 +2754,7 @@ export interface AutopilotRunRecord {
   user_id: string;
   project_id: string;
   clip_id: string;
+  idempotency_key?: string;
   status: AutopilotRunStatus;
   current_step: AutopilotStepName;
   settings: AutopilotSettings;

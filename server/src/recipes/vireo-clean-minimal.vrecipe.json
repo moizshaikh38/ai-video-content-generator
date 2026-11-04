@@ -1,0 +1,42 @@
+{
+  "$schema": "https://vireoclip.ai/schemas/vrecipe-v1.json",
+  "id": "vireo-clean-minimal",
+  "name": "Vireo Clean Minimal",
+  "description": "Clean 2-line minimalist subtitle style with soft drop shadow and robust legibility.",
+  "version": "1.0.0",
+  "author": "VireoClip Native",
+  "typography": {
+    "fontFamily": "Inter",
+    "fontSize": 72,
+    "fontWeight": "bold",
+    "letterSpacing": 0,
+    "textCase": "none"
+  },
+  "positioning": {
+    "alignment": 2,
+    "verticalMargin": 260,
+    "horizontalMargin": 60,
+    "maxWordsPerLine": 7,
+    "maxCharsPerLine": 26,
+    "lineBreakMethod": "balanced"
+  },
+  "colors": {
+    "primary": "#FFFFFF",
+    "secondary": "#CCCCCC",
+    "activeWordHighlight": "#E2E8F0",
+    "outline": "#000000",
+    "outlineWidth": 0,
+    "shadow": "#00000099",
+    "shadowOffset": 3
+  },
+  "animation": {
+    "preset": "none",
+    "durationMs": 140,
+    "activeWordScale": 1.15,
+    "karaokeEffect": "jump"
+  },
+  "decorations": {
+    "emojisEnabled": true,
+    "autoHighlightKeywords": true
+  }
+}

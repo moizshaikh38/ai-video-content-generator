@@ -4,7 +4,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import ffmpegStatic from 'ffmpeg-static';
 
@@ -25,11 +25,32 @@ import {
 const execFileAsync = promisify(execFile);
 const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
 
-// Real launch video test asset path
-const REAL_VIDEO_ASSET = path.resolve(
+// Real launch video test asset path or synthetic fallback
+let REAL_VIDEO_ASSET = path.resolve(
   process.cwd(),
   '../artifacts/vireo-launch/vireo-launch-preview-1080p.mp4'
 );
+if (!fs.existsSync(REAL_VIDEO_ASSET)) {
+  const tmpAsset = path.join(os.tmpdir(), 'vireo-launch-preview-1080p.mp4');
+  if (!fs.existsSync(tmpAsset)) {
+    try {
+      execFileSync(ffmpegBin, [
+        '-y',
+        '-f', 'lavfi',
+        '-i', 'testsrc=duration=3:size=1080x1920:rate=30',
+        '-f', 'lavfi',
+        '-i', 'sine=frequency=440:duration=3',
+        '-c:v', 'libx264',
+        '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac',
+        tmpAsset,
+      ]);
+    } catch {}
+  }
+  if (fs.existsSync(tmpAsset)) {
+    REAL_VIDEO_ASSET = tmpAsset;
+  }
+}
 
 describe('Phase 18 — Vireo Pro Video Editor System Tests', () => {
   const mockUserId = crypto.randomUUID();

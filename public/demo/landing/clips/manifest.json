@@ -1,0 +1,98 @@
+{
+  "version": "1.0.0",
+  "status": "REVIEW_REQUIRED",
+  "rights_notice": "Demonstration and internal preview only. Commercial advertising and public promotional rights require creator releases.",
+  "clips": [
+    {
+      "id": "mrbeast-clip-01",
+      "creator": "MrBeast",
+      "title": "100 People Age 1 to 100 \u2014 Scaffolding Opening Hook",
+      "video_path": "/demo/landing/clips/mrbeast-clip-01.mp4",
+      "poster_path": "/demo/landing/clips/mrbeast-clip-01-poster.jpg",
+      "vtt_path": "/demo/landing/clips/mrbeast-clip-01.vtt",
+      "duration": 23.8,
+      "aspect_ratio": "9:16",
+      "resolution": "720x1280",
+      "rights_status": "REVIEW_REQUIRED",
+      "dialogue": "These 100 people aged 1 to 100 are competing for ,000! Whoever stays in their circle the longest wins! Right now the 100-year-old is having tea with the 1-year-old, and in this video people are going to cry, make alliances, get betrayed, and a whole lot of weird stuff. But to start off the challenge easily, I got everyone a box of pizza. Enjoy!"
+    },
+    {
+      "id": "mrbeast-clip-02",
+      "creator": "MrBeast",
+      "title": "Day 7 Red Tesla Model 3 Challenge",
+      "video_path": "/demo/landing/clips/mrbeast-clip-02.mp4",
+      "poster_path": "/demo/landing/clips/mrbeast-clip-02-poster.jpg",
+      "vtt_path": "/demo/landing/clips/mrbeast-clip-02.vtt",
+      "duration": 23.0,
+      "aspect_ratio": "9:16",
+      "resolution": "720x1280",
+      "rights_status": "REVIEW_REQUIRED",
+      "dialogue": "To celebrate an entire week inside of this circle, I decided to give them a challenge with a Tesla as a prize! Who wants the Tesla?! The boys are rolling out a special tarp! Now all of you can walk on this thing right here. If you can ride this and touch the Tesla without touching the ground, I will let you keep it!"
+    },
+    {
+      "id": "mrbeast-clip-03",
+      "creator": "MrBeast",
+      "title": "Final Emotional Payoff \u2014 ,000 Winner",
+      "video_path": "/demo/landing/clips/mrbeast-clip-03.mp4",
+      "poster_path": "/demo/landing/clips/mrbeast-clip-03-poster.jpg",
+      "vtt_path": "/demo/landing/clips/mrbeast-clip-03.vtt",
+      "duration": 23.0,
+      "aspect_ratio": "9:16",
+      "resolution": "720x1280",
+      "rights_status": "REVIEW_REQUIRED",
+      "dialogue": "Wait, you just won ,000, how do you feel?! I can finally take my daughters to Disney World and I can buy a house and I can pay off all of my debt. You literally just changed my life."
+    },
+    {
+      "id": "ishowspeed-clip-01",
+      "creator": "IShowSpeed",
+      "title": "Roblox Tower Fall Reaction",
+      "video_path": "/demo/landing/clips/ishowspeed-clip-01.mp4",
+      "poster_path": "/demo/landing/clips/ishowspeed-clip-01-poster.jpg",
+      "vtt_path": "/demo/landing/clips/ishowspeed-clip-01.vtt",
+      "duration": 5.3,
+      "aspect_ratio": "9:16",
+      "resolution": "720x1280",
+      "rights_status": "REVIEW_REQUIRED",
+      "dialogue": "No! No way! Why did I fall?! Bro, I was literally right at the top! I was right there!"
+    },
+    {
+      "id": "lex-fridman-clip-01",
+      "creator": "Elon Musk (on Lex Fridman Podcast)",
+      "title": "Ground Truth of Reality & Physics Law",
+      "video_path": "/demo/landing/clips/lex-fridman-clip-01.mp4",
+      "poster_path": "/demo/landing/clips/lex-fridman-clip-01-poster.jpg",
+      "vtt_path": "/demo/landing/clips/lex-fridman-clip-01.vtt",
+      "duration": 24.0,
+      "aspect_ratio": "1:1",
+      "resolution": "720x720",
+      "rights_status": "REVIEW_REQUIRED",
+      "dialogue": "You have to test any conclusions against the ground truth of reality. Reality is the ultimate judge. Physics is the law, everything else is a recommendation."
+    },
+    {
+      "id": "ronaldo-clip-01",
+      "creator": "Cristiano Ronaldo",
+      "title": "UR Cristiano \u2014 Rating France Euro 2020 Penalty",
+      "video_path": "/demo/landing/clips/ronaldo-clip-01.mp4",
+      "poster_path": "/demo/landing/clips/ronaldo-clip-01-poster.jpg",
+      "vtt_path": "/demo/landing/clips/ronaldo-clip-01.vtt",
+      "duration": 16.0,
+      "aspect_ratio": "9:16",
+      "resolution": "720x1280",
+      "rights_status": "REVIEW_REQUIRED",
+      "dialogue": "Again this goal was against France in euros 2020. It was a penalty. Penalties is not it is never easy, specially with this pressure game. So I will give six because it is against France and pressure game..."
+    },
+    {
+      "id": "joe-rogan-clip-01",
+      "creator": "Joe Rogan",
+      "title": "The Joe Rogan Experience \u2014 Bureaucrats & Defense Contractors Disclosure",
+      "video_path": "/demo/landing/clips/joe-rogan-clip-01.mp4",
+      "poster_path": "/demo/landing/clips/joe-rogan-clip-01-poster.jpg",
+      "vtt_path": "/demo/landing/clips/joe-rogan-clip-01.vtt",
+      "duration": 16.0,
+      "aspect_ratio": "16:9",
+      "resolution": "1280x720",
+      "rights_status": "REVIEW_REQUIRED",
+      "dialogue": "There shouldn't be a group of unelected bureaucrats and defense contractors that have access to this stuff and the general public doesn't. So they have a completely different map of the world than we do."
+    }
+  ]
+}

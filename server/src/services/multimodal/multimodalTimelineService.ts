@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { dataRepository } from '../../db/repositories/dataRepository.js';
+import { dataRepository, ownerContext } from '../../db/repositories/dataRepository.js';
 import { logger } from '../../utils/logger.js';
 import {
   MultimodalTimeline,
@@ -141,56 +141,58 @@ export class MultimodalTimelineService {
   }): Promise<VideoAnalysisRecord> {
     const { projectId, userId, timeline } = params;
 
-    const payload: Partial<VideoAnalysisRecord> = {
-      project_id: projectId,
-      user_id: userId,
-      status: 'completed',
-      timeline,
-      metadata: {
-        analyzed_at: new Date().toISOString(),
-        duration_seconds: timeline.duration_seconds,
-        segment_count: timeline.segments.length,
-      },
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data: existing } = await dataRepository
-      .from('video_analyses')
-      .select('id')
-      .eq('project_id', projectId)
-      .maybeSingle();
-
-    if (existing) {
-      const { data: updated, error: updateErr } = await dataRepository
-        .from('video_analyses')
-        .update(payload)
-        .eq('id', existing.id)
-        .select()
-        .single();
-
-      if (updateErr) {
-        throw new Error(`Failed to update video analysis: ${updateErr.message}`);
-      }
-      return updated as VideoAnalysisRecord;
-    } else {
-      const newId = crypto.randomUUID();
-      const insertPayload = {
-        id: newId,
-        ...payload,
-        created_at: new Date().toISOString(),
+    return await ownerContext.run(userId, async () => {
+      const payload: Partial<VideoAnalysisRecord> = {
+        project_id: projectId,
+        user_id: userId,
+        status: 'completed',
+        timeline,
+        metadata: {
+          analyzed_at: new Date().toISOString(),
+          duration_seconds: timeline.duration_seconds,
+          segment_count: timeline.segments.length,
+        },
+        updated_at: new Date().toISOString(),
       };
 
-      const { data: inserted, error: insertErr } = await dataRepository
+      const { data: existing } = await dataRepository
         .from('video_analyses')
-        .insert(insertPayload)
-        .select()
-        .single();
+        .select('id')
+        .eq('project_id', projectId)
+        .maybeSingle();
 
-      if (insertErr) {
-        throw new Error(`Failed to insert video analysis: ${insertErr.message}`);
+      if (existing) {
+        const { data: updated, error: updateErr } = await dataRepository
+          .from('video_analyses')
+          .update(payload)
+          .eq('id', existing.id)
+          .select()
+          .single();
+
+        if (updateErr) {
+          throw new Error(`Failed to update video analysis: ${updateErr.message}`);
+        }
+        return updated as VideoAnalysisRecord;
+      } else {
+        const newId = crypto.randomUUID();
+        const insertPayload = {
+          id: newId,
+          ...payload,
+          created_at: new Date().toISOString(),
+        };
+
+        const { data: inserted, error: insertErr } = await dataRepository
+          .from('video_analyses')
+          .insert(insertPayload)
+          .select()
+          .single();
+
+        if (insertErr) {
+          throw new Error(`Failed to insert video analysis: ${insertErr.message}`);
+        }
+        return inserted as VideoAnalysisRecord;
       }
-      return inserted as VideoAnalysisRecord;
-    }
+    });
   }
 
   /**
@@ -200,17 +202,19 @@ export class MultimodalTimelineService {
     projectId: string,
     userId: string
   ): Promise<VideoAnalysisRecord | null> {
-    const { data, error } = await dataRepository
-      .from('video_analyses')
-      .select('*')
-      .eq('project_id', projectId)
-      .eq('user_id', userId)
-      .maybeSingle();
+    return await ownerContext.run(userId, async () => {
+      const { data, error } = await dataRepository
+        .from('video_analyses')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('user_id', userId)
+        .maybeSingle();
 
-    if (error) {
-      logger.warn(`[MultimodalTimelineService] Fetch analysis error: ${error.message}`);
-      return null;
-    }
-    return (data as VideoAnalysisRecord) || null;
+      if (error) {
+        logger.warn(`[MultimodalTimelineService] Fetch analysis error: ${error.message}`);
+        return null;
+      }
+      return (data as VideoAnalysisRecord) || null;
+    });
   }
 }

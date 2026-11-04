@@ -13,7 +13,7 @@ async function main() {
   const { data: transcript, error } = await supabaseAuthClient
     .from('transcripts')
     .select('*')
-    .eq('project_id', 'e2cbc90a-4b24-474c-b822-5aec476c31fb')
+    .eq('project_id', '12022bbe-b958-4bf5-adce-5c0f39b368be')
     .single();
 
   if (error) {

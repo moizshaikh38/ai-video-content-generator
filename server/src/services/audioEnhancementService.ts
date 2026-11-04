@@ -112,6 +112,61 @@ export class AudioEnhancementService {
   }
 
   /**
+   * Intelligently adapts an audio cleanup configuration based on acoustic analysis metrics.
+   * Fine-tunes noise reduction, dynamics compression, loudness normalization, and brickwall limiting.
+   */
+  public static recommendAdaptiveConfig(
+    metrics: AudioAnalysisMetrics,
+    basePreset: AudioCleanPreset = 'podcast'
+  ): AudioEnhancementConfig {
+    const base = { ...this.getPresetConfig(basePreset) };
+
+    // 1. Adaptive Denoise from noise floor & silence ratio
+    const noiseFloor = metrics.noise_floor_estimate_db ?? (metrics.mean_volume_db - 18.0);
+    if (noiseFloor > -42) {
+      // High background noise / hum
+      base.denoise_enabled = true;
+      base.denoise_amount = Math.min(65, Math.max(base.denoise_amount, 45));
+    } else if (noiseFloor > -50) {
+      // Moderate ambient noise
+      base.denoise_enabled = true;
+      base.denoise_amount = Math.min(45, Math.max(base.denoise_amount, 30));
+    } else if (noiseFloor <= -60) {
+      // Very clean recording environment: avoid over-processing
+      base.denoise_amount = Math.min(base.denoise_amount, 15);
+    }
+
+    // 2. Adaptive Compressor from Loudness Range (LRA)
+    // LRA > 9 LU implies wild volume swings (whispering vs shouting) needing tighter control
+    if (metrics.loudness_range_lu > 9.0) {
+      base.compressor_enabled = true;
+      base.compressor_threshold_db = Math.min(base.compressor_threshold_db ?? -16, -20);
+      base.compressor_ratio = Math.max(base.compressor_ratio ?? 3.0, 4.0);
+      base.compressor_attack_ms = Math.min(base.compressor_attack_ms ?? 20, 15);
+      base.compressor_release_ms = Math.max(base.compressor_release_ms ?? 180, 220);
+    } else if (metrics.loudness_range_lu < 4.0) {
+      // Already heavily compressed or uniform
+      if (base.compressor_ratio && base.compressor_ratio > 2.5) {
+        base.compressor_ratio = 2.5;
+      }
+    }
+
+    // 3. Adaptive Brickwall Limiter for clipping prevention
+    if (metrics.is_clipping || metrics.true_peak_db >= -0.5 || metrics.clipping_count > 0) {
+      base.limiter_enabled = true;
+      // Pull back ceiling to -1.5 dBFS to prevent DAC inter-sample peaks
+      base.limiter_ceiling_db = -1.5;
+    }
+
+    // 4. Adaptive Loudness Normalization
+    if (Math.abs(metrics.integrated_lufs - base.target_lufs) > 1.5) {
+      base.normalize_enabled = true;
+    }
+
+    return base;
+  }
+
+  /**
    * Generates a fast, non-destructive A/B preview snippet (e.g., 5 seconds)
    * returning metrics before and after enhancement.
    */
@@ -133,6 +188,26 @@ export class AudioEnhancementService {
 
     const tmpDir = path.join(os.tmpdir(), 'vireo-audio-previews');
     fs.mkdirSync(tmpDir, { recursive: true });
+
+    // Prune stale previews older than 30 minutes
+    try {
+      const files = fs.readdirSync(tmpDir);
+      const now = Date.now();
+      const thirtyMinutesMs = 30 * 60 * 1000;
+      for (const file of files) {
+        const fullPath = path.join(tmpDir, file);
+        try {
+          const stat = fs.statSync(fullPath);
+          if (now - stat.mtimeMs > thirtyMinutesMs) {
+            fs.unlinkSync(fullPath);
+          }
+        } catch {
+          // ignore individual file deletion error
+        }
+      }
+    } catch {
+      // ignore readdir error
+    }
 
     const previewId = crypto.randomUUID();
     const outputPath = path.join(tmpDir, `preview-${previewId}.m4a`);
@@ -161,8 +236,44 @@ export class AudioEnhancementService {
       throw new AppError(`Failed to render audio preview: ${err.message}`, 500, 'RENDER_FAILED');
     }
 
-    // Analyze before and after
-    const beforeMetrics = await AudioAnalysisService.analyzeAudio(sourcePath);
+    // Window-accurate before_metrics computation
+    let beforeMetrics: AudioAnalysisMetrics;
+    const rawSnippetPath = path.join(tmpDir, `raw-before-${previewId}.m4a`);
+    try {
+      const probe = await AudioAnalysisService.probeAudioStream(sourcePath);
+      const isLongSource = probe.duration_sec > durationSec * 1.5;
+
+      if (startTimeSec > 0 || isLongSource) {
+        const rawArgs = [
+          '-nostdin',
+          '-hide_banner',
+          '-ss', startTimeSec.toFixed(2),
+          '-t', durationSec.toFixed(2),
+          '-i', sourcePath,
+          '-vn',
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-y',
+          rawSnippetPath,
+        ];
+        await execFileAsync(ffmpegBin, rawArgs, { timeout: 30000 });
+        beforeMetrics = await AudioAnalysisService.analyzeAudio(rawSnippetPath);
+      } else {
+        beforeMetrics = await AudioAnalysisService.analyzeAudio(sourcePath);
+      }
+    } catch (rawErr: any) {
+      logger.warn(`[AudioEnhancementService] Windowed before metrics fallback to full source analysis: ${rawErr.message}`);
+      beforeMetrics = await AudioAnalysisService.analyzeAudio(sourcePath);
+    } finally {
+      if (fs.existsSync(rawSnippetPath)) {
+        try {
+          fs.unlinkSync(rawSnippetPath);
+        } catch {
+          // ignore cleanup error
+        }
+      }
+    }
+
     const afterMetrics = await AudioAnalysisService.analyzeAudio(outputPath);
 
     return {

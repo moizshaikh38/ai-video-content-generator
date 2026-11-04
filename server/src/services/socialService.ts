@@ -121,7 +121,7 @@ export class SocialService {
 
     if (existingOtherUser) {
       throw new AppError(
-        `This ${platform} account is already connected to a different Vireo user.`,
+        `This ${platform} account is already connected to a different VireoClip user.`,
         409,
         'ACCOUNT_ALREADY_LINKED'
       );

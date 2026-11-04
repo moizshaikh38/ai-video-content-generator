@@ -71,8 +71,59 @@ export class AudioAnalysisService {
       };
     } catch (err: any) {
       if (err instanceof AppError) throw err;
-      logger.error(`[AudioAnalysisService] ffprobe error: ${err.message}`);
-      throw new AppError(`Failed to probe audio stream: ${err.message}`, 500, 'PROBE_FAILED');
+      logger.warn(`[AudioAnalysisService] ffprobe failed (${err.message}), falling back to ffmpeg -i probe`);
+      try {
+        let output = '';
+        try {
+          const res = await execFileAsync(ffmpegBin, ['-hide_banner', '-i', filePath], { timeout: 15000 });
+          output = `${res.stdout || ''}\n${res.stderr || ''}`;
+        } catch (ffErr: any) {
+          // ffmpeg exits non-zero when given only -i with no output file, but dumps stream info to stderr
+          output = `${ffErr.stdout || ''}\n${ffErr.stderr || ''}`;
+        }
+
+        if (!output.includes('Audio:')) {
+          throw new AppError('No audio stream detected in media file.', 400, 'NO_AUDIO_STREAM');
+        }
+
+        // Parse Duration: 00:00:10.50, start: 0.000000, bitrate: 128 kb/s
+        const durMatch = output.match(/Duration:\s*(\d+):(\d+):([\d.]+)/i);
+        let durationSec = 0;
+        if (durMatch) {
+          const hours = parseFloat(durMatch[1]);
+          const minutes = parseFloat(durMatch[2]);
+          const seconds = parseFloat(durMatch[3]);
+          durationSec = hours * 3600 + minutes * 60 + seconds;
+        }
+
+        // Parse Audio stream info: "Audio: aac (LC)..., 44100 Hz, stereo, fltp, 128 kb/s"
+        const audioMatch = output.match(/Audio:\s*([^,\s]+)[^,]*,\s*(\d+)\s*Hz,\s*([^,]+)/i);
+        const codec = audioMatch ? audioMatch[1].trim() : 'unknown';
+        const sampleRate = audioMatch ? parseInt(audioMatch[2], 10) : 44100;
+        const channelStr = audioMatch ? audioMatch[3].trim().toLowerCase() : 'stereo';
+        let channels = 2;
+        if (channelStr.includes('mono') || channelStr === '1 channels') {
+          channels = 1;
+        } else if (channelStr.includes('stereo') || channelStr === '2 channels') {
+          channels = 2;
+        } else if (channelStr.includes('5.1')) {
+          channels = 6;
+        } else {
+          const parsed = parseInt(channelStr, 10);
+          if (!isNaN(parsed) && parsed > 0) channels = parsed;
+        }
+
+        return {
+          channels: Number.isFinite(channels) && channels > 0 ? channels : 2,
+          sample_rate: Number.isFinite(sampleRate) && sampleRate > 0 ? sampleRate : 44100,
+          duration_sec: Number.isFinite(durationSec) ? durationSec : 0,
+          codec,
+        };
+      } catch (fallbackErr: any) {
+        if (fallbackErr instanceof AppError) throw fallbackErr;
+        logger.error(`[AudioAnalysisService] ffmpeg fallback probe error: ${fallbackErr.message}`);
+        throw new AppError(`Failed to probe audio stream: ${fallbackErr.message}`, 500, 'PROBE_FAILED');
+      }
     }
   }
 
@@ -148,8 +199,17 @@ export class AudioAnalysisService {
 
     // Digital clipping detection:
     // In digital audio 0 dBFS is ceiling. Any max_volume >= -0.05 dBFS or true peak >= 0.0 indicates clipping.
-    const isClipping = maxVolumeDb >= -0.05 || truePeakDb >= 0.0;
-    const clippingCount = isClipping ? Math.max(1, Math.round(Math.abs(truePeakDb) * 10)) : 0;
+    // Also parse histogram_0db and histogram_1db from volumedetect filter
+    const hist0Match = stderr.match(/histogram_0db:\s*(\d+)/i);
+    const hist1Match = stderr.match(/histogram_1db:\s*(\d+)/i);
+    const hist0Count = hist0Match ? parseInt(hist0Match[1], 10) : 0;
+    const hist1Count = hist1Match ? parseInt(hist1Match[1], 10) : 0;
+    const histogramClippingSum = hist0Count + hist1Count;
+
+    const isClipping = maxVolumeDb >= -0.05 || truePeakDb >= 0.0 || histogramClippingSum > 0;
+    const clippingCount = histogramClippingSum > 0
+      ? histogramClippingSum
+      : (isClipping ? Math.max(1, Math.round(Math.abs(truePeakDb) * 10)) : 0);
 
     // 3. Silence analysis via AudioFeatureService
     const silenceIntervals = await AudioFeatureService.detectSilenceIntervals(filePath, -35, 0.4);
@@ -180,6 +240,14 @@ export class AudioAnalysisService {
       duration_sec: Number(duration.toFixed(2)),
       noise_floor_estimate_db: Number(noiseFloorEstimate.toFixed(1)),
     };
+
+    // Bound cache to max 200 entries (FIFO eviction)
+    if (this.cache.size >= 200) {
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey) {
+        this.cache.delete(oldestKey);
+      }
+    }
 
     this.cache.set(filePath, {
       mtimeMs: stat.mtimeMs,

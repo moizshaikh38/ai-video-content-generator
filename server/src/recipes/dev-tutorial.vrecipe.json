@@ -1,0 +1,49 @@
+{
+  "$schema": "https://vireoclip.ai/schemas/vrecipe-v1.json",
+  "id": "dev-tutorial",
+  "name": "Developer Tutorial",
+  "description": "Clean, high-readability monospaced/clean typography with dark pill container positioned safely for coding screencasts.",
+  "version": "1.0.0",
+  "author": "VireoClip",
+  "typography": {
+    "fontFamily": "DejaVu Sans",
+    "fontSize": 58,
+    "fontWeight": "normal",
+    "letterSpacing": 0,
+    "textCase": "none"
+  },
+  "positioning": {
+    "alignment": 2,
+    "verticalMargin": 200,
+    "horizontalMargin": 100,
+    "maxWordsPerLine": 6,
+    "maxCharsPerLine": 40,
+    "lineBreakMethod": "balanced"
+  },
+  "colors": {
+    "primary": "#E2E8F0",
+    "secondary": "#64748B",
+    "activeWordHighlight": "#38BDF8",
+    "outline": "#0F172A",
+    "outlineWidth": 2,
+    "shadow": "#00000000",
+    "shadowOffset": 0,
+    "backgroundPill": {
+      "enabled": true,
+      "color": "#020617F0",
+      "paddingX": 20,
+      "paddingY": 10,
+      "borderRadius": 6
+    }
+  },
+  "animation": {
+    "preset": "fade",
+    "durationMs": 100,
+    "activeWordScale": 1.0,
+    "karaokeEffect": "fill"
+  },
+  "decorations": {
+    "emojisEnabled": false,
+    "autoHighlightKeywords": false
+  }
+}

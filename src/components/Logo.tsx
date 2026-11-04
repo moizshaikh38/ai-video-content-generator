@@ -1,61 +1,44 @@
 import { Link } from "react-router-dom";
-import vireoLogo from "../assets/brand/vireo-logo-purple.png";
-import vireoMark from "../assets/brand/vireo-mark-purple.png";
+import type { MouseEventHandler } from "react";
+import darkLogo from "../assets/brand/vireoclip-logo-dark.svg";
+import lightLogo from "../assets/brand/vireoclip-logo-light.svg";
+import symbol from "../assets/brand/vireoclip-symbol.svg";
 
 export interface LogoProps {
   to?: string;
   className?: string;
+  symbolOnly?: boolean;
+  variant?: "light" | "dark";
+  size?: "sm" | "md" | "lg";
   compact?: boolean;
   light?: boolean;
+  onClick?: MouseEventHandler<HTMLAnchorElement>;
 }
+
+const fullLogoSizes = { sm: "h-7", md: "h-9", lg: "h-11" } as const;
+const symbolSizes = { sm: "h-6", md: "h-9", lg: "h-12" } as const;
 
 export function Logo({
   to = "/",
   className = "",
+  symbolOnly = false,
+  variant = "dark",
+  size = "md",
   compact = false,
+  light = false,
+  onClick,
 }: LogoProps) {
-  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (to === "/" && (window.location.pathname === "/" || window.location.pathname === "")) {
-      e.preventDefault();
-      if (window.location.hash) {
-        window.history.pushState(null, '', '/');
-      }
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } else if (to === "/") {
-      setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }, 50);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLAnchorElement>) => {
-    if (to === "/" && (e.key === "Enter" || e.key === " " || e.key === "Spacebar")) {
-      e.preventDefault();
-      (e.currentTarget as HTMLAnchorElement).click();
-    }
-  };
+  const showSymbol = symbolOnly || compact;
+  const resolvedVariant = light ? "light" : variant;
+  const source = showSymbol ? symbol : resolvedVariant === "light" ? lightLogo : darkLogo;
 
   return (
-    <Link
-      to={to}
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
-      aria-label="VireoClip home - scroll to top"
-      className={`inline-flex items-center gap-2 group focus:outline-hidden ${className}`}
-    >
-      {compact ? (
-        <img
-          src={vireoMark}
-          alt="VireoClip"
-          className="size-8 sm:size-9 shrink-0 object-contain transition-transform duration-200 group-hover:scale-105"
-        />
-      ) : (
-        <img
-          src={vireoLogo}
-          alt="VireoClip"
-          className="h-9 sm:h-10 w-auto max-w-[210px] object-contain shrink-0 transition-transform duration-200 group-hover:scale-105 drop-shadow-[0_2px_10px_rgba(139,92,246,0.15)]"
-        />
-      )}
+    <Link to={to} aria-label="VireoClip home" onClick={onClick} className={`group inline-flex shrink-0 items-center ${className}`}>
+      <img
+        src={source}
+        alt=""
+        className={`${showSymbol ? symbolSizes[size] : fullLogoSizes[size]} w-auto transition-transform group-hover:scale-[1.03]`}
+      />
     </Link>
   );
 }

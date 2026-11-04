@@ -1,0 +1,42 @@
+{
+  "$schema": "https://vireoclip.ai/schemas/vrecipe-v1.json",
+  "id": "hormozi-punchy",
+  "name": "Hormozi Punchy",
+  "description": "High-contrast bold uppercase captions with vibrant yellow active word highlight and snappy pop animation.",
+  "version": "1.0.0",
+  "author": "VireoClip",
+  "typography": {
+    "fontFamily": "Arial Black",
+    "fontSize": 82,
+    "fontWeight": "black",
+    "letterSpacing": 1,
+    "textCase": "uppercase"
+  },
+  "positioning": {
+    "alignment": 2,
+    "verticalMargin": 260,
+    "horizontalMargin": 60,
+    "maxWordsPerLine": 3,
+    "maxCharsPerLine": 18,
+    "lineBreakMethod": "single"
+  },
+  "colors": {
+    "primary": "#FFFFFF",
+    "secondary": "#B0B0B0",
+    "activeWordHighlight": "#FFE600",
+    "outline": "#000000",
+    "outlineWidth": 5,
+    "shadow": "#00000088",
+    "shadowOffset": 3
+  },
+  "animation": {
+    "preset": "pop",
+    "durationMs": 120,
+    "activeWordScale": 1.18,
+    "karaokeEffect": "jump"
+  },
+  "decorations": {
+    "emojisEnabled": true,
+    "autoHighlightKeywords": true
+  }
+}

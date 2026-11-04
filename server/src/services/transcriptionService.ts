@@ -1,6 +1,7 @@
 import { OpenRouterTranscriptionProvider } from './transcription/openRouterTranscriptionProvider.js';
 import { NormalizedTranscriptionResult } from './transcription/types.js';
 import { TranscriptSegment, TranscriptWord } from '../types/index.js';
+import { assignWordIds } from '../utils/wordIdentityUtils.js';
 
 export interface TranscriptionResult {
   text: string;
@@ -26,11 +27,13 @@ export async function transcribeAudioWithOpenRouter(
     mimeType
   );
 
+  const identifiedWords = assignWordIds(result.words || []);
+
   return {
     text: result.text,
     language: result.language,
     duration: result.durationSeconds,
     segments: result.segments,
-    words: result.words || [],
+    words: identifiedWords,
   };
 }

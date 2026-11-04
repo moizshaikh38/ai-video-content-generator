@@ -1,0 +1,42 @@
+{
+  "$schema": "https://vireoclip.ai/schemas/vrecipe-v1.json",
+  "id": "vireo-subtle-sweep",
+  "name": "Vireo Subtle Sweep",
+  "description": "Smooth horizontal karaoke color-wipe across words with soft opacity and clean aesthetics.",
+  "version": "1.0.0",
+  "author": "VireoClip Native",
+  "typography": {
+    "fontFamily": "Inter",
+    "fontSize": 77,
+    "fontWeight": "bold",
+    "letterSpacing": 0,
+    "textCase": "none"
+  },
+  "positioning": {
+    "alignment": 2,
+    "verticalMargin": 240,
+    "horizontalMargin": 70,
+    "maxWordsPerLine": 5,
+    "maxCharsPerLine": 30,
+    "lineBreakMethod": "balanced"
+  },
+  "colors": {
+    "primary": "#F1F5F9",
+    "secondary": "#94A3B8",
+    "activeWordHighlight": "#38BDF8",
+    "outline": "#0F172A",
+    "outlineWidth": 4,
+    "shadow": "#00000066",
+    "shadowOffset": 1
+  },
+  "animation": {
+    "preset": "karaoke",
+    "durationMs": 160,
+    "activeWordScale": 1.15,
+    "karaokeEffect": "sweep"
+  },
+  "decorations": {
+    "emojisEnabled": true,
+    "autoHighlightKeywords": true
+  }
+}

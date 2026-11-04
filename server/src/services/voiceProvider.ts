@@ -26,12 +26,24 @@ export interface VoiceProvider {
  * Reads ELEVENLABS_API_KEY from environment.
  * Strictly returns NOT_CONFIGURED when key is absent.
  */
+interface VoiceCacheEntry {
+  voices: VoiceOption[];
+  expiresAt: number;
+}
+
+const elevenLabsVoiceCache = new Map<string, VoiceCacheEntry>();
+const VOICE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 export class ElevenLabsVoiceProvider implements VoiceProvider {
   public id = 'elevenlabs';
   public name = 'ElevenLabs';
 
   private get apiKey(): string | undefined {
     return process.env.ELEVENLABS_API_KEY?.trim();
+  }
+
+  public static clearCache(): void {
+    elevenLabsVoiceCache.clear();
   }
 
   public async getCapabilities(): Promise<VoiceProviderCapabilities> {
@@ -57,17 +69,29 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
       return [];
     }
 
-    // If configured with real key, query real ElevenLabs API
+    // Check in-memory TTL cache first (keyed by prefix hash of API key)
+    const cacheKey = crypto.createHash('sha256').update(this.apiKey).digest('hex').slice(0, 16);
+    const cached = elevenLabsVoiceCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.voices;
+    }
+
+    // If configured with real key, query real ElevenLabs API with 8s timeout
     try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+
       const res = await fetch('https://api.elevenlabs.io/v1/voices', {
         headers: { 'xi-api-key': this.apiKey },
-      });
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timer));
+
       if (!res.ok) {
         logger.warn(`[ElevenLabs] Voice listing failed with status ${res.status}`);
         return [];
       }
       const data = (await res.json()) as any;
-      return (data.voices || []).map((v: any) => ({
+      const voices: VoiceOption[] = (data.voices || []).map((v: any) => ({
         id: v.voice_id,
         name: v.name,
         language: v.labels?.language || 'en',
@@ -76,6 +100,13 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
         preview_url: v.preview_url,
         provider: 'elevenlabs',
       }));
+
+      elevenLabsVoiceCache.set(cacheKey, {
+        voices,
+        expiresAt: Date.now() + VOICE_CACHE_TTL_MS,
+      });
+
+      return voices;
     } catch (err: any) {
       logger.error(`[ElevenLabs] Error fetching voices: ${err.message}`);
       return [];
@@ -240,8 +271,9 @@ export class VoiceProviderRegistry {
       if (caps.voice_cloning === 'SUPPORTED') hasCloning = true;
 
       for (const lang of caps.languages) languageSet.add(lang);
-      const voices = await provider.getVoices();
-      allVoices.push(...voices);
+      if (Array.isArray(caps.voices) && caps.voices.length > 0) {
+        allVoices.push(...caps.voices);
+      }
     }
 
     return {
@@ -266,5 +298,9 @@ export class VoiceProviderRegistry {
       voices.push(...v);
     }
     return voices;
+  }
+
+  public static clearCache(): void {
+    ElevenLabsVoiceProvider.clearCache();
   }
 }

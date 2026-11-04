@@ -129,13 +129,13 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
     switch (level) {
       case 'WINNER_DECLARED':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 ">
             <Trophy className="w-3 h-3" /> Winner Declared
           </span>
         );
       case 'WINNER_ELIGIBLE':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 ">
             <Sparkles className="w-3 h-3" /> Winner Eligible (Sig. Lift)
           </span>
         );
@@ -147,14 +147,14 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
         );
       case 'INCONCLUSIVE':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-neutral-800 text-neutral-400 border border-neutral-700">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-neutral-800 text-neutral-400 ">
             <HelpCircle className="w-3 h-3" /> Inconclusive
           </span>
         );
       case 'NO_OBSERVATIONS':
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-neutral-800 text-neutral-500 border border-neutral-700">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-neutral-800 text-neutral-500 ">
             <Clock className="w-3 h-3" /> No Data Recorded
           </span>
         );
@@ -177,20 +177,20 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
         );
       case 'CONCLUDED':
         return (
-          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-blue-950/60 text-blue-400 border border-blue-800">
+          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-white/[0.03] text-zinc-300 ">
             CONCLUDED
           </span>
         );
       case 'CANCELLED':
         return (
-          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-neutral-900 text-neutral-500 border border-neutral-800">
+          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-neutral-900 text-neutral-500 ">
             CANCELLED
           </span>
         );
       case 'DRAFT':
       default:
         return (
-          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-neutral-800 text-neutral-400 border border-neutral-700">
+          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-neutral-800 text-neutral-400 ">
             DRAFT
           </span>
         );
@@ -206,34 +206,34 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
     <div className="space-y-6">
       {/* Top Header & Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-4">
+        <div className="bg-neutral-900/90 rounded-xl p-4">
           <div className="text-xs font-medium text-neutral-400">Total Experiments</div>
-          <div className="text-2xl font-bold text-white mt-1">{totalCount}</div>
+          <div className="text-[28px] leading-none font-semibold tracking-tight tabular-nums text-white mt-1">{totalCount}</div>
         </div>
-        <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-4">
+        <div className="bg-neutral-900/90 rounded-xl p-4">
           <div className="text-xs font-medium text-neutral-400">Running Active</div>
-          <div className="text-2xl font-bold text-emerald-400 mt-1">{activeCount}</div>
+          <div className="text-[28px] leading-none font-semibold tracking-tight tabular-nums text-emerald-400 mt-1">{activeCount}</div>
         </div>
-        <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-4">
+        <div className="bg-neutral-900/90 rounded-xl p-4">
           <div className="text-xs font-medium text-neutral-400">Concluded</div>
-          <div className="text-2xl font-bold text-blue-400 mt-1">{concludedCount}</div>
+          <div className="text-[28px] leading-none font-semibold tracking-tight tabular-nums text-zinc-300 mt-1">{concludedCount}</div>
         </div>
-        <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-4">
+        <div className="bg-neutral-900/90 rounded-xl p-4">
           <div className="text-xs font-medium text-neutral-400">Winners Declared</div>
-          <div className="text-2xl font-bold text-amber-400 mt-1">{winnerCount}</div>
+          <div className="text-[28px] leading-none font-semibold tracking-tight tabular-nums text-amber-400 mt-1">{winnerCount}</div>
         </div>
       </div>
 
       {/* Success Notification */}
       {exportSuccess && (
-        <div className="p-3 bg-emerald-950/50 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs flex items-center gap-2">
+        <div className="p-3 bg-emerald-950/50 rounded-xl text-emerald-300 text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{exportSuccess}</span>
         </div>
       )}
 
       {/* Filters & Search Toolbar */}
-      <div className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-4 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+      <div className="bg-neutral-900/90 rounded-2xl p-4 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
         {/* Status Pills */}
         <div className="flex flex-wrap items-center gap-1.5">
           {(['ALL', 'ACTIVE', 'DRAFT', 'PAUSED', 'CONCLUDED'] as const).map((st) => (
@@ -242,7 +242,7 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
               onClick={() => setStatusFilter(st)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                 statusFilter === st
-                  ? 'bg-orange-600 text-white shadow-sm shadow-orange-900/50'
+                  ? 'bg-white/[0.10] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
                   : 'bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700'
               }`}
             >
@@ -260,7 +260,7 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
               placeholder="Search experiments..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500"
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-violet-500"
             />
           </div>
           <button
@@ -269,7 +269,7 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
               setIsCsvImportModalOpen(true);
             }}
             title="Import Platform Analytics CSV"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-800 text-orange-400 hover:text-white hover:bg-neutral-700 text-xs font-medium border border-neutral-700 transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-800 text-violet-400 hover:text-white hover:bg-neutral-700 text-xs font-medium border border-neutral-700 transition"
           >
             <Upload className="w-3.5 h-3.5" />
             <span>Import CSV</span>
@@ -280,19 +280,19 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
             title="Refresh list"
             className="p-2 rounded-lg bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700 transition"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-orange-400' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-violet-400' : ''}`} />
           </button>
         </div>
       </div>
 
       {/* Main Content List / States */}
       {isLoading ? (
-        <div className="p-12 text-center text-neutral-400 text-xs bg-neutral-900/50 border border-neutral-800 rounded-2xl">
-          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-orange-400 mb-2" />
+        <div className="p-12 text-center text-neutral-400 text-xs bg-neutral-900/50 rounded-2xl">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-violet-400 mb-2" />
           Loading experiments history...
         </div>
       ) : error ? (
-        <div className="p-6 bg-red-950/30 border border-red-500/30 rounded-2xl text-center space-y-3">
+        <div className="p-6 bg-red-950/30 rounded-2xl text-center space-y-3">
           <AlertTriangle className="w-6 h-6 text-red-400 mx-auto" />
           <p className="text-xs text-red-300">{error}</p>
           <button
@@ -303,8 +303,8 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
           </button>
         </div>
       ) : experiments.length === 0 ? (
-        <div className="p-12 text-center bg-neutral-900/50 border border-neutral-800 rounded-2xl max-w-lg mx-auto">
-          <FlaskConical className="w-8 h-8 text-neutral-600 mx-auto mb-3" />
+        <div className="p-12 text-center bg-neutral-900/50 rounded-2xl max-w-lg mx-auto">
+          <FlaskConical className="w-8 h-8 text-zinc-300 mx-auto mb-3" />
           <h3 className="text-sm font-semibold text-white mb-1">No Experiments Found</h3>
           <p className="text-xs text-neutral-400 mb-4">
             {searchQuery || statusFilter !== 'ALL'
@@ -365,7 +365,7 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
             return (
               <div
                 key={exp.id}
-                className="bg-neutral-900/90 border border-neutral-800 hover:border-neutral-700 transition rounded-2xl p-5 space-y-4"
+                className="bg-neutral-900/90 transition rounded-2xl p-5 space-y-4"
               >
                 {/* Header row */}
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -374,9 +374,9 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
                       <h3 className="text-base font-semibold text-white truncate">{exp.name}</h3>
                       {renderStatusBadge(exp.status)}
                       {renderEvidenceBadge(evidenceLevel)}
-                      <span className="text-[11px] px-2 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700 flex items-center gap-1">
-                        {exp.test_type === 'THUMBNAIL_ONLY' && <ImageIcon className="w-3 h-3 text-orange-400" />}
-                        {exp.test_type === 'TITLE_ONLY' && <Type className="w-3 h-3 text-blue-400" />}
+                      <span className="text-[11px] px-2 py-0.5 rounded bg-neutral-800 text-neutral-400 flex items-center gap-1">
+                        {exp.test_type === 'THUMBNAIL_ONLY' && <ImageIcon className="w-3 h-3 text-violet-400" />}
+                        {exp.test_type === 'TITLE_ONLY' && <Type className="w-3 h-3 text-zinc-300" />}
                         {exp.test_type === 'HOOK_LINE' && <Mic className="w-3 h-3 text-emerald-400" />}
                         {exp.test_type}
                       </span>
@@ -409,7 +409,7 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
                       title="Download RFC-4180 CSV report"
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-medium rounded-lg border border-neutral-700 transition"
                     >
-                      <Download className={`w-3.5 h-3.5 ${exportingId === exp.id ? 'animate-bounce text-orange-400' : ''}`} />
+                      <Download className={`w-3.5 h-3.5 ${exportingId === exp.id ? 'animate-bounce text-violet-400' : ''}`} />
                       <span>{exportingId === exp.id ? 'Exporting...' : 'Export CSV'}</span>
                     </button>
 
@@ -417,7 +417,7 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
                       onClick={() => handleOpenReport(exp.id)}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-medium rounded-lg border border-neutral-700 transition"
                     >
-                      <FileText className="w-3.5 h-3.5 text-blue-400" />
+                      <FileText className="w-3.5 h-3.5 text-zinc-300" />
                       <span>Report</span>
                     </button>
 
@@ -428,7 +428,7 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
                           setIsCsvImportModalOpen(true);
                         }}
                         title="Import CSV observations into this experiment"
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-orange-400 text-xs font-medium rounded-lg border border-neutral-700 transition"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-violet-400 text-xs font-medium rounded-lg border border-neutral-700 transition"
                       >
                         <Upload className="w-3.5 h-3.5" />
                         <span>Import CSV</span>
@@ -438,7 +438,7 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
                     {onSelectExperiment && (
                       <button
                         onClick={() => onSelectExperiment(exp.id, exp.clip_id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-medium rounded-lg transition shadow-md shadow-orange-950/40"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-white text-xs font-medium rounded-full transition shadow-md shadow-violet-950/40"
                       >
                         <span>Open Studio</span>
                         <ArrowRight className="w-3.5 h-3.5" />
@@ -448,7 +448,7 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
                 </div>
 
                 {/* Sample Size Progress Meter */}
-                <div className="bg-neutral-950/60 rounded-xl p-3 border border-neutral-800/80 space-y-2">
+                <div className="bg-neutral-950/60 rounded-xl p-3 space-y-2">
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-neutral-400">
                       Sample Size Progress (Benchmark: {minSampleSize.toLocaleString()} exposures/variant)
@@ -460,7 +460,7 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
                   <div className="w-full bg-neutral-800 rounded-full h-1.5 overflow-hidden">
                     <div
                       className={`h-full transition-all duration-500 ${
-                        sampleProgressPct >= 100 ? 'bg-emerald-500' : 'bg-orange-500'
+                        sampleProgressPct >= 100 ? 'bg-emerald-500' : 'bg-violet-500'
                       }`}
                       style={{ width: `${sampleProgressPct}%` }}
                     />
@@ -491,7 +491,7 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
                               className={`w-5 h-5 rounded flex items-center justify-center font-bold text-[10px] ${
                                 v.is_control
                                   ? 'bg-neutral-800 text-neutral-300'
-                                  : 'bg-orange-950/80 text-orange-400 border border-orange-800/60'
+                                  : 'bg-violet-950/80 text-violet-400 border border-violet-800/60'
                               }`}
                             >
                               {v.variant_letter}
@@ -538,12 +538,12 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
 
       {/* Detailed Report Modal */}
       {reportModalExperimentId && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+        <div className="fixed inset-0 z-50 glass-scrim flex items-center justify-center p-4">
+          <div className="glass-float rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto flex flex-col">
             {/* Modal Header */}
-            <div className="p-5 border-b border-neutral-800 flex items-center justify-between sticky top-0 bg-neutral-900/95 backdrop-blur-xs z-10">
+            <div className="p-5 border-b border-neutral-800 flex items-center justify-between sticky top-0 bg-vc-surface2/90 backdrop-blur-md z-10">
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-orange-400" />
+                <FileText className="w-5 h-5 text-violet-400" />
                 <h2 className="text-base font-semibold text-white">Statistical Experiment Report</h2>
               </div>
               <button
@@ -558,17 +558,17 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
             <div className="p-6 space-y-6 flex-1">
               {isReportLoading ? (
                 <div className="p-12 text-center text-neutral-400 text-xs">
-                  <RefreshCw className="w-6 h-6 animate-spin mx-auto text-orange-400 mb-2" />
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto text-violet-400 mb-2" />
                   Generating statistical report...
                 </div>
               ) : reportError ? (
-                <div className="p-4 bg-red-950/40 border border-red-500/30 rounded-xl text-red-300 text-xs text-center">
+                <div className="p-4 bg-red-950/40 rounded-xl text-red-300 text-xs text-center">
                   {reportError}
                 </div>
               ) : reportData ? (
                 <>
                   {/* Executive Overview */}
-                  <div className="bg-neutral-950/60 border border-neutral-800 rounded-xl p-4 space-y-3">
+                  <div className="bg-neutral-950/60 rounded-xl p-4 space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <h3 className="text-base font-bold text-white">{reportData.experiment_name}</h3>
@@ -626,7 +626,7 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
                   </div>
 
                   {/* Sample Size Benchmark Card */}
-                  <div className="bg-neutral-950/40 border border-neutral-800 rounded-xl p-4 space-y-2">
+                  <div className="bg-neutral-950/40 rounded-xl p-4 space-y-2">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-medium text-white">Power & Sample Size Benchmark</span>
                       <span className="text-neutral-400">
@@ -642,7 +642,7 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
                         className={`h-full transition-all duration-500 ${
                           reportData.sample_size_progress_percentage >= 100
                             ? 'bg-emerald-500'
-                            : 'bg-orange-500'
+                            : 'bg-violet-500'
                         }`}
                         style={{ width: `${reportData.sample_size_progress_percentage}%` }}
                       />
@@ -748,25 +748,25 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
                   </div>
 
                   {/* Provenance & Data Ingestion Breakdown */}
-                  <div className="bg-neutral-950/40 border border-neutral-800 rounded-xl p-4 space-y-3">
+                  <div className="bg-neutral-950/40 rounded-xl p-4 space-y-3">
                     <div className="flex items-center gap-2 text-xs font-semibold text-neutral-300">
-                      <Database className="w-4 h-4 text-orange-400" />
+                      <Database className="w-4 h-4 text-violet-400" />
                       <span>Data Provenance & Audit Trail</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                      <div className="p-2.5 rounded-lg bg-neutral-900 border border-neutral-800">
+                      <div className="p-2.5 rounded-lg bg-neutral-900 ">
                         <span className="text-neutral-500 text-[10px] block">Manual Entry Observations</span>
                         <span className="font-semibold text-white">
                           {reportData.provenance_breakdown.MANUAL_ENTRY || 0} batches
                         </span>
                       </div>
-                      <div className="p-2.5 rounded-lg bg-neutral-900 border border-neutral-800">
+                      <div className="p-2.5 rounded-lg bg-neutral-900 ">
                         <span className="text-neutral-500 text-[10px] block">CSV Bulk Imports</span>
                         <span className="font-semibold text-white">
                           {reportData.provenance_breakdown.CSV_IMPORT || 0} batches
                         </span>
                       </div>
-                      <div className="p-2.5 rounded-lg bg-neutral-900 border border-neutral-800">
+                      <div className="p-2.5 rounded-lg bg-neutral-900 ">
                         <span className="text-neutral-500 text-[10px] block">Platform Analytics Sync</span>
                         <span className="font-semibold text-white">
                           {reportData.provenance_breakdown.PLATFORM_ANALYTICS_SYNC || 0} batches
@@ -790,7 +790,7 @@ export const ABExperimentHistory: React.FC<ABExperimentHistoryProps> = ({
                     disabled={exportingId === reportData.experiment_id}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg text-xs font-medium border border-neutral-700 transition"
                   >
-                    <Download className="w-3.5 h-3.5 text-orange-400" />
+                    <Download className="w-3.5 h-3.5 text-violet-400" />
                     <span>Download CSV Report</span>
                   </button>
                 )}

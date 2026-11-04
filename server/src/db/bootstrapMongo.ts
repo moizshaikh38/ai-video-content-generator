@@ -9,6 +9,7 @@ const collections = [
   'render_jobs', 'reframe_tracks', 'social_account_connections', 'oauth_states',
   'published_posts', 'publish_jobs',
   'billing_customers', 'subscriptions', 'billing_events', 'billing_invoices',
+  'billing_checkouts',
   'content_analytics', 'content_memories',
   'video_analyses', 'video_analysis_jobs',
   'producer_plans',
@@ -109,6 +110,10 @@ export async function bootstrapMongo(db?: Db): Promise<void> {
     database.collection('billing_invoices').createIndex({ id: 1 }, { unique: true }),
     database.collection('billing_invoices').createIndex({ provider: 1, provider_invoice_id: 1 }, { unique: true }),
     database.collection('billing_invoices').createIndex({ user_id: 1, created_at: -1 }),
+    database.collection('billing_countries').createIndex({ user_id: 1 }, { unique: true }),
+    database.collection('billing_checkouts').createIndex({ id: 1 }, { unique: true }),
+    database.collection('billing_checkouts').createIndex({ provider: 1, provider_ref: 1 }, { unique: true }),
+    database.collection('billing_checkouts').createIndex({ user_id: 1, status: 1, created_at: -1 }),
     // Phase 12 & 13: Admin Console & Distributed Render Job processing indexes
     database.collection('profiles').createIndex({ created_at: -1 }),
     database.collection('profiles').createIndex({ email: 1 }),

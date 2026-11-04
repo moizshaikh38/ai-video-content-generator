@@ -253,7 +253,7 @@ describe('Phase 9 — Social OAuth & Account Connections', () => {
       try {
         await assert.rejects(
           async () => socialService.handleOAuthCallback('youtube', rawStateUserB, 'code_b'),
-          /already connected to a different Vireo user/i
+          /already connected to a different Vireo(Clip)? user/i
         );
       } finally {
         ytProvider.exchangeCode = origExchange;

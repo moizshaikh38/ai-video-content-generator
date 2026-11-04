@@ -1,0 +1,42 @@
+{
+  "$schema": "https://vireoclip.ai/schemas/vrecipe-v1.json",
+  "id": "vireo-hormozi-reveal",
+  "name": "Vireo Hormozi Reveal",
+  "description": "High-energy uppercase word pop with gold-yellow active word emphasis and dense stroke.",
+  "version": "1.0.0",
+  "author": "VireoClip Native",
+  "typography": {
+    "fontFamily": "Arial Black",
+    "fontSize": 90,
+    "fontWeight": "bold",
+    "letterSpacing": 0,
+    "textCase": "uppercase"
+  },
+  "positioning": {
+    "alignment": 2,
+    "verticalMargin": 260,
+    "horizontalMargin": 60,
+    "maxWordsPerLine": 3,
+    "maxCharsPerLine": 12,
+    "lineBreakMethod": "balanced"
+  },
+  "colors": {
+    "primary": "#FFFFFF",
+    "secondary": "#CCCCCC",
+    "activeWordHighlight": "#FFE500",
+    "outline": "#000000",
+    "outlineWidth": 8,
+    "shadow": "#00000099",
+    "shadowOffset": 4
+  },
+  "animation": {
+    "preset": "pop",
+    "durationMs": 140,
+    "activeWordScale": 1.15,
+    "karaokeEffect": "sweep"
+  },
+  "decorations": {
+    "emojisEnabled": true,
+    "autoHighlightKeywords": true
+  }
+}

@@ -2,28 +2,13 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { Request } from 'express';
 
 /**
- * Key generator that scopes authenticated users to user ID,
- * falling back to IP for unauthenticated traffic.
+ * Rate-limit key. IP-based: the limiter runs BEFORE authentication, so keying
+ * on an unverified JWT `sub` claim would let attackers mint random tokens and
+ * get a fresh bucket per request (brute-force bypass). express derives req.ip
+ * from the socket unless TRUST_PROXY is enabled and a proxy header is present.
  */
 function resolveRateLimitKey(req: Request): string {
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.split(' ')[1]?.trim();
-    if (token) {
-      try {
-        const parts = token.split('.');
-        if (parts.length === 3) {
-          const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
-          if (payload.sub) {
-            return `user_${payload.sub}`;
-          }
-        }
-      } catch {
-        // Fall back to IP if token parsing fails
-      }
-    }
-  }
-  return ipKeyGenerator(req.ip || '127.0.0.1');
+  return ipKeyGenerator(req.ip || req.socket.remoteAddress || '127.0.0.1');
 }
 
 /**
@@ -109,5 +94,23 @@ export const adminLimiter = rateLimit({
     status: 'error',
     code: 'RATE_LIMITED',
     message: 'Too many admin console requests. Please wait a moment.',
+  },
+});
+
+/**
+ * AI support assistant limiter: generous enough for real troubleshooting,
+ * tight enough to protect the LLM budget. 10 conversations/min per IP.
+ */
+export const supportLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  keyGenerator: resolveRateLimitKey,
+  validate: { keyGeneratorIpFallback: false },
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    status: 'error',
+    code: 'RATE_LIMITED',
+    message: 'Too many support questions in a minute. Please wait a moment or email us.',
   },
 });

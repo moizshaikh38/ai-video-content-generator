@@ -1,39 +1,45 @@
 /* ==========================================================================
-   VireoClip Landing Page — Cohesive Dark Mode Design System
-   Main Background: #080B12
-   Alternate Section Background: #0C111A
-   Card Background: #111722
-   Elevated Glass Panels: rgba(22, 29, 42, 0.82)
-   Borders: rgba(180, 195, 215, 0.14)
-   Primary Text: #F4F6FC
-   Secondary Text: #A6B0C2
-   Muted Text: #778398
-   Accent Green: #6DE3A6
-   Purple Brand Accent: #9870FF
-   Cyan Highlight: #56D9E8
+   VireoClip Landing Page — Obsidian Cinematic Design System
+   Source of Truth: LandingHero & cinematic-hero.css
+   Main Canvas: #000000
+   Alternate Canvas: #04060B
+   Obsidian Glass Card: rgba(9, 12, 20, 0.85)
+   Elevated Glass: rgba(13, 17, 28, 0.94)
+   Borders: rgba(255, 255, 255, 0.09)
+   Primary Text: #FAF9FF
+   Secondary Text: rgba(240, 240, 248, 0.70)
+   Muted Text: #8F8AA0
+   Signature Purple: #8753E3
+   Purple Gradient: linear-gradient(135deg, #6734c9, #8753e3 55%, #9870e5)
+   Lavender Accent: #BBA9E8
+   Eyebrow Accent: #B5A3DB
+   High-Retention Emerald: #20E3A2
    ========================================================================== */
 
 :root {
-  --lp-canvas: #080B12;
-  --lp-canvas-alt: #0C111A;
-  --lp-card: #111722;
-  --lp-glass: rgba(22, 29, 42, 0.82);
-  --lp-glass-elevated: rgba(26, 35, 50, 0.92);
-  --lp-border: rgba(180, 195, 215, 0.14);
-  --lp-border-subtle: rgba(180, 195, 215, 0.08);
-  --lp-text-primary: #F4F6FC;
-  --lp-text-secondary: #A6B0C2;
-  --lp-text-muted: #778398;
-  --lp-accent-green: #6DE3A6;
-  --lp-accent-purple: #9870FF;
+  --lp-canvas: #000000;
+  --lp-canvas-alt: #000000;
+  --lp-card: #080B14;
+  --lp-glass: rgba(9, 12, 20, 0.6);
+  --lp-glass-elevated: rgba(13, 17, 28, 0.85);
+  --lp-border: rgba(255, 255, 255, 0.05);
+  --lp-border-subtle: rgba(255, 255, 255, 0.03);
+  --lp-border-glow: rgba(167, 139, 250, 0.18);
+  --lp-text-primary: #FAF9FF;
+  --lp-text-secondary: rgba(240, 240, 248, 0.70);
+  --lp-text-muted: #8F8AA0;
+  --lp-accent-green: #20E3A2;
+  --lp-accent-purple: #8753E3;
+  --lp-accent-lavender: #BBA9E8;
+  --lp-accent-eyebrow: #B5A3DB;
   --lp-highlight-cyan: #56D9E8;
 }
 
 .lv-page {
   overflow: hidden;
-  background-color: var(--lp-canvas);
+  background-color: #000000;
   color: var(--lp-text-primary);
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
 }
 
 .lv-container {
@@ -48,13 +54,13 @@
 .lv-section-label,
 .lv-mini-eyebrow {
   display: inline-block;
-  color: var(--lp-accent-green);
+  color: var(--lp-accent-eyebrow);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.18em;
   line-height: 1.4;
   text-transform: uppercase;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
 }
 
 .lv-page h1,
@@ -80,12 +86,12 @@
 }
 
 .lv-page em {
-  color: var(--lp-accent-green);
+  color: var(--lp-accent-lavender);
   font-style: normal;
 }
 
 /* --------------------------------------------------------------------------
-   Interactive Buttons (CTAs)
+   Interactive Buttons (CTAs) matching LandingHero
    -------------------------------------------------------------------------- */
 
 .lv-cta {
@@ -95,13 +101,14 @@
   gap: 10px;
   min-height: 48px;
   padding: 0 24px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--lp-accent-green), var(--lp-highlight-cyan));
-  color: #080B12;
+  border-radius: 999px;
+  border: 1px solid rgba(226, 214, 255, 0.27);
+  background: linear-gradient(135deg, #6734c9, #8753e3 55%, #9870e5);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.18), inset -1px 0 rgba(216, 204, 255, 0.16), 0 7px 18px rgba(0, 0, 0, 0.27);
+  color: #FFFFFF;
   font-size: 14px;
-  font-weight: 750;
-  box-shadow: 0 0 20px rgba(109, 227, 166, 0.35);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  font-weight: 700;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, filter 0.2s ease;
   white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
@@ -109,8 +116,8 @@
 
 .lv-cta:hover {
   transform: translateY(-2px);
-  box-shadow: 0 0 28px rgba(109, 227, 166, 0.55);
-  filter: brightness(1.05);
+  box-shadow: inset 0 0 0 1px rgba(229, 217, 255, 0.4), 0 10px 28px rgba(124, 58, 237, 0.35);
+  filter: brightness(1.08);
 }
 
 .lv-secondary-cta {
@@ -120,9 +127,9 @@
   gap: 10px;
   min-height: 48px;
   padding: 0 22px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--lp-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--lp-text-primary);
   font-size: 14px;
   font-weight: 600;
@@ -131,9 +138,9 @@
 }
 
 .lv-secondary-cta:hover {
-  background: rgba(255, 255, 255, 0.09);
-  color: var(--lp-accent-green);
-  border-color: rgba(109, 227, 166, 0.35);
+  background: rgba(255, 255, 255, 0.08);
+  color: #FFFFFF;
+  border-color: rgba(187, 169, 232, 0.4);
 }
 
 /* --------------------------------------------------------------------------
@@ -142,10 +149,9 @@
    -------------------------------------------------------------------------- */
 
 .lv-transformation {
-  padding: 80px 0 120px;
-  background: var(--lp-canvas-alt);
-  border-top: 1px solid var(--lp-border);
-  border-bottom: 1px solid var(--lp-border);
+  padding: 80px 0 100px;
+  background: #000000;
+  border: 0;
 }
 
 .lv-transformation-heading {
@@ -162,27 +168,28 @@
   grid-template-columns: 1.15fr 0.16fr 0.68fr 0.16fr 1.15fr;
   align-items: center;
   gap: 16px;
-  padding: 36px 32px;
-  background: var(--lp-glass);
-  border: 1px solid var(--lp-border);
-  border-radius: 24px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 40px rgba(152, 112, 255, 0.06);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  padding: 16px 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* Left: The Input Card */
 .lv-transform-source {
   overflow: hidden;
-  border-radius: 16px;
-  background: var(--lp-card);
-  border: 1px solid var(--lp-border);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
-  transition: border-color 0.2s ease;
+  border-radius: 20px;
+  background: rgba(12, 16, 28, 0.75);
+  border: 0;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .lv-transform-source:hover {
-  border-color: rgba(109, 227, 166, 0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(139, 92, 246, 0.15);
 }
 
 .lv-video {
@@ -235,9 +242,9 @@
   height: 52px;
   border-radius: 50%;
   background: rgba(22, 29, 42, 0.88);
-  border: 1.5px solid rgba(109, 227, 166, 0.5);
+  border: 1.5px solid rgba(139, 92, 246, 0.5);
   color: var(--lp-accent-green);
-  box-shadow: 0 0 24px rgba(109, 227, 166, 0.3), 0 8px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 24px rgba(139, 92, 246, 0.3), 0 8px 20px rgba(0, 0, 0, 0.5);
   cursor: pointer;
   transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
@@ -247,7 +254,7 @@
   transform: scale(1.08);
   background: var(--lp-accent-green);
   color: #080B12;
-  box-shadow: 0 0 32px rgba(109, 227, 166, 0.6);
+  box-shadow: 0 0 32px rgba(139, 92, 246, 0.6);
 }
 
 .lv-video-label {
@@ -348,7 +355,7 @@
   border-radius: 22px;
   background: rgba(22, 29, 42, 0.9);
   border: 1.5px solid rgba(152, 112, 255, 0.4);
-  box-shadow: 0 0 35px rgba(152, 112, 255, 0.25), 0 0 20px rgba(109, 227, 166, 0.15);
+  box-shadow: 0 0 35px rgba(152, 112, 255, 0.25), 0 0 20px rgba(139, 92, 246, 0.15);
 }
 
 .lv-engine-icon::before {
@@ -409,19 +416,21 @@
   align-items: center;
   gap: 12px;
   min-height: 52px;
-  padding: 8px 12px;
-  border: 1px solid var(--lp-border);
-  border-radius: 12px;
-  background: var(--lp-card);
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(14, 18, 30, 0.75);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   color: var(--lp-text-primary);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .lv-output-card:hover {
-  transform: translateX(3px);
-  background: var(--lp-glass-elevated);
-  border-color: rgba(109, 227, 166, 0.35);
+  transform: translateX(4px);
+  background: rgba(22, 28, 48, 0.9);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(139, 92, 246, 0.15);
 }
 
 .lv-output-logo {
@@ -524,9 +533,9 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: rgba(109, 227, 166, 0.15);
+  background: rgba(139, 92, 246, 0.15);
   color: var(--lp-accent-green);
-  border: 1px solid rgba(109, 227, 166, 0.3);
+  border: 1px solid rgba(139, 92, 246, 0.3);
 }
 
 .lv-transform[data-active="true"] .lv-output-card {
@@ -594,7 +603,7 @@
 }
 
 .lv-platform-strip > div > span:hover {
-  border-color: rgba(109, 227, 166, 0.35);
+  border-color: rgba(139, 92, 246, 0.35);
   transform: translateY(-2px);
 }
 
@@ -742,7 +751,7 @@
   right: 10%;
   top: 30px;
   height: 2px;
-  background: linear-gradient(90deg, rgba(109, 227, 166, 0.15), rgba(109, 227, 166, 0.5) 50%, rgba(109, 227, 166, 0.15));
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.5) 50%, rgba(139, 92, 246, 0.15));
 }
 
 .lv-flow-item {
@@ -759,11 +768,11 @@
   place-items: center;
   width: 62px;
   height: 62px;
-  border: 1.5px solid rgba(109, 227, 166, 0.45);
+  border: 1.5px solid rgba(139, 92, 246, 0.45);
   border-radius: 50%;
   background: var(--lp-glass);
   color: var(--lp-accent-green);
-  box-shadow: 0 0 24px rgba(109, 227, 166, 0.16), 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 24px rgba(139, 92, 246, 0.16), 0 8px 24px rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
@@ -772,7 +781,7 @@
 .lv-flow-item:hover .lv-flow-icon {
   transform: translateY(-4px) scale(1.05);
   border-color: var(--lp-accent-green);
-  box-shadow: 0 0 32px rgba(109, 227, 166, 0.35);
+  box-shadow: 0 0 32px rgba(139, 92, 246, 0.35);
 }
 
 .lv-flow-number {
@@ -851,7 +860,7 @@
   border: 1px solid var(--lp-border);
   border-radius: 18px;
   background: var(--lp-card);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 30px rgba(109, 227, 166, 0.05);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 30px rgba(139, 92, 246, 0.05);
 }
 
 .lv-window-bar {
@@ -916,9 +925,9 @@
 .lv-preview-badge {
   padding: 6px 12px;
   border-radius: 99px;
-  background: rgba(109, 227, 166, 0.14);
+  background: rgba(139, 92, 246, 0.14);
   color: var(--lp-accent-green);
-  border: 1px solid rgba(109, 227, 166, 0.28);
+  border: 1px solid rgba(139, 92, 246, 0.28);
   font-size: 10px;
   font-weight: 700;
 }
@@ -966,7 +975,7 @@
 }
 
 .lv-transcript-lines .lv-active-line {
-  background: rgba(109, 227, 166, 0.1);
+  background: rgba(139, 92, 246, 0.1);
   border-left: 2px solid var(--lp-accent-green);
   color: var(--lp-text-primary);
 }
@@ -1021,7 +1030,7 @@
 }
 
 .lv-workspace-sidebar > span.active {
-  background: rgba(109, 227, 166, 0.14);
+  background: rgba(139, 92, 246, 0.14);
   color: var(--lp-accent-green);
   font-weight: 750;
   border-left: 2px solid var(--lp-accent-green);
@@ -1059,7 +1068,7 @@
 }
 
 .lv-workspace-tabs span.active {
-  background: rgba(109, 227, 166, 0.14);
+  background: rgba(139, 92, 246, 0.14);
   color: var(--lp-accent-green);
   font-weight: 700;
 }
@@ -1197,7 +1206,7 @@
 .lv-moment time {
   padding: 5px 8px;
   border-radius: 6px;
-  background: rgba(109, 227, 166, 0.12);
+  background: rgba(139, 92, 246, 0.12);
   color: var(--lp-accent-green);
   font-size: 11px;
   font-weight: 800;
@@ -1295,7 +1304,7 @@
 .lv-output-switcher button[aria-selected="true"] {
   background: var(--lp-accent-green);
   color: #080B12;
-  box-shadow: 0 0 16px rgba(109, 227, 166, 0.35);
+  box-shadow: 0 0 16px rgba(139, 92, 246, 0.35);
 }
 
 .lv-output-panel {
@@ -1428,9 +1437,9 @@
 }
 
 .lv-before-compare > div:last-child {
-  border-color: rgba(109, 227, 166, 0.45);
+  border-color: rgba(139, 92, 246, 0.45);
   background: var(--lp-glass-elevated);
-  box-shadow: 0 0 35px rgba(109, 227, 166, 0.12);
+  box-shadow: 0 0 35px rgba(139, 92, 246, 0.12);
 }
 
 .lv-before-compare > div > span {
@@ -1502,8 +1511,8 @@
 
 .lv-bento-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(109, 227, 166, 0.35);
-  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.6), 0 0 25px rgba(109, 227, 166, 0.08);
+  border-color: rgba(139, 92, 246, 0.35);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.6), 0 0 25px rgba(139, 92, 246, 0.08);
 }
 
 .lv-bento-card > svg {
@@ -1533,7 +1542,7 @@
 .lv-bento-sage {
   grid-row: span 2;
   background: var(--lp-glass-elevated);
-  border-color: rgba(109, 227, 166, 0.25);
+  border-color: rgba(139, 92, 246, 0.25);
 }
 
 .lv-bento-quote {
@@ -1678,7 +1687,7 @@
   right: 12%;
   top: 26px;
   height: 2px;
-  background: linear-gradient(90deg, rgba(109, 227, 166, 0.15), rgba(109, 227, 166, 0.5) 50%, rgba(109, 227, 166, 0.15));
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.5) 50%, rgba(139, 92, 246, 0.15));
 }
 
 .lv-timeline > div {
@@ -1693,19 +1702,19 @@
   height: 54px;
   margin: 0 auto 22px;
   border-radius: 50%;
-  border: 1.5px solid rgba(109, 227, 166, 0.45);
+  border: 1.5px solid rgba(139, 92, 246, 0.45);
   background: var(--lp-card);
   color: var(--lp-accent-green);
   font-size: 13px;
   font-weight: 800;
-  box-shadow: 0 0 20px rgba(109, 227, 166, 0.15);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .lv-timeline > div:hover .lv-timeline-dot {
   transform: scale(1.08);
-  box-shadow: 0 0 28px rgba(109, 227, 166, 0.35);
+  box-shadow: 0 0 28px rgba(139, 92, 246, 0.35);
 }
 
 .lv-timeline h3 {
@@ -1851,13 +1860,13 @@
 
 .lv-plan:hover {
   transform: translateY(-4px);
-  border-color: rgba(109, 227, 166, 0.35);
+  border-color: rgba(139, 92, 246, 0.35);
 }
 
 .lv-plan-featured {
   border-color: var(--lp-accent-green);
   background: var(--lp-glass-elevated);
-  box-shadow: 0 0 35px rgba(109, 227, 166, 0.18), 0 16px 45px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 35px rgba(139, 92, 246, 0.18), 0 16px 45px rgba(0, 0, 0, 0.6);
 }
 
 .lv-plan-top {
@@ -1876,9 +1885,9 @@
 .lv-plan-top > span {
   padding: 6px 10px;
   border-radius: 99px;
-  background: rgba(109, 227, 166, 0.15);
+  background: rgba(139, 92, 246, 0.15);
   color: var(--lp-accent-green);
-  border: 1px solid rgba(109, 227, 166, 0.3);
+  border: 1px solid rgba(139, 92, 246, 0.3);
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -1991,11 +2000,11 @@
 }
 
 .lv-faq-item:hover {
-  border-color: rgba(109, 227, 166, 0.28);
+  border-color: rgba(139, 92, 246, 0.28);
 }
 
 .lv-faq-item-open {
-  border-color: rgba(109, 227, 166, 0.4);
+  border-color: rgba(139, 92, 246, 0.4);
 }
 
 .lv-faq-trigger {
@@ -2051,8 +2060,8 @@
 
 .lv-faq-trigger:hover .lv-faq-icon-wrapper,
 .lv-faq-item-open .lv-faq-icon-wrapper {
-  background: rgba(109, 227, 166, 0.08);
-  border-color: rgba(109, 227, 166, 0.35);
+  background: rgba(139, 92, 246, 0.08);
+  border-color: rgba(139, 92, 246, 0.35);
 }
 
 .lv-faq-chevron {

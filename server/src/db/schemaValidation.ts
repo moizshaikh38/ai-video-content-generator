@@ -24,20 +24,24 @@ const enums: Record<string, Record<string, readonly string[]>> = {
     status: ['scheduled', 'publishing', 'completed', 'failed', 'cancelled'],
   },
   billing_customers: {
-    provider: ['paddle', 'razorpay', 'stripe'],
+    provider: ['paddle', 'razorpay'],
   },
   subscriptions: {
-    provider: ['paddle', 'razorpay', 'stripe'],
+    provider: ['paddle', 'razorpay'],
     plan_id: ['free', 'creator', 'pro', 'studio'],
     status: ['incomplete', 'trialing', 'active', 'past_due', 'unpaid', 'canceled', 'paused', 'incomplete_expired'],
     billing_interval: ['month', 'year'],
   },
   billing_events: {
-    provider: ['paddle', 'razorpay', 'stripe'],
-    status: ['processed', 'failed', 'ignored'],
+    provider: ['paddle', 'razorpay'],
+    status: ['processing', 'processed', 'failed', 'ignored'],
+  },
+  billing_checkouts: {
+    provider: ['paddle', 'razorpay'],
+    status: ['pending', 'completed', 'failed', 'expired'],
   },
   billing_invoices: {
-    provider: ['paddle', 'razorpay', 'stripe'],
+    provider: ['paddle', 'razorpay'],
     status: ['paid', 'open', 'void', 'uncollectible', 'draft'],
   },
   content_analytics: {
@@ -187,7 +191,7 @@ const arrayFields = new Set([
   'steps', 'variants',
 ]);
 const objectFields = new Set([
-  'metadata', 'crop_config', 'overlay_config', 'caption_config', 'caption_overrides', 'payload', 'platform_custom', 'timeline', 'summary_metadata', 'platform_suitability', 'scores', 'explanation', 'parameters', 'canvas', 'settings', 'transform', 'speed', 'audio', 'text', 'caption', 'color', 'filter', 'mask', 'chroma_key', 'density_rules', 'density_summary', 'applied_item', 'analysis', 'ducking', 'enhancement', 'stats', 'timing_adjustment',
+  'metadata', 'crop_config', 'overlay_config', 'caption_config', 'caption_overrides', 'payload', 'platform_custom', 'timeline', 'summary_metadata', 'platform_suitability', 'scores', 'explanation', 'parameters', 'canvas', 'settings', 'transform', 'speed', 'audio', 'caption', 'color', 'filter', 'mask', 'chroma_key', 'density_rules', 'density_summary', 'applied_item', 'analysis', 'ducking', 'enhancement', 'stats', 'timing_adjustment',
   'identity', 'voice', 'visual', 'captions', 'hooks', 'cta', 'editing', 'publishing', 'translation', 'locks', 'rule_states', 'learning', 'snapshot', 'watermark_config', 'platform_preferences', 'confidence_by_dimension', 'preferred_clip_length_range', 'value',
   'item_counts', 'opening_window', 'multimodal_signals', 'reorder_plan', 'trim_plan', 'text_overlay_plan',
   'text_layer', 'composition', 'diagnostics', 'score_breakdown',
@@ -213,8 +217,10 @@ export function validateRecord(name: string, row: Record<string, unknown>): void
       if (typeof value !== 'object' || Array.isArray(value)) throw new AppError(`Invalid ${field}.`, 400, 'INVALID_FIELD');
       continue;
     }
-    if ((name === 'content_pack_items' || name === 'hook_candidates') && field === 'text') {
-      if (typeof value !== 'string') throw new AppError(`Invalid ${field}.`, 400, 'INVALID_STRING');
+    if (field === 'text') {
+      if (typeof value !== 'string' && (typeof value !== 'object' || Array.isArray(value))) {
+        throw new AppError(`Invalid ${field}.`, 400, 'INVALID_STRING');
+      }
       continue;
     }
     if (name === 'content_pack_items' && field === 'explanation') {

@@ -10,9 +10,13 @@ import {
   PROCESSABLE_STATUSES,
 } from '../types/index.js';
 import { deletePrefix, projectObjectPrefix, sourceObjectKey, signSourceUpload, headObject, signObjectGet } from '../services/objectStorageService.js';
+import { ProjectPosterService } from '../services/projectPosterService.js';
 import { deleteProjectRecords } from '../db/repositories/deletionRepository.js';
 import { claimProjectProcessing } from '../db/repositories/projectRepository.js';
 import { UrlIngestionService } from '../services/urlIngestionService.js';
+import { registerPublicId } from '../middleware/publicIdMiddleware.js';
+import { GenreIntelligenceService } from '../services/genreIntelligenceService.js';
+import { ClipPreferences } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 
@@ -69,10 +73,29 @@ export const listProjects = async (req: AuthenticatedRequest, res: Response): Pr
       return;
     }
 
+    const rawList = data || [];
+    // Auto-clean any failed projects so they don't clutter the user's dashboard
+    const failedList = rawList.filter(
+      (p: any) => p.video_status === 'failed' || p.status === 'failed' || p.status === 'error'
+    );
+    if (failedList.length > 0) {
+      for (const fp of failedList) {
+        try {
+          await dataRepository.from('projects').delete().eq('id', fp.id).eq('user_id', userId);
+        } catch {}
+      }
+    }
+    const cleanProjects = rawList.filter(
+      (p: any) => p.video_status !== 'failed' && p.status !== 'failed' && p.status !== 'error'
+    );
+
+    // Sign existing HD posters inline so the dashboard needs no extra request per card.
+    const projectsWithPosters = await Promise.all(cleanProjects.map(withPosterUrl));
+
     res.status(200).json({
       status: 'ok',
-      projects: data || [],
-      total: count ?? (data?.length || 0),
+      projects: projectsWithPosters,
+      total: Math.max(0, (count ?? rawList.length) - failedList.length),
       limit,
       offset,
     });
@@ -137,7 +160,7 @@ export const getProject = async (req: AuthenticatedRequest, res: Response): Prom
       return;
     }
 
-    res.status(200).json({ status: 'ok', project: data });
+    res.status(200).json({ status: 'ok', project: await withPosterUrl(data) });
   } catch (err) {
     logger.error('Unexpected error fetching project', {
       requestId: req.requestId,
@@ -154,13 +177,17 @@ export const updateProject = async (req: AuthenticatedRequest, res: Response): P
   const projectId = req.params.id;
   if (!req.user?.id) { res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'Authentication required.' }); return; }
   if (!projectId || !isValidUUID(projectId)) { res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid project UUID required.' }); return; }
-  const updates: Record<string, string> = {};
+  const updates: Record<string, any> = {};
   if (typeof req.body?.title === 'string') {
     const value = req.body.title.trim();
     if (!value || value.length > 255) { res.status(400).json({ status: 'error', code: 'INVALID_TITLE', message: 'Title must be 1 to 255 characters.' }); return; }
     updates.title = value;
   }
   if (typeof req.body?.notes === 'string') updates.notes = req.body.notes.trim().slice(0, 2000);
+  const rawPreferences = req.body?.clip_preferences || req.body?.clipPreferences;
+  if (rawPreferences) {
+    updates.clip_preferences = GenreIntelligenceService.normalizePreferences(rawPreferences, req.body?.notes);
+  }
   if (!Object.keys(updates).length) { res.status(400).json({ status: 'error', code: 'INVALID_UPDATE', message: 'No editable fields supplied.' }); return; }
   const { data, error } = await dataRepository.from('projects').update(updates).eq('id', projectId).select().maybeSingle();
   if (error) { res.status(503).json({ status: 'error', code: 'DATABASE_UNAVAILABLE', message: 'Project update failed.' }); return; }
@@ -246,14 +273,23 @@ export const createProject = async (req: AuthenticatedRequest, res: Response): P
     res.status(400).json({ status: 'error', code: 'UPLOAD_REQUIRED', message: 'Use the signed upload endpoint for video files.' });
     return;
   }
-  const projectRecord = {
-    id: id || crypto.randomUUID(),
+
+  const rawPreferences = req.body?.clip_preferences || req.body?.clipPreferences;
+  let normalizedPreferences: ClipPreferences | undefined = undefined;
+  if (rawPreferences || notes) {
+    normalizedPreferences = GenreIntelligenceService.normalizePreferences(rawPreferences, notes);
+  }
+
+  const internalProjectId = id || crypto.randomUUID();
+  const projectRecord: any = {
+    id: internalProjectId,
     user_id: userId,
     title: title.trim(),
     source_type,
     source_url: null,
     video_status: 'uploading',
     notes: String(notes || '').trim().slice(0, 2000),
+    ...(normalizedPreferences ? { clip_preferences: normalizedPreferences } : {}),
   };
 
   try {
@@ -273,7 +309,14 @@ export const createProject = async (req: AuthenticatedRequest, res: Response): P
       return;
     }
 
-    res.status(201).json({ status: 'ok', project: data });
+    // Register the public ID for URL-safe external references
+    try {
+      const publicId = await registerPublicId(internalProjectId, 'projects', userId);
+      res.status(201).json({ status: 'ok', project: { ...data, public_id: publicId } });
+    } catch {
+      // Public ID registration is best-effort; the project is already created
+      res.status(201).json({ status: 'ok', project: data });
+    }
   } catch (err) {
     logger.error('Unexpected error creating project', {
       requestId: req.requestId,
@@ -305,7 +348,18 @@ export const ingestProjectUrl = async (req: AuthenticatedRequest, res: Response)
     return;
   }
 
-  const { url, title, notes, id } = req.body || {};
+  const {
+    url,
+    title,
+    notes,
+    id,
+    clip_preferences,
+    clipPreferences,
+    startTimeSec,
+    endTimeSec,
+    start_time_sec,
+    end_time_sec,
+  } = req.body || {};
 
   if (!url || typeof url !== 'string' || !url.trim()) {
     res.status(400).json({ status: 'error', code: 'INVALID_URL', message: 'Valid video URL is required.' });
@@ -318,13 +372,29 @@ export const ingestProjectUrl = async (req: AuthenticatedRequest, res: Response)
   }
 
   try {
+    const rawPreferences = clip_preferences || clipPreferences;
+    const startSec = typeof startTimeSec === 'number' ? startTimeSec : (typeof start_time_sec === 'number' ? start_time_sec : undefined);
+    const endSec = typeof endTimeSec === 'number' ? endTimeSec : (typeof end_time_sec === 'number' ? end_time_sec : undefined);
+
     const result = await UrlIngestionService.ingestUrlToProject({
       userId,
       projectId: id,
       url: url.trim(),
       title: typeof title === 'string' ? title.trim() : undefined,
       notes: typeof notes === 'string' ? notes.trim() : undefined,
+      clipPreferences: rawPreferences,
+      startTimeSec: startSec,
+      endTimeSec: endSec,
     });
+
+    if (rawPreferences) {
+      const normalized = GenreIntelligenceService.normalizePreferences(rawPreferences, notes);
+      await dataRepository
+        .from('projects')
+        .update({ clip_preferences: normalized })
+        .eq('id', result.projectId)
+        .eq('user_id', userId);
+    }
 
     const { data: project } = await dataRepository
       .from('projects')
@@ -350,6 +420,35 @@ export const ingestProjectUrl = async (req: AuthenticatedRequest, res: Response)
       error: message,
     });
 
+    res.status(status).json({
+      status: 'error',
+      code,
+      message,
+    });
+  }
+}
+
+/**
+ * Pre-ingest URL metadata probe returning provider, chapters, duration, and auto-genre in ~1s.
+ */
+export async function probeProjectUrl(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const { url } = req.body || {};
+  if (!url || typeof url !== 'string' || !url.trim()) {
+    res.status(400).json({ status: 'error', code: 'INVALID_URL', message: 'Valid video URL is required.' });
+    return;
+  }
+
+  try {
+    const probe = await UrlIngestionService.probeUrlMetadata(url.trim());
+    res.status(200).json({
+      status: 'ok',
+      probe,
+    });
+  } catch (err: any) {
+    logger.error('Failed to probe video URL metadata', { error: err.message, url });
+    const status = err.statusCode || 500;
+    const code = err.code || 'PROBE_FAILED';
+    const message = err.message || 'Failed to probe video URL.';
     res.status(status).json({
       status: 'error',
       code,
@@ -424,6 +523,39 @@ export const getProjectSourcePreviewUrl = async (req: AuthenticatedRequest, res:
   if (!project.source_url) { res.status(409).json({ status: 'error', code: 'SOURCE_NOT_READY', message: 'Source video is not uploaded.' }); return; }
   const signedUrl = await signObjectGet('source', project.source_url);
   res.status(200).json({ status: 'ok', signedUrl, expiresInSeconds: 300 });
+};
+
+/** Adds a short-lived signed `poster_url` when the project already has a poster. */
+async function withPosterUrl<T extends { poster_key?: string | null } | null>(project: T): Promise<T> {
+  if (!project?.poster_key) return project;
+  try {
+    return { ...project, poster_url: await signObjectGet('clips', project.poster_key) };
+  } catch {
+    return project;
+  }
+}
+
+/**
+ * GET /api/projects/:id/poster
+ * Signed URL for the project's HD poster frame (uploaded videos), generated on first request.
+ */
+export const getProjectPoster = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  if (!userId) { res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'Authentication required.' }); return; }
+  const projectId = req.params.id;
+  if (!projectId || !isValidUUID(projectId)) { res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid project UUID required.' }); return; }
+  const { data: project } = await dataRepository
+    .from('projects')
+    .select('id, user_id, source_type, source_url, video_status, duration_seconds, poster_key')
+    .eq('id', projectId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!project) { res.status(404).json({ status: 'error', code: 'PROJECT_NOT_FOUND', message: 'Project not found.' }); return; }
+  const url = await ProjectPosterService.getPosterUrl(project);
+  if (!url) { res.status(404).json({ status: 'error', code: 'POSTER_UNAVAILABLE', message: 'No poster frame is available for this project yet.' }); return; }
+  // Signed URLs live 5 minutes; let the browser reuse the JSON briefly.
+  res.setHeader('Cache-Control', 'private, max-age=240');
+  res.status(200).json({ status: 'ok', url, expiresInSeconds: 300 });
 };
 
 /**
@@ -621,9 +753,14 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
     const rawAttemptId = req.headers['x-processing-attempt-id'] as string;
     const attemptId = rawAttemptId && isValidUUID(rawAttemptId) ? rawAttemptId : crypto.randomUUID();
 
-    // Clamp client-supplied estimated minutes between 0.5 and 60.0 (prevents abuse)
-    const rawEstimate = Number(req.body?.estimated_minutes);
-    const estimatedMinutes = !isNaN(rawEstimate) && rawEstimate > 0 ? Math.min(Math.max(rawEstimate, 0.5), 60.0) : 3.0;
+    // Billing hardening: the estimate is SERVER-authoritative, derived from the
+    // project's measured duration_seconds. req.body.estimated_minutes is
+    // deliberately ignored — a client claiming 0.5 min for a 2-hour video must
+    // never shrink what the quota ceiling validates against. Unknown durations
+    // get a provisional estimate that is extended to the measured length (with
+    // a fresh ceiling check) once ffprobe runs mid-processing.
+    const { computeProcessingEstimateMinutes } = await import('../services/usageService.js');
+    const estimatedMinutes = computeProcessingEstimateMinutes((project as any).duration_seconds);
 
     const reservation = await UsageService.reserveQuota(userId, projectId, attemptId, estimatedMinutes, req.user?.email);
 

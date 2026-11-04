@@ -1,18 +1,16 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
+import { LegalPageShell } from '../components/legal/LegalPageShell';
 
 export const PrivacyPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-[#fafbf7] text-[#1a2e22] py-16 px-5 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-[#485f4d] hover:text-[#183d2d] mb-8 transition-colors"
-        >
-          <ArrowLeft size={16} />
-          Back to Vireo home
-        </Link>
+    <LegalPageShell
+      eyebrow="Privacy & Data"
+      title="Privacy Policy"
+      subtitle="What we collect, why we collect it, and the controls you have over your data."
+      lastUpdated="October 2026"
+      statusChip={{ label: 'Draft — Owner Review', tone: 'draft' }}
+    >
 
         {/* Legal Review Required Callout Banner */}
         <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-5 mb-10 text-amber-900 shadow-sm">
@@ -23,7 +21,7 @@ export const PrivacyPage: React.FC = () => {
                 DRAFT — LEGAL REVIEW REQUIRED
               </h2>
               <p className="mt-1 text-xs leading-relaxed text-amber-800">
-                This Privacy Policy is an evidence-based draft detailing the exact data collection, processing, and storage architecture of Vireo.
+                This Privacy Policy is an evidence-based draft detailing the exact data collection, processing, and storage architecture of VireoClip.
                 It has been prepared for developer and operator review and does not constitute formal legal counsel.
                 Items marked with brackets (<span className="font-mono font-semibold">[CONFIRMATION REQUIRED]</span>) require explicit confirmation by the application owner and review by qualified legal counsel.
                 Publishing this draft does not unilaterally certify regulatory compliance (e.g., GDPR, CCPA).
@@ -32,34 +30,17 @@ export const PrivacyPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="border-b border-[#dfe7da] pb-8 mb-8">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#36764c]">
-            <ShieldCheck className="size-4" />
-            <span>Data Transparency</span>
-          </div>
-          <h1 className="font-display text-4xl sm:text-5xl font-semibold text-[#183d2d] mt-2 tracking-tight">
-            Privacy Policy
-          </h1>
-          <p className="mt-3 text-xs text-[#78867a]">
-            Status: Draft for Owner Review • Last updated: October 2026
-          </p>
-        </div>
 
-        <div className="prose prose-sm max-w-none text-[#2d4233] space-y-8 leading-relaxed text-sm">
+        <div className="max-w-none text-[#2d4233] space-y-8 leading-relaxed text-sm">
           <section>
             <h2 className="text-xl font-bold text-[#183d2d] mb-3">1. Data Controller and Scope</h2>
             <p>
-              This Privacy Policy explains how <strong>VireoClip by Vertex Digitals</strong> ("VireoClip", "we", "us", or "our") collects, uses, processes, and safeguards personal data through the VireoClip web application.
+              This Privacy Policy explains how <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Legal Company / Registered Entity Name]</span> ("VireoClip", "we", "us", or "our") collects, uses, processes, and safeguards personal data through the VireoClip web application.
             </p>
             <p className="mt-2">
-              For privacy inquiries or data requests, contact our designated support and privacy inbox at:
+              For privacy inquiries or data requests, contact our designated privacy representative at:
               <br />
-              <a
-                href="mailto:vertexdigitals07@gmail.com"
-                className="font-medium text-[#246844] underline hover:text-[#183d2d] font-mono text-xs"
-              >
-                vertexdigitals07@gmail.com
-              </a>
+              <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs mt-1 inline-block">[CONFIRMATION REQUIRED: Privacy / Data Protection Contact Email, e.g. privacy@vireoclip.ai]</span>
             </p>
           </section>
 
@@ -93,7 +74,7 @@ export const PrivacyPage: React.FC = () => {
               <div className="p-3.5 rounded-lg border border-[#e1e7db] bg-white">
                 <h3 className="font-bold text-xs uppercase text-[#183d2d] tracking-wide">D. Billing and Subscription Metadata</h3>
                 <p className="mt-1 text-xs text-[#526857]">
-                  Customer identifiers, subscription IDs, billing plan tier, current period start/end dates, and webhook event logs received from payment processors (Paddle, Razorpay, Stripe). <em>Vireo does NOT store raw credit card numbers, CVVs, or full bank account details on our servers.</em>
+                  Customer identifiers, subscription IDs, billing plan tier, current period start/end dates, and webhook event logs received from payment processors (Razorpay for India, Paddle elsewhere). <em>VireoClip does NOT store raw credit card numbers, CVVs, or full bank account details on our servers.</em>
                 </p>
               </div>
 
@@ -147,7 +128,7 @@ export const PrivacyPage: React.FC = () => {
                     <td className="p-2.5">Video transcript text and user prompts</td>
                   </tr>
                   <tr>
-                    <td className="p-2.5 font-semibold">Paddle / Razorpay / Stripe</td>
+                    <td className="p-2.5 font-semibold">Razorpay (India) / Paddle (other countries)</td>
                     <td className="p-2.5">Payment processing and subscription lifecycle</td>
                     <td className="p-2.5">Customer billing metadata and webhook payloads</td>
                   </tr>
@@ -164,7 +145,7 @@ export const PrivacyPage: React.FC = () => {
           <section>
             <h2 className="text-xl font-bold text-[#183d2d] mb-3">4. Cookies and Client-Side Storage</h2>
             <p>
-              Vireo does <strong>not</strong> employ third-party advertising cookies, behavioural cross-site tracking pixels, or data-broker trackers.
+              VireoClip does <strong>not</strong> employ third-party advertising cookies, behavioural cross-site tracking pixels, or data-broker trackers.
             </p>
             <p className="mt-2">
               We utilize strictly necessary local storage mechanisms:
@@ -211,16 +192,10 @@ export const PrivacyPage: React.FC = () => {
             <p className="mt-2">
               For questions regarding this draft policy or our privacy practices:
               <br />
-              <a
-                href="mailto:vertexdigitals07@gmail.com"
-                className="font-medium text-[#246844] underline hover:text-[#183d2d] font-mono text-xs"
-              >
-                vertexdigitals07@gmail.com
-              </a>
+              <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs mt-1 inline-block">[CONFIRMATION REQUIRED: Designated Support / Privacy Email Address]</span>
             </p>
           </section>
         </div>
-      </div>
-    </div>
+    </LegalPageShell>
   );
 };

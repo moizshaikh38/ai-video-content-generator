@@ -4,10 +4,12 @@ import { dataRepository } from '../db/repositories/dataRepository.js';
 import { logger } from '../utils/logger.js';
 import { OpenRouterContentProvider } from './aiProviderClient.js';
 import { config } from '../config/index.js';
+import { GenreIntelligenceService } from './genreIntelligenceService.js';
 import {
   AppError,
   ClipRecord,
   ClipCandidate,
+  ContentGenre,
   ProjectRecord,
   TranscriptRecord,
   TranscriptWord,
@@ -341,9 +343,18 @@ export class ProducerPlanningService {
     const outroTrimOp = this.evaluateOutroTrim(clipEnd, wordsInClip, mode);
     if (outroTrimOp) operations.push(outroTrimOp);
 
-    // 4. Interior Silence / Dead Space Removal
+    // 4. Interior Silence / Dead Space Removal (Genre-Adaptive)
     if (mode !== 'LIGHT') {
-      const cutRangesOp = this.evaluateDeadSpaceCuts(clipStart, clipEnd, wordsInClip, ctx.analysis, mode);
+      const detectedGenre: ContentGenre | undefined =
+        clip.genre || ctx.candidate?.genre || ((ctx.project as any)?.genre as ContentGenre | undefined);
+      const cutRangesOp = this.evaluateDeadSpaceCuts(
+        clipStart,
+        clipEnd,
+        wordsInClip,
+        ctx.analysis,
+        mode,
+        detectedGenre
+      );
       if (cutRangesOp) operations.push(cutRangesOp);
     }
 
@@ -501,19 +512,31 @@ export class ProducerPlanningService {
 
   /**
    * Identifies awkward mid-clip pauses and dead space between words without cutting speech.
+   * Leverages genre-adaptive pause thresholds (e.g. 0.35s for coding tutorials, preserves pauses for comedy & sports).
    */
   private static evaluateDeadSpaceCuts(
     clipStart: number,
     clipEnd: number,
     words: TranscriptWord[],
     analysis: VideoAnalysisRecord | null | undefined,
-    mode: ProducerMode
+    mode: ProducerMode,
+    genre?: ContentGenre
   ): ProducerOperation | null {
     if (words.length < 2) return null;
 
+    const genreProfile = genre ? GenreIntelligenceService.getGenreProfile(genre) : null;
+    if (genreProfile && genreProfile.producerDefaults.allowInteriorPauseCuts === false) {
+      // Comedy or Sports where pauses carry dramatic comedic timing or continuous athletic action
+      return null;
+    }
+
+    const defaultPauseThreshold = genreProfile?.producerDefaults.pauseThresholdSec ?? 0.85;
+    const pauseThreshold = mode === 'AGGRESSIVE'
+      ? Math.max(0.28, Number((defaultPauseThreshold * 0.65).toFixed(2)))
+      : defaultPauseThreshold;
+    const naturalBreath = mode === 'AGGRESSIVE' ? 0.18 : 0.28; // Kept breath room
+
     const cutRanges: Array<{ start: number; end: number; duration: number }> = [];
-    const pauseThreshold = mode === 'AGGRESSIVE' ? 0.65 : 1.1; // Seconds of silence to trigger cut
-    const naturalBreath = mode === 'AGGRESSIVE' ? 0.22 : 0.35; // Kept breath room
 
     for (let i = 0; i < words.length - 1; i++) {
       const current = words[i];
@@ -526,7 +549,7 @@ export class ProducerPlanningService {
         const cutEnd = Number((next.start - naturalBreath / 2).toFixed(2));
         const cutDuration = Number((cutEnd - cutStart).toFixed(2));
 
-        if (cutDuration >= 0.25 && cutEnd < clipEnd && cutStart > clipStart) {
+        if (cutDuration >= 0.20 && cutEnd < clipEnd && cutStart > clipStart) {
           cutRanges.push({
             start: cutStart,
             end: cutEnd,
@@ -550,7 +573,7 @@ export class ProducerPlanningService {
         cut_ranges: cutRanges,
       },
       confidence: 0.89,
-      reason: `Eliminates conversational dead air (> ${pauseThreshold}s) between sentences to boost short-form pace.`,
+      reason: `Eliminates conversational dead air (> ${pauseThreshold}s) adapted for ${genreProfile?.displayName || 'content'} pacing.`,
     };
   }
 
@@ -936,7 +959,7 @@ export class ProducerPlanningService {
     const savedSeconds = (originalDuration - estimatedDuration).toFixed(1);
     const pctSaved = Math.round(((originalDuration - estimatedDuration) / originalDuration) * 100);
 
-    const summary = `Vireo Producer (${mode} Mode) optimized this clip for ${targetPlatform}: tightened duration by ${savedSeconds}s (-${pctSaved}%), boosted retention score by +${scores.delta} pts, and burned mobile kinetic captions.`;
+    const summary = `VireoClip Producer (${mode} Mode) optimized this clip for ${targetPlatform}: tightened duration by ${savedSeconds}s (-${pctSaved}%), boosted retention score by +${scores.delta} pts, and burned mobile kinetic captions.`;
 
     const keyDecisions: string[] = operations
       .filter((o) => o.enabled)

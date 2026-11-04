@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 104" role="img" aria-labelledby="title">
+  <title id="title">Vireo symbol</title>
+  <defs><mask id="vireo-white-cutout"><rect width="104" height="104" fill="#fff"/><path fill="#000" d="M47 23c-4-2-7 2-6 6l9 43c1 6 6 8 10 3l20-28c4-6 2-10-3-13L47 23Z"/></mask></defs>
+  <path mask="url(#vireo-white-cutout)" fill="#F7F6FA" d="M20 7C11 5 4 13 7 23l26 65c4 11 16 13 24 5 16-15 31-34 40-49 6-9 2-20-8-23l-23-7c-5-2-9 2-8 8l1 7-10-6-18-11c-4-3-7-5-11-5Z"/>
+</svg>

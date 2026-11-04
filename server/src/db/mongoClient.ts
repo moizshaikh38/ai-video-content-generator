@@ -25,8 +25,8 @@ export async function getMongoDb(): Promise<Db> {
     const candidate = new MongoClient(config.mongodbUri, {
       appName: 'vireo-api',
       maxPoolSize: 20,
-      connectTimeoutMS: 8_000,
-      serverSelectionTimeoutMS: 8_000,
+      connectTimeoutMS: 30_000,
+      serverSelectionTimeoutMS: 30_000,
     });
     connecting = candidate.connect()
       .then(async () => {
@@ -35,10 +35,11 @@ export async function getMongoDb(): Promise<Db> {
         client = candidate;
         return db;
       })
-      .catch(async () => {
+      .catch(async (err: unknown) => {
         await candidate.close().catch(() => undefined);
         connecting = null;
-        throw new AppError('Database is unavailable.', 503, 'DATABASE_UNAVAILABLE');
+        const detail = err instanceof Error ? err.message : String(err);
+        throw new AppError(`Database is unavailable: ${detail}`, 503, 'DATABASE_UNAVAILABLE');
       });
   }
   return connecting;
@@ -50,11 +51,11 @@ export async function getMongoClient(): Promise<MongoClient> {
   return client;
 }
 
-export async function closeMongo(): Promise<void> {
+export async function closeMongo(force = true): Promise<void> {
   const current = client;
   client = null;
   connecting = null;
-  await current?.close();
+  await current?.close(force);
 }
 
 export async function isMongoHealthy(): Promise<boolean> {

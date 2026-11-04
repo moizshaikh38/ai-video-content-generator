@@ -2,7 +2,8 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { backendRequest } from './backendClient';
 
 export type PlanId = 'free' | 'creator' | 'pro' | 'studio';
-export type BillingProviderName = 'paddle' | 'razorpay' | 'stripe';
+/** Razorpay bills India; Paddle bills every other supported country. */
+export type BillingProviderName = 'paddle' | 'razorpay';
 export type BillingInterval = 'month' | 'year';
 
 export interface PlanDefinition {
@@ -72,6 +73,50 @@ export interface ProviderOption {
   name: BillingProviderName;
   displayName: string;
   isConfigured: boolean;
+}
+
+export interface PlanPrice {
+  amount: number;
+  currency: 'INR' | 'USD';
+  available: boolean;
+}
+
+/** A plan as the customer can buy it through their gateway (from GET /billing/context). */
+export interface PlanOffer {
+  id: PlanId;
+  display_name: string;
+  monthly_minutes: number;
+  max_projects: number;
+  max_clip_renders: number;
+  max_social_connections: number;
+  max_scheduled_posts: number;
+  features: string[];
+  is_recommended: boolean;
+  prices: Record<BillingInterval, PlanPrice>;
+}
+
+export interface GatewayConflict {
+  confirmedCountry: string;
+  ipCountry: string;
+  confirmedProvider: BillingProviderName;
+  ipProvider: BillingProviderName;
+}
+
+/** Server-decided billing context. The browser renders it; it never picks the gateway. */
+export interface BillingContext {
+  country: string | null;
+  countryName: string | null;
+  countrySource: 'confirmed' | 'subscription' | 'ip' | 'edge_header' | null;
+  ipCountry: string | null;
+  ipCountryName: string | null;
+  conflict: GatewayConflict | null;
+  requiresCountry: boolean;
+  countryLocked: boolean;
+  provider: BillingProviderName | null;
+  providerReady: boolean;
+  currency: 'INR' | 'USD' | null;
+  unsupportedReason: string | null;
+  plans: PlanOffer[];
 }
 
 export interface CheckoutResponse {
@@ -158,19 +203,54 @@ export class BillingService {
   }
 
   /**
-   * Creates a Checkout Session with the requested provider (Paddle or Razorpay).
+   * Creates a checkout session with the SERVER-DECIDED provider. The billing
+   * country (confirmed → subscription-locked → server IP geolocation) routes
+   * the gateway; no provider is sent from the browser.
    * Calls POST /api/billing/checkout.
    */
   static async createCheckout(
     planId: 'creator' | 'pro' | 'studio',
-    interval: BillingInterval = 'month',
-    provider?: BillingProviderName
+    interval: BillingInterval = 'month'
   ): Promise<CheckoutResponse> {
     const json = await backendRequest<{ status: string; data: CheckoutResponse }>('/billing/checkout', {
       method: 'POST',
-      body: JSON.stringify({ planId, interval, provider }),
+      body: JSON.stringify({ planId, interval }),
     });
     return json.data;
+  }
+
+  /**
+   * Server-resolved billing context: gateway decision, country source,
+   * advisory IP country, conflicts, and gateway-priced plans.
+   * Calls GET /api/billing/context.
+   */
+  static async getBillingContext(): Promise<BillingContext> {
+    const json = await backendRequest<{ status: string; data: BillingContext }>('/billing/context');
+    return json.data;
+  }
+
+  /**
+   * Stores the customer's selected billing country. Returns 409 with a
+   * conflict payload when the switch changes gateways until confirmConflict=true.
+   * Calls POST /api/billing/country.
+   */
+  static async confirmBillingCountry(
+    billingCountry: string,
+    confirmConflict = false
+  ): Promise<{ ok: true; data: { country: string; context: BillingContext } } | { ok: false; conflict: GatewayConflict | null; message: string }> {
+    try {
+      const json = await backendRequest<{ status: string; data: { country: string; context: BillingContext } }>('/billing/country', {
+        method: 'POST',
+        body: JSON.stringify({ billing_country: billingCountry, confirm_conflict: confirmConflict }),
+      });
+      return { ok: true, data: json.data };
+    } catch (err: any) {
+      if (err.status === 409) {
+        // backendRequest copies the response body onto the error, so `data` here is the payload's data.
+        return { ok: false, conflict: err.data?.conflict ?? null, message: err.message };
+      }
+      throw err;
+    }
   }
 
   /**

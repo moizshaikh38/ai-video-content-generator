@@ -18,16 +18,22 @@ export function startPublishingWorker(): void {
         logger.info(`Publishing worker processed ${processed} due job(s)`);
       }
     } catch (err: any) {
-      logger.error('Error in publishing worker cycle', { err: err?.message });
+      if (err?.code === 'DATABASE_UNAVAILABLE' || err?.message?.includes('Database is unavailable')) {
+        logger.warn('Publishing worker paused: database is currently unavailable');
+      } else {
+        logger.error('Error in publishing worker cycle', { err: err?.message });
+      }
     } finally {
       if (isRunning) {
         timer = setTimeout(tick, POLL_INTERVAL_MS);
+        timer.unref();
       }
     }
   };
 
   // Schedule first tick after 5 seconds to let server finish bootstrapping
   timer = setTimeout(tick, 5000);
+  timer.unref();
 }
 
 export function stopPublishingWorker(): void {
