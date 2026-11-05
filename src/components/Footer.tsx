@@ -25,7 +25,7 @@ const FOOTER_COLUMNS: FooterColumn[] = [
       { label: 'Audio Enhancement', href: '/#audio' },
       { label: 'AI Voice & Dubbing', href: '/#voice' },
       { label: 'Multi-Track Timeline Editor', href: '/dashboard' },
-      { label: 'New Project Upload', href: '/projects/new' },
+      { label: 'New Project Upload', href: '/dashboard' },
     ],
   },
   {

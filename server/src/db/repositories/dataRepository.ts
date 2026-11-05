@@ -47,6 +47,10 @@ const names = new Set([
   'workspaces',
   'workspace_members',
   'workspace_invitations',
+  'credit_wallets',
+  'credit_transactions',
+  'credit_reservations',
+  'video_intelligence',
 ]);
 type Result = { data: any; error: { message: string; code?: string } | null; count?: number | null };
 type Action = 'select' | 'insert' | 'update' | 'upsert' | 'delete';

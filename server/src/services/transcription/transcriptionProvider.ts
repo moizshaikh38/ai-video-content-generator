@@ -1,4 +1,4 @@
-import { NormalizedTranscriptionResult } from './types.js';
+import { NormalizedTranscriptionResult, TranscriptionOptions } from './types.js';
 
 export interface TranscriptionProvider {
   readonly name: string;
@@ -6,6 +6,7 @@ export interface TranscriptionProvider {
   transcribeAudio(
     audioBuffer: Buffer,
     fileName?: string,
-    mimeType?: string
+    mimeType?: string,
+    options?: TranscriptionOptions
   ): Promise<NormalizedTranscriptionResult>;
 }

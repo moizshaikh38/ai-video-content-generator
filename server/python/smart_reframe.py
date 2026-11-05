@@ -135,7 +135,7 @@ def compute_mouth_score(gray, prev_gray, face_box, prev_box):
     return round(float(np.clip(score, 0.0, 1.0)), 3)
 
 
-def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0.0, duration_sec: float = 0.0):
+def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0.0, duration_sec: float = 0.0, max_samples: int = 600):
     """
     Sample frames from video and detect faces within [start_sec, start_sec + duration_sec].
     Returns normalized face bounding boxes, mouth_scores, and lightweight scene cuts.
@@ -169,14 +169,20 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
 
     # Calculate frame sampling interval
     effective_sample_fps = min(sample_fps, source_fps)
-    frame_interval = max(1, int(round(source_fps / effective_sample_fps)))
+    import math
+    requested_interval = max(1, int(round(source_fps / effective_sample_fps)))
+    total_frames = max(1, end_frame - start_frame)
+    if max_samples > 0 and (total_frames / requested_interval) > max_samples:
+        frame_interval = max(requested_interval, int(math.ceil(total_frames / max_samples)))
+    else:
+        frame_interval = requested_interval
 
     frontal_cascade, profile_cascade = load_cascades()
 
     samples = []
     scene_cuts = []
     frame_index = start_frame
-    max_samples = 600  # Safety cap
+    # max_samples enforced via parameter and uniform interval decimation
 
     prev_gray = None
     prev_face_boxes = []  # List of (x, y, w, h) from previous frame
@@ -349,6 +355,7 @@ def main():
         sample_fps = float(params.get("sampleFps", 4.0))
         start_sec = float(params.get("startSec", 0.0))
         duration_sec = float(params.get("durationSec", 0.0))
+        max_samples = int(params.get("maxSamples", 600))
 
         # Validate input — only accept an existing file path
         if not video_path or not isinstance(video_path, str):
@@ -357,11 +364,11 @@ def main():
             raise FileNotFoundError(f"Video not found: {video_path}")
 
         # Clamp sample FPS
-        sample_fps = max(1.0, min(10.0, sample_fps))
+        sample_fps = max(0.1, min(10.0, sample_fps))
         start_sec = max(0.0, start_sec)
         duration_sec = max(0.0, duration_sec)
 
-        result = analyze_video(video_path, sample_fps, start_sec, duration_sec)
+        result = analyze_video(video_path, sample_fps, start_sec, duration_sec, max_samples)
 
         # Output structured JSON
         print(json.dumps({"status": "ok", **result}))

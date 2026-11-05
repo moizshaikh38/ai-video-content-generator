@@ -47,20 +47,39 @@ export class ContentPackController {
 
     const projectId = req.params.projectId || req.body.projectId || req.body.project_id;
     const clipId = req.params.clipId || req.body.clipId || req.body.clip_id;
-    const { mode, template, platform, user_instruction, userInstruction, brand_brain_id, brandBrainId } = req.body;
-    const idempotencyKey = (req.headers['idempotency-key'] as string) || req.body.idempotency_key;
-
-    if (!projectId || !clipId) {
-      throw new AppError('Project ID and Clip ID are required.', 400, 'INVALID_INPUT');
-    }
-
-    const pack = await ContentPackService.generateContentPack({
-      userId,
-      projectId,
-      clipId,
+    const sourceType = req.body.sourceType || req.body.source_type;
+    const videoIntelligenceId = req.body.videoIntelligenceId || req.body.video_intelligence_id;
+    const transcriptText = req.body.transcriptText || req.body.transcript_text;
+    const sourceTitle = req.body.sourceTitle || req.body.source_title;
+    const {
       mode,
       template,
       platform,
+      platforms,
+      tone,
+      targetAudience,
+      target_audience,
+      user_instruction,
+      userInstruction,
+      brand_brain_id,
+      brandBrainId,
+    } = req.body;
+    const idempotencyKey = (req.headers['idempotency-key'] as string) || req.body.idempotency_key;
+
+    const pack = await ContentPackService.generateContentPack({
+      userId,
+      sourceType,
+      projectId,
+      clipId,
+      videoIntelligenceId,
+      transcriptText,
+      sourceTitle,
+      mode,
+      template,
+      platform,
+      platforms,
+      tone,
+      targetAudience: targetAudience || target_audience,
       userInstruction: user_instruction || userInstruction,
       brandBrainId: brand_brain_id || brandBrainId,
       idempotencyKey,
@@ -95,6 +114,36 @@ export class ContentPackController {
 
     const clipId = req.params.clipId;
     const packs = await ContentPackService.listPacksForClip(userId, clipId);
+    res.json({
+      status: 'ok',
+      data: packs,
+    });
+  }
+
+  /**
+   * Lists recent Content Packs across all projects for the user.
+   */
+  public static async listRecentPacks(req: AuthenticatedRequest, res: Response): Promise<void> {
+    const userId = req.user?.id;
+    if (!userId) throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
+
+    const limit = Number(req.query.limit) || 20;
+    const packs = await ContentPackService.listRecentPacks(userId, limit);
+    res.json({
+      status: 'ok',
+      data: packs,
+    });
+  }
+
+  /**
+   * Lists Content Packs for a specific project.
+   */
+  public static async listPacksForProject(req: AuthenticatedRequest, res: Response): Promise<void> {
+    const userId = req.user?.id;
+    if (!userId) throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
+
+    const projectId = req.params.projectId;
+    const packs = await ContentPackService.listPacksForProject(userId, projectId);
     res.json({
       status: 'ok',
       data: packs,

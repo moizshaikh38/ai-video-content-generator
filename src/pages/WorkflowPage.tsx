@@ -268,7 +268,7 @@ export const WorkflowPage: React.FC = () => {
               : 'Create a video clip to begin automatic workflow tracking.'}
           </p>
           <Link
-            to="/projects/new"
+            to="/dashboard"
             className="mt-6 inline-flex items-center gap-2 rounded-full bg-vc-ai-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] active:bg-violet-700 px-5 py-2.5 text-sm font-semibold text-white shadow-black/40 hover:bg-vc-ai"
           >
             <Plus className="size-4" /> Clip a Video

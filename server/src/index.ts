@@ -10,6 +10,7 @@ import { generalLimiter } from './middleware/rateLimiter.js';
 import { bootstrapMongo } from './db/bootstrapMongo.js';
 import { closeMongo, isMongoConfigured } from './db/mongoClient.js';
 import { UsageService } from './services/usageService.js';
+import { CreditWalletService } from './services/creditWalletService.js';
 import { socialService } from './services/socialService.js';
 import { startPublishingWorker, stopPublishingWorker } from './services/publishing/publishingWorker.js';
 import { ClipRenderService } from './services/clipRenderService.js';
@@ -140,6 +141,9 @@ if (process.env.NODE_ENV !== 'test') {
       const cleanup = () => UsageService.cleanupOrphanedReservations(30)
         .then((count) => { if (count > 0) logger.info(`Released ${count} orphaned usage reservations.`); })
         .catch((error) => logger.warn('Usage reservation cleanup failed', { error: error instanceof Error ? error.message : String(error) }))
+        .then(() => CreditWalletService.cleanupOrphanedReservations())
+        .then((count) => { if (count && count > 0) logger.info(`Recovered ${count} orphaned credit reservations.`); })
+        .catch((error) => logger.warn('Credit reservation recovery failed', { error: error instanceof Error ? error.message : String(error) }))
         .then(() => UrlIngestionService.pruneSourceCache())
         .then((pruned) => { if (pruned > 0) logger.info(`Pruned ${pruned} stale source-cache entries.`); })
         .catch((error) => logger.warn('Source cache prune failed', { error: error instanceof Error ? error.message : String(error) }));

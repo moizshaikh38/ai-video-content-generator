@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
@@ -10,7 +10,6 @@ const LandingPage = React.lazy(() => import('./pages/LandingPage').then(m => ({ 
 const LoginPage = React.lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const SignupPage = React.lazy(() => import('./pages/SignupPage').then(m => ({ default: m.SignupPage })));
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
-const NewProjectPage = React.lazy(() => import('./pages/NewProjectPage').then(m => ({ default: m.NewProjectPage })));
 const ProjectDetailPage = React.lazy(() => import('./pages/ProjectDetailPage').then(m => ({ default: m.ProjectDetailPage })));
 const HistoryPage = React.lazy(() => import('./pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
@@ -21,6 +20,7 @@ const AnalyticsPage = React.lazy(() => import('./pages/AnalyticsPage').then(m =>
 const BillingPage = React.lazy(() => import('./pages/BillingPage').then(m => ({ default: m.BillingPage })));
 const ClipEditorPage = React.lazy(() => import('./pages/ClipEditorPage').then(m => ({ default: m.ClipEditorPage })));
 const AdminPage = React.lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
+const SubtitleStudioPage = React.lazy(() => import('./pages/SubtitleStudioPage').then(m => ({ default: m.SubtitleStudioPage })));
 const ABStudioHistoryPage = React.lazy(() => import('./pages/ABStudioHistoryPage').then(m => ({ default: m.ABStudioHistoryPage })));
 const WorkflowPage = React.lazy(() => import('./pages/WorkflowPage').then(m => ({ default: m.WorkflowPage })));
 const WorkspacePage = React.lazy(() => import('./pages/WorkspacePage').then(m => ({ default: m.WorkspacePage })));
@@ -29,6 +29,12 @@ const PrivacyPage = React.lazy(() => import('./pages/PrivacyPage').then(m => ({ 
 const SupportPage = React.lazy(() => import('./pages/SupportPage').then(m => ({ default: m.SupportPage })));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 import { CookieNotice } from './components/CookieNotice';
+
+const CreateClipsRedirect: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const search = searchParams.toString();
+  return <Navigate to={search ? `/dashboard?${search}` : '/dashboard'} replace />;
+};
 
 export const App: React.FC = () => {
   return (
@@ -58,8 +64,10 @@ export const App: React.FC = () => {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/workflows" element={<WorkflowPage />} />
               <Route path="/workspaces" element={<WorkspacePage />} />
-              <Route path="/projects/new" element={<NewProjectPage />} />
-              <Route path="/new" element={<Navigate to="/projects/new" replace />} />
+              <Route path="/projects/new" element={<CreateClipsRedirect />} />
+              <Route path="/subtitles" element={<SubtitleStudioPage />} />
+              <Route path="/subtitles/:id" element={<SubtitleStudioPage />} />
+              <Route path="/new" element={<CreateClipsRedirect />} />
               <Route path="/projects/:id" element={<ProjectDetailPage />} />
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/media-library" element={<HistoryPage initialTab="clips" />} />

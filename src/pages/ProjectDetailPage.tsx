@@ -342,7 +342,7 @@ export const ProjectDetailPage: React.FC = () => {
 
         <div className="flex items-center gap-2 sm:ml-auto">
           <Link
-            to="/projects/new"
+            to="/dashboard"
             className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold ${BTN_PILL_BRAND_SOFT}`}
           >
             <Plus className="size-3.5" />
@@ -427,7 +427,7 @@ export const ProjectDetailPage: React.FC = () => {
               )}
             </Button>
             <Button variant="outline" asChild>
-              <Link to="/projects/new">Try New Video</Link>
+              <Link to="/dashboard">Try New Video</Link>
             </Button>
           </div>
         </div>

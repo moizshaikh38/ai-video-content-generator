@@ -13,6 +13,9 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { Button } from '../components/Button';
+import { CreditOverviewCard } from '../components/credits/CreditOverviewCard';
+import { PlanEntitlementsComparison } from '../components/credits/PlanEntitlementsComparison';
+import { CreditService, CreditBalanceSummary, PlanEntitlements } from '../services/creditService';
 import { useAuth } from '../context/AuthContext';
 import {
   BillingContext,
@@ -106,6 +109,8 @@ export const BillingPage: React.FC = () => {
   const [entitlement, setEntitlement] = useState<UserEntitlement | null>(null);
   const [usage, setUsage] = useState<BillingUsage | null>(null);
   const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
+  const [wallet, setWallet] = useState<CreditBalanceSummary | null>(null);
+  const [planEntitlements, setPlanEntitlements] = useState<PlanEntitlements | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [billingInterval, setBillingInterval] = useState<BillingInterval>('month');
@@ -123,11 +128,13 @@ export const BillingPage: React.FC = () => {
 
   const loadAll = useCallback(async () => {
     setContextError(null);
-    const [ctx, sub, use, inv] = await Promise.allSettled([
+    const [ctx, sub, use, inv, wal, ent] = await Promise.allSettled([
       BillingService.getBillingContext(),
       BillingService.getSubscription(),
       BillingService.getUsage(),
       BillingService.getInvoices(),
+      CreditService.getWalletBalance(),
+      CreditService.getUserEntitlements(),
     ]);
     if (ctx.status === 'fulfilled') {
       setContext(ctx.value);
@@ -138,6 +145,8 @@ export const BillingPage: React.FC = () => {
     if (sub.status === 'fulfilled') setEntitlement(sub.value.entitlement);
     if (use.status === 'fulfilled') setUsage(use.value);
     if (inv.status === 'fulfilled') setInvoices(inv.value);
+    if (wal.status === 'fulfilled') setWallet(wal.value);
+    if (ent.status === 'fulfilled') setPlanEntitlements(ent.value);
     setLoading(false);
     return sub.status === 'fulfilled' ? sub.value.entitlement : null;
   }, []);
@@ -169,6 +178,8 @@ export const BillingPage: React.FC = () => {
 
   useEffect(() => {
     loadAll();
+    const handleCreditUpdate = () => { loadAll(); };
+    window.addEventListener('vireo_credit_updated', handleCreditUpdate);
     if (searchParams.get('success') === 'true') {
       awaitActivation();
     } else if (searchParams.get('canceled') === 'true') {
@@ -182,6 +193,7 @@ export const BillingPage: React.FC = () => {
       setSearchParams(next, { replace: true });
     }
     return () => {
+      window.removeEventListener('vireo_credit_updated', handleCreditUpdate);
       if (pollTimer.current) window.clearTimeout(pollTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -332,6 +344,16 @@ export const BillingPage: React.FC = () => {
         </div>
       )}
 
+      {/* Unified Credit Overview */}
+      <CreditOverviewCard
+        wallet={wallet}
+        entitlements={planEntitlements}
+        onUpgradeClick={() => {
+          const el = document.getElementById('plans-comparison-section');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }}
+      />
+
       {/* Overview */}
       <section className="grid gap-4 md:grid-cols-2">
         {loading ? (
@@ -481,6 +503,12 @@ export const BillingPage: React.FC = () => {
           </div>
         )}
       </section>
+
+      <div id="plans-comparison-section">
+        <PlanEntitlementsComparison
+          currentPlanId={planEntitlements?.planId || entitlement?.plan_id || 'free'}
+        />
+      </div>
 
       {/* Plans */}
       <section className="space-y-4">

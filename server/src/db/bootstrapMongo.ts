@@ -17,6 +17,10 @@ const collections = [
   'hook_lab_sessions',
   'hook_candidates',
   'autopilot_runs',
+  'credit_wallets',
+  'credit_transactions',
+  'credit_reservations',
+  'video_intelligence',
 ] as const;
 
 
@@ -277,5 +281,23 @@ export async function bootstrapMongo(db?: Db): Promise<void> {
     database.collection('workspace_invitations').createIndex({ token_hash: 1 }, { unique: true }),
     database.collection('workspace_invitations').createIndex({ workspace_id: 1, status: 1 }),
     database.collection('workspace_invitations').createIndex({ expires_at: 1 }),
+    // Unified Credit System indexes
+    database.collection('credit_wallets').createIndex({ id: 1 }, { unique: true }),
+    database.collection('credit_wallets').createIndex({ user_id: 1 }, { unique: true }),
+    database.collection('credit_wallets').createIndex({ workspace_id: 1 }),
+    database.collection('credit_transactions').createIndex({ id: 1 }, { unique: true }),
+    database.collection('credit_transactions').createIndex({ wallet_id: 1, created_at: -1 }),
+    database.collection('credit_transactions').createIndex({ user_id: 1, created_at: -1 }),
+    database.collection('credit_transactions').createIndex({ idempotency_key: 1 }, { unique: true }),
+    database.collection('credit_reservations').createIndex({ id: 1 }, { unique: true }),
+    database.collection('credit_reservations').createIndex({ attempt_id: 1 }, { unique: true }),
+    database.collection('credit_reservations').createIndex({ wallet_id: 1, status: 1 }),
+    database.collection('credit_reservations').createIndex({ expires_at: 1 }),
+    // Shared Video Intelligence Engine indexes (Phase 2)
+    database.collection('video_intelligence').createIndex({ id: 1 }, { unique: true }),
+    database.collection('video_intelligence').createIndex({ user_id: 1, source_hash: 1 }, { unique: true }),
+    database.collection('video_intelligence').createIndex({ user_id: 1, created_at: -1 }),
+    database.collection('video_intelligence').createIndex({ source_hash: 1 }),
+    database.collection('video_intelligence').createIndex({ status: 1, locked_at: 1 }),
   ]);
 }

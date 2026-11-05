@@ -11,7 +11,7 @@ const GUIDES = [
       'Pick a genre and clip length, then press Continue.',
       'Clips appear on the project page when processing finishes — usually a few minutes.',
     ],
-    cta: { label: 'Start a project', to: '/projects/new' },
+    cta: { label: 'Start a project', to: '/dashboard' },
   },
   {
     icon: Film,

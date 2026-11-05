@@ -5,6 +5,9 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
+import ffprobeStatic from 'ffprobe-static';
+
+export const ffprobePath: string = (ffprobeStatic as any)?.path || 'ffprobe';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 
@@ -65,7 +68,7 @@ function parseStartTime(raw: unknown): number | null {
 export async function probeAvStartTimes(filePath: string): Promise<AvStartTimes> {
   try {
     const { stdout } = await execFileAsync(
-      'ffprobe',
+      ffprobePath,
       [
         '-v', 'error',
         '-show_entries', 'stream=index,codec_type,start_time',

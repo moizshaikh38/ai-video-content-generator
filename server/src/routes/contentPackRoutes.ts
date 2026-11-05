@@ -12,6 +12,12 @@ router.get('/capabilities', requireAuth, asyncHandler(ContentPackController.getC
 // Direct generate endpoint
 router.post('/generate', requireAuth, expensiveLimiter, asyncHandler(ContentPackController.generateContentPack));
 
+// Recent content packs across all sources (defined before /:id)
+router.get('/recent', requireAuth, asyncHandler(ContentPackController.listRecentPacks));
+
+// Content packs for a project
+router.get('/project/:projectId', requireAuth, asyncHandler(ContentPackController.listPacksForProject));
+
 // Content Pack details
 router.get('/:id', requireAuth, asyncHandler(ContentPackController.getContentPack));
 

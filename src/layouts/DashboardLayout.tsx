@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
-  Scissors,
+  Captions,
   Video,
   Sparkles,
   FolderClosed,
@@ -24,11 +24,14 @@ import {
   Search,
   Plus,
   Zap,
+  Coins,
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { NotificationsPopover } from '../components/NotificationsPopover';
 import { useAuth } from '../context/AuthContext';
 import { useBillingUsage } from '../hooks/useBillingUsage';
+import { CreditService, CreditBalanceSummary } from '../services/creditService';
+import { CreditTransactionHistoryModal } from '../components/credits/CreditTransactionHistoryModal';
 import '../styles/cinematic-motion.css';
 import { BTN_PILL_BRAND, BTN_PILL_BRAND_SOFT } from '../lib/buttonStyles';
 
@@ -44,7 +47,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
     title: 'Create',
     items: [
       { to: '/dashboard', label: 'Home', icon: LayoutDashboard },
-      { to: '/projects/new', label: 'Create Clips', icon: Scissors },
+      { to: '/subtitles', label: 'Subtitles', icon: Captions },
       { to: '/history?tab=projects', label: 'Video Projects', icon: Video },
       { to: '/dashboard#studio', label: 'Content Studio', icon: Sparkles },
       { to: '/history?tab=clips', label: 'Media Library', icon: FolderClosed },
@@ -77,7 +80,19 @@ export const DashboardLayout: React.FC = () => {
   const [accountOpen, setAccountOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [wallet, setWallet] = useState<CreditBalanceSummary | null>(null);
+  const [isLedgerOpen, setIsLedgerOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    const loadWallet = () => {
+      CreditService.getWalletBalance().then(setWallet).catch(() => undefined);
+    };
+    loadWallet();
+    window.addEventListener('vireo_credit_updated', loadWallet);
+    return () => window.removeEventListener('vireo_credit_updated', loadWallet);
+  }, [user]);
 
   const submitSearch = () => {
     const q = searchQuery.trim();
@@ -117,18 +132,6 @@ export const DashboardLayout: React.FC = () => {
     ? `${usage.plan_tier.charAt(0).toUpperCase() + usage.plan_tier.slice(1)} Plan`
     : 'Free Plan';
 
-  const usagePercent = usage?.is_unlimited
-    ? 100
-    : Math.min(
-        100,
-        Math.max(
-          4,
-          Math.round(
-            ((usage?.total_used_minutes || 0) / (usage?.limit_minutes || 1)) * 100
-          )
-        )
-      );
-
   return (
     <div className="min-h-screen bg-[var(--vc-canvas)] text-[var(--vc-text-primary)] flex flex-col lg:flex-row antialiased selection:bg-white/20 selection:text-white vc-app-scope">
       {/* Mobile Drawer Overlay */}
@@ -162,10 +165,10 @@ export const DashboardLayout: React.FC = () => {
         >
           {!collapsed ? (
             <div className="flex items-center gap-2.5 min-w-0">
-              <Logo to="/dashboard" variant="light" size="md" compact={false} />
+              <span onClick={() => window.dispatchEvent(new CustomEvent('vireo_navigate_home'))}><Logo to="/dashboard" variant="light" size="md" compact={false} /></span>
             </div>
           ) : (
-            <Logo to="/dashboard" variant="light" size="md" compact />
+            <span onClick={() => window.dispatchEvent(new CustomEvent('vireo_navigate_home'))}><Logo to="/dashboard" variant="light" size="md" compact /></span>
           )}
 
           {/* Desktop collapse toggle */}
@@ -240,7 +243,12 @@ export const DashboardLayout: React.FC = () => {
                   <NavLink
                     key={item.label}
                     to={item.to}
-                    onClick={() => setMenuOpen(false)}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      if (item.to === '/dashboard') {
+                        window.dispatchEvent(new CustomEvent('vireo_navigate_home'));
+                      }
+                    }}
                     title={collapsed ? item.label : undefined}
                     className={`flex items-center gap-3 rounded-xl px-2.5 py-2 text-[13.5px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 ${
                       collapsed ? 'justify-center' : ''
@@ -324,30 +332,59 @@ export const DashboardLayout: React.FC = () => {
           </div>
         </nav>
 
-        {/* Sidebar Footer: Actual Plan and Usage */}
+        {/* Sidebar Footer: Actual Plan and Unified Credit Usage */}
         {!collapsed && (
           <div className="mt-auto pt-3 border-t border-[var(--vc-border)]">
             <div className="rounded-2xl bg-[var(--vc-surface-2)] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
               <div className="flex items-center justify-between text-xs mb-1.5">
                 <span className="font-semibold text-vc-text-primary">{planLabel}</span>
-                <span className="text-[11px] font-mono text-vc-text-secondary">
-                  {usage?.is_unlimited
+                <span className="text-[11px] font-mono text-violet-300">
+                  {wallet?.is_unlimited
                     ? 'Unlimited'
-                    : `${Math.round(usage?.total_used_minutes || 0)} / ${usage?.limit_minutes || 15}m`}
+                    : `${wallet?.available_credits ?? 0} credits`}
                 </span>
               </div>
+              {wallet && wallet.reserved_credits > 0 ? (
+                <div className="text-[10px] text-amber-300/90 font-mono mb-1.5 flex items-center justify-between">
+                  <span>In-progress:</span>
+                  <span>{wallet.reserved_credits} reserved</span>
+                </div>
+              ) : null}
               <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-vc-ai transition-all duration-500"
-                  style={{ width: `${usagePercent}%` }}
+                  className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500"
+                  style={{
+                    width: wallet?.is_unlimited
+                      ? '100%'
+                      : `${Math.min(
+                          100,
+                          Math.max(
+                            5,
+                            Math.round(
+                              ((wallet?.available_credits ?? 0) /
+                                Math.max(1, (wallet?.available_credits ?? 0) + (wallet?.consumed_credits ?? 0) || 60)) *
+                                100
+                            )
+                          )
+                        )}%`,
+                  }}
                 />
               </div>
-              <NavLink
-                to="/billing"
-                className={`mt-3 block w-full text-center py-1.5 text-xs font-semibold ${BTN_PILL_BRAND}`}
-              >
-                Upgrade Plan
-              </NavLink>
+              <div className="mt-2.5 flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsLedgerOpen(true)}
+                  className="flex-1 text-center py-1.5 text-xs font-semibold rounded-xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] text-zinc-300 transition-colors cursor-pointer"
+                >
+                  Ledger
+                </button>
+                <NavLink
+                  to="/billing"
+                  className={`flex-1 text-center py-1.5 text-xs font-semibold ${BTN_PILL_BRAND}`}
+                >
+                  Plans
+                </NavLink>
+              </div>
             </div>
           </div>
         )}
@@ -411,6 +448,26 @@ export const DashboardLayout: React.FC = () => {
 
           {/* Right actions */}
           <div className="flex items-center gap-2 sm:gap-2.5 ml-auto shrink-0">
+            {/* Credit balance badge */}
+            <button
+              type="button"
+              onClick={() => setIsLedgerOpen(true)}
+              className="hidden sm:inline-flex items-center gap-1.5 h-[36px] sm:h-[38px] px-3 rounded-full bg-violet-500/10 border border-violet-500/20 text-xs font-semibold text-violet-300 hover:bg-violet-500/20 hover:border-violet-500/35 transition-all cursor-pointer"
+              title="Click to view credit ledger and transactions"
+            >
+              <Coins className="size-3.5 text-violet-400" />
+              <span>
+                {wallet?.is_unlimited
+                  ? 'Unlimited credits'
+                  : `${wallet?.available_credits ?? 0} credits`}
+              </span>
+              {wallet && wallet.reserved_credits > 0 ? (
+                <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                  {wallet.reserved_credits} reserved
+                </span>
+              ) : null}
+            </button>
+
             {/* Minutes left quota badge */}
             <div className="hidden xl:inline-flex items-center gap-1.5 h-[36px] sm:h-[38px] px-3 rounded-full bg-white/[0.04] text-xs font-medium text-zinc-200">
               <Zap className="size-3.5 text-zinc-300" />
@@ -432,8 +489,12 @@ export const DashboardLayout: React.FC = () => {
             {/* Prominent Create CTA Button */}
             <button
               type="button"
-              onClick={() => navigate('/projects/new')}
+              onClick={() => {
+                navigate('/dashboard');
+                window.dispatchEvent(new CustomEvent('vireo_navigate_home'));
+              }}
               className={`inline-flex items-center justify-center gap-1.5 h-[36px] sm:h-[38px] px-3 sm:px-4 text-xs sm:text-sm font-semibold cursor-pointer shrink-0 ${BTN_PILL_BRAND}`}
+              title="Create new viral clips"
             >
               <Plus className="size-4 stroke-[2.5]" />
               <span>Create</span>
@@ -514,6 +575,11 @@ export const DashboardLayout: React.FC = () => {
           </div>
         </main>
       </div>
+      <CreditTransactionHistoryModal
+        isOpen={isLedgerOpen}
+        onClose={() => setIsLedgerOpen(false)}
+        walletSummary={wallet}
+      />
     </div>
   );
 };

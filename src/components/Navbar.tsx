@@ -185,7 +185,7 @@ export function Navbar() {
     }
   };
 
-  const ctaPath = isAuthenticated ? '/projects/new' : '/signup';
+  const ctaPath = isAuthenticated ? '/dashboard' : '/signup';
   const ctaLabel = isAuthenticated ? 'Clip a video' : 'Get free clips';
 
   return (

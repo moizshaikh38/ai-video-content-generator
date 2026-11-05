@@ -38,6 +38,9 @@ import { FilterGraphBuilder } from './ffmpeg/filterGraphBuilder.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { ClipPosterService } from './clipPosterService.js';
+import { WatermarkService } from './watermarkService.js';
+import { EntitlementService } from './entitlementService.js';
+import { HardwareEncoderService } from './hardwareEncoderService.js';
 
 const execFileAsync = promisify(execFile);
 const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
@@ -198,7 +201,8 @@ export class ClipRenderService {
     userId: string,
     candidateId: string,
     aspectRatio: ClipAspectRatio = '9:16',
-    cropMode: ClipCropMode = 'center'
+    cropMode: ClipCropMode = 'center',
+    options?: { caption_enabled?: boolean; caption_style?: string; caption_config?: any }
   ): Promise<CreateClipResult> {
     if (!isMongoConfigured) {
       const err = new Error('Database service is not configured.');
@@ -214,7 +218,7 @@ export class ClipRenderService {
 
     const validRatios: ClipAspectRatio[] = ['9:16', '1:1', '16:9'];
     const validAspectRatio = validRatios.includes(aspectRatio) ? aspectRatio : '9:16';
-    const { clip, renderJob } = await createClipWithJob(projectId, candidateId, userId, validAspectRatio, cropMode);
+    const { clip, renderJob } = await createClipWithJob(projectId, candidateId, userId, validAspectRatio, cropMode, options);
 
     // 6. Launch in-process background rendering (deferred to the sweep when at cap)
     launchInlineRender(clip.id, userId, renderJob.id);
@@ -291,7 +295,7 @@ export class ClipRenderService {
     } catch {}
 
     // 3. Strict Download from R2 with Timeout and Atomic Cache Placement
-    const downloadTimeout = Math.min(options.timeoutMs || 60000, 120000);
+    const downloadTimeout = Math.max(options.timeoutMs || 120000, 120000);
     const stagingFile = path.join(cacheDir, `${hash}.tmp.${Date.now()}`);
 
     try {
@@ -463,7 +467,7 @@ export class ClipRenderService {
       });
 
       await ClipRenderService.ensureSourceVideo(clip.source_storage_path, sourcePath, {
-        timeoutMs: Math.min(timeoutMs, 60000),
+        timeoutMs,
         projectId: clip.project_id,
         clipId,
       });
@@ -529,6 +533,13 @@ export class ClipRenderService {
         }
       }
 
+      // Phase F: Authoritative Server-Side Watermark Enforcement
+      const watermarkRequired = await WatermarkService.shouldWatermark(userId);
+      if (watermarkRequired) {
+        videoFilters.push(WatermarkService.getFfmpegFilterString());
+        logger.info(`[ClipRender] Watermark enforced for user ${userId} on clip ${clipId}`);
+      }
+
       logger.info(
         `[ClipRender] Preparing FFmpeg for clip ${clipId}: start=${startSec}s, dur=${durationSec}s, filters=${videoFilters.length}`
       );
@@ -582,30 +593,39 @@ export class ClipRenderService {
         const renderDuration = Number((editorProject.canvas?.duration || durationSec).toFixed(3));
         expectedDurationSec = renderDuration;
 
+        if (watermarkRequired) {
+          const wmFilter = WatermarkService.getFfmpegFilterString();
+          const nextLabel = '[v_watermarked]';
+          graph.filterComplex.push(`${graph.videoMap}${wmFilter}${nextLabel}`);
+          graph.videoMap = nextLabel;
+        }
+
         const filterBuilder = new FilterGraphBuilder(graph.filterComplex);
         const scriptExec = await filterBuilder.compileForExecution(tempDir);
 
         try {
-          const ffmpegArgs = [
-            '-y',
-            ...(!isMultiSlice
-              ? ['-ss', startSec.toFixed(3), '-t', durationSec.toFixed(3)]
-              : []),
-            ...graph.inputArgs,
-            ...scriptExec.args,
-            '-map', graph.videoMap,
-            '-map', graph.audioMap,
-            '-c:v', 'libx264',
-            '-preset', config.renderPreset,
-            '-crf', '22',
-            '-c:a', 'aac',
-            '-b:a', '128k',
-            '-movflags', '+faststart',
-            '-t', renderDuration.toFixed(3),
-            outputPath,
-          ];
+          await HardwareEncoderService.executeWithFallback(async (encoderFlags) => {
+            const ffmpegArgs = [
+              '-y',
+              ...encoderFlags.initArgs,
+              ...(!isMultiSlice
+                ? ['-ss', startSec.toFixed(3), '-t', durationSec.toFixed(3)]
+                : []),
+              ...graph.inputArgs,
+              ...scriptExec.args,
+              '-map', graph.videoMap,
+              '-map', graph.audioMap,
+              ...encoderFlags.videoCodecArgs,
+              ...encoderFlags.qualityArgs,
+              '-c:a', 'aac',
+              '-b:a', '128k',
+              '-movflags', '+faststart',
+              '-t', renderDuration.toFixed(3),
+              outputPath,
+            ];
 
-          await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: timeoutMs });
+            await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: timeoutMs });
+          });
         } finally {
           await scriptExec.cleanup();
         }
@@ -627,28 +647,30 @@ export class ClipRenderService {
             ...audioGraph.filterComplex,
           ];
 
-          const ffmpegArgs = [
-            '-nostdin',
-            '-y',
-            '-ss', startSec.toFixed(3),
-            '-t', durationSec.toFixed(3),
-            '-i', sourcePath,
-            ...audioGraph.inputArgs,
-            '-filter_complex', fullFilterComplex.join(';'),
-            '-map', '[out_v]',
-            '-map', audioGraph.audioMap,
-            '-c:v', 'libx264',
-            '-preset', config.renderPreset,
-            '-crf', '22',
-            '-c:a', 'aac',
-            '-b:a', '128k',
-            '-pix_fmt', 'yuv420p',
-            '-movflags', '+faststart',
-            '-t', durationSec.toFixed(3),
-            outputPath,
-          ];
+          await HardwareEncoderService.executeWithFallback(async (encoderFlags) => {
+            const ffmpegArgs = [
+              '-nostdin',
+              '-y',
+              ...encoderFlags.initArgs,
+              '-ss', startSec.toFixed(3),
+              '-t', durationSec.toFixed(3),
+              '-i', sourcePath,
+              ...audioGraph.inputArgs,
+              '-filter_complex', fullFilterComplex.join(';'),
+              '-map', '[out_v]',
+              '-map', audioGraph.audioMap,
+              ...encoderFlags.videoCodecArgs,
+              ...encoderFlags.qualityArgs,
+              '-c:a', 'aac',
+              '-b:a', '128k',
+              '-pix_fmt', 'yuv420p',
+              '-movflags', '+faststart',
+              '-t', durationSec.toFixed(3),
+              outputPath,
+            ];
 
-          await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: timeoutMs });
+            await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: timeoutMs });
+          });
           await ClipRenderService.updateJobProgress(jobId, 85, 'encoding');
         } else {
           await new Promise<void>((resolve, reject) => {
@@ -768,6 +790,7 @@ export class ClipRenderService {
           output_object_key: finalStoragePath,
           reframe_mode: actualReframeMode,
           reframe_metadata: reframeMetadata || null,
+          is_watermarked: watermarkRequired,
           render_error_code: null,
           render_error_message: null,
           updated_at: new Date().toISOString(),
@@ -1271,6 +1294,9 @@ export class ClipRenderService {
       throw err;
     }
 
+    const entitlements = await EntitlementService.resolveUserEntitlements(userId);
+    WatermarkService.assertExportAccess(entitlements, clip);
+
     const expiresIn = 300;
     const signedUrl = await signObjectGet('clips', clip.output_storage_path);
 
@@ -1291,6 +1317,9 @@ export class ClipRenderService {
       (err as any).code = 'CLIP_NOT_READY';
       throw err;
     }
+
+    const entitlements = await EntitlementService.resolveUserEntitlements(userId);
+    WatermarkService.assertExportAccess(entitlements, clip);
 
     // Fetch project title and candidate title for human-friendly filename
     const { data: project } = await dataRepository

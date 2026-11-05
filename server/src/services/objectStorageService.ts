@@ -117,13 +117,26 @@ export function downloadTimeoutForSize(sizeBytes: number, minimumMs: number): nu
   return Math.max(minimumMs, Math.min(sizeBudget, MAX_DOWNLOAD_TIMEOUT_MS));
 }
 
-async function streamObjectToFile(bucket: ObjectBucket, key: string, path: string, signal: AbortSignal): Promise<void> {
+async function streamObjectToFile(
+  bucket: ObjectBucket,
+  key: string,
+  path: string,
+  signal: AbortSignal
+): Promise<{ sizeBytes: number; sha256: string }> {
   const result = await storageClient().send(
     new GetObjectCommand({ Bucket: bucketName(bucket), Key: key }),
     { abortSignal: signal }
   );
   if (!result.Body) throw new Error('Empty object body');
-  await pipeline(result.Body as Readable, createWriteStream(path, { flags: 'w' }), { signal });
+  const hasher = crypto.createHash('sha256');
+  let totalBytes = 0;
+  const bodyStream = result.Body as Readable;
+  bodyStream.on('data', (chunk) => {
+    hasher.update(chunk);
+    totalBytes += chunk.length;
+  });
+  await pipeline(bodyStream, createWriteStream(path, { flags: 'w' }), { signal });
+  return { sizeBytes: totalBytes, sha256: hasher.digest('hex') };
 }
 
 /**
@@ -186,13 +199,25 @@ async function rangedObjectToFile(
   }
 }
 
-/** Download to a unique caller-owned temp path with timeout protection. The caller removes the file. */
+/** Streams any local file into crypto SHA-256 in 4MB chunks without loading full buffer into memory. */
+export async function computeFileStreamSha256(filePath: string): Promise<string> {
+  const { createReadStream } = await import('node:fs');
+  return new Promise((resolve, reject) => {
+    const hasher = crypto.createHash('sha256');
+    const stream = createReadStream(filePath, { highWaterMark: 4 * 1024 * 1024 });
+    stream.on('data', (chunk) => hasher.update(chunk));
+    stream.on('end', () => resolve(hasher.digest('hex')));
+    stream.on('error', reject);
+  });
+}
+
+/** Download to a unique caller-owned temp path with timeout protection and streaming full-content SHA-256. The caller removes the file. */
 export async function downloadObjectToFile(
   bucket: ObjectBucket,
   key: string,
   path: string,
-  options?: { timeoutMs?: number }
-): Promise<void> {
+  options?: { timeoutMs?: number; requireStreamingSha256?: boolean }
+): Promise<{ sizeBytes: number; sha256: string }> {
   let timeoutMs = options?.timeoutMs || 60000;
   const controller = new AbortController();
   const armTimer = (ms: number) => {
@@ -217,15 +242,17 @@ export async function downloadObjectToFile(
       timer = armTimer(timeoutMs);
     }
 
-    if (size >= PARALLEL_DOWNLOAD_MIN_BYTES) {
+    // Default to wire-speed single stream hashing to avoid a second disk read
+    if (size >= PARALLEL_DOWNLOAD_MIN_BYTES && !options?.requireStreamingSha256) {
       try {
         await rangedObjectToFile(bucket, key, path, size, head.ETag, controller.signal);
-        return;
+        const sha256 = await computeFileStreamSha256(path);
+        return { sizeBytes: size, sha256 };
       } catch (err) {
         if (!(err instanceof RangeNotHonoredError)) throw err;
       }
     }
-    await streamObjectToFile(bucket, key, path, controller.signal);
+    return await streamObjectToFile(bucket, key, path, controller.signal);
   } catch (err: any) {
     if (controller.signal.aborted || err?.name === 'AbortError') {
       throw new AppError(`Source object download timed out after ${timeoutMs / 1000}s.`, 504, 'DOWNLOAD_TIMEOUT');
@@ -236,12 +263,22 @@ export async function downloadObjectToFile(
   }
 }
 
-export async function uploadFile(bucket: ObjectBucket, key: string, path: string, size: number, contentType: string): Promise<void> {
+export async function uploadFile(
+  bucket: ObjectBucket,
+  key: string,
+  path: string,
+  size: number,
+  contentType: string
+): Promise<{ sha256: string }> {
   const { createReadStream } = await import('node:fs');
   try {
+    const hasher = crypto.createHash('sha256');
+    const fileStream = createReadStream(path);
+    fileStream.on('data', (chunk) => hasher.update(chunk));
     await storageClient().send(new PutObjectCommand({
-      Bucket: bucketName(bucket), Key: key, Body: createReadStream(path), ContentLength: size, ContentType: contentType,
+      Bucket: bucketName(bucket), Key: key, Body: fileStream, ContentLength: size, ContentType: contentType,
     }));
+    return { sha256: hasher.digest('hex') };
   } catch {
     throw new AppError('Rendered object upload failed.', 503, 'STORAGE_UNAVAILABLE');
   }

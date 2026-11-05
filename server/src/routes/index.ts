@@ -3,6 +3,7 @@ import healthRoutes from './healthRoutes.js';
 import authRoutes from './authRoutes.js';
 import projectRoutes from './projectRoutes.js';
 import billingRoutes from './billingRoutes.js';
+import creditRoutes from './creditRoutes.js';
 import socialRoutes from './socialRoutes.js';
 import publishingRoutes from './publishingRoutes.js';
 import adminRoutes from './adminRoutes.js';
@@ -19,6 +20,7 @@ import elementsRoutes from './elementsRoutes.js';
 import paymentRoutes from './paymentRoutes.js';
 import supportRoutes from './supportRoutes.js';
 import mcpRoutes from './mcpRoutes.js';
+import subtitleRoutes from './subtitleRoutes.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { getProfiles, saveProfiles, getCreatorProfile, updateCreatorProfile } from '../controllers/profileController.js';
@@ -35,6 +37,7 @@ apiRouter.patch('/creator-profile', requireAuth, asyncHandler(updateCreatorProfi
 apiRouter.use('/', projectRoutes);
 apiRouter.use('/elements', elementsRoutes);
 apiRouter.use('/billing', billingRoutes);
+apiRouter.use('/credits', creditRoutes);
 apiRouter.use('/support', supportRoutes);
 apiRouter.use('/social', socialRoutes);
 apiRouter.use('/publishing', publishingRoutes);
@@ -51,7 +54,6 @@ apiRouter.use('/workspaces', workspaceRoutes);
 apiRouter.use('/', paymentRoutes);
 apiRouter.use('/payments', paymentRoutes);
 apiRouter.use('/mcp', mcpRoutes);
+apiRouter.use('/subtitles', subtitleRoutes);
 
 export default apiRouter;
-
-

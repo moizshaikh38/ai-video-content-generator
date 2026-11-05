@@ -8,6 +8,7 @@ import {
   BillingInvoiceRecord,
   BillingCheckoutRecord,
   UserEntitlement,
+  PlanEntitlements,
   PlanId,
   BillingProviderName,
   SubscriptionStatus,
@@ -16,6 +17,7 @@ import { isUserUnlimited } from './usageService.js';
 import { PLANS, getPlanDefinition } from './billing/planConfig.js';
 import { NormalizedBillingEvent } from './billing/types.js';
 import { logger } from '../utils/logger.js';
+import { EntitlementService } from './entitlementService.js';
 
 /** A verified webhook tried to touch a subscription owned by someone else. Never retried. */
 export class BillingOwnershipError extends Error {
@@ -30,152 +32,17 @@ export class BillingOwnershipError extends Error {
 export class SubscriptionService {
   /**
    * Resolves the authoritative entitlement for a user across any provider.
-   * Priority:
-   * 1. Developer Unlimited entitlement (vertexdigitals07@gmail.com) -> 'developer'
-   * 2. Active or trialing paid subscription -> 'pro' | 'business'
-   * 3. Canceled subscription where current_period_end > now -> paid plan until period ends
-   * 4. Past due subscription with grace period (< 3 days) -> paid plan with warning
-   * 5. Expired / unpaid / no subscription -> 'free'
+   * Delegates to the canonical EntitlementService.
    */
   static async resolveUserEntitlement(userId: string, userEmail?: string, database?: Db): Promise<UserEntitlement> {
-    const db = database ?? (await getMongoDb());
+    return EntitlementService.resolveLegacyUserEntitlement(userId, userEmail, database);
+  }
 
-    let email = userEmail;
-    if (!email && userId) {
-      try {
-        const profile = await db.collection('profiles').findOne({ $or: [{ id: userId }, { user_id: userId }] });
-        if (profile && typeof profile.email === 'string') {
-          email = profile.email;
-        }
-      } catch {}
-    }
-
-    if (isUserUnlimited(email)) {
-      return {
-        plan_id: 'developer',
-        display_name: 'Developer Unlimited Entitlement',
-        is_unlimited: true,
-        monthly_minutes: 999999,
-        max_projects: 999999,
-        max_clip_renders: 999999,
-        max_social_connections: 999999,
-        max_scheduled_posts: 999999,
-        subscription: null,
-      };
-    }
-    const subCol = db.collection<SubscriptionRecord>('subscriptions');
-    // Find active subscription across all providers
-    const activeSub = await subCol.findOne({
-      user_id: userId,
-      status: { $in: ['active', 'trialing', 'past_due', 'canceled'] },
-    }, { sort: { updated_at: -1 } });
-
-    if (!activeSub) {
-      const freePlan = PLANS.free;
-      return {
-        plan_id: 'free',
-        display_name: freePlan.display_name,
-        is_unlimited: false,
-        monthly_minutes: freePlan.monthly_minutes,
-        max_projects: freePlan.max_projects,
-        max_clip_renders: freePlan.max_clip_renders,
-        max_social_connections: freePlan.max_social_connections,
-        max_scheduled_posts: freePlan.max_scheduled_posts,
-        subscription: null,
-      };
-    }
-
-    const now = new Date();
-    const periodEnd = new Date(activeSub.current_period_end);
-    const plan = getPlanDefinition(activeSub.plan_id) || PLANS.free;
-
-    // Check if active or trialing
-    if (activeSub.status === 'active' || activeSub.status === 'trialing') {
-      return {
-        plan_id: activeSub.plan_id,
-        display_name: plan.display_name,
-        is_unlimited: false,
-        monthly_minutes: plan.monthly_minutes,
-        max_projects: plan.max_projects,
-        max_clip_renders: plan.max_clip_renders,
-        max_social_connections: plan.max_social_connections,
-        max_scheduled_posts: plan.max_scheduled_posts,
-        subscription: {
-          id: activeSub.id,
-          provider: activeSub.provider,
-          status: activeSub.status,
-          cancel_at_period_end: activeSub.cancel_at_period_end,
-          current_period_end: periodEnd.toISOString(),
-          billing_interval: activeSub.billing_interval,
-        },
-      };
-    }
-
-    // Check canceled but current period is still active
-    if (activeSub.status === 'canceled' && periodEnd > now) {
-      return {
-        plan_id: activeSub.plan_id,
-        display_name: plan.display_name,
-        is_unlimited: false,
-        monthly_minutes: plan.monthly_minutes,
-        max_projects: plan.max_projects,
-        max_clip_renders: plan.max_clip_renders,
-        max_social_connections: plan.max_social_connections,
-        max_scheduled_posts: plan.max_scheduled_posts,
-        subscription: {
-          id: activeSub.id,
-          provider: activeSub.provider,
-          status: 'canceled',
-          cancel_at_period_end: true,
-          current_period_end: periodEnd.toISOString(),
-          billing_interval: activeSub.billing_interval,
-        },
-      };
-    }
-
-    // Check past_due with 3-day grace period
-    const gracePeriodMs = 3 * 24 * 60 * 60 * 1000;
-    if (activeSub.status === 'past_due' && now.getTime() - periodEnd.getTime() < gracePeriodMs) {
-      return {
-        plan_id: activeSub.plan_id,
-        display_name: plan.display_name,
-        is_unlimited: false,
-        monthly_minutes: plan.monthly_minutes,
-        max_projects: plan.max_projects,
-        max_clip_renders: plan.max_clip_renders,
-        max_social_connections: plan.max_social_connections,
-        max_scheduled_posts: plan.max_scheduled_posts,
-        subscription: {
-          id: activeSub.id,
-          provider: activeSub.provider,
-          status: 'past_due',
-          cancel_at_period_end: activeSub.cancel_at_period_end,
-          current_period_end: periodEnd.toISOString(),
-          billing_interval: activeSub.billing_interval,
-        },
-      };
-    }
-
-    // Otherwise fallback to Free starter
-    const freePlan = PLANS.free;
-    return {
-      plan_id: 'free',
-      display_name: freePlan.display_name,
-      is_unlimited: false,
-      monthly_minutes: freePlan.monthly_minutes,
-      max_projects: freePlan.max_projects,
-      max_clip_renders: freePlan.max_clip_renders,
-      max_social_connections: freePlan.max_social_connections,
-      max_scheduled_posts: freePlan.max_scheduled_posts,
-      subscription: {
-        id: activeSub.id,
-        provider: activeSub.provider,
-        status: activeSub.status,
-        cancel_at_period_end: activeSub.cancel_at_period_end,
-        current_period_end: periodEnd.toISOString(),
-        billing_interval: activeSub.billing_interval,
-      },
-    };
+  /**
+   * Resolves canonical PlanEntitlements for a user across any provider.
+   */
+  static async resolvePlanEntitlements(userId: string, userEmail?: string, database?: Db): Promise<PlanEntitlements> {
+    return EntitlementService.resolveUserEntitlements(userId, userEmail, database);
   }
 
   /**

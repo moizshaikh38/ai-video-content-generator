@@ -1,8 +1,14 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import crypto from 'node:crypto';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
-import { defaultAiProvider } from './aiProviderClient.js';
+import { getMongoDb } from '../db/mongoClient.js';
+import { defaultAiProvider, CompletionResult, estimateProviderCostUsd } from './aiProviderClient.js';
 import { BrandContextService } from './brand/brandContextService.js';
 import { ContentPackValidator } from './contentPackValidator.js';
+import { VideoIntelligenceService } from './intelligence/videoIntelligenceService.js';
+import { VideoIntelligenceRepository } from '../db/repositories/videoIntelligenceRepository.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 import {
@@ -14,6 +20,11 @@ import {
   ContentPackGenerationMode,
   ContentPackTemplate,
   ContentPackProviderState,
+  ContentPackSourceType,
+  ProvenanceEvidenceClassification,
+  ContentPackEvidence,
+  ContentPackTelemetry,
+  SUPPORTED_STUDIO_PLATFORMS,
   OutputPlatform,
   CONTENT_PACK_LIMITS,
   PLATFORM_CONSTRAINTS,
@@ -21,11 +32,18 @@ import {
 
 export interface GenerateContentPackOptions {
   userId: string;
-  projectId: string;
-  clipId: string;
+  sourceType?: ContentPackSourceType;
+  projectId?: string;
+  clipId?: string;
+  videoIntelligenceId?: string;
+  transcriptText?: string;
+  sourceTitle?: string;
   mode?: ContentPackGenerationMode;
   template?: ContentPackTemplate;
   platform?: OutputPlatform;
+  platforms?: OutputPlatform[];
+  tone?: string;
+  targetAudience?: string;
   userInstruction?: string;
   brandBrainId?: string;
   idempotencyKey?: string;
@@ -59,7 +77,408 @@ export interface RawAiPackOutput {
   explanations?: Record<string, string>;
 }
 
+
+/**
+ * Safe path containment checker protecting against directory traversal and prefix collision attacks.
+ */
+function isPathContained(targetPath: string, rootDir: string): boolean {
+  const normTarget = path.normalize(targetPath);
+  const normRoot = path.normalize(rootDir);
+  const compareTarget = process.platform === 'win32' ? normTarget.toLowerCase() : normTarget;
+  const compareRoot = process.platform === 'win32' ? normRoot.toLowerCase() : normRoot;
+
+  if (compareTarget === compareRoot) return true;
+  const prefix = compareRoot.endsWith(path.sep) ? compareRoot : compareRoot + path.sep;
+  return compareTarget.startsWith(prefix);
+}
+
+/**
+ * Validates whether generated item text is actually grounded in source transcript content.
+ * Checks Claim Guard for ungrounded claims and verifies meaningful keyword / snippet overlap.
+ */
+function checkTranscriptGrounding(
+  text: string,
+  transcript: string
+): { isGrounded: boolean; matchingSnippet?: string; matchingWords: string[] } {
+  if (!text || !transcript || !transcript.trim()) {
+    return { isGrounded: false, matchingWords: [] };
+  }
+
+  // Claim Guard check: Unverified quantitative/guarantee claims cannot be grounded transcript evidence
+  const claimCheck = ContentPackValidator.checkClaimGuard(text, transcript);
+  if (!claimCheck.safe) {
+    return { isGrounded: false, matchingWords: [] };
+  }
+
+  const lowerTrans = transcript.toLowerCase();
+  const lowerText = text.toLowerCase();
+
+  const stopwords = new Set([
+    'this', 'that', 'with', 'from', 'your', 'have', 'will', 'about', 'what', 'more',
+    'when', 'there', 'their', 'they', 'them', 'these', 'those', 'then', 'than', 'were',
+    'been', 'being', 'some', 'such', 'into', 'just', 'also', 'over', 'after', 'before',
+    'which', 'where', 'while', 'could', 'would', 'should', 'here', 'video', 'watch',
+  ]);
+
+  const words = lowerText
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 3 && !stopwords.has(w));
+
+  const unique = Array.from(new Set(words));
+  const matched = unique.filter((w) => lowerTrans.includes(w));
+
+  const isGrounded =
+    unique.length === 0
+      ? false
+      : unique.length <= 3
+      ? matched.length >= 1
+      : matched.length >= 2 && matched.length / unique.length >= 0.2;
+
+  let matchingSnippet: string | undefined;
+  if (isGrounded && matched.length > 0) {
+    const sentences = transcript.split(/(?<=[.!?])\s+/);
+    const bestSentence = sentences.find((s) => matched.some((w) => s.toLowerCase().includes(w)));
+    matchingSnippet = (bestSentence ? bestSentence.trim() : transcript.slice(0, 150)).trim();
+  }
+
+  return { isGrounded, matchingSnippet, matchingWords: matched };
+}
+
+/**
+ * Checks if item text matches actual OCR observations detected in video intelligence.
+ */
+function checkOcrMatch(
+  text: string,
+  ocrHeadings: string[]
+): { hasMatch: boolean; matchingOcr: string[] } {
+  if (!ocrHeadings || ocrHeadings.length === 0) {
+    return { hasMatch: false, matchingOcr: [] };
+  }
+
+  const lowerText = text.toLowerCase();
+  const matchingOcr = ocrHeadings.filter((h) => {
+    const clean = h.trim().toLowerCase();
+    if (clean.length < 3) return false;
+    if (lowerText.includes(clean)) return true;
+    const words = clean.split(/\s+/).filter((w) => w.length > 3);
+    return words.length >= 2 && words.filter((w) => lowerText.includes(w)).length >= 2;
+  });
+
+  return {
+    hasMatch: matchingOcr.length > 0,
+    matchingOcr,
+  };
+}
+
+/**
+ * Checks if item text or visual direction matches actual detected visual objects.
+ */
+function checkVisualObjectMatch(
+  text: string,
+  dominantObjects: string[],
+  isVisualItem: boolean
+): { hasMatch: boolean; matchingObjects: string[] } {
+  if (!dominantObjects || dominantObjects.length === 0) {
+    return { hasMatch: false, matchingObjects: [] };
+  }
+
+  const lowerText = text.toLowerCase();
+  const matchingObjects = dominantObjects.filter((o) => {
+    const clean = o.trim().toLowerCase();
+    return clean.length > 1 && lowerText.includes(clean);
+  });
+
+  if (matchingObjects.length > 0) {
+    return { hasMatch: true, matchingObjects };
+  }
+
+  if (isVisualItem) {
+    return { hasMatch: true, matchingObjects: dominantObjects.slice(0, 3) };
+  }
+
+  return { hasMatch: false, matchingObjects: [] };
+}
+
+export interface EvaluateItemEvidenceOptions {
+  text: string;
+  type: ContentPackItemType;
+  effectiveSourceType: ContentPackSourceType;
+  boundedTranscript?: string;
+  ocrHeadings?: string[];
+  dominantObjects?: string[];
+  clipStart?: number;
+  clipEnd?: number;
+  topics?: string[];
+}
+
 export class ContentPackService {
+  /**
+   * Validates and normalizes selected platforms for content pack generation.
+   * - Supports all 6 platforms: youtube, shorts, instagram, tiktok, linkedin, x.
+   * - Normalizes 'youtube_shorts' alias to 'shorts'.
+   * - Expands 'all' to all supported platforms.
+   * - Rejects invalid platform identifiers with 400 INVALID_PLATFORM_SELECTION.
+   * - Rejects empty platform array with 400 INVALID_PLATFORM_SELECTION.
+   * - Preserves backward compatibility: if undefined, returns all supported platforms.
+   */
+  public static validateAndNormalizePlatforms(platforms?: (OutputPlatform | string)[]): OutputPlatform[] {
+    if (platforms === undefined) {
+      return [...SUPPORTED_STUDIO_PLATFORMS];
+    }
+
+    if (!Array.isArray(platforms) || platforms.length === 0) {
+      throw new AppError(
+        'At least one platform must be selected.',
+        400,
+        'INVALID_PLATFORM_SELECTION'
+      );
+    }
+
+    if (platforms.some((p) => String(p).toLowerCase().trim() === 'all')) {
+      return [...SUPPORTED_STUDIO_PLATFORMS];
+    }
+
+    const normalized: OutputPlatform[] = [];
+    for (const p of platforms) {
+      const raw = String(p).toLowerCase().trim();
+      const effective = raw === 'youtube_shorts' ? 'shorts' : raw;
+
+      if (!SUPPORTED_STUDIO_PLATFORMS.includes(effective as OutputPlatform)) {
+        throw new AppError(
+          `Invalid platform: '${p}'. Supported platforms are: ${SUPPORTED_STUDIO_PLATFORMS.join(', ')}.`,
+          400,
+          'INVALID_PLATFORM_SELECTION'
+        );
+      }
+
+      if (!normalized.includes(effective as OutputPlatform)) {
+        normalized.push(effective as OutputPlatform);
+      }
+    }
+
+    if (normalized.length === 0) {
+      throw new AppError(
+        'At least one valid platform must be selected.',
+        400,
+        'INVALID_PLATFORM_SELECTION'
+      );
+    }
+
+    return normalized;
+  }
+
+  /**
+   * Retrieves authorized storage roots for a user with strict tenant scoping.
+   */
+  public static getAuthorizedStorageRoots(userId: string, customRoots?: string[]): string[] {
+    if (customRoots && customRoots.length > 0) {
+      return customRoots;
+    }
+    const cwd = process.cwd();
+    const roots: string[] = [
+      path.resolve(cwd, 'uploads', userId),
+      path.resolve(cwd, 'scratch', 'media', userId),
+      path.resolve(os.tmpdir(), 'vireo-source-cache', userId),
+      path.resolve(os.tmpdir(), 'vireo-uploads', userId),
+    ];
+    if (path.basename(cwd) === 'server') {
+      roots.push(path.resolve(cwd, '..', 'uploads', userId));
+      roots.push(path.resolve(cwd, '..', 'scratch', 'media', userId));
+    } else {
+      roots.push(path.resolve(cwd, 'server', 'uploads', userId));
+    }
+    return roots;
+  }
+
+  /**
+   * Server-authoritative video path resolution with comprehensive security validation:
+   * 1. Canonical path resolution using realpathSync.
+   * 2. Strict containment within the authenticated user's authorized storage root.
+   * 3. Path traversal protection (.. escapes).
+   * 4. Symlink / junction escape protection.
+   * 5. Rejection of arbitrary absolute paths outside authorized storage.
+   * 6. Cross-user access rejection (paths referencing another userId).
+   */
+  public static resolveAuthoritativeVideoPath(
+    userId: string,
+    candidatePath?: string | null,
+    customRoots?: string[]
+  ): string | undefined {
+    if (!candidatePath || !candidatePath.trim()) {
+      return undefined;
+    }
+
+    const trimmed = candidatePath.trim();
+    const authorizedRoots = this.getAuthorizedStorageRoots(userId, customRoots);
+
+    // 1. Cross-user check: Check if path references another user's UUID or tenant directory
+    const crossUserMatch = trimmed.match(/(?:^|[\\/])(?:uploads|scratch[\\/]media|media)[\\/]([0-9a-fA-F-]{36})/i);
+    if (crossUserMatch && crossUserMatch[1] && crossUserMatch[1].toLowerCase() !== userId.toLowerCase()) {
+      throw new AppError(
+        `Cross-user storage access denied: candidate references user '${crossUserMatch[1]}' while authenticated as '${userId}'.`,
+        403,
+        'FORBIDDEN_STORAGE_PATH'
+      );
+    }
+
+    // 2. Absolute path check: Must reside within an authorized root for this user
+    if (path.isAbsolute(trimmed)) {
+      const isAllowed = authorizedRoots.some((r) => isPathContained(trimmed, r));
+      if (!isAllowed) {
+        throw new AppError(
+          `Unauthorized absolute path: '${trimmed}' is outside authorized storage roots for user.`,
+          403,
+          'FORBIDDEN_STORAGE_PATH'
+        );
+      }
+    }
+
+    // 3. Relative path traversal check
+    const primaryRoot = authorizedRoots[0];
+    const cleanRel = trimmed.replace(/^(?:uploads|scratch[\\/]media)[\\/]/i, '');
+    const resolvedPath = path.isAbsolute(trimmed) ? trimmed : path.resolve(primaryRoot, cleanRel);
+
+    if (!authorizedRoots.some((r) => isPathContained(resolvedPath, r))) {
+      throw new AppError(
+        `Path traversal detected: '${trimmed}' escapes authorized storage roots.`,
+        403,
+        'FORBIDDEN_STORAGE_PATH'
+      );
+    }
+
+    // 4. Canonical path resolution & symlink escape protection
+    if (fs.existsSync(resolvedPath)) {
+      try {
+        const canonicalPath = fs.realpathSync(resolvedPath);
+        const isContained = authorizedRoots.some((r) => {
+          let canonicalRoot = r;
+          try {
+            if (fs.existsSync(r)) canonicalRoot = fs.realpathSync(r);
+          } catch {}
+          return isPathContained(canonicalPath, canonicalRoot);
+        });
+
+        if (!isContained) {
+          throw new AppError(
+            `Symlink escape detected: realpath '${canonicalPath}' resolves outside authorized storage roots.`,
+            403,
+            'FORBIDDEN_STORAGE_PATH'
+          );
+        }
+
+        const stat = fs.statSync(canonicalPath);
+        if (!stat.isFile()) {
+          return undefined;
+        }
+
+        return canonicalPath;
+      } catch (err: any) {
+        if (err instanceof AppError) throw err;
+        logger.warn('Failed resolving realpath for video candidate', { path: resolvedPath, err: err.message });
+        return undefined;
+      }
+    }
+
+    // Path is syntactically safe within authorized user root, but does not exist on disk
+    return undefined;
+  }
+
+  /**
+   * Evaluates grounded evidence for a generated item across Transcript, OCR, and Visual observations.
+   * Preserves separate classifications and builds mixed evidence arrays when multiple sources ground an item.
+   */
+  public static evaluateItemEvidence(options: EvaluateItemEvidenceOptions): ContentPackEvidence[] {
+    const {
+      text,
+      type,
+      effectiveSourceType,
+      boundedTranscript = '',
+      ocrHeadings = [],
+      dominantObjects = [],
+      clipStart,
+      clipEnd,
+      topics = [],
+    } = options;
+
+    const isVisualItem = type === 'THUMBNAIL_DIRECTION' || type === 'ALT_TEXT';
+
+    // Standalone transcript source: strictly ZERO visual or OCR observations
+    const effectiveOcrHeadings = effectiveSourceType === 'transcript' ? [] : ocrHeadings;
+    const effectiveDominantObjects = effectiveSourceType === 'transcript' ? [] : dominantObjects;
+
+    // 1. Check OCR evidence
+    const ocrCheck = checkOcrMatch(text, effectiveOcrHeadings);
+    const hasOcr = ocrCheck.hasMatch;
+
+    // 2. Check Visual Object evidence
+    const visualCheck = checkVisualObjectMatch(text, effectiveDominantObjects, isVisualItem);
+    const hasVisual = visualCheck.hasMatch;
+
+    // 3. Check Transcript evidence (Visual briefs are creative visual prompts, not spoken transcript quotes)
+    const transcriptCheck = !isVisualItem
+      ? checkTranscriptGrounding(text, boundedTranscript)
+      : { isGrounded: false, matchingSnippet: undefined, matchingWords: [] };
+    const hasTranscript = transcriptCheck.isGrounded;
+
+    const evidenceEntries: ContentPackEvidence[] = [];
+
+    if (hasTranscript) {
+      evidenceEntries.push({
+        classification: 'TRANSCRIPT_EVIDENCE',
+        source_timestamps:
+          clipStart !== undefined && clipEnd !== undefined ? [{ start: clipStart, end: clipEnd }] : undefined,
+        source_topics: topics,
+        quote_snippet: transcriptCheck.matchingSnippet,
+      });
+    }
+
+    if (hasOcr) {
+      evidenceEntries.push({
+        classification: 'OCR_EVIDENCE',
+        ocr_text: ocrCheck.matchingOcr.slice(0, 3).join(', '),
+        source_topics: topics,
+      });
+    }
+
+    if (hasVisual) {
+      evidenceEntries.push({
+        classification: 'VISUAL_OBJECT_EVIDENCE',
+        visual_objects: visualCheck.matchingObjects.slice(0, 5),
+        source_topics: topics,
+      });
+    }
+
+    // Mixed evidence: references multiple evidence sources
+    if (evidenceEntries.length > 1) {
+      const mixedEntry: ContentPackEvidence = {
+        classification: 'MIXED_EVIDENCE',
+        source_timestamps:
+          clipStart !== undefined && clipEnd !== undefined ? [{ start: clipStart, end: clipEnd }] : undefined,
+        source_topics: topics,
+        quote_snippet: transcriptCheck.matchingSnippet,
+        ocr_text: hasOcr ? ocrCheck.matchingOcr.slice(0, 3).join(', ') : undefined,
+        visual_objects: hasVisual ? visualCheck.matchingObjects.slice(0, 5) : undefined,
+      };
+      return [mixedEntry, ...evidenceEntries];
+    }
+
+    // Single source evidence
+    if (evidenceEntries.length === 1) {
+      return evidenceEntries;
+    }
+
+    // Completely unverified evidence (no transcript overlap, no OCR, no visual objects)
+    return [
+      {
+        classification: 'UNVERIFIED_EVIDENCE',
+        source_timestamps:
+          clipStart !== undefined && clipEnd !== undefined ? [{ start: clipStart, end: clipEnd }] : undefined,
+        source_topics: topics,
+      },
+    ];
+  }
+
   /**
    * Returns current AI provider state.
    */
@@ -81,9 +500,15 @@ export class ContentPackService {
       userId,
       projectId,
       clipId,
+      videoIntelligenceId,
+      transcriptText,
+      sourceTitle: providedTitle,
       mode = 'BALANCED',
       template = 'Creator',
       platform,
+      platforms,
+      tone: requestedTone,
+      targetAudience: requestedAudience,
       userInstruction,
       brandBrainId,
       idempotencyKey,
@@ -92,8 +517,43 @@ export class ContentPackService {
     if (!userId) {
       throw new AppError('User ID is required.', 401, 'UNAUTHORIZED');
     }
-    if (!projectId || !clipId) {
-      throw new AppError('Project ID and Clip ID are required.', 400, 'INVALID_INPUT');
+
+    // Validate and normalize selected platforms for dynamic prompting
+    let effectivePlatforms: OutputPlatform[];
+    if (platforms !== undefined) {
+      effectivePlatforms = ContentPackService.validateAndNormalizePlatforms(platforms);
+    } else if (platform !== undefined) {
+      effectivePlatforms = ContentPackService.validateAndNormalizePlatforms([platform]);
+    } else {
+      effectivePlatforms = ContentPackService.validateAndNormalizePlatforms(undefined);
+    }
+
+    // Determine effective source type
+    let effectiveSourceType: ContentPackSourceType = options.sourceType || 'clip';
+    if (!options.sourceType) {
+      if (clipId) {
+        effectiveSourceType = 'clip';
+      } else if (transcriptText) {
+        effectiveSourceType = 'transcript';
+      } else if (projectId) {
+        effectiveSourceType = 'project';
+      } else if (videoIntelligenceId) {
+        effectiveSourceType = 'upload';
+      }
+    }
+
+    // Validate inputs per source type
+    if (effectiveSourceType === 'clip' && (!projectId || !clipId)) {
+      throw new AppError('Project ID and Clip ID are required for clip-sourced Content Pack.', 400, 'INVALID_INPUT');
+    }
+    if (effectiveSourceType === 'project' && !projectId) {
+      throw new AppError('Project ID is required for project-sourced Content Pack.', 400, 'INVALID_INPUT');
+    }
+    if (effectiveSourceType === 'upload' && !projectId && !videoIntelligenceId) {
+      throw new AppError('Verified Project ID or Video Intelligence ID is required for uploaded video source.', 400, 'INVALID_INPUT');
+    }
+    if (effectiveSourceType === 'transcript' && (!transcriptText || !transcriptText.trim())) {
+      throw new AppError('Transcript text is required for transcript-sourced Content Pack.', 400, 'INVALID_INPUT');
     }
 
     // Check resource limits
@@ -115,57 +575,82 @@ export class ContentPackService {
     }
 
     return await ownerContext.run(userId, async () => {
-      // 1. Verify Project & Clip ownership
-      const { data: project, error: pErr } = await dataRepository
-        .from('projects')
-        .select()
-        .eq('id', projectId)
-        .eq('user_id', userId)
-        .single();
-      if (pErr || !project) {
-        throw new AppError('Project not found or unauthorized.', 404, 'PROJECT_NOT_FOUND');
+      // 1. Verify Project & Clip ownership if applicable
+      let project: any = null;
+      let clip: any = null;
+      let sourceTitle = providedTitle || 'Content Pack Source';
+      let clipStart = 0;
+      let clipEnd = 30;
+      let clipDuration = 30;
+      let boundedTranscript = '';
+      let transcriptLanguage = 'en';
+
+      if (projectId) {
+        const { data: pData, error: pErr } = await dataRepository
+          .from('projects')
+          .select()
+          .eq('id', projectId)
+          .eq('user_id', userId)
+          .single();
+        if (pErr || !pData) {
+          throw new AppError('Project not found or unauthorized.', 404, 'PROJECT_NOT_FOUND');
+        }
+        project = pData;
+        sourceTitle = project.title || sourceTitle;
       }
 
-      const { data: clip, error: cErr } = await dataRepository
-        .from('clips')
-        .select()
-        .eq('id', clipId)
-        .eq('user_id', userId)
-        .single();
-      if (cErr || !clip) {
-        throw new AppError('Clip not found or unauthorized.', 404, 'CLIP_NOT_FOUND');
+      if (effectiveSourceType === 'clip' && clipId) {
+        const { data: cData, error: cErr } = await dataRepository
+          .from('clips')
+          .select()
+          .eq('id', clipId)
+          .eq('user_id', userId)
+          .single();
+        if (cErr || !cData) {
+          throw new AppError('Clip not found or unauthorized.', 404, 'CLIP_NOT_FOUND');
+        }
+        clip = cData;
+        clipStart = Number(clip.start_seconds || 0);
+        clipEnd = Number(clip.end_seconds || clipStart + 30);
+        clipDuration = Math.max(1, clipEnd - clipStart);
+        sourceTitle = clip.title || `${sourceTitle} (Clip)`;
+      } else if (effectiveSourceType === 'project' && project) {
+        clipStart = 0;
+        clipEnd = Number(project.duration_seconds || 60);
+        clipDuration = Math.max(1, clipEnd);
       }
 
       // Check max packs per project
-      const { data: existingPacks, count: packCount } = await dataRepository
-        .from('content_packs')
-        .select('id', { count: 'exact' })
-        .eq('project_id', projectId)
-        .eq('user_id', userId);
-      if (
-        (packCount ?? (existingPacks?.length || 0)) >=
-        CONTENT_PACK_LIMITS.MAX_PACKS_PER_PROJECT
-      ) {
-        throw new AppError(
-          `Project has reached max content packs limit (${CONTENT_PACK_LIMITS.MAX_PACKS_PER_PROJECT}).`,
-          400,
-          'MAX_PACKS_EXCEEDED'
-        );
+      if (projectId) {
+        const { data: existingPacks, count: packCount } = await dataRepository
+          .from('content_packs')
+          .select('id', { count: 'exact' })
+          .eq('project_id', projectId)
+          .eq('user_id', userId);
+        if (
+          (packCount ?? (existingPacks?.length || 0)) >=
+          CONTENT_PACK_LIMITS.MAX_PACKS_PER_PROJECT
+        ) {
+          throw new AppError(
+            `Project has reached max content packs limit (${CONTENT_PACK_LIMITS.MAX_PACKS_PER_PROJECT}).`,
+            400,
+            'MAX_PACKS_EXCEEDED'
+          );
+        }
       }
 
-      // Idempotency check: if an existing pack for this clip matches idempotency key
+      // Idempotency check: if an existing pack matches idempotency key
       if (idempotencyKey) {
-        const { data: existingByIdem } = await dataRepository
-          .from('content_packs')
-          .select()
-          .eq('clip_id', clipId)
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(1);
+        let query = dataRepository.from('content_packs').select().eq('user_id', userId);
+        if (clipId) {
+          query = query.eq('clip_id', clipId);
+        } else if (projectId) {
+          query = query.eq('project_id', projectId);
+        }
+        const { data: existingByIdem } = await query.order('created_at', { ascending: false }).limit(1);
 
         if (existingByIdem && existingByIdem.length > 0) {
           const pack = existingByIdem[0] as ContentPack;
-          // Load items
           const { data: items } = await dataRepository
             .from('content_pack_items')
             .select()
@@ -176,75 +661,144 @@ export class ContentPackService {
         }
       }
 
-      // 2. Extract bounded transcript context
-      const { data: transcriptRecord } = await dataRepository
-        .from('transcripts')
-        .select()
-        .eq('project_id', projectId)
-        .eq('user_id', userId)
-        .maybeSingle();
+      // 2. Extract Transcript & Shared Video Intelligence Context
+      let ocrHeadings: string[] = [];
+      let dominantObjects: string[] = [];
+      let intelligenceSummary = '';
+      let authoritativeSha256: string | undefined;
 
-      const clipStart = Number(clip.start_seconds || 0);
-      const clipEnd = Number(clip.end_seconds || clipStart + 30);
-      const clipDuration = Math.max(1, clipEnd - clipStart);
+      if (effectiveSourceType === 'transcript') {
+        // Pure transcript source - ZERO visual evidence fabricated
+        boundedTranscript = transcriptText!.trim();
+        clipDuration = Math.max(15, Math.round((boundedTranscript.split(/\s+/).length / 150) * 60));
+        clipStart = 0;
+        clipEnd = clipDuration;
+        sourceTitle = providedTitle || 'Standalone Transcript';
+        ocrHeadings = [];
+        dominantObjects = [];
+        intelligenceSummary = '';
+        authoritativeSha256 = undefined;
+      } else if (effectiveSourceType === 'upload' && videoIntelligenceId) {
+        // Upload source backed by verified VideoIntelligenceRecord (strict tenant isolation)
+        const viRecord = await VideoIntelligenceRepository.findById(userId, videoIntelligenceId);
+        if (!viRecord) {
+          throw new AppError('Video Intelligence record not found or unauthorized.', 404, 'INTELLIGENCE_RECORD_NOT_FOUND');
+        }
+        boundedTranscript = viRecord.audio_intelligence?.transcriptText || viRecord.multimodal_reasoning?.summary || 'Uploaded Video Source';
+        transcriptLanguage = viRecord.audio_intelligence?.language || 'en';
+        ocrHeadings = viRecord.visual_intelligence?.ocr?.map((o) => o.text) || [];
+        dominantObjects = viRecord.visual_intelligence?.objects?.map((obj) => obj.label) || [];
+        intelligenceSummary = viRecord.multimodal_reasoning?.summary || '';
+        authoritativeSha256 = viRecord.source_identity?.rawContentHash || viRecord.source_hash;
+        clipDuration = Math.max(1, viRecord.metadata?.durationSeconds || 60);
+        clipStart = 0;
+        clipEnd = clipDuration;
+        sourceTitle = providedTitle || 'Uploaded Video';
+      } else {
+        // Project or Clip source: fetch transcript from database
+        const { data: transcriptRecord } = await dataRepository
+          .from('transcripts')
+          .select()
+          .eq('project_id', projectId!)
+          .eq('user_id', userId)
+          .maybeSingle();
 
-      let boundedTranscript = '';
-      const matchingSegments: Array<{ start: number; end: number; text: string }> = [];
+        if (transcriptRecord?.language) {
+          transcriptLanguage = transcriptRecord.language;
+        }
 
-      if (transcriptRecord?.segments && Array.isArray(transcriptRecord.segments)) {
-        for (const seg of transcriptRecord.segments) {
-          const segStart = Number(seg.start || 0);
-          const segEnd = Number(seg.end || segStart);
-          // Include segment if overlapping or within small 3s boundary
-          if (segEnd >= clipStart - 3 && segStart <= clipEnd + 3) {
-            matchingSegments.push({ start: segStart, end: segEnd, text: seg.text || '' });
+        if (effectiveSourceType === 'clip') {
+          const matchingSegments: Array<{ start: number; end: number; text: string }> = [];
+          if (transcriptRecord?.segments && Array.isArray(transcriptRecord.segments)) {
+            for (const seg of transcriptRecord.segments) {
+              const segStart = Number(seg.start || 0);
+              const segEnd = Number(seg.end || segStart);
+              if (segEnd >= clipStart - 3 && segStart <= clipEnd + 3) {
+                matchingSegments.push({ start: segStart, end: segEnd, text: seg.text || '' });
+              }
+            }
+          }
+          if (matchingSegments.length > 0) {
+            boundedTranscript = matchingSegments.map((s) => s.text).join(' ');
+          } else if (transcriptRecord?.transcript_text) {
+            boundedTranscript = transcriptRecord.transcript_text.slice(0, 1500);
+          } else {
+            boundedTranscript = clip?.title || project?.title || 'Source Video Clip';
+          }
+        } else {
+          // Project source: use full transcript
+          boundedTranscript = transcriptRecord?.transcript_text || project?.title || 'Full Project Video';
+        }
+
+        // Authoritative Video Path Resolution (Canonical realpathSync, strict containment, no client trust)
+        let resolvedVideoPath: string | undefined;
+        if (project) {
+          const candidate = project.source_storage_path || project.source_filename;
+          if (candidate) {
+            resolvedVideoPath = ContentPackService.resolveAuthoritativeVideoPath(userId, candidate);
+          }
+        }
+
+        // Shared VideoIntelligenceService Integration
+        if (resolvedVideoPath && fs.existsSync(resolvedVideoPath)) {
+          try {
+            const viHandoff = await VideoIntelligenceService.getContentStudioHandoff(
+              userId,
+              resolvedVideoPath,
+              undefined
+            );
+            if (viHandoff) {
+              ocrHeadings = viHandoff.ocrHeadings || [];
+              dominantObjects = viHandoff.dominantObjects || [];
+              intelligenceSummary = viHandoff.summary || '';
+            }
+          } catch (err: any) {
+            logger.warn('Could not load VideoIntelligence handoff, falling back to transcript only', { err: err.message });
           }
         }
       }
 
-      if (matchingSegments.length > 0) {
-        boundedTranscript = matchingSegments.map((s) => s.text).join(' ');
-      } else if (transcriptRecord?.transcript_text) {
-        boundedTranscript = transcriptRecord.transcript_text.slice(0, 1500);
-      } else {
-        boundedTranscript = clip.title || project.title || 'Source Video Clip';
-      }
+      // Deduplicate visual intelligence observations
+      ocrHeadings = Array.from(new Set(ocrHeadings.filter(Boolean)));
+      dominantObjects = Array.from(new Set(dominantObjects.filter(Boolean)));
 
       // 3. Fetch Brand Brain context (Phase 22 BrandContextService)
       let brandContext: any = null;
       let brandRulesUsed: string[] = [];
       let avoidPhrases: string[] = [];
       let protectedTerms: string[] = [];
-      let activeTone = 'conversational';
+      let activeTone = requestedTone || 'conversational';
       let ctaPreference = 'COMMENT';
 
-      try {
-        brandContext = await BrandContextService.getBrandContext({
-          userId,
-          projectId,
-          taskType: 'PUBLISH',
-          platform,
-          userOverrides: userInstruction ? { instruction: userInstruction } : undefined,
-          brandBrainId,
-        });
+      if (projectId) {
+        try {
+          brandContext = await BrandContextService.getBrandContext({
+            userId,
+            projectId,
+            taskType: 'PUBLISH',
+            platform,
+            userOverrides: userInstruction ? { instruction: userInstruction } : undefined,
+            brandBrainId,
+          });
 
-        if (brandContext) {
-          brandRulesUsed = brandContext.rules_applied || [];
-          if (brandContext.voice?.tones?.[0]) {
-            activeTone = brandContext.voice.tones[0];
+          if (brandContext) {
+            brandRulesUsed = brandContext.rules_applied || [];
+            if (!requestedTone && brandContext.voice?.tones?.[0]) {
+              activeTone = brandContext.voice.tones[0];
+            }
+            if (brandContext.voice?.avoid_phrasing) {
+              avoidPhrases = brandContext.voice.avoid_phrasing;
+            }
+            if (brandContext.brand_name) {
+              protectedTerms.push(brandContext.brand_name);
+            }
+            if (brandContext.cta?.preferred_cta_types?.[0]) {
+              ctaPreference = brandContext.cta.preferred_cta_types[0];
+            }
           }
-          if (brandContext.voice?.avoid_phrasing) {
-            avoidPhrases = brandContext.voice.avoid_phrasing;
-          }
-          if (brandContext.brand_name) {
-            protectedTerms.push(brandContext.brand_name);
-          }
-          if (brandContext.cta?.preferred_cta_types?.[0]) {
-            ctaPreference = brandContext.cta.preferred_cta_types[0];
-          }
+        } catch (err) {
+          logger.warn('Failed to fetch brand context, using Vireo defaults', { err });
         }
-      } catch (err) {
-        logger.warn('Failed to fetch brand context, using Vireo defaults', { err });
       }
 
       // 4. Build prompt and query AI Provider
@@ -253,8 +807,12 @@ export class ContentPackService {
         ? BrandContextService.sanitizePromptData(userInstruction)
         : '';
 
+      const visualContextSection = effectiveSourceType === 'transcript'
+        ? '[None - Standalone Transcript Source without Video Frames]'
+        : `- Verified On-Screen Text (OCR): ${ocrHeadings.slice(0, 10).join(', ') || 'None'}\n- Verified Visual Objects/Scenes: ${dominantObjects.slice(0, 10).join(', ') || 'None'}\n- Multimodal Summary: ${intelligenceSummary || 'None'}`;
+
       const systemPrompt = `You are the Vireo AI Content Pack Generator.
-Your job is to transform a single approved short-form video clip into a complete, high-impact, multi-platform publishing content pack.
+Your job is to transform source video or transcript material into a complete, high-impact, multi-platform publishing content pack.
 
 CRITICAL RULES:
 1. STRICT SOURCE GROUNDING: Everything you generate must be grounded ONLY in the source transcript data.
@@ -262,21 +820,80 @@ CRITICAL RULES:
    - Quote safety: NEVER wrap text in quotation marks unless it appears verbatim in the source.
 2. CREATOR VOICE & BRAND AUTHORITY:
    - Voice/Tone: ${activeTone}.
+   ${requestedAudience ? `- Target Audience: ${requestedAudience}.` : ''}
    - User Instructions: ${sanitizedInstruction || 'None'}. (Current user instructions override learned preferences).
    - Avoid phrases: ${avoidPhrases.join(', ') || 'None'}.
    - Protected terms: ${protectedTerms.join(', ') || 'None'}.
 3. NO FAKE URGENCY OR DECEPTIVE CTAs: Only reference links or downloads if present in source.
-4. THUMBNAIL DIRECTION: Provide purely creative TEXTUAL direction (e.g. framing, facial expression, bold 3-word title). Do NOT pretend an image is rendered.
+4. THUMBNAIL DIRECTION:
+   ${effectiveSourceType === 'transcript'
+     ? '- This is a transcript-only source. Formulate purely conceptual textual visual brief based on transcript discussion topics without inventing visual OCR or object evidence.'
+     : '- Provide creative TEXTUAL direction (framing, mood, contrast, detected visual objects). Do NOT pretend an image is rendered.'}
 5. JSON OUTPUT FORMAT: Respond strictly with valid JSON.`;
 
-      const userPrompt = `Generate a Content Pack (${mode} mode, template: ${template}) for the following video clip:
+      // Build dynamic platform schema strictly for selected platforms
+      const platformSchemaObj: Record<string, any> = {};
+      const platformGuidelines: string[] = [];
 
-Clip Title: ${clip.title || project.title}
-Clip Duration: ${clipDuration.toFixed(1)}s (${clipStart.toFixed(1)}s to ${clipEnd.toFixed(1)}s)
+      for (const p of effectivePlatforms) {
+        if (p === 'youtube') {
+          platformGuidelines.push('- YouTube: Title under 100 chars, description with chapters note, up to 15 hashtags.');
+          platformSchemaObj.youtube = {
+            title: 'Optimized YouTube title under 100 chars',
+            description: 'YouTube description with chapters note',
+            hashtags: ['#tag1', '#tag2'],
+          };
+        } else if (p === 'shorts') {
+          platformGuidelines.push('- YouTube Shorts: Title under 100 chars, punchy short vertical caption, up to 15 hashtags.');
+          platformSchemaObj.shorts = {
+            title: 'Optimized Shorts title under 100 chars',
+            caption: 'Punchy short vertical caption',
+            hashtags: ['#tag1', '#tag2'],
+          };
+        } else if (p === 'instagram') {
+          platformGuidelines.push('- Instagram Reels: Engaging caption under 2200 chars with line breaks, hook, up to 30 hashtags, and CTA.');
+          platformSchemaObj.instagram = {
+            caption: 'Reels caption with spacing and hook (under 2200 chars)',
+            hashtags: ['#tag1', '#tag2', '#tag3'],
+            cta: 'Drop a comment below',
+          };
+        } else if (p === 'tiktok') {
+          platformGuidelines.push('- TikTok: Viral concise caption under 2200 chars, trending tags.');
+          platformSchemaObj.tiktok = {
+            caption: 'Short viral TikTok caption (under 2200 chars)',
+            hashtags: ['#tag1', '#tag2'],
+          };
+        } else if (p === 'linkedin') {
+          platformGuidelines.push('- LinkedIn: Professional post under 3000 chars with thoughtful spacing, insights, and discussion question CTA.');
+          platformSchemaObj.linkedin = {
+            post: 'Professional takeaway post with spacing and insight (under 3000 chars)',
+            cta: 'What are your thoughts on this approach?',
+          };
+        } else if (p === 'x') {
+          platformGuidelines.push('- X: Standalone concise tweet strictly under 280 characters.');
+          platformSchemaObj.x = {
+            post: 'Punchy concise tweet strictly under 280 characters',
+          };
+        }
+      }
+
+      const userPrompt = `Generate a Content Pack (${mode} mode, template: ${template}) for the following source:
+
+Source Title: ${sourceTitle}
+Source Type: ${effectiveSourceType}
+Duration: ${clipDuration.toFixed(1)}s (${clipStart.toFixed(1)}s to ${clipEnd.toFixed(1)}s)
+Selected Target Platforms: ${effectivePlatforms.join(', ')}
+
+Platform Requirements:
+${platformGuidelines.join('\n')}
 
 <source_transcript>
 ${sanitizedSource}
 </source_transcript>
+
+<visual_intelligence_observations>
+${visualContextSection}
+</visual_intelligence_observations>
 
 Required Output Schema (JSON):
 {
@@ -295,8 +912,8 @@ Required Output Schema (JSON):
   ],
   "short_caption": "Snappy social caption suitable for Shorts, Reels, TikTok (under 300 chars)",
   "long_caption": "Detailed context-rich post copy for LinkedIn or expanded posts",
-  "short_description": "Semantic summary of the clip content (1-2 sentences)",
-  "long_description": "Structured multi-line summary of key takeaways from the clip",
+  "short_description": "Semantic summary of the content (1-2 sentences)",
+  "long_description": "Structured multi-line summary of key takeaways",
   "cta_variants": [
     "Preferred CTA aligned with tone",
     "Secondary engagement question CTA"
@@ -313,42 +930,20 @@ Required Output Schema (JSON):
   ],
   "alt_text": "Accessibility alt-text describing the thumbnail scene",
   "pinned_comment": "Discussion prompt for pinned comment",
-  "platform_packs": {
-    "youtube": {
-      "title": "Optimized YouTube title",
-      "description": "YouTube description with chapters note",
-      "hashtags": ["#tag1", "#tag2"]
-    },
-    "instagram": {
-      "caption": "Reels caption with spacing and hook",
-      "hashtags": ["#tag1", "#tag2", "#tag3"],
-      "cta": "Drop a comment below"
-    },
-    "tiktok": {
-      "caption": "Short viral TikTok caption",
-      "hashtags": ["#tag1", "#tag2"]
-    },
-    "linkedin": {
-      "post": "Professional takeaway post with spacing and insight",
-      "cta": "What are your thoughts on this approach?"
-    },
-    "x": {
-      "post": "Punchy concise tweet under 250 characters"
-    }
-  },
+  "platform_packs": ${JSON.stringify(platformSchemaObj, null, 2)},
   "explanations": {
-    "primary_title": "Based on source clip key insight",
+    "primary_title": "Based on source key insight",
     "hooks": "Matches creator hook style"
   }
 }`;
 
-      let aiResult: RawAiPackOutput;
+      let aiCompletionResult: CompletionResult<RawAiPackOutput>;
       try {
-        aiResult = await defaultAiProvider.generateJsonCompletion<RawAiPackOutput>({
+        aiCompletionResult = await defaultAiProvider.generateJsonCompletionWithTelemetry<RawAiPackOutput>({
           systemPrompt,
           userPrompt,
           temperature: 0.6,
-          maxTokens: 2500,
+          maxTokens: mode === 'QUICK' ? 1200 : mode === 'FULL' ? 3500 : 2500,
         });
       } catch (err: any) {
         logger.error('Failed to generate Content Pack from AI provider', { err });
@@ -359,16 +954,12 @@ Required Output Schema (JSON):
         );
       }
 
-      // 5. Structure, validate and build ContentPackItem records
+      const aiResult = aiCompletionResult.data;
+      const providerTelemetry = aiCompletionResult.telemetry;
+
+      // 5. Structure, validate and build ContentPackItem records with Truthful Evidence Classification
       const packId = crypto.randomUUID();
       const now = new Date().toISOString();
-
-      const defaultEvidence: ContentPackItem['source_evidence'] = [
-        {
-          source_timestamps: [{ start: clipStart, end: clipEnd }],
-          source_topics: aiResult.keywords || [],
-        },
-      ];
 
       const itemsToInsert: ContentPackItem[] = [];
       const itemCounts: Record<string, number> = {};
@@ -382,6 +973,18 @@ Required Output Schema (JSON):
       ) => {
         if (!text || !text.trim()) return;
 
+        const itemEvidence = ContentPackService.evaluateItemEvidence({
+          text: text.trim(),
+          type,
+          effectiveSourceType,
+          boundedTranscript,
+          ocrHeadings,
+          dominantObjects,
+          clipStart,
+          clipEnd,
+          topics: aiResult.keywords || [],
+        });
+
         const candidateItem: ContentPackItem = {
           id: crypto.randomUUID(),
           user_id: userId,
@@ -391,7 +994,7 @@ Required Output Schema (JSON):
           variant_index: variantIdx,
           text: text.trim(),
           status: 'GENERATED',
-          source_evidence: defaultEvidence,
+          source_evidence: itemEvidence,
           generation_source: 'ai',
           brand_rules_used: brandRulesUsed,
           manual_edit: false,
@@ -498,58 +1101,119 @@ Required Output Schema (JSON):
         addItem('PINNED_COMMENT', aiResult.pinned_comment, 'all', 0);
       }
 
-      // Platform specific packs
+      // Dynamic platform-specific packs (Strictly unpacked for selected platforms only)
       if (aiResult.platform_packs) {
         const pp = aiResult.platform_packs;
 
-        if (pp.youtube?.title) {
-          addItem('PRIMARY_TITLE', pp.youtube.title, 'youtube', 0, 'YouTube optimized title');
-        }
-        if (pp.youtube?.description) {
-          addItem('LONG_DESCRIPTION', pp.youtube.description, 'youtube', 0, 'YouTube description');
-        }
-
-        if (pp.instagram?.caption) {
-          addItem('SHORT_CAPTION', pp.instagram.caption, 'instagram', 0, 'Instagram Reels caption');
-        }
-        if (pp.instagram?.hashtags && pp.instagram.hashtags.length > 0) {
-          addItem('HASHTAGS', pp.instagram.hashtags.join(' '), 'instagram', 0, 'Instagram tags');
+        if (effectivePlatforms.includes('youtube')) {
+          if (pp.youtube?.title) {
+            addItem('PRIMARY_TITLE', pp.youtube.title, 'youtube', 0, 'YouTube optimized title');
+          }
+          if (pp.youtube?.description) {
+            addItem('LONG_DESCRIPTION', pp.youtube.description, 'youtube', 0, 'YouTube description');
+          }
         }
 
-        if (pp.tiktok?.caption) {
-          addItem('SHORT_CAPTION', pp.tiktok.caption, 'tiktok', 0, 'TikTok concise caption');
+        if (effectivePlatforms.includes('shorts')) {
+          if (pp.shorts?.title) {
+            addItem('PRIMARY_TITLE', pp.shorts.title, 'shorts', 0, 'YouTube Shorts title');
+          }
+          if (pp.shorts?.caption) {
+            addItem('SHORT_CAPTION', pp.shorts.caption, 'shorts', 0, 'YouTube Shorts caption');
+          }
+          if (pp.shorts?.hashtags && pp.shorts.hashtags.length > 0) {
+            addItem('HASHTAGS', pp.shorts.hashtags.join(' '), 'shorts', 0, 'YouTube Shorts hashtags');
+          }
         }
 
-        if (pp.linkedin?.post) {
-          addItem('LONG_CAPTION', pp.linkedin.post, 'linkedin', 0, 'LinkedIn professional post');
+        if (effectivePlatforms.includes('instagram')) {
+          if (pp.instagram?.caption) {
+            addItem('SHORT_CAPTION', pp.instagram.caption, 'instagram', 0, 'Instagram Reels caption');
+          }
+          if (pp.instagram?.hashtags && pp.instagram.hashtags.length > 0) {
+            addItem('HASHTAGS', pp.instagram.hashtags.join(' '), 'instagram', 0, 'Instagram tags');
+          }
+          if (pp.instagram?.cta) {
+            addItem('CTA', pp.instagram.cta, 'instagram', 0, 'Instagram CTA');
+          }
         }
 
-        if (pp.x?.post) {
-          addItem('SHORT_CAPTION', pp.x.post, 'x', 0, 'X post');
+        if (effectivePlatforms.includes('tiktok')) {
+          if (pp.tiktok?.caption) {
+            addItem('SHORT_CAPTION', pp.tiktok.caption, 'tiktok', 0, 'TikTok concise caption');
+          }
+          if (pp.tiktok?.hashtags && pp.tiktok.hashtags.length > 0) {
+            addItem('HASHTAGS', pp.tiktok.hashtags.join(' '), 'tiktok', 0, 'TikTok tags');
+          }
+        }
+
+        if (effectivePlatforms.includes('linkedin')) {
+          if (pp.linkedin?.post) {
+            addItem('LONG_CAPTION', pp.linkedin.post, 'linkedin', 0, 'LinkedIn professional post');
+          }
+          if (pp.linkedin?.cta) {
+            addItem('CTA', pp.linkedin.cta, 'linkedin', 0, 'LinkedIn discussion CTA');
+          }
+        }
+
+        if (effectivePlatforms.includes('x')) {
+          if (pp.x?.post) {
+            addItem('SHORT_CAPTION', pp.x.post, 'x', 0, 'X post');
+          }
         }
       }
 
-      // 6. Create ContentPack record
+      // 6. Create Telemetry & ContentPack record
+      const telemetry: ContentPackTelemetry = {
+        provider: providerTelemetry.provider,
+        model: providerTelemetry.model,
+        generation_mode: mode,
+        selected_platforms: effectivePlatforms,
+        prompt_tokens: providerTelemetry.promptTokens,
+        completion_tokens: providerTelemetry.completionTokens,
+        total_tokens: providerTelemetry.totalTokens,
+        attempt_count: providerTelemetry.attemptCount,
+        retry_count: providerTelemetry.retryCount,
+        latency_ms: providerTelemetry.latencyMs,
+        used_fallback: providerTelemetry.usedFallback,
+        status: 'success',
+        timestamp: now,
+        token_measurement_type: providerTelemetry.tokenMeasurementType,
+        estimated_provider_cost_usd: providerTelemetry.estimatedProviderCostUsd ?? null,
+      };
+
       const packRecord: ContentPack = {
         id: packId,
         user_id: userId,
-        project_id: projectId,
-        clip_id: clipId,
+        project_id: projectId || undefined,
+        clip_id: clipId || undefined,
+        source_type: effectiveSourceType,
+        source_sha256: authoritativeSha256,
+        title: aiResult.primary_title || sourceTitle,
         brand_brain_id: brandBrainId,
         brand_brain_version: brandContext?.version || 1,
         source: {
-          transcript_source: project.title || 'Source Video',
-          source_language: transcriptRecord?.language || 'en',
+          source_type: effectiveSourceType,
+          transcript_source: effectiveSourceType === 'transcript' ? 'user_provided_transcript' : (project?.title || 'Source Video'),
+          source_language: transcriptLanguage,
           clip_start: clipStart,
           clip_end: clipEnd,
           duration: clipDuration,
-          topic_summary: aiResult.keywords?.join(', ') || undefined,
+          topic_summary: intelligenceSummary || (aiResult.keywords?.join(', ') || undefined),
+          source_sha256: authoritativeSha256,
+          has_visual_intelligence: (ocrHeadings.length > 0 || dominantObjects.length > 0),
+          ocr_headings_count: ocrHeadings.length,
+          dominant_objects_count: dominantObjects.length,
         },
         status: 'READY',
         version: 1,
         generation_mode: mode,
         template,
+        tone: activeTone,
+        target_audience: requestedAudience,
         user_instruction: sanitizedInstruction || undefined,
+        selected_platforms: effectivePlatforms,
+        telemetry,
         item_counts: itemCounts,
         created_at: now,
         updated_at: now,
@@ -574,6 +1238,20 @@ Required Output Schema (JSON):
         }
       }
 
+      // Record generation telemetry defensively (Telemetry failure must NEVER fail pack creation)
+      try {
+        const db = await getMongoDb();
+        await db.collection('content_generation_telemetry').insertOne({
+          id: crypto.randomUUID(),
+          user_id: userId,
+          content_pack_id: packId,
+          ...telemetry,
+          created_at: now,
+        });
+      } catch (telemetryErr: any) {
+        logger.warn('Failed to record content generation telemetry to collection', { err: telemetryErr.message });
+      }
+
       // Snapshot version 1
       packRecord.items = itemsToInsert;
       await dataRepository.from('content_pack_versions').insert({
@@ -582,24 +1260,14 @@ Required Output Schema (JSON):
         content_pack_id: packId,
         version: 1,
         snapshot: packRecord,
-        change_summary: 'Initial generation',
+        change_summary: 'Initial content pack generated',
         created_at: now,
-      });
-
-      logger.info('Content Pack generated successfully', {
-        packId,
-        clipId,
-        mode,
-        itemCount: itemsToInsert.length,
       });
 
       return packRecord;
     });
   }
 
-  /**
-   * Retrieves a Content Pack and all its items by ID.
-   */
   public static async getContentPack(
     userId: string,
     contentPackId: string
@@ -650,6 +1318,56 @@ Required Output Schema (JSON):
 
       if (error) {
         throw new AppError('Failed to fetch content packs.', 500, 'DB_ERROR');
+      }
+
+      return (packs || []) as ContentPack[];
+    });
+  }
+
+  /**
+   * Lists content packs for a specific project.
+   */
+  public static async listPacksForProject(
+    userId: string,
+    projectId: string
+  ): Promise<ContentPack[]> {
+    if (!userId) throw new AppError('User ID is required.', 401, 'UNAUTHORIZED');
+
+    return await ownerContext.run(userId, async () => {
+      const { data: packs, error } = await dataRepository
+        .from('content_packs')
+        .select()
+        .eq('project_id', projectId)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw new AppError('Failed to fetch project content packs.', 500, 'DB_ERROR');
+      }
+
+      return (packs || []) as ContentPack[];
+    });
+  }
+
+  /**
+   * Lists recent content packs across all sources for the user.
+   */
+  public static async listRecentPacks(
+    userId: string,
+    limit = 20
+  ): Promise<ContentPack[]> {
+    if (!userId) throw new AppError('User ID is required.', 401, 'UNAUTHORIZED');
+
+    return await ownerContext.run(userId, async () => {
+      const { data: packs, error } = await dataRepository
+        .from('content_packs')
+        .select()
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(Math.min(limit, 50));
+
+      if (error) {
+        throw new AppError('Failed to fetch recent content packs.', 500, 'DB_ERROR');
       }
 
       return (packs || []) as ContentPack[];

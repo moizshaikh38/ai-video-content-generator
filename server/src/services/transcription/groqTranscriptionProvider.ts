@@ -5,6 +5,7 @@ import {
   NormalizedTranscriptionResult,
   NormalizedTranscriptSegment,
   NormalizedTranscriptWord,
+  TranscriptionOptions,
 } from './types.js';
 import { normalizeTranscriptionError } from './errorNormalizer.js';
 
@@ -18,7 +19,8 @@ export class GroqTranscriptionProvider implements TranscriptionProvider {
   async transcribeAudio(
     audioBuffer: Buffer,
     fileName: string = 'audio.mp3',
-    mimeType: string = 'audio/mp3'
+    mimeType: string = 'audio/mp3',
+    options?: TranscriptionOptions
   ): Promise<NormalizedTranscriptionResult> {
     const apiKey = config.groqApiKey?.trim();
 
@@ -52,6 +54,12 @@ export class GroqTranscriptionProvider implements TranscriptionProvider {
     formData.append('timestamp_granularities[]', 'word');
     formData.append('timestamp_granularities[]', 'segment');
     formData.append('temperature', '0');
+    if (options?.prompt) {
+      formData.append('prompt', options.prompt);
+    }
+    if (options?.language) {
+      formData.append('language', options.language);
+    }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {

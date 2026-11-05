@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BTN_PILL_BRAND, BTN_PILL_PRIMARY } from '../../lib/buttonStyles';
 import {
   UploadCloud,
   Link2,
+  ArrowLeft,
+  ArrowRight,
   FolderOpen,
   Play,
   Pause,
@@ -22,6 +24,7 @@ import {
   RotateCcw,
   CheckSquare,
   Search,
+  Coins,
 } from 'lucide-react';
 import hookThumbnail from '../../assets/creators/creator-1.jpg';
 import momentThumbnail from '../../assets/creators/creator-2.jpg';
@@ -30,6 +33,8 @@ import { projectService } from '../../services/projectService';
 import { uploadVideoFile, validateVideoFile } from '../../services/storageService';
 import { clipService } from '../../services/clipService';
 import { clipRenderService } from '../../services/clipRenderService';
+import { CreditService, CreditBalanceSummary, CreditEstimate } from '../../services/creditService';
+import { CostTransparencySummary } from '../credits/CostTransparencySummary';
 import { triggerBrowserDownload } from '../../utils/downloadUtils';
 import { useAuth } from '../../context/AuthContext';
 import { Project, ClipCandidate, RenderedClip, ClipPreferences } from '../../types';
@@ -70,6 +75,21 @@ interface HomeClippingWorkflowProps {
   onRefreshProjects: () => void;
   onScrollToProjects?: () => void;
 }
+
+const SAMPLE_VIDEOS = [
+  {
+    label: 'OpenAI DevDay Keynote',
+    icon: Sparkles,
+    url: 'https://www.youtube.com/watch?v=kCc8FmEb1nY',
+    title: 'OpenAI DevDay Opening Keynote',
+  },
+  {
+    label: 'Steve Jobs — Stanford 2005',
+    icon: Film,
+    url: 'https://www.youtube.com/watch?v=UF8uR6Z6KLc',
+    title: 'Steve Jobs — Stanford Commencement Address',
+  },
+];
 
 const STORAGE_KEY = 'vireo_home_active_workflow';
 
@@ -112,6 +132,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // Workflow State Machine
   const [workflowState, setWorkflowState] = useState<WorkflowState>('no_source');
@@ -170,6 +191,48 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   const [isExportingClipId, setIsExportingClipId] = useState<string | null>(null);
   const [publishingClip, setPublishingClip] = useState<RenderedClip | null>(null);
 
+  // Credit state
+  const [walletBalance, setWalletBalance] = useState<CreditBalanceSummary | null>(null);
+  const [creditEstimate, setCreditEstimate] = useState<CreditEstimate | null>(null);
+  const [isCreditEstimateLoading, setIsCreditEstimateLoading] = useState(false);
+
+  const loadWalletBalance = async () => {
+    if (!user) return;
+    try {
+      const summary = await CreditService.getWalletBalance();
+      setWalletBalance(summary);
+    } catch {
+      // Best-effort
+    }
+  };
+
+  useEffect(() => {
+    loadWalletBalance();
+    const handleUpdate = () => loadWalletBalance();
+    window.addEventListener('vireo_credit_updated', handleUpdate);
+    window.addEventListener('vireo_project_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('vireo_credit_updated', handleUpdate);
+      window.removeEventListener('vireo_project_updated', handleUpdate);
+    };
+  }, [user]);
+
+  // Recalculate credit estimate whenever selected source changes
+  useEffect(() => {
+    if (!selectedSource || !user) {
+      setCreditEstimate(null);
+      return;
+    }
+    const duration = selectedSource.duration && selectedSource.duration > 0 ? selectedSource.duration : 60;
+    const isReused = selectedSource.type === 'project' && (activeProjectStatus === 'transcribed' || activeProjectStatus === 'completed');
+
+    setIsCreditEstimateLoading(true);
+    CreditService.estimateOperation('core_video_processing', duration, isReused)
+      .then((est) => setCreditEstimate(est))
+      .catch(() => undefined)
+      .finally(() => setIsCreditEstimateLoading(false));
+  }, [selectedSource, user, activeProjectStatus]);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const videoPlayerRef = useRef<HTMLVideoElement | null>(null);
@@ -204,7 +267,8 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             setWorkflowState('processing');
             setActiveProjectStatus(status);
           } else if (['completed', 'transcribed'].includes(status)) {
-            loadResults(proj.id);
+            const isReview = searchParams.get('view') === 'review';
+            loadResults(proj.id, isReview);
           } else if (status === 'failed') {
             setWorkflowState('error');
             setErrorMessage(proj.error_message || 'Previous clipping job failed. You can retry processing.');
@@ -310,7 +374,49 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     };
   }, [workflowState, activeProjectId]);
 
-  const loadResults = async (projectId: string) => {
+  const handleBackToHome = () => {
+    navigate('/dashboard', { replace: false });
+    setWorkflowState('no_source');
+  };
+
+  const handleOpenReview = (projectId?: string | null) => {
+    const targetId = projectId || activeProjectId;
+    if (!targetId) return;
+    navigate(`/dashboard?view=review&project=${targetId}`, { replace: false });
+    setWorkflowState('clips_ready');
+  };
+
+  // Listen for Home sidebar/logo click to return cleanly to Home view
+  useEffect(() => {
+    const handleNavigateHome = () => {
+      navigate('/dashboard', { replace: false });
+      setWorkflowState('no_source');
+    };
+    window.addEventListener('vireo_navigate_home', handleNavigateHome);
+    return () => window.removeEventListener('vireo_navigate_home', handleNavigateHome);
+  }, [navigate]);
+
+  // Handle browser Back and Forward navigation between Review and Home views
+  useEffect(() => {
+    const isReview = searchParams.get('view') === 'review';
+    const projId = searchParams.get('project');
+
+    if (isReview) {
+      const targetId = projId || activeProjectId;
+      if (targetId) {
+        if (targetId !== activeProjectId) {
+          setActiveProjectId(targetId);
+        }
+        loadResults(targetId, true);
+      }
+    } else {
+      if (workflowState === 'clips_ready') {
+        setWorkflowState('no_source');
+      }
+    }
+  }, [searchParams]);
+
+  const loadResults = async (projectId: string, forceShowReview = false) => {
     try {
       const [candData, clipsData] = await Promise.all([
         clipService.getClipCandidates(projectId).catch(() => []),
@@ -320,14 +426,17 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       setCandidates(candData || []);
       setRenderedClips(clipsData || []);
 
-      if ((candData && candData.length > 0) || (clipsData && clipsData.length > 0)) {
+      const hasResults = (candData && candData.length > 0) || (clipsData && clipsData.length > 0);
+      const isReviewUrl = searchParams.get('view') === 'review';
+
+      if (hasResults && (forceShowReview || isReviewUrl)) {
         setWorkflowState('clips_ready');
         // Pre-select the top clip for preview
         const firstId = clipsData?.[0]?.id || candData?.[0]?.id || null;
         if (firstId) {
           setActivePreviewClipId(firstId);
         }
-      } else {
+      } else if (!hasResults && forceShowReview) {
         // If completed but no candidates yet, stay in source selected so user can analyze
         setWorkflowState('source_selected');
       }
@@ -350,8 +459,11 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
         await clipService.analyzeClips(projectId, promptText || undefined, clipPreferences);
       }
-      await loadResults(projectId);
+      navigate(`/dashboard?view=review&project=${projectId}`, { replace: false });
+      await loadResults(projectId, true);
       onRefreshProjects();
+      loadWalletBalance();
+      window.dispatchEvent(new CustomEvent('vireo_credit_updated'));
     } catch (err: any) {
       setWorkflowState('error');
       setErrorMessage(err.message || 'Failed to extract viral clips.');
@@ -440,6 +552,20 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       url: trimmed,
       title,
       thumbnailUrl: ytThumb,
+    });
+    setWorkflowState('source_selected');
+  };
+
+  const handlePickSample = (sample: (typeof SAMPLE_VIDEOS)[0]) => {
+    setInputUrl(sample.url);
+    setUrlValidationError(null);
+    setErrorMessage(null);
+    const ytThumb = getYouTubeThumbnail(sample.url);
+    setSelectedSource({
+      type: 'url',
+      url: sample.url,
+      title: sample.title,
+      thumbnailUrl: ytThumb || undefined,
     });
     setWorkflowState('source_selected');
   };
@@ -621,6 +747,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         }
       }
     } catch (err: any) {
+      loadWalletBalance();
       if (err.name === 'AbortError' || err.message?.includes('cancelled')) {
         setErrorMessage('Upload was cancelled.');
       } else {
@@ -778,6 +905,40 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       {/* Offscreen video element for reading metadata/duration */}
       <video ref={offscreenVideoRef} className="hidden" />
 
+      {/* Active Generated Clips Resume Banner when on Home Dashboard */}
+      {workflowState === 'no_source' && activeProjectId && (candidates.length > 0 || renderedClips.length > 0) && (
+        <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-violet-950/60 via-purple-900/30 to-zinc-900/60 border border-violet-500/30 shadow-[0_8px_30px_rgba(124,58,237,0.15)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
+          <div className="flex items-center gap-3.5">
+            <div className="size-10 rounded-xl bg-violet-600/20 border border-violet-500/40 flex items-center justify-center shrink-0">
+              <Film className="size-5 text-violet-300" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                  Ready
+                </span>
+                <span className="text-xs text-vc-text-secondary">
+                  {candidates.length + renderedClips.length} Viral Clips Ready
+                </span>
+              </div>
+              <p className="mt-0.5 text-sm font-semibold text-white">
+                {selectedSource?.title || 'Generated Clips Project'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <button
+              type="button"
+              onClick={() => handleOpenReview(activeProjectId)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold shadow-md transition-all cursor-pointer"
+            >
+              <span>Review Generated Clips</span>
+              <ArrowRight className="size-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* =========================================================================
           STATE 1: NO SOURCE SELECTED (HERO & 3 INPUT CHANNELS)
           ========================================================================= */}
@@ -922,9 +1083,38 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               </button>
             </div>
 
+            {/* Sample Video Quick Try Options */}
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <span className="text-[11px] font-medium text-vc-text-muted flex items-center gap-1">
+                <Sparkles className="size-3 text-violet-400" />
+                <span>Try sample video:</span>
+              </span>
+              {SAMPLE_VIDEOS.map((s) => (
+                <button
+                  key={s.url}
+                  type="button"
+                  onClick={() => handlePickSample(s)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] hover:bg-violet-500/15 border border-white/[0.08] hover:border-violet-500/30 text-[11px] font-medium text-zinc-300 hover:text-white transition-all cursor-pointer"
+                  title={s.title}
+                >
+                  <s.icon className="size-3 text-violet-400" />
+                  <span>{s.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Supported Formats & Guidelines */}
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-[11px] text-vc-text-muted">
+              <span>Supports YouTube, Vimeo &amp; direct video links</span>
+              <span className="text-zinc-600">•</span>
+              <span>MP4, MOV, WebM up to 2 GB</span>
+              <span className="text-zinc-600">•</span>
+              <span>Up to 120 minutes</span>
+            </div>
+
             {/* Drag & Drop Indicator */}
-            <p className="mt-2.5 sm:mt-3 text-[11.5px] text-vc-text-secondary">
-              Drag and drop any video file directly onto this panel (up to 2 GB)
+            <p className="mt-2 text-[11.5px] text-vc-text-secondary">
+              Drag and drop any video file directly onto this panel
             </p>
 
             {/* How It Works 4-Step List */}
@@ -1133,6 +1323,19 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             </div>
           </div>
 
+          {/* Credit Pre-Flight Cost Transparency */}
+          {(selectedSource || creditEstimate) && (
+            <CostTransparencySummary
+              estimate={creditEstimate}
+              wallet={walletBalance}
+              durationSeconds={selectedSource?.duration || 0}
+              isReusedTranscript={Boolean(creditEstimate?.details?.is_reused_transcript)}
+              isLoading={isCreditEstimateLoading}
+              operationLabel="AI Video Clipping"
+              className="mt-2 mb-3"
+            />
+          )}
+
           {/* Primary Action Button: Generate Clips */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-xs text-vc-text-secondary">
@@ -1142,7 +1345,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             <button
               type="button"
               onClick={handleGenerateClips}
-              disabled={isSubmitting}
+              disabled={isSubmitting || Boolean(!walletBalance?.is_unlimited && walletBalance && creditEstimate && walletBalance.available_credits < creditEstimate.estimated_credits)}
               className={`h-12 px-8 text-sm font-bold flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed w-full sm:w-auto ${BTN_PILL_BRAND}`}
             >
               {isSubmitting ? (
@@ -1188,6 +1391,14 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             <p className="text-sm text-vc-text-secondary">
               {processingStageMessage || 'Analyzing video frames and speech transcript with AI...'}
             </p>
+
+            {/* Credit reservation note */}
+            <div className="flex items-center justify-center gap-2 text-xs text-zinc-400 pt-2">
+              <Coins className="size-3.5 text-violet-400" />
+              <span>
+                {creditEstimate?.estimated_credits ? `${creditEstimate.estimated_credits} credits reserved` : 'Credits reserved'}. Settle on completion (100% refunded on error).
+              </span>
+            </div>
           </div>
 
           {/* Byte Upload Progress Bar (Only shown during actual file upload) */}
@@ -1250,6 +1461,23 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           aria-label="Generated clips review"
           className="vireo-dash-glass p-6 sm:p-8 rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.55)] relative space-y-6"
         >
+          {/* Top navigation row: Back to Home button */}
+          <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
+            <button
+              type="button"
+              onClick={handleBackToHome}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-xs font-semibold text-zinc-200 hover:text-white transition-all cursor-pointer shadow-sm group"
+            >
+              <ArrowLeft className="size-3.5 text-zinc-400 group-hover:text-white group-hover:-translate-x-0.5 transition-all" />
+              <span>Back to Home</span>
+            </button>
+            {activeProjectId && (
+              <span className="text-[11px] font-mono text-vc-text-muted">
+                Project ID: {activeProjectId.slice(0, 8)}
+              </span>
+            )}
+          </div>
+
           {/* Header & Source Association */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-white/[0.08]">
             <div>
@@ -1261,16 +1489,34 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                   {candidates.length + renderedClips.length} Viral Clips Extracted
                 </span>
               </div>
-              <h2 className="mt-1 text-xl sm:text-2xl font-bold text-vc-text-primary font-['Sora',sans-serif]">
-                Review Generated Clips
-              </h2>
-              <p className="text-xs text-vc-text-secondary">
+              <div className="flex items-center gap-2.5 mt-1">
+                <button
+                  type="button"
+                  onClick={handleBackToHome}
+                  title="Back to Home"
+                  className="sm:hidden p-1.5 rounded-full bg-white/[0.06] hover:bg-white/10 text-zinc-300 hover:text-white cursor-pointer"
+                >
+                  <ArrowLeft className="size-4" />
+                </button>
+                <h2 className="text-xl sm:text-2xl font-bold text-vc-text-primary font-['Sora',sans-serif]">
+                  Review Generated Clips
+                </h2>
+              </div>
+              <p className="text-xs text-vc-text-secondary mt-0.5">
                 Source: <span className="text-violet-200 font-medium">{selectedSource?.title}</span>
               </p>
             </div>
 
             {/* Header Action Buttons */}
             <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+              <button
+                type="button"
+                onClick={handleBackToHome}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-violet-600/20 border border-violet-500/30 hover:bg-violet-600/30 text-xs font-semibold text-violet-200 transition-all cursor-pointer"
+              >
+                <ArrowLeft className="size-3.5 text-violet-300" />
+                <span>Back to Home</span>
+              </button>
               <button
                 type="button"
                 onClick={handleSelectAllClips}
@@ -1309,6 +1555,23 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                 <span>New Video</span>
               </button>
             </div>
+          </div>
+
+          {/* Post-Processing Settlement Transparency Notice */}
+          <div className="p-3.5 rounded-xl bg-violet-950/40 border border-violet-500/25 flex items-center justify-between gap-3 text-xs text-violet-200">
+            <div className="flex items-center gap-2">
+              <Check className="size-4 text-emerald-400 shrink-0" />
+              <span>
+                <strong>Processing Settled:</strong> Credits for this video were measured and settled atomically. Available balance has been updated in your wallet.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/billing')}
+              className="text-violet-300 hover:text-white underline font-semibold text-[11px] whitespace-nowrap cursor-pointer"
+            >
+              View Ledger &rarr;
+            </button>
           </div>
 
           {/* Export Status Toast Banner */}
@@ -1372,6 +1635,16 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                   <span className="text-xs text-vc-text-secondary">
                     Aspect: {aspectRatio}
                   </span>
+                  {renderedClips.find((c) => c.id === activePreviewClipId)?.is_watermarked === true && (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Watermarked (Free Plan)
+                    </span>
+                  )}
+                  {renderedClips.find((c) => c.id === activePreviewClipId)?.is_watermarked === false && (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      Clean Export (Creator+)
+                    </span>
+                  )}
                 </div>
 
                 <h3 className="text-lg font-bold text-vc-text-primary">
@@ -1456,9 +1729,25 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                         <span className="px-2 py-0.5 rounded bg-black/60 font-mono text-[10px] text-white">
                           {formatDuration(clip.duration_seconds)}
                         </span>
-                        <span className="px-2 py-0.5 rounded bg-white/[0.10] text-zinc-200 text-[10px] font-bold">
-                          Rendered
-                        </span>
+                        {clip.is_watermarked === true ? (
+                          <span
+                            className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold"
+                            title="Permanent VireoClip watermark on Free Plan"
+                          >
+                            Watermarked
+                          </span>
+                        ) : clip.is_watermarked === false ? (
+                          <span
+                            className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold"
+                            title="Clean export without watermark"
+                          >
+                            Clean Export
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded bg-white/[0.10] text-zinc-200 text-[10px] font-bold">
+                            Rendered
+                          </span>
+                        )}
                       </div>
                     </div>
 

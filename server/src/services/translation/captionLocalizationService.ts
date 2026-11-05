@@ -73,7 +73,7 @@ export class CaptionLocalizationService {
     const hrs = Math.floor(s / 3600);
     const mins = Math.floor((s % 3600) / 60);
     const secs = Math.floor(s % 60);
-    const millis = Math.floor((s % 1) * 1000);
+    const millis = Math.round((s % 1) * 1000) % 1000;
 
     const pad = (n: number, z = 2) => String(n).padStart(z, '0');
     return `${pad(hrs)}:${pad(mins)}:${pad(secs)},${pad(millis, 3)}`;

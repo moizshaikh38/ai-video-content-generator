@@ -22,7 +22,8 @@ export class FaceFeatureService {
     videoPath: string,
     videoDuration: number,
     sampleFps = 1.0,
-    timeoutMs = 90000
+    timeoutMs?: number,
+    maxSamples = 600
   ): Promise<FaceAnalysisResult> {
     if (!fs.existsSync(videoPath)) {
       throw new Error(`Video file not found for face presence analysis: ${videoPath}`);
@@ -34,7 +35,8 @@ export class FaceFeatureService {
         sampleFps,
         0,
         videoDuration,
-        timeoutMs
+        timeoutMs ?? Math.max(90000, Math.ceil(videoDuration * 600)),
+        maxSamples
       );
 
       const samples = cvResult.samples || [];

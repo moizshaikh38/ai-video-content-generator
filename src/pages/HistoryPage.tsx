@@ -254,7 +254,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
         </div>
         <div className="flex items-center gap-3">
           <Link
-            to="/projects/new"
+            to="/dashboard"
             className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold cursor-pointer ${BTN_PILL_BRAND}`}
           >
             <Plus className="size-4" />
@@ -380,7 +380,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
               {!clips.length && (
                 <div className="mt-5">
                   <Link
-                    to="/projects/new"
+                    to="/dashboard"
                     className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold ${BTN_PILL_BRAND}`}
                   >
                     <Plus className="size-4" />
@@ -583,7 +583,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
               </p>
               {!projects.length && (
                 <Link
-                  to="/projects/new"
+                  to="/dashboard"
                   className={`mt-4 inline-block px-4 py-2 text-sm font-semibold ${BTN_PILL_BRAND}`}
                 >
                   New Project

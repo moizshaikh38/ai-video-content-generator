@@ -29,6 +29,7 @@ import {
 import { selectDiverseCandidates } from '../utils/diverseSelection.js';
 import { deduplicateSemantically } from '../utils/semanticDedup.js';
 import { tryIncludeQuestion, isQaCriticalGenre } from '../utils/questionInclusion.js';
+import { ShotBoundaryFusionService } from './intelligence/shotBoundaryFusionService.js';
 
 // In-memory set to prevent multiple simultaneous analysis runs for the same project
 export const activeClipAnalysisSet = new Set<string>();
@@ -1043,9 +1044,27 @@ export class ClipAnalysisService {
           postRollMs: 150,
         });
 
-        let start_seconds = wordSnapped.start_seconds;
-        let end_seconds = wordSnapped.end_seconds;
-        let duration_seconds = wordSnapped.duration_seconds;
+        // Phase 3: Shot-aware boundary fusion (aligning with natural cuts & sentences without cutting thoughts)
+        const shotBoundary = ShotBoundaryFusionService.optimizeBoundaries({
+          rawStart: wordSnapped.start_seconds,
+          rawEnd: wordSnapped.end_seconds,
+          words: rawWords.map((w: any) => ({ word: w.word || (w as any).text, start: w.start, end: w.end })),
+          segments: segments.map((s: any) => ({ start: s.start, end: s.end, text: s.text })),
+          sceneCuts: (multimodalTimeline?.scene_cuts || []).map((c: any) => ({ timestamp: typeof c === 'number' ? c : c.timestamp, score: c.score || 0.5 })),
+          silenceIntervals: (multimodalTimeline?.silence_intervals || []),
+          faceIntervals: (multimodalTimeline?.face_intervals || []),
+          totalVideoDuration: transcript.duration_seconds || 120,
+          targetDuration: { min: minDurationLimit, max: maxDurationLimit, optimal: 30 },
+          preferShotCutAlignment: true,
+        });
+
+        let start_seconds = (shotBoundary.boundaryOptimization.wasShotBoundarySnapped || shotBoundary.boundaryOptimization.wasSentencePreserved)
+          ? shotBoundary.start
+          : wordSnapped.start_seconds;
+        let end_seconds = (shotBoundary.boundaryOptimization.wasShotBoundarySnapped || shotBoundary.boundaryOptimization.wasSentencePreserved)
+          ? shotBoundary.end
+          : wordSnapped.end_seconds;
+        let duration_seconds = Number((end_seconds - start_seconds).toFixed(3));
 
         // Use hybrid multimodal Vireo Score
         const engagement_score = scored.vireo_score;
@@ -1129,6 +1148,12 @@ export class ClipAnalysisService {
             was_snapped: scored.was_snapped || wordSnapped.was_snapped,
             silence_snapped: scored.was_snapped,
             word_snapped: wordSnapped.was_snapped,
+            shot_boundary_optimization: shotBoundary.boundaryOptimization,
+            starts_on_cut: shotBoundary.startsOnCut,
+            ends_on_cut: shotBoundary.endsOnCut,
+            nearest_prior_cut: shotBoundary.nearestPriorCut,
+            nearest_posterior_cut: shotBoundary.nearestPosteriorCut,
+            fusion_warnings: shotBoundary.warnings,
             matched_start_word: wordSnapped.matched_start_word,
             matched_end_word: wordSnapped.matched_end_word,
           },

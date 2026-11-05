@@ -5,6 +5,9 @@ import crypto from 'crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import ffmpeg from 'fluent-ffmpeg';
+import ffprobeStatic from 'ffprobe-static';
+
+const ffprobePath: string = (ffprobeStatic as any)?.path || 'ffprobe';
 import { config } from '../../config/index.js';
 import { logger } from '../../utils/logger.js';
 import { TranscriptionProvider } from './transcriptionProvider.js';
@@ -12,6 +15,7 @@ import {
   NormalizedTranscriptionResult,
   NormalizedTranscriptSegment,
   NormalizedTranscriptWord,
+  TranscriptionOptions,
 } from './types.js';
 
 /**
@@ -195,7 +199,7 @@ function cutAudioWindow(audioPath: string, plan: AudioChunkPlan, isLast: boolean
 async function probeDurationSec(filePath: string): Promise<number> {
   try {
     const { stdout } = await execFileAsync(
-      'ffprobe',
+      ffprobePath,
       ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', filePath],
       { timeout: 15000 }
     );
@@ -215,16 +219,17 @@ export async function transcribeAudioFast(
   provider: TranscriptionProvider,
   audio: { audioBuffer: Buffer; audioPath: string },
   durationSec: number | null | undefined,
-  fileName: string
+  fileName: string,
+  options?: TranscriptionOptions
 ): Promise<NormalizedTranscriptionResult> {
   const totalSec = Number(durationSec) || (await probeDurationSec(audio.audioPath));
   const fitsOneRequest = audio.audioBuffer.length <= SINGLE_REQUEST_MAX_BYTES;
   if (totalSec < CHUNKING_MIN_DURATION_SEC && fitsOneRequest) {
-    return provider.transcribeAudio(audio.audioBuffer, fileName, 'audio/mp3');
+    return provider.transcribeAudio(audio.audioBuffer, fileName, 'audio/mp3', options);
   }
   if (!(totalSec > 0)) {
     // Oversized audio with no known duration cannot be planned; the provider reports the size limit.
-    return provider.transcribeAudio(audio.audioBuffer, fileName, 'audio/mp3');
+    return provider.transcribeAudio(audio.audioBuffer, fileName, 'audio/mp3', options);
   }
 
   const plans = planAudioChunks(totalSec);
@@ -237,7 +242,7 @@ export async function transcribeAudioFast(
         await cutAudioWindow(audio.audioPath, plan, plan.index === plans.length - 1, chunkPath);
         const buffer = await fs.promises.readFile(chunkPath);
         try {
-          const result = await provider.transcribeAudio(buffer, fileName.replace(/(\.\w+)?$/, `-part${plan.index}$1`), 'audio/mp3');
+          const result = await provider.transcribeAudio(buffer, fileName.replace(/(\.\w+)?$/, `-part${plan.index}$1`), 'audio/mp3', options);
           return { plan, result };
         } catch (err) {
           // A window of only music or silence is a normal part of a video, not a failed run.
@@ -260,7 +265,7 @@ export async function transcribeAudioFast(
     if (!fitsOneRequest) throw err;
     const msg = err instanceof Error ? err.message : String(err);
     logger.warn(`[Transcription] Parallel windows failed (${msg}); retrying as a single request.`);
-    return provider.transcribeAudio(audio.audioBuffer, fileName, 'audio/mp3');
+    return provider.transcribeAudio(audio.audioBuffer, fileName, 'audio/mp3', options);
   } finally {
     fs.rmSync(workDir, { recursive: true, force: true });
   }

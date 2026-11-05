@@ -80,6 +80,14 @@ export interface Project {
   metadata?: Record<string, any> | null;
   created_at: string;
   updated_at?: string;
+  project_type?: 'clipping' | 'subtitles';
+  subtitle_cues?: TimedCaptionCue[];
+  subtitle_style?: SubtitleStyleConfig;
+  subtitle_export_status?: 'idle' | 'rendering' | 'ready' | 'failed';
+  subtitle_export_progress?: number;
+  subtitle_export_stage?: string;
+  subtitle_export_path?: string | null;
+  subtitle_export_error?: string | null;
 }
 
 export interface CreatorProfile {
@@ -340,6 +348,7 @@ export interface RenderedClip {
   content_goal?: ContentGoal;
   clip_preferences?: ClipPreferences;
   cold_open?: ColdOpenConfig | null;
+  is_watermarked?: boolean;
 }
 
 // ── Phase 12: Caption Engine & Focused Clip Editor ───────────────
@@ -432,6 +441,7 @@ export interface OverlayConfig {
 }
 
 export const SAFE_FONT_FAMILIES = [
+  'Montserrat',
   'Inter',
   'Arial',
   'Arial Black',
@@ -3396,3 +3406,40 @@ export interface InviteMemberDTO {
 
 
 
+
+export interface SubtitleStyleConfig {
+  preset?: string;
+  fontFamily?: string;
+  fontSize?: number;
+  fontWeight?: string | number;
+  textColor?: string;
+  highlightColor?: string;
+  boxEnabled?: boolean;
+  boxColor?: string;
+  boxOpacity?: number;
+  boxPadding?: number;
+  alignment?: 'left' | 'center' | 'right';
+  position?: 'top' | 'middle' | 'bottom';
+  positionY?: number;
+  strokeEnabled?: boolean;
+  strokeColor?: string;
+  strokeWidth?: number;
+  shadowEnabled?: boolean;
+  shadowColor?: string;
+  shadowDepth?: number;
+  shadowOpacity?: number;
+  uppercase?: boolean;
+  maxWordsPerLine?: number;
+  animation?: 'none' | 'pop' | 'karaoke' | 'bounce';
+}
+
+export interface SubtitleProject extends Project {
+  project_type: 'subtitles' | 'clipping';
+  subtitle_cues?: TimedCaptionCue[];
+  subtitle_style?: SubtitleStyleConfig;
+  subtitle_export_status?: 'idle' | 'rendering' | 'ready' | 'failed';
+  subtitle_export_progress?: number;
+  subtitle_export_stage?: string;
+  subtitle_export_path?: string | null;
+  subtitle_export_error?: string | null;
+}

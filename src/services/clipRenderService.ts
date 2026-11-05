@@ -35,11 +35,23 @@ class ClipRenderService {
     projectId: string,
     candidateId: string,
     aspectRatio: ClipAspectRatio = '9:16',
-    cropMode: 'smart' | 'center' = 'smart'
+    cropMode: 'smart' | 'center' = 'smart',
+    options?: {
+      caption_enabled?: boolean;
+      caption_style?: string;
+      caption_config?: any;
+    }
   ): Promise<CreateClipResponse> {
     return backendRequest<CreateClipResponse>(`/projects/${projectId}/clips`, {
       method: 'POST',
-      body: JSON.stringify({ candidateId, aspectRatio, cropMode }),
+      body: JSON.stringify({
+        candidateId,
+        aspectRatio,
+        cropMode,
+        caption_enabled: options?.caption_enabled,
+        caption_style: options?.caption_style,
+        caption_config: options?.caption_config,
+      }),
     });
   }
 
@@ -62,8 +74,11 @@ class ClipRenderService {
   /**
    * Retries rendering for a failed or draft clip
    */
-  async renderClip(clipId: string): Promise<void> {
-    await backendRequest<void>(`/clips/${clipId}/render`, { method: 'POST' });
+  async renderClip(clipId: string, options?: { caption_enabled?: boolean; caption_style?: string }): Promise<void> {
+    await backendRequest<void>(`/clips/${clipId}/render`, {
+      method: 'POST',
+      body: options ? JSON.stringify(options) : undefined,
+    });
   }
 
   /**

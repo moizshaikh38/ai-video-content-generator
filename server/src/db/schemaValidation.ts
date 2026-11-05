@@ -52,6 +52,9 @@ const enums: Record<string, Record<string, readonly string[]>> = {
     category: ['topic', 'hook', 'duration', 'platform', 'format', 'cta', 'posting_time'],
     confidence: ['low', 'medium', 'high'],
   },
+  video_intelligence: {
+    status: ['queued', 'processing', 'completed', 'failed'],
+  },
   video_analyses: {
     status: ['queued', 'processing', 'completed', 'failed'],
   },
@@ -165,6 +168,7 @@ const enums: Record<string, Record<string, readonly string[]>> = {
   },
 };
 const numericFields = new Set([
+  'available_credits', 'reserved_credits', 'lifetime_granted', 'lifetime_consumed', 'period_granted', 'period_consumed', 'version', 'amount', 'balance_before', 'balance_after', 'reserved_before', 'reserved_after', 'settled_amount',
   'duration_seconds', 'start_seconds', 'end_seconds', 'engagement_score',
   'start_segment_index', 'end_segment_index', 'trim_start_offset', 'trim_end_offset',
   'progress', 'attempts', 'render_version', 'editor_version', 'analysis_version',
@@ -199,7 +203,7 @@ const objectFields = new Set([
 ]);
 
 export function validateRecord(name: string, row: Record<string, unknown>): void {
-  for (const field of ['id', 'user_id', 'workspace_id', 'inviter_user_id', 'project_id', 'clip_id', 'candidate_id', 'parent_plan_id', 'producer_plan_id', 'editor_project_id', 'source_asset_id', 'translation_project_id', 'brand_brain_id', 'watermark_asset_id', 'content_pack_id', 'content_pack_item_id', 'hook_lab_session_id', 'thumbnail_session_id', 'concept_id', 'reference_frame_id', 'active_concept_id', 'approved_concept_id', 'selected_hook_candidate_id', 'selected_thumbnail_concept_id', 'hook_session_id', 'approved_by', 'experiment_id', 'variant_id', 'winning_variant_id', 'thumbnail_concept_id', 'hook_candidate_id', 'brand_brain_evidence_id']) {
+  for (const field of ['id', 'user_id', 'workspace_id', 'inviter_user_id', 'project_id', 'clip_id', 'candidate_id', 'parent_plan_id', 'producer_plan_id', 'editor_project_id', 'source_asset_id', 'translation_project_id', 'brand_brain_id', 'watermark_asset_id', 'content_pack_id', 'content_pack_item_id', 'hook_lab_session_id', 'thumbnail_session_id', 'concept_id', 'reference_frame_id', 'active_concept_id', 'approved_concept_id', 'selected_hook_candidate_id', 'selected_thumbnail_concept_id', 'hook_session_id', 'approved_by', 'experiment_id', 'variant_id', 'winning_variant_id', 'thumbnail_concept_id', 'hook_candidate_id', 'brand_brain_evidence_id', 'wallet_id', 'reservation_id']) {
     const value = row[field];
     if (value !== undefined && value !== null && (typeof value !== 'string' || !isValidUUID(value))) {
       throw new AppError(`Invalid ${field}.`, 400, 'INVALID_UUID');

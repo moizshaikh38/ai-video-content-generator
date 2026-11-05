@@ -1,4 +1,4 @@
-import { isMongoConfigured } from '../db/mongoClient.js';
+import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
 import { Response } from 'express';
 import crypto from 'crypto';
@@ -17,6 +17,9 @@ import { UrlIngestionService } from '../services/urlIngestionService.js';
 import { registerPublicId } from '../middleware/publicIdMiddleware.js';
 import { GenreIntelligenceService } from '../services/genreIntelligenceService.js';
 import { ClipPreferences } from '../types/index.js';
+import { EntitlementService } from '../services/entitlementService.js';
+import { CreditWalletService } from '../services/creditWalletService.js';
+import { CreditPricingService } from '../services/billing/creditPricingService.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 
@@ -246,14 +249,46 @@ export const createProject = async (req: AuthenticatedRequest, res: Response): P
     return;
   }
 
-  // Validate file size limit (50 MB)
+  // Validate user entitlements for project creation
+  const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
+
+  // Validate file size limit against plan entitlements and server cap
   if (file_size !== undefined && file_size !== null) {
     const bytes = Number(file_size);
-    if (isNaN(bytes) || bytes < 0 || bytes > config.maxVideoBytes) {
+    const effectiveMaxBytes = Math.min(config.maxVideoBytes, entitlements.limits.maxFileSizeBytes);
+    if (isNaN(bytes) || bytes < 0 || bytes > effectiveMaxBytes) {
       res.status(400).json({
         status: 'error',
         code: 'FILE_SIZE_EXCEEDED',
-        message: `Video file exceeds the maximum allowed size of ${config.maxVideoBytes / (1024 * 1024)} MB.`,
+        message: `Video file exceeds your plan limit of ${Math.round(entitlements.limits.maxFileSizeBytes / (1024 * 1024))} MB.`,
+        limit_bytes: effectiveMaxBytes,
+      });
+      return;
+    }
+  }
+
+  // Validate monthly project creation limit
+  if (!entitlements.isUnlimited) {
+    const db = await getMongoDb();
+    const currentMonthStart = new Date();
+    currentMonthStart.setUTCDate(1);
+    currentMonthStart.setUTCHours(0, 0, 0, 0);
+
+    const projectCount = await db.collection('projects').countDocuments({
+      user_id: userId,
+      $or: [
+        { created_at: { $gte: currentMonthStart } },
+        { created_at: { $gte: currentMonthStart.toISOString() } },
+      ],
+    });
+
+    if (projectCount >= entitlements.limits.maxProjects) {
+      res.status(403).json({
+        status: 'error',
+        code: 'MONTHLY_PROJECT_LIMIT_EXCEEDED',
+        message: `Your ${entitlements.displayName} plan allows up to ${entitlements.limits.maxProjects} projects per month. Please upgrade your plan to create more projects.`,
+        limit: entitlements.limits.maxProjects,
+        current: projectCount,
       });
       return;
     }
@@ -371,6 +406,34 @@ export const ingestProjectUrl = async (req: AuthenticatedRequest, res: Response)
     return;
   }
 
+  // Validate user entitlements for project creation via URL ingestion
+  const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
+  if (!entitlements.isUnlimited) {
+    const db = await getMongoDb();
+    const currentMonthStart = new Date();
+    currentMonthStart.setUTCDate(1);
+    currentMonthStart.setUTCHours(0, 0, 0, 0);
+
+    const projectCount = await db.collection('projects').countDocuments({
+      user_id: userId,
+      $or: [
+        { created_at: { $gte: currentMonthStart } },
+        { created_at: { $gte: currentMonthStart.toISOString() } },
+      ],
+    });
+
+    if (projectCount >= entitlements.limits.maxProjects) {
+      res.status(403).json({
+        status: 'error',
+        code: 'MONTHLY_PROJECT_LIMIT_EXCEEDED',
+        message: `Your ${entitlements.displayName} plan allows up to ${entitlements.limits.maxProjects} projects per month. Please upgrade your plan to create more projects.`,
+        limit: entitlements.limits.maxProjects,
+        current: projectCount,
+      });
+      return;
+    }
+  }
+
   try {
     const rawPreferences = clip_preferences || clipPreferences;
     const startSec = typeof startTimeSec === 'number' ? startTimeSec : (typeof start_time_sec === 'number' ? start_time_sec : undefined);
@@ -467,9 +530,11 @@ export const createProjectUploadUrl = async (req: AuthenticatedRequest, res: Res
   if (typeof fileName !== 'string' || typeof contentType !== 'string' || !ALLOWED_MIME_TYPES.includes(contentType.toLowerCase())) {
     res.status(400).json({ status: 'error', code: 'INVALID_FILE', message: 'A supported video filename and MIME type are required.' }); return;
   }
+  const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
   const size = Number(fileSize);
-  if (!Number.isSafeInteger(size) || size <= 0 || size > config.maxVideoBytes) {
-    res.status(400).json({ status: 'error', code: 'FILE_SIZE_EXCEEDED', message: 'Video must be between 1 byte and 2 GiB.' }); return;
+  const effectiveMaxBytes = Math.min(config.maxVideoBytes, entitlements.limits.maxFileSizeBytes);
+  if (!Number.isSafeInteger(size) || size <= 0 || size > effectiveMaxBytes) {
+    res.status(400).json({ status: 'error', code: 'FILE_SIZE_EXCEEDED', message: `Video must be between 1 byte and ${Math.round(effectiveMaxBytes / (1024 * 1024))} MB.`, limit_bytes: effectiveMaxBytes }); return;
   }
   const { data: project, error } = await dataRepository.from('projects').select('*').eq('id', projectId).maybeSingle();
   if (error || !project) { res.status(404).json({ status: 'error', code: 'PROJECT_NOT_FOUND', message: 'Project not found.' }); return; }
@@ -742,52 +807,128 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
+    // 3b. Validate duration against plan entitlement if known
+    const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
+    if (!entitlements.isUnlimited && project.duration_seconds && project.duration_seconds > entitlements.limits.maxUploadDurationSeconds) {
+      res.status(403).json({
+        status: 'error',
+        code: 'DURATION_LIMIT_EXCEEDED',
+        message: `Video duration (${Math.round(project.duration_seconds)}s) exceeds your plan limit of ${entitlements.limits.maxUploadDurationSeconds}s.`,
+        limit_seconds: entitlements.limits.maxUploadDurationSeconds,
+        video_seconds: project.duration_seconds,
+      });
+      return;
+    }
+
     const { processProjectVideo, isProjectProcessingActive } = await import('../services/videoProcessingService.js');
     if (isProjectProcessingActive(projectId)) {
       res.status(409).json({ status: 'error', code: 'PROCESSING_ACTIVE', message: 'Video processing is already active.' });
       return;
     }
 
-    // 4. Concurrency-safe atomic quota reservation
-    const { UsageService } = await import('../services/usageService.js');
+    // 4. Concurrency-safe atomic credit reservation & cross-workflow transcript reuse
+    const db = await getMongoDb();
+    let existingTranscript = await db.collection('transcripts').findOne({ project_id: projectId, user_id: userId });
+
+    // Cross-workflow match: check other projects belonging to the SAME user with the same source_url
+    if (!existingTranscript && project.source_url) {
+      const matchProject = await db.collection('projects').findOne({
+        user_id: userId,
+        source_url: project.source_url,
+        id: { $ne: projectId },
+      });
+      if (matchProject) {
+        const sourceTranscript = await db.collection('transcripts').findOne({
+          project_id: matchProject.id,
+          user_id: userId,
+        });
+        if (sourceTranscript && (sourceTranscript.segments?.length || sourceTranscript.transcript_text)) {
+          // Clone transcript to this project so subsequent queries find it
+          await db.collection('transcripts').updateOne(
+            { project_id: projectId, user_id: userId },
+            {
+              $setOnInsert: {
+                id: crypto.randomUUID(),
+                project_id: projectId,
+                user_id: userId,
+                transcript_text: sourceTranscript.transcript_text,
+                text: sourceTranscript.text,
+                language: sourceTranscript.language,
+                duration_seconds: sourceTranscript.duration_seconds,
+                segments: sourceTranscript.segments,
+                words: sourceTranscript.words,
+                created_at: new Date(),
+                updated_at: new Date(),
+              },
+            },
+            { upsert: true }
+          );
+          existingTranscript = sourceTranscript;
+        }
+      }
+    }
+    const isReusedTranscript = Boolean(existingTranscript);
+
+    const durationForEstimate = Number(project.duration_seconds) > 0 ? Number(project.duration_seconds) : 60;
+    const creditEstimate = isReusedTranscript
+      ? { credits: 0, units: 0, rateDescription: 'Reused transcript (0 credits)' }
+      : CreditPricingService.calculateCoreProcessingCost(durationForEstimate);
+    const creditsToReserve = creditEstimate.credits;
+
     const rawAttemptId = req.headers['x-processing-attempt-id'] as string;
     const attemptId = rawAttemptId && isValidUUID(rawAttemptId) ? rawAttemptId : crypto.randomUUID();
 
-    // Billing hardening: the estimate is SERVER-authoritative, derived from the
-    // project's measured duration_seconds. req.body.estimated_minutes is
-    // deliberately ignored — a client claiming 0.5 min for a 2-hour video must
-    // never shrink what the quota ceiling validates against. Unknown durations
-    // get a provisional estimate that is extended to the measured length (with
-    // a fresh ceiling check) once ffprobe runs mid-processing.
-    const { computeProcessingEstimateMinutes } = await import('../services/usageService.js');
-    const estimatedMinutes = computeProcessingEstimateMinutes((project as any).duration_seconds);
+    const creditReservation = await CreditWalletService.reserveCredits({
+      userId,
+      attemptId,
+      operationId: 'core_video_processing',
+      amount: creditsToReserve,
+      userEmail: req.user?.email,
+      ttlMinutes: 60,
+      metadata: {
+        projectId,
+        sourceDurationSeconds: project.duration_seconds || null,
+        isReusedTranscript,
+      },
+    });
 
-    const reservation = await UsageService.reserveQuota(userId, projectId, attemptId, estimatedMinutes, req.user?.email);
-
-    if (!reservation.allowed) {
-      logger.warn('User exceeded processing quota', {
+    if (!creditReservation.allowed) {
+      logger.warn('User insufficient credits for video processing', {
         userId,
         projectId,
-        limitMinutes: reservation.limitMinutes,
-        remainingMinutes: reservation.remainingMinutes,
+        requiredCredits: creditsToReserve,
+        availableCredits: creditReservation.wallet.available_credits,
       });
       res.status(403).json({
         status: 'error',
-        code: reservation.errorCode || 'QUOTA_EXCEEDED',
-        message: reservation.errorMessage || 'Monthly video processing quota exceeded.',
-        billing_period: reservation.billingPeriod,
-        limit_minutes: reservation.limitMinutes,
-        remaining_minutes: reservation.remainingMinutes,
-        requested_minutes: reservation.requestedMinutes,
-        reset_date: reservation.resetDate,
+        code: 'INSUFFICIENT_CREDITS',
+        message: creditReservation.errorMessage || 'Insufficient credits to process video.',
+        required_credits: creditsToReserve,
+        available_credits: creditReservation.wallet.available_credits,
+        missing_credits: Math.max(0, creditsToReserve - creditReservation.wallet.available_credits),
       });
       return;
     }
 
-    if (reservation.idempotent) {
-      res.status(202).json({ status: 'ok', message: 'Processing attempt already accepted.',
-        projectId, processingAttemptId: attemptId, video_status: project.video_status });
+    if (creditReservation.idempotent) {
+      res.status(202).json({
+        status: 'ok',
+        message: 'Processing attempt already accepted.',
+        projectId,
+        processingAttemptId: attemptId,
+        video_status: project.video_status,
+        credits_reserved: creditReservation.reservation?.amount || 0,
+      });
       return;
+    }
+
+    // Shadow legacy UsageService reservation for historical audit tracking without rejecting customer
+    const { computeProcessingEstimateMinutes, UsageService } = await import('../services/usageService.js');
+    try {
+      const estimatedMinutes = computeProcessingEstimateMinutes((project as any).duration_seconds);
+      await UsageService.reserveQuota(userId, projectId, attemptId, estimatedMinutes, req.user?.email);
+    } catch (legacyErr) {
+      logger.warn('Legacy UsageService reservation notice', { projectId, err: legacyErr });
     }
 
     let claimed: boolean;
@@ -795,11 +936,13 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
       claimed = await claimProjectProcessing(userId, projectId, currentStatus,
         new Date(project.updated_at || project.created_at));
     } catch (error) {
-      await UsageService.releaseReservation(attemptId, 'Project processing claim failed');
+      await CreditWalletService.releaseReservation(attemptId, 'Project processing claim failed');
+      await UsageService.releaseReservation(attemptId, 'Project processing claim failed').catch(() => undefined);
       throw error;
     }
     if (!claimed) {
-      await UsageService.releaseReservation(attemptId, 'Another processing run started first');
+      await CreditWalletService.releaseReservation(attemptId, 'Another processing run started first');
+      await UsageService.releaseReservation(attemptId, 'Another processing run started first').catch(() => undefined);
       res.status(409).json({ status: 'error', code: 'PROCESSING_ACTIVE', message: 'Video processing has already started.' });
       return;
     }
@@ -815,6 +958,7 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
         }
       })
       .catch((err) => {
+        CreditWalletService.releaseReservation(attemptId, 'Processing could not start').catch(() => undefined);
         UsageService.releaseReservation(attemptId, 'Processing could not start').catch(() => undefined);
         logger.error(`Background pipeline unexpected error for project ${projectId} (attempt: ${attemptId})`, {
           projectId,
@@ -828,6 +972,7 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
       projectId,
       processingAttemptId: attemptId,
       video_status: 'processing',
+      credits_reserved: creditsToReserve,
     });
   } catch (err) {
     logger.error('Unexpected error initiating project processing', {

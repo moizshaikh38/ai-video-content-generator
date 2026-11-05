@@ -4,6 +4,7 @@ import {
   Film,
   Sparkles,
   CheckCircle2,
+  Captions,
   XCircle,
   Clock,
   Play,
@@ -57,6 +58,12 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
 
   // AI Suggestions state
   const [candidates, setCandidates] = useState<ClipCandidate[]>([]);
+  // Per-candidate subtitle settings
+  const [candidateSubtitles, setCandidateSubtitles] = useState<Record<string, { enabled: boolean; preset: string }>>({});
+  const getCandidateSubtitle = (candId: string) => candidateSubtitles[candId] || { enabled: true, preset: 'hormozi' };
+  const setCandidateSubtitle = (candId: string, updates: Partial<{ enabled: boolean; preset: string }>) => {
+    setCandidateSubtitles((prev) => ({ ...prev, [candId]: { ...(prev[candId] || { enabled: true, preset: 'hormozi' }), ...updates } }));
+  };
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -206,7 +213,11 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
     setClipActionError(null);
 
     try {
-      const res = await clipRenderService.createClipFromCandidate(projectId, candidateId, '9:16');
+      const subPref = getCandidateSubtitle(candidateId);
+      const res = await clipRenderService.createClipFromCandidate(projectId, candidateId, '9:16', 'smart', {
+        caption_enabled: subPref.enabled,
+        caption_style: subPref.preset,
+      });
       // Mark candidate selected in local UI
       setCandidates((prev) =>
         prev.map((c) => (c.id === candidateId ? { ...c, status: 'selected' } : c))
@@ -223,13 +234,13 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
   };
 
   // Retry rendering for a failed clip
-  const handleRetryRender = async (clipId: string) => {
+  const handleRetryRender = async (clipId: string, options?: { caption_enabled?: boolean; caption_style?: string }) => {
     if (retryingClipId) return;
     setRetryingClipId(clipId);
     setClipActionError(null);
 
     try {
-      await clipRenderService.renderClip(clipId);
+      await clipRenderService.renderClip(clipId, options);
       // Immediately refresh clips
       const updated = await clipRenderService.getProjectClips(projectId);
       setMyClips(updated);
@@ -1006,6 +1017,53 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                         })()}
                       </div>
 
+                      {/* Per-Clip Subtitle Configuration */}
+                      <div className="p-3 rounded-xl bg-black/40 border border-white/10 space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <Captions className="size-4 text-violet-400" />
+                            <span className="text-xs font-semibold text-white">Subtitles / Captions</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCandidateSubtitle(activeCandidate.id, {
+                                enabled: !getCandidateSubtitle(activeCandidate.id).enabled,
+                              })
+                            }
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                              getCandidateSubtitle(activeCandidate.id).enabled
+                                ? 'bg-violet-600 text-white shadow-sm'
+                                : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                            }`}
+                          >
+                            {getCandidateSubtitle(activeCandidate.id).enabled ? 'Subtitles: ON' : 'Subtitles: OFF'}
+                          </button>
+                        </div>
+                        {getCandidateSubtitle(activeCandidate.id).enabled ? (
+                          <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/5">
+                            <span className="text-[11px] text-zinc-400">Preset Style:</span>
+                            <select
+                              value={getCandidateSubtitle(activeCandidate.id).preset}
+                              onChange={(e) =>
+                                setCandidateSubtitle(activeCandidate.id, { preset: e.target.value })
+                              }
+                              className="px-2 py-1 rounded-md bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:border-violet-500"
+                            >
+                              <option value="hormozi">Hormozi (Punchy Yellow)</option>
+                              <option value="neon">Cyber Neon Glow</option>
+                              <option value="beast">Beast Impact</option>
+                              <option value="clean">Clean Modern Pill</option>
+                              <option value="karaoke">Karaoke Pop</option>
+                              <option value="minimal">Minimal Dark</option>
+                            </select>
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-zinc-400 italic">
+                            Clean video export — no burned-in subtitles will be rendered onto this clip.
+                          </p>
+                        )}
+                      </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <Button
                           variant="brand"
@@ -1165,6 +1223,14 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                           )}
                           <span className="px-2 py-0.5 rounded-md bg-black/75 text-white text-[10px] font-mono font-bold backdrop-blur-md">
                             {clip.aspect_ratio}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold backdrop-blur-md flex items-center gap-1 ${
+                            clip.caption_enabled === false
+                              ? 'bg-zinc-800/80 text-zinc-300 border border-white/10'
+                              : 'bg-violet-950/80 text-violet-300 border border-violet-500/30'
+                          }`}>
+                            <Captions className="size-2.5" />
+                            {clip.caption_enabled === false ? 'No Subtitles' : (clip.caption_style || 'Hormozi')}
                           </span>
                         </div>
 

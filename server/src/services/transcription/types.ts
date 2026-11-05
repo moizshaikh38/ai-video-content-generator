@@ -18,3 +18,8 @@ export interface NormalizedTranscriptionResult {
   segments: NormalizedTranscriptSegment[];
   words: NormalizedTranscriptWord[];
 }
+
+export interface TranscriptionOptions {
+  prompt?: string;
+  language?: string;
+}

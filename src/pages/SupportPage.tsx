@@ -19,7 +19,7 @@ import {
 /** Full support page (public route /support). */
 export const SupportPage: React.FC = () => {
   const quickLinks = [
-    { to: '/projects/new', icon: Sparkles, title: 'Create clips', desc: 'Paste a link or upload a video to start.' },
+    { to: '/dashboard', icon: Sparkles, title: 'Create clips', desc: 'Paste a link or upload a video to start.' },
     { to: '/billing', icon: LifeBuoy, title: 'Billing & plans', desc: 'Manage your plan, country, and payment method.' },
     { to: '/privacy', icon: BookOpen, title: 'Privacy policy', desc: 'How your data and media are handled.' },
   ];

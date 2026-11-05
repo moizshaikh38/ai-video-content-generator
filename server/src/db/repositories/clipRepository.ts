@@ -4,7 +4,8 @@ import { AppError, ClipAspectRatio, ClipCropMode } from '../../types/index.js';
 
 /** Verify relationships and create clip plus initial render job in one transaction. */
 export async function createClipWithJob(projectId: string, candidateId: string, userId: string,
-  aspectRatio: ClipAspectRatio, cropMode: ClipCropMode) {
+  aspectRatio: ClipAspectRatio, cropMode: ClipCropMode,
+  options?: { caption_enabled?: boolean; caption_style?: string; caption_config?: any }) {
   const client = await getMongoClient();
   const db = await getMongoDb();
   const session = client.startSession();
@@ -38,6 +39,9 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
           layout_mode: layoutMode,
         },
         caption_position: captionPos,
+        caption_enabled: options?.caption_enabled !== undefined ? Boolean(options.caption_enabled) : true,
+        caption_style: options?.caption_style || 'hormozi',
+        caption_config: options?.caption_config || null,
         cold_open: coldOpen,
         source_storage_path: project.source_url, source_object_key: project.source_url,
         output_object_key: null, render_version: 1, editor_version: 1,

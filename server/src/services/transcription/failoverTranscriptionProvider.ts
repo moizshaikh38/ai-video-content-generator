@@ -1,7 +1,7 @@
 import { config } from '../../config/index.js';
 import { logger } from '../../utils/logger.js';
 import { TranscriptionProvider } from './transcriptionProvider.js';
-import { NormalizedTranscriptionResult } from './types.js';
+import { NormalizedTranscriptionResult, TranscriptionOptions } from './types.js';
 import { GroqTranscriptionProvider } from './groqTranscriptionProvider.js';
 import { OpenRouterTranscriptionProvider } from './openRouterTranscriptionProvider.js';
 
@@ -41,10 +41,11 @@ export class FailoverTranscriptionProvider implements TranscriptionProvider {
   async transcribeAudio(
     audioBuffer: Buffer,
     fileName?: string,
-    mimeType?: string
+    mimeType?: string,
+    options?: TranscriptionOptions
   ): Promise<NormalizedTranscriptionResult> {
     try {
-      return await this.primary.transcribeAudio(audioBuffer, fileName, mimeType);
+      return await this.primary.transcribeAudio(audioBuffer, fileName, mimeType, options);
     } catch (primaryErr) {
       if (!this.secondary || !isFailoverWorthy(primaryErr)) throw primaryErr;
 
@@ -54,7 +55,7 @@ export class FailoverTranscriptionProvider implements TranscriptionProvider {
       );
 
       try {
-        const result = await this.secondary.transcribeAudio(audioBuffer, fileName, mimeType);
+        const result = await this.secondary.transcribeAudio(audioBuffer, fileName, mimeType, options);
         logger.info(`[Transcription] Failover succeeded via '${this.secondary.name}'.`);
         return result;
       } catch (secondaryErr) {

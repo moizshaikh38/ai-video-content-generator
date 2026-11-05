@@ -1,4 +1,4 @@
-import { isMongoConfigured } from '../db/mongoClient.js';
+import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,10 +9,13 @@ import { logger } from '../utils/logger.js';
 import { extractAudioFromVideo } from './audioExtractionService.js';
 import { getTranscriptionProviderWithFailover } from './transcription/failoverTranscriptionProvider.js';
 import { transcribeAudioFast } from './transcription/chunkedTranscription.js';
-import { TranscriptRecord } from '../types/index.js';
+import { TranscriptRecord, CreditReservationRecord } from '../types/index.js';
 import { UsageService } from './usageService.js';
 import { ClipRenderService } from './clipRenderService.js';
 import { GenreIntelligenceService } from './genreIntelligenceService.js';
+import { EntitlementService } from './entitlementService.js';
+import { CreditWalletService } from './creditWalletService.js';
+import { CreditPricingService } from './billing/creditPricingService.js';
 import { config } from '../config/index.js';
 import { assignWordIds } from '../utils/wordIdentityUtils.js';
 import { ProjectPosterService } from './projectPosterService.js';
@@ -74,6 +77,71 @@ export async function processProjectVideo(
       .eq('id', projectId)
       .eq('user_id', userId);
 
+    // 1b. Check if valid transcript already exists for this project and user (Cross-workflow reuse at 0 credits)
+    const db = await getMongoDb();
+    const existingTranscript = await db.collection<TranscriptRecord>('transcripts').findOne({
+      project_id: projectId,
+      user_id: userId,
+    });
+
+    if (existingTranscript && (existingTranscript.segments?.length || existingTranscript.transcript_text)) {
+      logger.info(`Reusing existing transcript for project ${projectId}`, { projectId, userId });
+      const effectiveDuration = Number(
+        existingTranscript.duration_seconds ||
+        (existingTranscript.segments?.length
+          ? existingTranscript.segments[existingTranscript.segments.length - 1].end
+          : 0)
+      );
+
+      // Validate source duration against plan entitlement limit
+      const entitlements = await EntitlementService.resolveUserEntitlements(userId);
+      if (!entitlements.isUnlimited && effectiveDuration > entitlements.limits.maxUploadDurationSeconds) {
+        if (processingAttemptId) {
+          await CreditWalletService.releaseReservation(processingAttemptId, 'Video duration exceeds plan limit').catch(() => undefined);
+          await UsageService.releaseReservation(processingAttemptId, 'Video duration exceeds plan limit').catch(() => undefined);
+        }
+        const durationErr: any = new Error(
+          `Video duration (${Math.round(effectiveDuration)}s) exceeds your plan limit of ${entitlements.limits.maxUploadDurationSeconds}s.`
+        );
+        durationErr.code = 'DURATION_LIMIT_EXCEEDED';
+        throw durationErr;
+      }
+
+      // Settle reservation at 0 credits
+      if (processingAttemptId) {
+        await CreditWalletService.settleReservation(
+          processingAttemptId,
+          0,
+          {
+            projectId,
+            provider: 'reused',
+            language: existingTranscript.language,
+            segment_count: existingTranscript.segments?.length || 0,
+            duration_seconds: effectiveDuration,
+            isReusedTranscript: true,
+          }
+        );
+        try {
+          await UsageService.settleReservation(processingAttemptId, 0, { reason: 'Reused transcript' }).catch(() => undefined);
+        } catch {}
+      }
+
+      await dataRepository
+        .from('projects')
+        .update({
+          video_status: 'transcribed',
+          duration_seconds: effectiveDuration,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', projectId)
+        .eq('user_id', userId);
+
+      return {
+        status: 'transcribed',
+        transcript: existingTranscript as TranscriptRecord,
+      };
+    }
+
     // 2. Stream private R2 object to a local scratch file reusing the shared source cache.
     const storagePath = sourceUrl;
     const originalFileName = storagePath.split('/').pop() || 'video.mp4';
@@ -132,6 +200,74 @@ export async function processProjectVideo(
           : 0)
       ).toFixed(2)
     );
+
+    // 5b. Validate source duration against plan entitlement limit
+    const entitlements = await EntitlementService.resolveUserEntitlements(userId);
+    if (!entitlements.isUnlimited && effectiveDuration > entitlements.limits.maxUploadDurationSeconds) {
+      if (processingAttemptId) {
+        await CreditWalletService.releaseReservation(processingAttemptId, 'Video duration exceeds plan limit').catch(() => undefined);
+        await UsageService.releaseReservation(processingAttemptId, 'Video duration exceeds plan limit').catch(() => undefined);
+      }
+      try {
+        await dataRepository
+          .from('projects')
+          .update({
+            video_status: 'failed',
+            error_message: `Video duration (${Math.round(effectiveDuration)}s) exceeds your plan limit of ${entitlements.limits.maxUploadDurationSeconds}s.`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', projectId)
+          .eq('user_id', userId);
+      } catch {}
+      const durationErr: any = new Error(
+        `Video duration (${Math.round(effectiveDuration)}s) exceeds your plan limit of ${entitlements.limits.maxUploadDurationSeconds}s.`
+      );
+      durationErr.code = 'DURATION_LIMIT_EXCEEDED';
+      throw durationErr;
+    }
+
+    // 5c. Mid-run credit extension check:
+    // If measured duration requires more credits than provisionally reserved,
+    // extend reservation atomically. If balance is insufficient, abort cleanly and release reservation.
+    if (processingAttemptId) {
+      const db = await getMongoDb();
+      const resRecord = await db.collection<CreditReservationRecord>('credit_reservations').findOne({ attempt_id: processingAttemptId });
+      const isReused = Boolean(resRecord?.metadata?.isReusedTranscript);
+      const requiredCredits = isReused
+        ? 0
+        : CreditPricingService.calculateCoreProcessingCost(effectiveDuration).credits;
+
+      if (resRecord && resRecord.status === 'reserved' && requiredCredits > resRecord.amount) {
+        const additionalCredits = requiredCredits - resRecord.amount;
+        const ext = await CreditWalletService.extendReservation(
+          processingAttemptId,
+          additionalCredits,
+          undefined,
+          'Measured duration mid-run extension'
+        );
+
+        if (!ext.allowed) {
+          await CreditWalletService.releaseReservation(processingAttemptId, 'Insufficient credits for measured duration mid-run').catch(() => undefined);
+          await UsageService.releaseReservation(processingAttemptId, 'Insufficient credits for measured duration mid-run').catch(() => undefined);
+          try {
+            await dataRepository
+              .from('projects')
+              .update({
+                video_status: 'failed',
+                error_message: `Insufficient credits to process ${Math.ceil(effectiveDuration)}s video. Required ${requiredCredits} credits.`,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', projectId)
+              .eq('user_id', userId);
+          } catch {}
+          const creditErr: any = new Error(
+            `Insufficient credits for measured video duration: this video requires ${requiredCredits} credits, but wallet has insufficient available balance.`
+          );
+          creditErr.code = 'INSUFFICIENT_CREDITS';
+          throw creditErr;
+        }
+      }
+    }
 
     // 6. Store transcript in MongoDB (upsert to avoid duplicates)
     const transcriptPayload: any = {
@@ -221,40 +357,40 @@ export async function processProjectVideo(
       .eq('id', projectId)
       .eq('user_id', userId);
 
-    // 8. Settle usage reservation atomically using measured audio duration.
-    // Billing hardening: before settling, grow the reservation to the measured
-    // duration with a fresh ceiling check — a provisional low estimate can
-    // never let usage run past the approved quota. A refused extension fails
-    // the job (and releases the reservation) rather than over-consuming.
+    // 8. Settle credit reservation and legacy usage reservation atomically using measured audio duration.
     if (processingAttemptId) {
-      const extension = await UsageService.extendReservationToMeasuredDuration(processingAttemptId, effectiveDuration);
-      if (!extension.ok && extension.code === 'QUOTA_EXCEEDED') {
-        await UsageService.releaseReservation(processingAttemptId, 'Measured duration exceeded remaining quota mid-processing');
-        try {
-          await dataRepository
-            .from('projects')
-            .update({
-              video_status: 'failed',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', projectId)
-            .eq('user_id', userId);
-        } catch {}
-        const quotaErr: any = new Error(
-          `Monthly processing quota exceeded mid-run: this video measures ${Math.ceil(effectiveDuration / 60)} minute(s) but ${extension.remainingMinutes.toFixed(1)} remain.`
-        );
-        quotaErr.code = 'QUOTA_EXCEEDED';
-        throw quotaErr;
-      }
-      await UsageService.settleReservation(
+      const db = await getMongoDb();
+      const resRecord = await db.collection<CreditReservationRecord>('credit_reservations').findOne({ attempt_id: processingAttemptId });
+      const isReused = Boolean(resRecord?.metadata?.isReusedTranscript);
+      const actualCredits = isReused
+        ? 0
+        : CreditPricingService.calculateCoreProcessingCost(effectiveDuration).credits;
+
+      await CreditWalletService.settleReservation(
         processingAttemptId,
-        effectiveDuration,
+        actualCredits,
         {
+          projectId,
           provider: provider.name,
           language: transcription.language,
           segment_count: transcription.segments?.length || 0,
+          duration_seconds: effectiveDuration,
         }
       );
+
+      // Shadow legacy usage settle for minute tracking audits
+      try {
+        await UsageService.extendReservationToMeasuredDuration(processingAttemptId, effectiveDuration).catch(() => undefined);
+        await UsageService.settleReservation(
+          processingAttemptId,
+          effectiveDuration,
+          {
+            provider: provider.name,
+            language: transcription.language,
+            segment_count: transcription.segments?.length || 0,
+          }
+        );
+      } catch {}
     }
 
     logger.info(`Project ${projectId} successfully transcribed via ${provider.name}!`, { projectId, provider: provider.name });
@@ -314,9 +450,10 @@ export async function processProjectVideo(
       error: message,
     });
 
-    // Safely release the usage quota reservation so failed jobs never consume quota
+    // Safely release the credit and usage quota reservation so failed jobs never consume credits/quota
     if (processingAttemptId) {
-      await UsageService.releaseReservation(processingAttemptId, message || 'Processing failed');
+      await CreditWalletService.releaseReservation(processingAttemptId, message || 'Processing failed').catch(() => undefined);
+      await UsageService.releaseReservation(processingAttemptId, message || 'Processing failed').catch(() => undefined);
     }
 
     // Mark project status as 'failed' in database

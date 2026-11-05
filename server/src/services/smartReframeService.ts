@@ -1118,7 +1118,8 @@ export class SmartReframeService {
     sampleFps = 4.0,
     startSec = 0.0,
     durationSec = 0.0,
-    timeoutMs = 120000
+    timeoutMs = 120000,
+    maxSamples = 600
   ): Promise<{
     source_width: number;
     source_height: number;
@@ -1155,6 +1156,7 @@ export class SmartReframeService {
       sampleFps,
       startSec,
       durationSec,
+      maxSamples,
     });
 
     return new Promise((resolve, reject) => {

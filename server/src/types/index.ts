@@ -53,6 +53,15 @@ export interface ProjectRecord {
   clip_preferences?: ClipPreferences | null;
   created_at: string;
   updated_at: string;
+  project_type?: 'clipping' | 'subtitles';
+  subtitle_cues?: TimedCaptionCue[];
+  subtitle_style?: SubtitleStyleConfig;
+  subtitle_export_status?: 'idle' | 'rendering' | 'ready' | 'failed';
+  subtitle_export_progress?: number;
+  subtitle_export_stage?: string;
+  subtitle_export_path?: string | null;
+  subtitle_export_error?: string | null;
+  is_watermarked?: boolean;
 }
 
 // ── API Response Types ────────────────────────────────────────────
@@ -163,6 +172,15 @@ export const VALID_PLATFORMS: readonly OutputPlatform[] = [
   'youtube',
   'instagram',
   'shorts',
+  'tiktok',
+  'linkedin',
+  'x',
+] as const;
+
+export const SUPPORTED_STUDIO_PLATFORMS: readonly OutputPlatform[] = [
+  'youtube',
+  'shorts',
+  'instagram',
   'tiktok',
   'linkedin',
   'x',
@@ -534,6 +552,7 @@ export interface ClipRecord {
   content_goal?: ContentGoal;
   clip_preferences?: ClipPreferences;
   cold_open?: ColdOpenConfig | null;
+  is_watermarked?: boolean;
 }
 
 export interface CreateClipDTO {
@@ -614,6 +633,7 @@ export interface OverlayConfig {
 }
 
 export const SAFE_FONT_FAMILIES = [
+  'Montserrat',
   'Inter',
   'Arial',
   'Arial Black',
@@ -3164,19 +3184,36 @@ export type ContentPackProviderState =
   | 'TEMP_UNAVAILABLE'
   | 'ERROR';
 
+export type ContentPackSourceType = 'clip' | 'project' | 'upload' | 'transcript';
+
+export type ProvenanceEvidenceClassification =
+  | 'TRANSCRIPT_EVIDENCE'
+  | 'OCR_EVIDENCE'
+  | 'VISUAL_OBJECT_EVIDENCE'
+  | 'UNVERIFIED_EVIDENCE'
+  | 'MIXED_EVIDENCE';
+
 export interface ContentPackSource {
+  source_type?: ContentPackSourceType;
   transcript_source?: string;
   source_language?: string;
   clip_start?: number;
   clip_end?: number;
   duration?: number;
   topic_summary?: string;
+  source_sha256?: string;
+  has_visual_intelligence?: boolean;
+  ocr_headings_count?: number;
+  dominant_objects_count?: number;
 }
 
 export interface ContentPackEvidence {
+  classification?: ProvenanceEvidenceClassification;
   source_segment_ids?: string[];
   source_timestamps?: Array<{ start: number; end: number }>;
   source_topics?: string[];
+  ocr_text?: string;
+  visual_objects?: string[];
   quote_snippet?: string;
 }
 
@@ -3201,12 +3238,35 @@ export interface ContentPackItem {
   updated_at: string;
 }
 
+
+export interface ContentPackTelemetry {
+  provider: string;
+  model: string;
+  generation_mode: ContentPackGenerationMode;
+  selected_platforms: OutputPlatform[];
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  total_tokens: number | null;
+  attempt_count: number;
+  retry_count: number;
+  latency_ms: number;
+  used_fallback: boolean;
+  status: 'success' | 'failure';
+  failure_category?: string;
+  timestamp: string;
+  token_measurement_type: 'provider_measured' | 'unavailable';
+  estimated_provider_cost_usd?: number | null;
+}
+
 export interface ContentPack {
   id: string;
   user_id: string;
   workspace_id?: string;
-  project_id: string;
-  clip_id: string;
+  project_id?: string;
+  clip_id?: string;
+  source_type?: ContentPackSourceType;
+  source_sha256?: string;
+  title?: string;
   brand_brain_id?: string;
   brand_brain_version?: number;
   source: ContentPackSource;
@@ -3214,10 +3274,14 @@ export interface ContentPack {
   version: number;
   generation_mode: ContentPackGenerationMode;
   template?: ContentPackTemplate;
+  tone?: string;
+  target_audience?: string;
   user_instruction?: string;
   items?: ContentPackItem[];
   item_counts?: Record<string, number>;
   approved_at?: string;
+  selected_platforms?: OutputPlatform[];
+  telemetry?: ContentPackTelemetry;
   created_at: string;
   updated_at: string;
 }
@@ -4341,4 +4405,45 @@ export interface AcceptInvitationDTO {
 export interface DeclineInvitationDTO {
   token: string;
 }
+
+
+export interface SubtitleStyleConfig {
+  preset?: string;
+  fontFamily?: string;
+  fontSize?: number;
+  fontWeight?: string | number;
+  textColor?: string;
+  highlightColor?: string;
+  boxEnabled?: boolean;
+  boxColor?: string;
+  boxOpacity?: number;
+  boxPadding?: number;
+  alignment?: 'left' | 'center' | 'right';
+  position?: 'top' | 'middle' | 'bottom';
+  positionY?: number;
+  strokeEnabled?: boolean;
+  strokeColor?: string;
+  strokeWidth?: number;
+  shadowEnabled?: boolean;
+  shadowColor?: string;
+  shadowDepth?: number;
+  shadowOpacity?: number;
+  uppercase?: boolean;
+  maxWordsPerLine?: number;
+  animation?: 'none' | 'pop' | 'karaoke' | 'bounce';
+}
+
+export interface SubtitleProjectRecord extends ProjectRecord {
+  project_type: 'subtitles' | 'clipping';
+  subtitle_cues?: TimedCaptionCue[];
+  subtitle_style?: SubtitleStyleConfig;
+  subtitle_export_status?: 'idle' | 'rendering' | 'ready' | 'failed';
+  subtitle_export_progress?: number;
+  subtitle_export_stage?: string;
+  subtitle_export_path?: string | null;
+  subtitle_export_error?: string | null;
+}
+
+export * from './credits.js';
+export * from './videoIntelligence.js';
 

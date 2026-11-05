@@ -28,7 +28,7 @@ export class VideoSceneService {
       if (fs.existsSync(ffmpegStaticPath)) return ffmpegStaticPath;
       const ffmpegStaticUnix = path.resolve(process.cwd(), 'node_modules/ffmpeg-static/ffmpeg');
       if (fs.existsSync(ffmpegStaticUnix)) return ffmpegStaticUnix;
-    } catch {}
+    } catch { }
 
     const candidates = [
       '/opt/homebrew/bin/ffmpeg',
@@ -51,28 +51,29 @@ export class VideoSceneService {
   public static async detectSceneCuts(
     videoPath: string,
     threshold = 0.25,
-    timeoutMs = 90000
+    timeoutMs?: number
   ): Promise<VideoSceneCut[]> {
     if (!fs.existsSync(videoPath)) {
       throw new Error(`Video file not found for scene cut detection: ${videoPath}`);
     }
 
     const ffmpegBin = this.getFfmpegPath();
+    const nullSink = process.platform === 'win32' ? 'NUL' : '-';
     const args = [
       '-nostdin',
       '-hide_banner',
       '-i',
       videoPath,
       '-vf',
-      `select='gt(scene,${threshold})',metadata=print:key=lavfi.scene_score`,
+      `select=gt(scene\\,${threshold}),metadata=print:key=lavfi.scene_score`,
       '-f',
       'null',
-      '-',
+      nullSink,
     ];
 
     try {
       const { stderr } = await execFileAsync(ffmpegBin, args, {
-        timeout: timeoutMs,
+        timeout: timeoutMs ?? 90000,
         maxBuffer: 20 * 1024 * 1024,
       });
 

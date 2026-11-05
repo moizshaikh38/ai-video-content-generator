@@ -278,7 +278,7 @@ describe('Caption ↔ audio synchronisation on real media', () => {
     //    for the same reason. Output seeking would feed the ass filter un-rebased source
     //    timestamps and the captions would never appear.
     const clipPath = path.join(tempDir, 'rendered.mp4');
-    const safeAss = assPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+    const safeAss = assPath.replace(/\\/g, '/').replace(/:/g, '\\\\:');
     const durationSec = Number((CLIP_END_SEC - CLIP_START_SEC).toFixed(3));
     await runFfmpeg([
       '-y', '-loglevel', 'error',

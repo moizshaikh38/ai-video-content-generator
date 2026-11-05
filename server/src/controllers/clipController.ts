@@ -1,4 +1,4 @@
-import { isMongoConfigured } from '../db/mongoClient.js';
+import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { Response } from 'express';
 import { AuthenticatedRequest, isValidUUID, ClipCandidateStatus, ClipAspectRatio, ClipEditorUpdateDTO } from '../types/index.js';
@@ -11,6 +11,7 @@ import { SmartReframeService, activeReframeAnalysisSet } from '../services/smart
 import { ProducerPlanningService } from '../services/producerPlanningService.js';
 import { ProducerRenderService } from '../services/producerRenderService.js';
 import { GenreIntelligenceService } from '../services/genreIntelligenceService.js';
+import { EntitlementService } from '../services/entitlementService.js';
 
 import { logger } from '../utils/logger.js';
 import { ClipPosterService } from '../services/clipPosterService.js';
@@ -303,7 +304,14 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
   // Default to smart framing: renders auto-generate the active-speaker track
     // (see ClipRenderService.ensureReframeTrackAtRender); 'center' stays
     // available via an explicit request.
-    const { candidateId, aspectRatio = '9:16', cropMode = 'smart' } = req.body || {};
+    const {
+    candidateId,
+    aspectRatio = '9:16',
+    cropMode = 'smart',
+    caption_enabled,
+    caption_style,
+    caption_config,
+  } = req.body || {};
 
   if (!candidateId || !isValidUUID(candidateId)) {
     res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid candidate UUID is required.' });
@@ -321,12 +329,56 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
   }
 
   try {
+    // Check monthly clip render limit against plan entitlement
+    const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
+    if (!entitlements.isUnlimited) {
+      const db = await getMongoDb();
+      const currentMonthStart = new Date();
+      currentMonthStart.setUTCDate(1);
+      currentMonthStart.setUTCHours(0, 0, 0, 0);
+
+      const renderCount = await db.collection('render_jobs').countDocuments({
+        user_id: userId,
+        $or: [
+          { created_at: { $gte: currentMonthStart } },
+          { created_at: { $gte: currentMonthStart.toISOString() } },
+        ],
+      });
+
+      if (renderCount >= entitlements.limits.maxClipRenders) {
+        res.status(403).json({
+          status: 'error',
+          code: 'MONTHLY_RENDER_LIMIT_EXCEEDED',
+          message: `Your ${entitlements.displayName} plan allows up to ${entitlements.limits.maxClipRenders} clip renders per month. Please upgrade your plan to render more clips.`,
+          limit: entitlements.limits.maxClipRenders,
+          current: renderCount,
+        });
+        return;
+      }
+    }
+
+    // Fall back gracefully from 'smart' to 'center' crop if plan does not include Smart Reframe
+    if (caption_style && !EntitlementService.isPresetAllowed(entitlements, String(caption_style))) {
+      res.status(403).json({
+        status: 'error',
+        code: 'PRESET_RESTRICTED',
+        message: `The subtitle preset "${caption_style}" is not available on your current ${entitlements.displayName} plan. Please upgrade to access this preset.`,
+        preset: caption_style,
+        allowedPresets: entitlements.allowedSubtitlePresets,
+      });
+      return;
+    }
+
+    const hasSmartReframe = EntitlementService.isFeatureAllowed(entitlements, 'smartReframe');
+    const effectiveCropMode = cropMode === 'smart' && !hasSmartReframe ? 'center' : cropMode;
+
     const result = await ClipRenderService.createClipFromCandidate(
       projectId,
       userId,
       candidateId,
       aspectRatio,
-      cropMode
+      effectiveCropMode,
+      { caption_enabled, caption_style, caption_config }
     );
 
     res.status(202).json({
@@ -466,6 +518,34 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
   }
 
   try {
+    // Check monthly clip render limit against plan entitlement
+    const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
+    if (!entitlements.isUnlimited) {
+      const db = await getMongoDb();
+      const currentMonthStart = new Date();
+      currentMonthStart.setUTCDate(1);
+      currentMonthStart.setUTCHours(0, 0, 0, 0);
+
+      const renderCount = await db.collection('render_jobs').countDocuments({
+        user_id: userId,
+        $or: [
+          { created_at: { $gte: currentMonthStart } },
+          { created_at: { $gte: currentMonthStart.toISOString() } },
+        ],
+      });
+
+      if (renderCount >= entitlements.limits.maxClipRenders) {
+        res.status(403).json({
+          status: 'error',
+          code: 'MONTHLY_RENDER_LIMIT_EXCEEDED',
+          message: `Your ${entitlements.displayName} plan allows up to ${entitlements.limits.maxClipRenders} clip renders per month. Please upgrade your plan to render more clips.`,
+          limit: entitlements.limits.maxClipRenders,
+          current: renderCount,
+        });
+        return;
+      }
+    }
+
     const clip = await ClipRenderService.getClip(clipId, userId);
 
     if (isClipRenderActive(clipId)) {
@@ -477,16 +557,36 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
       return;
     }
 
+    // Commercial gate: validate subtitle preset entitlement
+    const targetPreset = req.body?.caption_style || clip.caption_style;
+    if (targetPreset && !EntitlementService.isPresetAllowed(entitlements, String(targetPreset))) {
+      res.status(403).json({
+        status: 'error',
+        code: 'PRESET_RESTRICTED',
+        message: `The subtitle preset "${targetPreset}" is not available on your current ${entitlements.displayName} plan. Please upgrade to access this preset.`,
+        preset: targetPreset,
+        allowedPresets: entitlements.allowedSubtitlePresets,
+      });
+      return;
+    }
+
     const nextRenderVersion = Number(clip.render_version || 1) + 1;
 
-    // Increment render version and queue clip
+    // Increment render version and queue clip with optional subtitle setting update
+    const clipUpdate: Record<string, any> = {
+      render_version: nextRenderVersion,
+      render_status: 'queued',
+      updated_at: new Date().toISOString(),
+    };
+    if (req.body?.caption_enabled !== undefined) {
+      clipUpdate.caption_enabled = Boolean(req.body.caption_enabled);
+    }
+    if (req.body?.caption_style) {
+      clipUpdate.caption_style = String(req.body.caption_style);
+    }
     await dataRepository
       .from('clips')
-      .update({
-        render_version: nextRenderVersion,
-        render_status: 'queued',
-        updated_at: new Date().toISOString(),
-      })
+      .update(clipUpdate)
       .eq('id', clipId);
 
     // Create a new render job row for tracking
@@ -588,7 +688,7 @@ export const getClipPreviewUrl = async (req: AuthenticatedRequest, res: Response
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';
     const status =
-      code === 'CLIP_NOT_FOUND' ? 404 : code === 'CLIP_NOT_READY' ? 400 : 500;
+      code === 'CLIP_NOT_FOUND' ? 404 : code === 'CLIP_NOT_READY' ? 400 : code === 'WATERMARK_REQUIRED_RERENDER' ? 403 : 500;
     res.status(status).json({
       status: 'error',
       code,
@@ -624,7 +724,7 @@ export const getClipDownloadUrl = async (req: AuthenticatedRequest, res: Respons
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';
     const status =
-      code === 'CLIP_NOT_FOUND' ? 404 : code === 'CLIP_NOT_READY' ? 400 : 500;
+      code === 'CLIP_NOT_FOUND' ? 404 : code === 'CLIP_NOT_READY' ? 400 : code === 'WATERMARK_REQUIRED_RERENDER' ? 403 : 500;
     res.status(status).json({
       status: 'error',
       code,
@@ -840,6 +940,20 @@ export const updateClipEditor = async (req: AuthenticatedRequest, res: Response)
   }
 
   try {
+    if (req.body.captionStyle) {
+      const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
+      if (!EntitlementService.isPresetAllowed(entitlements, String(req.body.captionStyle))) {
+        res.status(403).json({
+          status: 'error',
+          code: 'PRESET_RESTRICTED',
+          message: `The subtitle preset "${req.body.captionStyle}" is not available on your current ${entitlements.displayName} plan. Please upgrade to access this preset.`,
+          preset: req.body.captionStyle,
+          allowedPresets: entitlements.allowedSubtitlePresets,
+        });
+        return;
+      }
+    }
+
     const updated = await ClipRenderService.updateClipEditorConfig(
       clipId,
       userId,
@@ -1006,6 +1120,19 @@ export const analyzeClipReframe = async (req: AuthenticatedRequest, res: Respons
 
   if (!config.smartReframeEnabled) {
     res.status(503).json({ status: 'error', code: 'REFRAME_UNAVAILABLE', message: 'Smart Reframe is not enabled on this server.' });
+    return;
+  }
+
+  // Entitlement verification for Smart Reframe feature
+  const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
+  if (!EntitlementService.isFeatureAllowed(entitlements, 'smartReframe')) {
+    res.status(403).json({
+      status: 'error',
+      code: 'FEATURE_NOT_PERMITTED',
+      message: `Smart Reframe is not available on your current plan (${entitlements.displayName}). Please upgrade your plan to unlock Smart Reframe.`,
+      feature: 'smartReframe',
+      plan: entitlements.displayName,
+    });
     return;
   }
 
