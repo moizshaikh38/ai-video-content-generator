@@ -50,4 +50,4 @@ See the `docs/` folder (deployment, production checklist, editor, hook lab, auto
 
 ## License
 
-No license has been granted for this repository. Contact the repository owner for permission to use the code.
+This repository does not include a project license file, and the owner has not stated a license for it. Third-party material keeps its own license: for example `.agents/skills/ui-styling/` includes an Apache-2.0 `LICENSE.txt`, and npm dependencies keep their own licenses. Contact the repository owner about use of the project code.
