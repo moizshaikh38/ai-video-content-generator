@@ -51,6 +51,25 @@ export async function getMongoClient(): Promise<MongoClient> {
   return client;
 }
 
+/**
+ * Asserts that the connected MongoDB cluster supports multi-document transactions
+ * (Replica Set or mongos sharded cluster). Standalone MongoDB fails closed.
+ */
+export async function assertTransactionalTopology(candidateClient?: MongoClient): Promise<void> {
+  const mongoClient = candidateClient ?? (await getMongoClient());
+  const adminDb = mongoClient.db('admin');
+  const hello = await adminDb.command({ hello: 1 }).catch(() => adminDb.command({ isMaster: 1 }));
+  const isReplSet = Boolean(hello.setName);
+  const isMongos = hello.msg === 'isdbgrid';
+  if (!isReplSet && !isMongos) {
+    throw new AppError(
+      'Financial operations require a transactional MongoDB topology (Replica Set or mongos). Standalone MongoDB is not supported for financial credit transactions.',
+      503,
+      'TRANSACTIONAL_TOPOLOGY_REQUIRED'
+    );
+  }
+}
+
 export async function closeMongo(force = true): Promise<void> {
   const current = client;
   client = null;

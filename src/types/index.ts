@@ -2157,7 +2157,10 @@ export type ContentPackProviderState =
   | 'TEMP_UNAVAILABLE'
   | 'ERROR';
 
+export type ContentPackSourceType = 'clip' | 'project' | 'upload' | 'transcript';
+
 export interface ContentPackSource {
+  source_type?: ContentPackSourceType;
   transcript_source?: string;
   source_language?: string;
   clip_start?: number;
@@ -2198,8 +2201,9 @@ export interface ContentPack {
   id: string;
   user_id: string;
   workspace_id?: string;
-  project_id: string;
-  clip_id: string;
+  project_id?: string;
+  clip_id?: string;
+  source_type?: ContentPackSourceType;
   brand_brain_id?: string;
   brand_brain_version?: number;
   source: ContentPackSource;

@@ -1002,6 +1002,8 @@ export interface PublishPreviewResult {
     supported_media_formats: string[];
     max_video_duration_seconds?: number;
     max_video_size_bytes?: number;
+    supports_video?: boolean;
+    supports_text_only?: boolean;
   };
   normalized_payload: PublishPayload;
   media_metadata?: {

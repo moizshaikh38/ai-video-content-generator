@@ -1,5 +1,5 @@
 import { SocialPlatform } from '../../types/index.js';
-import { SocialPublishingProvider } from './types.js';
+import { SocialPublishingProvider, PlatformPublishCapabilities } from './types.js';
 import { YouTubePublishingProvider } from './providers/youtubePublishingProvider.js';
 import { InstagramPublishingProvider } from './providers/instagramPublishingProvider.js';
 import { TikTokPublishingProvider } from './providers/tiktokPublishingProvider.js';
@@ -30,9 +30,18 @@ class SocialPublishingRegistry {
     return provider;
   }
 
+  getAllCapabilities(): Record<SocialPlatform, PlatformPublishCapabilities> {
+    const caps: Partial<Record<SocialPlatform, PlatformPublishCapabilities>> = {};
+    for (const [platform, provider] of this.providers.entries()) {
+      caps[platform] = provider.getCapabilities();
+    }
+    return caps as Record<SocialPlatform, PlatformPublishCapabilities>;
+  }
+
   hasProvider(platform: string): platform is SocialPlatform {
     return this.providers.has(platform as SocialPlatform);
   }
 }
 
 export const socialPublishingRegistry = new SocialPublishingRegistry();
+

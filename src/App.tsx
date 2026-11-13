@@ -21,6 +21,7 @@ const BillingPage = React.lazy(() => import('./pages/BillingPage').then(m => ({ 
 const ClipEditorPage = React.lazy(() => import('./pages/ClipEditorPage').then(m => ({ default: m.ClipEditorPage })));
 const AdminPage = React.lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
 const SubtitleStudioPage = React.lazy(() => import('./pages/SubtitleStudioPage').then(m => ({ default: m.SubtitleStudioPage })));
+const ContentStudioPage = React.lazy(() => import('./pages/ContentStudioPage').then(m => ({ default: m.ContentStudioPage })));
 const ABStudioHistoryPage = React.lazy(() => import('./pages/ABStudioHistoryPage').then(m => ({ default: m.ABStudioHistoryPage })));
 const WorkflowPage = React.lazy(() => import('./pages/WorkflowPage').then(m => ({ default: m.WorkflowPage })));
 const WorkspacePage = React.lazy(() => import('./pages/WorkspacePage').then(m => ({ default: m.WorkspacePage })));
@@ -67,6 +68,8 @@ export const App: React.FC = () => {
               <Route path="/projects/new" element={<CreateClipsRedirect />} />
               <Route path="/subtitles" element={<SubtitleStudioPage />} />
               <Route path="/subtitles/:id" element={<SubtitleStudioPage />} />
+              <Route path="/studio" element={<ContentStudioPage />} />
+              <Route path="/studio/:id" element={<ContentStudioPage />} />
               <Route path="/new" element={<CreateClipsRedirect />} />
               <Route path="/projects/:id" element={<ProjectDetailPage />} />
               <Route path="/history" element={<HistoryPage />} />

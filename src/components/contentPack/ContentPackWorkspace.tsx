@@ -21,6 +21,7 @@ import {
   MessageSquare,
   Image as ImageIcon,
   Bookmark,
+  Download,
 } from 'lucide-react';
 import { Button } from '../Button';
 import { Input } from '../Input';
@@ -37,27 +38,33 @@ import {
 import { contentPackService } from '../../services/contentPackService';
 
 export interface ContentPackWorkspaceProps {
-  projectId: string;
-  clipId: string;
+  projectId?: string;
+  clipId?: string;
+  initialPackId?: string;
+  initialPack?: ContentPack | null;
   clipTitle?: string;
   clipDurationSeconds?: number;
   onClose?: () => void;
   onOpenHookLab?: (hookText?: string) => void;
   onOpenThumbnailLab?: () => void;
+  onPackUpdated?: (pack: ContentPack) => void;
 }
 
 export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
   projectId,
   clipId,
+  initialPackId,
+  initialPack = null,
   clipTitle = 'Approved Clip',
   clipDurationSeconds = 30,
   onClose,
   onOpenHookLab,
   onOpenThumbnailLab,
+  onPackUpdated,
 }) => {
 
-  const [pack, setPack] = useState<ContentPack | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [pack, setPack] = useState<ContentPack | null>(initialPack);
+  const [loading, setLoading] = useState(!initialPack && Boolean(initialPackId || (projectId && clipId)));
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -86,20 +93,38 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
   // Section collapse state
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
+  // Export dropdown state
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+
   useEffect(() => {
+    if (initialPack) {
+      setPack(initialPack);
+      setLoading(false);
+      return;
+    }
     loadPack();
-  }, [projectId, clipId]);
+  }, [projectId, clipId, initialPackId, initialPack]);
 
   const loadPack = async () => {
+    if (!initialPackId && (!projectId || !clipId)) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const existing = await contentPackService.listPacksForClip(projectId, clipId);
-      if (existing && existing.length > 0) {
-        const fullPack = await contentPackService.getContentPack(existing[0].id);
+      if (initialPackId) {
+        const fullPack = await contentPackService.getContentPack(initialPackId);
         setPack(fullPack);
-      } else {
-        setPack(null);
+      } else if (projectId && clipId) {
+        const existing = await contentPackService.listPacksForClip(projectId, clipId);
+        if (existing && existing.length > 0) {
+          const fullPack = await contentPackService.getContentPack(existing[0].id);
+          setPack(fullPack);
+        } else {
+          setPack(null);
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load content packs.');
@@ -121,6 +146,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
         user_instruction: userInstruction.trim() || undefined,
       });
       setPack(newPack);
+      onPackUpdated?.(newPack);
     } catch (err: any) {
       setError(err.message || 'Failed to generate Content Pack.');
     } finally {
@@ -211,6 +237,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
         userInstruction.trim() || undefined
       );
       setPack(refreshed);
+      onPackUpdated?.(refreshed);
     } catch (err: any) {
       setError(err.message || 'Failed to regenerate pack.');
     } finally {
@@ -223,6 +250,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
     try {
       const approved = await contentPackService.approvePack(pack.id);
       setPack(approved);
+      onPackUpdated?.(approved);
     } catch (err: any) {
       setError(err.message || 'Failed to approve pack.');
     }
@@ -234,11 +262,25 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
     try {
       const translated = await contentPackService.translatePack(pack.id, translatingLanguage.trim());
       setPack(translated);
+      onPackUpdated?.(translated);
       setTranslatingLanguage('');
     } catch (err: any) {
       setError(err.message || 'Failed to translate pack.');
     } finally {
       setIsTranslating(false);
+    }
+  };
+
+  const handleExportSingle = async (format: 'json' | 'markdown' | 'csv') => {
+    if (!pack) return;
+    setIsExporting(true);
+    setExportDropdownOpen(false);
+    try {
+      await contentPackService.batchExportPacks([pack.id], format);
+    } catch (err: any) {
+      setError(err.message || 'Failed to export Content Pack.');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -364,6 +406,45 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
                 <RefreshCw className={`size-3.5 mr-1 ${generating ? 'animate-spin' : ''}`} />
                 Regenerate Unlocked
               </Button>
+              {/* Single Pack Export Dropdown */}
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs border-violet-500/40 text-violet-300 hover:bg-violet-500/10"
+                  onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
+                  disabled={isExporting}
+                >
+                  <Download className={`size-3.5 mr-1 ${isExporting ? 'animate-bounce' : ''}`} />
+                  Export
+                  <ChevronDown className="size-3 ml-1 opacity-70" />
+                </Button>
+                {exportDropdownOpen && (
+                  <div className="absolute right-0 mt-1 w-36 rounded-xl bg-popover/95 border border-border shadow-xl py-1 z-50 text-xs backdrop-blur-md">
+                    <button
+                      onClick={() => handleExportSingle('json')}
+                      className="w-full text-left px-3 py-1.5 hover:bg-violet-500/10 hover:text-violet-300 transition-colors flex items-center justify-between"
+                    >
+                      <span>JSON Bundle</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">.json</span>
+                    </button>
+                    <button
+                      onClick={() => handleExportSingle('markdown')}
+                      className="w-full text-left px-3 py-1.5 hover:bg-violet-500/10 hover:text-violet-300 transition-colors flex items-center justify-between"
+                    >
+                      <span>Markdown</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">.md</span>
+                    </button>
+                    <button
+                      onClick={() => handleExportSingle('csv')}
+                      className="w-full text-left px-3 py-1.5 hover:bg-violet-500/10 hover:text-violet-300 transition-colors flex items-center justify-between"
+                    >
+                      <span>CSV Sheet</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">.csv</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </>
           )}
           {onClose && (
@@ -853,8 +934,8 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
         <PublishModal
           isOpen={publishModalOpen}
           onClose={() => setPublishModalOpen(false)}
-          projectId={projectId}
-          clipId={clipId}
+          projectId={projectId || pack?.project_id || ''}
+          clipId={clipId || pack?.clip_id}
           initialTitle={publishPayload.title}
           initialCaption={publishPayload.caption}
           initialTags={publishPayload.tags}

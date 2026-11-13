@@ -1,5 +1,6 @@
 import { Db } from 'mongodb';
 import { getMongoDb } from './mongoClient.js';
+import { logger } from '../utils/logger.js';
 
 const UUID_PATTERN = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$';
 
@@ -20,9 +21,114 @@ const collections = [
   'credit_wallets',
   'credit_transactions',
   'credit_reservations',
+  'outbox_events',
+  'user_concurrency_slots',
+  'idempotency_keys',
   'video_intelligence',
+  'project_upload_attempts',
 ] as const;
 
+// Phase 4B.3: Bounded Wallet Schema Definition (Strict JSON Schema, Zero Unbounded Arrays)
+export const WALLET_COLLECTION_JSON_SCHEMA = {
+  bsonType: 'object',
+  required: [
+    'id', 'user_id', 'available_credits', 'reserved_credits',
+    'lifetime_granted', 'lifetime_consumed', 'period_granted', 'period_consumed',
+    'billing_period', 'reset_date', 'status', 'version', 'created_at', 'updated_at'
+  ],
+  additionalProperties: false,
+  properties: {
+    _id: { bsonType: ['objectId', 'string'], maxLength: 36 },
+    id: { bsonType: 'string', maxLength: 36 },
+    user_id: { bsonType: 'string', maxLength: 36 },
+    workspace_id: { bsonType: ['string', 'null'], maxLength: 36 },
+    available_credits: { bsonType: ['int', 'long', 'double'], minimum: 0, maximum: 9007199254740991, multipleOf: 1 },
+    reserved_credits: { bsonType: ['int', 'long', 'double'], minimum: 0, maximum: 9007199254740991, multipleOf: 1 },
+    lifetime_granted: { bsonType: ['int', 'long', 'double'], minimum: 0, maximum: 9007199254740991, multipleOf: 1 },
+    lifetime_consumed: { bsonType: ['int', 'long', 'double'], minimum: 0, maximum: 9007199254740991, multipleOf: 1 },
+    period_granted: { bsonType: ['int', 'long', 'double'], minimum: 0, maximum: 9007199254740991, multipleOf: 1 },
+    period_consumed: { bsonType: ['int', 'long', 'double'], minimum: 0, maximum: 9007199254740991, multipleOf: 1 },
+    billing_period: { bsonType: 'string', maxLength: 7 },
+    reset_date: { bsonType: 'string', maxLength: 30 },
+    status: { enum: ['active', 'suspended', 'frozen'] },
+    version: { bsonType: ['int', 'long', 'double'], minimum: 1, maximum: 9007199254740991, multipleOf: 1 },
+    created_at: { bsonType: 'date' },
+    updated_at: { bsonType: 'date' },
+  },
+} as const;
+
+/**
+ * Reports whether the existing database collection validator for credit_wallets is current,
+ * outdated, or missing. Attempts non-destructive collMod if permitted by database user privileges.
+ */
+export async function auditWalletCollectionValidator(database: Db): Promise<{
+  status: 'CURRENT' | 'OUTDATED' | 'MISSING';
+  validationLevel?: string;
+  hasCollModPermission: boolean;
+  message: string;
+}> {
+  const collInfos = await database.listCollections({ name: 'credit_wallets' }).toArray();
+  if (collInfos.length === 0) {
+    return {
+      status: 'MISSING',
+      hasCollModPermission: true,
+      message: 'Collection credit_wallets does not exist yet; will be created with final schema.',
+    };
+  }
+
+  const collInfo = collInfos[0] as any;
+  const existingValidator = collInfo?.options?.validator;
+  const validationLevel = collInfo?.options?.validationLevel;
+
+  // Check if existing validator matches the bounded schema (checks required fields, additionalProperties, multipleOf: 1, max)
+  const isCurrent =
+    existingValidator?.$jsonSchema &&
+    existingValidator.$jsonSchema.additionalProperties === false &&
+    existingValidator.$jsonSchema.properties?.available_credits?.multipleOf === 1 &&
+    existingValidator.$jsonSchema.properties?.available_credits?.maximum === 9007199254740991 &&
+    existingValidator.$jsonSchema.properties?._id?.maxLength === 36;
+
+  if (isCurrent) {
+    logger.info('[BootstrapMongo] credit_wallets collection validator is CURRENT and enforced in strict mode.');
+    return {
+      status: 'CURRENT',
+      validationLevel,
+      hasCollModPermission: true,
+      message: 'Validator is current and enforced in strict mode.',
+    };
+  }
+
+  // Validator is outdated. Check if current database user has collMod privilege to upgrade it
+  let hasCollModPermission = false;
+  try {
+    await database.command({
+      collMod: 'credit_wallets',
+      validator: { $jsonSchema: WALLET_COLLECTION_JSON_SCHEMA },
+      validationLevel: 'strict',
+    });
+    hasCollModPermission = true;
+    logger.info('[BootstrapMongo] Successfully upgraded credit_wallets validator to final schema via collMod.');
+    return {
+      status: 'CURRENT',
+      validationLevel: 'strict',
+      hasCollModPermission: true,
+      message: 'Successfully upgraded credit_wallets validator via collMod.',
+    };
+  } catch (err: any) {
+    hasCollModPermission = false;
+    const warnMsg =
+      `[BootstrapMongo] ATTENTION: credit_wallets collection has an OUTDATED validator on MongoDB Atlas ` +
+      `(${err.message}). Application-level validation is ACTIVE and strictly enforcing bounded schema. ` +
+      `To update database-level enforcement, an operator with dbAdmin permissions must run the migration collMod command.`;
+    logger.warn(warnMsg);
+    return {
+      status: 'OUTDATED',
+      validationLevel,
+      hasCollModPermission: false,
+      message: warnMsg,
+    };
+  }
+}
 
 /** Idempotent index/bootstrap setup. Run with an app DB user allowed to create indexes. */
 export async function bootstrapMongo(db?: Db): Promise<void> {
@@ -30,31 +136,57 @@ export async function bootstrapMongo(db?: Db): Promise<void> {
   const existing = new Set((await database.listCollections({}, { nameOnly: true }).toArray()).map((item) => item.name));
   for (const name of collections) {
     if (!existing.has(name)) {
-      const requiredFields = name === 'subscription_limits'
-        ? ['user_id', 'billing_period']
-        : name === 'billing_events'
-        ? ['id', 'provider', 'provider_event_id']
-        : ['id', 'user_id'];
+      if (name === 'credit_wallets') {
+        // Phase 4B.3: Bounded Wallet Schema Validation (Strict JSON Schema, Zero Unbounded Arrays)
+        await database.createCollection('credit_wallets', {
+          validator: {
+            $jsonSchema: WALLET_COLLECTION_JSON_SCHEMA,
+          },
+          validationLevel: 'strict',
+        });
+      } else {
+        const requiredFields = name === 'subscription_limits'
+          ? ['user_id', 'billing_period']
+          : name === 'billing_events'
+          ? ['id', 'provider', 'provider_event_id']
+          : name === 'outbox_events' || name === 'user_concurrency_slots' || name === 'idempotency_keys'
+          ? ['_id', 'user_id']
+          : ['id', 'user_id'];
 
-      await database.createCollection(name, {
-        validator: {
-          $jsonSchema: {
-            bsonType: 'object',
-            required: requiredFields,
-            properties: {
-              id: { bsonType: 'string', pattern: UUID_PATTERN },
-              user_id: { bsonType: 'string', pattern: UUID_PATTERN },
-              project_id: { bsonType: 'string', pattern: UUID_PATTERN },
-              clip_id: { bsonType: 'string', pattern: UUID_PATTERN },
-              created_at: { bsonType: 'date' },
-              updated_at: { bsonType: 'date' },
+        await database.createCollection(name, {
+          validator: {
+            $jsonSchema: {
+              bsonType: 'object',
+              required: requiredFields,
+              properties: {
+                id: { bsonType: 'string' },
+                user_id: { bsonType: 'string' },
+                project_id: { bsonType: 'string' },
+                clip_id: { bsonType: 'string' },
+                created_at: { bsonType: 'date' },
+                updated_at: { bsonType: 'date' },
+              },
             },
           },
-        },
-        validationLevel: 'strict',
-      });
+          validationLevel: 'moderate',
+        });
+      }
     }
   }
+
+  // If credit_wallets already exists, audit whether its validator is current or outdated
+  if (existing.has('credit_wallets')) {
+    await auditWalletCollectionValidator(database);
+  }
+
+  // Safe, non-destructive migration: backfill canonical idempotency field aliases
+  await database
+    .collection('idempotency_keys')
+    .updateMany(
+      { $or: [{ operation_id: { $exists: false } }, { attempt_id: { $exists: false } }] },
+      [{ $set: { operation_id: '$operation_type', attempt_id: '$client_key' } }]
+    )
+    .catch(() => undefined);
 
   await Promise.all([
     database.collection('profiles').createIndex({ user_id: 1 }, { unique: true }),
@@ -281,23 +413,53 @@ export async function bootstrapMongo(db?: Db): Promise<void> {
     database.collection('workspace_invitations').createIndex({ token_hash: 1 }, { unique: true }),
     database.collection('workspace_invitations').createIndex({ workspace_id: 1, status: 1 }),
     database.collection('workspace_invitations').createIndex({ expires_at: 1 }),
-    // Unified Credit System indexes
+
+    // ── Phase 4B.3 Unified Financial Credit System Indexes ───────────────
     database.collection('credit_wallets').createIndex({ id: 1 }, { unique: true }),
     database.collection('credit_wallets').createIndex({ user_id: 1 }, { unique: true }),
     database.collection('credit_wallets').createIndex({ workspace_id: 1 }),
+
     database.collection('credit_transactions').createIndex({ id: 1 }, { unique: true }),
     database.collection('credit_transactions').createIndex({ wallet_id: 1, created_at: -1 }),
     database.collection('credit_transactions').createIndex({ user_id: 1, created_at: -1 }),
     database.collection('credit_transactions').createIndex({ idempotency_key: 1 }, { unique: true }),
+    database.collection('credit_transactions').createIndex({ attempt_id: 1 }),
+
     database.collection('credit_reservations').createIndex({ id: 1 }, { unique: true }),
     database.collection('credit_reservations').createIndex({ attempt_id: 1 }, { unique: true }),
     database.collection('credit_reservations').createIndex({ wallet_id: 1, status: 1 }),
     database.collection('credit_reservations').createIndex({ expires_at: 1 }),
+    database.collection('credit_reservations').createIndex({ user_id: 1, status: 1 }),
+    database.collection('credit_reservations').createIndex({ status: 1, worker_leased_until: 1 }),
+
+    // Phase 4B.3 Transactional Outbox indexes
+    database.collection('outbox_events').createIndex({ status: 1, next_attempt_at: 1 }),
+    database.collection('outbox_events').createIndex({ status: 1, dispatcher_leased_until: 1 }),
+    database.collection('outbox_events').createIndex({ user_id: 1, created_at: -1 }),
+
+    // Phase 4B.3 Distributed Concurrency Slot indexes
+    database.collection('user_concurrency_slots').createIndex({ user_id: 1, slot_number: 1 }, { unique: true }),
+    database.collection('user_concurrency_slots').createIndex({ user_id: 1, status: 1, leased_until: 1 }),
+
+    // Phase 4B.3 Tenant-Scoped Idempotency indexes
+    database.collection('idempotency_keys').createIndex(
+      { user_id: 1, operation_type: 1, client_key: 1 },
+      { unique: true, name: 'user_id_1_operation_type_1_client_key_1' }
+    ),
+    database.collection('idempotency_keys').createIndex({ user_id: 1, created_at: -1 }),
+    database.collection('idempotency_keys').createIndex({ status: 1, reconciliation_leased_until: 1 }),
+
     // Shared Video Intelligence Engine indexes (Phase 2)
     database.collection('video_intelligence').createIndex({ id: 1 }, { unique: true }),
     database.collection('video_intelligence').createIndex({ user_id: 1, source_hash: 1 }, { unique: true }),
     database.collection('video_intelligence').createIndex({ user_id: 1, created_at: -1 }),
     database.collection('video_intelligence').createIndex({ source_hash: 1 }),
     database.collection('video_intelligence').createIndex({ status: 1, locked_at: 1 }),
+
+    // Phase 4B.4 Upload Lifecycle & Orphan Prevention indexes
+    database.collection('project_upload_attempts').createIndex({ id: 1 }, { unique: true }),
+    database.collection('project_upload_attempts').createIndex({ project_id: 1, user_id: 1 }),
+    database.collection('project_upload_attempts').createIndex({ object_key: 1 }, { unique: true }),
+    database.collection('project_upload_attempts').createIndex({ user_id: 1, status: 1, expires_at: 1 }),
   ]);
 }

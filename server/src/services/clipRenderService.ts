@@ -1,6 +1,6 @@
 import { createClipWithJob } from '../db/repositories/clipRepository.js';
 import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
-import { dataRepository } from '../db/repositories/dataRepository.js';
+import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -75,10 +75,12 @@ export function launchInlineRender(clipId: string, userId: string, jobId: string
     logger.warn(`[ClipRender] Inline render deferred to background sweep for clip ${clipId} (concurrency cap ${maxConcurrentRenders()} reached)`);
     return false;
   }
-  ClipRenderService.renderClipJob(clipId, userId, jobId).catch((renderErr) => {
-    logger.error('Background clip rendering caught top-level error', {
-      clipId,
-      error: renderErr instanceof Error ? renderErr.message : String(renderErr),
+  ownerContext.run(userId, () => {
+    ClipRenderService.renderClipJob(clipId, userId, jobId).catch((renderErr) => {
+      logger.error('Background clip rendering caught top-level error', {
+        clipId,
+        error: renderErr instanceof Error ? renderErr.message : String(renderErr),
+      });
     });
   });
   return true;
@@ -1197,11 +1199,122 @@ export class ClipRenderService {
 
     if (!dueJob) return 0;
 
+    // Invariant check: job must have a valid string owner identity
+    if (!dueJob.user_id || typeof dueJob.user_id !== 'string') {
+      logger.error(`[ClipRender] Invariant violation: render job ${dueJob.id} is missing a valid user_id`);
+      await db.collection('render_jobs').updateOne(
+        {
+          id: dueJob.id,
+          status: 'queued',
+          worker_id: null,
+          locked_at: null,
+        },
+        {
+          $set: {
+            status: 'failed',
+            stage: 'failed',
+            error_code: 'INVALID_OWNER_ID',
+            error_message: 'Job cannot be processed: missing or invalid owner context.',
+            updated_at: new Date(),
+          },
+        }
+      );
+      return 1;
+    }
+
     try {
-      await this.renderClipJob(dueJob.clip_id, dueJob.user_id, dueJob.id);
+      // Part 1: Propagate authenticated owner context using trusted persisted owner ID
+      await ownerContext.run(dueJob.user_id, async () => {
+        await this.renderClipJob(dueJob.clip_id, dueJob.user_id, dueJob.id);
+      });
       return 1;
     } catch (err: any) {
-      logger.warn(`[ClipRender] Error processing due render job ${dueJob.id}: ${err.message}`);
+      const code = err.code || 'RENDER_FAILED';
+      const rawMessage = err.message || 'Render processing failed.';
+      logger.warn(`[ClipRender] Error processing due render job ${dueJob.id}: ${rawMessage}`, {
+        jobId: dueJob.id,
+        clipId: dueJob.clip_id,
+        userId: dueJob.user_id,
+        code,
+      });
+
+      // Part 2: Permanent pre-lease failure handling
+      if (code === 'CLIP_NOT_FOUND') {
+        const safeMessage = JobReliabilityService.sanitizeErrorMessage(rawMessage);
+        // Atomic conditional update: matches job ID, owner ID, expected queued status and ensures
+        // we never overwrite a job already claimed (worker_id != null or status != queued) by another worker.
+        await db.collection('render_jobs').updateOne(
+          {
+            id: dueJob.id,
+            user_id: dueJob.user_id,
+            status: 'queued',
+            worker_id: null,
+            locked_at: null,
+          },
+          {
+            $set: {
+              status: 'failed',
+              stage: 'failed',
+              error_code: 'CLIP_NOT_FOUND',
+              error_message: safeMessage,
+              updated_at: new Date(),
+            },
+          }
+        );
+      } else if (code === 'AUTH_REQUIRED') {
+        // Invariant violation: do not mark permanently failed; log for investigation
+        logger.error(`[ClipRender] Invariant violation: Authenticated owner context was not established for job ${dueJob.id} (user ${dueJob.user_id}): ${rawMessage}`);
+      } else if (code !== 'RENDER_ALREADY_ACTIVE') {
+        // Transient database/network errors: preserve existing retry and recovery behaviour
+        const isTransient = JobReliabilityService.isTransientError(err) ||
+          ['DATABASE_UNAVAILABLE', 'NETWORK_ERROR', 'RENDER_TIMEOUT'].includes(code);
+
+        if (isTransient) {
+          const attempts = dueJob.attempts || 0;
+          const maxAttempts = dueJob.max_attempts || 3;
+          if (attempts < maxAttempts) {
+            const delayMs = JobReliabilityService.computeBackoffDelayMs(attempts + 1, { baseDelayMs: 2000, maxDelayMs: 30000, jitter: true });
+            const nextRetryAt = new Date(Date.now() + delayMs);
+            await db.collection('render_jobs').updateOne(
+              {
+                id: dueJob.id,
+                user_id: dueJob.user_id,
+                status: 'queued',
+                worker_id: null,
+                locked_at: null,
+              },
+              {
+                $set: {
+                  next_retry_at: nextRetryAt,
+                  updated_at: new Date(),
+                },
+                $inc: { attempts: 1 },
+              }
+            );
+            logger.warn(`[ClipRender] Transient pre-lease failure for job ${dueJob.id}. Scheduled retry at ${nextRetryAt.toISOString()}`);
+          } else {
+            await db.collection('render_jobs').updateOne(
+              {
+                id: dueJob.id,
+                user_id: dueJob.user_id,
+                status: 'queued',
+                worker_id: null,
+                locked_at: null,
+              },
+              {
+                $set: {
+                  status: 'failed',
+                  stage: 'failed',
+                  error_code: code || 'MAX_ATTEMPTS_EXCEEDED',
+                  error_message: JobReliabilityService.sanitizeErrorMessage(rawMessage),
+                  updated_at: new Date(),
+                },
+              }
+            );
+          }
+        }
+      }
+
       return 1;
     }
   }

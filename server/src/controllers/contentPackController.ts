@@ -106,6 +106,70 @@ export class ContentPackController {
   }
 
   /**
+   * Retrieves version history snapshots for a Content Pack.
+   * GET /api/content-packs/:id/versions
+   */
+  public static async getVersionHistory(req: AuthenticatedRequest, res: Response): Promise<void> {
+    const userId = req.user?.id;
+    if (!userId) throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
+
+    const contentPackId = req.params.id;
+    const limit = Number(req.query.limit) || 20;
+    const offset = Number(req.query.offset) || 0;
+    const order = req.query.order === 'asc' ? 'asc' : 'desc';
+
+    const result = await ContentPackService.getVersionHistory(userId, contentPackId, {
+      limit,
+      offset,
+      order,
+    });
+
+    res.json({
+      status: 'ok',
+      data: result.versions,
+      pagination: {
+        total: result.total,
+        limit: result.limit,
+        offset: result.offset,
+      },
+    });
+  }
+
+  /**
+   * Batch Exports selected Content Packs with format serialization.
+   * POST /api/content-packs/batch-export
+   */
+  public static async batchExport(req: AuthenticatedRequest, res: Response): Promise<void> {
+    const userId = req.user?.id;
+    if (!userId) throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
+
+    const { pack_ids, format } = req.body || {};
+    const validFormats = ['json', 'markdown', 'csv'];
+    const chosenFormat = validFormats.includes(format) ? format : 'json';
+
+    const result = await ContentPackService.batchExportPacks(userId, pack_ids, chosenFormat);
+
+    // If caller requests download via query param or header, stream as attachment
+    if (req.query.download === 'true') {
+      res.setHeader('Content-Type', result.contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+      res.status(200).send(result.content);
+      return;
+    }
+
+    res.json({
+      status: 'ok',
+      data: {
+        filename: result.filename,
+        content_type: result.contentType,
+        content: result.content,
+        exported_count: result.exportedCount,
+        missing_ids: result.missingIds,
+      },
+    });
+  }
+
+  /**
    * Lists Content Packs for a clip.
    */
   public static async listPacksForClip(req: AuthenticatedRequest, res: Response): Promise<void> {

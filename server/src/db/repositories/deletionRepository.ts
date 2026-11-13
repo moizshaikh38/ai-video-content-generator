@@ -12,7 +12,7 @@ export async function deleteProjectRecords(userId: string, projectId: string): P
       const clips = await db.collection('clips').find({ user_id: userId, project_id: projectId }, { session })
         .project({ id: 1 }).toArray();
       const clipIds = clips.map((clip) => clip.id);
-      for (const name of ['transcripts', 'content_outputs', 'clip_candidates', 'clips', 'reframe_tracks']) {
+      for (const name of ['transcripts', 'content_outputs', 'clip_candidates', 'clips', 'reframe_tracks', 'project_upload_attempts']) {
         await db.collection(name).deleteMany({ user_id: userId, project_id: projectId }, { session });
       }
       if (clipIds.length) await db.collection('render_jobs').deleteMany({ user_id: userId, clip_id: { $in: clipIds } }, { session });

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 
 import { getMongoDb, closeMongo } from '../db/mongoClient.js';
-import { CreditRepository, getCurrentBillingPeriod } from '../db/repositories/creditRepository.js';
+import { CreditRepository, getCurrentBillingPeriod, buildCanonicalIdempotencyKey } from '../db/repositories/creditRepository.js';
 import { CreditPricingService } from '../services/billing/creditPricingService.js';
 import { CreditWalletService } from '../services/creditWalletService.js';
 
@@ -18,6 +18,7 @@ describe('VireoClip Phase B — Unified Credit System Foundation', () => {
     await db.collection('credit_wallets').deleteMany({ user_id: { $in: cleanupUserIds } });
     await db.collection('credit_transactions').deleteMany({ user_id: { $in: cleanupUserIds } });
     await db.collection('credit_reservations').deleteMany({ user_id: { $in: cleanupUserIds } });
+    await db.collection('idempotency_keys').deleteMany({ user_id: { $in: cleanupUserIds } });
   });
 
   after(async () => {
@@ -26,6 +27,7 @@ describe('VireoClip Phase B — Unified Credit System Foundation', () => {
       await db.collection('credit_wallets').deleteMany({ user_id: { $in: cleanupUserIds } });
       await db.collection('credit_transactions').deleteMany({ user_id: { $in: cleanupUserIds } });
       await db.collection('credit_reservations').deleteMany({ user_id: { $in: cleanupUserIds } });
+      await db.collection('idempotency_keys').deleteMany({ user_id: { $in: cleanupUserIds } });
     } finally {
       // Ensure MongoDB pool closes cleanly so test runner terminates immediately
       await closeMongo(true);
@@ -259,6 +261,20 @@ describe('VireoClip Phase B — Unified Credit System Foundation', () => {
       amount: 15,
       status: 'reserved',
       expires_at: new Date(Date.now() - 3600 * 1000), // 1 hour ago
+      created_at: new Date(Date.now() - 7200 * 1000),
+      updated_at: new Date(Date.now() - 7200 * 1000),
+    });
+
+    const canonicalKey = buildCanonicalIdempotencyKey(TEST_USER, 'abandoned_job', expiredAttemptId);
+    await db.collection('idempotency_keys').insertOne({
+      _id: canonicalKey,
+      user_id: TEST_USER,
+      operation_type: 'abandoned_job',
+      operation_id: 'abandoned_job',
+      client_key: expiredAttemptId,
+      attempt_id: expiredAttemptId,
+      request_payload_sha256: 'test_hash_fixture',
+      status: 'in_progress',
       created_at: new Date(Date.now() - 7200 * 1000),
       updated_at: new Date(Date.now() - 7200 * 1000),
     });

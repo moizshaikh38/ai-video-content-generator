@@ -49,7 +49,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { to: '/dashboard', label: 'Home', icon: LayoutDashboard },
       { to: '/subtitles', label: 'Subtitles', icon: Captions },
       { to: '/history?tab=projects', label: 'Video Projects', icon: Video },
-      { to: '/dashboard#studio', label: 'Content Studio', icon: Sparkles },
+      { to: '/studio', label: 'Content Studio', icon: Sparkles },
       { to: '/history?tab=clips', label: 'Media Library', icon: FolderClosed },
     ],
   },
@@ -233,8 +233,11 @@ export const DashboardLayout: React.FC = () => {
               )}
               {section.items.map((item) => {
                 const isExact = item.to === '/dashboard';
+                const isStudio = item.to === '/studio';
                 const isActive = isExact
                   ? location.pathname === '/dashboard' && !location.hash
+                  : isStudio
+                  ? location.pathname.startsWith('/studio')
                   : item.to.includes('#')
                   ? location.hash === item.to.replace('/dashboard', '')
                   : location.pathname.startsWith(item.to);
@@ -254,7 +257,7 @@ export const DashboardLayout: React.FC = () => {
                       collapsed ? 'justify-center' : ''
                     } ${
                       isActive
-                        ? item.to === '/dashboard#studio'
+                        ? isStudio
                           ? 'vireo-nav-active-ai font-semibold'
                           : 'vireo-nav-active font-semibold'
                         : 'text-vc-text-secondary hover:bg-white/[0.05] hover:text-vc-text-primary border border-transparent'

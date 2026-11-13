@@ -40,6 +40,72 @@ export interface PublishedPost {
   updated_at: string;
 }
 
+export interface PlatformPublishCapabilities {
+  supportsVideo: boolean;
+  supportsTextOnly: boolean;
+  maxTitleLength?: number;
+  maxDescriptionLength: number;
+  maxVideoDurationSeconds?: number;
+  maxVideoSizeBytes?: number;
+  supportedMediaFormats: string[];
+  supportsScheduling: boolean;
+  notes?: string;
+}
+
+export const DEFAULT_PLATFORM_CAPABILITIES: Record<SocialPlatform, PlatformPublishCapabilities> = {
+  youtube: {
+    supportsVideo: true,
+    supportsTextOnly: false,
+    maxTitleLength: 100,
+    maxDescriptionLength: 5000,
+    maxVideoDurationSeconds: 43200,
+    maxVideoSizeBytes: 256 * 1024 * 1024 * 1024,
+    supportedMediaFormats: ['mp4', 'mov', 'webm'],
+    supportsScheduling: true,
+    notes: 'Requires Google Cloud YouTube Data API v3 and youtube.upload scope.',
+  },
+  instagram: {
+    supportsVideo: true,
+    supportsTextOnly: false,
+    maxDescriptionLength: 2200,
+    maxVideoDurationSeconds: 900,
+    maxVideoSizeBytes: 1024 * 1024 * 1024,
+    supportedMediaFormats: ['mp4', 'mov'],
+    supportsScheduling: true,
+    notes: 'Requires Instagram Business/Creator Account connected to a Meta Page.',
+  },
+  tiktok: {
+    supportsVideo: true,
+    supportsTextOnly: false,
+    maxDescriptionLength: 2200,
+    maxVideoDurationSeconds: 600,
+    maxVideoSizeBytes: 500 * 1024 * 1024,
+    supportedMediaFormats: ['mp4', 'webm', 'mov'],
+    supportsScheduling: true,
+    notes: 'Requires TikTok Developer Login Kit and Content Posting API permissions.',
+  },
+  linkedin: {
+    supportsVideo: true,
+    supportsTextOnly: true,
+    maxDescriptionLength: 3000,
+    maxVideoDurationSeconds: 600,
+    maxVideoSizeBytes: 200 * 1024 * 1024,
+    supportedMediaFormats: ['mp4'],
+    supportsScheduling: true,
+    notes: 'Requires w_member_social scope.',
+  },
+  x: {
+    supportsVideo: true,
+    supportsTextOnly: true,
+    maxDescriptionLength: 280,
+    maxVideoDurationSeconds: 140,
+    maxVideoSizeBytes: 512 * 1024 * 1024,
+    supportedMediaFormats: ['mp4', 'mov'],
+    supportsScheduling: true,
+    notes: 'Requires X Developer Portal App with OAuth 2.0 tweet.write scope.',
+  },
+};
+
 export interface PublishPreviewResult {
   valid: boolean;
   provider: SocialPlatform;
@@ -51,6 +117,8 @@ export interface PublishPreviewResult {
     supported_media_formats: string[];
     max_video_duration_seconds?: number;
     max_video_size_bytes?: number;
+    supports_video?: boolean;
+    supports_text_only?: boolean;
   };
   normalized_payload: PublishPayload;
   media_metadata?: {
@@ -66,6 +134,18 @@ export const publishingService = {
   async getAccounts(): Promise<SafeSocialAccountConnection[]> {
     const res = await backendRequest<{ status: 'ok'; data: { accounts: SafeSocialAccountConnection[] } }>('/publishing/accounts');
     return res.data.accounts;
+  },
+
+  async getCapabilities(): Promise<Record<SocialPlatform, PlatformPublishCapabilities>> {
+    try {
+      const res = await backendRequest<{
+        status: 'ok';
+        data: { capabilities: Record<SocialPlatform, PlatformPublishCapabilities> };
+      }>('/publishing/capabilities');
+      return res.data.capabilities;
+    } catch {
+      return DEFAULT_PLATFORM_CAPABILITIES;
+    }
   },
 
   async preview(socialConnectionId: string, clipId: string | null | undefined, payload: PublishPayload): Promise<PublishPreviewResult> {

@@ -15,10 +15,14 @@ router.post('/generate', requireAuth, expensiveLimiter, asyncHandler(ContentPack
 // Recent content packs across all sources (defined before /:id)
 router.get('/recent', requireAuth, asyncHandler(ContentPackController.listRecentPacks));
 
+// Phase 4B.4 Phase 3: Batch export selected packs (defined before /:id)
+router.post('/batch-export', requireAuth, asyncHandler(ContentPackController.batchExport));
+
 // Content packs for a project
 router.get('/project/:projectId', requireAuth, asyncHandler(ContentPackController.listPacksForProject));
 
-// Content Pack details
+// Content Pack details and version history
+router.get('/:id/versions', requireAuth, asyncHandler(ContentPackController.getVersionHistory));
 router.get('/:id', requireAuth, asyncHandler(ContentPackController.getContentPack));
 
 // Individual Item Operations

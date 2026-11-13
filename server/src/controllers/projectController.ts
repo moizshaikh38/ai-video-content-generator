@@ -10,6 +10,7 @@ import {
   PROCESSABLE_STATUSES,
 } from '../types/index.js';
 import { deletePrefix, projectObjectPrefix, sourceObjectKey, signSourceUpload, headObject, signObjectGet } from '../services/objectStorageService.js';
+import { UploadLifecycleService } from '../services/uploadLifecycleService.js';
 import { ProjectPosterService } from '../services/projectPosterService.js';
 import { deleteProjectRecords } from '../db/repositories/deletionRepository.js';
 import { claimProjectProcessing } from '../db/repositories/projectRepository.js';
@@ -542,13 +543,26 @@ export const createProjectUploadUrl = async (req: AuthenticatedRequest, res: Res
     res.status(409).json({ status: 'error', code: 'UPLOAD_NOT_ALLOWED', message: 'Project cannot accept an upload now.' }); return;
   }
   const key = sourceObjectKey(userId, projectId, fileName);
+  const expiresAt = new Date(Date.now() + 15 * 60_000);
   const uploadUrl = await signSourceUpload(key, contentType);
+
+  // Record immutable upload attempt record before writing pending session
+  const attempt = await UploadLifecycleService.recordAttempt({
+    userId,
+    projectId,
+    objectKey: key,
+    fileName,
+    fileSize: size,
+    contentType,
+    expiresAt,
+  });
+
   const update = await dataRepository.from('projects').update({
     pending_upload_key: key, pending_upload_size: size, pending_upload_mime_type: contentType,
-    pending_upload_expires_at: new Date(Date.now() + 15 * 60_000), video_status: 'uploading',
+    pending_upload_expires_at: expiresAt, video_status: 'uploading',
   }).eq('id', projectId);
   if (update.error) { res.status(503).json({ status: 'error', code: 'DATABASE_UNAVAILABLE', message: 'Could not create upload session.' }); return; }
-  res.status(200).json({ status: 'ok', uploadUrl, headers: { 'Content-Type': contentType }, expiresInSeconds: 900 });
+  res.status(200).json({ status: 'ok', uploadUrl, headers: { 'Content-Type': contentType }, expiresInSeconds: 900, attemptId: attempt.id, objectKey: key });
 };
 
 export const confirmProjectUpload = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
@@ -558,25 +572,106 @@ export const confirmProjectUpload = async (req: AuthenticatedRequest, res: Respo
   if (!projectId || !isValidUUID(projectId)) { res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid project UUID required.' }); return; }
   const { data: project, error } = await dataRepository.from('projects').select('*').eq('id', projectId).maybeSingle();
   if (error || !project) { res.status(404).json({ status: 'error', code: 'PROJECT_NOT_FOUND', message: 'Project not found.' }); return; }
+
+  // Accept optional attemptId or objectKey in request body for explicit fencing
+  const { attemptId, objectKey } = req.body || {};
+  const targetKey = objectKey || project.pending_upload_key;
+
   if (project.video_status === 'uploaded' && project.source_url && !project.pending_upload_key) {
-    res.status(200).json({ status: 'ok', project }); return;
+    if (!targetKey || targetKey === project.source_url) {
+      res.status(200).json({ status: 'ok', project }); return;
+    }
   }
+
   if (!project.pending_upload_key || !project.pending_upload_size || !project.pending_upload_mime_type ||
       !project.pending_upload_expires_at || new Date(project.pending_upload_expires_at).getTime() < Date.now()) {
     res.status(409).json({ status: 'error', code: 'UPLOAD_SESSION_EXPIRED', message: 'Request a new upload URL.' }); return;
   }
+
+  // Fencing check: If an explicit targetKey or attemptId is provided and does not match the active session,
+  // reject as a stale or mismatched confirmation
+  if (targetKey && targetKey !== project.pending_upload_key) {
+    res.status(409).json({ status: 'error', code: 'STALE_UPLOAD_CONFIRMATION', message: 'Confirmation does not match active upload session.' }); return;
+  }
+
   const object = await headObject('source', project.pending_upload_key);
   if (object.size !== project.pending_upload_size || object.size > config.maxVideoBytes ||
       object.contentType.toLowerCase() !== project.pending_upload_mime_type.toLowerCase()) {
     res.status(400).json({ status: 'error', code: 'UPLOAD_MISMATCH', message: 'Uploaded file does not match the signed upload session.' }); return;
   }
-  const result = await dataRepository.from('projects').update({
-    source_url: project.pending_upload_key, source_object_key: project.pending_upload_key,
-    pending_upload_key: null, pending_upload_size: null, pending_upload_mime_type: null,
-    pending_upload_expires_at: null, video_status: 'uploaded',
-  }).eq('id', projectId).select().single();
-  if (result.error || !result.data) { res.status(503).json({ status: 'error', code: 'DATABASE_UNAVAILABLE', message: 'Could not confirm upload.' }); return; }
-  res.status(200).json({ status: 'ok', project: result.data });
+
+  // Confirm the attempt in UploadLifecycleService
+  const attemptResult = await UploadLifecycleService.confirmAttempt({
+    userId,
+    projectId,
+    attemptId,
+    objectKey: project.pending_upload_key,
+  });
+
+  // Atomic Compare-And-Swap (CAS) update on the projects collection
+  // Requirements:
+  // 1. Matches project ID and authenticated user ID (tenant isolation).
+  // 2. Matches pending_upload_key === targetKey (strictly matches the confirmed attempt's key).
+  // 3. Matches video_status in ['uploading', 'pending'].
+  // 4. Sets canonical source only if all conditions match.
+  // 5. Inspects affected modifiedCount (CAS fencing).
+  const db = await getMongoDb();
+  const casResult = await db.collection('projects').findOneAndUpdate(
+    {
+      id: projectId,
+      user_id: userId,
+      pending_upload_key: project.pending_upload_key,
+      video_status: { $in: ['uploading', 'pending'] },
+    },
+    {
+      $set: {
+        source_url: project.pending_upload_key,
+        source_object_key: project.pending_upload_key,
+        pending_upload_key: null,
+        pending_upload_size: null,
+        pending_upload_mime_type: null,
+        pending_upload_expires_at: null,
+        video_status: 'uploaded',
+        updated_at: new Date(),
+      },
+    },
+    { returnDocument: 'after', projection: { _id: 0 } }
+  );
+
+  if (!casResult) {
+    // CAS condition did not match. Inspect current project record to determine why.
+    const currentProject = await db.collection('projects').findOne({ id: projectId, user_id: userId }, { projection: { _id: 0 } });
+    if (!currentProject) {
+      res.status(404).json({ status: 'error', code: 'PROJECT_NOT_FOUND', message: 'Project not found.' });
+      return;
+    }
+
+    // Check if another request or retry already confirmed this exact key (Idempotent success)
+    if (currentProject.video_status === 'uploaded' && currentProject.source_url === project.pending_upload_key) {
+      res.status(200).json({ status: 'ok', project: currentProject });
+      return;
+    }
+
+    // Check if another upload was granted (pending_upload_key changed) or confirmed with newer source
+    if (currentProject.source_url && currentProject.source_url !== project.pending_upload_key) {
+      res.status(409).json({
+        status: 'error',
+        code: 'STALE_UPLOAD_CONFIRMATION',
+        message: 'Project canonical source was already updated by another upload.',
+      });
+      return;
+    }
+
+    // Otherwise concurrent update conflict
+    res.status(409).json({
+      status: 'error',
+      code: 'CONCURRENT_UPDATE_CONFLICT',
+      message: 'Project upload status changed concurrently. Please refresh and retry.',
+    });
+    return;
+  }
+
+  res.status(200).json({ status: 'ok', project: casResult });
 };
 
 export const getProjectSourcePreviewUrl = async (req: AuthenticatedRequest, res: Response): Promise<void> => {

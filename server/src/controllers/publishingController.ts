@@ -7,9 +7,20 @@ export async function getPublishingAccounts(req: AuthenticatedRequest, res: Resp
   if (!req.user) throw new AppError('Authentication required.', 401, 'AUTH_REQUIRED');
 
   const accounts = await socialService.getSafeUserConnections(req.user.id);
+  const capabilities = publishingService.getCapabilities();
   res.json({
     status: 'ok',
-    data: { accounts },
+    data: { accounts, capabilities },
+  });
+}
+
+export async function getPublishingCapabilities(req: AuthenticatedRequest, res: Response): Promise<void> {
+  if (!req.user) throw new AppError('Authentication required.', 401, 'AUTH_REQUIRED');
+
+  const capabilities = publishingService.getCapabilities();
+  res.json({
+    status: 'ok',
+    data: { capabilities },
   });
 }
 

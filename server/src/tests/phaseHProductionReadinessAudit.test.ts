@@ -14,7 +14,7 @@ import { EntitlementService } from '../services/entitlementService.js';
 import { WatermarkService } from '../services/watermarkService.js';
 import { CreditWalletService } from '../services/creditWalletService.js';
 import { CreditPricingService } from '../services/billing/creditPricingService.js';
-import { CreditRepository, getCurrentBillingPeriod } from '../db/repositories/creditRepository.js';
+import { CreditRepository, getCurrentBillingPeriod, buildCanonicalIdempotencyKey } from '../db/repositories/creditRepository.js';
 import { SubtitleStudioService } from '../services/subtitleStudioService.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { AppError } from '../types/index.js';
@@ -538,6 +538,20 @@ describe('VireoClip Phase H: Comprehensive Production Readiness & Launch Validat
       status: 'reserved',
       expires_at: pastExpires,
       created_at: pastExpires,
+    });
+
+    const orphanKey = buildCanonicalIdempotencyKey(creatorUserId, 'core_video_processing', testOrphanAttempt);
+    await db.collection('idempotency_keys').insertOne({
+      _id: orphanKey,
+      user_id: creatorUserId,
+      operation_type: 'core_video_processing',
+      operation_id: 'core_video_processing',
+      client_key: testOrphanAttempt,
+      attempt_id: testOrphanAttempt,
+      request_payload_sha256: 'audit_test_hash',
+      status: 'in_progress',
+      created_at: pastExpires,
+      updated_at: pastExpires,
     });
 
     // Mark 10 credits as reserved in creator wallet

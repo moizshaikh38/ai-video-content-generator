@@ -380,7 +380,9 @@ export async function processProjectVideo(
 
       // Shadow legacy usage settle for minute tracking audits
       try {
-        await UsageService.extendReservationToMeasuredDuration(processingAttemptId, effectiveDuration).catch(() => undefined);
+        await UsageService.extendReservationToMeasuredDuration(processingAttemptId, effectiveDuration).catch((err) => {
+          logger.warn(`Legacy usage quota exceeded mid-run: ${err?.message || err}`);
+        });
         await UsageService.settleReservation(
           processingAttemptId,
           effectiveDuration,

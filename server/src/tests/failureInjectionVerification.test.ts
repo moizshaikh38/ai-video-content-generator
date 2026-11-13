@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { Collection } from 'mongodb';
 import { getMongoDb, closeMongo } from '../db/mongoClient.js';
-import { CreditRepository } from '../db/repositories/creditRepository.js';
+import { CreditRepository, buildCanonicalIdempotencyKey } from '../db/repositories/creditRepository.js';
 import { CreditWalletService } from '../services/creditWalletService.js';
 import { EntitlementService, getProvisionalMonthlyCredits } from '../services/entitlementService.js';
 import {
   CreditReservationRecord,
+  IdempotencyKeyRecord,
 } from '../types/index.js';
 
 describe('VireoClip Phase C Pre-D Focused Verification: Failure-Injection, Developer Continuity & Stale Recovery', () => {
@@ -35,6 +36,7 @@ describe('VireoClip Phase C Pre-D Focused Verification: Failure-Injection, Devel
     await db.collection('credit_wallets').deleteMany({ user_id: { $in: allTestUsers } });
     await db.collection('credit_transactions').deleteMany({ user_id: { $in: allTestUsers } });
     await db.collection('credit_reservations').deleteMany({ user_id: { $in: allTestUsers } });
+    await db.collection('idempotency_keys').deleteMany({ user_id: { $in: allTestUsers } });
     await db.collection('projects').deleteMany({ user_id: { $in: allTestUsers } });
     await db.collection('render_jobs').deleteMany({ user_id: { $in: allTestUsers } });
   });
@@ -46,6 +48,7 @@ describe('VireoClip Phase C Pre-D Focused Verification: Failure-Injection, Devel
       await db.collection('credit_wallets').deleteMany({ user_id: { $in: allTestUsers } });
       await db.collection('credit_transactions').deleteMany({ user_id: { $in: allTestUsers } });
       await db.collection('credit_reservations').deleteMany({ user_id: { $in: allTestUsers } });
+      await db.collection('idempotency_keys').deleteMany({ user_id: { $in: allTestUsers } });
       await db.collection('projects').deleteMany({ user_id: { $in: allTestUsers } });
       await db.collection('render_jobs').deleteMany({ user_id: { $in: allTestUsers } });
     } catch {}
@@ -211,7 +214,7 @@ describe('VireoClip Phase C Pre-D Focused Verification: Failure-Injection, Devel
       const resAfterFailure = await resCol.findOne({ attempt_id: activeAttemptId });
       assert.ok(resAfterFailure);
       assert.equal(resAfterFailure.status, 'reserved');
-      assert.equal(resAfterFailure.settled_amount, undefined);
+      assert.ok(!resAfterFailure.settled_amount);
 
       // Verify wallet was compensated back to exact pre-settle state
       const walletAfterFailure = await CreditRepository.getOrCreateWallet(testUserCompensate);
@@ -416,6 +419,36 @@ describe('VireoClip Phase C Pre-D Focused Verification: Failure-Injection, Devel
       created_at: new Date(now.getTime() - 100 * 60 * 1000),
       updated_at: now,
     });
+
+    const activeKey = buildCanonicalIdempotencyKey(testRecoveryUser, 'ai_clipping', activeAttempt);
+    const abandonedKey = buildCanonicalIdempotencyKey(testRecoveryUser, 'ai_clipping', abandonedAttempt);
+    const idempCol = db.collection<IdempotencyKeyRecord>('idempotency_keys');
+    await idempCol.insertMany([
+      {
+        _id: activeKey,
+        user_id: testRecoveryUser,
+        operation_type: 'ai_clipping',
+        operation_id: 'ai_clipping',
+        client_key: activeAttempt,
+        attempt_id: activeAttempt,
+        request_payload_sha256: 'active_hash',
+        status: 'in_progress',
+        created_at: now,
+        updated_at: now,
+      },
+      {
+        _id: abandonedKey,
+        user_id: testRecoveryUser,
+        operation_type: 'ai_clipping',
+        operation_id: 'ai_clipping',
+        client_key: abandonedAttempt,
+        attempt_id: abandonedAttempt,
+        request_payload_sha256: 'abandoned_hash',
+        status: 'in_progress',
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
 
     // Update wallet reserved_credits to reflect both reservations (30 + 40 = 70)
     await db.collection('credit_wallets').updateOne(

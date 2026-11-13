@@ -11,6 +11,7 @@ import { VideoIntelligenceService } from './intelligence/videoIntelligenceServic
 import { VideoIntelligenceRepository } from '../db/repositories/videoIntelligenceRepository.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
+import { sanitizeFilename } from './clipRenderService.js';
 import {
   AppError,
   ContentPack,
@@ -21,6 +22,7 @@ import {
   ContentPackTemplate,
   ContentPackProviderState,
   ContentPackSourceType,
+  ContentPackVersion,
   ProvenanceEvidenceClassification,
   ContentPackEvidence,
   ContentPackTelemetry,
@@ -1300,6 +1302,63 @@ Required Output Schema (JSON):
   }
 
   /**
+   * Retrieves version history snapshots for a Content Pack.
+   * Requires authentication, verifies pack ownership, and returns version snapshots
+   * exclusively belonging to the specified pack and authenticated user.
+   * Preserves version ordering (descending by default) and enforces bounded pagination.
+   */
+  public static async getVersionHistory(
+    userId: string,
+    contentPackId: string,
+    options: { limit?: number; offset?: number; order?: 'asc' | 'desc' } = {}
+  ): Promise<{ versions: ContentPackVersion[]; total: number; limit: number; offset: number }> {
+    if (!userId) throw new AppError('User ID is required.', 401, 'UNAUTHORIZED');
+    if (!contentPackId) throw new AppError('Content Pack ID is required.', 400, 'INVALID_INPUT');
+
+    return await ownerContext.run(userId, async () => {
+      // 1. Verify parent pack exists and belongs strictly to this user
+      const { data: pack, error: packErr } = await dataRepository
+        .from('content_packs')
+        .select()
+        .eq('id', contentPackId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (packErr || !pack) {
+        throw new AppError('Content Pack not found.', 404, 'CONTENT_PACK_NOT_FOUND');
+      }
+
+      const limit = Math.min(Math.max(1, Number(options.limit) || 20), 50);
+      const offset = Math.max(0, Number(options.offset) || 0);
+      const ascending = options.order === 'asc';
+
+      // 2. Fetch paginated versions with exact count
+      const query = dataRepository
+        .from('content_pack_versions')
+        .select('*', { count: 'exact' })
+        .eq('content_pack_id', contentPackId)
+        .eq('user_id', userId)
+        .order('version', { ascending })
+        .range(offset, offset + limit - 1);
+
+      const { data: versions, error: versionsErr, count } = await query;
+
+      if (versionsErr) {
+        throw new AppError('Failed to fetch version history.', 500, 'DB_ERROR');
+      }
+
+      const total = typeof count === 'number' ? count : (versions || []).length;
+
+      return {
+        versions: (versions || []) as ContentPackVersion[],
+        total,
+        limit,
+        offset,
+      };
+    });
+  }
+
+  /**
    * Lists content packs for a specific clip.
    */
   public static async listPacksForClip(
@@ -1779,6 +1838,264 @@ Return strictly valid JSON:
             source_content_pack_id: contentPackId,
           };
       }
+    });
+  }
+
+  /**
+   * Phase 4B.4 Phase 3: Batch Exports selected Content Packs with format serialization.
+   *
+   * Formats:
+   * - 'json': Serialized bundle `{ exported_at, total_packs, packs: [...] }`
+   * - 'markdown': Formatted composite multi-pack Markdown document with platform sections
+   * - 'csv': RFC-4180 compliant spreadsheet with formula injection defense
+   *
+   * Invariants:
+   * - Strictly scoped to authenticated userId (cross-tenant IDs excluded/rejected)
+   * - Safe batch size: 1 to 25 packs max
+   * - Payload bounded (< 5MB)
+   * - Filename sanitized using sanitizeFilename
+   * - Commercial Invariant: Strictly 0 credits, does not mutate wallet balances
+   */
+  public static async batchExportPacks(
+    userId: string,
+    packIds: string[],
+    format: 'json' | 'markdown' | 'csv' = 'json'
+  ): Promise<{ filename: string; contentType: string; content: string; exportedCount: number; missingIds: string[] }> {
+    if (!userId) throw new AppError('User ID is required.', 401, 'UNAUTHORIZED');
+    if (!Array.isArray(packIds) || packIds.length === 0) {
+      throw new AppError('At least one pack ID is required for export.', 400, 'INVALID_INPUT');
+    }
+    if (packIds.length > 25) {
+      throw new AppError('Batch export limit is 25 packs per request.', 400, 'BATCH_LIMIT_EXCEEDED');
+    }
+
+    // De-duplicate requested pack IDs while preserving order
+    const uniqueIds = Array.from(new Set(packIds));
+
+    return await ownerContext.run(userId, async () => {
+      // 1. Fetch only packs belonging strictly to this user
+      const { data: packs, error: packsErr } = await dataRepository
+        .from('content_packs')
+        .select()
+        .in('id', uniqueIds)
+        .eq('user_id', userId);
+
+      if (packsErr) {
+        throw new AppError('Failed to fetch content packs for batch export.', 500, 'DB_ERROR');
+      }
+
+      const foundPacks = (packs || []) as ContentPack[];
+      const foundPackMap = new Map<string, ContentPack>(foundPacks.map((p) => [p.id, p]));
+      const missingIds = uniqueIds.filter((id) => !foundPackMap.has(id));
+
+      if (foundPacks.length === 0) {
+        throw new AppError('None of the requested content packs were found or accessible.', 404, 'CONTENT_PACK_NOT_FOUND');
+      }
+
+      // 2. Fetch all items for the found packs with hard defensive upper bound
+      const MAX_ITEMS_QUERY_LIMIT = 1000;
+      const foundIds = foundPacks.map((p) => p.id);
+      const { data: items, error: itemsErr, count: itemsCount } = await dataRepository
+        .from('content_pack_items')
+        .select('*', { count: 'exact' })
+        .in('content_pack_id', foundIds)
+        .eq('user_id', userId)
+        .order('variant_index', { ascending: true })
+        .limit(MAX_ITEMS_QUERY_LIMIT + 1);
+
+      if (itemsErr) {
+        throw new AppError('Failed to fetch items for content packs.', 500, 'DB_ERROR');
+      }
+
+      const itemsList = (items || []) as ContentPackItem[];
+      if (itemsList.length > MAX_ITEMS_QUERY_LIMIT || (typeof itemsCount === 'number' && itemsCount > MAX_ITEMS_QUERY_LIMIT)) {
+        throw new AppError(
+          `Selected content packs contain more items than the maximum batch query limit (${MAX_ITEMS_QUERY_LIMIT}). Please export fewer packs.`,
+          400,
+          'BATCH_ITEM_LIMIT_EXCEEDED'
+        );
+      }
+      const itemsByPackId = new Map<string, ContentPackItem[]>();
+      for (const item of itemsList) {
+        const list = itemsByPackId.get(item.content_pack_id) || [];
+        list.push(item);
+        itemsByPackId.set(item.content_pack_id, list);
+      }
+
+      for (const pack of foundPacks) {
+        pack.items = itemsByPackId.get(pack.id) || [];
+      }
+
+      // 3. Generate sanitized base filename
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const firstTitle = foundPacks[0]?.source?.transcript_source || (foundPacks[0] as any)?.title || 'content_pack';
+      const safeTitlePart = sanitizeFilename(firstTitle).slice(0, 30);
+      const baseFilename = foundPacks.length === 1
+        ? `vireo_${safeTitlePart}_${timestamp}`
+        : `vireo_batch_${foundPacks.length}_packs_${timestamp}`;
+
+      let content = '';
+      let contentType = 'application/json';
+      let filename = `${baseFilename}.json`;
+
+      switch (format) {
+        case 'markdown': {
+          contentType = 'text/markdown; charset=utf-8';
+          filename = `${baseFilename}.md`;
+          const lines: string[] = [];
+          lines.push(`# VireoClip Content Studio — Batch Export (${foundPacks.length} Packs)`);
+          lines.push(`*Exported at: ${new Date().toISOString()}*\n`);
+          lines.push(`---\n`);
+
+          foundPacks.forEach((p, idx) => {
+            const packTitle = p.source?.transcript_source || (p as any).title || `Pack ${p.id.slice(0, 8)}`;
+            const sType = p.source?.source_type || (p as any).source_type || 'clip';
+            lines.push(`## ${idx + 1}. ${packTitle}`);
+            lines.push(`- **Pack ID:** \`${p.id}\``);
+            lines.push(`- **Source Type:** \`${sType}\``);
+            lines.push(`- **Version:** v${p.version || 1}`);
+            lines.push(`- **Status:** ${p.status || 'DRAFT'}`);
+            if (p.project_id) lines.push(`- **Project ID:** \`${p.project_id}\``);
+            if (p.clip_id) lines.push(`- **Clip ID:** \`${p.clip_id}\``);
+            lines.push('');
+
+            const packItems = p.items || [];
+            if (packItems.length === 0) {
+              lines.push(`*(No items generated yet)*\n`);
+            } else {
+              // Group items by platform
+              const byPlatform = new Map<string, ContentPackItem[]>();
+              for (const it of packItems) {
+                const plat = it.platform || 'all';
+                const pList = byPlatform.get(plat) || [];
+                pList.push(it);
+                byPlatform.set(plat, pList);
+              }
+
+              for (const [platform, platItems] of byPlatform.entries()) {
+                lines.push(`### Platform: ${platform.toUpperCase()}`);
+                for (const it of platItems) {
+                  lines.push(`#### [${it.type.toUpperCase()}] ${it.approved ? '✓ Approved' : ''} ${it.locked ? '🔒 Locked' : ''}`);
+                  lines.push(`${it.text}\n`);
+                }
+              }
+            }
+            lines.push(`---\n`);
+          });
+
+          content = lines.join('\n');
+          break;
+        }
+
+        case 'csv': {
+          contentType = 'text/csv; charset=utf-8';
+          filename = `${baseFilename}.csv`;
+
+          const sanitizeCell = (val: any): string => {
+            if (val === null || val === undefined) return '';
+            let str = String(val);
+            // RFC-4180 Formula Injection Defense (=, +, -, @, \t, \r)
+            if (/^[=+\-@\t\r]/.test(str)) {
+              str = `'${str}`;
+            }
+            if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+              str = `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+          };
+
+          const rows: string[] = [];
+          // CSV Header
+          rows.push([
+            'Pack ID',
+            'Pack Title',
+            'Source Type',
+            'Version',
+            'Pack Status',
+            'Platform',
+            'Item Type',
+            'Variant Index',
+            'Text',
+            'Approved',
+            'Locked',
+            'Created At',
+          ].map(sanitizeCell).join(','));
+
+          for (const p of foundPacks) {
+            const packTitle = p.source?.transcript_source || (p as any).title || `Pack ${p.id.slice(0, 8)}`;
+            const sType = p.source?.source_type || (p as any).source_type || 'clip';
+            const packItems = p.items || [];
+
+            if (packItems.length === 0) {
+              rows.push([
+                p.id,
+                packTitle,
+                sType,
+                p.version || 1,
+                p.status || 'DRAFT',
+                'all',
+                'NONE',
+                0,
+                '',
+                'NO',
+                'NO',
+                p.created_at || '',
+              ].map(sanitizeCell).join(','));
+            } else {
+              for (const it of packItems) {
+                rows.push([
+                  p.id,
+                  packTitle,
+                  sType,
+                  p.version || 1,
+                  p.status || 'DRAFT',
+                  it.platform || 'all',
+                  it.type,
+                  it.variant_index,
+                  it.text,
+                  it.approved ? 'YES' : 'NO',
+                  it.locked ? 'YES' : 'NO',
+                  it.created_at || p.created_at || '',
+                ].map(sanitizeCell).join(','));
+              }
+            }
+          }
+
+          content = rows.join('\r\n');
+          break;
+        }
+
+        case 'json':
+        default: {
+          contentType = 'application/json; charset=utf-8';
+          filename = `${baseFilename}.json`;
+          content = JSON.stringify(
+            {
+              status: 'ok',
+              exported_at: new Date().toISOString(),
+              total_packs: foundPacks.length,
+              packs: foundPacks,
+            },
+            null,
+            2
+          );
+          break;
+        }
+      }
+
+      // Memory & payload safety bound (5 MB max)
+      const MAX_BATCH_EXPORT_BYTES = 5 * 1024 * 1024;
+      if (Buffer.byteLength(content, 'utf8') > MAX_BATCH_EXPORT_BYTES) {
+        throw new AppError('Export payload exceeds safe 5MB limit. Please select fewer packs.', 413, 'PAYLOAD_TOO_LARGE');
+      }
+
+      return {
+        filename,
+        contentType,
+        content,
+        exportedCount: foundPacks.length,
+        missingIds,
+      };
     });
   }
 }

@@ -14,6 +14,7 @@ import {
   ClipRecord,
 } from '../types/index.js';
 import { socialPublishingRegistry } from './publishing/socialPublishingRegistry.js';
+import { PlatformPublishCapabilities } from './publishing/types.js';
 import { socialProviderRegistry } from './social/socialProviderRegistry.js';
 import { decryptToken, encryptToken } from '../utils/tokenEncryption.js';
 import { signObjectGet, downloadObjectToFile, headObject } from './objectStorageService.js';
@@ -57,6 +58,13 @@ export class PublishingService {
     ].join('::');
 
     return crypto.createHash('sha256').update(canonical).digest('hex');
+  }
+
+  /**
+   * Return platform capabilities for all supported providers
+   */
+  getCapabilities(): Record<SocialPlatform, PlatformPublishCapabilities> {
+    return socialPublishingRegistry.getAllCapabilities();
   }
 
   /**
@@ -116,6 +124,8 @@ export class PublishingService {
         supported_media_formats: capabilities.supportedMediaFormats,
         max_video_duration_seconds: capabilities.maxVideoDurationSeconds,
         max_video_size_bytes: capabilities.maxVideoSizeBytes,
+        supports_video: capabilities.supportsVideo,
+        supports_text_only: capabilities.supportsTextOnly,
       },
       normalized_payload: payload,
       media_metadata: mediaMetadata,
@@ -156,7 +166,17 @@ export class PublishingService {
 
     // 3. Provider validation
     const provider = socialPublishingRegistry.getProvider(conn.provider);
-    const hasMedia = Boolean(clip);
+    const capabilities = provider.getCapabilities();
+    const hasMedia = Boolean(clip && clip.render_status === 'ready' && clip.output_storage_path);
+
+    if (!hasMedia && !capabilities.supportsTextOnly) {
+      throw new AppError(
+        `Publish validation failed: ${conn.provider} publishing requires a rendered video clip.`,
+        400,
+        'VALIDATION_FAILED'
+      );
+    }
+
     const validation = provider.validatePublishRequest(dto.payload, hasMedia);
     if (!validation.valid) {
       throw new AppError(`Publish validation failed: ${validation.errors.join('; ')}`, 400, 'VALIDATION_FAILED');
@@ -212,8 +232,8 @@ export class PublishingService {
       id: postId,
       user_id: dto.userId,
       project_id: dto.projectId,
-      clip_id: dto.clipId || null,
-      content_output_id: dto.contentOutputId || null,
+      ...(dto.clipId ? { clip_id: dto.clipId } : {}),
+      ...(dto.contentOutputId ? { content_output_id: dto.contentOutputId } : {}),
       social_connection_id: dto.socialConnectionId,
       provider: conn.provider,
       provider_account_id: conn.provider_account_id,

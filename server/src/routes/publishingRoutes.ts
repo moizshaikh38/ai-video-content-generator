@@ -4,6 +4,7 @@ import { expensiveLimiter, generalLimiter } from '../middleware/rateLimiter.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import {
   getPublishingAccounts,
+  getPublishingCapabilities,
   previewPublish,
   publishNow,
   schedulePost,
@@ -18,6 +19,9 @@ const router = Router();
 
 // 1. Get connected accounts available for publishing
 router.get('/accounts', requireAuth, generalLimiter, asyncHandler(getPublishingAccounts));
+
+// 1b. Get platform publishing capabilities
+router.get('/capabilities', requireAuth, generalLimiter, asyncHandler(getPublishingCapabilities));
 
 // 2. Validate & preview post
 router.post('/preview', requireAuth, generalLimiter, asyncHandler(previewPublish));

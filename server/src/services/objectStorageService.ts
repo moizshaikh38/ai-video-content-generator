@@ -284,6 +284,30 @@ export async function uploadFile(
   }
 }
 
+export async function listObjects(
+  bucket: ObjectBucket,
+  prefix: string,
+  options?: { maxKeys?: number; continuationToken?: string }
+): Promise<{ keys: Array<{ key: string; size: number; lastModified?: Date }>; nextContinuationToken?: string }> {
+  const listed = await storageClient().send(
+    new ListObjectsV2Command({
+      Bucket: bucketName(bucket),
+      Prefix: prefix,
+      MaxKeys: options?.maxKeys || 1000,
+      ContinuationToken: options?.continuationToken,
+    })
+  );
+
+  const keys = (listed.Contents || []).flatMap((item) =>
+    item.Key ? [{ key: item.Key, size: item.Size || 0, lastModified: item.LastModified }] : []
+  );
+
+  return {
+    keys,
+    nextContinuationToken: listed.NextContinuationToken,
+  };
+}
+
 export async function deleteObject(bucket: ObjectBucket, key: string): Promise<void> {
   await storageClient().send(new DeleteObjectsCommand({
     Bucket: bucketName(bucket), Delete: { Objects: [{ Key: key }], Quiet: true },

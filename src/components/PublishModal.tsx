@@ -14,6 +14,8 @@ import {
   publishingService,
   PublishPayload,
   PublishPreviewResult,
+  PlatformPublishCapabilities,
+  DEFAULT_PLATFORM_CAPABILITIES,
 } from '../services/publishingService';
 import { socialService, SafeSocialAccountConnection, type SocialPlatform } from '../services/socialService';
 
@@ -43,6 +45,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
   const [accounts, setAccounts] = useState<SafeSocialAccountConnection[]>([]);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string>('');
   const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [capabilities, setCapabilities] = useState<Record<SocialPlatform, PlatformPublishCapabilities>>(DEFAULT_PLATFORM_CAPABILITIES);
 
   // Form State
   const [title, setTitle] = useState(initialTitle);
@@ -62,6 +65,17 @@ export const PublishModal: React.FC<PublishModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  const hasMedia = Boolean(clipId);
+
+  const isAccountDisabled = (account: SafeSocialAccountConnection): boolean => {
+    if (hasMedia) return false;
+    const caps = capabilities[account.provider] || DEFAULT_PLATFORM_CAPABILITIES[account.provider];
+    if (caps && typeof caps.supportsTextOnly === 'boolean') {
+      return !caps.supportsTextOnly;
+    }
+    return account.provider === 'youtube' || account.provider === 'instagram' || account.provider === 'tiktok';
+  };
+
   useEffect(() => {
     if (isOpen) {
       loadAccounts();
@@ -76,15 +90,34 @@ export const PublishModal: React.FC<PublishModalProps> = ({
   const loadAccounts = async () => {
     try {
       setLoadingAccounts(true);
-      const res = await socialService.getAccounts();
-      const connected = res.accounts || [];
+      const [accountsRes, capsRes] = await Promise.all([
+        socialService.getAccounts().catch(() => ({ accounts: [] })),
+        publishingService.getCapabilities().catch(() => DEFAULT_PLATFORM_CAPABILITIES),
+      ]);
+
+      const connected = accountsRes.accounts || [];
+      const caps = capsRes || DEFAULT_PLATFORM_CAPABILITIES;
       setAccounts(connected);
-      if (connected.length > 0 && !selectedConnectionId) {
+      setCapabilities(caps);
+
+      const checkDisabled = (a: SafeSocialAccountConnection) => {
+        if (hasMedia) return false;
+        const c = caps[a.provider] || DEFAULT_PLATFORM_CAPABILITIES[a.provider];
+        return c ? !c.supportsTextOnly : (a.provider === 'youtube' || a.provider === 'instagram' || a.provider === 'tiktok');
+      };
+
+      if (connected.length > 0) {
         if (initialPlatform) {
-          const match = connected.find((a) => a.provider === initialPlatform);
-          setSelectedConnectionId(match ? match.id : connected[0].id);
+          const match = connected.find((a) => a.provider === initialPlatform && !checkDisabled(a));
+          if (match) {
+            setSelectedConnectionId(match.id);
+          } else {
+            const firstEnabled = connected.find((a) => !checkDisabled(a));
+            setSelectedConnectionId(firstEnabled ? firstEnabled.id : (hasMedia ? connected[0].id : ''));
+          }
         } else {
-          setSelectedConnectionId(connected[0].id);
+          const firstEnabled = connected.find((a) => !checkDisabled(a));
+          setSelectedConnectionId(firstEnabled ? firstEnabled.id : (hasMedia ? connected[0].id : ''));
         }
       }
     } catch (err: any) {
@@ -96,9 +129,23 @@ export const PublishModal: React.FC<PublishModalProps> = ({
 
   const selectedAccount = accounts.find((a) => a.id === selectedConnectionId);
 
+  // Guard against having a disabled account selected when media is missing
+  useEffect(() => {
+    if (!selectedConnectionId || hasMedia) return;
+    const current = accounts.find((a) => a.id === selectedConnectionId);
+    if (current && isAccountDisabled(current)) {
+      const firstEnabled = accounts.find((a) => !isAccountDisabled(a));
+      setSelectedConnectionId(firstEnabled ? firstEnabled.id : '');
+    }
+  }, [hasMedia, accounts, selectedConnectionId, capabilities]);
+
   // Auto-validate preview when inputs change
   useEffect(() => {
     if (!selectedConnectionId) return;
+    if (selectedAccount && isAccountDisabled(selectedAccount)) {
+      setPreview(null);
+      return;
+    }
 
     const runPreview = async () => {
       try {
@@ -127,12 +174,20 @@ export const PublishModal: React.FC<PublishModalProps> = ({
 
     const timer = setTimeout(runPreview, 400);
     return () => clearTimeout(timer);
-  }, [selectedConnectionId, clipId, title, caption, tags, privacy]);
+  }, [selectedConnectionId, clipId, title, caption, tags, privacy, selectedAccount, capabilities]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedConnectionId) {
       setFeedback({ type: 'error', message: 'Please select a connected social account.' });
+      return;
+    }
+
+    if (selectedAccount && isAccountDisabled(selectedAccount)) {
+      setFeedback({
+        type: 'error',
+        message: `${selectedAccount.provider} publishing requires a rendered video clip.`,
+      });
       return;
     }
 
@@ -163,7 +218,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
         });
         setFeedback({
           type: 'success',
-          message: 'Publishing job queued successfully! Video is publishing in the background.',
+          message: 'Publishing job queued successfully! Post is publishing in the background.',
         });
       } else {
         if (!scheduleDate || !scheduleTime) {
@@ -243,6 +298,19 @@ export const PublishModal: React.FC<PublishModalProps> = ({
             </div>
           )}
 
+          {/* Missing Media Notice for Packs without Rendered Video */}
+          {!hasMedia && (
+            <div
+              role="status"
+              className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-start gap-2.5"
+            >
+              <AlertCircle className="size-4 shrink-0 text-amber-400 mt-0.5" />
+              <p className="leading-relaxed">
+                This content pack has no linked rendered video. You can publish text content to LinkedIn or X, or attach a rendered video to use video platforms.
+              </p>
+            </div>
+          )}
+
           {/* Account Selector */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-foreground flex items-center justify-between">
@@ -259,30 +327,54 @@ export const PublishModal: React.FC<PublishModalProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {accounts.map((acc) => (
-                  <button
-                    key={acc.id}
-                    type="button"
-                    onClick={() => setSelectedConnectionId(acc.id)}
-                    className={`p-3 rounded-2xl border text-left flex items-center gap-2.5 transition-all ${
-                      selectedConnectionId === acc.id
-                        ? 'border-emerald-500 bg-emerald-500/10 text-foreground ring-1 ring-emerald-500/40'
-                        : 'border-border/60 hover:border-border text-muted-foreground'
-                    }`}
-                  >
-                    {acc.avatar_url ? (
-                      <img src={acc.avatar_url} alt="" className="size-7 rounded-full object-cover" />
-                    ) : (
-                      <div className="size-7 rounded-lg bg-muted flex items-center justify-center font-bold text-xs uppercase">
-                        {acc.provider[0]}
+                {accounts.map((acc) => {
+                  const disabled = isAccountDisabled(acc);
+                  const isSelected = selectedConnectionId === acc.id;
+
+                  return (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      disabled={disabled}
+                      aria-disabled={disabled}
+                      onClick={() => {
+                        if (!disabled) {
+                          setSelectedConnectionId(acc.id);
+                        }
+                      }}
+                      className={`p-3 rounded-2xl border text-left flex items-center justify-between transition-all ${
+                        disabled
+                          ? 'opacity-40 cursor-not-allowed bg-muted/20 border-border/40 text-muted-foreground select-none'
+                          : isSelected
+                          ? 'border-emerald-500 bg-emerald-500/10 text-foreground ring-1 ring-emerald-500/40'
+                          : 'border-border/60 hover:border-border text-muted-foreground'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {acc.avatar_url ? (
+                          <img
+                            src={acc.avatar_url}
+                            alt=""
+                            className={`size-7 rounded-full object-cover ${disabled ? 'grayscale opacity-60' : ''}`}
+                          />
+                        ) : (
+                          <div className={`size-7 rounded-lg bg-muted flex items-center justify-center font-bold text-xs uppercase ${disabled ? 'text-muted-foreground/60' : ''}`}>
+                            {acc.provider[0]}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold capitalize truncate">{acc.provider}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{acc.account_name}</p>
+                        </div>
                       </div>
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold capitalize truncate">{acc.provider}</p>
-                      <p className="text-[10px] text-muted-foreground truncate">{acc.account_name}</p>
-                    </div>
-                  </button>
-                ))}
+                      {disabled && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground shrink-0 border border-border/40 ml-1">
+                          Video required
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -413,7 +505,12 @@ export const PublishModal: React.FC<PublishModalProps> = ({
               type="submit"
               variant="ink"
               className="w-full h-11 text-sm font-semibold"
-              disabled={isSubmitting || accounts.length === 0}
+              disabled={
+                isSubmitting ||
+                accounts.length === 0 ||
+                !selectedConnectionId ||
+                Boolean(selectedAccount && isAccountDisabled(selectedAccount))
+              }
               leftIcon={
                 isSubmitting ? (
                   <span className="size-3.5 rounded-full border-2 border-white/60 border-t-white animate-spin" />
