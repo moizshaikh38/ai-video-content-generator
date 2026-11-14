@@ -10,6 +10,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config } from '../config/index.js';
 import { AppError, isValidUUID } from '../types/index.js';
+import { logger } from '../utils/logger.js';
 
 export type ObjectBucket = 'source' | 'clips';
 
@@ -270,16 +271,31 @@ export async function uploadFile(
   size: number,
   contentType: string
 ): Promise<{ sha256: string }> {
-  const { createReadStream } = await import('node:fs');
+  const { readFile } = await import('node:fs/promises');
   try {
-    const hasher = crypto.createHash('sha256');
-    const fileStream = createReadStream(path);
-    fileStream.on('data', (chunk) => hasher.update(chunk));
-    await storageClient().send(new PutObjectCommand({
-      Bucket: bucketName(bucket), Key: key, Body: fileStream, ContentLength: size, ContentType: contentType,
-    }));
-    return { sha256: hasher.digest('hex') };
-  } catch {
+    const fileBuffer = await readFile(path);
+    const sha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+    await storageClient().send(
+      new PutObjectCommand({
+        Bucket: bucketName(bucket),
+        Key: key,
+        Body: fileBuffer,
+        ContentLength: fileBuffer.length,
+        ContentType: contentType,
+      })
+    );
+    return { sha256 };
+  } catch (err: any) {
+    logger.error('Rendered object upload failed in storageClient', {
+      bucket,
+      key,
+      path,
+      size,
+      errorName: err?.name,
+      errorMessage: err?.message,
+      errorCode: err?.Code || err?.code,
+      statusCode: err?.$metadata?.httpStatusCode,
+    });
     throw new AppError('Rendered object upload failed.', 503, 'STORAGE_UNAVAILABLE');
   }
 }
