@@ -18,6 +18,7 @@ import { promisify } from 'node:util';
 import { downloadObjectToFile } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
 import { applyWordEnergyFusion } from '../utils/wordEnergyFusion.js';
+import { GenreIntelligenceService } from './genreIntelligenceService.js';
 
 const execFileAsync = promisify(execFile);
 import type {
@@ -49,6 +50,32 @@ export interface SmartReframeOptions {
   timeoutMs?: number;
   sceneCuts?: number[];
   speechIntervals?: Array<{ start: number; end: number }>;
+}
+
+/**
+ * Phase 3b: merge explicit reframe options with the project's genre profile.
+ * Explicit per-call options always win; the genre profile's reframeConfig fills
+ * the rest; the internal defaults inside smoothAndGenerateKeyframes apply last.
+ * The genre's recommendedLayoutMode is returned as a layout preference that the
+ * caller applies only when the user has not chosen a layout themselves.
+ */
+export function resolveGenreReframeOptions(
+  options: SmartReframeOptions,
+  genre?: string | null
+): {
+  deadZone?: number;
+  maxVelocity?: number;
+  smoothingAlpha?: number;
+  preferredLayoutMode?: ReframeLayoutMode;
+} {
+  const profile = genre ? GenreIntelligenceService.getGenreProfile(genre) : null;
+  const rc = profile?.reframeConfig;
+  return {
+    deadZone: options.deadZone ?? rc?.deadZone,
+    maxVelocity: options.maxVelocity ?? rc?.maxVelocity,
+    smoothingAlpha: options.smoothingAlpha ?? rc?.smoothingAlpha,
+    preferredLayoutMode: profile?.recommendedLayoutMode as ReframeLayoutMode | undefined,
+  };
 }
 
 export class SmartReframeService {
@@ -1277,6 +1304,24 @@ export class SmartReframeService {
         throw err;
       }
 
+      // Phase 3b: resolve the project's genre profile so reframe tuning (dead
+      // zone, velocity cap, smoothing) and layout preference follow the content
+      // type. Explicit per-call options and the user's own layout choice win.
+      let genreReframe: ReturnType<typeof resolveGenreReframeOptions> = {};
+      try {
+        if (clip.project_id) {
+          const { data: proj } = await dataRepository
+            .from('projects')
+            .select('clip_preferences')
+            .eq('id', clip.project_id)
+            .maybeSingle();
+          const genre = (proj as any)?.clip_preferences?.genre ?? null;
+          genreReframe = resolveGenreReframeOptions(options, genre);
+        }
+      } catch (genreErr: any) {
+        logger.warn(`[SmartReframe] Genre profile resolution skipped: ${genreErr.message}`);
+      }
+
       fs.mkdirSync(tempDir, { recursive: true });
       // Reuse the render's already-downloaded source when provided (avoids a
       // second full-source download during render-time auto-generation).
@@ -1361,7 +1406,7 @@ export class SmartReframeService {
       const { tracks, faceCount } = this.associateTracks(cvResult.samples);
       const { dominantTrackId, score } = this.selectDominantTrack(tracks, cvResult.samples.length, { speechIntervals });
       const { layoutMode, speaker1X, speaker2X } = this.determineOptimalLayoutMode(cvResult.samples, {
-        preferredMode: clip.crop_config?.layout_mode,
+        preferredMode: clip.crop_config?.layout_mode ?? genreReframe.preferredLayoutMode,
       });
 
       logger.info(
@@ -1373,9 +1418,9 @@ export class SmartReframeService {
         samples: cvResult.samples,
         dominantTrackId,
         duration: durationSec,
-        deadZone: options.deadZone,
-        maxVelocity: options.maxVelocity,
-        smoothingAlpha: options.smoothingAlpha,
+        deadZone: genreReframe.deadZone,
+        maxVelocity: genreReframe.maxVelocity,
+        smoothingAlpha: genreReframe.smoothingAlpha,
         aspectRatio: clip.aspect_ratio as ClipAspectRatio,
         sourceWidth: cvResult.source_width,
         sourceHeight: cvResult.source_height,
