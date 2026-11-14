@@ -184,6 +184,23 @@ describe('E1 — compile graph emits xfade chains', () => {
 });
 
 describe('E1 — speed and gap semantics in the graph', () => {
+  it('orders setpts speed change before fps in every slice chain', () => {
+    // Regression: fps= before setpts=PTS/N fed xfade an invalid frame rate and
+    // crashed any render combining per-slice speed with a transition.
+    const items = [
+      makeItem({ id: 'a', timeline_start: 0, timeline_end: 2, source_start: 0, source_end: 4, speed: { speed: 2.0, pitch_preserved: true } as any }),
+      makeItem({ id: 'b', timeline_start: 2, timeline_end: 3, source_start: 4, source_end: 6, speed: { speed: 2.0, pitch_preserved: true } as any, transition_in: { type: 'cross_dissolve', duration: 0.4 } as any }),
+    ];
+    const text = ProEditorService.compileRenderGraph(makeProject(items, 3), '/tmp/s.mp4').filterComplex.join('\n');
+    for (const line of text.split('\n')) {
+      const speedIdx = line.indexOf('setpts=PTS/2');
+      if (speedIdx === -1) continue;
+      const fpsIdx = line.indexOf('fps=');
+      assert.ok(fpsIdx === -1 || speedIdx < fpsIdx, `setpts speed must precede fps: ${line}`);
+    }
+  });
+
+
   it('applies setpts/atempo per slice for speed≠1 and chains out-of-range atempo', () => {
     const fast = [
       makeItem({ id: 'a', timeline_start: 0, timeline_end: 2, source_start: 0, source_end: 4, speed: { speed: 2.0, pitch_preserved: true } as any }),

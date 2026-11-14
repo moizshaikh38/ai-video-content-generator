@@ -40,6 +40,14 @@ interface PreviewCanvasProps {
   onSelectItem: (itemId: string | null) => void;
   onDeleteItem?: (itemId: string) => void;
   onUpdateItemTransform: (itemId: string, transform: any, options?: UpdateProjectOptions) => void;
+  // Preview-first crop override: dragging the base video pans the per-item crop
+  // focus (EditorTrackItem.crop.focusX/focusY), which the render compiler honors
+  // ahead of the auto face track.
+  onUpdateItemCrop?: (
+    itemId: string,
+    crop: { mode: 'custom'; focusX: number; focusY: number },
+    options?: UpdateProjectOptions
+  ) => void;
   onCommitProject?: (preOperationProject: EditorProject) => void;
   showSafeGuides: boolean;
   onToggleSafeGuides?: () => void;
@@ -118,6 +126,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   onSelectItem,
   onDeleteItem,
   onUpdateItemTransform,
+  onUpdateItemCrop,
   onCommitProject,
   showSafeGuides,
   onToggleSafeGuides,
@@ -165,6 +174,18 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     scale: number;
     rotation: number;
   } | null>(null);
+
+  // Crop-pan drag state (drag the base video to set per-item crop focus)
+  const [cropDrag, setCropDrag] = useState<{
+    itemId: string;
+    startX: number;
+    startY: number;
+    startFocusX: number;
+    startFocusY: number;
+    moved: boolean;
+  } | null>(null);
+  const preCropProjectRef = useRef<EditorProject | null>(null);
+  const suppressClickAfterCropDragRef = useRef<boolean>(false);
 
   // Caption 2D dragging state
   const [isDraggingCaption, setIsDraggingCaption] = useState<boolean>(false);
@@ -403,6 +424,49 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       window.removeEventListener('blur', handleMouseUp);
     };
   }, [isTransformDragging, dragStartPos, initialTransform, selectedItem, transformDragMode, onUpdateItemTransform, onCommitProject]);
+
+  // Crop-pan dragging: in edit mode, dragging the base video pans the per-item crop
+  // focus override. Click behavior is preserved via a small movement threshold; the
+  // commit goes through the same pre-operation snapshot pattern as transform drags.
+  useEffect(() => {
+    if (!cropDrag) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      const s = fitScaleRef.current || 1;
+      const dx = (e.clientX - cropDrag.startX) / s;
+      const dy = (e.clientY - cropDrag.startY) / s;
+      if (!cropDrag.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+      const dims = getAspectRatioDimensions();
+      const baseW = parseFloat(dims.width) || 1;
+      const baseH = parseFloat(dims.height) || 1;
+      // Dragging the image right reveals more of the left side: focus moves opposite.
+      const focusX = clamp01(cropDrag.startFocusX - dx / baseW);
+      const focusY = clamp01(cropDrag.startFocusY - dy / baseH);
+      onUpdateItemCrop?.(
+        cropDrag.itemId,
+        { mode: 'custom', focusX: Number(focusX.toFixed(4)), focusY: Number(focusY.toFixed(4)) },
+        { recordHistory: false, markAsDirty: false }
+      );
+      if (!cropDrag.moved) setCropDrag({ ...cropDrag, moved: true });
+    };
+    const handleMouseUp = () => {
+      if (cropDrag.moved && preCropProjectRef.current && onCommitProject) {
+        const hasChanged = JSON.stringify(preCropProjectRef.current.tracks) !== JSON.stringify(projectRef.current.tracks);
+        if (hasChanged) onCommitProject(preCropProjectRef.current);
+      }
+      if (cropDrag.moved) suppressClickAfterCropDragRef.current = true;
+      preCropProjectRef.current = null;
+      setCropDrag(null);
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('blur', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('blur', handleMouseUp);
+    };
+  }, [cropDrag, onUpdateItemCrop, onCommitProject]);
 
   // Handle caption 2D dragging with zero-jump grab offset, Shift horizontal lock, magnetic snap, and danger zone HUD
   const handleCaptionPointerDown = (e: React.PointerEvent) => {
@@ -799,8 +863,27 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                   videoRef.current.currentTime = targetVideoTime;
                 }
               }}
+              onMouseDown={(e) => {
+                // Drag the base video to pan its crop focus (edit mode only).
+                if (viewMode !== 'edit' || !onUpdateItemCrop) return;
+                const item = activeVideoItems[0];
+                if (!item) return;
+                preCropProjectRef.current = JSON.parse(JSON.stringify(projectRef.current));
+                setCropDrag({
+                  itemId: item.id,
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  startFocusX: item.crop?.focusX ?? 0.5,
+                  startFocusY: item.crop?.focusY ?? 0.5,
+                  moved: false,
+                });
+              }}
               onClick={(e) => {
                 e.stopPropagation();
+                if (suppressClickAfterCropDragRef.current) {
+                  suppressClickAfterCropDragRef.current = false;
+                  return;
+                }
                 if (selectedItemId) {
                   onSelectItem(null);
                   return;
@@ -809,6 +892,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               }}
               className="w-full h-full object-cover cursor-pointer select-none"
             style={{
+              objectPosition: `${((activeVideoItems[0]?.crop?.focusX ?? 0.5) * 100).toFixed(2)}% ${((activeVideoItems[0]?.crop?.focusY ?? 0.5) * 100).toFixed(2)}%`,
               transform: activeVideoItems[0]
                 ? `translate(${interpolateKeyframes(
                     activeVideoItems[0].keyframes,

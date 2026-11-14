@@ -1132,6 +1132,12 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 onUpdateTrackItem(selectedTrackId, itemId, { transform }, options);
               }
             }}
+            onUpdateItemCrop={(itemId, crop, options) => {
+              const track = project.tracks.find((t) => t.items.some((i) => i.id === itemId));
+              if (track) {
+                onUpdateTrackItem(track.id, itemId, { crop }, options);
+              }
+            }}
             showSafeGuides={showSafeGuides}
             onToggleSafeGuides={toggleSafeGuides}
             onChangeAspectRatio={(aspectRatio) => {

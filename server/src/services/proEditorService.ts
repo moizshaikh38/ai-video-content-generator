@@ -720,7 +720,11 @@ export class ProEditorService {
 
     // Per-item manual crop override wins over clip-level reframing.
     if (item.crop && (item.crop.mode === 'custom' || item.crop.mode === 'fit' || item.crop.mode === 'fill')) {
-      return buildCropFilter(ratio, { focusX: item.crop.focusX ?? 0.5, focusY: item.crop.focusY ?? 0.5 });
+      // Clamp focus into the valid 0..1 window so a bad persisted value can never
+      // push the crop window outside the frame (black edges).
+      const clampFocus = (v: number | undefined): number =>
+        Math.min(1, Math.max(0, typeof v === 'number' && Number.isFinite(v) ? v : 0.5));
+      return buildCropFilter(ratio, { focusX: clampFocus(item.crop.focusX), focusY: clampFocus(item.crop.focusY) });
     }
 
     const track = reframe?.track;
@@ -952,7 +956,7 @@ export class ProEditorService {
             : '';
           const padV = gapPad ? `,tpad=stop_duration=${gap.toFixed(3)}:color=black` : '';
           const padA = gapPad ? `,apad=pad_dur=${gap.toFixed(3)}` : '';
-          filterComplex.push(`[${colorIdx}:v]setpts=PTS-STARTPTS,fps=${fps}${drawtext}${speedVideo},setsar=1,format=yuv420p${padV}${vSlice}`);
+          filterComplex.push(`[${colorIdx}:v]setpts=PTS-STARTPTS${speedVideo},fps=${fps}${drawtext},setsar=1,format=yuv420p${padV}${vSlice}`);
           filterComplex.push(`[${silenceIdx}:a]atrim=0:${(timelineDur * speed).toFixed(2)},asetpts=PTS-STARTPTS${speedAudio ? ',' + speedAudio : ''},${UNIFORM_AUDIO}${padA}${aSlice}`);
           sliceDurations.push(timelineDur + gap);
         } else {
@@ -969,8 +973,10 @@ export class ProEditorService {
           const chain = [`trim=start=${startStr}:end=${endStr}`, 'setpts=PTS-STARTPTS'];
           if (sliceCrop) chain.push(sliceCrop);
           chain.push(...styleFilters);
-          chain.push(`fps=${fps}`, 'setsar=1', 'format=yuv420p');
+          // Speed change must run BEFORE fps: resampling first and then retimestamping
+          // halves/doubles the effective cadence and feeds xfade an invalid frame rate.
           if (speed !== 1) chain.push(`setpts=PTS/${speed}`);
+          chain.push(`fps=${fps}`, 'setsar=1', 'format=yuv420p');
           if (gapPad) chain.push(`tpad=stop_duration=${gap.toFixed(3)}:color=black`);
           filterComplex.push(`[0:v]${chain.join(',')}${vSlice}`);
 
@@ -1047,7 +1053,9 @@ export class ProEditorService {
       parts.push(...styleFilters);
       if (singleSpeed !== 1) parts.push(`setpts=PTS/${singleSpeed}`);
       parts.push(`fps=${fps}`, 'format=yuv420p');
-      filterComplex.push(`${videoStreamLabel}${parts.length ? ',' + parts.join(',') : ''}[base_v]`);
+      // No comma between the input pad and the first filter: `[0:v],fps=...` parses
+      // as an empty filter and aborts every single-item render (found by Phase 1b tests).
+      filterComplex.push(`${videoStreamLabel}${parts.join(',')}[base_v]`);
       videoStreamLabel = '[base_v]';
       if (singleSpeed !== 1) {
         const atempo = ProEditorService.audioAtempoChain(singleSpeed);

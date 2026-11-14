@@ -4,6 +4,8 @@ import { fileURLToPath, URL } from 'node:url';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  preview: { allowedHosts: true },
+  server: { allowedHosts: true },
   plugins: [react()],
   build: {
     rollupOptions: {
