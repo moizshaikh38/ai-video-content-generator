@@ -100,3 +100,39 @@ describe('evaluateCaptionStyle wiring (the actual op builder)', () => {
     assert.equal(op.parameters.style, 'bold');
   });
 });
+
+describe('genre op toggles: hook banner and punch-in (previously dead config)', () => {
+  it('toggles mirror each genre profile exactly', () => {
+    for (const genre of [
+      'podcast_interview', 'education_tutorial', 'motivation', 'business_finance',
+      'gaming', 'sports', 'news_politics', 'comedy_entertainment', 'storytelling',
+      'product_marketing', 'general',
+    ] as ContentGenre[]) {
+      const pd = GenreIntelligenceService.getGenreProfile(genre).producerDefaults;
+      assert.equal(ProducerPlanningService.resolveGenreOpToggle(genre, 'hookBannerEnabled'), Boolean(pd.hookBannerEnabled), `${genre} hook`);
+      assert.equal(ProducerPlanningService.resolveGenreOpToggle(genre, 'punchInClimax'), Boolean(pd.punchInClimax), `${genre} punch`);
+    }
+  });
+
+  it('spot-checks the actual profile values (test assumptions stay honest)', () => {
+    // As of this audit: hook banner only for education_tutorial and
+    // product_marketing; punch-in only for motivation, gaming, comedy.
+    assert.equal(ProducerPlanningService.resolveGenreOpToggle('gaming', 'punchInClimax'), true);
+    assert.equal(ProducerPlanningService.resolveGenreOpToggle('gaming', 'hookBannerEnabled'), false);
+    assert.equal(ProducerPlanningService.resolveGenreOpToggle('education_tutorial', 'hookBannerEnabled'), true);
+    assert.equal(ProducerPlanningService.resolveGenreOpToggle('podcast_interview', 'punchInClimax'), false);
+  });
+
+  it('no genre keeps the previous always-on behavior', () => {
+    assert.equal(ProducerPlanningService.resolveGenreOpToggle(undefined, 'hookBannerEnabled'), true);
+    assert.equal(ProducerPlanningService.resolveGenreOpToggle(undefined, 'punchInClimax'), true);
+  });
+
+  it('evaluatePunchIn returns null for a punch-in-disabled genre, op otherwise', () => {
+    const off = ProducerPlanningService.evaluatePunchIn(10, 25, [], null, 'BALANCED', 'podcast_interview');
+    assert.equal(off, null);
+    const on = ProducerPlanningService.evaluatePunchIn(10, 25, [], null, 'BALANCED', 'gaming');
+    assert.ok(on);
+    assert.equal(on.type, 'PUNCH_IN');
+  });
+});

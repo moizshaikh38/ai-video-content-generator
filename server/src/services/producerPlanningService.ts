@@ -368,7 +368,11 @@ export class ProducerPlanningService {
     if (hookOp) operations.push(hookOp);
 
     // 7. Visual Punch-In (Climax / Hook Emphasis)
-    const punchInOp = this.evaluatePunchIn(clipStart, clipEnd, wordsInClip, ctx.analysis, mode);
+    const punchInGenre: ContentGenre | undefined =
+      (clip.genre as ContentGenre | undefined) ||
+      (ctx.candidate?.genre as ContentGenre | undefined) ||
+      ((ctx.project as any)?.genre as ContentGenre | undefined);
+    const punchInOp = this.evaluatePunchIn(clipStart, clipEnd, wordsInClip, ctx.analysis, mode, punchInGenre);
     if (punchInOp) operations.push(punchInOp);
 
     // 8. Kinetic Captions
@@ -611,7 +615,7 @@ export class ProducerPlanningService {
   /**
    * Generates opening hook text overlay (first 3-4 seconds).
    */
-  private static evaluateHookText(
+  public static evaluateHookText(
     clip: ClipRecord,
     ctx: PlanGenerationContext,
     targetPlatform: OutputPlatform,
@@ -619,6 +623,12 @@ export class ProducerPlanningService {
     userInstruction?: string
   ): ProducerOperation | null {
     if (mode === 'LIGHT') return null;
+
+    const hookGenre: ContentGenre | undefined =
+      (clip.genre as ContentGenre | undefined) ||
+      (ctx.candidate?.genre as ContentGenre | undefined) ||
+      ((ctx.project as any)?.genre as ContentGenre | undefined);
+    if (!this.resolveGenreOpToggle(hookGenre, 'hookBannerEnabled')) return null;
 
     // Formulate hook text: from candidate hook, candidate title, or clip title
     let rawHook =
@@ -658,14 +668,16 @@ export class ProducerPlanningService {
   /**
    * Evaluates subtle punch-in zoom during key energetic moments.
    */
-  private static evaluatePunchIn(
+  public static evaluatePunchIn(
     clipStart: number,
     clipEnd: number,
     words: TranscriptWord[],
     analysis: VideoAnalysisRecord | null | undefined,
-    mode: ProducerMode
+    mode: ProducerMode,
+    genre?: ContentGenre
   ): ProducerOperation | null {
     if (mode === 'LIGHT') return null;
+    if (!this.resolveGenreOpToggle(genre, 'punchInClimax')) return null;
 
     const clipDuration = clipEnd - clipStart;
     if (clipDuration < 8.0) return null;
@@ -712,6 +724,22 @@ export class ProducerPlanningService {
       return { style: modeDefault, genreApplied: false };
     }
     return { style: genreStyle, genreApplied: genreStyle !== modeDefault, genreDisplayName: profile.displayName };
+  }
+
+  /**
+   * Phase 3c: genre op toggles. producerDefaults.hookBannerEnabled and
+   * producerDefaults.punchInClimax were dead config; they now gate the
+   * HOOK_TEXT and PUNCH_IN operations. No genre (or an absent flag) keeps
+   * the previous always-on behavior.
+   */
+  public static resolveGenreOpToggle(
+    genre: ContentGenre | undefined,
+    key: 'hookBannerEnabled' | 'punchInClimax'
+  ): boolean {
+    if (!genre) return true;
+    const profile = GenreIntelligenceService.getGenreProfile(genre);
+    const v = profile?.producerDefaults?.[key];
+    return v === undefined ? true : Boolean(v);
   }
 
   /**
