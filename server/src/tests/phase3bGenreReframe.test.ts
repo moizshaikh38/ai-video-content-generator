@@ -275,3 +275,52 @@ describe('subject retention: smoothing may not lose a known subject', () => {
     );
   });
 });
+
+describe('confidence-weighted centering (real-media FP mitigation)', () => {
+  // Haar false positives on non-face content cluster at 0.65-0.83 confidence;
+  // confident detections reach 0.9+. Weak detections must pull the crop only
+  // weakly from center; confident ones steer fully.
+  const mk = (t: number, cx: number, conf: number): ReframeSample => ({
+    time: t,
+    faces: [
+      {
+        x: cx - 0.05,
+        y: 0.4,
+        width: 0.1,
+        height: 0.1,
+        center_x: cx,
+        center_y: 0.45,
+        confidence: conf,
+        track_id: 't1',
+      },
+    ],
+  });
+
+  it('a 0.70-confidence detection at x=0.2 pulls the crop only weakly', () => {
+    const kfs = SmartReframeService.smoothAndGenerateKeyframes({
+      samples: [mk(0, 0.2, 0.7), mk(0.5, 0.2, 0.7), mk(1, 0.2, 0.7)],
+      dominantTrackId: 't1',
+      duration: 1.5,
+      aspectRatio: '9:16',
+      sourceWidth: 1280,
+      sourceHeight: 720,
+    });
+    const x = kfs[0].centerX;
+    // Weight = (0.70-0.68)/0.2 = 0.1 -> 0.5 + (0.2-0.5)*0.1 = 0.47
+    assert.ok(Math.abs(x - 0.47) < 0.02, `expected weak pull toward 0.47, got ${x}`);
+  });
+
+  it('a 0.95-confidence detection at x=0.2 steers fully', () => {
+    const kfs = SmartReframeService.smoothAndGenerateKeyframes({
+      samples: [mk(0, 0.2, 0.95), mk(0.5, 0.2, 0.95), mk(1, 0.2, 0.95)],
+      dominantTrackId: 't1',
+      duration: 1.5,
+      aspectRatio: '9:16',
+      sourceWidth: 1280,
+      sourceHeight: 720,
+    });
+    const x = kfs[0].centerX;
+    // Weight 1 -> full position 0.2, clamped by window half-width 0.158
+    assert.ok(x < 0.25, `expected full steering toward 0.2, got ${x}`);
+  });
+});

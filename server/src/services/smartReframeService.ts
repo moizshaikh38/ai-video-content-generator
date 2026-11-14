@@ -535,8 +535,15 @@ export class SmartReframeService {
         let subjectBox: { x: number; y: number; w: number; h: number } | null = null;
 
         if (shotDominantTrackId === '__midpoint__') {
-          const validFaceXs = sample.faces.map((f) => f.center_x);
-          const validFaceYs = sample.faces.map((f) => f.center_y);
+          // Same confidence weighting as the single-track branch: weak
+          // detections pull the midpoint only weakly away from center.
+          const weighted = sample.faces.map((f) => {
+            const conf = Number(f.confidence ?? 0.5);
+            const w = Math.min(1, Math.max(0, (conf - 0.68) / 0.2));
+            return { x: 0.5 + (f.center_x - 0.5) * w, y: 0.38 + (f.center_y - 0.38) * w };
+          });
+          const validFaceXs = weighted.map((f) => f.x);
+          const validFaceYs = weighted.map((f) => f.y);
           if (validFaceXs.length >= 2) {
             targetX = (validFaceXs[0] + validFaceXs[1]) / 2.0;
             targetY = (validFaceYs[0] + validFaceYs[1]) / 2.0;
@@ -554,11 +561,20 @@ export class SmartReframeService {
         } else if (shotDominantTrackId) {
           const match = sample.faces.find((f) => f.track_id === shotDominantTrackId);
           if (match) {
-            targetX = match.center_x;
-            targetY = match.center_y;
+            // Confidence-weighted centering: low-confidence detections (Haar
+            // false positives on non-face content cluster at ~0.65-0.80) pull
+            // the crop only weakly away from frame center; confident
+            // detections (~0.88+) steer fully. Weight 0 at 0.68, 1 at 0.88.
+            const conf = Number(match.confidence ?? 0.5);
+            const confWeight = Math.min(1, Math.max(0, (conf - 0.68) / 0.2));
+            targetX = 0.5 + (match.center_x - 0.5) * confWeight;
+            targetY = 0.38 + (match.center_y - 0.38) * confWeight;
             lastSeenFace = match;
             lastSeenTime = time;
-            subjectBox = { x: match.x, y: match.y, w: match.width, h: match.height };
+            // Retention constrains the crop only for detections confident
+            // enough to steer it; a low-confidence possible-false-positive
+            // box must not pin the window either.
+            subjectBox = confWeight >= 0.5 ? { x: match.x, y: match.y, w: match.width, h: match.height } : null;
           }
         }
 
