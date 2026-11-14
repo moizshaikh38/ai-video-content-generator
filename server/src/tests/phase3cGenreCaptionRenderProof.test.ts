@@ -57,18 +57,19 @@ const renderCaptionFrame = async (
     caption_config: {},
     aspect_ratio: '9:16' as const,
   };
-  const { cues, preset } = CaptionService.extractCuesForClipSettings(TRANSCRIPT, clip, '9:16');
+  const { cues, preset, timingMode } = CaptionService.extractCuesForClipSettings(TRANSCRIPT, clip, '9:16');
   assert.ok(cues.length > 0, `${tag}: cues extracted`);
-  // Mirror the render path (captionService.ts:1364): gallery preset styles use
-  // the preset ASS builder; legacy styles (e.g. 'karaoke', which has no
-  // gallery preset) fall back to buildAssScript. FINDING: genre defaults
-  // 'karaoke' (gaming, comedy) hit the legacy path - see audit report.
+  // Mirror the real render path (captionService.ts:1364): gallery preset
+  // styles use the preset ASS builder; legacy styles (e.g. 'karaoke', which
+  // has no gallery preset) go through buildAssScript WITH the extracted
+  // timing mode - 'word' timing is what turns karaoke's {\k} sweep on.
   const ass = preset
     ? buildPresetAssScript(cues as any, preset)
     : CaptionService.buildAssScript(cues as any, {
         style: style as any,
         position: 'bottom',
         aspectRatio: '9:16',
+        timingMode,
       });
   const assPath = path.join(tmp, `cap-${tag}.ass`);
   fs.writeFileSync(assPath, ass, 'utf8');
@@ -113,6 +114,18 @@ const captionInk = (frame: Buffer): number => {
   return n;
 };
 
+/** Count orange-ish (karaoke active-sweep color #FF6B35) pixels in an RGB frame. */
+const orangePixels = (rgb: Buffer): number => {
+  let n = 0;
+  for (let i = 0; i + 2 < rgb.length; i += 3) {
+    const r = rgb[i];
+    const g = rgb[i + 1];
+    const b = rgb[i + 2];
+    if (r > 180 && g > 60 && g < 160 && b < 110) n++;
+  }
+  return n;
+};
+
 describe('Phase 3c genre-default captions: rendered output proof', () => {
   it('genre-default styles burn visible, measurably different caption pixels', async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'caption-render-proof-'));
@@ -133,6 +146,79 @@ describe('Phase 3c genre-default captions: rendered output proof', () => {
     // The two genre styles must not collapse into identical rendering.
     assert.notDeepEqual(gaming.frame, edu.frame, 'genre caption styles must render differently');
 
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }, 120000);
+
+  it('karaoke style renders a TRUE word sweep: highlighted region grows over the cue', async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'karaoke-sweep-proof-'));
+    const clip = {
+      start_seconds: 0,
+      end_seconds: 6,
+      trim_start_offset: 0,
+      trim_end_offset: 0,
+      caption_style: 'karaoke',
+      caption_config: {},
+      aspect_ratio: '9:16' as const,
+    };
+    const { cues, timingMode } = CaptionService.extractCuesForClipSettings(TRANSCRIPT, clip, '9:16');
+    assert.equal(timingMode, 'word', 'karaoke proof needs word-timed cues');
+    assert.ok(cues.some((c: any) => Array.isArray(c.words) && c.words.length > 0), 'cues carry words');
+
+    const ass = CaptionService.buildAssScript(cues as any, {
+      style: 'karaoke',
+      position: 'bottom',
+      aspectRatio: '9:16',
+      timingMode,
+    });
+    assert.ok(ass.includes('{\\k'), 'karaoke ASS must contain {\\k} sweep tags');
+    const assPath = path.join(tmp, 'karaoke.ass');
+    fs.writeFileSync(assPath, ass, 'utf8');
+
+    const srcPath = path.join(tmp, 'src.mp4');
+    await execFileAsync(ffmpegBin, [
+      '-y', '-f', 'lavfi', '-i', `color=c=0x181818:s=${W}x${H}:d=6:r=30`,
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', srcPath,
+    ]);
+    const escapedAss = assPath.replace(/:/g, '\\:').replace(/\\/g, '/');
+    const outPath = path.join(tmp, 'out.mp4');
+    await execFileAsync(ffmpegBin, [
+      '-y', '-i', srcPath, '-vf', `subtitles='${escapedAss}'`,
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18', outPath,
+    ]);
+
+    // Sample inside the FIRST word-timed cue. In ASS {\k} semantics the
+    // unswept remainder renders in the secondary (orange) colour, so the
+    // orange area must SHRINK as the sweep progresses through the cue.
+    // Use the LONGEST word cue so early/late samples sit comfortably inside it.
+    const wordCue = cues
+      .filter((c: any) => Array.isArray(c.words) && c.words.length > 1)
+      .sort((a: any, b: any) => b.end - b.start - (a.end - a.start))[0] as any;
+    assert.ok(wordCue, 'found a multi-word cue');
+    const span = wordCue.end - wordCue.start;
+    const tEarly = (wordCue.start + span * 0.15).toFixed(2);
+    const tLate = (wordCue.start + span * 0.7).toFixed(2);
+    const rgbAt = async (t: string, tag: string): Promise<Buffer> => {
+      const p = path.join(tmp, `f-${tag}.rgb`);
+      await execFileAsync(ffmpegBin, [
+        '-y', '-ss', t, '-i', outPath, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', p,
+      ]);
+      return fs.readFileSync(p);
+    };
+    const early = orangePixels(await rgbAt(tEarly, 'early'));
+    const late = orangePixels(await rgbAt(tLate, 'late'));
+    assert.ok(early > 5000, `karaoke sweep active early in cue, got ${early} orange px`);
+    assert.ok(late > 500, `sweep still visible late in cue, got ${late} orange px`);
+    assert.ok(late < early * 0.6, `sweep must progress: early=${early}, late=${late}`);
+
+    const evidenceDir = process.env.CAPTION_PROOF_OUT || '';
+    if (evidenceDir) {
+      fs.mkdirSync(evidenceDir, { recursive: true });
+      for (const [t, tag] of [[tEarly, 'early'], [tLate, 'late']] as const) {
+        await execFileAsync(ffmpegBin, [
+          '-y', '-ss', t, '-i', outPath, '-frames:v', '1', path.join(evidenceDir, `karaoke-sweep-${tag}.png`),
+        ]);
+      }
+    }
     fs.rmSync(tmp, { recursive: true, force: true });
   }, 120000);
 });
