@@ -393,7 +393,31 @@ export class SmartReframeService {
       smoothingAlpha = 0.25, // Exponential moving average weight
       sceneCuts = [],
       speechIntervals = [],
+      aspectRatio = '9:16',
+      sourceWidth = 1920,
+      sourceHeight = 1080,
     } = params;
+
+    // Subject-retention window: half-size of the crop window in normalized
+    // source coordinates. Smoothing may never leave a known subject's
+    // bounding box outside this window; retention overrides steadiness.
+    const parseAspect = (ar: string): number => {
+      const m = /^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/.exec(ar);
+      if (!m) return 9 / 16;
+      const w = Number(m[1]);
+      const h = Number(m[2]);
+      return w > 0 && h > 0 ? w / h : 9 / 16;
+    };
+    const cropAspect = parseAspect(aspectRatio);
+    const cropWinHalfW = Math.min(1, (sourceHeight * cropAspect) / Math.max(1, sourceWidth)) / 2;
+    const cropWinHalfH = Math.min(1, sourceWidth / cropAspect / Math.max(1, sourceHeight)) / 2;
+    const clampCenterForRetention = (c: number, boxStart: number, boxSize: number, half: number): number => {
+      if (2 * half >= 1) return c; // window covers the whole axis: every box is trivially inside
+      if (boxSize >= 2 * half) return boxStart + boxSize / 2; // subject larger than window: center on it
+      const lo = boxStart + boxSize - half; // min center keeping the box's far edge inside
+      const hi = boxStart + half; // max center keeping the box's near edge inside
+      return Math.min(hi, Math.max(lo, c));
+    };
 
     const safeDuration = Math.max(0.1, duration);
 
@@ -434,6 +458,7 @@ export class SmartReframeService {
       time: number;
       x: number;
       y: number;
+      box?: { x: number; y: number; w: number; h: number };
     }
     const shotTrajectories: ShotTrajectoryPoint[][] = [];
 
@@ -498,7 +523,7 @@ export class SmartReframeService {
       }
 
       // Build raw trajectory for this shot
-      const rawShotTraj: { time: number; x: number; y: number }[] = [];
+      const rawShotTraj: ShotTrajectoryPoint[] = [];
       let lastSeenFace: NormalizedFaceDetection | null = null;
       let lastSeenTime = -1;
 
@@ -506,6 +531,8 @@ export class SmartReframeService {
         const { time } = sample;
         let targetX: number | null = null;
         let targetY: number | null = null;
+
+        let subjectBox: { x: number; y: number; w: number; h: number } | null = null;
 
         if (shotDominantTrackId === '__midpoint__') {
           const validFaceXs = sample.faces.map((f) => f.center_x);
@@ -517,6 +544,13 @@ export class SmartReframeService {
             targetX = validFaceXs[0];
             targetY = validFaceYs[0];
           }
+          if (sample.faces.length > 0) {
+            const minX = Math.min(...sample.faces.map((f) => f.x));
+            const minY = Math.min(...sample.faces.map((f) => f.y));
+            const maxX = Math.max(...sample.faces.map((f) => f.x + f.width));
+            const maxY = Math.max(...sample.faces.map((f) => f.y + f.height));
+            subjectBox = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+          }
         } else if (shotDominantTrackId) {
           const match = sample.faces.find((f) => f.track_id === shotDominantTrackId);
           if (match) {
@@ -524,16 +558,22 @@ export class SmartReframeService {
             targetY = match.center_y;
             lastSeenFace = match;
             lastSeenTime = time;
+            subjectBox = { x: match.x, y: match.y, w: match.width, h: match.height };
           }
         }
 
         const fallbackY = lastSeenFace ? lastSeenFace.center_y : 0.38;
 
         if (targetX !== null) {
-          rawShotTraj.push({ time, x: targetX, y: targetY ?? fallbackY });
+          rawShotTraj.push({ time, x: targetX, y: targetY ?? fallbackY, box: subjectBox ?? undefined });
         } else if (lastSeenFace !== null && (time - lastSeenTime) <= 1.0) {
           // Short occlusion (<= 1.0s) within this shot: hold last known position
-          rawShotTraj.push({ time, x: lastSeenFace.center_x, y: lastSeenFace.center_y });
+          rawShotTraj.push({
+            time,
+            x: lastSeenFace.center_x,
+            y: lastSeenFace.center_y,
+            box: { x: lastSeenFace.x, y: lastSeenFace.y, w: lastSeenFace.width, h: lastSeenFace.height },
+          });
         } else {
           // Longer occlusion or no face: ease toward center (0.5 for X, 0.38 for eye-level headroom Y)
           const prevX = lastSeenFace ? lastSeenFace.center_x : 0.5;
@@ -580,6 +620,14 @@ export class SmartReframeService {
 
         currentX = Math.min(1.0, Math.max(0.0, currentX));
         currentY = Math.min(1.0, Math.max(0.0, currentY));
+
+        // Subject retention: a known subject's bounding box must stay inside
+        // the crop window even when genre tuning prefers a steadier camera.
+        if (pt.box) {
+          currentX = clampCenterForRetention(currentX, pt.box.x, pt.box.w, cropWinHalfW);
+          currentY = clampCenterForRetention(currentY, pt.box.y, pt.box.h, cropWinHalfH);
+        }
+
         smoothedShotTraj.push({
           time: pt.time,
           x: Math.round(currentX * 10000) / 10000,

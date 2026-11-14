@@ -67,6 +67,27 @@ const brightCentroidX = (raw: Buffer, w: number, h: number): number => {
   return n > 0 ? sum / n : -1;
 };
 
+/** Bounding box of the brightest pixels, normalized to the frame. */
+const brightBounds = (raw: Buffer, w: number, h: number) => {
+  let minX = 1;
+  let maxX = 0;
+  let minY = 1;
+  let maxY = 0;
+  let n = 0;
+  for (let i = 0; i < w * h; i++) {
+    if (raw[i] > 220) {
+      const x = (i % w) / w;
+      const y = Math.floor(i / w) / h;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+      n++;
+    }
+  }
+  return { minX, maxX, minY, maxY, count: n };
+};
+
 describe('Phase 3b genre-tuned reframe: rendered output proof', () => {
   it('rendered 9:16 output keeps the subject better centered with the tighter genre config', async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'genre-render-proof-'));
@@ -124,8 +145,10 @@ describe('Phase 3b genre-tuned reframe: rendered output proof', () => {
     // Output is 1080x1920 after the smart crop filter's scale/crop chain.
     const W = 1080;
     const H = 1920;
-    const podcastX = brightCentroidX(await frameAt(outPodcast, 'podcast'), W, H);
-    const gamingX = brightCentroidX(await frameAt(outGaming, 'gaming'), W, H);
+    const podcastFrame = await frameAt(outPodcast, 'podcast');
+    const gamingFrame = await frameAt(outGaming, 'gaming');
+    const podcastX = brightCentroidX(podcastFrame, W, H);
+    const gamingX = brightCentroidX(gamingFrame, W, H);
 
     assert.ok(podcastX >= 0 && gamingX >= 0, 'subject must be visible in both renders');
     // Both genre crops follow the right-moving subject (no frozen-center regression).
@@ -135,6 +158,24 @@ describe('Phase 3b genre-tuned reframe: rendered output proof', () => {
       Math.abs(gamingX - 0.5) < Math.abs(podcastX - 0.5),
       `gaming should center the subject better (gaming=${gamingX}, podcast=${podcastX})`
     );
+
+    // Subject retention: the whole bright block must fit inside the frame in
+    // BOTH renders - steadiness tuning may not cut the subject off.
+    for (const [tag, frame] of [
+      ['podcast', podcastFrame],
+      ['gaming', gamingFrame],
+    ] as const) {
+      const b = brightBounds(frame, W, H);
+      assert.ok(b.count > 0, `${tag}: subject pixels present`);
+      assert.ok(b.minX > 0.005, `${tag}: subject clipped at left edge (minX=${b.minX})`);
+      assert.ok(b.maxX < 0.995, `${tag}: subject clipped at right edge (maxX=${b.maxX})`);
+      // The block is 80px in a 1280-wide source scaled x2.666 -> ~213px wide
+      // (0.197 of the 1080-wide output). A clipped block loses width.
+      assert.ok(
+        b.maxX - b.minX > 0.15,
+        `${tag}: subject partially out of frame (width=${(b.maxX - b.minX).toFixed(3)})`
+      );
+    }
 
     // Save rendered evidence frames for visual inspection.
     const evidenceDir = process.env.GENRE_PROOF_OUT || '';

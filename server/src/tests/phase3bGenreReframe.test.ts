@@ -67,9 +67,12 @@ describe('genre reframeConfig changes the actual smoothed trajectory', () => {
         time: t,
         faces: [
           {
-            x: x - 0.1,
+            // Small box: tracking-tightness differences must come from the
+            // smoothing parameters here, not from the retention boundary
+            // (retention behavior is pinned by its own test suite below).
+            x: x - 0.025,
             y: 0.2,
-            width: 0.2,
+            width: 0.05,
             height: 0.2,
             center_x: x,
             center_y: 0.3,
@@ -170,6 +173,105 @@ describe('genre reframeConfig changes the actual smoothed trajectory', () => {
     assert.ok(
       podcastRange < 0.05,
       `podcast deadZone should suppress micro-jitter (range=${podcastRange})`
+    );
+  });
+});
+
+
+describe('subject retention: smoothing may not lose a known subject', () => {
+  // Fast subject crossing most of the frame in 2s - quicker than the podcast
+  // config's steadiness tuning would follow on its own.
+  const HALF_W = Math.min(1, (720 * (9 / 16)) / 1280) / 2; // 9:16 window from 1280x720
+
+  const fastSamples = (): ReframeSample[] => {
+    const samples: ReframeSample[] = [];
+    for (let i = 0; i <= 20; i++) {
+      const t = i * 0.1;
+      const cx = 0.1 + 0.8 * (t / 2);
+      samples.push({
+        time: t,
+        faces: [
+          {
+            x: cx - 0.05,
+            y: 0.4,
+            width: 0.1,
+            height: 0.1,
+            center_x: cx,
+            center_y: 0.45,
+            confidence: 0.95,
+            track_id: 't1',
+          },
+        ],
+      });
+    }
+    return samples;
+  };
+
+  it('podcast config keeps a fast subject fully inside the crop window at every keyframe', () => {
+    const podcast = GenreIntelligenceService.getGenreProfile('podcast_interview').reframeConfig;
+    const kfs = SmartReframeService.smoothAndGenerateKeyframes({
+      samples: fastSamples(),
+      dominantTrackId: 't1',
+      duration: 2,
+      deadZone: podcast.deadZone,
+      maxVelocity: podcast.maxVelocity,
+      smoothingAlpha: podcast.smoothingAlpha,
+      aspectRatio: '9:16',
+      sourceWidth: 1280,
+      sourceHeight: 720,
+    });
+
+    const eps = 1e-3;
+    for (const kf of kfs) {
+      const cx = 0.1 + 0.8 * (kf.time / 2);
+      const boxLeft = cx - 0.05;
+      const boxRight = cx + 0.05;
+      const winLeft = kf.centerX - HALF_W;
+      const winRight = kf.centerX + HALF_W;
+      assert.ok(
+        winLeft <= boxLeft + eps && winRight >= boxRight - eps,
+        `subject must stay inside the window at t=${kf.time}: ` +
+          `window [${winLeft.toFixed(4)}, ${winRight.toFixed(4)}], box [${boxLeft.toFixed(4)}, ${boxRight.toFixed(4)}]`
+      );
+    }
+  });
+
+  it('a subject wider than the window is centered on, not clamped away', () => {
+    const samples: ReframeSample[] = [];
+    for (let i = 0; i <= 10; i++) {
+      const t = i * 0.2;
+      samples.push({
+        time: t,
+        faces: [
+          {
+            x: 0.6,
+            y: 0.2,
+            width: 0.35, // wider than the 0.3164-wide 9:16 window
+            height: 0.2,
+            center_x: 0.775,
+            center_y: 0.3,
+            confidence: 0.95,
+            track_id: 't1',
+          },
+        ],
+      });
+    }
+    const podcast = GenreIntelligenceService.getGenreProfile('podcast_interview').reframeConfig;
+    const kfs = SmartReframeService.smoothAndGenerateKeyframes({
+      samples,
+      dominantTrackId: 't1',
+      duration: 2,
+      deadZone: podcast.deadZone,
+      maxVelocity: podcast.maxVelocity,
+      smoothingAlpha: podcast.smoothingAlpha,
+      aspectRatio: '9:16',
+      sourceWidth: 1280,
+      sourceHeight: 720,
+    });
+    const last = kfs[kfs.length - 1];
+    assert.ok(
+      Math.abs(last.centerX - 0.775) < 0.05,
+      `oversized subject should end centered on its box, got centerX=${last.centerX}`
     );
   });
 });
