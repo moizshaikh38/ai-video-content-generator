@@ -25,3 +25,16 @@ Reproduce:
     ffmpeg -i /tmp/realmedia/<clip>.mp4 -filter_complex_script /tmp/realmedia/filter.txt -c:v libx264 -crf 20 -c:a aac /tmp/realmedia/<clip>-reframed.mp4
 
 dump-detections.ts prints every raw detection (time, box, confidence) for a clip.
+
+## YuNet detector candidate (experimental, env-gated)
+
+- Model: face_detection_yunet_2023mar.onnx (232 KB), OpenCV team, opencv_zoo, MIT license.
+  URL: https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+  Local path on audit machine: /tmp/realmedia/models/face_detection_yunet_2023mar.onnx (not committed; re-download from URL).
+- Activation: SMART_REFRAME_YUNET_MODEL=<model path> (+ optional SMART_REFRAME_YUNET_THRESHOLD, default 0.6).
+  When set, smart_reframe.py uses YuNet INSTEAD of the Haar cascades - Haar never runs per-frame, so no-face
+  false positives cannot silently return. Default (env unset) is the unchanged Haar behavior.
+- YuNet scores are detector scores, not calibrated probabilities; detection-positive rates here are sample
+  rates, not recall/precision (no labeled ground truth).
+- Threshold sweep + full-chain A/B results: /tmp/realmedia/yunet-sweep-notes.md on the audit machine.
+- Eval script: server/scripts/yunet_eval.py (runs YuNet over a clip at 4 fps, prints per-clip stats).
