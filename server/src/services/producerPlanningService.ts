@@ -7,6 +7,7 @@ import { config } from '../config/index.js';
 import { GenreIntelligenceService } from './genreIntelligenceService.js';
 import {
   AppError,
+  CaptionStyle,
   ClipRecord,
   ClipCandidate,
   ContentGenre,
@@ -691,15 +692,42 @@ export class ProducerPlanningService {
   }
 
   /**
-   * Evaluates caption preset and placement.
+   * Phase 3c: genre-aware caption default.
+   * The genre profile's producerDefaults.captionStyle fills the BALANCED-mode
+   * default. LIGHT and AGGRESSIVE are explicit user intensity choices and keep
+   * their styles regardless of genre. Unknown genres fall back to the general
+   * profile, matching resolveGenreReframeOptions semantics.
    */
-  private static evaluateCaptionStyle(
+  public static resolveCaptionStyleDefault(
+    genre: ContentGenre | undefined,
+    mode: ProducerMode
+  ): { style: CaptionStyle; genreApplied: boolean; genreDisplayName?: string } {
+    const modeDefault: CaptionStyle = mode === 'AGGRESSIVE' ? 'bold' : mode === 'BALANCED' ? 'highlight' : 'clean';
+    if (mode !== 'BALANCED' || !genre) {
+      return { style: modeDefault, genreApplied: false };
+    }
+    const profile = GenreIntelligenceService.getGenreProfile(genre);
+    const genreStyle = profile?.producerDefaults?.captionStyle;
+    if (!genreStyle) {
+      return { style: modeDefault, genreApplied: false };
+    }
+    return { style: genreStyle, genreApplied: genreStyle !== modeDefault, genreDisplayName: profile.displayName };
+  }
+
+  /**
+   * Evaluates caption preset and placement.
+   * Public for direct testing of the genre-aware default chain.
+   */
+  public static evaluateCaptionStyle(
     clip: ClipRecord,
     targetPlatform: OutputPlatform,
     mode: ProducerMode,
     profile?: CreatorProfileRecord | null
   ): ProducerOperation | null {
-    const style = mode === 'AGGRESSIVE' ? 'bold' : mode === 'BALANCED' ? 'highlight' : 'clean';
+    const { style, genreApplied, genreDisplayName } = this.resolveCaptionStyleDefault(
+      (clip.genre as ContentGenre | undefined) || undefined,
+      mode
+    );
     const position = targetPlatform === 'tiktok' ? 'bottom' : 'bottom';
     const primaryColor = profile?.brand_colors?.[0] || (mode === 'AGGRESSIVE' ? '#FACC15' : '#FFFFFF');
 
@@ -716,7 +744,9 @@ export class ProducerPlanningService {
         font_size: mode === 'AGGRESSIVE' ? 52 : 46,
       },
       confidence: 0.96,
-      reason: '85% of short-form video is watched on mute; dynamic subtitles maximize retention.',
+      reason: genreApplied
+        ? `85% of short-form video is watched on mute; ${genreDisplayName} default caption style applied for genre-native typography.`
+        : '85% of short-form video is watched on mute; dynamic subtitles maximize retention.',
     };
   }
 
