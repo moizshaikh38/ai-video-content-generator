@@ -52,7 +52,7 @@ import {
 import { downloadObjectToFile, uploadFile, signObjectGet } from './objectStorageService.js';
 import { CaptionService } from './captionService.js';
 import { isKnownCaptionStyle } from '../shared/captionPresets.js';
-import { buildCropFilter, buildFitFilter } from './clipRenderService.js';
+import { buildCropFilter, buildFitFilter, buildBlurFitChain } from './clipRenderService.js';
 import { AudioEnhancementService } from './audioEnhancementService.js';
 import {
   LoudnormMeasured,
@@ -779,7 +779,7 @@ export class ProEditorService {
     if (item.is_title_card) return null;
 
     // Per-item manual crop override wins over clip-level reframing.
-    if (item.crop && (item.crop.mode === 'custom' || item.crop.mode === 'fit' || item.crop.mode === 'fill')) {
+    if (item.crop && (item.crop.mode === 'custom' || item.crop.mode === 'fit' || item.crop.mode === 'fill' || item.crop.mode === 'blur')) {
       // 'fit' letterboxes the whole frame (scale-decrease + pad); 'fill'/'custom'
       // crop to fill the canvas at the (clamped) focus point. Clamping keeps a bad
       // persisted value from pushing the crop window outside the frame (black edges).
@@ -787,6 +787,12 @@ export class ProEditorService {
         Math.min(1, Math.max(0, typeof v === 'number' && Number.isFinite(v) ? v : 0.5));
       const zoom = Math.min(4, Math.max(1, Number(item.crop.scale ?? 1)));
       if (item.crop.mode === 'fit') return buildFitFilter(ratio, zoom, clampFocus(item.crop.focusX), clampFocus(item.crop.focusY));
+      if (item.crop.mode === 'blur') {
+        // Chain-safe fragment: consumes the trimmed slice stream via split and
+        // ends unlabeled, so the caller's comma chain keeps working.
+        const tag = ('vc' + String(item.id || 'x')).replace(/[^a-zA-Z0-9]/g, '').slice(0, 16) || 'vcb';
+        return buildBlurFitChain(ratio, zoom, tag);
+      }
       return buildCropFilter(ratio, { focusX: clampFocus(item.crop.focusX), focusY: clampFocus(item.crop.focusY), scale: zoom });
     }
 

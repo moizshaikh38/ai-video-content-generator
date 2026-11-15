@@ -45,14 +45,14 @@ interface PreviewCanvasProps {
   // ahead of the auto face track.
   onUpdateItemCrop?: (
     itemId: string,
-    crop: { mode: 'fit' | 'fill' | 'custom'; focusX: number; focusY: number; scale?: number },
+    crop: { mode: 'fit' | 'fill' | 'blur' | 'custom'; focusX: number; focusY: number; scale?: number },
     options?: UpdateProjectOptions
   ) => void;
   onCommitProject?: (preOperationProject: EditorProject) => void;
   showSafeGuides: boolean;
   onToggleSafeGuides?: () => void;
   onChangeAspectRatio?: (aspectRatio: ClipAspectRatio) => void;
-  onUpdateCropMode?: (mode: 'center' | 'fit' | 'smart') => void;
+  onUpdateCropMode?: (mode: 'center' | 'fit' | 'blur' | 'smart') => void;
   videoRef: React.RefObject<HTMLVideoElement>;
   cues: TimedCaptionCue[];
   onUpdateCaptionPosition?: (
@@ -353,12 +353,15 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     }
   }
 
+  const backdropVideoRef = useRef<HTMLVideoElement | null>(null);
+
   const primaryVideoCropMode = useMemo(() => {
     const videoTrack = project.tracks.find((t) => t.type === 'VIDEO');
     const item = videoTrack?.items[0];
     // Match the export compiler: item.crop.mode wins; legacy crop_mode only
-    // applies when no explicit crop exists. 'fit' letterboxes, everything else covers.
-    if (item?.crop?.mode) return item.crop.mode === 'fit' ? 'fit' : 'fill';
+    // applies when no explicit crop exists. 'fit' letterboxes, 'blur' is a
+    // blurred-pad letterbox, everything else covers.
+    if (item?.crop?.mode) return item.crop.mode === 'fit' ? 'fit' : item.crop.mode === 'blur' ? 'blur' : 'fill';
     return (item as any)?.crop_mode === 'fit' ? 'fit' : 'fill';
   }, [project.tracks]);
 
@@ -392,6 +395,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const isUsingRenderedPreview = viewMode === 'export_review' && Boolean(renderedPreviewUrl);
   const targetVideoTime = useMemo(() => {
     if (isUsingRenderedPreview) return playhead;
+    const backdrop = backdropVideoRef.current;
+    if (backdrop && videoRef.current && Math.abs(backdrop.currentTime - videoRef.current.currentTime) > 0.3) {
+      backdrop.currentTime = videoRef.current.currentTime;
+    }
     if (activeVideoItems[0]) {
       const item = activeVideoItems[0];
       const speed = item.speed?.speed || 1.0;
@@ -879,20 +886,20 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
 
           <div className="w-px h-3.5 bg-white/[0.1]" />
 
-          {/* 2. Layout: Fill / Fit */}
+          {/* 2. Layout: Fill / Fit / Blur - one toggle cycling the three fill modes */}
           {onUpdateCropMode && (
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                const nextMode = primaryVideoCropMode === 'fit' ? 'center' : 'fit';
+                const nextMode = primaryVideoCropMode === 'fill' ? 'fit' : primaryVideoCropMode === 'fit' ? 'blur' : 'center';
                 onUpdateCropMode(nextMode);
               }}
               className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg hover:bg-white/[0.08] text-neutral-300 hover:text-white transition font-medium"
-              title={`Layout Mode (Click to switch to ${primaryVideoCropMode === 'fit' ? 'Fill' : 'Fit'})`}
+              title="Layout Mode (Click to cycle Fill / Fit / Blur background)"
             >
               <Maximize2 className="w-3.5 h-3.5" />
-              <span>Layout: {primaryVideoCropMode === 'fit' ? 'Fit' : 'Fill'}</span>
+              <span>Layout: {primaryVideoCropMode === 'fit' ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
             </button>
           )}
 
@@ -940,6 +947,17 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           className="relative overflow-hidden flex items-center justify-center"
         >
           {/* HTML5 VIDEO BASE STREAM */}
+          {primaryVideoCropMode === 'blur' && activeVideoSrc ? (
+            <video
+              ref={backdropVideoRef}
+              src={activeVideoSrc}
+              muted
+              playsInline
+              aria-hidden
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+              style={{ filter: 'blur(40px) brightness(0.8)', transform: 'scale(1.15)' }}
+            />
+          ) : null}
           {activeVideoSrc ? (
             <video
               ref={videoRef}
@@ -989,8 +1007,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               className="w-full h-full cursor-pointer select-none"
             style={{
               filter: cssColorFilters(activeVideoItems[0]),
-              // Fit = letterbox (matches export's buildFitFilter pad); Fill = cover-crop
-              objectFit: primaryVideoCropMode === 'fit' ? 'contain' : 'cover',
+              // Fit/Blur = letterbox (matches export's buildFitFilter pad / blur fill); Fill = cover-crop
+              objectFit: primaryVideoCropMode === 'fit' || primaryVideoCropMode === 'blur' ? 'contain' : 'cover',
               objectPosition: `${((activeVideoItems[0]?.crop?.focusX ?? 0.5) * 100).toFixed(2)}% ${((activeVideoItems[0]?.crop?.focusY ?? 0.5) * 100).toFixed(2)}%`,
               transform: activeVideoItems[0]
                 ? `translate(${interpolateKeyframes(

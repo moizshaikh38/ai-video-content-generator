@@ -1381,11 +1381,29 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               }));
             }}
             onUpdateCropMode={(mode) => {
+              // Route through item.crop: the export compiler (buildSliceCropFilter)
+              // honors item.crop.mode and never reads legacy crop_mode, so writing
+              // crop_mode alone left this toggle with no effect on the render.
+              // crop_mode is still mirrored for legacy preview fallbacks.
               onUpdateProject((prev) => ({
                 ...prev,
                 tracks: prev.tracks.map((t) =>
                   t.type === 'VIDEO'
-                    ? { ...t, items: t.items.map((i) => ({ ...i, crop_mode: mode })) }
+                    ? {
+                        ...t,
+                        items: t.items.map((i) => ({
+                          ...i,
+                          crop_mode: mode === 'blur' ? 'fit' : mode,
+                          crop: {
+                            // 'smart' stays on the legacy crop_mode channel; the
+                            // per-item compiler modes are fill/fit/blur/custom.
+                            mode: (mode === 'center' || mode === 'smart' ? 'fill' : mode) as 'fit' | 'fill' | 'blur',
+                            focusX: i.crop?.focusX ?? 0.5,
+                            focusY: i.crop?.focusY ?? 0.5,
+                            scale: i.crop?.scale ?? 1,
+                          },
+                        })),
+                      }
                     : t
                 ),
               }));

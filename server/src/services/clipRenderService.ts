@@ -226,6 +226,30 @@ export function buildFitFilter(
 }
 
 /**
+ * Chain-safe blurred-background fill ("Fit with Blur") for the pro editor
+ * compiler. Unlike SmartReframeService.buildBlurBackgroundFilter (labeled
+ * [0:v]...[out] form), this returns a fragment that drops into the middle of a
+ * comma-joined slice chain: it consumes the incoming stream with split and
+ * ends on an unlabeled overlay output, so callers can keep appending filters.
+ * `tag` must be unique per graph (slice labels collide otherwise).
+ */
+export function buildBlurFitChain(
+  aspectRatio: ClipAspectRatio = '9:16',
+  zoom: number = 1,
+  tag: string = 'vcb'
+): string {
+  const ar = aspectRatio === '16:9' ? { w: 1920, h: 1080 } : aspectRatio === '1:1' ? { w: 1080, h: 1080 } : { w: 1080, h: 1920 };
+  const z = Math.min(4, Math.max(1, Number(zoom) || 1));
+  const fgW = Math.max(2, Math.round((ar.w * z) / 2) * 2);
+  return (
+    `split=2[${tag}_bgs][${tag}_fgs];` +
+    `[${tag}_bgs]scale=${ar.w}:${ar.h}:force_original_aspect_ratio=increase,crop=${ar.w}:${ar.h},boxblur=25:5,eq=brightness=-0.15:contrast=0.95[${tag}_bg];` +
+    `[${tag}_fgs]scale=${fgW}:-2[${tag}_fg];` +
+    `[${tag}_bg][${tag}_fg]overlay=(W-w)/2:(H-h)/2`
+  );
+}
+
+/**
  * Builds an FFmpeg dynamic crop filter graph expression for smart auto-reframe
  */
 export function buildSmartCropFilter(
@@ -2317,6 +2341,16 @@ export class ClipRenderService {
             ((i.audio.volume !== undefined && i.audio.volume !== 1) ||
               i.audio.fade_in ||
               i.audio.fade_out);
+          // Per-item crop state (fit / blur / custom mode, or any zoom) only
+          // lands through the pro compiler's buildSliceCropFilter - the
+          // clip-level reframe path never reads item.crop, so without this a
+          // layout-toggle or wheel-zoom change on an otherwise plain clip
+          // silently exported with the default fill.
+          const cropMode = i.crop?.mode;
+          const cropScale = Number(i.crop?.scale ?? 1);
+          const hasCustomCrop = Boolean(
+            i.crop && ((cropMode && cropMode !== 'fill') || Math.abs(cropScale - 1) > 0.001)
+          );
           const hasModifiedTimelineStart = i.timeline_start !== 0;
           const hasModifiedSourceStart =
             clip &&
@@ -2330,6 +2364,7 @@ export class ClipRenderService {
             hasFilter ||
             hasCustomSpeed ||
             hasCustomAudio ||
+            hasCustomCrop ||
             hasModifiedTimelineStart ||
             hasModifiedSourceStart
           );

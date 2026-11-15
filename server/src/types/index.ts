@@ -2044,7 +2044,7 @@ export interface EditorTrackItem {
   source_end: number; // seconds in source video
   transform: EditorTransform;
   crop?: {
-    mode: 'fit' | 'fill' | 'custom';
+    mode: 'fit' | 'fill' | 'custom' | 'blur';
     focusX?: number;
     focusY?: number;
     /** Zoom factor for the crop window (1 = fill frame, >1 zoomed in). */
