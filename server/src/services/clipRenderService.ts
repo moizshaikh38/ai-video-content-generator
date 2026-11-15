@@ -1326,6 +1326,11 @@ export class ClipRenderService {
       return { cropFilter: buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config), mode: 'manual', layoutMode: 'manual', track: null };
     }
 
+    if (clip.crop_config?.mode === 'fit_blur') {
+      const zoom = Math.min(4, Math.max(1, Number(clip.crop_config.scale ?? 1)));
+      return { cropFilter: buildBlurFitChain(clip.aspect_ratio as ClipAspectRatio, zoom, 'vcb'), mode: 'manual', layoutMode: 'manual', track: null };
+    }
+
     if (clip.crop_config?.mode === 'fit') {
       const zoom = Math.min(4, Math.max(1, Number(clip.crop_config.scale ?? 1)));
       const clampF = (v: number | undefined): number => Math.min(1, Math.max(0, typeof v === 'number' && Number.isFinite(v) ? v : 0.5));
@@ -1867,7 +1872,7 @@ export class ClipRenderService {
     // Crop config
     let safeCrop = clip.crop_config || { mode: 'center', focusX: 0.5, focusY: 0.5 };
     if (update.cropConfig) {
-      const mode: CropMode = (['smart', 'manual', 'fit'] as const).includes(update.cropConfig.mode as any) ? (update.cropConfig.mode as CropMode) : 'center';
+      const mode: CropMode = (['smart', 'manual', 'fit', 'fit_blur'] as const).includes(update.cropConfig.mode as any) ? (update.cropConfig.mode as CropMode) : 'center';
       safeCrop = {
         mode,
         focusX: Math.min(1.0, Math.max(0.0, Number(update.cropConfig.focusX ?? 0.5))),
