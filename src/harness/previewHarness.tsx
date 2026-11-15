@@ -43,6 +43,31 @@ if (params.get('framing') === 'split') {
   (baseItem as any).layout_mode = 'split';
   (baseItem as any).crop_config = { split: { speaker1X: Number(params.get('spk1')) || 0.25, speaker2X: Number(params.get('spk2')) || 0.75 } };
 }
+// TEST-ONLY: ?captions=split exercises split-zone caption attribution in the
+// preview (cue near speaker1's keyframe -> top-half band at y 0.4; cue near
+// speaker2 -> default bottom band; an explicitly positioned cue never moves).
+const SPLIT_CAPTIONS = params.get('captions') === 'split';
+const SPK1 = Number(params.get('spk1')) || 0.33;
+const SPK2 = Number(params.get('spk2')) || 0.56;
+const HARNESS_CUES = SPLIT_CAPTIONS
+  ? [
+      { id: 'c1', start: 0.5, end: 2.0, text: 'TOP SPEAKER LINE' },
+      { id: 'c2', start: 2.5, end: 4.5, text: 'BOTTOM SPEAKER LINE' },
+      { id: 'c3', start: 6.0, end: 8.0, text: 'PINNED LINE', position_y: 0.6 },
+    ]
+  : [];
+const HARNESS_SPEAKER_SPLIT = SPLIT_CAPTIONS
+  ? {
+      keyframes: [
+        { time: 1, centerX: SPK1 },
+        { time: 3, centerX: SPK2 },
+        { time: 7, centerX: SPK1 },
+      ],
+      speaker1X: SPK1,
+      speaker2X: SPK2,
+    }
+  : null;
+const PLAYHEAD = Number(params.get('t')) || 1;
 const CANVAS_DIMS: Record<string, { width: number; height: number }> = {
   '9:16': { width: 360, height: 640 },
   '1:1': { width: 480, height: 480 },
@@ -77,6 +102,29 @@ const makeProject = (item: EditorTrackItem): EditorProject =>
         hidden: false,
         items: [item],
       },
+      ...(SPLIT_CAPTIONS
+        ? [
+            {
+              id: 'track-caption-1',
+              type: 'CAPTION',
+              name: 'Captions',
+              locked: false,
+              muted: false,
+              hidden: false,
+              items: [
+                {
+                  id: 'cap-1',
+                  track_id: 'track-caption-1',
+                  type: 'CAPTION',
+                  timeline_start: 0,
+                  timeline_end: 9,
+                  keyframes: [],
+                  caption: { style: 'clean', position: 'bottom' },
+                },
+              ],
+            },
+          ]
+        : []),
     ],
     playhead: 0,
     settings: { snapping: true, safe_guides: false, snap_tolerance_sec: 0.1, show_safe_zones: false },
@@ -94,7 +142,7 @@ function HarnessApp() {
     <PreviewCanvas
       {...({
         project,
-        playhead: 1,
+        playhead: PLAYHEAD,
         isPlaying: false,
         cleanSourceUrl: VIDEO_URL,
         renderedPreviewUrl: null,
@@ -119,7 +167,8 @@ function HarnessApp() {
         onChangeAspectRatio: () => {},
         onUpdateCropMode: () => {},
         videoRef,
-        cues: [],
+        cues: HARNESS_CUES,
+        speakerSplit: HARNESS_SPEAKER_SPLIT,
         onUpdateCaptionPosition: () => {},
       } as any)}
     />

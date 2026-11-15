@@ -24,6 +24,7 @@ import {
   getEditorCaptionPresetId,
 } from '../../lib/captionPresets';
 import { computeCanvasFitScale } from '../../lib/canvasFit';
+import { attributeCueSpeaker, SPEAKER1_POSITION_Y } from '../../../server/src/shared/speakerCaptionSplit';
 import { CaptionPresetRenderer } from './CaptionPresetRenderer';
 
 interface PreviewCanvasProps {
@@ -55,6 +56,17 @@ interface PreviewCanvasProps {
   onUpdateCropMode?: (mode: 'center' | 'fit' | 'blur' | 'smart') => void;
   videoRef: React.RefObject<HTMLVideoElement>;
   cues: TimedCaptionCue[];
+  /**
+   * Split-layout caption zones (mirrors the export's speakerSplit path):
+   * reframe keyframes + speaker anchors. Cues attributed to the top-half
+   * speaker render in the top-half band (position_y 0.4), exactly like the
+   * exported ASS. Null/absent = captions render at the default band.
+   */
+  speakerSplit?: {
+    keyframes: Array<{ time: number; centerX: number }>;
+    speaker1X?: number | null;
+    speaker2X?: number | null;
+  } | null;
   onUpdateCaptionPosition?: (
     pos: { x?: number; y?: number; cueId?: string; fontSize?: number } | number,
     options?: UpdateProjectOptions
@@ -164,6 +176,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   onUpdateCropMode,
   videoRef,
   cues,
+  speakerSplit,
   onUpdateCaptionPosition,
 }) => {
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -437,6 +450,28 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // Find active caption cue
   const activeCue = cues.find((c) => playhead >= c.start && playhead <= c.end);
 
+  // Split-zone captions (mirrors captionService's speakerSplit path): in the
+  // split layout, a cue attributed to the top-half speaker (nearest reframe
+  // keyframe to its start, distinguishable zones) renders with its bottom
+  // edge at position_y 0.4 - the upper-half band above the divider, exactly
+  // where the exported ASS places it. User/editor-positioned cues are never
+  // moved. Zone Xs prefer the analysis metadata, falling back to the saved
+  // crop anchors, same precedence as the export.
+  const splitCaptionCueY = (() => {
+    if (primaryLayoutMode !== 'split' || !speakerSplit || !activeCue) return undefined;
+    if (activeCue.position_x !== undefined || activeCue.position_y !== undefined) return undefined;
+    const speaker1X =
+      typeof speakerSplit.speaker1X === 'number' && Number.isFinite(speakerSplit.speaker1X)
+        ? speakerSplit.speaker1X
+        : splitAnchors.speaker1X;
+    const speaker2X =
+      typeof speakerSplit.speaker2X === 'number' && Number.isFinite(speakerSplit.speaker2X)
+        ? speakerSplit.speaker2X
+        : splitAnchors.speaker2X;
+    const attributed = attributeCueSpeaker(activeCue.start, speakerSplit.keyframes || [], { speaker1X, speaker2X });
+    return attributed === 'speaker1' ? SPEAKER1_POSITION_Y : undefined;
+  })();
+
   // Intro/outro title card active at the playhead (full-frame colored card with text).
   const activeTitleCard = project.tracks
     .flatMap((t) => (t.hidden ? [] : t.items))
@@ -663,7 +698,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       captionScope === 'cue' && activeCue
         ? {
             x: activeCue.position_x ?? effectiveCaptionCoords.x,
-            y: activeCue.position_y ?? effectiveCaptionCoords.y,
+            y: activeCue.position_y ?? splitCaptionCueY ?? effectiveCaptionCoords.y,
           }
         : { ...effectiveCaptionCoords };
 
@@ -882,7 +917,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
         const effY =
           captionScope === 'cue' && activeCue?.position_y !== undefined
             ? activeCue.position_y
-            : effectiveCaptionCoords.y;
+            : (splitCaptionCueY ?? effectiveCaptionCoords.y);
 
         let nextX = effX;
         let nextY = effY;
@@ -1475,10 +1510,15 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 ? resolveCaptionPreset(getEditorCaptionPresetId(captionData), effectiveOverrides, aspectRatio)
                 : presetStyle;
 
+              const frameCue =
+                splitCaptionCueY !== undefined && cue.position_y === undefined
+                  ? { ...cue, position_y: splitCaptionCueY }
+                  : cue;
+
               return (
                 <CaptionPresetRenderer
                   style={effectiveStyle}
-                  frame={getPreviewFrame(cue, playhead, effectiveStyle)}
+                  frame={getPreviewFrame(frameCue, playhead, effectiveStyle)}
                   scale={frameWidthPx / effectiveStyle.playResX}
                   interactive={true}
                   isSelected={isCaptionSelected}
@@ -1574,9 +1614,12 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               const effY =
                 captionScope === 'cue' && activeCue?.position_y !== undefined
                   ? activeCue.position_y
-                  : effectiveCaptionCoords.y;
+                  : (splitCaptionCueY ?? effectiveCaptionCoords.y);
 
-              const cueHasOwnY = captionScope === 'cue' && activeCue?.position_y !== undefined;
+              // Split-attributed cues anchor like the exported ASS: bottom edge
+              // at position_y (0.4 = upper-half band above the divider).
+              const cueHasOwnY =
+                (captionScope === 'cue' && activeCue?.position_y !== undefined) || splitCaptionCueY !== undefined;
               const effAnchorY = cueHasOwnY ? 'bottom' : effectiveCaptionCoords.anchorY;
               const anchorTransform =
                 effAnchorY === 'center'

@@ -185,6 +185,35 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   // Concise notice when an extend cannot supply full caption coverage
   // (missing/short transcript) or the coverage fetch fails after extending.
   const [extendCaptionNotice, setExtendCaptionNotice] = useState<string | null>(null);
+  // Split-layout caption zones: reframe keyframes + measured speaker anchors
+  // for the preview's export-parity caption attribution (speakerSplit).
+  const [speakerSplit, setSpeakerSplit] = useState<{
+    keyframes: Array<{ time: number; centerX: number }>;
+    speaker1X: number | null;
+    speaker2X: number | null;
+  } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!clip?.id) return;
+    clipRenderService
+      .getClipReframe(clip.id)
+      .then((r) => {
+        if (cancelled) return;
+        if (r.status === 'ready' && Array.isArray(r.smoothedKeyframes) && r.smoothedKeyframes.length > 0) {
+          setSpeakerSplit({
+            keyframes: r.smoothedKeyframes.map((k) => ({ time: Number(k.time), centerX: Number(k.centerX) })),
+            speaker1X: typeof r.speaker1X === 'number' ? r.speaker1X : null,
+            speaker2X: typeof r.speaker2X === 'number' ? r.speaker2X : null,
+          });
+        }
+      })
+      .catch(() => {
+        // No reframe data: split captions render at the default band.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [clip?.id]);
   // Non-destructive reason when an action is refused (e.g. locked followers).
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
@@ -1561,6 +1590,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             cleanSourceUrl={cleanSourceUrl}
             renderedPreviewUrl={renderedPreviewUrl}
             viewMode={viewMode}
+            speakerSplit={speakerSplit}
             onPlayheadChange={seek}
             onTogglePlay={togglePlay}
             selectedItemId={selectedItemId}

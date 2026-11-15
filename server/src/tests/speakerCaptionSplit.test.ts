@@ -4,7 +4,7 @@ import {
   attributeCueSpeaker,
   applySpeakerSplitToCues,
   SPEAKER1_POSITION_Y,
-} from '../utils/speakerCaptionSplit.js';
+} from '../shared/speakerCaptionSplit.js';
 
 // Split layout: speaker 1 (top half) sits at source x=0.25, speaker 2 (bottom) at x=0.75.
 const ZONES = { speaker1X: 0.25, speaker2X: 0.75 };

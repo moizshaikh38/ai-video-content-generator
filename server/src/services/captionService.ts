@@ -1,7 +1,7 @@
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { mergeExtendedCues, maxCueEnd, editorProjectCoveredEnd } from './captionExtendMerge.js';
-import { applySpeakerSplitToCues } from '../utils/speakerCaptionSplit.js';
+import { applySpeakerSplitToCues } from '../shared/speakerCaptionSplit.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { logger } from '../utils/logger.js';
