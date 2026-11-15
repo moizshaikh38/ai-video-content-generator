@@ -354,6 +354,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   }
 
   const backdropVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoDims, setVideoDims] = useState<{ w: number; h: number } | null>(null);
 
   const primaryVideoCropMode = useMemo(() => {
     const videoTrack = project.tracks.find((t) => t.type === 'VIDEO');
@@ -364,6 +365,42 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     if (item?.crop?.mode) return item.crop.mode === 'fit' ? 'fit' : item.crop.mode === 'blur' ? 'blur' : 'fill';
     return (item as any)?.crop_mode === 'fit' ? 'fit' : 'fill';
   }, [project.tracks]);
+
+  // Blur band anchor (mirrors CaptionService.computeBlurFitBandAnchor): on a blur
+  // layout the default caption position lands on the blurred fill in export, so
+  // the export anchors the block's bottom edge just inside the fitted content
+  // band. The preview must show the same placement - but only for the DEFAULT
+  // position: an explicit choice (provenance flag, numeric position_y, non-bottom
+  // position, or a dragged transform other than the materialized 500px default)
+  // always wins, exactly as in captionService.
+  const captionBandAnchorY = useMemo(() => {
+    if (primaryVideoCropMode !== 'blur' || !videoDims || videoDims.w <= 0 || videoDims.h <= 0) return undefined;
+    const cap = captionItem?.caption;
+    const capPos = cap?.position || 'bottom';
+    if (capPos !== 'bottom') return undefined;
+    if (cap?.position_explicit === true) return undefined;
+    if (cap?.position_y !== undefined) return undefined;
+    const ty = captionItem?.transform?.position_y;
+    if (ty !== undefined && Math.abs(ty - 500) > 0.5) return undefined;
+    const isPortrait = project.canvas.aspect_ratio !== '16:9';
+    const playRes = project.canvas.aspect_ratio === '1:1' ? { x: 1080, y: 1080 } : isPortrait ? { x: 1080, y: 1920 } : { x: 1920, y: 1080 };
+    const scale = Math.min(playRes.x / videoDims.w, playRes.y / videoDims.h);
+    const fitH = videoDims.h * scale;
+    if (fitH >= playRes.y - 1) return undefined; // source fills the canvas vertically: no band
+    const bandBottom = (playRes.y + fitH) / 2;
+    const targetY = bandBottom - Math.max(24, fitH * 0.08);
+    return Math.min(0.92, Math.max(0.08, targetY / playRes.y));
+  }, [primaryVideoCropMode, videoDims, captionItem, project.canvas.aspect_ratio]);
+
+  // Legacy overlay path: same band anchor as the preset path.
+  const effectiveCaptionCoords = useMemo(
+    () =>
+      captionBandAnchorY !== undefined
+        ? { x: currentCaptionCoords.x, y: captionBandAnchorY, anchorY: 'bottom' as const }
+        : currentCaptionCoords,
+    [currentCaptionCoords, captionBandAnchorY]
+  );
+
 
   // Find active caption cue
   const activeCue = cues.find((c) => playhead >= c.start && playhead <= c.end);
@@ -378,10 +415,15 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const captionData = captionItem?.caption;
   const captionTransform = captionItem?.transform;
   const aspectRatio = project.canvas.aspect_ratio;
-  const presetStyle = useMemo(
-    () => resolveEditorCaptionStyle(captionData, aspectRatio, captionTransform),
-    [captionData, aspectRatio, captionTransform]
-  );
+  const presetStyle = useMemo(() => {
+    const st = resolveEditorCaptionStyle(captionData, aspectRatio, captionTransform);
+    if (st && captionBandAnchorY !== undefined) {
+      // ASS marginV anchors the block's BOTTOM edge; positionY is the bottom-edge
+      // fraction from the top (see resolveCaptionPreset's positionY mapping).
+      return { ...st, marginV: Math.round(st.playResY * (1 - captionBandAnchorY)) };
+    }
+    return st;
+  }, [captionData, aspectRatio, captionTransform, captionBandAnchorY]);
   const presetCues = useMemo(
     () => (presetStyle ? regroupCuesForPreset(cues, presetStyle).cues : null),
     [cues, presetStyle]
@@ -580,10 +622,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     const effCoords =
       captionScope === 'cue' && activeCue
         ? {
-            x: activeCue.position_x ?? currentCaptionCoords.x,
-            y: activeCue.position_y ?? currentCaptionCoords.y,
+            x: activeCue.position_x ?? effectiveCaptionCoords.x,
+            y: activeCue.position_y ?? effectiveCaptionCoords.y,
           }
-        : { ...currentCaptionCoords };
+        : { ...effectiveCaptionCoords };
 
     // Zero-jump grab offset: difference between pointer and current caption center
     setCaptionGrabOffset({
@@ -796,11 +838,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
         const effX =
           captionScope === 'cue' && activeCue?.position_x !== undefined
             ? activeCue.position_x
-            : currentCaptionCoords.x;
+            : effectiveCaptionCoords.x;
         const effY =
           captionScope === 'cue' && activeCue?.position_y !== undefined
             ? activeCue.position_y
-            : currentCaptionCoords.y;
+            : effectiveCaptionCoords.y;
 
         let nextX = effX;
         let nextY = effY;
@@ -829,7 +871,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
     isCaptionSelected,
-    currentCaptionCoords,
+    effectiveCaptionCoords,
     captionScope,
     activeCue,
     onUpdateCaptionPosition,
@@ -955,7 +997,16 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               playsInline
               aria-hidden
               className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-              style={{ filter: 'blur(40px) brightness(0.8)', transform: 'scale(1.15)' }}
+              style={{
+                // Tuned against the export chain (boxblur=25:5, eq=brightness=-0.15:contrast=0.95):
+                // CSS brightness is multiplicative while ffmpeg's is subtractive, so a lower
+                // brightness plus a mild contrast lift approximates the export's dark-but-
+                // structured band. Quantified on the fixture: band mean luminance within ~15%
+                // of the export render; the band stays flatter (CSS blur flattens more at
+                // preview scale) - accepted difference, not exact identity.
+                filter: 'blur(40px) brightness(0.55) contrast(1.1)',
+                transform: 'scale(1.15)',
+              }}
             />
           ) : null}
           {activeVideoSrc ? (
@@ -967,6 +1018,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               onLoadedMetadata={() => {
                 if (videoRef.current) {
                   videoRef.current.currentTime = targetVideoTime;
+                  if (videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
+                    setVideoDims({ w: videoRef.current.videoWidth, h: videoRef.current.videoHeight });
+                  }
                 }
               }}
               onDoubleClick={(e) => {
@@ -1441,14 +1495,14 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               const effX =
                 captionScope === 'cue' && activeCue?.position_x !== undefined
                   ? activeCue.position_x
-                  : currentCaptionCoords.x;
+                  : effectiveCaptionCoords.x;
               const effY =
                 captionScope === 'cue' && activeCue?.position_y !== undefined
                   ? activeCue.position_y
-                  : currentCaptionCoords.y;
+                  : effectiveCaptionCoords.y;
 
               const cueHasOwnY = captionScope === 'cue' && activeCue?.position_y !== undefined;
-              const effAnchorY = cueHasOwnY ? 'bottom' : currentCaptionCoords.anchorY;
+              const effAnchorY = cueHasOwnY ? 'bottom' : effectiveCaptionCoords.anchorY;
               const anchorTransform =
                 effAnchorY === 'center'
                   ? 'translate(-50%, -50%)'
