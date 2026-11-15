@@ -73,6 +73,42 @@ test('Phase 13.2 QA - Edge Cases & Robustness', async (t) => {
     assert.ok(result.score > 0.5, 'Legacy score formula should yield expected dominant track');
   });
 
+  await t.test('3b. Dominant selection: single-sighting large face beats stable small background face', () => {
+    // Regression: a real subject detected only once (profile turn / jump cut)
+    // with a large bounding box lost dominance to a tiny but stable background
+    // face because the noise floor required >=2 samples. Large faces are
+    // high-precision detections, so they are exempt from the sample floor.
+    const smallBgDets: NormalizedFaceDetection[] = [];
+    for (let i = 0; i < 7; i++) {
+      smallBgDets.push({ x: 0.2, y: 0.4, width: 0.07, height: 0.168, center_x: 0.237, center_y: 0.48, area: 0.0118, confidence: 0.72 });
+    }
+    const tracks = new Map<string, NormalizedFaceDetection[]>([
+      ['subject_bg', smallBgDets],
+      [
+        'subject_main',
+        [{ x: 0.43, y: 0.05, width: 0.28, height: 0.671, center_x: 0.567, center_y: 0.391, area: 0.1875, confidence: 0.76 }],
+      ],
+    ]);
+
+    // 36 samples -> normal floor is 2; the large-face exemption applies.
+    const result = SmartReframeService.selectDominantTrack(tracks, 36);
+    assert.equal(result.dominantTrackId, 'subject_main');
+  });
+
+  await t.test('3c. Dominant selection: single-sighting SMALL face stays ineligible below the sample floor', () => {
+    const stableDets: NormalizedFaceDetection[] = [];
+    for (let i = 0; i < 5; i++) {
+      stableDets.push({ x: 0.45, y: 0.3, width: 0.1, height: 0.1, center_x: 0.5, center_y: 0.35, area: 0.01, confidence: 0.8 });
+    }
+    const tracks = new Map<string, NormalizedFaceDetection[]>([
+      ['subject_stable', stableDets],
+      ['subject_flash', [{ x: 0.8, y: 0.3, width: 0.1, height: 0.1, center_x: 0.85, center_y: 0.35, area: 0.01, confidence: 0.95 }]],
+    ]);
+
+    const result = SmartReframeService.selectDominantTrack(tracks, 30);
+    assert.equal(result.dominantTrackId, 'subject_stable');
+  });
+
   await t.test('4. Constant / placeholder speaker labels do not crash or corrupt tracking', () => {
     const samples: ReframeSample[] = [
       { time: 0.0, faces: [{ x: 0.4, y: 0.4, width: 0.1, height: 0.1, center_x: 0.45, center_y: 0.45, area: 0.01, confidence: 0.9, track_id: 'SPEAKER_00' }] },

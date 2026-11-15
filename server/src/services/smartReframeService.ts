@@ -280,10 +280,23 @@ export class SmartReframeService {
 
     // Filter out transient false-positive noise tracks
     const minSamples = totalSampleCount <= 3 ? 1 : Math.max(2, Math.floor(totalSampleCount * 0.04));
+    // A face filling >=10% of the frame is a high-precision detection: false
+    // positives at that scale are rare, so even a single sighting makes the
+    // track dominance-eligible. This keeps a large real subject that the
+    // detector catches only briefly (profile turns, occlusions, jump cuts)
+    // from losing to a small but stable background face.
+    const LARGE_FACE_MIN_AREA = 0.10;
     const eligibleTracks = new Map<string, NormalizedFaceDetection[]>();
     for (const [id, dets] of tracks.entries()) {
       if (dets.length >= minSamples) {
         eligibleTracks.set(id, dets);
+        continue;
+      }
+      if (dets.length > 0) {
+        const avgArea = dets.reduce((sum, d) => sum + d.width * d.height, 0) / dets.length;
+        if (avgArea >= LARGE_FACE_MIN_AREA) {
+          eligibleTracks.set(id, dets);
+        }
       }
     }
     const candidateTracks = eligibleTracks.size > 0 ? eligibleTracks : tracks;
