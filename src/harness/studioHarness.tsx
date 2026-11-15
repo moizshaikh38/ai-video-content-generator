@@ -11,19 +11,19 @@ import { nasaCues } from './nasaCues';
 import '../index.css';
 
 const words = [
-  { text: 'Remotely', start: 0.0, end: 0.6 },
-  { text: 'operated', start: 0.6, end: 1.2 },
-  { text: 'vehicles', start: 1.2, end: 1.8 },
-  { text: 'will', start: 1.8, end: 2.1 },
-  { text: 'scout', start: 2.1, end: 2.5 },
-  { text: 'the', start: 2.5, end: 2.7 },
-  { text: 'lunar', start: 2.7, end: 3.1 },
-  { text: 'surface', start: 3.1, end: 3.6 },
+  { text: 'Welcome', start: 0.0, end: 0.6 },
+  { text: 'back', start: 0.6, end: 1.2 },
+  { text: 'to', start: 1.2, end: 1.5 },
+  { text: 'the', start: 1.5, end: 1.8 },
+  { text: 'show,', start: 1.8, end: 2.4 },
+  { text: 'let’s', start: 2.4, end: 2.8 },
+  { text: 'get', start: 2.8, end: 3.1 },
+  { text: 'started', start: 3.1, end: 3.6 },
 ];
 
 const cues = [
-  { id: 'cue-1', start: 0, end: 1.8, text: 'Remotely operated vehicles', words: words.slice(0, 3) },
-  { id: 'cue-2', start: 1.8, end: 3.6, text: 'will scout the lunar surface', words: words.slice(3) },
+  { id: 'cue-1', start: 0, end: 1.8, text: 'Welcome back to the', words: words.slice(0, 4) },
+  { id: 'cue-2', start: 1.8, end: 3.6, text: 'show, let’s get started', words: words.slice(4) },
 ];
 
 const captionItem: any = {
@@ -287,7 +287,7 @@ function Harness() {
       <EditorShell
         clip={clip}
         project={project}
-        cleanSourceUrl={harnessQuery.get('nasa') === '1' ? '/harness/clip-nasa-seg.mp4' : '/harness/clip.mp4'}
+        cleanSourceUrl={harnessQuery.get('src') || (harnessQuery.get('nasa') === '1' ? '/harness/clip-nasa-seg.mp4' : '/harness/clip.mp4')}
         renderedPreviewUrl={null}
         watermarkRequired={false}
         cues={(harnessQuery.get('nasa') === '1' ? nasaCues : cues) as any}
