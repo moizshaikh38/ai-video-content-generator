@@ -50,6 +50,9 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
         // (user-reported 15 Nov 2026: captions not clean/appealing vs Opus).
         caption_style: options?.caption_style || 'karaoke',
         caption_config: options?.caption_config || { presetId: 'karaoke' },
+        // Carried for the automatic render headline (Opus-parity): burned at
+        // render time unless an explicit overlay config opts out.
+        title: (candidate as any)?.title || null,
         cold_open: coldOpen,
         source_storage_path: project.source_url, source_object_key: project.source_url,
         output_object_key: null, render_version: 1, editor_version: 1,

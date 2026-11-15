@@ -552,20 +552,40 @@ export class ClipRenderService {
         }
       }
 
-      // Text Overlay burn-in
-      if (clip.overlay_config?.enabled && clip.overlay_config?.text) {
-        const rawText = String(clip.overlay_config.text);
-        const safeText = rawText.replace(/[\r\n]+/g, ' ').replace(/['\\]/g, '').slice(0, 120).trim();
+      // Text Overlay burn-in. With no overlay configured, the clip title is
+      // burned as the automatic headline (Opus-parity); an explicit
+      // overlay_config.enabled === false (e.g. editor reset) opts out.
+      const autoHeadline =
+        clip.overlay_config?.enabled === undefined && !clip.overlay_config?.text && !!clip.title;
+      if ((clip.overlay_config?.enabled && clip.overlay_config?.text) || autoHeadline) {
+        const rawText = String(clip.overlay_config?.text || clip.title);
+        const stripped = rawText.replace(/[\r\n]+/g, ' ').replace(/['\\%]/g, '').trim();
+        // drawtext does not auto-fit: keep the auto headline within the canvas
+        // by capping length and tiering the font size to the character count
+        // (~0.58em average glyph width, 40px side margins on a 1080 canvas).
+        const capped = autoHeadline
+          ? stripped.length > 45
+            ? stripped.slice(0, 42).trimEnd() + '...'
+            : stripped
+          : stripped.slice(0, 90);
+        const safeText = capped.replace(/:/g, '\\:');
         if (safeText) {
-          const pos = clip.overlay_config.position || 'top';
-          const size = clip.overlay_config.size || 'md';
-          const fontSize = size === 'sm' ? 36 : size === 'lg' ? 60 : 46;
-          let yExpr = '120';
+          const pos = clip.overlay_config?.position || 'top';
+          const size = clip.overlay_config?.size || 'md';
+          const len = safeText.length;
+          const autoSize = len <= 29 ? 60 : len <= 34 ? 52 : len <= 40 ? 44 : 38;
+          const fontSize = autoHeadline ? autoSize : size === 'sm' ? 36 : size === 'lg' ? 60 : 46;
+          let yExpr = autoHeadline ? '150' : '120';
           if (pos === 'center') yExpr = '(h-text_h)/2';
           else if (pos === 'bottom') yExpr = 'h-text_h-260';
 
+          // Auto headline: clean outline+shadow, no backdrop box. Configured
+          // overlays keep the legacy boxed style.
+          const style = autoHeadline
+            ? 'fontcolor=white:borderw=3:bordercolor=black@0.9:shadowcolor=black@0.6:shadowx=0:shadowy=2'
+            : 'fontcolor=white:box=1:boxcolor=black@0.65:boxborderw=10';
           videoFilters.push(
-            `drawtext=text='${safeText}':fontcolor=white:fontsize=${fontSize}:box=1:boxcolor=black@0.65:boxborderw=10:x=(w-text_w)/2:y=${yExpr}`
+            `drawtext=text='${safeText}':${style}:fontsize=${fontSize}:x=(w-text_w)/2:y=${yExpr}`
           );
         }
       }
