@@ -396,6 +396,8 @@ export type ReframeLayoutMode = 'track' | 'split' | 'screencast' | 'blur';
 export interface CropConfig {
   mode?: CropMode;
   layout_mode?: ReframeLayoutMode;
+  /** Zoom factor for the crop window (1 = no zoom, >1 zoomed into the focus point). */
+  scale?: number;
   focusX?: number; // 0 to 1, default 0.5 (center)
   focusY?: number; // 0 to 1, default 0.5 (center)
   smart?: {

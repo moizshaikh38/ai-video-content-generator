@@ -45,7 +45,7 @@ interface PreviewCanvasProps {
   // ahead of the auto face track.
   onUpdateItemCrop?: (
     itemId: string,
-    crop: { mode: 'custom'; focusX: number; focusY: number; scale?: number },
+    crop: { mode: 'fit' | 'fill' | 'custom'; focusX: number; focusY: number; scale?: number },
     options?: UpdateProjectOptions
   ) => void;
   onCommitProject?: (preOperationProject: EditorProject) => void;
@@ -239,7 +239,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       const next = Math.min(4, Math.max(1, Number((cur * (e.deltaY < 0 ? 1.1 : 1 / 1.1)).toFixed(3))));
       onUpdateItemCrop(
         item.id,
-        { mode: 'custom', focusX: item.crop?.focusX ?? 0.5, focusY: item.crop?.focusY ?? 0.5, scale: next },
+        { mode: item.crop?.mode ?? ((item as any).crop_mode === 'fit' ? 'fit' : 'custom'), focusX: item.crop?.focusX ?? 0.5, focusY: item.crop?.focusY ?? 0.5, scale: next },
         { recordHistory: false, markAsDirty: false }
       );
       if (cropZoomCommitTimer.current) clearTimeout(cropZoomCommitTimer.current);
@@ -355,7 +355,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
 
   const primaryVideoCropMode = useMemo(() => {
     const videoTrack = project.tracks.find((t) => t.type === 'VIDEO');
-    return (videoTrack?.items[0] as any)?.crop_mode || 'center';
+    const item = videoTrack?.items[0];
+    // Match the export compiler: item.crop.mode wins; legacy crop_mode only
+    // applies when no explicit crop exists. 'fit' letterboxes, everything else covers.
+    if (item?.crop?.mode) return item.crop.mode === 'fit' ? 'fit' : 'fill';
+    return (item as any)?.crop_mode === 'fit' ? 'fit' : 'fill';
   }, [project.tracks]);
 
   // Find active caption cue
@@ -953,7 +957,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 const item = activeVideoItems[0];
                 if (!item || !item.crop) return;
                 e.stopPropagation();
-                onUpdateItemCrop(item.id, { mode: 'custom', focusX: 0.5, focusY: 0.5, scale: 1 });
+                onUpdateItemCrop(item.id, { mode: item.crop.mode ?? ((item as any).crop_mode === 'fit' ? 'fit' : 'custom'), focusX: 0.5, focusY: 0.5, scale: 1 });
               }}
               onMouseDown={(e) => {
                 // Drag the base video to pan its crop focus (edit mode only).

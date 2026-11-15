@@ -204,16 +204,25 @@ export function buildCropFilter(
  * Builds a letterbox "fit" filter: whole frame visible, black bars to fill the
  * target canvas. Mirrors the studio preview's fit mode so export matches it.
  */
-export function buildFitFilter(aspectRatio: ClipAspectRatio = '9:16'): string {
-  switch (aspectRatio) {
-    case '1:1':
-      return 'scale=1080:1080:force_original_aspect_ratio=decrease,pad=1080:1080:(ow-iw)/2:(oh-ih)/2:color=black';
-    case '16:9':
-      return 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=black';
-    case '9:16':
-    default:
-      return 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
+export function buildFitFilter(
+  aspectRatio: ClipAspectRatio = '9:16',
+  zoom: number = 1,
+  focusX: number = 0.5,
+  focusY: number = 0.5
+): string {
+  const ar = aspectRatio === '16:9' ? { w: 1920, h: 1080 } : aspectRatio === '1:1' ? { w: 1080, h: 1080 } : { w: 1080, h: 1920 };
+  const z = Math.min(4, Math.max(1, Number(zoom) || 1));
+  if (z <= 1) {
+    return `scale=${ar.w}:${ar.h}:force_original_aspect_ratio=decrease,pad=${ar.w}:${ar.h}:(ow-iw)/2:(oh-ih)/2:color=black`;
   }
+  // Zoom within fit: scale the contained frame by z around the focus point,
+  // pad back up to at least the frame size, then crop the frame window.
+  return (
+    `scale=${ar.w}:${ar.h}:force_original_aspect_ratio=decrease` +
+    `,scale=trunc(iw*${z}/2)*2:trunc(ih*${z}/2)*2` +
+    `,pad='max(iw,${ar.w})':'max(ih,${ar.h})':(ow-iw)/2:(oh-ih)/2:color=black` +
+    `,crop=${ar.w}:${ar.h}:x='(in_w-${ar.w})*${focusX}':y='(in_h-${ar.h})*${focusY}'`
+  );
 }
 
 /**
@@ -1217,7 +1226,9 @@ export class ClipRenderService {
     }
 
     if (clip.crop_config?.mode === 'fit') {
-      return { cropFilter: buildFitFilter(clip.aspect_ratio as ClipAspectRatio), mode: 'manual', layoutMode: 'manual', track: null };
+      const zoom = Math.min(4, Math.max(1, Number(clip.crop_config.scale ?? 1)));
+      const clampF = (v: number | undefined): number => Math.min(1, Math.max(0, typeof v === 'number' && Number.isFinite(v) ? v : 0.5));
+      return { cropFilter: buildFitFilter(clip.aspect_ratio as ClipAspectRatio, zoom, clampF(clip.crop_config.focusX), clampF(clip.crop_config.focusY)), mode: 'manual', layoutMode: 'manual', track: null };
     }
 
     if (clip.crop_config?.mode !== 'smart') {

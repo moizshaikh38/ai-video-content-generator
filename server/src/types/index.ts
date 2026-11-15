@@ -607,6 +607,8 @@ export type ReframeLayoutMode = 'track' | 'split' | 'screencast' | 'blur';
 export interface CropConfig {
   mode?: CropMode;
   layout_mode?: ReframeLayoutMode;
+  /** Zoom factor for the crop window (1 = no zoom, >1 zoomed into the focus point). */
+  scale?: number;
   /**
    * Provenance of layout_mode. 'genre_recommendation' means the value was
    * auto-stamped from the genre profile at analysis time and must NOT override

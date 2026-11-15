@@ -101,7 +101,7 @@ function HarnessApp() {
         onSelectItem: (id: string | null) => setSelectedItemId(id),
         onDeleteItem: () => {},
         onUpdateItemTransform: () => {},
-        onUpdateItemCrop: (itemId: string, crop: { mode: 'custom'; focusX: number; focusY: number }) => {
+        onUpdateItemCrop: (itemId: string, crop: { mode: 'fit' | 'fill' | 'custom'; focusX: number; focusY: number; scale?: number }) => {
           window.__cropCalls.push({ itemId, crop });
           setItem((prev) => ({ ...prev, crop: { ...crop } }));
         },
