@@ -6,6 +6,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import ffmpegStatic from 'ffmpeg-static';
 import { dataRepository } from '../db/repositories/dataRepository.js';
+import { adaptPunchInToWordTimings, buildPunchInZoompan } from '../utils/punchInTiming.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 import {
@@ -133,8 +134,27 @@ export class ProducerRenderService {
         }
       }
 
-      // 5. Build render graph filters and timing
-      const renderGraph = await this.buildRenderGraph(plan, clip, localSourceFile, outputPath, tmpDir);
+      // 5. Build render graph filters and timing. Word timings (clip-relative)
+      // adapt the punch-in window to speech boundaries when available; the
+      // render never fails over a missing transcript - the punch falls back
+      // to the plan's raw window with the eased curve.
+      let wordTimings: Array<{ start: number; end: number }> | undefined;
+      try {
+        const { data: tx } = await dataRepository
+          .from('transcripts')
+          .select('words')
+          .eq('project_id', clip.project_id)
+          .eq('user_id', userId)
+          .maybeSingle();
+        const rawWords = Array.isArray((tx as any)?.words) ? (tx as any).words : [];
+        const wt = rawWords
+          .map((w: any) => ({ start: Number(w?.start) - clip.start_seconds, end: Number(w?.end) - clip.start_seconds }))
+          .filter((w: any) => Number.isFinite(w.start) && Number.isFinite(w.end) && w.end > w.start);
+        if (wt.length > 0) wordTimings = wt;
+      } catch (wErr: any) {
+        logger.info(`[ProducerRender] Word timings unavailable for punch-in adaptation: ${wErr.message}`);
+      }
+      const renderGraph = await this.buildRenderGraph(plan, clip, localSourceFile, outputPath, tmpDir, wordTimings);
 
       // Two-pass loudness normalization: measure the exact seeked audio window,
       // then substitute a linear loudnorm. Fails clearly when infeasible rather
@@ -556,7 +576,8 @@ export class ProducerRenderService {
     clip: ClipRecord,
     inputPath: string,
     outputPath: string,
-    tmpDir: string
+    tmpDir: string,
+    wordTimings?: Array<{ start: number; end: number }>
   ): Promise<RenderGraphResult> {
     const videoFilters: string[] = [];
     const audioFilters: string[] = [];
@@ -616,23 +637,43 @@ export class ProducerRenderService {
     }
 
     // 3. Visual Punch-In (Dynamic Crop Zoom on Climax)
+    // Word-timing adapted (OpenShorts): window snaps to word boundaries and
+    // is suppressed when no word boundary is near (never punch mid-word) or
+    // the zoom is imperceptible. The zoom itself eases in/out (ramp-hold-ramp)
+    // instead of stepping.
     const punchInOp = plan.operations.find((o) => o.type === 'PUNCH_IN' && o.enabled);
     if (punchInOp && punchInOp.parameters.punch_in_start_sec !== undefined) {
       const punchStart = Math.max(0, punchInOp.parameters.punch_in_start_sec - startSec);
       const punchDuration = punchInOp.parameters.punch_in_duration_sec || 2.5;
-      const punchEnd = punchStart + punchDuration;
-      const scale = Math.max(1.02, Math.min(1.25, punchInOp.parameters.scale || 1.06));
-
-      // Dynamic punch-in zoom: a time-conditional crop size is a silent
-      // no-op (crop w/h are fixed at filter init; verified: zero pixel
-      // change). This chain is a linear -vf graph where zoompan is verified
-      // to zoom correctly (frame-verified on the fixture source), unlike the
-      // pro editor's split/overlay composition which uses segment crop.
-      // Pushed BEFORE hook text and captions so burned text keeps its size
-      // during the zoom.
-      const onStart = Math.round(punchStart * 30);
-      const onEnd = Math.round(punchEnd * 30);
-      videoFilters.push(`zoompan=z='if(between(on,${onStart},${onEnd}),${scale},1)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${targetW}x${targetH}:fps=30`);
+      const adapted = adaptPunchInToWordTimings(
+        { startSec: punchStart, durationSec: punchDuration, scale: punchInOp.parameters.scale || 1.06 },
+        wordTimings
+      );
+      if (adapted.suppressed) {
+        logger.info(`[ProducerRender] Punch-in suppressed (${adapted.reason})`);
+      } else {
+        // Dynamic punch-in zoom: a time-conditional crop size is a silent
+        // no-op (crop w/h are fixed at filter init; verified: zero pixel
+        // change). This chain is a linear -vf graph where zoompan is verified
+        // to zoom correctly (frame-verified on the fixture source), unlike the
+        // pro editor's split/overlay composition which uses segment crop.
+        // Pushed BEFORE hook text and captions so burned text keeps its size
+        // during the zoom.
+        videoFilters.push(
+          buildPunchInZoompan({
+            startSec: adapted.startSec,
+            durationSec: adapted.durationSec,
+            scale: adapted.scale,
+            targetW,
+            targetH,
+          })
+        );
+        if (adapted.reason === 'word_adapted') {
+          logger.info(
+            `[ProducerRender] Punch-in word-adapted: ${punchStart.toFixed(2)}s+${punchDuration.toFixed(2)}s -> ${adapted.startSec.toFixed(2)}s+${adapted.durationSec.toFixed(2)}s`
+          );
+        }
+      }
     }
 
     // 4. Hook Text Banner
