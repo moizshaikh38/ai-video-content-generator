@@ -161,6 +161,30 @@ async function run() {
     assert.equal(r.layoutMode, 'screencast');
   });
 
+  await it('SMALL static facecam (typical gameplay capture) engages screencast via the genre hint', () => {
+    // Regression coverage for the 15 Nov 2026 fixture verification: a 0.5%-of-frame
+    // static face measures 'blur' under the anchor rule; the facecam suggestion must
+    // still let the genre hint engage.
+    const smallFacecamSamples = samplesWithFaces([[tinyFace(0.9)]]);
+    const r = SmartReframeService.resolveLayoutWithProvenance({
+      cropLayoutMode: 'screencast',
+      cropLayoutSource: 'genre_recommendation',
+      samples: smallFacecamSamples,
+      facecamSuggestionPresent: true,
+    });
+    assert.equal(r.layoutMode, 'screencast');
+  });
+
+  await it('tiny faces WITHOUT a facecam signal keep measured blur (NASA pattern guard)', () => {
+    const r = SmartReframeService.resolveLayoutWithProvenance({
+      cropLayoutMode: 'screencast',
+      cropLayoutSource: 'genre_recommendation',
+      samples: samplesWithFaces([[tinyFace(0.5)]]),
+      facecamSuggestionPresent: false,
+    });
+    assert.equal(r.layoutMode, 'blur');
+  });
+
   await it('measured two-shot conversation beats a genre screencast hint even with a facecam-like track', () => {
     const r = SmartReframeService.resolveLayoutWithProvenance({
       cropLayoutMode: 'screencast',

@@ -1288,12 +1288,21 @@ export class SmartReframeService {
     }
     const genreHint = cropLayoutMode ?? genrePreferredLayoutMode;
     const measured = this.determineOptimalLayoutMode(samples, { fallbackMode: genreHint });
+    // A static facecam track is the screen-with-facecam signal; when it is
+    // present the genre hint engages for any measured single-subject outcome.
+    // 'track' covers the large-facecam case; 'blur' covers the SMALL static
+    // facecam (verified 15 Nov 2026 with a synthetic fixture: a 0.55%-of-frame
+    // static face over animated content measures 'blur' under the anchor rule,
+    // which is exactly the typical gameplay capture). Only a measured two-shot
+    // conversation ('split') overrides the hint. Documentary/B-roll footage is
+    // unaffected because findStaticFacecamTrack returns null there (verified
+    // on the NASA Moon Base window).
     if (
       genreHint === 'screencast' &&
       Array.isArray(samples) &&
       samples.length > 0 &&
       facecamSuggestionPresent &&
-      measured.layoutMode === 'track'
+      measured.layoutMode !== 'split'
     ) {
       return { layoutMode: 'screencast' };
     }
