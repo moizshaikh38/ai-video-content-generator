@@ -735,6 +735,17 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             duration: Number(((prev.canvas.duration || 0) + delta).toFixed(3)),
           },
         }));
+        // Persist the new trim, then silently reload: the load path appends
+        // caption cues for the newly exposed span (see captionExtendMerge),
+        // so captions cover the extension in this session and on reopen.
+        void (async () => {
+          try {
+            const saved = await onSaveNow();
+            if (saved) await onReloadData({ silent: true });
+          } catch {
+            // Reload is best-effort; the next editor load heals cue coverage.
+          }
+        })();
       }}
       onReplaceWordGlobally={onReplaceWordGlobally}
       onUpdateWordTiming={onUpdateWordTiming}

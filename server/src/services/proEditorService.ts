@@ -2042,6 +2042,10 @@ export class ProEditorService {
           speed: { speed: 1.0, pitch_preserved: true },
           caption: {
             cues: initialCues,
+            // Coverage marker for beyond-candidate extend: the studio appends
+            // only cues past this clip-local second, so user edits/deletions
+            // inside the covered region are never resurrected.
+            cues_covered_end: finalDuration,
             style: captionStyle,
             position: clip.caption_position || 'bottom',
             highlight_color: producerPlan?.operations.find((o) => o.type === 'CAPTION_EMPHASIS' && o.enabled)?.parameters.highlight_color || '#FACC15',

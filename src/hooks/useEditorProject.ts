@@ -11,6 +11,7 @@ import { clipRenderService } from '../services/clipRenderService';
 import { proEditorService } from '../services/proEditorService';
 import { useEditorHistory } from './useEditorHistory';
 import { useEditorAutosave } from './useEditorAutosave';
+import { initCoveredEnd, mergeExtendedCues } from '../lib/captionExtendMerge';
 import {
   applyRippleCutToProject,
   applyBatchRippleCuts,
@@ -185,6 +186,39 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
               capItem.caption = { cues: initialCues, style: 'clean' };
             } else if (!Array.isArray(capItem.caption.cues) || capItem.caption.cues.length === 0) {
               capItem.caption.cues = initialCues;
+            } else if (
+              projCaptionCues &&
+              !capTrack.hidden &&
+              !(capItem.timeline_start > 0) &&
+              Array.isArray(captionData.cues) &&
+              captionData.cues.length > 0
+            ) {
+              // Beyond-candidate extend heal: saved cues are authoritative
+              // through `cues_covered_end`; append only the newly exposed span
+              // from the fresh extraction (which honors current trim offsets).
+              // Existing cues - including user edits and deletions - are never
+              // regenerated or resurrected.
+              const marker = capItem.caption.cues_covered_end;
+              if (marker == null) {
+                capItem.caption.cues_covered_end = initCoveredEnd(capItem.caption.cues);
+                markDirty();
+              } else {
+                const { cues: merged, coveredEnd, appended } = mergeExtendedCues(
+                  capItem.caption.cues,
+                  captionData.cues as any,
+                  Number(marker)
+                );
+                if (appended > 0) {
+                  capItem.caption.cues = merged;
+                  capItem.caption.cues_covered_end = coveredEnd;
+                  if (proj.canvas?.duration && capItem.timeline_end < proj.canvas.duration) {
+                    capItem.timeline_end = proj.canvas.duration;
+                    capItem.source_end = proj.canvas.duration;
+                  }
+                  setCues(merged as any);
+                  markDirty();
+                }
+              }
             }
           }
         }
