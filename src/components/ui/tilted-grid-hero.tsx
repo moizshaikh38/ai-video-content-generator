@@ -55,6 +55,16 @@ const MAX_WIDTH = 55;
  * wraps out of sight, and is rounded up to a whole number of tiles so the
  * gap never stretches.
  */
+// On narrow screens MAX_WIDTH keeps the tile readable, but the radius
+// still shrinks with the width, so each tile would span an enormous arc
+// and wrap round onto itself, and the few tiles that fit spend most of
+// the loop off-screen, painting the band almost empty. Below this width
+// the bend eases off and the tile cap tightens, so more, smaller tiles
+// share a flatter arc and some are always on screen.
+const NARROW_BEND = (30 * Math.PI) / 180;
+const NARROW_WIDTH = 640;
+const NARROW_MAX_WIDTH = 42;
+
 function measure(
   width: number,
   height: number,
@@ -63,17 +73,27 @@ function measure(
   gap: number,
   bend: number,
 ) {
+  const narrow = width < NARROW_WIDTH;
+  const effBend = narrow ? Math.min(bend, NARROW_BEND) : bend;
+  const maxWidth = narrow ? NARROW_MAX_WIDTH : MAX_WIDTH;
   const h = Math.min(
     (tile / 100) * height,
-    ((MAX_WIDTH / 100) * width) / aspect,
+    ((maxWidth / 100) * width) / aspect,
   );
-  const radius = width * arc(bend);
+  const radius = width * arc(effBend);
   if (!(h > 0) || !(radius > 0))
-    return { columns: 2, sweep: 0, unit: 0, limit: 0 };
+    return {
+      columns: 2,
+      sweep: 0,
+      unit: 0,
+      limit: 0,
+      arcR: arc(effBend),
+      narrow,
+    };
   const deg = (rad: number) => (rad * 180) / Math.PI;
   const unit = deg(h / radius);
   const pitch = (aspect + gap / 100) * unit;
-  const limit = deg(bend) + (aspect * unit) / 2;
+  const limit = deg(effBend) + (aspect * unit) / 2;
   // Capped so a hero squeezed to a sliver can't mount thousands of tiles.
   const columns = Math.min(60, Math.max(2, Math.ceil((2 * limit) / pitch)));
   const round = (n: number) => +n.toFixed(4);
@@ -83,6 +103,8 @@ function measure(
     sweep,
     unit: round(unit),
     limit: round(Math.min(sweep, limit)),
+    arcR: arc(effBend),
+    narrow,
   };
 }
 
@@ -180,8 +202,12 @@ export function TiltedGridHero({
     for (const { src } of images) new Image().src = src;
   }, [images]);
 
-  const { columns, sweep, unit, limit } =
+  const { columns, sweep, unit, limit, arcR, narrow } =
     layout ?? measure(1200, 560, tileHeight, aspectRatio, gap, bend);
+
+  // On narrow screens the overlay content stacks and covers the middle of
+  // the band, so the row rides higher to stay visible above it.
+  const effAxis = narrow ? Math.min(axis, 22) : axis;
 
   // Every length is a multiple of the tile's height, which follows the
   // hero's height until MAX_WIDTH caps it on narrow screens.
@@ -190,7 +216,7 @@ export function TiltedGridHero({
       MAX_WIDTH / aspectRatio
     ).toFixed(4)}cqw))`;
 
-  const r = 100 * arc(bend);
+  const r = 100 * arcR;
   const radius = `${+r.toFixed(3)}cqw`;
   // Out to the axis, round it, back in: a box sits on the cylinder at the
   // angle rotateY gives it.
@@ -234,7 +260,7 @@ export function TiltedGridHero({
           // A shared vanishing point on the row's centre line, so the ends
           // grow evenly above and below it as they come toward the viewer.
           perspective: `${+(r * CAMERA).toFixed(3)}cqw`,
-          perspectiveOrigin: `50% ${axis}%`,
+          perspectiveOrigin: `50% ${effAxis}%`,
           maskImage: mask,
           WebkitMaskImage: mask,
         }}
@@ -250,7 +276,7 @@ export function TiltedGridHero({
               className={cn(tile, "absolute")}
               style={{
                 left: `calc(50% - ${u(aspectRatio / 2)})`,
-                top: `calc(${axis}% - ${u(0.5)})`,
+                top: `calc(${effAxis}% - ${u(0.5)})`,
                 width: u(aspectRatio),
                 height: u(1),
                 transformStyle: "preserve-3d",

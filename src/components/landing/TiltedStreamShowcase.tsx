@@ -94,7 +94,7 @@ export function TiltedStreamShowcase() {
           axis={50}
           curve={72}
           fade={16}
-          className="w-full h-[500px] sm:h-[560px] md:h-[620px] lg:h-[660px] relative overflow-hidden"
+          className="w-full h-[560px] sm:h-[560px] md:h-[620px] lg:h-[660px] relative overflow-hidden"
         >
           {/* Overlay center interactive controls */}
           <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-between p-6 sm:p-10 z-20">
