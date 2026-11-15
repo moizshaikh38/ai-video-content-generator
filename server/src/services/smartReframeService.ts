@@ -912,6 +912,20 @@ export class SmartReframeService {
     minPresence = 0.25,
     maxStddev = 0.03,
   ): { x: number; y: number; w: number; h: number } | null {
+    return this.findStaticFacecamTrack(samples, minPresence, maxStddev)?.box ?? null;
+  }
+
+  /**
+   * Same static-geometry scan, but also returns the matching track_id so the
+   * analysis path can exclude that track from dominant-subject selection and
+   * persist the box as a user-correctable suggestion. The box is a geometric
+   * suggestion only - persistence and stillness do not prove facecam intent.
+   */
+  public static findStaticFacecamTrack(
+    samples: ReframeSample[],
+    minPresence = 0.25,
+    maxStddev = 0.03,
+  ): { trackId: string; box: { x: number; y: number; w: number; h: number } } | null {
     const byTrack = new Map<string, Array<{ x: number; y: number; w: number; h: number }>>();
     for (const s of samples) {
       for (const f of s.faces || []) {
@@ -921,9 +935,10 @@ export class SmartReframeService {
         byTrack.set(f.track_id, arr);
       }
     }
+    let bestTrackId: string | null = null;
     let best: { x: number; y: number; w: number; h: number } | null = null;
     let bestStd = Infinity;
-    for (const boxes of byTrack.values()) {
+    for (const [trackId, boxes] of byTrack.entries()) {
       if (boxes.length < Math.max(3, samples.length * minPresence)) continue;
       const cx = boxes.map((b) => b.x + b.w / 2);
       const cy = boxes.map((b) => b.y + b.h / 2);
@@ -933,10 +948,11 @@ export class SmartReframeService {
       if (s < maxStddev && s < bestStd) {
         const sorted = (a: number[]) => [...a].sort((p, c) => p - c)[Math.floor(a.length / 2)];
         bestStd = s;
+        bestTrackId = trackId;
         best = { x: sorted(boxes.map((b) => b.x)), y: sorted(boxes.map((b) => b.y)), w: sorted(boxes.map((b) => b.w)), h: sorted(boxes.map((b) => b.h)) };
       }
     }
-    return best;
+    return bestTrackId && best ? { trackId: bestTrackId, box: best } : null;
   }
 
   /**
@@ -1569,9 +1585,21 @@ export class SmartReframeService {
         logger.warn(`[SmartReframe] Optional timeline/transcript enrichment skipped: ${ctxErr.message}`);
       }
 
-      // 7. Associate tracks and select dominant subject
+      // 7. Associate tracks and select dominant subject. A persistent static
+      // track (geometric facecam signature) is a user-correctable suggestion:
+      // exclude it from dominant-subject selection for screencast layouts so
+      // the tracked path follows content, and persist its box in metadata.
       const { tracks, faceCount } = this.associateTracks(cvResult.samples);
-      const { dominantTrackId, score } = this.selectDominantTrack(tracks, cvResult.samples.length, { speechIntervals });
+      const facecamSuggestion = this.findStaticFacecamTrack(cvResult.samples);
+      const wantsScreencast =
+        (clip.crop_config?.layout_mode ?? genreReframe.preferredLayoutMode) === 'screencast';
+      let selectionTracks = tracks;
+      if (wantsScreencast && facecamSuggestion && tracks.has(facecamSuggestion.trackId)) {
+        selectionTracks = new Map(tracks);
+        selectionTracks.delete(facecamSuggestion.trackId);
+        if (selectionTracks.size === 0) selectionTracks = tracks; // never drop the only subject
+      }
+      const { dominantTrackId, score } = this.selectDominantTrack(selectionTracks, cvResult.samples.length, { speechIntervals });
       const { layoutMode, speaker1X, speaker2X } = this.determineOptimalLayoutMode(cvResult.samples, {
         preferredMode: clip.crop_config?.layout_mode ?? genreReframe.preferredLayoutMode,
       });
@@ -1623,6 +1651,9 @@ export class SmartReframeService {
           sample_fps: cvResult.sample_fps,
           total_samples: cvResult.samples.length,
           keyframe_count: fusedKeyframes.length, word_energy_fused: wordTimings.length > 0,
+          // User-correctable suggestion only (static geometry, not intent proof)
+          facecam_box: facecamSuggestion?.box ?? null,
+          facecam_track_id: facecamSuggestion?.trackId ?? null,
         },
         analyzed_trim_start: trimStart,
         analyzed_trim_end: trimEnd,

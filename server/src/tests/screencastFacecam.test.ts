@@ -104,3 +104,43 @@ describe('screencast background composition + config passthrough', () => {
     assert.equal(viaDispatch, direct);
   });
 });
+
+describe('analysis-side facecam suggestion', () => {
+  const mkSamples = () => {
+    const samples: any[] = [];
+    for (let i = 0; i < 20; i++) {
+      samples.push({
+        time: i * 0.25,
+        faces: [
+          { x: 0.86 + (i % 2) * 0.001, y: 0.12, width: 0.06, height: 0.11, center_x: 0.89, center_y: 0.175, confidence: 0.9, track_id: 'cam' },
+          { x: 0.3 + Math.sin(i) * 0.05, y: 0.3, width: 0.12, height: 0.2, center_x: 0.36 + Math.sin(i) * 0.05, center_y: 0.4, confidence: 0.9, track_id: 'player' },
+        ],
+      });
+    }
+    return samples;
+  };
+
+  it('findStaticFacecamTrack returns the static track id and box', () => {
+    const found = SmartReframeService.findStaticFacecamTrack(mkSamples());
+    assert.ok(found);
+    assert.equal(found.trackId, 'cam');
+    assert.ok(Math.abs(found.box.x - 0.86) < 0.01);
+  });
+
+  it('dominant selection can exclude the facecam track and pick the moving subject', () => {
+    const samples = mkSamples();
+    const { tracks } = (SmartReframeService as any).associateTracks(samples);
+    const facecam = SmartReframeService.findStaticFacecamTrack(samples);
+    assert.ok(facecam);
+    const without = new Map(tracks);
+    without.delete(facecam.trackId);
+    const withPick = SmartReframeService.selectDominantTrack(tracks, samples.length);
+    const withoutPick = SmartReframeService.selectDominantTrack(without, samples.length);
+    assert.notEqual(withoutPick.dominantTrackId, null);
+    assert.ok(without.has(withoutPick.dominantTrackId!), 'pick must come from the remaining tracks');
+    // Sanity: with the static cam track present, selection may land on it;
+    // after exclusion it must not.
+    assert.notEqual(withoutPick.dominantTrackId, facecam.trackId);
+    void withPick;
+  });
+});

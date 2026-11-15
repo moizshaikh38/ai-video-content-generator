@@ -757,7 +757,8 @@ export class ProEditorService {
           screencastInsetDiameter: reframe!.cropConfig?.screencast?.insetDiameter,
           screencastScreenRatio: reframe!.cropConfig?.screencast?.screenRatio,
           screencastBackground: reframe!.cropConfig?.screencast?.background,
-          screencastFacecamBox: reframe!.cropConfig?.screencast?.facecamBox,
+          // User-set box wins; otherwise the analysis-time static-geometry suggestion.
+          screencastFacecamBox: reframe!.cropConfig?.screencast?.facecamBox ?? track.metadata?.facecam_box ?? undefined,
         });
       }
 
