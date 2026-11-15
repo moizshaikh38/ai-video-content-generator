@@ -1057,11 +1057,20 @@ export class SmartReframeService {
         const fy = Math.min(0.98, Math.max(0, facecamBox.y));
         const fw = Math.min(1 - fx, Math.max(0.01, facecamBox.w));
         const fh = Math.min(1 - fy, Math.max(0.01, facecamBox.h));
-        const pad = 0.35; // headroom around the detected box
-        const cx = fx + fw / 2;
-        const cy = fy + fh / 2;
-        let pw = fw * (1 + pad);
-        let ph = fh * (1 + pad);
+        // Asymmetric headroom around the detected face box: more above the
+        // forehead, less at the sides/chin, so the inset stays tight on the
+        // face instead of filling with gameplay/background edges.
+        const padX = 0.12;
+        const padTop = 0.16;
+        const padBottom = 0.12;
+        const left = Math.max(0, fx - fw * padX);
+        const right = Math.min(1, fx + fw * (1 + padX));
+        const top = Math.max(0, fy - fh * padTop);
+        const bottom = Math.min(1, fy + fh * (1 + padBottom));
+        const cx = (left + right) / 2;
+        const cy = (top + bottom) / 2;
+        let pw = right - left;
+        let ph = bottom - top;
         const targetAspect = targetW / targetH;
         if (pw / ph > targetAspect) { ph = pw / targetAspect; } else { pw = ph * targetAspect; }
         pw = Math.min(1, pw); ph = Math.min(1, ph);
