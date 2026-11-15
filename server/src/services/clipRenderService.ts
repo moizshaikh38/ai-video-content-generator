@@ -580,18 +580,34 @@ export class ClipRenderService {
       if (hasCustomProTracks && editorProject) {
         logger.info(`[ClipRender] Compiling and executing multi-track EditorProject graph for clip ${clipId}`);
         await ProEditorService.preloadRemoteOverlayAssets(editorProject, tempDir);
-        const graph = ProEditorService.compileRenderGraph(editorProject, sourcePath, outputPath, tempDir, {
-          aspectRatio: clip.aspect_ratio as ClipAspectRatio,
-          cropConfig: clip.crop_config || null,
-          clipStartSec: startSec,
-          mode: actualReframeMode,
-          layoutMode: reframeDecision.layoutMode,
-          track: reframeDecision.track,
-        });
         const videoTrackItems = editorProject.tracks
           ?.filter((t: any) => t.type === 'VIDEO' && !t.hidden)
           ?.flatMap((t: any) => t.items || []) || [];
         const isMultiSlice = videoTrackItems.length > 1;
+        // Single-slice renders seek the input; the loudnorm measurement pass must
+        // apply the same seek so it measures the exact audio window being rendered.
+        const inputSeekArgs = !isMultiSlice
+          ? ['-ss', startSec.toFixed(3), '-t', durationSec.toFixed(3)]
+          : [];
+        // Two-pass loudness normalization: measures dialogue audio first (audio-only
+        // pass), then compiles with linear loudnorm. Throws LoudnormNormalizationError
+        // when linear normalization is infeasible (job fails with a clear message
+        // instead of FFmpeg silently switching to OOM-prone dynamic buffering).
+        const graph = await ProEditorService.compileRenderGraphWithNormalization(
+          editorProject,
+          sourcePath,
+          outputPath,
+          tempDir,
+          {
+            aspectRatio: clip.aspect_ratio as ClipAspectRatio,
+            cropConfig: clip.crop_config || null,
+            clipStartSec: startSec,
+            mode: actualReframeMode,
+            layoutMode: reframeDecision.layoutMode,
+            track: reframeDecision.track,
+          },
+          inputSeekArgs
+        );
         const renderDuration = Number((editorProject.canvas?.duration || durationSec).toFixed(3));
         expectedDurationSec = renderDuration;
 
@@ -610,9 +626,7 @@ export class ClipRenderService {
             const ffmpegArgs = [
               '-y',
               ...encoderFlags.initArgs,
-              ...(!isMultiSlice
-                ? ['-ss', startSec.toFixed(3), '-t', durationSec.toFixed(3)]
-                : []),
+              ...inputSeekArgs,
               ...graph.inputArgs,
               ...scriptExec.args,
               '-map', graph.videoMap,

@@ -35,7 +35,19 @@ export class AudioEnhancementService {
    * Compiles an ordered, deterministic array of FFmpeg audio filters
    * based on the provided enhancement configuration.
    */
-  public static compileFilterGraph(config: AudioEnhancementConfig): string[] {
+  /** The target integrated loudness used for the normalization step. */
+  public static resolveTargetLufs(config: AudioEnhancementConfig): number {
+    return Math.min(-10, Math.max(-24, config.target_lufs || -16));
+  }
+
+  /**
+   * @param opts.loudnormFilter When provided and normalization is enabled, this exact
+   * loudnorm filter string replaces the default one-pass variant (two-pass support).
+   */
+  public static compileFilterGraph(
+    config: AudioEnhancementConfig,
+    opts?: { loudnormFilter?: string }
+  ): string[] {
     const filters: string[] = [];
 
     if (config.preset === 'off') {
@@ -91,8 +103,8 @@ export class AudioEnhancementService {
 
     // 7. EBU R128 loudness normalization (loudnorm)
     if (config.normalize_enabled) {
-      const targetI = Math.min(-10, Math.max(-24, config.target_lufs || -16));
-      filters.push(`loudnorm=I=${targetI}:TP=-1.5:LRA=11`);
+      const targetI = AudioEnhancementService.resolveTargetLufs(config);
+      filters.push(opts?.loudnormFilter ?? `loudnorm=I=${targetI}:TP=-1.5:LRA=11`);
     }
 
     // 8. Lookahead brickwall peak limiter to guarantee no clipping

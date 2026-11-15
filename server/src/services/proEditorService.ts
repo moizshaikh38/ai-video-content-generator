@@ -54,6 +54,11 @@ import { CaptionService } from './captionService.js';
 import { isKnownCaptionStyle } from '../shared/captionPresets.js';
 import { buildCropFilter } from './clipRenderService.js';
 import { AudioEnhancementService } from './audioEnhancementService.js';
+import {
+  LoudnormMeasured,
+  LoudnormNormalizationError,
+  LoudnormTwoPassService,
+} from './loudnormTwoPassService.js';
 import { AudioDuckingService } from './audioDuckingService.js';
 import { SoundDesignService } from './soundDesignService.js';
 import { SmartReframeService } from './smartReframeService.js';
@@ -71,7 +76,18 @@ export interface CompiledRenderGraph {
   audioMap: string;
   outputArgs: string[];
   duration: number;
+  /**
+   * Present only when compiled with loudnorm='measure' AND the project requests
+   * loudness normalization (audio.normalized or an enhancement preset with
+   * normalize_enabled): an audio-only filter graph (same slice trims/speed/concat/
+   * acrossfade/pre-loudnorm enhancement chains as the render graph) ending in a
+   * print_format=json loudnorm. Running it decodes no video.
+   */
+  measurement: { filterComplex: string[]; audioMap: string; targetI: number } | null;
 }
+
+/** Mode for loudnorm emission: default one-pass (legacy), 'measure', or measured two-pass. */
+export type LoudnormCompileMode = 'measure' | { measured: LoudnormMeasured };
 
 /**
  * Clip-level reframing context resolved once by ClipRenderService.resolveReframeDecision
@@ -889,11 +905,16 @@ export class ProEditorService {
     sourceVideoPath: string,
     outputPath = '/tmp/render.mp4',
     tmpDir = os.tmpdir(),
-    reframe?: ProReframeContext
+    reframe?: ProReframeContext,
+    loudnorm?: LoudnormCompileMode
   ): CompiledRenderGraph {
     const inputArgs: string[] = [];
     const filterComplex: string[] = [];
     const outputArgs: string[] = [];
+    // Audio-only mirror of the dialogue path (slice a-chains + concat/acrossfade),
+    // collected for the two-pass loudnorm measurement graph. Every string appended
+    // here is the exact string also appended to filterComplex for that audio chain.
+    const audioOnlyChains: string[] = [];
 
     // Canvas properties
     const canvasW = project.canvas.width || 1080;
@@ -962,7 +983,9 @@ export class ProEditorService {
           const padV = gapPad ? `,tpad=stop_duration=${gap.toFixed(3)}:color=black` : '';
           const padA = gapPad ? `,apad=pad_dur=${gap.toFixed(3)}` : '';
           filterComplex.push(`[${colorIdx}:v]setpts=PTS-STARTPTS${speedVideo},fps=${fps}${drawtext},setsar=1,format=yuv420p${padV}${vSlice}`);
-          filterComplex.push(`[${silenceIdx}:a]atrim=0:${(timelineDur * speed).toFixed(2)},asetpts=PTS-STARTPTS${speedAudio ? ',' + speedAudio : ''},${UNIFORM_AUDIO}${padA}${aSlice}`);
+          const titleAChain = `[${silenceIdx}:a]atrim=0:${(timelineDur * speed).toFixed(2)},asetpts=PTS-STARTPTS${speedAudio ? ',' + speedAudio : ''},${UNIFORM_AUDIO}${padA}${aSlice}`;
+          filterComplex.push(titleAChain);
+          audioOnlyChains.push(titleAChain);
           sliceDurations.push(timelineDur + gap);
         } else {
           const startStr = (item.source_start || 0).toFixed(2);
@@ -989,7 +1012,9 @@ export class ProEditorService {
           if (speedAudio) aChain.push(speedAudio);
           aChain.push(UNIFORM_AUDIO);
           if (gapPad) aChain.push(`apad=pad_dur=${gap.toFixed(3)}`);
-          filterComplex.push(`[0:a]${aChain.join(',')}${aSlice}`);
+          const sliceAChain = `[0:a]${aChain.join(',')}${aSlice}`;
+          filterComplex.push(sliceAChain);
+          audioOnlyChains.push(sliceAChain);
           sliceDurations.push(sliceDur + gap);
         }
         vLabels.push(vSlice);
@@ -1006,6 +1031,7 @@ export class ProEditorService {
       if (!boundaryHasTransition) {
         const concatInputs = vLabels.map((v, i) => `${v}${aLabels[i]}`).join('');
         filterComplex.push(`${concatInputs}concat=n=${allVideoItems.length}:v=1:a=1[base_v][base_a]`);
+        audioOnlyChains.push(`${aLabels.join('')}concat=n=${allVideoItems.length}:v=0:a=1[base_a]`);
         videoStreamLabel = '[base_v]';
         audioStreamLabel = '[base_a]';
       } else {
@@ -1038,7 +1064,9 @@ export class ProEditorService {
           filterComplex.push(
             `${accV}${vLabels[i]}xfade=transition=${xfadeName}:duration=${duration.toFixed(3)}:offset=${offset.toFixed(3)}${outV}`
           );
-          filterComplex.push(`${accA}${aLabels[i]}acrossfade=d=${duration.toFixed(3)}${outA}`);
+          const acrossfadeChain = `${accA}${aLabels[i]}acrossfade=d=${duration.toFixed(3)}${outA}`;
+          filterComplex.push(acrossfadeChain);
+          audioOnlyChains.push(acrossfadeChain);
           accV = outV;
           accA = outA;
           accDur = accDur + sliceDurations[i] - duration;
@@ -1064,7 +1092,11 @@ export class ProEditorService {
       videoStreamLabel = '[base_v]';
       if (singleSpeed !== 1) {
         const atempo = ProEditorService.audioAtempoChain(singleSpeed);
-        if (atempo) filterComplex.push(`${audioStreamLabel}${atempo}[base_a_speed]`);
+        if (atempo) {
+          const speedChain = `${audioStreamLabel}${atempo}[base_a_speed]`;
+          filterComplex.push(speedChain);
+          audioOnlyChains.push(speedChain);
+        }
         audioStreamLabel = atempo ? '[base_a_speed]' : audioStreamLabel;
       }
     }
@@ -1213,15 +1245,38 @@ export class ProEditorService {
       .flatMap((t) => t.items)
       .find((i) => i.audio?.enhancement && i.audio.enhancement.preset !== 'off');
 
+    // Loudness normalization is emitted at exactly one of two sites (enhancement
+    // chain step 7, or the plain normalized flag). Both honor the loudnorm compile
+    // mode so the render path can do measure-then-apply two-pass normalization:
+    // one-pass loudnorm buffers until EOF and stalls the muxer, which piled up
+    // ~740MB of decoded frames on a 120s source and OOM-killed renders (Nov 2026).
+    let loudnormTargetI: number | null = null;
+    const buildLoudnorm = (targetI: number): string => {
+      if (loudnorm === 'measure') return LoudnormTwoPassService.buildMeasureFilter(targetI, -1.5, 11);
+      if (loudnorm && typeof loudnorm === 'object') {
+        return LoudnormTwoPassService.buildLinearFilter(targetI, -1.5, 11, loudnorm.measured);
+      }
+      return `loudnorm=I=${targetI}:TP=-1.5:LRA=11`;
+    };
     if (primaryAudioItem?.audio?.enhancement) {
-      const enhanceFilters = AudioEnhancementService.compileFilterGraph(primaryAudioItem.audio.enhancement);
+      const enh = primaryAudioItem.audio.enhancement;
+      let loudnormFilter: string | undefined;
+      if (enh.normalize_enabled) {
+        loudnormTargetI = AudioEnhancementService.resolveTargetLufs(enh);
+        loudnormFilter = buildLoudnorm(loudnormTargetI);
+      }
+      const enhanceFilters = AudioEnhancementService.compileFilterGraph(
+        enh,
+        loudnormFilter ? { loudnormFilter } : undefined
+      );
       audioFilters.push(...enhanceFilters);
     } else {
       const needsNormalize = project.tracks.some((t) =>
         t.items.some((i) => i.audio?.normalized)
       );
       if (needsNormalize) {
-        audioFilters.push('loudnorm=I=-16:TP=-1.5:LRA=11');
+        loudnormTargetI = -16;
+        audioFilters.push(buildLoudnorm(-16));
       }
     }
 
@@ -1232,6 +1287,9 @@ export class ProEditorService {
 
     filterComplex.push(`${audioStreamLabel}${audioFilters.join(',')}[dialogue_proc]`);
     const processedDialogueLabel = '[dialogue_proc]';
+    // Dialogue input pad ([base_a] / [0:a] / [base_a_speed]) - captured before
+    // audioStreamLabel is reassigned to [master_a] by the final mix below.
+    const dialogueInputLabel = audioStreamLabel;
 
     // Process secondary audio tracks (Music, SFX, Voiceover)
     const secondaryAudioTracks = project.tracks.filter(
@@ -1333,6 +1391,21 @@ export class ProEditorService {
       audioStreamLabel = '[master_a]';
     }
 
+    // Measurement graph: audio-only dialogue path ending in a print_format loudnorm.
+    // Filters after loudnorm (afades) don't change measured values; secondary audio
+    // tracks and ducking mix in after loudnorm, so they are excluded by construction.
+    let measurement: CompiledRenderGraph['measurement'] = null;
+    if (loudnorm === 'measure' && loudnormTargetI !== null) {
+      measurement = {
+        filterComplex: [
+          ...audioOnlyChains,
+          `${dialogueInputLabel}${audioFilters.join(',')}[measure_a]`,
+        ],
+        audioMap: '[measure_a]',
+        targetI: loudnormTargetI,
+      };
+    }
+
     return {
       inputArgs,
       filterComplex,
@@ -1340,7 +1413,40 @@ export class ProEditorService {
       audioMap: audioStreamLabel,
       outputArgs,
       duration: project.canvas.duration,
+      measurement,
     };
+  }
+
+  /**
+   * Compile the render graph with two-pass loudness normalization when the project
+   * requests it: measure the dialogue audio (audio-only pass, no video decode),
+   * verify FFmpeg's linear-mode feasibility conditions, then compile the final
+   * graph with measured linear loudnorm. Fails with LoudnormNormalizationError
+   * (clear job failure) when normalization cannot be applied linearly - FFmpeg
+   * would otherwise silently fall back to dynamic mode, whose whole-input buffering
+   * stalls the muxer and can OOM the render on long sources.
+   */
+  public static async compileRenderGraphWithNormalization(
+    project: EditorProject,
+    sourceVideoPath: string,
+    outputPath = '/tmp/render.mp4',
+    tmpDir = os.tmpdir(),
+    reframe?: ProReframeContext,
+    inputSeekArgs: string[] = []
+  ): Promise<CompiledRenderGraph> {
+    const probe = ProEditorService.compileRenderGraph(project, sourceVideoPath, outputPath, tmpDir, reframe, 'measure');
+    if (!probe.measurement) {
+      return probe;
+    }
+    const measured = await LoudnormTwoPassService.measure(
+      [...inputSeekArgs, ...probe.inputArgs],
+      probe.measurement
+    );
+    const check = LoudnormTwoPassService.assessLinearFeasibility(measured, probe.measurement.targetI, -1.5, 11);
+    if (!check.ok) {
+      throw new LoudnormNormalizationError(check.reason);
+    }
+    return ProEditorService.compileRenderGraph(project, sourceVideoPath, outputPath, tmpDir, reframe, { measured });
   }
 
   /**

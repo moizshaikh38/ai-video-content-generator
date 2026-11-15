@@ -1,0 +1,303 @@
+import { describe, it, before } from 'node:test';
+import assert from 'node:assert/strict';
+import { execFileSync, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import fs from 'node:fs';
+import path from 'node:path';
+import ffmpegStatic from 'ffmpeg-static';
+import ffprobeStatic from 'ffprobe-static';
+import { ProEditorService } from '../services/proEditorService.js';
+import {
+  LoudnormNormalizationError,
+  LoudnormTwoPassService,
+} from '../services/loudnormTwoPassService.js';
+
+const execFileAsync = promisify(execFile);
+const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
+
+/**
+ * Two-pass loudness normalization (audit follow-up, Nov 2026): one-pass loudnorm
+ * buffers until EOF and stalled the muxer, accumulating ~740MB of queued decoded
+ * frames on a 120s 1080p source (render OOM-killed at ~1.2GB RSS in sandbox).
+ * These tests cover the measure-then-apply flow, the exact FFmpeg linear-mode
+ * feasibility conditions, explicit failure on silence/infeasibility, and output
+ * loudness/duration/sync preservation. Synthetic fixtures (testsrc2 + modulated
+ * sine) prove pipeline mechanics only, not launch-asset quality.
+ */
+
+const FIX_DIR = '/tmp/loudnorm-2pass-fixtures';
+const MODULATED_120S = path.join(FIX_DIR, 'modulated-120s.mp4');
+const MODULATED_15S = path.join(FIX_DIR, 'modulated-15s.mp4');
+const MODULATED_SMALL = path.join(FIX_DIR, 'modulated-small.mp4');
+const BROLL_SMALL = path.join(FIX_DIR, 'broll-small.mp4');
+const SILENT_10S = path.join(FIX_DIR, 'silent-10s.mp4');
+const BROLL_RED = path.join(FIX_DIR, 'broll-red.mp4');
+
+function gen(fix: string, args: string[]) {
+  if (!fs.existsSync(fix)) {
+    execFileSync(ffmpegBin, ['-y', '-v', 'error', ...args, fix], { timeout: 120_000 });
+  }
+}
+
+function ensureFixtures() {
+  fs.mkdirSync(FIX_DIR, { recursive: true });
+  gen(MODULATED_120S, [
+    '-f', 'lavfi', '-i', 'testsrc2=size=1920x1080:rate=30:duration=120',
+    '-f', 'lavfi', '-i', 'aevalsrc=sin(440*2*PI*t)*(0.5+0.45*sin(2*PI*0.25*t)):s=44100:d=120',
+    '-shortest', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '30', '-c:a', 'aac',
+  ]);
+  gen(MODULATED_15S, [
+    '-f', 'lavfi', '-i', 'testsrc2=size=1920x1080:rate=30:duration=15',
+    '-f', 'lavfi', '-i', 'aevalsrc=sin(440*2*PI*t)*(0.5+0.45*sin(2*PI*0.25*t)):s=44100:d=15',
+    '-shortest', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '30', '-c:a', 'aac',
+  ]);
+  gen(SILENT_10S, [
+    '-f', 'lavfi', '-i', 'testsrc2=size=1920x1080:rate=30:duration=10',
+    '-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
+    '-shortest', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '30', '-c:a', 'aac',
+  ]);
+  gen(MODULATED_SMALL, [
+    '-f', 'lavfi', '-i', 'testsrc2=size=480x270:rate=30:duration=15',
+    '-f', 'lavfi', '-i', 'aevalsrc=sin(440*2*PI*t)*(0.5+0.45*sin(2*PI*0.25*t)):s=44100:d=15',
+    '-shortest', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '30', '-c:a', 'aac',
+  ]);
+  gen(BROLL_SMALL, [
+    '-f', 'lavfi', '-i', 'color=c=0xCC2222:s=480x270:r=30:d=15',
+    '-f', 'lavfi', '-i', 'sine=frequency=880:duration=15',
+    '-shortest', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '30', '-c:a', 'aac',
+  ]);
+  gen(BROLL_RED, [
+    '-f', 'lavfi', '-i', 'color=c=0xCC2222:s=1920x1080:r=30:d=15',
+    '-f', 'lavfi', '-i', 'sine=frequency=880:duration=15',
+    '-shortest', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '30', '-c:a', 'aac',
+  ]);
+}
+
+function buildProject(sourcePath: string, duration: number, brollPath: string = BROLL_RED) {
+  return {
+    user_id: 'loudnorm-2pass-test',
+    canvas: { width: 1080, height: 1920, aspect_ratio: '9:16', fps: 30, duration },
+    tracks: [
+      {
+        type: 'VIDEO',
+        name: 'Main',
+        items: [
+          {
+            id: 'slice-1', name: 'slice-1',
+            timeline_start: 0, timeline_end: 3.5, source_start: 0, source_end: 3.5,
+            source_path: sourcePath,
+            audio: { volume: 1.0, fade_in: 0.1, fade_out: 0.1, normalized: true, target_lufs: -16 },
+          },
+          {
+            id: 'slice-2', name: 'slice-2',
+            timeline_start: 3.5, timeline_end: 5.5, source_start: 5.0, source_end: 7.0,
+            source_path: sourcePath,
+            audio: { volume: 1.0, fade_in: 0.1, fade_out: 0.1, normalized: true, target_lufs: -16 },
+          },
+        ],
+      },
+      {
+        type: 'OVERLAY',
+        name: 'B-Roll',
+        items: [
+          {
+            id: 'broll-1', name: 'broll-1',
+            timeline_start: 1.0, timeline_end: 3.0, source_start: 5.0, source_end: 7.0,
+            source_path: brollPath,
+            audio: { volume: 0.0, fade_in: 0, fade_out: 0 },
+          },
+        ],
+      },
+    ],
+  } as any;
+}
+
+async function renderGraph(graph: any, outPath: string, duration: number) {
+  await execFileAsync(ffmpegBin, [
+    '-y', '-v', 'error',
+    ...graph.inputArgs,
+    '-filter_complex', graph.filterComplex.join(';'),
+    '-map', graph.videoMap, '-map', graph.audioMap,
+    '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-c:a', 'aac',
+    '-t', String(duration), outPath,
+  ], { timeout: 300_000, maxBuffer: 64 * 1024 * 1024 });
+}
+
+async function probeStreamDurations(file: string) {
+  const { stdout } = await execFileAsync((ffprobeStatic as any).path || (ffprobeStatic as unknown as string), [
+    '-v', 'error', '-show_entries', 'stream=codec_type,duration', '-of', 'json', file,
+  ]);
+  const streams = JSON.parse(stdout).streams as { codec_type: string; duration?: string }[];
+  const v = streams.find((s) => s.codec_type === 'video');
+  const a = streams.find((s) => s.codec_type === 'audio');
+  return { video: Number(v?.duration), audio: Number(a?.duration) };
+}
+
+async function integratedLoudness(file: string): Promise<number> {
+  const { stderr } = await execFileAsync(ffmpegBin, [
+    '-hide_banner', '-nostats', '-i', file, '-af', 'ebur128', '-f', 'null', '-',
+  ], { maxBuffer: 64 * 1024 * 1024 }).catch((e) => e);
+  // ebur128 logs per-frame lines even with -nostats; the integrated value is the
+  // one in the Summary block at end of stream.
+  const m = /Summary:[\s\S]*?Integrated loudness:\s+I:\s+(-?\d+(?:\.\d+)?)\s+LUFS/.exec(stderr || '');
+  assert.ok(m, 'ebur128 summary must report integrated loudness');
+  return Number(m[1]);
+}
+
+describe('LoudnormTwoPassService - unit', () => {
+  const validStderr = `noise\n[Parsed_loudnorm_0 @ 0x0] \n{\n\t"input_i" : "-9.16",\n\t"input_tp" : "-3.48",\n\t"input_lra" : "2.60",\n\t"input_thresh" : "-20.36",\n\t"output_i" : "-15.89",\n\t"output_tp" : "-10.31",\n\t"output_lra" : "2.70",\n\t"output_thresh" : "-26.89",\n\t"normalization_type" : "dynamic",\n\t"target_offset" : "-0.11"\n}`;
+
+  it('parses a valid measurement block', () => {
+    const m = LoudnormTwoPassService.parseMeasurement(validStderr);
+    assert.equal(m.inputI, -9.16);
+    assert.equal(m.inputTP, -3.48);
+    assert.equal(m.inputLRA, 2.6);
+    assert.equal(m.inputThresh, -20.36);
+    assert.equal(m.targetOffset, -0.11);
+  });
+
+  it('takes the last block when several are present', () => {
+    const second = validStderr.replace('"-9.16"', '"-20.5"');
+    const m = LoudnormTwoPassService.parseMeasurement(validStderr + '\n' + second);
+    assert.equal(m.inputI, -20.5);
+  });
+
+  it('fails clearly when no measurement block exists', () => {
+    assert.throws(
+      () => LoudnormTwoPassService.parseMeasurement('no json here'),
+      (e: any) => e instanceof LoudnormNormalizationError && /no loudnorm statistics/.test(e.message)
+    );
+  });
+
+  it('fails clearly on silence (-inf values)', () => {
+    const silent = validStderr
+      .replace('"-9.16"', '"-inf"')
+      .replace('"-3.48"', '"-inf"')
+      .replace('"-0.11"', '"inf"');
+    assert.throws(
+      () => LoudnormTwoPassService.parseMeasurement(silent),
+      (e: any) => e instanceof LoudnormNormalizationError && /silent or below the loudness measurement gate/.test(e.message)
+    );
+  });
+
+  it('feasibility accepts the real measured case', () => {
+    const m = { inputI: -9.16, inputTP: -3.48, inputLRA: 2.6, inputThresh: -20.36, targetOffset: -0.11 };
+    assert.deepEqual(LoudnormTwoPassService.assessLinearFeasibility(m, -16, -1.5, 11), { ok: true });
+  });
+
+  it('feasibility rejects true-peak overflow (FFmpeg would silently go dynamic)', () => {
+    const m = { inputI: -40, inputTP: -3.48, inputLRA: 2.6, inputThresh: -50, targetOffset: -0.11 };
+    const r = LoudnormTwoPassService.assessLinearFeasibility(m, -16, -1.5, 11);
+    assert.equal(r.ok, false);
+    if (!r.ok) assert.match(r.reason, /true peak/);
+  });
+
+  it('feasibility rejects LRA above target', () => {
+    const m = { inputI: -9.16, inputTP: -3.48, inputLRA: 20, inputThresh: -20.36, targetOffset: -0.11 };
+    const r = LoudnormTwoPassService.assessLinearFeasibility(m, -16, -1.5, 11);
+    assert.equal(r.ok, false);
+    if (!r.ok) assert.match(r.reason, /loudness range/);
+  });
+
+  it('feasibility rejects degenerate measurements FFmpeg treats as dynamic-only', () => {
+    for (const m of [
+      { inputI: -9.16, inputTP: -3.48, inputLRA: 0, inputThresh: -20.36, targetOffset: -0.11 },
+      { inputI: -9.16, inputTP: -3.48, inputLRA: 2.6, inputThresh: -70, targetOffset: -0.11 },
+      { inputI: 0, inputTP: -3.48, inputLRA: 2.6, inputThresh: -20.36, targetOffset: -0.11 },
+      { inputI: -9.16, inputTP: 99, inputLRA: 2.6, inputThresh: -20.36, targetOffset: -0.11 },
+    ]) {
+      const r = LoudnormTwoPassService.assessLinearFeasibility(m, -16, -1.5, 11);
+      assert.equal(r.ok, false, `expected infeasible: ${JSON.stringify(m)}`);
+      if (!r.ok) assert.match(r.reason, /degenerate/);
+    }
+  });
+
+  it('builds linear and measure filter strings', () => {
+    const m = { inputI: -9.16, inputTP: -3.48, inputLRA: 2.6, inputThresh: -20.36, targetOffset: -0.11 };
+    const lin = LoudnormTwoPassService.buildLinearFilter(-16, -1.5, 11, m);
+    assert.match(lin, /linear=true/);
+    assert.match(lin, /measured_I=-9\.16/);
+    const meas = LoudnormTwoPassService.buildMeasureFilter(-16, -1.5, 11);
+    assert.match(meas, /print_format=json/);
+    assert.doesNotMatch(meas, /measured_I/);
+  });
+});
+
+describe('LoudnormTwoPassService - integration (synthetic fixtures)', () => {
+  before(() => ensureFixtures());
+
+  it('two-pass render completes on a 120s source with correct duration, sync and loudness', { timeout: 300_000 }, async () => {
+    const project = buildProject(MODULATED_120S, 3.5);
+    const graph = await ProEditorService.compileRenderGraphWithNormalization(
+      project, MODULATED_120S, path.join(FIX_DIR, 'out-2pass.mp4'), FIX_DIR
+    );
+    const fc = graph.filterComplex.join(';');
+    assert.match(fc, /linear=true/, 'final graph must use measured linear loudnorm');
+    assert.match(fc, /measured_I=-?\d/, 'final graph must carry measured values');
+    assert.equal(graph.measurement, null, 'final compile is not a measurement probe');
+
+    const outPath = path.join(FIX_DIR, 'out-2pass.mp4');
+    await renderGraph(graph, outPath, 3.5);
+    assert.ok(fs.existsSync(outPath));
+
+    const d = await probeStreamDurations(outPath);
+    assert.ok(Math.abs(d.video - 3.5) < 0.2, `video duration ${d.video} != 3.5`);
+    assert.ok(Math.abs(d.audio - 3.5) < 0.2, `audio duration ${d.audio} != 3.5 (sync drift)`);
+
+    const loud = await integratedLoudness(outPath);
+    assert.ok(loud > -19 && loud < -13, `integrated loudness ${loud} LUFS outside [-19,-13]`);
+  });
+
+  it('two-pass loudness matches one-pass on a short source where both complete', { timeout: 300_000 }, async () => {
+    // Small-resolution sources: one-pass loudnorm's whole-input buffering stalls the
+    // muxer and queues decoded frames; at 1920x1080 even a 15s source can OOM under
+    // the sandbox cap (observed). 480x270 keeps the one-pass reference renderable so
+    // the loudness comparison tests semantics, not memory headroom.
+    const project = buildProject(MODULATED_SMALL, 3.5, BROLL_SMALL);
+    const onePassGraph = ProEditorService.compileRenderGraph(project, MODULATED_SMALL, path.join(FIX_DIR, 'out-1pass.mp4'), FIX_DIR);
+    assert.ok(onePassGraph.filterComplex.join(';').includes('loudnorm=I=-16:TP=-1.5:LRA=11,'), 'legacy compile keeps one-pass loudnorm');
+    assert.equal(onePassGraph.measurement, null, 'legacy compile has no measurement probe');
+    const twoPassGraph = await ProEditorService.compileRenderGraphWithNormalization(
+      project, MODULATED_SMALL, path.join(FIX_DIR, 'out-2pass-short.mp4'), FIX_DIR
+    );
+    const out1 = path.join(FIX_DIR, 'out-1pass.mp4');
+    const out2 = path.join(FIX_DIR, 'out-2pass-short.mp4');
+    await renderGraph(onePassGraph, out1, 3.5);
+    await renderGraph(twoPassGraph, out2, 3.5);
+    const l1 = await integratedLoudness(out1);
+    const l2 = await integratedLoudness(out2);
+    // Dynamic (one-pass) and linear (two-pass) normalization legitimately differ;
+    // they must still land close on steady program material.
+    assert.ok(Math.abs(l1 - l2) <= 2.0, `one-pass ${l1} vs two-pass ${l2} differ by >2 LU`);
+  });
+
+  it('silent dialogue fails with a clear normalization error instead of rendering', { timeout: 120_000 }, async () => {
+    const project = buildProject(SILENT_10S, 3.5);
+    await assert.rejects(
+      () => ProEditorService.compileRenderGraphWithNormalization(project, SILENT_10S, path.join(FIX_DIR, 'out-silent.mp4'), FIX_DIR),
+      (e: any) => e instanceof LoudnormNormalizationError && /silent or below the loudness measurement gate/.test(e.message)
+    );
+  });
+
+  it('single-slice projects measure through the caller input-seek window', { timeout: 120_000 }, async () => {
+    const project = buildProject(MODULATED_SMALL, 3.5, BROLL_SMALL);
+    project.tracks = [project.tracks[0]];
+    project.tracks[0].items = [project.tracks[0].items[0]];
+    const graph = await ProEditorService.compileRenderGraphWithNormalization(
+      project, MODULATED_SMALL, path.join(FIX_DIR, 'out-single.mp4'), FIX_DIR, undefined,
+      ['-ss', '0', '-t', '3.5']
+    );
+    assert.match(graph.filterComplex.join(';'), /linear=true/);
+    const outPath = path.join(FIX_DIR, 'out-single.mp4');
+    await execFileAsync(ffmpegBin, [
+      '-y', '-v', 'error', '-ss', '0', '-t', '3.5',
+      ...graph.inputArgs,
+      '-filter_complex', graph.filterComplex.join(';'),
+      '-map', graph.videoMap, '-map', graph.audioMap,
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-c:a', 'aac',
+      '-t', '3.5', outPath,
+    ], { timeout: 120_000, maxBuffer: 64 * 1024 * 1024 });
+    const d = await probeStreamDurations(outPath);
+    assert.ok(Math.abs(d.video - 3.5) < 0.2 && Math.abs(d.audio - 3.5) < 0.2, 'single-slice durations must match the seek window');
+  });
+});
