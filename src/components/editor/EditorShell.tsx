@@ -726,38 +726,50 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         );
         const delta = Number((newSourceEnd - primaryVideoForExtend.source_end).toFixed(3));
         if (delta <= 0) return;
-        onUpdateTrackItem(trackId, itemId, {
-          source_end: newSourceEnd,
-          timeline_end: Number((primaryVideoForExtend.timeline_end + delta).toFixed(3)),
-        });
+        // Single history entry for the whole extend: video item + canvas +
+        // coverage marker commit together, so one undo restores all of it.
+        void trackId; void itemId;
         onUpdateProject((prev) => ({
           ...prev,
           canvas: {
             ...prev.canvas,
             duration: Number(((prev.canvas.duration || 0) + delta).toFixed(3)),
           },
-          // Record the pre-extend caption coverage BEFORE the extension is
-          // saved, so the heal can append the newly exposed span on the very
-          // next load - no second-load gap for existing projects.
-          tracks: prev.tracks.map((t) =>
-            t.type !== 'CAPTION' || t.hidden
-              ? t
-              : {
-                  ...t,
-                  items: t.items.map((i) =>
-                    i.hidden || !i.caption || !Array.isArray(i.caption.cues) ||
-                    i.caption.cues.length === 0 || i.caption.cues_covered_end != null
-                      ? i
-                      : {
-                          ...i,
-                          caption: {
-                            ...i.caption,
-                            cues_covered_end: initCoveredEnd(i.caption.cues),
-                          },
-                        }
-                  ),
-                }
-          ),
+          tracks: prev.tracks.map((t) => {
+            if (t.id === trackId) {
+              return {
+                ...t,
+                items: t.items.map((i) =>
+                  i.id !== itemId
+                    ? i
+                    : {
+                        ...i,
+                        source_end: newSourceEnd,
+                        timeline_end: Number((i.timeline_end + delta).toFixed(3)),
+                      }
+                ),
+              };
+            }
+            // Record the pre-extend caption coverage BEFORE the extension is
+            // saved, so the heal can append the newly exposed span on the very
+            // next load - no second-load gap for existing projects.
+            if (t.type !== 'CAPTION' || t.hidden) return t;
+            return {
+              ...t,
+              items: t.items.map((i) =>
+                i.hidden || !i.caption || !Array.isArray(i.caption.cues) ||
+                i.caption.cues.length === 0 || i.caption.cues_covered_end != null
+                  ? i
+                  : {
+                      ...i,
+                      caption: {
+                        ...i.caption,
+                        cues_covered_end: initCoveredEnd(i.caption.cues),
+                      },
+                    }
+              ),
+            };
+          }),
         }));
         // Persist the new trim, then append cues for the newly exposed span
         // in-session (fresh extraction honors the saved trim). This is its own
@@ -765,8 +777,22 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         // no reload, so existing undo history is preserved.
         void (async () => {
           try {
-            const saved = await onSaveNow();
-            if (!saved) return;
+            // Let React flush the extend state updates (track item + canvas +
+            // coverage marker) into the autosave ref before saving; otherwise
+            // saveNow persists the pre-extend snapshot and the caption fetch
+            // below would read a pre-extend clip.
+            await new Promise((r) => setTimeout(r, 0));
+            let saved = await onSaveNow();
+            if (!saved) {
+              // A save was already in flight; wait for it to settle and retry
+              // once so the heal is not silently dropped.
+              await new Promise((r) => setTimeout(r, 800));
+              saved = await onSaveNow();
+            }
+            if (!saved) {
+              console.error('[extend-heal] save did not complete; caption coverage will heal on next editor load.');
+              return;
+            }
             const cap = await clipRenderService.getClipCaptions(clip.id);
             if (!Array.isArray(cap?.cues) || cap.cues.length === 0) return;
             onUpdateProject((prev) => {
@@ -779,8 +805,9 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               void appended;
               return { ...prev, tracks: healed };
             });
-          } catch {
-            // In-session heal is best-effort; the next editor load heals too.
+          } catch (e) {
+            // The heal re-runs on next editor load; surface for diagnostics.
+            console.error('[extend-heal] failed:', e);
           }
         })();
       }}

@@ -741,6 +741,8 @@ export const getClipDownloadUrl = async (req: AuthenticatedRequest, res: Respons
 export const getClipEditorData = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const clipId = req.params.clipId;
+  // Editor state mutates in place; never let a client cache serve a stale copy.
+  res.set('Cache-Control', 'no-store');
 
   if (!userId) {
     res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });
@@ -1026,6 +1028,9 @@ export const resetClipEditor = async (req: AuthenticatedRequest, res: Response):
 export const getClipCaptions = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const clipId = req.params.clipId;
+  // Caption coverage changes with trims/extends; a cached 304 would strand the
+  // editor on stale cues.
+  res.set('Cache-Control', 'no-store');
 
   if (!userId) {
     res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });

@@ -16,7 +16,13 @@ const { default: apiRouter } = await import('/tmp/avcg/server/src/routes/index.j
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
-app.use((req, _res, next) => { console.log('REQ', req.method, req.path); next(); });
+app.use((req, res, next) => {
+  const t0 = Date.now();
+  res.on('finish', () => {
+    console.log('REQ', req.method, req.path, '->', res.statusCode, Date.now() - t0 + 'ms');
+  });
+  next();
+});
 app.use('/api', apiRouter);
 app.use((err: any, req: any, res: any, next: any) => {
   res.status(err.statusCode || 500).json({ status: 'error', code: err.code || 'INTERNAL_ERROR', message: err.message });
