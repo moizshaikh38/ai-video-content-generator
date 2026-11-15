@@ -940,22 +940,57 @@ export class ProEditorService {
       const kfDur = 2.5;
       const scaleVal = Math.max(1.02, Math.min(2, kf.value || 1.06));
       const kfEnd = kfStart + kfDur;
-      // Punch-in zoom. Two earlier forms failed pixel verification: a
-      // time-conditional crop size is a silent no-op (crop w/h are init-time),
-      // and zoompan does not zoom once the chain contains split/overlay +
-      // input seeking. A trim/concat segment zoom works but aborts the whole
-      // render when the punch window extends past the available input (empty
-      // concat branch). This form overlays a statically crop+scaled copy of
-      // the stream, toggled by overlay's timeline 'enable': all size
-      // negotiation stays static, no branch can go empty, and a window
-      // beyond EOF is simply never shown. Frame-verified: foreground band
-      // 182px -> 222px inside the window, reverts after.
-      const wPunch = Math.round(canvasW / scaleVal);
-      const hPunch = Math.round(canvasH / scaleVal);
+      // Punch-in zoom with eased ramp-hold-ramp, matching the producer
+      // preview's zoompan curve (0.25s in / 0.35s out). Two earlier forms
+      // failed pixel verification: a time-conditional crop size is a silent
+      // no-op (crop w/h are init-time), and zoompan does not zoom once the
+      // chain contains split/overlay + input seeking. A trim/concat segment
+      // zoom aborts the whole render when the punch window extends past the
+      // available input. This form chains statically crop+scaled overlay
+      // stages, each toggled by overlay's timeline 'enable' over a disjoint
+      // sub-window: all size negotiation stays static, no branch can go
+      // empty, and a window beyond EOF is simply never shown. Because crop
+      // size is init-time, the ease is a 4-step staircase per ramp (a step
+      // every ~63-88ms, in motion reads as an ease); the hold is exact.
+      const rampIn = Math.min(0.25, kfDur / 2);
+      const rampOut = Math.min(0.35, kfDur / 2);
+      const STEPS = 4;
       const uid = (String(item.id || 'item').replace(/[^a-zA-Z0-9]/g, '').slice(-8) || 'item');
-      videoFilters.push(
-        `split=2[pzA${uid}][pzB${uid}];[pzB${uid}]crop=${wPunch}:${hPunch}:(iw-ow)/2:(ih-oh)/2,scale=${canvasW}:${canvasH}[pzZ${uid}];[pzA${uid}][pzZ${uid}]overlay=0:0:enable='between(t,${kfStart.toFixed(2)},${kfEnd.toFixed(2)})'`
-      );
+      type Stage = { zoom: number; t0: number; t1: number };
+      const stages: Stage[] = [];
+      for (let i = 1; i <= STEPS; i++) {
+        stages.push({
+          zoom: 1 + ((scaleVal - 1) * i) / STEPS,
+          t0: kfStart + (rampIn * (i - 1)) / STEPS,
+          t1: kfStart + (rampIn * i) / STEPS,
+        });
+      }
+      stages.push({ zoom: scaleVal, t0: kfStart + rampIn, t1: kfEnd - rampOut });
+      for (let j = 1; j <= STEPS; j++) {
+        stages.push({
+          zoom: 1 + ((scaleVal - 1) * (STEPS - j)) / STEPS,
+          t0: kfEnd - rampOut + (rampOut * (j - 1)) / STEPS,
+          t1: kfEnd - rampOut + (rampOut * j) / STEPS,
+        });
+      }
+      const parts: string[] = [];
+      stages.forEach((st, idx) => {
+        const wPunch = Math.round(canvasW / st.zoom);
+        const hPunch = Math.round(canvasH / st.zoom);
+        const a = `pzA${uid}s${idx}`;
+        const b = `pzB${uid}s${idx}`;
+        const z = `pzZ${uid}s${idx}`;
+        const out = `pzO${uid}s${idx}`;
+        // First stage consumes the implicit stream (like the single-stage
+        // form did); the last stage leaves its overlay output unlabeled so
+        // the comma-joined chain continues from it.
+        const inRef = idx === 0 ? '' : `[pzO${uid}s${idx - 1}]`;
+        const outRef = idx === stages.length - 1 ? '' : `[${out}]`;
+        parts.push(
+          `${inRef}split=2[${a}][${b}];[${b}]crop=${wPunch}:${hPunch}:(iw-ow)/2:(ih-oh)/2,scale=${canvasW}:${canvasH}[${z}];[${a}][${z}]overlay=0:0:enable='between(t,${st.t0.toFixed(3)},${st.t1.toFixed(3)})'${outRef}`
+        );
+      });
+      videoFilters.push(parts.join(';'));
     }
 
     return videoFilters;
