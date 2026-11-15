@@ -1386,9 +1386,13 @@ export class CaptionService {
     // Blur-fit band anchor: computed by the render pipeline for layouts whose
     // source does not fill the canvas vertically. Only applied when nobody set
     // an explicit vertical position.
+    // A persisted editor position of 'bottom' is the default, not an explicit
+    // choice - every editor project materializes it. Only a non-bottom position
+    // (or a numeric positionY, checked below) counts as an explicit override.
+    const hasExplicitEditorPosition = Boolean(editorPosition) && editorPosition !== 'bottom';
     const bandY =
       options.bandAnchorPositionY !== undefined &&
-      !editorPosition &&
+      !hasExplicitEditorPosition &&
       (clip.caption_position ?? 'bottom') === 'bottom'
         ? Math.min(0.92, Math.max(0.08, options.bandAnchorPositionY))
         : undefined;

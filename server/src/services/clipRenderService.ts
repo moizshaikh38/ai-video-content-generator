@@ -614,8 +614,37 @@ export class ClipRenderService {
           // the sharp content band so they do not sit on the blurred fill.
           // Screencast inset modes with a blurred stage letterbox the main
           // content the same way; split_stacked has its own geometry.
+          // The pro-graph blur fill (per-item crop.mode 'blur', set by the
+          // editor Layout toggle / panel) letterboxes the sharp band over a
+          // blurred background exactly like reframe 'blur' layouts, so its
+          // captions need the same band anchor. reframeDecision only reflects
+          // the clip-level crop_config channel and cannot see item.crop.
+          const proPrimaryCropMode =
+            hasCustomProTracks && editorProject
+              ? (editorProject.tracks || [])
+                  .filter((t: any) => t.type === 'VIDEO' && !t.hidden)
+                  .flatMap((t: any) => t.items || [])
+                  .find((i: any) => !i.hidden && !i.is_title_card)?.crop?.mode
+              : undefined;
+          let proBlurSourceWidth: number | undefined;
+          let proBlurSourceHeight: number | undefined;
+          if (proPrimaryCropMode === 'blur' && !reframeDecision.track) {
+            try {
+              const { stdout } = await execFileAsync('ffprobe', [
+                '-v', 'error', '-select_streams', 'v:0',
+                '-show_entries', 'stream=width,height', '-of', 'json', sourcePath,
+              ]);
+              const st = ((JSON.parse(stdout) as any).streams || [])[0] || {};
+              proBlurSourceWidth = Number(st.width) || undefined;
+              proBlurSourceHeight = Number(st.height) || undefined;
+            } catch {
+              // Degrade to the default caption position, matching the policy of
+              // the other probe sites in this file.
+            }
+          }
           const blurFitStage =
             reframeDecision.layoutMode === 'blur' ||
+            proPrimaryCropMode === 'blur' ||
             (reframeDecision.layoutMode === 'screencast' &&
               clip.crop_config?.screencast?.background === 'blur' &&
               (clip.crop_config?.screencast?.mode === 'circular_inset' ||
@@ -623,8 +652,8 @@ export class ClipRenderService {
           const bandAnchorPositionY = blurFitStage
             ? CaptionService.computeBlurFitBandAnchor(
                 clip.aspect_ratio as ClipAspectRatio,
-                reframeDecision.track?.source_width ?? undefined,
-                reframeDecision.track?.source_height ?? undefined
+                reframeDecision.track?.source_width ?? proBlurSourceWidth ?? undefined,
+                reframeDecision.track?.source_height ?? proBlurSourceHeight ?? undefined
               )
             : undefined;
           const captionResult = await CaptionService.generateCaptionsForClip({
