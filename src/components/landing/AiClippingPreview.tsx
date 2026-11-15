@@ -7,17 +7,6 @@ import { projectService } from '../../services/projectService';
 import { clipService } from '../../services/clipService';
 import { ClipCandidate } from '../../types';
 
-// Stills & thumbnails from project assets
-import creatorVideo from '../../assets/landing/creator-video.webp';
-import creatorMomentTwo from '../../assets/landing/creator-moment-2.webp';
-import creatorMomentThree from '../../assets/landing/creator-moment-3.webp';
-import creator1 from '../../assets/creators/creator-1.jpg';
-import creator2 from '../../assets/creators/creator-2.jpg';
-import creator3 from '../../assets/creators/creator-3.jpg';
-import creator4 from '../../assets/creators/creator-4.jpg';
-import streamPodcastCaptions from '../../assets/landing/stream-podcast-captions.webp';
-import streamRoverScene from '../../assets/landing/stream-rover-scene.webp';
-import streamRawRig from '../../assets/landing/stream-raw-rig.webp';
 import '../../styles/feature-carousel.css';
 import '../../styles/cinematic-motion.css';
 import { projectPath } from '../../lib/projectUrls';
@@ -47,29 +36,31 @@ interface ClipDisplayItem {
 // the product story: one source video becomes many clips. The original
 // /demo/showcase/vN.mp4 files were never in the repo and 404'd.
 const DEMO_VIDEOS = [
-  '/harness/clip-nasa-seg.mp4',
-  '/harness/clip-nasa-seg.mp4',
-  '/harness/clip-nasa-seg.mp4',
-  '/harness/clip-nasa-seg.mp4',
-  '/harness/clip-nasa-seg.mp4',
-  '/harness/clip-nasa-seg.mp4',
-  '/harness/clip-nasa-seg.mp4',
-  '/harness/clip-nasa-seg.mp4',
-  '/harness/clip-nasa-seg.mp4',
-  '/harness/clip-nasa-seg.mp4',
+  '/demo/showcase/v0.mp4',
+  '/demo/showcase/v1.mp4',
+  '/demo/showcase/v2.mp4',
+  '/demo/showcase/v3.mp4',
+  '/demo/showcase/v4.mp4',
+  '/demo/showcase/v5.mp4',
+  '/demo/showcase/v6.mp4',
+  '/demo/showcase/v7.mp4',
+  '/demo/showcase/v8.mp4',
+  '/demo/showcase/v9.mp4',
 ];
 
+// Each poster is extracted from its paired DEMO_VIDEOS segment, so a tile
+// never promises footage it then replaces with something else.
 const DEMO_POSTERS = [
-  creatorVideo,
-  creatorMomentTwo,
-  creatorMomentThree,
-  creator1,
-  creator2,
-  creator3,
-  creator4,
-  '/demo/thumbnails/clip-1-hook.jpg',
-  '/demo/thumbnails/clip-2-reaction.jpg',
-  '/demo/thumbnails/clip-3-challenge.jpg',
+  '/demo/showcase/v0.webp',
+  '/demo/showcase/v1.webp',
+  '/demo/showcase/v2.webp',
+  '/demo/showcase/v3.webp',
+  '/demo/showcase/v4.webp',
+  '/demo/showcase/v5.webp',
+  '/demo/showcase/v6.webp',
+  '/demo/showcase/v7.webp',
+  '/demo/showcase/v8.webp',
+  '/demo/showcase/v9.webp',
 ];
 
 const CLIPV = [7, 9, 2, 1, 8, 0];
@@ -1161,7 +1152,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                           >
                             <CarouselVideo
                               src={DEMO_VIDEOS[0]}
-                              poster={streamPodcastCaptions}
+                              poster={DEMO_POSTERS[0]}
                               pos="50% 30%"
                               origin="50% 30%"
                               zoom={1.12}
@@ -1502,7 +1493,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                             >
                               <CarouselVideo
                                 src={DEMO_VIDEOS[0]}
-                                poster={streamRoverScene}
+                                poster={DEMO_POSTERS[0]}
                                 pos="50% 30%"
                                 origin="50% 30%"
                                 zoom={1.1}
@@ -1514,7 +1505,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                             <div className={`sc s-a ${s3.shouldLoad ? 'hasvid' : ''}`} data-v="5">
                               <CarouselVideo
                                 src={DEMO_VIDEOS[5]}
-                                poster={streamRawRig}
+                                poster={DEMO_POSTERS[5]}
                                 shouldLoad={s3.shouldLoad}
                                 shouldPlay={s3.shouldPlay}
                               />
@@ -1620,7 +1611,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                           <div className={`avt ${s4.shouldLoad ? 'hasvid' : ''}`} data-v="2">
                             <CarouselVideo
                               src={DEMO_VIDEOS[2]}
-                              poster={creator2}
+                              poster={DEMO_POSTERS[2]}
                               shouldLoad={s4.shouldLoad}
                               shouldPlay={s4.shouldPlay}
                             />
@@ -1685,7 +1676,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                           >
                             <CarouselVideo
                               src={DEMO_VIDEOS[0]}
-                              poster={creator3}
+                              poster={DEMO_POSTERS[0]}
                               pos="50% 30%"
                               origin="50% 30%"
                               zoom={1.12}
