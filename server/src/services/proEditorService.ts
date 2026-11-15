@@ -58,6 +58,7 @@ import {
   LoudnormMeasured,
   LoudnormNormalizationError,
   LoudnormTwoPassService,
+  type LoudnormMeasurementGraph,
 } from './loudnormTwoPassService.js';
 import { AudioDuckingService } from './audioDuckingService.js';
 import { SoundDesignService } from './soundDesignService.js';
@@ -83,7 +84,7 @@ export interface CompiledRenderGraph {
    * acrossfade/pre-loudnorm enhancement chains as the render graph) ending in a
    * terminal ebur128 meter. Running it decodes no video.
    */
-  measurement: { filterComplex: string[]; audioMap: string; targetI: number } | null;
+  measurement: LoudnormMeasurementGraph | null;
   /**
    * How dialogue loudness normalization was applied, when requested:
    * 'linear' (two-pass measured) or 'dynamic-prerendered' (legacy one-pass
