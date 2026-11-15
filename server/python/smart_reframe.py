@@ -209,6 +209,8 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
     prev_gray = None
     prev_face_boxes = []  # List of (x, y, w, h) from previous frame
     prev_hist = None
+    prev_hsv_hist = None
+    hsv_cuts_enabled = os.environ.get('SMART_REFRAME_HSV_CUTS', '') == '1'
 
     min_size = (int(source_width * 0.04), int(source_height * 0.04))
 
@@ -224,13 +226,31 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
         # 1. Fast scene cut detection via normalized histogram correlation
         hist = cv2.calcHist([gray], [0], None, [32], [0, 256])
         cv2.normalize(hist, hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+        hsv_hist = None
+        if hsv_cuts_enabled:
+            # EXPERIMENTAL (SMART_REFRAME_HSV_CUTS=1): luma-only histograms miss
+            # cuts between same-lighting scenes (measured gray correl min 0.739
+            # on a person-to-person cut). Hue+saturation separates them.
+            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            hsv_hist = cv2.calcHist([hsv], [0, 1], None, [24, 24], [0, 180, 0, 256])
+            cv2.normalize(hsv_hist, hsv_hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
         if prev_hist is not None:
             correl = float(cv2.compareHist(prev_hist, hist, cv2.HISTCMP_CORREL))
-            if correl < 0.50 and time_sec > 0.4:
-                # Add scene cut if not within 1.0s of previous detected cut
-                if not scene_cuts or (time_sec - scene_cuts[-1]) >= 1.0:
+            is_cut = correl < 0.50
+            if hsv_cuts_enabled and prev_hsv_hist is not None:
+                hsv_correl = float(cv2.compareHist(prev_hsv_hist, hsv_hist, cv2.HISTCMP_CORREL))
+                is_cut = is_cut or hsv_correl < 0.50
+            if is_cut and time_sec > 0.4:
+                # Dedup window: 1.0s on the classic gray path (unchanged default);
+                # with HSV enabled, 0.5s - at 4fps sampling a single cut registers
+                # on exactly one sample pair, so 0.5s (two samples) is the minimum
+                # window that prevents double-counting one cut while still
+                # allowing genuinely rapid successive cuts (e.g. 0.75s apart).
+                dedup = 0.5 if hsv_cuts_enabled else 1.0
+                if not scene_cuts or (time_sec - scene_cuts[-1]) >= dedup:
                     scene_cuts.append(time_sec)
         prev_hist = hist
+        prev_hsv_hist = hsv_hist
 
         # 2. Face detection: YuNet DNN when enabled, else Haar cascades
         raw_candidates = []
