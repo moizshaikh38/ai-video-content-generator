@@ -1016,7 +1016,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               title="Layout Mode (Click to cycle Fill / Fit / Blur background)"
             >
               <Maximize2 className="w-3.5 h-3.5" />
-              <span>Layout: {primaryVideoCropMode === 'fit' ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
+              <span>Layout: {primaryLayoutMode === 'split' ? 'Split' : primaryVideoCropMode === 'fit' ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
             </button>
           )}
 
