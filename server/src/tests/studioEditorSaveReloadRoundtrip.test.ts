@@ -240,6 +240,37 @@ describe('Studio editor save -> reload round-trip (HTTP + Mongo)', () => {
     assert.equal(tooFar.status, 400);
     assert.equal(tooFar.json?.error?.code || tooFar.json?.code, 'EXTEND_BEYOND_SOURCE');
 
+    // Backstop: a further extend seeds the pre-extend caption coverage marker
+    // on an editor project that predates it, so the studio heals on FIRST reopen.
+    await db.collection('editor_projects').deleteMany({ clip_id: clipId });
+    await db.collection('editor_projects').insertOne({
+      id: crypto.randomUUID(),
+      clip_id: clipId,
+      user_id: userId,
+      tracks: [{
+        id: 't1', type: 'CAPTION', hidden: false,
+        items: [{ id: 'i1', timeline_start: 0, hidden: false, caption: { cues: [{ id: 'cue-1', start: 0, end: 2, text: 'A' }] } }],
+      }],
+      canvas: { duration: 45 },
+      created_at: new Date(), updated_at: new Date(),
+    });
+    const wider = await patchEditor({ trimEndOffset: -10 }); // effective 45 -> 50
+    assert.equal(wider.status, 200, `PATCH failed: ${JSON.stringify(wider.json)}`);
+    const ep = await db.collection('editor_projects').findOne({ clip_id: clipId });
+    assert.equal(
+      ep?.tracks?.[0]?.items?.[0]?.caption?.cues_covered_end,
+      35,
+      'marker must record the PRE-extend coverage in clip-local seconds (45 - start 10 = 35), not the extended one'
+    );
+    // Existing cues untouched by the backstop.
+    assert.deepEqual(ep?.tracks?.[0]?.items?.[0]?.caption?.cues, [{ id: 'cue-1', start: 0, end: 2, text: 'A' }]);
+    // A non-extending save does not move the marker.
+    const same = await patchEditor({ trimEndOffset: -10 });
+    assert.equal(same.status, 200);
+    const ep2 = await db.collection('editor_projects').findOne({ clip_id: clipId });
+    assert.equal(ep2?.tracks?.[0]?.items?.[0]?.caption?.cues_covered_end, 35);
+    await db.collection('editor_projects').deleteMany({ clip_id: clipId });
+
     // Restore the neutral trim so later assertions see the base state.
     const reset = await patchEditor({ trimEndOffset: 0 });
     assert.equal(reset.status, 200);

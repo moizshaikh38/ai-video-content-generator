@@ -11,7 +11,7 @@ import { clipRenderService } from '../services/clipRenderService';
 import { proEditorService } from '../services/proEditorService';
 import { useEditorHistory } from './useEditorHistory';
 import { useEditorAutosave } from './useEditorAutosave';
-import { initCoveredEnd, mergeExtendedCues } from '../lib/captionExtendMerge';
+import { healCaptionTracks, mergeExtendedCues } from '../lib/captionExtendMerge';
 import {
   applyRippleCutToProject,
   applyBatchRippleCuts,
@@ -188,36 +188,27 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
               capItem.caption.cues = initialCues;
             } else if (
               projCaptionCues &&
-              !capTrack.hidden &&
-              !(capItem.timeline_start > 0) &&
               Array.isArray(captionData.cues) &&
               captionData.cues.length > 0
             ) {
-              // Beyond-candidate extend heal: saved cues are authoritative
-              // through `cues_covered_end`; append only the newly exposed span
-              // from the fresh extraction (which honors current trim offsets).
-              // Existing cues - including user edits and deletions - are never
-              // regenerated or resurrected.
-              const marker = capItem.caption.cues_covered_end;
-              if (marker == null) {
-                capItem.caption.cues_covered_end = initCoveredEnd(capItem.caption.cues);
+              // Beyond-candidate extend heal, per visible caption item (any
+              // timeline offset): append only the newly exposed span past each
+              // item's cues_covered_end marker. Existing cues - user edits and
+              // deletions - are never regenerated or resurrected.
+              const { tracks: healed, appended, markersChanged } = healCaptionTracks(
+                proj.tracks,
+                captionData.cues as any,
+                proj.canvas?.duration
+              );
+              if (markersChanged) {
+                proj = { ...proj, tracks: healed };
                 markDirty();
-              } else {
-                const { cues: merged, coveredEnd, appended } = mergeExtendedCues(
-                  capItem.caption.cues,
-                  captionData.cues as any,
-                  Number(marker)
-                );
-                if (appended > 0) {
-                  capItem.caption.cues = merged;
-                  capItem.caption.cues_covered_end = coveredEnd;
-                  if (proj.canvas?.duration && capItem.timeline_end < proj.canvas.duration) {
-                    capItem.timeline_end = proj.canvas.duration;
-                    capItem.source_end = proj.canvas.duration;
-                  }
-                  setCues(merged as any);
-                  markDirty();
-                }
+              }
+              if (appended > 0) {
+                // Reflect the appended span in the transcript panel view too.
+                const panelMax = projCaptionCues.reduce((m, c) => Math.max(m, c.end || 0), 0);
+                const view = mergeExtendedCues(projCaptionCues as any, captionData.cues as any, panelMax);
+                if (view.appended > 0) setCues(view.cues as any);
               }
             }
           }

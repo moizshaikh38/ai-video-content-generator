@@ -42,6 +42,8 @@ import { AutopilotWorkspace } from '../autopilot/AutopilotWorkspace';
 import { ABStudioWorkspace } from '../abStudio/ABStudioWorkspace';
 import { ArrowLeft, Sparkles, Type as TypeIcon, Film, X, PanelRightOpen } from 'lucide-react';
 import { insertIntroOutro, createTitleCardItem } from '../../utils/introOutro';
+import { initCoveredEnd, healCaptionTracks } from '../../lib/captionExtendMerge';
+import { clipRenderService } from '../../services/clipRenderService';
 
 interface EditorShellProps {
   clip: RenderedClip;
@@ -734,16 +736,51 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             ...prev.canvas,
             duration: Number(((prev.canvas.duration || 0) + delta).toFixed(3)),
           },
+          // Record the pre-extend caption coverage BEFORE the extension is
+          // saved, so the heal can append the newly exposed span on the very
+          // next load - no second-load gap for existing projects.
+          tracks: prev.tracks.map((t) =>
+            t.type !== 'CAPTION' || t.hidden
+              ? t
+              : {
+                  ...t,
+                  items: t.items.map((i) =>
+                    i.hidden || !i.caption || !Array.isArray(i.caption.cues) ||
+                    i.caption.cues.length === 0 || i.caption.cues_covered_end != null
+                      ? i
+                      : {
+                          ...i,
+                          caption: {
+                            ...i.caption,
+                            cues_covered_end: initCoveredEnd(i.caption.cues),
+                          },
+                        }
+                  ),
+                }
+          ),
         }));
-        // Persist the new trim, then silently reload: the load path appends
-        // caption cues for the newly exposed span (see captionExtendMerge),
-        // so captions cover the extension in this session and on reopen.
+        // Persist the new trim, then append cues for the newly exposed span
+        // in-session (fresh extraction honors the saved trim). This is its own
+        // history entry, so undo reverts caption append first, then the extend;
+        // no reload, so existing undo history is preserved.
         void (async () => {
           try {
             const saved = await onSaveNow();
-            if (saved) await onReloadData({ silent: true });
+            if (!saved) return;
+            const cap = await clipRenderService.getClipCaptions(clip.id);
+            if (!Array.isArray(cap?.cues) || cap.cues.length === 0) return;
+            onUpdateProject((prev) => {
+              const { tracks: healed, appended, markersChanged } = healCaptionTracks(
+                prev.tracks,
+                cap.cues,
+                prev.canvas?.duration
+              );
+              if (!markersChanged) return prev;
+              void appended;
+              return { ...prev, tracks: healed };
+            });
           } catch {
-            // Reload is best-effort; the next editor load heals cue coverage.
+            // In-session heal is best-effort; the next editor load heals too.
           }
         })();
       }}

@@ -101,3 +101,66 @@ export function mergeExtendedCues(
   const newCovered = Math.max(boundary, maxCueEnd(additions));
   return { cues: merged, coveredEnd: Number(newCovered.toFixed(3)), appended: additions.length };
 }
+
+/**
+ * Whether an item's cues are stored relative to the item's timeline_start
+ * (same rule as the studio's load aggregation): relative only when the item
+ * starts after 0 and its first cue begins before its timeline offset.
+ */
+export function itemCueOffset(item: { timeline_start?: number; caption?: { cues?: ExtendMergeCue[] } }): number {
+  const startOff = Number(item.timeline_start || 0);
+  const cues = item.caption?.cues;
+  if (startOff > 0 && Array.isArray(cues) && cues.length > 0 && cues[0].start < startOff - 0.05) {
+    return startOff;
+  }
+  return 0;
+}
+
+/**
+ * Heal every visible caption item on every visible CAPTION track: initialize
+ * the coverage marker where absent, then append the newly exposed span.
+ * Fresh cues are clip-local absolute; items whose cues are relative to their
+ * timeline_start are converted both ways. Hidden tracks/items are the user's
+ * explicit "captions off" state and are left untouched. Returns the healed
+ * tracks plus how many cues were appended and whether any marker changed.
+ */
+export function healCaptionTracks<T = any>(
+  tracks: T[],
+  freshCues: ExtendMergeCue[],
+  canvasDuration?: number
+): { tracks: T[]; appended: number; markersChanged: boolean } {
+  let appendedTotal = 0;
+  let markersChanged = false;
+  const next = (tracks as any[]).map((t) => {
+    if (t?.type !== 'CAPTION' || t.hidden || !Array.isArray(t.items)) return t;
+    const items = t.items.map((itm: any) => {
+      if (itm.hidden || !itm.caption || !Array.isArray(itm.caption.cues) || itm.caption.cues.length === 0) return itm;
+      const offset = itemCueOffset(itm);
+      const marker = itm.caption.cues_covered_end;
+      if (marker == null) {
+        markersChanged = true;
+        return { ...itm, caption: { ...itm.caption, cues_covered_end: initCoveredEnd(itm.caption.cues) } };
+      }
+      const relFresh = freshCues.map((c) => ({
+        ...c,
+        start: Number((c.start - offset).toFixed(3)),
+        end: Number((c.end - offset).toFixed(3)),
+        words: Array.isArray(c.words)
+          ? c.words.map((w) => ({ ...w, start: Number((w.start - offset).toFixed(3)), end: Number((w.end - offset).toFixed(3)) }))
+          : c.words,
+      }));
+      const { cues: merged, coveredEnd, appended } = mergeExtendedCues(itm.caption.cues, relFresh, Number(marker));
+      if (appended === 0) return itm;
+      appendedTotal += appended;
+      markersChanged = true;
+      const updated: any = { ...itm, caption: { ...itm.caption, cues: merged, cues_covered_end: coveredEnd } };
+      if (canvasDuration && Number(itm.timeline_end || 0) < canvasDuration) {
+        updated.timeline_end = canvasDuration;
+        updated.source_end = canvasDuration;
+      }
+      return updated;
+    });
+    return { ...t, items };
+  });
+  return { tracks: next as T[], appended: appendedTotal, markersChanged };
+}

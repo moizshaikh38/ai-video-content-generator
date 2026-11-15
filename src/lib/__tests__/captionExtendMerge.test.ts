@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { initCoveredEnd, mergeExtendedCues } from '../captionExtendMerge.js';
+import { initCoveredEnd, mergeExtendedCues, healCaptionTracks } from '../captionExtendMerge.js';
 
 const cue = (id: string, start: number, end: number, text: string, words?: any[]) => ({
   id, start, end, text, words,
@@ -76,4 +76,50 @@ test('idempotent: re-merging the same fresh cues adds nothing', () => {
   const second = mergeExtendedCues(first.cues, fresh, first.coveredEnd);
   assert.equal(second.appended, 0);
   assert.equal(second.cues.length, 2);
+});
+
+test('healCaptionTracks: relative-offset item converts fresh absolute cues correctly', () => {
+  const tracks: any[] = [{
+    id: 't1', type: 'CAPTION', hidden: false,
+    items: [{
+      id: 'i1', timeline_start: 30, timeline_end: 40, source_end: 40, hidden: false,
+      caption: { cues: [{ id: 'cue-1', start: 0, end: 5, text: 'REL' }], cues_covered_end: 5 },
+    }],
+  }];
+  // Fresh absolute cue at 36..39 -> relative 6..9, beyond marker 5.
+  const fresh = [{ id: 'cue-x', start: 36, end: 39, text: 'NEW' }];
+  const r = healCaptionTracks(tracks, fresh, 45);
+  assert.equal(r.appended, 1);
+  const item = (r.tracks[0] as any).items[0];
+  assert.equal(item.caption.cues.length, 2);
+  assert.equal(item.caption.cues[1].start, 6);
+  assert.equal(item.caption.cues[1].end, 9);
+  assert.equal(item.caption.cues_covered_end, 9);
+  assert.equal(item.timeline_end, 45, 'item extended to canvas duration');
+});
+
+test('healCaptionTracks: initializes missing marker without appending; hidden untouched', () => {
+  const tracks: any[] = [
+    { id: 't1', type: 'CAPTION', hidden: false, items: [{ id: 'i1', timeline_start: 0, hidden: false, caption: { cues: [{ id: 'a', start: 0, end: 4, text: 'A' }] } }] },
+    { id: 't2', type: 'CAPTION', hidden: true, items: [{ id: 'i2', timeline_start: 0, hidden: false, caption: { cues: [{ id: 'b', start: 0, end: 3, text: 'B' }] } }] },
+    { id: 't3', type: 'VIDEO', hidden: false, items: [] },
+  ];
+  const fresh = [{ id: 'cue-x', start: 4, end: 9, text: 'NEW' }];
+  const r = healCaptionTracks(tracks, fresh, 20);
+  assert.equal(r.appended, 0, 'marker init only, no append on first pass');
+  assert.equal(r.markersChanged, true);
+  assert.equal((r.tracks[0] as any).items[0].caption.cues_covered_end, 4);
+  assert.equal((r.tracks[1] as any).items[0].caption.cues_covered_end, undefined, 'hidden track untouched');
+  // Second pass with the marker present appends.
+  const r2 = healCaptionTracks(r.tracks, fresh, 20);
+  assert.equal(r2.appended, 1);
+});
+
+test('healCaptionTracks: non-CAPTION tracks and cue-less items pass through unchanged', () => {
+  const tracks: any[] = [
+    { id: 't1', type: 'CAPTION', hidden: false, items: [{ id: 'i1', timeline_start: 0, hidden: false, caption: { cues: [] } }] },
+  ];
+  const r = healCaptionTracks(tracks, [{ id: 'x', start: 0, end: 1, text: 'X' }], 10);
+  assert.equal(r.appended, 0);
+  assert.equal(r.markersChanged, false);
 });

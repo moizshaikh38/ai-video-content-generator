@@ -1953,6 +1953,54 @@ export class ClipRenderService {
       throw new Error(`Failed to save editor changes: ${updateErr.message}`);
     }
 
+    // Beyond-candidate extend backstop: when the tail grows, record the
+    // pre-extend caption coverage on an editor project that predates the
+    // marker, so the studio appends the newly exposed span on the FIRST
+    // reopen. Marker only; existing cues are never mutated.
+    const oldEffectiveEnd = Number((clip.end_seconds - Number(clip.trim_end_offset || 0)).toFixed(3));
+    const newEffectiveEnd = Number((clip.end_seconds - trimEnd).toFixed(3));
+    if (newEffectiveEnd > oldEffectiveEnd + 0.001) {
+      try {
+
+        const oldCovered = Number(
+          (oldEffectiveEnd - Number(clip.start_seconds + Number(clip.trim_start_offset || 0))).toFixed(3)
+        );
+        const { data: ep } = await dataRepository
+          .from('editor_projects')
+          .select('*')
+          .eq('clip_id', clipId)
+          .maybeSingle();
+        if (ep && Array.isArray(ep.tracks)) {
+          let changed = false;
+          const tracks = ep.tracks.map((t: any) => {
+            if (t?.type !== 'CAPTION' || t.hidden || !Array.isArray(t.items)) return t;
+            return {
+              ...t,
+              items: t.items.map((i: any) => {
+                if (i.hidden || !i.caption || !Array.isArray(i.caption.cues) || i.caption.cues.length === 0) return i;
+                if (i.caption.cues_covered_end != null) return i;
+                changed = true;
+                // Marker lives in the item's cue time base: items whose cues
+                // are relative to timeline_start get coverage minus the offset.
+                const startOff = Number(i.timeline_start || 0);
+                const isRel = startOff > 0 && i.caption.cues[0].start < startOff - 0.05;
+                const marker = isRel ? Number((oldCovered - startOff).toFixed(3)) : oldCovered;
+                return { ...i, caption: { ...i.caption, cues_covered_end: Math.max(0, marker) } };
+              }),
+            };
+          });
+          if (changed) {
+            await dataRepository
+              .from('editor_projects')
+              .update({ tracks, updated_at: new Date() })
+              .eq('id', ep.id);
+          }
+        }
+      } catch (markerErr: any) {
+        logger.warn('Caption coverage marker backfill failed (non-fatal)', { clipId, error: markerErr?.message });
+      }
+    }
+
     return updated as ClipRecord;
   }
 

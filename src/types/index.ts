@@ -927,6 +927,9 @@ export interface EditorTextConfig {
 
 export interface EditorCaptionItem {
   cues: TimedCaptionCue[];
+  /** Coverage marker for beyond-candidate extend: saved cues are authoritative
+   * through this clip-local second; only cues past it may be appended. */
+  cues_covered_end?: number;
   style: CaptionStyle;
   position: CaptionPosition;
   position_x?: number; // normalized 0.0 to 1.0 (default 0.5)
