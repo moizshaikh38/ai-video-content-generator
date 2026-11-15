@@ -119,10 +119,10 @@ describe('Hook regeneration route (HTTP + Mongo, mocked provider)', () => {
     // Remove the instance-level mock so the real provider path (and its key
     // availability check) is exercised.
     delete (defaultAiProvider as any).generateJsonCompletion;
-    const origPrimary = (defaultAiProvider as any).primaryProvider.isAvailable;
-    const origFallback = (defaultAiProvider as any).fallbackProvider.isAvailable;
-    (defaultAiProvider as any).primaryProvider.isAvailable = () => false;
-    (defaultAiProvider as any).fallbackProvider.isAvailable = () => false;
+    const origPrimary = (defaultAiProvider as any).primaryProvider.isConfigured;
+    const origFallback = (defaultAiProvider as any).fallbackProvider.isConfigured;
+    (defaultAiProvider as any).primaryProvider.isConfigured = () => false;
+    (defaultAiProvider as any).fallbackProvider.isConfigured = () => false;
     try {
       const res = await fetch(`${baseUrl}/api/clips/${clipId}/hook/regenerate`, {
         method: 'POST',
@@ -133,8 +133,8 @@ describe('Hook regeneration route (HTTP + Mongo, mocked provider)', () => {
       assert.equal(body.code, 'HOOK_PROVIDER_UNAVAILABLE');
       assert.ok(!body.hook, 'must never return fabricated hook text');
     } finally {
-      (defaultAiProvider as any).primaryProvider.isAvailable = origPrimary;
-      (defaultAiProvider as any).fallbackProvider.isAvailable = origFallback;
+      (defaultAiProvider as any).primaryProvider.isConfigured = origPrimary;
+      (defaultAiProvider as any).fallbackProvider.isConfigured = origFallback;
     }
   });
 

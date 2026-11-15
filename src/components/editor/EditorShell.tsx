@@ -172,6 +172,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     renderError,
     renderSuccessMsg,
     triggerRender,
+    clearRenderStatus,
   } = useEditorRender({
     clipId: clip.id,
     onRenderComplete: () => {
@@ -353,6 +354,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     onEscape: () => {
       clearSelection();
       setIsExportDialogOpen(false);
+      clearRenderStatus();
       setIsCommandPaletteOpen(false);
     },
   });
@@ -1676,7 +1678,13 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       {/* 4. EXPORT DIALOG */}
       <ExportDialog
         isOpen={isExportDialogOpen}
-        onClose={() => setIsExportDialogOpen(false)}
+        onClose={() => {
+          setIsExportDialogOpen(false);
+          // Success/error feedback is transient: once dismissed, reopening shows
+          // the settings view again (with the download row while the render is
+          // current, or the stale notice when edits happened since).
+          clearRenderStatus();
+        }}
         clip={clip}
         project={project}
         duration={duration}

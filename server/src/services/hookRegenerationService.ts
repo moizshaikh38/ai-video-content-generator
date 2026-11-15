@@ -23,9 +23,8 @@ export class HookRegenerationService {
     const mocked =
       defaultAiProvider.generateJsonCompletion !==
       (defaultAiProvider.constructor as any).prototype.generateJsonCompletion;
-    if (!mocked &&
-        !(defaultAiProvider as any).primaryProvider?.isAvailable?.() &&
-        !(defaultAiProvider as any).fallbackProvider?.isAvailable?.()) {
+    const avail = (p: any) => (p?.isConfigured?.() ?? p?.isAvailable?.() ?? false);
+    if (!mocked && !avail((defaultAiProvider as any).primaryProvider) && !avail((defaultAiProvider as any).fallbackProvider)) {
       throw new AppError(
         'Hook generation is not available: no AI provider key is configured on this server.',
         503,
