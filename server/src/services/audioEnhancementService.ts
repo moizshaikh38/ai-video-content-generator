@@ -6,7 +6,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import ffmpegStatic from 'ffmpeg-static';
 import { logger } from '../utils/logger.js';
-import { LoudnormTwoPassService } from './loudnormTwoPassService.js';
+import { LoudnormNormalizationError, LoudnormTwoPassService } from './loudnormTwoPassService.js';
 import {
   AppError,
   AudioCleanPreset,
@@ -227,52 +227,77 @@ export class AudioEnhancementService {
 
     let filters = this.compileFilterGraph(config);
     // Preview/final consistency: pick the loudnorm mode the way the final render
-    // does - measure the exact snippet window (audio-only, cheap), use measured
-    // linear loudnorm when feasible, keep legacy one-pass dynamic when not (the
-    // final render's pre-rendered fallback is the same dynamic algorithm).
+    // does - measure the exact snippet window (audio-only, cheap) and use the
+    // measured linear gain when feasible. When it is not, run the exact same
+    // bounded one-pass pre-render the final render uses (renderNormalizedDialogue
+    // with identical window args and chain), so the preview IS the final output
+    // by construction rather than a differently-bounded approximation.
+    let dynamicWavPath: string | null = null;
     const loudIdx = filters.findIndex((f) => f.startsWith('loudnorm='));
     if (loudIdx !== -1) {
       try {
         const targetI = AudioEnhancementService.resolveTargetLufs(config);
         const pre = filters.slice(0, loudIdx);
         const post = filters.slice(loudIdx + 1);
+        const windowArgs = ['-ss', startTimeSec.toFixed(2), '-t', durationSec.toFixed(2), '-i', sourcePath];
+        const graph = {
+          filterComplex: [`[0:a]${[...pre, LoudnormTwoPassService.buildMeasureFilter(targetI, -2.0, 11)].join(',')}[m_a]`],
+          audioMap: '[m_a]',
+          targetI,
+          dialogueInputLabel: '[0:a]',
+          preMarkerFilters: pre,
+          postMarkerFilters: post,
+        };
         // Meter at the marker position, exactly where the linear gain is
         // applied in the final render.
-        const measured = await LoudnormTwoPassService.measure(
-          ['-ss', startTimeSec.toFixed(2), '-t', durationSec.toFixed(2), '-i', sourcePath],
-          {
-            filterComplex: [`[0:a]${[...pre, LoudnormTwoPassService.buildMeasureFilter(targetI, -1.5, 11)].join(',')}[m_a]`],
-            audioMap: '[m_a]',
-            targetI,
-            dialogueInputLabel: '[0:a]',
-            preMarkerFilters: pre,
-            postMarkerFilters: post,
-          },
-          30000
-        );
-        const check = LoudnormTwoPassService.assessLinearFeasibility(measured, targetI, -1.5, 11);
+        const measured = await LoudnormTwoPassService.measure(windowArgs, graph, 30000);
+        // Same pre-encode true-peak ceiling as the final render (-2.0dBTP):
+        // a looser check here would let preview pick linear where final falls
+        // back to dynamic, splitting the modes on the same content.
+        const check = LoudnormTwoPassService.assessLinearFeasibility(measured, targetI, -2.0, 11);
         if (check.ok) {
           filters = [...pre, LoudnormTwoPassService.buildLinearGainFilter(targetI, measured), ...post];
+        } else if (check.fallback === 'dynamic-prerender') {
+          dynamicWavPath = path.join(tmpDir, `preview-normalized-${previewId}.wav`);
+          await LoudnormTwoPassService.renderNormalizedDialogue(windowArgs, graph, dynamicWavPath, 30000);
+        } else {
+          throw new LoudnormNormalizationError(check.reason);
         }
       } catch (measureErr: any) {
+        if (measureErr instanceof LoudnormNormalizationError) throw measureErr;
         logger.warn(`[AudioEnhancementService] Preview loudness measurement failed, keeping one-pass loudnorm: ${measureErr?.message || measureErr}`);
+        // Keep the preview renderable on transient measurement failures, but
+        // with the same pre-encode TP ceiling the final render enforces.
+        filters[loudIdx] = filters[loudIdx].replace(/TP=-[\d.]+/, 'TP=-2.0');
       }
     }
     const filterArg = filters.length > 0 ? filters.join(',') : 'anull';
 
-    const args = [
-      '-nostdin',
-      '-hide_banner',
-      '-ss', startTimeSec.toFixed(2),
-      '-t', durationSec.toFixed(2),
-      '-i', sourcePath,
-      '-vn',
-      '-af', filterArg,
-      '-c:a', 'aac',
-      '-b:a', '128k',
-      '-y',
-      outputPath,
-    ];
+    const args = dynamicWavPath
+      ? [
+          // Already fully processed by the shared pre-render; just encode.
+          '-nostdin',
+          '-hide_banner',
+          '-i', dynamicWavPath,
+          '-vn',
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-y',
+          outputPath,
+        ]
+      : [
+          '-nostdin',
+          '-hide_banner',
+          '-ss', startTimeSec.toFixed(2),
+          '-t', durationSec.toFixed(2),
+          '-i', sourcePath,
+          '-vn',
+          '-af', filterArg,
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-y',
+          outputPath,
+        ];
 
     try {
       await execFileAsync(ffmpegBin, args, { timeout: 30000 });

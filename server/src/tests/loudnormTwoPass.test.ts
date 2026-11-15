@@ -451,20 +451,22 @@ describe('LoudnormTwoPassService - same-window preview/final parity (codified)',
     await renderGraph(graph, outPath, dur);
     const preview = await AudioEnhancementService.generatePreviewSnippet(HOT_QUIET, preset, 0, dur);
 
-    // Dynamic normalization is program-dependent and the two paths bound the
-    // window differently (preview: input -ss/-t seek; final: graph atrim), so
-    // one-pass loudnorm's gain riding lands differently on peaky material:
-    // measured 1.2-1.3 LU. The invariants are mode consistency and the true-peak
-    // ceiling: normalization holds <= -2.0dBTP pre-encode (fallback loudnorm
-    // TP=-2.0; linear feasibility bounds gained TP to <= -2.0), so with up to
-    // 0.5dB upward AAC encode overshoot the delivered output stays <= -1.5dBTP.
-    // (-2.0 + 0.5 = -1.5; upward overshoot demands MORE negative pre-encode
-    // headroom, not less.)
+    // Preview and final now share the exact same bounded one-pass pre-render
+    // (renderNormalizedDialogue with identical window args and chain), so the
+    // remaining delta is container/codec noise: measured 0.20 LU (was 1.2-1.3
+    // when the preview kept its own differently-bounded one-pass loudnorm).
+    // 0.5 LU tolerance catches a regression to path divergence without being
+    // loose enough to mask one. True-peak ceiling: normalization holds
+    // <= -2.0dBTP pre-encode (fallback loudnorm TP=-2.0; linear feasibility
+    // bounds gained TP to <= -2.0), so with up to 0.5dB upward AAC encode
+    // overshoot the delivered output stays <= -1.5dBTP. (-2.0 + 0.5 = -1.5;
+    // upward overshoot demands MORE negative pre-encode headroom, not less.)
     const finalI = await integratedLoudness(outPath);
     const previewI = await integratedLoudness(preview.preview_audio_path);
+    console.log(`[parity] dynamic fallback final=${finalI.toFixed(2)} preview=${previewI.toFixed(2)} delta=${Math.abs(finalI - previewI).toFixed(3)} LU`);
     assert.ok(
-      Math.abs(finalI - previewI) <= 1.5,
-      `final ${finalI} vs preview ${previewI} differ by >1.5 LU on dynamic fallback`
+      Math.abs(finalI - previewI) <= 0.5,
+      `final ${finalI} vs preview ${previewI} differ by >0.5 LU on dynamic fallback (paths diverged again?)`
     );
     assert.ok(
       (await truePeakDb(outPath)) <= -1.5,
