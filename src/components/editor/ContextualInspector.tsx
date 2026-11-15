@@ -71,6 +71,8 @@ interface ContextualInspectorProps {
   onAddKeyframe: (itemId: string, property: any, value: number, easing: any, time?: number) => void;
   onDeleteKeyframe: (itemId: string, keyframeId: string) => void;
   onApplyCaptionPreset: (preset: CaptionPresetId) => void;
+  /** Discoverable Captions On/Off; re-enabling restores the last chosen preset. */
+  onToggleCaptions?: (enabled: boolean) => void;
   /** False when the clip's transcript only has segment-level timing. */
   hasWordTiming: boolean;
   onAddTextLayer: (text: string) => void;
@@ -100,6 +102,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
   onAddKeyframe: _onAddKeyframe,
   onDeleteKeyframe: _onDeleteKeyframe,
   onApplyCaptionPreset,
+  onToggleCaptions,
   hasWordTiming,
   onAddTextLayer,
   onUpdateCropMode,
@@ -1116,11 +1119,28 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                   <span className="text-[10px] text-vc-text-secondary">Spatial Typography & Styling</span>
                 </div>
               </div>
-              {selectedPresetId && selectedPresetId !== 'none' && (
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.08] text-vc-text-primary capitalize">
-                  {selectedPresetId.replace('_', ' ')}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {selectedPresetId && selectedPresetId !== 'none' && (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.08] text-vc-text-primary capitalize">
+                    {selectedPresetId.replace('_', ' ')}
+                  </span>
+                )}
+                {onToggleCaptions && (
+                  <button
+                    type="button"
+                    onClick={() => onToggleCaptions(captionsHidden)}
+                    title={captionsHidden ? 'Turn captions on (restores your last style)' : 'Turn captions off (keeps your style)'}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-semibold transition ${
+                      captionsHidden
+                        ? 'bg-vc-canvas border-vc-border text-vc-text-secondary hover:bg-white/[0.06]'
+                        : 'bg-white/[0.10] border-white/[0.16] text-white hover:bg-white/[0.14]'
+                    }`}
+                  >
+                    {captionsHidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                    {captionsHidden ? 'Captions Off' : 'Captions On'}
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* One tab bar. The old second level duplicated the first — "All Controls" was

@@ -536,6 +536,30 @@ export class ClipRenderService {
 
       const videoFilters: string[] = [cropFilter];
 
+      // Check if a multi-track EditorProject exists with custom pro edits (splits, cuts, B-roll, secondary audio, keyframes, text layers).
+      // Loaded before headline/caption burn-in decisions because studio state
+      // is authoritative for the opening headline once a project exists.
+      let hasCustomProTracks = false;
+      let editorProject: any = null;
+      let editorProjectExists = false;
+      try {
+        const { data: proj } = await dataRepository
+          .from('editor_projects')
+          .select('*')
+          .eq('clip_id', clipId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (proj && Array.isArray(proj.tracks)) {
+          editorProjectExists = true;
+          hasCustomProTracks = ClipRenderService.hasCustomProEdits(proj, clip);
+          if (hasCustomProTracks) {
+            editorProject = proj;
+          }
+        }
+      } catch (err: any) {
+        logger.warn(`[ClipRender] Error checking EditorProject for clip ${clipId}: ${err.message}`);
+      }
 
       // ASS Subtitles burn-in
       if (clip.caption_enabled !== false) {
@@ -582,7 +606,12 @@ export class ClipRenderService {
       // explicit overlay_config.enabled === false (e.g. editor reset) opts
       // out. overlay_config.headline_duration_sec overrides the 5s default;
       // <= 0 keeps the headline for the whole clip.
-      const headline = ClipRenderService.buildHeadlineSpec(clip);
+      // Once an editor project exists, studio state is authoritative for the
+      // opening headline/hook: if the user deleted the auto hook item there,
+      // the legacy auto-title must not resurrect on export. (A visible hook
+      // item makes the project pro-render eligible above, so this gate only
+      // affects the deleted-hook case.)
+      const headline = editorProjectExists ? null : ClipRenderService.buildHeadlineSpec(clip);
       if (headline) {
         // textfile transport: no drawtext text expansion, so user text is
         // rendered byte-for-byte (apostrophes, %, backslashes, unicode).
@@ -634,27 +663,6 @@ export class ClipRenderService {
       logger.info(
         `[ClipRender] Preparing FFmpeg for clip ${clipId}: start=${startSec}s, dur=${durationSec}s, filters=${videoFilters.length}`
       );
-
-      // Check if a multi-track EditorProject exists with custom pro edits (splits, cuts, B-roll, secondary audio, keyframes, text layers)
-      let hasCustomProTracks = false;
-      let editorProject: any = null;
-      try {
-        const { data: proj } = await dataRepository
-          .from('editor_projects')
-          .select('*')
-          .eq('clip_id', clipId)
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (proj && Array.isArray(proj.tracks)) {
-          hasCustomProTracks = ClipRenderService.hasCustomProEdits(proj, clip);
-          if (hasCustomProTracks) {
-            editorProject = proj;
-          }
-        }
-      } catch (err: any) {
-        logger.warn(`[ClipRender] Error checking EditorProject for clip ${clipId}: ${err.message}`);
-      }
 
       // Resolve optional background music for Quick Clips
       let resolvedMusicPath: string | null = null;

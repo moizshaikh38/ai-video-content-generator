@@ -8,7 +8,7 @@ import {
   EditorTrack,
   EditorCaptionItem,
 } from '../../types';
-import { applyPresetToEditorCaption, CaptionPresetId, DEFAULT_CAPTION_PRESET_ID } from '../../lib/captionPresets';
+import { applyPresetToEditorCaption, CaptionPresetId, DEFAULT_CAPTION_PRESET_ID, RenderableCaptionPresetId } from '../../lib/captionPresets';
 import { useEditorPlayback } from '../../hooks/useEditorPlayback';
 import { useEditorSelection, SidebarTab, AiToolType } from '../../hooks/useEditorSelection';
 import { useEditorShortcuts } from '../../hooks/useEditorShortcuts';
@@ -185,6 +185,11 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   // (missing/short transcript) or the coverage fetch fails after extending.
   const [extendCaptionNotice, setExtendCaptionNotice] = useState<string | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
+  // Export staleness: caption setting changed after the last completed render;
+  // the previously rendered file must not be offered as the changed export.
+  const [exportStale, setExportStale] = useState<boolean>(false);
+  // Last non-'none' caption preset, so Captions Off/On restores the chosen style.
+  const [lastCaptionPreset, setLastCaptionPreset] = useState<RenderableCaptionPresetId>(DEFAULT_CAPTION_PRESET_ID);
   // Intro/outro: which menu is open, and a pending position armed for the next media pick.
   const [introOutroMenu, setIntroOutroMenu] = useState<'intro' | 'outro' | null>(null);
   const [pendingIntroOutro, setPendingIntroOutro] = useState<'intro' | 'outro' | null>(null);
@@ -355,6 +360,8 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   // Apply Caption Preset: 'none' hides the caption track (captionEnabled=false on save),
   // any other preset re-enables it and swaps the style while keeping cues and position.
   const handleApplyCaptionPreset = (preset: CaptionPresetId) => {
+    if (preset !== 'none') setLastCaptionPreset(preset as RenderableCaptionPresetId);
+    setExportStale(true);
     onUpdateProject((prev) => ({
       ...prev,
       tracks: prev.tracks.map((t) => {
@@ -366,6 +373,36 @@ export const EditorShell: React.FC<EditorShellProps> = ({
           items: t.items.map((i) => ({
             ...i,
             caption: applyPresetToEditorCaption(i.caption, preset),
+          })),
+        };
+      }),
+    }));
+  };
+
+  // A completed render matches current editor settings again.
+  useEffect(() => {
+    if (renderSuccessMsg) setExportStale(false);
+  }, [renderSuccessMsg]);
+
+  // Discoverable Captions On/Off. Hiding the track already preserves the
+  // item's caption config, so re-enabling just unhides - the chosen style
+  // (gallery preset or legacy style) survives the off/on round-trip.
+  const handleToggleCaptions = (enabled: boolean) => {
+    setExportStale(true);
+    onUpdateProject((prev) => ({
+      ...prev,
+      tracks: prev.tracks.map((t) => {
+        if (t.type !== 'CAPTION') return t;
+        if (!enabled) return { ...t, hidden: true };
+        const hasConfig = t.items.some((i) => i.caption && i.caption.style);
+        if (hasConfig) return { ...t, hidden: false };
+        // No config to restore (unexpected): fall back to the last used preset.
+        return {
+          ...t,
+          hidden: false,
+          items: t.items.map((i) => ({
+            ...i,
+            caption: applyPresetToEditorCaption(i.caption, lastCaptionPreset),
           })),
         };
       }),
@@ -671,6 +708,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         }
       }}
       onApplyCaptionPreset={handleApplyCaptionPreset}
+      onToggleCaptions={handleToggleCaptions}
       hasWordTiming={hasWordTiming}
       onAddTextLayer={handleAddTextLayer}
       onUpdateCropMode={(_mode) => {
@@ -1636,6 +1674,9 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         }}
         downloadUrl={renderedPreviewUrl}
         watermarkRequired={watermarkRequired}
+        captionsEnabled={!project.tracks.find((t) => t.type === 'CAPTION')?.hidden}
+        onToggleCaptions={handleToggleCaptions}
+        downloadStale={exportStale}
       />
 
       {/* 5. COMMAND PALETTE (Cmd+K) */}
