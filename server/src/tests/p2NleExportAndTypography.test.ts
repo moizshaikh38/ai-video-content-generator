@@ -203,6 +203,10 @@ describe('Phase P2: Pro Typography & NLE XML Export Bridge', () => {
     // Verify embedded marker inside Slice 1
     assert.match(fcpxml, /<marker start="1\.000s" duration="2\.500s" value="Hook that stops the scroll" \/>/);
 
+    // Asset duration must cover the furthest referenced source offset (30s),
+    // not the sequence duration (28s) or any hardcoded multiple of it.
+    assert.match(fcpxml, /<asset id="r2" name="Top 5 Creator Habits" src="https:\/\/cdn\.vireoclip\.ai\/raw\/habits\.mp4" duration="30\.000s"/);
+
     // Verify combined method
     const combined = NleExportService.generatePremiereAndFcpxml(project, clipMock as any);
     assert.ok(combined.premiereXml.length > 500);

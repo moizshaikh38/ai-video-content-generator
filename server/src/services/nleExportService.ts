@@ -245,6 +245,12 @@ export class NleExportService {
     const videoItems = this.getVideoItems(project);
     const captionCues = this.getCaptionCues(project, clip);
 
+    // The FCP asset duration must cover every referenced source offset. The true
+    // source-media length is not stored on the clip, so use the furthest source
+    // point actually referenced (never less than the sequence duration).
+    const maxSourceEnd = videoItems.reduce((m, item) => Math.max(m, Number(item.source_end || 0)), 0);
+    const assetDurationSec = Math.max(durationSec, maxSourceEnd);
+
     // Build asset clips inside spine
     let spineXml = '';
     videoItems.forEach((item, index) => {
@@ -276,7 +282,7 @@ export class NleExportService {
 <fcpxml version="1.9">
   <resources>
     <format id="r1" name="FFVideoFormat" width="${width}" height="${height}" frameDuration="1/${fps}s" />
-    <asset id="r2" name="${escapedTitle}" src="${escapedSourcePath}" duration="${(durationSec * 2).toFixed(3)}s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" />
+    <asset id="r2" name="${escapedTitle}" src="${escapedSourcePath}" duration="${assetDurationSec.toFixed(3)}s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" />
   </resources>
   <library>
     <event name="VireoClip Exports">
