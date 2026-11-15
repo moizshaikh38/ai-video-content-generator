@@ -2053,6 +2053,7 @@ export class ClipRenderService {
     cleanSourceUrl?: string;
     renderedPreviewUrl?: string;
     editorProject?: any;
+    watermarkRequired?: boolean;
   }> {
     const clip = await ClipRenderService.getClip(clipId, userId);
 
@@ -2106,6 +2107,15 @@ export class ClipRenderService {
 
     const previewUrl = renderedPreviewUrl || cleanSourceUrl;
 
+    // Actual applicable entitlement: whether exports for this user carry the
+    // watermark, so the studio preview can say so before they export.
+    let watermarkRequired = false;
+    try {
+      watermarkRequired = await WatermarkService.shouldWatermark(userId);
+    } catch {
+      watermarkRequired = true; // fail closed: assume watermarked when unknown
+    }
+
     return {
       clip,
       timingMode,
@@ -2114,6 +2124,7 @@ export class ClipRenderService {
       cleanSourceUrl,
       renderedPreviewUrl,
       editorProject,
+      watermarkRequired,
     };
   }
 
