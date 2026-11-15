@@ -1405,12 +1405,17 @@ export class CaptionService {
     //  (a) the provenance flag (position_explicit) set by the editor's
     //      position write funnels - covers a deliberate 'bottom' choice too;
     //  (b) a non-bottom editor position (legacy, pre-flag);
-    //  (c) a numeric editor position_y from a drag (legacy, pre-flag);
-    //  (d) a numeric positionY in caption_config / presetOverrides (checked at
-    //      the merge below).
-    // Legacy projects with only the materialized 'bottom' default and no flag
-    // keep the anchor - that residual ambiguity is unavoidable without the
-    // provenance the old client never recorded.
+    //  (c) a numeric editor position_y from a drag (legacy, pre-flag).
+    // A numeric positionY in caption_config / presetOverrides is NOT treated as
+    // explicit on its own: the editor save path mirrors the materialized
+    // default caption transform (position_y 500 -> 0.7604) into
+    // presetOverrides on every save, so after any autosave every blur project
+    // carried a 'positionY' that silently disabled this anchor (verified on
+    // render v96: default blur project exported captions at 0.75 instead of
+    // the anchor). Item-level provenance above is the reliable explicit
+    // signal; a config-only positionY set outside the editor is overridden by
+    // the anchor for banded layouts - that residual ambiguity is unavoidable
+    // without provenance the old clients never recorded.
     const hasExplicitEditorPosition =
       editorPositionExplicit ||
       editorPositionYNumeric !== null ||
@@ -1426,11 +1431,7 @@ export class CaptionService {
       ...(clip.caption_config || {}),
       caption_overrides: clip.caption_config?.caption_overrides || (clip as any).caption_overrides || [],
     };
-    if (
-      bandY !== undefined &&
-      mergedConfig.positionY === undefined &&
-      (mergedConfig.presetOverrides as any)?.positionY === undefined
-    ) {
+    if (bandY !== undefined) {
       mergedConfig.positionY = bandY;
       mergedConfig.presetOverrides = { ...(mergedConfig.presetOverrides || {}), positionY: bandY } as any;
     }
@@ -1499,11 +1500,7 @@ export class CaptionService {
       // through unchanged. The band anchor rides along via caption_config.
       const defaults = this.resolveDefaultCaptionStyle(clip);
       const effectiveConfig: CaptionConfig = { ...defaults.captionConfig };
-      if (
-        bandY !== undefined &&
-        effectiveConfig.positionY === undefined &&
-        (effectiveConfig.presetOverrides as any)?.positionY === undefined
-      ) {
+      if (bandY !== undefined) {
         effectiveConfig.positionY = bandY;
         effectiveConfig.presetOverrides = { ...(effectiveConfig.presetOverrides || {}), positionY: bandY } as any;
       }
