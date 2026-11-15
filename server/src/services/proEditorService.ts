@@ -1059,6 +1059,32 @@ export class ProEditorService {
           filterComplex.push(titleAChain);
           audioOnlyChains.push(titleAChain);
           sliceDurations.push(timelineDur + gap);
+        } else if ((item as any).is_freeze) {
+          // Freeze frame: hold the exact source frame for the whole span by
+          // trimming a tiny window and cloning its last frame. Silent audio
+          // (the item is muted); a leading timeline gap extends the hold.
+          const T = Number((item as any).freeze_source_time ?? item.source_start ?? 0);
+          const lead = Math.min(0.1, timelineDur);
+          inputArgs.push('-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100');
+          currentInputIdx++;
+          const silenceIdx = currentInputIdx;
+          const windowStartClipRelFreeze = T - (reframe?.clipStartSec ?? 0);
+          const freezeCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRelFreeze, timelineDur);
+          const freezeStyle = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH);
+          const chain = [`trim=start=${T.toFixed(3)}:end=${(T + lead).toFixed(3)}`, 'setpts=PTS-STARTPTS'];
+          if (freezeCrop) chain.push(freezeCrop);
+          chain.push(...freezeStyle);
+          chain.push(
+            `tpad=stop_mode=clone:stop_duration=${(timelineDur - lead + gap).toFixed(3)}`,
+            `fps=${fps}`,
+            'setsar=1',
+            'format=yuv420p'
+          );
+          filterComplex.push(`[0:v]${chain.join(',')}${vSlice}`);
+          const freezeAChain = `[${silenceIdx}:a]atrim=0:${(timelineDur + gap).toFixed(3)},asetpts=PTS-STARTPTS,${UNIFORM_AUDIO}${aSlice}`;
+          filterComplex.push(freezeAChain);
+          audioOnlyChains.push(freezeAChain);
+          sliceDurations.push(timelineDur + gap);
         } else {
           const startStr = (item.source_start || 0).toFixed(2);
           const srcEnd = item.source_end !== undefined ? item.source_end : (item.source_start || 0) + timelineDur * speed;

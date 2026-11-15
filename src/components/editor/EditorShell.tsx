@@ -359,6 +359,136 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     },
   });
 
+  // Freeze frame: split the selected video item at the playhead and insert a
+  // still segment holding that exact source frame. Later content ripples by
+  // the freeze duration and caption cues/words shift with it, so speech and
+  // burned text stay aligned across the hold. One history step.
+  const FREEZE_DURATION_SEC = 2;
+  const handleFreezeFrame = () => {
+    if (!selectedItemId || !selectedTrackId) return;
+    const track = project.tracks.find((t) => t.id === selectedTrackId);
+    const item = track?.items.find((i) => i.id === selectedItemId);
+    if (!track || !item || track.type !== 'VIDEO' || item.is_freeze) return;
+    const t = currentTime;
+    if (t <= item.timeline_start + 0.05 || t >= item.timeline_end - 0.05) return;
+    const dur = FREEZE_DURATION_SEC;
+    const itemSpeed = item.speed?.speed || 1;
+    const srcTime = item.source_start + (t - item.timeline_start) * itemSpeed;
+    const r3 = (v: number) => Math.round(v * 1000) / 1000;
+    onUpdateProject((prev) => ({
+      ...prev,
+      // The freeze extends the timeline; the canvas must grow with it or the
+      // tail of the clip falls off the end of preview and export.
+      canvas: { ...prev.canvas, duration: r3(prev.canvas.duration + dur) },
+      tracks: prev.tracks.map((tr) => {
+        if (tr.locked) return tr;
+        const items: EditorTrackItem[] = [];
+        for (const it of tr.items) {
+          if (it.timeline_end <= t) {
+            items.push(it);
+            continue;
+          }
+          if (it.timeline_start >= t) {
+            const shifted: EditorTrackItem = {
+              ...it,
+              timeline_start: r3(it.timeline_start + dur),
+              timeline_end: r3(it.timeline_end + dur),
+            };
+            if (tr.type === 'CAPTION' && it.caption && Array.isArray(it.caption.cues)) {
+              shifted.caption = {
+                ...it.caption,
+                cues: it.caption.cues.map((c: any) => ({
+                  ...c,
+                  start: r3(c.start + dur),
+                  end: r3(c.end + dur),
+                  words: Array.isArray(c.words)
+                    ? c.words.map((w: any) => ({ ...w, start: r3(w.start + dur), end: r3(w.end + dur) }))
+                    : c.words,
+                })),
+              };
+            }
+            items.push(shifted);
+            continue;
+          }
+          if (tr.id === selectedTrackId && it.id === selectedItemId) {
+            const left: EditorTrackItem = { ...it, timeline_end: r3(t), source_end: r3(srcTime) };
+            const freeze: EditorTrackItem = {
+              ...it,
+              id: crypto.randomUUID(),
+              type: 'IMAGE',
+              is_freeze: true,
+              freeze_source_time: r3(srcTime),
+              timeline_start: r3(t),
+              timeline_end: r3(t + dur),
+              source_start: r3(srcTime),
+              source_end: r3(srcTime + 0.1),
+              muted: true,
+            };
+            const right: EditorTrackItem = {
+              ...it,
+              id: crypto.randomUUID(),
+              timeline_start: r3(t + dur),
+              timeline_end: r3(it.timeline_end + dur),
+              source_start: r3(srcTime),
+            };
+            items.push(left, freeze, right);
+            continue;
+          }
+          if (tr.type === 'CAPTION' && it.caption && Array.isArray(it.caption.cues)) {
+            // Caption item spans the freeze: stretch its span; cues after t
+            // shift with the ripple, a cue straddling t stretches over the
+            // hold and only its post-freeze words move.
+            const cues = it.caption.cues.map((c: any) => {
+              if (c.start >= t) {
+                return {
+                  ...c,
+                  start: r3(c.start + dur),
+                  end: r3(c.end + dur),
+                  words: Array.isArray(c.words)
+                    ? c.words.map((w: any) => ({ ...w, start: r3(w.start + dur), end: r3(w.end + dur) }))
+                    : c.words,
+                };
+              }
+              if (c.end > t) {
+                return {
+                  ...c,
+                  end: r3(c.end + dur),
+                  words: Array.isArray(c.words)
+                    ? c.words.map((w: any) =>
+                        w.start >= t ? { ...w, start: r3(w.start + dur), end: r3(w.end + dur) } : w
+                      )
+                    : c.words,
+                };
+              }
+              return c;
+            });
+            items.push({ ...it, timeline_end: r3(it.timeline_end + dur), caption: { ...it.caption, cues } });
+            continue;
+          }
+          if (tr.type === 'AUDIO' && it.source_path) {
+            // Speech/music pauses during the hold: split and shift.
+            const aSpeed = it.speed?.speed || 1;
+            const aSrc = it.source_start + (t - it.timeline_start) * aSpeed;
+            items.push(
+              { ...it, timeline_end: r3(t), source_end: r3(aSrc) },
+              {
+                ...it,
+                id: crypto.randomUUID(),
+                timeline_start: r3(t + dur),
+                timeline_end: r3(it.timeline_end + dur),
+                source_start: r3(aSrc),
+              }
+            );
+            continue;
+          }
+          // Static overlays stretch over the freeze.
+          items.push({ ...it, timeline_end: r3(it.timeline_end + dur) });
+        }
+        return { ...tr, items };
+      }),
+    }));
+  };
+
   // Apply Caption Preset: 'none' hides the caption track (captionEnabled=false on save),
   // any other preset re-enables it and swaps the style while keeping cues and position.
   const handleApplyCaptionPreset = (preset: CaptionPresetId) => {
@@ -1692,6 +1822,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             onSplitTrackItem(selectedTrackId, selectedItemId, currentTime);
           }
         }}
+        onFreezeFrame={handleFreezeFrame}
         onRippleDelete={() => {
           if (selectedItemId && selectedTrackId) {
             onRippleDeleteTrackItem(selectedTrackId, selectedItemId);

@@ -2065,6 +2065,9 @@ export interface EditorTrackItem {
   caption?: EditorCaptionItem;
   // Intro/outro title card: a full-frame colored card with centered text.
   is_title_card?: boolean;
+  /** Freeze-frame still: holds the source frame at freeze_source_time for the item's whole span. */
+  is_freeze?: boolean;
+  freeze_source_time?: number;
   title_card_text?: string;
   background_color?: string;
   color?: EditorColorAdjustments;

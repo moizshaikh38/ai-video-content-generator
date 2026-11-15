@@ -927,6 +927,34 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
           </div>
         </div>
 
+        {/* Playback speed (video/audio): preview and export both honor it. */}
+        {(selectedItem.type === 'VIDEO' || selectedItem.type === 'AUDIO') && (
+          <div className="space-y-2 pt-3 border-t border-white/[0.08]">
+            <label className="text-[11px] font-semibold text-vc-text-secondary uppercase tracking-wider">
+              Speed
+            </label>
+            <select
+              value={String(selectedItem.speed?.speed ?? 1)}
+              onChange={(e) =>
+                onUpdateItem(selectedItem.id, {
+                  speed: {
+                    speed: parseFloat(e.target.value),
+                    pitch_preserved: selectedItem.speed?.pitch_preserved ?? true,
+                  },
+                })
+              }
+              className="w-full bg-vc-canvas border border-vc-border rounded p-1.5 text-xs text-white"
+              aria-label="Playback speed"
+            >
+              {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4].map((s) => (
+                <option key={s} value={String(s)}>
+                  {s}x
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Text specific settings */}
         {selectedItem.type === 'TEXT' && selectedItem.text && (
           <div className="space-y-3 pt-3 border-t border-white/[0.08]">

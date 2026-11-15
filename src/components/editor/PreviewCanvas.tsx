@@ -443,6 +443,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     }
     if (activeVideoItems[0]) {
       const item = activeVideoItems[0];
+      // Freeze-frame still: hold the exact source frame for the whole span.
+      if ((item as any).is_freeze) {
+        return (item as any).freeze_source_time ?? (item.source_start || 0);
+      }
       const speed = item.speed?.speed || 1.0;
       return (item.source_start || 0) + (playhead - item.timeline_start) * speed;
     }
