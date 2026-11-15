@@ -82,6 +82,19 @@ class ClipRenderService {
   }
 
   /**
+   * Regenerates the opening hook/title for a clip from its own transcript span.
+   * Fails with the server's error code (e.g. HOOK_PROVIDER_UNAVAILABLE) when
+   * hook generation cannot run; never returns fabricated text.
+   */
+  async regenerateHook(clipId: string): Promise<{ hook: string; title: string | null }> {
+    const data = await backendRequest<{ status: 'ok'; hook: string; title: string | null }>(
+      `/clips/${clipId}/hook/regenerate`,
+      { method: 'POST' }
+    );
+    return { hook: data.hook, title: data.title };
+  }
+
+  /**
    * Deletes a clip and its rendered file from storage
    */
   async deleteClip(clipId: string): Promise<void> {

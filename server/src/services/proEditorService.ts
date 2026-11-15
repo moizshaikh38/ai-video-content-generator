@@ -1965,6 +1965,7 @@ export class ProEditorService {
           background_color: '#000000B3',
           preset: 'bold',
           animation: 'pop',
+          auto_headline: true,
         },
         effects: [],
         keyframes: [],

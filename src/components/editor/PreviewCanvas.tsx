@@ -275,6 +275,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   for (const track of project.tracks) {
     if (track.hidden) continue;
     for (const item of track.items) {
+      if (item.hidden) continue;
       if (playhead >= item.timeline_start && playhead <= item.timeline_end) {
         if (track.type === 'VIDEO') activeVideoItems.push(item);
         else if (track.type === 'TEXT') activeTextItems.push(item);

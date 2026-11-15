@@ -1972,6 +1972,8 @@ export interface EditorTextConfig {
   preset?: EditorTextPreset;
   animation?: EditorTextAnimation;
   animation_duration?: number;
+  /** Marks the auto-generated opening hook/headline text item. */
+  auto_headline?: boolean;
 }
 
 export interface EditorCaptionItem {

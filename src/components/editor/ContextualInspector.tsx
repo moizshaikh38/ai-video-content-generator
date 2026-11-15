@@ -17,6 +17,9 @@ import {
   RotateCcw,
   Layers,
   Palette,
+  Eye,
+  EyeOff,
+  RefreshCw,
 } from 'lucide-react';
 import {
   EditorProject,
@@ -46,6 +49,7 @@ import {
 } from './panelKit';
 import { usePanelPref } from '../../lib/panelPrefs';
 import { AiToolDef } from '../../lib/aiToolsRegistry';
+import { clipRenderService } from '../../services/clipRenderService';
 import {
   CaptionPresetId,
   getEditorCaptionPresetId,
@@ -113,6 +117,9 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
     }
   };
   const [keepColors, setKeepColors] = useState(false);
+  const [hookDurationDraft, setHookDurationDraft] = useState<string | null>(null);
+  const [hookGenerating, setHookGenerating] = useState(false);
+  const [hookError, setHookError] = useState<string | null>(null);
 
   // Selected item reference
   const selectedItem = project.tracks
@@ -127,6 +134,37 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
       onUpdateItem(selectedItem.id, {
         text: { ...textConfig, ...updates },
       });
+    };
+
+    // Auto-generated opening hook (title headline or producer HOOK_TEXT):
+    // duration, visibility and AI regeneration controls.
+    const isAutoHook = Boolean((textConfig as any).auto_headline);
+    const hookDuration = Math.max(0, selectedItem.timeline_end - selectedItem.timeline_start);
+
+    const commitHookDuration = () => {
+      if (hookDurationDraft == null) return;
+      const parsed = Number(hookDurationDraft);
+      setHookDurationDraft(null);
+      if (!Number.isFinite(parsed)) return;
+      const clamped = Math.min(Math.max(parsed, 0.5), project.canvas.duration);
+      if (Math.abs(clamped - hookDuration) < 0.01) return;
+      const end = selectedItem.timeline_start + clamped;
+      onUpdateItem(selectedItem.id, { timeline_end: end, source_end: end });
+    };
+
+    const handleRegenerateHook = async () => {
+      if (!clip?.id || hookGenerating) return;
+      setHookGenerating(true);
+      setHookError(null);
+      try {
+        const result = await clipRenderService.regenerateHook(clip.id);
+        // One update = one history entry, so a single undo restores the old hook.
+        onUpdateItem(selectedItem.id, { text: { ...textConfig, text: result.hook } });
+      } catch (err: any) {
+        setHookError(err?.message || 'Hook generation failed. Try again.');
+      } finally {
+        setHookGenerating(false);
+      }
     };
 
     const handleDuplicateItem = () => {
@@ -235,6 +273,50 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Opening Hook controls (auto-generated hook/headline only) */}
+        {isAutoHook && (
+          <div className="space-y-2 pb-3 border-b border-white/[0.08]">
+            <label className="text-[11px] font-semibold text-vc-text-secondary uppercase tracking-wider">
+              Opening Hook
+            </label>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 flex-1">
+                <span className="text-vc-text-muted text-[10px]">Duration</span>
+                <input
+                  type="number"
+                  min={0.5}
+                  max={Math.max(0.5, project.canvas.duration)}
+                  step={0.5}
+                  value={hookDurationDraft ?? String(Math.round(hookDuration * 10) / 10)}
+                  onChange={(e) => setHookDurationDraft(e.target.value)}
+                  onBlur={commitHookDuration}
+                  onKeyDown={(e) => { if (e.key === 'Enter') commitHookDuration(); }}
+                  className="w-16 bg-vc-canvas border border-vc-border rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-white/30"
+                />
+                <span className="text-vc-text-muted text-[10px]">sec</span>
+              </div>
+              <button
+                onClick={() => onUpdateItem(selectedItem.id, { hidden: !selectedItem.hidden })}
+                className="flex items-center gap-1 px-2 py-1 rounded bg-vc-canvas border border-vc-border hover:bg-white/[0.06] text-vc-text-secondary text-[10px] transition"
+                title={selectedItem.hidden ? 'Show hook in preview and export' : 'Hide hook from preview and export'}
+              >
+                {selectedItem.hidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                {selectedItem.hidden ? 'Hidden' : 'Visible'}
+              </button>
+            </div>
+            <button
+              onClick={handleRegenerateHook}
+              disabled={hookGenerating || !clip?.id}
+              className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-vc-canvas border border-vc-border hover:bg-white/[0.06] disabled:opacity-50 text-white text-[11px] transition"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${hookGenerating ? 'animate-spin' : ''}`} />
+              {hookGenerating ? 'Generating…' : 'Generate another hook'}
+            </button>
+            {hookError && <p className="text-[10px] text-rose-400">{hookError}</p>}
+            <p className="text-[10px] text-vc-text-muted">Edit the text below directly, or undo to restore the previous hook.</p>
+          </div>
+        )}
 
         {/* 1. Text Content & Quick Align */}
         <div className="space-y-2">

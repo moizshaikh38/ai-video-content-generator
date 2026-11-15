@@ -923,6 +923,9 @@ export interface EditorTextConfig {
   preset?: EditorTextPreset;
   animation?: EditorTextAnimation;
   animation_duration?: number;
+  /** Marks the auto-generated opening hook/headline text item so the inspector
+   * can surface hook-specific controls (duration, visibility, regenerate). */
+  auto_headline?: boolean;
 }
 
 export interface EditorCaptionItem {

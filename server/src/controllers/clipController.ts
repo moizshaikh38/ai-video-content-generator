@@ -17,6 +17,7 @@ import { EntitlementService } from '../services/entitlementService.js';
 import { logger } from '../utils/logger.js';
 import { ClipPosterService } from '../services/clipPosterService.js';
 import { config } from '../config/index.js';
+import { HookRegenerationService } from '../services/hookRegenerationService.js';
 
 /**
  * POST /api/projects/:id/analyze-clips
@@ -1523,3 +1524,29 @@ export const deleteClipProducerPlan = async (req: AuthenticatedRequest, res: Res
   }
 };
 
+
+/**
+ * POST /clips/:clipId/hook/regenerate - regenerates the opening hook/title text
+ * for one clip from its own transcript span via the server AI provider.
+ * Fails closed with HOOK_PROVIDER_UNAVAILABLE when no provider key is set;
+ * never returns fabricated text.
+ */
+export const regenerateClipHook = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const clipId = req.params.clipId;
+  res.set('Cache-Control', 'no-store');
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });
+    return;
+  }
+
+  try {
+    const result = await HookRegenerationService.regenerateClipHook(userId, clipId);
+    res.status(200).json({ status: 'ok', ...result });
+  } catch (err: any) {
+    res
+      .status(err.statusCode || (err.code === 'CLIP_NOT_FOUND' ? 404 : 500))
+      .json({ status: 'error', code: err.code || 'HOOK_GENERATION_FAILED', message: err.message || 'Hook generation failed.' });
+  }
+};
