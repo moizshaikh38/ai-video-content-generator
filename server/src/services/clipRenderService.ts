@@ -43,11 +43,14 @@ import { EntitlementService } from './entitlementService.js';
 import { HardwareEncoderService } from './hardwareEncoderService.js';
 
 const execFileAsync = promisify(execFile);
-const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
+// FFMPEG_BIN overrides the bundled binary: the ffmpeg-static build lacks
+// libfreetype (no drawtext), so watermark/text-overlay renders fail under it
+// where a full system ffmpeg works.
+const ffmpegBin = process.env.FFMPEG_BIN || (ffmpegStatic as unknown as string) || 'ffmpeg';
 
-// Configure fluent-ffmpeg to use ffmpeg-static binary
-if (ffmpegStatic) {
-  ffmpeg.setFfmpegPath(ffmpegStatic as unknown as string);
+// Configure fluent-ffmpeg to use the same resolved binary
+if (ffmpegBin) {
+  ffmpeg.setFfmpegPath(ffmpegBin);
 }
 
 // In-memory set to prevent duplicate simultaneous render jobs for the same clip
