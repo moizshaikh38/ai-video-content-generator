@@ -31,6 +31,7 @@ import { CaptionService } from './captionService.js';
 import { ClipRenderService, buildCropFilter } from './clipRenderService.js';
 import { LoudnormTwoPassService } from './loudnormTwoPassService.js';
 import { ProEditorService } from './proEditorService.js';
+import { sanitizePlanOperations, clipSpanSeconds } from './planSafetyService.js';
 
 const execFileAsync = promisify(execFile);
 const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
@@ -87,6 +88,13 @@ export class ProducerRenderService {
 
     if (clipErr || !clip) {
       throw new AppError('Clip not found.', 404, 'CLIP_NOT_FOUND');
+    }
+
+    // Code-enforced plan limits: clamp/drop out-of-range operations before render.
+    const previewSanitize = sanitizePlanOperations(plan.operations, clipSpanSeconds(clip));
+    plan.operations = previewSanitize.operations;
+    for (const w of previewSanitize.warnings) {
+      logger.warn(`[ProducerSafety] plan ${plan.id}: ${w}`);
     }
 
     // 3. Fetch project
@@ -303,6 +311,14 @@ export class ProducerRenderService {
 
     if (clipErr || !clip) {
       throw new AppError('Clip not found.', 404, 'CLIP_NOT_FOUND');
+    }
+
+    // Code-enforced plan limits: clamp/drop out-of-range operations before
+    // persisting anything derived from them to the clip.
+    const applySanitize = sanitizePlanOperations(plan.operations, clipSpanSeconds(clip));
+    plan.operations = applySanitize.operations;
+    for (const w of applySanitize.warnings) {
+      logger.warn(`[ProducerSafety] plan ${plan.id}: ${w}`);
     }
 
     // 3. Extract parameter updates from enabled plan operations

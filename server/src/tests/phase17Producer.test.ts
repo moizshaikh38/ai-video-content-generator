@@ -13,6 +13,7 @@ import { ProducerRenderService } from '../services/producerRenderService.js';
 import { LoudnormTwoPassService } from '../services/loudnormTwoPassService.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { closeMongo } from '../db/mongoClient.js';
+import { sanitizePlanOperations } from '../services/planSafetyService.js';
 import {
   ProducerEditPlan,
   ProducerOperation,
@@ -748,6 +749,172 @@ describe('Phase 17 — Vireo Producer (AI Editing Agent) Tests', () => {
           fallbackSpy.mock.calls.length >= 1,
           'pre-rendered dynamic fallback must be used for linear-infeasible content'
         );
+
+        await ownerContext.run(mockUserId, async () => {
+          const { data: updated } = await dataRepository
+            .from('producer_plans')
+            .select('status')
+            .eq('id', planId)
+            .maybeSingle();
+          assert.equal(updated?.status, 'preview_ready');
+          await dataRepository.from('producer_plans').delete().eq('id', planId);
+          await dataRepository.from('clips').delete().eq('id', mockClipId);
+          await dataRepository.from('projects').delete().eq('id', mockProjectId);
+        });
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+  });
+  describe('PlanSafetyService — code-enforced plan operation limits', () => {
+    const baseOp = (over: any): any => ({
+      id: 'op-1',
+      type: 'PUNCH_IN',
+      enabled: true,
+      label: 'Punch',
+      description: '',
+      parameters: {},
+      confidence: 0.9,
+      reason: '',
+      ...over,
+    });
+
+    it('clamps punch-in window and scale into safe bounds', () => {
+      const { operations, warnings } = sanitizePlanOperations([
+        baseOp({ parameters: { punch_in_start_sec: 999, punch_in_duration_sec: 60, scale: 5 } }),
+      ], 30);
+      const p = operations[0].parameters;
+      assert.equal(p.punch_in_start_sec, 29.6);
+      assert.equal(p.punch_in_duration_sec, 12);
+      assert.equal(p.scale, 2.0);
+      assert.ok(warnings.length >= 3, 'one warning per clamped param');
+    });
+
+    it('removes non-finite numeric parameters instead of rendering them', () => {
+      const { operations, warnings } = sanitizePlanOperations([
+        baseOp({ type: 'CAPTION_STYLE', parameters: { font_size: Number.NaN, primary_color: '#FF0000' } }),
+      ], 30);
+      assert.equal(operations[0].parameters.font_size, undefined);
+      assert.equal(operations[0].parameters.primary_color, '#FF0000');
+      assert.ok(warnings.some((w) => w.includes('non-finite')));
+    });
+
+    it('drops invalid hex colors and unknown operation types', () => {
+      const { operations, warnings } = sanitizePlanOperations([
+        baseOp({ type: 'CAPTION_EMPHASIS', parameters: { highlight_color: 'red' } }),
+        baseOp({ id: 'op-2', type: 'EXEC_SHELL', parameters: {} }),
+      ], 30);
+      assert.equal(operations.length, 1);
+      assert.equal(operations[0].parameters.highlight_color, undefined);
+      assert.ok(warnings.some((w) => w.includes('unknown operation type')));
+    });
+
+    it('caps REMOVE_RANGE cumulative cuts at 80% and drops empty ranges', () => {
+      const { operations, warnings } = sanitizePlanOperations([
+        baseOp({ type: 'REMOVE_RANGE', parameters: { cut_ranges: [
+          { start: 10, end: 5, duration: 0 },   // reversed -> dropped
+          { start: 0, end: 9, duration: 9 },    // kept (9s)
+          { start: 9, end: 30, duration: 21 },  // would exceed 80% of 30s (24s) -> dropped
+        ] } }),
+      ], 30);
+      const ranges = operations[0].parameters.cut_ranges;
+      assert.equal(ranges.length, 1);
+      assert.equal(ranges[0].start, 0);
+      assert.equal(ranges[0].end, 9);
+      assert.ok(warnings.some((w) => w.includes('cumulative cut cap')));
+    });
+
+    it('reduces combined intro+outro trims that would consume the clip', () => {
+      const { operations, warnings } = sanitizePlanOperations([
+        baseOp({ id: 'op-i', type: 'INTRO_TRIM', parameters: { start_sec: 20 } }),
+        baseOp({ id: 'op-o', type: 'OUTRO_TRIM', parameters: { end_sec: 20 } }),
+      ], 30);
+      const outro = operations.find((o) => o.id === 'op-o');
+      assert.equal(operations.find((o) => o.id === 'op-i').parameters.start_sec, 20);
+      assert.equal(outro.parameters.end_sec, 8.5);
+      assert.ok(warnings.some((w) => w.includes('INTRO+OUTRO')));
+    });
+
+    it('truncates hook text to the renderer cap and fixes reversed display window', () => {
+      const { operations, warnings } = sanitizePlanOperations([
+        baseOp({ type: 'HOOK_TEXT', parameters: { text: 'x'.repeat(120), display_start_sec: 10, display_end_sec: 5 } }),
+      ], 30);
+      const p = operations[0].parameters;
+      assert.equal(p.text.length, 50);
+      assert.equal(p.display_end_sec, 13.5);
+      assert.ok(warnings.some((w) => w.includes('truncated')));
+    });
+
+    it('renders successfully despite an adversarial plan (E2E through generatePreview)', async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vireo-prod-safety-'));
+      const fixture = path.join(tmpDir, 'adv.mp4');
+      try {
+        await execFileAsync(ffmpegBin, [
+          '-y', '-v', 'error',
+          '-f', 'lavfi', '-i', 'testsrc2=size=480x270:rate=30:duration=4',
+          '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=44100:duration=4',
+          '-shortest', '-pix_fmt', 'yuv420p', '-c:v', 'libx264', '-preset', 'ultrafast', '-c:a', 'aac', fixture,
+        ], { timeout: 60000 });
+
+        const planId = crypto.randomUUID();
+        await ownerContext.run(mockUserId, async () => {
+          const { error: projErr } = await dataRepository.from('projects').insert({
+            id: mockProjectId,
+            user_id: mockUserId,
+            title: 'Adversarial safety E2E',
+            source_type: 'upload',
+            source_storage_path: fixture,
+            duration_seconds: 4.0,
+            video_status: 'completed',
+          });
+          assert.ifError(projErr);
+          const { error: clipErr } = await dataRepository.from('clips').insert({
+            ...mockClip,
+            start_seconds: 0.0,
+            end_seconds: 4.0,
+            duration_seconds: 4.0,
+          });
+          assert.ifError(clipErr);
+          // INTRO_TRIM 99999s would seek past EOF and fail the render;
+          // REMOVE_RANGE 0-4 would cut 100% and abort the select graph.
+          const plan: ProducerEditPlan = {
+            id: planId,
+            clip_id: mockClipId,
+            project_id: mockProjectId,
+            user_id: mockUserId,
+            version: 1,
+            parent_plan_id: null,
+            mode: 'BALANCED',
+            target_platform: 'tiktok',
+            status: 'draft',
+            title: 'Adversarial plan',
+            user_instruction: 'break it',
+            original_duration: 4.0,
+            estimated_duration: 4.0,
+            operations: [
+              { id: 'op_adv_trim', type: 'INTRO_TRIM', enabled: true, label: 'Trim', description: '', parameters: { start_sec: 99999 }, confidence: 0.5, reason: 'adversarial' },
+              { id: 'op_adv_cut', type: 'REMOVE_RANGE', enabled: true, label: 'Cut', description: '', parameters: { cut_ranges: [{ start: 0, end: 4, duration: 4 }] }, confidence: 0.5, reason: 'adversarial' },
+            ],
+            scores: {
+              before: { overall: 60, hook: 55, pacing: 60, audio: 65, visual: 60, retention_estimate: 60 },
+              after: { overall: 80, hook: 80, pacing: 80, audio: 80, visual: 80, retention_estimate: 80 },
+              delta: 20,
+            },
+            explanation: { summary: 'adversarial', key_decisions: [], pacing_notes: '', audio_notes: '', visual_notes: '' },
+            preview_video_url: null,
+            preview_storage_path: null,
+            applied_at: null,
+            created_at: new Date(),
+            updated_at: new Date(),
+          };
+          const { error: planErr } = await dataRepository.from('producer_plans').insert(plan);
+          assert.ifError(planErr);
+        });
+
+        const result = await ownerContext.run(mockUserId, async () =>
+          ProducerRenderService.generatePreview(planId, mockUserId, fixture)
+        );
+        assert.ok(result.duration > 0.5 && result.duration < 4.0, `clamped render duration ${result.duration}`);
 
         await ownerContext.run(mockUserId, async () => {
           const { data: updated } = await dataRepository

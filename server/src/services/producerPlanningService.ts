@@ -5,6 +5,7 @@ import { logger } from '../utils/logger.js';
 import { OpenRouterContentProvider } from './aiProviderClient.js';
 import { config } from '../config/index.js';
 import { GenreIntelligenceService } from './genreIntelligenceService.js';
+import { sanitizePlanOperations, clipSpanSeconds } from './planSafetyService.js';
 import {
   AppError,
   CaptionStyle,
@@ -196,6 +197,13 @@ export class ProducerPlanningService {
     const instruction = dto.instruction?.trim();
     if (instruction) {
       operations = this.applyInstructionHeuristics(operations, instruction, mode);
+    }
+
+    // Code-enforced plan limits: clamp/drop out-of-range operations before saving.
+    const reviseSanitize = sanitizePlanOperations(operations, clipSpanSeconds(clip));
+    operations = reviseSanitize.operations;
+    for (const w of reviseSanitize.warnings) {
+      logger.warn(`[ProducerSafety] revised plan ${planId}: ${w}`);
     }
 
     // Recalculate estimated duration and scores
