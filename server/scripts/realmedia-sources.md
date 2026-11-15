@@ -38,3 +38,14 @@ dump-detections.ts prints every raw detection (time, box, confidence) for a clip
   rates, not recall/precision (no labeled ground truth).
 - Threshold sweep + full-chain A/B results: /tmp/realmedia/yunet-sweep-notes.md on the audit machine.
 - Eval script: server/scripts/yunet_eval.py (runs YuNet over a clip at 4 fps, prints per-clip stats).
+
+## Held-out clip (Nov 15, not used for any threshold/parameter choice)
+
+- tos-heldout.mp4: Tears of Steel (Blender Foundation, CC BY 3.0), t=200-212s via the
+  same HLS playlist as above. Real humans: sniper close-up (off-center), interior
+  three-person scene, console/machine segments. True cuts frame-verified at ~1.25s,
+  ~6.75s, ~8.75s. Note: t=600-610s of this film is the end-credit title cards - unusable.
+- Held-out results: HSV cut flag detected 3/3 true cuts, zero false positives
+  (default gray path detected 1/3). YuNet flag retained the off-center sniper's face
+  where the default lost him; interior segment equivalent across configs; YuNet
+  console-segment framing at t7.5 is a tight blurry crop (sub-optimal, no face in source).
