@@ -16,6 +16,7 @@ import {
   RenderJobRecord,
   ClipAspectRatio,
   ClipCropMode,
+  CropMode,
   CaptionStyle,
   CaptionPosition,
   CropConfig,
@@ -185,6 +186,22 @@ export function buildCropFilter(
       return `scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080:(in_w-out_w)*${fx}:(in_h-out_h)*${fy}`;
     default:
       return `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:(in_w-out_w)*${fx}:(in_h-out_h)*${fy}`;
+  }
+}
+
+/**
+ * Builds a letterbox "fit" filter: whole frame visible, black bars to fill the
+ * target canvas. Mirrors the studio preview's fit mode so export matches it.
+ */
+export function buildFitFilter(aspectRatio: ClipAspectRatio = '9:16'): string {
+  switch (aspectRatio) {
+    case '1:1':
+      return 'scale=1080:1080:force_original_aspect_ratio=decrease,pad=1080:1080:(ow-iw)/2:(oh-ih)/2:color=black';
+    case '16:9':
+      return 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=black';
+    case '9:16':
+    default:
+      return 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
   }
 }
 
@@ -1180,6 +1197,10 @@ export class ClipRenderService {
       return { cropFilter: buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config), mode: 'manual', layoutMode: 'manual', track: null };
     }
 
+    if (clip.crop_config?.mode === 'fit') {
+      return { cropFilter: buildFitFilter(clip.aspect_ratio as ClipAspectRatio), mode: 'manual', layoutMode: 'manual', track: null };
+    }
+
     if (clip.crop_config?.mode !== 'smart') {
       return { cropFilter: buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config), mode: 'fallback_center', layoutMode: 'manual', track: null };
     }
@@ -1690,7 +1711,7 @@ export class ClipRenderService {
     // Crop config
     let safeCrop = clip.crop_config || { mode: 'center', focusX: 0.5, focusY: 0.5 };
     if (update.cropConfig) {
-      const mode = update.cropConfig.mode === 'smart' ? 'smart' : update.cropConfig.mode === 'manual' ? 'manual' : 'center';
+      const mode: CropMode = (['smart', 'manual', 'fit'] as const).includes(update.cropConfig.mode as any) ? (update.cropConfig.mode as CropMode) : 'center';
       safeCrop = {
         mode,
         focusX: Math.min(1.0, Math.max(0.0, Number(update.cropConfig.focusX ?? 0.5))),

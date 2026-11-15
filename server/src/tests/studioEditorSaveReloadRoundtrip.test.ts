@@ -189,4 +189,28 @@ describe('Studio editor save -> reload round-trip (HTTP + Mongo)', () => {
     const missing = await fetch(`${baseUrl}/clips/${otherUserClipId}/editor`, { headers: { Authorization: `Bearer ${TOKEN}` } });
     assert.equal(missing.status, 404);
   });
+
+  it('5. Framing parity: studio crop_mode (incl. fit) round-trips into clip.crop_config', async () => {
+    // The studio Framing panel writes crop_mode on the video track item;
+    // buildClipEditorUpdatePayload now maps it to cropConfig so the render
+    // path (which reads clip.crop_config) honors the studio's choice.
+    const patch = await patchEditor({ cropConfig: { mode: 'fit', focusX: 0.5, focusY: 0.5 } });
+    assert.equal(patch.status, 200, `PATCH failed: ${JSON.stringify(patch.json)}`);
+    assert.equal(patch.json.clip.crop_config?.mode, 'fit');
+
+    const reload = await getEditor();
+    assert.equal(reload.json.clip.crop_config?.mode, 'fit', 'fit mode must survive save->reload');
+
+    // Unknown modes still sanitize to center
+    const bad = await patchEditor({ cropConfig: { mode: 'bogus' } });
+    assert.equal(bad.json.clip.crop_config?.mode, 'center');
+  });
+
+  it('6. Render honors fit: buildFitFilter produces letterbox pad, not fill-crop', async () => {
+    const { buildFitFilter } = await import('../services/clipRenderService.js');
+    const f = buildFitFilter('9:16');
+    assert.ok(f.includes('force_original_aspect_ratio=decrease'), 'fit must scale down, not crop');
+    assert.ok(f.includes('pad=1080:1920'), 'fit must pad to canvas');
+    assert.ok(!f.includes('crop='), 'fit must not crop');
+  });
 });

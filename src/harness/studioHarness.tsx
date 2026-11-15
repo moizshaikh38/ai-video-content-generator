@@ -107,23 +107,35 @@ const harnessQuery = new URLSearchParams(window.location.search);
 try {
   localStorage.setItem('vireo_panel_ui_v1', JSON.stringify({ 'captions.tab': 'typography' }));
 } catch {}
-const seedProject: any =
-  harnessQuery.get('mode') === 'single'
-    ? {
-        ...initialProject,
-        tracks: initialProject.tracks.map((t: any) =>
-          t.id === 'track-caption'
-            ? {
-                ...t,
-                items: t.items.map((i: any) => ({
-                  ...i,
-                  caption: { ...i.caption, max_words_per_cue: 1, max_lines: 1 },
-                })),
-              }
-            : t
-        ),
-      }
-    : initialProject;
+const seedProject: any = (() => {
+  let p: any = initialProject;
+  if (harnessQuery.get('cropmode')) {
+    const cm = harnessQuery.get('cropmode');
+    p = {
+      ...p,
+      tracks: p.tracks.map((t: any) =>
+        t.id === 'track-video' ? { ...t, items: t.items.map((i: any) => ({ ...i, crop_mode: cm })) } : t
+      ),
+    };
+  }
+  if (harnessQuery.get('mode') === 'single') {
+    p = {
+      ...p,
+      tracks: p.tracks.map((t: any) =>
+        t.id === 'track-caption'
+          ? {
+              ...t,
+              items: t.items.map((i: any) => ({
+                ...i,
+                caption: { ...i.caption, max_words_per_cue: 1, max_lines: 1 },
+              })),
+            }
+          : t
+      ),
+    };
+  }
+  return p;
+})();
 
 function Harness() {
   const [project, setProject] = useState<any>(seedProject);

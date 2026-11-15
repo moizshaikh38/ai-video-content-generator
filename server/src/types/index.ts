@@ -598,7 +598,7 @@ export type CaptionStyle =
 export type CaptionPosition = 'top' | 'center' | 'bottom';
 export type CaptionTimingMode = 'word' | 'segment';
 
-export type CropMode = 'center' | 'manual' | 'smart';
+export type CropMode = 'center' | 'manual' | 'smart' | 'fit';
 export type ReframeLayoutMode = 'track' | 'split' | 'screencast' | 'blur';
 
 export interface CropConfig {

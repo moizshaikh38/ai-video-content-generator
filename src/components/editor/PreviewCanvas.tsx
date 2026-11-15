@@ -890,8 +890,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 }
                 onTogglePlay();
               }}
-              className="w-full h-full object-cover cursor-pointer select-none"
+              className="w-full h-full cursor-pointer select-none"
             style={{
+              // Fit = letterbox (matches export's buildFitFilter pad); Fill = cover-crop
+              objectFit: primaryVideoCropMode === 'fit' ? 'contain' : 'cover',
               objectPosition: `${((activeVideoItems[0]?.crop?.focusX ?? 0.5) * 100).toFixed(2)}% ${((activeVideoItems[0]?.crop?.focusY ?? 0.5) * 100).toFixed(2)}%`,
               transform: activeVideoItems[0]
                 ? `translate(${interpolateKeyframes(

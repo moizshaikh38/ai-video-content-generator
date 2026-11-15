@@ -19,10 +19,23 @@ export function buildClipEditorUpdatePayload(
   const trimStart = primaryVideo ? primaryVideo.source_start - clip.start_seconds : 0;
   const trimEnd = primaryVideo ? clip.end_seconds - primaryVideo.source_end : 0;
 
+  // Framing parity: the studio Framing panel writes crop_mode on the video
+  // track item, but the render path reads clip.crop_config - so the save
+  // payload must carry it, or the export ignores the studio's framing choice.
+  const itemCropMode = (primaryVideo as any)?.crop_mode;
+  const itemCropConfig = (primaryVideo as any)?.crop_config;
+  const cropConfig = {
+    mode: itemCropMode || (clip as any).crop_config?.mode || 'center',
+    focusX: itemCropConfig?.focusX ?? (clip as any).crop_config?.focusX ?? 0.5,
+    focusY: itemCropConfig?.focusY ?? (clip as any).crop_config?.focusY ?? 0.5,
+    ...(itemCropConfig?.smart ? { smart: itemCropConfig.smart } : {}),
+  };
+
   return {
     aspectRatio: project.canvas.aspect_ratio || '9:16',
     trimStartOffset: Math.max(0, Number(trimStart.toFixed(3))),
     trimEndOffset: Math.max(0, Number(trimEnd.toFixed(3))),
+    cropConfig,
     captionEnabled: !captionTrack?.hidden,
     captionStyle: captionItem?.caption?.style || 'clean',
     captionPosition: captionItem?.caption?.position || 'bottom',
