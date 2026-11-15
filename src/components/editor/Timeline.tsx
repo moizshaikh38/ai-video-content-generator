@@ -25,6 +25,7 @@ import {
   ChevronUp,
   Link2,
   Square,
+  Magnet,
 } from 'lucide-react';
 import {
   EditorProject,
@@ -473,6 +474,28 @@ export const Timeline: React.FC<TimelineProps> = ({
             aria-label="Link tracks"
           >
             <Link2 className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Snap toggle: writes project.settings.snapping (persisted with the
+              editor project); the drag/trim handlers already honor it. */}
+          <button
+            type="button"
+            onClick={() =>
+              onUpdateProject(
+                { ...project, settings: { ...project.settings, snapping: !(project.settings?.snapping ?? true) } },
+                { recordHistory: false, markAsDirty: true }
+              )
+            }
+            title={(project.settings?.snapping ?? true) ? 'Snapping: ON (click to disable)' : 'Snapping: OFF (click to enable)'}
+            aria-label={(project.settings?.snapping ?? true) ? 'Disable timeline snapping' : 'Enable timeline snapping'}
+            aria-pressed={project.settings?.snapping ?? true}
+            className={`p-1.5 rounded-lg transition shrink-0 ${
+              (project.settings?.snapping ?? true)
+                ? 'bg-[#272727] border border-white/[0.1] text-white hover:bg-[#313131] shadow-sm'
+                : 'hover:bg-white/[0.08] text-neutral-500 hover:text-white'
+            }`}
+          >
+            <Magnet className="w-3.5 h-3.5" />
           </button>
 
           {/* Delete button */}
