@@ -272,12 +272,21 @@ export async function uploadFile(
 ): Promise<{ sha256: string }> {
   const { createReadStream } = await import('node:fs');
   try {
+    // The hasher must NOT share the upload Body stream: attaching a 'data'
+    // listener switches the stream to flowing mode, so chunks emitted before
+    // the SDK attaches its consumer are lost and the stored object lands
+    // without its leading bytes (corrupt MP4s missing ftyp/moov).
     const hasher = crypto.createHash('sha256');
-    const fileStream = createReadStream(path);
-    fileStream.on('data', (chunk) => hasher.update(chunk));
+    const hashDone = new Promise<void>((resolve, reject) => {
+      const hashStream = createReadStream(path);
+      hashStream.on('data', (chunk) => hasher.update(chunk));
+      hashStream.on('end', () => resolve());
+      hashStream.on('error', reject);
+    });
     await storageClient().send(new PutObjectCommand({
-      Bucket: bucketName(bucket), Key: key, Body: fileStream, ContentLength: size, ContentType: contentType,
+      Bucket: bucketName(bucket), Key: key, Body: createReadStream(path), ContentLength: size, ContentType: contentType,
     }));
+    await hashDone;
     return { sha256: hasher.digest('hex') };
   } catch {
     throw new AppError('Rendered object upload failed.', 503, 'STORAGE_UNAVAILABLE');
