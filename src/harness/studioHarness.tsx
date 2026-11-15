@@ -162,7 +162,7 @@ function Harness() {
       typo.click();
       if (q.get('extend') === '1') {
         setTimeout(() => {
-          const ext = Array.from(document.querySelectorAll('button')).find((b) => (b.textContent || '').includes('Extend a clip'));
+          const ext = Array.from(document.querySelectorAll('button')).find((b) => (b.textContent || '').includes('Restore trimmed end'));
           if (ext) (ext as HTMLElement).click();
           document.title = 'extended';
           dumpPayload();

@@ -845,9 +845,11 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
           </div>
         ) : (
           <>
-            {/* Extend a Clip: reclaims trimmed tail within the original
-                candidate range (same semantics as timeline trim-right).
-                Disabled when the clip is already at its full selected range. */}
+            {/* Restore trimmed end: reclaims trimmed tail within the original
+                candidate range (same semantics as timeline trim-right). True
+                extension beyond the candidate range is not supported by the
+                clip data model yet, so the control is named for what it does
+                and disabled when there is nothing to restore. */}
             <div className="pb-1 select-none">
               <button
                 type="button"
@@ -855,7 +857,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
                 title={
                   onExtendClip
                     ? extendSlackSec && extendSlackSec > 0.05
-                      ? `Extend the clip end by ${extendSlackSec.toFixed(1)}s of trimmed footage`
+                      ? `Restore ${extendSlackSec.toFixed(1)}s of trimmed footage at the clip end`
                       : 'Clip already uses its full selected range'
                     : undefined
                 }
@@ -869,7 +871,13 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-neutral-300 hover:text-white text-xs font-medium transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white/[0.05] disabled:hover:text-neutral-300"
               >
                 <span className="text-sm leading-none">+</span>
-                <span>Extend a clip</span>
+                <span>
+                  {onExtendClip
+                    ? extendSlackSec && extendSlackSec > 0.05
+                      ? `Restore trimmed end (+${extendSlackSec.toFixed(1)}s)`
+                      : 'Trimmed end restored'
+                    : 'Extend a clip'}
+                </span>
               </button>
             </div>
 
