@@ -607,12 +607,16 @@ export class ProducerRenderService {
       const punchEnd = punchStart + punchDuration;
       const scale = Math.max(1.02, Math.min(1.25, punchInOp.parameters.scale || 1.06));
 
-      // Calculate zoomed crop dimensions as integers matching canvas aspect ratio
-      const wPunch = Math.round(targetW / scale);
-      const hPunch = Math.round(targetH / scale);
-
-      const punchFilter = `crop=w='if(between(t,${punchStart.toFixed(2)},${punchEnd.toFixed(2)}),${wPunch},${targetW})':h='if(between(t,${punchStart.toFixed(2)},${punchEnd.toFixed(2)}),${hPunch},${targetH})':x=(in_w-out_w)/2:y=(in_h-out_h)/2,scale=${targetW}:${targetH}`;
-      videoFilters.push(punchFilter);
+      // Dynamic punch-in zoom: a time-conditional crop size is a silent
+      // no-op (crop w/h are fixed at filter init; verified: zero pixel
+      // change). This chain is a linear -vf graph where zoompan is verified
+      // to zoom correctly (frame-verified on the fixture source), unlike the
+      // pro editor's split/overlay composition which uses segment crop.
+      // Pushed BEFORE hook text and captions so burned text keeps its size
+      // during the zoom.
+      const onStart = Math.round(punchStart * 30);
+      const onEnd = Math.round(punchEnd * 30);
+      videoFilters.push(`zoompan=z='if(between(on,${onStart},${onEnd}),${scale},1)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${targetW}x${targetH}:fps=30`);
     }
 
     // 4. Hook Text Banner

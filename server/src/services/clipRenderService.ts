@@ -817,7 +817,12 @@ export class ClipRenderService {
           },
           inputSeekArgs
         );
-        const renderDuration = Number((editorProject.canvas?.duration || durationSec).toFixed(3));
+        // Single-slice renders input-seek with -t durationSec, so the output
+        // can never exceed the trimmed input window; a stale canvas.duration
+        // beyond it stalls ffmpeg on buffer backpressure until it is killed
+        // (reproduced locally). Clamp the output duration to the input window.
+        const canvasDuration = Number((editorProject.canvas?.duration || durationSec).toFixed(3));
+        const renderDuration = !isMultiSlice ? Math.min(canvasDuration, durationSec) : canvasDuration;
         expectedDurationSec = renderDuration;
 
         if (watermarkRequired) {

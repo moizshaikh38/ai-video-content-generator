@@ -465,7 +465,7 @@ describe('Phase 17 — Vireo Producer (AI Editing Agent) Tests', () => {
         // Check video filters
         assert.ok(graph.videoFilters.some((f) => f.includes('scale=1080:1920')), 'Must include 9:16 crop filter');
         assert.ok(graph.videoFilters.some((f) => f.includes('drawtext=text=\'EXPLOSIVE UPDATE\'')), 'Must include hook banner');
-        assert.ok(graph.videoFilters.some((f) => f.includes('crop=w=\'if(between(t,')), 'Must include punch-in dynamic crop');
+        assert.ok(graph.videoFilters.some((f) => f.includes('zoompan=z=\'if(between(on,')), 'Must include punch-in dynamic zoom');
 
         // Check audio filters
         assert.ok(graph.audioFilters.some((f) => f.includes('loudnorm=I=-16')), 'Must include loudnorm filter');

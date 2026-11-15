@@ -243,10 +243,10 @@ describe('Phase D — Smart Reframe, Subtitle Engine & Producer Plan Verificatio
         '/tmp'
       );
 
-      const punchFilter = graph.videoFilters.find((f) => f.includes('crop=w=\'if(between(t'));
-      assert.ok(punchFilter, 'Must include dynamic punch-in crop filter');
-      assert.ok(punchFilter.includes('scale=1080:1920'), 'Must scale to target 9:16 canvas (1080x1920)');
-      assert.ok(punchFilter.includes('between(t,4.00,6.00)'), 'Punch time must be relative to clip start (14.0 - 10.0 = 4.0s)');
+      const punchFilter = graph.videoFilters.find((f) => f.includes('zoompan=z=\'if(between(on,'));
+      assert.ok(punchFilter, 'Must include dynamic punch-in zoom filter');
+      assert.ok(punchFilter.includes('s=1080x1920'), 'Must output target 9:16 canvas (1080x1920)');
+      assert.ok(punchFilter.includes('between(on,120,180)'), 'Punch frames must be relative to clip start (14.0 - 10.0 = 4.0s @30fps)');
     });
 
     it('executes REMOVE_RANGE dead-air cuts on both video and audio and updates durationSec', async () => {

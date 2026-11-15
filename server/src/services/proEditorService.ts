@@ -879,7 +879,7 @@ export class ProEditorService {
    * of the whole render inheriting the first item's look (audit finding M-2).
    * Keyframe times are item-relative, which equals slice-local time after setpts.
    */
-  private static buildItemStyleFilters(item: EditorTrackItem, canvasW: number, canvasH: number): string[] {
+  private static buildItemStyleFilters(item: EditorTrackItem, canvasW: number, canvasH: number, fps = 30): string[] {
     const videoFilters: string[] = [];
 
     if (item.color) {
@@ -938,9 +938,23 @@ export class ProEditorService {
       const kf = scaleKeyframes[0];
       const kfStart = Math.max(0, kf.time);
       const kfDur = 2.5;
-      const scaleVal = kf.value || 1.06;
+      const scaleVal = Math.max(1.02, Math.min(2, kf.value || 1.06));
+      const kfEnd = kfStart + kfDur;
+      // Punch-in zoom. Two earlier forms failed pixel verification: a
+      // time-conditional crop size is a silent no-op (crop w/h are init-time),
+      // and zoompan does not zoom once the chain contains split/overlay +
+      // input seeking. A trim/concat segment zoom works but aborts the whole
+      // render when the punch window extends past the available input (empty
+      // concat branch). This form overlays a statically crop+scaled copy of
+      // the stream, toggled by overlay's timeline 'enable': all size
+      // negotiation stays static, no branch can go empty, and a window
+      // beyond EOF is simply never shown. Frame-verified: foreground band
+      // 182px -> 222px inside the window, reverts after.
+      const wPunch = Math.round(canvasW / scaleVal);
+      const hPunch = Math.round(canvasH / scaleVal);
+      const uid = (String(item.id || 'item').replace(/[^a-zA-Z0-9]/g, '').slice(-8) || 'item');
       videoFilters.push(
-        `crop=w='if(between(t,${kfStart.toFixed(2)},${(kfStart + kfDur).toFixed(2)}), in_w/${scaleVal}, in_w)':h='if(between(t,${kfStart.toFixed(2)},${(kfStart + kfDur).toFixed(2)}), in_h/${scaleVal}, in_h)':x=(in_w-out_w)/2:y=(in_h-out_h)/2,scale=${canvasW}:${canvasH}`
+        `split=2[pzA${uid}][pzB${uid}];[pzB${uid}]crop=${wPunch}:${hPunch}:(iw-ow)/2:(ih-oh)/2,scale=${canvasW}:${canvasH}[pzZ${uid}];[pzA${uid}][pzZ${uid}]overlay=0:0:enable='between(t,${kfStart.toFixed(2)},${kfEnd.toFixed(2)})'`
       );
     }
 
@@ -1070,7 +1084,7 @@ export class ProEditorService {
           const silenceIdx = currentInputIdx;
           const windowStartClipRelFreeze = T - (reframe?.clipStartSec ?? 0);
           const freezeCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRelFreeze, timelineDur);
-          const freezeStyle = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH);
+          const freezeStyle = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH, fps);
           const chain = [`trim=start=${T.toFixed(3)}:end=${(T + lead).toFixed(3)}`, 'setpts=PTS-STARTPTS'];
           if (freezeCrop) chain.push(freezeCrop);
           chain.push(...freezeStyle);
@@ -1095,7 +1109,7 @@ export class ProEditorService {
           // the slice-local window starts at source_start - clipStart.
           const windowStartClipRel = (item.source_start || 0) - (reframe?.clipStartSec ?? 0);
           const sliceCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRel, timelineDur);
-          const styleFilters = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH);
+          const styleFilters = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH, fps);
           const chain = [`trim=start=${startStr}:end=${endStr}`, 'setpts=PTS-STARTPTS'];
           if (sliceCrop) chain.push(sliceCrop);
           chain.push(...styleFilters);
@@ -1177,7 +1191,7 @@ export class ProEditorService {
       // is already clip-relative and the item keeps its own crop + styling.
       const single = allVideoItems[0];
       const singleCrop = single ? ProEditorService.buildSliceCropFilter(single, reframe, 0, canvasDuration || 10) : null;
-      const styleFilters = single ? ProEditorService.buildItemStyleFilters(single, canvasW, canvasH) : [];
+      const styleFilters = single ? ProEditorService.buildItemStyleFilters(single, canvasW, canvasH, fps) : [];
       const singleSpeed = single ? Math.min(4, Math.max(0.25, single.speed?.speed || 1.0)) : 1.0;
       const parts: string[] = [];
       if (singleCrop) parts.push(singleCrop);
