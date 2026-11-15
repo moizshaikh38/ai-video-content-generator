@@ -17,6 +17,11 @@ import {
   type LucideProps,
 } from "lucide-react";
 import SocialCards, { type CardItem } from "@/components/ui/card-fan-carousel";
+import cardCaptions from "../../assets/landing/card-captions.webp";
+import cardReframe from "../../assets/landing/card-reframe.webp";
+import editorUi from "../../assets/landing/editor-ui.webp";
+import cardBrandBrain from "../../assets/landing/card-brand-brain.webp";
+import cardTeamWorkspaces from "../../assets/landing/card-team-workspaces.webp";
 
 interface CapabilityDetails {
   id: string;
@@ -54,7 +59,7 @@ const CAPABILITY_CARDS: (CardItem & { details: CapabilityDetails })[] = [
     },
   },
   {
-    imgUrl: "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=800&q=80",
+    imgUrl: cardCaptions,
     alt: "Word-by-Word Kinetic Subtitles",
     badge: "KINETIC ASS",
     title: "Kinetic Captions",
@@ -76,7 +81,7 @@ const CAPABILITY_CARDS: (CardItem & { details: CapabilityDetails })[] = [
     },
   },
   {
-    imgUrl: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=800&q=80",
+    imgUrl: cardReframe,
     alt: "Smart 9:16 Active Speaker Reframe",
     badge: "9:16 FACE-TRACKING",
     title: "Smart 9:16 Reframe",
@@ -98,7 +103,7 @@ const CAPABILITY_CARDS: (CardItem & { details: CapabilityDetails })[] = [
     },
   },
   {
-    imgUrl: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80",
+    imgUrl: editorUi,
     alt: "Browser Multi-Track Timeline Editor",
     badge: "NLE STUDIO",
     title: "Multi-Track Editor",
@@ -164,7 +169,7 @@ const CAPABILITY_CARDS: (CardItem & { details: CapabilityDetails })[] = [
     },
   },
   {
-    imgUrl: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80",
+    imgUrl: cardBrandBrain,
     alt: "Brand Brain Voice & Watermark Kit",
     badge: "BRAND IDENTITY",
     title: "Brand Brain Kit",
@@ -230,7 +235,7 @@ const CAPABILITY_CARDS: (CardItem & { details: CapabilityDetails })[] = [
     },
   },
   {
-    imgUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80",
+    imgUrl: cardTeamWorkspaces,
     alt: "Team Workspaces & Role-Based Permissions",
     badge: "MULTI-TENANCY",
     title: "Team Workspaces",

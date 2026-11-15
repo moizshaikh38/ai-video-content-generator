@@ -10,6 +10,14 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Logo } from "../components/Logo";
+import vireoOutput916 from "../assets/landing/vireo-output-916.webp";
+import rawFootage169 from "../assets/landing/raw-footage-169.webp";
+import ucPodcasters from "../assets/landing/uc-podcasters.webp";
+import ucCreators from "../assets/landing/uc-creators.webp";
+import ucAgencies from "../assets/landing/uc-agencies.webp";
+import ucFounders from "../assets/landing/uc-founders.webp";
+import stepHooks from "../assets/landing/step-hooks.webp";
+import stepPublish from "../assets/landing/step-publish.webp";
 import { TransformationVisual } from "../components/landing/ProductVisuals";
 import { platformOutputs } from "../data/platforms";
 import { plans } from "../data/marketing";
@@ -179,32 +187,16 @@ function BeforeAfter() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
               <div className="md:col-span-5 flex justify-center">
                 <div className="w-[260px] h-[400px] rounded-[28px] bg-black shadow-[0_0_35px_rgba(139,92,246,0.25)] relative overflow-hidden flex flex-col justify-between p-3">
+                  {/* Genuine VireoClip export frame: centered speaker, word-timed caption, blurred-pad fill */}
                   <img
-                    src="https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=500&q=80"
-                    alt="After preview"
-                    className="absolute inset-0 w-full h-full object-cover filter brightness-90"
+                    src={vireoOutput916}
+                    alt="Actual VireoClip export: a 9:16 clip with the speaker centered, a word-timed caption and a blurred background fill"
+                    className="absolute inset-0 w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
                   <div className="relative z-10 flex items-center justify-between">
                     <span className="text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded-full">
-                      9:16 Active Speaker Focus
+                      Actual VireoClip export
                     </span>
-                    <span className="px-2 py-0.5 rounded-full bg-[#20E3A2]/20 text-[#20E3A2] text-[10px] font-mono font-bold">
-                      Score: 98
-                    </span>
-                  </div>
-
-                  <div className="relative z-10 text-center px-2">
-                    <div className="text-xl font-black text-white uppercase drop-shadow-md">
-                      THE REAL SECRET
-                    </div>
-                    <div className="text-2xl font-black text-[#FFE600] uppercase drop-shadow-lg scale-105 inline-block">
-                      TO VIRAL REACH
-                    </div>
-                  </div>
-
-                  <div className="relative z-10 text-[9px] font-mono text-[#20E3A2] text-center bg-black/70 py-1 rounded-lg">
-                    Auto-Ducking Active (-14dB) • SubStation ASS
                   </div>
                 </div>
               </div>
@@ -212,10 +204,10 @@ function BeforeAfter() {
               <div className="md:col-span-7 space-y-4">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#20E3A2]/10 text-[#20E3A2] text-xs font-semibold">
                   <TrendingUp size={14} />
-                  <span>High-Retention Optimization Applied</span>
+                  <span>VireoClip Processing Applied</span>
                 </div>
                 <h3 className="text-2xl font-bold text-white">
-                  Engineered for <span className="text-[#bba9e8]">98% Hook Retention</span>
+                  <span className="text-[#bba9e8]">Reframed, Captioned, Ready to Post</span>
                 </h3>
                 <ul className="space-y-2.5 text-xs sm:text-sm text-slate-300">
                   <li className="flex items-center gap-2.5">
@@ -241,30 +233,28 @@ function BeforeAfter() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
               <div className="md:col-span-5 flex justify-center">
                 <div className="w-[300px] aspect-video rounded-xl bg-black relative overflow-hidden flex flex-col justify-between p-3 opacity-75">
+                  {/* The genuine source frame at the same moment as the export opposite */}
                   <img
-                    src="https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=500&q=80"
-                    alt="Before preview"
+                    src={rawFootage169}
+                    alt="The original 16:9 source footage at the same moment, before reframing and captions"
                     className="absolute inset-0 w-full h-full object-cover filter brightness-50"
                   />
                   <span className="relative z-10 text-[10px] font-mono text-red-400 bg-black/80 px-2 py-0.5 rounded self-start">
                     16:9 Landscape (Uncut)
                   </span>
                   <div className="relative z-10 text-center text-xs text-slate-400">
-                    [No Subtitles • 4s Dead Pause Detected]
+                    [No Captions • No Reframe]
                   </div>
-                  <span className="relative z-10 text-[9px] font-mono text-slate-500 text-center">
-                    Flat Unmastered Audio Track
-                  </span>
                 </div>
               </div>
 
               <div className="md:col-span-7 space-y-4">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-semibold">
                   <XCircle size={14} />
-                  <span>High Drop-Off Risk Detected</span>
+                  <span>Unprepared for Short-Form</span>
                 </div>
                 <h3 className="text-2xl font-bold text-white">
-                  Why Raw Video <span className="text-red-400">Loses 80% of Viewers</span>
+                  What Raw Footage <span className="text-red-400">Is Missing</span>
                 </h3>
                 <ul className="space-y-2.5 text-xs sm:text-sm text-slate-400">
                   <li className="flex items-center gap-2.5">
@@ -295,21 +285,25 @@ function UseCases() {
       title: "Podcasters & Talk Shows",
       metric: "12+ Shorts / Ep",
       desc: "Transform long conversational recordings into high-converting highlight reels without scrubbing hours of video.",
+      img: ucPodcasters,
     },
     {
       title: "YouTube & Content Creators",
       metric: "10x Faster Output",
       desc: "Repurpose past long-form videos into daily YouTube Shorts, TikToks, and Instagram Reels to capture new subscribers.",
+      img: ucCreators,
     },
     {
       title: "Agencies & Media Networks",
       metric: "Multi-Client Kits",
       desc: "Manage high-volume client deliveries with dedicated workspaces, centralized brand kits, and automated publishing.",
+      img: ucAgencies,
     },
     {
       title: "Founders & Thought Leaders",
       metric: "5-Platform Kits",
       desc: "Turn keynotes and podcast appearances into high-authority LinkedIn posts, X threads, and vertical video clips.",
+      img: ucFounders,
     },
   ];
 
@@ -331,16 +325,22 @@ function UseCases() {
           {cases.map((item) => (
             <div
               key={item.title}
-              className="rounded-2xl bg-[#080B14] p-6 hover:bg-[#0D1120] transition-all flex flex-col justify-between shadow-xl"
+              className="rounded-2xl bg-[#080B14] overflow-hidden hover:bg-[#0D1120] transition-all flex flex-col justify-between shadow-xl"
             >
-              <div>
+              <div className="p-6 pb-0">
+                <img
+                  src={item.img}
+                  alt={item.title}
+                  loading="lazy"
+                  className="w-full h-32 object-cover rounded-xl mb-4 opacity-90"
+                />
                 <span className="inline-block text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#8753e3]/20 text-[#c4b5fd] mb-3">
                   {item.metric}
                 </span>
                 <h3 className="text-lg font-bold text-white mb-2">{item.title}</h3>
                 <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">{item.desc}</p>
               </div>
-              <div className="mt-4 pt-4 border-t border-white/[0.04] flex items-center justify-between text-xs text-[#bba9e8]">
+              <div className="m-6 mt-4 pt-4 border-t border-white/[0.04] flex items-center justify-between text-xs text-[#bba9e8]">
                 <span>Automated Workflow</span>
                 <ArrowRight size={14} />
               </div>
@@ -358,21 +358,25 @@ function HowItWorks() {
       number: "01",
       title: "Paste URL or Upload",
       text: "Paste a YouTube, Loom, or Drive link, or drop any raw 4K video file up to 2 GB.",
+      img: rawFootage169,
     },
     {
       number: "02",
       title: "AI Finds Viral Hooks",
       text: "Neural models scan audio velocity, emotional spikes, and dialogue to rank top moments.",
+      img: stepHooks,
     },
     {
       number: "03",
       title: "Auto-Reframe & Captions",
       text: "Speakers are centered in 9:16 with dynamic word-by-word karaoke captions.",
+      img: vireoOutput916,
     },
     {
       number: "04",
       title: "Publish to 5 Channels",
       text: "Queue posts directly to TikTok, Shorts, Reels, and X with auto-generated copy.",
+      img: stepPublish,
     },
   ];
 
@@ -395,9 +399,15 @@ function HowItWorks() {
           {steps.map((step) => (
             <div
               key={step.title}
-              className="rounded-2xl bg-[#080B14] p-6 hover:bg-[#0D1120] transition-all flex flex-col justify-between relative group shadow-xl"
+              className="rounded-2xl bg-[#080B14] overflow-hidden hover:bg-[#0D1120] transition-all flex flex-col justify-between relative group shadow-xl"
             >
-              <div>
+              <div className="p-6">
+                <img
+                  src={step.img}
+                  alt={step.title}
+                  loading="lazy"
+                  className="w-full h-28 object-cover rounded-xl mb-4 opacity-90"
+                />
                 <span className="text-3xl font-black text-[#8753e3]/40 group-hover:text-[#bba9e8] transition-colors block mb-2 font-mono">
                   {step.number}
                 </span>
