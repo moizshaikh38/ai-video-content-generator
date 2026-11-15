@@ -527,14 +527,21 @@ export class ClipRenderService {
         try {
           // Blur-fit layouts letterbox the source; anchor bottom captions to
           // the sharp content band so they do not sit on the blurred fill.
-          const bandAnchorPositionY =
-            reframeDecision.layoutMode === 'blur'
-              ? CaptionService.computeBlurFitBandAnchor(
-                  clip.aspect_ratio as ClipAspectRatio,
-                  reframeDecision.track?.source_width ?? undefined,
-                  reframeDecision.track?.source_height ?? undefined
-                )
-              : undefined;
+          // Screencast inset modes with a blurred stage letterbox the main
+          // content the same way; split_stacked has its own geometry.
+          const blurFitStage =
+            reframeDecision.layoutMode === 'blur' ||
+            (reframeDecision.layoutMode === 'screencast' &&
+              clip.crop_config?.screencast?.background === 'blur' &&
+              (clip.crop_config?.screencast?.mode === 'circular_inset' ||
+                clip.crop_config?.screencast?.mode === 'rounded_card_inset'));
+          const bandAnchorPositionY = blurFitStage
+            ? CaptionService.computeBlurFitBandAnchor(
+                clip.aspect_ratio as ClipAspectRatio,
+                reframeDecision.track?.source_width ?? undefined,
+                reframeDecision.track?.source_height ?? undefined
+              )
+            : undefined;
           const captionResult = await CaptionService.generateCaptionsForClip({
             clip,
             targetAspectRatio: clip.aspect_ratio as ClipAspectRatio,
