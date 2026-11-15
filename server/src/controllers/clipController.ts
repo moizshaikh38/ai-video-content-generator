@@ -5,6 +5,7 @@ import { AuthenticatedRequest, isValidUUID, ClipCandidateStatus, ClipAspectRatio
 import { ClipAnalysisService, activeClipAnalysisSet } from '../services/clipAnalysisService.js';
 import { ClipRenderService, isClipRenderActive, launchInlineRender } from '../services/clipRenderService.js';
 import { CaptionService } from '../services/captionService.js';
+import { mergeExtendedCues, maxCueEnd } from '../services/captionExtendMerge.js';
 import { WaveformService } from '../services/waveformService.js';
 import { ThumbnailService } from '../services/thumbnailService.js';
 import { SmartReframeService, activeReframeAnalysisSet } from '../services/smartReframeService.js';
@@ -1055,11 +1056,43 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
       const captionTrack = proj.tracks.find((t: any) => t.type === 'CAPTION' && !t.hidden);
       const captionItem = captionTrack?.items?.[0];
       if (captionItem?.caption && Array.isArray(captionItem.caption.cues) && captionItem.caption.cues.length > 0) {
-        const hasWords = captionItem.caption.cues.some((c: any) => Array.isArray(c.words) && c.words.length > 0);
+        let cuesOut = captionItem.caption.cues;
+        // Beyond-candidate extend: saved cues are authoritative through their
+        // coverage marker; if the clip's trim window now runs past it, append
+        // the newly exposed span from the transcript (append-only, so user
+        // edits and deletions inside the covered region are preserved).
+        const itemStart = typeof captionItem.timeline_start === 'number' ? captionItem.timeline_start : 0;
+        if (itemStart === 0) {
+          try {
+            const coveredEnd = typeof captionItem.caption.cues_covered_end === 'number'
+              ? captionItem.caption.cues_covered_end
+              : maxCueEnd(cuesOut);
+            const effectiveDuration = Number((
+              clip.end_seconds - clip.start_seconds -
+              Number(clip.trim_start_offset || 0) - Number(clip.trim_end_offset || 0)
+            ).toFixed(3));
+            if (effectiveDuration > coveredEnd + 0.05) {
+              const { data: transcript } = await dataRepository
+                .from('transcripts')
+                .select('*')
+                .eq('project_id', clip.project_id)
+                .eq('user_id', userId)
+                .maybeSingle();
+              if (transcript) {
+                const fresh = CaptionService.extractCuesForClipSettings(transcript, clip, undefined, { preserveCase: true });
+                const merged = mergeExtendedCues(cuesOut, fresh.cues as any, coveredEnd);
+                if (merged.appended > 0) cuesOut = merged.cues as any;
+              }
+            }
+          } catch {
+            // Fall through with the saved cues.
+          }
+        }
+        const hasWords = cuesOut.some((c: any) => Array.isArray(c.words) && c.words.length > 0);
         res.status(200).json({
           status: 'ok',
           timingMode: hasWords ? 'word' : 'segment',
-          cues: captionItem.caption.cues,
+          cues: cuesOut,
         });
         return;
       }

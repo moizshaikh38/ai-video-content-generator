@@ -1,5 +1,6 @@
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
+import { mergeExtendedCues, maxCueEnd, editorProjectCoveredEnd } from './captionExtendMerge.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { logger } from '../utils/logger.js';
@@ -1346,6 +1347,7 @@ export class CaptionService {
     let editorCues: TimedCaptionCue[] | null = null;
     let editorStyle: string | null = null;
     let editorPosition: string | null = null;
+    let editorCoveredEnd: number | null = null;
 
     try {
       const { data: proj } = await dataRepository
@@ -1361,6 +1363,7 @@ export class CaptionService {
           editorCues = extracted.cues;
           editorStyle = extracted.style || null;
           editorPosition = extracted.position || null;
+          editorCoveredEnd = editorProjectCoveredEnd(proj);
         }
       }
     } catch (err: any) {
@@ -1413,6 +1416,32 @@ export class CaptionService {
       const hasWords = editorCues.some((c) => Array.isArray(c.words) && c.words.length > 0);
       timingMode = hasWords ? 'word' : 'segment';
       cues = editorCues;
+
+      // Beyond-candidate extend: if the clip's current trim window runs past
+      // the saved cues' coverage, append the newly exposed span from the
+      // transcript. Append-only: user edits and deletions inside the covered
+      // region are never regenerated or resurrected.
+      if (transcript) {
+        try {
+          const coveredEnd = editorCoveredEnd ?? maxCueEnd(editorCues);
+          const effectiveDuration = Number((
+            clip.end_seconds - clip.start_seconds -
+            Number(clip.trim_start_offset || 0) - Number(clip.trim_end_offset || 0)
+          ).toFixed(3));
+          if (effectiveDuration > coveredEnd + 0.05) {
+            const fresh = this.extractCuesForClipSettings(transcript, clip, targetAspectRatio);
+            const merged = mergeExtendedCues(editorCues, fresh.cues as any, coveredEnd);
+            if (merged.appended > 0) {
+              cues = merged.cues as TimedCaptionCue[];
+              if (merged.cues.some((c) => Array.isArray(c.words) && c.words.length > 0)) {
+                timingMode = 'word';
+              }
+            }
+          }
+        } catch (extendErr: any) {
+          logger.warn(`Caption extend merge skipped for clip ${clip.id}: ${extendErr.message}`);
+        }
+      }
       if (preset && timingMode === 'segment') {
         cues = cues.map((c) => ({ ...c, text: formatSegmentCueText(c.text, preset!) }));
       }
