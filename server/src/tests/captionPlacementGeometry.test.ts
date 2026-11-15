@@ -28,7 +28,7 @@ test('explicit caption.position_y passes through unchanged (intentional saved po
   assert.equal(o.positionX, 0.4);
 });
 
-test('resolved preset marginV anchors the bottom edge at positionY (export parity)', () => {
+test('resolved preset marginV anchors the bottom edge at positionY (export parity)', async () => {
   const style = resolveEditorCaptionStyle(
     { cues: [], style: 'karaoke' } as any,
     '9:16',
@@ -39,4 +39,41 @@ test('resolved preset marginV anchors the bottom edge at positionY (export parit
   const expectedMarginV = Math.round(style!.playResY * (1 - 0.76));
   assert.equal(style!.marginV, expectedMarginV);
   assert.equal(style!.alignment, 2); // bottom-center: block bottom edge sits at playResY - marginV
+
+  // ASS export must request bold for Arial Black so fontconfig resolves a heavy face
+  // (matches the browser CSS font-weight:900 fallback); see shared/captionPresets.
+  const { buildPresetAssStyleLine } = await import("../shared/captionPresets.js");
+  const line = buildPresetAssStyleLine(style!);
+  assert.equal(line.split(",")[7], "1");
+});
+
+test('auto-headline mapping: untouched omits overlayConfig, deleted sets enabled:false, edited sends text', async () => {
+  const { buildClipEditorUpdatePayload } = await import('../../../src/lib/editorSavePayload.js');
+  const mkProject = (textItems: any[]) => ({
+    canvas: { aspect_ratio: '9:16' },
+    tracks: [
+      { type: 'VIDEO', items: [{ id: 'v1', hidden: false, source_start: 0, source_end: 10, timeline_start: 0, timeline_end: 10 }] },
+      { type: 'TEXT', items: textItems },
+    ],
+  });
+  const clip = { title: 'The Crewed Lunar Vehicle: A New Frontier', end_seconds: 10 } as any;
+  const capped = 'The Crewed Lunar Vehicle: A New Frontier';
+  // Untouched auto-headline item -> no overlayConfig in payload (legacy auto-headline keeps firing)
+  const untouched = buildClipEditorUpdatePayload(mkProject([
+    { id: 't1', hidden: false, text: { text: capped, auto_headline: true } },
+  ]) as any, clip);
+  assert.equal(untouched.overlayConfig, undefined);
+  // Deleted (no text items at all) -> enabled:false persisted so export suppresses the headline
+  const deleted = buildClipEditorUpdatePayload(mkProject([]) as any, clip);
+  assert.deepEqual(deleted.overlayConfig, { enabled: false, text: '' });
+  // Edited headline text -> enabled:true with the new text
+  const edited = buildClipEditorUpdatePayload(mkProject([
+    { id: 't1', hidden: false, text: { text: 'A Better Title', auto_headline: true } },
+  ]) as any, clip);
+  assert.deepEqual(edited.overlayConfig, { enabled: true, text: 'A Better Title' });
+  // User-added text item with the auto item removed keeps the suppression (no resurrection)
+  const replaced = buildClipEditorUpdatePayload(mkProject([
+    { id: 't2', hidden: false, text: { text: 'Custom overlay' } },
+  ]) as any, clip);
+  assert.equal(replaced.overlayConfig, undefined, 'custom item present: leave overlay state alone');
 });

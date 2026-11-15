@@ -1616,7 +1616,12 @@ export function buildPresetAssStyleLine(style: ResolvedCaptionStyle, styleName =
     ? hexToAssColor(style.box.color, Math.round((1 - style.box.opacity) * 255))
     : hexToAssColor(style.outlineColor);
   const backColour = hexToAssColor(style.shadowColor, Math.round((1 - style.shadowOpacity) * 255));
-  const bold = style.bold && style.fontFamily !== 'Arial Black' ? 1 : 0;
+  // Arial Black is inherently heavy, so the family alone carries the weight when the
+  // real font is installed; but fontconfig on systems WITHOUT Arial Black resolves it
+  // to the regular Book face of a fallback family (e.g. DejaVu Sans), while browser CSS
+  // font-weight:900 resolves to the Bold face. Requesting bold keeps both paths on a
+  // heavy face either way (real Arial Black is already weight 900, so bold is a no-op).
+  const bold = style.bold || style.fontFamily === 'Arial Black' ? 1 : 0;
   return [
     `Style: ${styleName}`,
     style.fontFamily,

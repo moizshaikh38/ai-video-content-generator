@@ -31,11 +31,34 @@ export function buildClipEditorUpdatePayload(
     ...(itemCropConfig?.smart ? { smart: itemCropConfig.smart } : {}),
   };
 
+  // Auto-headline parity mapping: proEditorService mirrors clip.title as a text item
+  // when overlay_config is unset. If the user deleted that item, persist enabled:false
+  // so the legacy render stops burning the title; if the text was edited, persist the
+  // new text. Untouched => omit overlayConfig so the auto-headline keeps firing.
+  let overlayConfigUpdate: Record<string, any> | undefined;
+  const clipOverlay = (clip as any).overlay_config;
+  const titleText = String((clip as any).title || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (clipOverlay?.enabled === undefined && !clipOverlay?.text && titleText) {
+    const capped = titleText.length > 60 ? titleText.slice(0, 57).trimEnd() + '...' : titleText;
+    const textTrack = project.tracks.find((t: any) => t.type === 'TEXT');
+    const textItems = (textTrack?.items || []).filter((i: any) => !i.hidden && i.text?.text);
+    const joined = (t: string) => t.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const headlineItem =
+      textItems.find((i: any) => i.text?.auto_headline === true) ||
+      textItems.find((i: any) => joined(String(i.text.text)) === capped);
+    if (!headlineItem && textItems.length === 0) {
+      overlayConfigUpdate = { enabled: false, text: '' };
+    } else if (headlineItem && joined(String((headlineItem.text as any)?.text ?? "")) !== capped) {
+      overlayConfigUpdate = { enabled: true, text: joined(String((headlineItem.text as any)?.text ?? '')) };
+    }
+  }
+
   return {
     aspectRatio: project.canvas.aspect_ratio || '9:16',
     trimStartOffset: Math.max(0, Number(trimStart.toFixed(3))),
     trimEndOffset: Math.max(0, Number(trimEnd.toFixed(3))),
     cropConfig,
+    ...(overlayConfigUpdate ? { overlayConfig: overlayConfigUpdate } : {}),
     captionEnabled: !captionTrack?.hidden,
     captionStyle: captionItem?.caption?.style || 'clean',
     captionPosition: captionItem?.caption?.position || 'bottom',

@@ -1725,7 +1725,10 @@ export class ClipRenderService {
 
 
     // Overlay config
-    let safeOverlay = clip.overlay_config || { enabled: false, text: '' };
+    // Preserve an unset overlay_config (undefined) so the auto-headline keeps firing for
+    // untouched clips; only an explicit overlayConfig update changes it. Previously this
+    // defaulted to { enabled: false }, silently suppressing the headline on any editor save.
+    let safeOverlay = clip.overlay_config;
     if (update.overlayConfig) {
       const text = typeof update.overlayConfig.text === 'string'
         ? update.overlayConfig.text.replace(/[\r\n]+/g, ' ').replace(/['\\]/g, '').slice(0, 120).trim()
@@ -1904,7 +1907,7 @@ export class ClipRenderService {
       caption_position: update.captionPosition || clip.caption_position || 'bottom',
       caption_config: safeCaptionConfig,
       crop_config: safeCrop,
-      overlay_config: safeOverlay,
+      ...(safeOverlay !== undefined ? { overlay_config: safeOverlay } : {}),
       volume: safeVolume,
       muted: safeMuted,
       background_music: safeBackgroundMusic,

@@ -1793,6 +1793,65 @@ export class ProEditorService {
     const hookText = producerPlan?.operations.find((o) => o.type === 'HOOK_TEXT')?.parameters.text ||
       clip.overlay_config?.text;
 
+    // Auto-headline parity: the legacy render burns clip.title as a timed headline
+    // (ClipRenderService.buildHeadlineSpec) whenever overlay_config is unset. Mirror it
+    // as an editable text item so the studio preview shows what export will burn.
+    const autoHeadlineText =
+      !hookText && clip.overlay_config?.enabled === undefined && !clip.overlay_config?.text && clip.title
+        ? String(clip.title).replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()
+        : null;
+    if (!hookText && autoHeadlineText) {
+      const capped = autoHeadlineText.length > 60 ? autoHeadlineText.slice(0, 57).trimEnd() + '...' : autoHeadlineText;
+      let headLines = [capped];
+      if (capped.length > 26) {
+        const words = capped.split(' ');
+        let best = -1;
+        let bestImbalance = Infinity;
+        let acc = 0;
+        for (let i = 0; i < words.length - 1; i++) {
+          acc += words[i].length + 1;
+          const imbalance = Math.abs(capped.length - 2 * acc);
+          if (imbalance < bestImbalance) {
+            bestImbalance = imbalance;
+            best = i;
+          }
+        }
+        if (best >= 0) headLines = [words.slice(0, best + 1).join(' '), words.slice(best + 1).join(' ')];
+      }
+      const longest = Math.max(...headLines.map((l) => l.length));
+      const tier = longest <= 22 ? 64 : longest <= 28 ? 56 : longest <= 34 ? 48 : 40;
+      textItems.push({
+        id: crypto.randomUUID(),
+        track_id: textTrackId,
+        type: 'TEXT',
+        timeline_start: 0,
+        timeline_end: Math.min(5, finalDuration),
+        source_start: 0,
+        source_end: Math.min(5, finalDuration),
+        // y=150 on the 1920-tall canvas (legacy drawtext position) => (150-960)/3 = -270 preview px
+        transform: { position_x: 0, position_y: -270, scale: 1.0, rotation: 0, opacity: 1.0 },
+        speed: { speed: 1.0, pitch_preserved: true },
+        text: {
+          text: headLines.join('\n'),
+          font_family: 'Arial',
+          font_size: Math.max(12, Math.round(tier / 3)),
+          font_weight: 'regular',
+          italic: false,
+          alignment: 'center',
+          color: '#FFFFFF',
+          preset: 'bold',
+          animation: 'none',
+          auto_headline: true,
+        } as any,
+        effects: [],
+        keyframes: [],
+        locked: false,
+        muted: true,
+        hidden: false,
+        z_index: 10,
+      });
+    }
+
     if (hookText) {
       textItems.push({
         id: crypto.randomUUID(),
