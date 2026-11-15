@@ -16,6 +16,13 @@ import { EditorProject, EditorTrack, EditorTrackItem } from '../types';
  * music bed (no dominant scene) correctly stay put. Nothing is silently left
  * misaligned: if a LOCKED track holds any item intersecting a moved scene's
  * span, the reorder is refused instead of leaving locked content behind.
+ *
+ * Caption cues are speech-anchored, so a cue that STRADDLES a scene boundary
+ * is never dragged wholesale onto one side: when the scenes under it move by
+ * different deltas, the cue is split at the original boundary and each
+ * fragment follows its own scene, with word timings partitioned by word
+ * center. Words are what actually render, so alignment is preserved exactly;
+ * a cue without word timings falls back to the dominant-delta whole shift.
  */
 
 export interface ReorderResult {
@@ -115,34 +122,109 @@ export function computeSceneReorder(
     return bestOverlap > dur / 2 ? bestDelta : 0;
   };
 
+  // Per-time scene delta over the ORIGINAL layout: every scene's span maps
+  // to its repack delta (0 for scenes that did not move), outside spans 0.
+  const sceneSpans = ordered.map((s) => ({
+    s: s.timeline_start,
+    e: s.timeline_end,
+    d: deltaById.get(s.id) ?? 0,
+  }));
+  const deltaAt = (t: number): number => {
+    for (const sp of sceneSpans) {
+      if (t >= sp.s && t < sp.e) return sp.d;
+    }
+    return 0;
+  };
+  const round3 = (v: number) => Math.max(0, Math.round(v * 1000) / 1000);
+
+  // Remap one caption cue. Cues are speech-anchored: if a cue straddles scene
+  // boundaries whose sides move by different deltas, split it at the original
+  // boundaries and shift each fragment with its own scene, partitioning word
+  // timings by word center so burned text stays on the speech it belongs to.
+  // Without word timings a split would garble the text, so fall back to the
+  // dominant-delta whole shift.
+  const remapCue = (cue: any): any[] => {
+    const cs = Number(cue.start) || 0;
+    const ce = Number(cue.end) || 0;
+    if (ce - cs <= 0.001) return [cue];
+    const boundaries = sceneSpans
+      .map((sp) => sp.e)
+      .filter((b) => b > cs + 0.001 && b < ce - 0.001)
+      .sort((a, b) => a - b);
+    const words = Array.isArray(cue.words) ? cue.words : null;
+    const deltasDiffer = boundaries.some((b) => deltaAt(b - 0.001) !== deltaAt(b + 0.001));
+    if (boundaries.length === 0 || !deltasDiffer) {
+      const d = boundaries.length === 0 ? deltaAt((cs + ce) / 2) : deltaAt(cs + 0.001);
+      if (d === 0) return [cue];
+      return [
+        {
+          ...cue,
+          start: round3(cs + d),
+          end: round3(ce + d),
+          words: words
+            ? words.map((w: any) => ({ ...w, start: round3(w.start + d), end: round3(w.end + d) }))
+            : cue.words,
+        },
+      ];
+    }
+    if (!words || words.length === 0) {
+      // No word timings: keep the cue whole on its dominant side.
+      const d = dominantDelta(cs, ce);
+      if (d === 0) return [cue];
+      return [{ ...cue, start: round3(cs + d), end: round3(ce + d) }];
+    }
+    const points = [cs, ...boundaries, ce];
+    const fragments: any[] = [];
+    for (let k = 0; k < points.length - 1; k++) {
+      const fs = points[k];
+      const fe = points[k + 1];
+      const d = deltaAt((fs + fe) / 2);
+      const fragWords = words.filter((w: any) => {
+        const c = (Number(w.start) + Number(w.end)) / 2;
+        return c >= fs - 0.001 && c < fe - 0.001 + (k === points.length - 2 ? 0.002 : 0);
+      });
+      const fragStart = round3(fs + d);
+      const fragEnd = round3(fe + d);
+      fragments.push({
+        ...cue,
+        id: k === 0 ? cue.id : `${cue.id}-x${k}`,
+        start: fragStart,
+        end: fragEnd,
+        text: fragWords.map((w: any) => w.text ?? w.word ?? '').join(' ').trim() || cue.text,
+        // A word straddling the split boundary keeps its duration but clamps
+        // into its fragment's shifted span rather than drifting outside it.
+        words: fragWords.map((w: any) => ({
+          ...w,
+          start: Math.max(fragStart, round3(w.start + d)),
+          end: Math.min(fragEnd, Math.max(fragStart, round3(w.end + d))),
+        })),
+      });
+    }
+    // A fragment whose span holds no words has no speech from this cue -
+    // keeping it would duplicate the full original text with no timings.
+    return fragments.filter((f) => f.words.length > 0);
+  };
+
   // Followers on unlocked tracks. CAPTION items never move as a whole - their
-  // cues (and word timings) are timeline-addressed content, so each cue
-  // follows its own dominant scene; that keeps burned text on the speech it
-  // belongs to when scenes swap. Other items (audio, b-roll, text, overlays)
-  // shift by their dominant scene; track-spanning items like a music bed have
-  // no dominant scene and correctly stay put.
+  // cues (and word timings) are timeline-addressed content, remapped per cue
+  // (and split at scene boundaries when needed, see remapCue). Other items
+  // (audio, b-roll, text, overlays) shift by their dominant scene;
+  // track-spanning items like a music bed have no dominant scene and
+  // correctly stay put.
   let movedCount = 0;
   const newTracks = project.tracks.map((t) => {
     if (t.id === trackId) return { ...t, items: newTrackItems };
     const items = t.items.map((it) => {
       if (t.type === 'CAPTION' && it.caption && Array.isArray(it.caption.cues)) {
-        let cueMoved = false;
-        const cues = it.caption.cues.map((cue: any) => {
-          const d = dominantDelta(Number(cue.start) || 0, Number(cue.end) || 0);
-          if (d === 0) return cue;
-          cueMoved = true;
-          const shift = (v: any) =>
-            typeof v === 'number' ? Math.max(0, Math.round((v + d) * 1000) / 1000) : v;
-          return {
-            ...cue,
-            start: shift(cue.start),
-            end: shift(cue.end),
-            words: Array.isArray(cue.words)
-              ? cue.words.map((w: any) => ({ ...w, start: shift(w.start), end: shift(w.end) }))
-              : cue.words,
-          };
-        });
-        if (cueMoved) {
+        const origCues: any[] = it.caption.cues;
+        const cues = origCues.flatMap((cue: any) => remapCue(cue));
+        const changed =
+          cues.length !== origCues.length ||
+          cues.some((c: any, i: number) => {
+            const o = origCues[i];
+            return !o || o.id !== c.id || o.start !== c.start || o.end !== c.end;
+          });
+        if (changed) {
           movedCount++;
           return { ...it, caption: { ...it.caption, cues } };
         }

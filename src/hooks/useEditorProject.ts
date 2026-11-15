@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   EditorProject,
   EditorTrackItem,
@@ -69,6 +69,62 @@ export interface UseEditorProjectReturn {
   rippleDeleteTrackItem: (trackId: string, itemId: string) => void;
   duplicateTrackItem: (trackId: string, itemId: string) => void;
   reloadProject: (options?: { silent?: boolean }) => Promise<void>;
+}
+
+// Canonical absolute-time cues aggregated from a project's visible caption
+// items - the same convention as the load path (segment-relative item cues
+// are shifted by the item's timeline start).
+function deriveCaptionCuesFromProject(project: EditorProject): TimedCaptionCue[] | null {
+  const capTrack = project.tracks?.find((t) => t.type === 'CAPTION' && !t.hidden);
+  if (!capTrack || !Array.isArray(capTrack.items)) return null;
+  const validItems = capTrack.items.filter(
+    (i: any) => !i.hidden && i.caption && Array.isArray(i.caption.cues) && i.caption.cues.length > 0
+  );
+  if (validItems.length === 0) return null;
+  const aggregated: TimedCaptionCue[] = [];
+  const seenIds = new Set<string>();
+  for (const itm of validItems.sort((a, b) => (a.timeline_start || 0) - (b.timeline_start || 0))) {
+    const startOff = itm.timeline_start || 0;
+    const itmCues = (itm.caption?.cues ?? []) as TimedCaptionCue[];
+    const isSegRel = startOff > 0 && itmCues.length > 0 && itmCues[0].start < startOff - 0.05;
+    for (const c of itmCues) {
+      if (seenIds.has(c.id)) continue;
+      seenIds.add(c.id);
+      aggregated.push({
+        ...c,
+        start: isSegRel ? Number((c.start + startOff).toFixed(3)) : c.start,
+        end: isSegRel ? Number((c.end + startOff).toFixed(3)) : c.end,
+        words: Array.isArray(c.words)
+          ? c.words.map((w) => ({
+              ...w,
+              start: isSegRel ? Number((w.start + startOff).toFixed(3)) : w.start,
+              end: isSegRel ? Number((w.end + startOff).toFixed(3)) : w.end,
+            }))
+          : c.words,
+      });
+    }
+  }
+  aggregated.sort((a, b) => a.start - b.start);
+  return aggregated;
+}
+
+// Content equality over the fields the transcript panel and preview render.
+function cueListsEqual(a: TimedCaptionCue[], b: TimedCaptionCue[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i];
+    const y = b[i];
+    if (x.id !== y.id || x.start !== y.start || x.end !== y.end || x.text !== y.text) return false;
+    const xw = x.words || [];
+    const yw = y.words || [];
+    if (xw.length !== yw.length) return false;
+    for (let k = 0; k < xw.length; k++) {
+      if (xw[k].start !== yw[k].start || xw[k].end !== yw[k].end || xw[k].text !== yw[k].text) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 export function useEditorProject(clipId: string | undefined): UseEditorProjectReturn {
@@ -231,6 +287,33 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // The transcript panel and preview caption overlay read a separate `cues`
+  // state seeded at load. Caption edits write both that state and the caption
+  // items, but project-level mutations that retime item cues directly (scene
+  // reorder, undo/redo, API-driven changes) used to leave the panel showing
+  // stale cue times. Resync whenever the cues derivable from the project's
+  // caption items actually change; extension-tail cues beyond the items'
+  // coverage (panel view of not-yet-healed transcript spans) are preserved.
+  const lastItemCuesRef = useRef<TimedCaptionCue[] | null>(null);
+  useEffect(() => {
+    if (!project) return;
+    const derived = deriveCaptionCuesFromProject(project);
+    const prev = lastItemCuesRef.current;
+    lastItemCuesRef.current = derived;
+    if (!derived || (prev && cueListsEqual(prev, derived))) return;
+    setCues((current) => {
+      if (cueListsEqual(current, derived)) return current;
+      const maxEnd = derived.reduce((m, c) => Math.max(m, c.end || 0), 0);
+      const derivedIds = new Set(derived.map((c) => c.id));
+      const tail = current.filter(
+        (c) => (c.start || 0) >= maxEnd - 0.001 && !derivedIds.has(c.id)
+      );
+      return tail.length > 0
+        ? [...derived, ...tail].sort((a, b) => a.start - b.start)
+        : derived;
+    });
+  }, [project]);
 
   // Mutate project with optional history and autosave trigger
   const updateProject = useCallback(
