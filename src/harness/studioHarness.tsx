@@ -289,6 +289,7 @@ function Harness() {
         project={project}
         cleanSourceUrl={harnessQuery.get('nasa') === '1' ? '/harness/clip-nasa-seg.mp4' : '/harness/clip.mp4'}
         renderedPreviewUrl={null}
+        watermarkRequired={false}
         cues={(harnessQuery.get('nasa') === '1' ? nasaCues : cues) as any}
         canUndo={false}
         canRedo={false}

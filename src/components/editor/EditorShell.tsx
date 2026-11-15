@@ -50,6 +50,7 @@ interface EditorShellProps {
   project: EditorProject;
   cleanSourceUrl: string | null;
   renderedPreviewUrl: string | null;
+  watermarkRequired: boolean;
   cues: TimedCaptionCue[];
   canUndo: boolean;
   canRedo: boolean;
@@ -79,6 +80,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   project,
   cleanSourceUrl,
   renderedPreviewUrl,
+  watermarkRequired,
   cues,
   canUndo,
   canRedo,
@@ -179,6 +181,9 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
   // Dialogs state
   const [isExportDialogOpen, setIsExportDialogOpen] = useState<boolean>(false);
+  // Concise notice when an extend cannot supply full caption coverage
+  // (missing/short transcript) or the coverage fetch fails after extending.
+  const [extendCaptionNotice, setExtendCaptionNotice] = useState<string | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
   // Intro/outro: which menu is open, and a pending position armed for the next media pick.
   const [introOutroMenu, setIntroOutroMenu] = useState<'intro' | 'outro' | null>(null);
@@ -791,10 +796,18 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             }
             if (!saved) {
               console.error('[extend-heal] save did not complete; caption coverage will heal on next editor load.');
+              setExtendCaptionNotice(
+                'Clip extended, but saving failed. Captions for the added footage will load on next open.'
+              );
               return;
             }
             const cap = await clipRenderService.getClipCaptions(clip.id);
-            if (!Array.isArray(cap?.cues) || cap.cues.length === 0) return;
+            if (!Array.isArray(cap?.cues) || cap.cues.length === 0) {
+              setExtendCaptionNotice(
+                'Clip extended, but no transcript captions are available for this clip yet.'
+              );
+              return;
+            }
             onUpdateProject((prev) => {
               const { tracks: healed, appended, markersChanged } = healCaptionTracks(
                 prev.tracks,
@@ -802,12 +815,24 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 prev.canvas?.duration
               );
               if (!markersChanged) return prev;
-              void appended;
+              if (appended === 0) {
+                // Coverage did not move past the pre-extend boundary: the
+                // transcript has no words in the extended span (missing or
+                // shorter than the extension), so captions cannot cover it.
+                setExtendCaptionNotice(
+                  'The transcript has no words in the added footage, so captions cannot cover the full extension.'
+                );
+              } else {
+                setExtendCaptionNotice(null);
+              }
               return { ...prev, tracks: healed };
             });
           } catch (e) {
             // The heal re-runs on next editor load; surface for diagnostics.
             console.error('[extend-heal] failed:', e);
+            setExtendCaptionNotice(
+              'Clip extended, but loading captions for the added footage failed. They will retry on next open.'
+            );
           }
         })();
       }}
@@ -1389,7 +1414,22 @@ export const EditorShell: React.FC<EditorShellProps> = ({
           </div>
         ) : (
           <div className="w-[320px] md:w-[340px] xl:w-[360px] shrink-0 glass-dock flex flex-col min-h-0 z-20 border-l border-white/[0.08]">
-            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">{transcriptPanel}</div>
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              {extendCaptionNotice && (
+                <div className="mx-3 mt-2 flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-950/40 border border-amber-800/50">
+                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                  <p className="text-[11px] text-amber-200/90 leading-snug">{extendCaptionNotice}</p>
+                  <button
+                    onClick={() => setExtendCaptionNotice(null)}
+                    className="ml-auto text-amber-300/70 hover:text-amber-200 text-xs px-1"
+                    aria-label="Dismiss"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              {transcriptPanel}
+            </div>
           </div>
         )}
 
@@ -1595,6 +1635,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
           if (saved !== false) triggerRender();
         }}
         downloadUrl={renderedPreviewUrl}
+        watermarkRequired={watermarkRequired}
       />
 
       {/* 5. COMMAND PALETTE (Cmd+K) */}

@@ -34,6 +34,7 @@ export interface UseEditorProjectReturn {
   cleanSourceUrl: string | null;
   renderedPreviewUrl: string | null;
   previewUrl: string | null;
+  watermarkRequired: boolean;
   cues: TimedCaptionCue[];
   timingMode: string;
   canUndo: boolean;
@@ -79,6 +80,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
   const [cleanSourceUrl, setCleanSourceUrl] = useState<string | null>(null);
   const [renderedPreviewUrl, setRenderedPreviewUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [watermarkRequired, setWatermarkRequired] = useState<boolean>(false);
   const [cues, setCues] = useState<TimedCaptionCue[]>([]);
   const [timingMode, setTimingMode] = useState<string>('segment');
 
@@ -109,6 +111,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
 
       const cleanSrc = editorData.cleanSourceUrl || null;
       const renderedSrc = editorData.renderedPreviewUrl || null;
+      setWatermarkRequired(editorData.watermarkRequired === true);
       setCleanSourceUrl(cleanSrc);
       setRenderedPreviewUrl(renderedSrc);
       // Prioritize clean source for editing canvas, fall back to previewUrl
@@ -775,6 +778,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
     cleanSourceUrl,
     renderedPreviewUrl,
     previewUrl,
+    watermarkRequired,
     cues,
     timingMode,
     canUndo,

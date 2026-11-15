@@ -845,11 +845,13 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
           </div>
         ) : (
           <>
-            {/* Restore trimmed end: reclaims trimmed tail within the original
-                candidate range (same semantics as timeline trim-right). True
-                extension beyond the candidate range is not supported by the
-                clip data model yet, so the control is named for what it does
-                and disabled when there is nothing to restore. */}
+            {/* Extend at the clip tail: reclaims the trimmed tail and, when
+                the source media runs past the candidate boundary, extends into
+                it (same field updates as timeline trim-right, plus the canvas
+                duration). Caption coverage for the newly exposed span is
+                appended append-only from the transcript after save; a concise
+                notice appears when the transcript cannot cover it. Disabled
+                when there is nothing left to extend. */}
             <div className="pb-1 select-none">
               <button
                 type="button"

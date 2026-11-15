@@ -32,6 +32,7 @@ interface ExportDialogProps {
   renderSuccessMsg: string | null;
   onTriggerRender: () => void;
   downloadUrl?: string | null;
+  watermarkRequired?: boolean;
 }
 
 export const ExportDialog: React.FC<ExportDialogProps> = ({
@@ -47,6 +48,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   renderSuccessMsg,
   onTriggerRender,
   downloadUrl,
+  watermarkRequired = false,
 }) => {
   const [resolution, setResolution] = useState<'1080p' | '720p'>('1080p');
   const [burnCaptions, setBurnCaptions] = useState<boolean>(true);
@@ -201,6 +203,15 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                   className="w-4 h-4 rounded accent-white cursor-pointer"
                 />
               </div>
+
+              {watermarkRequired && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-950/30 border border-amber-800/40">
+                  <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                  <p className="text-[11px] text-amber-200/90 leading-snug">
+                    Exports on your current plan include a VireoClip watermark.
+                  </p>
+                </div>
+              )}
 
               {/* Pro NLE Timeline XML Export Bridge */}
               {project && (

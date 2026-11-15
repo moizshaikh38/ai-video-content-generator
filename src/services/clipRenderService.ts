@@ -115,6 +115,7 @@ class ClipRenderService {
     cleanSourceUrl?: string;
     renderedPreviewUrl?: string;
     editorProject?: any;
+    watermarkRequired?: boolean;
   }> {
     return backendRequest(`/clips/${clipId}/editor`);
   }
