@@ -2,10 +2,11 @@
 // Media Library -> Studio editor) with a mock caption-enabled project and
 // no-op service callbacks, so the studio caption controls can be
 // pixel-verified locally. No auth or production code changes.
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { EditorShell } from '../components/editor/EditorShell';
+import { buildClipEditorUpdatePayload } from '../lib/editorSavePayload';
 import '../index.css';
 
 const words = [
@@ -98,12 +99,59 @@ const clip: any = {
   updated_at: new Date().toISOString(),
 };
 
+// Deterministic initial UI state for pixel captures: pre-seed the persisted
+// panel pref (typography tab) and, for mode=single, the word-mode fields,
+// so screenshots do not depend on post-mount click timing. The click path
+// below still exercises the real controls for DOM verification.
+const harnessQuery = new URLSearchParams(window.location.search);
+try {
+  localStorage.setItem('vireo_panel_ui_v1', JSON.stringify({ 'captions.tab': 'typography' }));
+} catch {}
+const seedProject: any =
+  harnessQuery.get('mode') === 'single'
+    ? {
+        ...initialProject,
+        tracks: initialProject.tracks.map((t: any) =>
+          t.id === 'track-caption'
+            ? {
+                ...t,
+                items: t.items.map((i: any) => ({
+                  ...i,
+                  caption: { ...i.caption, max_words_per_cue: 1, max_lines: 1 },
+                })),
+              }
+            : t
+        ),
+      }
+    : initialProject;
+
 function Harness() {
-  const [project, setProject] = useState<any>(initialProject);
+  const [project, setProject] = useState<any>(seedProject);
+  const projectRef = useRef<any>(seedProject);
+  projectRef.current = project;
 
   // Switch to the typography tab and (optionally) flip Word Mode, after mount.
+  // With ?dump=save, also render the exact clip-editor save payload (built by
+  // the same buildClipEditorUpdatePayload the autosave uses) into an overlay
+  // so the serialization can be inspected without auth/transport.
   useState(() => {
     const q = new URLSearchParams(window.location.search);
+    const dumpPayload = () => {
+      if (q.get('dump') !== 'save') return;
+      setTimeout(() => {
+        const payload = buildClipEditorUpdatePayload(projectRef.current, clip);
+        let el = document.getElementById('save-payload');
+        if (!el) {
+          el = document.createElement('pre');
+          el.id = 'save-payload';
+          el.style.cssText =
+            'position:fixed;left:360px;bottom:8px;z-index:9999;max-width:520px;max-height:260px;overflow:auto;background:#0a0a0a;color:#7ee787;font:10px/1.4 monospace;padding:8px;border:1px solid #333;border-radius:6px;margin:0;white-space:pre-wrap;';
+          document.body.appendChild(el);
+        }
+        el.textContent = 'SAVE PAYLOAD (PATCH /clips/:id/editor body, transport not exercised):\n' + JSON.stringify(payload, null, 2);
+        document.title = 'payload-ready';
+      }, 400);
+    };
     const tryClick = (attempts: number) => {
       const tabs = Array.from(document.querySelectorAll('[role="tab"]')) as HTMLElement[];
       const typo = tabs.find((t) => t.id === 'caption-tab-typography');
@@ -117,9 +165,11 @@ function Harness() {
           const btn = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Single word');
           if (btn) (btn as HTMLElement).click();
           document.title = 'flipped-single';
+          dumpPayload();
         }, 500);
       } else {
         document.title = 'typography-tab';
+        dumpPayload();
       }
     };
     setTimeout(() => tryClick(30), 1200);

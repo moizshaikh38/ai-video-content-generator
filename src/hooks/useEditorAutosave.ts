@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { EditorProject, RenderedClip } from '../types';
 import { proEditorService } from '../services/proEditorService';
 import { clipRenderService } from '../services/clipRenderService';
-import { editorCaptionToPresetOverrides, getEditorCaptionPresetId } from '../lib/captionPresets';
+import { buildClipEditorUpdatePayload } from '../lib/editorSavePayload';
 
 export type SaveStatus = 'saved' | 'saving' | 'dirty' | 'error';
 
@@ -63,47 +63,10 @@ export function useEditorAutosave(
       });
 
       // 2. Also persist synced clip fields (trim, aspect ratio, volume, captions)
-      const primaryVideo = current.tracks
-        .find((t) => t.type === 'VIDEO')
-        ?.items.find((i) => !i.hidden);
-
-      const captionTrack = current.tracks.find((t) => t.type === 'CAPTION');
-      const captionItem = captionTrack?.items[0];
-      const presetId = getEditorCaptionPresetId(captionItem?.caption);
-
-      const trimStart = primaryVideo ? primaryVideo.source_start - clip.start_seconds : 0;
-      const trimEnd = primaryVideo ? clip.end_seconds - primaryVideo.source_end : 0;
-
-      const updatedClip = await clipRenderService.updateClipEditor(clip.id, {
-        aspectRatio: current.canvas.aspect_ratio || '9:16',
-        trimStartOffset: Math.max(0, Number(trimStart.toFixed(3))),
-        trimEndOffset: Math.max(0, Number(trimEnd.toFixed(3))),
-        captionEnabled: !captionTrack?.hidden,
-        captionStyle: captionItem?.caption?.style || 'clean',
-        captionPosition: captionItem?.caption?.position || 'bottom',
-        // Caption settings & overrides: sync preset adjustments and edited cue overrides
-        ...(captionItem?.caption
-          ? {
-              captionConfig: {
-                ...(presetId
-                  ? {
-                      presetId,
-                      presetOverrides: editorCaptionToPresetOverrides(captionItem.caption, captionItem.transform),
-                    }
-                  : {}),
-                caption_overrides: Array.isArray(captionItem.caption.cues)
-                  ? captionItem.caption.cues.map((c) => ({
-                      id: c.id,
-                      cueId: c.id,
-                      text: c.text,
-                      start: c.start,
-                      end: c.end,
-                    }))
-                  : undefined,
-              },
-            }
-          : {}),
-      });
+      const updatedClip = await clipRenderService.updateClipEditor(
+        clip.id,
+        buildClipEditorUpdatePayload(current, clip)
+      );
 
       lastSavedVersionRef.current = updatedProject.version;
       setSaveStatus('saved');
