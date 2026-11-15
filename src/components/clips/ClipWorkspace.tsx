@@ -876,7 +876,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                                 className="text-xs sm:text-sm px-3 py-1 rounded-lg shadow-xl animate-in fade-in duration-150"
                                 style={{
                                   color: style.textColor,
-                                  backgroundColor: style.box ? `rgba(0,0,0,${style.box.opacity})` : 'rgba(0,0,0,0.55)',
+                                  backgroundColor: style.box ? `rgba(0,0,0,${style.box.opacity})` : 'transparent',
                                   fontWeight: style.bold ? 800 : 600,
                                   letterSpacing: style.letterSpacing ? `${style.letterSpacing}px` : undefined,
                                   maxWidth: '92%',
@@ -886,7 +886,11 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                                   ? words.map((w, i) => (
                                       <span
                                         key={i}
-                                        style={currentTime >= w.start && currentTime <= w.end ? { color: style.activeColor } : undefined}
+                                        style={
+                                          currentTime >= w.start && currentTime <= w.end
+                                            ? { color: style.activeColor, textShadow: `0 0 2px ${style.outlineColor}, 0 1px 3px rgba(0,0,0,0.9)` }
+                                            : { textShadow: `0 0 2px ${style.outlineColor}, 0 1px 3px rgba(0,0,0,0.9)` }
+                                        }
                                       >
                                         {renderWord(w.word || w.text || '')}{i < words.length - 1 ? ' ' : ''}
                                       </span>
