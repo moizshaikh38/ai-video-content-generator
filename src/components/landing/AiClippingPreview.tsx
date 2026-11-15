@@ -42,18 +42,21 @@ interface ClipDisplayItem {
   projectId?: string;
 }
 
-// 10 Original Demo MP4 Assets (order, content & mappings preserved exactly)
+// Demo tiles play one genuine short source clip (shipped in the repo);
+// per-tile crop/zoom/position props create the visual variety. This matches
+// the product story: one source video becomes many clips. The original
+// /demo/showcase/vN.mp4 files were never in the repo and 404'd.
 const DEMO_VIDEOS = [
-  '/demo/showcase/v0.mp4',
-  '/demo/showcase/v1.mp4',
-  '/demo/showcase/v2.mp4',
-  '/demo/showcase/v3.mp4',
-  '/demo/showcase/v4.mp4',
-  '/demo/showcase/v5.mp4',
-  '/demo/showcase/v6.mp4',
-  '/demo/showcase/v7.mp4',
-  '/demo/showcase/v8.mp4',
-  '/demo/showcase/v9.mp4',
+  '/harness/clip-nasa-seg.mp4',
+  '/harness/clip-nasa-seg.mp4',
+  '/harness/clip-nasa-seg.mp4',
+  '/harness/clip-nasa-seg.mp4',
+  '/harness/clip-nasa-seg.mp4',
+  '/harness/clip-nasa-seg.mp4',
+  '/harness/clip-nasa-seg.mp4',
+  '/harness/clip-nasa-seg.mp4',
+  '/harness/clip-nasa-seg.mp4',
+  '/harness/clip-nasa-seg.mp4',
 ];
 
 const DEMO_POSTERS = [
@@ -70,7 +73,6 @@ const DEMO_POSTERS = [
 ];
 
 const CLIPV = [7, 9, 2, 1, 8, 0];
-const SCORES = [97, 99, 94, 98, 96, 92];
 const ICONS: ('YT' | 'IG' | 'in' | 'TT' | 'f' | 'X')[] = ['YT', 'IG', 'in', 'TT', 'f', 'X'];
 
 const LAYOUTS = [
@@ -827,7 +829,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
             thumbnail: c.metadata?.thumbnail_url || DEMO_POSTERS[i % DEMO_POSTERS.length],
             videoSrc: DEMO_VIDEOS[i % DEMO_VIDEOS.length],
             platform: ICONS[i % ICONS.length],
-            score: c.engagement_score || SCORES[i % SCORES.length],
+            score: c.engagement_score || 0,
             isReal: true,
             projectId: project.id,
           };
@@ -850,7 +852,9 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
     }
   };
 
-  // Demo clips matching final.html CLIPV & SCORES
+  // Demo clips matching final.html CLIPV. No score badge on demo clips:
+  // a virality number would be fabricated; only real clips carry their
+  // genuine engagement_score.
   const demoClips: ClipDisplayItem[] = useMemo(
     () =>
       CLIPV.map((vIdx, nIdx) => ({
@@ -861,7 +865,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
         thumbnail: DEMO_POSTERS[vIdx % DEMO_POSTERS.length],
         videoSrc: DEMO_VIDEOS[vIdx % DEMO_VIDEOS.length],
         platform: ICONS[nIdx],
-        score: SCORES[nIdx],
+        score: 0,
       })),
     []
   );
@@ -1113,7 +1117,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                                     shouldPlay={s0.shouldPlay}
                                   />
                                   <i className="p" aria-hidden="true" />
-                                  <em />
+                                  {clip.isReal && clip.score > 0 ? <em /> : null}
                                 </div>
                               </div>
                             );
