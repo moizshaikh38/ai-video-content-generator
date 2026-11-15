@@ -2,12 +2,12 @@ import { Link } from "react-router-dom";
 import { Sparkles, Flame, Zap, Film, ArrowRight, Play, Layers } from "lucide-react";
 import { TiltedGridHero, type TiltedGridImage } from "@/components/ui/tilted-grid-hero";
 import streamPodcastCaptions from "../../assets/landing/stream-podcast-captions.webp";
-import streamRoverCaption from "../../assets/landing/stream-rover-caption.webp";
+import streamBasketball from "../../assets/landing/stream-basketball.webp";
 import streamRawPresenter from "../../assets/landing/stream-raw-presenter.webp";
 import streamInterviewCaption from "../../assets/landing/stream-interview-caption.webp";
 import streamRawRig from "../../assets/landing/stream-raw-rig.webp";
-import streamLabCaption from "../../assets/landing/stream-lab-caption.webp";
-import streamRoverScene from "../../assets/landing/stream-rover-scene.webp";
+import streamBeachAerial from "../../assets/landing/stream-beach-aerial.webp";
+import streamCooking from "../../assets/landing/stream-cooking.webp";
 import streamTitleCaption from "../../assets/landing/stream-title-caption.webp";
 import editorUi from "../../assets/landing/editor-ui.webp";
 import stepHooks from "../../assets/landing/step-hooks.webp";
@@ -20,7 +20,7 @@ const showcaseImages: TiltedGridImage[] = [
     alt: "Vireo render of a podcast clip with word-by-word captions",
   },
   {
-    src: streamRoverCaption,
+    src: streamBasketball,
     alt: "Vireo 9:16 render of a lunar rover scene with burned-in captions",
   },
   {
@@ -36,11 +36,11 @@ const showcaseImages: TiltedGridImage[] = [
     alt: "Raw source footage frame of a rover wheel test rig",
   },
   {
-    src: streamLabCaption,
+    src: streamBeachAerial,
     alt: "Vireo render of a workshop scene with burned-in captions",
   },
   {
-    src: streamRoverScene,
+    src: streamCooking,
     alt: "Vireo render of a lunar rover scene",
   },
   {
