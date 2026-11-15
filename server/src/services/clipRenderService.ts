@@ -567,13 +567,24 @@ export class ClipRenderService {
       // <= 0 keeps the headline for the whole clip.
       const headline = ClipRenderService.buildHeadlineSpec(clip);
       if (headline) {
+        // textfile transport: no drawtext text expansion, so user text is
+        // rendered byte-for-byte (apostrophes, %, backslashes, unicode).
+        // One drawtext per wrapped line: text_align is unavailable before
+        // ffmpeg 5, and per-line filters center each line exactly anyway.
+        const lines = headline.text.split('\n');
         const style =
           'fontcolor=white:borderw=3:bordercolor=black@0.9:shadowcolor=black@0.6:shadowx=0:shadowy=2';
         const enable =
           headline.durationSec > 0 ? `:enable='lt(t,${headline.durationSec.toFixed(2)})'` : '';
-        videoFilters.push(
-          `drawtext=text='${headline.text}':${style}:fontsize=${headline.fontSize}:x=(w-text_w)/2:y=150${enable}`
-        );
+        lines.forEach((line, idx) => {
+          const linePath = path.join(tempDir, `headline-${idx}.txt`);
+          fs.writeFileSync(linePath, line, 'utf8');
+          const safeLine = linePath.replace(/\\/g, '/').replace(/:/g, '\\:');
+          const y = 150 + idx * (headline.fontSize + 8);
+          videoFilters.push(
+            `drawtext=textfile='${safeLine}':${style}:fontsize=${headline.fontSize}:x=(w-text_w)/2:y=${y}${enable}`
+          );
+        });
       } else if (clip.overlay_config?.enabled && clip.overlay_config?.text) {
         const rawText = String(clip.overlay_config.text);
         const safeText = rawText
@@ -1122,18 +1133,35 @@ export class ClipRenderService {
     const autoHeadline =
       clip.overlay_config?.enabled === undefined && !clip.overlay_config?.text && !!clip.title;
     if (!autoHeadline) return null;
-    const stripped = String(clip.title)
-      .replace(/[\r\n]+/g, ' ')
-      .replace(/['\\%]/g, '')
-      .trim();
+    const stripped = String(clip.title).replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
     if (!stripped) return null;
-    const capped = stripped.length > 45 ? stripped.slice(0, 42).trimEnd() + '...' : stripped;
-    const text = capped.replace(/:/g, '\\:');
-    const len = text.length;
-    const fontSize = len <= 29 ? 60 : len <= 34 ? 52 : len <= 40 ? 44 : 38;
+    const capped = stripped.length > 60 ? stripped.slice(0, 57).trimEnd() + '...' : stripped;
+    // Two-line wrap at a word boundary near the midpoint; single line when
+    // short. Rendered via drawtext textfile so user text (apostrophes,
+    // percent, backslashes, unicode) is preserved byte-for-byte.
+    let lines = [capped];
+    if (capped.length > 26) {
+      const words = capped.split(' ');
+      let best = -1;
+      let bestImbalance = Infinity;
+      let acc = 0;
+      for (let i = 0; i < words.length - 1; i++) {
+        acc += words[i].length + 1;
+        const imbalance = Math.abs(capped.length - 2 * acc);
+        if (imbalance < bestImbalance) {
+          bestImbalance = imbalance;
+          best = i;
+        }
+      }
+      if (best >= 0) {
+        lines = [words.slice(0, best + 1).join(' '), words.slice(best + 1).join(' ')];
+      }
+    }
+    const longest = Math.max(...lines.map((l) => l.length));
+    const fontSize = longest <= 22 ? 64 : longest <= 28 ? 56 : longest <= 34 ? 48 : 40;
     const rawDur = (clip.overlay_config as any)?.headline_duration_sec;
     const durationSec = typeof rawDur === 'number' && Number.isFinite(rawDur) ? rawDur : 5.0;
-    return { text, fontSize, durationSec };
+    return { text: lines.join('\n'), fontSize, durationSec };
   }
 
   public static async resolveReframeDecision(

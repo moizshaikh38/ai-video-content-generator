@@ -67,36 +67,41 @@ async function run() {
     assert.equal(r!.durationSec, 5.0);
   });
 
-  console.log('\n[HeadlineSpec] fit + escaping');
+  console.log('\n[HeadlineSpec] fit + wrapping');
 
-  await it('short titles render largest', () => {
+  await it('short titles stay one line at the largest size', () => {
     const r = ClipRenderService.buildHeadlineSpec({ title: 'Short Title', overlay_config: undefined } as any);
-    assert.equal(r!.fontSize, 60);
+    assert.equal(r!.fontSize, 64);
+    assert.ok(!r!.text.includes('\n'));
   });
 
-  await it('41-char title (the NASA overflow case) fits at 38px', () => {
+  await it('long titles wrap to two balanced lines at a word boundary', () => {
     const r = ClipRenderService.buildHeadlineSpec({ title: 'The Crewed Lunar Vehicle: A New Frontier', overlay_config: undefined } as any);
-    assert.ok(r!.fontSize <= 44, `fontSize ${r!.fontSize}`);
-    assert.ok(r!.text.includes('The Crewed Lunar Vehicle'));
+    const lines = r!.text.split('\n');
+    assert.equal(lines.length, 2);
+    assert.ok(lines.every((l) => l.length > 0 && l.length <= 34), JSON.stringify(lines));
+    assert.ok(r!.text.includes('Vehicle:')); // colon preserved via textfile transport
   });
 
-  await it('very long titles are capped at 45 chars with ellipsis', () => {
-    const t = 'A'.repeat(80);
+  await it('very long titles are capped at 60 chars with ellipsis', () => {
+    const t = 'A '.repeat(50).trim();
     const r = ClipRenderService.buildHeadlineSpec({ title: t, overlay_config: undefined } as any);
-    assert.ok(r!.text.length <= 45, `len ${r!.text.length}`);
+    const total = r!.text.replace('\n', ' ').length;
+    assert.ok(total <= 60, `len ${total}`);
     assert.ok(r!.text.endsWith('...'));
-    assert.equal(r!.fontSize, 38);
+    // Two-line wrap keeps the longest wrapped line in the 48px tier.
+    const longest = Math.max(...r!.text.split('\n').map((l) => l.length));
+    assert.ok(longest <= 34, `longest ${longest}`);
+    assert.equal(r!.fontSize, 48);
   });
 
-  await it('drawtext-hostile characters are stripped and colons escaped', () => {
-    const r = ClipRenderService.buildHeadlineSpec({ title: "Moiz's 100% clip: \\test\\", overlay_config: undefined } as any);
-    assert.ok(!r!.text.includes("'"), r!.text);
-    assert.ok(!r!.text.includes('%'), r!.text);
-    assert.ok(!r!.text.includes('\\'.repeat(1) + 't'), r!.text); // backslashes stripped
-    assert.ok(r!.text.includes('clip\\:'), r!.text); // colon escaped for drawtext
+  await it('user text is preserved byte-for-byte (apostrophes, percent, backslashes)', () => {
+    const title = "Moiz's 100% clip: \\test\\";
+    const r = ClipRenderService.buildHeadlineSpec({ title, overlay_config: undefined } as any);
+    assert.equal(r!.text, title);
   });
 
-  await it('newlines collapse to spaces', () => {
+  await it('existing newlines collapse to single spaces before wrapping', () => {
     const r = ClipRenderService.buildHeadlineSpec({ title: 'Line one\nLine two', overlay_config: undefined } as any);
     assert.equal(r!.text, 'Line one Line two');
   });
