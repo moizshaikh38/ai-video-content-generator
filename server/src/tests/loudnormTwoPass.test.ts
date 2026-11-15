@@ -454,16 +454,20 @@ describe('LoudnormTwoPassService - same-window preview/final parity (codified)',
     // Dynamic normalization is program-dependent and the two paths bound the
     // window differently (preview: input -ss/-t seek; final: graph atrim), so
     // one-pass loudnorm's gain riding lands differently on peaky material:
-    // measured 1.2-1.3 LU. The invariants are mode consistency and no clipping.
-    // Note: AAC
-    // encoding overshoots the limiter's -1.5dBTP internal ceiling (~-0.7dBTP
-    // post-encode, measured); 0.0 dBTP is the hard no-clip bound.
+    // measured 1.2-1.3 LU. The invariants are mode consistency and the true-peak
+    // ceiling: the limiter holds -1.5dBTP internally; measured post-encode on
+    // this click material is -1.6dBTP, so the bound allows 0.5dB codec
+    // tolerance (AAC overshoot on transient material) without waiving the
+    // ceiling itself.
     const finalI = await integratedLoudness(outPath);
     const previewI = await integratedLoudness(preview.preview_audio_path);
     assert.ok(
       Math.abs(finalI - previewI) <= 1.5,
       `final ${finalI} vs preview ${previewI} differ by >1.5 LU on dynamic fallback`
     );
-    assert.ok((await truePeakDb(outPath)) <= 0.0, 'final output must never exceed 0 dBTP');
+    assert.ok(
+      (await truePeakDb(outPath)) <= -1.0,
+      'dynamic fallback must hold the -1.5dBTP ceiling within 0.5dB codec tolerance'
+    );
   });
 });
