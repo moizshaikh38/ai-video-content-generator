@@ -221,6 +221,50 @@ async function run() {
     assert.equal(r.layoutMode, 'screencast');
   });
 
+  // estimateSpeakerAnchors: credible two-speaker anchor estimation for manual
+  // Split picks (same spatial rule as the split decision, no prevalence gate).
+  await it('estimateSpeakerAnchors: two-shot samples yield measured anchors', () => {
+    const a = SmartReframeService.estimateSpeakerAnchors(samplesWithFaces([[face(0.31), face(0.59)]]));
+    assert.ok(a, 'anchors present');
+    assert.equal(a!.speaker1X, 0.31);
+    assert.equal(a!.speaker2X, 0.59);
+  });
+
+  await it('estimateSpeakerAnchors: sparse two-speaker evidence still anchors (below the 20% decision gate)', () => {
+    // 2 of 36 samples qualify - exactly the tos-twoshot failure mode where the
+    // split DECISION correctly stays off but anchors should still be measured.
+    const per: NormalizedFaceDetection[][] = [[face(0.31), face(0.59)], [face(0.32), face(0.6)], ...Array.from({ length: 34 }, () => [face(0.5)])];
+    const a = SmartReframeService.estimateSpeakerAnchors(samplesWithFaces(per, 36));
+    assert.ok(a, 'anchors present from 2 qualifying samples');
+    assert.ok(Math.abs(a!.speaker1X - 0.315) < 0.01);
+    assert.ok(Math.abs(a!.speaker2X - 0.595) < 0.01);
+  });
+
+  await it('estimateSpeakerAnchors: single-subject and faceless clips return null (no fabricated anchors)', () => {
+    assert.equal(SmartReframeService.estimateSpeakerAnchors(singleFaceSamples), null);
+    assert.equal(SmartReframeService.estimateSpeakerAnchors(noFaceSamples), null);
+    assert.equal(SmartReframeService.estimateSpeakerAnchors([]), null);
+  });
+
+  await it('estimateSpeakerAnchors: one stray two-face sample is not credible', () => {
+    const per: NormalizedFaceDetection[][] = [[face(0.2), face(0.8)], ...Array.from({ length: 19 }, () => [face(0.5)])];
+    assert.equal(SmartReframeService.estimateSpeakerAnchors(samplesWithFaces(per, 20)), null);
+  });
+
+  await it('estimateSpeakerAnchors: near-center pair (0.40/0.55) still anchors both windows', () => {
+    // two people side by side near center: each gets centered in their half
+    const a = SmartReframeService.estimateSpeakerAnchors(samplesWithFaces([[face(0.4), face(0.55)]]));
+    assert.ok(a);
+    assert.equal(a!.speaker1X, 0.4);
+    assert.equal(a!.speaker2X, 0.55);
+  });
+
+  await it('estimateSpeakerAnchors: same-side pair is not two-speaker geometry', () => {
+    assert.equal(SmartReframeService.estimateSpeakerAnchors(samplesWithFaces([[face(0.2), face(0.35)]])), null);
+    // and a pair below the 0.15 separation floor
+    assert.equal(SmartReframeService.estimateSpeakerAnchors(samplesWithFaces([[face(0.45), face(0.55)]])), null);
+  });
+
   console.log(`\n  ${passed}/${total} layout provenance tests passed`);
   if (passed !== total) process.exitCode = 1;
 }

@@ -437,6 +437,9 @@ export interface ReframeStatusResponse {
   analyzedTrimEnd?: number;
   analyzedAspectRatio?: string;
   isStale?: boolean;
+  /** Measured two-speaker split anchors from analysis; null = use defaults. */
+  speaker1X?: number | null;
+  speaker2X?: number | null;
 }
 
 

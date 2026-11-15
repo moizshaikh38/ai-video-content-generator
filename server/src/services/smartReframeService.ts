@@ -1269,6 +1269,48 @@ export class SmartReframeService {
   }
 
   /**
+   * Estimates credible two-speaker anchor positions from CV samples for the
+   * split layout's speaker-centered crop windows. Deliberately looser than
+   * the split LAYOUT decision: that decision gates an AUTOMATIC layout change
+   * (20% prevalence, left <= 0.45 / right >= 0.55 / separation >= 0.30), while
+   * anchors are a starting point for a layout the user explicitly picked and
+   * can adjust with the panel sliders - they only need a persistent
+   * left-of-center vs right-of-center pair (separation >= 0.15, comfortably
+   * above the caption-zone 0.08 distinguishability floor). Measured 16 Nov
+   * 2026 on the TOS two-shot fixture: speakers at 0.31/0.59 (separation
+   * 0.28) miss the decision rule but are exactly the anchors a manual Split
+   * pick needs. Requires >= 2 qualifying samples so a single stray detection
+   * cannot fabricate anchors. Returns null when no credible two-speaker
+   * geometry exists (single-subject, same-side pairs, faceless clips), in
+   * which case callers keep the symmetric defaults.
+   */
+  public static estimateSpeakerAnchors(
+    samples: ReframeSample[]
+  ): { speaker1X: number; speaker2X: number } | null {
+    if (!Array.isArray(samples) || samples.length === 0) return null;
+    const leftFaceXs: number[] = [];
+    const rightFaceXs: number[] = [];
+    for (const sample of samples) {
+      const faces = sample.faces || [];
+      if (faces.length < 2) continue;
+      const sorted = [...faces].sort((a, b) => a.center_x - b.center_x);
+      const leftFace = sorted[0];
+      const rightFace = sorted[sorted.length - 1];
+      if (leftFace.center_x < 0.5 && rightFace.center_x > 0.5 && (rightFace.center_x - leftFace.center_x) >= 0.15) {
+        leftFaceXs.push(leftFace.center_x);
+        rightFaceXs.push(rightFace.center_x);
+      }
+    }
+    if (leftFaceXs.length < 2) return null;
+    const avgLeft = leftFaceXs.reduce((a, b) => a + b, 0) / leftFaceXs.length;
+    const avgRight = rightFaceXs.reduce((a, b) => a + b, 0) / rightFaceXs.length;
+    return {
+      speaker1X: Math.round(avgLeft * 100) / 100,
+      speaker2X: Math.round(avgRight * 100) / 100,
+    };
+  }
+
+  /**
    * Minimum face area (fraction of frame) that qualifies a detection as a
    * crop-anchorable subject. 0.02 = 2% of frame. PROVISIONAL heuristic
    * (15 Nov 2026): chosen from the NASA Moon Base window (75th percentile
@@ -1799,8 +1841,11 @@ export class SmartReframeService {
         metadata: {
           dominant_score: score,
           layout_mode: layoutMode,
-          speaker1X,
-          speaker2X,
+          // Decision-provided Xs win; otherwise persist estimated anchors so a
+          // later MANUAL Split pick can frame measured speakers instead of the
+          // symmetric defaults. Null when no credible two-speaker geometry.
+          speaker1X: speaker1X ?? SmartReframeService.estimateSpeakerAnchors(cvResult.samples)?.speaker1X ?? null,
+          speaker2X: speaker2X ?? SmartReframeService.estimateSpeakerAnchors(cvResult.samples)?.speaker2X ?? null,
           cv_duration: cvResult.duration,
           sample_fps: cvResult.sample_fps,
           total_samples: cvResult.samples.length,

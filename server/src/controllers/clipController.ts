@@ -1281,6 +1281,8 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
         smoothedKeyframes: [],
         analysisVersion: 1,
         isStale: false,
+        speaker1X: null,
+        speaker2X: null,
       });
       return;
     }
@@ -1296,6 +1298,11 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       analyzedTrimEnd: track.analyzed_trim_end,
       analyzedAspectRatio: track.analyzed_aspect_ratio,
       isStale: Boolean(track.isStale),
+      // Measured two-speaker anchor positions (when analysis found credible
+      // geometry); the Framing panel seeds the split layout's speaker windows
+      // from these. Null = no credible measurement, use defaults.
+      speaker1X: (track.metadata as any)?.speaker1X ?? null,
+      speaker2X: (track.metadata as any)?.speaker2X ?? null,
     });
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';

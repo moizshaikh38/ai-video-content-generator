@@ -236,6 +236,8 @@ class ClipRenderService {
     analyzedTrimEnd?: number;
     analyzedAspectRatio?: string;
     isStale?: boolean;
+    speaker1X?: number | null;
+    speaker2X?: number | null;
   }> {
     return backendRequest(`/clips/${clipId}/reframe`);
   }

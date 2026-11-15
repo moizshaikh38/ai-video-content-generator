@@ -20,6 +20,7 @@ interface FramingWorkspacePanelProps {
   onToggleSafeGuides: () => void;
   onUpdateCropMode: (mode: 'center' | 'fit' | 'blur' | 'smart') => void;
   onUpdateLayoutMode?: (layout: 'track' | 'split' | 'screencast' | 'blur') => void;
+  onUpdateSplitAnchors?: (anchors: { speaker1X: number; speaker2X: number }) => void;
   onUpdateScreencast?: (patch: ScreencastConfigEdit) => void;
   onUpdateProject: (updater: (prev: EditorProject) => EditorProject) => void;
 }
@@ -30,6 +31,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
   onToggleSafeGuides,
   onUpdateCropMode,
   onUpdateLayoutMode,
+  onUpdateSplitAnchors,
   onUpdateScreencast,
   onUpdateProject: _onUpdateProject,
 }) => {
@@ -45,6 +47,12 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
     : ((videoItem as any)?.crop_mode === 'fit' ? 'fit' : 'fill');
   const activeLayoutMode = (videoItem as any)?.layout_mode || 'track';
   const screencastCfg = ((videoItem as any)?.crop_config?.screencast || {}) as ScreencastConfigEdit;
+  // Split speaker anchors: persisted picks win; otherwise the symmetric
+  // defaults the export filter uses (EditorShell seeds measured analysis
+  // anchors into crop_config.split when the layout is picked).
+  const splitCfg = ((videoItem as any)?.crop_config?.split || {}) as { speaker1X?: number; speaker2X?: number };
+  const speaker1X = Number.isFinite(splitCfg.speaker1X) ? Number(splitCfg.speaker1X) : 0.25;
+  const speaker2X = Number.isFinite(splitCfg.speaker2X) ? Number(splitCfg.speaker2X) : 0.75;
   const facecamSuggestion = ((videoItem as any)?.reframe_metadata?.facecam_box || null) as { x: number; y: number; w: number; h: number } | null;
 
   return (
@@ -179,6 +187,50 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Split speaker anchor controls: which source position each half
+          centers on. Seeded from measured analysis when available; these are
+          the same values the export's split filter consumes. */}
+      {activeLayoutMode === 'split' && (
+        <div className="pt-3 border-t border-white/[0.08] space-y-3">
+          <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block">
+            Speaker Positions
+          </label>
+          {(
+            [
+              ['Top half', 'speaker1X', speaker1X],
+              ['Bottom half', 'speaker2X', speaker2X],
+            ] as const
+          ).map(([label, key, value]) => (
+            <div key={key}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] text-neutral-400">{label}</span>
+                <span className="text-[11px] text-neutral-500 tabular-nums">{Math.round(value * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min={10}
+                max={90}
+                step={1}
+                value={Math.round(value * 100)}
+                onChange={(e) => {
+                  const pct = Number(e.target.value) / 100;
+                  const next =
+                    key === 'speaker1X'
+                      ? { speaker1X: Math.min(pct, speaker2X - 0.05), speaker2X }
+                      : { speaker1X, speaker2X: Math.max(pct, speaker1X + 0.05) };
+                  onUpdateSplitAnchors?.(next);
+                }}
+                className="w-full accent-violet-500"
+                aria-label={label}
+              />
+            </div>
+          ))}
+          <p className="text-[10px] text-neutral-500 leading-tight">
+            Where each speaker sits in the original frame. Center them so neither face is clipped.
+          </p>
+        </div>
+      )}
 
       {/* Screencast correction controls */}
       {activeLayoutMode === 'screencast' && (
