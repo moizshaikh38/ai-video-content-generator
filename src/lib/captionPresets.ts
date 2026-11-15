@@ -61,6 +61,13 @@ export function editorCaptionToPresetOverrides(
   } else if (transform?.position_y !== undefined) {
     // Track transforms are pixel offsets from the canvas center (0 = centered) on a 1080x1920 canvas.
     o.positionY = 0.5 + transform.position_y / 1920;
+    // Provenance: without an explicit position choice (flag or numeric drag), this
+    // value merely mirrors the materialized default transform - mark it derived so
+    // export does not treat it as user intent (it must not block the blur band
+    // anchor). Unmarked values stay conservatively explicit for API/legacy writers.
+    if ((caption as any).position_explicit !== true) {
+      o.positionYDerived = true;
+    }
   }
   if (caption.position_x !== undefined) {
     o.positionX = caption.position_x;

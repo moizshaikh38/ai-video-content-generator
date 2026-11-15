@@ -661,6 +661,14 @@ export interface CaptionPresetOverrides {
   highlightKeywordColor?: string;
   /** Normalized 0..1 bottom edge of the caption block (legacy `positionY` semantics). */
   positionY?: number;
+  /**
+   * Provenance for `positionY`: true when the value was DERIVED by the editor
+   * save path from the materialized default caption transform (position_y 500)
+   * rather than from an explicit user position choice. Editor-derived values
+   * do not block the blur-fit band anchor on export; absent/unset means
+   * unknown provenance and is treated conservatively as explicit.
+   */
+  positionYDerived?: boolean;
   /** Normalized 0..1 horizontal center of the caption block (0.5 = center). */
   positionX?: number;
 }
@@ -843,6 +851,7 @@ export function sanitizePresetOverrides(input: unknown): CaptionPresetOverrides 
     const n = clampNum(o.positionY, 0.08, 0.92, NaN);
     if (Number.isFinite(n)) out.positionY = Number(n.toFixed(3));
   }
+  if (typeof o.positionYDerived === 'boolean') out.positionYDerived = o.positionYDerived;
   if (o.positionX !== undefined) {
     const n = clampNum(o.positionX, 0.05, 0.95, NaN);
     if (Number.isFinite(n)) out.positionX = Number(n.toFixed(3));

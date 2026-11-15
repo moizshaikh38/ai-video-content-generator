@@ -1406,23 +1406,32 @@ export class CaptionService {
     //      position write funnels - covers a deliberate 'bottom' choice too;
     //  (b) a non-bottom editor position (legacy, pre-flag);
     //  (c) a numeric editor position_y from a drag (legacy, pre-flag).
-    // A numeric positionY in caption_config / presetOverrides is NOT treated as
-    // explicit on its own: the editor save path mirrors the materialized
-    // default caption transform (position_y 500 -> 0.7604) into
-    // presetOverrides on every save, so after any autosave every blur project
-    // carried a 'positionY' that silently disabled this anchor (verified on
+    // A numeric positionY in caption_config / presetOverrides is explicit
+    // UNLESS the editor marked it derived: the editor save path mirrors the
+    // materialized default caption transform (position_y 500 -> 0.7604) into
+    // presetOverrides on every save and stamps it positionYDerived: true, so
+    // after any autosave a default-state blur project no longer carries a
+    // fake explicit position that silently disabled this anchor (verified on
     // render v96: default blur project exported captions at 0.75 instead of
-    // the anchor). Item-level provenance above is the reliable explicit
-    // signal; a config-only positionY set outside the editor is overridden by
-    // the anchor for banded layouts - that residual ambiguity is unavoidable
-    // without provenance the old clients never recorded.
+    // the anchor). Unmarked config-only values (legacy saves, external API
+    // writers) keep their meaning and stay explicit - no retroactive item
+    // flag is required of them.
     const hasExplicitEditorPosition =
       editorPositionExplicit ||
       editorPositionYNumeric !== null ||
       (Boolean(editorPosition) && editorPosition !== 'bottom');
+    const mergedConfigPre: CaptionConfig = clip.caption_config || {};
+    const prePo = (mergedConfigPre.presetOverrides || {}) as any;
+    // Config-level explicit position: a top-level positionY, or a
+    // presetOverrides.positionY that the editor did not mark as derived from
+    // the materialized default transform.
+    const hasExplicitConfigPosition =
+      mergedConfigPre.positionY !== undefined ||
+      (prePo.positionY !== undefined && prePo.positionYDerived !== true);
     const bandY =
       options.bandAnchorPositionY !== undefined &&
       !hasExplicitEditorPosition &&
+      !hasExplicitConfigPosition &&
       (clip.caption_position ?? 'bottom') === 'bottom'
         ? Math.min(0.92, Math.max(0.08, options.bandAnchorPositionY))
         : undefined;
