@@ -40,6 +40,7 @@ import {
   rulerXToTime,
   snapToPoints,
 } from '../../../server/src/shared/timelineCoords';
+import { computeSceneReorder, isReorderBlocked } from '../../utils/timelineReorder';
 
 interface TimelineProps {
   project: EditorProject;
@@ -263,6 +264,47 @@ export const Timeline: React.FC<TimelineProps> = ({
     const handleMouseUp = () => {
       // Record exactly one undo step for the whole drag, and mark dirty for autosave.
       if (preDragProjectRef.current) {
+        // Scene reorder (Opus-style drag-to-rearrange): a move-drag whose drop
+        // point lands in another scene's slot reorders the track - gapless
+        // repack keeps every scene's duration, and caption/b-roll/audio items
+        // dominated by a moved scene follow it. If locked tracks would be left
+        // behind misaligned, the move is cancelled instead of committing a
+        // silently broken arrangement.
+        if (dragState?.type === 'move') {
+          const dragged = project.tracks
+            .find((t) => t.id === dragState.trackId)
+            ?.items.find((i) => i.id === dragState.itemId);
+          if (dragged) {
+            const dropTime = (dragged.timeline_start + dragged.timeline_end) / 2;
+            const reorder = computeSceneReorder(
+              preDragProjectRef.current,
+              dragState.trackId,
+              dragState.itemId,
+              dropTime
+            );
+            if (isReorderBlocked(reorder)) {
+              // Locked followers: cancel the move entirely (no undo entry).
+              onUpdateProject(preDragProjectRef.current, { recordHistory: false, markAsDirty: false });
+              preDragProjectRef.current = null;
+              setDragState(null);
+              setSnapIndicatorX(null);
+              return;
+            }
+            if (reorder) {
+              onUpdateProject(
+                { ...project, tracks: reorder.tracks },
+                { recordHistory: false, markAsDirty: false }
+              );
+              if (onCommitProject) {
+                onCommitProject(preDragProjectRef.current);
+              }
+              preDragProjectRef.current = null;
+              setDragState(null);
+              setSnapIndicatorX(null);
+              return;
+            }
+          }
+        }
         const changed =
           JSON.stringify(preDragProjectRef.current.tracks) !== JSON.stringify(project.tracks);
         if (changed && onCommitProject) {
