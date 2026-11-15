@@ -29,6 +29,7 @@ import {
 } from './objectStorageService.js';
 import { CaptionService } from './captionService.js';
 import { ClipRenderService, buildCropFilter } from './clipRenderService.js';
+import { LoudnormTwoPassService } from './loudnormTwoPassService.js';
 import { ProEditorService } from './proEditorService.js';
 
 const execFileAsync = promisify(execFile);
@@ -41,6 +42,9 @@ export interface RenderGraphResult {
   duration: number;
   videoFilters: string[];
   audioFilters: string[];
+  /** LUFS target when NORMALIZE_AUDIO is enabled; the executor upgrades the one-pass
+   * loudnorm entry in audioFilters to a measured linear two-pass variant. */
+  normalizeTargetI?: number;
 }
 
 export class ProducerRenderService {
@@ -119,6 +123,40 @@ export class ProducerRenderService {
 
       // 5. Build render graph filters and timing
       const renderGraph = await this.buildRenderGraph(plan, clip, localSourceFile, outputPath, tmpDir);
+
+      // Two-pass loudness normalization: measure the exact seeked audio window,
+      // then substitute a linear loudnorm. Fails clearly when infeasible rather
+      // than letting ffmpeg silently fall back to dynamic (muxer-stalling) mode.
+      if (renderGraph.normalizeTargetI !== undefined) {
+        const markerIdx = renderGraph.audioFilters.findIndex((f) => f.startsWith('loudnorm='));
+        if (markerIdx !== -1) {
+          const targetI = renderGraph.normalizeTargetI;
+          const pre = renderGraph.audioFilters.slice(0, markerIdx);
+          const post = renderGraph.audioFilters.slice(markerIdx + 1);
+          const measured = await LoudnormTwoPassService.measure(
+            ['-ss', renderGraph.startTime.toFixed(3), '-t', renderGraph.duration.toFixed(3), '-i', renderGraph.inputPath],
+            {
+              filterComplex: [`[0:a]${[...pre, LoudnormTwoPassService.buildMeasureFilter(targetI, -1.5, 11)].join(',')}[m_a]`],
+              audioMap: '[m_a]',
+              targetI,
+            },
+            120000
+          );
+          const check = LoudnormTwoPassService.assessLinearFeasibility(measured, targetI, -1.5, 11);
+          if (!check.ok) {
+            throw new AppError(
+              `Loudness normalization cannot be applied to this audio: ${check.reason}`,
+              422,
+              'NORMALIZATION_INFEASIBLE'
+            );
+          }
+          renderGraph.audioFilters = [
+            ...pre,
+            LoudnormTwoPassService.buildLinearFilter(targetI, -1.5, 11, measured),
+            ...post,
+          ];
+        }
+      }
 
       logger.info(`[ProducerRender] Rendering preview for plan ${planId}: dur=${renderGraph.duration}s, vf_count=${renderGraph.videoFilters.length}`);
 
@@ -473,6 +511,7 @@ export class ProducerRenderService {
   ): Promise<RenderGraphResult> {
     const videoFilters: string[] = [];
     const audioFilters: string[] = [];
+    let normTargetI: number | undefined;
 
     // Calculate baseline start and duration
     let startSec = clip.start_seconds;
@@ -586,7 +625,10 @@ export class ProducerRenderService {
     // 5. Audio Normalization & Dynamics
     const normOp = plan.operations.find((o) => o.type === 'NORMALIZE_AUDIO' && o.enabled);
     if (normOp) {
+      // One-pass loudnorm kept here so a buildRenderGraph result stays directly
+      // executable; the preview executor upgrades it to two-pass (see below).
       audioFilters.push('loudnorm=I=-16:TP=-1.5:LRA=11');
+      normTargetI = -16;
       if (normOp.parameters.gain_db && normOp.parameters.gain_db > 0) {
         audioFilters.push(`volume=${normOp.parameters.gain_db}dB`);
       }
@@ -609,6 +651,7 @@ export class ProducerRenderService {
       duration: Number(durationSec.toFixed(3)),
       videoFilters,
       audioFilters,
+      ...(normTargetI !== undefined ? { normalizeTargetI: normTargetI } : {}),
     };
   }
 }
