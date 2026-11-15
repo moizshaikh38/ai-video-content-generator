@@ -1208,8 +1208,32 @@ export class ProEditorService {
             duration = 1 / fps;
           }
           const offset = Math.max(0, accDur - duration);
+          let incomingLabel = vLabels[i];
+          let xfadeOut = outV;
+          if (transition?.type === 'zoom_lite' && duration >= 0.05) {
+            // FFmpeg xfade has no zoom transition. Build one: the first `duration`
+            // seconds of the incoming slice scale 1.25 -> 1.0 (per-frame scale +
+            // fixed-size center crop), then concat with the untouched remainder and
+            // crossfade — the incoming clip visibly zooms into place as it fades in.
+            const dStr = duration.toFixed(3);
+            const zFrames = Math.max(2, Math.round(duration * fps));
+            // Per-frame zoom 1.25 -> 1.0 across the head segment (d=1 keeps cadence;
+            // scale+crop cannot animate size because crop cannot reinit mid-stream).
+            const zExpr = `1.25-0.25*on/${zFrames - 1}`;
+            filterComplex.push(
+              `${vLabels[i]}split=2[zzh_${i}][zzr_${i}]`,
+              `[zzh_${i}]trim=start=0:end=${dStr},setpts=PTS-STARTPTS,` +
+                `zoompan=z='${zExpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1080x1920:fps=${fps}[zzh2_${i}]`,
+              `[zzr_${i}]trim=start=${dStr},setpts=PTS-STARTPTS[zzr2_${i}]`,
+              // fps normalizes the branch timebase to match the sibling slice (xfade
+              // requires identical timebases on both inputs).
+              `[zzh2_${i}][zzr2_${i}]concat=n=2:v=1:a=0,fps=${fps},setsar=1[zzb_${i}]`
+            );
+            incomingLabel = `[zzb_${i}]`;
+            xfadeName = 'fade';
+          }
           filterComplex.push(
-            `${accV}${vLabels[i]}xfade=transition=${xfadeName}:duration=${duration.toFixed(3)}:offset=${offset.toFixed(3)}${outV}`
+            `${accV}${incomingLabel}xfade=transition=${xfadeName}:duration=${duration.toFixed(3)}:offset=${offset.toFixed(3)}${xfadeOut}`
           );
           const acrossfadeChain = `${accA}${aLabels[i]}acrossfade=d=${duration.toFixed(3)}${outA}`;
           filterComplex.push(acrossfadeChain);

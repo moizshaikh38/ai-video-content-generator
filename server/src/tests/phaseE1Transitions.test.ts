@@ -149,11 +149,11 @@ describe('E1 — compile graph emits xfade chains', () => {
     const mixed = [
       makeItem({ id: 'a', timeline_start: 0, timeline_end: 2, source_start: 0, source_end: 2 }),
       makeItem({ id: 'b', timeline_start: 2, timeline_end: 4, source_start: 2, source_end: 4 }),
-      makeItem({ id: 'c', timeline_start: 4, timeline_end: 6, source_start: 4, source_end: 6, transition_in: { type: 'zoom_lite', duration: 0.4 } as any }),
+      makeItem({ id: 'c', timeline_start: 4, timeline_end: 6, source_start: 4, source_end: 6, transition_in: { type: 'dip_to_white', duration: 0.4 } as any }),
     ];
     const graph = ProEditorService.compileRenderGraph(makeProject(mixed, 6), '/tmp/s.mp4');
     const text = graph.filterComplex.join('\n');
-    assert.match(text, /xfade=transition=zoomin/);
+    assert.match(text, /xfade=transition=fadewhite/);
     // The cut boundary a→b: duration clamps to 1/fps ≈ 0.033.
     assert.match(text, /xfade=transition=fade:duration=0\.033/);
   });
@@ -173,9 +173,17 @@ describe('E1 — compile graph emits xfade chains', () => {
         }),
       ], 4);
       const graph = ProEditorService.compileRenderGraph(project, '/tmp/s.mp4');
+      const text = graph.filterComplex.join('\n');
+      if (preset.id === 'zoom_lite') {
+        // FFmpeg xfade has no zoom transition: zoom_lite renders as a zoompan
+        // ramp (1.25 -> 1.0) on the incoming head plus a crossfade.
+        assert.match(text, /zoompan=z='1\.25-0\.25\*on\//, 'zoom_lite must emit a zoompan ramp');
+        assert.match(text, /xfade=transition=fade:/, 'zoom_lite crossfades over the zoomed head');
+        continue;
+      }
       const expected = resolveXfadeName(preset.id, preset.supportsDirection ? 'left' : undefined)!;
       assert.match(
-        graph.filterComplex.join('\n'),
+        text,
         new RegExp(`xfade=transition=${expected}:`),
         `${preset.id} must emit xfade=${expected}`
       );
