@@ -36,9 +36,14 @@ async function it(name: string, fn: () => void | Promise<void>) {
   }
 }
 
-function face(cx: number, cy = 0.5): NormalizedFaceDetection {
-  return { x: cx - 0.05, y: cy - 0.1, width: 0.1, height: 0.2, center_x: cx, center_y: cy, confidence: 0.9 };
+function face(cx: number, cy = 0.5, w = 0.1, h = 0.2): NormalizedFaceDetection {
+  return { x: cx - w / 2, y: cy - h / 2, width: w, height: h, center_x: cx, center_y: cy, confidence: 0.9 };
 }
+
+// A tiny detection: 0.5% of frame - distant person in a wide shot.
+const tinyFace = (cx: number) => face(cx, 0.5, 0.05, 0.1);
+// An anchorable close subject: 4% of frame.
+const closeFace = (cx: number) => face(cx, 0.5, 0.2, 0.2);
 
 function samplesWithFaces(facesPerSample: NormalizedFaceDetection[][], count = 20): ReframeSample[] {
   const out: ReframeSample[] = [];
@@ -73,6 +78,26 @@ async function run() {
   await it('measured no-face outcome is blur even when a screencast fallback exists', () => {
     const r = SmartReframeService.determineOptimalLayoutMode(noFaceSamples, { fallbackMode: 'screencast' });
     assert.equal(r.layoutMode, 'blur');
+  });
+
+  console.log('\n[LayoutProvenance] track anchorability (area rule)');
+
+  await it('tiny distant faces everywhere never anchor a tight crop (NASA pattern -> blur)', () => {
+    const r = SmartReframeService.determineOptimalLayoutMode(samplesWithFaces([[tinyFace(0.5)]]));
+    assert.equal(r.layoutMode, 'blur');
+  });
+
+  await it('mixed-shot clip with anchorable subject in only 25% of samples fits full frame', () => {
+    // 3 tiny-face samples per 1 close-face sample, matching the measured NASA ratio.
+    const mixed = samplesWithFaces([[tinyFace(0.5)], [tinyFace(0.6)], [tinyFace(0.4)], [closeFace(0.5)]], 40);
+    const r = SmartReframeService.determineOptimalLayoutMode(mixed);
+    assert.equal(r.layoutMode, 'blur');
+  });
+
+  await it('anchorable subject in 60% of samples keeps track', () => {
+    const mostlyClose = samplesWithFaces([[closeFace(0.5)], [closeFace(0.52)], [closeFace(0.48)], [tinyFace(0.5)], [tinyFace(0.6)]], 40);
+    const r = SmartReframeService.determineOptimalLayoutMode(mostlyClose);
+    assert.equal(r.layoutMode, 'track');
   });
 
   console.log('\n[LayoutProvenance] resolveLayoutWithProvenance precedence');

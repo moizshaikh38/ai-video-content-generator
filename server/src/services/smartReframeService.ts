@@ -1221,8 +1221,44 @@ export class SmartReframeService {
       };
     }
 
+    // Anchorability check: 'track' tight-crops around the dominant face. A
+    // clip should only commit to that crop when an anchorable subject (a face
+    // occupying at least TRACK_ANCHOR_MIN_FACE_AREA of the frame) is present
+    // in at least half the samples. Measured 15 Nov 2026 on the NASA Moon
+    // Base window: only 25% of samples had any face >= 2% of frame (distant
+    // people in wide shots), and the resulting tight crop clipped source
+    // title text at both edges; fitting the full frame is the right call
+    // there. A global median was rejected: it hides mixed-shot clips where a
+    // close subject is present for most of the runtime. Two-shot split above
+    // is position-based and intentionally unaffected.
+    let anchorableSamples = 0;
+    for (const sample of samples) {
+      const hasAnchor = (sample.faces || []).some((f) => {
+        const a = f.width * f.height;
+        return Number.isFinite(a) && a >= SmartReframeService.TRACK_ANCHOR_MIN_FACE_AREA;
+      });
+      if (hasAnchor) anchorableSamples++;
+    }
+    if (anchorableSamples / samples.length < SmartReframeService.TRACK_ANCHOR_MIN_SAMPLE_RATIO) {
+      return { layoutMode: 'blur' };
+    }
+
     return { layoutMode: 'track' };
   }
+
+  /**
+   * Minimum face area (fraction of frame) that qualifies a detection as a
+   * crop-anchorable subject. 0.02 = 2% of frame. PROVISIONAL heuristic
+   * (15 Nov 2026): chosen from the NASA Moon Base window (75th percentile
+   * sample-max area 2.05% for wide documentary shots), not from a measured
+   * talking-head distribution; revisit with broader evidence.
+   */
+  private static readonly TRACK_ANCHOR_MIN_FACE_AREA = 0.02;
+  /**
+   * Minimum fraction of samples that must contain an anchorable subject
+   * before 'track' commits the whole clip to a tight crop.
+   */
+  private static readonly TRACK_ANCHOR_MIN_SAMPLE_RATIO = 0.5;
 
   /**
    * Provenance-aware layout resolution (see CropConfig.layout_mode_source):
