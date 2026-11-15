@@ -31,6 +31,15 @@ export interface GenerateCaptionsOptions {
   clip: ClipRecord;
   targetAspectRatio?: ClipAspectRatio;
   outputPath?: string; // Optional path to write .ass file
+  /**
+   * Optional vertical anchor (0-1 from the canvas top) for the bottom edge of
+   * the caption block. The render pipeline computes this for blur-fit layouts
+   * so captions sit on the sharp content band instead of the blurred fill
+   * (user-reported defect 15 Nov 2026: captions rendered over a large blurred
+   * background looked unclean). Ignored when the clip or editor already sets
+   * an explicit vertical position or a non-bottom caption position.
+   */
+  bandAnchorPositionY?: number;
 }
 
 export interface CaptionGenerationResult {
@@ -220,6 +229,47 @@ export class CaptionService {
   /**
    * Resolves ASS Style Alignment code and vertical margin
    */
+  /**
+   * Vertical anchor for bottom-positioned captions on a blur-fit canvas.
+   * The blur layout letterboxes the source inside the canvas; captions anchored
+   * to the canvas bottom land on the blurred fill. This returns the positionY
+   * (fraction from the canvas top) where the caption block's bottom edge should
+   * sit: just inside the fitted content band. Returns undefined when the source
+   * fills the canvas vertically (no band to anchor to).
+   */
+  public static computeBlurFitBandAnchor(
+    aspectRatio: ClipAspectRatio = '9:16',
+    sourceWidth?: number,
+    sourceHeight?: number
+  ): number | undefined {
+    if (!Number.isFinite(sourceWidth) || !Number.isFinite(sourceHeight) || (sourceWidth as number) <= 0 || (sourceHeight as number) <= 0) {
+      return undefined;
+    }
+    const playRes = this.getPlayRes(aspectRatio);
+    const scale = Math.min(playRes.x / (sourceWidth as number), playRes.y / (sourceHeight as number));
+    const fitH = (sourceHeight as number) * scale;
+    if (fitH >= playRes.y - 1) return undefined; // source fills the canvas vertically: no band
+    const bandBottom = (playRes.y + fitH) / 2; // band is vertically centered
+    const targetY = bandBottom - Math.max(24, fitH * 0.08);
+    return Math.min(0.92, Math.max(0.08, targetY / playRes.y));
+  }
+
+  /**
+   * Default caption presentation for clips with no explicit caption style.
+   * The karaoke preset (large uppercase, word-by-word highlight, no backdrop
+   * box) is the house default; any explicit clip caption_style is preserved.
+   */
+  public static resolveDefaultCaptionStyle(clip: Pick<ClipRecord, 'caption_style' | 'caption_config'>): { captionStyle: ClipRecord['caption_style']; captionConfig: CaptionConfig } {
+    if (clip.caption_style) {
+      return { captionStyle: clip.caption_style, captionConfig: { ...(clip.caption_config || {}) } };
+    }
+    const captionConfig: CaptionConfig = { ...(clip.caption_config || {}) };
+    if ((captionConfig as any).presetId === undefined) {
+      (captionConfig as any).presetId = 'karaoke';
+    }
+    return { captionStyle: 'karaoke', captionConfig };
+  }
+
   public static getPositionConfig(
     position: CaptionPosition = 'bottom',
     aspectRatio: ClipAspectRatio = '9:16'
@@ -1330,10 +1380,28 @@ export class CaptionService {
       return { timingMode: 'segment', cues: [], assContent: '' };
     }
 
+    // Blur-fit band anchor: computed by the render pipeline for layouts whose
+    // source does not fill the canvas vertically. Only applied when nobody set
+    // an explicit vertical position.
+    const bandY =
+      options.bandAnchorPositionY !== undefined &&
+      !editorPosition &&
+      (clip.caption_position ?? 'bottom') === 'bottom'
+        ? Math.min(0.92, Math.max(0.08, options.bandAnchorPositionY))
+        : undefined;
+
     const mergedConfig: CaptionConfig = {
       ...(clip.caption_config || {}),
       caption_overrides: clip.caption_config?.caption_overrides || (clip as any).caption_overrides || [],
     };
+    if (
+      bandY !== undefined &&
+      mergedConfig.positionY === undefined &&
+      (mergedConfig.presetOverrides as any)?.positionY === undefined
+    ) {
+      mergedConfig.positionY = bandY;
+      mergedConfig.presetOverrides = { ...(mergedConfig.presetOverrides || {}), positionY: bandY } as any;
+    }
 
     let timingMode: CaptionTimingMode = 'segment';
     let cues: TimedCaptionCue[] = [];
@@ -1349,7 +1417,21 @@ export class CaptionService {
         cues = cues.map((c) => ({ ...c, text: formatSegmentCueText(c.text, preset!) }));
       }
     } else if (transcript) {
-      const extracted = this.extractCuesForClipSettings(transcript, clip, targetAspectRatio);
+      // Clips with no explicit caption style get the house default (karaoke
+      // preset); explicit styles (including the editor reset's 'clean') pass
+      // through unchanged. The band anchor rides along via caption_config.
+      const defaults = this.resolveDefaultCaptionStyle(clip);
+      const effectiveConfig: CaptionConfig = { ...defaults.captionConfig };
+      if (
+        bandY !== undefined &&
+        effectiveConfig.positionY === undefined &&
+        (effectiveConfig.presetOverrides as any)?.positionY === undefined
+      ) {
+        effectiveConfig.positionY = bandY;
+        effectiveConfig.presetOverrides = { ...(effectiveConfig.presetOverrides || {}), positionY: bandY } as any;
+      }
+      const effectiveClip = { ...clip, caption_style: defaults.captionStyle, caption_config: effectiveConfig };
+      const extracted = this.extractCuesForClipSettings(transcript, effectiveClip, targetAspectRatio);
       timingMode = extracted.timingMode;
       cues = extracted.cues;
       preset = extracted.preset;

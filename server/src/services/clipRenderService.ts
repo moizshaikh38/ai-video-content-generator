@@ -525,10 +525,21 @@ export class ClipRenderService {
         await ClipRenderService.updateJobStage(jobId, clipId, 'preparing_captions', 12, 'rendering');
         const assPath = path.join(tempDir, 'subtitles.ass');
         try {
+          // Blur-fit layouts letterbox the source; anchor bottom captions to
+          // the sharp content band so they do not sit on the blurred fill.
+          const bandAnchorPositionY =
+            reframeDecision.layoutMode === 'blur'
+              ? CaptionService.computeBlurFitBandAnchor(
+                  clip.aspect_ratio as ClipAspectRatio,
+                  reframeDecision.track?.source_width ?? undefined,
+                  reframeDecision.track?.source_height ?? undefined
+                )
+              : undefined;
           const captionResult = await CaptionService.generateCaptionsForClip({
             clip,
             targetAspectRatio: clip.aspect_ratio as ClipAspectRatio,
             outputPath: assPath,
+            bandAnchorPositionY,
           });
 
           if (captionResult.cues.length > 0 && fs.existsSync(assPath)) {
