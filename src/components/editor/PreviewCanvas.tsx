@@ -40,11 +40,19 @@ interface PreviewCanvasProps {
   onSelectItem: (itemId: string | null) => void;
   onDeleteItem?: (itemId: string) => void;
   onUpdateItemTransform: (itemId: string, transform: any, options?: UpdateProjectOptions) => void;
+  // Preview-first crop override: dragging the base video pans the per-item crop
+  // focus (EditorTrackItem.crop.focusX/focusY), which the render compiler honors
+  // ahead of the auto face track.
+  onUpdateItemCrop?: (
+    itemId: string,
+    crop: { mode: 'fit' | 'fill' | 'blur' | 'custom'; focusX: number; focusY: number; scale?: number },
+    options?: UpdateProjectOptions
+  ) => void;
   onCommitProject?: (preOperationProject: EditorProject) => void;
   showSafeGuides: boolean;
   onToggleSafeGuides?: () => void;
   onChangeAspectRatio?: (aspectRatio: ClipAspectRatio) => void;
-  onUpdateCropMode?: (mode: 'center' | 'fit' | 'smart') => void;
+  onUpdateCropMode?: (mode: 'center' | 'fit' | 'blur' | 'smart') => void;
   videoRef: React.RefObject<HTMLVideoElement>;
   cues: TimedCaptionCue[];
   onUpdateCaptionPosition?: (
@@ -104,6 +112,36 @@ function interpolateKeyframes(
   return defaultValue;
 }
 
+
+/** CSS approximation of the item's colour adjustments + grade preset, mirroring
+ * the export renderer's ffmpeg eq/colorbalance/curves mapping so preview and
+ * export agree. Applied to the base video stream. */
+function cssColorFilters(item?: EditorTrackItem | null): string | undefined {
+  if (!item) return undefined;
+  const f: string[] = [];
+  const c = item.color;
+  if (c) {
+    if (c.brightness) f.push(`brightness(${1 + c.brightness})`);
+    if (c.exposure) f.push(`brightness(${1 + c.exposure * 0.8})`);
+    if (c.contrast) f.push(`contrast(${1 + c.contrast})`);
+    if (c.saturation) f.push(`saturate(${1 + c.saturation})`);
+  }
+  const p = item.filter?.preset;
+  if (p && p !== 'none') {
+    switch (p) {
+      case 'warm': f.push('sepia(0.25) saturate(1.2)'); break;
+      case 'cool': f.push('hue-rotate(180deg) saturate(0.9)'); break;
+      case 'film': f.push('contrast(1.15) saturate(0.85) brightness(0.95)'); break;
+      case 'mono': f.push('grayscale(1) contrast(1.2)'); break;
+      case 'punch': f.push('contrast(1.3) saturate(1.4)'); break;
+      case 'soft': f.push('contrast(0.9) brightness(1.05)'); break;
+      case 'clean': f.push('contrast(1.05) saturate(1.08)'); break;
+      case 'creator': f.push('contrast(1.15) saturate(1.3) sepia(0.08)'); break;
+    }
+  }
+  return f.length ? f.join(' ') : undefined;
+}
+
 export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   project,
   playhead,
@@ -118,6 +156,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   onSelectItem,
   onDeleteItem,
   onUpdateItemTransform,
+  onUpdateItemCrop,
   onCommitProject,
   showSafeGuides,
   onToggleSafeGuides,
@@ -165,6 +204,57 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     scale: number;
     rotation: number;
   } | null>(null);
+
+  // Crop-pan drag state (drag the base video to set per-item crop focus)
+  const [cropDrag, setCropDrag] = useState<{
+    itemId: string;
+    startX: number;
+    startY: number;
+    startFocusX: number;
+    startFocusY: number;
+    moved: boolean;
+  } | null>(null);
+  const preCropProjectRef = useRef<EditorProject | null>(null);
+  const suppressClickAfterCropDragRef = useRef<boolean>(false);
+  // Wheel zoom: transient crop.scale changes while scrolling, one history
+  // entry committed after the wheel goes idle.
+  const cropZoomCommitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Native wheel listener: React's root wheel listeners are passive, so they
+  // cannot preventDefault the page scroll that would otherwise steal the
+  // gesture mid-zoom.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !onUpdateItemCrop) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (viewMode !== 'edit') return;
+      e.preventDefault();
+      const proj = projectRef.current;
+      const item = proj?.tracks.find((t) => t.type === 'VIDEO')?.items[0];
+      if (!proj || !item) return;
+      if (!preCropProjectRef.current) {
+        preCropProjectRef.current = JSON.parse(JSON.stringify(proj));
+      }
+      const cur = item.crop?.scale ?? 1;
+      const next = Math.min(4, Math.max(1, Number((cur * (e.deltaY < 0 ? 1.1 : 1 / 1.1)).toFixed(3))));
+      onUpdateItemCrop(
+        item.id,
+        { mode: item.crop?.mode ?? ((item as any).crop_mode === 'fit' ? 'fit' : 'custom'), focusX: item.crop?.focusX ?? 0.5, focusY: item.crop?.focusY ?? 0.5, scale: next },
+        { recordHistory: false, markAsDirty: false }
+      );
+      if (cropZoomCommitTimer.current) clearTimeout(cropZoomCommitTimer.current);
+      cropZoomCommitTimer.current = setTimeout(() => {
+        if (preCropProjectRef.current && onCommitProject) {
+          const changed = JSON.stringify(preCropProjectRef.current.tracks) !== JSON.stringify(projectRef.current.tracks);
+          if (changed) onCommitProject(preCropProjectRef.current);
+        }
+        preCropProjectRef.current = null;
+        cropZoomCommitTimer.current = null;
+      }, 600);
+    };
+    v.addEventListener('wheel', handleWheel, { passive: false });
+    return () => v.removeEventListener('wheel', handleWheel);
+  }, [viewMode, onUpdateItemCrop, onCommitProject, videoRef]);
 
   // Caption 2D dragging state
   const [isDraggingCaption, setIsDraggingCaption] = useState<boolean>(false);
@@ -217,29 +307,44 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
 
   const currentCaptionCoords = useMemo(() => {
     let x = 0.5;
+    // Anchor matches the exported ASS semantics: an explicit position_y is the block's
+    // bottom edge (\an2 + marginV / \pos); the unset default mirrors captionService's
+    // posConfig margins (bottom: 180/60, middle: centered, top: 220/80 on playRes 1920/1080).
     let y = 0.667;
+    let anchorY: 'bottom' | 'center' | 'top' = 'bottom';
+    const capPos = captionItem?.caption?.position || 'bottom';
+    const isPortrait = project.canvas.aspect_ratio !== '16:9';
+    const playResY = isPortrait ? 1920 : 1080;
     if (captionItem?.caption?.position_x !== undefined) {
       x = captionItem.caption.position_x;
     } else if (captionItem?.transform?.position_x !== undefined) {
-      x =
-        captionItem.transform.position_x >= 0 && captionItem.transform.position_x <= 1
-          ? captionItem.transform.position_x
-          : captionItem.transform.position_x / 1920 + 0.5;
+      // Track transforms are pixel offsets from the canvas center (0 = centered) on a 1080x1920 canvas.
+      x = 0.5 + captionItem.transform.position_x / 1080;
     }
     if (captionItem?.caption?.position_y !== undefined) {
       y = captionItem.caption.position_y;
-    } else if (captionItem?.transform?.position_y !== undefined && captionItem.transform.position_y > 0) {
-      y = captionItem.transform.position_y > 1 ? captionItem.transform.position_y / 1080 : captionItem.transform.position_y;
+    } else if (captionItem?.transform?.position_y !== undefined) {
+      y = 0.5 + captionItem.transform.position_y / 1920;
+    } else if (capPos === 'center') {
+      y = 0.5;
+      anchorY = 'center';
+    } else if (capPos === 'top') {
+      y = (isPortrait ? 220 : 80) / playResY;
+      anchorY = 'top';
+    } else {
+      y = 1 - (isPortrait ? 180 : 60) / playResY;
     }
     return {
       x: Math.max(0.05, Math.min(0.95, x)),
       y: Math.max(0.05, Math.min(0.95, y)),
+      anchorY,
     };
-  }, [captionItem]);
+  }, [captionItem, project.canvas.aspect_ratio]);
 
   for (const track of project.tracks) {
     if (track.hidden) continue;
     for (const item of track.items) {
+      if (item.hidden) continue;
       if (playhead >= item.timeline_start && playhead <= item.timeline_end) {
         if (track.type === 'VIDEO') activeVideoItems.push(item);
         else if (track.type === 'TEXT') activeTextItems.push(item);
@@ -248,10 +353,54 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     }
   }
 
+  const backdropVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoDims, setVideoDims] = useState<{ w: number; h: number } | null>(null);
+
   const primaryVideoCropMode = useMemo(() => {
     const videoTrack = project.tracks.find((t) => t.type === 'VIDEO');
-    return (videoTrack?.items[0] as any)?.crop_mode || 'center';
+    const item = videoTrack?.items[0];
+    // Match the export compiler: item.crop.mode wins; legacy crop_mode only
+    // applies when no explicit crop exists. 'fit' letterboxes, 'blur' is a
+    // blurred-pad letterbox, everything else covers.
+    if (item?.crop?.mode) return item.crop.mode === 'fit' ? 'fit' : item.crop.mode === 'blur' ? 'blur' : 'fill';
+    return (item as any)?.crop_mode === 'fit' ? 'fit' : 'fill';
   }, [project.tracks]);
+
+  // Blur band anchor (mirrors CaptionService.computeBlurFitBandAnchor): on a blur
+  // layout the default caption position lands on the blurred fill in export, so
+  // the export anchors the block's bottom edge just inside the fitted content
+  // band. The preview must show the same placement - but only for the DEFAULT
+  // position: an explicit choice (provenance flag, numeric position_y, non-bottom
+  // position, or a dragged transform other than the materialized 500px default)
+  // always wins, exactly as in captionService.
+  const captionBandAnchorY = useMemo(() => {
+    if (primaryVideoCropMode !== 'blur' || !videoDims || videoDims.w <= 0 || videoDims.h <= 0) return undefined;
+    const cap = captionItem?.caption;
+    const capPos = cap?.position || 'bottom';
+    if (capPos !== 'bottom') return undefined;
+    if (cap?.position_explicit === true) return undefined;
+    if (cap?.position_y !== undefined) return undefined;
+    const ty = captionItem?.transform?.position_y;
+    if (ty !== undefined && Math.abs(ty - 500) > 0.5) return undefined;
+    const isPortrait = project.canvas.aspect_ratio !== '16:9';
+    const playRes = project.canvas.aspect_ratio === '1:1' ? { x: 1080, y: 1080 } : isPortrait ? { x: 1080, y: 1920 } : { x: 1920, y: 1080 };
+    const scale = Math.min(playRes.x / videoDims.w, playRes.y / videoDims.h);
+    const fitH = videoDims.h * scale;
+    if (fitH >= playRes.y - 1) return undefined; // source fills the canvas vertically: no band
+    const bandBottom = (playRes.y + fitH) / 2;
+    const targetY = bandBottom - Math.max(24, fitH * 0.08);
+    return Math.min(0.92, Math.max(0.08, targetY / playRes.y));
+  }, [primaryVideoCropMode, videoDims, captionItem, project.canvas.aspect_ratio]);
+
+  // Legacy overlay path: same band anchor as the preset path.
+  const effectiveCaptionCoords = useMemo(
+    () =>
+      captionBandAnchorY !== undefined
+        ? { x: currentCaptionCoords.x, y: captionBandAnchorY, anchorY: 'bottom' as const }
+        : currentCaptionCoords,
+    [currentCaptionCoords, captionBandAnchorY]
+  );
+
 
   // Find active caption cue
   const activeCue = cues.find((c) => playhead >= c.start && playhead <= c.end);
@@ -266,10 +415,15 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const captionData = captionItem?.caption;
   const captionTransform = captionItem?.transform;
   const aspectRatio = project.canvas.aspect_ratio;
-  const presetStyle = useMemo(
-    () => resolveEditorCaptionStyle(captionData, aspectRatio, captionTransform),
-    [captionData, aspectRatio, captionTransform]
-  );
+  const presetStyle = useMemo(() => {
+    const st = resolveEditorCaptionStyle(captionData, aspectRatio, captionTransform);
+    if (st && captionBandAnchorY !== undefined) {
+      // ASS marginV anchors the block's BOTTOM edge; positionY is the bottom-edge
+      // fraction from the top (see resolveCaptionPreset's positionY mapping).
+      return { ...st, marginV: Math.round(st.playResY * (1 - captionBandAnchorY)) };
+    }
+    return st;
+  }, [captionData, aspectRatio, captionTransform, captionBandAnchorY]);
   const presetCues = useMemo(
     () => (presetStyle ? regroupCuesForPreset(cues, presetStyle).cues : null),
     [cues, presetStyle]
@@ -283,8 +437,16 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const isUsingRenderedPreview = viewMode === 'export_review' && Boolean(renderedPreviewUrl);
   const targetVideoTime = useMemo(() => {
     if (isUsingRenderedPreview) return playhead;
+    const backdrop = backdropVideoRef.current;
+    if (backdrop && videoRef.current && Math.abs(backdrop.currentTime - videoRef.current.currentTime) > 0.3) {
+      backdrop.currentTime = videoRef.current.currentTime;
+    }
     if (activeVideoItems[0]) {
       const item = activeVideoItems[0];
+      // Freeze-frame still: hold the exact source frame for the whole span.
+      if ((item as any).is_freeze) {
+        return (item as any).freeze_source_time ?? (item.source_start || 0);
+      }
       const speed = item.speed?.speed || 1.0;
       return (item.source_start || 0) + (playhead - item.timeline_start) * speed;
     }
@@ -404,6 +566,49 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     };
   }, [isTransformDragging, dragStartPos, initialTransform, selectedItem, transformDragMode, onUpdateItemTransform, onCommitProject]);
 
+  // Crop-pan dragging: in edit mode, dragging the base video pans the per-item crop
+  // focus override. Click behavior is preserved via a small movement threshold; the
+  // commit goes through the same pre-operation snapshot pattern as transform drags.
+  useEffect(() => {
+    if (!cropDrag) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      const s = fitScaleRef.current || 1;
+      const dx = (e.clientX - cropDrag.startX) / s;
+      const dy = (e.clientY - cropDrag.startY) / s;
+      if (!cropDrag.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+      const dims = getAspectRatioDimensions();
+      const baseW = parseFloat(dims.width) || 1;
+      const baseH = parseFloat(dims.height) || 1;
+      // Dragging the image right reveals more of the left side: focus moves opposite.
+      const focusX = clamp01(cropDrag.startFocusX - dx / baseW);
+      const focusY = clamp01(cropDrag.startFocusY - dy / baseH);
+      onUpdateItemCrop?.(
+        cropDrag.itemId,
+        { mode: 'custom', focusX: Number(focusX.toFixed(4)), focusY: Number(focusY.toFixed(4)) },
+        { recordHistory: false, markAsDirty: false }
+      );
+      if (!cropDrag.moved) setCropDrag({ ...cropDrag, moved: true });
+    };
+    const handleMouseUp = () => {
+      if (cropDrag.moved && preCropProjectRef.current && onCommitProject) {
+        const hasChanged = JSON.stringify(preCropProjectRef.current.tracks) !== JSON.stringify(projectRef.current.tracks);
+        if (hasChanged) onCommitProject(preCropProjectRef.current);
+      }
+      if (cropDrag.moved) suppressClickAfterCropDragRef.current = true;
+      preCropProjectRef.current = null;
+      setCropDrag(null);
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('blur', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('blur', handleMouseUp);
+    };
+  }, [cropDrag, onUpdateItemCrop, onCommitProject]);
+
   // Handle caption 2D dragging with zero-jump grab offset, Shift horizontal lock, magnetic snap, and danger zone HUD
   const handleCaptionPointerDown = (e: React.PointerEvent) => {
     e.stopPropagation();
@@ -421,10 +626,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     const effCoords =
       captionScope === 'cue' && activeCue
         ? {
-            x: activeCue.position_x ?? currentCaptionCoords.x,
-            y: activeCue.position_y ?? currentCaptionCoords.y,
+            x: activeCue.position_x ?? effectiveCaptionCoords.x,
+            y: activeCue.position_y ?? effectiveCaptionCoords.y,
           }
-        : { ...currentCaptionCoords };
+        : { ...effectiveCaptionCoords };
 
     // Zero-jump grab offset: difference between pointer and current caption center
     setCaptionGrabOffset({
@@ -637,11 +842,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
         const effX =
           captionScope === 'cue' && activeCue?.position_x !== undefined
             ? activeCue.position_x
-            : currentCaptionCoords.x;
+            : effectiveCaptionCoords.x;
         const effY =
           captionScope === 'cue' && activeCue?.position_y !== undefined
             ? activeCue.position_y
-            : currentCaptionCoords.y;
+            : effectiveCaptionCoords.y;
 
         let nextX = effX;
         let nextY = effY;
@@ -670,7 +875,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
     isCaptionSelected,
-    currentCaptionCoords,
+    effectiveCaptionCoords,
     captionScope,
     activeCue,
     onUpdateCaptionPosition,
@@ -727,20 +932,20 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
 
           <div className="w-px h-3.5 bg-white/[0.1]" />
 
-          {/* 2. Layout: Fill / Fit */}
+          {/* 2. Layout: Fill / Fit / Blur - one toggle cycling the three fill modes */}
           {onUpdateCropMode && (
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                const nextMode = primaryVideoCropMode === 'fit' ? 'center' : 'fit';
+                const nextMode = primaryVideoCropMode === 'fill' ? 'fit' : primaryVideoCropMode === 'fit' ? 'blur' : 'center';
                 onUpdateCropMode(nextMode);
               }}
               className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg hover:bg-white/[0.08] text-neutral-300 hover:text-white transition font-medium"
-              title={`Layout Mode (Click to switch to ${primaryVideoCropMode === 'fit' ? 'Fill' : 'Fit'})`}
+              title="Layout Mode (Click to cycle Fill / Fit / Blur background)"
             >
               <Maximize2 className="w-3.5 h-3.5" />
-              <span>Layout: {primaryVideoCropMode === 'fit' ? 'Fit' : 'Fill'}</span>
+              <span>Layout: {primaryVideoCropMode === 'fit' ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
             </button>
           )}
 
@@ -788,6 +993,26 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           className="relative overflow-hidden flex items-center justify-center"
         >
           {/* HTML5 VIDEO BASE STREAM */}
+          {primaryVideoCropMode === 'blur' && activeVideoSrc ? (
+            <video
+              ref={backdropVideoRef}
+              src={activeVideoSrc}
+              muted
+              playsInline
+              aria-hidden
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+              style={{
+                // Tuned against the export chain (boxblur=25:5, eq=brightness=-0.15:contrast=0.95):
+                // CSS brightness is multiplicative while ffmpeg's is subtractive, so a lower
+                // brightness plus a mild contrast lift approximates the export's dark-but-
+                // structured band. Quantified on the fixture: band mean luminance within ~15%
+                // of the export render; the band stays flatter (CSS blur flattens more at
+                // preview scale) - accepted difference, not exact identity.
+                filter: 'blur(40px) brightness(0.55) contrast(1.1)',
+                transform: 'scale(1.15)',
+              }}
+            />
+          ) : null}
           {activeVideoSrc ? (
             <video
               ref={videoRef}
@@ -797,18 +1022,52 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               onLoadedMetadata={() => {
                 if (videoRef.current) {
                   videoRef.current.currentTime = targetVideoTime;
+                  if (videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
+                    setVideoDims({ w: videoRef.current.videoWidth, h: videoRef.current.videoHeight });
+                  }
                 }
+              }}
+              onDoubleClick={(e) => {
+                // Double-click resets the crop reframe (edit mode only).
+                if (viewMode !== 'edit' || !onUpdateItemCrop) return;
+                const item = activeVideoItems[0];
+                if (!item || !item.crop) return;
+                e.stopPropagation();
+                onUpdateItemCrop(item.id, { mode: item.crop.mode ?? ((item as any).crop_mode === 'fit' ? 'fit' : 'custom'), focusX: 0.5, focusY: 0.5, scale: 1 });
+              }}
+              onMouseDown={(e) => {
+                // Drag the base video to pan its crop focus (edit mode only).
+                if (viewMode !== 'edit' || !onUpdateItemCrop) return;
+                const item = activeVideoItems[0];
+                if (!item) return;
+                preCropProjectRef.current = JSON.parse(JSON.stringify(projectRef.current));
+                setCropDrag({
+                  itemId: item.id,
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  startFocusX: item.crop?.focusX ?? 0.5,
+                  startFocusY: item.crop?.focusY ?? 0.5,
+                  moved: false,
+                });
               }}
               onClick={(e) => {
                 e.stopPropagation();
+                if (suppressClickAfterCropDragRef.current) {
+                  suppressClickAfterCropDragRef.current = false;
+                  return;
+                }
                 if (selectedItemId) {
                   onSelectItem(null);
                   return;
                 }
                 onTogglePlay();
               }}
-              className="w-full h-full object-cover cursor-pointer select-none"
+              className="w-full h-full cursor-pointer select-none"
             style={{
+              filter: cssColorFilters(activeVideoItems[0]),
+              // Fit/Blur = letterbox (matches export's buildFitFilter pad / blur fill); Fill = cover-crop
+              objectFit: primaryVideoCropMode === 'fit' || primaryVideoCropMode === 'blur' ? 'contain' : 'cover',
+              objectPosition: `${((activeVideoItems[0]?.crop?.focusX ?? 0.5) * 100).toFixed(2)}% ${((activeVideoItems[0]?.crop?.focusY ?? 0.5) * 100).toFixed(2)}%`,
               transform: activeVideoItems[0]
                 ? `translate(${interpolateKeyframes(
                     activeVideoItems[0].keyframes,
@@ -820,18 +1079,21 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     'position_y',
                     playhead - activeVideoItems[0].timeline_start,
                     activeVideoItems[0].transform?.position_y || 0
-                  )}px) scale(${interpolateKeyframes(
+                  )}px) scale(${(interpolateKeyframes(
                     activeVideoItems[0].keyframes,
                     'scale',
                     playhead - activeVideoItems[0].timeline_start,
                     activeVideoItems[0].transform?.scale || 1
-                  )}) rotate(${interpolateKeyframes(
+                  ) as number) * (activeVideoItems[0].crop?.scale ?? 1)}) rotate(${interpolateKeyframes(
                     activeVideoItems[0].keyframes,
                     'rotation',
                     playhead - activeVideoItems[0].timeline_start,
                     activeVideoItems[0].transform?.rotation || 0
                   )}deg)`
                 : undefined,
+              // Crop zoom magnifies around the crop focus, matching the
+              // single-pass crop window the export filter computes.
+              transformOrigin: `${((activeVideoItems[0]?.crop?.focusX ?? 0.5) * 100).toFixed(2)}% ${((activeVideoItems[0]?.crop?.focusY ?? 0.5) * 100).toFixed(2)}%`,
               opacity: activeVideoItems[0]
                 ? interpolateKeyframes(
                     activeVideoItems[0].keyframes,
@@ -978,6 +1240,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                       textShadow: t.shadow_color
                         ? `0 2px ${t.shadow_blur || 6}px ${t.shadow_color}`
                         : undefined,
+                      // pre-line: explicit newlines in the item text are preserved (the
+                      // export burns one drawtext per line); long lines wrap at 90% width.
+                      whiteSpace: 'pre-line',
                       zIndex: item.z_index || 20,
                     }}
                     className={`absolute pointer-events-auto cursor-move max-w-[90%] leading-tight select-none transition-shadow ${
@@ -1234,11 +1499,20 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               const effX =
                 captionScope === 'cue' && activeCue?.position_x !== undefined
                   ? activeCue.position_x
-                  : currentCaptionCoords.x;
+                  : effectiveCaptionCoords.x;
               const effY =
                 captionScope === 'cue' && activeCue?.position_y !== undefined
                   ? activeCue.position_y
-                  : currentCaptionCoords.y;
+                  : effectiveCaptionCoords.y;
+
+              const cueHasOwnY = captionScope === 'cue' && activeCue?.position_y !== undefined;
+              const effAnchorY = cueHasOwnY ? 'bottom' : effectiveCaptionCoords.anchorY;
+              const anchorTransform =
+                effAnchorY === 'center'
+                  ? 'translate(-50%, -50%)'
+                  : effAnchorY === 'top'
+                    ? 'translate(-50%, 0)'
+                    : 'translate(-50%, -100%)';
 
               return (
                 <div
@@ -1252,7 +1526,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                   style={{
                     top: `${effY * 100}%`,
                     left: `${effX * 100}%`,
-                    transform: 'translate(-50%, -50%)',
+                    // Anchored like the exported ASS (bottom edge at effY for \an2 styles,
+                    // center/top for the middle/top unset-position defaults).
+                    transform: anchorTransform,
                   }}
                   data-selectable-item="true"
                   className={`absolute text-center pointer-events-auto select-none max-w-[88%] transition-opacity ${

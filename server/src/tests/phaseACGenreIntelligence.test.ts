@@ -34,9 +34,9 @@ describe('Phase A & C — Genre Intelligence & Scoring Verification', () => {
   // 1. Registry Integrity & Scoring Weights Sum to 1.0
   // ─────────────────────────────────────────────────────────────
   describe('1. Genre Registry & Safeguards', () => {
-    it('defines all 11 canonical genres with valid configuration', () => {
+    it('defines all 12 canonical genres with valid configuration', () => {
       const registered = Object.keys(GenreIntelligenceService.GENRE_PROFILES) as ContentGenre[];
-      assert.equal(registered.length, 11, 'Should define exactly 11 canonical genres');
+      assert.equal(registered.length, 12, 'Should define exactly 12 canonical genres');
 
       for (const g of EXPECTED_GENRES) {
         const profile = GenreIntelligenceService.GENRE_PROFILES[g];

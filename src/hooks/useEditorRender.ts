@@ -16,6 +16,7 @@ export interface UseEditorRenderReturn {
   renderSuccessMsg: string | null;
   triggerRender: () => Promise<boolean>;
   cancelRenderPolling: () => void;
+  clearRenderStatus: () => void;
 }
 
 export function useEditorRender({
@@ -120,6 +121,11 @@ export function useEditorRender({
     };
   }, [cancelRenderPolling]);
 
+  const clearRenderStatus = useCallback(() => {
+    setRenderSuccessMsg(null);
+    setRenderError(null);
+  }, []);
+
   return {
     isRendering,
     renderProgress,
@@ -128,5 +134,6 @@ export function useEditorRender({
     renderSuccessMsg,
     triggerRender,
     cancelRenderPolling,
+    clearRenderStatus,
   };
 }

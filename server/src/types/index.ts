@@ -327,6 +327,7 @@ export type ContentGenre =
   | 'news_politics'
   | 'comedy_entertainment'
   | 'storytelling'
+  | 'documentary'
   | 'product_marketing'
   | 'general';
 
@@ -545,6 +546,9 @@ export interface ClipRecord {
   muted?: boolean;
   editor_version?: number;
   render_version?: number;
+  rendered_editor_version?: number | null;
+  /** Editor-project updated_at captured at render start; a later project save marks the rendered download stale. */
+  rendered_editor_saved_at?: string | null;
   reframe_mode?: 'smart' | 'fallback_center' | 'manual';
   reframe_metadata?: Record<string, any>;
   background_music?: QuickClipMusicConfig;
@@ -597,12 +601,23 @@ export type CaptionStyle =
 export type CaptionPosition = 'top' | 'center' | 'bottom';
 export type CaptionTimingMode = 'word' | 'segment';
 
-export type CropMode = 'center' | 'manual' | 'smart';
+export type CropMode = 'center' | 'manual' | 'smart' | 'fit';
 export type ReframeLayoutMode = 'track' | 'split' | 'screencast' | 'blur';
 
 export interface CropConfig {
   mode?: CropMode;
   layout_mode?: ReframeLayoutMode;
+  /** Zoom factor for the crop window (1 = no zoom, >1 zoomed into the focus point). */
+  scale?: number;
+  /**
+   * Provenance of layout_mode. 'genre_recommendation' means the value was
+   * auto-stamped from the genre profile at analysis time and must NOT override
+   * measured content-aware layout detection; it is only a fallback when
+   * measurement is unavailable. 'user' marks an explicit user choice, which
+   * always wins. 'legacy_unknown' (or absent) marks records written before
+   * provenance tracking; those keep their historical authoritative behavior.
+   */
+  layout_mode_source?: 'genre_recommendation' | 'user' | 'legacy_unknown';
   focusX?: number; // 0 to 1, default 0.5 (center)
   focusY?: number; // 0 to 1, default 0.5 (center)
   smart?: {
@@ -619,6 +634,21 @@ export interface CropConfig {
     insetPosition?: 'bottom_right' | 'bottom_left' | 'top_right' | 'top_left';
     insetDiameter?: number;
     screenRatio?: number;
+    /**
+     * Main-content background behind the fitted source: 'black' (legacy
+     * letterbox) or 'blur' (blurred cover fill, kills empty black regions on
+     * landscape sources). Omit = 'black'.
+     */
+    background?: 'black' | 'blur';
+    /**
+     * Burned-in facecam region in normalized source coords (0-1). When set,
+     * the inset/card branch crops this region instead of center-cropping the
+     * full frame. Semantics are load-bearing: ABSENT (undefined) = fall back
+     * to the analysis-time static-geometry suggestion when one exists;
+     * null = explicit user opt-out (always legacy center-crop inset, the
+     * suggestion must not resurrect); object = user-confirmed region.
+     */
+    facecamBox?: { x: number; y: number; w: number; h: number } | null;
   };
 }
 
@@ -685,7 +715,7 @@ export interface CaptionConfig {
   textAlign?: CaptionTextAlign;
 
   // Cue chunk sizing
-  maxWordsPerCue?: number; // 2, 3, 4, 5, 6 (default 4)
+  maxWordsPerCue?: number; // 1-15 (default 4); 1 = single-word mode
   maxLines?: number; // 1 or 2 (default 2)
   maxCharsPerLine?: number; // line-break budget (default 28)
 
@@ -1947,14 +1977,24 @@ export interface EditorTextConfig {
   preset?: EditorTextPreset;
   animation?: EditorTextAnimation;
   animation_duration?: number;
+  /** Marks the auto-generated opening hook/headline text item. */
+  auto_headline?: boolean;
 }
 
 export interface EditorCaptionItem {
   cues: TimedCaptionCue[];
+  /** Coverage marker for beyond-candidate extend: saved cues are authoritative
+   * through this clip-local second; only cues past it may be appended. */
+  cues_covered_end?: number;
   style: CaptionStyle;
   position: CaptionPosition;
   position_x?: number; // normalized 0.0 to 1.0 (default 0.5)
   position_y?: number; // normalized 0.0 to 1.0 (default ~0.75 for bottom)
+  /** Set when the USER explicitly chose/dragged the caption position (any value,
+   * including 'bottom'). Distinguishes an intentional bottom choice from the
+   * materialized default so export-time layout anchoring (e.g. blur band
+   * anchor) only overrides the default, never a deliberate placement. */
+  position_explicit?: boolean;
   highlight_color: string;
   primary_color: string;
   animation?: 'none' | 'pop' | 'bounce' | 'karaoke' | 'highlight' | 'typewriter';
@@ -2009,9 +2049,11 @@ export interface EditorTrackItem {
   source_end: number; // seconds in source video
   transform: EditorTransform;
   crop?: {
-    mode: 'fit' | 'fill' | 'custom';
+    mode: 'fit' | 'fill' | 'custom' | 'blur';
     focusX?: number;
     focusY?: number;
+    /** Zoom factor for the crop window (1 = fill frame, >1 zoomed in). */
+    scale?: number;
     left?: number;
     right?: number;
     top?: number;
@@ -2023,6 +2065,9 @@ export interface EditorTrackItem {
   caption?: EditorCaptionItem;
   // Intro/outro title card: a full-frame colored card with centered text.
   is_title_card?: boolean;
+  /** Freeze-frame still: holds the source frame at freeze_source_time for the item's whole span. */
+  is_freeze?: boolean;
+  freeze_source_time?: number;
   title_card_text?: string;
   background_color?: string;
   color?: EditorColorAdjustments;

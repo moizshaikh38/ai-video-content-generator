@@ -184,7 +184,9 @@ export class OpenRouterContentProvider implements AIProviderClient {
       }, this.timeoutMs);
 
       try {
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        // OPENROUTER_BASE_URL is a testability override (local mock endpoint in
+        // E2E); production leaves it unset and hits OpenRouter.
+        const response = await fetch(process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${this.apiKey}`,

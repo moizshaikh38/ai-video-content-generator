@@ -32,6 +32,14 @@ interface ExportDialogProps {
   renderSuccessMsg: string | null;
   onTriggerRender: () => void;
   downloadUrl?: string | null;
+  watermarkRequired?: boolean;
+  /** Current editor caption visibility - the burn-in checkbox reflects and
+   * edits this, so export can never silently override editor captions-off. */
+  captionsEnabled?: boolean;
+  onToggleCaptions?: (enabled: boolean) => void;
+  /** True when editor export settings changed after the last render; the
+   * previously rendered file must not be offered as the changed export. */
+  downloadStale?: boolean;
 }
 
 export const ExportDialog: React.FC<ExportDialogProps> = ({
@@ -47,13 +55,22 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   renderSuccessMsg,
   onTriggerRender,
   downloadUrl,
+  watermarkRequired = false,
+  captionsEnabled = true,
+  onToggleCaptions,
+  downloadStale = false,
 }) => {
   const [resolution, setResolution] = useState<'1080p' | '720p'>('1080p');
-  const [burnCaptions, setBurnCaptions] = useState<boolean>(true);
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [resolvedDownloadUrl, setResolvedDownloadUrl] = useState<string | null>(null);
   const [resolvedFilename, setResolvedFilename] = useState<string>('clip.mp4');
+
+  // A stale render must not be offered as the changed export: drop the
+  // pre-fetched signed URL while export settings differ from the last render.
+  useEffect(() => {
+    if (downloadStale) setResolvedDownloadUrl(null);
+  }, [downloadStale]);
 
   // Pre-fetch signed download URL as soon as clip is ready or render completes
   useEffect(() => {
@@ -192,15 +209,25 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
               <div className="flex items-center justify-between p-3.5 rounded-xl bg-vc-canvas ">
                 <div>
                   <div className="text-sm font-medium text-white">Burn-in Subtitles</div>
-                  <div className="text-xs text-neutral-400">Hardcode kinetic captions directly into the MP4 video</div>
+                  <div className="text-xs text-neutral-400">Hardcode captions directly into the MP4 video (same as the editor captions toggle)</div>
                 </div>
                 <input
                   type="checkbox"
-                  checked={burnCaptions}
-                  onChange={(e) => setBurnCaptions(e.target.checked)}
-                  className="w-4 h-4 rounded accent-white cursor-pointer"
+                  checked={captionsEnabled}
+                  onChange={(e) => onToggleCaptions?.(e.target.checked)}
+                  disabled={!onToggleCaptions}
+                  className="w-4 h-4 rounded accent-white cursor-pointer disabled:opacity-50"
                 />
               </div>
+
+              {watermarkRequired && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-950/30 border border-amber-800/40">
+                  <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                  <p className="text-[11px] text-amber-200/90 leading-snug">
+                    Exports on your current plan include a VireoClip watermark.
+                  </p>
+                </div>
+              )}
 
               {/* Pro NLE Timeline XML Export Bridge */}
               {project && (
@@ -238,8 +265,14 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                 </div>
               )}
 
+              {downloadStale && (
+                <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-800/40 text-[11px] text-amber-200/90 leading-snug">
+                  Export settings changed since the last render. Start Render again to download an updated video.
+                </div>
+              )}
+
               {/* Existing rendered version available */}
-              {clip?.render_status === 'ready' && (
+              {clip?.render_status === 'ready' && !downloadStale && (
                 <div className="p-3.5 rounded-xl bg-emerald-950/20 flex items-center justify-between gap-3">
                   <div className="text-left">
                     <div className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
@@ -306,7 +339,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
           )}
 
           {/* Success Result View */}
-          {renderSuccessMsg && !isRendering && (
+          {renderSuccessMsg && !isRendering && !downloadStale && (
             <div className="py-4 space-y-4 text-center">
               <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto" />
               <div>
@@ -369,7 +402,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
             {renderSuccessMsg ? 'Close' : 'Cancel'}
           </button>
 
-          {!isRendering && !renderSuccessMsg && (
+          {!isRendering && (!renderSuccessMsg || downloadStale) && (
             <button
               onClick={onTriggerRender}
               className="px-5 py-2 rounded-full bg-vc-ai-hover text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai active:bg-violet-700 active:translate-y-px text-xs font-semibold flex items-center gap-1.5 transition"

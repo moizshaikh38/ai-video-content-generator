@@ -870,11 +870,19 @@ describe('Phase 20 — Vireo Audio + Voice Studio System Tests', () => {
 
         const graph = ProEditorService.compileRenderGraph(project, REAL_VIDEO_ASSET);
 
+        // Bound every input to the rendered window plus a small margin: without it,
+        // one-pass loudnorm stalls the muxer until input EOF and the unbounded 1080p
+        // decode queues (two inputs here) can OOM this render under memory pressure.
+        const boundedInputArgs: string[] = [];
+        for (const a of graph.inputArgs) {
+          if (a === '-i') boundedInputArgs.push('-ss', '0', '-t', '2.6');
+          boundedInputArgs.push(a);
+        }
         const ffmpegArgs = [
           '-nostdin',
           '-hide_banner',
           '-y',
-          ...graph.inputArgs,
+          ...boundedInputArgs,
           '-filter_complex', graph.filterComplex.join(';'),
           '-map', graph.videoMap,
           '-map', graph.audioMap,

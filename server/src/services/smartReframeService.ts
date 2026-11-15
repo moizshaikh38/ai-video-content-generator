@@ -18,6 +18,7 @@ import { promisify } from 'node:util';
 import { downloadObjectToFile } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
 import { applyWordEnergyFusion } from '../utils/wordEnergyFusion.js';
+import { GenreIntelligenceService } from './genreIntelligenceService.js';
 
 const execFileAsync = promisify(execFile);
 import type {
@@ -49,6 +50,32 @@ export interface SmartReframeOptions {
   timeoutMs?: number;
   sceneCuts?: number[];
   speechIntervals?: Array<{ start: number; end: number }>;
+}
+
+/**
+ * Phase 3b: merge explicit reframe options with the project's genre profile.
+ * Explicit per-call options always win; the genre profile's reframeConfig fills
+ * the rest; the internal defaults inside smoothAndGenerateKeyframes apply last.
+ * The genre's recommendedLayoutMode is returned as a layout preference that the
+ * caller applies only when the user has not chosen a layout themselves.
+ */
+export function resolveGenreReframeOptions(
+  options: SmartReframeOptions,
+  genre?: string | null
+): {
+  deadZone?: number;
+  maxVelocity?: number;
+  smoothingAlpha?: number;
+  preferredLayoutMode?: ReframeLayoutMode;
+} {
+  const profile = genre ? GenreIntelligenceService.getGenreProfile(genre) : null;
+  const rc = profile?.reframeConfig;
+  return {
+    deadZone: options.deadZone ?? rc?.deadZone,
+    maxVelocity: options.maxVelocity ?? rc?.maxVelocity,
+    smoothingAlpha: options.smoothingAlpha ?? rc?.smoothingAlpha,
+    preferredLayoutMode: profile?.recommendedLayoutMode as ReframeLayoutMode | undefined,
+  };
 }
 
 export class SmartReframeService {
@@ -366,7 +393,31 @@ export class SmartReframeService {
       smoothingAlpha = 0.25, // Exponential moving average weight
       sceneCuts = [],
       speechIntervals = [],
+      aspectRatio = '9:16',
+      sourceWidth = 1920,
+      sourceHeight = 1080,
     } = params;
+
+    // Subject-retention window: half-size of the crop window in normalized
+    // source coordinates. Smoothing may never leave a known subject's
+    // bounding box outside this window; retention overrides steadiness.
+    const parseAspect = (ar: string): number => {
+      const m = /^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/.exec(ar);
+      if (!m) return 9 / 16;
+      const w = Number(m[1]);
+      const h = Number(m[2]);
+      return w > 0 && h > 0 ? w / h : 9 / 16;
+    };
+    const cropAspect = parseAspect(aspectRatio);
+    const cropWinHalfW = Math.min(1, (sourceHeight * cropAspect) / Math.max(1, sourceWidth)) / 2;
+    const cropWinHalfH = Math.min(1, sourceWidth / cropAspect / Math.max(1, sourceHeight)) / 2;
+    const clampCenterForRetention = (c: number, boxStart: number, boxSize: number, half: number): number => {
+      if (2 * half >= 1) return c; // window covers the whole axis: every box is trivially inside
+      if (boxSize >= 2 * half) return boxStart + boxSize / 2; // subject larger than window: center on it
+      const lo = boxStart + boxSize - half; // min center keeping the box's far edge inside
+      const hi = boxStart + half; // max center keeping the box's near edge inside
+      return Math.min(hi, Math.max(lo, c));
+    };
 
     const safeDuration = Math.max(0.1, duration);
 
@@ -407,6 +458,7 @@ export class SmartReframeService {
       time: number;
       x: number;
       y: number;
+      box?: { x: number; y: number; w: number; h: number };
     }
     const shotTrajectories: ShotTrajectoryPoint[][] = [];
 
@@ -467,22 +519,48 @@ export class SmartReframeService {
           }
         }
       } else if (shotTracks.size === 1) {
-        shotDominantTrackId = Array.from(shotTracks.keys())[0];
+        const onlyTrackId = Array.from(shotTracks.keys())[0];
+        // EXPERIMENTAL (SMART_REFRAME_SHOT_TRACK_GATE=1): a single-track shot
+        // adopts that track only if it clears the same minimum-presence bar
+        // selectDominantTrack applies to multi-track shots. A lone one-frame
+        // detection (e.g. a small low-confidence edge false positive) no
+        // longer anchors the whole shot far off-center; the shot eases toward
+        // center instead. Default (flag unset): pre-gate behavior unchanged.
+        if (process.env.SMART_REFRAME_SHOT_TRACK_GATE === '1') {
+          // Presence bar: at least 2 detections AND >= 25% of the shot's
+          // samples. A lone first-frame detection (small, low-confidence edge
+          // false positive in the Sintel case) cannot anchor the whole shot.
+          const minDets = Math.max(2, Math.ceil(shotSamples.length * 0.25));
+          const dets = shotTracks.get(onlyTrackId)!;
+          shotDominantTrackId = dets.length >= minDets ? onlyTrackId : dominantTrackId;
+        } else {
+          shotDominantTrackId = onlyTrackId;
+        }
       }
 
       // Build raw trajectory for this shot
-      const rawShotTraj: { time: number; x: number; y: number }[] = [];
+      const rawShotTraj: ShotTrajectoryPoint[] = [];
       let lastSeenFace: NormalizedFaceDetection | null = null;
       let lastSeenTime = -1;
 
+      const weightedCentering = process.env.SMART_REFRAME_WEIGHTED_CENTERING === '1';
       for (const sample of shotSamples) {
         const { time } = sample;
         let targetX: number | null = null;
         let targetY: number | null = null;
 
+        let subjectBox: { x: number; y: number; w: number; h: number } | null = null;
+
         if (shotDominantTrackId === '__midpoint__') {
-          const validFaceXs = sample.faces.map((f) => f.center_x);
-          const validFaceYs = sample.faces.map((f) => f.center_y);
+          // EXPERIMENTAL (SMART_REFRAME_WEIGHTED_CENTERING=1): weak detections
+          // pull the midpoint only weakly away from center. Default: unweighted.
+          const weighted = sample.faces.map((f) => {
+            const conf = Number(f.confidence ?? 0.5);
+            const w = weightedCentering ? Math.min(1, Math.max(0, (conf - 0.68) / 0.2)) : 1;
+            return { x: 0.5 + (f.center_x - 0.5) * w, y: 0.38 + (f.center_y - 0.38) * w };
+          });
+          const validFaceXs = weighted.map((f) => f.x);
+          const validFaceYs = weighted.map((f) => f.y);
           if (validFaceXs.length >= 2) {
             targetX = (validFaceXs[0] + validFaceXs[1]) / 2.0;
             targetY = (validFaceYs[0] + validFaceYs[1]) / 2.0;
@@ -490,23 +568,44 @@ export class SmartReframeService {
             targetX = validFaceXs[0];
             targetY = validFaceYs[0];
           }
+          if (sample.faces.length > 0) {
+            const minX = Math.min(...sample.faces.map((f) => f.x));
+            const minY = Math.min(...sample.faces.map((f) => f.y));
+            const maxX = Math.max(...sample.faces.map((f) => f.x + f.width));
+            const maxY = Math.max(...sample.faces.map((f) => f.y + f.height));
+            subjectBox = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+          }
         } else if (shotDominantTrackId) {
           const match = sample.faces.find((f) => f.track_id === shotDominantTrackId);
           if (match) {
-            targetX = match.center_x;
-            targetY = match.center_y;
+            // EXPERIMENTAL (SMART_REFRAME_WEIGHTED_CENTERING=1): confidence-weighted
+            // centering - low-confidence detections (Haar false positives on
+            // non-face content cluster at ~0.65-0.80) pull the crop only weakly
+            // away from frame center; confident detections (~0.88+) steer fully.
+            // Weight 0 at 0.68, 1 at 0.88. Default (flag unset): pre-experiment
+            // behavior, the detection steers fully and always pins retention.
+            const conf = Number(match.confidence ?? 0.5);
+            const confWeight = weightedCentering ? Math.min(1, Math.max(0, (conf - 0.68) / 0.2)) : 1;
+            targetX = 0.5 + (match.center_x - 0.5) * confWeight;
+            targetY = 0.38 + (match.center_y - 0.38) * confWeight;
             lastSeenFace = match;
             lastSeenTime = time;
+            subjectBox = confWeight >= 0.5 ? { x: match.x, y: match.y, w: match.width, h: match.height } : null;
           }
         }
 
         const fallbackY = lastSeenFace ? lastSeenFace.center_y : 0.38;
 
         if (targetX !== null) {
-          rawShotTraj.push({ time, x: targetX, y: targetY ?? fallbackY });
+          rawShotTraj.push({ time, x: targetX, y: targetY ?? fallbackY, box: subjectBox ?? undefined });
         } else if (lastSeenFace !== null && (time - lastSeenTime) <= 1.0) {
           // Short occlusion (<= 1.0s) within this shot: hold last known position
-          rawShotTraj.push({ time, x: lastSeenFace.center_x, y: lastSeenFace.center_y });
+          rawShotTraj.push({
+            time,
+            x: lastSeenFace.center_x,
+            y: lastSeenFace.center_y,
+            box: { x: lastSeenFace.x, y: lastSeenFace.y, w: lastSeenFace.width, h: lastSeenFace.height },
+          });
         } else {
           // Longer occlusion or no face: ease toward center (0.5 for X, 0.38 for eye-level headroom Y)
           const prevX = lastSeenFace ? lastSeenFace.center_x : 0.5;
@@ -553,6 +652,14 @@ export class SmartReframeService {
 
         currentX = Math.min(1.0, Math.max(0.0, currentX));
         currentY = Math.min(1.0, Math.max(0.0, currentY));
+
+        // Subject retention: a known subject's bounding box must stay inside
+        // the crop window even when genre tuning prefers a steadier camera.
+        if (pt.box) {
+          currentX = clampCenterForRetention(currentX, pt.box.x, pt.box.w, cropWinHalfW);
+          currentY = clampCenterForRetention(currentY, pt.box.y, pt.box.h, cropWinHalfH);
+        }
+
         smoothedShotTraj.push({
           time: pt.time,
           x: Math.round(currentX * 10000) / 10000,
@@ -812,6 +919,84 @@ export class SmartReframeService {
   }
 
   /**
+   * Finds a persistent, spatially static face track - the geometric signature of a
+   * burned-in facecam - and returns its median box in normalized coords, or null.
+   * Geometry only: callers decide layout; this never implies content intent.
+   */
+  public static findStaticFacecamBox(
+    samples: ReframeSample[],
+    minPresence = 0.25,
+    maxStddev = 0.03,
+  ): { x: number; y: number; w: number; h: number } | null {
+    return this.findStaticFacecamTrack(samples, minPresence, maxStddev)?.box ?? null;
+  }
+
+  /**
+   * Resolves the effective facecam box for a screencast render. The user's
+   * explicit choice always wins over the analysis-time static-geometry
+   * suggestion: a present box is used as-is; an explicit null is an opt-out
+   * (no fallback, legacy center-crop inset); only an absent key falls back
+   * to the suggestion. Undefined suggestion = no box.
+   */
+  public static resolveFacecamBox(
+    screencastConfig: { facecamBox?: { x: number; y: number; w: number; h: number } | null } | undefined | null,
+    trackMetadata: Record<string, any> | undefined | null,
+  ): { x: number; y: number; w: number; h: number } | undefined {
+    if (screencastConfig && Object.prototype.hasOwnProperty.call(screencastConfig, 'facecamBox')) {
+      return screencastConfig.facecamBox ?? undefined; // object -> use; null -> explicit opt-out
+    }
+    const suggestion = trackMetadata?.facecam_box;
+    if (
+      suggestion &&
+      typeof suggestion.x === 'number' && typeof suggestion.y === 'number' &&
+      typeof suggestion.w === 'number' && typeof suggestion.h === 'number'
+    ) {
+      return suggestion;
+    }
+    return undefined;
+  }
+
+  /**
+   * Same static-geometry scan, but also returns the matching track_id so the
+   * analysis path can exclude that track from dominant-subject selection and
+   * persist the box as a user-correctable suggestion. The box is a geometric
+   * suggestion only - persistence and stillness do not prove facecam intent.
+   */
+  public static findStaticFacecamTrack(
+    samples: ReframeSample[],
+    minPresence = 0.25,
+    maxStddev = 0.03,
+  ): { trackId: string; box: { x: number; y: number; w: number; h: number } } | null {
+    const byTrack = new Map<string, Array<{ x: number; y: number; w: number; h: number }>>();
+    for (const s of samples) {
+      for (const f of s.faces || []) {
+        if (!f.track_id) continue;
+        const arr = byTrack.get(f.track_id) || [];
+        arr.push({ x: Number(f.x), y: Number(f.y), w: Number(f.width), h: Number(f.height) });
+        byTrack.set(f.track_id, arr);
+      }
+    }
+    let bestTrackId: string | null = null;
+    let best: { x: number; y: number; w: number; h: number } | null = null;
+    let bestStd = Infinity;
+    for (const [trackId, boxes] of byTrack.entries()) {
+      if (boxes.length < Math.max(3, samples.length * minPresence)) continue;
+      const cx = boxes.map((b) => b.x + b.w / 2);
+      const cy = boxes.map((b) => b.y + b.h / 2);
+      const mean = (a: number[]) => a.reduce((p, c) => p + c, 0) / a.length;
+      const std = (a: number[]) => Math.sqrt(mean(a.map((v) => (v - mean(a)) ** 2)));
+      const s = Math.max(std(cx), std(cy));
+      if (s < maxStddev && s < bestStd) {
+        const sorted = (a: number[]) => [...a].sort((p, c) => p - c)[Math.floor(a.length / 2)];
+        bestStd = s;
+        bestTrackId = trackId;
+        best = { x: sorted(boxes.map((b) => b.x)), y: sorted(boxes.map((b) => b.y)), w: sorted(boxes.map((b) => b.w)), h: sorted(boxes.map((b) => b.h)) };
+      }
+    }
+    return bestTrackId && best ? { trackId: bestTrackId, box: best } : null;
+  }
+
+  /**
    * Generates FFmpeg filter complex expressions for Screencast & Camera Inset layouts:
    * 1. 'split_stacked': Screen on top (e.g. 60%), speaker camera on bottom (40%)
    * 2. 'circular_inset': Full screen with circular speaker bubble in a safe corner
@@ -826,6 +1011,21 @@ export class SmartReframeService {
     screenRatio?: number;
     canvasWidth?: number;
     canvasHeight?: number;
+    /**
+     * Main-content background: 'black' keeps the legacy letterbox pad;
+     * 'blur' fills the canvas with a blurred cover of the source and fits the
+     * source over it, removing empty black regions on landscape content.
+     * Omit = 'black' (legacy, byte-identical output).
+     */
+    background?: 'black' | 'blur';
+    /**
+     * Optional facecam region in normalized source coords (0-1). For single-input
+     * recordings with the camera BURNED INTO the frame (typical gameplay captures),
+     * the inset/card branch crops this region instead of center-cropping the full
+     * frame. Geometry only - the layout choice itself stays user-correctable via
+     * CropConfig; omitting it preserves the legacy full-frame inset behavior.
+     */
+    facecamBox?: { x: number; y: number; w: number; h: number };
   }): string {
     const {
       mode,
@@ -834,7 +1034,52 @@ export class SmartReframeService {
       screenRatio = 0.60,
       canvasWidth = 1080,
       canvasHeight = 1920,
+      background = 'black',
+      facecamBox,
     } = options;
+
+    // Main-content stage: legacy letterbox (black pad) or blurred cover fill.
+    const mainStage = (mainLabel: string, outLabel: string): string => {
+      if (background === 'blur') {
+        return `[${mainLabel}]split=2[bgs][fgs];` +
+          `[bgs]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${canvasHeight},gblur=sigma=40[bgb];` +
+          `[fgs]scale=${canvasWidth}:-2:force_original_aspect_ratio=decrease[fgf];` +
+          `[bgb][fgf]overlay=(W-w)/2:(H-h)/2[${outLabel}]`;
+      }
+      return `[${mainLabel}]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=decrease,pad=${canvasWidth}:${canvasHeight}:(ow-iw)/2:(oh-ih)/2:color=black[${outLabel}]`;
+    };
+
+    // Inset source branch: crop the burned-in facecam region when provided,
+    // else keep the legacy center-crop of the whole frame.
+    const camSrc = (targetW: number, targetH: number): string => {
+      if (facecamBox) {
+        const fx = Math.min(0.98, Math.max(0, facecamBox.x));
+        const fy = Math.min(0.98, Math.max(0, facecamBox.y));
+        const fw = Math.min(1 - fx, Math.max(0.01, facecamBox.w));
+        const fh = Math.min(1 - fy, Math.max(0.01, facecamBox.h));
+        // Asymmetric headroom around the detected face box: more above the
+        // forehead, less at the sides/chin, so the inset stays tight on the
+        // face instead of filling with gameplay/background edges.
+        const padX = 0.12;
+        const padTop = 0.16;
+        const padBottom = 0.12;
+        const left = Math.max(0, fx - fw * padX);
+        const right = Math.min(1, fx + fw * (1 + padX));
+        const top = Math.max(0, fy - fh * padTop);
+        const bottom = Math.min(1, fy + fh * (1 + padBottom));
+        const cx = (left + right) / 2;
+        const cy = (top + bottom) / 2;
+        let pw = right - left;
+        let ph = bottom - top;
+        const targetAspect = targetW / targetH;
+        if (pw / ph > targetAspect) { ph = pw / targetAspect; } else { pw = ph * targetAspect; }
+        pw = Math.min(1, pw); ph = Math.min(1, ph);
+        const px = Math.min(1 - pw, Math.max(0, cx - pw / 2));
+        const py = Math.min(1 - ph, Math.max(0, cy - ph / 2));
+        return `crop=w='in_w*${pw.toFixed(4)}':h='in_h*${ph.toFixed(4)}':x='in_w*${px.toFixed(4)}':y='in_h*${py.toFixed(4)}',scale=${targetW}:${targetH}:force_original_aspect_ratio=increase,crop=${targetW}:${targetH}`;
+      }
+      return `scale=${targetW}:${targetH}:force_original_aspect_ratio=increase,crop=${targetW}:${targetH}`;
+    };
 
     if (mode === 'split_stacked') {
       const topHeight = Math.round(canvasHeight * Math.max(0.3, Math.min(0.8, screenRatio)));
@@ -861,13 +1106,13 @@ export class SmartReframeService {
 
     if (mode === 'circular_inset') {
       const radius = Math.round(insetDiameter / 2);
-      return `[0:v]split=2[main][cam];[main]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=decrease,pad=${canvasWidth}:${canvasHeight}:(ow-iw)/2:(oh-ih)/2:color=black[bg];[cam]scale=${insetDiameter}:${insetDiameter}:force_original_aspect_ratio=increase,crop=${insetDiameter}:${insetDiameter},format=yuva420p,geq=lum='p(X,Y)':a='if(lte((X-${radius})*(X-${radius})+(Y-${radius})*(Y-${radius}),${radius}*${radius}),255,0)'[cam_circle];[bg][cam_circle]overlay=x=${posX}:y=${posY}[out]`;
+      return `[0:v]split=2[main][cam];${mainStage('main', 'bg')};[cam]${camSrc(insetDiameter, insetDiameter)},format=yuva420p,geq=lum='p(X,Y)':a='if(lte((X-${radius})*(X-${radius})+(Y-${radius})*(Y-${radius}),${radius}*${radius}),255,0)'[cam_circle];[bg][cam_circle]overlay=x=${posX}:y=${posY}[out]`;
     }
 
     // rounded_card_inset
     const cardWidth = Math.round(insetDiameter * 1.15);
     const cardHeight = Math.round(insetDiameter * 0.85);
-    return `[0:v]split=2[main][cam];[main]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=decrease,pad=${canvasWidth}:${canvasHeight}:(ow-iw)/2:(oh-ih)/2:color=black[bg];[cam]scale=${cardWidth}:${cardHeight}:force_original_aspect_ratio=increase,crop=${cardWidth}:${cardHeight}[card];[bg][card]overlay=x=${posX}:y=${posY}[out]`;
+    return `[0:v]split=2[main][cam];${mainStage('main', 'bg')};[cam]${camSrc(cardWidth, cardHeight)}[card];[bg][card]overlay=x=${posX}:y=${posY}[out]`;
   }
 
   /**
@@ -934,7 +1179,7 @@ export class SmartReframeService {
    */
   public static determineOptimalLayoutMode(
     samples: ReframeSample[],
-    options: { isScreencastHint?: boolean; preferredMode?: ReframeLayoutMode } = {}
+    options: { isScreencastHint?: boolean; preferredMode?: ReframeLayoutMode; fallbackMode?: ReframeLayoutMode } = {}
   ): { layoutMode: ReframeLayoutMode; speaker1X?: number; speaker2X?: number } {
     if (options.preferredMode) {
       return { layoutMode: options.preferredMode };
@@ -943,8 +1188,10 @@ export class SmartReframeService {
       return { layoutMode: 'screencast' };
     }
 
+    // Measurement unavailable: use the caller's fallback hint (e.g. a genre
+    // recommendation) when provided, else the historical 'blur' default.
     if (!Array.isArray(samples) || samples.length === 0) {
-      return { layoutMode: 'blur' };
+      return { layoutMode: options.fallbackMode ?? 'blur' };
     }
 
     let noFaceFrames = 0;
@@ -983,7 +1230,92 @@ export class SmartReframeService {
       };
     }
 
+    // Anchorability check: 'track' tight-crops around the dominant face. A
+    // clip should only commit to that crop when an anchorable subject (a face
+    // occupying at least TRACK_ANCHOR_MIN_FACE_AREA of the frame) is present
+    // in at least half the samples. Measured 15 Nov 2026 on the NASA Moon
+    // Base window: only 25% of samples had any face >= 2% of frame (distant
+    // people in wide shots), and the resulting tight crop clipped source
+    // title text at both edges; fitting the full frame is the right call
+    // there. A global median was rejected: it hides mixed-shot clips where a
+    // close subject is present for most of the runtime. Two-shot split above
+    // is position-based and intentionally unaffected.
+    let anchorableSamples = 0;
+    for (const sample of samples) {
+      const hasAnchor = (sample.faces || []).some((f) => {
+        const a = f.width * f.height;
+        return Number.isFinite(a) && a >= SmartReframeService.TRACK_ANCHOR_MIN_FACE_AREA;
+      });
+      if (hasAnchor) anchorableSamples++;
+    }
+    if (anchorableSamples / samples.length < SmartReframeService.TRACK_ANCHOR_MIN_SAMPLE_RATIO) {
+      return { layoutMode: 'blur' };
+    }
+
     return { layoutMode: 'track' };
+  }
+
+  /**
+   * Minimum face area (fraction of frame) that qualifies a detection as a
+   * crop-anchorable subject. 0.02 = 2% of frame. PROVISIONAL heuristic
+   * (15 Nov 2026): chosen from the NASA Moon Base window (75th percentile
+   * sample-max area 2.05% for wide documentary shots), not from a measured
+   * talking-head distribution; revisit with broader evidence.
+   */
+  private static readonly TRACK_ANCHOR_MIN_FACE_AREA = 0.02;
+  /**
+   * Minimum fraction of samples that must contain an anchorable subject
+   * before 'track' commits the whole clip to a tight crop.
+   */
+  private static readonly TRACK_ANCHOR_MIN_SAMPLE_RATIO = 0.5;
+
+  /**
+   * Provenance-aware layout resolution (see CropConfig.layout_mode_source):
+   * - user-chosen and legacy/unknown-provenance crop layouts stay authoritative.
+   * - a genre-recommended layout (auto-stamped at analysis time, or the project
+   *   genre profile's recommendedLayoutMode) is only a hint: measured
+   *   content-aware detection decides when samples exist. Exception: 'screencast'
+   *   engages when the hint exists AND analysis found a static facecam track (the
+   *   geometric screen-with-facecam signal) AND measurement did not find a
+   *   two-shot conversation. Faceless sources (documentary, B-roll, pure
+   *   gameplay) no longer inherit split_stacked duplication from a genre label.
+   */
+  public static resolveLayoutWithProvenance(args: {
+    cropLayoutMode?: ReframeLayoutMode;
+    cropLayoutSource?: 'genre_recommendation' | 'user' | 'legacy_unknown';
+    genrePreferredLayoutMode?: ReframeLayoutMode;
+    samples: ReframeSample[];
+    facecamSuggestionPresent: boolean;
+  }): { layoutMode: ReframeLayoutMode; speaker1X?: number; speaker2X?: number } {
+    const { cropLayoutMode, cropLayoutSource, genrePreferredLayoutMode, samples, facecamSuggestionPresent } = args;
+    const cropAuthoritative = !!cropLayoutMode && cropLayoutSource !== 'genre_recommendation';
+    if (cropAuthoritative) {
+      return this.determineOptimalLayoutMode(samples, {
+        preferredMode: cropLayoutMode,
+        fallbackMode: genrePreferredLayoutMode,
+      });
+    }
+    const genreHint = cropLayoutMode ?? genrePreferredLayoutMode;
+    const measured = this.determineOptimalLayoutMode(samples, { fallbackMode: genreHint });
+    // A static facecam track is the screen-with-facecam signal; when it is
+    // present the genre hint engages for any measured single-subject outcome.
+    // 'track' covers the large-facecam case; 'blur' covers the SMALL static
+    // facecam (verified 15 Nov 2026 with a synthetic fixture: a 0.55%-of-frame
+    // static face over animated content measures 'blur' under the anchor rule,
+    // which is exactly the typical gameplay capture). Only a measured two-shot
+    // conversation ('split') overrides the hint. Documentary/B-roll footage is
+    // unaffected because findStaticFacecamTrack returns null there (verified
+    // on the NASA Moon Base window).
+    if (
+      genreHint === 'screencast' &&
+      Array.isArray(samples) &&
+      samples.length > 0 &&
+      facecamSuggestionPresent &&
+      measured.layoutMode !== 'split'
+    ) {
+      return { layoutMode: 'screencast' };
+    }
+    return measured;
   }
 
   /**
@@ -999,6 +1331,11 @@ export class SmartReframeService {
     speaker1X?: number;
     speaker2X?: number;
     screencastMode?: 'split_stacked' | 'circular_inset' | 'rounded_card_inset';
+    screencastInsetPosition?: 'bottom_right' | 'bottom_left' | 'top_right' | 'top_left';
+    screencastInsetDiameter?: number;
+    screencastScreenRatio?: number;
+    screencastBackground?: 'black' | 'blur';
+    screencastFacecamBox?: { x: number; y: number; w: number; h: number };
   }): string {
     const {
       layoutMode = 'track',
@@ -1010,6 +1347,11 @@ export class SmartReframeService {
       speaker1X,
       speaker2X,
       screencastMode = 'split_stacked',
+      screencastInsetPosition,
+      screencastInsetDiameter,
+      screencastScreenRatio,
+      screencastBackground,
+      screencastFacecamBox,
     } = options;
 
     if (aspectRatio === '9:16') {
@@ -1032,6 +1374,11 @@ export class SmartReframeService {
       if (layoutMode === 'screencast') {
         return this.buildScreencastFilter({
           mode: screencastMode,
+          insetPosition: screencastInsetPosition,
+          insetDiameter: screencastInsetDiameter,
+          screenRatio: screencastScreenRatio,
+          background: screencastBackground,
+          facecamBox: screencastFacecamBox,
           canvasWidth: 1080,
           canvasHeight: 1920,
         });
@@ -1277,6 +1624,24 @@ export class SmartReframeService {
         throw err;
       }
 
+      // Phase 3b: resolve the project's genre profile so reframe tuning (dead
+      // zone, velocity cap, smoothing) and layout preference follow the content
+      // type. Explicit per-call options and the user's own layout choice win.
+      let genreReframe: ReturnType<typeof resolveGenreReframeOptions> = {};
+      try {
+        if (clip.project_id) {
+          const { data: proj } = await dataRepository
+            .from('projects')
+            .select('clip_preferences')
+            .eq('id', clip.project_id)
+            .maybeSingle();
+          const genre = (proj as any)?.clip_preferences?.genre ?? null;
+          genreReframe = resolveGenreReframeOptions(options, genre);
+        }
+      } catch (genreErr: any) {
+        logger.warn(`[SmartReframe] Genre profile resolution skipped: ${genreErr.message}`);
+      }
+
       fs.mkdirSync(tempDir, { recursive: true });
       // Reuse the render's already-downloaded source when provided (avoids a
       // second full-source download during render-time auto-generation).
@@ -1357,11 +1722,27 @@ export class SmartReframeService {
         logger.warn(`[SmartReframe] Optional timeline/transcript enrichment skipped: ${ctxErr.message}`);
       }
 
-      // 7. Associate tracks and select dominant subject
+      // 7. Associate tracks and select dominant subject. A persistent static
+      // track (geometric facecam signature) is a user-correctable suggestion:
+      // exclude it from dominant-subject selection for screencast layouts so
+      // the tracked path follows content, and persist its box in metadata.
       const { tracks, faceCount } = this.associateTracks(cvResult.samples);
-      const { dominantTrackId, score } = this.selectDominantTrack(tracks, cvResult.samples.length, { speechIntervals });
-      const { layoutMode, speaker1X, speaker2X } = this.determineOptimalLayoutMode(cvResult.samples, {
-        preferredMode: clip.crop_config?.layout_mode,
+      const facecamSuggestion = this.findStaticFacecamTrack(cvResult.samples);
+      const wantsScreencast =
+        (clip.crop_config?.layout_mode ?? genreReframe.preferredLayoutMode) === 'screencast';
+      let selectionTracks = tracks;
+      if (wantsScreencast && facecamSuggestion && tracks.has(facecamSuggestion.trackId)) {
+        selectionTracks = new Map(tracks);
+        selectionTracks.delete(facecamSuggestion.trackId);
+        if (selectionTracks.size === 0) selectionTracks = tracks; // never drop the only subject
+      }
+      const { dominantTrackId, score } = this.selectDominantTrack(selectionTracks, cvResult.samples.length, { speechIntervals });
+      const { layoutMode, speaker1X, speaker2X } = this.resolveLayoutWithProvenance({
+        cropLayoutMode: clip.crop_config?.layout_mode,
+        cropLayoutSource: (clip.crop_config as any)?.layout_mode_source,
+        genrePreferredLayoutMode: genreReframe.preferredLayoutMode,
+        samples: cvResult.samples,
+        facecamSuggestionPresent: !!facecamSuggestion,
       });
 
       logger.info(
@@ -1373,9 +1754,9 @@ export class SmartReframeService {
         samples: cvResult.samples,
         dominantTrackId,
         duration: durationSec,
-        deadZone: options.deadZone,
-        maxVelocity: options.maxVelocity,
-        smoothingAlpha: options.smoothingAlpha,
+        deadZone: genreReframe.deadZone,
+        maxVelocity: genreReframe.maxVelocity,
+        smoothingAlpha: genreReframe.smoothingAlpha,
         aspectRatio: clip.aspect_ratio as ClipAspectRatio,
         sourceWidth: cvResult.source_width,
         sourceHeight: cvResult.source_height,
@@ -1411,6 +1792,9 @@ export class SmartReframeService {
           sample_fps: cvResult.sample_fps,
           total_samples: cvResult.samples.length,
           keyframe_count: fusedKeyframes.length, word_energy_fused: wordTimings.length > 0,
+          // User-correctable suggestion only (static geometry, not intent proof)
+          facecam_box: facecamSuggestion?.box ?? null,
+          facecam_track_id: facecamSuggestion?.trackId ?? null,
         },
         analyzed_trim_start: trimStart,
         analyzed_trim_end: trimEnd,

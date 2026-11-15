@@ -91,7 +91,7 @@ describe('Phase 1: Intelligent Clip Selection & Boundary Snapping Tests', () => 
     it('1. enforces empirical 4+ clip floor for long-form podcasts (>10 min)', () => {
       const targets = calculateAdaptiveClipCount(1200, 10); // 20-min video with 10 candidates
       assert.ok(targets.minClips >= 4, 'Must enforce at least 4 clips on 20-min video');
-      assert.strictEqual(targets.maxClips, 8);
+      assert.strictEqual(targets.maxClips, 10);
       assert.ok(targets.reason.includes('empirical 4+ floor'));
     });
 
@@ -100,6 +100,20 @@ describe('Phase 1: Intelligent Clip Selection & Boundary Snapping Tests', () => 
       assert.strictEqual(targets.minClips, 1);
       assert.strictEqual(targets.maxClips, 3);
       assert.strictEqual(targets.targetClips, 2);
+    });
+
+    it('2b. widens breadth ceilings without raising floors (15 Nov 2026 breadth change)', () => {
+      // Breadth gap vs Opus-class tools: selection is deterministic post-LLM
+      // (dedup + MMR), so widening maxClips costs no extra inference; floors
+      // and targets unchanged, explicit user counts still win.
+      const medium = calculateAdaptiveClipCount(557, 10); // 9.3-min source
+      assert.strictEqual(medium.maxClips, 8);
+      assert.strictEqual(medium.minClips, 2);
+      assert.strictEqual(medium.targetClips, 4);
+      const veryLong = calculateAdaptiveClipCount(3000, 12); // 50-min source
+      assert.strictEqual(veryLong.maxClips, 14);
+      assert.strictEqual(veryLong.minClips, 6);
+      assert.strictEqual(veryLong.targetClips, 10);
     });
 
     it('3. respects explicit user-requested count overrides', () => {

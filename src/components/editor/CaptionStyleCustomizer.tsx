@@ -373,6 +373,34 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
             </button>
           </div>
         </div>
+        {/* Word Mode: grouped phrase with word highlight vs one word at a time (export parity via preset overrides) */}
+        <div>
+          <span className="text-[10px] text-vc-text-secondary font-medium block mb-1">Word Mode</span>
+          <div className="grid grid-cols-2 p-0.5 bg-vc-surface1 rounded-lg ">
+            <button
+              type="button"
+              onClick={() => onChange({ max_words_per_cue: undefined, max_lines: undefined })}
+              className={`py-1 rounded-md text-[11px] font-medium transition flex items-center justify-center ${
+                captionItem?.max_words_per_cue !== 1
+                  ? 'bg-white/[0.12] text-white font-semibold border border-white/20 shadow-sm'
+                  : 'text-vc-text-secondary hover:text-white'
+              }`}
+            >
+              Phrase + highlight
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange({ max_words_per_cue: 1, max_lines: 1 })}
+              className={`py-1 rounded-md text-[11px] font-medium transition flex items-center justify-center ${
+                captionItem?.max_words_per_cue === 1
+                  ? 'bg-white/[0.12] text-white font-semibold border border-white/20 shadow-sm'
+                  : 'text-vc-text-secondary hover:text-white'
+              }`}
+            >
+              Single word
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Alignment */}

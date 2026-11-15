@@ -6,6 +6,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import ffmpegStatic from 'ffmpeg-static';
 import { logger } from '../utils/logger.js';
+import { LoudnormNormalizationError, LoudnormTwoPassService } from './loudnormTwoPassService.js';
 import {
   AppError,
   AudioCleanPreset,
@@ -35,7 +36,19 @@ export class AudioEnhancementService {
    * Compiles an ordered, deterministic array of FFmpeg audio filters
    * based on the provided enhancement configuration.
    */
-  public static compileFilterGraph(config: AudioEnhancementConfig): string[] {
+  /** The target integrated loudness used for the normalization step. */
+  public static resolveTargetLufs(config: AudioEnhancementConfig): number {
+    return Math.min(-10, Math.max(-24, config.target_lufs || -16));
+  }
+
+  /**
+   * @param opts.loudnormFilter When provided and normalization is enabled, this exact
+   * loudnorm filter string replaces the default one-pass variant (two-pass support).
+   */
+  public static compileFilterGraph(
+    config: AudioEnhancementConfig,
+    opts?: { loudnormFilter?: string }
+  ): string[] {
     const filters: string[] = [];
 
     if (config.preset === 'off') {
@@ -91,14 +104,14 @@ export class AudioEnhancementService {
 
     // 7. EBU R128 loudness normalization (loudnorm)
     if (config.normalize_enabled) {
-      const targetI = Math.min(-10, Math.max(-24, config.target_lufs || -16));
-      filters.push(`loudnorm=I=${targetI}:TP=-1.5:LRA=11`);
+      const targetI = AudioEnhancementService.resolveTargetLufs(config);
+      filters.push(opts?.loudnormFilter ?? `loudnorm=I=${targetI}:TP=-1.5:LRA=11`);
     }
 
     // 8. Lookahead brickwall peak limiter to guarantee no clipping
     if (config.limiter_enabled) {
       const ceiling = Math.min(-0.2, Math.max(-3.0, config.limiter_ceiling_db || -1.0));
-      filters.push(`alimiter=limit=${ceiling}dB:attack=5:release=50`);
+      filters.push(`alimiter=limit=${ceiling}dB:attack=5:release=50:level=0`);
     }
 
     return filters;
@@ -212,22 +225,79 @@ export class AudioEnhancementService {
     const previewId = crypto.randomUUID();
     const outputPath = path.join(tmpDir, `preview-${previewId}.m4a`);
 
-    const filters = this.compileFilterGraph(config);
+    let filters = this.compileFilterGraph(config);
+    // Preview/final consistency: pick the loudnorm mode the way the final render
+    // does - measure the exact snippet window (audio-only, cheap) and use the
+    // measured linear gain when feasible. When it is not, run the exact same
+    // bounded one-pass pre-render the final render uses (renderNormalizedDialogue
+    // with identical window args and chain), so the preview IS the final output
+    // by construction rather than a differently-bounded approximation.
+    let dynamicWavPath: string | null = null;
+    const loudIdx = filters.findIndex((f) => f.startsWith('loudnorm='));
+    if (loudIdx !== -1) {
+      try {
+        const targetI = AudioEnhancementService.resolveTargetLufs(config);
+        const pre = filters.slice(0, loudIdx);
+        const post = filters.slice(loudIdx + 1);
+        const windowArgs = ['-ss', startTimeSec.toFixed(2), '-t', durationSec.toFixed(2), '-i', sourcePath];
+        const graph = {
+          filterComplex: [`[0:a]${[...pre, LoudnormTwoPassService.buildMeasureFilter(targetI, -2.0, 11)].join(',')}[m_a]`],
+          audioMap: '[m_a]',
+          targetI,
+          dialogueInputLabel: '[0:a]',
+          preMarkerFilters: pre,
+          postMarkerFilters: post,
+        };
+        // Meter at the marker position, exactly where the linear gain is
+        // applied in the final render.
+        const measured = await LoudnormTwoPassService.measure(windowArgs, graph, 30000);
+        // Same pre-encode true-peak ceiling as the final render (-2.0dBTP):
+        // a looser check here would let preview pick linear where final falls
+        // back to dynamic, splitting the modes on the same content.
+        const check = LoudnormTwoPassService.assessLinearFeasibility(measured, targetI, -2.0, 11);
+        if (check.ok) {
+          filters = [...pre, LoudnormTwoPassService.buildLinearGainFilter(targetI, measured), ...post];
+        } else if (check.fallback === 'dynamic-prerender') {
+          dynamicWavPath = path.join(tmpDir, `preview-normalized-${previewId}.wav`);
+          await LoudnormTwoPassService.renderNormalizedDialogue(windowArgs, graph, dynamicWavPath, 30000);
+        } else {
+          throw new LoudnormNormalizationError(check.reason);
+        }
+      } catch (measureErr: any) {
+        if (measureErr instanceof LoudnormNormalizationError) throw measureErr;
+        logger.warn(`[AudioEnhancementService] Preview loudness measurement failed, keeping one-pass loudnorm: ${measureErr?.message || measureErr}`);
+        // Keep the preview renderable on transient measurement failures, but
+        // with the same pre-encode TP ceiling the final render enforces.
+        filters[loudIdx] = filters[loudIdx].replace(/TP=-[\d.]+/, 'TP=-2.0');
+      }
+    }
     const filterArg = filters.length > 0 ? filters.join(',') : 'anull';
 
-    const args = [
-      '-nostdin',
-      '-hide_banner',
-      '-ss', startTimeSec.toFixed(2),
-      '-t', durationSec.toFixed(2),
-      '-i', sourcePath,
-      '-vn',
-      '-af', filterArg,
-      '-c:a', 'aac',
-      '-b:a', '128k',
-      '-y',
-      outputPath,
-    ];
+    const args = dynamicWavPath
+      ? [
+          // Already fully processed by the shared pre-render; just encode.
+          '-nostdin',
+          '-hide_banner',
+          '-i', dynamicWavPath,
+          '-vn',
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-y',
+          outputPath,
+        ]
+      : [
+          '-nostdin',
+          '-hide_banner',
+          '-ss', startTimeSec.toFixed(2),
+          '-t', durationSec.toFixed(2),
+          '-i', sourcePath,
+          '-vn',
+          '-af', filterArg,
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-y',
+          outputPath,
+        ];
 
     try {
       await execFileAsync(ffmpegBin, args, { timeout: 30000 });

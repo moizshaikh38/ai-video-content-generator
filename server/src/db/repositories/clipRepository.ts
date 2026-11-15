@@ -28,6 +28,9 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
       const now = new Date();
       const candidateMeta = (candidate as any)?.metadata || {};
       const layoutMode = candidateMeta.layout_mode || 'track';
+      // Candidates analyzed before provenance tracking carry no marker; treat
+      // them as 'legacy_unknown' so their layout keeps historical precedence.
+      const layoutModeSource = candidateMeta.layout_mode_source || 'legacy_unknown';
       const captionPos = candidateMeta.caption_position || (layoutMode === 'split' ? 'center' : 'bottom');
       const coldOpen = (candidate as any)?.cold_open || candidateMeta.cold_open || null;
       const clip = {
@@ -37,11 +40,19 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
         crop_config: {
           mode: cropMode,
           layout_mode: layoutMode,
+          layout_mode_source: layoutModeSource,
         },
         caption_position: captionPos,
         caption_enabled: options?.caption_enabled !== undefined ? Boolean(options.caption_enabled) : true,
-        caption_style: options?.caption_style || 'hormozi',
-        caption_config: options?.caption_config || null,
+        // Default presentation: the karaoke preset (large uppercase,
+        // word-by-word highlight). The previous default 'hormozi' resolved to
+        // no gallery preset and fell through to small static legacy captions
+        // (user-reported 15 Nov 2026: captions not clean/appealing vs Opus).
+        caption_style: options?.caption_style || 'karaoke',
+        caption_config: options?.caption_config || { presetId: 'karaoke' },
+        // Carried for the automatic render headline (Opus-parity): burned at
+        // render time unless an explicit overlay config opts out.
+        title: (candidate as any)?.title || null,
         cold_open: coldOpen,
         source_storage_path: project.source_url, source_object_key: project.source_url,
         output_object_key: null, render_version: 1, editor_version: 1,

@@ -16,6 +16,7 @@ import {
   RenderJobRecord,
   ClipAspectRatio,
   ClipCropMode,
+  CropMode,
   CaptionStyle,
   CaptionPosition,
   CropConfig,
@@ -43,11 +44,14 @@ import { EntitlementService } from './entitlementService.js';
 import { HardwareEncoderService } from './hardwareEncoderService.js';
 
 const execFileAsync = promisify(execFile);
-const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
+// FFMPEG_BIN overrides the bundled binary: the ffmpeg-static build lacks
+// libfreetype (no drawtext), so watermark/text-overlay renders fail under it
+// where a full system ffmpeg works.
+const ffmpegBin = process.env.FFMPEG_BIN || (ffmpegStatic as unknown as string) || 'ffmpeg';
 
-// Configure fluent-ffmpeg to use ffmpeg-static binary
-if (ffmpegStatic) {
-  ffmpeg.setFfmpegPath(ffmpegStatic as unknown as string);
+// Configure fluent-ffmpeg to use the same resolved binary
+if (ffmpegBin) {
+  ffmpeg.setFfmpegPath(ffmpegBin);
 }
 
 // In-memory set to prevent duplicate simultaneous render jobs for the same clip
@@ -130,12 +134,44 @@ export function sanitizeFilename(name: string): string {
  * Generates the FFmpeg video filter string for scaling and center/manual cropping
  * to the requested target aspect ratio without distortion.
  */
+/**
+ * Composes the quick-render video filter chain for ffmpeg execution.
+ * Simple chains (no link labels) run under -vf via fluent-ffmpeg videoFilters.
+ * Labeled layout graphs (screencast/split outputs of SmartReframeService.buildLayoutCropFilter)
+ * cannot go through -vf: labels require -filter_complex with an explicit [0:v] input
+ * pad and a labeled [out_v] final output. Previously both were fed to -vf verbatim,
+ * which made every smart render resolving to a labeled layout fail permanently.
+ */
+export function composeQuickVideoGraph(videoFilters: string[]): { graph: string; labeled: boolean } {
+  const chain = videoFilters.join(',');
+  if (!chain.includes('[')) {
+    return { graph: `[0:v]${chain}[out_v]`, labeled: false };
+  }
+  let stripped = chain.startsWith('[0:v]') ? chain.slice('[0:v]'.length) : chain;
+  // Layout builders terminate their graph with a labeled [out] link; leaving it labeled
+  // when more filters follow makes ffmpeg reject the graph (labeled link unused). Unlabel
+  // it so the trailing simple filters (captions, watermark) auto-chain from it.
+  stripped = stripped.replace(/\[out\](?=,|$)/g, '');
+  return { graph: `[0:v]${stripped}[out_v]`, labeled: true };
+}
+
 export function buildCropFilter(
   aspectRatio: ClipAspectRatio = '9:16',
-  cropConfig?: { focusX?: number; focusY?: number }
+  cropConfig?: { focusX?: number; focusY?: number; scale?: number }
 ): string {
   const fx = Math.min(1.0, Math.max(0.0, Number(cropConfig?.focusX ?? 0.5)));
   const fy = Math.min(1.0, Math.max(0.0, Number(cropConfig?.focusY ?? 0.5)));
+  // Zoom factor: 1 = cover window fills the frame, >1 crops a smaller window
+  // around the focus and scales it back up (single-pass to avoid double blur).
+  const zoom = Math.min(4.0, Math.max(1.0, Number(cropConfig?.scale ?? 1)));
+
+  if (zoom > 1) {
+    const ar = aspectRatio === '16:9' ? { w: 16, h: 9, ow: 1920, oh: 1080 } : aspectRatio === '1:1' ? { w: 1, h: 1, ow: 1080, oh: 1080 } : { w: 9, h: 16, ow: 1080, oh: 1920 };
+    return (
+      `crop=w='min(iw,ih*${ar.w}/${ar.h})/${zoom}':h='min(ih,iw*${ar.h}/${ar.w})/${zoom}'` +
+      `:x='(in_w-out_w)*${fx}':y='(in_h-out_h)*${fy}',scale=${ar.ow}:${ar.oh}`
+    );
+  }
 
   // If focus is default center (0.5, 0.5), return the canonical center-crop filter
   if (fx === 0.5 && fy === 0.5) {
@@ -162,6 +198,55 @@ export function buildCropFilter(
     default:
       return `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:(in_w-out_w)*${fx}:(in_h-out_h)*${fy}`;
   }
+}
+
+/**
+ * Builds a letterbox "fit" filter: whole frame visible, black bars to fill the
+ * target canvas. Mirrors the studio preview's fit mode so export matches it.
+ */
+export function buildFitFilter(
+  aspectRatio: ClipAspectRatio = '9:16',
+  zoom: number = 1,
+  focusX: number = 0.5,
+  focusY: number = 0.5
+): string {
+  const ar = aspectRatio === '16:9' ? { w: 1920, h: 1080 } : aspectRatio === '1:1' ? { w: 1080, h: 1080 } : { w: 1080, h: 1920 };
+  const z = Math.min(4, Math.max(1, Number(zoom) || 1));
+  if (z <= 1) {
+    return `scale=${ar.w}:${ar.h}:force_original_aspect_ratio=decrease,pad=${ar.w}:${ar.h}:(ow-iw)/2:(oh-ih)/2:color=black`;
+  }
+  // Zoom within fit: scale the contained frame by z around the focus point,
+  // pad back up to at least the frame size, then crop the frame window.
+  return (
+    `scale=${ar.w}:${ar.h}:force_original_aspect_ratio=decrease` +
+    `,scale=trunc(iw*${z}/2)*2:trunc(ih*${z}/2)*2` +
+    `,pad='max(iw,${ar.w})':'max(ih,${ar.h})':(ow-iw)/2:(oh-ih)/2:color=black` +
+    `,crop=${ar.w}:${ar.h}:x='(in_w-${ar.w})*${focusX}':y='(in_h-${ar.h})*${focusY}'`
+  );
+}
+
+/**
+ * Chain-safe blurred-background fill ("Fit with Blur") for the pro editor
+ * compiler. Unlike SmartReframeService.buildBlurBackgroundFilter (labeled
+ * [0:v]...[out] form), this returns a fragment that drops into the middle of a
+ * comma-joined slice chain: it consumes the incoming stream with split and
+ * ends on an unlabeled overlay output, so callers can keep appending filters.
+ * `tag` must be unique per graph (slice labels collide otherwise).
+ */
+export function buildBlurFitChain(
+  aspectRatio: ClipAspectRatio = '9:16',
+  zoom: number = 1,
+  tag: string = 'vcb'
+): string {
+  const ar = aspectRatio === '16:9' ? { w: 1920, h: 1080 } : aspectRatio === '1:1' ? { w: 1080, h: 1080 } : { w: 1080, h: 1920 };
+  const z = Math.min(4, Math.max(1, Number(zoom) || 1));
+  const fgW = Math.max(2, Math.round((ar.w * z) / 2) * 2);
+  return (
+    `split=2[${tag}_bgs][${tag}_fgs];` +
+    `[${tag}_bgs]scale=${ar.w}:${ar.h}:force_original_aspect_ratio=increase,crop=${ar.w}:${ar.h},boxblur=25:5,eq=brightness=-0.15:contrast=0.95[${tag}_bg];` +
+    `[${tag}_fgs]scale=${fgW}:-2[${tag}_fg];` +
+    `[${tag}_bg][${tag}_fg]overlay=(W-w)/2:(H-h)/2`
+  );
 }
 
 /**
@@ -495,16 +580,87 @@ export class ClipRenderService {
 
       const videoFilters: string[] = [cropFilter];
 
+      // Check if a multi-track EditorProject exists with custom pro edits (splits, cuts, B-roll, secondary audio, keyframes, text layers).
+      // Loaded before headline/caption burn-in decisions because studio state
+      // is authoritative for the opening headline once a project exists.
+      let hasCustomProTracks = false;
+      let editorProject: any = null;
+      let editorProjectExists = false;
+      try {
+        const { data: proj } = await dataRepository
+          .from('editor_projects')
+          .select('*')
+          .eq('clip_id', clipId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (proj && Array.isArray(proj.tracks)) {
+          editorProjectExists = true;
+          hasCustomProTracks = ClipRenderService.hasCustomProEdits(proj, clip);
+          if (hasCustomProTracks) {
+            editorProject = proj;
+          }
+        }
+      } catch (err: any) {
+        logger.warn(`[ClipRender] Error checking EditorProject for clip ${clipId}: ${err.message}`);
+      }
 
       // ASS Subtitles burn-in
       if (clip.caption_enabled !== false) {
         await ClipRenderService.updateJobStage(jobId, clipId, 'preparing_captions', 12, 'rendering');
         const assPath = path.join(tempDir, 'subtitles.ass');
         try {
+          // Blur-fit layouts letterbox the source; anchor bottom captions to
+          // the sharp content band so they do not sit on the blurred fill.
+          // Screencast inset modes with a blurred stage letterbox the main
+          // content the same way; split_stacked has its own geometry.
+          // The pro-graph blur fill (per-item crop.mode 'blur', set by the
+          // editor Layout toggle / panel) letterboxes the sharp band over a
+          // blurred background exactly like reframe 'blur' layouts, so its
+          // captions need the same band anchor. reframeDecision only reflects
+          // the clip-level crop_config channel and cannot see item.crop.
+          const proPrimaryCropMode =
+            hasCustomProTracks && editorProject
+              ? (editorProject.tracks || [])
+                  .filter((t: any) => t.type === 'VIDEO' && !t.hidden)
+                  .flatMap((t: any) => t.items || [])
+                  .find((i: any) => !i.hidden && !i.is_title_card)?.crop?.mode
+              : undefined;
+          let proBlurSourceWidth: number | undefined;
+          let proBlurSourceHeight: number | undefined;
+          if (proPrimaryCropMode === 'blur' && !reframeDecision.track) {
+            try {
+              const { stdout } = await execFileAsync('ffprobe', [
+                '-v', 'error', '-select_streams', 'v:0',
+                '-show_entries', 'stream=width,height', '-of', 'json', sourcePath,
+              ]);
+              const st = ((JSON.parse(stdout) as any).streams || [])[0] || {};
+              proBlurSourceWidth = Number(st.width) || undefined;
+              proBlurSourceHeight = Number(st.height) || undefined;
+            } catch {
+              // Degrade to the default caption position, matching the policy of
+              // the other probe sites in this file.
+            }
+          }
+          const blurFitStage =
+            reframeDecision.layoutMode === 'blur' ||
+            proPrimaryCropMode === 'blur' ||
+            (reframeDecision.layoutMode === 'screencast' &&
+              clip.crop_config?.screencast?.background === 'blur' &&
+              (clip.crop_config?.screencast?.mode === 'circular_inset' ||
+                clip.crop_config?.screencast?.mode === 'rounded_card_inset'));
+          const bandAnchorPositionY = blurFitStage
+            ? CaptionService.computeBlurFitBandAnchor(
+                clip.aspect_ratio as ClipAspectRatio,
+                reframeDecision.track?.source_width ?? proBlurSourceWidth ?? undefined,
+                reframeDecision.track?.source_height ?? proBlurSourceHeight ?? undefined
+              )
+            : undefined;
           const captionResult = await CaptionService.generateCaptionsForClip({
             clip,
             targetAspectRatio: clip.aspect_ratio as ClipAspectRatio,
             outputPath: assPath,
+            bandAnchorPositionY,
           });
 
           if (captionResult.cues.length > 0 && fs.existsSync(assPath)) {
@@ -517,10 +673,45 @@ export class ClipRenderService {
         }
       }
 
-      // Text Overlay burn-in
-      if (clip.overlay_config?.enabled && clip.overlay_config?.text) {
+      // Text Overlay burn-in. With no overlay configured, the clip title is
+      // burned as an opening headline (Opus shows its headline for the first
+      // seconds only, observed on the 15 Nov 2026 comparison set); an
+      // explicit overlay_config.enabled === false (e.g. editor reset) opts
+      // out. overlay_config.headline_duration_sec overrides the 5s default;
+      // <= 0 keeps the headline for the whole clip.
+      // Once an editor project exists, studio state is authoritative for the
+      // opening headline/hook: if the user deleted the auto hook item there,
+      // the legacy auto-title must not resurrect on export. (A visible hook
+      // item makes the project pro-render eligible above, so this gate only
+      // affects the deleted-hook case.)
+      const headline = editorProjectExists ? null : ClipRenderService.buildHeadlineSpec(clip);
+      if (headline) {
+        // textfile transport: no drawtext text expansion, so user text is
+        // rendered byte-for-byte (apostrophes, %, backslashes, unicode).
+        // One drawtext per wrapped line: text_align is unavailable before
+        // ffmpeg 5, and per-line filters center each line exactly anyway.
+        const lines = headline.text.split('\n');
+        const style =
+          'fontcolor=white:borderw=3:bordercolor=black@0.9:shadowcolor=black@0.6:shadowx=0:shadowy=2';
+        const enable =
+          headline.durationSec > 0 ? `:enable='lt(t,${headline.durationSec.toFixed(2)})'` : '';
+        lines.forEach((line, idx) => {
+          const linePath = path.join(tempDir, `headline-${idx}.txt`);
+          fs.writeFileSync(linePath, line, 'utf8');
+          const safeLine = linePath.replace(/\\/g, '/').replace(/:/g, '\\:');
+          const y = 150 + idx * (headline.fontSize + 8);
+          videoFilters.push(
+            `drawtext=textfile='${safeLine}':${style}:fontsize=${headline.fontSize}:x=(w-text_w)/2:y=${y}${enable}`
+          );
+        });
+      } else if (clip.overlay_config?.enabled && clip.overlay_config?.text) {
         const rawText = String(clip.overlay_config.text);
-        const safeText = rawText.replace(/[\r\n]+/g, ' ').replace(/['\\]/g, '').slice(0, 120).trim();
+        const safeText = rawText
+          .replace(/[\r\n]+/g, ' ')
+          .replace(/['\\%]/g, '')
+          .replace(/:/g, '\\:')
+          .slice(0, 90)
+          .trim();
         if (safeText) {
           const pos = clip.overlay_config.position || 'top';
           const size = clip.overlay_config.size || 'md';
@@ -546,27 +737,6 @@ export class ClipRenderService {
         `[ClipRender] Preparing FFmpeg for clip ${clipId}: start=${startSec}s, dur=${durationSec}s, filters=${videoFilters.length}`
       );
 
-      // Check if a multi-track EditorProject exists with custom pro edits (splits, cuts, B-roll, secondary audio, keyframes, text layers)
-      let hasCustomProTracks = false;
-      let editorProject: any = null;
-      try {
-        const { data: proj } = await dataRepository
-          .from('editor_projects')
-          .select('*')
-          .eq('clip_id', clipId)
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (proj && Array.isArray(proj.tracks)) {
-          hasCustomProTracks = ClipRenderService.hasCustomProEdits(proj, clip);
-          if (hasCustomProTracks) {
-            editorProject = proj;
-          }
-        }
-      } catch (err: any) {
-        logger.warn(`[ClipRender] Error checking EditorProject for clip ${clipId}: ${err.message}`);
-      }
-
       // Resolve optional background music for Quick Clips
       let resolvedMusicPath: string | null = null;
       if (clip.background_music && clip.background_music.enabled !== false && !clip.muted) {
@@ -580,18 +750,34 @@ export class ClipRenderService {
       if (hasCustomProTracks && editorProject) {
         logger.info(`[ClipRender] Compiling and executing multi-track EditorProject graph for clip ${clipId}`);
         await ProEditorService.preloadRemoteOverlayAssets(editorProject, tempDir);
-        const graph = ProEditorService.compileRenderGraph(editorProject, sourcePath, outputPath, tempDir, {
-          aspectRatio: clip.aspect_ratio as ClipAspectRatio,
-          cropConfig: clip.crop_config || null,
-          clipStartSec: startSec,
-          mode: actualReframeMode,
-          layoutMode: reframeDecision.layoutMode,
-          track: reframeDecision.track,
-        });
         const videoTrackItems = editorProject.tracks
           ?.filter((t: any) => t.type === 'VIDEO' && !t.hidden)
           ?.flatMap((t: any) => t.items || []) || [];
         const isMultiSlice = videoTrackItems.length > 1;
+        // Single-slice renders seek the input; the loudnorm measurement pass must
+        // apply the same seek so it measures the exact audio window being rendered.
+        const inputSeekArgs = !isMultiSlice
+          ? ['-ss', startSec.toFixed(3), '-t', durationSec.toFixed(3)]
+          : [];
+        // Two-pass loudness normalization: measures dialogue audio first (audio-only
+        // pass), then compiles with linear loudnorm when feasible, or a pre-rendered
+        // dynamic-normalized dialogue WAV when peak/range-limited. Throws
+        // LoudnormNormalizationError only for degenerate/silent measurements.
+        const graph = await ProEditorService.compileRenderGraphWithNormalization(
+          editorProject,
+          sourcePath,
+          outputPath,
+          tempDir,
+          {
+            aspectRatio: clip.aspect_ratio as ClipAspectRatio,
+            cropConfig: clip.crop_config || null,
+            clipStartSec: startSec,
+            mode: actualReframeMode,
+            layoutMode: reframeDecision.layoutMode,
+            track: reframeDecision.track,
+          },
+          inputSeekArgs
+        );
         const renderDuration = Number((editorProject.canvas?.duration || durationSec).toFixed(3));
         expectedDurationSec = renderDuration;
 
@@ -610,9 +796,7 @@ export class ClipRenderService {
             const ffmpegArgs = [
               '-y',
               ...encoderFlags.initArgs,
-              ...(!isMultiSlice
-                ? ['-ss', startSec.toFixed(3), '-t', durationSec.toFixed(3)]
-                : []),
+              ...inputSeekArgs,
               ...graph.inputArgs,
               ...scriptExec.args,
               '-map', graph.videoMap,
@@ -645,7 +829,7 @@ export class ClipRenderService {
           await ClipRenderService.updateJobProgress(jobId, 25, 'encoding');
 
           const fullFilterComplex = [
-            `[0:v]${videoFilters.join(',')}[out_v]`,
+            composeQuickVideoGraph(videoFilters).graph,
             ...audioGraph.filterComplex,
           ];
 
@@ -679,11 +863,19 @@ export class ClipRenderService {
           let isResolved = false;
           let lastProgressUpdate = 0;
 
+          const videoGraph = composeQuickVideoGraph(videoFilters);
           const cmd = ffmpeg(sourcePath)
             .setStartTime(startSec)
-            .setDuration(durationSec)
-            .videoFilters(videoFilters)
-            .videoCodec('libx264');
+            .setDuration(durationSec);
+          // -filter_complex disables ffmpeg's default stream selection, so the
+          // labeled-graph path must map the source audio explicitly.
+          const labeledGraph = videoGraph.labeled;
+          if (labeledGraph) {
+            cmd.complexFilter([videoGraph.graph], ['out_v']);
+          } else {
+            cmd.videoFilters(videoFilters);
+          }
+          cmd.videoCodec('libx264');
 
           if (clip.muted) {
             cmd.noAudio();
@@ -703,6 +895,11 @@ export class ClipRenderService {
           ];
           if (!clip.muted) {
             outputOpts.push('-b:a 128k');
+            if (labeledGraph) {
+              // fluent-ffmpeg brackets bare complexFilter map labels, so the
+              // optional source-audio map goes through outputOptions instead.
+              outputOpts.push('-map 0:a?');
+            }
           }
 
           cmd.outputOptions(outputOpts)
@@ -1020,6 +1217,51 @@ export class ClipRenderService {
    * Reframe keyframes are clip-relative (t=0 at clip start incl. trim), matching
    * the `-ss startSec` input seek used by both quick and single-slice pro renders.
    */
+  /**
+   * Auto-headline spec for the render path, or null when the headline is not
+   * shown. Pure and unit-tested; the drawtext string assembly stays inline.
+   * Fit model: drawtext cannot auto-fit, so text is capped (45 chars +
+   * ellipsis) and font size tiered by character count (~0.58em average glyph
+   * width, 40px side margins on a 1080 canvas - verified 15 Nov 2026: a
+   * 41-char title overflowed at 60px, fits at 38px).
+   */
+  public static buildHeadlineSpec(
+    clip: Pick<ClipRecord, 'title' | 'overlay_config'>
+  ): { text: string; fontSize: number; durationSec: number } | null {
+    const autoHeadline =
+      clip.overlay_config?.enabled === undefined && !clip.overlay_config?.text && !!clip.title;
+    if (!autoHeadline) return null;
+    const stripped = String(clip.title).replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!stripped) return null;
+    const capped = stripped.length > 60 ? stripped.slice(0, 57).trimEnd() + '...' : stripped;
+    // Two-line wrap at a word boundary near the midpoint; single line when
+    // short. Rendered via drawtext textfile so user text (apostrophes,
+    // percent, backslashes, unicode) is preserved byte-for-byte.
+    let lines = [capped];
+    if (capped.length > 26) {
+      const words = capped.split(' ');
+      let best = -1;
+      let bestImbalance = Infinity;
+      let acc = 0;
+      for (let i = 0; i < words.length - 1; i++) {
+        acc += words[i].length + 1;
+        const imbalance = Math.abs(capped.length - 2 * acc);
+        if (imbalance < bestImbalance) {
+          bestImbalance = imbalance;
+          best = i;
+        }
+      }
+      if (best >= 0) {
+        lines = [words.slice(0, best + 1).join(' '), words.slice(best + 1).join(' ')];
+      }
+    }
+    const longest = Math.max(...lines.map((l) => l.length));
+    const fontSize = longest <= 22 ? 64 : longest <= 28 ? 56 : longest <= 34 ? 48 : 40;
+    const rawDur = (clip.overlay_config as any)?.headline_duration_sec;
+    const durationSec = typeof rawDur === 'number' && Number.isFinite(rawDur) ? rawDur : 5.0;
+    return { text: lines.join('\n'), fontSize, durationSec };
+  }
+
   public static async resolveReframeDecision(
     clip: ClipRecord,
     durationSec: number
@@ -1034,6 +1276,12 @@ export class ClipRenderService {
 
     if (clip.crop_config?.mode === 'manual') {
       return { cropFilter: buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config), mode: 'manual', layoutMode: 'manual', track: null };
+    }
+
+    if (clip.crop_config?.mode === 'fit') {
+      const zoom = Math.min(4, Math.max(1, Number(clip.crop_config.scale ?? 1)));
+      const clampF = (v: number | undefined): number => Math.min(1, Math.max(0, typeof v === 'number' && Number.isFinite(v) ? v : 0.5));
+      return { cropFilter: buildFitFilter(clip.aspect_ratio as ClipAspectRatio, zoom, clampF(clip.crop_config.focusX), clampF(clip.crop_config.focusY)), mode: 'manual', layoutMode: 'manual', track: null };
     }
 
     if (clip.crop_config?.mode !== 'smart') {
@@ -1054,7 +1302,10 @@ export class ClipRenderService {
         }
 
         if ((track.detected_face_count || 0) === 0 || !track.dominant_track_id) {
-          const targetLayout = clip.crop_config?.layout_mode || 'blur';
+          // A genre-stamped layout recommendation is not authoritative; with no
+          // detected subject the measured outcome is the modern blurred layout.
+          const cropLayout = (clip.crop_config as any)?.layout_mode_source !== 'genre_recommendation' ? clip.crop_config?.layout_mode : undefined;
+          const targetLayout = cropLayout || 'blur';
           if (targetLayout === 'blur' && (clip.aspect_ratio === '9:16' || !clip.aspect_ratio)) {
             logger.info(`[ClipRender] No subject detected in smart reframe track for clip ${clip.id}. Using modern blurred background layout.`);
             return {
@@ -1069,7 +1320,11 @@ export class ClipRenderService {
           return { cropFilter: centerCrop(), mode: 'fallback_center', metadata: { reason: 'no_subject_detected', detected_face_count: 0 }, layoutMode: targetLayout, track };
         }
 
-        const targetLayout = clip.crop_config?.layout_mode || track.layout_mode || 'track';
+        // Provenance-aware precedence: user/legacy crop layout wins; otherwise
+        // the measured track layout (which already applies the genre hint
+        // rules) beats a genre-stamped crop_config value.
+        const cropLayout = (clip.crop_config as any)?.layout_mode_source !== 'genre_recommendation' ? clip.crop_config?.layout_mode : undefined;
+        const targetLayout = cropLayout || track.layout_mode || clip.crop_config?.layout_mode || 'track';
         const cropFilter = SmartReframeService.buildLayoutCropFilter({
           layoutMode: targetLayout as any,
           aspectRatio: clip.aspect_ratio as ClipAspectRatio,
@@ -1080,6 +1335,11 @@ export class ClipRenderService {
           speaker1X: clip.crop_config?.split?.speaker1X,
           speaker2X: clip.crop_config?.split?.speaker2X,
           screencastMode: clip.crop_config?.screencast?.mode,
+          screencastInsetPosition: clip.crop_config?.screencast?.insetPosition,
+          screencastInsetDiameter: clip.crop_config?.screencast?.insetDiameter,
+          screencastScreenRatio: clip.crop_config?.screencast?.screenRatio,
+          screencastBackground: clip.crop_config?.screencast?.background,
+          screencastFacecamBox: SmartReframeService.resolveFacecamBox(clip.crop_config?.screencast, track.metadata),
         });
         logger.info(`[ClipRender] Applied dynamic smart reframe filter (${targetLayout}) with ${track.smoothed_keyframes.length} keyframes for clip ${clip.id}`);
         return {
@@ -1508,17 +1768,19 @@ export class ClipRenderService {
       throw err;
     }
 
-    // Trim validation: cannot exceed original candidate boundaries; effective duration >= 3s
+    // Trim validation: trimStart cannot exceed the candidate start; trimEnd may be
+    // NEGATIVE to extend the tail beyond the candidate boundary (beyond-candidate
+    // extend), bounded by the source media duration.
     const originalDuration = Number(clip.end_seconds - clip.start_seconds);
     const trimStart = update.trimStartOffset !== undefined
       ? Math.max(0, Number(update.trimStartOffset))
       : Number(clip.trim_start_offset || 0);
 
     const trimEnd = update.trimEndOffset !== undefined
-      ? Math.max(0, Number(update.trimEndOffset))
+      ? Number(update.trimEndOffset)
       : Number(clip.trim_end_offset || 0);
 
-    if (isNaN(trimStart) || isNaN(trimEnd) || trimStart < 0 || trimEnd < 0) {
+    if (isNaN(trimStart) || isNaN(trimEnd) || trimStart < 0) {
       const err = new Error('Trim offsets must be non-negative numbers.');
       (err as any).code = 'INVALID_TRIM';
       throw err;
@@ -1531,10 +1793,33 @@ export class ClipRenderService {
       throw err;
     }
 
+    if (trimEnd < 0) {
+      // Beyond-candidate extension: the effective end (end_seconds - trimEnd) must not
+      // exceed the source media duration from the owning project.
+      const { data: proj } = await dataRepository
+        .from('projects')
+        .select('duration_seconds')
+        .eq('id', clip.project_id)
+        .maybeSingle();
+      const sourceDuration = typeof proj?.duration_seconds === 'number' && proj.duration_seconds > 0
+        ? proj.duration_seconds
+        : null;
+      const requestedEnd = Number((clip.end_seconds - trimEnd).toFixed(3));
+      if (sourceDuration === null || requestedEnd > Number((sourceDuration + 0.05).toFixed(3))) {
+        throw new AppError(
+          sourceDuration === null
+            ? 'Cannot extend beyond the candidate boundary: source duration is unknown.'
+            : `Cannot extend to ${requestedEnd.toFixed(1)}s: source media is ${sourceDuration.toFixed(1)}s.`,
+          400,
+          'EXTEND_BEYOND_SOURCE'
+        );
+      }
+    }
+
     // Crop config
     let safeCrop = clip.crop_config || { mode: 'center', focusX: 0.5, focusY: 0.5 };
     if (update.cropConfig) {
-      const mode = update.cropConfig.mode === 'smart' ? 'smart' : update.cropConfig.mode === 'manual' ? 'manual' : 'center';
+      const mode: CropMode = (['smart', 'manual', 'fit'] as const).includes(update.cropConfig.mode as any) ? (update.cropConfig.mode as CropMode) : 'center';
       safeCrop = {
         mode,
         focusX: Math.min(1.0, Math.max(0.0, Number(update.cropConfig.focusX ?? 0.5))),
@@ -1548,7 +1833,10 @@ export class ClipRenderService {
 
 
     // Overlay config
-    let safeOverlay = clip.overlay_config || { enabled: false, text: '' };
+    // Preserve an unset overlay_config (undefined) so the auto-headline keeps firing for
+    // untouched clips; only an explicit overlayConfig update changes it. Previously this
+    // defaulted to { enabled: false }, silently suppressing the headline on any editor save.
+    let safeOverlay = clip.overlay_config;
     if (update.overlayConfig) {
       const text = typeof update.overlayConfig.text === 'string'
         ? update.overlayConfig.text.replace(/[\r\n]+/g, ' ').replace(/['\\]/g, '').slice(0, 120).trim()
@@ -1639,7 +1927,7 @@ export class ClipRenderService {
       }
 
       if (incoming.maxWordsPerCue !== undefined) {
-        sanitized.maxWordsPerCue = Math.min(6, Math.max(2, Math.round(Number(incoming.maxWordsPerCue))));
+        sanitized.maxWordsPerCue = Math.min(15, Math.max(1, Math.round(Number(incoming.maxWordsPerCue))));
       }
       if (incoming.maxLines !== undefined) {
         sanitized.maxLines = Math.min(2, Math.max(1, Math.round(Number(incoming.maxLines))));
@@ -1727,7 +2015,7 @@ export class ClipRenderService {
       caption_position: update.captionPosition || clip.caption_position || 'bottom',
       caption_config: safeCaptionConfig,
       crop_config: safeCrop,
-      overlay_config: safeOverlay,
+      ...(safeOverlay !== undefined ? { overlay_config: safeOverlay } : {}),
       volume: safeVolume,
       muted: safeMuted,
       background_music: safeBackgroundMusic,
@@ -1746,6 +2034,54 @@ export class ClipRenderService {
     if (updateErr) {
       logger.error('Failed to update clip editor config in DB', { clipId, error: updateErr.message });
       throw new Error(`Failed to save editor changes: ${updateErr.message}`);
+    }
+
+    // Beyond-candidate extend backstop: when the tail grows, record the
+    // pre-extend caption coverage on an editor project that predates the
+    // marker, so the studio appends the newly exposed span on the FIRST
+    // reopen. Marker only; existing cues are never mutated.
+    const oldEffectiveEnd = Number((clip.end_seconds - Number(clip.trim_end_offset || 0)).toFixed(3));
+    const newEffectiveEnd = Number((clip.end_seconds - trimEnd).toFixed(3));
+    if (newEffectiveEnd > oldEffectiveEnd + 0.001) {
+      try {
+
+        const oldCovered = Number(
+          (oldEffectiveEnd - Number(clip.start_seconds + Number(clip.trim_start_offset || 0))).toFixed(3)
+        );
+        const { data: ep } = await dataRepository
+          .from('editor_projects')
+          .select('*')
+          .eq('clip_id', clipId)
+          .maybeSingle();
+        if (ep && Array.isArray(ep.tracks)) {
+          let changed = false;
+          const tracks = ep.tracks.map((t: any) => {
+            if (t?.type !== 'CAPTION' || t.hidden || !Array.isArray(t.items)) return t;
+            return {
+              ...t,
+              items: t.items.map((i: any) => {
+                if (i.hidden || !i.caption || !Array.isArray(i.caption.cues) || i.caption.cues.length === 0) return i;
+                if (i.caption.cues_covered_end != null) return i;
+                changed = true;
+                // Marker lives in the item's cue time base: items whose cues
+                // are relative to timeline_start get coverage minus the offset.
+                const startOff = Number(i.timeline_start || 0);
+                const isRel = startOff > 0 && i.caption.cues[0].start < startOff - 0.05;
+                const marker = isRel ? Number((oldCovered - startOff).toFixed(3)) : oldCovered;
+                return { ...i, caption: { ...i.caption, cues_covered_end: Math.max(0, marker) } };
+              }),
+            };
+          });
+          if (changed) {
+            await dataRepository
+              .from('editor_projects')
+              .update({ tracks, updated_at: new Date() })
+              .eq('id', ep.id);
+          }
+        }
+      } catch (markerErr: any) {
+        logger.warn('Caption coverage marker backfill failed (non-fatal)', { clipId, error: markerErr?.message });
+      }
     }
 
     return updated as ClipRecord;
@@ -1800,6 +2136,7 @@ export class ClipRenderService {
     cleanSourceUrl?: string;
     renderedPreviewUrl?: string;
     editorProject?: any;
+    watermarkRequired?: boolean;
   }> {
     const clip = await ClipRenderService.getClip(clipId, userId);
 
@@ -1853,6 +2190,15 @@ export class ClipRenderService {
 
     const previewUrl = renderedPreviewUrl || cleanSourceUrl;
 
+    // Actual applicable entitlement: whether exports for this user carry the
+    // watermark, so the studio preview can say so before they export.
+    let watermarkRequired = false;
+    try {
+      watermarkRequired = await WatermarkService.shouldWatermark(userId);
+    } catch {
+      watermarkRequired = true; // fail closed: assume watermarked when unknown
+    }
+
     return {
       clip,
       timingMode,
@@ -1861,6 +2207,7 @@ export class ClipRenderService {
       cleanSourceUrl,
       renderedPreviewUrl,
       editorProject,
+      watermarkRequired,
     };
   }
 
@@ -1981,7 +2328,7 @@ export class ClipRenderService {
 
     // 4. Mix dialogue + ducked music + master peak limiter
     filterComplex.push(
-      '[a_dialogue_mix][a_music_ducked]amix=inputs=2:duration=first:dropout_transition=2,alimiter=limit=-1.0dB:attack=5:release=50[out_a]'
+      '[a_dialogue_mix][a_music_ducked]amix=inputs=2:duration=first:dropout_transition=2,alimiter=limit=-1.0dB:attack=5:release=50:level=0[out_a]'
     );
 
     return {
@@ -2023,6 +2370,16 @@ export class ClipRenderService {
             ((i.audio.volume !== undefined && i.audio.volume !== 1) ||
               i.audio.fade_in ||
               i.audio.fade_out);
+          // Per-item crop state (fit / blur / custom mode, or any zoom) only
+          // lands through the pro compiler's buildSliceCropFilter - the
+          // clip-level reframe path never reads item.crop, so without this a
+          // layout-toggle or wheel-zoom change on an otherwise plain clip
+          // silently exported with the default fill.
+          const cropMode = i.crop?.mode;
+          const cropScale = Number(i.crop?.scale ?? 1);
+          const hasCustomCrop = Boolean(
+            i.crop && ((cropMode && cropMode !== 'fill') || Math.abs(cropScale - 1) > 0.001)
+          );
           const hasModifiedTimelineStart = i.timeline_start !== 0;
           const hasModifiedSourceStart =
             clip &&
@@ -2036,6 +2393,7 @@ export class ClipRenderService {
             hasFilter ||
             hasCustomSpeed ||
             hasCustomAudio ||
+            hasCustomCrop ||
             hasModifiedTimelineStart ||
             hasModifiedSourceStart
           );

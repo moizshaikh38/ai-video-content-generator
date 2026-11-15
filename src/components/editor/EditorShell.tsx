@@ -8,7 +8,7 @@ import {
   EditorTrack,
   EditorCaptionItem,
 } from '../../types';
-import { applyPresetToEditorCaption, CaptionPresetId, DEFAULT_CAPTION_PRESET_ID } from '../../lib/captionPresets';
+import { applyPresetToEditorCaption, CaptionPresetId, DEFAULT_CAPTION_PRESET_ID, RenderableCaptionPresetId } from '../../lib/captionPresets';
 import { useEditorPlayback } from '../../hooks/useEditorPlayback';
 import { useEditorSelection, SidebarTab, AiToolType } from '../../hooks/useEditorSelection';
 import { useEditorShortcuts } from '../../hooks/useEditorShortcuts';
@@ -42,12 +42,15 @@ import { AutopilotWorkspace } from '../autopilot/AutopilotWorkspace';
 import { ABStudioWorkspace } from '../abStudio/ABStudioWorkspace';
 import { ArrowLeft, Sparkles, Type as TypeIcon, Film, X, PanelRightOpen } from 'lucide-react';
 import { insertIntroOutro, createTitleCardItem } from '../../utils/introOutro';
+import { initCoveredEnd, healCaptionTracks } from '../../lib/captionExtendMerge';
+import { clipRenderService } from '../../services/clipRenderService';
 
 interface EditorShellProps {
   clip: RenderedClip;
   project: EditorProject;
   cleanSourceUrl: string | null;
   renderedPreviewUrl: string | null;
+  watermarkRequired: boolean;
   cues: TimedCaptionCue[];
   canUndo: boolean;
   canRedo: boolean;
@@ -77,6 +80,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   project,
   cleanSourceUrl,
   renderedPreviewUrl,
+  watermarkRequired,
   cues,
   canUndo,
   canRedo,
@@ -151,6 +155,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     formatTime,
   } = useEditorPlayback({
     initialDuration: project.canvas.duration || 30,
+    initialTime: project.playhead || 0,
     fps: project.canvas.fps || 30,
     sourceOffset,
     onTimeUpdate: (t) => {
@@ -167,6 +172,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     renderError,
     renderSuccessMsg,
     triggerRender,
+    clearRenderStatus,
   } = useEditorRender({
     clipId: clip.id,
     onRenderComplete: () => {
@@ -176,7 +182,15 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
   // Dialogs state
   const [isExportDialogOpen, setIsExportDialogOpen] = useState<boolean>(false);
+  // Concise notice when an extend cannot supply full caption coverage
+  // (missing/short transcript) or the coverage fetch fails after extending.
+  const [extendCaptionNotice, setExtendCaptionNotice] = useState<string | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
+  // Export staleness: caption setting changed after the last completed render;
+  // the previously rendered file must not be offered as the changed export.
+  const [exportStale, setExportStale] = useState<boolean>(false);
+  // Last non-'none' caption preset, so Captions Off/On restores the chosen style.
+  const [lastCaptionPreset, setLastCaptionPreset] = useState<RenderableCaptionPresetId>(DEFAULT_CAPTION_PRESET_ID);
   // Intro/outro: which menu is open, and a pending position armed for the next media pick.
   const [introOutroMenu, setIntroOutroMenu] = useState<'intro' | 'outro' | null>(null);
   const [pendingIntroOutro, setPendingIntroOutro] = useState<'intro' | 'outro' | null>(null);
@@ -340,13 +354,153 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     onEscape: () => {
       clearSelection();
       setIsExportDialogOpen(false);
+      clearRenderStatus();
       setIsCommandPaletteOpen(false);
     },
   });
 
+  // Freeze frame: split the selected video item at the playhead and insert a
+  // still segment holding that exact source frame. Later content ripples by
+  // the freeze duration and caption cues/words shift with it, so speech and
+  // burned text stay aligned across the hold. One history step.
+  const FREEZE_DURATION_SEC = 2;
+  const handleFreezeFrame = () => {
+    if (!selectedItemId || !selectedTrackId) return;
+    const track = project.tracks.find((t) => t.id === selectedTrackId);
+    const item = track?.items.find((i) => i.id === selectedItemId);
+    if (!track || !item || track.type !== 'VIDEO' || item.is_freeze) return;
+    const t = currentTime;
+    if (t <= item.timeline_start + 0.05 || t >= item.timeline_end - 0.05) return;
+    // Refuse the freeze when a locked track holds content past the freeze
+    // point: everything else ripples +dur, which would silently misalign the
+    // locked content (consistent with scene reorder's locked-follower block).
+    const lockedHit = project.tracks.some(
+      (tr) => tr.locked && tr.items.some((it) => it.timeline_end > t)
+    );
+    if (lockedHit) return;
+    const dur = FREEZE_DURATION_SEC;
+    const itemSpeed = item.speed?.speed || 1;
+    const srcTime = item.source_start + (t - item.timeline_start) * itemSpeed;
+    const r3 = (v: number) => Math.round(v * 1000) / 1000;
+    onUpdateProject((prev) => ({
+      ...prev,
+      // The freeze extends the timeline; the canvas must grow with it or the
+      // tail of the clip falls off the end of preview and export.
+      canvas: { ...prev.canvas, duration: r3(prev.canvas.duration + dur) },
+      tracks: prev.tracks.map((tr) => {
+        if (tr.locked) return tr;
+        const items: EditorTrackItem[] = [];
+        for (const it of tr.items) {
+          if (it.timeline_end <= t) {
+            items.push(it);
+            continue;
+          }
+          if (it.timeline_start >= t) {
+            const shifted: EditorTrackItem = {
+              ...it,
+              timeline_start: r3(it.timeline_start + dur),
+              timeline_end: r3(it.timeline_end + dur),
+            };
+            if (tr.type === 'CAPTION' && it.caption && Array.isArray(it.caption.cues)) {
+              shifted.caption = {
+                ...it.caption,
+                cues: it.caption.cues.map((c: any) => ({
+                  ...c,
+                  start: r3(c.start + dur),
+                  end: r3(c.end + dur),
+                  words: Array.isArray(c.words)
+                    ? c.words.map((w: any) => ({ ...w, start: r3(w.start + dur), end: r3(w.end + dur) }))
+                    : c.words,
+                })),
+              };
+            }
+            items.push(shifted);
+            continue;
+          }
+          if (tr.id === selectedTrackId && it.id === selectedItemId) {
+            const left: EditorTrackItem = { ...it, timeline_end: r3(t), source_end: r3(srcTime) };
+            const freeze: EditorTrackItem = {
+              ...it,
+              id: crypto.randomUUID(),
+              type: 'IMAGE',
+              is_freeze: true,
+              freeze_source_time: r3(srcTime),
+              timeline_start: r3(t),
+              timeline_end: r3(t + dur),
+              source_start: r3(srcTime),
+              source_end: r3(srcTime + 0.1),
+              muted: true,
+            };
+            const right: EditorTrackItem = {
+              ...it,
+              id: crypto.randomUUID(),
+              timeline_start: r3(t + dur),
+              timeline_end: r3(it.timeline_end + dur),
+              source_start: r3(srcTime),
+            };
+            items.push(left, freeze, right);
+            continue;
+          }
+          if (tr.type === 'CAPTION' && it.caption && Array.isArray(it.caption.cues)) {
+            // Caption item spans the freeze: stretch its span; cues after t
+            // shift with the ripple, a cue straddling t stretches over the
+            // hold and only its post-freeze words move.
+            const cues = it.caption.cues.map((c: any) => {
+              if (c.start >= t) {
+                return {
+                  ...c,
+                  start: r3(c.start + dur),
+                  end: r3(c.end + dur),
+                  words: Array.isArray(c.words)
+                    ? c.words.map((w: any) => ({ ...w, start: r3(w.start + dur), end: r3(w.end + dur) }))
+                    : c.words,
+                };
+              }
+              if (c.end > t) {
+                return {
+                  ...c,
+                  end: r3(c.end + dur),
+                  words: Array.isArray(c.words)
+                    ? c.words.map((w: any) =>
+                        w.start >= t ? { ...w, start: r3(w.start + dur), end: r3(w.end + dur) } : w
+                      )
+                    : c.words,
+                };
+              }
+              return c;
+            });
+            items.push({ ...it, timeline_end: r3(it.timeline_end + dur), caption: { ...it.caption, cues } });
+            continue;
+          }
+          if (tr.type === 'AUDIO' && it.source_path) {
+            // Speech/music pauses during the hold: split and shift.
+            const aSpeed = it.speed?.speed || 1;
+            const aSrc = it.source_start + (t - it.timeline_start) * aSpeed;
+            items.push(
+              { ...it, timeline_end: r3(t), source_end: r3(aSrc) },
+              {
+                ...it,
+                id: crypto.randomUUID(),
+                timeline_start: r3(t + dur),
+                timeline_end: r3(it.timeline_end + dur),
+                source_start: r3(aSrc),
+              }
+            );
+            continue;
+          }
+          // Static overlays stretch over the freeze.
+          items.push({ ...it, timeline_end: r3(it.timeline_end + dur) });
+        }
+        return { ...tr, items };
+      }),
+    }));
+  };
+
   // Apply Caption Preset: 'none' hides the caption track (captionEnabled=false on save),
   // any other preset re-enables it and swaps the style while keeping cues and position.
   const handleApplyCaptionPreset = (preset: CaptionPresetId) => {
+    if (preset !== 'none') setLastCaptionPreset(preset as RenderableCaptionPresetId);
+    setExportStale(true);
     onUpdateProject((prev) => ({
       ...prev,
       tracks: prev.tracks.map((t) => {
@@ -358,6 +512,47 @@ export const EditorShell: React.FC<EditorShellProps> = ({
           items: t.items.map((i) => ({
             ...i,
             caption: applyPresetToEditorCaption(i.caption, preset),
+          })),
+        };
+      }),
+    }));
+  };
+
+  // A completed render matches current editor settings again.
+  useEffect(() => {
+    if (renderSuccessMsg) setExportStale(false);
+  }, [renderSuccessMsg]);
+
+  // Persistent staleness: the rendered file predates the current editor
+  // project whenever the project was SAVED after the snapshot taken at render
+  // start (updated_at comparison; a never-edited project - updated_at equals
+  // created_at - matches the default state the render already reflects).
+  const editorProjectStale =
+    !!clip &&
+    clip.render_status === 'ready' &&
+    !!(clip as any).rendered_editor_saved_at &&
+    project.updated_at > (clip as any).rendered_editor_saved_at &&
+    project.updated_at !== project.created_at;
+
+  // Discoverable Captions On/Off. Hiding the track already preserves the
+  // item's caption config, so re-enabling just unhides - the chosen style
+  // (gallery preset or legacy style) survives the off/on round-trip.
+  const handleToggleCaptions = (enabled: boolean) => {
+    setExportStale(true);
+    onUpdateProject((prev) => ({
+      ...prev,
+      tracks: prev.tracks.map((t) => {
+        if (t.type !== 'CAPTION') return t;
+        if (!enabled) return { ...t, hidden: true };
+        const hasConfig = t.items.some((i) => i.caption && i.caption.style);
+        if (hasConfig) return { ...t, hidden: false };
+        // No config to restore (unexpected): fall back to the last used preset.
+        return {
+          ...t,
+          hidden: false,
+          items: t.items.map((i) => ({
+            ...i,
+            caption: applyPresetToEditorCaption(i.caption, lastCaptionPreset),
           })),
         };
       }),
@@ -630,9 +825,16 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       onSelectAiTool={setActiveAiTool}
       onNavigateTab={setActiveSidebarTab}
       onUpdateProject={onUpdateProject}
-      onUpdateItem={(itemId, updates) => {
-        if (selectedTrackId) {
-          onUpdateTrackItem(selectedTrackId, itemId, updates);
+      onUpdateItem={(itemId, updates, options) => {
+        // Selection via the preview overlay sets only the item id; resolve the
+        // owning track from the item when no track is selected, otherwise
+        // inspector edits (hook duration, visibility, ...) silently no-op.
+        const trackId =
+          selectedTrackId ||
+          project.tracks.find((t) => t.items.some((i) => i.id === itemId))?.id ||
+          null;
+        if (trackId) {
+          onUpdateTrackItem(trackId, itemId, updates, options);
         }
       }}
       onAddKeyframe={(itemId, prop, val, easing) => {
@@ -663,6 +865,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         }
       }}
       onApplyCaptionPreset={handleApplyCaptionPreset}
+      onToggleCaptions={handleToggleCaptions}
       hasWordTiming={hasWordTiming}
       onAddTextLayer={handleAddTextLayer}
       onUpdateCropMode={(_mode) => {
@@ -676,6 +879,26 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
   // Transcript lives in a persistent right-hand dock, independent of the selected tool, so it
   // never disappears when the user switches to Captions / Audio / B-roll / AI tools.
+  const primaryVideoForExtend = project.tracks
+    .find((t) => t.type === 'VIDEO')
+    ?.items.find((i) => !i.hidden);
+  // Reclaimable tail: footage between the current item end and the furthest safe
+  // source point. The candidate boundary (clip.end_seconds) is the floor; when the
+  // source media runs longer (source_duration_seconds from the project record) the
+  // user may extend beyond the candidate - the server re-validates the bound.
+  const extendSlackSec = primaryVideoForExtend
+    ? Math.max(
+        0,
+        Number(
+          (
+            Math.min(
+              (project as any).source_duration_seconds ?? clip.end_seconds,
+              Number.MAX_SAFE_INTEGER
+            ) - primaryVideoForExtend.source_end
+          ).toFixed(3)
+        )
+      )
+    : 0;
   const transcriptPanel = (
     <TranscriptEditor
       cues={cues}
@@ -687,6 +910,127 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       onSelectCue={selectCue}
       onDeleteTimeRange={onDeleteTimeRange}
       onDeleteTimeRanges={onDeleteTimeRanges}
+      extendSlackSec={extendSlackSec}
+      onExtendClip={() => {
+        // Extend the clip tail toward the source media end (or the candidate boundary
+        // when the source duration is unknown): same field updates as timeline
+        // trim-right, committed in one step, plus the canvas duration so the pro
+        // render covers the extended tail.
+        if (!primaryVideoForExtend || extendSlackSec <= 0.05) return;
+        const trackId = primaryVideoForExtend.track_id;
+        const itemId = primaryVideoForExtend.id;
+        const bound = (project as any).source_duration_seconds ?? clip.end_seconds;
+        const newSourceEnd = Math.min(
+          bound,
+          Number((primaryVideoForExtend.source_end + extendSlackSec).toFixed(3))
+        );
+        const delta = Number((newSourceEnd - primaryVideoForExtend.source_end).toFixed(3));
+        if (delta <= 0) return;
+        // Single history entry for the whole extend: video item + canvas +
+        // coverage marker commit together, so one undo restores all of it.
+        void trackId; void itemId;
+        onUpdateProject((prev) => ({
+          ...prev,
+          canvas: {
+            ...prev.canvas,
+            duration: Number(((prev.canvas.duration || 0) + delta).toFixed(3)),
+          },
+          tracks: prev.tracks.map((t) => {
+            if (t.id === trackId) {
+              return {
+                ...t,
+                items: t.items.map((i) =>
+                  i.id !== itemId
+                    ? i
+                    : {
+                        ...i,
+                        source_end: newSourceEnd,
+                        timeline_end: Number((i.timeline_end + delta).toFixed(3)),
+                      }
+                ),
+              };
+            }
+            // Record the pre-extend caption coverage BEFORE the extension is
+            // saved, so the heal can append the newly exposed span on the very
+            // next load - no second-load gap for existing projects.
+            if (t.type !== 'CAPTION' || t.hidden) return t;
+            return {
+              ...t,
+              items: t.items.map((i) =>
+                i.hidden || !i.caption || !Array.isArray(i.caption.cues) ||
+                i.caption.cues.length === 0 || i.caption.cues_covered_end != null
+                  ? i
+                  : {
+                      ...i,
+                      caption: {
+                        ...i.caption,
+                        cues_covered_end: initCoveredEnd(i.caption.cues),
+                      },
+                    }
+              ),
+            };
+          }),
+        }));
+        // Persist the new trim, then append cues for the newly exposed span
+        // in-session (fresh extraction honors the saved trim). This is its own
+        // history entry, so undo reverts caption append first, then the extend;
+        // no reload, so existing undo history is preserved.
+        void (async () => {
+          try {
+            // Let React flush the extend state updates (track item + canvas +
+            // coverage marker) into the autosave ref before saving; otherwise
+            // saveNow persists the pre-extend snapshot and the caption fetch
+            // below would read a pre-extend clip.
+            await new Promise((r) => setTimeout(r, 0));
+            let saved = await onSaveNow();
+            if (!saved) {
+              // A save was already in flight; wait for it to settle and retry
+              // once so the heal is not silently dropped.
+              await new Promise((r) => setTimeout(r, 800));
+              saved = await onSaveNow();
+            }
+            if (!saved) {
+              console.error('[extend-heal] save did not complete; caption coverage will heal on next editor load.');
+              setExtendCaptionNotice(
+                'Clip extended, but saving failed. Captions for the added footage will load on next open.'
+              );
+              return;
+            }
+            const cap = await clipRenderService.getClipCaptions(clip.id);
+            if (!Array.isArray(cap?.cues) || cap.cues.length === 0) {
+              setExtendCaptionNotice(
+                'Clip extended, but no transcript captions are available for this clip yet.'
+              );
+              return;
+            }
+            onUpdateProject((prev) => {
+              const { tracks: healed, appended, markersChanged } = healCaptionTracks(
+                prev.tracks,
+                cap.cues,
+                prev.canvas?.duration
+              );
+              if (!markersChanged) return prev;
+              if (appended === 0) {
+                // Coverage did not move past the pre-extend boundary: the
+                // transcript has no words in the extended span (missing or
+                // shorter than the extension), so captions cannot cover it.
+                setExtendCaptionNotice(
+                  'The transcript has no words in the added footage, so captions cannot cover the full extension.'
+                );
+              } else {
+                setExtendCaptionNotice(null);
+              }
+              return { ...prev, tracks: healed };
+            });
+          } catch (e) {
+            // The heal re-runs on next editor load; surface for diagnostics.
+            console.error('[extend-heal] failed:', e);
+            setExtendCaptionNotice(
+              'Clip extended, but loading captions for the added footage failed. They will retry on next open.'
+            );
+          }
+        })();
+      }}
       onReplaceWordGlobally={onReplaceWordGlobally}
       onUpdateWordTiming={onUpdateWordTiming}
       onPlayRange={(start) => {
@@ -1047,13 +1391,29 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               showSafeGuides={showSafeGuides}
               onToggleSafeGuides={toggleSafeGuides}
               onUpdateCropMode={(mode) => {
+                // Same routing as the preview toolbar Layout toggle: fill/fit/blur
+                // write item.crop (the channel the export compiler honors); 'smart'
+                // stays legacy-only. crop_mode is mirrored for back-compat.
                 onUpdateProject((prev) => ({
                   ...prev,
                   tracks: prev.tracks.map((t) => {
                     if (t.type === 'VIDEO') {
                       return {
                         ...t,
-                        items: t.items.map((i) => ({ ...i, crop_mode: mode })),
+                        items: t.items.map((i) => ({
+                          ...i,
+                          crop_mode: mode === 'blur' ? 'fit' : mode,
+                          ...(mode === 'smart'
+                            ? {}
+                            : {
+                                crop: {
+                                  mode: (mode === 'center' ? 'fill' : mode) as 'fit' | 'fill' | 'blur',
+                                  focusX: i.crop?.focusX ?? 0.5,
+                                  focusY: i.crop?.focusY ?? 0.5,
+                                  scale: i.crop?.scale ?? 1,
+                                },
+                              }),
+                        })),
                       };
                     }
                     return t;
@@ -1068,6 +1428,30 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                       return {
                         ...t,
                         items: t.items.map((i) => ({ ...i, layout_mode: layout })),
+                      };
+                    }
+                    return t;
+                  }),
+                }));
+              }}
+              onUpdateScreencast={(patch) => {
+                onUpdateProject((prev) => ({
+                  ...prev,
+                  tracks: prev.tracks.map((t) => {
+                    if (t.type === 'VIDEO') {
+                      return {
+                        ...t,
+                        items: t.items.map((i) => {
+                          const prevScreencast = (i as any).crop_config?.screencast || {};
+                          // null is an explicit opt-out and MUST persist -
+                          // deleting the key would fall back to (and resurrect)
+                          // the analysis suggestion at render time.
+                          const nextScreencast = { ...prevScreencast, ...patch };
+                          return {
+                            ...i,
+                            crop_config: { ...(i as any).crop_config, screencast: nextScreencast },
+                          } as any;
+                        }),
                       };
                     }
                     return t;
@@ -1132,6 +1516,12 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 onUpdateTrackItem(selectedTrackId, itemId, { transform }, options);
               }
             }}
+            onUpdateItemCrop={(itemId, crop, options) => {
+              const track = project.tracks.find((t) => t.items.some((i) => i.id === itemId));
+              if (track) {
+                onUpdateTrackItem(track.id, itemId, { crop }, options);
+              }
+            }}
             showSafeGuides={showSafeGuides}
             onToggleSafeGuides={toggleSafeGuides}
             onChangeAspectRatio={(aspectRatio) => {
@@ -1144,11 +1534,29 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               }));
             }}
             onUpdateCropMode={(mode) => {
+              // Route through item.crop: the export compiler (buildSliceCropFilter)
+              // honors item.crop.mode and never reads legacy crop_mode, so writing
+              // crop_mode alone left this toggle with no effect on the render.
+              // crop_mode is still mirrored for legacy preview fallbacks.
               onUpdateProject((prev) => ({
                 ...prev,
                 tracks: prev.tracks.map((t) =>
                   t.type === 'VIDEO'
-                    ? { ...t, items: t.items.map((i) => ({ ...i, crop_mode: mode })) }
+                    ? {
+                        ...t,
+                        items: t.items.map((i) => ({
+                          ...i,
+                          crop_mode: mode === 'blur' ? 'fit' : mode,
+                          crop: {
+                            // 'smart' stays on the legacy crop_mode channel; the
+                            // per-item compiler modes are fill/fit/blur/custom.
+                            mode: (mode === 'center' || mode === 'smart' ? 'fill' : mode) as 'fit' | 'fill' | 'blur',
+                            focusX: i.crop?.focusX ?? 0.5,
+                            focusY: i.crop?.focusY ?? 0.5,
+                            scale: i.crop?.scale ?? 1,
+                          },
+                        })),
+                      }
                     : t
                 ),
               }));
@@ -1177,6 +1585,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                   });
 
                   const updatedCaption: EditorCaptionItem = {
+                    position_explicit: true,
                     cues: updatedCues,
                     style: item.caption?.style || 'clean',
                     position: item.caption?.position || 'bottom',
@@ -1194,6 +1603,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                   const posX = isObj && pos.x !== undefined ? pos.x : (item.caption?.position_x ?? 0.5);
                   const posY = isObj ? (pos.y ?? item.caption?.position_y ?? 0.667) : pos;
                   const updatedCaption: EditorCaptionItem = {
+                    position_explicit: true,
                     cues: item.caption?.cues || [],
                     style: item.caption?.style || 'clean',
                     position: item.caption?.position || 'bottom',
@@ -1235,7 +1645,22 @@ export const EditorShell: React.FC<EditorShellProps> = ({
           </div>
         ) : (
           <div className="w-[320px] md:w-[340px] xl:w-[360px] shrink-0 glass-dock flex flex-col min-h-0 z-20 border-l border-white/[0.08]">
-            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">{transcriptPanel}</div>
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              {extendCaptionNotice && (
+                <div className="mx-3 mt-2 flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-950/40 border border-amber-800/50">
+                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                  <p className="text-[11px] text-amber-200/90 leading-snug">{extendCaptionNotice}</p>
+                  <button
+                    onClick={() => setExtendCaptionNotice(null)}
+                    className="ml-auto text-amber-300/70 hover:text-amber-200 text-xs px-1"
+                    aria-label="Dismiss"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              {transcriptPanel}
+            </div>
           </div>
         )}
 
@@ -1404,6 +1829,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             onSplitTrackItem(selectedTrackId, selectedItemId, currentTime);
           }
         }}
+        onFreezeFrame={handleFreezeFrame}
         onRippleDelete={() => {
           if (selectedItemId && selectedTrackId) {
             onRippleDeleteTrackItem(selectedTrackId, selectedItemId);
@@ -1426,7 +1852,13 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       {/* 4. EXPORT DIALOG */}
       <ExportDialog
         isOpen={isExportDialogOpen}
-        onClose={() => setIsExportDialogOpen(false)}
+        onClose={() => {
+          setIsExportDialogOpen(false);
+          // Success/error feedback is transient: once dismissed, reopening shows
+          // the settings view again (with the download row while the render is
+          // current, or the stale notice when edits happened since).
+          clearRenderStatus();
+        }}
         clip={clip}
         project={project}
         duration={duration}
@@ -1441,6 +1873,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
           if (saved !== false) triggerRender();
         }}
         downloadUrl={renderedPreviewUrl}
+        watermarkRequired={watermarkRequired}
+        captionsEnabled={!project.tracks.find((t) => t.type === 'CAPTION')?.hidden}
+        onToggleCaptions={handleToggleCaptions}
+        downloadStale={exportStale || editorProjectStale}
       />
 
       {/* 5. COMMAND PALETTE (Cmd+K) */}

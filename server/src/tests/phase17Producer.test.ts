@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it, mock, after } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -10,6 +10,9 @@ import ffmpegStatic from 'ffmpeg-static';
 
 import { ProducerPlanningService } from '../services/producerPlanningService.js';
 import { ProducerRenderService } from '../services/producerRenderService.js';
+import { LoudnormTwoPassService } from '../services/loudnormTwoPassService.js';
+import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
+import { closeMongo } from '../db/mongoClient.js';
 import {
   ProducerEditPlan,
   ProducerOperation,
@@ -35,6 +38,10 @@ describe('Phase 17 — Vireo Producer (AI Editing Agent) Tests', () => {
   const mockUserId = crypto.randomUUID();
   const mockProjectId = crypto.randomUUID();
   const mockClipId = crypto.randomUUID();
+
+  after(async () => {
+    await closeMongo();
+  });
 
   const mockClip: ClipRecord = {
     id: mockClipId,
@@ -638,6 +645,121 @@ describe('Phase 17 — Vireo Producer (AI Editing Agent) Tests', () => {
 
         // Verify duration: start=0.5, end=10.0-1.0=9.0 -> duration = 8.5s
         assert.ok(probeOutput.includes('Duration: 00:00:08.'), 'Rendered duration must be ~8.5 seconds');
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('ProducerRenderService — generatePreview normalization fallback E2E', () => {
+    // The real-render test above exercises buildRenderGraph only; the two-pass
+    // substitution and dynamic fallback live in generatePreview. This test runs
+    // generatePreview end-to-end (Mongo-backed records, local fixture source) on
+    // peak-limited content where linear loudnorm is infeasible: quiet sine bed +
+    // loud clicks (measured I~-31 LUFS, TP~0dBTP). No drawtext operations, so it
+    // is not subject to the static-ffmpeg drawtext environment gap above.
+    it('renders peak-limited audio via the pre-rendered dynamic fallback', async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vireo-prod-fallback-'));
+      const fixture = path.join(tmpDir, 'hotquiet.mp4');
+      try {
+        await execFileAsync(ffmpegBin, [
+          '-y', '-v', 'error',
+          '-f', 'lavfi', '-i', 'testsrc2=size=480x270:rate=30:duration=8',
+          '-f', 'lavfi', '-i', 'aevalsrc=0.02*sin(440*2*PI*t)+0.9*lt(mod(t\\,2)\\,0.02):s=44100:d=8',
+          '-shortest', '-pix_fmt', 'yuv420p', '-c:v', 'libx264', '-preset', 'ultrafast', '-c:a', 'aac', fixture,
+        ], { timeout: 60000 });
+
+        const planId = crypto.randomUUID();
+        await ownerContext.run(mockUserId, async () => {
+          const { error: projErr } = await dataRepository.from('projects').insert({
+            id: mockProjectId,
+            user_id: mockUserId,
+            title: 'Fallback E2E',
+            source_type: 'upload',
+            source_storage_path: fixture,
+            duration_seconds: 8.0,
+            video_status: 'completed',
+          });
+          assert.ifError(projErr);
+          const { error: clipErr } = await dataRepository.from('clips').insert({
+            ...mockClip,
+            start_seconds: 0.0,
+            end_seconds: 4.0,
+            duration_seconds: 4.0,
+          });
+          assert.ifError(clipErr);
+          const plan: ProducerEditPlan = {
+            id: planId,
+            clip_id: mockClipId,
+            project_id: mockProjectId,
+            user_id: mockUserId,
+            version: 1,
+            parent_plan_id: null,
+            mode: 'BALANCED',
+            target_platform: 'tiktok',
+            status: 'draft',
+            title: 'Fallback E2E',
+            user_instruction: 'normalize',
+            original_duration: 4.0,
+            estimated_duration: 4.0,
+            operations: [
+              {
+                id: 'op_normalize_audio',
+                type: 'NORMALIZE_AUDIO',
+                enabled: true,
+                label: 'Normalize Audio',
+                description: 'Loudnorm',
+                parameters: { target_lufs: -16 },
+                confidence: 0.98,
+                reason: 'Leveling',
+              },
+            ],
+            scores: {
+              before: { overall: 60, hook: 55, pacing: 60, audio: 65, visual: 60, retention_estimate: 60 },
+              after: { overall: 80, hook: 80, pacing: 80, audio: 80, visual: 80, retention_estimate: 80 },
+              delta: 20,
+            },
+            explanation: {
+              summary: 'fallback e2e',
+              key_decisions: [],
+              pacing_notes: '',
+              audio_notes: 'Normalized',
+              visual_notes: '',
+            },
+            preview_video_url: null,
+            preview_storage_path: null,
+            applied_at: null,
+            created_at: new Date(),
+            updated_at: new Date(),
+          };
+          const { error: planErr } = await dataRepository.from('producer_plans').insert(plan);
+          assert.ifError(planErr);
+        });
+
+        const fallbackSpy = mock.method(LoudnormTwoPassService, 'renderNormalizedDialogue');
+        let result: { previewUrl: string; duration: number } | null = null;
+        await ownerContext.run(mockUserId, async () => {
+          result = await ProducerRenderService.generatePreview(planId, mockUserId, fixture);
+        });
+
+        assert.ok(result, 'generatePreview must succeed on peak-limited content');
+        assert.ok(result!.duration > 3.0 && result!.duration < 5.0, `duration ${result!.duration} ~ 4s window`);
+        assert.ok(
+          fallbackSpy.mock.calls.length >= 1,
+          'pre-rendered dynamic fallback must be used for linear-infeasible content'
+        );
+
+        await ownerContext.run(mockUserId, async () => {
+          const { data: updated } = await dataRepository
+            .from('producer_plans')
+            .select('status')
+            .eq('id', planId)
+            .maybeSingle();
+          assert.equal(updated?.status, 'preview_ready');
+          await dataRepository.from('producer_plans').delete().eq('id', planId);
+          await dataRepository.from('clips').delete().eq('id', mockClipId);
+          await dataRepository.from('projects').delete().eq('id', mockProjectId);
+        });
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }

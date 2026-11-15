@@ -234,7 +234,7 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
     label: 'Karaoke',
     description: 'Words fill with color in sync with speech.',
     sampleText: 'Say it word by word',
-    font: { family: 'Arial Black', bold: false, size: 84, uppercase: true, letterSpacing: 0 },
+    font: { family: 'Arial Black', bold: false, size: 64, uppercase: true, letterSpacing: 0 },
     colors: { text: '#FFFFFF', active: '#FFD60A', activeText: '#FFD60A', outline: '#000000', shadow: '#000000', shadowOpacity: 0.6 },
     outline: 6,
     shadow: 2,
@@ -652,6 +652,7 @@ export interface CaptionPresetOverrides {
   wordAnimationScale?: number;
   wordAnimationHold?: boolean;
   maxLines?: number;
+  maxWordsPerCue?: number;
   position?: CaptionAnchor;
   /** Auto-emoji captions (Opus `emojiSwitch` / Vizard parity). */
   emoji?: boolean;
@@ -660,6 +661,14 @@ export interface CaptionPresetOverrides {
   highlightKeywordColor?: string;
   /** Normalized 0..1 bottom edge of the caption block (legacy `positionY` semantics). */
   positionY?: number;
+  /**
+   * Provenance for `positionY`: true when the value was DERIVED by the editor
+   * save path from the materialized default caption transform (position_y 500)
+   * rather than from an explicit user position choice. Editor-derived values
+   * do not block the blur-fit band anchor on export; absent/unset means
+   * unknown provenance and is treated conservatively as explicit.
+   */
+  positionYDerived?: boolean;
   /** Normalized 0..1 horizontal center of the caption block (0.5 = center). */
   positionX?: number;
 }
@@ -820,6 +829,10 @@ export function sanitizePresetOverrides(input: unknown): CaptionPresetOverrides 
     const n = Math.round(clampNum(o.maxLines, 1, 2, NaN));
     if (n === 1 || n === 2) out.maxLines = n;
   }
+  if (o.maxWordsPerCue !== undefined) {
+    const n = Math.round(clampNum(o.maxWordsPerCue, 1, 15, NaN));
+    if (Number.isFinite(n)) out.maxWordsPerCue = n;
+  }
   if (typeof o.emoji === 'boolean') out.emoji = o.emoji;
   if (Array.isArray(o.highlightKeywords)) {
     out.highlightKeywords = o.highlightKeywords
@@ -838,6 +851,7 @@ export function sanitizePresetOverrides(input: unknown): CaptionPresetOverrides 
     const n = clampNum(o.positionY, 0.08, 0.92, NaN);
     if (Number.isFinite(n)) out.positionY = Number(n.toFixed(3));
   }
+  if (typeof o.positionYDerived === 'boolean') out.positionYDerived = o.positionYDerived;
   if (o.positionX !== undefined) {
     const n = clampNum(o.positionX, 0.05, 0.95, NaN);
     if (Number.isFinite(n)) out.positionX = Number(n.toFixed(3));
@@ -955,7 +969,7 @@ export function resolveCaptionPreset(
     marginV,
     marginL,
     marginR,
-    maxWordsPerCue: p.layout.maxWordsPerCue,
+    maxWordsPerCue: o.maxWordsPerCue ?? p.layout.maxWordsPerCue,
     maxLines: o.maxLines === 1 || o.maxLines === 2 ? o.maxLines : p.layout.maxLines,
     maxCharsPerLine: p.layout.maxCharsPerLine,
     highlight: p.highlight,
@@ -1113,7 +1127,8 @@ export function groupWordsIntoCues(
   const sortedTokens = [...tokens].sort((a, b) => a.start - b.start || a.end - b.end);
   const cues: PresetTimedCue[] = [];
   let currentWords: PresetTimedWord[] = [];
-  const safeMaxWords = Math.min(6, Math.max(2, maxWords));
+  // min 1: single-word mode (one word at a time, Opus-style) needs 1-word cues
+  const safeMaxWords = Math.min(6, Math.max(1, maxWords));
   const totalMaxChars = maxCharsPerLine * maxLines;
 
   const flush = () => {
@@ -1610,7 +1625,12 @@ export function buildPresetAssStyleLine(style: ResolvedCaptionStyle, styleName =
     ? hexToAssColor(style.box.color, Math.round((1 - style.box.opacity) * 255))
     : hexToAssColor(style.outlineColor);
   const backColour = hexToAssColor(style.shadowColor, Math.round((1 - style.shadowOpacity) * 255));
-  const bold = style.bold && style.fontFamily !== 'Arial Black' ? 1 : 0;
+  // Arial Black is inherently heavy, so the family alone carries the weight when the
+  // real font is installed; but fontconfig on systems WITHOUT Arial Black resolves it
+  // to the regular Book face of a fallback family (e.g. DejaVu Sans), while browser CSS
+  // font-weight:900 resolves to the Bold face. Requesting bold keeps both paths on a
+  // heavy face either way (real Arial Black is already weight 900, so bold is a no-op).
+  const bold = style.bold || style.fontFamily === 'Arial Black' ? 1 : 0;
   return [
     `Style: ${styleName}`,
     style.fontFamily,

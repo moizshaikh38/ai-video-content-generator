@@ -1,5 +1,6 @@
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
+import { mergeExtendedCues, maxCueEnd, editorProjectCoveredEnd } from './captionExtendMerge.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { logger } from '../utils/logger.js';
@@ -31,6 +32,15 @@ export interface GenerateCaptionsOptions {
   clip: ClipRecord;
   targetAspectRatio?: ClipAspectRatio;
   outputPath?: string; // Optional path to write .ass file
+  /**
+   * Optional vertical anchor (0-1 from the canvas top) for the bottom edge of
+   * the caption block. The render pipeline computes this for blur-fit layouts
+   * so captions sit on the sharp content band instead of the blurred fill
+   * (user-reported defect 15 Nov 2026: captions rendered over a large blurred
+   * background looked unclean). Ignored when the clip or editor already sets
+   * an explicit vertical position or a non-bottom caption position.
+   */
+  bandAnchorPositionY?: number;
 }
 
 export interface CaptionGenerationResult {
@@ -220,6 +230,47 @@ export class CaptionService {
   /**
    * Resolves ASS Style Alignment code and vertical margin
    */
+  /**
+   * Vertical anchor for bottom-positioned captions on a blur-fit canvas.
+   * The blur layout letterboxes the source inside the canvas; captions anchored
+   * to the canvas bottom land on the blurred fill. This returns the positionY
+   * (fraction from the canvas top) where the caption block's bottom edge should
+   * sit: just inside the fitted content band. Returns undefined when the source
+   * fills the canvas vertically (no band to anchor to).
+   */
+  public static computeBlurFitBandAnchor(
+    aspectRatio: ClipAspectRatio = '9:16',
+    sourceWidth?: number,
+    sourceHeight?: number
+  ): number | undefined {
+    if (!Number.isFinite(sourceWidth) || !Number.isFinite(sourceHeight) || (sourceWidth as number) <= 0 || (sourceHeight as number) <= 0) {
+      return undefined;
+    }
+    const playRes = this.getPlayRes(aspectRatio);
+    const scale = Math.min(playRes.x / (sourceWidth as number), playRes.y / (sourceHeight as number));
+    const fitH = (sourceHeight as number) * scale;
+    if (fitH >= playRes.y - 1) return undefined; // source fills the canvas vertically: no band
+    const bandBottom = (playRes.y + fitH) / 2; // band is vertically centered
+    const targetY = bandBottom - Math.max(24, fitH * 0.08);
+    return Math.min(0.92, Math.max(0.08, targetY / playRes.y));
+  }
+
+  /**
+   * Default caption presentation for clips with no explicit caption style.
+   * The karaoke preset (large uppercase, word-by-word highlight, no backdrop
+   * box) is the house default; any explicit clip caption_style is preserved.
+   */
+  public static resolveDefaultCaptionStyle(clip: Pick<ClipRecord, 'caption_style' | 'caption_config'>): { captionStyle: ClipRecord['caption_style']; captionConfig: CaptionConfig } {
+    if (clip.caption_style) {
+      return { captionStyle: clip.caption_style, captionConfig: { ...(clip.caption_config || {}) } };
+    }
+    const captionConfig: CaptionConfig = { ...(clip.caption_config || {}) };
+    if ((captionConfig as any).presetId === undefined) {
+      (captionConfig as any).presetId = 'karaoke';
+    }
+    return { captionStyle: 'karaoke', captionConfig };
+  }
+
   public static getPositionConfig(
     position: CaptionPosition = 'bottom',
     aspectRatio: ClipAspectRatio = '9:16'
@@ -1160,6 +1211,11 @@ export class CaptionService {
     cues: TimedCaptionCue[];
     style?: string;
     position?: string;
+    /** True when the user explicitly chose/dragged the caption position in the
+     * editor (flag set by the position write funnels). */
+    positionExplicit?: boolean;
+    /** Numeric drag offset (only present after a drag); also implies explicit. */
+    positionY?: number;
   } | null {
     if (!proj || !Array.isArray(proj.tracks)) return null;
 
@@ -1208,6 +1264,8 @@ export class CaptionService {
         cues: finalCues,
         style: item.caption.style,
         position: item.caption.position,
+        positionExplicit: item.caption.position_explicit === true,
+        positionY: typeof item.caption.position_y === 'number' ? item.caption.position_y : undefined,
       };
     }
 
@@ -1276,6 +1334,9 @@ export class CaptionService {
       cues: aggregatedCues,
       style: validItems[0]?.caption?.style,
       position: validItems[0]?.caption?.position,
+      positionExplicit: validItems.some((it: any) => it?.caption?.position_explicit === true),
+      positionY: (validItems.find((it: any) => typeof it?.caption?.position_y === 'number') as any)
+        ?.caption?.position_y,
     };
   }
 
@@ -1296,6 +1357,9 @@ export class CaptionService {
     let editorCues: TimedCaptionCue[] | null = null;
     let editorStyle: string | null = null;
     let editorPosition: string | null = null;
+    let editorPositionExplicit = false;
+    let editorPositionYNumeric: number | null = null;
+    let editorCoveredEnd: number | null = null;
 
     try {
       const { data: proj } = await dataRepository
@@ -1311,6 +1375,9 @@ export class CaptionService {
           editorCues = extracted.cues;
           editorStyle = extracted.style || null;
           editorPosition = extracted.position || null;
+          editorPositionExplicit = extracted.positionExplicit === true;
+          editorPositionYNumeric = typeof extracted.positionY === 'number' ? extracted.positionY : null;
+          editorCoveredEnd = editorProjectCoveredEnd(proj);
         }
       }
     } catch (err: any) {
@@ -1330,10 +1397,72 @@ export class CaptionService {
       return { timingMode: 'segment', cues: [], assContent: '' };
     }
 
+    // Blur-fit band anchor: computed by the render pipeline for layouts whose
+    // source does not fill the canvas vertically. Only applied when nobody set
+    // an explicit vertical position.
+    // A persisted editor position of 'bottom' is the default, not an explicit
+    // choice - every editor project materializes it. Explicit means any of:
+    //  (a) the provenance flag (position_explicit) set by the editor's
+    //      position write funnels - covers a deliberate 'bottom' choice too;
+    //  (b) a non-bottom editor position (legacy, pre-flag);
+    //  (c) a numeric editor position_y from a drag (legacy, pre-flag).
+    // A numeric positionY in caption_config / presetOverrides is explicit
+    // UNLESS the editor marked it derived: the editor save path mirrors the
+    // materialized default caption transform (position_y 500 -> 0.7604) into
+    // presetOverrides on every save and stamps it positionYDerived: true, so
+    // after any autosave a default-state blur project no longer carries a
+    // fake explicit position that silently disabled this anchor (verified on
+    // render v96: default blur project exported captions at 0.75 instead of
+    // the anchor). Unmarked config-only values (legacy saves, external API
+    // writers) keep their meaning and stay explicit - no retroactive item
+    // flag is required of them.
+    const hasExplicitEditorPosition =
+      editorPositionExplicit ||
+      editorPositionYNumeric !== null ||
+      (Boolean(editorPosition) && editorPosition !== 'bottom');
+    const mergedConfigPre: CaptionConfig = clip.caption_config || {};
+    const prePo = (mergedConfigPre.presetOverrides || {}) as any;
+    // Config-level explicit position: a top-level positionY, or a
+    // presetOverrides.positionY that the editor did not mark as derived from
+    // the materialized default transform.
+    const hasExplicitConfigPosition =
+      mergedConfigPre.positionY !== undefined ||
+      (prePo.positionY !== undefined && prePo.positionYDerived !== true);
+    const bandY =
+      options.bandAnchorPositionY !== undefined &&
+      !hasExplicitEditorPosition &&
+      !hasExplicitConfigPosition &&
+      (clip.caption_position ?? 'bottom') === 'bottom'
+        ? Math.min(0.92, Math.max(0.08, options.bandAnchorPositionY))
+        : undefined;
+
     const mergedConfig: CaptionConfig = {
       ...(clip.caption_config || {}),
       caption_overrides: clip.caption_config?.caption_overrides || (clip as any).caption_overrides || [],
     };
+    if (bandY !== undefined) {
+      mergedConfig.positionY = bandY;
+      mergedConfig.presetOverrides = { ...(mergedConfig.presetOverrides || {}), positionY: bandY } as any;
+    }
+
+    // Mirror the editor preview's caption->override mapping
+    // (editorCaptionToPresetOverrides): the declared position always applies to
+    // preset resolution (top/center change anchor+alignment; 'bottom' matches
+    // every preset's default anchor), and a dragged numeric offset wins when
+    // no config-level positionY is set. Without this, preset styles silently
+    // dropped the editor's position choice in export (preview/export mismatch).
+    {
+      const po = { ...(mergedConfig.presetOverrides || {}) } as any;
+      if (editorPosition && po.position === undefined) po.position = editorPosition;
+      if (
+        editorPositionYNumeric !== null &&
+        mergedConfig.positionY === undefined &&
+        po.positionY === undefined
+      ) {
+        po.positionY = editorPositionYNumeric;
+      }
+      mergedConfig.presetOverrides = po;
+    }
 
     let timingMode: CaptionTimingMode = 'segment';
     let cues: TimedCaptionCue[] = [];
@@ -1345,11 +1474,47 @@ export class CaptionService {
       const hasWords = editorCues.some((c) => Array.isArray(c.words) && c.words.length > 0);
       timingMode = hasWords ? 'word' : 'segment';
       cues = editorCues;
+
+      // Beyond-candidate extend: if the clip's current trim window runs past
+      // the saved cues' coverage, append the newly exposed span from the
+      // transcript. Append-only: user edits and deletions inside the covered
+      // region are never regenerated or resurrected.
+      if (transcript) {
+        try {
+          const coveredEnd = editorCoveredEnd ?? maxCueEnd(editorCues);
+          const effectiveDuration = Number((
+            clip.end_seconds - clip.start_seconds -
+            Number(clip.trim_start_offset || 0) - Number(clip.trim_end_offset || 0)
+          ).toFixed(3));
+          if (effectiveDuration > coveredEnd + 0.05) {
+            const fresh = this.extractCuesForClipSettings(transcript, clip, targetAspectRatio);
+            const merged = mergeExtendedCues(editorCues, fresh.cues as any, coveredEnd);
+            if (merged.appended > 0) {
+              cues = merged.cues as TimedCaptionCue[];
+              if (merged.cues.some((c) => Array.isArray(c.words) && c.words.length > 0)) {
+                timingMode = 'word';
+              }
+            }
+          }
+        } catch (extendErr: any) {
+          logger.warn(`Caption extend merge skipped for clip ${clip.id}: ${extendErr.message}`);
+        }
+      }
       if (preset && timingMode === 'segment') {
         cues = cues.map((c) => ({ ...c, text: formatSegmentCueText(c.text, preset!) }));
       }
     } else if (transcript) {
-      const extracted = this.extractCuesForClipSettings(transcript, clip, targetAspectRatio);
+      // Clips with no explicit caption style get the house default (karaoke
+      // preset); explicit styles (including the editor reset's 'clean') pass
+      // through unchanged. The band anchor rides along via caption_config.
+      const defaults = this.resolveDefaultCaptionStyle(clip);
+      const effectiveConfig: CaptionConfig = { ...defaults.captionConfig };
+      if (bandY !== undefined) {
+        effectiveConfig.positionY = bandY;
+        effectiveConfig.presetOverrides = { ...(effectiveConfig.presetOverrides || {}), positionY: bandY } as any;
+      }
+      const effectiveClip = { ...clip, caption_style: defaults.captionStyle, caption_config: effectiveConfig };
+      const extracted = this.extractCuesForClipSettings(transcript, effectiveClip, targetAspectRatio);
       timingMode = extracted.timingMode;
       cues = extracted.cues;
       preset = extracted.preset;

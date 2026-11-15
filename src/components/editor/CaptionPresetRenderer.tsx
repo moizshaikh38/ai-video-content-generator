@@ -68,11 +68,12 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
         ...(interactive ? { pointerEvents: 'auto' } : {}),
         ...(frame.positionX !== undefined || frame.positionY !== undefined
           ? {
+              // Bottom-edge anchored at positionY, matching the exported ASS \an2 + \pos semantics.
               left: `${((frame.positionX ?? 0.5) * 100).toFixed(2)}%`,
               top: `${((frame.positionY ?? 0.667) * 100).toFixed(2)}%`,
               right: 'auto',
               bottom: 'auto',
-              transform: 'translate(-50%, -50%)',
+              transform: 'translate(-50%, -100%)',
             }
           : {}),
       }}

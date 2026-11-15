@@ -4,6 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import ffmpeg from 'fluent-ffmpeg';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 import ffmpegStatic from 'ffmpeg-static';
 import { CaptionService } from '../services/captionService.js';
 import {
@@ -407,19 +411,20 @@ describe('Phase 2 — Kinetic Word-Pop Captions Unit & Integration Tests', () =>
     it('burns kinetic word-pop captions into 9:16 video using FFmpeg and verifies success', async () => {
       fs.mkdirSync(tmpDir, { recursive: true });
 
-      // 1. Generate 2-second synthetic 9:16 vertical video
-      await new Promise<void>((resolve, reject) => {
-        ffmpeg()
-          .input('color=c=navy:s=720x1280:r=25:d=2.0')
-          .inputFormat('lavfi')
-          .input('anullsrc=r=44100:cl=stereo')
-          .inputFormat('lavfi')
-          .outputOptions(['-t 2.0', '-pix_fmt yuv420p', '-c:v libx264', '-c:a aac', '-preset ultrafast'])
-          .output(sourceVideoPath)
-          .on('end', () => resolve())
-          .on('error', (err) => reject(err))
-          .run();
-      });
+      // 1. Generate 2-second synthetic 9:16 vertical video.
+      // NOTE: built via a direct ffmpeg-static spawn, not fluent-ffmpeg.
+      // fluent-ffmpeg's input-format capability probe checks `ffmpeg
+      // -formats`, but FFmpeg 7 lists lavfi only under `-devices`, so the
+      // probe wrongly reports "Input formats lavfi are not available" and
+      // kills the test before FFmpeg runs. Production render paths build
+      // lavfi inputs directly and are unaffected; this probes nothing.
+      await execFileAsync(ffmpegStatic as unknown as string, [
+        '-y',
+        '-f', 'lavfi', '-i', 'color=c=navy:s=720x1280:r=25:d=2.0',
+        '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo',
+        '-t', '2.0', '-pix_fmt', 'yuv420p', '-c:v', 'libx264', '-c:a', 'aac', '-preset', 'ultrafast',
+        sourceVideoPath,
+      ]);
 
       assert.ok(fs.existsSync(sourceVideoPath), 'Source synthetic video was not generated');
 

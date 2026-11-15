@@ -342,6 +342,10 @@ export interface RenderedClip {
   muted?: boolean;
   editor_version?: number;
   render_version?: number;
+  /** Editor-project version snapshot taken at render start; mismatch with the loaded project version marks the rendered download stale. */
+  rendered_editor_version?: number | null;
+  /** Editor-project updated_at captured at render start; a later project save marks the rendered download stale. */
+  rendered_editor_saved_at?: string | null;
   reframe_mode?: 'smart' | 'fallback_center' | 'manual';
   reframe_metadata?: Record<string, any>;
   genre?: ContentGenre;
@@ -392,6 +396,8 @@ export type ReframeLayoutMode = 'track' | 'split' | 'screencast' | 'blur';
 export interface CropConfig {
   mode?: CropMode;
   layout_mode?: ReframeLayoutMode;
+  /** Zoom factor for the crop window (1 = no zoom, >1 zoomed into the focus point). */
+  scale?: number;
   focusX?: number; // 0 to 1, default 0.5 (center)
   focusY?: number; // 0 to 1, default 0.5 (center)
   smart?: {
@@ -408,6 +414,10 @@ export interface CropConfig {
     insetPosition?: 'bottom_right' | 'bottom_left' | 'top_right' | 'top_left';
     insetDiameter?: number;
     screenRatio?: number;
+    /** 'black' = legacy letterbox; 'blur' = blurred cover fill behind the fitted source */
+    background?: 'black' | 'blur';
+    /** Burned-in facecam region (normalized 0-1). Absent = use analysis suggestion; null = explicit opt-out; object = confirmed region. */
+    facecamBox?: { x: number; y: number; w: number; h: number } | null;
   };
 }
 
@@ -919,14 +929,25 @@ export interface EditorTextConfig {
   preset?: EditorTextPreset;
   animation?: EditorTextAnimation;
   animation_duration?: number;
+  /** Marks the auto-generated opening hook/headline text item so the inspector
+   * can surface hook-specific controls (duration, visibility, regenerate). */
+  auto_headline?: boolean;
 }
 
 export interface EditorCaptionItem {
   cues: TimedCaptionCue[];
+  /** Coverage marker for beyond-candidate extend: saved cues are authoritative
+   * through this clip-local second; only cues past it may be appended. */
+  cues_covered_end?: number;
   style: CaptionStyle;
   position: CaptionPosition;
   position_x?: number; // normalized 0.0 to 1.0 (default 0.5)
   position_y?: number; // normalized 0.0 to 1.0 (default ~0.75 for bottom)
+  /** Set when the USER explicitly chose/dragged the caption position (any value,
+   * including 'bottom'). Distinguishes an intentional bottom choice from the
+   * materialized default so export-time layout anchoring (e.g. blur band
+   * anchor) only overrides the default, never a deliberate placement. */
+  position_explicit?: boolean;
   highlight_color: string;
   primary_color: string;
   animation?: 'none' | 'pop' | 'bounce' | 'karaoke' | 'highlight' | 'typewriter';
@@ -950,6 +971,7 @@ export interface EditorCaptionItem {
   box_opacity?: number;
   box_padding?: number;
   max_lines?: 1 | 2;
+  max_words_per_cue?: number;
 }
 
 export interface EditorAudioConfig {
@@ -981,9 +1003,11 @@ export interface EditorTrackItem {
   source_end: number;
   transform: EditorTransform;
   crop?: {
-    mode: 'fit' | 'fill' | 'custom';
+    mode: 'fit' | 'fill' | 'custom' | 'blur';
     focusX?: number;
     focusY?: number;
+    /** Zoom factor for the crop window (1 = fill frame, >1 zoomed in). */
+    scale?: number;
     left?: number;
     right?: number;
     top?: number;
@@ -995,6 +1019,9 @@ export interface EditorTrackItem {
   caption?: EditorCaptionItem;
   // Intro/outro title card: a full-frame colored card with centered text.
   is_title_card?: boolean;
+  /** Freeze-frame still: holds the source frame at freeze_source_time for the item's whole span. */
+  is_freeze?: boolean;
+  freeze_source_time?: number;
   title_card_text?: string;
   background_color?: string;
   color?: EditorColorAdjustments;

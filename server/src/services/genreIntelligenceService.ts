@@ -374,6 +374,44 @@ export class GenreIntelligenceService {
         'Require narrative closure. Never cut off before the resolution or the moral/takeaway of the story.',
     },
 
+    documentary: {
+      genre: 'documentary',
+      displayName: 'Documentary & Factual',
+      description: 'Narrated documentaries and factual explainers with cinematic b-roll: space, science, history, nature.',
+      defaultGoal: 'mini_story',
+      targetDuration: { min: 30, max: 90, optimal: 60 },
+      recommendedLayoutMode: 'track',
+      captionSafePlacement: 'bottom',
+      naturalLanguageKeywords: ['documentary', 'science', 'space', 'history', 'nasa', 'planet', 'universe', 'wildlife', 'ocean', 'ancient', 'mission', 'exploration', 'cosmos'],
+      scoringWeights: {
+        hook: 0.30,
+        standalone: 0.25,
+        insight: 0.20,
+        audio: 0.05,
+        visual: 0.20,
+      },
+      redundancyPenalty: 0.7,
+      reframeConfig: {
+        maxVelocity: 0.9,
+        smoothingAlpha: 0.15,
+        deadZone: 0.05,
+        preferTwoShot: false,
+      },
+      producerDefaults: {
+        allowInteriorPauseCuts: true,
+        pauseThresholdSec: 0.85,
+        captionStyle: 'minimal',
+        punchInClimax: false,
+        hookBannerEnabled: false,
+      },
+      selectionObjective:
+        'Capture one self-contained factual arc: an intriguing premise -> the revealing evidence or sequence -> the definitive fact or takeaway.',
+      narrativeArcPrompt:
+        'Documentary structure: hook with the central mystery or scale -> walk through the key events or evidence -> land on the resolution or awe-inspiring fact.',
+      editorialSafeguard:
+        'Never cut mid-explanation or before the narrated conclusion. Do not splice unrelated b-roll claims together.',
+    },
+
     product_marketing: {
       genre: 'product_marketing',
       displayName: 'Product & Marketing',
@@ -579,6 +617,12 @@ export class GenreIntelligenceService {
       'discount code', 'link in bio', 'limited offer', 'customer review', 'testimonial', 'best tool',
       'our platform', 'checkout', 'buy now', 'preorder', 'solution',
     ],
+    documentary: [
+      'documentary', 'space exploration', 'solar system', 'astronaut', 'nasa', 'planet', 'galaxy',
+      'universe', 'cosmos', 'expedition', 'wildlife', 'deep sea', 'ancient civilization', 'world war',
+      'history of', 'mission control', 'rocket', 'orbit', 'moon', 'mars', 'black hole', 'volcano',
+      'dinosaur', 'species', 'ocean floor', 'scientists discovered',
+    ],
     general: [],
   };
 
@@ -608,6 +652,7 @@ export class GenreIntelligenceService {
       news_politics: 0,
       comedy_entertainment: 0,
       storytelling: 0,
+      documentary: 0,
       product_marketing: 0,
       general: 0.25,
     };
@@ -622,6 +667,7 @@ export class GenreIntelligenceService {
       news_politics: [],
       comedy_entertainment: [],
       storytelling: [],
+      documentary: [],
       product_marketing: [],
       general: ['Default balanced baseline.'],
     };
@@ -676,6 +722,12 @@ export class GenreIntelligenceService {
     if (sceneCutRatePerMin >= 8.0 && scores.gaming > 0.1) {
       scores.gaming += 0.25;
       reasons.gaming.push('High visual gameplay cut frequency with active gamer terminology.');
+    }
+
+    // Documentary: cinematic b-roll cut rhythm with steady narrated pacing and no multi-face dialogue
+    if (sceneCutRatePerMin >= 4.0 && sceneCutRatePerMin <= 12.0 && wpm <= 160 && faceCount <= 1 && scores.documentary > 0.1) {
+      scores.documentary += 0.20;
+      reasons.documentary.push('Cinematic b-roll cut rhythm with steady narrated pacing.');
     }
 
     // Comedy: Setup and timing pause silence ratio > 0.18 with laughter or comedic markers

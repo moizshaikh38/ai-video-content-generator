@@ -179,6 +179,28 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
 
     frontal_cascade, profile_cascade = load_cascades()
 
+    # Optional YuNet DNN detector (env-gated): real detection scores, no new service.
+    yunet_detector = None
+    yunet_model = os.environ.get('SMART_REFRAME_YUNET_MODEL', '')
+    if yunet_model:
+        # Explicit opt-in: never silently fall back to Haar (that would quietly
+        # reintroduce Haar's no-face false positives). Fail loudly instead.
+        if not hasattr(cv2, 'FaceDetectorYN_create'):
+            print("ERROR: SMART_REFRAME_YUNET_MODEL set but this OpenCV build lacks "
+                  "cv2.FaceDetectorYN_create (requires opencv-python >= 4.5.4).", file=sys.stderr)
+            sys.exit(2)
+        if not os.path.isfile(yunet_model):
+            print("ERROR: SMART_REFRAME_YUNET_MODEL set but model file not found: %s" % yunet_model, file=sys.stderr)
+            sys.exit(2)
+        try:
+            yunet_detector = cv2.FaceDetectorYN_create(
+                yunet_model, '', (source_width, source_height),
+                float(os.environ.get('SMART_REFRAME_YUNET_THRESHOLD', '0.6')), 0.3, 5000
+            )
+        except Exception as exc:
+            print("ERROR: failed to load YuNet model %s: %s" % (yunet_model, exc), file=sys.stderr)
+            sys.exit(2)
+
     samples = []
     scene_cuts = []
     frame_index = start_frame
@@ -187,6 +209,8 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
     prev_gray = None
     prev_face_boxes = []  # List of (x, y, w, h) from previous frame
     prev_hist = None
+    prev_hsv_hist = None
+    hsv_cuts_enabled = os.environ.get('SMART_REFRAME_HSV_CUTS', '') == '1'
 
     min_size = (int(source_width * 0.04), int(source_height * 0.04))
 
@@ -202,76 +226,111 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
         # 1. Fast scene cut detection via normalized histogram correlation
         hist = cv2.calcHist([gray], [0], None, [32], [0, 256])
         cv2.normalize(hist, hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+        hsv_hist = None
+        if hsv_cuts_enabled:
+            # EXPERIMENTAL (SMART_REFRAME_HSV_CUTS=1): luma-only histograms miss
+            # cuts between same-lighting scenes (measured gray correl min 0.739
+            # on a person-to-person cut). Hue+saturation separates them.
+            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            hsv_hist = cv2.calcHist([hsv], [0, 1], None, [24, 24], [0, 180, 0, 256])
+            cv2.normalize(hsv_hist, hsv_hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
         if prev_hist is not None:
             correl = float(cv2.compareHist(prev_hist, hist, cv2.HISTCMP_CORREL))
-            if correl < 0.50 and time_sec > 0.4:
-                # Add scene cut if not within 1.0s of previous detected cut
-                if not scene_cuts or (time_sec - scene_cuts[-1]) >= 1.0:
+            is_cut = correl < 0.50
+            if hsv_cuts_enabled and prev_hsv_hist is not None:
+                hsv_correl = float(cv2.compareHist(prev_hsv_hist, hsv_hist, cv2.HISTCMP_CORREL))
+                is_cut = is_cut or hsv_correl < 0.50
+            if is_cut and time_sec > 0.4:
+                # Dedup window: 1.0s on the classic gray path (unchanged default);
+                # with HSV enabled, 0.5s - at 4fps sampling a single cut registers
+                # on exactly one sample pair, so 0.5s (two samples) is the minimum
+                # window that prevents double-counting one cut while still
+                # allowing genuinely rapid successive cuts (e.g. 0.75s apart).
+                dedup = 0.5 if hsv_cuts_enabled else 1.0
+                if not scene_cuts or (time_sec - scene_cuts[-1]) >= dedup:
                     scene_cuts.append(time_sec)
         prev_hist = hist
+        prev_hsv_hist = hsv_hist
 
-        # 2. Multi-Cascade detection: Frontal face
+        # 2. Face detection: YuNet DNN when enabled, else Haar cascades
         raw_candidates = []
-        try:
-            f_rects, _, f_weights = frontal_cascade.detectMultiScale3(
-                gray, scaleFactor=1.1, minNeighbors=5, minSize=min_size, flags=cv2.CASCADE_SCALE_IMAGE, outputRejectLevels=True
-            )
-            for (x, y, w, h), w_val in zip(f_rects, f_weights):
-                conf = min(0.98, max(0.65, 0.65 + float(w_val) / 25.0))
-                raw_candidates.append({
-                    "rect": (int(x), int(y), int(w), int(h)),
-                    "confidence": round(conf, 2),
-                    "is_frontal": True
-                })
-        except Exception:
-            f_rects = frontal_cascade.detectMultiScale(
-                gray, scaleFactor=1.1, minNeighbors=5, minSize=min_size, flags=cv2.CASCADE_SCALE_IMAGE
-            )
-            for (x, y, w, h) in f_rects:
-                raw_candidates.append({
-                    "rect": (int(x), int(y), int(w), int(h)),
-                    "confidence": 0.85,
-                    "is_frontal": True
-                })
+        if yunet_detector is not None:
+            # YuNet reliably detects far smaller faces than Haar; Haar's 4%-of-frame
+            # min_size would drop legitimate small faces (e.g. two-shots). Use a
+            # fixed pixel floor to suppress detection noise only.
+            yunet_min_px = 16
+            _, yn_faces = yunet_detector.detect(frame)
+            if yn_faces is not None:
+                for yf in yn_faces:
+                    yx, yy, yw, yh = int(yf[0]), int(yf[1]), int(yf[2]), int(yf[3])
+                    if yw >= yunet_min_px and yh >= yunet_min_px:
+                        raw_candidates.append({
+                            "rect": (yx, yy, yw, yh),
+                            "confidence": round(min(0.98, max(0.5, float(yf[-1]))), 2),
+                            "is_frontal": True
+                        })
+        else:
+            # Multi-Cascade detection: Frontal face
+            try:
+                f_rects, _, f_weights = frontal_cascade.detectMultiScale3(
+                    gray, scaleFactor=1.1, minNeighbors=5, minSize=min_size, flags=cv2.CASCADE_SCALE_IMAGE, outputRejectLevels=True
+                )
+                for (x, y, w, h), w_val in zip(f_rects, f_weights):
+                    conf = min(0.98, max(0.65, 0.65 + float(w_val) / 25.0))
+                    raw_candidates.append({
+                        "rect": (int(x), int(y), int(w), int(h)),
+                        "confidence": round(conf, 2),
+                        "is_frontal": True
+                    })
+            except Exception:
+                f_rects = frontal_cascade.detectMultiScale(
+                    gray, scaleFactor=1.1, minNeighbors=5, minSize=min_size, flags=cv2.CASCADE_SCALE_IMAGE
+                )
+                for (x, y, w, h) in f_rects:
+                    raw_candidates.append({
+                        "rect": (int(x), int(y), int(w), int(h)),
+                        "confidence": 0.85,
+                        "is_frontal": True
+                    })
 
-        # Fallback to histogram equalized image if no frontal face detected in low-contrast conditions
-        if len(raw_candidates) == 0:
-            eq_gray = cv2.equalizeHist(gray)
-            f_eq_rects = frontal_cascade.detectMultiScale(
-                eq_gray, scaleFactor=1.1, minNeighbors=4, minSize=min_size, flags=cv2.CASCADE_SCALE_IMAGE
-            )
-            for (x, y, w, h) in f_eq_rects:
-                raw_candidates.append({
-                    "rect": (int(x), int(y), int(w), int(h)),
-                    "confidence": 0.78,
-                    "is_frontal": True
-                })
+            # Fallback to histogram equalized image if no frontal face detected in low-contrast conditions
+            if len(raw_candidates) == 0:
+                eq_gray = cv2.equalizeHist(gray)
+                f_eq_rects = frontal_cascade.detectMultiScale(
+                    eq_gray, scaleFactor=1.1, minNeighbors=4, minSize=min_size, flags=cv2.CASCADE_SCALE_IMAGE
+                )
+                for (x, y, w, h) in f_eq_rects:
+                    raw_candidates.append({
+                        "rect": (int(x), int(y), int(w), int(h)),
+                        "confidence": 0.78,
+                        "is_frontal": True
+                    })
 
-        # 3. Profile face cascade on side angles (normal + flipped)
-        if profile_cascade is not None:
-            # Normal profile (facing right)
-            p_rects = profile_cascade.detectMultiScale(
-                gray, scaleFactor=1.1, minNeighbors=5, minSize=min_size, flags=cv2.CASCADE_SCALE_IMAGE
-            )
-            for (x, y, w, h) in p_rects:
-                raw_candidates.append({
-                    "rect": (int(x), int(y), int(w), int(h)),
-                    "confidence": 0.80,
-                    "is_frontal": False
-                })
+            # 3. Profile face cascade on side angles (normal + flipped)
+            if profile_cascade is not None:
+                # Normal profile (facing right)
+                p_rects = profile_cascade.detectMultiScale(
+                    gray, scaleFactor=1.1, minNeighbors=5, minSize=min_size, flags=cv2.CASCADE_SCALE_IMAGE
+                )
+                for (x, y, w, h) in p_rects:
+                    raw_candidates.append({
+                        "rect": (int(x), int(y), int(w), int(h)),
+                        "confidence": 0.80,
+                        "is_frontal": False
+                    })
 
-            # Flipped profile (facing left)
-            flipped_gray = cv2.flip(gray, 1)
-            flip_p_rects = profile_cascade.detectMultiScale(
-                flipped_gray, scaleFactor=1.1, minNeighbors=5, minSize=min_size, flags=cv2.CASCADE_SCALE_IMAGE
-            )
-            for (fx, fy, fw, fh) in flip_p_rects:
-                unflipped_x = source_width - (int(fx) + int(fw))
-                raw_candidates.append({
-                    "rect": (unflipped_x, int(fy), int(fw), int(fh)),
-                    "confidence": 0.80,
-                    "is_frontal": False
-                })
+                # Flipped profile (facing left)
+                flipped_gray = cv2.flip(gray, 1)
+                flip_p_rects = profile_cascade.detectMultiScale(
+                    flipped_gray, scaleFactor=1.1, minNeighbors=5, minSize=min_size, flags=cv2.CASCADE_SCALE_IMAGE
+                )
+                for (fx, fy, fw, fh) in flip_p_rects:
+                    unflipped_x = source_width - (int(fx) + int(fw))
+                    raw_candidates.append({
+                        "rect": (unflipped_x, int(fy), int(fw), int(fh)),
+                        "confidence": 0.80,
+                        "is_frontal": False
+                    })
 
         # 4. IoU Non-Maximum Suppression (0.35 IoU threshold)
         deduped = apply_nms(raw_candidates, iou_thresh=0.35)

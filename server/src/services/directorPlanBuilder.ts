@@ -34,6 +34,7 @@ const GENRE_CLAMPS: Record<string, DirectorGenreClamps> = {
   news_politics: { minDurationSec: 25, maxDurationSec: 75 },
   comedy_entertainment: { minDurationSec: 15, maxDurationSec: 60 },
   storytelling: { minDurationSec: 45, maxDurationSec: 90 },
+  documentary: { minDurationSec: 30, maxDurationSec: 90 },
   product_marketing: { minDurationSec: 20, maxDurationSec: 60 },
   general: { minDurationSec: 20, maxDurationSec: 60 },
 };

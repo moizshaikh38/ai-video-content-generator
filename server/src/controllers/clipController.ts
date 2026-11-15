@@ -5,6 +5,7 @@ import { AuthenticatedRequest, isValidUUID, ClipCandidateStatus, ClipAspectRatio
 import { ClipAnalysisService, activeClipAnalysisSet } from '../services/clipAnalysisService.js';
 import { ClipRenderService, isClipRenderActive, launchInlineRender } from '../services/clipRenderService.js';
 import { CaptionService } from '../services/captionService.js';
+import { mergeExtendedCues, maxCueEnd } from '../services/captionExtendMerge.js';
 import { WaveformService } from '../services/waveformService.js';
 import { ThumbnailService } from '../services/thumbnailService.js';
 import { SmartReframeService, activeReframeAnalysisSet } from '../services/smartReframeService.js';
@@ -16,6 +17,7 @@ import { EntitlementService } from '../services/entitlementService.js';
 import { logger } from '../utils/logger.js';
 import { ClipPosterService } from '../services/clipPosterService.js';
 import { config } from '../config/index.js';
+import { HookRegenerationService } from '../services/hookRegenerationService.js';
 
 /**
  * POST /api/projects/:id/analyze-clips
@@ -572,10 +574,28 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
 
     const nextRenderVersion = Number(clip.render_version || 1) + 1;
 
+    // Snapshot the editor-project version being rendered so the studio can
+    // tell a stale download (editor saved newer than the render) apart from a
+    // current one, without fragile timestamp comparisons.
+    let renderedEditorVersion: number | null = null;
+    let renderedEditorSavedAt: string | null = null;
+    try {
+      const { data: edProj } = await dataRepository
+        .from('editor_projects')
+        .select('version, updated_at')
+        .eq('clip_id', clipId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      renderedEditorVersion = edProj?.version ?? null;
+      renderedEditorSavedAt = edProj?.updated_at ?? null;
+    } catch { /* non-fatal: leave null */ }
+
     // Increment render version and queue clip with optional subtitle setting update
     const clipUpdate: Record<string, any> = {
       render_version: nextRenderVersion,
       render_status: 'queued',
+      rendered_editor_version: renderedEditorVersion,
+      rendered_editor_saved_at: renderedEditorSavedAt,
       updated_at: new Date().toISOString(),
     };
     if (req.body?.caption_enabled !== undefined) {
@@ -740,6 +760,8 @@ export const getClipDownloadUrl = async (req: AuthenticatedRequest, res: Respons
 export const getClipEditorData = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const clipId = req.params.clipId;
+  // Editor state mutates in place; never let a client cache serve a stale copy.
+  res.set('Cache-Control', 'no-store');
 
   if (!userId) {
     res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });
@@ -970,7 +992,7 @@ export const updateClipEditor = async (req: AuthenticatedRequest, res: Response)
     const status =
       code === 'CLIP_NOT_FOUND'
         ? 404
-        : code === 'INVALID_TRIM' || code === 'TRIM_TOO_SHORT' || code === 'INVALID_ASPECT_RATIO' || code === 'INVALID_CAPTION_STYLE' || code === 'INVALID_CAPTION_POSITION'
+        : code === 'INVALID_TRIM' || code === 'TRIM_TOO_SHORT' || code === 'INVALID_ASPECT_RATIO' || code === 'INVALID_CAPTION_STYLE' || code === 'INVALID_CAPTION_POSITION' || code === 'EXTEND_BEYOND_SOURCE'
         ? 400
         : 500;
 
@@ -1025,6 +1047,9 @@ export const resetClipEditor = async (req: AuthenticatedRequest, res: Response):
 export const getClipCaptions = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const userId = req.user?.id;
   const clipId = req.params.clipId;
+  // Caption coverage changes with trims/extends; a cached 304 would strand the
+  // editor on stale cues.
+  res.set('Cache-Control', 'no-store');
 
   if (!userId) {
     res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });
@@ -1055,11 +1080,43 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
       const captionTrack = proj.tracks.find((t: any) => t.type === 'CAPTION' && !t.hidden);
       const captionItem = captionTrack?.items?.[0];
       if (captionItem?.caption && Array.isArray(captionItem.caption.cues) && captionItem.caption.cues.length > 0) {
-        const hasWords = captionItem.caption.cues.some((c: any) => Array.isArray(c.words) && c.words.length > 0);
+        let cuesOut = captionItem.caption.cues;
+        // Beyond-candidate extend: saved cues are authoritative through their
+        // coverage marker; if the clip's trim window now runs past it, append
+        // the newly exposed span from the transcript (append-only, so user
+        // edits and deletions inside the covered region are preserved).
+        const itemStart = typeof captionItem.timeline_start === 'number' ? captionItem.timeline_start : 0;
+        if (itemStart === 0) {
+          try {
+            const coveredEnd = typeof captionItem.caption.cues_covered_end === 'number'
+              ? captionItem.caption.cues_covered_end
+              : maxCueEnd(cuesOut);
+            const effectiveDuration = Number((
+              clip.end_seconds - clip.start_seconds -
+              Number(clip.trim_start_offset || 0) - Number(clip.trim_end_offset || 0)
+            ).toFixed(3));
+            if (effectiveDuration > coveredEnd + 0.05) {
+              const { data: transcript } = await dataRepository
+                .from('transcripts')
+                .select('*')
+                .eq('project_id', clip.project_id)
+                .eq('user_id', userId)
+                .maybeSingle();
+              if (transcript) {
+                const fresh = CaptionService.extractCuesForClipSettings(transcript, clip, undefined, { preserveCase: true });
+                const merged = mergeExtendedCues(cuesOut, fresh.cues as any, coveredEnd);
+                if (merged.appended > 0) cuesOut = merged.cues as any;
+              }
+            }
+          } catch {
+            // Fall through with the saved cues.
+          }
+        }
+        const hasWords = cuesOut.some((c: any) => Array.isArray(c.words) && c.words.length > 0);
         res.status(200).json({
           status: 'ok',
           timingMode: hasWords ? 'word' : 'segment',
-          cues: captionItem.caption.cues,
+          cues: cuesOut,
         });
         return;
       }
@@ -1123,18 +1180,9 @@ export const analyzeClipReframe = async (req: AuthenticatedRequest, res: Respons
     return;
   }
 
-  // Entitlement verification for Smart Reframe feature
-  const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
-  if (!EntitlementService.isFeatureAllowed(entitlements, 'smartReframe')) {
-    res.status(403).json({
-      status: 'error',
-      code: 'FEATURE_NOT_PERMITTED',
-      message: `Smart Reframe is not available on your current plan (${entitlements.displayName}). Please upgrade your plan to unlock Smart Reframe.`,
-      feature: 'smartReframe',
-      plan: entitlements.displayName,
-    });
-    return;
-  }
+  // Validate the request BEFORE touching billing: malformed payloads and
+  // duplicate submissions must fail fast with 400/409 instead of a database
+  // error (or a billing lookup) for input the client never should have sent.
 
   // Security guard: frontend cannot send arbitrary filesystem/commands/track data
   const disallowedKeys = ['filesystemPath', 'pythonCommand', 'ffmpegExpression', 'storagePath', 'rawTrackData'];
@@ -1155,6 +1203,19 @@ export const analyzeClipReframe = async (req: AuthenticatedRequest, res: Respons
       status: 'error',
       code: 'REFRAME_ANALYSIS_ACTIVE',
       message: 'Smart reframe analysis is already in progress for this clip.',
+    });
+    return;
+  }
+
+  // Entitlement verification for Smart Reframe feature
+  const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
+  if (!EntitlementService.isFeatureAllowed(entitlements, 'smartReframe')) {
+    res.status(403).json({
+      status: 'error',
+      code: 'FEATURE_NOT_PERMITTED',
+      message: `Smart Reframe is not available on your current plan (${entitlements.displayName}). Please upgrade your plan to unlock Smart Reframe.`,
+      feature: 'smartReframe',
+      plan: entitlements.displayName,
     });
     return;
   }
@@ -1481,3 +1542,29 @@ export const deleteClipProducerPlan = async (req: AuthenticatedRequest, res: Res
   }
 };
 
+
+/**
+ * POST /clips/:clipId/hook/regenerate - regenerates the opening hook/title text
+ * for one clip from its own transcript span via the server AI provider.
+ * Fails closed with HOOK_PROVIDER_UNAVAILABLE when no provider key is set;
+ * never returns fabricated text.
+ */
+export const regenerateClipHook = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const clipId = req.params.clipId;
+  res.set('Cache-Control', 'no-store');
+
+  if (!userId) {
+    res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' });
+    return;
+  }
+
+  try {
+    const result = await HookRegenerationService.regenerateClipHook(userId, clipId);
+    res.status(200).json({ status: 'ok', ...result });
+  } catch (err: any) {
+    res
+      .status(err.statusCode || (err.code === 'CLIP_NOT_FOUND' ? 404 : 500))
+      .json({ status: 'error', code: err.code || 'HOOK_GENERATION_FAILED', message: err.message || 'Hook generation failed.' });
+  }
+};

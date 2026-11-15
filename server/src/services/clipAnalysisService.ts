@@ -1139,6 +1139,10 @@ export class ClipAnalysisService {
             explanation: scored.explanation,
             genre: genreProfile.genre,
             layout_mode: genreProfile.recommendedLayoutMode || 'track',
+            // Provenance: this value is a genre-profile recommendation, not a
+            // measurement and not a user choice. Consumers must treat it as a
+            // fallback hint only (see CropConfig.layout_mode_source).
+            layout_mode_source: 'genre_recommendation',
             caption_position: genreProfile.captionSafePlacement || (genreProfile.recommendedLayoutMode === 'split' ? 'center' : 'bottom'),
             content_goal: contentGoal,
             suggested_genre: localSuggestion.genre,

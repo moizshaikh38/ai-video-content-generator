@@ -15,6 +15,7 @@ export const ClipEditorPage: React.FC = () => {
     project,
     cleanSourceUrl,
     renderedPreviewUrl,
+    watermarkRequired,
     cues,
     canUndo,
     canRedo,
@@ -105,6 +106,7 @@ export const ClipEditorPage: React.FC = () => {
       project={project}
       cleanSourceUrl={cleanSourceUrl}
       renderedPreviewUrl={renderedPreviewUrl}
+      watermarkRequired={watermarkRequired}
       cues={cues}
       canUndo={canUndo}
       canRedo={canRedo}

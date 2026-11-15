@@ -290,6 +290,10 @@ describe('Phase 37 — Queue & Job Reliability Test Suite', () => {
       // Locked 20 minutes ago (> 15 min timeout)
       const staleTime = new Date(Date.now() - 20 * 60 * 1000);
 
+      // next_retry_at in the future isolates the recovery step under test:
+      // processDueRenderJobs recovers stale locks AND claims due jobs in one
+      // pass, and a recovered-but-due job would be claimed and processed
+      // (failing on this deliberately minimal fixture) before the assertion.
       await db.collection('render_jobs').insertOne({
         id: jobId,
         user_id: userA,
@@ -299,6 +303,7 @@ describe('Phase 37 — Queue & Job Reliability Test Suite', () => {
         locked_at: staleTime,
         attempts: 1,
         max_attempts: 3,
+        next_retry_at: new Date(Date.now() + 60 * 60 * 1000),
         created_at: staleTime,
         updated_at: staleTime,
       } as any);

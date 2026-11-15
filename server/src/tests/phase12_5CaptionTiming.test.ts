@@ -4,6 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import ffmpeg from 'fluent-ffmpeg';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 import ffmpegStatic from 'ffmpeg-static';
 import { CaptionService } from '../services/captionService.js';
 import {
@@ -348,19 +352,18 @@ describe('Phase 12.5 Pro Caption Timing & Advanced Caption Editor Tests', () => 
     it('renders video with burned non-overlapping captions and verifies frame output', async () => {
       fs.mkdirSync(tmpDir, { recursive: true });
 
-      // 1. Generate a 5.0 second synthetic 9:16 video fixture
-      await new Promise<void>((resolve, reject) => {
-        ffmpeg()
-          .input('color=c=navy:s=720x1280:r=25:d=5.0')
-          .inputFormat('lavfi')
-          .input('anullsrc=r=44100:cl=stereo')
-          .inputFormat('lavfi')
-          .outputOptions(['-t 5.0', '-pix_fmt yuv420p', '-c:v libx264', '-c:a aac', '-preset ultrafast'])
-          .output(sourceVideoPath)
-          .on('end', () => resolve())
-          .on('error', (err) => reject(err))
-          .run();
-      });
+      // 1. Generate a 5.0 second synthetic 9:16 video fixture.
+      // NOTE: direct ffmpeg-static spawn, not fluent-ffmpeg - its
+      // input-format probe checks `ffmpeg -formats`, but FFmpeg 7 lists
+      // lavfi only under `-devices`, so the probe wrongly reports lavfi as
+      // unavailable. Production render paths build lavfi directly.
+      await execFileAsync(ffmpegStatic as unknown as string, [
+        '-y',
+        '-f', 'lavfi', '-i', 'color=c=navy:s=720x1280:r=25:d=5.0',
+        '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo',
+        '-t', '5.0', '-pix_fmt', 'yuv420p', '-c:v', 'libx264', '-c:a', 'aac', '-preset', 'ultrafast',
+        sourceVideoPath,
+      ]);
 
       assert.ok(fs.existsSync(sourceVideoPath), 'Source synthetic video was not generated');
 

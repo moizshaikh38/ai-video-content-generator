@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { UpdateProjectOptions } from '../../hooks/useEditorProject';
+import { retimeItemSpeed } from '../../utils/timelineRipple';
 import {
   Sliders,
   Sparkles,
@@ -17,10 +19,14 @@ import {
   RotateCcw,
   Layers,
   Palette,
+  Eye,
+  EyeOff,
+  RefreshCw,
 } from 'lucide-react';
 import {
   EditorProject,
   EditorTrackItem,
+  EditorColorAdjustments,
   ClipAspectRatio,
   SAFE_EDITOR_FONTS,
   EDITOR_FILTER_PRESETS,
@@ -46,6 +52,7 @@ import {
 } from './panelKit';
 import { usePanelPref } from '../../lib/panelPrefs';
 import { AiToolDef } from '../../lib/aiToolsRegistry';
+import { clipRenderService } from '../../services/clipRenderService';
 import {
   CaptionPresetId,
   getEditorCaptionPresetId,
@@ -63,10 +70,12 @@ interface ContextualInspectorProps {
   onSelectAiTool: (tool: AiToolType) => void;
   onNavigateTab: (tab: SidebarTab) => void;
   onUpdateProject: (updater: (prev: EditorProject) => EditorProject) => void;
-  onUpdateItem: (itemId: string, updates: Partial<EditorTrackItem>) => void;
+  onUpdateItem: (itemId: string, updates: Partial<EditorTrackItem>, options?: UpdateProjectOptions) => void;
   onAddKeyframe: (itemId: string, property: any, value: number, easing: any, time?: number) => void;
   onDeleteKeyframe: (itemId: string, keyframeId: string) => void;
   onApplyCaptionPreset: (preset: CaptionPresetId) => void;
+  /** Discoverable Captions On/Off; re-enabling restores the last chosen preset. */
+  onToggleCaptions?: (enabled: boolean) => void;
   /** False when the clip's transcript only has segment-level timing. */
   hasWordTiming: boolean;
   onAddTextLayer: (text: string) => void;
@@ -74,6 +83,13 @@ interface ContextualInspectorProps {
 }
 
 type CaptionStudioTab = 'styles' | 'typography' | 'effects';
+
+/** All-zero colour model: every field the renderers understand, explicitly neutral. */
+const DEFAULT_ITEM_COLOR: EditorColorAdjustments = {
+  exposure: 0, brightness: 0, contrast: 0, highlights: 0, shadows: 0,
+  saturation: 0, temperature: 0, tint: 0, fade: 0, sharpen: 0,
+};
+const COLOR_SLIDER_KEYS = ['brightness', 'contrast', 'saturation', 'exposure'] as const;
 
 /** One level of navigation. "All Controls" is gone: it only re-rendered the other two. */
 const CAPTION_STUDIO_TABS: { id: CaptionStudioTab; label: string; icon: LucideIcon }[] = [
@@ -96,6 +112,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
   onAddKeyframe: _onAddKeyframe,
   onDeleteKeyframe: _onDeleteKeyframe,
   onApplyCaptionPreset,
+  onToggleCaptions,
   hasWordTiming,
   onAddTextLayer,
   onUpdateCropMode,
@@ -113,6 +130,13 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
     }
   };
   const [keepColors, setKeepColors] = useState(false);
+  // Colour slider drag start, so the committed history entry spans the whole
+  // drag: revert the transient value, then record the final one. Without the
+  // revert the recorded update is a no-op and undo has nothing to restore.
+  const colorDragStartRef = useRef<EditorColorAdjustments | null>(null);
+  const [hookDurationDraft, setHookDurationDraft] = useState<string | null>(null);
+  const [hookGenerating, setHookGenerating] = useState(false);
+  const [hookError, setHookError] = useState<string | null>(null);
 
   // Selected item reference
   const selectedItem = project.tracks
@@ -127,6 +151,37 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
       onUpdateItem(selectedItem.id, {
         text: { ...textConfig, ...updates },
       });
+    };
+
+    // Auto-generated opening hook (title headline or producer HOOK_TEXT):
+    // duration, visibility and AI regeneration controls.
+    const isAutoHook = Boolean((textConfig as any).auto_headline);
+    const hookDuration = Math.max(0, selectedItem.timeline_end - selectedItem.timeline_start);
+
+    const commitHookDuration = () => {
+      if (hookDurationDraft == null) return;
+      const parsed = Number(hookDurationDraft);
+      setHookDurationDraft(null);
+      if (!Number.isFinite(parsed)) return;
+      const clamped = Math.min(Math.max(parsed, 0.5), project.canvas.duration);
+      if (Math.abs(clamped - hookDuration) < 0.01) return;
+      const end = selectedItem.timeline_start + clamped;
+      onUpdateItem(selectedItem.id, { timeline_end: end, source_end: end });
+    };
+
+    const handleRegenerateHook = async () => {
+      if (!clip?.id || hookGenerating) return;
+      setHookGenerating(true);
+      setHookError(null);
+      try {
+        const result = await clipRenderService.regenerateHook(clip.id);
+        // One update = one history entry, so a single undo restores the old hook.
+        onUpdateItem(selectedItem.id, { text: { ...textConfig, text: result.hook } });
+      } catch (err: any) {
+        setHookError(err?.message || 'Hook generation failed. Try again.');
+      } finally {
+        setHookGenerating(false);
+      }
     };
 
     const handleDuplicateItem = () => {
@@ -235,6 +290,50 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Opening Hook controls (auto-generated hook/headline only) */}
+        {isAutoHook && (
+          <div className="space-y-2 pb-3 border-b border-white/[0.08]">
+            <label className="text-[11px] font-semibold text-vc-text-secondary uppercase tracking-wider">
+              Opening Hook
+            </label>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 flex-1">
+                <span className="text-vc-text-muted text-[10px]">Duration</span>
+                <input
+                  type="number"
+                  min={0.5}
+                  max={Math.max(0.5, project.canvas.duration)}
+                  step={0.5}
+                  value={hookDurationDraft ?? String(Math.round(hookDuration * 10) / 10)}
+                  onChange={(e) => setHookDurationDraft(e.target.value)}
+                  onBlur={commitHookDuration}
+                  onKeyDown={(e) => { if (e.key === 'Enter') commitHookDuration(); }}
+                  className="w-16 bg-vc-canvas border border-vc-border rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-white/30"
+                />
+                <span className="text-vc-text-muted text-[10px]">sec</span>
+              </div>
+              <button
+                onClick={() => onUpdateItem(selectedItem.id, { hidden: !selectedItem.hidden })}
+                className="flex items-center gap-1 px-2 py-1 rounded bg-vc-canvas border border-vc-border hover:bg-white/[0.06] text-vc-text-secondary text-[10px] transition"
+                title={selectedItem.hidden ? 'Show hook in preview and export' : 'Hide hook from preview and export'}
+              >
+                {selectedItem.hidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                {selectedItem.hidden ? 'Hidden' : 'Visible'}
+              </button>
+            </div>
+            <button
+              onClick={handleRegenerateHook}
+              disabled={hookGenerating || !clip?.id}
+              className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-vc-canvas border border-vc-border hover:bg-white/[0.06] disabled:opacity-50 text-white text-[11px] transition"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${hookGenerating ? 'animate-spin' : ''}`} />
+              {hookGenerating ? 'Generating…' : 'Generate another hook'}
+            </button>
+            {hookError && <p className="text-[10px] text-rose-400">{hookError}</p>}
+            <p className="text-[10px] text-vc-text-muted">Edit the text below directly, or undo to restore the previous hook.</p>
+          </div>
+        )}
 
         {/* 1. Text Content & Quick Align */}
         <div className="space-y-2">
@@ -829,6 +928,36 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
           </div>
         </div>
 
+        {/* Playback speed (video/audio): preview and export both honor it. */}
+        {(selectedItem.type === 'VIDEO' || selectedItem.type === 'AUDIO') && (
+          <div className="space-y-2 pt-3 border-t border-white/[0.08]">
+            <label className="text-[11px] font-semibold text-vc-text-secondary uppercase tracking-wider">
+              Speed
+            </label>
+            <select
+              value={String(selectedItem.speed?.speed ?? 1)}
+              onChange={(e) => {
+                const speed = parseFloat(e.target.value);
+                // Retime: the item's span becomes sourceWindow/speed and the
+                // timeline after it ripples so scenes, captions and audio
+                // stay aligned. Refused (kept at current speed) when a locked
+                // track holds content past the item, which would misalign.
+                onUpdateProject((prev) =>
+                  retimeItemSpeed(prev, selectedItem.track_id, selectedItem.id, speed) ?? prev
+                );
+              }}
+              className="w-full bg-vc-canvas border border-vc-border rounded p-1.5 text-xs text-white"
+              aria-label="Playback speed"
+            >
+              {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4].map((s) => (
+                <option key={s} value={String(s)}>
+                  {s}x
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Text specific settings */}
         {selectedItem.type === 'TEXT' && selectedItem.text && (
           <div className="space-y-3 pt-3 border-t border-white/[0.08]">
@@ -911,6 +1040,68 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
           </div>
         )}
 
+        {/* Manual colour adjustments: the same item.color model drives the
+            preview CSS filters and the export eq filter, so slider commits
+            render identically in both. Drags stream transient updates; the
+            history entry lands once, on release. */}
+        {selectedItem.type === 'VIDEO' && (
+          <div className="space-y-2.5 pt-3 border-t border-white/[0.08]">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-semibold text-vc-text-secondary uppercase tracking-wider">
+                Colour
+              </label>
+              <button
+                type="button"
+                onClick={() => onUpdateItem(selectedItem.id, { color: { ...DEFAULT_ITEM_COLOR } })}
+                className="text-[10px] text-vc-text-secondary hover:text-white transition"
+              >
+                Reset
+              </button>
+            </div>
+            {COLOR_SLIDER_KEYS.map((key) => {
+              const value = selectedItem.color?.[key] ?? 0;
+              const captureStart = () => {
+                colorDragStartRef.current = { ...DEFAULT_ITEM_COLOR, ...(selectedItem.color || {}) };
+              };
+              const commit = (v: number, record: boolean) => {
+                const next = { ...DEFAULT_ITEM_COLOR, ...(selectedItem.color || {}), [key]: v };
+                if (!record) {
+                  onUpdateItem(selectedItem.id, { color: next }, { recordHistory: false, markAsDirty: false });
+                  return;
+                }
+                const start = colorDragStartRef.current;
+                if (!start) return; // already committed this drag
+                colorDragStartRef.current = null;
+                if (JSON.stringify(start) === JSON.stringify(next)) return; // nothing changed
+                onUpdateItem(selectedItem.id, { color: start }, { recordHistory: false, markAsDirty: false });
+                onUpdateItem(selectedItem.id, { color: next });
+              };
+              return (
+                <div key={key} className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="capitalize text-vc-text-secondary">{key}</span>
+                    <span className="font-mono text-vc-text-secondary">{value.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={-1}
+                    max={1}
+                    step={0.01}
+                    value={value}
+                    onPointerDown={captureStart}
+                    onFocus={captureStart}
+                    onChange={(e) => commit(parseFloat(e.target.value), false)}
+                    onPointerUp={(e) => commit(parseFloat((e.target as HTMLInputElement).value), true)}
+                    onKeyUp={(e) => commit(parseFloat((e.target as HTMLInputElement).value), true)}
+                    onBlur={(e) => commit(parseFloat(e.target.value), true)}
+                    className="w-full h-1 accent-vc-ai"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Per-clip audio controls for audio items (volume / mute / fades → export) */}
         {selectedItem.type === 'AUDIO' && (
           <AudioClipControls item={selectedItem} onUpdateItem={onUpdateItem} />
@@ -966,6 +1157,14 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
           : resolveEditorCaptionStyle(captionItem?.caption, project.canvas.aspect_ratio);
 
         const handleUpdateCaptionProperties = (updates: Partial<EditorCaptionItem>) => {
+          // Any position-affecting change here is a deliberate user choice
+          // (position buttons, drags, resets in the customizer) - mark it so
+          // export never overrides it with layout anchoring.
+          const touchesPosition =
+            updates.position !== undefined ||
+            updates.position_x !== undefined ||
+            updates.position_y !== undefined;
+          if (touchesPosition) updates = { ...updates, position_explicit: true };
           onUpdateProject((prev) => ({
             ...prev,
             tracks: prev.tracks.map((t) => {
@@ -1034,11 +1233,28 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                   <span className="text-[10px] text-vc-text-secondary">Spatial Typography & Styling</span>
                 </div>
               </div>
-              {selectedPresetId && selectedPresetId !== 'none' && (
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.08] text-vc-text-primary capitalize">
-                  {selectedPresetId.replace('_', ' ')}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {selectedPresetId && selectedPresetId !== 'none' && (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.08] text-vc-text-primary capitalize">
+                    {selectedPresetId.replace('_', ' ')}
+                  </span>
+                )}
+                {onToggleCaptions && (
+                  <button
+                    type="button"
+                    onClick={() => onToggleCaptions(captionsHidden)}
+                    title={captionsHidden ? 'Turn captions on (restores your last style)' : 'Turn captions off (keeps your style)'}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-semibold transition ${
+                      captionsHidden
+                        ? 'bg-vc-canvas border-vc-border text-vc-text-secondary hover:bg-white/[0.06]'
+                        : 'bg-white/[0.10] border-white/[0.16] text-white hover:bg-white/[0.14]'
+                    }`}
+                  >
+                    {captionsHidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                    {captionsHidden ? 'Captions Off' : 'Captions On'}
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* One tab bar. The old second level duplicated the first — "All Controls" was

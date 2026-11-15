@@ -52,8 +52,14 @@ import {
 import { downloadObjectToFile, uploadFile, signObjectGet } from './objectStorageService.js';
 import { CaptionService } from './captionService.js';
 import { isKnownCaptionStyle } from '../shared/captionPresets.js';
-import { buildCropFilter } from './clipRenderService.js';
+import { buildCropFilter, buildFitFilter, buildBlurFitChain } from './clipRenderService.js';
 import { AudioEnhancementService } from './audioEnhancementService.js';
+import {
+  LoudnormMeasured,
+  LoudnormNormalizationError,
+  LoudnormTwoPassService,
+  type LoudnormMeasurementGraph,
+} from './loudnormTwoPassService.js';
 import { AudioDuckingService } from './audioDuckingService.js';
 import { SoundDesignService } from './soundDesignService.js';
 import { SmartReframeService } from './smartReframeService.js';
@@ -71,7 +77,29 @@ export interface CompiledRenderGraph {
   audioMap: string;
   outputArgs: string[];
   duration: number;
+  /**
+   * Present only when compiled with loudnorm='measure' AND the project requests
+   * loudness normalization (audio.normalized or an enhancement preset with
+   * normalize_enabled): an audio-only filter graph (same slice trims/speed/concat/
+   * acrossfade/pre-loudnorm enhancement chains as the render graph) ending in a
+   * terminal ebur128 meter. Running it decodes no video.
+   */
+  measurement: LoudnormMeasurementGraph | null;
+  /**
+   * How dialogue loudness normalization was applied, when requested:
+   * 'linear' (two-pass measured) or 'dynamic-prerendered' (legacy one-pass
+   * loudnorm on a bounded audio-only pre-render, used when linear mode is
+   * infeasible for the measured peaks/range). Undefined when not requested.
+   */
+  normalizationMode?: 'linear' | 'dynamic-prerendered';
 }
+
+/** Mode for loudnorm emission: default one-pass (legacy), 'measure', measured
+ * two-pass linear, or dialogue pre-rendered into a normalized WAV file. */
+export type LoudnormCompileMode =
+  | 'measure'
+  | { measured: LoudnormMeasured }
+  | { preNormalizedDialoguePath: string };
 
 /**
  * Clip-level reframing context resolved once by ClipRenderService.resolveReframeDecision
@@ -116,7 +144,7 @@ export class ProEditorService {
       .maybeSingle();
 
     if (existingProject) {
-      return existingProject as EditorProject;
+      return await ProEditorService.withSourceDuration(existingProject as EditorProject, clipId, userId);
     }
 
     // 2. Fetch the clip record
@@ -176,7 +204,36 @@ export class ProEditorService {
     }
 
     logger.info(`[ProEditor] Initialized EditorProject ${editorProject.id} for clip ${clipId}`);
-    return editorProject;
+    return await ProEditorService.withSourceDuration(editorProject as EditorProject, clipId, userId);
+  }
+
+  /**
+   * Attaches the source media duration (from the owning project record) so the
+   * studio can offer safe beyond-candidate extension: the clip's candidate window
+   * is end_seconds, but the source footage (and transcript) may run longer.
+   */
+  private static async withSourceDuration(project: EditorProject, clipId: string, userId: string): Promise<EditorProject> {
+    try {
+      const { data: clip } = await dataRepository
+        .from('clips')
+        .select('project_id')
+        .eq('id', clipId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (clip?.project_id) {
+        const { data: proj } = await dataRepository
+          .from('projects')
+          .select('duration_seconds')
+          .eq('id', clip.project_id)
+          .maybeSingle();
+        if (typeof proj?.duration_seconds === 'number' && proj.duration_seconds > 0) {
+          (project as any).source_duration_seconds = proj.duration_seconds;
+        }
+      }
+    } catch {
+      // Non-fatal: extension falls back to the candidate boundary.
+    }
+    return project;
   }
 
   /**
@@ -198,6 +255,9 @@ export class ProEditorService {
       throw new AppError('Editor project not found or access denied.', 404, 'PROJECT_NOT_FOUND');
     }
 
+    if (project.clip_id) {
+      return await ProEditorService.withSourceDuration(project as EditorProject, project.clip_id, userId);
+    }
     return project as EditorProject;
   }
 
@@ -719,8 +779,21 @@ export class ProEditorService {
     if (item.is_title_card) return null;
 
     // Per-item manual crop override wins over clip-level reframing.
-    if (item.crop && (item.crop.mode === 'custom' || item.crop.mode === 'fit' || item.crop.mode === 'fill')) {
-      return buildCropFilter(ratio, { focusX: item.crop.focusX ?? 0.5, focusY: item.crop.focusY ?? 0.5 });
+    if (item.crop && (item.crop.mode === 'custom' || item.crop.mode === 'fit' || item.crop.mode === 'fill' || item.crop.mode === 'blur')) {
+      // 'fit' letterboxes the whole frame (scale-decrease + pad); 'fill'/'custom'
+      // crop to fill the canvas at the (clamped) focus point. Clamping keeps a bad
+      // persisted value from pushing the crop window outside the frame (black edges).
+      const clampFocus = (v: number | undefined): number =>
+        Math.min(1, Math.max(0, typeof v === 'number' && Number.isFinite(v) ? v : 0.5));
+      const zoom = Math.min(4, Math.max(1, Number(item.crop.scale ?? 1)));
+      if (item.crop.mode === 'fit') return buildFitFilter(ratio, zoom, clampFocus(item.crop.focusX), clampFocus(item.crop.focusY));
+      if (item.crop.mode === 'blur') {
+        // Chain-safe fragment: consumes the trimmed slice stream via split and
+        // ends unlabeled, so the caller's comma chain keeps working.
+        const tag = ('vc' + String(item.id || 'x')).replace(/[^a-zA-Z0-9]/g, '').slice(0, 16) || 'vcb';
+        return buildBlurFitChain(ratio, zoom, tag);
+      }
+      return buildCropFilter(ratio, { focusX: clampFocus(item.crop.focusX), focusY: clampFocus(item.crop.focusY), scale: zoom });
     }
 
     const track = reframe?.track;
@@ -749,6 +822,11 @@ export class ProEditorService {
           speaker1X: reframe!.cropConfig?.split?.speaker1X,
           speaker2X: reframe!.cropConfig?.split?.speaker2X,
           screencastMode: reframe!.cropConfig?.screencast?.mode,
+          screencastInsetPosition: reframe!.cropConfig?.screencast?.insetPosition,
+          screencastInsetDiameter: reframe!.cropConfig?.screencast?.insetDiameter,
+          screencastScreenRatio: reframe!.cropConfig?.screencast?.screenRatio,
+          screencastBackground: reframe!.cropConfig?.screencast?.background,
+          screencastFacecamBox: SmartReframeService.resolveFacecamBox(reframe!.cropConfig?.screencast, track.metadata),
         });
       }
 
@@ -806,7 +884,9 @@ export class ProEditorService {
 
     if (item.color) {
       const c = item.color;
-      const b = (c.brightness || 0).toFixed(2);
+      // Preview composes brightness and exposure as two CSS brightness()
+      // filters, which multiply; fold them the same way here (eq range -1..1).
+      const b = Math.min(1, Math.max(-1, (1 + (c.brightness || 0)) * (1 + (c.exposure || 0) * 0.8) - 1)).toFixed(2);
       const cont = (1.0 + (c.contrast || 0)).toFixed(2);
       const sat = (1.0 + (c.saturation || 0)).toFixed(2);
       videoFilters.push(`eq=brightness=${b}:contrast=${cont}:saturation=${sat}`);
@@ -828,6 +908,16 @@ export class ProEditorService {
           break;
         case 'film':
           videoFilters.push('curves=preset=vintage');
+          break;
+        case 'soft':
+          videoFilters.push('eq=contrast=0.90:brightness=0.05');
+          break;
+        case 'clean':
+          videoFilters.push('eq=contrast=1.05:saturation=1.08');
+          break;
+        case 'creator':
+          videoFilters.push('eq=contrast=1.15:saturation=1.30');
+          videoFilters.push('colorbalance=rs=0.04:gs=0.02:bs=-0.04');
           break;
       }
     }
@@ -880,11 +970,16 @@ export class ProEditorService {
     sourceVideoPath: string,
     outputPath = '/tmp/render.mp4',
     tmpDir = os.tmpdir(),
-    reframe?: ProReframeContext
+    reframe?: ProReframeContext,
+    loudnorm?: LoudnormCompileMode
   ): CompiledRenderGraph {
     const inputArgs: string[] = [];
     const filterComplex: string[] = [];
     const outputArgs: string[] = [];
+    // Audio-only mirror of the dialogue path (slice a-chains + concat/acrossfade),
+    // collected for the two-pass loudnorm measurement graph. Every string appended
+    // here is the exact string also appended to filterComplex for that audio chain.
+    const audioOnlyChains: string[] = [];
 
     // Canvas properties
     const canvasW = project.canvas.width || 1080;
@@ -897,9 +992,16 @@ export class ProEditorService {
 
     // Locate video items
     const videoTracks = project.tracks.filter((t) => t.type === 'VIDEO' && !t.hidden);
+    // Only the primary (first) video track forms the base timeline. Secondary VIDEO
+    // tracks are B-roll/overlay layers (brollPlanService.insertBrollSuggestions
+    // creates them as type 'VIDEO' named 'B-Roll Layer') and are composited by the
+    // overlay pass below. Splicing their items into the base concat pulled their
+    // window from input 0 (the primary source) instead of their own source_path
+    // and shifted/corrupted the base timeline (found during the two-pass loudnorm
+    // work, Nov 2026).
     const allVideoItems: EditorTrackItem[] = [];
-    for (const vt of videoTracks) {
-      allVideoItems.push(...vt.items.filter((i) => !i.hidden));
+    if (videoTracks[0]) {
+      allVideoItems.push(...videoTracks[0].items.filter((i) => !i.hidden));
     }
     allVideoItems.sort((a, b) => a.timeline_start - b.timeline_start);
 
@@ -952,8 +1054,36 @@ export class ProEditorService {
             : '';
           const padV = gapPad ? `,tpad=stop_duration=${gap.toFixed(3)}:color=black` : '';
           const padA = gapPad ? `,apad=pad_dur=${gap.toFixed(3)}` : '';
-          filterComplex.push(`[${colorIdx}:v]setpts=PTS-STARTPTS,fps=${fps}${drawtext}${speedVideo},setsar=1,format=yuv420p${padV}${vSlice}`);
-          filterComplex.push(`[${silenceIdx}:a]atrim=0:${(timelineDur * speed).toFixed(2)},asetpts=PTS-STARTPTS${speedAudio ? ',' + speedAudio : ''},${UNIFORM_AUDIO}${padA}${aSlice}`);
+          filterComplex.push(`[${colorIdx}:v]setpts=PTS-STARTPTS${speedVideo},fps=${fps}${drawtext},setsar=1,format=yuv420p${padV}${vSlice}`);
+          const titleAChain = `[${silenceIdx}:a]atrim=0:${(timelineDur * speed).toFixed(2)},asetpts=PTS-STARTPTS${speedAudio ? ',' + speedAudio : ''},${UNIFORM_AUDIO}${padA}${aSlice}`;
+          filterComplex.push(titleAChain);
+          audioOnlyChains.push(titleAChain);
+          sliceDurations.push(timelineDur + gap);
+        } else if ((item as any).is_freeze) {
+          // Freeze frame: hold the exact source frame for the whole span by
+          // trimming a tiny window and cloning its last frame. Silent audio
+          // (the item is muted); a leading timeline gap extends the hold.
+          const T = Number((item as any).freeze_source_time ?? item.source_start ?? 0);
+          const lead = Math.min(0.1, timelineDur);
+          inputArgs.push('-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100');
+          currentInputIdx++;
+          const silenceIdx = currentInputIdx;
+          const windowStartClipRelFreeze = T - (reframe?.clipStartSec ?? 0);
+          const freezeCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRelFreeze, timelineDur);
+          const freezeStyle = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH);
+          const chain = [`trim=start=${T.toFixed(3)}:end=${(T + lead).toFixed(3)}`, 'setpts=PTS-STARTPTS'];
+          if (freezeCrop) chain.push(freezeCrop);
+          chain.push(...freezeStyle);
+          chain.push(
+            `tpad=stop_mode=clone:stop_duration=${(timelineDur - lead + gap).toFixed(3)}`,
+            `fps=${fps}`,
+            'setsar=1',
+            'format=yuv420p'
+          );
+          filterComplex.push(`[0:v]${chain.join(',')}${vSlice}`);
+          const freezeAChain = `[${silenceIdx}:a]atrim=0:${(timelineDur + gap).toFixed(3)},asetpts=PTS-STARTPTS,${UNIFORM_AUDIO}${aSlice}`;
+          filterComplex.push(freezeAChain);
+          audioOnlyChains.push(freezeAChain);
           sliceDurations.push(timelineDur + gap);
         } else {
           const startStr = (item.source_start || 0).toFixed(2);
@@ -969,8 +1099,10 @@ export class ProEditorService {
           const chain = [`trim=start=${startStr}:end=${endStr}`, 'setpts=PTS-STARTPTS'];
           if (sliceCrop) chain.push(sliceCrop);
           chain.push(...styleFilters);
-          chain.push(`fps=${fps}`, 'setsar=1', 'format=yuv420p');
+          // Speed change must run BEFORE fps: resampling first and then retimestamping
+          // halves/doubles the effective cadence and feeds xfade an invalid frame rate.
           if (speed !== 1) chain.push(`setpts=PTS/${speed}`);
+          chain.push(`fps=${fps}`, 'setsar=1', 'format=yuv420p');
           if (gapPad) chain.push(`tpad=stop_duration=${gap.toFixed(3)}:color=black`);
           filterComplex.push(`[0:v]${chain.join(',')}${vSlice}`);
 
@@ -978,7 +1110,9 @@ export class ProEditorService {
           if (speedAudio) aChain.push(speedAudio);
           aChain.push(UNIFORM_AUDIO);
           if (gapPad) aChain.push(`apad=pad_dur=${gap.toFixed(3)}`);
-          filterComplex.push(`[0:a]${aChain.join(',')}${aSlice}`);
+          const sliceAChain = `[0:a]${aChain.join(',')}${aSlice}`;
+          filterComplex.push(sliceAChain);
+          audioOnlyChains.push(sliceAChain);
           sliceDurations.push(sliceDur + gap);
         }
         vLabels.push(vSlice);
@@ -995,6 +1129,7 @@ export class ProEditorService {
       if (!boundaryHasTransition) {
         const concatInputs = vLabels.map((v, i) => `${v}${aLabels[i]}`).join('');
         filterComplex.push(`${concatInputs}concat=n=${allVideoItems.length}:v=1:a=1[base_v][base_a]`);
+        audioOnlyChains.push(`${aLabels.join('')}concat=n=${allVideoItems.length}:v=0:a=1[base_a]`);
         videoStreamLabel = '[base_v]';
         audioStreamLabel = '[base_a]';
       } else {
@@ -1027,7 +1162,9 @@ export class ProEditorService {
           filterComplex.push(
             `${accV}${vLabels[i]}xfade=transition=${xfadeName}:duration=${duration.toFixed(3)}:offset=${offset.toFixed(3)}${outV}`
           );
-          filterComplex.push(`${accA}${aLabels[i]}acrossfade=d=${duration.toFixed(3)}${outA}`);
+          const acrossfadeChain = `${accA}${aLabels[i]}acrossfade=d=${duration.toFixed(3)}${outA}`;
+          filterComplex.push(acrossfadeChain);
+          audioOnlyChains.push(acrossfadeChain);
           accV = outV;
           accA = outA;
           accDur = accDur + sliceDurations[i] - duration;
@@ -1047,11 +1184,17 @@ export class ProEditorService {
       parts.push(...styleFilters);
       if (singleSpeed !== 1) parts.push(`setpts=PTS/${singleSpeed}`);
       parts.push(`fps=${fps}`, 'format=yuv420p');
-      filterComplex.push(`${videoStreamLabel}${parts.length ? ',' + parts.join(',') : ''}[base_v]`);
+      // No comma between the input pad and the first filter: `[0:v],fps=...` parses
+      // as an empty filter and aborts every single-item render (found by Phase 1b tests).
+      filterComplex.push(`${videoStreamLabel}${parts.join(',')}[base_v]`);
       videoStreamLabel = '[base_v]';
       if (singleSpeed !== 1) {
         const atempo = ProEditorService.audioAtempoChain(singleSpeed);
-        if (atempo) filterComplex.push(`${audioStreamLabel}${atempo}[base_a_speed]`);
+        if (atempo) {
+          const speedChain = `${audioStreamLabel}${atempo}[base_a_speed]`;
+          filterComplex.push(speedChain);
+          audioOnlyChains.push(speedChain);
+        }
         audioStreamLabel = atempo ? '[base_a_speed]' : audioStreamLabel;
       }
     }
@@ -1200,25 +1343,70 @@ export class ProEditorService {
       .flatMap((t) => t.items)
       .find((i) => i.audio?.enhancement && i.audio.enhancement.preset !== 'off');
 
-    if (primaryAudioItem?.audio?.enhancement) {
-      const enhanceFilters = AudioEnhancementService.compileFilterGraph(primaryAudioItem.audio.enhancement);
-      audioFilters.push(...enhanceFilters);
-    } else {
-      const needsNormalize = project.tracks.some((t) =>
-        t.items.some((i) => i.audio?.normalized)
-      );
-      if (needsNormalize) {
-        audioFilters.push('loudnorm=I=-16:TP=-1.5:LRA=11');
+    // Loudness normalization is emitted at exactly one of two sites (enhancement
+    // chain step 7, or the plain normalized flag). Both honor the loudnorm compile
+    // mode so the render path can do measure-then-apply two-pass normalization:
+    // one-pass loudnorm buffers until EOF and stalls the muxer, which piled up
+    // ~740MB of decoded frames on a 120s source and OOM-killed renders (Nov 2026).
+    let loudnormTargetI: number | null = null;
+    const buildLoudnorm = (targetI: number): string => {
+      if (loudnorm === 'measure') return LoudnormTwoPassService.buildMeasureFilter(targetI, -2.0, 11);
+      if (loudnorm && typeof loudnorm === 'object' && 'measured' in loudnorm) {
+        return LoudnormTwoPassService.buildLinearGainFilter(targetI, loudnorm.measured);
       }
+      return `loudnorm=I=${targetI}:TP=-2.0:LRA=11`;
+    };
+    const preNormPath =
+      loudnorm && typeof loudnorm === 'object' && 'preNormalizedDialoguePath' in loudnorm
+        ? loudnorm.preNormalizedDialoguePath
+        : null;
+    if (preNormPath) {
+      // The dialogue program (slice trims/speed/concat, enhancement, legacy
+      // dynamic loudnorm, fades) was pre-rendered into a bounded audio-only WAV
+      // because linear loudnorm is infeasible for the measured peaks/range and
+      // in-graph one-pass loudnorm stalls the muxer (OOM on long sources).
+      // Inject the WAV as the dialogue source; nothing else may consume the
+      // base chain's audio pad in this mode, so sink it when it is filter-produced.
+      inputArgs.push('-i', preNormPath);
+      currentInputIdx++;
+      if (!/^\[\d+:[au]\]$/.test(audioStreamLabel)) {
+        filterComplex.push(`${audioStreamLabel}anullsink`);
+      }
+      filterComplex.push(`[${currentInputIdx}:a]anull[dialogue_proc]`);
+    } else {
+      if (primaryAudioItem?.audio?.enhancement) {
+        const enh = primaryAudioItem.audio.enhancement;
+        let loudnormFilter: string | undefined;
+        if (enh.normalize_enabled) {
+          loudnormTargetI = AudioEnhancementService.resolveTargetLufs(enh);
+          loudnormFilter = buildLoudnorm(loudnormTargetI);
+        }
+        const enhanceFilters = AudioEnhancementService.compileFilterGraph(
+          enh,
+          loudnormFilter ? { loudnormFilter } : undefined
+        );
+        audioFilters.push(...enhanceFilters);
+      } else {
+        const needsNormalize = project.tracks.some((t) =>
+          t.items.some((i) => i.audio?.normalized)
+        );
+        if (needsNormalize) {
+          loudnormTargetI = -16;
+          audioFilters.push(buildLoudnorm(-16));
+        }
+      }
+
+      // Dialogue audio volume & subtle fades
+      audioFilters.push('afade=t=in:ss=0:d=0.15');
+      const fadeOutStart = Math.max(0, project.canvas.duration - 0.25);
+      audioFilters.push(`afade=t=out:st=${fadeOutStart.toFixed(2)}:d=0.25`);
+
+      filterComplex.push(`${audioStreamLabel}${audioFilters.join(',')}[dialogue_proc]`);
     }
-
-    // Dialogue audio volume & subtle fades
-    audioFilters.push('afade=t=in:ss=0:d=0.15');
-    const fadeOutStart = Math.max(0, project.canvas.duration - 0.25);
-    audioFilters.push(`afade=t=out:st=${fadeOutStart.toFixed(2)}:d=0.25`);
-
-    filterComplex.push(`${audioStreamLabel}${audioFilters.join(',')}[dialogue_proc]`);
     const processedDialogueLabel = '[dialogue_proc]';
+    // Dialogue input pad ([base_a] / [0:a] / [base_a_speed]) - captured before
+    // audioStreamLabel is reassigned to [master_a] by the final mix below.
+    const dialogueInputLabel = audioStreamLabel;
 
     // Process secondary audio tracks (Music, SFX, Voiceover)
     const secondaryAudioTracks = project.tracks.filter(
@@ -1312,12 +1500,47 @@ export class ProEditorService {
     // Note: normalize=0 prevents amix from attenuating speech by 1/N inputs (preserves 100% dialogue gain)
     if (streamsToMix.length > 1) {
       filterComplex.push(
-        `${streamsToMix.join('')}amix=inputs=${streamsToMix.length}:duration=first:dropout_transition=2:normalize=0,alimiter=limit=-1.0dB:attack=5:release=50[master_a]`
+        `${streamsToMix.join('')}amix=inputs=${streamsToMix.length}:duration=first:dropout_transition=2:normalize=0,alimiter=limit=-1.0dB:attack=5:release=50:level=0[master_a]`
       );
       audioStreamLabel = '[master_a]';
     } else {
-      filterComplex.push(`${streamsToMix[0]}alimiter=limit=-1.0dB:attack=5:release=50[master_a]`);
+      filterComplex.push(`${streamsToMix[0]}alimiter=limit=-1.0dB:attack=5:release=50:level=0[master_a]`);
       audioStreamLabel = '[master_a]';
+    }
+
+    // Measurement graph: audio-only dialogue path with the ebur128 meter at
+    // the loudnorm marker position - exactly where the linear gain is applied
+    // in the final render. Post-marker filters are excluded from measurement:
+    // the alimiters run with level=0 and never engage post-gain (feasibility
+    // bounds gained true peak to <= -2.0dBTP, under their -1.0dB limit, so the
+    // delivered post-encode ceiling stays <= -1.5dBTP within 0.5dB AAC overshoot), and
+    // the constant gain commutes with the linear fades (~0.1 LU).
+    // Secondary audio tracks and ducking mix in after the dialogue chain, so
+    // they are excluded by construction.
+    let measurement: CompiledRenderGraph['measurement'] = null;
+    if (loudnorm === 'measure' && loudnormTargetI !== null) {
+      const meterFilter = LoudnormTwoPassService.buildMeasureFilter(loudnormTargetI, -2.0, 11);
+      const mIdx = audioFilters.findIndex((f) => f === meterFilter);
+      if (mIdx === -1) {
+        throw new AppError('Internal error: normalization meter missing from dialogue chain', 500, 'NORMALIZATION_METER_MISSING');
+      }
+      const preMarkerFilters = audioFilters.slice(0, mIdx);
+      const postMarkerFilters = audioFilters.slice(mIdx + 1);
+      // Bound the measured program to the render duration: the spliced program
+      // can run past canvas.duration (the final render truncates with -t), and
+      // metering past the truncation measures material nobody renders.
+      const measureBound = `atrim=end=${Number(project.canvas.duration.toFixed(3))}`;
+      measurement = {
+        filterComplex: [
+          ...audioOnlyChains,
+          `${dialogueInputLabel}${[...preMarkerFilters, measureBound, meterFilter].join(',')}[measure_a]`,
+        ],
+        audioMap: '[measure_a]',
+        targetI: loudnormTargetI,
+        dialogueInputLabel,
+        preMarkerFilters,
+        postMarkerFilters,
+      };
     }
 
     return {
@@ -1327,7 +1550,60 @@ export class ProEditorService {
       audioMap: audioStreamLabel,
       outputArgs,
       duration: project.canvas.duration,
+      measurement,
     };
+  }
+
+  /**
+   * Compile the render graph with two-pass loudness normalization when the project
+   * requests it: measure the dialogue audio (audio-only pass, no video decode),
+   * verify FFmpeg's linear-mode feasibility conditions, then compile the final
+   * graph with measured linear loudnorm. Fails with LoudnormNormalizationError
+   * (clear job failure) when normalization cannot be applied linearly - FFmpeg
+   * would otherwise silently fall back to dynamic mode, whose whole-input buffering
+   * stalls the muxer and can OOM the render on long sources.
+   */
+  public static async compileRenderGraphWithNormalization(
+    project: EditorProject,
+    sourceVideoPath: string,
+    outputPath = '/tmp/render.mp4',
+    tmpDir = os.tmpdir(),
+    reframe?: ProReframeContext,
+    inputSeekArgs: string[] = []
+  ): Promise<CompiledRenderGraph> {
+    const probe = ProEditorService.compileRenderGraph(project, sourceVideoPath, outputPath, tmpDir, reframe, 'measure');
+    if (!probe.measurement) {
+      return probe;
+    }
+    const measured = await LoudnormTwoPassService.measure(
+      [...inputSeekArgs, ...probe.inputArgs],
+      probe.measurement
+    );
+    const check = LoudnormTwoPassService.assessLinearFeasibility(measured, probe.measurement.targetI, -2.0, 11);
+    if (!check.ok) {
+      if (check.fallback === 'dynamic-prerender') {
+        fs.mkdirSync(tmpDir, { recursive: true });
+        const wavPath = path.join(tmpDir, `dialogue-normalized-${crypto.randomUUID()}.wav`);
+        await LoudnormTwoPassService.renderNormalizedDialogue(
+          [...inputSeekArgs, ...probe.inputArgs],
+          probe.measurement,
+          wavPath
+        );
+        logger.warn(
+          `[ProEditorService] Linear loudnorm infeasible (${check.reason}); ` +
+            `using pre-rendered dynamic normalization (legacy one-pass on a bounded audio-only program).`
+        );
+        const graph = ProEditorService.compileRenderGraph(project, sourceVideoPath, outputPath, tmpDir, reframe, {
+          preNormalizedDialoguePath: wavPath,
+        });
+        graph.normalizationMode = 'dynamic-prerendered';
+        return graph;
+      }
+      throw new LoudnormNormalizationError(check.reason);
+    }
+    const graph = ProEditorService.compileRenderGraph(project, sourceVideoPath, outputPath, tmpDir, reframe, { measured });
+    graph.normalizationMode = 'linear';
+    return graph;
   }
 
   /**
@@ -1356,15 +1632,13 @@ export class ProEditorService {
   ): string | null {
     if (!item.text || !item.text.text) return null;
 
-    // Sanitize user text for FFmpeg drawtext (escape backslashes, percent signs, and colons)
-    const rawText = item.text.text.replace(/[\r\n]+/g, ' ').slice(0, 100).trim();
-    if (!rawText) return null;
-
-    const safeText = rawText
-      .replace(/\\/g, '\\\\')
-      .replace(/'/g, '')
-      .replace(/:/g, '\\:')
-      .replace(/%/g, '\\%');
+    // Multi-line text (e.g. the auto-headline's wrapped title) renders as one drawtext
+    // per line, vertically stacked and block-centered on the item position - mirroring
+    // both the legacy headline layout and the preview's centered multi-line block.
+    const capped = item.text.text.slice(0, 100).trim();
+    if (!capped) return null;
+    const rawLines = capped.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
+    if (rawLines.length === 0) return null;
 
     const font = this.validateFont(item.text.font_family);
 
@@ -1377,6 +1651,31 @@ export class ProEditorService {
     const baseSize = item.text.font_size || 36;
     const itemScale = item.transform?.scale || 1.0;
     const scaledFontSize = Math.max(16, Math.round(baseSize * scaleRatio * itemScale));
+
+    // Word-wrap each explicit line to the same width the preview block allows (90% of
+    // canvas, ~0.5em average advance), so long single-line text breaks where the
+    // preview wraps instead of overflowing the canvas. Explicit newlines are kept.
+    const maxChars = Math.max(8, Math.floor((0.9 * canvasW) / (scaledFontSize * 0.5)));
+    const wrappedLines: string[] = [];
+    for (const line of rawLines) {
+      let rest = line;
+      while (rest.length > maxChars) {
+        let cut = rest.lastIndexOf(' ', maxChars);
+        if (cut < Math.floor(maxChars * 0.5)) cut = maxChars;
+        wrappedLines.push(rest.slice(0, cut).trimEnd());
+        rest = rest.slice(cut).trimStart();
+      }
+      if (rest) wrappedLines.push(rest);
+    }
+    const finalLines = wrappedLines.slice(0, 4);
+
+    // Sanitize user text for FFmpeg drawtext (escape backslashes, percent signs, and colons)
+    const sanitizeLine = (t: string) =>
+      t.replace(/\\/g, '\\\\')
+        .replace(/'/g, '')
+        .replace(/:/g, '\\:')
+        .replace(/%/g, '\\%');
+    const safeLines = finalLines.map(sanitizeLine);
 
     const fontColor = this.sanitizeHexColor(item.text.color, 'FFFFFF');
     const baseOpacity = item.transform?.opacity ?? 1.0;
@@ -1413,7 +1712,7 @@ export class ProEditorService {
     }
 
     const filterParts: string[] = [
-      `text='${safeText}'`,
+      `text='${safeLines[0]}'`,
       `font='${font}'`,
       `fontsize='${sizeExpr}'`,
       `fontcolor=0x${fontColor}`,
@@ -1447,7 +1746,23 @@ export class ProEditorService {
 
     filterParts.push(`enable='between(t,${start.toFixed(2)},${end.toFixed(2)})'`);
 
-    return `drawtext=${filterParts.join(':')}`;
+    if (safeLines.length === 1) {
+      return `drawtext=${filterParts.join(':')}`;
+    }
+
+    // Stack lines block-centered on the item position.
+    const lineGap = Math.max(2, Math.round(scaledFontSize * 1.15));
+    return safeLines
+      .map((lineText, i) => {
+        const offset = (i - (safeLines.length - 1) / 2) * lineGap;
+        const parts = filterParts.map((p) => {
+          if (p.startsWith('text=')) return `text='${lineText}'`;
+          if (p.startsWith('y=')) return `y='${yExpr}${offset >= 0 ? '+' : ''}${offset.toFixed(1)}'`;
+          return p;
+        });
+        return `drawtext=${parts.join(':')}`;
+      })
+      .join(',');
   }
 
   /**
@@ -1500,6 +1815,19 @@ export class ProEditorService {
 
     const tracks: EditorTrack[] = [];
 
+    // Mirror the clip-level crop decision into the primary video item: 'fit' and
+    // 'manual' are per-item crop overrides in the pro render path; 'smart'/unset
+    // leaves item.crop undefined so the smart-reframe track (or center fallback)
+    // applies exactly as the Quick Clip path decides. Without this mirror the pro
+    // path fill-cropped every clip, silently overriding fit letterboxing.
+    const clipCrop = (clip as any).crop_config;
+    const seededCrop: { mode: 'fill' | 'fit' | 'custom'; focusX: number; focusY: number } | undefined =
+      clipCrop?.mode === 'fit'
+        ? { mode: 'fit', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
+        : clipCrop?.mode === 'manual'
+          ? { mode: 'custom', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
+          : undefined;
+
     // Track 1: Main Video Track (Multi-slice with Cold Open if enabled)
     const videoTrackId = crypto.randomUUID();
     const videoItems: EditorTrackItem[] = [];
@@ -1523,7 +1851,7 @@ export class ProEditorService {
           rotation: 0,
           opacity: 1.0,
         },
-        crop: { mode: 'fill', focusX: 0.5, focusY: 0.5 },
+        crop: seededCrop ? { ...seededCrop } : undefined,
         speed: { speed: 1.0, pitch_preserved: true },
         audio: {
           volume: clip.volume !== undefined ? clip.volume : 1.0,
@@ -1559,7 +1887,7 @@ export class ProEditorService {
         rotation: 0,
         opacity: 1.0,
       },
-      crop: { mode: 'fill', focusX: 0.5, focusY: 0.5 },
+      crop: seededCrop ? { ...seededCrop } : undefined,
       speed: { speed: 1.0, pitch_preserved: true },
       audio: {
         volume: clip.volume !== undefined ? clip.volume : 1.0,
@@ -1596,6 +1924,70 @@ export class ProEditorService {
     const hookText = producerPlan?.operations.find((o) => o.type === 'HOOK_TEXT')?.parameters.text ||
       clip.overlay_config?.text;
 
+    // Auto-headline parity: the legacy render burns clip.title as a timed headline
+    // (ClipRenderService.buildHeadlineSpec) whenever overlay_config is unset. Mirror it
+    // as an editable text item so the studio preview shows what export will burn.
+    const autoHeadlineText =
+      !hookText && clip.overlay_config?.enabled === undefined && !clip.overlay_config?.text && clip.title
+        ? String(clip.title).replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()
+        : null;
+    if (!hookText && autoHeadlineText) {
+      const capped = autoHeadlineText.length > 60 ? autoHeadlineText.slice(0, 57).trimEnd() + '...' : autoHeadlineText;
+      let headLines = [capped];
+      if (capped.length > 26) {
+        const words = capped.split(' ');
+        let best = -1;
+        let bestImbalance = Infinity;
+        let acc = 0;
+        for (let i = 0; i < words.length - 1; i++) {
+          acc += words[i].length + 1;
+          const imbalance = Math.abs(capped.length - 2 * acc);
+          if (imbalance < bestImbalance) {
+            bestImbalance = imbalance;
+            best = i;
+          }
+        }
+        if (best >= 0) headLines = [words.slice(0, best + 1).join(' '), words.slice(best + 1).join(' ')];
+      }
+      const longest = Math.max(...headLines.map((l) => l.length));
+      const tier = longest <= 22 ? 64 : longest <= 28 ? 56 : longest <= 34 ? 48 : 40;
+      textItems.push({
+        id: crypto.randomUUID(),
+        track_id: textTrackId,
+        type: 'TEXT',
+        timeline_start: 0,
+        timeline_end: Math.min(5, finalDuration),
+        source_start: 0,
+        source_end: Math.min(5, finalDuration),
+        // Legacy draws wrapped lines with the FIRST line top at y=150 (then +fontSize+8
+        // per line); the pro item is block-centered on the transform position, so the
+        // center sits at 150 + fontSize/2 + (lines-1)/2*(fontSize+8). For the default
+        // 2-line wrap: 211.5 export px => (211.5-960)/3 = -249.5 preview px. This keeps
+        // the headline below the watermark zone (top-right box ends ~y=129) and matches
+        // the legacy layout exactly.
+        transform: { position_x: 0, position_y: -249.5, scale: 1.0, rotation: 0, opacity: 1.0 },
+        speed: { speed: 1.0, pitch_preserved: true },
+        text: {
+          text: headLines.join('\n'),
+          font_family: 'Arial',
+          font_size: Math.max(12, Math.round(tier / 3)),
+          font_weight: 'regular',
+          italic: false,
+          alignment: 'center',
+          color: '#FFFFFF',
+          preset: 'bold',
+          animation: 'none',
+          auto_headline: true,
+        } as any,
+        effects: [],
+        keyframes: [],
+        locked: false,
+        muted: true,
+        hidden: false,
+        z_index: 10,
+      });
+    }
+
     if (hookText) {
       textItems.push({
         id: crypto.randomUUID(),
@@ -1618,6 +2010,7 @@ export class ProEditorService {
           background_color: '#000000B3',
           preset: 'bold',
           animation: 'pop',
+          auto_headline: true,
         },
         effects: [],
         keyframes: [],
@@ -1695,6 +2088,10 @@ export class ProEditorService {
           speed: { speed: 1.0, pitch_preserved: true },
           caption: {
             cues: initialCues,
+            // Coverage marker for beyond-candidate extend: the studio appends
+            // only cues past this clip-local second, so user edits/deletions
+            // inside the covered region are never resurrected.
+            cues_covered_end: finalDuration,
             style: captionStyle,
             position: clip.caption_position || 'bottom',
             highlight_color: producerPlan?.operations.find((o) => o.type === 'CAPTION_EMPHASIS' && o.enabled)?.parameters.highlight_color || '#FACC15',

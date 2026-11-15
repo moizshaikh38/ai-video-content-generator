@@ -29,6 +29,7 @@ import {
   getProjectClips,
   getClip,
   renderClip,
+  regenerateClipHook,
   deleteClip,
   getClipPreviewUrl,
   getClipDownloadUrl,
@@ -118,6 +119,7 @@ router.post('/projects/:id/clips', requireAuth, expensiveLimiter, asyncHandler(c
 router.get('/projects/:id/clips', requireAuth, asyncHandler(getProjectClips));
 router.get('/clips/:clipId', requireAuth, resolvePublicId('clipId', 'clips'), asyncHandler(getClip));
 router.post('/clips/:clipId/render', requireAuth, resolvePublicId('clipId', 'clips'), expensiveLimiter, asyncHandler(renderClip));
+router.post('/clips/:clipId/hook/regenerate', requireAuth, resolvePublicId('clipId', 'clips'), expensiveLimiter, asyncHandler(regenerateClipHook));
 router.delete('/clips/:clipId', requireAuth, resolvePublicId('clipId', 'clips'), asyncHandler(deleteClip));
 router.get('/clips/:clipId/preview-url', requireAuth, asyncHandler(getClipPreviewUrl));
 router.get('/clips/:clipId/download-url', requireAuth, asyncHandler(getClipDownloadUrl));

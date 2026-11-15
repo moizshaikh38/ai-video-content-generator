@@ -188,7 +188,7 @@ describe('Phase 3 — Optional Background Music & Audio Ducking in Quick Clips',
 
       const mixFilter = graph.filterComplex[graph.filterComplex.length - 1];
       assert.ok(mixFilter.includes('[a_dialogue_mix][a_music_ducked]amix=inputs=2:duration=first:dropout_transition=2'));
-      assert.ok(mixFilter.includes('alimiter=limit=-1.0dB:attack=5:release=50[out_a]'));
+      assert.ok(mixFilter.includes('alimiter=limit=-1.0dB:attack=5:release=50:level=0[out_a]'));
       assert.equal(graph.audioMap, '[out_a]');
     });
   });
