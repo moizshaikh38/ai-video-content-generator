@@ -1535,18 +1535,24 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                           <div className="sug">
                             <h4>Suggested B-roll</h4>
                             {[
-                              { k: 0, v: 5, t: 'Hands close-up', time: '0:08 – 0:12', done: true },
+                              {
+                                k: 0,
+                                v: 5,
+                                t: 'Wheel assembly close-up',
+                                time: '0:08 – 0:12',
+                                done: true,
+                              },
                               {
                                 k: 1,
                                 v: 9,
-                                t: 'Goal celebration',
+                                t: 'Founder interview',
                                 time: '0:20 – 0:25',
                                 done: true,
                               },
                               {
                                 k: 2,
                                 v: 8,
-                                t: 'Training drills',
+                                t: 'Prototype lab build',
                                 time: '0:31 – 0:34',
                                 done: false,
                               },
@@ -1692,28 +1698,28 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                               Dubbed in हिन्दी
                             </span>
                             <span className="ln k0" style={{ '--k': 0 } as React.CSSProperties}>
-                              अपनी पहली इंटर्नशिप कैसे पाएं
+                              चाँद पर चलने वाला रोवर
                             </span>
 
                             <span className="lg k1" style={{ '--k': 1 } as React.CSSProperties}>
                               Dubbed in English
                             </span>
                             <span className="ln k1" style={{ '--k': 1 } as React.CSSProperties}>
-                              Here’s how to land your first internship
+                              The rover built to drive on the Moon
                             </span>
 
                             <span className="lg k2" style={{ '--k': 2 } as React.CSSProperties}>
                               Dubbed in Español
                             </span>
                             <span className="ln k2" style={{ '--k': 2 } as React.CSSProperties}>
-                              Así consigues tu primera práctica
+                              El rover diseñado para la Luna
                             </span>
 
                             <span className="lg k3" style={{ '--k': 3 } as React.CSSProperties}>
                               Dubbed in Français
                             </span>
                             <span className="ln k3" style={{ '--k': 3 } as React.CSSProperties}>
-                              Comment décrocher son premier stage
+                              Le rover conçu pour la Lune
                             </span>
 
                             <div className="wf">{voiceBars}</div>
