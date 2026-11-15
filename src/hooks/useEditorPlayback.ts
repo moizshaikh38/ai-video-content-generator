@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 
 export interface UseEditorPlaybackOptions {
   initialDuration?: number;
+  initialTime?: number;
   fps?: number;
   sourceOffset?: number;
   onTimeUpdate?: (time: number) => void;
@@ -35,12 +36,13 @@ export interface UseEditorPlaybackReturn {
 
 export function useEditorPlayback({
   initialDuration = 30,
+  initialTime = 0,
   fps = 30,
   sourceOffset = 0,
   onTimeUpdate,
 }: UseEditorPlaybackOptions = {}): UseEditorPlaybackReturn {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [currentTime, setCurrentTime] = useState<number>(initialTime);
   const [duration, setDurationState] = useState<number>(initialDuration);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackRate, setPlaybackRateState] = useState<number>(1.0);

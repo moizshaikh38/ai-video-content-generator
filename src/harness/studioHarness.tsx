@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { EditorShell } from '../components/editor/EditorShell';
 import { buildClipEditorUpdatePayload } from '../lib/editorSavePayload';
+import { nasaCues } from './nasaCues';
 import '../index.css';
 
 const words = [
@@ -135,6 +136,37 @@ const seedProject: any = (() => {
       ),
     };
   }
+  // ?nasa=1: real clip 0dbae5cd data - NASA source at the clip's source range, real
+  // transcript words as single-word karaoke cues, playhead at ?t= for paired export comparison.
+  if (harnessQuery.get('nasa') === '1') {
+    const t0 = Number(harnessQuery.get('t') || '0');
+    p = {
+      ...p,
+      playhead: t0,
+      canvas: { ...p.canvas, duration: 51.31 },
+      tracks: p.tracks.map((t: any) => {
+        if (t.id === 'track-video') {
+          return {
+            ...t,
+            items: t.items.map((i: any) => ({ ...i, timeline_start: 0, timeline_end: 51.31, source_start: 0, source_end: 3 })),
+          };
+        }
+        if (t.id === 'track-caption') {
+          return {
+            ...t,
+            items: t.items.map((i: any) => ({
+              ...i,
+              timeline_start: 0,
+              timeline_end: 51.31,
+              source_end: 51.31,
+              caption: { ...i.caption, cues: nasaCues, max_words_per_cue: 1, max_lines: 1 },
+            })),
+          };
+        }
+        return t;
+      }),
+    };
+  }
   return p;
 })();
 
@@ -203,9 +235,9 @@ function Harness() {
       <EditorShell
         clip={clip}
         project={project}
-        cleanSourceUrl={'/harness/clip.mp4'}
+        cleanSourceUrl={harnessQuery.get('nasa') === '1' ? '/harness/clip-nasa-seg.mp4' : '/harness/clip.mp4'}
         renderedPreviewUrl={null}
-        cues={cues as any}
+        cues={(harnessQuery.get('nasa') === '1' ? nasaCues : cues) as any}
         canUndo={false}
         canRedo={false}
         saveStatus={'saved'}

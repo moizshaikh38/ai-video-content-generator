@@ -151,6 +151,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     formatTime,
   } = useEditorPlayback({
     initialDuration: project.canvas.duration || 30,
+    initialTime: project.playhead || 0,
     fps: project.canvas.fps || 30,
     sourceOffset,
     onTimeUpdate: (t) => {

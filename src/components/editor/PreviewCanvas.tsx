@@ -238,7 +238,14 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
 
   const currentCaptionCoords = useMemo(() => {
     let x = 0.5;
+    // Anchor matches the exported ASS semantics: an explicit position_y is the block's
+    // bottom edge (\an2 + marginV / \pos); the unset default mirrors captionService's
+    // posConfig margins (bottom: 180/60, middle: centered, top: 220/80 on playRes 1920/1080).
     let y = 0.667;
+    let anchorY: 'bottom' | 'center' | 'top' = 'bottom';
+    const capPos = captionItem?.caption?.position || 'bottom';
+    const isPortrait = project.canvas.aspect_ratio !== '16:9';
+    const playResY = isPortrait ? 1920 : 1080;
     if (captionItem?.caption?.position_x !== undefined) {
       x = captionItem.caption.position_x;
     } else if (captionItem?.transform?.position_x !== undefined) {
@@ -249,12 +256,21 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       y = captionItem.caption.position_y;
     } else if (captionItem?.transform?.position_y !== undefined) {
       y = 0.5 + captionItem.transform.position_y / 1920;
+    } else if (capPos === 'center') {
+      y = 0.5;
+      anchorY = 'center';
+    } else if (capPos === 'top') {
+      y = (isPortrait ? 220 : 80) / playResY;
+      anchorY = 'top';
+    } else {
+      y = 1 - (isPortrait ? 180 : 60) / playResY;
     }
     return {
       x: Math.max(0.05, Math.min(0.95, x)),
       y: Math.max(0.05, Math.min(0.95, y)),
+      anchorY,
     };
-  }, [captionItem]);
+  }, [captionItem, project.canvas.aspect_ratio]);
 
   for (const track of project.tracks) {
     if (track.hidden) continue;
@@ -1324,6 +1340,15 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                   ? activeCue.position_y
                   : currentCaptionCoords.y;
 
+              const cueHasOwnY = captionScope === 'cue' && activeCue?.position_y !== undefined;
+              const effAnchorY = cueHasOwnY ? 'bottom' : currentCaptionCoords.anchorY;
+              const anchorTransform =
+                effAnchorY === 'center'
+                  ? 'translate(-50%, -50%)'
+                  : effAnchorY === 'top'
+                    ? 'translate(-50%, 0)'
+                    : 'translate(-50%, -100%)';
+
               return (
                 <div
                   onPointerDown={handleCaptionPointerDown}
@@ -1336,8 +1361,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                   style={{
                     top: `${effY * 100}%`,
                     left: `${effX * 100}%`,
-                    // Bottom-edge anchored at effY, matching the exported ASS \an2 + marginV / \pos semantics.
-                    transform: 'translate(-50%, -100%)',
+                    // Anchored like the exported ASS (bottom edge at effY for \an2 styles,
+                    // center/top for the middle/top unset-position defaults).
+                    transform: anchorTransform,
                   }}
                   data-selectable-item="true"
                   className={`absolute text-center pointer-events-auto select-none max-w-[88%] transition-opacity ${
