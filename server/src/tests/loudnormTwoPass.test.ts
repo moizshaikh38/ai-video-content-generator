@@ -285,7 +285,7 @@ describe('LoudnormTwoPassService - integration (synthetic fixtures)', () => {
     // the loudness comparison tests semantics, not memory headroom.
     const project = buildProject(MODULATED_SMALL, 3.5, BROLL_SMALL);
     const onePassGraph = ProEditorService.compileRenderGraph(project, MODULATED_SMALL, path.join(FIX_DIR, 'out-1pass.mp4'), FIX_DIR);
-    assert.ok(onePassGraph.filterComplex.join(';').includes('loudnorm=I=-16:TP=-1.5:LRA=11,'), 'legacy compile keeps one-pass loudnorm');
+    assert.ok(onePassGraph.filterComplex.join(';').includes('loudnorm=I=-16:TP=-2.0:LRA=11,'), 'legacy compile keeps one-pass loudnorm');
     assert.equal(onePassGraph.measurement, null, 'legacy compile has no measurement probe');
     const twoPassGraph = await ProEditorService.compileRenderGraphWithNormalization(
       project, MODULATED_SMALL, path.join(FIX_DIR, 'out-2pass-short.mp4'), FIX_DIR
@@ -311,7 +311,7 @@ describe('LoudnormTwoPassService - integration (synthetic fixtures)', () => {
 
   it('hot quiet dialogue (linear-infeasible) renders via pre-rendered dynamic fallback', { timeout: 300_000 }, async () => {
     // Quiet program with loud clicks: measured TP ~0dBTP, so linear gain to -16
-    // would overshoot the -1.5dBTP ceiling. Legacy one-pass handled this class
+    // would overshoot the -2.0dBTP pre-encode ceiling. Legacy one-pass handled this class
     // via dynamic limiting; the fallback must reproduce it without an in-graph
     // one-pass loudnorm (which stalls the muxer and OOMs long renders).
     const project = {
@@ -455,10 +455,11 @@ describe('LoudnormTwoPassService - same-window preview/final parity (codified)',
     // window differently (preview: input -ss/-t seek; final: graph atrim), so
     // one-pass loudnorm's gain riding lands differently on peaky material:
     // measured 1.2-1.3 LU. The invariants are mode consistency and the true-peak
-    // ceiling: the limiter holds -1.5dBTP internally; measured post-encode on
-    // this click material is -1.6dBTP, so the bound allows 0.5dB codec
-    // tolerance (AAC overshoot on transient material) without waiving the
-    // ceiling itself.
+    // ceiling: normalization holds <= -2.0dBTP pre-encode (fallback loudnorm
+    // TP=-2.0; linear feasibility bounds gained TP to <= -2.0), so with up to
+    // 0.5dB upward AAC encode overshoot the delivered output stays <= -1.5dBTP.
+    // (-2.0 + 0.5 = -1.5; upward overshoot demands MORE negative pre-encode
+    // headroom, not less.)
     const finalI = await integratedLoudness(outPath);
     const previewI = await integratedLoudness(preview.preview_audio_path);
     assert.ok(
@@ -466,8 +467,8 @@ describe('LoudnormTwoPassService - same-window preview/final parity (codified)',
       `final ${finalI} vs preview ${previewI} differ by >1.5 LU on dynamic fallback`
     );
     assert.ok(
-      (await truePeakDb(outPath)) <= -1.0,
-      'dynamic fallback must hold the -1.5dBTP ceiling within 0.5dB codec tolerance'
+      (await truePeakDb(outPath)) <= -1.5,
+      'dynamic fallback must hold the -1.5dBTP post-encode ceiling (-2.0dBTP pre-encode + 0.5dB codec overshoot)'
     );
   });
 });

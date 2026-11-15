@@ -140,7 +140,7 @@ export class ProducerRenderService {
           // Meter at the marker position - exactly where the linear gain is
           // applied in the final render.
           const measurementGraph = {
-            filterComplex: [`[0:a]${[...pre, LoudnormTwoPassService.buildMeasureFilter(targetI, -1.5, 11)].join(',')}[m_a]`],
+            filterComplex: [`[0:a]${[...pre, LoudnormTwoPassService.buildMeasureFilter(targetI, -2.0, 11)].join(',')}[m_a]`],
             audioMap: '[m_a]',
             targetI,
             dialogueInputLabel: '[0:a]',
@@ -152,7 +152,7 @@ export class ProducerRenderService {
             measurementGraph,
             120000
           );
-          const check = LoudnormTwoPassService.assessLinearFeasibility(measured, targetI, -1.5, 11);
+          const check = LoudnormTwoPassService.assessLinearFeasibility(measured, targetI, -2.0, 11);
           if (!check.ok) {
             if (check.fallback !== 'dynamic-prerender') {
               throw new AppError(
@@ -660,7 +660,7 @@ export class ProducerRenderService {
     if (normOp) {
       // One-pass loudnorm kept here so a buildRenderGraph result stays directly
       // executable; the preview executor upgrades it to two-pass (see below).
-      audioFilters.push('loudnorm=I=-16:TP=-1.5:LRA=11');
+      audioFilters.push('loudnorm=I=-16:TP=-2.0:LRA=11');
       normTargetI = -16;
       if (normOp.parameters.gain_db && normOp.parameters.gain_db > 0) {
         audioFilters.push(`volume=${normOp.parameters.gain_db}dB`);

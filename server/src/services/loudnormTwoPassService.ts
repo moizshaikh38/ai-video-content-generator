@@ -186,9 +186,11 @@ export class LoudnormTwoPassService {
   /**
    * Pre-render the dialogue program with legacy one-pass (dynamic) loudnorm into
    * a WAV, for content where linear mode is infeasible (true-peak headroom or
-   * loudness-range limits). The dialogue chain is rebuilt with one-pass loudnorm
-   * at the marker position (limiter/fades after it), so the output
-   * is exactly what legacy one-pass renders produced - but as a bounded
+   * loudness-range limits). TP=-2.0 gives the pre-encode headroom so the delivered
+   * (AAC-encoded) output holds the -1.5dBTP ceiling within 0.5dB codec overshoot.
+   * The dialogue chain is rebuilt with one-pass loudnorm
+   * at the marker position (limiter/fades after it) - the same one-pass dynamic
+   * behavior legacy renders had, with the tighter TP ceiling, as a bounded
    * audio-only process: no video is decoded, so the muxer-stall frame queue that
    * OOM-killed in-graph one-pass renders cannot form.
    */
@@ -198,7 +200,7 @@ export class LoudnormTwoPassService {
     outWavPath: string,
     timeoutMs = 300_000
   ): Promise<void> {
-    const legacyFilter = `loudnorm=I=${measurement.targetI}:TP=-1.5:LRA=11`;
+    const legacyFilter = `loudnorm=I=${measurement.targetI}:TP=-2.0:LRA=11`;
     // Rebuild the dialogue chain with one-pass loudnorm at the marker position
     // (limiter/fades after it), exactly as legacy one-pass renders had it. The
     // measurement graph meters at end-of-chain instead, so a blind string swap

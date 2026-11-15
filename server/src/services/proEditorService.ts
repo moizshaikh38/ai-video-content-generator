@@ -1270,11 +1270,11 @@ export class ProEditorService {
     // ~740MB of decoded frames on a 120s source and OOM-killed renders (Nov 2026).
     let loudnormTargetI: number | null = null;
     const buildLoudnorm = (targetI: number): string => {
-      if (loudnorm === 'measure') return LoudnormTwoPassService.buildMeasureFilter(targetI, -1.5, 11);
+      if (loudnorm === 'measure') return LoudnormTwoPassService.buildMeasureFilter(targetI, -2.0, 11);
       if (loudnorm && typeof loudnorm === 'object' && 'measured' in loudnorm) {
         return LoudnormTwoPassService.buildLinearGainFilter(targetI, loudnorm.measured);
       }
-      return `loudnorm=I=${targetI}:TP=-1.5:LRA=11`;
+      return `loudnorm=I=${targetI}:TP=-2.0:LRA=11`;
     };
     const preNormPath =
       loudnorm && typeof loudnorm === 'object' && 'preNormalizedDialoguePath' in loudnorm
@@ -1432,13 +1432,14 @@ export class ProEditorService {
     // the loudnorm marker position - exactly where the linear gain is applied
     // in the final render. Post-marker filters are excluded from measurement:
     // the alimiters run with level=0 and never engage post-gain (feasibility
-    // bounds gained true peak to <= -1.5dBTP, under their -1.0dB limit), and
+    // bounds gained true peak to <= -2.0dBTP, under their -1.0dB limit, so the
+    // delivered post-encode ceiling stays <= -1.5dBTP within 0.5dB AAC overshoot), and
     // the constant gain commutes with the linear fades (~0.1 LU).
     // Secondary audio tracks and ducking mix in after the dialogue chain, so
     // they are excluded by construction.
     let measurement: CompiledRenderGraph['measurement'] = null;
     if (loudnorm === 'measure' && loudnormTargetI !== null) {
-      const meterFilter = LoudnormTwoPassService.buildMeasureFilter(loudnormTargetI, -1.5, 11);
+      const meterFilter = LoudnormTwoPassService.buildMeasureFilter(loudnormTargetI, -2.0, 11);
       const mIdx = audioFilters.findIndex((f) => f === meterFilter);
       if (mIdx === -1) {
         throw new AppError('Internal error: normalization meter missing from dialogue chain', 500, 'NORMALIZATION_METER_MISSING');
@@ -1498,7 +1499,7 @@ export class ProEditorService {
       [...inputSeekArgs, ...probe.inputArgs],
       probe.measurement
     );
-    const check = LoudnormTwoPassService.assessLinearFeasibility(measured, probe.measurement.targetI, -1.5, 11);
+    const check = LoudnormTwoPassService.assessLinearFeasibility(measured, probe.measurement.targetI, -2.0, 11);
     if (!check.ok) {
       if (check.fallback === 'dynamic-prerender') {
         fs.mkdirSync(tmpDir, { recursive: true });
