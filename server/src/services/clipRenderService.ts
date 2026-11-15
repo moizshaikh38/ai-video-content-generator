@@ -36,7 +36,7 @@ import { JobReliabilityService } from './queue/jobReliabilityService.js';
 import { ProEditorService } from './proEditorService.js';
 import { AudioDuckingService } from './audioDuckingService.js';
 import { FilterGraphBuilder } from './ffmpeg/filterGraphBuilder.js';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { ClipPosterService } from './clipPosterService.js';
 import { WatermarkService } from './watermarkService.js';
@@ -44,10 +44,43 @@ import { EntitlementService } from './entitlementService.js';
 import { HardwareEncoderService } from './hardwareEncoderService.js';
 
 const execFileAsync = promisify(execFile);
-// FFMPEG_BIN overrides the bundled binary: the ffmpeg-static build lacks
-// libfreetype (no drawtext), so watermark/text-overlay renders fail under it
-// where a full system ffmpeg works.
-const ffmpegBin = process.env.FFMPEG_BIN || (ffmpegStatic as unknown as string) || 'ffmpeg';
+
+/**
+ * drawtext (watermark, headline and text overlays) needs libfreetype, which
+ * the bundled ffmpeg-static build lacks; renders under it fail with ffmpeg's
+ * opaque "Error opening output files: Filter not found". FFMPEG_BIN stays the
+ * explicit override. Otherwise probe the bundled binary for drawtext and fall
+ * back to a system ffmpeg that has it, so deployments without FFMPEG_BIN set
+ * still render correctly instead of failing every watermarked render.
+ */
+function probeDrawtextSupport(bin: string): boolean {
+  try {
+    const out = execFileSync(bin, ['-hide_banner', '-filters'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 10000,
+    }).toString();
+    return /(^|\s)drawtext\s/.test(out);
+  } catch {
+    return false;
+  }
+}
+
+function resolveFfmpegBinary(): string {
+  if (process.env.FFMPEG_BIN) return process.env.FFMPEG_BIN;
+  const bundled = (ffmpegStatic as unknown as string) || 'ffmpeg';
+  if (probeDrawtextSupport(bundled)) return bundled;
+  for (const candidate of ['ffmpeg', '/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/opt/homebrew/bin/ffmpeg']) {
+    if (candidate === bundled) continue;
+    if (probeDrawtextSupport(candidate)) {
+      logger.warn(`[ClipRender] Bundled ffmpeg lacks drawtext support; falling back to ${candidate} so watermark/text overlays render.`);
+      return candidate;
+    }
+  }
+  logger.warn('[ClipRender] No ffmpeg with drawtext support found; watermark and text-overlay renders will fail. Set FFMPEG_BIN to a full ffmpeg build.');
+  return bundled;
+}
+
+const ffmpegBin = resolveFfmpegBinary();
 
 // Configure fluent-ffmpeg to use the same resolved binary
 if (ffmpegBin) {
@@ -905,6 +938,7 @@ export class ClipRenderService {
           cmd.outputOptions(outputOpts)
           .output(outputPath);
 
+
           // Explicit timeout enforcement
           const timer = setTimeout(() => {
             if (!isResolved) {
@@ -939,11 +973,14 @@ export class ClipRenderService {
             }
           });
 
-          cmd.on('error', (err) => {
+          cmd.on('error', (err, stdout, stderr) => {
             if (!isResolved) {
               isResolved = true;
               clearTimeout(timer);
-              const wrappedErr = new Error(`FFmpeg processing failed: ${err.message}`);
+              // ffmpeg's final lines ("Error opening output files: ...") hide
+              // the real cause earlier in stderr; keep a tail for diagnosis.
+              const stderrTail = String(stderr || '').trim().split('\n').slice(-8).join('\n');
+              const wrappedErr = new Error(`FFmpeg processing failed: ${err.message}${stderrTail ? `\nffmpeg stderr: ${stderrTail}` : ''}`);
               (wrappedErr as any).code = 'FFMPEG_FAILED';
               reject(wrappedErr);
             }
