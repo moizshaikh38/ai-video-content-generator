@@ -603,6 +603,15 @@ export type ReframeLayoutMode = 'track' | 'split' | 'screencast' | 'blur';
 export interface CropConfig {
   mode?: CropMode;
   layout_mode?: ReframeLayoutMode;
+  /**
+   * Provenance of layout_mode. 'genre_recommendation' means the value was
+   * auto-stamped from the genre profile at analysis time and must NOT override
+   * measured content-aware layout detection; it is only a fallback when
+   * measurement is unavailable. 'user' marks an explicit user choice, which
+   * always wins. 'legacy_unknown' (or absent) marks records written before
+   * provenance tracking; those keep their historical authoritative behavior.
+   */
+  layout_mode_source?: 'genre_recommendation' | 'user' | 'legacy_unknown';
   focusX?: number; // 0 to 1, default 0.5 (center)
   focusY?: number; // 0 to 1, default 0.5 (center)
   smart?: {

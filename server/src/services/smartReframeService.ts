@@ -1170,7 +1170,7 @@ export class SmartReframeService {
    */
   public static determineOptimalLayoutMode(
     samples: ReframeSample[],
-    options: { isScreencastHint?: boolean; preferredMode?: ReframeLayoutMode } = {}
+    options: { isScreencastHint?: boolean; preferredMode?: ReframeLayoutMode; fallbackMode?: ReframeLayoutMode } = {}
   ): { layoutMode: ReframeLayoutMode; speaker1X?: number; speaker2X?: number } {
     if (options.preferredMode) {
       return { layoutMode: options.preferredMode };
@@ -1179,8 +1179,10 @@ export class SmartReframeService {
       return { layoutMode: 'screencast' };
     }
 
+    // Measurement unavailable: use the caller's fallback hint (e.g. a genre
+    // recommendation) when provided, else the historical 'blur' default.
     if (!Array.isArray(samples) || samples.length === 0) {
-      return { layoutMode: 'blur' };
+      return { layoutMode: options.fallbackMode ?? 'blur' };
     }
 
     let noFaceFrames = 0;
@@ -1220,6 +1222,46 @@ export class SmartReframeService {
     }
 
     return { layoutMode: 'track' };
+  }
+
+  /**
+   * Provenance-aware layout resolution (see CropConfig.layout_mode_source):
+   * - user-chosen and legacy/unknown-provenance crop layouts stay authoritative.
+   * - a genre-recommended layout (auto-stamped at analysis time, or the project
+   *   genre profile's recommendedLayoutMode) is only a hint: measured
+   *   content-aware detection decides when samples exist. Exception: 'screencast'
+   *   engages when the hint exists AND analysis found a static facecam track (the
+   *   geometric screen-with-facecam signal) AND measurement did not find a
+   *   two-shot conversation. Faceless sources (documentary, B-roll, pure
+   *   gameplay) no longer inherit split_stacked duplication from a genre label.
+   */
+  public static resolveLayoutWithProvenance(args: {
+    cropLayoutMode?: ReframeLayoutMode;
+    cropLayoutSource?: 'genre_recommendation' | 'user' | 'legacy_unknown';
+    genrePreferredLayoutMode?: ReframeLayoutMode;
+    samples: ReframeSample[];
+    facecamSuggestionPresent: boolean;
+  }): { layoutMode: ReframeLayoutMode; speaker1X?: number; speaker2X?: number } {
+    const { cropLayoutMode, cropLayoutSource, genrePreferredLayoutMode, samples, facecamSuggestionPresent } = args;
+    const cropAuthoritative = !!cropLayoutMode && cropLayoutSource !== 'genre_recommendation';
+    if (cropAuthoritative) {
+      return this.determineOptimalLayoutMode(samples, {
+        preferredMode: cropLayoutMode,
+        fallbackMode: genrePreferredLayoutMode,
+      });
+    }
+    const genreHint = cropLayoutMode ?? genrePreferredLayoutMode;
+    const measured = this.determineOptimalLayoutMode(samples, { fallbackMode: genreHint });
+    if (
+      genreHint === 'screencast' &&
+      Array.isArray(samples) &&
+      samples.length > 0 &&
+      facecamSuggestionPresent &&
+      measured.layoutMode === 'track'
+    ) {
+      return { layoutMode: 'screencast' };
+    }
+    return measured;
   }
 
   /**
@@ -1641,8 +1683,12 @@ export class SmartReframeService {
         if (selectionTracks.size === 0) selectionTracks = tracks; // never drop the only subject
       }
       const { dominantTrackId, score } = this.selectDominantTrack(selectionTracks, cvResult.samples.length, { speechIntervals });
-      const { layoutMode, speaker1X, speaker2X } = this.determineOptimalLayoutMode(cvResult.samples, {
-        preferredMode: clip.crop_config?.layout_mode ?? genreReframe.preferredLayoutMode,
+      const { layoutMode, speaker1X, speaker2X } = this.resolveLayoutWithProvenance({
+        cropLayoutMode: clip.crop_config?.layout_mode,
+        cropLayoutSource: (clip.crop_config as any)?.layout_mode_source,
+        genrePreferredLayoutMode: genreReframe.preferredLayoutMode,
+        samples: cvResult.samples,
+        facecamSuggestionPresent: !!facecamSuggestion,
       });
 
       logger.info(
