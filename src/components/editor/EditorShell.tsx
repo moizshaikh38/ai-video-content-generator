@@ -688,7 +688,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       onSelectAiTool={setActiveAiTool}
       onNavigateTab={setActiveSidebarTab}
       onUpdateProject={onUpdateProject}
-      onUpdateItem={(itemId, updates) => {
+      onUpdateItem={(itemId, updates, options) => {
         // Selection via the preview overlay sets only the item id; resolve the
         // owning track from the item when no track is selected, otherwise
         // inspector edits (hook duration, visibility, ...) silently no-op.
@@ -697,7 +697,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
           project.tracks.find((t) => t.items.some((i) => i.id === itemId))?.id ||
           null;
         if (trackId) {
-          onUpdateTrackItem(trackId, itemId, updates);
+          onUpdateTrackItem(trackId, itemId, updates, options);
         }
       }}
       onAddKeyframe={(itemId, prop, val, easing) => {

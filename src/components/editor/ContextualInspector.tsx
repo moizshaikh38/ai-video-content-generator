@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { UpdateProjectOptions } from '../../hooks/useEditorProject';
 import {
   Sliders,
   Sparkles,
@@ -24,6 +25,7 @@ import {
 import {
   EditorProject,
   EditorTrackItem,
+  EditorColorAdjustments,
   ClipAspectRatio,
   SAFE_EDITOR_FONTS,
   EDITOR_FILTER_PRESETS,
@@ -67,7 +69,7 @@ interface ContextualInspectorProps {
   onSelectAiTool: (tool: AiToolType) => void;
   onNavigateTab: (tab: SidebarTab) => void;
   onUpdateProject: (updater: (prev: EditorProject) => EditorProject) => void;
-  onUpdateItem: (itemId: string, updates: Partial<EditorTrackItem>) => void;
+  onUpdateItem: (itemId: string, updates: Partial<EditorTrackItem>, options?: UpdateProjectOptions) => void;
   onAddKeyframe: (itemId: string, property: any, value: number, easing: any, time?: number) => void;
   onDeleteKeyframe: (itemId: string, keyframeId: string) => void;
   onApplyCaptionPreset: (preset: CaptionPresetId) => void;
@@ -80,6 +82,13 @@ interface ContextualInspectorProps {
 }
 
 type CaptionStudioTab = 'styles' | 'typography' | 'effects';
+
+/** All-zero colour model: every field the renderers understand, explicitly neutral. */
+const DEFAULT_ITEM_COLOR: EditorColorAdjustments = {
+  exposure: 0, brightness: 0, contrast: 0, highlights: 0, shadows: 0,
+  saturation: 0, temperature: 0, tint: 0, fade: 0, sharpen: 0,
+};
+const COLOR_SLIDER_KEYS = ['brightness', 'contrast', 'saturation', 'exposure'] as const;
 
 /** One level of navigation. "All Controls" is gone: it only re-rendered the other two. */
 const CAPTION_STUDIO_TABS: { id: CaptionStudioTab; label: string; icon: LucideIcon }[] = [
@@ -120,6 +129,10 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
     }
   };
   const [keepColors, setKeepColors] = useState(false);
+  // Colour slider drag start, so the committed history entry spans the whole
+  // drag: revert the transient value, then record the final one. Without the
+  // revert the recorded update is a no-op and undo has nothing to restore.
+  const colorDragStartRef = useRef<EditorColorAdjustments | null>(null);
   const [hookDurationDraft, setHookDurationDraft] = useState<string | null>(null);
   const [hookGenerating, setHookGenerating] = useState(false);
   const [hookError, setHookError] = useState<string | null>(null);
@@ -993,6 +1006,68 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Manual colour adjustments: the same item.color model drives the
+            preview CSS filters and the export eq filter, so slider commits
+            render identically in both. Drags stream transient updates; the
+            history entry lands once, on release. */}
+        {selectedItem.type === 'VIDEO' && (
+          <div className="space-y-2.5 pt-3 border-t border-white/[0.08]">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-semibold text-vc-text-secondary uppercase tracking-wider">
+                Colour
+              </label>
+              <button
+                type="button"
+                onClick={() => onUpdateItem(selectedItem.id, { color: { ...DEFAULT_ITEM_COLOR } })}
+                className="text-[10px] text-vc-text-secondary hover:text-white transition"
+              >
+                Reset
+              </button>
+            </div>
+            {COLOR_SLIDER_KEYS.map((key) => {
+              const value = selectedItem.color?.[key] ?? 0;
+              const captureStart = () => {
+                colorDragStartRef.current = { ...DEFAULT_ITEM_COLOR, ...(selectedItem.color || {}) };
+              };
+              const commit = (v: number, record: boolean) => {
+                const next = { ...DEFAULT_ITEM_COLOR, ...(selectedItem.color || {}), [key]: v };
+                if (!record) {
+                  onUpdateItem(selectedItem.id, { color: next }, { recordHistory: false, markAsDirty: false });
+                  return;
+                }
+                const start = colorDragStartRef.current;
+                if (!start) return; // already committed this drag
+                colorDragStartRef.current = null;
+                if (JSON.stringify(start) === JSON.stringify(next)) return; // nothing changed
+                onUpdateItem(selectedItem.id, { color: start }, { recordHistory: false, markAsDirty: false });
+                onUpdateItem(selectedItem.id, { color: next });
+              };
+              return (
+                <div key={key} className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="capitalize text-vc-text-secondary">{key}</span>
+                    <span className="font-mono text-vc-text-secondary">{value.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={-1}
+                    max={1}
+                    step={0.01}
+                    value={value}
+                    onPointerDown={captureStart}
+                    onFocus={captureStart}
+                    onChange={(e) => commit(parseFloat(e.target.value), false)}
+                    onPointerUp={(e) => commit(parseFloat((e.target as HTMLInputElement).value), true)}
+                    onKeyUp={(e) => commit(parseFloat((e.target as HTMLInputElement).value), true)}
+                    onBlur={(e) => commit(parseFloat(e.target.value), true)}
+                    className="w-full h-1 accent-vc-ai"
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
 

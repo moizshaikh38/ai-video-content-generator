@@ -877,7 +877,9 @@ export class ProEditorService {
 
     if (item.color) {
       const c = item.color;
-      const b = (c.brightness || 0).toFixed(2);
+      // Preview composes brightness and exposure as two CSS brightness()
+      // filters, which multiply; fold them the same way here (eq range -1..1).
+      const b = Math.min(1, Math.max(-1, (1 + (c.brightness || 0)) * (1 + (c.exposure || 0) * 0.8) - 1)).toFixed(2);
       const cont = (1.0 + (c.contrast || 0)).toFixed(2);
       const sat = (1.0 + (c.saturation || 0)).toFixed(2);
       videoFilters.push(`eq=brightness=${b}:contrast=${cont}:saturation=${sat}`);
@@ -899,6 +901,9 @@ export class ProEditorService {
           break;
         case 'film':
           videoFilters.push('curves=preset=vintage');
+          break;
+        case 'soft':
+          videoFilters.push('eq=contrast=0.90:brightness=0.05');
           break;
       }
     }

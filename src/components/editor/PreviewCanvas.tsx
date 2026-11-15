@@ -112,6 +112,34 @@ function interpolateKeyframes(
   return defaultValue;
 }
 
+
+/** CSS approximation of the item's colour adjustments + grade preset, mirroring
+ * the export renderer's ffmpeg eq/colorbalance/curves mapping so preview and
+ * export agree. Applied to the base video stream. */
+function cssColorFilters(item?: EditorTrackItem | null): string | undefined {
+  if (!item) return undefined;
+  const f: string[] = [];
+  const c = item.color;
+  if (c) {
+    if (c.brightness) f.push(`brightness(${1 + c.brightness})`);
+    if (c.exposure) f.push(`brightness(${1 + c.exposure * 0.8})`);
+    if (c.contrast) f.push(`contrast(${1 + c.contrast})`);
+    if (c.saturation) f.push(`saturate(${1 + c.saturation})`);
+  }
+  const p = item.filter?.preset;
+  if (p && p !== 'none') {
+    switch (p) {
+      case 'warm': f.push('sepia(0.25) saturate(1.2)'); break;
+      case 'cool': f.push('hue-rotate(180deg) saturate(0.9)'); break;
+      case 'film': f.push('contrast(1.15) saturate(0.85) brightness(0.95)'); break;
+      case 'mono': f.push('grayscale(1) contrast(1.2)'); break;
+      case 'punch': f.push('contrast(1.3) saturate(1.4)'); break;
+      case 'soft': f.push('contrast(0.9) brightness(1.05)'); break;
+    }
+  }
+  return f.length ? f.join(' ') : undefined;
+}
+
 export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   project,
   playhead,
@@ -907,6 +935,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               }}
               className="w-full h-full cursor-pointer select-none"
             style={{
+              filter: cssColorFilters(activeVideoItems[0]),
               // Fit = letterbox (matches export's buildFitFilter pad); Fill = cover-crop
               objectFit: primaryVideoCropMode === 'fit' ? 'contain' : 'cover',
               objectPosition: `${((activeVideoItems[0]?.crop?.focusX ?? 0.5) * 100).toFixed(2)}% ${((activeVideoItems[0]?.crop?.focusY ?? 0.5) * 100).toFixed(2)}%`,
