@@ -676,6 +676,14 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
   // Transcript lives in a persistent right-hand dock, independent of the selected tool, so it
   // never disappears when the user switches to Captions / Audio / B-roll / AI tools.
+  const primaryVideoForExtend = project.tracks
+    .find((t) => t.type === 'VIDEO')
+    ?.items.find((i) => !i.hidden);
+  // Reclaimable tail: footage between the current item end and the original
+  // candidate boundary (mirrors trimEndOffset in buildClipEditorUpdatePayload).
+  const extendSlackSec = primaryVideoForExtend
+    ? Math.max(0, Number((clip.end_seconds - primaryVideoForExtend.source_end).toFixed(3)))
+    : 0;
   const transcriptPanel = (
     <TranscriptEditor
       cues={cues}
@@ -687,6 +695,24 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       onSelectCue={selectCue}
       onDeleteTimeRange={onDeleteTimeRange}
       onDeleteTimeRanges={onDeleteTimeRanges}
+      extendSlackSec={extendSlackSec}
+      onExtendClip={() => {
+        // Extend the clip tail back toward the original candidate boundary:
+        // same field updates as timeline trim-right, committed in one step.
+        if (!primaryVideoForExtend || extendSlackSec <= 0.05) return;
+        const trackId = primaryVideoForExtend.track_id;
+        const itemId = primaryVideoForExtend.id;
+        const newSourceEnd = Math.min(
+          clip.end_seconds,
+          Number((primaryVideoForExtend.source_end + extendSlackSec).toFixed(3))
+        );
+        const delta = Number((newSourceEnd - primaryVideoForExtend.source_end).toFixed(3));
+        if (delta <= 0) return;
+        onUpdateTrackItem(trackId, itemId, {
+          source_end: newSourceEnd,
+          timeline_end: Number((primaryVideoForExtend.timeline_end + delta).toFixed(3)),
+        });
+      }}
       onReplaceWordGlobally={onReplaceWordGlobally}
       onUpdateWordTiming={onUpdateWordTiming}
       onPlayRange={(start) => {

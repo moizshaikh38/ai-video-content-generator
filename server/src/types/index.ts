@@ -710,7 +710,7 @@ export interface CaptionConfig {
   textAlign?: CaptionTextAlign;
 
   // Cue chunk sizing
-  maxWordsPerCue?: number; // 2, 3, 4, 5, 6 (default 4)
+  maxWordsPerCue?: number; // 1-15 (default 4); 1 = single-word mode
   maxLines?: number; // 1 or 2 (default 2)
   maxCharsPerLine?: number; // line-break budget (default 28)
 

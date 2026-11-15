@@ -53,9 +53,9 @@ const videoItem: any = {
   type: 'VIDEO',
   name: 'source',
   timeline_start: 0,
-  timeline_end: 4,
+  timeline_end: 2.5,
   source_start: 0,
-  source_end: 4,
+  source_end: 2.5,
   transform: { position_x: 0, position_y: 0, scale: 1, rotation: 0, opacity: 1 },
   speed: { speed: 1, pitch_preserved: true },
   keyframes: [],
@@ -160,6 +160,15 @@ function Harness() {
         return;
       }
       typo.click();
+      if (q.get('extend') === '1') {
+        setTimeout(() => {
+          const ext = Array.from(document.querySelectorAll('button')).find((b) => (b.textContent || '').includes('Extend a clip'));
+          if (ext) (ext as HTMLElement).click();
+          document.title = 'extended';
+          dumpPayload();
+        }, 500);
+        return;
+      }
       if (q.get('mode') === 'single') {
         setTimeout(() => {
           const btn = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Single word');

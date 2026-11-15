@@ -1795,7 +1795,7 @@ export class ClipRenderService {
       }
 
       if (incoming.maxWordsPerCue !== undefined) {
-        sanitized.maxWordsPerCue = Math.min(6, Math.max(2, Math.round(Number(incoming.maxWordsPerCue))));
+        sanitized.maxWordsPerCue = Math.min(15, Math.max(1, Math.round(Number(incoming.maxWordsPerCue))));
       }
       if (incoming.maxLines !== undefined) {
         sanitized.maxLines = Math.min(2, Math.max(1, Math.round(Number(incoming.maxLines))));

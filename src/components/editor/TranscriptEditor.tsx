@@ -49,6 +49,16 @@ export interface TranscriptEditorProps {
   onToggleCollapse?: () => void;
   onUpdateCuePreset?: (cueId: string, presetId?: CaptionPresetId) => void;
   onUpdateWordCustomStyle?: (cueId: string, wordIndex: number, style: WordCustomStyle) => void;
+  /**
+   * Real clip-tail extension: seconds of trimmed tail that can still be
+   * reclaimed within the original candidate range, and the handler that
+   * performs it. When provided, the button extends the video item's
+   * source/timeline end (same semantics as timeline trim-right); when the
+   * clip is already at its full selected range it is disabled honestly
+   * instead of pretending to extend.
+   */
+  extendSlackSec?: number;
+  onExtendClip?: () => void;
 }
 
 interface ActiveWordSelection {
@@ -82,6 +92,8 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
   onToggleCollapse,
   onUpdateCuePreset,
   onUpdateWordCustomStyle,
+  extendSlackSec,
+  onExtendClip,
 }) => {
   // Search & Drawer State
   const [searchQuery, setSearchQuery] = useState('');
@@ -833,14 +845,28 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
           </div>
         ) : (
           <>
-            {/* Opus.pro Style Extend a Clip Button */}
+            {/* Extend a Clip: reclaims trimmed tail within the original
+                candidate range (same semantics as timeline trim-right).
+                Disabled when the clip is already at its full selected range. */}
             <div className="pb-1 select-none">
               <button
                 type="button"
+                disabled={onExtendClip ? !(extendSlackSec && extendSlackSec > 0.05) : false}
+                title={
+                  onExtendClip
+                    ? extendSlackSec && extendSlackSec > 0.05
+                      ? `Extend the clip end by ${extendSlackSec.toFixed(1)}s of trimmed footage`
+                      : 'Clip already uses its full selected range'
+                    : undefined
+                }
                 onClick={() => {
-                  if (cues.length > 0) onSeek(cues[cues.length - 1].end);
+                  if (onExtendClip) {
+                    if (extendSlackSec && extendSlackSec > 0.05) onExtendClip();
+                  } else if (cues.length > 0) {
+                    onSeek(cues[cues.length - 1].end);
+                  }
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-neutral-300 hover:text-white text-xs font-medium transition shadow-sm"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-neutral-300 hover:text-white text-xs font-medium transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white/[0.05] disabled:hover:text-neutral-300"
               >
                 <span className="text-sm leading-none">+</span>
                 <span>Extend a clip</span>
