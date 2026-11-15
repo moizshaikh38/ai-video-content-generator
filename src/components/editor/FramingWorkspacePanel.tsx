@@ -18,7 +18,7 @@ interface FramingWorkspacePanelProps {
   project: EditorProject;
   showSafeGuides: boolean;
   onToggleSafeGuides: () => void;
-  onUpdateCropMode: (mode: 'center' | 'fit' | 'smart') => void;
+  onUpdateCropMode: (mode: 'center' | 'fit' | 'blur' | 'smart') => void;
   onUpdateLayoutMode?: (layout: 'track' | 'split' | 'screencast' | 'blur') => void;
   onUpdateScreencast?: (patch: ScreencastConfigEdit) => void;
   onUpdateProject: (updater: (prev: EditorProject) => EditorProject) => void;
@@ -37,6 +37,12 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
   const videoTrack = project.tracks.find((t) => t.type === 'VIDEO');
   const videoItem = videoTrack?.items[0];
   const activeCropMode = (videoItem as any)?.crop_mode || 'smart';
+  // Fill/fit/blur state comes from the same channel the export compiler and the
+  // preview toolbar toggle use (item.crop), with legacy crop_mode as fallback so
+  // the panel and the toolbar always agree, including after save/reopen/undo.
+  const activeFillMode: 'fill' | 'fit' | 'blur' = videoItem?.crop?.mode
+    ? (videoItem.crop.mode === 'fit' ? 'fit' : videoItem.crop.mode === 'blur' ? 'blur' : 'fill')
+    : ((videoItem as any)?.crop_mode === 'fit' ? 'fit' : 'fill');
   const activeLayoutMode = (videoItem as any)?.layout_mode || 'track';
   const screencastCfg = ((videoItem as any)?.crop_config?.screencast || {}) as ScreencastConfigEdit;
   const facecamSuggestion = ((videoItem as any)?.reframe_metadata?.facecam_box || null) as { x: number; y: number; w: number; h: number } | null;
@@ -285,28 +291,31 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
         </div>
       )}
 
-      {/* Fit vs Fill Mode */}
+      {/* Fill / Fit / Blur Mode - same control as the preview toolbar Layout toggle */}
       <div className="pt-3 border-t border-white/[0.08]">
         <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block mb-2">
-          Fit & Fill Mode
+          Fill Mode
         </label>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => onUpdateCropMode('center')}
-            className="p-2.5 rounded-xl bg-vc-canvas border border-white/[0.06] hover:border-white/20 text-white text-left transition"
-          >
-            <div className="font-semibold text-xs">Fill Stage</div>
-            <div className="text-[10px] text-neutral-500 mt-0.5">Edge-to-edge without black bars</div>
-          </button>
-          <button
-            type="button"
-            onClick={() => onUpdateCropMode('fit')}
-            className="p-2.5 rounded-xl bg-vc-canvas border border-white/[0.06] hover:border-white/20 text-white text-left transition"
-          >
-            <div className="font-semibold text-xs">Fit to Stage</div>
-            <div className="text-[10px] text-neutral-500 mt-0.5">Show 100% of video with borders</div>
-          </button>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            ['center', 'Fill Stage', 'Edge-to-edge without bars', 'fill'],
+            ['fit', 'Fit to Stage', 'Whole frame, plain borders', 'fit'],
+            ['blur', 'Blur Fill', 'Whole frame, blurred background', 'blur'],
+          ] as const).map(([mode, label, hint, key]) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => onUpdateCropMode(mode)}
+              className={`p-2.5 rounded-xl border text-left transition ${
+                activeFillMode === key
+                  ? 'bg-violet-500/15 border-violet-500/40 text-white ring-1 ring-violet-500/30'
+                  : 'bg-vc-canvas border-white/[0.06] hover:border-white/20 text-white'
+              }`}
+            >
+              <div className="font-semibold text-xs">{label}</div>
+              <div className="text-[10px] text-neutral-500 mt-0.5">{hint}</div>
+            </button>
+          ))}
         </div>
       </div>
 

@@ -1254,13 +1254,29 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               showSafeGuides={showSafeGuides}
               onToggleSafeGuides={toggleSafeGuides}
               onUpdateCropMode={(mode) => {
+                // Same routing as the preview toolbar Layout toggle: fill/fit/blur
+                // write item.crop (the channel the export compiler honors); 'smart'
+                // stays legacy-only. crop_mode is mirrored for back-compat.
                 onUpdateProject((prev) => ({
                   ...prev,
                   tracks: prev.tracks.map((t) => {
                     if (t.type === 'VIDEO') {
                       return {
                         ...t,
-                        items: t.items.map((i) => ({ ...i, crop_mode: mode })),
+                        items: t.items.map((i) => ({
+                          ...i,
+                          crop_mode: mode === 'blur' ? 'fit' : mode,
+                          ...(mode === 'smart'
+                            ? {}
+                            : {
+                                crop: {
+                                  mode: (mode === 'center' ? 'fill' : mode) as 'fit' | 'fill' | 'blur',
+                                  focusX: i.crop?.focusX ?? 0.5,
+                                  focusY: i.crop?.focusY ?? 0.5,
+                                  scale: i.crop?.scale ?? 1,
+                                },
+                              }),
+                        })),
                       };
                     }
                     return t;
