@@ -166,6 +166,58 @@ const seedProject: any = (() => {
         return t;
       }),
     };
+    // ?headline=auto|edited: inject the TEXT track item exactly as proEditorService
+    // buildInitialProject mirrors the legacy auto-headline (2-line capped title, y=150
+    // legacy => -270 preview px, size tier/3 = 19 at preview scale). 'edited' simulates
+    // the user having changed the text to a single line.
+    const headlineMode = harnessQuery.get('headline');
+    if (headlineMode) {
+      const edited = headlineMode === 'edited';
+      p = {
+        ...p,
+        tracks: [
+          ...p.tracks,
+          {
+            id: 'track-text',
+            type: 'TEXT',
+            name: 'Text & Titles',
+            hidden: false,
+            locked: false,
+            items: [
+              {
+                id: 'txt-headline',
+                track_id: 'track-text',
+                type: 'TEXT',
+                timeline_start: 0,
+                timeline_end: 5,
+                source_start: 0,
+                source_end: 5,
+                transform: { position_x: 0, position_y: -270, scale: 1.0, rotation: 0, opacity: 1.0 },
+                speed: { speed: 1.0, pitch_preserved: true },
+                text: {
+                  text: edited ? 'A Better Title' : 'The Crewed Lunar\nVehicle: A New Frontier',
+                  font_family: 'Arial',
+                  font_size: 19,
+                  font_weight: 'regular',
+                  italic: false,
+                  alignment: 'center',
+                  color: '#FFFFFF',
+                  preset: 'bold',
+                  animation: 'none',
+                  auto_headline: true,
+                },
+                effects: [],
+                keyframes: [],
+                locked: false,
+                muted: true,
+                hidden: false,
+                z_index: 10,
+              },
+            ],
+          },
+        ],
+      };
+    }
   }
   return p;
 })();

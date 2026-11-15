@@ -47,7 +47,7 @@ test('resolved preset marginV anchors the bottom edge at positionY (export parit
   assert.equal(line.split(",")[7], "1");
 });
 
-test('auto-headline mapping: untouched omits overlayConfig, deleted sets enabled:false, edited sends text', async () => {
+test('auto-headline mapping: untouched/edited omit overlayConfig (pro path burns the item), deleted sets enabled:false', async () => {
   const { buildClipEditorUpdatePayload } = await import('../../../src/lib/editorSavePayload.js');
   const mkProject = (textItems: any[]) => ({
     canvas: { aspect_ratio: '9:16' },
@@ -66,11 +66,14 @@ test('auto-headline mapping: untouched omits overlayConfig, deleted sets enabled
   // Deleted (no text items at all) -> enabled:false persisted so export suppresses the headline
   const deleted = buildClipEditorUpdatePayload(mkProject([]) as any, clip);
   assert.deepEqual(deleted.overlayConfig, { enabled: false, text: '' });
-  // Edited headline text -> enabled:true with the new text
+  // Edited headline text -> no overlayConfig: the text item exists, so the pro render
+  // path (triggered whenever a TEXT track has items) burns the edited item directly,
+  // preview-faithful and unboxed. Persisting enabled:true+text would only matter on the
+  // legacy path and would render boxed, diverging from preview.
   const edited = buildClipEditorUpdatePayload(mkProject([
     { id: 't1', hidden: false, text: { text: 'A Better Title', auto_headline: true } },
   ]) as any, clip);
-  assert.deepEqual(edited.overlayConfig, { enabled: true, text: 'A Better Title' });
+  assert.equal(edited.overlayConfig, undefined);
   // User-added text item with the auto item removed keeps the suppression (no resurrection)
   const replaced = buildClipEditorUpdatePayload(mkProject([
     { id: 't2', hidden: false, text: { text: 'Custom overlay' } },

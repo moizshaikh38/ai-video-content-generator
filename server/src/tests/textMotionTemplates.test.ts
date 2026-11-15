@@ -206,6 +206,46 @@ describe('Phase 6: Text & Motion Templates', () => {
       assert.ok(filter.includes("enable='between(t,1.00,4.00)'"), 'Must have correct enable interval');
     });
 
+    it('compiles multi-line text as stacked per-line drawtexts, block-centered', () => {
+      const item: EditorTrackItem = {
+        id: 'txt-multi',
+        track_id: 'track-text',
+        type: 'TEXT',
+        timeline_start: 0.0,
+        timeline_end: 5.0,
+        source_start: 0,
+        source_end: 5.0,
+        transform: { position_x: 0, position_y: -270, scale: 1.0, rotation: 0, opacity: 1.0 },
+        speed: { speed: 1.0, pitch_preserved: true },
+        text: {
+          text: 'The Crewed Lunar\nVehicle: A New Frontier',
+          font_family: 'Arial',
+          font_size: 19,
+          font_weight: 'regular',
+          italic: false,
+          alignment: 'center',
+          color: '#FFFFFF',
+          animation: 'none',
+          auto_headline: true,
+        } as any,
+        effects: [],
+        keyframes: [],
+        locked: false,
+        muted: true,
+        hidden: false,
+        z_index: 10,
+      };
+
+      const filter = ProEditorService.compileTextLayerDrawtext(item, 1080, 1920, '9:16')!;
+      const parts = filter.split(',drawtext=');
+      assert.equal(parts.length, 2, 'one drawtext per line');
+      assert.ok(parts[0].includes("text='The Crewed Lunar'"), 'line 1 text');
+      assert.ok(parts[1].includes("text='Vehicle\\: A New Frontier'"), 'line 2 text (colon escaped)');
+      // scaled font 19 * 3 = 57, line gap = round(57 * 1.15) = 66; offsets ±33
+      assert.ok(parts[0].includes("y='(h-text_h)/2+-810-33.0'"), `line 1 y offset: ${parts[0]}`);
+      assert.ok(parts[1].includes("y='(h-text_h)/2+-810+33.0'"), `line 2 y offset: ${parts[1]}`);
+    });
+
     it('compiles fade animation with alpha timing expression', () => {
       const item: EditorTrackItem = {
         id: 'txt-fade',

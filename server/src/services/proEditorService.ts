@@ -1553,15 +1553,21 @@ export class ProEditorService {
   ): string | null {
     if (!item.text || !item.text.text) return null;
 
-    // Sanitize user text for FFmpeg drawtext (escape backslashes, percent signs, and colons)
-    const rawText = item.text.text.replace(/[\r\n]+/g, ' ').slice(0, 100).trim();
-    if (!rawText) return null;
+    // Multi-line text (e.g. the auto-headline's wrapped title) renders as one drawtext
+    // per line, vertically stacked and block-centered on the item position - mirroring
+    // both the legacy headline layout and the preview's centered multi-line block.
+    const capped = item.text.text.slice(0, 100).trim();
+    if (!capped) return null;
+    const rawLines = capped.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean).slice(0, 4);
+    if (rawLines.length === 0) return null;
 
-    const safeText = rawText
-      .replace(/\\/g, '\\\\')
-      .replace(/'/g, '')
-      .replace(/:/g, '\\:')
-      .replace(/%/g, '\\%');
+    // Sanitize user text for FFmpeg drawtext (escape backslashes, percent signs, and colons)
+    const sanitizeLine = (t: string) =>
+      t.replace(/\\/g, '\\\\')
+        .replace(/'/g, '')
+        .replace(/:/g, '\\:')
+        .replace(/%/g, '\\%');
+    const safeLines = rawLines.map(sanitizeLine);
 
     const font = this.validateFont(item.text.font_family);
 
@@ -1610,7 +1616,7 @@ export class ProEditorService {
     }
 
     const filterParts: string[] = [
-      `text='${safeText}'`,
+      `text='${safeLines[0]}'`,
       `font='${font}'`,
       `fontsize='${sizeExpr}'`,
       `fontcolor=0x${fontColor}`,
@@ -1644,7 +1650,23 @@ export class ProEditorService {
 
     filterParts.push(`enable='between(t,${start.toFixed(2)},${end.toFixed(2)})'`);
 
-    return `drawtext=${filterParts.join(':')}`;
+    if (safeLines.length === 1) {
+      return `drawtext=${filterParts.join(':')}`;
+    }
+
+    // Stack lines block-centered on the item position.
+    const lineGap = Math.max(2, Math.round(scaledFontSize * 1.15));
+    return safeLines
+      .map((lineText, i) => {
+        const offset = (i - (safeLines.length - 1) / 2) * lineGap;
+        const parts = filterParts.map((p) => {
+          if (p.startsWith('text=')) return `text='${lineText}'`;
+          if (p.startsWith('y=')) return `y='${yExpr}${offset >= 0 ? '+' : ''}${offset.toFixed(1)}'`;
+          return p;
+        });
+        return `drawtext=${parts.join(':')}`;
+      })
+      .join(',');
   }
 
   /**

@@ -32,24 +32,18 @@ export function buildClipEditorUpdatePayload(
   };
 
   // Auto-headline parity mapping: proEditorService mirrors clip.title as a text item
-  // when overlay_config is unset. If the user deleted that item, persist enabled:false
-  // so the legacy render stops burning the title; if the text was edited, persist the
-  // new text. Untouched => omit overlayConfig so the auto-headline keeps firing.
+  // when overlay_config is unset, and any text item makes the render take the pro path
+  // (hasCustomProEdits), so present items - untouched or edited - burn directly and need
+  // no overlay_config change. Only when every text item was deleted would the legacy
+  // auto-headline resurface; persist enabled:false to keep it suppressed.
   let overlayConfigUpdate: Record<string, any> | undefined;
   const clipOverlay = (clip as any).overlay_config;
   const titleText = String((clip as any).title || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
   if (clipOverlay?.enabled === undefined && !clipOverlay?.text && titleText) {
-    const capped = titleText.length > 60 ? titleText.slice(0, 57).trimEnd() + '...' : titleText;
     const textTrack = project.tracks.find((t: any) => t.type === 'TEXT');
     const textItems = (textTrack?.items || []).filter((i: any) => !i.hidden && i.text?.text);
-    const joined = (t: string) => t.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
-    const headlineItem =
-      textItems.find((i: any) => i.text?.auto_headline === true) ||
-      textItems.find((i: any) => joined(String(i.text.text)) === capped);
-    if (!headlineItem && textItems.length === 0) {
+    if (textItems.length === 0) {
       overlayConfigUpdate = { enabled: false, text: '' };
-    } else if (headlineItem && joined(String((headlineItem.text as any)?.text ?? "")) !== capped) {
-      overlayConfigUpdate = { enabled: true, text: joined(String((headlineItem.text as any)?.text ?? '')) };
     }
   }
 
