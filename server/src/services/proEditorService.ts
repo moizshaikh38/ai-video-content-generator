@@ -927,9 +927,16 @@ export class ProEditorService {
 
     // Locate video items
     const videoTracks = project.tracks.filter((t) => t.type === 'VIDEO' && !t.hidden);
+    // Only the primary (first) video track forms the base timeline. Secondary VIDEO
+    // tracks are B-roll/overlay layers (brollPlanService.insertBrollSuggestions
+    // creates them as type 'VIDEO' named 'B-Roll Layer') and are composited by the
+    // overlay pass below. Splicing their items into the base concat pulled their
+    // window from input 0 (the primary source) instead of their own source_path
+    // and shifted/corrupted the base timeline (found during the two-pass loudnorm
+    // work, Nov 2026).
     const allVideoItems: EditorTrackItem[] = [];
-    for (const vt of videoTracks) {
-      allVideoItems.push(...vt.items.filter((i) => !i.hidden));
+    if (videoTracks[0]) {
+      allVideoItems.push(...videoTracks[0].items.filter((i) => !i.hidden));
     }
     allVideoItems.sort((a, b) => a.timeline_start - b.timeline_start);
 
