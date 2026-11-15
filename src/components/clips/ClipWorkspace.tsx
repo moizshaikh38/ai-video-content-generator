@@ -34,6 +34,7 @@ import {
 
 import { Button } from '../Button';
 import { ClipCandidate, ClipCandidateStatus, Transcript, RenderedClip, MomentSearchResult } from '../../types';
+import { resolveCaptionPreset, regroupCuesForPreset, isRenderablePresetId } from '../../lib/captionPresets';
 import { clipService } from '../../services/clipService';
 import { clipRenderService } from '../../services/clipRenderService';
 import { triggerBrowserDownload } from '../../utils/downloadUtils';
@@ -63,6 +64,10 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
   const getCandidateSubtitle = (candId: string) => candidateSubtitles[candId] || { enabled: true, preset: 'hormozi' as string, wordMode: 'phrase' as const };
   const setCandidateSubtitle = (candId: string, updates: Partial<{ enabled: boolean; preset: string; wordMode: 'phrase' | 'single' }>) => {
     setCandidateSubtitles((prev) => ({ ...prev, [candId]: { ...(prev[candId] || { enabled: true, preset: 'hormozi' }), ...updates } }));
+    // Keep the live-preview ribbon in sync with the per-candidate export preset.
+    if (updates.preset && ['hormozi', 'neon', 'beast', 'karaoke', 'clean'].includes(updates.preset)) {
+      setCaptionPreset(updates.preset as 'hormozi' | 'neon' | 'beast' | 'karaoke' | 'clean');
+    }
   };
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -846,37 +851,51 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                           onEnded={() => setIsPlaying(false)}
                         />
 
-                        {/* Live Kinetic Caption Preview Overlay */}
-                        {activeCandidate && (
-                          <div className="absolute top-[62%] inset-x-3 z-20 pointer-events-none text-center flex justify-center">
-                            {captionPreset === 'hormozi' && (
-                              <span className="font-black text-amber-300 uppercase tracking-wider text-xs sm:text-sm px-3 py-1 bg-black/75 rounded-lg drop-shadow-[0_2px_0_rgba(0,0,0,1)] shadow-xl animate-in fade-in zoom-in-95 duration-200">
-                                {activeCandidate.hook || activeCandidate.title}
+                        {/* Live Caption Preview Overlay: same preset engine + cue grouping as export */}
+                        {activeCandidate && (() => {
+                          const sub = getCandidateSubtitle(activeCandidate.id);
+                          if (!sub.enabled || !isRenderablePresetId(sub.preset) || !transcript?.segments) {
+                            return null;
+                          }
+                          const style = resolveCaptionPreset(
+                            sub.preset,
+                            sub.wordMode === 'single' ? { maxWordsPerCue: 1, maxLines: 1 as const } : {},
+                            '9:16'
+                          );
+                          const sourceCues = transcript.segments
+                            .filter((s) => s.end > activeCandidate.start_seconds && s.start < activeCandidate.end_seconds)
+                            .map((s, i) => ({ id: `seg-${i}`, start: s.start, end: s.end, text: s.text || '', words: (s as any).words }));
+                          const { cues } = regroupCuesForPreset(sourceCues as any, style);
+                          const cue = cues.find((c) => currentTime >= c.start && currentTime <= c.end) || cues[0];
+                          if (!cue) return null;
+                          const renderWord = (w: string) => (style.uppercase ? w.toUpperCase() : w);
+                          const words = (cue as any).words as Array<{ word?: string; text?: string; start: number; end: number }> | undefined;
+                          return (
+                            <div className="absolute top-[62%] inset-x-3 z-20 pointer-events-none text-center flex justify-center">
+                              <span
+                                className="text-xs sm:text-sm px-3 py-1 rounded-lg shadow-xl animate-in fade-in duration-150"
+                                style={{
+                                  color: style.textColor,
+                                  backgroundColor: style.box ? `rgba(0,0,0,${style.box.opacity})` : 'rgba(0,0,0,0.55)',
+                                  fontWeight: style.bold ? 800 : 600,
+                                  letterSpacing: style.letterSpacing ? `${style.letterSpacing}px` : undefined,
+                                  maxWidth: '92%',
+                                }}
+                              >
+                                {words && words.length > 0
+                                  ? words.map((w, i) => (
+                                      <span
+                                        key={i}
+                                        style={currentTime >= w.start && currentTime <= w.end ? { color: style.activeColor } : undefined}
+                                      >
+                                        {renderWord(w.word || w.text || '')}{i < words.length - 1 ? ' ' : ''}
+                                      </span>
+                                    ))
+                                  : renderWord(cue.text)}
                               </span>
-                            )}
-                            {captionPreset === 'neon' && (
-                              <span className="font-extrabold text-emerald-300 text-xs sm:text-sm px-3 py-1 bg-black/75 rounded-lg shadow-xl animate-in fade-in zoom-in-95 duration-200">
-                                {activeCandidate.hook || activeCandidate.title}
-                              </span>
-                            )}
-                            {captionPreset === 'beast' && (
-                              <span className="font-black text-white uppercase text-xs sm:text-sm px-3 py-1 bg-red-600 rounded drop-shadow-md shadow-xl animate-in fade-in zoom-in-95 duration-200">
-                                {activeCandidate.hook || activeCandidate.title}
-                              </span>
-                            )}
-                            {captionPreset === 'karaoke' && (
-                              <span className="font-bold text-white text-xs sm:text-sm px-3 py-1 bg-black/75 rounded-lg shadow-xl animate-in fade-in zoom-in-95 duration-200">
-                                <span className="text-zinc-300 font-extrabold mr-1">WATCH:</span>
-                                {activeCandidate.hook || activeCandidate.title}
-                              </span>
-                            )}
-                            {captionPreset === 'clean' && (
-                              <span className="font-semibold text-white text-xs sm:text-sm px-3 py-1 bg-black/60 rounded-lg backdrop-blur-sm drop-shadow shadow-xl animate-in fade-in zoom-in-95 duration-200">
-                                {activeCandidate.hook || activeCandidate.title}
-                              </span>
-                            )}
-                          </div>
-                        )}
+                            </div>
+                          );
+                        })()}
 
                         {/* TikTok / Reels UI Safe Zone Overlay */}
                         {aspectRatio === '9:16' && showSafeZones && (
@@ -958,7 +977,10 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                         <button
                           key={p.id}
                           type="button"
-                          onClick={() => setCaptionPreset(p.id as any)}
+                          onClick={() => {
+                            setCaptionPreset(p.id as any);
+                            if (activeCandidate) setCandidateSubtitle(activeCandidate.id, { preset: p.id });
+                          }}
                           className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                             captionPreset === p.id
                               ? 'bg-violet-600 text-white shadow-sm'
