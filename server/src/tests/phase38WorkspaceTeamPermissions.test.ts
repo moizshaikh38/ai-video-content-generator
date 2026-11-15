@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 
 import { getMongoDb, closeMongo } from '../db/mongoClient.js';
+import { bootstrapMongo } from '../db/bootstrapMongo.js';
 import { WorkspaceService } from '../services/workspace/workspaceService.js';
 import { requireWorkspaceRole } from '../middleware/workspaceMiddleware.js';
 import { WorkspaceRole, AppError } from '../types/index.js';
@@ -27,6 +28,10 @@ describe('Phase 38 — Workspace & Team Permissions Test Suite', () => {
       try {
         const db = await getMongoDb();
         await db.command({ ping: 1 });
+        // The suite asserts on unique-index rejections (11000); production gets
+        // these indexes from bootstrapMongo at server startup, so the test DB
+        // must be bootstrapped the same way for the assertions to be meaningful.
+        await bootstrapMongo(db);
         break;
       } catch (err: any) {
         if (attempt === 3) throw err;
