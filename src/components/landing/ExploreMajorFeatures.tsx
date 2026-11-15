@@ -22,6 +22,11 @@ import cardReframe from "../../assets/landing/card-reframe.webp";
 import editorUi from "../../assets/landing/editor-ui.webp";
 import cardBrandBrain from "../../assets/landing/card-brand-brain.webp";
 import cardTeamWorkspaces from "../../assets/landing/card-team-workspaces.webp";
+import streamPodcastCaptions from "../../assets/landing/stream-podcast-captions.webp";
+import streamRawRig from "../../assets/landing/stream-raw-rig.webp";
+import stepHooks from "../../assets/landing/step-hooks.webp";
+import streamTitleCaption from "../../assets/landing/stream-title-caption.webp";
+import stepPublish from "../../assets/landing/step-publish.webp";
 
 interface CapabilityDetails {
   id: string;
@@ -37,7 +42,7 @@ interface CapabilityDetails {
 
 const CAPABILITY_CARDS: (CardItem & { details: CapabilityDetails })[] = [
   {
-    imgUrl: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=800&q=80",
+    imgUrl: streamPodcastCaptions,
     alt: "AI Virality Scoring & Hook Discovery",
     badge: "HOOK SCORING",
     title: "AI Virality Scoring",
@@ -125,7 +130,7 @@ const CAPABILITY_CARDS: (CardItem & { details: CapabilityDetails })[] = [
     },
   },
   {
-    imgUrl: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=800&q=80",
+    imgUrl: streamRawRig,
     alt: "Contextual AI B-Roll Insertion",
     badge: "AUTO CUTAWAYS",
     title: "AI B-Roll Overlays",
@@ -147,7 +152,7 @@ const CAPABILITY_CARDS: (CardItem & { details: CapabilityDetails })[] = [
     },
   },
   {
-    imgUrl: "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=800&q=80",
+    imgUrl: stepHooks,
     alt: "Adaptive Audio Ducking & Speech Polish",
     badge: "CLEAN AUDIO",
     title: "Audio Ducking & Polish",
@@ -191,7 +196,7 @@ const CAPABILITY_CARDS: (CardItem & { details: CapabilityDetails })[] = [
     },
   },
   {
-    imgUrl: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80",
+    imgUrl: streamTitleCaption,
     alt: "Empirical A/B Testing Studio",
     badge: "Z-SCORE CONFIDENCE",
     title: "A/B Testing Studio",
@@ -213,7 +218,7 @@ const CAPABILITY_CARDS: (CardItem & { details: CapabilityDetails })[] = [
     },
   },
   {
-    imgUrl: "https://images.unsplash.com/photo-1593697821252-0c9137d9fc45?auto=format&fit=crop&w=800&q=80",
+    imgUrl: stepPublish,
     alt: "Omnichannel Social Publishing Queue",
     badge: "1-CLICK QUEUE",
     title: "Social Scheduler",

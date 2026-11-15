@@ -1,47 +1,59 @@
 import { Link } from "react-router-dom";
 import { Sparkles, Flame, Zap, Film, ArrowRight, Play, Layers } from "lucide-react";
 import { TiltedGridHero, type TiltedGridImage } from "@/components/ui/tilted-grid-hero";
+import streamPodcastCaptions from "../../assets/landing/stream-podcast-captions.webp";
+import streamRoverCaption from "../../assets/landing/stream-rover-caption.webp";
+import streamRawPresenter from "../../assets/landing/stream-raw-presenter.webp";
+import streamInterviewCaption from "../../assets/landing/stream-interview-caption.webp";
+import streamRawRig from "../../assets/landing/stream-raw-rig.webp";
+import streamLabCaption from "../../assets/landing/stream-lab-caption.webp";
+import streamRoverScene from "../../assets/landing/stream-rover-scene.webp";
+import streamTitleCaption from "../../assets/landing/stream-title-caption.webp";
+import editorUi from "../../assets/landing/editor-ui.webp";
+import stepHooks from "../../assets/landing/step-hooks.webp";
 
+// Genuine product imagery: frames from actual Vireo renders (captioned 9:16
+// outputs), raw source footage, the editor UI, and a real audio waveform.
 const showcaseImages: TiltedGridImage[] = [
   {
-    src: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=800&q=80",
-    alt: "Studio podcast microphone and soundboard recording session",
+    src: streamPodcastCaptions,
+    alt: "Vireo render of a podcast clip with word-by-word captions",
   },
   {
-    src: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80",
-    alt: "Professional video editor cutting multi-track cinematic timeline",
+    src: streamRoverCaption,
+    alt: "Vireo 9:16 render of a lunar rover scene with burned-in captions",
   },
   {
-    src: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80",
-    alt: "High-energy esports and creator live gaming broadcast setup",
+    src: streamRawPresenter,
+    alt: "Raw 16:9 source footage frame of a presenter",
   },
   {
-    src: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80",
-    alt: "Executive interview and dynamic podcast conversation",
+    src: streamInterviewCaption,
+    alt: "Vireo render of an interview moment with captions",
   },
   {
-    src: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=800&q=80",
-    alt: "Cinematic 4K camera rig capturing documentary storytelling",
+    src: streamRawRig,
+    alt: "Raw source footage frame of a rover wheel test rig",
   },
   {
-    src: "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=800&q=80",
-    alt: "Audio mastering suite and digital waveform visualization",
+    src: streamLabCaption,
+    alt: "Vireo render of a workshop scene with burned-in captions",
   },
   {
-    src: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=800&q=80",
-    alt: "Creative strategy and viral short-form storyboard session",
+    src: streamRoverScene,
+    alt: "Vireo render of a lunar rover scene",
   },
   {
-    src: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80",
-    alt: "Live stage performance under neon lighting and audience applause",
+    src: streamTitleCaption,
+    alt: "Vireo render of a title moment with captions",
   },
   {
-    src: "https://images.unsplash.com/photo-1593697821252-0c9137d9fc45?auto=format&fit=crop&w=800&q=80",
-    alt: "Close-up studio condenser microphone with acoustic shockmount",
+    src: editorUi,
+    alt: "VireoClip multi-track editor interface",
   },
   {
-    src: "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=800&q=80",
-    alt: "Vibrant neon motion graphics and dynamic digital visual art",
+    src: stepHooks,
+    alt: "Real audio waveform analyzed by VireoClip",
   },
 ];
 
@@ -107,7 +119,7 @@ export function TiltedStreamShowcase() {
                   </div>
                   <div>
                     <div className="text-xs font-semibold text-white">Viral Hook Engine</div>
-                    <div className="text-[11px] text-slate-400">98.4% retention spike detection</div>
+                    <div className="text-[11px] text-slate-400">Hook moments ranked from your footage</div>
                   </div>
                 </div>
 

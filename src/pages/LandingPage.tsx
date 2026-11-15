@@ -263,11 +263,11 @@ function BeforeAfter() {
                   </li>
                   <li className="flex items-center gap-2.5">
                     <XCircle size={16} className="text-red-400 shrink-0" />
-                    <span>Muted viewers swipe away within 2 seconds without animated subtitles</span>
+                    <span>No captions for viewers watching on mute</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <XCircle size={16} className="text-red-400 shrink-0" />
-                    <span>Uncut pauses and rambling introductions destroy retention velocity</span>
+                    <span>Uncut pauses and long introductions still in place</span>
                   </li>
                 </ul>
               </div>

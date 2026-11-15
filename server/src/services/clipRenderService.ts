@@ -66,7 +66,13 @@ function probeDrawtextSupport(bin: string): boolean {
 }
 
 function resolveFfmpegBinary(): string {
-  if (process.env.FFMPEG_BIN) return process.env.FFMPEG_BIN;
+  const override = process.env.FFMPEG_BIN;
+  if (override) {
+    if (!probeDrawtextSupport(override)) {
+      logger.warn(`[ClipRender] FFMPEG_BIN (${override}) lacks drawtext support; watermark, headline and text-overlay renders will fail with this binary. Point FFMPEG_BIN at a full ffmpeg build (libfreetype enabled).`);
+    }
+    return override;
+  }
   const bundled = (ffmpegStatic as unknown as string) || 'ffmpeg';
   if (probeDrawtextSupport(bundled)) return bundled;
   for (const candidate of ['ffmpeg', '/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/opt/homebrew/bin/ffmpeg']) {
