@@ -67,7 +67,7 @@ const CLIPV = [7, 9, 2, 1, 8, 0];
 const ICONS: ('YT' | 'IG' | 'in' | 'TT' | 'f' | 'X')[] = ['YT', 'IG', 'in', 'TT', 'f', 'X'];
 
 const LAYOUTS = [
-  'Podcast layout',
+  'Auto-track layout',
   'Split layout',
   'ScreenShare layout',
   'Fill layout',
@@ -1635,7 +1635,6 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                             <span className="x2">Studio clean</span>
                           </div>
 
-                          <div className="lbl l2">−24 dB background noise</div>
 
                           <i className="sweep" />
 
