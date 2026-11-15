@@ -6,6 +6,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import ffmpegStatic from 'ffmpeg-static';
 import { logger } from '../utils/logger.js';
+import { LoudnormTwoPassService } from './loudnormTwoPassService.js';
 import {
   AppError,
   AudioCleanPreset,
@@ -224,7 +225,33 @@ export class AudioEnhancementService {
     const previewId = crypto.randomUUID();
     const outputPath = path.join(tmpDir, `preview-${previewId}.m4a`);
 
-    const filters = this.compileFilterGraph(config);
+    let filters = this.compileFilterGraph(config);
+    // Preview/final consistency: pick the loudnorm mode the way the final render
+    // does - measure the exact snippet window (audio-only, cheap), use measured
+    // linear loudnorm when feasible, keep legacy one-pass dynamic when not (the
+    // final render's pre-rendered fallback is the same dynamic algorithm).
+    const loudIdx = filters.findIndex((f) => f.startsWith('loudnorm='));
+    if (loudIdx !== -1) {
+      try {
+        const targetI = AudioEnhancementService.resolveTargetLufs(config);
+        const pre = filters.slice(0, loudIdx);
+        const measured = await LoudnormTwoPassService.measure(
+          ['-ss', startTimeSec.toFixed(2), '-t', durationSec.toFixed(2), '-i', sourcePath],
+          {
+            filterComplex: [`[0:a]${[...pre, LoudnormTwoPassService.buildMeasureFilter(targetI, -1.5, 11)].join(',')}[m_a]`],
+            audioMap: '[m_a]',
+            targetI,
+          },
+          30000
+        );
+        const check = LoudnormTwoPassService.assessLinearFeasibility(measured, targetI, -1.5, 11);
+        if (check.ok) {
+          filters = [...pre, LoudnormTwoPassService.buildLinearFilter(targetI, -1.5, 11, measured), ...filters.slice(loudIdx + 1)];
+        }
+      } catch (measureErr: any) {
+        logger.warn(`[AudioEnhancementService] Preview loudness measurement failed, keeping one-pass loudnorm: ${measureErr?.message || measureErr}`);
+      }
+    }
     const filterArg = filters.length > 0 ? filters.join(',') : 'anull';
 
     const args = [
