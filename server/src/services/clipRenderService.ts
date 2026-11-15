@@ -1960,7 +1960,20 @@ export class ClipRenderService {
     let safeCrop = clip.crop_config || { mode: 'center', focusX: 0.5, focusY: 0.5 };
     if (update.cropConfig) {
       const mode: CropMode = (['smart', 'manual', 'fit', 'fit_blur'] as const).includes(update.cropConfig.mode as any) ? (update.cropConfig.mode as CropMode) : 'center';
+      // Preserve stored layout geometry (layout_mode/split/screencast, e.g.
+      // measured split anchors from analysis) unless this update overrides it:
+      // the editor's save always sends cropConfig, so rebuilding from scratch
+      // here would wipe the stored layout on every unrelated editor save.
+      const validLayouts = ['track', 'split', 'screencast', 'blur'] as const;
+      const incomingLayout = (update.cropConfig as any).layout_mode;
+      const clampSpeakerX = (v: unknown): number | undefined => {
+        const n = Number(v);
+        return Number.isFinite(n) ? Math.min(0.9, Math.max(0.1, n)) : undefined;
+      };
+      const incomingSplit = (update.cropConfig as any).split;
+      const incomingScreencast = (update.cropConfig as any).screencast;
       safeCrop = {
+        ...safeCrop,
         mode,
         focusX: Math.min(1.0, Math.max(0.0, Number(update.cropConfig.focusX ?? 0.5))),
         focusY: Math.min(1.0, Math.max(0.0, Number(update.cropConfig.focusY ?? 0.5))),
@@ -1968,6 +1981,30 @@ export class ClipRenderService {
           trackId: update.cropConfig.smart.trackId ? String(update.cropConfig.smart.trackId) : undefined,
           strength: Math.min(1.0, Math.max(0.0, Number(update.cropConfig.smart.strength ?? 1.0))),
         } : undefined,
+        // An explicit layout in the update is a user panel pick; stamp provenance.
+        ...(incomingLayout && (validLayouts as readonly string[]).includes(incomingLayout)
+          ? { layout_mode: incomingLayout, layout_mode_source: 'user' as const }
+          : {}),
+        ...(incomingSplit
+          ? {
+              split: {
+                speaker1X: clampSpeakerX(incomingSplit.speaker1X),
+                speaker2X: clampSpeakerX(incomingSplit.speaker2X),
+                ...(incomingSplit.dividerColor ? { dividerColor: String(incomingSplit.dividerColor).slice(0, 9) } : {}),
+              },
+            }
+          : {}),
+        ...(incomingScreencast
+          ? {
+              screencast: {
+                ...safeCrop.screencast,
+                ...incomingScreencast,
+                mode: ['split_stacked', 'circular_inset', 'rounded_card_inset'].includes(incomingScreencast.mode)
+                  ? incomingScreencast.mode
+                  : safeCrop.screencast?.mode,
+              },
+            }
+          : {}),
       };
     }
 

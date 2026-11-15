@@ -354,6 +354,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   }
 
   const backdropVideoRef = useRef<HTMLVideoElement | null>(null);
+  const splitBottomRef = useRef<HTMLVideoElement | null>(null);
   const [videoDims, setVideoDims] = useState<{ w: number; h: number } | null>(null);
 
   const primaryVideoCropMode = useMemo(() => {
@@ -365,6 +366,37 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     if (item?.crop?.mode) return item.crop.mode === 'fit' ? 'fit' : item.crop.mode === 'blur' ? 'blur' : 'fill';
     return (item as any)?.crop_mode === 'fit' ? 'fit' : 'fill';
   }, [project.tracks]);
+
+  // Framing layout pick (Framing panel): 'split' renders a two-speaker
+  // top/bottom stack mirroring the export's buildSplitPodcastFilter.
+  const primaryLayoutMode = useMemo(() => {
+    const item = project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
+    return ((item as any)?.layout_mode as string | undefined) || 'track';
+  }, [project.tracks]);
+
+  const splitAnchors = useMemo(() => {
+    const item = project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
+    const splitCfg = (item as any)?.crop_config?.split;
+    return {
+      speaker1X: Number(splitCfg?.speaker1X) || 0.25,
+      speaker2X: Number(splitCfg?.speaker2X) || 0.75,
+    };
+  }, [project.tracks]);
+
+  // CSS object-position x matching the export's speaker-centered crop window:
+  // export crops x = in_w*spkX - out_w/2 (clamped); CSS p% places the window at
+  // (in_w-out_w)*p, so p = (spkX*in_w - out_w/2)/(in_w-out_w) under cover fit.
+  const splitObjectPositionX = (spkX: number): string => {
+    if (!videoDims || videoDims.w <= 0 || videoDims.h <= 0) return `${(spkX * 100).toFixed(2)}%`;
+    const dims = getAspectRatioDimensions();
+    const boxW = parseFloat(dims.width) || 360;
+    const boxH = (parseFloat(dims.height) || 640) / 2;
+    const coverScale = Math.max(boxW / videoDims.w, boxH / videoDims.h);
+    const inW = videoDims.w * coverScale;
+    if (inW <= boxW) return '50%';
+    const p = Math.min(1, Math.max(0, (spkX * inW - boxW / 2) / (inW - boxW)));
+    return `${(p * 100).toFixed(2)}%`;
+  };
 
   // Blur band anchor (mirrors CaptionService.computeBlurFitBandAnchor): on a blur
   // layout the default caption position lands on the blurred fill in export, so
@@ -440,6 +472,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     const backdrop = backdropVideoRef.current;
     if (backdrop && videoRef.current && Math.abs(backdrop.currentTime - videoRef.current.currentTime) > 0.3) {
       backdrop.currentTime = videoRef.current.currentTime;
+    }
+    const splitBottom = splitBottomRef.current;
+    if (splitBottom && videoRef.current && Math.abs(splitBottom.currentTime - videoRef.current.currentTime) > 0.3) {
+      splitBottom.currentTime = videoRef.current.currentTime;
     }
     if (activeVideoItems[0]) {
       const item = activeVideoItems[0];
@@ -1062,12 +1098,19 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 }
                 onTogglePlay();
               }}
-              className="w-full h-full cursor-pointer select-none"
+              className={
+                primaryLayoutMode === 'split'
+                  ? 'w-full h-1/2 absolute top-0 left-0 cursor-pointer select-none'
+                  : 'w-full h-full cursor-pointer select-none'
+              }
             style={{
               filter: cssColorFilters(activeVideoItems[0]),
               // Fit/Blur = letterbox (matches export's buildFitFilter pad / blur fill); Fill = cover-crop
               objectFit: primaryVideoCropMode === 'fit' || primaryVideoCropMode === 'blur' ? 'contain' : 'cover',
-              objectPosition: `${((activeVideoItems[0]?.crop?.focusX ?? 0.5) * 100).toFixed(2)}% ${((activeVideoItems[0]?.crop?.focusY ?? 0.5) * 100).toFixed(2)}%`,
+              objectPosition:
+                primaryLayoutMode === 'split'
+                  ? `${splitObjectPositionX(splitAnchors.speaker1X)} 50%`
+                  : `${((activeVideoItems[0]?.crop?.focusX ?? 0.5) * 100).toFixed(2)}% ${((activeVideoItems[0]?.crop?.focusY ?? 0.5) * 100).toFixed(2)}%`,
               transform: activeVideoItems[0]
                 ? `translate(${interpolateKeyframes(
                     activeVideoItems[0].keyframes,
@@ -1110,6 +1153,34 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             <span>No Video Source Loaded</span>
           </div>
         )}
+
+        {/* SPLIT LAYOUT: bottom speaker half (mirrors export's buildSplitPodcastFilter
+            vstack: top = speaker1, bottom = speaker2). Synced to the main video
+            via splitBottomRef in targetVideoTime; same look chain + transform. */}
+        {primaryLayoutMode === 'split' && activeVideoSrc ? (
+          <video
+            ref={splitBottomRef}
+            src={activeVideoSrc}
+            playsInline
+            muted
+            aria-hidden
+            className="w-full h-1/2 absolute bottom-0 left-0 pointer-events-none select-none"
+            style={{
+              filter: cssColorFilters(activeVideoItems[0]),
+              objectFit: 'cover',
+              objectPosition: `${splitObjectPositionX(splitAnchors.speaker2X)} 50%`,
+              transform: activeVideoItems[0]
+                ? `scale(${(interpolateKeyframes(
+                    activeVideoItems[0].keyframes,
+                    'scale',
+                    playhead - activeVideoItems[0].timeline_start,
+                    activeVideoItems[0].transform?.scale || 1
+                  ) as number) * (activeVideoItems[0].crop?.scale ?? 1)})`
+                : undefined,
+              transformOrigin: '50% 50%',
+            }}
+          />
+        ) : null}
 
         {/* INTRO / OUTRO TITLE CARD (full-frame colored card with centered text) */}
         {activeTitleCard && (

@@ -24,11 +24,20 @@ export function buildClipEditorUpdatePayload(
   // payload must carry it, or the export ignores the studio's framing choice.
   const itemCropMode = (primaryVideo as any)?.crop_mode;
   const itemCropConfig = (primaryVideo as any)?.crop_config;
+  // Layout parity: the Framing panel writes layout_mode on the video item
+  // (Split/Screencast/Blur/Solo buttons), but the render path reads
+  // clip.crop_config.layout_mode - carry it (and its split/screencast
+  // geometry) or the export silently ignores the studio's layout pick.
+  // An explicit panel pick is a user choice, so stamp provenance 'user'.
+  const itemLayoutMode = (primaryVideo as any)?.layout_mode;
   const cropConfig = {
     mode: itemCropMode || (clip as any).crop_config?.mode || 'center',
     focusX: itemCropConfig?.focusX ?? (clip as any).crop_config?.focusX ?? 0.5,
     focusY: itemCropConfig?.focusY ?? (clip as any).crop_config?.focusY ?? 0.5,
     ...(itemCropConfig?.smart ? { smart: itemCropConfig.smart } : {}),
+    ...(itemLayoutMode ? { layout_mode: itemLayoutMode, layout_mode_source: 'user' } : {}),
+    ...(itemCropConfig?.split ? { split: itemCropConfig.split } : {}),
+    ...(itemCropConfig?.screencast ? { screencast: itemCropConfig.screencast } : {}),
   };
 
   // Auto-headline parity mapping: proEditorService mirrors clip.title as a text item

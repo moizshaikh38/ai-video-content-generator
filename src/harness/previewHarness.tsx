@@ -36,7 +36,13 @@ const baseItem: EditorTrackItem = {
 
 const params = new URLSearchParams(window.location.search);
 const AR = (params.get('ar') || '9:16') as '9:16' | '1:1' | '16:9';
-const VIDEO_URL = params.get('video') === 'portrait' ? '/harness/clip-portrait.mp4' : '/harness/clip.mp4';
+const vp = params.get('video');
+const VIDEO_URL = vp === 'portrait' ? '/harness/clip-portrait.mp4' : vp === 'twoshot' ? '/harness/clip-twoshot.mp4' : '/harness/clip.mp4';
+// TEST-ONLY: ?framing=split exercises the split-layout preview (top/bottom speaker stack).
+if (params.get('framing') === 'split') {
+  (baseItem as any).layout_mode = 'split';
+  (baseItem as any).crop_config = { split: { speaker1X: Number(params.get('spk1')) || 0.25, speaker2X: Number(params.get('spk2')) || 0.75 } };
+}
 const CANVAS_DIMS: Record<string, { width: number; height: number }> = {
   '9:16': { width: 360, height: 640 },
   '1:1': { width: 480, height: 480 },

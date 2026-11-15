@@ -206,6 +206,44 @@ describe('Studio editor save -> reload round-trip (HTTP + Mongo)', () => {
     assert.equal(bad.json.clip.crop_config?.mode, 'center');
   });
 
+  it('5b. Layout parity: studio layout pick round-trips, and unrelated saves preserve it', async () => {
+    // The Framing panel writes layout_mode on the video item; the save payload
+    // maps it into cropConfig. The render path reads clip.crop_config.
+    const patch = await patchEditor({
+      cropConfig: {
+        mode: 'smart', focusX: 0.5, focusY: 0.5,
+        layout_mode: 'split', layout_mode_source: 'user',
+        split: { speaker1X: 0.31, speaker2X: 0.59 },
+      },
+    });
+    assert.equal(patch.status, 200, `PATCH failed: ${JSON.stringify(patch.json)}`);
+    assert.equal(patch.json.clip.crop_config?.layout_mode, 'split');
+    assert.equal(patch.json.clip.crop_config?.layout_mode_source, 'user');
+    assert.equal(patch.json.clip.crop_config?.split?.speaker1X, 0.31);
+    assert.equal(patch.json.clip.crop_config?.split?.speaker2X, 0.59);
+
+    const reload = await getEditor();
+    assert.equal(reload.json.clip.crop_config?.layout_mode, 'split', 'layout_mode must survive save->reload');
+    assert.equal(reload.json.clip.crop_config?.split?.speaker2X, 0.59, 'split anchors must survive save->reload');
+
+    // An unrelated editor save (cropConfig without layout keys) must NOT wipe
+    // the stored layout - the editor always sends cropConfig, so a rebuild
+    // would silently drop the pick on every save.
+    const unrelated = await patchEditor({ cropConfig: { mode: 'fit', focusX: 0.4, focusY: 0.6 } });
+    assert.equal(unrelated.json.clip.crop_config?.mode, 'fit');
+    assert.equal(unrelated.json.clip.crop_config?.layout_mode, 'split', 'unrelated save must preserve stored layout_mode');
+    assert.equal(unrelated.json.clip.crop_config?.split?.speaker1X, 0.31, 'unrelated save must preserve stored split anchors');
+
+    // Unknown layouts are ignored (stored value kept), speaker Xs clamp to [0.1, 0.9]
+    const bad = await patchEditor({ cropConfig: { layout_mode: 'bogus', split: { speaker1X: 1.7, speaker2X: -2 } } });
+    assert.equal(bad.json.clip.crop_config?.layout_mode, 'split');
+    assert.equal(bad.json.clip.crop_config?.split?.speaker1X, 0.9);
+    assert.equal(bad.json.clip.crop_config?.split?.speaker2X, 0.1);
+
+    // Back to a clean state for other tests
+    await patchEditor({ cropConfig: { mode: 'smart', focusX: 0.5, focusY: 0.5, layout_mode: 'track' } });
+  });
+
   it('6. Render honors fit: buildFitFilter produces letterbox pad, not fill-crop', async () => {
     const { buildFitFilter } = await import('../services/clipRenderService.js');
     const f = buildFitFilter('9:16');
