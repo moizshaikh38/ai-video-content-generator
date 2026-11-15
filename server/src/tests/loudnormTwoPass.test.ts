@@ -452,9 +452,10 @@ describe('LoudnormTwoPassService - same-window preview/final parity (codified)',
     const preview = await AudioEnhancementService.generatePreviewSnippet(HOT_QUIET, preset, 0, dur);
 
     // Preview and final now share the exact same bounded one-pass pre-render
-    // (renderNormalizedDialogue with identical window args and chain), so the
-    // remaining delta is container/codec noise: measured 0.20 LU (was 1.2-1.3
-    // when the preview kept its own differently-bounded one-pass loudnorm).
+    // (renderNormalizedDialogue with identical window args and chain). Measured
+    // delta on this fixture: 0.20 LU (was 1.2-1.3 when the preview kept its own
+    // differently-bounded one-pass loudnorm). The residual's cause is not
+    // isolated; AAC container differences are a candidate, not proven.
     // 0.5 LU tolerance catches a regression to path divergence without being
     // loose enough to mask one. True-peak ceiling: normalization holds
     // <= -2.0dBTP pre-encode (fallback loudnorm TP=-2.0; linear feasibility
