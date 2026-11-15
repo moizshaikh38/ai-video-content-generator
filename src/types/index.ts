@@ -999,6 +999,8 @@ export interface EditorTrackItem {
     mode: 'fit' | 'fill' | 'custom';
     focusX?: number;
     focusY?: number;
+    /** Zoom factor for the crop window (1 = fill frame, >1 zoomed in). */
+    scale?: number;
     left?: number;
     right?: number;
     top?: number;

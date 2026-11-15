@@ -157,10 +157,21 @@ export function composeQuickVideoGraph(videoFilters: string[]): { graph: string;
 
 export function buildCropFilter(
   aspectRatio: ClipAspectRatio = '9:16',
-  cropConfig?: { focusX?: number; focusY?: number }
+  cropConfig?: { focusX?: number; focusY?: number; scale?: number }
 ): string {
   const fx = Math.min(1.0, Math.max(0.0, Number(cropConfig?.focusX ?? 0.5)));
   const fy = Math.min(1.0, Math.max(0.0, Number(cropConfig?.focusY ?? 0.5)));
+  // Zoom factor: 1 = cover window fills the frame, >1 crops a smaller window
+  // around the focus and scales it back up (single-pass to avoid double blur).
+  const zoom = Math.min(4.0, Math.max(1.0, Number(cropConfig?.scale ?? 1)));
+
+  if (zoom > 1) {
+    const ar = aspectRatio === '16:9' ? { w: 16, h: 9, ow: 1920, oh: 1080 } : aspectRatio === '1:1' ? { w: 1, h: 1, ow: 1080, oh: 1080 } : { w: 9, h: 16, ow: 1080, oh: 1920 };
+    return (
+      `crop=w='min(iw,ih*${ar.w}/${ar.h})/${zoom}':h='min(ih,iw*${ar.h}/${ar.w})/${zoom}'` +
+      `:x='(in_w-out_w)*${fx}':y='(in_h-out_h)*${fy}',scale=${ar.ow}:${ar.oh}`
+    );
+  }
 
   // If focus is default center (0.5, 0.5), return the canonical center-crop filter
   if (fx === 0.5 && fy === 0.5) {

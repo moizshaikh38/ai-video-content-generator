@@ -786,7 +786,8 @@ export class ProEditorService {
       const clampFocus = (v: number | undefined): number =>
         Math.min(1, Math.max(0, typeof v === 'number' && Number.isFinite(v) ? v : 0.5));
       if (item.crop.mode === 'fit') return buildFitFilter(ratio);
-      return buildCropFilter(ratio, { focusX: clampFocus(item.crop.focusX), focusY: clampFocus(item.crop.focusY) });
+      const zoom = Math.min(4, Math.max(1, Number(item.crop.scale ?? 1)));
+      return buildCropFilter(ratio, { focusX: clampFocus(item.crop.focusX), focusY: clampFocus(item.crop.focusY), scale: zoom });
     }
 
     const track = reframe?.track;

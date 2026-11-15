@@ -45,7 +45,7 @@ interface PreviewCanvasProps {
   // ahead of the auto face track.
   onUpdateItemCrop?: (
     itemId: string,
-    crop: { mode: 'custom'; focusX: number; focusY: number },
+    crop: { mode: 'custom'; focusX: number; focusY: number; scale?: number },
     options?: UpdateProjectOptions
   ) => void;
   onCommitProject?: (preOperationProject: EditorProject) => void;
@@ -216,6 +216,45 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   } | null>(null);
   const preCropProjectRef = useRef<EditorProject | null>(null);
   const suppressClickAfterCropDragRef = useRef<boolean>(false);
+  // Wheel zoom: transient crop.scale changes while scrolling, one history
+  // entry committed after the wheel goes idle.
+  const cropZoomCommitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Native wheel listener: React's root wheel listeners are passive, so they
+  // cannot preventDefault the page scroll that would otherwise steal the
+  // gesture mid-zoom.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !onUpdateItemCrop) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (viewMode !== 'edit') return;
+      e.preventDefault();
+      const proj = projectRef.current;
+      const item = proj?.tracks.find((t) => t.type === 'VIDEO')?.items[0];
+      if (!proj || !item) return;
+      if (!preCropProjectRef.current) {
+        preCropProjectRef.current = JSON.parse(JSON.stringify(proj));
+      }
+      const cur = item.crop?.scale ?? 1;
+      const next = Math.min(4, Math.max(1, Number((cur * (e.deltaY < 0 ? 1.1 : 1 / 1.1)).toFixed(3))));
+      onUpdateItemCrop(
+        item.id,
+        { mode: 'custom', focusX: item.crop?.focusX ?? 0.5, focusY: item.crop?.focusY ?? 0.5, scale: next },
+        { recordHistory: false, markAsDirty: false }
+      );
+      if (cropZoomCommitTimer.current) clearTimeout(cropZoomCommitTimer.current);
+      cropZoomCommitTimer.current = setTimeout(() => {
+        if (preCropProjectRef.current && onCommitProject) {
+          const changed = JSON.stringify(preCropProjectRef.current.tracks) !== JSON.stringify(projectRef.current.tracks);
+          if (changed) onCommitProject(preCropProjectRef.current);
+        }
+        preCropProjectRef.current = null;
+        cropZoomCommitTimer.current = null;
+      }, 600);
+    };
+    v.addEventListener('wheel', handleWheel, { passive: false });
+    return () => v.removeEventListener('wheel', handleWheel);
+  }, [viewMode, onUpdateItemCrop, onCommitProject, videoRef]);
 
   // Caption 2D dragging state
   const [isDraggingCaption, setIsDraggingCaption] = useState<boolean>(false);
@@ -908,6 +947,14 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                   videoRef.current.currentTime = targetVideoTime;
                 }
               }}
+              onDoubleClick={(e) => {
+                // Double-click resets the crop reframe (edit mode only).
+                if (viewMode !== 'edit' || !onUpdateItemCrop) return;
+                const item = activeVideoItems[0];
+                if (!item || !item.crop) return;
+                e.stopPropagation();
+                onUpdateItemCrop(item.id, { mode: 'custom', focusX: 0.5, focusY: 0.5, scale: 1 });
+              }}
               onMouseDown={(e) => {
                 // Drag the base video to pan its crop focus (edit mode only).
                 if (viewMode !== 'edit' || !onUpdateItemCrop) return;
@@ -952,18 +999,21 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     'position_y',
                     playhead - activeVideoItems[0].timeline_start,
                     activeVideoItems[0].transform?.position_y || 0
-                  )}px) scale(${interpolateKeyframes(
+                  )}px) scale(${(interpolateKeyframes(
                     activeVideoItems[0].keyframes,
                     'scale',
                     playhead - activeVideoItems[0].timeline_start,
                     activeVideoItems[0].transform?.scale || 1
-                  )}) rotate(${interpolateKeyframes(
+                  ) as number) * (activeVideoItems[0].crop?.scale ?? 1)}) rotate(${interpolateKeyframes(
                     activeVideoItems[0].keyframes,
                     'rotation',
                     playhead - activeVideoItems[0].timeline_start,
                     activeVideoItems[0].transform?.rotation || 0
                   )}deg)`
                 : undefined,
+              // Crop zoom magnifies around the crop focus, matching the
+              // single-pass crop window the export filter computes.
+              transformOrigin: `${((activeVideoItems[0]?.crop?.focusX ?? 0.5) * 100).toFixed(2)}% ${((activeVideoItems[0]?.crop?.focusY ?? 0.5) * 100).toFixed(2)}%`,
               opacity: activeVideoItems[0]
                 ? interpolateKeyframes(
                     activeVideoItems[0].keyframes,
