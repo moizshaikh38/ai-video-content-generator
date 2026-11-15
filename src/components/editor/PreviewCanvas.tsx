@@ -242,15 +242,13 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     if (captionItem?.caption?.position_x !== undefined) {
       x = captionItem.caption.position_x;
     } else if (captionItem?.transform?.position_x !== undefined) {
-      x =
-        captionItem.transform.position_x >= 0 && captionItem.transform.position_x <= 1
-          ? captionItem.transform.position_x
-          : captionItem.transform.position_x / 1920 + 0.5;
+      // Track transforms are pixel offsets from the canvas center (0 = centered) on a 1080x1920 canvas.
+      x = 0.5 + captionItem.transform.position_x / 1080;
     }
     if (captionItem?.caption?.position_y !== undefined) {
       y = captionItem.caption.position_y;
-    } else if (captionItem?.transform?.position_y !== undefined && captionItem.transform.position_y > 0) {
-      y = captionItem.transform.position_y > 1 ? captionItem.transform.position_y / 1080 : captionItem.transform.position_y;
+    } else if (captionItem?.transform?.position_y !== undefined) {
+      y = 0.5 + captionItem.transform.position_y / 1920;
     }
     return {
       x: Math.max(0.05, Math.min(0.95, x)),
@@ -1338,7 +1336,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                   style={{
                     top: `${effY * 100}%`,
                     left: `${effX * 100}%`,
-                    transform: 'translate(-50%, -50%)',
+                    // Bottom-edge anchored at effY, matching the exported ASS \an2 + marginV / \pos semantics.
+                    transform: 'translate(-50%, -100%)',
                   }}
                   data-selectable-item="true"
                   className={`absolute text-center pointer-events-auto select-none max-w-[88%] transition-opacity ${

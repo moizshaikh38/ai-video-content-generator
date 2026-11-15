@@ -58,16 +58,14 @@ export function editorCaptionToPresetOverrides(
   if (caption.position) o.position = caption.position;
   if (caption.position_y !== undefined) {
     o.positionY = caption.position_y;
-  } else if (transform?.position_y !== undefined && transform.position_y > 0) {
-    o.positionY = transform.position_y > 1 ? transform.position_y / 1080 : transform.position_y;
+  } else if (transform?.position_y !== undefined) {
+    // Track transforms are pixel offsets from the canvas center (0 = centered) on a 1080x1920 canvas.
+    o.positionY = 0.5 + transform.position_y / 1920;
   }
   if (caption.position_x !== undefined) {
     o.positionX = caption.position_x;
   } else if (transform?.position_x !== undefined) {
-    o.positionX =
-      transform.position_x >= 0 && transform.position_x <= 1
-        ? transform.position_x
-        : (transform.position_x / 1920) + 0.5;
+    o.positionX = 0.5 + transform.position_x / 1080;
   }
   return o;
 }

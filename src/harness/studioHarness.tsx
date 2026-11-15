@@ -34,7 +34,8 @@ const captionItem: any = {
   timeline_end: 3.6,
   source_start: 0,
   source_end: 3.6,
-  transform: { position_x: 0, position_y: 0.62, scale: 1, rotation: 0, opacity: 1 },
+  // Matches proEditorService's fresh caption item: pixel-offset transform (0 = canvas center).
+  transform: { position_x: 0, position_y: 500, scale: 1, rotation: 0, opacity: 1 },
   speed: { speed: 1, pitch_preserved: true },
   keyframes: [],
   caption: {
