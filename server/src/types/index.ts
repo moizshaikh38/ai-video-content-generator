@@ -1990,6 +1990,11 @@ export interface EditorCaptionItem {
   position: CaptionPosition;
   position_x?: number; // normalized 0.0 to 1.0 (default 0.5)
   position_y?: number; // normalized 0.0 to 1.0 (default ~0.75 for bottom)
+  /** Set when the USER explicitly chose/dragged the caption position (any value,
+   * including 'bottom'). Distinguishes an intentional bottom choice from the
+   * materialized default so export-time layout anchoring (e.g. blur band
+   * anchor) only overrides the default, never a deliberate placement. */
+  position_explicit?: boolean;
   highlight_color: string;
   primary_color: string;
   animation?: 'none' | 'pop' | 'bounce' | 'karaoke' | 'highlight' | 'typewriter';

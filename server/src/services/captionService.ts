@@ -1211,6 +1211,11 @@ export class CaptionService {
     cues: TimedCaptionCue[];
     style?: string;
     position?: string;
+    /** True when the user explicitly chose/dragged the caption position in the
+     * editor (flag set by the position write funnels). */
+    positionExplicit?: boolean;
+    /** Numeric drag offset (only present after a drag); also implies explicit. */
+    positionY?: number;
   } | null {
     if (!proj || !Array.isArray(proj.tracks)) return null;
 
@@ -1259,6 +1264,8 @@ export class CaptionService {
         cues: finalCues,
         style: item.caption.style,
         position: item.caption.position,
+        positionExplicit: item.caption.position_explicit === true,
+        positionY: typeof item.caption.position_y === 'number' ? item.caption.position_y : undefined,
       };
     }
 
@@ -1327,6 +1334,9 @@ export class CaptionService {
       cues: aggregatedCues,
       style: validItems[0]?.caption?.style,
       position: validItems[0]?.caption?.position,
+      positionExplicit: validItems.some((it: any) => it?.caption?.position_explicit === true),
+      positionY: (validItems.find((it: any) => typeof it?.caption?.position_y === 'number') as any)
+        ?.caption?.position_y,
     };
   }
 
@@ -1347,6 +1357,8 @@ export class CaptionService {
     let editorCues: TimedCaptionCue[] | null = null;
     let editorStyle: string | null = null;
     let editorPosition: string | null = null;
+    let editorPositionExplicit = false;
+    let editorPositionYNumeric: number | null = null;
     let editorCoveredEnd: number | null = null;
 
     try {
@@ -1363,6 +1375,8 @@ export class CaptionService {
           editorCues = extracted.cues;
           editorStyle = extracted.style || null;
           editorPosition = extracted.position || null;
+          editorPositionExplicit = extracted.positionExplicit === true;
+          editorPositionYNumeric = typeof extracted.positionY === 'number' ? extracted.positionY : null;
           editorCoveredEnd = editorProjectCoveredEnd(proj);
         }
       }
@@ -1387,9 +1401,20 @@ export class CaptionService {
     // source does not fill the canvas vertically. Only applied when nobody set
     // an explicit vertical position.
     // A persisted editor position of 'bottom' is the default, not an explicit
-    // choice - every editor project materializes it. Only a non-bottom position
-    // (or a numeric positionY, checked below) counts as an explicit override.
-    const hasExplicitEditorPosition = Boolean(editorPosition) && editorPosition !== 'bottom';
+    // choice - every editor project materializes it. Explicit means any of:
+    //  (a) the provenance flag (position_explicit) set by the editor's
+    //      position write funnels - covers a deliberate 'bottom' choice too;
+    //  (b) a non-bottom editor position (legacy, pre-flag);
+    //  (c) a numeric editor position_y from a drag (legacy, pre-flag);
+    //  (d) a numeric positionY in caption_config / presetOverrides (checked at
+    //      the merge below).
+    // Legacy projects with only the materialized 'bottom' default and no flag
+    // keep the anchor - that residual ambiguity is unavoidable without the
+    // provenance the old client never recorded.
+    const hasExplicitEditorPosition =
+      editorPositionExplicit ||
+      editorPositionYNumeric !== null ||
+      (Boolean(editorPosition) && editorPosition !== 'bottom');
     const bandY =
       options.bandAnchorPositionY !== undefined &&
       !hasExplicitEditorPosition &&
@@ -1408,6 +1433,25 @@ export class CaptionService {
     ) {
       mergedConfig.positionY = bandY;
       mergedConfig.presetOverrides = { ...(mergedConfig.presetOverrides || {}), positionY: bandY } as any;
+    }
+
+    // Mirror the editor preview's caption->override mapping
+    // (editorCaptionToPresetOverrides): the declared position always applies to
+    // preset resolution (top/center change anchor+alignment; 'bottom' matches
+    // every preset's default anchor), and a dragged numeric offset wins when
+    // no config-level positionY is set. Without this, preset styles silently
+    // dropped the editor's position choice in export (preview/export mismatch).
+    {
+      const po = { ...(mergedConfig.presetOverrides || {}) } as any;
+      if (editorPosition && po.position === undefined) po.position = editorPosition;
+      if (
+        editorPositionYNumeric !== null &&
+        mergedConfig.positionY === undefined &&
+        po.positionY === undefined
+      ) {
+        po.positionY = editorPositionYNumeric;
+      }
+      mergedConfig.presetOverrides = po;
     }
 
     let timingMode: CaptionTimingMode = 'segment';

@@ -1448,6 +1448,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                   });
 
                   const updatedCaption: EditorCaptionItem = {
+                    position_explicit: true,
                     cues: updatedCues,
                     style: item.caption?.style || 'clean',
                     position: item.caption?.position || 'bottom',
@@ -1465,6 +1466,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                   const posX = isObj && pos.x !== undefined ? pos.x : (item.caption?.position_x ?? 0.5);
                   const posY = isObj ? (pos.y ?? item.caption?.position_y ?? 0.667) : pos;
                   const updatedCaption: EditorCaptionItem = {
+                    position_explicit: true,
                     cues: item.caption?.cues || [],
                     style: item.caption?.style || 'clean',
                     position: item.caption?.position || 'bottom',

@@ -1126,6 +1126,14 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
           : resolveEditorCaptionStyle(captionItem?.caption, project.canvas.aspect_ratio);
 
         const handleUpdateCaptionProperties = (updates: Partial<EditorCaptionItem>) => {
+          // Any position-affecting change here is a deliberate user choice
+          // (position buttons, drags, resets in the customizer) - mark it so
+          // export never overrides it with layout anchoring.
+          const touchesPosition =
+            updates.position !== undefined ||
+            updates.position_x !== undefined ||
+            updates.position_y !== undefined;
+          if (touchesPosition) updates = { ...updates, position_explicit: true };
           onUpdateProject((prev) => ({
             ...prev,
             tracks: prev.tracks.map((t) => {
