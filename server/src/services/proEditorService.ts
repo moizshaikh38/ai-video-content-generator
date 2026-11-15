@@ -905,6 +905,13 @@ export class ProEditorService {
         case 'soft':
           videoFilters.push('eq=contrast=0.90:brightness=0.05');
           break;
+        case 'clean':
+          videoFilters.push('eq=contrast=1.05:saturation=1.08');
+          break;
+        case 'creator':
+          videoFilters.push('eq=contrast=1.15:saturation=1.30');
+          videoFilters.push('colorbalance=rs=0.04:gs=0.02:bs=-0.04');
+          break;
       }
     }
 

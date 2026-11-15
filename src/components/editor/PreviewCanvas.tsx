@@ -135,6 +135,8 @@ function cssColorFilters(item?: EditorTrackItem | null): string | undefined {
       case 'mono': f.push('grayscale(1) contrast(1.2)'); break;
       case 'punch': f.push('contrast(1.3) saturate(1.4)'); break;
       case 'soft': f.push('contrast(0.9) brightness(1.05)'); break;
+      case 'clean': f.push('contrast(1.05) saturate(1.08)'); break;
+      case 'creator': f.push('contrast(1.15) saturate(1.3) sepia(0.08)'); break;
     }
   }
   return f.length ? f.join(' ') : undefined;
