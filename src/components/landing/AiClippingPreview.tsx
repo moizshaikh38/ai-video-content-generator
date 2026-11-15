@@ -15,6 +15,9 @@ import creator1 from '../../assets/creators/creator-1.jpg';
 import creator2 from '../../assets/creators/creator-2.jpg';
 import creator3 from '../../assets/creators/creator-3.jpg';
 import creator4 from '../../assets/creators/creator-4.jpg';
+import streamPodcastCaptions from '../../assets/landing/stream-podcast-captions.webp';
+import streamRoverScene from '../../assets/landing/stream-rover-scene.webp';
+import streamRawRig from '../../assets/landing/stream-raw-rig.webp';
 import '../../styles/feature-carousel.css';
 import '../../styles/cinematic-motion.css';
 import { projectPath } from '../../lib/projectUrls';
@@ -1154,7 +1157,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                           >
                             <CarouselVideo
                               src={DEMO_VIDEOS[0]}
-                              poster={DEMO_POSTERS[0]}
+                              poster={streamPodcastCaptions}
                               pos="50% 30%"
                               origin="50% 30%"
                               zoom={1.12}
@@ -1495,7 +1498,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                             >
                               <CarouselVideo
                                 src={DEMO_VIDEOS[0]}
-                                poster={DEMO_POSTERS[0]}
+                                poster={streamRoverScene}
                                 pos="50% 30%"
                                 origin="50% 30%"
                                 zoom={1.1}
@@ -1507,7 +1510,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                             <div className={`sc s-a ${s3.shouldLoad ? 'hasvid' : ''}`} data-v="5">
                               <CarouselVideo
                                 src={DEMO_VIDEOS[5]}
-                                poster={DEMO_POSTERS[5]}
+                                poster={streamRawRig}
                                 shouldLoad={s3.shouldLoad}
                                 shouldPlay={s3.shouldPlay}
                               />
@@ -1613,7 +1616,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                           <div className={`avt ${s4.shouldLoad ? 'hasvid' : ''}`} data-v="2">
                             <CarouselVideo
                               src={DEMO_VIDEOS[2]}
-                              poster={DEMO_POSTERS[2]}
+                              poster={creator2}
                               shouldLoad={s4.shouldLoad}
                               shouldPlay={s4.shouldPlay}
                             />
@@ -1678,7 +1681,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                           >
                             <CarouselVideo
                               src={DEMO_VIDEOS[0]}
-                              poster={DEMO_POSTERS[0]}
+                              poster={creator3}
                               pos="50% 30%"
                               origin="50% 30%"
                               zoom={1.12}
