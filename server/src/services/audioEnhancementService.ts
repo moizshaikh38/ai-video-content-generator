@@ -111,7 +111,7 @@ export class AudioEnhancementService {
     // 8. Lookahead brickwall peak limiter to guarantee no clipping
     if (config.limiter_enabled) {
       const ceiling = Math.min(-0.2, Math.max(-3.0, config.limiter_ceiling_db || -1.0));
-      filters.push(`alimiter=limit=${ceiling}dB:attack=5:release=50`);
+      filters.push(`alimiter=limit=${ceiling}dB:attack=5:release=50:level=0`);
     }
 
     return filters;
@@ -235,18 +235,24 @@ export class AudioEnhancementService {
       try {
         const targetI = AudioEnhancementService.resolveTargetLufs(config);
         const pre = filters.slice(0, loudIdx);
+        const post = filters.slice(loudIdx + 1);
+        // Meter at the marker position, exactly where the linear gain is
+        // applied in the final render.
         const measured = await LoudnormTwoPassService.measure(
           ['-ss', startTimeSec.toFixed(2), '-t', durationSec.toFixed(2), '-i', sourcePath],
           {
             filterComplex: [`[0:a]${[...pre, LoudnormTwoPassService.buildMeasureFilter(targetI, -1.5, 11)].join(',')}[m_a]`],
             audioMap: '[m_a]',
             targetI,
+            dialogueInputLabel: '[0:a]',
+            preMarkerFilters: pre,
+            postMarkerFilters: post,
           },
           30000
         );
         const check = LoudnormTwoPassService.assessLinearFeasibility(measured, targetI, -1.5, 11);
         if (check.ok) {
-          filters = [...pre, LoudnormTwoPassService.buildLinearFilter(targetI, -1.5, 11, measured), ...filters.slice(loudIdx + 1)];
+          filters = [...pre, LoudnormTwoPassService.buildLinearGainFilter(targetI, measured), ...post];
         }
       } catch (measureErr: any) {
         logger.warn(`[AudioEnhancementService] Preview loudness measurement failed, keeping one-pass loudnorm: ${measureErr?.message || measureErr}`);

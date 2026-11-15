@@ -7,6 +7,7 @@ import path from 'node:path';
 import ffmpegStatic from 'ffmpeg-static';
 import ffprobeStatic from 'ffprobe-static';
 import { ProEditorService } from '../services/proEditorService.js';
+import { AudioEnhancementService } from '../services/audioEnhancementService.js';
 import {
   LoudnormNormalizationError,
   LoudnormTwoPassService,
@@ -153,35 +154,34 @@ async function integratedLoudness(file: string): Promise<number> {
 }
 
 describe('LoudnormTwoPassService - unit', () => {
-  const validStderr = `noise\n[Parsed_loudnorm_0 @ 0x0] \n{\n\t"input_i" : "-9.16",\n\t"input_tp" : "-3.48",\n\t"input_lra" : "2.60",\n\t"input_thresh" : "-20.36",\n\t"output_i" : "-15.89",\n\t"output_tp" : "-10.31",\n\t"output_lra" : "2.70",\n\t"output_thresh" : "-26.89",\n\t"normalization_type" : "dynamic",\n\t"target_offset" : "-0.11"\n}`;
+  // Verbatim shape of an ebur128=peak=true stderr tail (periodic lines + Summary).
+  const validStderr = `noise\n[Parsed_ebur128_0 @ 0x0] t: 1.0    TARGET:-23 LUFS    M: -9.5 S:-120.7     I:  -9.4 LUFS      LRA:   2.7 LU  FTPK:  -9.1 dBFS  TPK:  -3.5 dBFS\n[Parsed_ebur128_0 @ 0x0] Summary:\n\n  Integrated loudness:\n    I:          -9.2 LUFS\n    Threshold: -20.4 LUFS\n\n  Loudness range:\n    LRA:         2.6 LU\n    Threshold: -30.4 LUFS\n    LRA low:   -10.5 LUFS\n    LRA high:   -7.9 LUFS\n\n  True peak:\n    Peak:       -3.5 dBFS`;
 
   it('parses a valid measurement block', () => {
     const m = LoudnormTwoPassService.parseMeasurement(validStderr);
-    assert.equal(m.inputI, -9.16);
-    assert.equal(m.inputTP, -3.48);
+    assert.equal(m.inputI, -9.2);
+    assert.equal(m.inputTP, -3.5);
     assert.equal(m.inputLRA, 2.6);
-    assert.equal(m.inputThresh, -20.36);
-    assert.equal(m.targetOffset, -0.11);
   });
 
-  it('takes the last block when several are present', () => {
-    const second = validStderr.replace('"-9.16"', '"-20.5"');
+  it('takes the last summary when several are present', () => {
+    const second = validStderr.replace('I:          -9.2 LUFS', 'I:         -20.5 LUFS');
     const m = LoudnormTwoPassService.parseMeasurement(validStderr + '\n' + second);
     assert.equal(m.inputI, -20.5);
   });
 
   it('fails clearly when no measurement block exists', () => {
     assert.throws(
-      () => LoudnormTwoPassService.parseMeasurement('no json here'),
-      (e: any) => e instanceof LoudnormNormalizationError && /no loudnorm statistics/.test(e.message)
+      () => LoudnormTwoPassService.parseMeasurement('no summary here'),
+      (e: any) => e instanceof LoudnormNormalizationError && /no loudness statistics/.test(e.message)
     );
   });
 
-  it('fails clearly on silence (-inf values)', () => {
+  it('fails clearly on silence (gated I and -inf peak)', () => {
+    // Real ebur128 summary on digital silence: I pinned at -70.0 LUFS, Peak=-inf.
     const silent = validStderr
-      .replace('"-9.16"', '"-inf"')
-      .replace('"-3.48"', '"-inf"')
-      .replace('"-0.11"', '"inf"');
+      .replace('I:          -9.2 LUFS', 'I:         -70.0 LUFS')
+      .replace('Peak:       -3.5 dBFS', 'Peak:       -inf dBFS');
     assert.throws(
       () => LoudnormTwoPassService.parseMeasurement(silent),
       (e: any) => e instanceof LoudnormNormalizationError && /silent or below the loudness measurement gate/.test(e.message)
@@ -189,12 +189,12 @@ describe('LoudnormTwoPassService - unit', () => {
   });
 
   it('feasibility accepts the real measured case', () => {
-    const m = { inputI: -9.16, inputTP: -3.48, inputLRA: 2.6, inputThresh: -20.36, targetOffset: -0.11 };
+    const m = { inputI: -9.2, inputTP: -3.5, inputLRA: 2.6 };
     assert.deepEqual(LoudnormTwoPassService.assessLinearFeasibility(m, -16, -1.5, 11), { ok: true });
   });
 
   it('feasibility rejects true-peak overflow as dynamic-prerender eligible', () => {
-    const m = { inputI: -40, inputTP: -3.48, inputLRA: 2.6, inputThresh: -50, targetOffset: -0.11 };
+    const m = { inputI: -40, inputTP: -3.5, inputLRA: 2.6 };
     const r = LoudnormTwoPassService.assessLinearFeasibility(m, -16, -1.5, 11);
     assert.equal(r.ok, false);
     if (!r.ok) {
@@ -204,7 +204,7 @@ describe('LoudnormTwoPassService - unit', () => {
   });
 
   it('feasibility rejects LRA above target as dynamic-prerender eligible', () => {
-    const m = { inputI: -9.16, inputTP: -3.48, inputLRA: 20, inputThresh: -20.36, targetOffset: -0.11 };
+    const m = { inputI: -9.2, inputTP: -3.5, inputLRA: 20 };
     const r = LoudnormTwoPassService.assessLinearFeasibility(m, -16, -1.5, 11);
     assert.equal(r.ok, false);
     if (!r.ok) {
@@ -214,7 +214,7 @@ describe('LoudnormTwoPassService - unit', () => {
   });
 
   it('feasibility rejects LRA=0 constant audio as dynamic-prerender eligible', () => {
-    const m = { inputI: -9.16, inputTP: -3.48, inputLRA: 0, inputThresh: -20.36, targetOffset: -0.11 };
+    const m = { inputI: -9.2, inputTP: -3.5, inputLRA: 0 };
     const r = LoudnormTwoPassService.assessLinearFeasibility(m, -16, -1.5, 11);
     assert.equal(r.ok, false);
     if (!r.ok) {
@@ -223,11 +223,11 @@ describe('LoudnormTwoPassService - unit', () => {
     }
   });
 
-  it('feasibility rejects degenerate sentinel measurements with no fallback', () => {
+  it('feasibility rejects non-finite measurements with no fallback', () => {
     for (const m of [
-      { inputI: -9.16, inputTP: -3.48, inputLRA: 2.6, inputThresh: -70, targetOffset: -0.11 },
-      { inputI: 0, inputTP: -3.48, inputLRA: 2.6, inputThresh: -20.36, targetOffset: -0.11 },
-      { inputI: -9.16, inputTP: 99, inputLRA: 2.6, inputThresh: -20.36, targetOffset: -0.11 },
+      { inputI: -Infinity, inputTP: -3.5, inputLRA: 2.6 },
+      { inputI: -9.2, inputTP: -Infinity, inputLRA: 2.6 },
+      { inputI: -9.2, inputTP: -3.5, inputLRA: NaN },
     ]) {
       const r = LoudnormTwoPassService.assessLinearFeasibility(m, -16, -1.5, 11);
       assert.equal(r.ok, false, `expected infeasible: ${JSON.stringify(m)}`);
@@ -238,14 +238,13 @@ describe('LoudnormTwoPassService - unit', () => {
     }
   });
 
-  it('builds linear and measure filter strings', () => {
-    const m = { inputI: -9.16, inputTP: -3.48, inputLRA: 2.6, inputThresh: -20.36, targetOffset: -0.11 };
-    const lin = LoudnormTwoPassService.buildLinearFilter(-16, -1.5, 11, m);
-    assert.match(lin, /linear=true/);
-    assert.match(lin, /measured_I=-9\.16/);
+  it('builds linear gain and measure filter strings', () => {
+    const m = { inputI: -9.2, inputTP: -3.5, inputLRA: 2.6 };
+    const lin = LoudnormTwoPassService.buildLinearGainFilter(-16, m);
+    // Constant gain on the ebur128 basis: target - measured = -6.8dB.
+    assert.equal(lin, 'volume=-6.80dB');
     const meas = LoudnormTwoPassService.buildMeasureFilter(-16, -1.5, 11);
-    assert.match(meas, /print_format=json/);
-    assert.doesNotMatch(meas, /measured_I/);
+    assert.equal(meas, 'ebur128=peak=true');
   });
 });
 
@@ -258,8 +257,9 @@ describe('LoudnormTwoPassService - integration (synthetic fixtures)', () => {
       project, MODULATED_120S, path.join(FIX_DIR, 'out-2pass.mp4'), FIX_DIR
     );
     const fc = graph.filterComplex.join(';');
-    assert.match(fc, /linear=true/, 'final graph must use measured linear loudnorm');
-    assert.match(fc, /measured_I=-?\d/, 'final graph must carry measured values');
+    assert.match(fc, /volume=-?[\d.]+dB/, 'final graph must apply the measured linear gain');
+    assert.doesNotMatch(fc, /measured_I=/, 'final graph must not carry loudnorm measured values');
+    assert.equal(graph.normalizationMode, 'linear');
     assert.equal(graph.measurement, null, 'final compile is not a measurement probe');
 
     const outPath = path.join(FIX_DIR, 'out-2pass.mp4');
@@ -270,8 +270,12 @@ describe('LoudnormTwoPassService - integration (synthetic fixtures)', () => {
     assert.ok(Math.abs(d.video - 3.5) < 0.2, `video duration ${d.video} != 3.5`);
     assert.ok(Math.abs(d.audio - 3.5) < 0.2, `audio duration ${d.audio} != 3.5 (sync drift)`);
 
+    // The render truncates to the first 3.5s of the 5.5s measured program; that
+    // head is ~0.4 LU louder than the window average, so ebur128 lands ~-15.6,
+    // not exactly -16. The same-window parity suite below asserts tight target
+    // attainment where measurement and render windows match.
     const loud = await integratedLoudness(outPath);
-    assert.ok(loud > -19 && loud < -13, `integrated loudness ${loud} LUFS outside [-19,-13]`);
+    assert.ok(loud > -16.3 && loud < -15.0, `integrated loudness ${loud} LUFS outside [-16.3,-15.0]`);
   });
 
   it('two-pass loudness matches one-pass on a short source where both complete', { timeout: 300_000 }, async () => {
@@ -356,7 +360,7 @@ describe('LoudnormTwoPassService - integration (synthetic fixtures)', () => {
       project, MODULATED_SMALL, path.join(FIX_DIR, 'out-single.mp4'), FIX_DIR, undefined,
       ['-ss', '0', '-t', '3.5']
     );
-    assert.match(graph.filterComplex.join(';'), /linear=true/);
+    assert.match(graph.filterComplex.join(';'), /volume=-?[\d.]+dB/);
     const outPath = path.join(FIX_DIR, 'out-single.mp4');
     await execFileAsync(ffmpegBin, [
       '-y', '-v', 'error', '-ss', '0', '-t', '3.5',
@@ -368,5 +372,98 @@ describe('LoudnormTwoPassService - integration (synthetic fixtures)', () => {
     ], { timeout: 120_000, maxBuffer: 64 * 1024 * 1024 });
     const d = await probeStreamDurations(outPath);
     assert.ok(Math.abs(d.video - 3.5) < 0.2 && Math.abs(d.audio - 3.5) < 0.2, 'single-slice durations must match the seek window');
+  });
+});
+
+describe('LoudnormTwoPassService - same-window preview/final parity (codified)', () => {
+  before(() => ensureFixtures());
+
+  async function truePeakDb(file: string): Promise<number> {
+    const r = await execFileAsync(
+      ffmpegBin,
+      ['-nostats', '-i', file, '-af', 'ebur128=peak=true', '-f', 'null', '-'],
+      { maxBuffer: 64 * 1024 * 1024 }
+    ).catch((e) => e);
+    const summary = (r.stderr as string).slice((r.stderr as string).lastIndexOf('Summary:'));
+    const m = /True peak:\s*\n\s*Peak:\s+(-?(?:\d+(?:\.\d+)?|inf))\s+dBFS/.exec(summary);
+    assert.ok(m, 'ebur128 summary must report true peak');
+    return Number(m[1]);
+  }
+
+  const parityProject = (src: string, dur: number, preset: any) =>
+    ({
+      user_id: 'loudnorm-parity-test',
+      canvas: { width: 1080, height: 1920, aspect_ratio: '9:16', fps: 30, duration: dur },
+      tracks: [
+        {
+          type: 'VIDEO',
+          name: 'Main',
+          items: [
+            {
+              id: 's1', name: 's1', timeline_start: 0, timeline_end: dur,
+              source_start: 0, source_end: dur, source_path: src,
+              audio: { volume: 1.0, fade_in: 0.1, fade_out: 0.1, enhancement: preset },
+            },
+          ],
+        },
+      ],
+    }) as any;
+
+  it('linear-feasible program: final attains the target on the ebur128 basis and preview matches', { timeout: 300_000 }, async () => {
+    const preset = AudioEnhancementService.getPresetConfig('clean');
+    const targetI = AudioEnhancementService.resolveTargetLufs(preset);
+    const dur = 4;
+    const outPath = path.join(FIX_DIR, 'parity-codified-feasible.mp4');
+    const graph = await ProEditorService.compileRenderGraphWithNormalization(
+      parityProject(MODULATED_SMALL, dur, preset), MODULATED_SMALL, outPath, FIX_DIR
+    );
+    assert.equal(graph.normalizationMode, 'linear');
+    await renderGraph(graph, outPath, dur);
+    const preview = await AudioEnhancementService.generatePreviewSnippet(MODULATED_SMALL, preset, 0, dur);
+
+    // Both outputs are exactly `dur` seconds of the same program: whole-file
+    // ebur128 metering is a same-window comparison, so target attainment is
+    // asserted tightly (gain rounding <=0.005dB + AAC + 0.1s edge fades).
+    const finalI = await integratedLoudness(outPath);
+    const previewI = await integratedLoudness(preview.preview_audio_path);
+    assert.ok(
+      Math.abs(finalI - targetI) <= 0.4,
+      `final ${finalI} LUFS must attain ${targetI} within 0.4 LU on the ebur128 basis`
+    );
+    assert.ok(
+      Math.abs(previewI - targetI) <= 0.4,
+      `preview ${previewI} LUFS must attain ${targetI} within 0.4 LU on the ebur128 basis`
+    );
+    assert.ok(
+      Math.abs(finalI - previewI) <= 0.5,
+      `final ${finalI} vs preview ${previewI} differ by >0.5 LU`
+    );
+  });
+
+  it('linear-infeasible program: both paths take the dynamic fallback, stay consistent, never clip', { timeout: 300_000 }, async () => {
+    const preset = AudioEnhancementService.getPresetConfig('clean');
+    const dur = 4;
+    const outPath = path.join(FIX_DIR, 'parity-codified-infeasible.mp4');
+    const graph = await ProEditorService.compileRenderGraphWithNormalization(
+      parityProject(HOT_QUIET, dur, preset), HOT_QUIET, outPath, FIX_DIR
+    );
+    assert.equal(graph.normalizationMode, 'dynamic-prerendered');
+    await renderGraph(graph, outPath, dur);
+    const preview = await AudioEnhancementService.generatePreviewSnippet(HOT_QUIET, preset, 0, dur);
+
+    // Dynamic normalization is program-dependent and the two paths bound the
+    // window differently (preview: input -ss/-t seek; final: graph atrim), so
+    // one-pass loudnorm's gain riding lands differently on peaky material:
+    // measured 1.2-1.3 LU. The invariants are mode consistency and no clipping.
+    // Note: AAC
+    // encoding overshoots the limiter's -1.5dBTP internal ceiling (~-0.7dBTP
+    // post-encode, measured); 0.0 dBTP is the hard no-clip bound.
+    const finalI = await integratedLoudness(outPath);
+    const previewI = await integratedLoudness(preview.preview_audio_path);
+    assert.ok(
+      Math.abs(finalI - previewI) <= 1.5,
+      `final ${finalI} vs preview ${previewI} differ by >1.5 LU on dynamic fallback`
+    );
+    assert.ok((await truePeakDb(outPath)) <= 0.0, 'final output must never exceed 0 dBTP');
   });
 });

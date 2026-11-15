@@ -137,13 +137,19 @@ export class ProducerRenderService {
           const targetI = renderGraph.normalizeTargetI;
           const pre = renderGraph.audioFilters.slice(0, markerIdx);
           const post = renderGraph.audioFilters.slice(markerIdx + 1);
+          // Meter at the marker position - exactly where the linear gain is
+          // applied in the final render.
+          const measurementGraph = {
+            filterComplex: [`[0:a]${[...pre, LoudnormTwoPassService.buildMeasureFilter(targetI, -1.5, 11)].join(',')}[m_a]`],
+            audioMap: '[m_a]',
+            targetI,
+            dialogueInputLabel: '[0:a]',
+            preMarkerFilters: pre,
+            postMarkerFilters: post,
+          };
           const measured = await LoudnormTwoPassService.measure(
             ['-ss', renderGraph.startTime.toFixed(3), '-t', renderGraph.duration.toFixed(3), '-i', renderGraph.inputPath],
-            {
-              filterComplex: [`[0:a]${[...pre, LoudnormTwoPassService.buildMeasureFilter(targetI, -1.5, 11)].join(',')}[m_a]`],
-              audioMap: '[m_a]',
-              targetI,
-            },
+            measurementGraph,
             120000
           );
           const check = LoudnormTwoPassService.assessLinearFeasibility(measured, targetI, -1.5, 11);
@@ -161,11 +167,7 @@ export class ProducerRenderService {
             const wavPath = path.join(tmpDir, 'producer-dialogue-normalized.wav');
             await LoudnormTwoPassService.renderNormalizedDialogue(
               ['-ss', renderGraph.startTime.toFixed(3), '-t', renderGraph.duration.toFixed(3), '-i', renderGraph.inputPath],
-              {
-                filterComplex: [`[0:a]${[...pre, LoudnormTwoPassService.buildMeasureFilter(targetI, -1.5, 11)].join(',')}[m_a]`],
-                audioMap: '[m_a]',
-                targetI,
-              },
+              measurementGraph,
               wavPath,
               120000
             );
@@ -177,7 +179,7 @@ export class ProducerRenderService {
           } else {
             renderGraph.audioFilters = [
               ...pre,
-              LoudnormTwoPassService.buildLinearFilter(targetI, -1.5, 11, measured),
+              LoudnormTwoPassService.buildLinearGainFilter(targetI, measured),
               ...post,
             ];
           }

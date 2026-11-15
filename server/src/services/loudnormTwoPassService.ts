@@ -15,29 +15,48 @@ const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
  * linear loudnorm the same render peaks at ~473MB and completes.
  *
  * FFmpeg 7.0 af_loudnorm.c init() applies linear mode ONLY when ALL of:
- *   measured_tp !== 99, measured_thresh !== -70, measured_lra !== 0, measured_i !== 0,
+ *   finite/non-sentinel measurements, measured_lra !== 0,
  *   measured_tp + (target_i - measured_i) <= target_tp, measured_lra <= target_lra
  * Otherwise it SILENTLY falls back to dynamic (no log message), which reintroduces
- * the buffering failure. So this service validates feasibility itself and fails
- * the render with a clear error instead of silently switching modes.
+ * the buffering failure. So this service validates feasibility itself and either
+ * falls back to a bounded pre-rendered dynamic pass or fails with a clear error.
  *
- * Non-finite measurements (silence / below the -70 LUFS absolute gate report
- * input_i=-inf, input_tp=-inf, target_offset=inf) cannot even be passed back to
- * loudnorm (AVOption range rejects them), so they are separate hard errors.
+ * Metering basis (measured, Nov 15 2026): pass 1 meters the exact spliced
+ * dialogue program with the ebur128 filter, pass 2 applies the constant linear
+ * gain `volume=(targetI - measuredI)dB`. af_loudnorm.c (FFmpeg 7.0.2) init()
+ * shows loudnorm's own linear mode is the same constant gain (dst = src *
+ * 10^((target_i - measured_i)/20); the `offset` option is ignored in linear
+ * mode) - but loudnorm's INTERNAL meter reads lower than the ebur128 filter on
+ * identical samples (measured: 0.47 LU on steady tones, ~2 LU on speech with
+ * pauses; both wrap libebur128, the divergence mechanism is not fully isolated).
+ * Using the ebur128 filter as the single basis for measurement, application and
+ * verification closes the loop at 0.0 LU: a controlled same-file test meters
+ * the linear output at exactly the target on the measuring meter, and external
+ * validation tools see the same numbers our tests assert.
+ *
+ * Silence / audio below the -70 LUFS absolute gate (ebur128 reports Peak=-inf,
+ * I pinned at -70.0) is a separate hard error.
  */
 
 export interface LoudnormMeasured {
+  /** Integrated loudness of the dialogue program, ebur128 filter basis (LUFS). */
   inputI: number;
+  /** True peak of the dialogue program, ebur128 peak=true basis (dBTP). */
   inputTP: number;
+  /** Loudness range of the dialogue program, ebur128 filter basis (LU). */
   inputLRA: number;
-  inputThresh: number;
-  targetOffset: number;
 }
 
 export interface LoudnormMeasurementGraph {
   filterComplex: string[];
   audioMap: string;
   targetI: number;
+  /** Dialogue chain input pad (e.g. '[0:a]', '[base_a_speed]'). */
+  dialogueInputLabel: string;
+  /** Dialogue filters before the loudnorm marker (level-dependent processors). */
+  preMarkerFilters: string[];
+  /** Dialogue filters after the loudnorm marker (limiter, fades). */
+  postMarkerFilters: string[];
 }
 
 export class LoudnormNormalizationError extends Error {
@@ -50,45 +69,44 @@ export class LoudnormNormalizationError extends Error {
 }
 
 export class LoudnormTwoPassService {
-  /** Extract and validate the loudnorm measurement JSON from a pass-1 stderr log. */
+  /** Extract and validate the ebur128 summary statistics from a pass-1 stderr log. */
   public static parseMeasurement(stderr: string): LoudnormMeasured {
-    // print_format=json logs one block per loudnorm instance; take the last one.
-    const blocks = stderr.match(/\{[^{}]*"input_i"[^{}]*\}/g);
-    if (!blocks || blocks.length === 0) {
+    // ebur128 logs periodic stats, then one "Summary:" block per instance; use the last.
+    const summaryIdx = stderr.lastIndexOf('Summary:');
+    if (summaryIdx === -1) {
       const tail = stderr.trim().split('\n').slice(-3).join(' | ').slice(0, 300);
       throw new LoudnormNormalizationError(
-        'measurement pass produced no loudnorm statistics' + (tail ? ` (ffmpeg: ${tail})` : '')
+        'measurement pass produced no loudness statistics' + (tail ? ` (ffmpeg: ${tail})` : '')
       );
     }
-    let parsed: Record<string, string>;
-    try {
-      parsed = JSON.parse(blocks[blocks.length - 1]);
-    } catch {
-      throw new LoudnormNormalizationError('measurement pass returned malformed loudnorm statistics');
-    }
-    const raw = {
-      inputI: Number(parsed['input_i']),
-      inputTP: Number(parsed['input_tp']),
-      inputLRA: Number(parsed['input_lra']),
-      inputThresh: Number(parsed['input_thresh']),
-      targetOffset: Number(parsed['target_offset']),
+    const summary = stderr.slice(summaryIdx);
+    const grab = (re: RegExp): number | null => {
+      const m = summary.match(re);
+      if (!m) return null;
+      if (m[1] === '-inf') return -Infinity;
+      if (m[1] === 'inf') return Infinity;
+      const v = Number(m[1]);
+      return Number.isNaN(v) ? null : v;
     };
-    const anyMissing = ['input_i', 'input_tp', 'input_lra', 'input_thresh', 'target_offset'].some(
-      (k) => parsed[k] === undefined
-    );
-    if (anyMissing) {
-      throw new LoudnormNormalizationError('measurement pass returned incomplete loudnorm statistics');
+    const raw = {
+      inputI: grab(/\n\s*I:\s+(-?(?:\d+(?:\.\d+)?|inf))\s+LUFS/),
+      inputLRA: grab(/\n\s*LRA:\s+(-?(?:\d+(?:\.\d+)?|inf))\s+LU\b/),
+      inputTP: grab(/True peak:\s*\n\s*Peak:\s+(-?(?:\d+(?:\.\d+)?|inf))\s+dBFS/),
+    };
+    if (raw.inputI === null || raw.inputLRA === null || raw.inputTP === null) {
+      throw new LoudnormNormalizationError('measurement pass returned incomplete loudness statistics');
     }
-    if (!Number.isFinite(raw.inputI) || !Number.isFinite(raw.inputTP) || !Number.isFinite(raw.targetOffset)) {
-      // Silence or audio below loudnorm's absolute gate reports -inf/inf here.
+    if (!Number.isFinite(raw.inputI) || !Number.isFinite(raw.inputTP) || raw.inputI <= -70) {
+      // Silence or audio below the absolute gate: ebur128 pins I at -70 LUFS and
+      // reports Peak=-inf.
       throw new LoudnormNormalizationError(
         'dialogue audio is silent or below the loudness measurement gate (measured loudness is -inf)'
       );
     }
-    if (!Number.isFinite(raw.inputLRA) || !Number.isFinite(raw.inputThresh)) {
-      throw new LoudnormNormalizationError('measurement pass returned non-finite loudness range/threshold');
+    if (!Number.isFinite(raw.inputLRA)) {
+      throw new LoudnormNormalizationError('measurement pass returned non-finite loudness range');
     }
-    return raw;
+    return raw as LoudnormMeasured;
   }
 
   /**
@@ -101,13 +119,14 @@ export class LoudnormTwoPassService {
     targetTP: number,
     targetLRA: number
   ): { ok: true } | { ok: false; reason: string; fallback: 'dynamic-prerender' | null } {
-    if (m.inputTP === 99 || m.inputThresh === -70 || m.inputI === 0) {
+    if (!Number.isFinite(m.inputI) || !Number.isFinite(m.inputTP) || !Number.isFinite(m.inputLRA)) {
+      // parseMeasurement already rejects these; guard direct callers.
       return {
         ok: false,
         fallback: null,
         reason:
-          `measurement is degenerate (input_i=${m.inputI}, input_lra=${m.inputLRA}, ` +
-          `input_thresh=${m.inputThresh}); FFmpeg would silently fall back to dynamic mode`,
+          `measurement is degenerate (input_i=${m.inputI}, input_tp=${m.inputTP}, ` +
+          `input_lra=${m.inputLRA}); FFmpeg would silently fall back to dynamic mode`,
       };
     }
     if (m.inputLRA === 0) {
@@ -140,25 +159,35 @@ export class LoudnormTwoPassService {
     return { ok: true };
   }
 
-  /** loudnorm filter string for the final render pass (linear, measured values). */
-  public static buildLinearFilter(targetI: number, targetTP: number, targetLRA: number, m: LoudnormMeasured): string {
-    return (
-      `loudnorm=I=${targetI}:TP=${targetTP}:LRA=${targetLRA}` +
-      `:measured_I=${m.inputI}:measured_TP=${m.inputTP}:measured_LRA=${m.inputLRA}` +
-      `:measured_thresh=${m.inputThresh}:offset=${m.targetOffset}:linear=true`
-    );
+  /**
+   * Constant linear gain filter for the final render pass: (targetI - measured I)
+   * in dB, ebur128 basis. Numerically identical to loudnorm's linear mode
+   * (af_loudnorm.c LINEAR_MODE multiplies each sample by 10^((target_i -
+   * measured_i)/20)) without switching metering basis between measurement and
+   * verification. Call ONLY after assessLinearFeasibility passes, so the applied
+   * gain is known to keep true peak <= targetTP.
+   *
+   * Placement rule (measured, Nov 15 2026): append this AFTER every
+   * level-dependent processor in the dialogue chain (compressors, limiters) and
+   * meter the measurement pass at the same end-of-chain position. A gain placed
+   * before a limiter is not additive with the limiter's gain reduction, which
+   * left outputs ~1.7 LU hot on limited material; constant gain commutes exactly
+   * with the linear fades that follow.
+   */
+  public static buildLinearGainFilter(targetI: number, m: LoudnormMeasured): string {
+    return `volume=${(targetI - m.inputI).toFixed(2)}dB`;
   }
 
-  /** loudnorm filter string for the measurement pass. */
-  public static buildMeasureFilter(targetI: number, targetTP: number, targetLRA: number): string {
-    return `loudnorm=I=${targetI}:TP=${targetTP}:LRA=${targetLRA}:print_format=json`;
+  /** ebur128 meter filter string for the measurement pass (integrated, range, true peak). */
+  public static buildMeasureFilter(_targetI: number, _targetTP: number, _targetLRA: number): string {
+    return 'ebur128=peak=true';
   }
 
   /**
    * Pre-render the dialogue program with legacy one-pass (dynamic) loudnorm into
    * a WAV, for content where linear mode is infeasible (true-peak headroom or
-   * loudness-range limits). The graph is the measurement graph with the terminal
-   * print_format loudnorm swapped for the plain one-pass variant, so the output
+   * loudness-range limits). The dialogue chain is rebuilt with one-pass loudnorm
+   * at the marker position (limiter/fades after it), so the output
    * is exactly what legacy one-pass renders produced - but as a bounded
    * audio-only process: no video is decoded, so the muxer-stall frame queue that
    * OOM-killed in-graph one-pass renders cannot form.
@@ -170,15 +199,15 @@ export class LoudnormTwoPassService {
     timeoutMs = 300_000
   ): Promise<void> {
     const legacyFilter = `loudnorm=I=${measurement.targetI}:TP=-1.5:LRA=11`;
-    const measureFilter = LoudnormTwoPassService.buildMeasureFilter(measurement.targetI, -1.5, 11);
-    const chain = measurement.filterComplex[measurement.filterComplex.length - 1];
-    if (!chain.includes(measureFilter)) {
-      throw new LoudnormNormalizationError('measurement graph does not end in the expected loudnorm filter');
-    }
-    const renderChains = [
-      ...measurement.filterComplex.slice(0, -1),
-      chain.replace(measureFilter, legacyFilter),
-    ];
+    // Rebuild the dialogue chain with one-pass loudnorm at the marker position
+    // (limiter/fades after it), exactly as legacy one-pass renders had it. The
+    // measurement graph meters at end-of-chain instead, so a blind string swap
+    // would misplace the loudnorm.
+    const chain =
+      `${measurement.dialogueInputLabel}` +
+      `${[...measurement.preMarkerFilters, legacyFilter, ...measurement.postMarkerFilters].join(',')}` +
+      `${measurement.audioMap}`;
+    const renderChains = [...measurement.filterComplex.slice(0, -1), chain];
     await execFileAsync(
       ffmpegBin,
       [

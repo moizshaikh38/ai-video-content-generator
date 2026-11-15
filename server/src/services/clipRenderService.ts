@@ -2000,7 +2000,7 @@ export class ClipRenderService {
 
     // 4. Mix dialogue + ducked music + master peak limiter
     filterComplex.push(
-      '[a_dialogue_mix][a_music_ducked]amix=inputs=2:duration=first:dropout_transition=2,alimiter=limit=-1.0dB:attack=5:release=50[out_a]'
+      '[a_dialogue_mix][a_music_ducked]amix=inputs=2:duration=first:dropout_transition=2,alimiter=limit=-1.0dB:attack=5:release=50:level=0[out_a]'
     );
 
     return {

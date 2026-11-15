@@ -81,7 +81,7 @@ export interface CompiledRenderGraph {
    * loudness normalization (audio.normalized or an enhancement preset with
    * normalize_enabled): an audio-only filter graph (same slice trims/speed/concat/
    * acrossfade/pre-loudnorm enhancement chains as the render graph) ending in a
-   * print_format=json loudnorm. Running it decodes no video.
+   * terminal ebur128 meter. Running it decodes no video.
    */
   measurement: { filterComplex: string[]; audioMap: string; targetI: number } | null;
   /**
@@ -1272,7 +1272,7 @@ export class ProEditorService {
     const buildLoudnorm = (targetI: number): string => {
       if (loudnorm === 'measure') return LoudnormTwoPassService.buildMeasureFilter(targetI, -1.5, 11);
       if (loudnorm && typeof loudnorm === 'object' && 'measured' in loudnorm) {
-        return LoudnormTwoPassService.buildLinearFilter(targetI, -1.5, 11, loudnorm.measured);
+        return LoudnormTwoPassService.buildLinearGainFilter(targetI, loudnorm.measured);
       }
       return `loudnorm=I=${targetI}:TP=-1.5:LRA=11`;
     };
@@ -1420,26 +1420,45 @@ export class ProEditorService {
     // Note: normalize=0 prevents amix from attenuating speech by 1/N inputs (preserves 100% dialogue gain)
     if (streamsToMix.length > 1) {
       filterComplex.push(
-        `${streamsToMix.join('')}amix=inputs=${streamsToMix.length}:duration=first:dropout_transition=2:normalize=0,alimiter=limit=-1.0dB:attack=5:release=50[master_a]`
+        `${streamsToMix.join('')}amix=inputs=${streamsToMix.length}:duration=first:dropout_transition=2:normalize=0,alimiter=limit=-1.0dB:attack=5:release=50:level=0[master_a]`
       );
       audioStreamLabel = '[master_a]';
     } else {
-      filterComplex.push(`${streamsToMix[0]}alimiter=limit=-1.0dB:attack=5:release=50[master_a]`);
+      filterComplex.push(`${streamsToMix[0]}alimiter=limit=-1.0dB:attack=5:release=50:level=0[master_a]`);
       audioStreamLabel = '[master_a]';
     }
 
-    // Measurement graph: audio-only dialogue path ending in a print_format loudnorm.
-    // Filters after loudnorm (afades) don't change measured values; secondary audio
-    // tracks and ducking mix in after loudnorm, so they are excluded by construction.
+    // Measurement graph: audio-only dialogue path with the ebur128 meter at
+    // the loudnorm marker position - exactly where the linear gain is applied
+    // in the final render. Post-marker filters are excluded from measurement:
+    // the alimiters run with level=0 and never engage post-gain (feasibility
+    // bounds gained true peak to <= -1.5dBTP, under their -1.0dB limit), and
+    // the constant gain commutes with the linear fades (~0.1 LU).
+    // Secondary audio tracks and ducking mix in after the dialogue chain, so
+    // they are excluded by construction.
     let measurement: CompiledRenderGraph['measurement'] = null;
     if (loudnorm === 'measure' && loudnormTargetI !== null) {
+      const meterFilter = LoudnormTwoPassService.buildMeasureFilter(loudnormTargetI, -1.5, 11);
+      const mIdx = audioFilters.findIndex((f) => f === meterFilter);
+      if (mIdx === -1) {
+        throw new AppError('Internal error: normalization meter missing from dialogue chain', 500, 'NORMALIZATION_METER_MISSING');
+      }
+      const preMarkerFilters = audioFilters.slice(0, mIdx);
+      const postMarkerFilters = audioFilters.slice(mIdx + 1);
+      // Bound the measured program to the render duration: the spliced program
+      // can run past canvas.duration (the final render truncates with -t), and
+      // metering past the truncation measures material nobody renders.
+      const measureBound = `atrim=end=${Number(project.canvas.duration.toFixed(3))}`;
       measurement = {
         filterComplex: [
           ...audioOnlyChains,
-          `${dialogueInputLabel}${audioFilters.join(',')}[measure_a]`,
+          `${dialogueInputLabel}${[...preMarkerFilters, measureBound, meterFilter].join(',')}[measure_a]`,
         ],
         audioMap: '[measure_a]',
         targetI: loudnormTargetI,
+        dialogueInputLabel,
+        preMarkerFilters,
+        postMarkerFilters,
       };
     }
 
