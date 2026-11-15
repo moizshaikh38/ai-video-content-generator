@@ -227,6 +227,14 @@ describe('Studio editor save -> reload round-trip (HTTP + Mongo)', () => {
     assert.equal(ok.status, 200, `PATCH failed: ${JSON.stringify(ok.json)}`);
     assert.equal(Number(ok.json.clip.trim_end_offset), -5);
 
+    // Save -> reload must preserve the negative offset (no clamp on the read path).
+    const reload = await getEditor();
+    assert.equal(
+      Number(reload.json.clip.trim_end_offset),
+      -5,
+      `reload must preserve negative trim_end_offset, got ${JSON.stringify(reload.json.clip.trim_end_offset)}`
+    );
+
     // Extending past the source end (40 + 200 > 120) is rejected.
     const tooFar = await patchEditor({ trimEndOffset: -200 });
     assert.equal(tooFar.status, 400);
