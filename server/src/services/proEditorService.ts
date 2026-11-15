@@ -144,7 +144,7 @@ export class ProEditorService {
       .maybeSingle();
 
     if (existingProject) {
-      return existingProject as EditorProject;
+      return await ProEditorService.withSourceDuration(existingProject as EditorProject, clipId, userId);
     }
 
     // 2. Fetch the clip record
@@ -204,7 +204,36 @@ export class ProEditorService {
     }
 
     logger.info(`[ProEditor] Initialized EditorProject ${editorProject.id} for clip ${clipId}`);
-    return editorProject;
+    return await ProEditorService.withSourceDuration(editorProject as EditorProject, clipId, userId);
+  }
+
+  /**
+   * Attaches the source media duration (from the owning project record) so the
+   * studio can offer safe beyond-candidate extension: the clip's candidate window
+   * is end_seconds, but the source footage (and transcript) may run longer.
+   */
+  private static async withSourceDuration(project: EditorProject, clipId: string, userId: string): Promise<EditorProject> {
+    try {
+      const { data: clip } = await dataRepository
+        .from('clips')
+        .select('project_id')
+        .eq('id', clipId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (clip?.project_id) {
+        const { data: proj } = await dataRepository
+          .from('projects')
+          .select('duration_seconds')
+          .eq('id', clip.project_id)
+          .maybeSingle();
+        if (typeof proj?.duration_seconds === 'number' && proj.duration_seconds > 0) {
+          (project as any).source_duration_seconds = proj.duration_seconds;
+        }
+      }
+    } catch {
+      // Non-fatal: extension falls back to the candidate boundary.
+    }
+    return project;
   }
 
   /**
@@ -226,6 +255,9 @@ export class ProEditorService {
       throw new AppError('Editor project not found or access denied.', 404, 'PROJECT_NOT_FOUND');
     }
 
+    if (project.clip_id) {
+      return await ProEditorService.withSourceDuration(project as EditorProject, project.clip_id, userId);
+    }
     return project as EditorProject;
   }
 

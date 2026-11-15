@@ -231,7 +231,9 @@ export function validateRecord(name: string, row: Record<string, unknown>): void
       if (typeof value !== 'string') throw new AppError(`Invalid ${field}.`, 400, 'INVALID_STRING');
       continue;
     }
-    if (numericFields.has(field) && (typeof value !== 'number' || !Number.isFinite(value) || value < 0)) {
+    // trim_end_offset may be negative: beyond-candidate extension of the clip tail
+    // (bounded against the source duration in updateClipEditorConfig).
+    if (numericFields.has(field) && (typeof value !== 'number' || !Number.isFinite(value) || (field !== 'trim_end_offset' && value < 0))) {
       throw new AppError(`Invalid ${field}.`, 400, 'INVALID_NUMBER');
     }
     if (arrayFields.has(field) && !Array.isArray(value)) throw new AppError(`Invalid ${field}.`, 400, 'INVALID_FIELD');

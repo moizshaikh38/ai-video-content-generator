@@ -1685,17 +1685,19 @@ export class ClipRenderService {
       throw err;
     }
 
-    // Trim validation: cannot exceed original candidate boundaries; effective duration >= 3s
+    // Trim validation: trimStart cannot exceed the candidate start; trimEnd may be
+    // NEGATIVE to extend the tail beyond the candidate boundary (beyond-candidate
+    // extend), bounded by the source media duration.
     const originalDuration = Number(clip.end_seconds - clip.start_seconds);
     const trimStart = update.trimStartOffset !== undefined
       ? Math.max(0, Number(update.trimStartOffset))
       : Number(clip.trim_start_offset || 0);
 
     const trimEnd = update.trimEndOffset !== undefined
-      ? Math.max(0, Number(update.trimEndOffset))
+      ? Number(update.trimEndOffset)
       : Number(clip.trim_end_offset || 0);
 
-    if (isNaN(trimStart) || isNaN(trimEnd) || trimStart < 0 || trimEnd < 0) {
+    if (isNaN(trimStart) || isNaN(trimEnd) || trimStart < 0) {
       const err = new Error('Trim offsets must be non-negative numbers.');
       (err as any).code = 'INVALID_TRIM';
       throw err;
@@ -1706,6 +1708,29 @@ export class ClipRenderService {
       const err = new Error(`Trimmed duration (${effectiveDuration.toFixed(1)}s) cannot be shorter than 3 seconds.`);
       (err as any).code = 'TRIM_TOO_SHORT';
       throw err;
+    }
+
+    if (trimEnd < 0) {
+      // Beyond-candidate extension: the effective end (end_seconds - trimEnd) must not
+      // exceed the source media duration from the owning project.
+      const { data: proj } = await dataRepository
+        .from('projects')
+        .select('duration_seconds')
+        .eq('id', clip.project_id)
+        .maybeSingle();
+      const sourceDuration = typeof proj?.duration_seconds === 'number' && proj.duration_seconds > 0
+        ? proj.duration_seconds
+        : null;
+      const requestedEnd = Number((clip.end_seconds - trimEnd).toFixed(3));
+      if (sourceDuration === null || requestedEnd > Number((sourceDuration + 0.05).toFixed(3))) {
+        throw new AppError(
+          sourceDuration === null
+            ? 'Cannot extend beyond the candidate boundary: source duration is unknown.'
+            : `Cannot extend to ${requestedEnd.toFixed(1)}s: source media is ${sourceDuration.toFixed(1)}s.`,
+          400,
+          'EXTEND_BEYOND_SOURCE'
+        );
+      }
     }
 
     // Crop config

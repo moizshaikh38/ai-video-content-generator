@@ -213,4 +213,27 @@ describe('Studio editor save -> reload round-trip (HTTP + Mongo)', () => {
     assert.ok(f.includes('pad=1080:1920'), 'fit must pad to canvas');
     assert.ok(!f.includes('crop='), 'fit must not crop');
   });
+
+  it('7. Beyond-candidate extend: negative trimEndOffset bounded by source duration', async () => {
+    // Source duration unknown on the project -> extension rejected.
+    const unknown = await patchEditor({ trimEndOffset: -5 });
+    assert.equal(unknown.status, 400, `expected 400, got ${unknown.status}: ${JSON.stringify(unknown.json)}`);
+    assert.equal(unknown.json?.error?.code || unknown.json?.code, 'EXTEND_BEYOND_SOURCE');
+
+    // With a 120s source, extending the tail by 5s (end 40 -> 45) is allowed and persists.
+    const db = await getMongoDb();
+    await db.collection('projects').updateOne({ id: projectId }, { $set: { duration_seconds: 120 } });
+    const ok = await patchEditor({ trimEndOffset: -5 });
+    assert.equal(ok.status, 200, `PATCH failed: ${JSON.stringify(ok.json)}`);
+    assert.equal(Number(ok.json.clip.trim_end_offset), -5);
+
+    // Extending past the source end (40 + 200 > 120) is rejected.
+    const tooFar = await patchEditor({ trimEndOffset: -200 });
+    assert.equal(tooFar.status, 400);
+    assert.equal(tooFar.json?.error?.code || tooFar.json?.code, 'EXTEND_BEYOND_SOURCE');
+
+    // Restore the neutral trim so later assertions see the base state.
+    const reset = await patchEditor({ trimEndOffset: 0 });
+    assert.equal(reset.status, 200);
+  });
 });

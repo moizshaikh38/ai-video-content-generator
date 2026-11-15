@@ -50,7 +50,9 @@ export function buildClipEditorUpdatePayload(
   return {
     aspectRatio: project.canvas.aspect_ratio || '9:16',
     trimStartOffset: Math.max(0, Number(trimStart.toFixed(3))),
-    trimEndOffset: Math.max(0, Number(trimEnd.toFixed(3))),
+    // Negative trimEnd = beyond-candidate extension of the tail (bounded server-side
+    // by the source media duration); do not clamp to 0 here or the extension is lost.
+    trimEndOffset: Number(trimEnd.toFixed(3)),
     cropConfig,
     ...(overlayConfigUpdate ? { overlayConfig: overlayConfigUpdate } : {}),
     captionEnabled: !captionTrack?.hidden,

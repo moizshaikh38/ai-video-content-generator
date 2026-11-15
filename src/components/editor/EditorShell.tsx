@@ -680,10 +680,22 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   const primaryVideoForExtend = project.tracks
     .find((t) => t.type === 'VIDEO')
     ?.items.find((i) => !i.hidden);
-  // Reclaimable tail: footage between the current item end and the original
-  // candidate boundary (mirrors trimEndOffset in buildClipEditorUpdatePayload).
+  // Reclaimable tail: footage between the current item end and the furthest safe
+  // source point. The candidate boundary (clip.end_seconds) is the floor; when the
+  // source media runs longer (source_duration_seconds from the project record) the
+  // user may extend beyond the candidate - the server re-validates the bound.
   const extendSlackSec = primaryVideoForExtend
-    ? Math.max(0, Number((clip.end_seconds - primaryVideoForExtend.source_end).toFixed(3)))
+    ? Math.max(
+        0,
+        Number(
+          (
+            Math.min(
+              (project as any).source_duration_seconds ?? clip.end_seconds,
+              Number.MAX_SAFE_INTEGER
+            ) - primaryVideoForExtend.source_end
+          ).toFixed(3)
+        )
+      )
     : 0;
   const transcriptPanel = (
     <TranscriptEditor
@@ -698,13 +710,16 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       onDeleteTimeRanges={onDeleteTimeRanges}
       extendSlackSec={extendSlackSec}
       onExtendClip={() => {
-        // Extend the clip tail back toward the original candidate boundary:
-        // same field updates as timeline trim-right, committed in one step.
+        // Extend the clip tail toward the source media end (or the candidate boundary
+        // when the source duration is unknown): same field updates as timeline
+        // trim-right, committed in one step, plus the canvas duration so the pro
+        // render covers the extended tail.
         if (!primaryVideoForExtend || extendSlackSec <= 0.05) return;
         const trackId = primaryVideoForExtend.track_id;
         const itemId = primaryVideoForExtend.id;
+        const bound = (project as any).source_duration_seconds ?? clip.end_seconds;
         const newSourceEnd = Math.min(
-          clip.end_seconds,
+          bound,
           Number((primaryVideoForExtend.source_end + extendSlackSec).toFixed(3))
         );
         const delta = Number((newSourceEnd - primaryVideoForExtend.source_end).toFixed(3));
@@ -713,6 +728,13 @@ export const EditorShell: React.FC<EditorShellProps> = ({
           source_end: newSourceEnd,
           timeline_end: Number((primaryVideoForExtend.timeline_end + delta).toFixed(3)),
         });
+        onUpdateProject((prev) => ({
+          ...prev,
+          canvas: {
+            ...prev.canvas,
+            duration: Number(((prev.canvas.duration || 0) + delta).toFixed(3)),
+          },
+        }));
       }}
       onReplaceWordGlobally={onReplaceWordGlobally}
       onUpdateWordTiming={onUpdateWordTiming}

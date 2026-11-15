@@ -970,7 +970,7 @@ export const updateClipEditor = async (req: AuthenticatedRequest, res: Response)
     const status =
       code === 'CLIP_NOT_FOUND'
         ? 404
-        : code === 'INVALID_TRIM' || code === 'TRIM_TOO_SHORT' || code === 'INVALID_ASPECT_RATIO' || code === 'INVALID_CAPTION_STYLE' || code === 'INVALID_CAPTION_POSITION'
+        : code === 'INVALID_TRIM' || code === 'TRIM_TOO_SHORT' || code === 'INVALID_ASPECT_RATIO' || code === 'INVALID_CAPTION_STYLE' || code === 'INVALID_CAPTION_POSITION' || code === 'EXTEND_BEYOND_SOURCE'
         ? 400
         : 500;
 
