@@ -619,6 +619,18 @@ export interface CropConfig {
     insetPosition?: 'bottom_right' | 'bottom_left' | 'top_right' | 'top_left';
     insetDiameter?: number;
     screenRatio?: number;
+    /**
+     * Main-content background behind the fitted source: 'black' (legacy
+     * letterbox) or 'blur' (blurred cover fill, kills empty black regions on
+     * landscape sources). Omit = 'black'.
+     */
+    background?: 'black' | 'blur';
+    /**
+     * Burned-in facecam region in normalized source coords (0-1). When set,
+     * the inset/card branch crops this region instead of center-cropping the
+     * full frame. User-correctable geometry; omit = legacy behavior.
+     */
+    facecamBox?: { x: number; y: number; w: number; h: number };
   };
 }
 

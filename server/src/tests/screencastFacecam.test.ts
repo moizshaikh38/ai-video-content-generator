@@ -51,3 +51,56 @@ describe('screencast facecam-region inset (burned-in facecam recordings)', () =>
     assert.equal(SmartReframeService.findStaticFacecamBox(samples as any), null);
   });
 });
+
+describe('screencast background composition + config passthrough', () => {
+  const box = { x: 0.8594, y: 0.1167, w: 0.0641, h: 0.1139 };
+
+  it('blur background fills the canvas with a blurred cover and fits the source', () => {
+    const filter = SmartReframeService.buildScreencastFilter({
+      mode: 'rounded_card_inset',
+      insetPosition: 'top_right',
+      background: 'blur',
+      facecamBox: box,
+    });
+    assert.match(filter, /gblur=sigma=40/);
+    assert.match(filter, /\[bgb\]\[fgf\]overlay=\(W-w\)\/2:\(H-h\)\/2\[bg\]/);
+    assert.doesNotMatch(filter, /color=black/);
+  });
+
+  it('legacy output is byte-unchanged when background is omitted', () => {
+    const legacy = SmartReframeService.buildScreencastFilter({ mode: 'rounded_card_inset' });
+    const explicit = SmartReframeService.buildScreencastFilter({ mode: 'rounded_card_inset', background: 'black' });
+    assert.equal(explicit, legacy);
+    assert.match(legacy, /pad=1080:1920:\(ow-iw\)\/2:\(oh-ih\)\/2:color=black/);
+  });
+
+  it('buildLayoutCropFilter passes screencast background and facecamBox through', () => {
+    const filter = SmartReframeService.buildLayoutCropFilter({
+      layoutMode: 'screencast',
+      aspectRatio: '9:16',
+      sourceWidth: 1920,
+      sourceHeight: 1080,
+      duration: 10,
+      screencastMode: 'rounded_card_inset',
+      screencastInsetPosition: 'top_right',
+      screencastBackground: 'blur',
+      screencastFacecamBox: box,
+    });
+    assert.match(filter, /gblur=sigma=40/);
+    assert.match(filter, /\[cam\]crop=w='in_w\*[0-9.]+':h='in_h\*[0-9.]+'/);
+    assert.match(filter, /overlay=x=\d+:y=\d+\[out\]/);
+  });
+
+  it('buildLayoutCropFilter without screencast extras keeps legacy screencast output', () => {
+    const viaDispatch = SmartReframeService.buildLayoutCropFilter({
+      layoutMode: 'screencast',
+      aspectRatio: '9:16',
+      sourceWidth: 1920,
+      sourceHeight: 1080,
+      duration: 10,
+      screencastMode: 'rounded_card_inset',
+    });
+    const direct = SmartReframeService.buildScreencastFilter({ mode: 'rounded_card_inset' });
+    assert.equal(viaDispatch, direct);
+  });
+});

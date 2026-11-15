@@ -753,6 +753,11 @@ export class ProEditorService {
           speaker1X: reframe!.cropConfig?.split?.speaker1X,
           speaker2X: reframe!.cropConfig?.split?.speaker2X,
           screencastMode: reframe!.cropConfig?.screencast?.mode,
+          screencastInsetPosition: reframe!.cropConfig?.screencast?.insetPosition,
+          screencastInsetDiameter: reframe!.cropConfig?.screencast?.insetDiameter,
+          screencastScreenRatio: reframe!.cropConfig?.screencast?.screenRatio,
+          screencastBackground: reframe!.cropConfig?.screencast?.background,
+          screencastFacecamBox: reframe!.cropConfig?.screencast?.facecamBox,
         });
       }
 

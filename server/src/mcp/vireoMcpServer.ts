@@ -64,6 +64,9 @@ export class VireoMcpServer {
             aspectRatio: { type: 'string', enum: ['9:16', '1:1', '16:9'], default: '9:16' },
             speaker1X: { type: 'number', description: 'Normalized center X for Speaker 1 (split mode)' },
             speaker2X: { type: 'number', description: 'Normalized center X for Speaker 2 (split mode)' },
+            screencastMode: { type: 'string', enum: ['split_stacked', 'circular_inset', 'rounded_card_inset'], description: 'Screencast layout variant' },
+            screencastBackground: { type: 'string', enum: ['black', 'blur'], description: 'Main-content background (omit = legacy black letterbox)' },
+            screencastFacecamBox: { type: 'object', description: 'Burned-in facecam region, normalized {x,y,w,h}; inset crops it instead of center-cropping the frame' },
           },
           required: ['layoutMode'],
         },
@@ -153,6 +156,9 @@ export class VireoMcpServer {
             duration: 30,
             speaker1X: args.speaker1X,
             speaker2X: args.speaker2X,
+            screencastMode: args.screencastMode,
+            screencastBackground: args.screencastBackground,
+            screencastFacecamBox: args.screencastFacecamBox,
           });
           return {
             content: [{ type: 'text', text: JSON.stringify({ layoutMode, filter }, null, 2) }],

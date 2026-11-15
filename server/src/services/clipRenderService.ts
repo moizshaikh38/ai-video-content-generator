@@ -1080,6 +1080,11 @@ export class ClipRenderService {
           speaker1X: clip.crop_config?.split?.speaker1X,
           speaker2X: clip.crop_config?.split?.speaker2X,
           screencastMode: clip.crop_config?.screencast?.mode,
+          screencastInsetPosition: clip.crop_config?.screencast?.insetPosition,
+          screencastInsetDiameter: clip.crop_config?.screencast?.insetDiameter,
+          screencastScreenRatio: clip.crop_config?.screencast?.screenRatio,
+          screencastBackground: clip.crop_config?.screencast?.background,
+          screencastFacecamBox: clip.crop_config?.screencast?.facecamBox,
         });
         logger.info(`[ClipRender] Applied dynamic smart reframe filter (${targetLayout}) with ${track.smoothed_keyframes.length} keyframes for clip ${clip.id}`);
         return {

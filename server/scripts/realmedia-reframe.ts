@@ -34,6 +34,7 @@ if (process.env.LAYOUT === 'screencast-card-facecam') {
   filter = SmartReframeService.buildScreencastFilter({
     mode: 'rounded_card_inset',
     insetPosition: 'top_right',
+    background: (process.env.SCREENCAST_BG as 'black' | 'blur') || 'blur',
     facecamBox: facecamBox ?? undefined,
   });
 } else {

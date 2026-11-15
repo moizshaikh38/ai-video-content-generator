@@ -955,6 +955,13 @@ export class SmartReframeService {
     canvasWidth?: number;
     canvasHeight?: number;
     /**
+     * Main-content background: 'black' keeps the legacy letterbox pad;
+     * 'blur' fills the canvas with a blurred cover of the source and fits the
+     * source over it, removing empty black regions on landscape content.
+     * Omit = 'black' (legacy, byte-identical output).
+     */
+    background?: 'black' | 'blur';
+    /**
      * Optional facecam region in normalized source coords (0-1). For single-input
      * recordings with the camera BURNED INTO the frame (typical gameplay captures),
      * the inset/card branch crops this region instead of center-cropping the full
@@ -970,8 +977,20 @@ export class SmartReframeService {
       screenRatio = 0.60,
       canvasWidth = 1080,
       canvasHeight = 1920,
+      background = 'black',
       facecamBox,
     } = options;
+
+    // Main-content stage: legacy letterbox (black pad) or blurred cover fill.
+    const mainStage = (mainLabel: string, outLabel: string): string => {
+      if (background === 'blur') {
+        return `[${mainLabel}]split=2[bgs][fgs];` +
+          `[bgs]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${canvasHeight},gblur=sigma=40[bgb];` +
+          `[fgs]scale=${canvasWidth}:-2:force_original_aspect_ratio=decrease[fgf];` +
+          `[bgb][fgf]overlay=(W-w)/2:(H-h)/2[${outLabel}]`;
+      }
+      return `[${mainLabel}]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=decrease,pad=${canvasWidth}:${canvasHeight}:(ow-iw)/2:(oh-ih)/2:color=black[${outLabel}]`;
+    };
 
     // Inset source branch: crop the burned-in facecam region when provided,
     // else keep the legacy center-crop of the whole frame.
@@ -1021,13 +1040,13 @@ export class SmartReframeService {
 
     if (mode === 'circular_inset') {
       const radius = Math.round(insetDiameter / 2);
-      return `[0:v]split=2[main][cam];[main]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=decrease,pad=${canvasWidth}:${canvasHeight}:(ow-iw)/2:(oh-ih)/2:color=black[bg];[cam]${camSrc(insetDiameter, insetDiameter)},format=yuva420p,geq=lum='p(X,Y)':a='if(lte((X-${radius})*(X-${radius})+(Y-${radius})*(Y-${radius}),${radius}*${radius}),255,0)'[cam_circle];[bg][cam_circle]overlay=x=${posX}:y=${posY}[out]`;
+      return `[0:v]split=2[main][cam];${mainStage('main', 'bg')};[cam]${camSrc(insetDiameter, insetDiameter)},format=yuva420p,geq=lum='p(X,Y)':a='if(lte((X-${radius})*(X-${radius})+(Y-${radius})*(Y-${radius}),${radius}*${radius}),255,0)'[cam_circle];[bg][cam_circle]overlay=x=${posX}:y=${posY}[out]`;
     }
 
     // rounded_card_inset
     const cardWidth = Math.round(insetDiameter * 1.15);
     const cardHeight = Math.round(insetDiameter * 0.85);
-    return `[0:v]split=2[main][cam];[main]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=decrease,pad=${canvasWidth}:${canvasHeight}:(ow-iw)/2:(oh-ih)/2:color=black[bg];[cam]${camSrc(cardWidth, cardHeight)}[card];[bg][card]overlay=x=${posX}:y=${posY}[out]`;
+    return `[0:v]split=2[main][cam];${mainStage('main', 'bg')};[cam]${camSrc(cardWidth, cardHeight)}[card];[bg][card]overlay=x=${posX}:y=${posY}[out]`;
   }
 
   /**
@@ -1159,6 +1178,11 @@ export class SmartReframeService {
     speaker1X?: number;
     speaker2X?: number;
     screencastMode?: 'split_stacked' | 'circular_inset' | 'rounded_card_inset';
+    screencastInsetPosition?: 'bottom_right' | 'bottom_left' | 'top_right' | 'top_left';
+    screencastInsetDiameter?: number;
+    screencastScreenRatio?: number;
+    screencastBackground?: 'black' | 'blur';
+    screencastFacecamBox?: { x: number; y: number; w: number; h: number };
   }): string {
     const {
       layoutMode = 'track',
@@ -1170,6 +1194,11 @@ export class SmartReframeService {
       speaker1X,
       speaker2X,
       screencastMode = 'split_stacked',
+      screencastInsetPosition,
+      screencastInsetDiameter,
+      screencastScreenRatio,
+      screencastBackground,
+      screencastFacecamBox,
     } = options;
 
     if (aspectRatio === '9:16') {
@@ -1192,6 +1221,11 @@ export class SmartReframeService {
       if (layoutMode === 'screencast') {
         return this.buildScreencastFilter({
           mode: screencastMode,
+          insetPosition: screencastInsetPosition,
+          insetDiameter: screencastInsetDiameter,
+          screenRatio: screencastScreenRatio,
+          background: screencastBackground,
+          facecamBox: screencastFacecamBox,
           canvasWidth: 1080,
           canvasHeight: 1920,
         });
