@@ -327,6 +327,7 @@ export type ContentGenre =
   | 'news_politics'
   | 'comedy_entertainment'
   | 'storytelling'
+  | 'documentary'
   | 'product_marketing'
   | 'general';
 
