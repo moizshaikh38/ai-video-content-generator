@@ -2,6 +2,7 @@
 // Media Library -> Studio path) against a real local API server with a stubbed
 // Supabase session, so clicks drive the actual save/reload/render pipeline.
 import { Suspense } from 'react';
+import '../index.css';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
