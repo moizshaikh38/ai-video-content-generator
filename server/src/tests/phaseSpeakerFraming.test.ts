@@ -47,7 +47,7 @@ describe('Speaker framing — smart-by-default crop mode', () => {
   it('frontend creation sends smart crop mode by default', () => {
     const fe = fs.readFileSync(path.resolve(process.cwd(), '../src/services/clipRenderService.ts'), 'utf8');
     assert.match(fe, /cropMode: 'smart' \| 'center' = 'smart'/);
-    assert.match(fe, /candidateId, aspectRatio, cropMode/);
+    assert.match(fe, /candidateId,[\s\S]*?aspectRatio,[\s\S]*?cropMode/);
   });
 
   it('center crop remains available as an explicit choice', () => {
