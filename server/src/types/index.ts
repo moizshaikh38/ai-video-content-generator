@@ -628,9 +628,12 @@ export interface CropConfig {
     /**
      * Burned-in facecam region in normalized source coords (0-1). When set,
      * the inset/card branch crops this region instead of center-cropping the
-     * full frame. User-correctable geometry; omit = legacy behavior.
+     * full frame. Semantics are load-bearing: ABSENT (undefined) = fall back
+     * to the analysis-time static-geometry suggestion when one exists;
+     * null = explicit user opt-out (always legacy center-crop inset, the
+     * suggestion must not resurrect); object = user-confirmed region.
      */
-    facecamBox?: { x: number; y: number; w: number; h: number };
+    facecamBox?: { x: number; y: number; w: number; h: number } | null;
   };
 }
 

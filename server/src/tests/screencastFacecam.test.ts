@@ -144,3 +144,31 @@ describe('analysis-side facecam suggestion', () => {
     void withPick;
   });
 });
+
+describe('facecam config resolution (clear vs absent semantics)', () => {
+  const box = { x: 0.8594, y: 0.1167, w: 0.0641, h: 0.1139 };
+  const meta = { facecam_box: box };
+
+  it('absent key falls back to the analysis suggestion', () => {
+    assert.deepEqual(SmartReframeService.resolveFacecamBox({}, meta), box);
+    assert.deepEqual(SmartReframeService.resolveFacecamBox(undefined, meta), box);
+  });
+
+  it('explicit null is an opt-out: suggestion must NOT resurrect', () => {
+    assert.equal(SmartReframeService.resolveFacecamBox({ facecamBox: null }, meta), undefined);
+  });
+
+  it('user-set box wins over the suggestion', () => {
+    const user = { x: 0.1, y: 0.1, w: 0.2, h: 0.2 };
+    assert.deepEqual(SmartReframeService.resolveFacecamBox({ facecamBox: user }, meta), user);
+  });
+
+  it('no config and no suggestion means no box', () => {
+    assert.equal(SmartReframeService.resolveFacecamBox(undefined, undefined), undefined);
+    assert.equal(SmartReframeService.resolveFacecamBox({}, {}), undefined);
+  });
+
+  it('malformed suggestion is ignored', () => {
+    assert.equal(SmartReframeService.resolveFacecamBox({}, { facecam_box: { x: 'bad' } }), undefined);
+  });
+});

@@ -1084,8 +1084,7 @@ export class ClipRenderService {
           screencastInsetDiameter: clip.crop_config?.screencast?.insetDiameter,
           screencastScreenRatio: clip.crop_config?.screencast?.screenRatio,
           screencastBackground: clip.crop_config?.screencast?.background,
-          // User-set box wins; otherwise the analysis-time static-geometry suggestion.
-          screencastFacecamBox: clip.crop_config?.screencast?.facecamBox ?? track.metadata?.facecam_box ?? undefined,
+          screencastFacecamBox: SmartReframeService.resolveFacecamBox(clip.crop_config?.screencast, track.metadata),
         });
         logger.info(`[ClipRender] Applied dynamic smart reframe filter (${targetLayout}) with ${track.smoothed_keyframes.length} keyframes for clip ${clip.id}`);
         return {

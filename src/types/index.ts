@@ -410,8 +410,8 @@ export interface CropConfig {
     screenRatio?: number;
     /** 'black' = legacy letterbox; 'blur' = blurred cover fill behind the fitted source */
     background?: 'black' | 'blur';
-    /** Burned-in facecam region (normalized 0-1); user-correctable. Omit = center-crop inset. */
-    facecamBox?: { x: number; y: number; w: number; h: number };
+    /** Burned-in facecam region (normalized 0-1). Absent = use analysis suggestion; null = explicit opt-out; object = confirmed region. */
+    facecamBox?: { x: number; y: number; w: number; h: number } | null;
   };
 }
 

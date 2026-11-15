@@ -268,11 +268,15 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
             </button>
             <button
               type="button"
-              disabled={!screencastCfg.facecamBox}
+              disabled={!screencastCfg.facecamBox && screencastCfg.facecamBox !== null && !facecamSuggestion}
               onClick={() => onUpdateScreencast?.({ facecamBox: null })}
-              className="p-2 rounded-lg border bg-vc-canvas border-white/[0.06] hover:border-white/20 text-neutral-300 text-[11px] transition disabled:opacity-40"
+              className={`p-2 rounded-lg border text-[11px] transition ${
+                screencastCfg.facecamBox === null
+                  ? 'bg-violet-500/15 border-violet-500/40 text-violet-200'
+                  : 'bg-vc-canvas border-white/[0.06] hover:border-white/20 text-neutral-300'
+              } disabled:opacity-40`}
             >
-              Center crop cam
+              {screencastCfg.facecamBox === null ? 'Center crop ✓' : 'Center crop cam'}
             </button>
           </div>
           <p className="text-[10px] text-neutral-500">

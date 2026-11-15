@@ -916,6 +916,31 @@ export class SmartReframeService {
   }
 
   /**
+   * Resolves the effective facecam box for a screencast render. The user's
+   * explicit choice always wins over the analysis-time static-geometry
+   * suggestion: a present box is used as-is; an explicit null is an opt-out
+   * (no fallback, legacy center-crop inset); only an absent key falls back
+   * to the suggestion. Undefined suggestion = no box.
+   */
+  public static resolveFacecamBox(
+    screencastConfig: { facecamBox?: { x: number; y: number; w: number; h: number } | null } | undefined | null,
+    trackMetadata: Record<string, any> | undefined | null,
+  ): { x: number; y: number; w: number; h: number } | undefined {
+    if (screencastConfig && Object.prototype.hasOwnProperty.call(screencastConfig, 'facecamBox')) {
+      return screencastConfig.facecamBox ?? undefined; // object -> use; null -> explicit opt-out
+    }
+    const suggestion = trackMetadata?.facecam_box;
+    if (
+      suggestion &&
+      typeof suggestion.x === 'number' && typeof suggestion.y === 'number' &&
+      typeof suggestion.w === 'number' && typeof suggestion.h === 'number'
+    ) {
+      return suggestion;
+    }
+    return undefined;
+  }
+
+  /**
    * Same static-geometry scan, but also returns the matching track_id so the
    * analysis path can exclude that track from dominant-subject selection and
    * persist the box as a user-correctable suggestion. The box is a geometric

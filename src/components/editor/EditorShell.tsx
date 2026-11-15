@@ -1083,8 +1083,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                         ...t,
                         items: t.items.map((i) => {
                           const prevScreencast = (i as any).crop_config?.screencast || {};
+                          // null is an explicit opt-out and MUST persist -
+                          // deleting the key would fall back to (and resurrect)
+                          // the analysis suggestion at render time.
                           const nextScreencast = { ...prevScreencast, ...patch };
-                          if (patch.facecamBox === null) delete (nextScreencast as any).facecamBox;
                           return {
                             ...i,
                             crop_config: { ...(i as any).crop_config, screencast: nextScreencast },
