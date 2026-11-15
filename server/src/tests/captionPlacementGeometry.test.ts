@@ -80,3 +80,34 @@ test('auto-headline mapping: untouched/edited omit overlayConfig (pro path burns
   ]) as any, clip);
   assert.equal(replaced.overlayConfig, undefined, 'custom item present: leave overlay state alone');
 });
+
+test('pro path crop propagation: clip crop_config seeds item crop; fit letterboxes instead of fill-cropping', async () => {
+  const { ProEditorService } = await import('../services/proEditorService.js');
+  const mk = (mode?: string) =>
+    (ProEditorService as any).buildInitialProject(
+      {
+        id: 'c1', user_id: 'u1', project_id: 'p1', candidate_id: 'k1',
+        start_seconds: 10, end_seconds: 20, duration_seconds: 10, aspect_ratio: '9:16',
+        crop_config: mode ? ({ mode, focusX: 0.5, focusY: 0.5 } as any) : undefined,
+        title: null,
+      },
+      'u1', null, null, {}
+    );
+  const primaryItem = (p: any) => p.tracks.find((t: any) => t.type === 'VIDEO')!.items.at(-1)!;
+  // 'fit' clip config -> per-item fit crop (letterbox preserved on the pro path)
+  assert.equal(primaryItem(mk('fit')).crop?.mode, 'fit');
+  // 'manual' -> per-item custom crop at the focus point
+  assert.equal(primaryItem(mk('manual')).crop?.mode, 'custom');
+  // 'smart'/unset -> no per-item override, smart-reframe context decides
+  assert.equal(primaryItem(mk('smart')).crop, undefined);
+  assert.equal(primaryItem(mk(undefined)).crop, undefined);
+  // 'fit' item crop compiles to the letterbox filter (scale-decrease + pad), not fill-crop
+  const fitFilter = (ProEditorService as any).buildSliceCropFilter(primaryItem(mk('fit')), undefined, 0, 10);
+  assert.ok(fitFilter.includes('force_original_aspect_ratio=decrease'), fitFilter);
+  assert.ok(fitFilter.includes('pad=1080:1920'), fitFilter);
+  const fillFilter = (ProEditorService as any).buildSliceCropFilter(
+    { ...primaryItem(mk('fit')), crop: { mode: 'fill', focusX: 0.5, focusY: 0.5 } },
+    undefined, 0, 10
+  );
+  assert.ok(fillFilter.includes('force_original_aspect_ratio=increase'), fillFilter);
+});

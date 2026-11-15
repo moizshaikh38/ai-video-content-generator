@@ -1078,6 +1078,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                       textShadow: t.shadow_color
                         ? `0 2px ${t.shadow_blur || 6}px ${t.shadow_color}`
                         : undefined,
+                      // pre-line: explicit newlines in the item text are preserved (the
+                      // export burns one drawtext per line); long lines wrap at 90% width.
+                      whiteSpace: 'pre-line',
                       zIndex: item.z_index || 20,
                     }}
                     className={`absolute pointer-events-auto cursor-move max-w-[90%] leading-tight select-none transition-shadow ${

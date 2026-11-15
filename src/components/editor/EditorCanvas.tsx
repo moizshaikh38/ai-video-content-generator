@@ -420,6 +420,9 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                   backgroundColor: t.background_color || 'transparent',
                   padding: t.background_padding ? `${t.background_padding}px` : undefined,
                   borderRadius: t.background_corner_radius ? `${t.background_corner_radius}px` : undefined,
+                  // pre-line: explicit newlines in the item text are preserved (the pro
+                  // export burns one drawtext per line); long lines still wrap at 85% width.
+                  whiteSpace: 'pre-line',
                 }}
                 className="absolute pointer-events-none select-none max-w-[85%] leading-tight"
               >

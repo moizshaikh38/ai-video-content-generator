@@ -167,9 +167,9 @@ const seedProject: any = (() => {
       }),
     };
     // ?headline=auto|edited: inject the TEXT track item exactly as proEditorService
-    // buildInitialProject mirrors the legacy auto-headline (2-line capped title, y=150
-    // legacy => -270 preview px, size tier/3 = 19 at preview scale). 'edited' simulates
-    // the user having changed the text to a single line.
+    // buildInitialProject mirrors the legacy auto-headline (2-line capped title, first
+    // line top at legacy y=150 => block center -249.5 preview px, size tier/3 = 19 at
+    // preview scale). 'edited' simulates the user having changed the text to a single line.
     const headlineMode = harnessQuery.get('headline');
     if (headlineMode) {
       const edited = headlineMode === 'edited';
@@ -192,7 +192,7 @@ const seedProject: any = (() => {
                 timeline_end: 5,
                 source_start: 0,
                 source_end: 5,
-                transform: { position_x: 0, position_y: -270, scale: 1.0, rotation: 0, opacity: 1.0 },
+                transform: { position_x: 0, position_y: -249.5, scale: 1.0, rotation: 0, opacity: 1.0 },
                 speed: { speed: 1.0, pitch_preserved: true },
                 text: {
                   text: edited ? 'A Better Title' : 'The Crewed Lunar\nVehicle: A New Frontier',

@@ -52,7 +52,7 @@ import {
 import { downloadObjectToFile, uploadFile, signObjectGet } from './objectStorageService.js';
 import { CaptionService } from './captionService.js';
 import { isKnownCaptionStyle } from '../shared/captionPresets.js';
-import { buildCropFilter } from './clipRenderService.js';
+import { buildCropFilter, buildFitFilter } from './clipRenderService.js';
 import { AudioEnhancementService } from './audioEnhancementService.js';
 import {
   LoudnormMeasured,
@@ -748,10 +748,12 @@ export class ProEditorService {
 
     // Per-item manual crop override wins over clip-level reframing.
     if (item.crop && (item.crop.mode === 'custom' || item.crop.mode === 'fit' || item.crop.mode === 'fill')) {
-      // Clamp focus into the valid 0..1 window so a bad persisted value can never
-      // push the crop window outside the frame (black edges).
+      // 'fit' letterboxes the whole frame (scale-decrease + pad); 'fill'/'custom'
+      // crop to fill the canvas at the (clamped) focus point. Clamping keeps a bad
+      // persisted value from pushing the crop window outside the frame (black edges).
       const clampFocus = (v: number | undefined): number =>
         Math.min(1, Math.max(0, typeof v === 'number' && Number.isFinite(v) ? v : 0.5));
+      if (item.crop.mode === 'fit') return buildFitFilter(ratio);
       return buildCropFilter(ratio, { focusX: clampFocus(item.crop.focusX), focusY: clampFocus(item.crop.focusY) });
     }
 
@@ -1558,16 +1560,8 @@ export class ProEditorService {
     // both the legacy headline layout and the preview's centered multi-line block.
     const capped = item.text.text.slice(0, 100).trim();
     if (!capped) return null;
-    const rawLines = capped.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean).slice(0, 4);
+    const rawLines = capped.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
     if (rawLines.length === 0) return null;
-
-    // Sanitize user text for FFmpeg drawtext (escape backslashes, percent signs, and colons)
-    const sanitizeLine = (t: string) =>
-      t.replace(/\\/g, '\\\\')
-        .replace(/'/g, '')
-        .replace(/:/g, '\\:')
-        .replace(/%/g, '\\%');
-    const safeLines = rawLines.map(sanitizeLine);
 
     const font = this.validateFont(item.text.font_family);
 
@@ -1580,6 +1574,31 @@ export class ProEditorService {
     const baseSize = item.text.font_size || 36;
     const itemScale = item.transform?.scale || 1.0;
     const scaledFontSize = Math.max(16, Math.round(baseSize * scaleRatio * itemScale));
+
+    // Word-wrap each explicit line to the same width the preview block allows (90% of
+    // canvas, ~0.5em average advance), so long single-line text breaks where the
+    // preview wraps instead of overflowing the canvas. Explicit newlines are kept.
+    const maxChars = Math.max(8, Math.floor((0.9 * canvasW) / (scaledFontSize * 0.5)));
+    const wrappedLines: string[] = [];
+    for (const line of rawLines) {
+      let rest = line;
+      while (rest.length > maxChars) {
+        let cut = rest.lastIndexOf(' ', maxChars);
+        if (cut < Math.floor(maxChars * 0.5)) cut = maxChars;
+        wrappedLines.push(rest.slice(0, cut).trimEnd());
+        rest = rest.slice(cut).trimStart();
+      }
+      if (rest) wrappedLines.push(rest);
+    }
+    const finalLines = wrappedLines.slice(0, 4);
+
+    // Sanitize user text for FFmpeg drawtext (escape backslashes, percent signs, and colons)
+    const sanitizeLine = (t: string) =>
+      t.replace(/\\/g, '\\\\')
+        .replace(/'/g, '')
+        .replace(/:/g, '\\:')
+        .replace(/%/g, '\\%');
+    const safeLines = finalLines.map(sanitizeLine);
 
     const fontColor = this.sanitizeHexColor(item.text.color, 'FFFFFF');
     const baseOpacity = item.transform?.opacity ?? 1.0;
@@ -1719,6 +1738,19 @@ export class ProEditorService {
 
     const tracks: EditorTrack[] = [];
 
+    // Mirror the clip-level crop decision into the primary video item: 'fit' and
+    // 'manual' are per-item crop overrides in the pro render path; 'smart'/unset
+    // leaves item.crop undefined so the smart-reframe track (or center fallback)
+    // applies exactly as the Quick Clip path decides. Without this mirror the pro
+    // path fill-cropped every clip, silently overriding fit letterboxing.
+    const clipCrop = (clip as any).crop_config;
+    const seededCrop: { mode: 'fill' | 'fit' | 'custom'; focusX: number; focusY: number } | undefined =
+      clipCrop?.mode === 'fit'
+        ? { mode: 'fit', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
+        : clipCrop?.mode === 'manual'
+          ? { mode: 'custom', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
+          : undefined;
+
     // Track 1: Main Video Track (Multi-slice with Cold Open if enabled)
     const videoTrackId = crypto.randomUUID();
     const videoItems: EditorTrackItem[] = [];
@@ -1742,7 +1774,7 @@ export class ProEditorService {
           rotation: 0,
           opacity: 1.0,
         },
-        crop: { mode: 'fill', focusX: 0.5, focusY: 0.5 },
+        crop: seededCrop ? { ...seededCrop } : undefined,
         speed: { speed: 1.0, pitch_preserved: true },
         audio: {
           volume: clip.volume !== undefined ? clip.volume : 1.0,
@@ -1778,7 +1810,7 @@ export class ProEditorService {
         rotation: 0,
         opacity: 1.0,
       },
-      crop: { mode: 'fill', focusX: 0.5, focusY: 0.5 },
+      crop: seededCrop ? { ...seededCrop } : undefined,
       speed: { speed: 1.0, pitch_preserved: true },
       audio: {
         volume: clip.volume !== undefined ? clip.volume : 1.0,
@@ -1850,8 +1882,13 @@ export class ProEditorService {
         timeline_end: Math.min(5, finalDuration),
         source_start: 0,
         source_end: Math.min(5, finalDuration),
-        // y=150 on the 1920-tall canvas (legacy drawtext position) => (150-960)/3 = -270 preview px
-        transform: { position_x: 0, position_y: -270, scale: 1.0, rotation: 0, opacity: 1.0 },
+        // Legacy draws wrapped lines with the FIRST line top at y=150 (then +fontSize+8
+        // per line); the pro item is block-centered on the transform position, so the
+        // center sits at 150 + fontSize/2 + (lines-1)/2*(fontSize+8). For the default
+        // 2-line wrap: 211.5 export px => (211.5-960)/3 = -249.5 preview px. This keeps
+        // the headline below the watermark zone (top-right box ends ~y=129) and matches
+        // the legacy layout exactly.
+        transform: { position_x: 0, position_y: -249.5, scale: 1.0, rotation: 0, opacity: 1.0 },
         speed: { speed: 1.0, pitch_preserved: true },
         text: {
           text: headLines.join('\n'),
