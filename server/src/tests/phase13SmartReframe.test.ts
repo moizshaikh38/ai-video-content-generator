@@ -485,8 +485,16 @@ async function runTests() {
   }
 }
 
-runTests().catch((err) => {
-  console.error('Test suite error:', err);
-  process.exit(1);
-});
+// This is a script-style suite (custom runner, no node:test registration):
+// imported services leave DB handles open, which kept the process alive past
+// node --test's 60s default timeout and failed the file as "timed out".
+// Exit explicitly with the recorded result once the runner settles.
+runTests()
+  .then(() => {
+    process.exit(process.exitCode ?? 0);
+  })
+  .catch((err) => {
+    console.error('Test suite error:', err);
+    process.exit(1);
+  });
 

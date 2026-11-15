@@ -1123,18 +1123,9 @@ export const analyzeClipReframe = async (req: AuthenticatedRequest, res: Respons
     return;
   }
 
-  // Entitlement verification for Smart Reframe feature
-  const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
-  if (!EntitlementService.isFeatureAllowed(entitlements, 'smartReframe')) {
-    res.status(403).json({
-      status: 'error',
-      code: 'FEATURE_NOT_PERMITTED',
-      message: `Smart Reframe is not available on your current plan (${entitlements.displayName}). Please upgrade your plan to unlock Smart Reframe.`,
-      feature: 'smartReframe',
-      plan: entitlements.displayName,
-    });
-    return;
-  }
+  // Validate the request BEFORE touching billing: malformed payloads and
+  // duplicate submissions must fail fast with 400/409 instead of a database
+  // error (or a billing lookup) for input the client never should have sent.
 
   // Security guard: frontend cannot send arbitrary filesystem/commands/track data
   const disallowedKeys = ['filesystemPath', 'pythonCommand', 'ffmpegExpression', 'storagePath', 'rawTrackData'];
@@ -1155,6 +1146,19 @@ export const analyzeClipReframe = async (req: AuthenticatedRequest, res: Respons
       status: 'error',
       code: 'REFRAME_ANALYSIS_ACTIVE',
       message: 'Smart reframe analysis is already in progress for this clip.',
+    });
+    return;
+  }
+
+  // Entitlement verification for Smart Reframe feature
+  const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
+  if (!EntitlementService.isFeatureAllowed(entitlements, 'smartReframe')) {
+    res.status(403).json({
+      status: 'error',
+      code: 'FEATURE_NOT_PERMITTED',
+      message: `Smart Reframe is not available on your current plan (${entitlements.displayName}). Please upgrade your plan to unlock Smart Reframe.`,
+      feature: 'smartReframe',
+      plan: entitlements.displayName,
     });
     return;
   }
