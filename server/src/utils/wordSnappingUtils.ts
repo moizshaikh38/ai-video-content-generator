@@ -245,9 +245,9 @@ export function calculateAdaptiveClipCount(
   if (duration < 600) {
     return {
       minClips: 2,
-      maxClips: 5,
+      maxClips: 8,
       targetClips: Math.min(4, Math.max(2, candidateCount)),
-      reason: 'Medium source (3–10 min); targeted 2–5 clips.',
+      reason: 'Medium source (3–10 min); targeted 2–8 clips.',
     };
   }
 
@@ -256,7 +256,7 @@ export function calculateAdaptiveClipCount(
     const floor = Math.min(candidateCount, 4); // Enforce empirical 4+ floor if candidates exist
     return {
       minClips: floor,
-      maxClips: 8,
+      maxClips: 10,
       targetClips: Math.min(6, Math.max(floor, candidateCount)),
       reason: 'Standard long-form podcast (10–30 min); empirical 4+ floor applied for optimal retention.',
     };
@@ -266,9 +266,9 @@ export function calculateAdaptiveClipCount(
   const floor = Math.min(candidateCount, 6);
   return {
     minClips: floor,
-    maxClips: 12,
+    maxClips: 14,
     targetClips: Math.min(10, Math.max(floor, candidateCount)),
-    reason: 'Deep long-form content (30+ min); targeted 6–12 clips.',
+    reason: 'Deep long-form content (30+ min); targeted 6–14 clips.',
   };
 }
 
