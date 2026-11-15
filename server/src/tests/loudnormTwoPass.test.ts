@@ -31,6 +31,7 @@ const MODULATED_15S = path.join(FIX_DIR, 'modulated-15s.mp4');
 const MODULATED_SMALL = path.join(FIX_DIR, 'modulated-small.mp4');
 const BROLL_SMALL = path.join(FIX_DIR, 'broll-small.mp4');
 const SILENT_10S = path.join(FIX_DIR, 'silent-10s.mp4');
+const HOT_QUIET = path.join(FIX_DIR, 'hotquiet-10s.mp4');
 const BROLL_RED = path.join(FIX_DIR, 'broll-red.mp4');
 
 function gen(fix: string, args: string[]) {
@@ -54,6 +55,13 @@ function ensureFixtures() {
   gen(SILENT_10S, [
     '-f', 'lavfi', '-i', 'testsrc2=size=1920x1080:rate=30:duration=10',
     '-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
+    '-shortest', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '30', '-c:a', 'aac',
+  ]);
+  // Quiet sine bed with loud clicks: integrated ~-31 LUFS, true peak ~0dBTP -
+  // linear normalization to -16 is infeasible (peak overshoot), dynamic works.
+  gen(HOT_QUIET, [
+    '-f', 'lavfi', '-i', 'testsrc2=size=480x270:rate=30:duration=10',
+    '-f', 'lavfi', '-i', 'aevalsrc=0.02*sin(440*2*PI*t)+0.9*lt(mod(t\,2)\,0.02):s=44100:d=10',
     '-shortest', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '30', '-c:a', 'aac',
   ]);
   gen(MODULATED_SMALL, [
@@ -185,30 +193,48 @@ describe('LoudnormTwoPassService - unit', () => {
     assert.deepEqual(LoudnormTwoPassService.assessLinearFeasibility(m, -16, -1.5, 11), { ok: true });
   });
 
-  it('feasibility rejects true-peak overflow (FFmpeg would silently go dynamic)', () => {
+  it('feasibility rejects true-peak overflow as dynamic-prerender eligible', () => {
     const m = { inputI: -40, inputTP: -3.48, inputLRA: 2.6, inputThresh: -50, targetOffset: -0.11 };
     const r = LoudnormTwoPassService.assessLinearFeasibility(m, -16, -1.5, 11);
     assert.equal(r.ok, false);
-    if (!r.ok) assert.match(r.reason, /true peak/);
+    if (!r.ok) {
+      assert.match(r.reason, /true peak/);
+      assert.equal(r.fallback, 'dynamic-prerender');
+    }
   });
 
-  it('feasibility rejects LRA above target', () => {
+  it('feasibility rejects LRA above target as dynamic-prerender eligible', () => {
     const m = { inputI: -9.16, inputTP: -3.48, inputLRA: 20, inputThresh: -20.36, targetOffset: -0.11 };
     const r = LoudnormTwoPassService.assessLinearFeasibility(m, -16, -1.5, 11);
     assert.equal(r.ok, false);
-    if (!r.ok) assert.match(r.reason, /loudness range/);
+    if (!r.ok) {
+      assert.match(r.reason, /loudness range/);
+      assert.equal(r.fallback, 'dynamic-prerender');
+    }
   });
 
-  it('feasibility rejects degenerate measurements FFmpeg treats as dynamic-only', () => {
+  it('feasibility rejects LRA=0 constant audio as dynamic-prerender eligible', () => {
+    const m = { inputI: -9.16, inputTP: -3.48, inputLRA: 0, inputThresh: -20.36, targetOffset: -0.11 };
+    const r = LoudnormTwoPassService.assessLinearFeasibility(m, -16, -1.5, 11);
+    assert.equal(r.ok, false);
+    if (!r.ok) {
+      assert.match(r.reason, /constant-level/);
+      assert.equal(r.fallback, 'dynamic-prerender');
+    }
+  });
+
+  it('feasibility rejects degenerate sentinel measurements with no fallback', () => {
     for (const m of [
-      { inputI: -9.16, inputTP: -3.48, inputLRA: 0, inputThresh: -20.36, targetOffset: -0.11 },
       { inputI: -9.16, inputTP: -3.48, inputLRA: 2.6, inputThresh: -70, targetOffset: -0.11 },
       { inputI: 0, inputTP: -3.48, inputLRA: 2.6, inputThresh: -20.36, targetOffset: -0.11 },
       { inputI: -9.16, inputTP: 99, inputLRA: 2.6, inputThresh: -20.36, targetOffset: -0.11 },
     ]) {
       const r = LoudnormTwoPassService.assessLinearFeasibility(m, -16, -1.5, 11);
       assert.equal(r.ok, false, `expected infeasible: ${JSON.stringify(m)}`);
-      if (!r.ok) assert.match(r.reason, /degenerate/);
+      if (!r.ok) {
+        assert.match(r.reason, /degenerate/);
+        assert.equal(r.fallback, null);
+      }
     }
   });
 
@@ -277,6 +303,49 @@ describe('LoudnormTwoPassService - integration (synthetic fixtures)', () => {
       () => ProEditorService.compileRenderGraphWithNormalization(project, SILENT_10S, path.join(FIX_DIR, 'out-silent.mp4'), FIX_DIR),
       (e: any) => e instanceof LoudnormNormalizationError && /silent or below the loudness measurement gate/.test(e.message)
     );
+  });
+
+  it('hot quiet dialogue (linear-infeasible) renders via pre-rendered dynamic fallback', { timeout: 300_000 }, async () => {
+    // Quiet program with loud clicks: measured TP ~0dBTP, so linear gain to -16
+    // would overshoot the -1.5dBTP ceiling. Legacy one-pass handled this class
+    // via dynamic limiting; the fallback must reproduce it without an in-graph
+    // one-pass loudnorm (which stalls the muxer and OOMs long renders).
+    const project = {
+      user_id: 'loudnorm-2pass-test',
+      canvas: { width: 1080, height: 1920, aspect_ratio: '9:16', fps: 30, duration: 4 },
+      tracks: [
+        {
+          type: 'VIDEO', name: 'Main',
+          items: [
+            { id: 's1', name: 's1', timeline_start: 0, timeline_end: 4, source_start: 0, source_end: 4, source_path: HOT_QUIET,
+              audio: { volume: 1.0, fade_in: 0.1, fade_out: 0.1, normalized: true, target_lufs: -16 } },
+          ],
+        },
+      ],
+    } as any;
+
+    const legacy = ProEditorService.compileRenderGraph(project, HOT_QUIET, path.join(FIX_DIR, 'out-hotquiet-1pass.mp4'), FIX_DIR);
+    const graph = await ProEditorService.compileRenderGraphWithNormalization(
+      project, HOT_QUIET, path.join(FIX_DIR, 'out-hotquiet-2pass.mp4'), FIX_DIR
+    );
+    assert.equal(graph.normalizationMode, 'dynamic-prerendered');
+    assert.ok(
+      graph.filterComplex.some((s) => /\[\d+:a\]anull\[dialogue_proc\]/.test(s)),
+      'dialogue must come from the pre-rendered WAV input'
+    );
+
+    const out1 = path.join(FIX_DIR, 'out-hotquiet-1pass.mp4');
+    const out2 = path.join(FIX_DIR, 'out-hotquiet-2pass.mp4');
+    await renderGraph(legacy, out1, 4);
+    await renderGraph(graph, out2, 4);
+
+    const d = await probeStreamDurations(out2);
+    assert.ok(Math.abs(d.video - 4) < 0.2, `video duration ${d.video} != 4`);
+    assert.ok(Math.abs(d.audio - 4) < 0.2, `audio duration ${d.audio} != 4 (sync drift)`);
+
+    const l1 = await integratedLoudness(out1);
+    const l2 = await integratedLoudness(out2);
+    assert.ok(Math.abs(l1 - l2) <= 1.0, `fallback ${l2} LUFS must match legacy one-pass ${l1} LUFS within 1 LU`);
   });
 
   it('single-slice projects measure through the caller input-seek window', { timeout: 120_000 }, async () => {

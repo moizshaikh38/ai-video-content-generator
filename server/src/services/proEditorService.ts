@@ -84,10 +84,21 @@ export interface CompiledRenderGraph {
    * print_format=json loudnorm. Running it decodes no video.
    */
   measurement: { filterComplex: string[]; audioMap: string; targetI: number } | null;
+  /**
+   * How dialogue loudness normalization was applied, when requested:
+   * 'linear' (two-pass measured) or 'dynamic-prerendered' (legacy one-pass
+   * loudnorm on a bounded audio-only pre-render, used when linear mode is
+   * infeasible for the measured peaks/range). Undefined when not requested.
+   */
+  normalizationMode?: 'linear' | 'dynamic-prerendered';
 }
 
-/** Mode for loudnorm emission: default one-pass (legacy), 'measure', or measured two-pass. */
-export type LoudnormCompileMode = 'measure' | { measured: LoudnormMeasured };
+/** Mode for loudnorm emission: default one-pass (legacy), 'measure', measured
+ * two-pass linear, or dialogue pre-rendered into a normalized WAV file. */
+export type LoudnormCompileMode =
+  | 'measure'
+  | { measured: LoudnormMeasured }
+  | { preNormalizedDialoguePath: string };
 
 /**
  * Clip-level reframing context resolved once by ClipRenderService.resolveReframeDecision
@@ -1260,39 +1271,58 @@ export class ProEditorService {
     let loudnormTargetI: number | null = null;
     const buildLoudnorm = (targetI: number): string => {
       if (loudnorm === 'measure') return LoudnormTwoPassService.buildMeasureFilter(targetI, -1.5, 11);
-      if (loudnorm && typeof loudnorm === 'object') {
+      if (loudnorm && typeof loudnorm === 'object' && 'measured' in loudnorm) {
         return LoudnormTwoPassService.buildLinearFilter(targetI, -1.5, 11, loudnorm.measured);
       }
       return `loudnorm=I=${targetI}:TP=-1.5:LRA=11`;
     };
-    if (primaryAudioItem?.audio?.enhancement) {
-      const enh = primaryAudioItem.audio.enhancement;
-      let loudnormFilter: string | undefined;
-      if (enh.normalize_enabled) {
-        loudnormTargetI = AudioEnhancementService.resolveTargetLufs(enh);
-        loudnormFilter = buildLoudnorm(loudnormTargetI);
+    const preNormPath =
+      loudnorm && typeof loudnorm === 'object' && 'preNormalizedDialoguePath' in loudnorm
+        ? loudnorm.preNormalizedDialoguePath
+        : null;
+    if (preNormPath) {
+      // The dialogue program (slice trims/speed/concat, enhancement, legacy
+      // dynamic loudnorm, fades) was pre-rendered into a bounded audio-only WAV
+      // because linear loudnorm is infeasible for the measured peaks/range and
+      // in-graph one-pass loudnorm stalls the muxer (OOM on long sources).
+      // Inject the WAV as the dialogue source; nothing else may consume the
+      // base chain's audio pad in this mode, so sink it when it is filter-produced.
+      inputArgs.push('-i', preNormPath);
+      currentInputIdx++;
+      if (!/^\[\d+:[au]\]$/.test(audioStreamLabel)) {
+        filterComplex.push(`${audioStreamLabel}anullsink`);
       }
-      const enhanceFilters = AudioEnhancementService.compileFilterGraph(
-        enh,
-        loudnormFilter ? { loudnormFilter } : undefined
-      );
-      audioFilters.push(...enhanceFilters);
+      filterComplex.push(`[${currentInputIdx}:a]anull[dialogue_proc]`);
     } else {
-      const needsNormalize = project.tracks.some((t) =>
-        t.items.some((i) => i.audio?.normalized)
-      );
-      if (needsNormalize) {
-        loudnormTargetI = -16;
-        audioFilters.push(buildLoudnorm(-16));
+      if (primaryAudioItem?.audio?.enhancement) {
+        const enh = primaryAudioItem.audio.enhancement;
+        let loudnormFilter: string | undefined;
+        if (enh.normalize_enabled) {
+          loudnormTargetI = AudioEnhancementService.resolveTargetLufs(enh);
+          loudnormFilter = buildLoudnorm(loudnormTargetI);
+        }
+        const enhanceFilters = AudioEnhancementService.compileFilterGraph(
+          enh,
+          loudnormFilter ? { loudnormFilter } : undefined
+        );
+        audioFilters.push(...enhanceFilters);
+      } else {
+        const needsNormalize = project.tracks.some((t) =>
+          t.items.some((i) => i.audio?.normalized)
+        );
+        if (needsNormalize) {
+          loudnormTargetI = -16;
+          audioFilters.push(buildLoudnorm(-16));
+        }
       }
+
+      // Dialogue audio volume & subtle fades
+      audioFilters.push('afade=t=in:ss=0:d=0.15');
+      const fadeOutStart = Math.max(0, project.canvas.duration - 0.25);
+      audioFilters.push(`afade=t=out:st=${fadeOutStart.toFixed(2)}:d=0.25`);
+
+      filterComplex.push(`${audioStreamLabel}${audioFilters.join(',')}[dialogue_proc]`);
     }
-
-    // Dialogue audio volume & subtle fades
-    audioFilters.push('afade=t=in:ss=0:d=0.15');
-    const fadeOutStart = Math.max(0, project.canvas.duration - 0.25);
-    audioFilters.push(`afade=t=out:st=${fadeOutStart.toFixed(2)}:d=0.25`);
-
-    filterComplex.push(`${audioStreamLabel}${audioFilters.join(',')}[dialogue_proc]`);
     const processedDialogueLabel = '[dialogue_proc]';
     // Dialogue input pad ([base_a] / [0:a] / [base_a_speed]) - captured before
     // audioStreamLabel is reassigned to [master_a] by the final mix below.
@@ -1451,9 +1481,29 @@ export class ProEditorService {
     );
     const check = LoudnormTwoPassService.assessLinearFeasibility(measured, probe.measurement.targetI, -1.5, 11);
     if (!check.ok) {
+      if (check.fallback === 'dynamic-prerender') {
+        fs.mkdirSync(tmpDir, { recursive: true });
+        const wavPath = path.join(tmpDir, `dialogue-normalized-${crypto.randomUUID()}.wav`);
+        await LoudnormTwoPassService.renderNormalizedDialogue(
+          [...inputSeekArgs, ...probe.inputArgs],
+          probe.measurement,
+          wavPath
+        );
+        logger.warn(
+          `[ProEditorService] Linear loudnorm infeasible (${check.reason}); ` +
+            `using pre-rendered dynamic normalization (legacy one-pass on a bounded audio-only program).`
+        );
+        const graph = ProEditorService.compileRenderGraph(project, sourceVideoPath, outputPath, tmpDir, reframe, {
+          preNormalizedDialoguePath: wavPath,
+        });
+        graph.normalizationMode = 'dynamic-prerendered';
+        return graph;
+      }
       throw new LoudnormNormalizationError(check.reason);
     }
-    return ProEditorService.compileRenderGraph(project, sourceVideoPath, outputPath, tmpDir, reframe, { measured });
+    const graph = ProEditorService.compileRenderGraph(project, sourceVideoPath, outputPath, tmpDir, reframe, { measured });
+    graph.normalizationMode = 'linear';
+    return graph;
   }
 
   /**

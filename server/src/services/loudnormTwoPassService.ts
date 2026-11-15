@@ -100,13 +100,23 @@ export class LoudnormTwoPassService {
     targetI: number,
     targetTP: number,
     targetLRA: number
-  ): { ok: true } | { ok: false; reason: string } {
-    if (m.inputTP === 99 || m.inputThresh === -70 || m.inputLRA === 0 || m.inputI === 0) {
+  ): { ok: true } | { ok: false; reason: string; fallback: 'dynamic-prerender' | null } {
+    if (m.inputTP === 99 || m.inputThresh === -70 || m.inputI === 0) {
       return {
         ok: false,
+        fallback: null,
         reason:
           `measurement is degenerate (input_i=${m.inputI}, input_lra=${m.inputLRA}, ` +
           `input_thresh=${m.inputThresh}); FFmpeg would silently fall back to dynamic mode`,
+      };
+    }
+    if (m.inputLRA === 0) {
+      // Constant-level audio (e.g. a steady tone): FFmpeg excludes LRA=0 from
+      // linear mode, but dynamic normalization handles it fine (legacy behavior).
+      return {
+        ok: false,
+        fallback: 'dynamic-prerender',
+        reason: `measured loudness range is 0 LU (constant-level audio); linear mode unavailable`,
       };
     }
     const gainDb = targetI - m.inputI;
@@ -114,6 +124,7 @@ export class LoudnormTwoPassService {
     if (offsetTP > targetTP) {
       return {
         ok: false,
+        fallback: 'dynamic-prerender',
         reason:
           `linear gain of ${gainDb.toFixed(2)}dB would push true peak to ${offsetTP.toFixed(2)}dBTP, ` +
           `above the ${targetTP}dBTP ceiling`,
@@ -122,6 +133,7 @@ export class LoudnormTwoPassService {
     if (m.inputLRA > targetLRA) {
       return {
         ok: false,
+        fallback: 'dynamic-prerender',
         reason: `measured loudness range ${m.inputLRA}LU exceeds the target ${targetLRA}LU`,
       };
     }
@@ -140,6 +152,49 @@ export class LoudnormTwoPassService {
   /** loudnorm filter string for the measurement pass. */
   public static buildMeasureFilter(targetI: number, targetTP: number, targetLRA: number): string {
     return `loudnorm=I=${targetI}:TP=${targetTP}:LRA=${targetLRA}:print_format=json`;
+  }
+
+  /**
+   * Pre-render the dialogue program with legacy one-pass (dynamic) loudnorm into
+   * a WAV, for content where linear mode is infeasible (true-peak headroom or
+   * loudness-range limits). The graph is the measurement graph with the terminal
+   * print_format loudnorm swapped for the plain one-pass variant, so the output
+   * is exactly what legacy one-pass renders produced - but as a bounded
+   * audio-only process: no video is decoded, so the muxer-stall frame queue that
+   * OOM-killed in-graph one-pass renders cannot form.
+   */
+  public static async renderNormalizedDialogue(
+    inputArgs: string[],
+    measurement: LoudnormMeasurementGraph,
+    outWavPath: string,
+    timeoutMs = 300_000
+  ): Promise<void> {
+    const legacyFilter = `loudnorm=I=${measurement.targetI}:TP=-1.5:LRA=11`;
+    const measureFilter = LoudnormTwoPassService.buildMeasureFilter(measurement.targetI, -1.5, 11);
+    const chain = measurement.filterComplex[measurement.filterComplex.length - 1];
+    if (!chain.includes(measureFilter)) {
+      throw new LoudnormNormalizationError('measurement graph does not end in the expected loudnorm filter');
+    }
+    const renderChains = [
+      ...measurement.filterComplex.slice(0, -1),
+      chain.replace(measureFilter, legacyFilter),
+    ];
+    await execFileAsync(
+      ffmpegBin,
+      [
+        '-y',
+        '-hide_banner',
+        ...inputArgs,
+        '-filter_complex',
+        renderChains.join(';'),
+        '-map',
+        measurement.audioMap,
+        '-c:a',
+        'pcm_s16le',
+        outWavPath,
+      ],
+      { timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024 }
+    );
   }
 
   /**
