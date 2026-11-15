@@ -33,7 +33,7 @@ export interface ReorderResult {
 }
 
 export interface ReorderBlocked {
-  blocked: 'locked-followers';
+  blocked: 'locked-followers' | 'unworded-straddling-captions';
   trackNames: string[];
 }
 
@@ -137,6 +137,35 @@ export function computeSceneReorder(
   };
   const round3 = (v: number) => Math.max(0, Math.round(v * 1000) / 1000);
 
+  // Correctness over convenience: a caption cue WITHOUT word timings that
+  // straddles a boundary whose scenes move apart cannot be placed without
+  // inventing timing - refuse the reorder rather than silently misalign
+  // spoken text. (Word-timed straddlers split safely, see remapCue.)
+  const unwordedStraddle = project.tracks.some(
+    (t) =>
+      t.type === 'CAPTION' &&
+      t.items.some(
+        (it) =>
+          it.caption &&
+          Array.isArray(it.caption.cues) &&
+          it.caption.cues.some((cue: any) => {
+            if (Array.isArray(cue.words) && cue.words.length > 0) return false;
+            const cs = Number(cue.start) || 0;
+            const ce = Number(cue.end) || 0;
+            if (ce - cs <= 0.001) return false;
+            return sceneSpans.some(
+              (sp) =>
+                sp.e > cs + 0.001 &&
+                sp.e < ce - 0.001 &&
+                deltaAt(sp.e - 0.001) !== deltaAt(sp.e + 0.001)
+            );
+          })
+      )
+  );
+  if (unwordedStraddle) {
+    return { blocked: 'unworded-straddling-captions', trackNames: ['Captions'] };
+  }
+
   // Remap one caption cue. Cues are speech-anchored: if a cue straddles scene
   // boundaries whose sides move by different deltas, split it at the original
   // boundaries and shift each fragment with its own scene, partitioning word
@@ -168,7 +197,9 @@ export function computeSceneReorder(
       ];
     }
     if (!words || words.length === 0) {
-      // No word timings: keep the cue whole on its dominant side.
+      // Unreachable in practice: computeSceneReorder refuses the reorder up
+      // front when an unworded cue straddles a diverging boundary. Defensive
+      // fallback: keep the cue whole on its dominant side.
       const d = dominantDelta(cs, ce);
       if (d === 0) return [cue];
       return [{ ...cue, start: round3(cs + d), end: round3(ce + d) }];
@@ -248,5 +279,5 @@ export function computeSceneReorder(
 }
 
 export function isReorderBlocked(r: ReorderResult | ReorderBlocked | null): r is ReorderBlocked {
-  return !!r && (r as ReorderBlocked).blocked === 'locked-followers';
+  return !!r && typeof (r as ReorderBlocked).blocked === 'string';
 }
