@@ -342,6 +342,8 @@ export interface RenderedClip {
   muted?: boolean;
   editor_version?: number;
   render_version?: number;
+  /** Editor-project version snapshot taken at render start; mismatch with the loaded project version marks the rendered download stale. */
+  rendered_editor_version?: number | null;
   reframe_mode?: 'smart' | 'fallback_center' | 'manual';
   reframe_metadata?: Record<string, any>;
   genre?: ContentGenre;

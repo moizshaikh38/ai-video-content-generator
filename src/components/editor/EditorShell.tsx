@@ -384,6 +384,15 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     if (renderSuccessMsg) setExportStale(false);
   }, [renderSuccessMsg]);
 
+  // Persistent staleness: the rendered file predates the current editor
+  // project whenever the server-side version snapshot taken at render start
+  // differs from the loaded project version (covers reloads).
+  const editorProjectStale =
+    !!clip &&
+    clip.render_status === 'ready' &&
+    clip.rendered_editor_version !== undefined &&
+    clip.rendered_editor_version !== project.version;
+
   // Discoverable Captions On/Off. Hiding the track already preserves the
   // item's caption config, so re-enabling just unhides - the chosen style
   // (gallery preset or legacy style) survives the off/on round-trip.
@@ -676,8 +685,15 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       onNavigateTab={setActiveSidebarTab}
       onUpdateProject={onUpdateProject}
       onUpdateItem={(itemId, updates) => {
-        if (selectedTrackId) {
-          onUpdateTrackItem(selectedTrackId, itemId, updates);
+        // Selection via the preview overlay sets only the item id; resolve the
+        // owning track from the item when no track is selected, otherwise
+        // inspector edits (hook duration, visibility, ...) silently no-op.
+        const trackId =
+          selectedTrackId ||
+          project.tracks.find((t) => t.items.some((i) => i.id === itemId))?.id ||
+          null;
+        if (trackId) {
+          onUpdateTrackItem(trackId, itemId, updates);
         }
       }}
       onAddKeyframe={(itemId, prop, val, easing) => {
@@ -1676,7 +1692,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         watermarkRequired={watermarkRequired}
         captionsEnabled={!project.tracks.find((t) => t.type === 'CAPTION')?.hidden}
         onToggleCaptions={handleToggleCaptions}
-        downloadStale={exportStale}
+        downloadStale={exportStale || editorProjectStale}
       />
 
       {/* 5. COMMAND PALETTE (Cmd+K) */}

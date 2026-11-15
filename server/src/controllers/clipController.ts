@@ -574,10 +574,25 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
 
     const nextRenderVersion = Number(clip.render_version || 1) + 1;
 
+    // Snapshot the editor-project version being rendered so the studio can
+    // tell a stale download (editor saved newer than the render) apart from a
+    // current one, without fragile timestamp comparisons.
+    let renderedEditorVersion: number | null = null;
+    try {
+      const { data: edProj } = await dataRepository
+        .from('editor_projects')
+        .select('version')
+        .eq('clip_id', clipId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      renderedEditorVersion = edProj?.version ?? null;
+    } catch { /* non-fatal: leave null */ }
+
     // Increment render version and queue clip with optional subtitle setting update
     const clipUpdate: Record<string, any> = {
       render_version: nextRenderVersion,
       render_status: 'queued',
+      rendered_editor_version: renderedEditorVersion,
       updated_at: new Date().toISOString(),
     };
     if (req.body?.caption_enabled !== undefined) {

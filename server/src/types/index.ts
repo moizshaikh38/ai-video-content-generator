@@ -546,6 +546,7 @@ export interface ClipRecord {
   muted?: boolean;
   editor_version?: number;
   render_version?: number;
+  rendered_editor_version?: number | null;
   reframe_mode?: 'smart' | 'fallback_center' | 'manual';
   reframe_metadata?: Record<string, any>;
   background_music?: QuickClipMusicConfig;
