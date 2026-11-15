@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   SmartReframeService,
@@ -276,10 +276,14 @@ describe('subject retention: smoothing may not lose a known subject', () => {
   });
 });
 
-describe('confidence-weighted centering (real-media FP mitigation)', () => {
+describe('confidence-weighted centering (real-media FP mitigation, EXPERIMENTAL)', () => {
   // Haar false positives on non-face content cluster at 0.65-0.83 confidence;
   // confident detections reach 0.9+. Weak detections must pull the crop only
   // weakly from center; confident ones steer fully.
+  // Gated behind SMART_REFRAME_WEIGHTED_CENTERING=1 (default off pending
+  // held-out validation).
+  before(() => { process.env.SMART_REFRAME_WEIGHTED_CENTERING = '1'; });
+  after(() => { delete process.env.SMART_REFRAME_WEIGHTED_CENTERING; });
   const mk = (t: number, cx: number, conf: number): ReframeSample => ({
     time: t,
     faces: [

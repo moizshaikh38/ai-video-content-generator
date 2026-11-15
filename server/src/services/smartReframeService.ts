@@ -527,6 +527,7 @@ export class SmartReframeService {
       let lastSeenFace: NormalizedFaceDetection | null = null;
       let lastSeenTime = -1;
 
+      const weightedCentering = process.env.SMART_REFRAME_WEIGHTED_CENTERING === '1';
       for (const sample of shotSamples) {
         const { time } = sample;
         let targetX: number | null = null;
@@ -535,11 +536,11 @@ export class SmartReframeService {
         let subjectBox: { x: number; y: number; w: number; h: number } | null = null;
 
         if (shotDominantTrackId === '__midpoint__') {
-          // Same confidence weighting as the single-track branch: weak
-          // detections pull the midpoint only weakly away from center.
+          // EXPERIMENTAL (SMART_REFRAME_WEIGHTED_CENTERING=1): weak detections
+          // pull the midpoint only weakly away from center. Default: unweighted.
           const weighted = sample.faces.map((f) => {
             const conf = Number(f.confidence ?? 0.5);
-            const w = Math.min(1, Math.max(0, (conf - 0.68) / 0.2));
+            const w = weightedCentering ? Math.min(1, Math.max(0, (conf - 0.68) / 0.2)) : 1;
             return { x: 0.5 + (f.center_x - 0.5) * w, y: 0.38 + (f.center_y - 0.38) * w };
           });
           const validFaceXs = weighted.map((f) => f.x);
@@ -561,19 +562,18 @@ export class SmartReframeService {
         } else if (shotDominantTrackId) {
           const match = sample.faces.find((f) => f.track_id === shotDominantTrackId);
           if (match) {
-            // Confidence-weighted centering: low-confidence detections (Haar
-            // false positives on non-face content cluster at ~0.65-0.80) pull
-            // the crop only weakly away from frame center; confident
-            // detections (~0.88+) steer fully. Weight 0 at 0.68, 1 at 0.88.
+            // EXPERIMENTAL (SMART_REFRAME_WEIGHTED_CENTERING=1): confidence-weighted
+            // centering - low-confidence detections (Haar false positives on
+            // non-face content cluster at ~0.65-0.80) pull the crop only weakly
+            // away from frame center; confident detections (~0.88+) steer fully.
+            // Weight 0 at 0.68, 1 at 0.88. Default (flag unset): pre-experiment
+            // behavior, the detection steers fully and always pins retention.
             const conf = Number(match.confidence ?? 0.5);
-            const confWeight = Math.min(1, Math.max(0, (conf - 0.68) / 0.2));
+            const confWeight = weightedCentering ? Math.min(1, Math.max(0, (conf - 0.68) / 0.2)) : 1;
             targetX = 0.5 + (match.center_x - 0.5) * confWeight;
             targetY = 0.38 + (match.center_y - 0.38) * confWeight;
             lastSeenFace = match;
             lastSeenTime = time;
-            // Retention constrains the crop only for detections confident
-            // enough to steer it; a low-confidence possible-false-positive
-            // box must not pin the window either.
             subjectBox = confWeight >= 0.5 ? { x: match.x, y: match.y, w: match.width, h: match.height } : null;
           }
         }

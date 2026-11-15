@@ -182,11 +182,24 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
     # Optional YuNet DNN detector (env-gated): real detection scores, no new service.
     yunet_detector = None
     yunet_model = os.environ.get('SMART_REFRAME_YUNET_MODEL', '')
-    if yunet_model and os.path.isfile(yunet_model) and hasattr(cv2, 'FaceDetectorYN_create'):
-        yunet_detector = cv2.FaceDetectorYN_create(
-            yunet_model, '', (source_width, source_height),
-            float(os.environ.get('SMART_REFRAME_YUNET_THRESHOLD', '0.6')), 0.3, 5000
-        )
+    if yunet_model:
+        # Explicit opt-in: never silently fall back to Haar (that would quietly
+        # reintroduce Haar's no-face false positives). Fail loudly instead.
+        if not hasattr(cv2, 'FaceDetectorYN_create'):
+            print("ERROR: SMART_REFRAME_YUNET_MODEL set but this OpenCV build lacks "
+                  "cv2.FaceDetectorYN_create (requires opencv-python >= 4.5.4).", file=sys.stderr)
+            sys.exit(2)
+        if not os.path.isfile(yunet_model):
+            print("ERROR: SMART_REFRAME_YUNET_MODEL set but model file not found: %s" % yunet_model, file=sys.stderr)
+            sys.exit(2)
+        try:
+            yunet_detector = cv2.FaceDetectorYN_create(
+                yunet_model, '', (source_width, source_height),
+                float(os.environ.get('SMART_REFRAME_YUNET_THRESHOLD', '0.6')), 0.3, 5000
+            )
+        except Exception as exc:
+            print("ERROR: failed to load YuNet model %s: %s" % (yunet_model, exc), file=sys.stderr)
+            sys.exit(2)
 
     samples = []
     scene_cuts = []
@@ -222,11 +235,15 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
         # 2. Face detection: YuNet DNN when enabled, else Haar cascades
         raw_candidates = []
         if yunet_detector is not None:
+            # YuNet reliably detects far smaller faces than Haar; Haar's 4%-of-frame
+            # min_size would drop legitimate small faces (e.g. two-shots). Use a
+            # fixed pixel floor to suppress detection noise only.
+            yunet_min_px = 16
             _, yn_faces = yunet_detector.detect(frame)
             if yn_faces is not None:
                 for yf in yn_faces:
                     yx, yy, yw, yh = int(yf[0]), int(yf[1]), int(yf[2]), int(yf[3])
-                    if yw >= min_size[0] and yh >= min_size[1]:
+                    if yw >= yunet_min_px and yh >= yunet_min_px:
                         raw_candidates.append({
                             "rect": (yx, yy, yw, yh),
                             "confidence": round(min(0.98, max(0.5, float(yf[-1]))), 2),
