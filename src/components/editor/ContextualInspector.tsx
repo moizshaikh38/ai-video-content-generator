@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { UpdateProjectOptions } from '../../hooks/useEditorProject';
+import { retimeItemSpeed } from '../../utils/timelineRipple';
 import {
   Sliders,
   Sparkles,
@@ -935,14 +936,16 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
             </label>
             <select
               value={String(selectedItem.speed?.speed ?? 1)}
-              onChange={(e) =>
-                onUpdateItem(selectedItem.id, {
-                  speed: {
-                    speed: parseFloat(e.target.value),
-                    pitch_preserved: selectedItem.speed?.pitch_preserved ?? true,
-                  },
-                })
-              }
+              onChange={(e) => {
+                const speed = parseFloat(e.target.value);
+                // Retime: the item's span becomes sourceWindow/speed and the
+                // timeline after it ripples so scenes, captions and audio
+                // stay aligned. Refused (kept at current speed) when a locked
+                // track holds content past the item, which would misalign.
+                onUpdateProject((prev) =>
+                  retimeItemSpeed(prev, selectedItem.track_id, selectedItem.id, speed) ?? prev
+                );
+              }}
               className="w-full bg-vc-canvas border border-vc-border rounded p-1.5 text-xs text-white"
               aria-label="Playback speed"
             >

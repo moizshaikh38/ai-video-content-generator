@@ -371,6 +371,13 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     if (!track || !item || track.type !== 'VIDEO' || item.is_freeze) return;
     const t = currentTime;
     if (t <= item.timeline_start + 0.05 || t >= item.timeline_end - 0.05) return;
+    // Refuse the freeze when a locked track holds content past the freeze
+    // point: everything else ripples +dur, which would silently misalign the
+    // locked content (consistent with scene reorder's locked-follower block).
+    const lockedHit = project.tracks.some(
+      (tr) => tr.locked && tr.items.some((it) => it.timeline_end > t)
+    );
+    if (lockedHit) return;
     const dur = FREEZE_DURATION_SEC;
     const itemSpeed = item.speed?.speed || 1;
     const srcTime = item.source_start + (t - item.timeline_start) * itemSpeed;
