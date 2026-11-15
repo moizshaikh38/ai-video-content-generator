@@ -10,6 +10,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config } from '../config/index.js';
 import { AppError, isValidUUID } from '../types/index.js';
+import { logger } from '../utils/logger.js';
 
 export type ObjectBucket = 'source' | 'clips';
 
@@ -270,25 +271,31 @@ export async function uploadFile(
   size: number,
   contentType: string
 ): Promise<{ sha256: string }> {
-  const { createReadStream } = await import('node:fs');
+  const { readFile } = await import('node:fs/promises');
   try {
-    // The hasher must NOT share the upload Body stream: attaching a 'data'
-    // listener switches the stream to flowing mode, so chunks emitted before
-    // the SDK attaches its consumer are lost and the stored object lands
-    // without its leading bytes (corrupt MP4s missing ftyp/moov).
-    const hasher = crypto.createHash('sha256');
-    const hashDone = new Promise<void>((resolve, reject) => {
-      const hashStream = createReadStream(path);
-      hashStream.on('data', (chunk) => hasher.update(chunk));
-      hashStream.on('end', () => resolve());
-      hashStream.on('error', reject);
+    const fileBuffer = await readFile(path);
+    const sha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+    await storageClient().send(
+      new PutObjectCommand({
+        Bucket: bucketName(bucket),
+        Key: key,
+        Body: fileBuffer,
+        ContentLength: fileBuffer.length,
+        ContentType: contentType,
+      })
+    );
+    return { sha256 };
+  } catch (err: any) {
+    logger.error('Rendered object upload failed in storageClient', {
+      bucket,
+      key,
+      path,
+      size,
+      errorName: err?.name,
+      errorMessage: err?.message,
+      errorCode: err?.Code || err?.code,
+      statusCode: err?.$metadata?.httpStatusCode,
     });
-    await storageClient().send(new PutObjectCommand({
-      Bucket: bucketName(bucket), Key: key, Body: createReadStream(path), ContentLength: size, ContentType: contentType,
-    }));
-    await hashDone;
-    return { sha256: hasher.digest('hex') };
-  } catch {
     throw new AppError('Rendered object upload failed.', 503, 'STORAGE_UNAVAILABLE');
   }
 }
