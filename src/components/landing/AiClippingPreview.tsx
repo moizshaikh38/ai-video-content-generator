@@ -1538,21 +1538,21 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                               {
                                 k: 0,
                                 v: 5,
-                                t: 'Wheel assembly close-up',
+                                t: 'Studio close-up',
                                 time: '0:08 – 0:12',
                                 done: true,
                               },
                               {
                                 k: 1,
                                 v: 9,
-                                t: 'Founder interview',
+                                t: 'Mic check',
                                 time: '0:20 – 0:25',
                                 done: true,
                               },
                               {
                                 k: 2,
                                 v: 8,
-                                t: 'Prototype lab build',
+                                t: 'Behind the scenes',
                                 time: '0:31 – 0:34',
                                 done: false,
                               },
@@ -1698,28 +1698,28 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                               Dubbed in हिन्दी
                             </span>
                             <span className="ln k0" style={{ '--k': 0 } as React.CSSProperties}>
-                              चाँद पर चलने वाला रोवर
+                              अपना पहला पॉडकास्ट कैसे शुरू करें
                             </span>
 
                             <span className="lg k1" style={{ '--k': 1 } as React.CSSProperties}>
                               Dubbed in English
                             </span>
                             <span className="ln k1" style={{ '--k': 1 } as React.CSSProperties}>
-                              The rover built to drive on the Moon
+                              How to start your first podcast
                             </span>
 
                             <span className="lg k2" style={{ '--k': 2 } as React.CSSProperties}>
                               Dubbed in Español
                             </span>
                             <span className="ln k2" style={{ '--k': 2 } as React.CSSProperties}>
-                              El rover diseñado para la Luna
+                              Cómo empezar tu primer pódcast
                             </span>
 
                             <span className="lg k3" style={{ '--k': 3 } as React.CSSProperties}>
                               Dubbed in Français
                             </span>
                             <span className="ln k3" style={{ '--k': 3 } as React.CSSProperties}>
-                              Le rover conçu pour la Lune
+                              Comment lancer son premier podcast
                             </span>
 
                             <div className="wf">{voiceBars}</div>
