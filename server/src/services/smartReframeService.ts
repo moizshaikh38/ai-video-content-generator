@@ -519,7 +519,23 @@ export class SmartReframeService {
           }
         }
       } else if (shotTracks.size === 1) {
-        shotDominantTrackId = Array.from(shotTracks.keys())[0];
+        const onlyTrackId = Array.from(shotTracks.keys())[0];
+        // EXPERIMENTAL (SMART_REFRAME_SHOT_TRACK_GATE=1): a single-track shot
+        // adopts that track only if it clears the same minimum-presence bar
+        // selectDominantTrack applies to multi-track shots. A lone one-frame
+        // detection (e.g. a small low-confidence edge false positive) no
+        // longer anchors the whole shot far off-center; the shot eases toward
+        // center instead. Default (flag unset): pre-gate behavior unchanged.
+        if (process.env.SMART_REFRAME_SHOT_TRACK_GATE === '1') {
+          // Presence bar: at least 2 detections AND >= 25% of the shot's
+          // samples. A lone first-frame detection (small, low-confidence edge
+          // false positive in the Sintel case) cannot anchor the whole shot.
+          const minDets = Math.max(2, Math.ceil(shotSamples.length * 0.25));
+          const dets = shotTracks.get(onlyTrackId)!;
+          shotDominantTrackId = dets.length >= minDets ? onlyTrackId : dominantTrackId;
+        } else {
+          shotDominantTrackId = onlyTrackId;
+        }
       }
 
       // Build raw trajectory for this shot
