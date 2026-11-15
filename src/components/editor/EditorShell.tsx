@@ -1074,6 +1074,28 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                   }),
                 }));
               }}
+              onUpdateScreencast={(patch) => {
+                onUpdateProject((prev) => ({
+                  ...prev,
+                  tracks: prev.tracks.map((t) => {
+                    if (t.type === 'VIDEO') {
+                      return {
+                        ...t,
+                        items: t.items.map((i) => {
+                          const prevScreencast = (i as any).crop_config?.screencast || {};
+                          const nextScreencast = { ...prevScreencast, ...patch };
+                          if (patch.facecamBox === null) delete (nextScreencast as any).facecamBox;
+                          return {
+                            ...i,
+                            crop_config: { ...(i as any).crop_config, screencast: nextScreencast },
+                          } as any;
+                        }),
+                      };
+                    }
+                    return t;
+                  }),
+                }));
+              }}
               onUpdateProject={onUpdateProject}
             />
           </div>

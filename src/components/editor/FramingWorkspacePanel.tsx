@@ -7,12 +7,20 @@ import {
 } from 'lucide-react';
 import { EditorProject } from '../../types';
 
+interface ScreencastConfigEdit {
+  mode?: 'split_stacked' | 'circular_inset' | 'rounded_card_inset';
+  insetPosition?: 'bottom_right' | 'bottom_left' | 'top_right' | 'top_left';
+  background?: 'black' | 'blur';
+  facecamBox?: { x: number; y: number; w: number; h: number } | null;
+}
+
 interface FramingWorkspacePanelProps {
   project: EditorProject;
   showSafeGuides: boolean;
   onToggleSafeGuides: () => void;
   onUpdateCropMode: (mode: 'center' | 'fit' | 'smart') => void;
   onUpdateLayoutMode?: (layout: 'track' | 'split' | 'screencast' | 'blur') => void;
+  onUpdateScreencast?: (patch: ScreencastConfigEdit) => void;
   onUpdateProject: (updater: (prev: EditorProject) => EditorProject) => void;
 }
 
@@ -22,6 +30,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
   onToggleSafeGuides,
   onUpdateCropMode,
   onUpdateLayoutMode,
+  onUpdateScreencast,
   onUpdateProject: _onUpdateProject,
 }) => {
   // Read active framing mode from video track or default to smart
@@ -29,6 +38,8 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
   const videoItem = videoTrack?.items[0];
   const activeCropMode = (videoItem as any)?.crop_mode || 'smart';
   const activeLayoutMode = (videoItem as any)?.layout_mode || 'track';
+  const screencastCfg = ((videoItem as any)?.crop_config?.screencast || {}) as ScreencastConfigEdit;
+  const facecamSuggestion = ((videoItem as any)?.reframe_metadata?.facecam_box || null) as { x: number; y: number; w: number; h: number } | null;
 
   return (
     <div className="flex flex-col h-full bg-vc-surface1 text-neutral-300 text-xs select-none overflow-y-auto p-4 space-y-4 animate-panelSlideIn">
@@ -162,6 +173,113 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Screencast correction controls */}
+      {activeLayoutMode === 'screencast' && (
+        <div className="pt-3 border-t border-white/[0.08] space-y-3">
+          <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block">
+            Screencast Layout
+          </label>
+          <div className="grid grid-cols-3 gap-1.5">
+            {([
+              ['split_stacked', 'Stacked'],
+              ['circular_inset', 'Circle Cam'],
+              ['rounded_card_inset', 'Card Cam'],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onUpdateScreencast?.({ mode: value })}
+                className={`p-2 rounded-lg border text-[11px] transition ${
+                  (screencastCfg.mode || 'split_stacked') === value
+                    ? 'bg-violet-500/15 border-violet-500/40 text-violet-200'
+                    : 'bg-vc-canvas border-white/[0.06] hover:border-white/20 text-neutral-300'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {(screencastCfg.mode === 'circular_inset' || screencastCfg.mode === 'rounded_card_inset') && (
+            <>
+              <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block">
+                Camera Position
+              </label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {([
+                  ['top_left', 'TL'],
+                  ['top_right', 'TR'],
+                  ['bottom_left', 'BL'],
+                  ['bottom_right', 'BR'],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => onUpdateScreencast?.({ insetPosition: value })}
+                    className={`p-2 rounded-lg border text-[11px] transition ${
+                      (screencastCfg.insetPosition || 'bottom_right') === value
+                        ? 'bg-violet-500/15 border-violet-500/40 text-violet-200'
+                        : 'bg-vc-canvas border-white/[0.06] hover:border-white/20 text-neutral-300'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block">
+            Background
+          </label>
+          <div className="grid grid-cols-2 gap-1.5">
+            {([
+              ['black', 'Black bars'],
+              ['blur', 'Blurred fill'],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onUpdateScreencast?.({ background: value })}
+                className={`p-2 rounded-lg border text-[11px] transition ${
+                  (screencastCfg.background || 'black') === value
+                    ? 'bg-violet-500/15 border-violet-500/40 text-violet-200'
+                    : 'bg-vc-canvas border-white/[0.06] hover:border-white/20 text-neutral-300'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block">
+            Facecam Region
+          </label>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              disabled={!facecamSuggestion && !screencastCfg.facecamBox}
+              onClick={() => onUpdateScreencast?.({ facecamBox: facecamSuggestion ?? screencastCfg.facecamBox ?? null })}
+              className={`p-2 rounded-lg border text-[11px] transition ${
+                screencastCfg.facecamBox
+                  ? 'bg-violet-500/15 border-violet-500/40 text-violet-200'
+                  : 'bg-vc-canvas border-white/[0.06] hover:border-white/20 text-neutral-300'
+              } disabled:opacity-40`}
+            >
+              {screencastCfg.facecamBox ? 'Detected region ✓' : facecamSuggestion ? 'Use detected region' : 'No region detected'}
+            </button>
+            <button
+              type="button"
+              disabled={!screencastCfg.facecamBox}
+              onClick={() => onUpdateScreencast?.({ facecamBox: null })}
+              className="p-2 rounded-lg border bg-vc-canvas border-white/[0.06] hover:border-white/20 text-neutral-300 text-[11px] transition disabled:opacity-40"
+            >
+              Center crop cam
+            </button>
+          </div>
+          <p className="text-[10px] text-neutral-500">
+            The detected region is a geometric suggestion from analysis, not a certainty - adjust or clear it anytime.
+          </p>
+        </div>
+      )}
 
       {/* Fit vs Fill Mode */}
       <div className="pt-3 border-t border-white/[0.08]">
