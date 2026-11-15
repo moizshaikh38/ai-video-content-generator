@@ -344,6 +344,8 @@ export interface RenderedClip {
   render_version?: number;
   /** Editor-project version snapshot taken at render start; mismatch with the loaded project version marks the rendered download stale. */
   rendered_editor_version?: number | null;
+  /** Editor-project updated_at captured at render start; a later project save marks the rendered download stale. */
+  rendered_editor_saved_at?: string | null;
   reframe_mode?: 'smart' | 'fallback_center' | 'manual';
   reframe_metadata?: Record<string, any>;
   genre?: ContentGenre;

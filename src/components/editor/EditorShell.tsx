@@ -385,13 +385,15 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   }, [renderSuccessMsg]);
 
   // Persistent staleness: the rendered file predates the current editor
-  // project whenever the server-side version snapshot taken at render start
-  // differs from the loaded project version (covers reloads).
+  // project whenever the project was SAVED after the snapshot taken at render
+  // start (updated_at comparison; a never-edited project - updated_at equals
+  // created_at - matches the default state the render already reflects).
   const editorProjectStale =
     !!clip &&
     clip.render_status === 'ready' &&
-    clip.rendered_editor_version !== undefined &&
-    clip.rendered_editor_version !== project.version;
+    !!(clip as any).rendered_editor_saved_at &&
+    project.updated_at > (clip as any).rendered_editor_saved_at &&
+    project.updated_at !== project.created_at;
 
   // Discoverable Captions On/Off. Hiding the track already preserves the
   // item's caption config, so re-enabling just unhides - the chosen style

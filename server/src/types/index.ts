@@ -547,6 +547,8 @@ export interface ClipRecord {
   editor_version?: number;
   render_version?: number;
   rendered_editor_version?: number | null;
+  /** Editor-project updated_at captured at render start; a later project save marks the rendered download stale. */
+  rendered_editor_saved_at?: string | null;
   reframe_mode?: 'smart' | 'fallback_center' | 'manual';
   reframe_metadata?: Record<string, any>;
   background_music?: QuickClipMusicConfig;
