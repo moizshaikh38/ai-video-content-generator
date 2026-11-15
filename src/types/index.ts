@@ -954,6 +954,7 @@ export interface EditorCaptionItem {
   box_opacity?: number;
   box_padding?: number;
   max_lines?: 1 | 2;
+  max_words_per_cue?: number;
 }
 
 export interface EditorAudioConfig {
