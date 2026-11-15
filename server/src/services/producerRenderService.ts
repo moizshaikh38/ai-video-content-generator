@@ -443,12 +443,49 @@ export class ProducerRenderService {
         const videoTrack = editorProject.tracks.find((t) => t.type === 'VIDEO');
         const videoItem = videoTrack?.items[0];
 
-        // Sync PUNCH_IN keyframe
+        // Sync PUNCH_IN keyframe. Word-timing parity with the producer
+        // preview path: snap the synced keyframe to speech boundaries and
+        // suppress (drop any existing synced keyframe) when the producer
+        // would suppress, so editor export and producer preview agree on
+        // WHERE the punch lands. The pro compiler still renders it as a
+        // fixed 2.5s step zoom - easing parity is a separate change.
         const punchInOp = plan.operations.find((o: ProducerOperation) => o.type === 'PUNCH_IN' && o.enabled);
         if (videoItem && punchInOp && punchInOp.parameters.punch_in_start_sec !== undefined) {
-          const punchTime = Math.max(0, punchInOp.parameters.punch_in_start_sec - clip.start_seconds);
+          let syncWordTimings: Array<{ start: number; end: number }> | undefined;
+          try {
+            const { data: tx } = await dataRepository
+              .from('transcripts')
+              .select('words')
+              .eq('project_id', clip.project_id)
+              .eq('user_id', userId)
+              .maybeSingle();
+            const rawWords = Array.isArray((tx as any)?.words) ? (tx as any).words : [];
+            const wt = rawWords
+              .map((w: any) => ({ start: Number(w?.start) - clip.start_seconds, end: Number(w?.end) - clip.start_seconds }))
+              .filter((w: any) => Number.isFinite(w.start) && Number.isFinite(w.end) && w.end > w.start);
+            if (wt.length > 0) syncWordTimings = wt;
+          } catch (wErr: any) {
+            logger.info(`[ProducerRender] Editor-sync word timings unavailable: ${wErr.message}`);
+          }
+          const rawPunchStart = Math.max(0, punchInOp.parameters.punch_in_start_sec - clip.start_seconds);
+          const adaptedSync = adaptPunchInToWordTimings(
+            {
+              startSec: rawPunchStart,
+              durationSec: punchInOp.parameters.punch_in_duration_sec || 2.5,
+              scale: punchInOp.parameters.scale || 1.06,
+            },
+            syncWordTimings
+          );
           if (!videoItem.keyframes) videoItem.keyframes = [];
           const existingKfIdx = videoItem.keyframes.findIndex((k) => k.property === 'scale');
+          if (adaptedSync.suppressed) {
+            if (existingKfIdx >= 0) {
+              videoItem.keyframes.splice(existingKfIdx, 1);
+              editorUpdated = true;
+            }
+            logger.info(`[ProducerRender] Editor-sync punch-in suppressed (${adaptedSync.reason})`);
+          } else {
+          const punchTime = adaptedSync.startSec;
           const punchKf = {
             id: crypto.randomUUID(),
             time: Number(punchTime.toFixed(3)),
@@ -462,6 +499,7 @@ export class ProducerRenderService {
             videoItem.keyframes.push(punchKf);
           }
           editorUpdated = true;
+          }
         }
 
         // Sync AUDIO_FADE
