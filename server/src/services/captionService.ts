@@ -1,6 +1,7 @@
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { mergeExtendedCues, maxCueEnd, editorProjectCoveredEnd } from './captionExtendMerge.js';
+import { applySpeakerSplitToCues } from '../utils/speakerCaptionSplit.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { logger } from '../utils/logger.js';
@@ -41,6 +42,17 @@ export interface GenerateCaptionsOptions {
    * an explicit vertical position or a non-bottom caption position.
    */
   bandAnchorPositionY?: number;
+  /**
+   * Optional two-speaker split context from the render pipeline (split layout
+   * only): reframe keyframes (clip-relative) + the two speaker source-x zones.
+   * When present, cues attributed to the top-half speaker are anchored inside
+   * the top half of the canvas. Omit = captions render exactly as before.
+   */
+  speakerSplit?: {
+    keyframes: Array<{ time: number; centerX: number }>;
+    speaker1X: number;
+    speaker2X: number;
+  };
 }
 
 export interface CaptionGenerationResult {
@@ -1518,6 +1530,22 @@ export class CaptionService {
       timingMode = extracted.timingMode;
       cues = extracted.cues;
       preset = extracted.preset;
+    }
+
+    // Speaker-split captions (OpenShorts): in a two-speaker split layout,
+    // cues attributed to the top-half speaker anchor inside the top half.
+    // Grounded only: needs reframe keyframes + distinguishable speaker zones
+    // from the render pipeline; user/editor-positioned cues are never moved.
+    if (options.speakerSplit) {
+      const { cues: splitCues, attributedTop } = applySpeakerSplitToCues(
+        cues,
+        options.speakerSplit.keyframes,
+        { speaker1X: options.speakerSplit.speaker1X, speaker2X: options.speakerSplit.speaker2X }
+      );
+      if (attributedTop > 0) {
+        logger.info(`[Captions] Speaker-split: ${attributedTop}/${cues.length} cues anchored to the top-half speaker for clip ${clip.id}`);
+        cues = splitCues;
+      }
     }
 
     const isKinetic = Boolean(

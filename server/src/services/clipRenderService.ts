@@ -695,11 +695,41 @@ export class ClipRenderService {
                 reframeDecision.track?.source_height ?? proBlurSourceHeight ?? undefined
               )
             : undefined;
+          // Speaker-split captions (OpenShorts): only in the two-speaker
+          // split layout, with zones + followed-subject keyframes from the
+          // smart-reframe track. Otherwise captions render unchanged.
+          const splitZones =
+            reframeDecision.layoutMode === 'split' && reframeDecision.track
+              ? {
+                  speaker1X: Number(
+                    (reframeDecision.track.metadata as any)?.speaker1X ?? clip.crop_config?.split?.speaker1X
+                  ),
+                  speaker2X: Number(
+                    (reframeDecision.track.metadata as any)?.speaker2X ?? clip.crop_config?.split?.speaker2X
+                  ),
+                }
+              : null;
+          const speakerSplit =
+            splitZones &&
+            Number.isFinite(splitZones.speaker1X) &&
+            Number.isFinite(splitZones.speaker2X) &&
+            Array.isArray(reframeDecision.track?.smoothed_keyframes) &&
+            reframeDecision.track.smoothed_keyframes.length > 0
+              ? {
+                  keyframes: reframeDecision.track!.smoothed_keyframes.map((k: any) => ({
+                    time: Number(k.time),
+                    centerX: Number(k.centerX),
+                  })),
+                  speaker1X: splitZones.speaker1X,
+                  speaker2X: splitZones.speaker2X,
+                }
+              : undefined;
           const captionResult = await CaptionService.generateCaptionsForClip({
             clip,
             targetAspectRatio: clip.aspect_ratio as ClipAspectRatio,
             outputPath: assPath,
             bandAnchorPositionY,
+            speakerSplit,
           });
 
           if (captionResult.cues.length > 0 && fs.existsSync(assPath)) {
@@ -734,11 +764,35 @@ export class ClipRenderService {
           'fontcolor=white:borderw=3:bordercolor=black@0.9:shadowcolor=black@0.6:shadowx=0:shadowy=2';
         const enable =
           headline.durationSec > 0 ? `:enable='lt(t,${headline.durationSec.toFixed(2)})'` : '';
+        // Hook placement away from faces/captions (OpenShorts). The auto
+        // headline only exists when no editor project does, so clip-level
+        // caption_position is the effective caption band here. Face zone from
+        // the reframe track's keyframes inside the headline window.
+        const headlineWindowSec = headline.durationSec > 0 ? headline.durationSec : durationSec;
+        const windowKeyframes = (reframeDecision.track?.smoothed_keyframes || []).filter(
+          (k: any) => typeof k?.time === 'number' && k.time >= 0 && k.time <= headlineWindowSec &&
+            typeof k?.centerY === 'number' && Number.isFinite(k.centerY)
+        );
+        const faceCenterY01 = windowKeyframes.length > 0
+          ? windowKeyframes.reduce((acc: number, k: any) => acc + k.centerY, 0) / windowKeyframes.length
+          : undefined;
+        const canvasH = clip.aspect_ratio === '16:9' || clip.aspect_ratio === '1:1' ? 1080 : 1920;
+        const placement = ClipRenderService.resolveHeadlinePlacement({
+          captionPosition: (clip.caption_position as any) || 'bottom',
+          canvasHeight: canvasH,
+          faceCenterY01,
+        });
+        if (placement.zone !== 'top') {
+          logger.info(`[ClipRender] Hook headline moved to ${placement.zone} (reason: ${placement.reason}) for clip ${clipId}`);
+        }
+        const firstY = placement.zone === 'bottom'
+          ? placement.yBase - (lines.length - 1) * (headline.fontSize + 8)
+          : placement.yBase;
         lines.forEach((line, idx) => {
           const linePath = path.join(tempDir, `headline-${idx}.txt`);
           fs.writeFileSync(linePath, line, 'utf8');
           const safeLine = linePath.replace(/\\/g, '/').replace(/:/g, '\\:');
-          const y = 150 + idx * (headline.fontSize + 8);
+          const y = firstY + idx * (headline.fontSize + 8);
           videoFilters.push(
             `drawtext=textfile='${safeLine}':${style}:fontsize=${headline.fontSize}:x=(w-text_w)/2:y=${y}${enable}`
           );
@@ -1273,6 +1327,39 @@ export class ClipRenderService {
    * width, 40px side margins on a 1080 canvas - verified 15 Nov 2026: a
    * 41-char title overflowed at 60px, fits at 38px).
    */
+  /**
+   * Hook/headline placement (OpenShorts): keep the opening hook headline off
+   * the caption band and off the subject's face. Pure and unit-tested.
+   * Zone rules: default top (legacy y=150). Move to the lower zone when
+   * captions occupy the top, or when the followed face sits in the top 40% of
+   * the frame during the headline window. If the lower zone is also blocked
+   * (face below 65%), drop to an upper-middle band instead of covering either.
+   * Only the auto hook headline uses this; an explicit overlay_config position
+   * is the user's own choice and is never moved.
+   */
+  public static resolveHeadlinePlacement(opts: {
+    captionPosition: 'top' | 'center' | 'bottom';
+    canvasHeight: number;
+    faceCenterY01?: number;
+  }): { yBase: number; zone: 'top' | 'bottom' | 'upper_middle'; reason: string } {
+    const topY = 150;
+    const bottomY = Math.round(opts.canvasHeight * 0.72);
+    const face = typeof opts.faceCenterY01 === 'number' && Number.isFinite(opts.faceCenterY01)
+      ? Math.min(1, Math.max(0, opts.faceCenterY01))
+      : undefined;
+    const topBlocked = opts.captionPosition === 'top' || (face !== undefined && face < 0.4);
+    if (!topBlocked) return { yBase: topY, zone: 'top', reason: 'default_top' };
+    const bottomBlocked = face !== undefined && face > 0.65;
+    if (!bottomBlocked) {
+      return {
+        yBase: bottomY,
+        zone: 'bottom',
+        reason: opts.captionPosition === 'top' ? 'caption_band_top' : 'face_in_top_zone',
+      };
+    }
+    return { yBase: Math.round(opts.canvasHeight * 0.3), zone: 'upper_middle', reason: 'top_caption_plus_low_face' };
+  }
+
   public static buildHeadlineSpec(
     clip: Pick<ClipRecord, 'title' | 'overlay_config'>
   ): { text: string; fontSize: number; durationSec: number } | null {
