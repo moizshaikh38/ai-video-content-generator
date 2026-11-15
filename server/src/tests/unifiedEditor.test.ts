@@ -160,12 +160,20 @@ describe('Unified Editor Architecture & Render Pipeline Tests (Phases 0–14)', 
     assert.ok(Array.isArray(graph.filterComplex));
     assert.ok(graph.inputArgs.includes(dummySource));
 
-    // Verify keyframe punch-in dynamic zoom filter is compiled
-    const hasPunchInCrop = graph.filterComplex.some((f) => f.includes('crop=w=') && f.includes('scale=1080:1920'));
+    // Verify keyframe punch-in dynamic zoom filter is compiled. Since the
+    // eased staircase form (6c35cb2) this is staged crop+scale overlays with
+    // disjoint timeline windows, not the old expression-key crop=w= form.
+    const hasPunchInCrop = graph.filterComplex.some(
+      (f) => f.includes('crop=') && f.includes('scale=1080:1920') && f.includes("overlay=0:0:enable='between(t,")
+    );
     assert.ok(hasPunchInCrop, 'Graph must compile dynamic keyframe punch-in crop');
 
-    // Verify text drawtext overlay is compiled with escaped text
-    const hasDrawtext = graph.filterComplex.some((f) => f.includes("drawtext=text='AI Viral Hook'"));
+    // Verify text drawtext overlay is compiled with escaped text. The compiler
+    // word-wraps to the preview's 90%-canvas rule, so at fontsize 162 the hook
+    // renders as two stacked drawtexts ('AI Viral' / 'Hook'), not one.
+    const hasDrawtext = graph.filterComplex.some(
+      (f) => f.includes("drawtext=text='AI Viral'") && f.includes("drawtext=text='Hook'")
+    );
     assert.ok(hasDrawtext, 'Graph must compile drawtext filter for text item');
 
     // Verify audio limiter peak limiter is present
