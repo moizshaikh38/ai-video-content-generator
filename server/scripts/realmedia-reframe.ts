@@ -27,7 +27,18 @@ const kfs = SmartReframeService.smoothAndGenerateKeyframes({
   sourceHeight: cv.source_height,
 });
 console.log('keyframes:', JSON.stringify(kfs.slice(0, 20)));
-const filter = SmartReframeService.buildSmartCropFilter(kfs, '9:16', cv.source_width, cv.source_height, cv.duration);
+let filter: string;
+if (process.env.LAYOUT === 'screencast-card-facecam') {
+  const facecamBox = SmartReframeService.findStaticFacecamBox(cv.samples);
+  console.log('facecamBox:', JSON.stringify(facecamBox));
+  filter = SmartReframeService.buildScreencastFilter({
+    mode: 'rounded_card_inset',
+    insetPosition: 'top_right',
+    facecamBox: facecamBox ?? undefined,
+  });
+} else {
+  filter = SmartReframeService.buildSmartCropFilter(kfs, '9:16', cv.source_width, cv.source_height, cv.duration);
+}
 const fs = await import('node:fs');
 fs.writeFileSync(process.env.FILTER_OUT || '/tmp/realmedia/filter.txt', filter, 'utf8');
 console.log('filter written, length', filter.length);

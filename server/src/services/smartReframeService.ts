@@ -903,6 +903,43 @@ export class SmartReframeService {
   }
 
   /**
+   * Finds a persistent, spatially static face track - the geometric signature of a
+   * burned-in facecam - and returns its median box in normalized coords, or null.
+   * Geometry only: callers decide layout; this never implies content intent.
+   */
+  public static findStaticFacecamBox(
+    samples: ReframeSample[],
+    minPresence = 0.25,
+    maxStddev = 0.03,
+  ): { x: number; y: number; w: number; h: number } | null {
+    const byTrack = new Map<string, Array<{ x: number; y: number; w: number; h: number }>>();
+    for (const s of samples) {
+      for (const f of s.faces || []) {
+        if (!f.track_id) continue;
+        const arr = byTrack.get(f.track_id) || [];
+        arr.push({ x: Number(f.x), y: Number(f.y), w: Number(f.width), h: Number(f.height) });
+        byTrack.set(f.track_id, arr);
+      }
+    }
+    let best: { x: number; y: number; w: number; h: number } | null = null;
+    let bestStd = Infinity;
+    for (const boxes of byTrack.values()) {
+      if (boxes.length < Math.max(3, samples.length * minPresence)) continue;
+      const cx = boxes.map((b) => b.x + b.w / 2);
+      const cy = boxes.map((b) => b.y + b.h / 2);
+      const mean = (a: number[]) => a.reduce((p, c) => p + c, 0) / a.length;
+      const std = (a: number[]) => Math.sqrt(mean(a.map((v) => (v - mean(a)) ** 2)));
+      const s = Math.max(std(cx), std(cy));
+      if (s < maxStddev && s < bestStd) {
+        const sorted = (a: number[]) => [...a].sort((p, c) => p - c)[Math.floor(a.length / 2)];
+        bestStd = s;
+        best = { x: sorted(boxes.map((b) => b.x)), y: sorted(boxes.map((b) => b.y)), w: sorted(boxes.map((b) => b.w)), h: sorted(boxes.map((b) => b.h)) };
+      }
+    }
+    return best;
+  }
+
+  /**
    * Generates FFmpeg filter complex expressions for Screencast & Camera Inset layouts:
    * 1. 'split_stacked': Screen on top (e.g. 60%), speaker camera on bottom (40%)
    * 2. 'circular_inset': Full screen with circular speaker bubble in a safe corner
@@ -917,6 +954,14 @@ export class SmartReframeService {
     screenRatio?: number;
     canvasWidth?: number;
     canvasHeight?: number;
+    /**
+     * Optional facecam region in normalized source coords (0-1). For single-input
+     * recordings with the camera BURNED INTO the frame (typical gameplay captures),
+     * the inset/card branch crops this region instead of center-cropping the full
+     * frame. Geometry only - the layout choice itself stays user-correctable via
+     * CropConfig; omitting it preserves the legacy full-frame inset behavior.
+     */
+    facecamBox?: { x: number; y: number; w: number; h: number };
   }): string {
     const {
       mode,
@@ -925,7 +970,31 @@ export class SmartReframeService {
       screenRatio = 0.60,
       canvasWidth = 1080,
       canvasHeight = 1920,
+      facecamBox,
     } = options;
+
+    // Inset source branch: crop the burned-in facecam region when provided,
+    // else keep the legacy center-crop of the whole frame.
+    const camSrc = (targetW: number, targetH: number): string => {
+      if (facecamBox) {
+        const fx = Math.min(0.98, Math.max(0, facecamBox.x));
+        const fy = Math.min(0.98, Math.max(0, facecamBox.y));
+        const fw = Math.min(1 - fx, Math.max(0.01, facecamBox.w));
+        const fh = Math.min(1 - fy, Math.max(0.01, facecamBox.h));
+        const pad = 0.35; // headroom around the detected box
+        const cx = fx + fw / 2;
+        const cy = fy + fh / 2;
+        let pw = fw * (1 + pad);
+        let ph = fh * (1 + pad);
+        const targetAspect = targetW / targetH;
+        if (pw / ph > targetAspect) { ph = pw / targetAspect; } else { pw = ph * targetAspect; }
+        pw = Math.min(1, pw); ph = Math.min(1, ph);
+        const px = Math.min(1 - pw, Math.max(0, cx - pw / 2));
+        const py = Math.min(1 - ph, Math.max(0, cy - ph / 2));
+        return `crop=w='in_w*${pw.toFixed(4)}':h='in_h*${ph.toFixed(4)}':x='in_w*${px.toFixed(4)}':y='in_h*${py.toFixed(4)}',scale=${targetW}:${targetH}:force_original_aspect_ratio=increase,crop=${targetW}:${targetH}`;
+      }
+      return `scale=${targetW}:${targetH}:force_original_aspect_ratio=increase,crop=${targetW}:${targetH}`;
+    };
 
     if (mode === 'split_stacked') {
       const topHeight = Math.round(canvasHeight * Math.max(0.3, Math.min(0.8, screenRatio)));
@@ -952,13 +1021,13 @@ export class SmartReframeService {
 
     if (mode === 'circular_inset') {
       const radius = Math.round(insetDiameter / 2);
-      return `[0:v]split=2[main][cam];[main]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=decrease,pad=${canvasWidth}:${canvasHeight}:(ow-iw)/2:(oh-ih)/2:color=black[bg];[cam]scale=${insetDiameter}:${insetDiameter}:force_original_aspect_ratio=increase,crop=${insetDiameter}:${insetDiameter},format=yuva420p,geq=lum='p(X,Y)':a='if(lte((X-${radius})*(X-${radius})+(Y-${radius})*(Y-${radius}),${radius}*${radius}),255,0)'[cam_circle];[bg][cam_circle]overlay=x=${posX}:y=${posY}[out]`;
+      return `[0:v]split=2[main][cam];[main]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=decrease,pad=${canvasWidth}:${canvasHeight}:(ow-iw)/2:(oh-ih)/2:color=black[bg];[cam]${camSrc(insetDiameter, insetDiameter)},format=yuva420p,geq=lum='p(X,Y)':a='if(lte((X-${radius})*(X-${radius})+(Y-${radius})*(Y-${radius}),${radius}*${radius}),255,0)'[cam_circle];[bg][cam_circle]overlay=x=${posX}:y=${posY}[out]`;
     }
 
     // rounded_card_inset
     const cardWidth = Math.round(insetDiameter * 1.15);
     const cardHeight = Math.round(insetDiameter * 0.85);
-    return `[0:v]split=2[main][cam];[main]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=decrease,pad=${canvasWidth}:${canvasHeight}:(ow-iw)/2:(oh-ih)/2:color=black[bg];[cam]scale=${cardWidth}:${cardHeight}:force_original_aspect_ratio=increase,crop=${cardWidth}:${cardHeight}[card];[bg][card]overlay=x=${posX}:y=${posY}[out]`;
+    return `[0:v]split=2[main][cam];[main]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=decrease,pad=${canvasWidth}:${canvasHeight}:(ow-iw)/2:(oh-ih)/2:color=black[bg];[cam]${camSrc(cardWidth, cardHeight)}[card];[bg][card]overlay=x=${posX}:y=${posY}[out]`;
   }
 
   /**
