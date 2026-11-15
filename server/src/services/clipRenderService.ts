@@ -590,9 +590,9 @@ export class ClipRenderService {
           ? ['-ss', startSec.toFixed(3), '-t', durationSec.toFixed(3)]
           : [];
         // Two-pass loudness normalization: measures dialogue audio first (audio-only
-        // pass), then compiles with linear loudnorm. Throws LoudnormNormalizationError
-        // when linear normalization is infeasible (job fails with a clear message
-        // instead of FFmpeg silently switching to OOM-prone dynamic buffering).
+        // pass), then compiles with linear loudnorm when feasible, or a pre-rendered
+        // dynamic-normalized dialogue WAV when peak/range-limited. Throws
+        // LoudnormNormalizationError only for degenerate/silent measurements.
         const graph = await ProEditorService.compileRenderGraphWithNormalization(
           editorProject,
           sourcePath,

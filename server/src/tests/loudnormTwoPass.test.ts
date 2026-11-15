@@ -61,7 +61,7 @@ function ensureFixtures() {
   // linear normalization to -16 is infeasible (peak overshoot), dynamic works.
   gen(HOT_QUIET, [
     '-f', 'lavfi', '-i', 'testsrc2=size=480x270:rate=30:duration=10',
-    '-f', 'lavfi', '-i', 'aevalsrc=0.02*sin(440*2*PI*t)+0.9*lt(mod(t\,2)\,0.02):s=44100:d=10',
+    '-f', 'lavfi', '-i', 'aevalsrc=0.02*sin(440*2*PI*t)+0.9*lt(mod(t\\,2)\\,0.02):s=44100:d=10',
     '-shortest', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '30', '-c:a', 'aac',
   ]);
   gen(MODULATED_SMALL, [
