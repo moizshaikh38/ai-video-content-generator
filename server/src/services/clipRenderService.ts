@@ -130,6 +130,27 @@ export function sanitizeFilename(name: string): string {
  * Generates the FFmpeg video filter string for scaling and center/manual cropping
  * to the requested target aspect ratio without distortion.
  */
+/**
+ * Composes the quick-render video filter chain for ffmpeg execution.
+ * Simple chains (no link labels) run under -vf via fluent-ffmpeg videoFilters.
+ * Labeled layout graphs (screencast/split outputs of SmartReframeService.buildLayoutCropFilter)
+ * cannot go through -vf: labels require -filter_complex with an explicit [0:v] input
+ * pad and a labeled [out_v] final output. Previously both were fed to -vf verbatim,
+ * which made every smart render resolving to a labeled layout fail permanently.
+ */
+export function composeQuickVideoGraph(videoFilters: string[]): { graph: string; labeled: boolean } {
+  const chain = videoFilters.join(',');
+  if (!chain.includes('[')) {
+    return { graph: `[0:v]${chain}[out_v]`, labeled: false };
+  }
+  let stripped = chain.startsWith('[0:v]') ? chain.slice('[0:v]'.length) : chain;
+  // Layout builders terminate their graph with a labeled [out] link; leaving it labeled
+  // when more filters follow makes ffmpeg reject the graph (labeled link unused). Unlabel
+  // it so the trailing simple filters (captions, watermark) auto-chain from it.
+  stripped = stripped.replace(/\[out\](?=,|$)/g, '');
+  return { graph: `[0:v]${stripped}[out_v]`, labeled: true };
+}
+
 export function buildCropFilter(
   aspectRatio: ClipAspectRatio = '9:16',
   cropConfig?: { focusX?: number; focusY?: number }
@@ -659,7 +680,7 @@ export class ClipRenderService {
           await ClipRenderService.updateJobProgress(jobId, 25, 'encoding');
 
           const fullFilterComplex = [
-            `[0:v]${videoFilters.join(',')}[out_v]`,
+            composeQuickVideoGraph(videoFilters).graph,
             ...audioGraph.filterComplex,
           ];
 
@@ -693,11 +714,16 @@ export class ClipRenderService {
           let isResolved = false;
           let lastProgressUpdate = 0;
 
+          const videoGraph = composeQuickVideoGraph(videoFilters);
           const cmd = ffmpeg(sourcePath)
             .setStartTime(startSec)
-            .setDuration(durationSec)
-            .videoFilters(videoFilters)
-            .videoCodec('libx264');
+            .setDuration(durationSec);
+          if (videoGraph.labeled) {
+            cmd.complexFilter([videoGraph.graph], ['out_v']);
+          } else {
+            cmd.videoFilters(videoFilters);
+          }
+          cmd.videoCodec('libx264');
 
           if (clip.muted) {
             cmd.noAudio();
