@@ -885,11 +885,19 @@ export class ProEditorService {
     if (item.color) {
       const c = item.color;
       // Preview composes brightness and exposure as two CSS brightness()
-      // filters, which multiply; fold them the same way here (eq range -1..1).
-      const b = Math.min(1, Math.max(-1, (1 + (c.brightness || 0)) * (1 + (c.exposure || 0) * 0.8) - 1)).toFixed(2);
+      // filters, which MULTIPLY each RGB channel. ffmpeg's eq brightness is
+      // additive on luma and diverges visibly (measured mean pixel delta ~58
+      // at +0.3), so brightness+exposure fold into a lutrgb channel multiply
+      // that matches CSS semantics; contrast and saturation stay on eq, where
+      // the measured preview/export delta is small (mean ~3 / ~1).
+      const bMult = Math.min(4, Math.max(0, (1 + (c.brightness || 0)) * (1 + (c.exposure || 0) * 0.8)));
+      if (Math.abs(bMult - 1) > 1e-3) {
+        const k = bMult.toFixed(4);
+        videoFilters.push(`lutrgb=r='val*${k}':g='val*${k}':b='val*${k}'`);
+      }
       const cont = (1.0 + (c.contrast || 0)).toFixed(2);
       const sat = (1.0 + (c.saturation || 0)).toFixed(2);
-      videoFilters.push(`eq=brightness=${b}:contrast=${cont}:saturation=${sat}`);
+      videoFilters.push(`eq=contrast=${cont}:saturation=${sat}`);
     }
 
     if (item.filter && item.filter.preset && item.filter.preset !== 'none') {
@@ -901,10 +909,13 @@ export class ProEditorService {
           videoFilters.push('colorbalance=rs=-0.1:gs=0.0:bs=0.15');
           break;
         case 'mono':
+          // Preview: grayscale(1) contrast(1.2) - include the contrast leg.
           videoFilters.push('hue=s=0');
+          videoFilters.push('eq=contrast=1.2');
           break;
         case 'punch':
-          videoFilters.push('eq=contrast=1.2:saturation=1.25');
+          // Aligned to the preview's contrast(1.3) saturate(1.4).
+          videoFilters.push('eq=contrast=1.3:saturation=1.4');
           break;
         case 'film':
           videoFilters.push('curves=preset=vintage');

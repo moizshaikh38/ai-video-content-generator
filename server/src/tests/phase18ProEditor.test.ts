@@ -619,6 +619,38 @@ describe('Phase 18 — Vireo Pro Video Editor System Tests', () => {
       assert.ok(graph.audioMap.length > 0);
       assert.equal(graph.duration, 30.0);
     });
+
+    it('18b. colour export matches preview semantics: multiplicative brightness, mono contrast leg, aligned punch', () => {
+      const tmpDir = os.tmpdir();
+      const compile = (project: EditorProject) =>
+        ProEditorService.compileRenderGraph(project, path.join(tmpDir, 'source.mp4'), path.join(tmpDir, 'out.mp4'), tmpDir)
+          .filterComplex.join(';');
+
+      // Mock project: brightness 0.05, exposure 0 -> CSS multiplier 1.05; contrast 0.1; saturation 0.15; preset warm.
+      const base = compile(createMockProject());
+      assert.ok(base.includes("lutrgb=r='val*1.0500':g='val*1.0500':b='val*1.0500'"), 'brightness must compile to a multiplicative lutrgb (CSS semantics)');
+      assert.ok(base.includes('eq=contrast=1.10:saturation=1.15'), 'contrast/saturation stay on eq');
+      assert.ok(!base.includes('eq=brightness='), 'additive eq brightness must not be used for slider colour');
+
+      // Zero brightness/exposure -> no lutrgb at all.
+      const noBright = createMockProject();
+      noBright.tracks[0].items[0].color = { ...noBright.tracks[0].items[0].color!, brightness: 0, exposure: 0 };
+      const g2 = compile(noBright);
+      assert.ok(!g2.includes('lutrgb'), 'no lutrgb when the multiplier is 1');
+
+      // mono preset keeps the preview contrast(1.2) leg.
+      const mono = createMockProject();
+      mono.tracks[0].items[0].filter = { preset: 'mono', intensity: 1.0 };
+      const g3 = compile(mono);
+      assert.ok(g3.includes('hue=s=0'));
+      assert.ok(g3.includes('eq=contrast=1.2'), 'mono export must include the preview contrast leg');
+
+      // punch preset aligned to preview contrast(1.3) saturate(1.4).
+      const punch = createMockProject();
+      punch.tracks[0].items[0].filter = { preset: 'punch', intensity: 1.0 };
+      const g4 = compile(punch);
+      assert.ok(g4.includes('eq=contrast=1.3:saturation=1.4'));
+    });
   });
 
   // 8. Real Video E2E Verification
