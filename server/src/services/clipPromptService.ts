@@ -123,7 +123,11 @@ export class ClipPromptService {
           }
         }
 
-        return `[${displayIdx}] (${seg.start.toFixed(1)}s - ${seg.end.toFixed(1)}s) ${signalPrefix}${seg.text.trim()}`;
+        // Compact transcript: collapse internal whitespace (Whisper output often
+        // carries newlines/double spaces). Content and ordering are unchanged -
+        // every segment and every word still reaches the LLM.
+        const compactText = seg.text.replace(/\s+/g, ' ').trim();
+        return `[${displayIdx}] (${seg.start.toFixed(1)}s - ${seg.end.toFixed(1)}s) ${signalPrefix}${compactText}`;
       })
       .join('\n');
   }

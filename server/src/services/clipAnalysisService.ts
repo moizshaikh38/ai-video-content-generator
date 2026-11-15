@@ -27,6 +27,7 @@ import {
   deduplicateCandidatesByOverlap,
 } from '../utils/wordSnappingUtils.js';
 import { selectDiverseCandidates } from '../utils/diverseSelection.js';
+import { shortlistCandidatesForDetailedScoring } from '../utils/selectionShortlist.js';
 import { deduplicateSemantically } from '../utils/semanticDedup.js';
 import { tryIncludeQuestion, isQaCriticalGenre } from '../utils/questionInclusion.js';
 import { ShotBoundaryFusionService } from './intelligence/shotBoundaryFusionService.js';
@@ -967,6 +968,25 @@ export class ClipAnalysisService {
         logger.warn(`AI clip analysis returned 0 candidates for project ${projectId}.`);
         return [];
       }
+
+      // 5b. Selection staging (OpenShorts): cheap shortlist before the
+      // expensive detailed stage (multimodal scoring, word snapping, shot
+      // fusion). Discovery above is unchanged - the LLM still sees the whole
+      // transcript - so recall of proposed moments is preserved. The shortlist
+      // only bounds detailed scoring to max(3x target, 12) candidates ranked
+      // by the AI's own sub-scores; it is a passthrough at or under budget.
+      const stagingTargets = calculateAdaptiveClipCount(
+        transcript.duration_seconds || 0,
+        aiCandidates.length,
+        normalizedPrefs?.targetClipCount
+      );
+      const shortlisted = shortlistCandidatesForDetailedScoring(aiCandidates, stagingTargets.targetClips);
+      if (shortlisted.length < aiCandidates.length) {
+        logger.info(
+          `Selection staging: ${aiCandidates.length} AI candidates shortlisted to ${shortlisted.length} for detailed scoring (target ${stagingTargets.targetClips} clips, project ${projectId}).`
+        );
+      }
+      aiCandidates = shortlisted;
 
       // 6. Ground segment indexes and derive actual timestamps with multimodal scoring
       const { MultimodalScoringService } = await import('./multimodal/multimodalScoringService.js');
