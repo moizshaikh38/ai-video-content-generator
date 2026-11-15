@@ -43,6 +43,8 @@ export function editorCaptionToPresetOverrides(
   if (caption.shadow_depth !== undefined) o.shadowDepth = caption.shadow_depth;
   if (caption.shadow_color) o.shadowColor = caption.shadow_color;
   if (caption.shadow_opacity !== undefined) o.shadowOpacity = caption.shadow_opacity;
+  const mw = (caption as any).max_words_per_cue;
+  if (typeof mw === 'number' && mw >= 1 && mw <= 15) o.maxWordsPerCue = Math.round(mw);
   if (caption.box_enabled !== undefined) o.boxEnabled = caption.box_enabled;
   if (caption.box_color) o.boxColor = caption.box_color;
   if (caption.box_opacity !== undefined) o.boxOpacity = caption.box_opacity;

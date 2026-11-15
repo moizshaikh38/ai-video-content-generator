@@ -234,7 +234,7 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
     label: 'Karaoke',
     description: 'Words fill with color in sync with speech.',
     sampleText: 'Say it word by word',
-    font: { family: 'Arial Black', bold: false, size: 84, uppercase: true, letterSpacing: 0 },
+    font: { family: 'Arial Black', bold: false, size: 64, uppercase: true, letterSpacing: 0 },
     colors: { text: '#FFFFFF', active: '#FFD60A', activeText: '#FFD60A', outline: '#000000', shadow: '#000000', shadowOpacity: 0.6 },
     outline: 6,
     shadow: 2,
@@ -652,6 +652,7 @@ export interface CaptionPresetOverrides {
   wordAnimationScale?: number;
   wordAnimationHold?: boolean;
   maxLines?: number;
+  maxWordsPerCue?: number;
   position?: CaptionAnchor;
   /** Auto-emoji captions (Opus `emojiSwitch` / Vizard parity). */
   emoji?: boolean;
@@ -820,6 +821,10 @@ export function sanitizePresetOverrides(input: unknown): CaptionPresetOverrides 
     const n = Math.round(clampNum(o.maxLines, 1, 2, NaN));
     if (n === 1 || n === 2) out.maxLines = n;
   }
+  if (o.maxWordsPerCue !== undefined) {
+    const n = Math.round(clampNum(o.maxWordsPerCue, 1, 15, NaN));
+    if (Number.isFinite(n)) out.maxWordsPerCue = n;
+  }
   if (typeof o.emoji === 'boolean') out.emoji = o.emoji;
   if (Array.isArray(o.highlightKeywords)) {
     out.highlightKeywords = o.highlightKeywords
@@ -955,7 +960,7 @@ export function resolveCaptionPreset(
     marginV,
     marginL,
     marginR,
-    maxWordsPerCue: p.layout.maxWordsPerCue,
+    maxWordsPerCue: o.maxWordsPerCue ?? p.layout.maxWordsPerCue,
     maxLines: o.maxLines === 1 || o.maxLines === 2 ? o.maxLines : p.layout.maxLines,
     maxCharsPerLine: p.layout.maxCharsPerLine,
     highlight: p.highlight,
@@ -1113,7 +1118,8 @@ export function groupWordsIntoCues(
   const sortedTokens = [...tokens].sort((a, b) => a.start - b.start || a.end - b.end);
   const cues: PresetTimedCue[] = [];
   let currentWords: PresetTimedWord[] = [];
-  const safeMaxWords = Math.min(6, Math.max(2, maxWords));
+  // min 1: single-word mode (one word at a time, Opus-style) needs 1-word cues
+  const safeMaxWords = Math.min(6, Math.max(1, maxWords));
   const totalMaxChars = maxCharsPerLine * maxLines;
 
   const flush = () => {

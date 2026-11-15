@@ -59,9 +59,9 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
   // AI Suggestions state
   const [candidates, setCandidates] = useState<ClipCandidate[]>([]);
   // Per-candidate subtitle settings
-  const [candidateSubtitles, setCandidateSubtitles] = useState<Record<string, { enabled: boolean; preset: string }>>({});
-  const getCandidateSubtitle = (candId: string) => candidateSubtitles[candId] || { enabled: true, preset: 'hormozi' };
-  const setCandidateSubtitle = (candId: string, updates: Partial<{ enabled: boolean; preset: string }>) => {
+  const [candidateSubtitles, setCandidateSubtitles] = useState<Record<string, { enabled: boolean; preset: string; wordMode?: 'phrase' | 'single' }>>({});
+  const getCandidateSubtitle = (candId: string) => candidateSubtitles[candId] || { enabled: true, preset: 'hormozi' as string, wordMode: 'phrase' as const };
+  const setCandidateSubtitle = (candId: string, updates: Partial<{ enabled: boolean; preset: string; wordMode: 'phrase' | 'single' }>) => {
     setCandidateSubtitles((prev) => ({ ...prev, [candId]: { ...(prev[candId] || { enabled: true, preset: 'hormozi' }), ...updates } }));
   };
   const [isLoading, setIsLoading] = useState(true);
@@ -217,6 +217,11 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
       const res = await clipRenderService.createClipFromCandidate(projectId, candidateId, '9:16', 'smart', {
         caption_enabled: subPref.enabled,
         caption_style: subPref.preset,
+        // Single-word mode (Opus-style one word at a time) = preset override of
+        // 1 word per cue; phrase mode keeps the preset's grouped phrase + word highlight.
+        ...(subPref.wordMode === 'single'
+          ? { caption_config: { presetOverrides: { maxWordsPerCue: 1, maxLines: 1 } } }
+          : {}),
       });
       // Mark candidate selected in local UI
       setCandidates((prev) =>
@@ -1041,6 +1046,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                           </button>
                         </div>
                         {getCandidateSubtitle(activeCandidate.id).enabled ? (
+                          <div className="space-y-1">
                           <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/5">
                             <span className="text-[11px] text-zinc-400">Preset Style:</span>
                             <select
@@ -1058,7 +1064,23 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                               <option value="minimal">Minimal Dark</option>
                             </select>
                           </div>
-                        ) : (
+                        {getCandidateSubtitle(activeCandidate.id).preset === 'karaoke' && (
+                          <div className="flex items-center justify-between gap-2 pt-1">
+                            <span className="text-[11px] text-zinc-400">Word Mode:</span>
+                            <select
+                              value={getCandidateSubtitle(activeCandidate.id).wordMode || 'phrase'}
+                              onChange={(e) =>
+                                setCandidateSubtitle(activeCandidate.id, { wordMode: e.target.value as 'phrase' | 'single' })
+                              }
+                              className="px-2 py-1 rounded-md bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:border-violet-500"
+                            >
+                              <option value="phrase">Phrase + word highlight</option>
+                              <option value="single">Single word</option>
+                            </select>
+                          </div>
+                        )}
+                          </div>
+                      ) : (
                           <p className="text-[11px] text-zinc-400 italic">
                             Clean video export — no burned-in subtitles will be rendered onto this clip.
                           </p>

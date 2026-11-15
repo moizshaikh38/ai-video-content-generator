@@ -167,6 +167,33 @@ describe('Caption presets: resolution, fallback and sanitization', () => {
     assert.equal(r.outlineWidth, 12, 'outline is clamped');
   });
 
+  it('single-word mode: maxWordsPerCue override regroups cues to one word each', () => {
+    // User request (15 Nov 2026): Opus-like single-word mode vs phrase+highlight,
+    // expressed as a preset override so editor preview and export agree.
+    const phrase = resolveCaptionPreset('karaoke');
+    assert.equal(phrase.maxWordsPerCue, CAPTION_PRESETS.karaoke.layout.maxWordsPerCue);
+    const single = resolveCaptionPreset('karaoke', { maxWordsPerCue: 1, maxLines: 1 });
+    assert.equal(single.maxWordsPerCue, 1);
+    assert.equal(single.maxLines, 1);
+    const cues = regroupCuesForPreset([
+      { id: 'c1', text: 'one two three four', start: 0, end: 2, words: [
+        { text: 'one', start: 0, end: 0.5 },
+        { text: 'two', start: 0.5, end: 1 },
+        { text: 'three', start: 1, end: 1.5 },
+        { text: 'four', start: 1.5, end: 2 },
+      ] },
+    ] as any, single).cues;
+    assert.equal(cues.length, 4, 'one cue per word');
+    assert.equal(cues[0].text, 'ONE');
+    assert.equal(cues[2].text, 'THREE');
+  });
+
+  it('karaoke preset caption size is the reduced 64 (user feedback: captions too large)', () => {
+    assert.equal(CAPTION_PRESETS.karaoke.font.size, 64);
+    const r = resolveCaptionPreset('karaoke');
+    assert.equal(r.fontSize, 64);
+  });
+
   it('applies valid overrides and aspect-aware geometry', () => {
     const r = resolveCaptionPreset('mozi', { activeColor: '#ff0000', uppercase: false, maxLines: 1 }, '16:9');
     assert.equal(r.activeColor, '#FF0000');
