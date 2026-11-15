@@ -25,11 +25,28 @@ import {
 const execFileAsync = promisify(execFile);
 const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
 
-// Real launch video test asset path
+// Real launch video test asset path. When the (uncommitted, gitignored)
+// launch asset is absent - e.g. a fresh clone - a deterministic synthetic
+// 1080p fixture is generated in its place so the compositing tests remain
+// runnable everywhere. The synthetic fixture proves the render pipeline
+// mechanics only; it cannot establish real launch-asset output quality.
 const REAL_VIDEO_ASSET = path.resolve(
   process.cwd(),
   '../artifacts/vireo-launch/vireo-launch-preview-1080p.mp4'
 );
+
+async function ensureVideoAsset(): Promise<'real' | 'synthetic'> {
+  if (fs.existsSync(REAL_VIDEO_ASSET)) return 'real';
+  fs.mkdirSync(path.dirname(REAL_VIDEO_ASSET), { recursive: true });
+  await execFileAsync(ffmpegBin, [
+    '-y',
+    '-f', 'lavfi', '-i', 'testsrc2=size=1920x1080:rate=30:duration=15',
+    '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=44100:duration=15',
+    '-pix_fmt', 'yuv420p', '-c:v', 'libx264', '-preset', 'ultrafast', '-c:a', 'aac', '-shortest',
+    REAL_VIDEO_ASSET,
+  ]);
+  return 'synthetic';
+}
 
 describe('Phase 19 — Vireo AI B-Roll & Media Intelligence System Tests', () => {
   const mockUserId = crypto.randomUUID();
@@ -523,17 +540,16 @@ describe('Phase 19 — Vireo AI B-Roll & Media Intelligence System Tests', () =>
 
   // 7. Real Local E2E Verification & FFmpeg Render
   describe('7. Real Local E2E FFmpeg Render Verification', () => {
-    // The launch-video fixture is not committed to the repo (repo-hygiene
-    // audit row 7). On a fresh clone these tests SKIP with a clear reason
-    // instead of failing; place any real 1080p mp4 at REAL_VIDEO_ASSET to
-    // exercise the full compositing path.
-    const hasRealAsset = fs.existsSync(REAL_VIDEO_ASSET);
-
-    it('17. verifies real video asset exists on disk', { skip: hasRealAsset ? false : `fixture not committed: ${REAL_VIDEO_ASSET}` }, () => {
-      assert.ok(fs.existsSync(REAL_VIDEO_ASSET), `Real asset must exist at ${REAL_VIDEO_ASSET}`);
+    it('17. ensures a video asset exists on disk (generating a synthetic fixture when the launch asset is absent)', async () => {
+      const kind = await ensureVideoAsset();
+      assert.ok(fs.existsSync(REAL_VIDEO_ASSET), `Asset must exist at ${REAL_VIDEO_ASSET}`);
+      if (kind === 'synthetic') {
+        console.log('    (synthetic fixture generated - pipeline mechanics only, not launch-asset quality)');
+      }
     });
 
-    it('18. compiles Render Graph V2 with multi-layer B-roll compositing', { skip: hasRealAsset ? false : `fixture not committed: ${REAL_VIDEO_ASSET}` }, () => {
+    it('18. compiles Render Graph V2 with multi-layer B-roll compositing', async () => {
+      await ensureVideoAsset();
       const project = createMockProject();
       // Add a B-roll track
       const brollTrackId = crypto.randomUUID();
@@ -587,7 +603,8 @@ describe('Phase 19 — Vireo AI B-Roll & Media Intelligence System Tests', () =>
       assert.ok(hasOverlay, 'Filter graph must contain overlay filter for B-roll');
     });
 
-    it('19. executes real FFmpeg render with B-roll layer and validates with ffprobe', { skip: hasRealAsset ? false : `fixture not committed: ${REAL_VIDEO_ASSET}` }, async () => {
+    it('19. executes real FFmpeg render with B-roll layer and validates with ffprobe', async () => {
+      await ensureVideoAsset();
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vireo-p19-render-'));
       const outputVideo = path.join(tmpDir, 'p19_broll_render.mp4');
 
