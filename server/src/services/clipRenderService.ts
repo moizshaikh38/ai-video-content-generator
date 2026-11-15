@@ -721,7 +721,10 @@ export class ClipRenderService {
           const cmd = ffmpeg(sourcePath)
             .setStartTime(startSec)
             .setDuration(durationSec);
-          if (videoGraph.labeled) {
+          // -filter_complex disables ffmpeg's default stream selection, so the
+          // labeled-graph path must map the source audio explicitly.
+          const labeledGraph = videoGraph.labeled;
+          if (labeledGraph) {
             cmd.complexFilter([videoGraph.graph], ['out_v']);
           } else {
             cmd.videoFilters(videoFilters);
@@ -746,6 +749,11 @@ export class ClipRenderService {
           ];
           if (!clip.muted) {
             outputOpts.push('-b:a 128k');
+            if (labeledGraph) {
+              // fluent-ffmpeg brackets bare complexFilter map labels, so the
+              // optional source-audio map goes through outputOptions instead.
+              outputOpts.push('-map 0:a?');
+            }
           }
 
           cmd.outputOptions(outputOpts)
