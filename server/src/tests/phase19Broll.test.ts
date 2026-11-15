@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import ffmpegStatic from 'ffmpeg-static';
+import ffprobeStatic from 'ffprobe-static';
 
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { closeMongo } from '../db/mongoClient.js';
@@ -698,6 +699,113 @@ describe('Phase 19 — Vireo AI B-Roll & Media Intelligence System Tests', () =>
 
         const duration = parseFloat(probeData.format?.duration || '0');
         assert.ok(Math.abs(duration - 2.5) < 0.5, `Duration must match requested range (got ${duration})`);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('Secondary VIDEO track (B-roll layer) base-timeline regression', () => {
+    // brollPlanService inserts its B-Roll Layer as a track of type VIDEO. The base
+    // composition must collect slices only from the primary video track; splicing
+    // the B-roll item into the base concat pulls its source window from input 0 and
+    // shifts/corrupts the base timeline (verified pre-fix: output frame at t=3.5
+    // pixel-matched source t=6.5 instead of t=3.5). This test renders a two-slice
+    // main track with a secondary VIDEO track and checks the base timeline and
+    // overlay compositing on actual pixels, not graph shape.
+    it('keeps secondary VIDEO items out of the base concat and overlays them from their own source', { timeout: 120000 }, async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vireo-vtrack-'));
+      try {
+        const mainSrc = path.join(tmpDir, 'main.mp4');
+        const brollSrc = path.join(tmpDir, 'broll-red.mp4');
+        // Time-varying base (every timestamp visually distinct) + feasible-to-normalize
+        // modulated sine audio; solid red B-roll so the overlay window is unambiguous.
+        await execFileAsync(ffmpegBin, [
+          '-y', '-f', 'lavfi', '-i', 'testsrc2=size=480x270:rate=30:duration=10',
+          '-f', 'lavfi', '-i', 'aevalsrc=0.4*sin(440*2*PI*t)*(0.5+0.4*sin(2*PI*t*0.7)):d=10',
+          '-pix_fmt', 'yuv420p', '-c:v', 'libx264', '-preset', 'ultrafast', '-c:a', 'aac', '-shortest', mainSrc,
+        ]);
+        await execFileAsync(ffmpegBin, [
+          '-y', '-f', 'lavfi', '-i', 'color=red:size=480x270:rate=30:duration=10',
+          '-f', 'lavfi', '-i', 'sine=frequency=220:duration=10',
+          '-pix_fmt', 'yuv420p', '-c:v', 'libx264', '-preset', 'ultrafast', '-c:a', 'aac', '-shortest', brollSrc,
+        ]);
+
+        const itemAudio = { volume: 1.0, fade_in: 0.1, fade_out: 0.1, normalized: true, target_lufs: -16 };
+        const project = {
+          user_id: mockUserId,
+          canvas: { width: 1080, height: 1920, aspect_ratio: '9:16', fps: 30, duration: 4 },
+          tracks: [
+            {
+              type: 'VIDEO', name: 'Main',
+              items: [
+                { id: 'm1', name: 'm1', timeline_start: 0, timeline_end: 2, source_start: 0, source_end: 2, source_path: mainSrc, audio: itemAudio },
+                { id: 'm2', name: 'm2', timeline_start: 2, timeline_end: 4, source_start: 2, source_end: 4, source_path: mainSrc, audio: itemAudio },
+              ],
+            },
+            {
+              // Mirrors brollPlanService: secondary track inserted as type VIDEO.
+              type: 'VIDEO', name: 'B-Roll Layer',
+              items: [
+                { id: 'b1', name: 'b1', timeline_start: 1.0, timeline_end: 3.0, source_start: 5.0, source_end: 7.0, source_path: brollSrc,
+                  audio: { volume: 0.0, fade_in: 0, fade_out: 0 } },
+              ],
+            },
+          ],
+        } as any;
+
+        const outPath = path.join(tmpDir, 'out.mp4');
+        const graph = await ProEditorService.compileRenderGraphWithNormalization(project, mainSrc, outPath, tmpDir);
+        await execFileAsync(ffmpegBin, [
+          '-y', '-v', 'error', ...graph.inputArgs,
+          '-filter_complex', graph.filterComplex.join(';'),
+          '-map', graph.videoMap, '-map', graph.audioMap,
+          '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-c:a', 'aac',
+          '-t', '4', outPath,
+        ], { timeout: 60000 });
+        assert.ok(fs.existsSync(outPath), 'render must produce output');
+
+        // Timeline/sync: both streams span the 4s timeline.
+        const { stdout: probeOut } = await execFileAsync((ffprobeStatic as any).path || (ffprobeStatic as unknown as string), [
+          '-v', 'error', '-show_entries', 'stream=codec_type,duration', '-of', 'json', outPath,
+        ]);
+        const streams = JSON.parse(probeOut).streams as { codec_type: string; duration?: string }[];
+        const vDur = Number(streams.find((s) => s.codec_type === 'video')?.duration);
+        const aDur = Number(streams.find((s) => s.codec_type === 'audio')?.duration);
+        assert.ok(Math.abs(vDur - 4) < 0.2, `video duration ${vDur} != 4`);
+        assert.ok(Math.abs(aDur - 4) < 0.2, `audio duration ${aDur} != 4 (sync drift)`);
+
+        // Overlay window: center pixel at t=2.0 must be the red B-roll, not the base.
+        const { stdout: px } = await execFileAsync(ffmpegBin, [
+          '-v', 'error', '-ss', '2.0', '-i', outPath, '-frames:v', '1',
+          '-vf', 'crop=2:2:540:960', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-',
+        ], { encoding: 'buffer' as any, maxBuffer: 1024 });
+        const buf = px as unknown as Buffer;
+        assert.ok(buf[0] > 150 && buf[1] < 100 && buf[2] < 100,
+          `overlay window must show the red B-roll layer (got rgb ${buf[0]},${buf[1]},${buf[2]})`);
+
+        // Base timeline: output frame at t=3.5 must match the source frame at t=3.5,
+        // not the t=6.5 frame the pre-fix splice produced.
+        const reframe = 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920';
+        const outFrame = path.join(tmpDir, 'out3.5.png');
+        const srcRight = path.join(tmpDir, 'src3.5.png');
+        const srcWrong = path.join(tmpDir, 'src6.5.png');
+        await execFileAsync(ffmpegBin, ['-y', '-v', 'error', '-ss', '3.5', '-i', outPath, '-frames:v', '1', outFrame]);
+        await execFileAsync(ffmpegBin, ['-y', '-v', 'error', '-ss', '3.5', '-i', mainSrc, '-frames:v', '1', '-vf', reframe, srcRight]);
+        await execFileAsync(ffmpegBin, ['-y', '-v', 'error', '-ss', '6.5', '-i', mainSrc, '-frames:v', '1', '-vf', reframe, srcWrong]);
+        const psnr = async (a: string, b: string): Promise<number> => {
+          const { stderr } = await execFileAsync(ffmpegBin, [
+            '-v', 'info', '-i', a, '-i', b, '-lavfi', 'psnr', '-f', 'null', '-',
+          ]);
+          const m = stderr.match(/average:([0-9.]+|inf)/);
+          assert.ok(m, `PSNR parse failed: ${stderr.slice(-200)}`);
+          return m[1] === 'inf' ? 99 : Number(m[1]);
+        };
+        // Calibrated on this pipeline: correct window ~40dB, mis-spliced window ~11dB.
+        const pRight = await psnr(outFrame, srcRight);
+        const pWrong = await psnr(outFrame, srcWrong);
+        assert.ok(pRight > 25, `base frame at t=3.5 must match source t=3.5 (PSNR ${pRight}dB)`);
+        assert.ok(pRight - pWrong > 10, `base frame must not match the mis-spliced window (right ${pRight}dB vs wrong ${pWrong}dB)`);
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
