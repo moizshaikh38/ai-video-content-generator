@@ -560,39 +560,38 @@ export class ClipRenderService {
       }
 
       // Text Overlay burn-in. With no overlay configured, the clip title is
-      // burned as the automatic headline (Opus-parity); an explicit
-      // overlay_config.enabled === false (e.g. editor reset) opts out.
-      const autoHeadline =
-        clip.overlay_config?.enabled === undefined && !clip.overlay_config?.text && !!clip.title;
-      if ((clip.overlay_config?.enabled && clip.overlay_config?.text) || autoHeadline) {
-        const rawText = String(clip.overlay_config?.text || clip.title);
-        const stripped = rawText.replace(/[\r\n]+/g, ' ').replace(/['\\%]/g, '').trim();
-        // drawtext does not auto-fit: keep the auto headline within the canvas
-        // by capping length and tiering the font size to the character count
-        // (~0.58em average glyph width, 40px side margins on a 1080 canvas).
-        const capped = autoHeadline
-          ? stripped.length > 45
-            ? stripped.slice(0, 42).trimEnd() + '...'
-            : stripped
-          : stripped.slice(0, 90);
-        const safeText = capped.replace(/:/g, '\\:');
+      // burned as an opening headline (Opus shows its headline for the first
+      // seconds only, observed on the 15 Nov 2026 comparison set); an
+      // explicit overlay_config.enabled === false (e.g. editor reset) opts
+      // out. overlay_config.headline_duration_sec overrides the 5s default;
+      // <= 0 keeps the headline for the whole clip.
+      const headline = ClipRenderService.buildHeadlineSpec(clip);
+      if (headline) {
+        const style =
+          'fontcolor=white:borderw=3:bordercolor=black@0.9:shadowcolor=black@0.6:shadowx=0:shadowy=2';
+        const enable =
+          headline.durationSec > 0 ? `:enable='lt(t,${headline.durationSec.toFixed(2)})'` : '';
+        videoFilters.push(
+          `drawtext=text='${headline.text}':${style}:fontsize=${headline.fontSize}:x=(w-text_w)/2:y=150${enable}`
+        );
+      } else if (clip.overlay_config?.enabled && clip.overlay_config?.text) {
+        const rawText = String(clip.overlay_config.text);
+        const safeText = rawText
+          .replace(/[\r\n]+/g, ' ')
+          .replace(/['\\%]/g, '')
+          .replace(/:/g, '\\:')
+          .slice(0, 90)
+          .trim();
         if (safeText) {
-          const pos = clip.overlay_config?.position || 'top';
-          const size = clip.overlay_config?.size || 'md';
-          const len = safeText.length;
-          const autoSize = len <= 29 ? 60 : len <= 34 ? 52 : len <= 40 ? 44 : 38;
-          const fontSize = autoHeadline ? autoSize : size === 'sm' ? 36 : size === 'lg' ? 60 : 46;
-          let yExpr = autoHeadline ? '150' : '120';
+          const pos = clip.overlay_config.position || 'top';
+          const size = clip.overlay_config.size || 'md';
+          const fontSize = size === 'sm' ? 36 : size === 'lg' ? 60 : 46;
+          let yExpr = '120';
           if (pos === 'center') yExpr = '(h-text_h)/2';
           else if (pos === 'bottom') yExpr = 'h-text_h-260';
 
-          // Auto headline: clean outline+shadow, no backdrop box. Configured
-          // overlays keep the legacy boxed style.
-          const style = autoHeadline
-            ? 'fontcolor=white:borderw=3:bordercolor=black@0.9:shadowcolor=black@0.6:shadowx=0:shadowy=2'
-            : 'fontcolor=white:box=1:boxcolor=black@0.65:boxborderw=10';
           videoFilters.push(
-            `drawtext=text='${safeText}':${style}:fontsize=${fontSize}:x=(w-text_w)/2:y=${yExpr}`
+            `drawtext=text='${safeText}':fontcolor=white:fontsize=${fontSize}:box=1:boxcolor=black@0.65:boxborderw=10:x=(w-text_w)/2:y=${yExpr}`
           );
         }
       }
@@ -1109,6 +1108,34 @@ export class ClipRenderService {
    * Reframe keyframes are clip-relative (t=0 at clip start incl. trim), matching
    * the `-ss startSec` input seek used by both quick and single-slice pro renders.
    */
+  /**
+   * Auto-headline spec for the render path, or null when the headline is not
+   * shown. Pure and unit-tested; the drawtext string assembly stays inline.
+   * Fit model: drawtext cannot auto-fit, so text is capped (45 chars +
+   * ellipsis) and font size tiered by character count (~0.58em average glyph
+   * width, 40px side margins on a 1080 canvas - verified 15 Nov 2026: a
+   * 41-char title overflowed at 60px, fits at 38px).
+   */
+  public static buildHeadlineSpec(
+    clip: Pick<ClipRecord, 'title' | 'overlay_config'>
+  ): { text: string; fontSize: number; durationSec: number } | null {
+    const autoHeadline =
+      clip.overlay_config?.enabled === undefined && !clip.overlay_config?.text && !!clip.title;
+    if (!autoHeadline) return null;
+    const stripped = String(clip.title)
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/['\\%]/g, '')
+      .trim();
+    if (!stripped) return null;
+    const capped = stripped.length > 45 ? stripped.slice(0, 42).trimEnd() + '...' : stripped;
+    const text = capped.replace(/:/g, '\\:');
+    const len = text.length;
+    const fontSize = len <= 29 ? 60 : len <= 34 ? 52 : len <= 40 ? 44 : 38;
+    const rawDur = (clip.overlay_config as any)?.headline_duration_sec;
+    const durationSec = typeof rawDur === 'number' && Number.isFinite(rawDur) ? rawDur : 5.0;
+    return { text, fontSize, durationSec };
+  }
+
   public static async resolveReframeDecision(
     clip: ClipRecord,
     durationSec: number
