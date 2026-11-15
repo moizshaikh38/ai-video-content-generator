@@ -185,6 +185,8 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   // Concise notice when an extend cannot supply full caption coverage
   // (missing/short transcript) or the coverage fetch fails after extending.
   const [extendCaptionNotice, setExtendCaptionNotice] = useState<string | null>(null);
+  // Non-destructive reason when an action is refused (e.g. locked followers).
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
   // Export staleness: caption setting changed after the last completed render;
   // the previously rendered file must not be offered as the changed export.
@@ -377,7 +379,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     const lockedHit = project.tracks.some(
       (tr) => tr.locked && tr.items.some((it) => it.timeline_end > t)
     );
-    if (lockedHit) return;
+    if (lockedHit) {
+      setActionNotice('Freeze not applied: a locked track has content past the playhead. Unlock it first - nothing was changed.');
+      return;
+    }
     const dur = FREEZE_DURATION_SEC;
     const itemSpeed = item.speed?.speed || 1;
     const srcTime = item.source_start + (t - item.timeline_start) * itemSpeed;
@@ -874,6 +879,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
           canvas: { ...prev.canvas },
         }));
       }}
+      onActionNotice={setActionNotice}
     />
   );
 
@@ -1646,6 +1652,19 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         ) : (
           <div className="w-[320px] md:w-[340px] xl:w-[360px] shrink-0 glass-dock flex flex-col min-h-0 z-20 border-l border-white/[0.08]">
             <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              {actionNotice && (
+                <div className="mx-3 mt-2 flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-950/40 border border-amber-800/50">
+                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                  <p className="text-[11px] text-amber-200/90 leading-snug">{actionNotice}</p>
+                  <button
+                    onClick={() => setActionNotice(null)}
+                    className="ml-auto text-amber-300/70 hover:text-amber-200 text-xs px-1"
+                    aria-label="Dismiss"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
               {extendCaptionNotice && (
                 <div className="mx-3 mt-2 flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-950/40 border border-amber-800/50">
                   <span className="mt-1 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />

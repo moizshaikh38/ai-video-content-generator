@@ -80,6 +80,8 @@ interface ContextualInspectorProps {
   hasWordTiming: boolean;
   onAddTextLayer: (text: string) => void;
   onUpdateCropMode: (mode: 'center' | 'fit' | 'smart') => void;
+  /** Non-destructive reason when an action is refused (e.g. locked followers). */
+  onActionNotice?: (message: string | null) => void;
 }
 
 type CaptionStudioTab = 'styles' | 'typography' | 'effects';
@@ -113,6 +115,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
   onDeleteKeyframe: _onDeleteKeyframe,
   onApplyCaptionPreset,
   onToggleCaptions,
+  onActionNotice,
   hasWordTiming,
   onAddTextLayer,
   onUpdateCropMode,
@@ -942,9 +945,13 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                 // timeline after it ripples so scenes, captions and audio
                 // stay aligned. Refused (kept at current speed) when a locked
                 // track holds content past the item, which would misalign.
-                onUpdateProject((prev) =>
-                  retimeItemSpeed(prev, selectedItem.track_id, selectedItem.id, speed) ?? prev
-                );
+                const next = retimeItemSpeed(project, selectedItem.track_id, selectedItem.id, speed);
+                if (!next) {
+                  onActionNotice?.('Speed not changed: a locked track has content past this item. Unlock it first - nothing was changed.');
+                  return;
+                }
+                onActionNotice?.(null);
+                onUpdateProject(() => next);
               }}
               className="w-full bg-vc-canvas border border-vc-border rounded p-1.5 text-xs text-white"
               aria-label="Playback speed"
