@@ -21,6 +21,7 @@ import {
 import { UpdateProjectOptions } from '../../hooks/useEditorProject';
 import {
   getPreviewFrame,
+  regroupCuesForPreset,
   resolveEditorCaptionStyle,
   resolveCaptionPreset,
   isRenderablePresetId,
@@ -570,7 +571,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   );
   // Editor cues are already grouped/sliced and export uses those exact windows.
   // Regrouping here loses cue overrides and merges across scene boundaries.
-  const presetCues = presetStyle ? cues : null;
+  const presetCues = presetStyle ? (presetStyle.presetId === 'word_cut'
+    ? cues.flatMap(cue => cue.presetOverride && cue.presetOverride !== 'word_cut' ? [cue]
+      : regroupCuesForPreset([cue], presetStyle).cues.map(part => ({...part, id: cue.id})))
+    : cues) : null;
 
   // Selected item reference
   const selectedItem = project.tracks

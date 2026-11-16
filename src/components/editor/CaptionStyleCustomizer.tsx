@@ -61,6 +61,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
     (captionItem?.style === 'bold' || captionItem?.style === 'karaoke' || captionItem?.style === 'highlight');
 
   const weightDisplay = captionWeightDisplay(captionItem, resolvedStyle);
+  const singleWordMode = (captionItem?.max_words_per_cue ?? resolvedStyle?.maxWordsPerCue) === 1;
 
   const fontFamily =
     captionItem?.font_family ??
@@ -389,7 +390,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
               type="button"
               onClick={() => onChange({ max_words_per_cue: undefined, max_lines: undefined })}
               className={`py-1 rounded-md text-[11px] font-medium transition flex items-center justify-center ${
-                captionItem?.max_words_per_cue !== 1
+                !singleWordMode
                   ? 'bg-white/[0.12] text-white font-semibold border border-white/20 shadow-sm'
                   : 'text-vc-text-secondary hover:text-white'
               }`}
@@ -400,7 +401,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
               type="button"
               onClick={() => onChange({ max_words_per_cue: 1, max_lines: 1 })}
               className={`py-1 rounded-md text-[11px] font-medium transition flex items-center justify-center ${
-                captionItem?.max_words_per_cue === 1
+                singleWordMode
                   ? 'bg-white/[0.12] text-white font-semibold border border-white/20 shadow-sm'
                   : 'text-vc-text-secondary hover:text-white'
               }`}

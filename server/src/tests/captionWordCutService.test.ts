@@ -1,0 +1,24 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+process.env.MONGODB_URI='mongodb://127.0.0.1:27019';process.env.MONGODB_DB_NAME='contract_only_no_connection';
+const {CaptionService}=await import('../services/captionService.js');
+const {dataRepository}=await import('../db/repositories/dataRepository.js');
+
+test('actual CaptionService export groups Word Cut after placement, preserves timings and override boundaries',async()=>{
+ const original=dataRepository.from;
+ const words=[{text:'hay',start:0,end:.3},{text:'in',start:.6,end:.9}];
+ const cue={id:'input',start:0,end:1,text:'hay in',words,position_x:.6,position_y:.65,position_anchor:'center'};
+ const override={id:'other',start:1,end:2,text:'Keep other',words:[{text:'Keep',start:1,end:1.3},{text:'other',start:1.5,end:1.8}],presetOverride:'soft_build'};
+ let style='word_cut';
+ (dataRepository as any).from=(table:string)=>{const q:any={select:()=>q,eq:()=>q,maybeSingle:async()=>({data:table==='editor_projects'?{tracks:[{type:'CAPTION',items:[{timeline_start:0,timeline_end:2,caption:{style,cues:[cue,override]}}]}]}:null,error:null})};return q;};
+ try{
+ const clip:any={id:'test-clip',user_id:'test-user',project_id:'test-project',start_seconds:0,end_seconds:2,caption_style:style,caption_position:'bottom',caption_config:{}};
+ const result=await CaptionService.generateCaptionsForClip({clip,targetAspectRatio:'9:16'});
+ assert.deepEqual(result.cues.slice(0,2).map(c=>[c.text,c.start,c.end]),[['hay',0,.6],['in',.6,.9]]);
+ assert.equal(result.cues[0].words![0].end,.3);
+ assert.equal(result.cues[0].position_anchor,'center');assert.equal(result.cues[0].position_x,.6);
+ assert.equal(result.cues[2].presetOverride,'soft_build');assert.equal(result.cues[2].text,'Keep other');
+ assert.match(result.assContent,/0:00:00\.30,0:00:00\.60[^\n]*hay/);assert.doesNotMatch(result.assContent,/hay in/);
+ style='chip_background';const unchanged=await CaptionService.generateCaptionsForClip({clip:{...clip,caption_style:style},targetAspectRatio:'9:16'});assert.equal(unchanged.cues[0].text,'hay in');assert.equal(unchanged.cues.length,2);
+ }finally{dataRepository.from=original;}
+});

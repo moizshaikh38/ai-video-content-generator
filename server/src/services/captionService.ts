@@ -25,6 +25,7 @@ import {
   buildPresetAssScript,
   enforceZeroOverlap as sharedEnforceZeroOverlap,
   formatSegmentCueText,
+  regroupCuesForPreset,
   groupWordsIntoCues,
   resolveCaptionPreset,
   resolveRenderPresetId,
@@ -1550,6 +1551,15 @@ export class CaptionService {
       });
     } else if (options.speakerSplit && !hasExplicitEditorPosition && !hasExplicitConfigPosition) {
       cues = cues.map(c => c.position_x !== undefined || c.position_y !== undefined ? c : ({...c, position_y:0.5, position_anchor:'center'}));
+    }
+
+    // Actual editor exports must use the same Word Cut grouping as preview.
+    // Placement has already split scene/position boundaries. Keep explicit other
+    // preset overrides untouched and never manufacture or rewrite word timings.
+    if (preset?.presetId === 'word_cut') {
+      cues = cues.flatMap(cue => cue.presetOverride && cue.presetOverride !== 'word_cut'
+        ? [cue]
+        : regroupCuesForPreset([cue], preset!).cues as TimedCaptionCue[]);
     }
 
     const isKinetic = Boolean(
