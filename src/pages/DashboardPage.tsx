@@ -1,3 +1,4 @@
+import { projectRetentionNotice } from '../../server/src/shared/projectRetention';
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Clock, Play } from 'lucide-react';
@@ -393,6 +394,11 @@ export const DashboardPage: React.FC = () => {
                       <p className="text-[12px] text-vc-text-secondary mt-1">
                         Updated {formatTimeAgo(p.updated_at || p.created_at)}
                       </p>
+                      {projectRetentionNotice(p.retention_policy) && (
+                        <p data-testid="project-retention-notice" className="mt-2 text-[11px] leading-relaxed text-amber-200/90">
+                          {projectRetentionNotice(p.retention_policy)}
+                        </p>
+                      )}
                     </div>
 
                     {statusStr === 'uploaded' && (

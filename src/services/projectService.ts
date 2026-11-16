@@ -28,6 +28,7 @@ class ProjectService {
       clip_preferences: row.clip_preferences,
       duration_seconds: row.duration_seconds ?? null,
       metadata: row.metadata ?? null,
+      retention_policy: row.retention_policy ?? null,
       poster_url: row.poster_url ?? null,
       status, video_status: status,
       created_at: row.created_at || new Date().toISOString(), updated_at: row.updated_at || new Date().toISOString(),

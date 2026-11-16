@@ -37,6 +37,7 @@ export const ACTIVE_PROCESSING_STATUSES: readonly VideoStatus[] = [
 ] as const;
 
 export interface ProjectRecord {
+  retention_policy?: import('../shared/projectRetention.js').ProjectRetentionPolicy | null;
   id: string;
   user_id: string;
   title: string;

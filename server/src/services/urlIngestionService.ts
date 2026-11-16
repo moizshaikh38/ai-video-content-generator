@@ -20,11 +20,14 @@ import {
 import { uploadFile, sourceObjectKey } from './objectStorageService.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
 import { GenreIntelligenceService } from './genreIntelligenceService.js';
+import { createProjectRetention } from '../shared/projectRetention.js';
 
 const execFileAsync = promisify(execFile);
 
 export interface IngestUrlOptions {
   userId: string;
+  /** Server-resolved entitlement only. Missing callers remain legacy-safe. */
+  creationPlanId?: string;
   projectId?: string;
   url: string;
   title?: string;
@@ -1022,8 +1025,11 @@ export class UrlIngestionService {
 
       // 7. Create Project Record in MongoDB in 'uploaded' state
       const projectTitle = title?.trim() || ytMetaTitle || validated.inferredFilename.replace(/\.[^.]+$/, '') || 'Ingested Video';
+      const createdAt = new Date().toISOString();
       const projectRecord: any = {
         id: projectId,
+        created_at: createdAt,
+        ...(options.creationPlanId ? { retention_policy: createProjectRetention(options.creationPlanId, createdAt) } : {}),
         user_id: userId,
         title: projectTitle.slice(0, 255),
         source_type: 'url',

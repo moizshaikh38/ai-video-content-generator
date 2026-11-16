@@ -23,6 +23,7 @@ import { CreditWalletService } from '../services/creditWalletService.js';
 import { CreditPricingService } from '../services/billing/creditPricingService.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
+import { createProjectRetention } from '../shared/projectRetention.js';
 
 const ALLOWED_MIME_TYPES = [
   'video/mp4',
@@ -304,8 +305,11 @@ export const createProject = async (req: AuthenticatedRequest, res: Response): P
   }
 
   const internalProjectId = id || crypto.randomUUID();
+  const createdAt = new Date().toISOString();
   const projectRecord: any = {
     id: internalProjectId,
+    created_at: createdAt,
+    retention_policy: createProjectRetention(entitlements.planId, createdAt),
     user_id: userId,
     title: title.trim(),
     source_type,
@@ -429,6 +433,7 @@ export const ingestProjectUrl = async (req: AuthenticatedRequest, res: Response)
 
     const result = await UrlIngestionService.ingestUrlToProject({
       userId,
+      creationPlanId: entitlements.planId,
       projectId: id,
       url: url.trim(),
       title: typeof title === 'string' ? title.trim() : undefined,

@@ -60,6 +60,7 @@ export interface ContentOutput {
 }
 
 export interface Project {
+  retention_policy?: import('../../server/src/shared/projectRetention').ProjectRetentionPolicy | null;
   id: string;
   user_id?: string;
   title: string;
