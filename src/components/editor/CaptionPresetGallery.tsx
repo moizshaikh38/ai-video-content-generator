@@ -184,7 +184,7 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
               type="button"
               role="radio"
               aria-checked={isSelected}
-              aria-label={preset ? `${preset.label}: ${preset.description}` : 'No Caption: render without captions'}
+              aria-label={preset ? `${preset.label}: ${preset.description}` : 'No captions: render without captions'}
               tabIndex={index === focusIndex ? 0 : -1}
               onClick={() => { if (!isLocked) onSelect(id); }}
               disabled={isLocked}
@@ -222,6 +222,11 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
                   <span className="flex items-center gap-1 text-[9px] uppercase tracking-wide text-amber-300/90 shrink-0">
                     <Lock className="w-3 h-3" aria-hidden="true" />
                     Upgrade
+                  </span>
+                )}
+                {!isLocked && preset?.qualification === 'candidate' && (
+                  <span className="text-[9px] text-amber-300/90 shrink-0" title="Independent candidate. Reference animation and export parity are not yet fully verified.">
+                    In testing
                   </span>
                 )}
                 {!isLocked && isSelected && (

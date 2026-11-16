@@ -16,3 +16,16 @@ the font files (`OFL.txt` in each directory).
 Both are licensed under the SIL Open Font License, Version 1.1. The license
 permits bundling and redistribution; the full text is in each family's
 `OFL.txt`.
+
+### Caption candidate fonts (2026-11-16)
+
+- JetBrains Mono Bold: Copyright 2020 The JetBrains Mono Project Authors.
+  Source: https://github.com/JetBrains/JetBrainsMono (fonts/ttf/JetBrainsMono-Bold.ttf).
+  SIL Open Font License 1.1, copied beside the font in server/assets/fonts/jetbrains-mono/OFL.txt
+  and public/fonts/jetbrains-mono/OFL.txt.
+- League Spartan Regular: Copyright The League Spartan Project Authors.
+  Source: https://github.com/google/fonts/tree/main/ofl/leaguespartan.
+  A static weight-400 instance was generated from the OFL-licensed variable source with fontTools.
+  SIL Open Font License 1.1 is copied beside the font in both bundled locations.
+
+These are public, independently distributed font files, not competitor-provided assets.

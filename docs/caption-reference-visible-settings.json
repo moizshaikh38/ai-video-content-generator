@@ -1,0 +1,2126 @@
+{
+  "observedDate": "2026-11-17",
+  "scope": "Observed public-facing Font and Effects controls on an independent manually styled account clip. UI facts only, not private implementation. Not timing/export verification. Project identifiers intentionally omitted.",
+  "styles": [
+    {
+      "name": "Baby Earthquake",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(53, 120, 71)",
+            "rgba(0, 0, 0, 0.1)",
+            "rgb(4, 248, 39)",
+            "rgb(255, 253, 3)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "48"
+            },
+            {
+              "type": "text",
+              "value": "30"
+            },
+            {
+              "type": "text",
+              "value": "4"
+            },
+            {
+              "type": "text",
+              "value": "4"
+            },
+            {
+              "type": "text",
+              "value": "8"
+            },
+            {
+              "type": "text",
+              "value": "04f827FF"
+            },
+            {
+              "type": "text",
+              "value": "FFFD03FF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nOptima\n\npx\n\nBold\n\nDecoration\n\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [
+            "rgb(255, 211, 99)"
+          ],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nBaby earthquake\n\nLines\n\nThree lines\nOne line\n\nHighlighted word color"
+        }
+      ]
+    },
+    {
+      "name": "Baby Steps",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(255, 0, 161)",
+            "rgb(0, 0, 0)",
+            "rgb(97, 255, 255)",
+            "rgb(97, 255, 255)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "42"
+            },
+            {
+              "type": "text",
+              "value": "10"
+            },
+            {
+              "type": "text",
+              "value": "0"
+            },
+            {
+              "type": "text",
+              "value": "4"
+            },
+            {
+              "type": "text",
+              "value": "4"
+            },
+            {
+              "type": "text",
+              "value": "61FFFFFF"
+            },
+            {
+              "type": "text",
+              "value": "61FFFFFF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nHeebo\n\npx\n\nBold\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nBaby steps\n\nLines\n\nThree lines\nOne line"
+        }
+      ]
+    },
+    {
+      "name": "Beasty",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(0, 0, 0)",
+            "rgb(255, 255, 255)",
+            "rgb(4, 248, 39)",
+            "rgb(255, 253, 3)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "50"
+            },
+            {
+              "type": "text",
+              "value": "16"
+            },
+            {
+              "type": "text",
+              "value": "2"
+            },
+            {
+              "type": "text",
+              "value": "2"
+            },
+            {
+              "type": "text",
+              "value": "16"
+            },
+            {
+              "type": "text",
+              "value": "04f827FF"
+            },
+            {
+              "type": "text",
+              "value": "FFFD03FF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nKOMIKA-AXIS\n\npx\n\nRegular\n\nDecoration\n\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nPop\n\nLines\n\nThree lines\nOne line"
+        }
+      ]
+    },
+    {
+      "name": "Blur In",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(0, 0, 0)",
+            "rgb(0, 0, 0)",
+            "rgb(251, 123, 255)",
+            "rgb(251, 123, 255)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "46"
+            },
+            {
+              "type": "text",
+              "value": "10"
+            },
+            {
+              "type": "text",
+              "value": "1"
+            },
+            {
+              "type": "text",
+              "value": "1"
+            },
+            {
+              "type": "text",
+              "value": "0"
+            },
+            {
+              "type": "text",
+              "value": "FB7BFFFF"
+            },
+            {
+              "type": "text",
+              "value": "FB7BFFFF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nPoltawski Nowy\n\npx\n\nRegular\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nBlur in\n\nLines\n\nThree lines\nOne line"
+        }
+      ]
+    },
+    {
+      "name": "Blur Switch",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(53, 120, 71)",
+            "rgb(240, 19, 19)",
+            "rgb(4, 248, 39)",
+            "rgb(255, 253, 3)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "48"
+            },
+            {
+              "type": "text",
+              "value": "30"
+            },
+            {
+              "type": "text",
+              "value": "4"
+            },
+            {
+              "type": "text",
+              "value": "4"
+            },
+            {
+              "type": "text",
+              "value": "0"
+            },
+            {
+              "type": "text",
+              "value": "04f827FF"
+            },
+            {
+              "type": "text",
+              "value": "FFFD03FF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nRoboto\n\npx\n\nBold\n\nDecoration\n\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [
+            "rgb(93, 251, 255)"
+          ],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nBlur switch\n\nLines\n\nThree lines\nOne line\n\nHighlighted word color"
+        }
+      ]
+    },
+    {
+      "name": "Bouncing dot",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(0, 0, 0)",
+            "rgb(247, 194, 4)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "74"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nTitan One\n\npx\n\nRegular\n\nStroke\n\nDot\n\nStroke px\n\n5\nUppercase"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nBouncing dot"
+        }
+      ]
+    },
+    {
+      "name": "Breathe",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(0, 0, 0)",
+            "rgb(140, 0, 255)",
+            "rgb(5, 248, 39)",
+            "rgb(5, 248, 39)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "44"
+            },
+            {
+              "type": "text",
+              "value": "10"
+            },
+            {
+              "type": "text",
+              "value": "3"
+            },
+            {
+              "type": "text",
+              "value": "3"
+            },
+            {
+              "type": "text",
+              "value": "4"
+            },
+            {
+              "type": "text",
+              "value": "05F827FF"
+            },
+            {
+              "type": "text",
+              "value": "05F827FF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nLilita One\n\npx\n\nRegular\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nBreathe\n\nLines\n\nThree lines\nOne line"
+        }
+      ]
+    },
+    {
+      "name": "Chip background",
+      "font": [
+        {
+          "colors": [
+            "rgb(17, 17, 17)",
+            "rgb(255, 255, 255)",
+            "rgb(247, 194, 4)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "57"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nPoppins\n\npx\n\nBold\n\nRest\n\nActive\n\nUppercase"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nChip background"
+        }
+      ]
+    },
+    {
+      "name": "Comic",
+      "font": [
+        {
+          "colors": [
+            "rgb(20, 20, 20)",
+            "rgb(255, 159, 6)",
+            "rgb(232, 21, 42)",
+            "rgb(255, 255, 255)",
+            "rgb(20, 20, 22)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "80"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nBANGERS\n\npx\n\nRegular\n\nKeyword\n\nActive\n\nBubble\n\nOutline\n\nUppercase\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nComic"
+        }
+      ]
+    },
+    {
+      "name": "Crossline",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(0, 0, 0)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "68"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nCal Sans\n\npx\n\nRegular\n\nShadow\n\nUppercase"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nCrossline"
+        }
+      ]
+    },
+    {
+      "name": "Decode",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(100, 229, 31)",
+            "rgb(0, 0, 0)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "66"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nAnonymous Pro\n\npx\n\nBold\n\nDecoding\n\nShadow\n\nUppercase"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nDecode"
+        }
+      ]
+    },
+    {
+      "name": "Deep Diver",
+      "font": [
+        {
+          "colors": [
+            "rgb(198, 198, 198)",
+            "rgb(0, 0, 0)",
+            "rgb(0, 0, 0)",
+            "rgb(4, 248, 39)",
+            "rgb(255, 253, 3)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "50"
+            },
+            {
+              "type": "text",
+              "value": "0"
+            },
+            {
+              "type": "text",
+              "value": "0"
+            },
+            {
+              "type": "text",
+              "value": "0"
+            },
+            {
+              "type": "text",
+              "value": "0"
+            },
+            {
+              "type": "text",
+              "value": "04f827FF"
+            },
+            {
+              "type": "text",
+              "value": "FFFD03FF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nPoppins\n\npx\n\nBold\n\nDecoration\n\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [
+            "rgb(0, 0, 0)",
+            "rgb(228, 228, 228)"
+          ],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nBox\n\nLines\n\nThree lines\nOne line\n\nHighlighted word color\n\nWord's background color"
+        }
+      ]
+    },
+    {
+      "name": "Doodle",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(247, 212, 106)",
+            "rgb(0, 0, 0)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "80"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nGaegu\n\npx\n\nBold\n\nKeyword\n\nShadow\n\nUppercase\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nDoodle"
+        }
+      ]
+    },
+    {
+      "name": "Editorial",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(255, 217, 160)",
+            "rgb(0, 0, 0)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "52"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\npx\n\nEmphasis\n\nShadow\n\nUppercase\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nEditorial"
+        }
+      ]
+    },
+    {
+      "name": "Elastic",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(0, 229, 160)",
+            "rgb(0, 0, 0)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "76"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nOswald\n\npx\n\nBold\n\nActive\n\nOutline\n\nStroke px\n\n6\nUppercase"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nElastic"
+        }
+      ]
+    },
+    {
+      "name": "Focus",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(0, 0, 0)",
+            "rgb(0, 0, 0)",
+            "rgb(244, 255, 91)",
+            "rgb(244, 255, 91)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "43"
+            },
+            {
+              "type": "text",
+              "value": "10"
+            },
+            {
+              "type": "text",
+              "value": "1"
+            },
+            {
+              "type": "text",
+              "value": "1"
+            },
+            {
+              "type": "text",
+              "value": "0"
+            },
+            {
+              "type": "text",
+              "value": "F4FF5BFF"
+            },
+            {
+              "type": "text",
+              "value": "F4FF5BFF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nThabit\n\npx\n\nBold\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nFocus\n\nLines\n\nThree lines\nOne line"
+        }
+      ]
+    },
+    {
+      "name": "Font Shuffle",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(0, 0, 0)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "80"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\npx\n\nShadow\n\nUppercase"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nFont Shuffle"
+        }
+      ]
+    },
+    {
+      "name": "Glide",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(255, 77, 46)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "58"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nMontserrat\n\npx\n\nExtraBold\n\nBox\n\nUppercase"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nGlide"
+        }
+      ]
+    },
+    {
+      "name": "Glitch Infinite",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 184, 0)",
+            "rgb(0, 0, 0)",
+            "rgb(240, 19, 19)",
+            "rgb(4, 248, 39)",
+            "rgb(255, 253, 3)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "48"
+            },
+            {
+              "type": "text",
+              "value": "6"
+            },
+            {
+              "type": "text",
+              "value": "6"
+            },
+            {
+              "type": "text",
+              "value": "6"
+            },
+            {
+              "type": "text",
+              "value": "0"
+            },
+            {
+              "type": "text",
+              "value": "04f827FF"
+            },
+            {
+              "type": "text",
+              "value": "FFFD03FF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nPoppins\n\npx\n\nSemibold\n\nDecoration\n\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nGlitch infinite zoom\n\nLines\n\nThree lines\nOne line"
+        }
+      ]
+    },
+    {
+      "name": "Grow",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(140, 0, 255)",
+            "rgb(140, 0, 255)",
+            "rgb(252, 153, 255)",
+            "rgb(252, 153, 255)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "46"
+            },
+            {
+              "type": "text",
+              "value": "10"
+            },
+            {
+              "type": "text",
+              "value": "3"
+            },
+            {
+              "type": "text",
+              "value": "3"
+            },
+            {
+              "type": "text",
+              "value": "10"
+            },
+            {
+              "type": "text",
+              "value": "FC99FFFF"
+            },
+            {
+              "type": "text",
+              "value": "FC99FFFF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nKanit\n\npx\n\nBold\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nGrow\n\nLines\n\nThree lines\nOne line"
+        }
+      ]
+    },
+    {
+      "name": "Handheld",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(255, 230, 0)",
+            "rgb(0, 0, 0)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "63"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nBelleza\n\npx\n\nRegular\n\nKeyword\n\nShadow\n\nUppercase\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nHandheld"
+        }
+      ]
+    },
+    {
+      "name": "Handwritten",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(255, 212, 0)",
+            "rgb(0, 0, 0)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "80"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nCaveat\n\npx\n\nBold\n\nUnderline\n\nShadow\n\nUppercase\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nHandwritten"
+        }
+      ]
+    },
+    {
+      "name": "Highlighter Box",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(244, 139, 195)",
+            "rgb(240, 19, 19)",
+            "rgb(4, 248, 39)",
+            "rgb(255, 253, 3)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "48"
+            },
+            {
+              "type": "text",
+              "value": "15"
+            },
+            {
+              "type": "text",
+              "value": "4"
+            },
+            {
+              "type": "text",
+              "value": "4"
+            },
+            {
+              "type": "text",
+              "value": "0"
+            },
+            {
+              "type": "text",
+              "value": "04f827FF"
+            },
+            {
+              "type": "text",
+              "value": "FFFD03FF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nAnton\n\npx\n\nRegular\n\nDecoration\n\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [
+            "rgb(28, 78, 191)",
+            "rgb(244, 139, 195)"
+          ],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nHighlighter box around\n\nLines\n\nThree lines\nOne line\n\nHighlighted word color\n\nWord's background color"
+        }
+      ]
+    },
+    {
+      "name": "Karaoke",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(0, 0, 0)",
+            "rgb(0, 0, 0)",
+            "rgb(4, 248, 39)",
+            "rgb(255, 253, 3)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "40"
+            },
+            {
+              "type": "text",
+              "value": "8"
+            },
+            {
+              "type": "text",
+              "value": "2"
+            },
+            {
+              "type": "text",
+              "value": "2"
+            },
+            {
+              "type": "text",
+              "value": "2"
+            },
+            {
+              "type": "text",
+              "value": "04f827FF"
+            },
+            {
+              "type": "text",
+              "value": "FFFD03FF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nMontserrat\n\npx\n\nBlack\n\nDecoration\n\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [
+            "rgb(4, 248, 39)"
+          ],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nBounce\n\nLines\n\nThree lines\nOne line\n\nHighlighted word color"
+        }
+      ]
+    },
+    {
+      "name": "Marker Sweep",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(201, 180, 255)",
+            "rgb(17, 19, 23)",
+            "rgb(0, 0, 0)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "66"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nBEBAS NEUE\n\npx\n\nRegular\n\nHighlight\n\nHighlight text\n\nShadow\n\nUppercase\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nMarker Sweep"
+        }
+      ]
+    },
+    {
+      "name": "Mozi",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(0, 0, 0)",
+            "rgb(0, 0, 0)",
+            "rgb(4, 248, 39)",
+            "rgb(255, 253, 3)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "50"
+            },
+            {
+              "type": "text",
+              "value": "10"
+            },
+            {
+              "type": "text",
+              "value": "2"
+            },
+            {
+              "type": "text",
+              "value": "2"
+            },
+            {
+              "type": "text",
+              "value": "4"
+            },
+            {
+              "type": "text",
+              "value": "04f827FF"
+            },
+            {
+              "type": "text",
+              "value": "FFFD03FF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nMontserrat\n\npx\n\nBlack\n\nDecoration\n\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nNone\n\nLines\n\nThree lines\nOne line"
+        }
+      ]
+    },
+    {
+      "name": "Negative keywords",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(255, 255, 253)",
+            "rgb(0, 0, 0)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "90"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nArchivo Black\n\npx\n\nRegular\n\nGlow\n\nShadow\n\nUppercase\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nNegative keywords"
+        }
+      ]
+    },
+    {
+      "name": "Negative text",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(255, 255, 253)",
+            "rgb(0, 0, 0)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "90"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nArchivo Black\n\npx\n\nRegular\n\nGlow\n\nShadow\n\nUppercase"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nNegative text"
+        }
+      ]
+    },
+    {
+      "name": "Pod P",
+      "font": [
+        {
+          "colors": [
+            "rgb(244, 63, 224)",
+            "rgb(0, 0, 0)",
+            "rgb(0, 0, 0)",
+            "rgb(8, 254, 182)",
+            "rgb(255, 253, 12)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "85"
+            },
+            {
+              "type": "text",
+              "value": "8"
+            },
+            {
+              "type": "text",
+              "value": "1"
+            },
+            {
+              "type": "text",
+              "value": "1"
+            },
+            {
+              "type": "text",
+              "value": "4"
+            },
+            {
+              "type": "text",
+              "value": "08FEB6FF"
+            },
+            {
+              "type": "text",
+              "value": "FFFD0CFF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nBernina Sans\n\npx\n\nExtraBold\n\nDecoration\n\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nNone\n\nLines\n\nThree lines\nOne line"
+        }
+      ]
+    },
+    {
+      "name": "Popline",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(0, 0, 0)",
+            "rgb(0, 0, 0)",
+            "rgb(255, 55, 185)",
+            "rgb(143, 46, 237)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "40"
+            },
+            {
+              "type": "text",
+              "value": "8"
+            },
+            {
+              "type": "text",
+              "value": "2"
+            },
+            {
+              "type": "text",
+              "value": "2"
+            },
+            {
+              "type": "text",
+              "value": "2"
+            },
+            {
+              "type": "text",
+              "value": "FF37B9FF"
+            },
+            {
+              "type": "text",
+              "value": "8F2EEDFF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nSpline Sans\n\npx\n\nBold\n\nDecoration\n\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [
+            "rgb(143, 46, 237)"
+          ],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nUnderline\n\nLines\n\nThree lines\nOne line\n\nHighlighted word color"
+        }
+      ]
+    },
+    {
+      "name": "Punch",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(255, 230, 0)",
+            "rgb(0, 0, 0)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "120"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nAnton\n\npx\n\nRegular\n\nAccent\n\nShadow\n\nUppercase"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nPunch"
+        }
+      ]
+    },
+    {
+      "name": "Retro 3D",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 210, 63)",
+            "rgb(255, 255, 255)",
+            "rgb(27, 27, 27)",
+            "rgb(228, 87, 46)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "70"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nBungee\n\npx\n\nRegular\n\nActive\n\nOutline\n\nExtrude\n\nUppercase"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nRetro 3D"
+        }
+      ]
+    },
+    {
+      "name": "Seamless Bounce",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(53, 120, 71)",
+            "rgb(240, 19, 19)",
+            "rgb(4, 248, 39)",
+            "rgb(255, 253, 3)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "40"
+            },
+            {
+              "type": "text",
+              "value": "20"
+            },
+            {
+              "type": "text",
+              "value": "4"
+            },
+            {
+              "type": "text",
+              "value": "4"
+            },
+            {
+              "type": "text",
+              "value": "0"
+            },
+            {
+              "type": "text",
+              "value": "04f827FF"
+            },
+            {
+              "type": "text",
+              "value": "FFFD03FF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nPoppins\n\npx\n\nSemibold\n\nDecoration\n\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [
+            "rgb(215, 255, 55)"
+          ],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nSeamless bounce\n\nLines\n\nThree lines\nOne line\n\nHighlighted word color"
+        }
+      ]
+    },
+    {
+      "name": "Simple",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(0, 0, 0)",
+            "rgb(0, 0, 0)",
+            "rgb(4, 248, 39)",
+            "rgb(255, 253, 3)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "80"
+            },
+            {
+              "type": "text",
+              "value": "10"
+            },
+            {
+              "type": "text",
+              "value": "2"
+            },
+            {
+              "type": "text",
+              "value": "2"
+            },
+            {
+              "type": "text",
+              "value": "5"
+            },
+            {
+              "type": "text",
+              "value": "04f827FF"
+            },
+            {
+              "type": "text",
+              "value": "FFFD03FF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nBEBAS NEUE\n\npx\n\nRegular\n\nDecoration\n\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nNone\n\nLines\n\nThree lines\nOne line"
+        }
+      ]
+    },
+    {
+      "name": "Soft Build",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(0, 0, 0)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "63"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nLeague Spartan\n\npx\n\nRegular\n\nShadow\n\nUppercase"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nSoft Build"
+        }
+      ]
+    },
+    {
+      "name": "Soft Cut",
+      "font": [
+        {
+          "colors": [
+            "rgb(240, 230, 181)",
+            "rgb(0, 0, 0)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "73"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nFigtree\n\npx\n\nSemibold\n\nShadow\n\nUppercase"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nSoft Cut"
+        }
+      ]
+    },
+    {
+      "name": "Soft Landing",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(0, 0, 0)",
+            "rgb(0, 0, 0)",
+            "rgb(97, 255, 255)",
+            "rgb(97, 255, 255)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "44"
+            },
+            {
+              "type": "text",
+              "value": "0"
+            },
+            {
+              "type": "text",
+              "value": "1"
+            },
+            {
+              "type": "text",
+              "value": "1"
+            },
+            {
+              "type": "text",
+              "value": "0"
+            },
+            {
+              "type": "text",
+              "value": "61FFFFFF"
+            },
+            {
+              "type": "text",
+              "value": "61FFFFFF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nArchivo\n\npx\n\nBold\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nSoft landing\n\nLines\n\nThree lines\nOne line"
+        }
+      ]
+    },
+    {
+      "name": "Stack Cut",
+      "font": [
+        {
+          "colors": [
+            "rgb(254, 223, 216)",
+            "rgb(0, 0, 0)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "102"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nPoppins\n\npx\n\nBlack\n\nShadow\n\nUppercase"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nStack Cut"
+        }
+      ]
+    },
+    {
+      "name": "Sticker",
+      "font": [
+        {
+          "colors": [
+            "rgb(20, 20, 20)",
+            "rgb(255, 159, 6)",
+            "rgb(255, 45, 85)",
+            "rgb(255, 255, 255)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "61"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nBricolage Grotesque\n\npx\n\nExtraBold\n\nKeyword\n\nActive\n\nLabel\n\nUppercase\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nSticker"
+        }
+      ]
+    },
+    {
+      "name": "Think Media",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(0, 0, 0)",
+            "rgb(0, 0, 0)",
+            "rgb(4, 248, 39)",
+            "rgb(255, 253, 3)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "55"
+            },
+            {
+              "type": "text",
+              "value": "6"
+            },
+            {
+              "type": "text",
+              "value": "4"
+            },
+            {
+              "type": "text",
+              "value": "2"
+            },
+            {
+              "type": "text",
+              "value": "1"
+            },
+            {
+              "type": "text",
+              "value": "04f827FF"
+            },
+            {
+              "type": "text",
+              "value": "FFFD03FF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nOswald\n\npx\n\nSemibold\n\nDecoration\n\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nPop\n\nLines\n\nThree lines\nOne line"
+        }
+      ]
+    },
+    {
+      "name": "Typewriter",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(247, 194, 4)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "47"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nJetBrains Mono\n\npx\n\nBold\n\nCaret\n\nUppercase"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nTypewriter"
+        }
+      ]
+    },
+    {
+      "name": "With Backdrop",
+      "font": [
+        {
+          "colors": [
+            "rgb(244, 255, 91)",
+            "rgb(0, 0, 0)",
+            "rgb(0, 0, 0)",
+            "rgb(255, 255, 255)",
+            "rgb(255, 255, 255)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "40"
+            },
+            {
+              "type": "text",
+              "value": "0"
+            },
+            {
+              "type": "text",
+              "value": "1"
+            },
+            {
+              "type": "text",
+              "value": "1"
+            },
+            {
+              "type": "text",
+              "value": "0"
+            },
+            {
+              "type": "text",
+              "value": "FFFFFFFF"
+            },
+            {
+              "type": "text",
+              "value": "FFFFFFFF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nLemon\n\npx\n\nRegular\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nWith backdrop\n\nLines\n\nThree lines\nOne line"
+        }
+      ]
+    },
+    {
+      "name": "Word Cut",
+      "font": [
+        {
+          "colors": [
+            "rgb(255, 255, 255)",
+            "rgb(0, 0, 0)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "63"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nInter\n\npx\n\nBold\n\nShadow\n\nUppercase"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nWord Cut"
+        }
+      ]
+    },
+    {
+      "name": "Youshaei",
+      "font": [
+        {
+          "colors": [
+            "rgb(129, 123, 129)",
+            "rgb(0, 0, 0)",
+            "rgb(0, 0, 0)",
+            "rgb(4, 248, 39)",
+            "rgb(255, 253, 3)"
+          ],
+          "inputs": [
+            {
+              "type": "text",
+              "value": "60"
+            },
+            {
+              "type": "text",
+              "value": "6"
+            },
+            {
+              "type": "text",
+              "value": "2"
+            },
+            {
+              "type": "text",
+              "value": "2"
+            },
+            {
+              "type": "text",
+              "value": "1"
+            },
+            {
+              "type": "text",
+              "value": "04f827FF"
+            },
+            {
+              "type": "text",
+              "value": "FFFD03FF"
+            }
+          ],
+          "switches": [
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "true"
+            },
+            {
+              "checked": "false"
+            }
+          ],
+          "text": "Presets\nFont\nEffects\n\nFont settings\n\nRoboto\n\npx\n\nBlack\n\nDecoration\n\nUppercase\n\nFont stroke\n\npx\n\nFont shadows\n\nx\n\ny\n\nblur\n\nAI keywords highlighter"
+        }
+      ],
+      "effects": [
+        {
+          "colors": [
+            "rgb(107, 245, 199)",
+            "rgba(0, 0, 0, 0)"
+          ],
+          "inputs": [],
+          "switches": [],
+          "text": "Presets\nFont\nEffects\n\nPosition\n\nAuto\nTop\nMiddle\nBottom\n\nAnimation\n\nBox\n\nLines\n\nThree lines\nOne line\n\nHighlighted word color\n\nWord's background color"
+        }
+      ]
+    }
+  ]
+}

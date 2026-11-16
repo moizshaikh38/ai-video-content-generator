@@ -1,5 +1,5 @@
 import React from 'react';
-import { getPreviewCss, PreviewFrame, PreviewWord, ResolvedCaptionStyle } from '../../lib/captionPresets';
+import { FONT_EM_PER_ASS_SIZE, getPreviewCss, PreviewFrame, PreviewWord, ResolvedCaptionStyle } from '../../lib/captionPresets';
 
 interface CaptionPresetRendererProps {
   style: ResolvedCaptionStyle;
@@ -55,6 +55,7 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
   }
 
   return (
+    <>
     <div
       data-selectable-item="true"
       className={`${className || ''} ${
@@ -73,6 +74,8 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
               top: `${((frame.positionY ?? 0.667) * 100).toFixed(2)}%`,
               right: 'auto',
               bottom: 'auto',
+              // Keep paragraph width unchanged when its anchor moves right.
+              width: `${Math.max(1, style.playResX - style.marginL - style.marginR) * scale}px`,
               transform: frame.positionAnchor === 'center' ? 'translate(-50%, -50%)' : 'translate(-50%, -100%)',
             }
           : {}),
@@ -105,7 +108,10 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
                 {line.map((w, wi) => (
                   <React.Fragment key={wi}>
                     {wi > 0 && ' '}
-                    <span style={css.word(w) as React.CSSProperties}>{w.text}</span>
+                    {style.caretColor ? <span style={{position:'relative',display:'inline-block'}}>
+                      <span style={css.word(w) as React.CSSProperties}>{w.text}</span>
+                      {w.caretActive && style.caretColor && frame.caret && <span data-caption-caret="true" style={{position:'absolute',pointerEvents:'none',left:(w.visibleCharacters ?? 0)*(style.fontSize*FONT_EM_PER_ASS_SIZE[style.fontFamily]*.6+style.letterSpacing)*scale,top:style.fontSize*.30*scale,width:frame.caret.width*scale,height:frame.caret.height*scale,backgroundColor:style.caretColor}}/>}
+                    </span> : <span style={css.word(w) as React.CSSProperties}>{w.text}</span>}
                   </React.Fragment>
                 ))}
               </span>
@@ -139,5 +145,6 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
         )}
       </div>
     </div>
+    </>
   );
 };

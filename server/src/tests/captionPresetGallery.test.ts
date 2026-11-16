@@ -97,6 +97,7 @@ describe('Caption presets: configuration and stable IDs', () => {
       'editorial', 'bold_highlight', 'soft_backdrop', 'compact_creator', 'two_color_highlight',
       'vireo_oneword', 'vireo_pill', 'vireo_lime', 'vireo_hormozi', 'vireo_clean',
       'vireo_spring', 'vireo_neon', 'vireo_capsule', 'vireo_editorial', 'vireo_sweep',
+      'word_cut', 'soft_build', 'typewriter',
     ]);
   });
 
@@ -123,7 +124,7 @@ describe('Caption presets: configuration and stable IDs', () => {
   });
 
   it('has a metric ratio for every render font', () => {
-    for (const f of CAPTION_RENDER_FONTS) assert.ok(FONT_EM_PER_ASS_SIZE[f] > 0.5 && FONT_EM_PER_ASS_SIZE[f] < 1);
+    for (const f of CAPTION_RENDER_FONTS) assert.ok(FONT_EM_PER_ASS_SIZE[f] > 0.5 && FONT_EM_PER_ASS_SIZE[f] < 1.2);
   });
 });
 
@@ -355,7 +356,7 @@ describe('Caption presets: preview ↔ export mapping', () => {
     assert.equal(word.WebkitTextStroke, `${px(18)} #000000`);
     assert.equal(word.paintOrder, 'stroke fill');
     assert.equal(word.textShadow, `${px(5)} ${px(5)} 0 rgba(0, 0, 0, 0.85)`);
-    assert.equal(word.fontSize, px(104 * FONT_EM_PER_ASS_SIZE['Arial Black'] * 1.2));
+    assert.equal(word.transform, 'scale(1.200)');
 
     const box = getPreviewCss(resolveCaptionPreset('think_media'), scale);
     assert.equal(box.lineBox.padding, px(18));
@@ -384,7 +385,10 @@ describe('Caption presets: preview ↔ export mapping', () => {
     const previewSource = CaptionService.extractCuesForClipSettings(transcript, clip, undefined, { preserveCase: true });
     const simple = regroupCuesForPreset(previewSource.cues, resolveCaptionPreset('simple'));
     assert.equal(simple.cues[0].text.replace('\\N', ' '), 'We made one million dollars today'.split(' ').slice(0, simple.cues[0].words!.length).join(' '));
-    assert.ok(simple.cues[0].text.includes('\\N'), 'simple wraps long cues onto two lines');
+    assert.ok(simple.cues.every(c => previewSource.cues.some(parent => c.start >= parent.start && c.end <= parent.end)), 'switching style must not merge across existing cue boundaries');
+    const longCue = wordCue([['We',0,.3],['made',.3,.6],['one',.6,.9],['million',.9,1.2],['dollars',1.2,1.5],['today',1.5,1.8]]);
+    const wrapped = regroupCuesForPreset([longCue], resolveCaptionPreset('simple', {maxWordsPerCue:6}));
+    assert.ok(wrapped.cues.some(c => c.text.includes('\\N')), 'an individual long cue still wraps onto two lines');
   });
 
   it('editor caption settings resolve identically on both sides of the save', () => {
