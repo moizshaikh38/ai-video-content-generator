@@ -273,6 +273,8 @@ function ShellTemplateApp() {
       return false;
     }
   };
+  // TEST-ONLY: lets proof scripts trigger the real save path headlessly.
+  (window as any).__saveNow = saveNow;
 
   return (
     <MemoryRouter>
