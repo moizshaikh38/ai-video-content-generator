@@ -385,7 +385,10 @@ describe('Caption presets: preview ↔ export mapping', () => {
     const previewSource = CaptionService.extractCuesForClipSettings(transcript, clip, undefined, { preserveCase: true });
     const simple = regroupCuesForPreset(previewSource.cues, resolveCaptionPreset('simple'));
     assert.equal(simple.cues[0].text.replace('\\N', ' '), 'We made one million dollars today'.split(' ').slice(0, simple.cues[0].words!.length).join(' '));
-    assert.ok(simple.cues[0].text.includes('\\N'), 'simple wraps long cues onto two lines');
+    assert.ok(simple.cues.every(c => previewSource.cues.some(parent => c.start >= parent.start && c.end <= parent.end)), 'switching style must not merge across existing cue boundaries');
+    const longCue = wordCue([['We',0,.3],['made',.3,.6],['one',.6,.9],['million',.9,1.2],['dollars',1.2,1.5],['today',1.5,1.8]]);
+    const wrapped = regroupCuesForPreset([longCue], resolveCaptionPreset('simple', {maxWordsPerCue:6}));
+    assert.ok(wrapped.cues.some(c => c.text.includes('\\N')), 'an individual long cue still wraps onto two lines');
   });
 
   it('editor caption settings resolve identically on both sides of the save', () => {

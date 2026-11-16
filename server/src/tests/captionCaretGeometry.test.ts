@@ -21,6 +21,7 @@ describe('Shared Typewriter caret geometry',()=>{
  it('stays absent with segment timing or a proportional font override',()=>{
   assert.equal(getCaptionCaret({...cue,words:undefined},1,resolveCaptionPreset('typewriter')),null);
   assert.equal(getCaptionCaret(cue,1,resolveCaptionPreset('typewriter',{fontFamily:'Arial'})),null);
+  assert.equal(getCaptionCaret({...cue,words:[{text:'नमस्ते',start:0,end:2}]},1,resolveCaptionPreset('typewriter')),null);
  });
  it('has deterministic seek and no wall clock animation',()=>{
   const s=resolveCaptionPreset('typewriter');const a=getCaptionCaret(cue,.56,s);getCaptionCaret(cue,2.1,s);assert.deepEqual(getCaptionCaret(cue,.56,s),a);

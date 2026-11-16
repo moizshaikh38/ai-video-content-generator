@@ -1072,6 +1072,8 @@ export interface PresetTimedWord {
 }
 
 export interface PresetTimedCue {
+  /** Preserved placement provenance supplied by the scene-placement owner. */
+  position_anchor?: 'bottom' | 'center';
   id: string;
   start: number;
   end: number;
@@ -1271,27 +1273,29 @@ export function regroupCuesForPreset(cues: PresetTimedCue[], style: ResolvedCapt
   timingMode: 'word' | 'segment';
   cues: PresetTimedCue[];
 } {
-  const words: PresetTimedWord[] = [];
-  for (const c of cues || []) {
-    for (const w of c.words || []) {
-      const text = String(w.text ?? w.word ?? '').trim();
-      if (!text || !Number.isFinite(w.start) || !Number.isFinite(w.end) || w.end <= w.start) continue;
-      words.push({ text: style.uppercase ? text.toUpperCase() : text, start: w.start, end: w.end, customStyle: w.customStyle });
+  let hasWords = false;
+  const result: PresetTimedCue[] = [];
+  for (const cue of cues || []) {
+    const words = getValidCueWords(cue).map(w => ({...w, text:style.uppercase ? w.text.toUpperCase() : w.text}));
+    if (!words.length) {
+      result.push({...cue,text:formatSegmentCueText(cue.text,style)});
+      continue;
+    }
+    hasWords = true;
+    // An edited cue is a metadata/timeline boundary. Never merge across it:
+    // manual positions, preset overrides and automatic scene anchors can differ.
+    const parts = groupWordsIntoCues(words,style.maxWordsPerCue,style.maxLines,style.maxCharsPerLine);
+    for (let i=0;i<parts.length;i++) {
+      const part=parts[i];
+      const start=Math.max(cue.start,part.start),end=Math.min(cue.end,part.end);
+      if (end<=start) continue;
+      result.push({...cue,...part,id:parts.length===1?cue.id:`${cue.id}:part${i+1}`,start,end,
+        tokens:part.words,
+        position_x:cue.position_x,position_y:cue.position_y,position_anchor:cue.position_anchor,
+        presetOverride:cue.presetOverride,styleOverrides:cue.styleOverrides});
     }
   }
-  if (words.length > 0) {
-    words.sort((a, b) => a.start - b.start);
-    return {
-      timingMode: 'word',
-      cues: groupWordsIntoCues(words, style.maxWordsPerCue, style.maxLines, style.maxCharsPerLine),
-    };
-  }
-  return {
-    timingMode: 'segment',
-    cues: enforceZeroOverlap(
-      (cues || []).map((c) => ({ id: c.id, start: c.start, end: c.end, text: formatSegmentCueText(c.text, style) }))
-    ),
-  };
+  return {timingMode:hasWords?'word':'segment',cues:enforceZeroOverlap(result)};
 }
 
 // ── Word timing slices ───────────────────────────────────────────
@@ -1462,11 +1466,25 @@ export function getEntranceOpacityAt(entrance: ResolvedCaptionStyle['entrance'],
   return Math.min(1, elapsedSinceCueStartMs / entrance.durationMs);
 }
 
-/** Deterministic timed reveal. Unicode code points are never split into surrogate halves. */
+// Node >=20.19 and current Chromium provide Segmenter; keep the shared type independent
+// of the frontend's older TypeScript Intl library declarations.
+const CaptionSegmenter = (Intl as unknown as {
+  Segmenter?: new (locale: string, options: {granularity: 'grapheme'}) => {
+    segment(text: string): Iterable<{segment: string}>;
+  };
+}).Segmenter;
+const CAPTION_GRAPHEME_SEGMENTER = CaptionSegmenter ? new CaptionSegmenter('und', { granularity: 'grapheme' }) : null;
+/** Keep combining marks, Indic clusters, flags and joined emoji intact while revealing. */
+export function splitCaptionGraphemes(text: string): string[] {
+  // Older browsers degrade to a complete word, never corrupt a joined glyph.
+  return CAPTION_GRAPHEME_SEGMENTER ? Array.from(CAPTION_GRAPHEME_SEGMENTER.segment(text), part => part.segment) : text ? [text] : [];
+}
+
+/** Deterministic timed reveal. Grapheme clusters are never split into partial glyphs. */
 export function getWordRevealState(word: PresetTimedWord, time: number, reveal: CaptionReveal): { opacity: number; visibleCharacters?: number } {
   if (reveal === 'all') return { opacity: 1 };
   if (reveal === 'build') return { opacity: Math.max(0, Math.min(1, (time - word.start) / 0.1)) };
-  const count = Array.from(word.text).length;
+  const count = splitCaptionGraphemes(word.text).length;
   const tick = Number(time.toFixed(2));
   const start = Number(word.start.toFixed(2));
   if (tick < start) return { opacity: 0, visibleCharacters: 0 };
@@ -1567,7 +1585,7 @@ export function getPreviewFrame(cue: PresetTimedCue, time: number, style: Resolv
 export function getCaptionCaret(cue: PresetTimedCue, time: number, style: ResolvedCaptionStyle): CaptionCaret | null {
   if (!style.caretColor || style.reveal !== 'character' || style.fontFamily !== 'JetBrains Mono') return null;
   const words = getValidCueWords(cue);
-  if (!words.length || words.some(w => w.customStyle?.fontSizeMultiplier || w.customStyle?.uppercase)) return null;
+  if (!words.length || words.some(w => w.customStyle?.fontSizeMultiplier || w.customStyle?.uppercase || /[^\x20-\x7E]/.test(w.text))) return null;
   const breakIdx = getCueLineBreakIndex(cue, words.length);
   const lines = breakIdx >= 0 ? [words.slice(0, breakIdx + 1), words.slice(breakIdx + 1)] : [words];
   let index = 0;
@@ -1576,7 +1594,7 @@ export function getCaptionCaret(cue: PresetTimedCue, time: number, style: Resolv
   const line = lines[lineIdx];
   const localIndex = index - (lineIdx ? breakIdx + 1 : 0);
   const advance = style.fontSize * FONT_EM_PER_ASS_SIZE['JetBrains Mono'] * 0.6 + style.letterSpacing;
-  const lineChars = line.reduce((n,w) => n + Array.from(w.text).length, 0) + line.length - 1;
+  const lineChars = line.reduce((n,w) => n + splitCaptionGraphemes(w.text).length, 0) + line.length - 1;
   const totalWidth = lineChars * advance;
   const align = cue.position_x !== undefined || cue.position_y !== undefined ? 2 : style.alignment;
   const leftAligned = align === 1 || align === 4 || align === 7;
@@ -1587,7 +1605,7 @@ export function getCaptionCaret(cue: PresetTimedCue, time: number, style: Resolv
   const topAligned = align >= 7;
   const middleAligned = align >= 4 && align <= 6;
   const top = cue.position_y !== undefined ? Math.max(.08, Math.min(.92,cue.position_y)) * style.playResY - blockHeight : topAligned ? style.marginV : middleAligned ? (style.playResY - blockHeight)/2 : style.playResY - style.marginV - blockHeight;
-  const before = line.slice(0,localIndex).reduce((n,w) => n + Array.from(w.text).length + 1, 0);
+  const before = line.slice(0,localIndex).reduce((n,w) => n + splitCaptionGraphemes(w.text).length + 1, 0);
   const shown = getWordRevealState(words[index],time,style.reveal).visibleCharacters ?? 0;
   return { x: left + (before + shown) * advance, y: top + lineIdx * style.fontSize + style.fontSize * (0.30 + (FONT_PREVIEW_BASELINE_SHIFT['JetBrains Mono'] ?? 0)), width: advance * 0.72, height: style.fontSize * .54, color: style.caretColor };
 }
@@ -1675,7 +1693,7 @@ export function getPreviewCss(style: ResolvedCaptionStyle, scale: number): Previ
     const css: PreviewCss = {
       color: baseColor,
       opacity: w.opacity ?? 1,
-      ...(w.visibleCharacters !== undefined ? { clipPath: `inset(-100% ${100 * (1 - w.visibleCharacters / Math.max(1, Array.from(w.text).length))}% -100% -100%)` } : {}),
+      ...(w.visibleCharacters !== undefined ? { clipPath: `inset(-100% ${100 * (1 - w.visibleCharacters / Math.max(1, splitCaptionGraphemes(w.text).length))}% -100% -100%)` } : {}),
       textShadow: shadow,
     };
     if (!style.box) Object.assign(css, strokeFor(style.outlineColor, style.outlineWidth));
@@ -1841,7 +1859,7 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
     const boundaries = new Set<number>([cue.start, cue.end]);
     for (const w of words) {
       if (w.start > cue.start && w.start < cue.end) boundaries.add(w.start);
-      const steps = style.reveal === 'character' ? Math.max(1, Array.from(w.text).length) : 5;
+      const steps = style.reveal === 'character' ? Math.max(1, splitCaptionGraphemes(w.text).length) : 5;
       const duration = style.reveal === 'character' ? (w.end - w.start) * 0.8 : 0.1;
       for (let i = 1; i <= steps; i++) {
         const t = w.start + duration * i / steps;
@@ -1856,7 +1874,7 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
       words.forEach((w, i) => {
         if (i) text += i - 1 === breakIdx ? '\\N' : ' ';
         const state = getWordRevealState(w, start + 0.000001, style.reveal);
-        const chars = Array.from(w.text);
+        const chars = splitCaptionGraphemes(w.text);
         const shown = state.visibleCharacters ?? chars.length;
         const alpha = Math.round((1 - state.opacity) * 255).toString(16).padStart(2, '0').toUpperCase();
         const color = hexToAssColor(w.customStyle?.color || style.textColor);

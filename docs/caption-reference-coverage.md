@@ -2,7 +2,8 @@
 
 This is an implementation checkpoint, not a claim that Vireo matches all Opus presets.
 
-Observed gallery: https://clip.opus.pro/editor-ux/P31116181V7e.t5k6CjmiGb?clipId=t5k6CjmiGb&clipRank=3&editType=normal
+Observed gallery: signed-in OpusClip editor, Captions > Presets. Exact account-specific source
+reference retained separately with the private research evidence, not embedded in distributable code.
 
 The canonical observed 44 exact labels and candidate/unmatched state are in
 `server/src/shared/captionReferenceCatalog.ts`. No reference is marked verified.
@@ -85,3 +86,30 @@ when it flattens/rebuilds timed cues, and the segment fallback also rebuilds a r
 The direct-cue caret respects manual coordinates, but through-regroup persistence remains unverified
 until the caption/layout integration owner preserves that metadata or reapplies it afterward.
 No competing grouping or anchor contract was added here.
+
+## Unicode safety
+
+Typewriter character reveal uses grapheme clusters, so joined emoji, flags, accents and Indic
+clusters do not appear as broken partial glyphs. An older browser without Intl.Segmenter degrades
+to whole-word reveal. The monospaced caret is deliberately omitted for non-ASCII glyphs or
+proportional font overrides until actual fallback-font metrics are qualified. This is safer than
+a cursor that drifts across Hindi or emoji captions. Non-Latin typography is not claimed qualified.
+
+## Metadata-preserving regroup integration checkpoint
+
+The caption integration owner's regroup function has been ported, not replaced with a separate
+policy: group within each input cue, preserve parent metadata and mixed segment cues, never
+merge across scene/manual boundaries. Its4 tests were ported; the scene test uses already-placed
+inputs because this isolated base does not contain the owner's scene-placement module.
+One old test expecting cross-cue recombination was updated to test casing and long-cue wrapping
+without violating the no-cross-boundary contract.109 targeted tests pass.
+
+Through-regroup manual x=.7/y=.65 Chrome/FFmpeg pixels exposed preview-only rewrapping because
+manual left positioning shrank the available paragraph width. CaptionPresetRenderer now retains
+its original content width when positioned manually. Rechecked pixels agree on one-line layout
+and caret placement. The actual scene-center anchor renderer remains the integration owner's
+work and is not included here.
+
+Unicode screenshot caveat: the joined-emoji cluster remains intact but renders missing-glyph boxes
+in this environment. Grapheme safety is not font-coverage support. Do not claim non-Latin/emoji
+rendering is qualified.

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { CAPTION_PRESETS, buildPresetCueEvents, getPreviewFrame, getWordRevealState, resolveCaptionPreset, regroupCuesForPreset, type PresetTimedCue } from '../shared/captionPresets.js';
+import { CAPTION_PRESETS, buildPresetCueEvents, getPreviewFrame, getWordRevealState, splitCaptionGraphemes, resolveCaptionPreset, regroupCuesForPreset, type PresetTimedCue } from '../shared/captionPresets.js';
 import { CAPTION_REFERENCE_COVERAGE, OPUS_CAPTION_REFERENCE } from '../shared/captionReferenceCatalog.js';
 const cue: PresetTimedCue = { id: 'sample', start: 0, end: 2, text: 'Hello world', words: [{ text: 'Hello', start: 0, end: 0.8 }, { text: 'world', start: 1, end: 2 }] };
 describe('Evidence-backed caption candidates and shared reveal', () => {
@@ -54,6 +54,17 @@ describe('Evidence-backed caption candidates and shared reveal', () => {
   });
   it('keeps Unicode surrogate pairs intact', () => {
     assert.equal(getWordRevealState({text:'😀A',start:0,end:1},0,'character').visibleCharacters,1);
+  });
+  it('never splits joined emoji, combining accents or Indic clusters', () => {
+    assert.deepEqual(splitCaptionGraphemes('e\u0301!'), ['e\u0301','!']);
+    assert.equal(splitCaptionGraphemes('👨‍👩‍👧‍👦A').length, 2);
+    assert.equal(splitCaptionGraphemes('🇮🇳A').length, 2);
+    const w={text:'नमस्ते',start:0,end:1};
+    const first=splitCaptionGraphemes(w.text)[0];
+    assert.ok(first.length>0);
+    assert.equal(getWordRevealState(w,0,'character').visibleCharacters,1);
+    const events=buildPresetCueEvents({...cue,words:[{text:'e\u0301!',start:0,end:2}]},resolveCaptionPreset('typewriter'));
+    assert.ok(events[0].includes('e\u0301{\\alpha&HFF&}!'));
   });
   it('retains cue manual positions in generated events', () => {
     const events = buildPresetCueEvents({...cue,position_x:.3,position_y:.8},resolveCaptionPreset('typewriter'));

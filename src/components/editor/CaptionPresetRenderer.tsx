@@ -74,6 +74,8 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
               top: `${((frame.positionY ?? 0.667) * 100).toFixed(2)}%`,
               right: 'auto',
               bottom: 'auto',
+              // Moving the anchor must not shrink the paragraph to remaining viewport width.
+              width: `${Math.max(1, style.playResX - style.marginL - style.marginR) * scale}px`,
               transform: 'translate(-50%, -100%)',
             }
           : {}),

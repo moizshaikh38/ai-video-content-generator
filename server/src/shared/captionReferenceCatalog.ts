@@ -1,7 +1,7 @@
 /** Observed names, not an implementation or entitlement claim. No competitor assets/code. */
 export const OPUS_CAPTION_REFERENCE = {
   observedAt: '2026-11-16',
-  sourceUrl: 'https://clip.opus.pro/editor-ux/P31116181V7e.t5k6CjmiGb?clipId=t5k6CjmiGb&clipRank=3&editType=normal',
+  source: 'Signed-in OpusClip editor Presets gallery; account-specific source reference retained with the research evidence.',
   noCaptionsLabel: 'No captions',
   styles: [
     'Word Cut', 'Marker Sweep', 'Negative keywords', 'Karaoke', 'Handwritten', 'Mozi',
@@ -32,7 +32,7 @@ export const CAPTION_REFERENCE_COVERAGE: CaptionReferenceCoverage[] = OPUS_CAPTI
     'Typewriter': { presetId: 'typewriter', evidence: 'Visible tile reveals characters progressively; JetBrains Mono bold white type with yellow cursor.', remaining: 'Full-sized applied output, exact timing and phrase segmentation comparison. Yellow cursor is independently implemented but not reference-qualified.' },
   }[name as 'Word Cut' | 'Soft Build' | 'Typewriter'];
   return candidate ? { name, status: 'candidate', ...candidate } : {
-    name, status: 'unmatched', evidence: 'Current gallery label observed. Existing same-name Vireo styles are not evidence of parity.',
+    name, status: 'unmatched', evidence: 'Current gallery label and individually applied Font/Effects controls observed. Existing same-name Vireo styles are not evidence of parity.',
     remaining: 'Individual visual/timing specification, independent implementation and preview/export comparison.',
   };
 });
