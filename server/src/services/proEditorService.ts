@@ -854,6 +854,25 @@ export class ProEditorService {
         });
       }
 
+      // Multi-person single-view: keep the whole group visible (blur-fill
+      // fit) instead of tight tracking that crops people at the edges.
+      const groupFrame = SmartReframeService.computeGroupFrameGeometry({
+        rawSamples: (track as any).raw_samples,
+        sourceWidth: track.source_width || 1920,
+        sourceHeight: track.source_height || 1080,
+      });
+      if (groupFrame && ratio === '9:16') {
+        return SmartReframeService.buildGroupFitFilter({
+          keyframes: groupFrame.keyframes,
+          windowW: groupFrame.windowW,
+          sourceWidth: track.source_width || 1920,
+          sourceHeight: track.source_height || 1080,
+          canvasWidth: 1080,
+          canvasHeight: 1920,
+          tag: layoutTag,
+        });
+      }
+
       // 'track' layout: rebase clip-relative keyframes into slice-local time and
       // extend boundary keyframes so the expression covers the full slice window.
       // Boundary extensions are skipped when an in-window keyframe already sits at

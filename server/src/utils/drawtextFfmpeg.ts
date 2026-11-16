@@ -24,6 +24,20 @@ function probeDrawtextSupport(bin: string): boolean {
 }
 
 let renderResolved: string | undefined;
+let renderResolvedHasDrawtext = false;
+let renderResolvedIsOverride = false;
+
+/**
+ * Whether the resolved render binary actually supports drawtext, and whether
+ * it came from an explicit FFMPEG_BIN override. Render paths use this to
+ * fail with a clear capability error instead of ffmpeg's opaque
+ * "Filter not found" when no drawtext-capable binary exists. An explicit
+ * FFMPEG_BIN override is preserved as the operator's intent (warn-only).
+ */
+export function renderFfmpegCapability(): { hasDrawtext: boolean; isOverride: boolean } {
+  getRenderFfmpeg();
+  return { hasDrawtext: renderResolvedHasDrawtext, isOverride: renderResolvedIsOverride };
+}
 
 /**
  * The binary every fluent-ffmpeg render path must use. fluent-ffmpeg's
@@ -40,7 +54,9 @@ export function getRenderFfmpeg(): string {
   if (renderResolved !== undefined) return renderResolved;
   const override = process.env.FFMPEG_BIN;
   if (override) {
-    if (!probeDrawtextSupport(override)) {
+    renderResolvedIsOverride = true;
+    renderResolvedHasDrawtext = probeDrawtextSupport(override);
+    if (!renderResolvedHasDrawtext) {
       logger.warn(`[FFmpeg] FFMPEG_BIN (${override}) lacks drawtext support; watermark, headline and text-overlay renders will fail with this binary. Point FFMPEG_BIN at a full ffmpeg build (libfreetype enabled).`);
     }
     renderResolved = override;
@@ -48,6 +64,7 @@ export function getRenderFfmpeg(): string {
   }
   const bundled = (ffmpegStatic as unknown as string) || 'ffmpeg';
   if (probeDrawtextSupport(bundled)) {
+    renderResolvedHasDrawtext = true;
     renderResolved = bundled;
     return renderResolved;
   }
@@ -55,11 +72,12 @@ export function getRenderFfmpeg(): string {
     if (candidate === bundled) continue;
     if (probeDrawtextSupport(candidate)) {
       logger.warn(`[FFmpeg] Bundled ffmpeg lacks drawtext support; falling back to ${candidate} so watermark/text overlays render.`);
+      renderResolvedHasDrawtext = true;
       renderResolved = candidate;
       return renderResolved;
     }
   }
-  logger.warn('[FFmpeg] No ffmpeg with drawtext support found; watermark and text-overlay renders will fail. Set FFMPEG_BIN to a full ffmpeg build.');
+  logger.warn('[FFmpeg] No ffmpeg with drawtext support found; renders that burn watermark, headline or caption text must fail explicitly. Set FFMPEG_BIN to a full ffmpeg build.');
   renderResolved = bundled;
   return renderResolved;
 }

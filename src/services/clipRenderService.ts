@@ -245,6 +245,15 @@ class ClipRenderService {
       speaker1: { x: number; y: number; windowW: number };
       speaker2: { x: number; y: number; windowW: number };
     } | null;
+    /** Server-computed group framing for multi-person single-view (same
+     * helper the export uses) so the preview mirrors the blur-fill fit.
+     * Null = tight tracking stays. */
+    groupFrame?: {
+      keyframes: Array<{ time: number; centerX: number; centerY: number }>;
+      windowW: number;
+      sourceWidth: number;
+      sourceHeight: number;
+    } | null;
   }> {
     return backendRequest(`/clips/${clipId}/reframe`);
   }

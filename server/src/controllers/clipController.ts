@@ -1313,6 +1313,17 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
         speaker1X: (track.metadata as any)?.speaker1X ?? undefined,
         speaker2X: (track.metadata as any)?.speaker2X ?? undefined,
       }),
+      // Group framing for multi-person single-view (same helper the export
+      // path uses): the preview mirrors the exported blur-fill fit. Null =
+      // no credible multi-face group; tight tracking preview stays.
+      groupFrame: (() => {
+        const g = SmartReframeService.computeGroupFrameGeometry({
+          rawSamples: track.raw_samples,
+          sourceWidth: track.source_width || 1920,
+          sourceHeight: track.source_height || 1080,
+        });
+        return g ? { ...g, sourceWidth: track.source_width || 1920, sourceHeight: track.source_height || 1080 } : null;
+      })(),
     });
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';

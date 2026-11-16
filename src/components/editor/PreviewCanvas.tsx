@@ -85,6 +85,19 @@ interface PreviewCanvasProps {
       speaker2: { x: number; y: number; windowW: number };
     } | null;
   } | null;
+  /** Free-plan exports burn a VireoClip badge; preview mirrors it (animated
+   * like the export) while showing the clean source. Rendered previews
+   * already carry the burned badge, so the overlay hides there. */
+  watermarkRequired?: boolean;
+  /** Server-computed group framing for multi-person single-view (same helper
+   * the export's buildGroupFitFilter uses): blur backdrop + the group window
+   * fitted to canvas width at 42% height. Null = tight tracking preview. */
+  groupReframe?: {
+    keyframes: Array<{ time: number; centerX: number; centerY: number }>;
+    windowW: number;
+    sourceWidth: number;
+    sourceHeight: number;
+  } | null;
   onUpdateCaptionPosition?: (
     pos: { x?: number; y?: number; cueId?: string; fontSize?: number } | number,
     options?: UpdateProjectOptions
@@ -196,6 +209,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   videoRef,
   cues,
   speakerSplit,
+  watermarkRequired = false,
+  groupReframe = null,
   onUpdateCaptionPosition,
 }) => {
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -594,6 +609,33 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     const px = inW > boxW ? Math.min(1, Math.max(0, (center.centerX * inW - boxW / 2) / (inW - boxW))) : 0.5;
     const py = Math.min(1, Math.max(0, center.centerY));
     return `${(px * 100).toFixed(2)}% ${(py * 100).toFixed(2)}%`;
+  })();
+
+  // Group-fit preview (mirrors buildGroupFitFilter): when the server says
+  // this multi-person clip exports as blur-fill group fit, the main video is
+  // oversized to the group window and positioned by the group midpoint
+  // keyframes, band resting at 42% canvas height, over the blurred backdrop.
+  const groupFitView = (() => {
+    if (!groupReframe || groupReframe.keyframes.length === 0) return undefined;
+    if (primaryLayoutMode !== 'track' || primaryVideoCropMode !== 'fill') return undefined;
+    const item = activeVideoItems[0] as any;
+    const itemCropMode = item?.crop?.mode;
+    if (itemCropMode && itemCropMode !== 'smart') return undefined;
+    if (!videoDims || videoDims.w <= 0 || videoDims.h <= 0) return undefined;
+    const dims = getAspectRatioDimensions();
+    const boxW = parseFloat(dims.width) || 360;
+    const boxH = parseFloat(dims.height) || 640;
+    const windowW = Math.min(0.92, Math.max(0.4, groupReframe.windowW));
+    const elW = boxW / windowW;
+    const elH = (elW * videoDims.h) / videoDims.w;
+    const bandH = boxW * (videoDims.h / videoDims.w);
+    const center = interpolateReframeCenter(groupReframe.keyframes, targetVideoTime);
+    const cx = Math.min(0.95, Math.max(0.05, center.centerX));
+    const cy = Math.min(0.95, Math.max(0.05, center.centerY));
+    const left = Math.min(0, Math.max(boxW - elW, -(cx * elW - boxW / 2)));
+    const bandTop = (boxH - bandH) * 0.42;
+    const top = Math.min(boxH - bandH, Math.max(bandH - elH > 0 ? bandH - elH : -elH, bandTop - (cy * elH - bandH / 2)));
+    return { left: `${left.toFixed(1)}px`, top: `${top.toFixed(1)}px`, width: `${elW.toFixed(1)}px`, height: `${elH.toFixed(1)}px` };
   })();
 
   // Synchronize HTML video time with playhead smoothly
@@ -1149,7 +1191,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           className="relative overflow-hidden flex items-center justify-center"
         >
           {/* HTML5 VIDEO BASE STREAM */}
-          {primaryVideoCropMode === 'blur' && activeVideoSrc ? (
+          {(primaryVideoCropMode === 'blur' || Boolean(groupFitView)) && activeVideoSrc ? (
             <video
               ref={backdropVideoRef}
               src={activeVideoSrc}
@@ -1221,17 +1263,25 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               className={
                 primaryLayoutMode === 'split'
                   ? 'w-full h-1/2 absolute top-0 left-0 cursor-pointer select-none'
-                  : 'w-full h-full cursor-pointer select-none'
+                  : groupFitView
+                    ? 'absolute cursor-pointer select-none'
+                    : 'w-full h-full cursor-pointer select-none'
               }
             style={{
               filter: cssColorFilters(activeVideoItems[0]),
-              // Fit/Blur = letterbox (matches export's buildFitFilter pad / blur fill); Fill = cover-crop
+              ...(groupFitView
+                ? { left: groupFitView.left, top: groupFitView.top, width: groupFitView.width, height: groupFitView.height }
+                : {}),
+              // Fit/Blur = letterbox (matches export's buildFitFilter pad / blur fill); Fill = cover-crop;
+              // group fit sizes the element exactly, so cover introduces no extra crop
               objectFit: primaryVideoCropMode === 'fit' || primaryVideoCropMode === 'blur' ? 'contain' : 'cover',
               objectPosition:
                 primaryLayoutMode === 'split'
                   ? (splitView1?.position ?? `${splitObjectPositionX(splitAnchors.speaker1X)} 50%`)
-                  : smartPanPosition ||
-                    `${((activeVideoItems[0]?.crop?.focusX ?? 0.5) * 100).toFixed(2)}% ${((activeVideoItems[0]?.crop?.focusY ?? 0.5) * 100).toFixed(2)}%`,
+                  : groupFitView
+                    ? '0% 0%'
+                    : smartPanPosition ||
+                      `${((activeVideoItems[0]?.crop?.focusX ?? 0.5) * 100).toFixed(2)}% ${((activeVideoItems[0]?.crop?.focusY ?? 0.5) * 100).toFixed(2)}%`,
               transform: activeVideoItems[0]
                 ? `translate(${interpolateKeyframes(
                     activeVideoItems[0].keyframes,
@@ -1302,6 +1352,29 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             }}
           />
         ) : null}
+
+        {/* WATERMARK BADGE: mirrors the export's animated VireoClip badge
+            (slide-in from the right, then gentle opacity breathing) while the
+            preview plays the clean source. Hidden in export review, where the
+            badge is already burned into the rendered file. */}
+        {watermarkRequired && !isUsingRenderedPreview && (
+          <>
+            <style>{`
+              @keyframes vireoWatermarkIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+              @keyframes vireoWatermarkBreath { 0%, 100% { opacity: 0.85; } 50% { opacity: 1; } }
+            `}</style>
+            <div
+              aria-hidden
+              className="absolute top-[2.5%] right-[3%] z-30 pointer-events-none select-none px-2.5 py-1 rounded-md bg-black/55 text-white font-medium shadow-[2px_2px_0_rgba(0,0,0,0.8)]"
+              style={{
+                fontSize: 'clamp(11px, 1.6vw, 18px)',
+                animation: 'vireoWatermarkIn 0.45s ease-out both, vireoWatermarkBreath 3.2s ease-in-out 0.45s infinite',
+              }}
+            >
+              VireoClip
+            </div>
+          </>
+        )}
 
         {/* INTRO / OUTRO TITLE CARD (full-frame colored card with centered text) */}
         {activeTitleCard && (

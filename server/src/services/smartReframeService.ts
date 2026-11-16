@@ -1393,11 +1393,14 @@ export class SmartReframeService {
       Math.abs(subjects[0].cx - anchor1) <= Math.abs(subjects[1].cx - anchor1) ? subjects[0] : subjects[1];
     const second = first === subjects[0] ? subjects[1] : subjects[0];
 
-    // Window as wide as the subject separation keeps the other speaker out of
-    // the crop; clamped so near-overlapping faces do not over-zoom and distant
-    // faces still get a tighter frame than the legacy full-height window.
+    // Window ~1.7x the subject separation: wide enough that each speaker sits
+    // in frame with visible breathing room (user feedback: separation-width
+    // windows looked over-zoomed), still narrow enough that the other
+    // speaker's face stays out of the crop. Clamped so near-overlapping faces
+    // do not over-zoom and distant faces still get a tighter frame than the
+    // legacy full-height window.
     const minDistPx = Math.abs(first.cx - second.cx) * sourceWidth;
-    const windowW = Math.min(0.5, Math.max(0.2, minDistPx / sourceWidth));
+    const windowW = Math.min(0.62, Math.max(0.28, (minDistPx / sourceWidth) * 1.7));
 
     const userX = (v: number | undefined, measured: number) =>
       Number.isFinite(v) ? clamp01(Number(v)) : clamp01(measured);
@@ -1405,6 +1408,147 @@ export class SmartReframeService {
       speaker1: { x: userX(speaker1X, first.cx), y: clamp01(first.cy), windowW },
       speaker2: { x: userX(speaker2X, second.cx), y: clamp01(second.cy), windowW },
     };
+  }
+
+  /**
+   * Group framing for single-view: when a clip has several people on screen
+   * together, tight single-subject tracking cuts people at the edges (user
+   * feedback). This derives ONE window that covers the whole group: per
+   * sample, the midpoint and span of every detected face; the window width
+   * covers the widest arrangement with margin, while the center keyframes
+   * follow the group midpoint over time. Returns null without usable faces
+   * so callers keep the existing tight-track behavior.
+   */
+  public static computeGroupFrameGeometry(options: {
+    rawSamples?: Array<{ time?: number; faces?: Array<{ center_x?: number; center_y?: number }> }> | null;
+    sourceWidth: number;
+    sourceHeight: number;
+  }): {
+    keyframes: Array<{ time: number; centerX: number; centerY: number }>;
+    windowW: number;
+  } | null {
+    const { rawSamples, sourceWidth, sourceHeight } = options;
+    if (!Array.isArray(rawSamples) || rawSamples.length === 0) return null;
+    if (!Number.isFinite(sourceWidth) || sourceWidth <= 0 || !Number.isFinite(sourceHeight) || sourceHeight <= 0) return null;
+
+    const clamp01 = (v: number) => Math.min(0.95, Math.max(0.05, v));
+    const groups: Array<{ time: number; cx: number; cy: number; span: number }> = [];
+    rawSamples.forEach((sample, idx) => {
+      const faces = (sample?.faces || []).filter(
+        (f) => Number.isFinite(f?.center_x) && Number.isFinite(f?.center_y)
+      );
+      if (faces.length === 0) return;
+      const xs = faces.map((f) => Number(f.center_x));
+      const ys = faces.map((f) => Number(f.center_y));
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      groups.push({
+        time: Number.isFinite(sample?.time) ? Number(sample.time) : idx * 0.5,
+        cx: (minX + maxX) / 2,
+        cy: (Math.min(...ys) + Math.max(...ys)) / 2,
+        span: maxX - minX,
+      });
+    });
+    if (groups.length < 3) return null;
+
+    // Single-person clips keep the existing tight tracking: only engage when
+    // a real group is on screen for a meaningful share of samples.
+    const multiFaceSamples = groups.filter((g) => g.span > 0.02).length;
+    if (multiFaceSamples < Math.max(3, groups.length * 0.25)) return null;
+
+    // Window covers the widest group arrangement plus margin; never wider
+    // than the source, never so narrow that it defeats the purpose.
+    const maxSpan = Math.max(...groups.map((g) => g.span));
+    const windowW = Math.min(0.92, Math.max(0.4, maxSpan * 1.9 + 0.1));
+
+    // Smooth the group midpoint with a 3-sample moving average so the camera
+    // drifts instead of jittering; clamp away from edges.
+    const keyframes = groups.map((g, i) => {
+      const lo = Math.max(0, i - 1);
+      const hi = Math.min(groups.length - 1, i + 1);
+      let sx = 0;
+      let sy = 0;
+      for (let j = lo; j <= hi; j++) {
+        sx += groups[j].cx;
+        sy += groups[j].cy;
+      }
+      const n = hi - lo + 1;
+      return { time: g.time, centerX: clamp01(sx / n), centerY: clamp01(sy / n) };
+    });
+
+    return { keyframes, windowW };
+  }
+
+  /**
+   * Blurred-backdrop group fit filter for single-view multi-person clips:
+   * the full group stays visible inside a window cropped from the source and
+   * scaled to the canvas width, over a blurred fill of the same footage
+   * (CapCut-style fit). The crop window follows the group midpoint via the
+   * same piecewise keyframe expressions the tight tracker uses.
+   */
+  public static buildGroupFitFilter(options: {
+    keyframes: Array<{ time: number; centerX: number; centerY: number }>;
+    windowW: number;
+    sourceWidth: number;
+    sourceHeight: number;
+    canvasWidth?: number;
+    canvasHeight?: number;
+    /** Vertical placement of the foreground strip: 0 = top, 1 = bottom. */
+    focusY?: number;
+    /** Chain-safe embedding: see buildSplitPodcastFilter. */
+    tag?: string;
+  }): string {
+    const {
+      keyframes,
+      windowW,
+      sourceWidth,
+      sourceHeight,
+      canvasWidth = 1080,
+      canvasHeight = 1920,
+      focusY = 0.42,
+      tag,
+    } = options;
+
+    const winW = Math.round(windowW * sourceWidth);
+    const winH = Math.min(sourceHeight, Math.round((winW * sourceHeight) / sourceWidth));
+
+    const kfs = [...keyframes]
+      .filter((k) => Number.isFinite(k.time) && Number.isFinite(k.centerX))
+      .sort((a, b) => a.time - b.time)
+      .slice(0, 40);
+    const piecewise = (vals: Array<{ time: number; v: number }>, last: number): string => {
+      let expr = last.toFixed(4);
+      for (let i = vals.length - 2; i >= 0; i--) {
+        const k0 = vals[i];
+        const k1 = vals[i + 1];
+        const dt = Math.max(0.001, k1.time - k0.time);
+        const dv = k1.v - k0.v;
+        expr = `if(lte(t\\,${k1.time.toFixed(3)})\\,${k0.v.toFixed(4)}+(${dv.toFixed(4)})*(t-${k0.time.toFixed(3)})/${dt.toFixed(3)}\\,${expr})`;
+      }
+      return expr;
+    };
+
+    let cropX: string;
+    let cropY: string;
+    if (kfs.length === 0) {
+      cropX = '(in_w-out_w)/2';
+      cropY = '(in_h-out_h)/2';
+    } else {
+      const xExpr = piecewise(kfs.map((k) => ({ time: k.time, v: k.centerX })), kfs[kfs.length - 1].centerX);
+      const yExpr = piecewise(kfs.map((k) => ({ time: k.time, v: k.centerY })), kfs[kfs.length - 1].centerY);
+      cropX = `min(max(in_w*min(max(${xExpr}\\,0)\\,1)-out_w/2\\,0)\\,in_w-out_w)`;
+      cropY = `min(max(in_h*min(max(${yExpr}\\,0)\\,1)-out_h/2\\,0)\\,in_h-out_h)`;
+    }
+
+    const L = (s: string) => (tag ? `${tag}_${s}_` : s);
+    const inner =
+      `split=2[${L('gbg')}][${L('gfg')}];` +
+      `[${L('gbg')}]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${canvasHeight},boxblur=25:5,eq=brightness=-0.15:contrast=0.95[${L('gb')}];` +
+      `[${L('gfg')}]crop=${winW}:${winH}:'${cropX}':${cropY},scale=${canvasWidth}:-2[${L('gf')}];` +
+      `[${L('gb')}][${L('gf')}]overlay=(W-w)/2:(H-h)*${focusY}`;
+
+    if (tag) return inner;
+    return `[0:v]${inner}[out]`;
   }
 
   /**
@@ -1733,6 +1877,14 @@ export class SmartReframeService {
       speaker1: { x: number; y: number; windowW: number };
       speaker2: { x: number; y: number; windowW: number };
     } | null;
+    /** Group framing for single-view multi-person clips, from
+     * computeGroupFrameGeometry. When present for the track layout in 9:16,
+     * the whole group stays visible (blur-fill fit) instead of tight
+     * single-subject tracking that cuts people at the edges. */
+    groupFrame?: {
+      keyframes: Array<{ time: number; centerX: number; centerY: number }>;
+      windowW: number;
+    } | null;
     screencastMode?: 'split_stacked' | 'circular_inset' | 'rounded_card_inset';
     screencastInsetPosition?: 'bottom_right' | 'bottom_left' | 'top_right' | 'top_left';
     screencastInsetDiameter?: number;
@@ -1758,8 +1910,21 @@ export class SmartReframeService {
       screencastScreenRatio,
       screencastBackground,
       screencastFacecamBox,
+      groupFrame,
       tag,
     } = options;
+
+    if (aspectRatio === '9:16' && (layoutMode === 'track' || !layoutMode) && groupFrame && groupFrame.keyframes.length > 0) {
+      return this.buildGroupFitFilter({
+        keyframes: groupFrame.keyframes,
+        windowW: groupFrame.windowW,
+        sourceWidth,
+        sourceHeight,
+        canvasWidth: 1080,
+        canvasHeight: 1920,
+        tag,
+      });
+    }
 
     if (aspectRatio === '9:16') {
       if (layoutMode === 'split') {

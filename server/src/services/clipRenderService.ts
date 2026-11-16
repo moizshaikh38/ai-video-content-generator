@@ -1443,6 +1443,16 @@ export class ClipRenderService {
                 speaker2X: clip.crop_config?.split?.speaker2X,
               })
             : null;
+        // Multi-person single-view: keep the whole group visible (blur-fill
+        // fit) instead of tight tracking that crops people at the edges.
+        const groupFrame =
+          targetLayout === 'track'
+            ? SmartReframeService.computeGroupFrameGeometry({
+                rawSamples: track.raw_samples,
+                sourceWidth: track.source_width || 1920,
+                sourceHeight: track.source_height || 1080,
+              })
+            : null;
         const cropFilter = SmartReframeService.buildLayoutCropFilter({
           layoutMode: targetLayout as any,
           aspectRatio: clip.aspect_ratio as ClipAspectRatio,
@@ -1453,6 +1463,7 @@ export class ClipRenderService {
           speaker1X: clip.crop_config?.split?.speaker1X,
           speaker2X: clip.crop_config?.split?.speaker2X,
           splitGeometry,
+          groupFrame,
           screencastMode: clip.crop_config?.screencast?.mode,
           screencastInsetPosition: clip.crop_config?.screencast?.insetPosition,
           screencastInsetDiameter: clip.crop_config?.screencast?.insetDiameter,

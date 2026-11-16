@@ -6,7 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import ffmpegStatic from 'ffmpeg-static';
+import { getRenderFfmpeg } from '../utils/drawtextFfmpeg.js';
 import { getMongoDb, closeMongo } from '../db/mongoClient.js';
 import { EntitlementService } from '../services/entitlementService.js';
 import { WatermarkService } from '../services/watermarkService.js';
@@ -16,7 +16,10 @@ import { CreditWalletService } from '../services/creditWalletService.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 
 const execFileAsync = promisify(execFile);
-const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
+// Render through the same host-aware binary resolution the product uses:
+// the bundled ffmpeg-static build on some hosts lacks drawtext, which would
+// make this host-specific failure look like a product regression.
+const ffmpegBin = getRenderFfmpeg();
 
 describe('VireoClip Phase F: Server-Side Watermark Enforcement & Commercial Gates', () => {
   const freeUserId = crypto.randomUUID();
@@ -250,9 +253,11 @@ describe('VireoClip Phase F: Server-Side Watermark Enforcement & Commercial Gate
 
     // Verify escaped commas to prevent FFmpeg filterchain parse errors
     assert.ok(filter.includes('max(24\\,trunc('), 'Commas inside expressions must be escaped');
-    assert.ok(filter.includes('box=1:boxcolor=black@0.65'), 'Box badge styling must be configured');
+    assert.ok(filter.includes('box=1:boxcolor=black@0.55'), 'Box badge styling must be configured');
     assert.ok(filter.includes('fontcolor=white'), 'Font color must be white');
-    assert.ok(filter.includes('x=w-text_w-'), 'Position must be aligned to right edge');
+    assert.ok(filter.includes('x=if(lt(t\\,0.45)'), 'Badge must slide in from the right over the first 0.45s');
+    assert.ok(filter.includes('alpha=if(lt(t\\,0.45)'), 'Badge must fade in then breathe (animated alpha)');
+    assert.ok(filter.includes('w-text_w-'), 'Position must settle at the right edge');
     assert.ok(filter.includes('y=max(24\\,'), 'Position must be aligned to top margin');
 
     // Verify appendWatermarkFilter

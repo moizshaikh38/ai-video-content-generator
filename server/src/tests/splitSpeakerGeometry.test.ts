@@ -21,8 +21,8 @@ describe('computeSplitSpeakerGeometry', () => {
       sourceHeight: 720,
     });
     assert.ok(geom, 'two persistent subjects must yield geometry');
-    // Window equals subject separation (0.4 of width), inside the 0.2-0.5 clamp.
-    assert.ok(Math.abs(geom!.speaker1.windowW - 0.4) < 1e-6, `windowW=${geom!.speaker1.windowW}`);
+    // Window is 1.7x subject separation (0.4 * 1.7 = 0.68), clamped to the 0.62 ceiling.
+    assert.ok(Math.abs(geom!.speaker1.windowW - 0.62) < 1e-6, `windowW=${geom!.speaker1.windowW}`);
     assert.equal(geom!.speaker1.windowW, geom!.speaker2.windowW);
     // Speaker assignment follows the default anchors: subject_a (x=0.3) is speaker1.
     assert.ok(Math.abs(geom!.speaker1.x - 0.3) < 1e-6);
@@ -53,7 +53,7 @@ describe('computeSplitSpeakerGeometry', () => {
       sourceHeight: 720,
     });
     assert.ok(tight);
-    assert.equal(tight!.speaker1.windowW, 0.2, 'separation below 20% of width clamps to 0.2');
+    assert.equal(tight!.speaker1.windowW, 0.28, 'very tight separation clamps to the 0.28 floor');
 
     const wide = SmartReframeService.computeSplitSpeakerGeometry({
       rawSamples: twoSubjectSamples(0.12, 0.3, 0.88, 0.3),
@@ -61,7 +61,7 @@ describe('computeSplitSpeakerGeometry', () => {
       sourceHeight: 720,
     });
     assert.ok(wide);
-    assert.equal(wide!.speaker1.windowW, 0.5, 'separation above 50% of width clamps to 0.5');
+    assert.equal(wide!.speaker1.windowW, 0.62, 'wide separation clamps to the 0.62 ceiling');
   });
 
   test('returns null without two usable subjects (legacy split preserved)', () => {

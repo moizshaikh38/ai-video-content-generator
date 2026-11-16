@@ -197,6 +197,12 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       speaker1: { x: number; y: number; windowW: number };
       speaker2: { x: number; y: number; windowW: number };
     } | null;
+    groupFrame?: {
+      keyframes: Array<{ time: number; centerX: number; centerY: number }>;
+      windowW: number;
+      sourceWidth: number;
+      sourceHeight: number;
+    } | null;
   } | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -211,6 +217,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             speaker1X: typeof r.speaker1X === 'number' ? r.speaker1X : null,
             speaker2X: typeof r.speaker2X === 'number' ? r.speaker2X : null,
             splitGeometry: r.splitGeometry ?? null,
+            groupFrame: r.groupFrame ?? null,
           });
         }
       })
@@ -1741,6 +1748,8 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             renderedPreviewUrl={renderedPreviewUrl}
             viewMode={viewMode}
             speakerSplit={speakerSplit}
+            groupReframe={speakerSplit?.groupFrame ?? null}
+            watermarkRequired={watermarkRequired}
             onPlayheadChange={seek}
             onTogglePlay={togglePlay}
             selectedItemId={selectedItemId}
