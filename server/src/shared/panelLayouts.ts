@@ -151,3 +151,24 @@ export function subjectCenterInWindow(
   const ys = k.map((f) => f.centerY).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
   return { centerX: med(k.map((f) => f.centerX)), ...(ys.length ? { centerY: med(ys) } : {}) };
 }
+
+/**
+ * Manual Split without any reframe track: two stacked half-frame views, each a cover-crop of the full
+ * source height centred on a speaker anchor (fractions of source width). Dimension-free: the crop x is an
+ * ffmpeg expression over iw/ow, so it works for any source size/aspect and needs no probed dimensions.
+ * Chain-safe fragment (consumes the slice stream, ends unlabeled), same contract as buildPanelsFilter.
+ */
+export function buildManualSplitFilter(canvasW: number, canvasH: number, speaker1X = 0.25, speaker2X = 0.75, tag = 'vcs'): string {
+  const rects = panelPixelRects('split2', canvasW, canvasH);
+  const cl = (v: number, d: number) => (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : d);
+  const cs = [cl(speaker1X, 0.25), cl(speaker2X, 0.75)];
+  const parts = [`split=2[${tag}_i0][${tag}_i1]`];
+  rects.forEach((r, i) => {
+    const a = (r.w / r.h).toFixed(5);
+    parts.push(
+      `[${tag}_i${i}]crop=w='min(iw,ih*${a})':h='min(ih,iw/${a})':x='min(iw-ow,max(0,iw*${cs[i].toFixed(4)}-ow/2))':y='(ih-oh)/2',scale=${r.w}:${r.h},setsar=1[${tag}_p${i}]`
+    );
+  });
+  parts.push(`[${tag}_p0][${tag}_p1]vstack=inputs=2`);
+  return parts.join(';');
+}

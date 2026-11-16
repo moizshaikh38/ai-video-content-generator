@@ -156,3 +156,21 @@ test('Fit selection survives read-back: Fit stored as blurred backdrop still rea
   // another crop writer (no choice) reading a blur-mode item falls back to Blur
   assert.equal(readItemLayout({ crop: { mode: 'blur' } } as any), 'blur');
 });
+
+test('manual Split without a track builds two stacked speaker-anchored halves that ffmpeg accepts', async () => {
+  const { buildManualSplitFilter } = await import('../shared/panelLayouts.js');
+  const { execFileSync } = await import('node:child_process');
+  const f = buildManualSplitFilter(1080, 1920, 0.2, 0.8, 'vcsT');
+  assert.match(f, /vstack=inputs=2/);
+  assert.match(f, /scale=1080:960/);
+  const out = execFileSync(process.env.FFMPEG_PATH || 'ffmpeg', ['-hide_banner', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=s=1280x720:d=1', '-filter_complex', `[0:v]${f}[o]`, '-map', '[o]', '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-'], { maxBuffer: 1 << 26 });
+  assert.equal(out.length, 1080 * 1920);
+});
+
+test('manual Split compiler honors output scale, independent anchor fallbacks and title cards without a track',()=>{
+ const item:any={id:'manual',layout_mode:'split',crop_config:{layout_mode_source:'user',split:{speaker1X:.2}}};
+ const build=(ratio:string,scale:number)=>(ProEditorService as any).buildSliceCropFilter(item,{aspectRatio:ratio,canvasScale:scale,mode:'fallback_center',track:null,cropConfig:{split:{speaker1X:.3,speaker2X:.8}}},0,2,{});
+ const p=build('9:16',2/3);assert.match(p,/scale=720:640/);assert.match(p,/iw\*0\.2000/);assert.match(p,/iw\*0\.8000/);
+ assert.match(build('1:1',2/3),/scale=720:360/);assert.match(build('16:9',2/3),/scale=1280:360/);
+ assert.equal((ProEditorService as any).buildSliceCropFilter({...item,is_title_card:true},undefined,0,2,{}),null);
+});

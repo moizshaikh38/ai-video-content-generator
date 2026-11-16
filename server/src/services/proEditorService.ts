@@ -1,7 +1,7 @@
 import { assertPanelViewsAssigned } from '../shared/panelLayouts.js';
 import { canvasDims } from '../shared/renderResolution.js';
 import fs from 'node:fs';
-import { normalizePanels, buildPanelsFilter } from '../shared/panelLayouts.js';
+import { normalizePanels, buildPanelsFilter, buildManualSplitFilter } from '../shared/panelLayouts.js';
 import { FIT_BAND_ASPECT, effectiveFitBand, fitBandApplies } from '../shared/fitBand.js';
 import path from 'node:path';
 import os from 'node:os';
@@ -860,6 +860,17 @@ export class ProEditorService {
       track.smoothed_keyframes.length > 0 &&
       !track.isStale
     );
+
+    // An explicit manual Split must not depend on an automatic tracking result.
+    if (!hasUsableTrack && userLayout === 'split') {
+      const itemSplit = (item as any).crop_config?.split;
+      const fallback = reframe?.cropConfig?.split;
+      const dims = canvasDims(ratio, cs);
+      const tag = 'vcs' + crypto.createHash('sha256').update(String(item.id || 'x')).digest('hex').slice(0, 16);
+      return buildManualSplitFilter(dims.width, dims.height,
+        itemSplit?.speaker1X ?? fallback?.speaker1X,
+        itemSplit?.speaker2X ?? fallback?.speaker2X, tag);
+    }
 
     if (hasUsableTrack && track) {
       // Per-scene layout: a user-set item layout (timeline Split/Fill/Fit/Blur menu)
