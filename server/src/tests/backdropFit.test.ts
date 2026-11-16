@@ -33,6 +33,12 @@ test('corner radius clears the video corner, spacing keeps an edge margin (blur 
   assert.ok(!near(centre, [0, 255, 0]));
 });
 
+test('canvasScale 2 renders a 2160x3840 backdrop', () => {
+  const r = spawnSync('ffmpeg', ['-v','error','-f','lavfi','-i','testsrc2=s=1280x720:r=10:d=0.5','-vf', buildBackdropFitChain('9:16', 1, { kind: 'color', color: '#112233', spacingPct: 5, cornerRadius: 40 }, 'vt', 2), '-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','-'], { maxBuffer: 2160*3840*3+1 });
+  assert.equal(r.status, 0, String(r.stderr));
+  assert.equal((r.stdout as Buffer).length, 2160*3840*3);
+});
+
 test('blur backdrop renders and differs from black', () => {
   const b = render(buildBackdropFitChain('9:16', 1, { kind: 'blur', spacingPct: 4, cornerRadius: 30 }, 'vt'));
   assert.equal(b.length, 1080 * 1920 * 3);

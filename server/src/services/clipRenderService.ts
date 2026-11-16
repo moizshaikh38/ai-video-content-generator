@@ -282,18 +282,22 @@ export function buildBackdropFitChain(
   aspectRatio: ClipAspectRatio = '9:16',
   zoom: number = 1,
   spec: CanvasBackdropSpec,
-  tag: string = 'vcd'
+  tag: string = 'vcd',
+  /** Output scale vs the 1080-based canvas (1 = 1080p, 2 = 4K-class). Geometry, radius and blur scale with it. */
+  canvasScale: number = 1
 ): string {
-  const ar = aspectRatio === '16:9' ? { w: 1920, h: 1080 } : aspectRatio === '1:1' ? { w: 1080, h: 1080 } : { w: 1080, h: 1920 };
+  const cs = Math.min(4, Math.max(0.25, Number(canvasScale) || 1));
+  const base = aspectRatio === '16:9' ? { w: 1920, h: 1080 } : aspectRatio === '1:1' ? { w: 1080, h: 1080 } : { w: 1080, h: 1920 };
+  const ar = { w: Math.round(base.w * cs / 2) * 2, h: Math.round(base.h * cs / 2) * 2 };
   const z = Math.min(4, Math.max(1, Number(zoom) || 1));
   const space = Math.round((ar.w * Math.min(20, Math.max(0, Number(spec.spacingPct) || 0))) / 100 / 2) * 2;
-  const radius = Math.round(Math.min(120, Math.max(0, Number(spec.cornerRadius) || 0)));
+  const radius = Math.round(Math.min(120, Math.max(0, Number(spec.cornerRadius) || 0)) * cs);
   const boxW = Math.max(2, ar.w - 2 * space);
   const boxH = Math.max(2, ar.h - 2 * space);
   const fgW = Math.max(2, Math.round((boxW * z) / 2) * 2);
   const bg = spec.kind === 'color'
     ? `scale=${ar.w}:${ar.h},drawbox=x=0:y=0:w=${ar.w}:h=${ar.h}:color=0x${normalizeBackdropHex(spec.color)}:t=fill`
-    : `scale=${ar.w}:${ar.h}:force_original_aspect_ratio=increase,crop=${ar.w}:${ar.h},boxblur=25:5,eq=brightness=-0.15:contrast=0.95`;
+    : `scale=${ar.w}:${ar.h}:force_original_aspect_ratio=increase,crop=${ar.w}:${ar.h},boxblur=${Math.round(25 * cs)}:5,eq=brightness=-0.15:contrast=0.95`;
   // Fit inside the inset box (never wider than the box at zoom 1; zoom widens it, overlay crops at canvas edge).
   const fgScale = z > 1 ? `scale=${fgW}:-2` : `scale=${boxW}:${boxH}:force_original_aspect_ratio=decrease`;
   let fg = `${fgScale}`;
