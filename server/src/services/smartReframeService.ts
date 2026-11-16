@@ -1455,8 +1455,12 @@ export class SmartReframeService {
   public static computeShotComposition(options: {
     rawSamples?: ReframeSample[] | null; sceneCuts?: number[]; duration: number;
     sourceWidth: number; sourceHeight: number;
+    /** Review-only opt-in. No production caller selects this policy. */
+    unresolvedContextPolicy?: 'preserve' | 'shared-subject-window';
   }): Array<{ start: number; end: number; kind: 'group' | 'solo' | 'fit'; windowW: number; windowH: number;
-    keyframes: Array<{ time: number; centerX: number; centerY: number }> }> {
+    keyframes: Array<{ time: number; centerX: number; centerY: number }>;
+    contextStatus?: 'crowd-preserved'|'unresolved-preserved'|'unresolved-review-required';
+    uncertainty?: string }> {
     const {rawSamples = [], duration, sourceWidth, sourceHeight} = options;
     if (!rawSamples?.length || !(duration > 0) || sourceWidth <= 0 || sourceHeight <= 0) return [];
     const cuts = [...new Set((options.sceneCuts || []).filter(t => Number.isFinite(t) && t > 0 && t < duration))].sort((a,b)=>a-b);
@@ -1465,7 +1469,7 @@ export class SmartReframeService {
     const shots = bounds.slice(0,-1).map((start,i) => {
       const end = bounds[i+1];
       const samples = rawSamples.filter(s => s.time >= start && s.time < end);
-      if (this.isCrowdScene(samples)) return {start,end,kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]};
+      if (this.isCrowdScene(samples)) return {start,end,kind:'fit' as const,contextStatus:'crowd-preserved' as const,windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]};
       const fromBody = (ids:string[]) => {
         const b=associatedBodyEnvelope(samples,ids);
         if(!b)return null;
@@ -1492,7 +1496,7 @@ export class SmartReframeService {
       const eligible = new Map([...tracks].filter(([,a])=>a.length>=Math.max(2,samples.length*.35)));
       const selected = this.selectDominantTrack(eligible, samples.length);
       const stable = selected.dominantTrackId ? eligible.get(selected.dominantTrackId) : undefined;
-      if (!stable) return {start,end,kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]};
+      if (!stable) return {start,end,kind:'fit' as const,contextStatus:'unresolved-preserved' as const,uncertainty:'No reliable subject anchor. Important scene/object regions are unresolved.',windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]};
       const measuredBody=fromBody([selected.dominantTrackId!]);
       if(measuredBody)return {start,end,kind:'solo' as const,...measuredBody};
       // Faces are not bodies. Reserve an intentionally wider context envelope,
@@ -1512,9 +1516,19 @@ export class SmartReframeService {
     // Use the widest required context in both axes for the ENTIRE analyzed
     // clip, including edited slices. A full-source fallback deliberately makes
     // this full-source throughout rather than jumping between zoom levels.
-    const windowW = Math.max(...shots.map(s=>s.windowW));
-    const windowH = Math.max(...shots.map(s=>s.windowH));
-    return shots.map(s=>({...s,windowW,windowH,keyframes:s.keyframes.map(k=>({...k,
+    // Unknown importance is not proof that every pixel is essential. The
+    // explicit review candidate can size from measured subject shots instead,
+    // but it must expose the resulting context risk, not call it a safe crop.
+    // Crowds remain protected; an all-unknown clip still preserves full source.
+    const reviewCandidate = options.unresolvedContextPolicy === 'shared-subject-window';
+    const constraints = reviewCandidate ? shots.filter(s => s.contextStatus !== 'unresolved-preserved') : shots;
+    const sizedFrom = constraints.length ? constraints : shots;
+    const windowW = Math.max(...sizedFrom.map(s=>s.windowW));
+    const windowH = Math.max(...sizedFrom.map(s=>s.windowH));
+    return shots.map(s=>({...s,
+      contextStatus: s.contextStatus === 'unresolved-preserved' && reviewCandidate && (windowW < 1 || windowH < 1)
+        ? 'unresolved-review-required' as const : s.contextStatus,
+      windowW,windowH,keyframes:s.keyframes.map(k=>({...k,
       centerX:Math.max(windowW/2,Math.min(1-windowW/2,k.centerX)),
       centerY:Math.max(windowH/2,Math.min(1-windowH/2,k.centerY)),
     }))}));
