@@ -1703,7 +1703,7 @@ export class ClipRenderService {
     try {
       const { stdout } = await execFileAsync(
         'ffprobe',
-        ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height:stream_tags=rotate:stream_side_data=rotation', '-of', 'json', filePath],
+        ['-v', 'error', '-select_streams', 'v:0', '-show_streams', '-of', 'json', filePath],
         { timeout: 15000, maxBuffer: 1024 * 1024 }
       );
       const st = ((JSON.parse(stdout) as any).streams || [])[0] || {};

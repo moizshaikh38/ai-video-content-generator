@@ -18,7 +18,7 @@ import {
   renderScale,
   resolveEffectiveResolution,
 } from '../shared/renderResolution.js';
-import { buildCropFilter, buildFitFilter, buildBlurFitChain, composeQuickVideoGraph } from '../services/clipRenderService.js';
+import { ClipRenderService, buildCropFilter, buildFitFilter, buildBlurFitChain, composeQuickVideoGraph } from '../services/clipRenderService.js';
 import { SmartReframeService } from '../services/smartReframeService.js';
 
 test('tier dimensions per aspect', () => {
@@ -151,4 +151,15 @@ test('pro editor graph compiles at 4K and renders 2160x3840 end to end', { skip:
     assert.equal(r.status, 0, (r.stderr || '').slice(-800));
     assert.deepEqual(probe(out), { w, h });
   }
+});
+
+// Regression: stream_side_data is not a valid show_entries section on the
+// deployed ffprobe build. A swallowed probe error hid all source dimensions.
+test('actual source dimension probe returns decoded frame size', async () => {
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'vc-source-probe-'));
+ const file=path.join(dir,'tiny.mp4');
+ try {
+  execFileSync('ffmpeg',['-v','error','-f','lavfi','-i','color=s=854x480:d=0.1','-frames:v','1','-c:v','libx264','-threads','1','-y',file],{timeout:10000});
+  assert.deepEqual(await ClipRenderService.probeSourceDimensions(file),{width:854,height:480});
+ } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });
