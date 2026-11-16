@@ -29,6 +29,7 @@ import { interpolateReframeCenter } from '../../../server/src/shared/reframeInte
 import { CaptionPresetRenderer } from './CaptionPresetRenderer';
 import { BackgroundControl } from './BackgroundControl';
 import { TrackerControl } from './TrackerControl';
+import { CropBoxControl } from './CropBoxControl';
 
 interface PreviewCanvasProps {
   contentFramingDecision?: ContentFramingDecision | null;
@@ -1214,6 +1215,22 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 cropMode={primaryVideoCropMode === 'blur' ? 'blur' : primaryVideoCropMode === 'fit' ? 'fit' : 'fill'}
                 onSetCropMode={onUpdateCropMode}
                 onUpdateCanvas={onUpdateCanvas}
+              />
+              <div className="w-px h-3.5 bg-white/[0.1]" />
+            </>
+          )}
+
+          {onUpdateItemCrop && videoDims && videoDims.w > 0 && activeVideoItems[0] && (
+            <>
+              <CropBoxControl
+                videoSrc={cleanSourceUrl || activeVideoSrc || null}
+                sourceTime={targetVideoTime}
+                srcW={videoDims.w}
+                srcH={videoDims.h}
+                canvasAspect={(parseFloat(canvasDims.width) || 360) / (parseFloat(canvasDims.height) || 640)}
+                current={{ focusX: activeVideoItems[0].crop?.focusX ?? 0.5, focusY: activeVideoItems[0].crop?.focusY ?? 0.5, scale: activeVideoItems[0].crop?.scale ?? 1 }}
+                enabled={primaryVideoCropMode === 'fill' && primaryLayoutMode !== 'split'}
+                onApply={(c) => onUpdateItemCrop(activeVideoItems[0].id, { mode: 'custom', ...c }, { recordHistory: true, markAsDirty: true })}
               />
               <div className="w-px h-3.5 bg-white/[0.1]" />
             </>
