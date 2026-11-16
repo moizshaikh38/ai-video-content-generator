@@ -1,0 +1,15 @@
+/** Same-content comparator with optional NanoDet. NEGATIVE: evidence remains sparse,
+ * unresolved preserved/fullsource. Not a safe automatic4:3crop solution. */
+import fs from 'node:fs';import crypto from 'node:crypto';
+Object.assign(process.env,{NODE_ENV:'test',MONGODB_URI:'mongodb://127.0.0.1:27019',MONGODB_DB_NAME:'vireo_recovery_qualification',SUPABASE_URL:'http://127.0.0.1:5998',SUPABASE_SECRET_KEY:'isolated-local-fixture-not-real',OPENROUTER_API_KEY:'',GROQ_API_KEY:'',GAME_EVENTS_AUTO:'off',MULTIMODAL_AUTO:'off',PYTHON_PATH:'/tmp/vireo-local-restore/cv-env/bin/python',SMART_REFRAME_YUNET_MODEL:'/tmp/vireo-local-restore/models/yunet.onnx',SMART_REFRAME_YUNET_THRESHOLD:'.85',SMART_REFRAME_PERSON_MODEL:'/tmp/vireo-local-restore/models/nanodet.onnx',SMART_REFRAME_HSV_CUTS:'1',SMART_REFRAME_SHOT_COMPOSITION:'1'});
+const realFetch=globalThis.fetch;globalThis.fetch=async(i:any,o?:any)=>{if(!String(i?.url||i).startsWith('http://127.0.0.1:'))throw Error('External requests forbidden');return realFetch(i,o)};
+const {getMongoDb,closeMongo}=await import('../../src/db/mongoClient.js');const {ownerContext}=await import('../../src/db/repositories/dataRepository.js');const {SmartReframeService:S}=await import('../../src/services/smartReframeService.js');const {ProEditorService:P}=await import('../../src/services/proEditorService.js');
+const db=await getMongoDb();try{
+ const id=crypto.randomUUID(),pid=crypto.randomUUID(),uid=crypto.randomUUID(),source=`users/${uid}/projects/${pid}/source/beast-body-aligned-original.mp4`,now=new Date();
+ await db.collection('projects').insertOne({id:pid,user_id:uid,title:'Same-content Beast comparison',video_status:'ready',duration_seconds:90.024,clip_preferences:{genre:'general',genreSelectionMode:'manual'},created_at:now,updated_at:now});
+ await db.collection('clips').insertOne({id,project_id:pid,user_id:uid,title:'Aligned content, captions disabled for framing evidence',source_storage_path:source,start_seconds:49.7155,end_seconds:53.7155,duration_seconds:4,aspect_ratio:'9:16',crop_mode:'smart',crop_config:{mode:'smart'},render_status:'pending',caption_enabled:false,created_at:now,updated_at:now});
+ const record=await ownerContext.run(uid,()=>S.analyzeClipFraming(id,uid,{localSourcePath:'/downloads/recovered-source/beast-yacht-120-210.mp4',sampleFps:4,timeoutMs:30000}));
+ const editor=await P.getOrCreateEditorProject(id,uid);for(const t of editor.tracks){if(t.type!=='VIDEO')t.hidden=true;for(const i of t.items)if(i.audio)i.audio.normalized=false;}
+ await db.collection('editor_projects').updateOne({id:editor.id},{$set:{tracks:editor.tracks}});
+ const fixture={user_id:uid,project_id:pid,clip_id:id,editor_id:editor.id,source_key:source};fs.writeFileSync('/tmp/vireo-local-restore/beast-body-aligned-fixture.json',JSON.stringify(fixture,null,2));fs.writeFileSync('/tmp/vireo-local-restore/beast-body-aligned-analysis.json',JSON.stringify(record,null,2));console.log('ALIGNED_ANALYZED',record.status,record.layout_mode,record.detected_face_count,JSON.stringify(record.metadata));
+}finally{await closeMongo()}

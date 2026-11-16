@@ -1,0 +1,3 @@
+# Same-content Beast optional body detector negative
+
+Aligned source49.7155–53.7155s from recovered90.024s source. Explicit local YuNet.85+NanoDet opt-in, no production defaults. Documented model https://huggingface.co/opencv/object_detection_nanodet ; downloaded model checksum matches4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186.18samples:2face samples; person regions intermittent, absent in later7samples. Existing computeShotComposition returns fullsource fit/unresolved-preserved, no reliable subject anchor, important scene/object regions unresolved. This is a negative result, not an automatic4:3 crop solution. Opus largerband/openingcrop gap remains. No paidcalls/release.
