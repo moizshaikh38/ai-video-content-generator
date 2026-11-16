@@ -1419,6 +1419,17 @@ export class SmartReframeService {
    * follow the group midpoint over time. Returns null without usable faces
    * so callers keep the existing tight-track behavior.
    */
+  /** Tight-track confidence floor: below this dominant-track score a tight
+   * track is confidently wrong more often than right; both render paths and
+   * the preview degrade to the blurred layout instead. Conservative, based on
+   * observed clips (bad: 0.241; good: 0.452, 0.582). */
+  public static readonly TRACK_CONFIDENCE_FLOOR = 0.3;
+
+  public static isLowConfidenceTrack(track: { metadata?: any } | null | undefined): boolean {
+    const score = Number(track?.metadata?.dominant_score);
+    return Number.isFinite(score) && score < SmartReframeService.TRACK_CONFIDENCE_FLOOR;
+  }
+
   public static computeGroupFrameGeometry(options: {
     rawSamples?: Array<{ time?: number; faces?: Array<{ center_x?: number; center_y?: number; width?: number; height?: number }> }> | null;
     sourceWidth: number;

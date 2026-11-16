@@ -873,6 +873,18 @@ export class ProEditorService {
         });
       }
 
+      // Same tracking-quality floor as the clip render path: a weak dominant
+      // track degrades to the blurred layout instead of a bad tight crop.
+      if (!groupFrame && SmartReframeService.isLowConfidenceTrack(track)) {
+        logger.warn(
+          `[ProEditor] Dominant track score ${Number((track as any).metadata?.dominant_score).toFixed(3)} below tracking floor ${SmartReframeService.TRACK_CONFIDENCE_FLOOR} for editor slice. Degrading to blurred layout.`
+        );
+        if (ratio === '9:16') {
+          return SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: 1080, canvasHeight: 1920, tag: layoutTag });
+        }
+        return buildCropFilter(ratio, { focusX: 0.5, focusY: 0.5 });
+      }
+
       // 'track' layout: rebase clip-relative keyframes into slice-local time and
       // extend boundary keyframes so the expression covers the full slice window.
       // Boundary extensions are skipped when an in-window keyframe already sits at

@@ -203,6 +203,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       sourceWidth: number;
       sourceHeight: number;
     } | null;
+    lowConfidenceTrack?: boolean;
   } | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -218,6 +219,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             speaker2X: typeof r.speaker2X === 'number' ? r.speaker2X : null,
             splitGeometry: r.splitGeometry ?? null,
             groupFrame: r.groupFrame ?? null,
+            lowConfidenceTrack: Boolean(r.lowConfidenceTrack),
           });
         }
       })
@@ -1749,6 +1751,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             viewMode={viewMode}
             speakerSplit={speakerSplit}
             groupReframe={speakerSplit?.groupFrame ?? null}
+            lowConfidenceTrack={Boolean(speakerSplit?.lowConfidenceTrack)}
             watermarkRequired={watermarkRequired}
             onPlayheadChange={seek}
             onTogglePlay={togglePlay}

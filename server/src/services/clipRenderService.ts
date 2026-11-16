@@ -1462,8 +1462,7 @@ export class ClipRenderService {
         if (
           targetLayout === 'track' &&
           !groupFrame &&
-          Number.isFinite(dominantScore) &&
-          dominantScore < 0.3
+          SmartReframeService.isLowConfidenceTrack(track)
         ) {
           logger.warn(
             `[ClipRender] Dominant track score ${dominantScore.toFixed(3)} below tracking floor 0.30 for clip ${clip.id}. Degrading to blurred layout.`

@@ -98,6 +98,8 @@ interface PreviewCanvasProps {
     sourceWidth: number;
     sourceHeight: number;
   } | null;
+  /** Server-side tracking floor: weak dominant track exports as blur, preview mirrors it. */
+  lowConfidenceTrack?: boolean;
   onUpdateCaptionPosition?: (
     pos: { x?: number; y?: number; cueId?: string; fontSize?: number } | number,
     options?: UpdateProjectOptions
@@ -211,6 +213,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   speakerSplit,
   watermarkRequired = false,
   groupReframe = null,
+  lowConfidenceTrack = false,
   onUpdateCaptionPosition,
 }) => {
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -602,6 +605,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const smartPanPosition = (() => {
     if (!smartReframe || !smartReframe.keyframes || smartReframe.keyframes.length === 0) return undefined;
     if (primaryLayoutMode !== 'track' || primaryVideoCropMode !== 'fill') return undefined;
+    if (lowConfidenceTrack) return undefined; // weak track exports as blur; group fit (if any) overrides at consumption
     const item = activeVideoItems[0] as any;
     const itemCropMode = item?.crop?.mode;
     if (itemCropMode && itemCropMode !== 'smart') return undefined;
@@ -650,6 +654,14 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     const top = bandTop - shift;
     return { left: `${left.toFixed(1)}px`, top: `${top.toFixed(1)}px`, width: `${elW.toFixed(1)}px`, height: `${elH.toFixed(1)}px` };
   })();
+
+  // Tracking-floor fallback (mirrors the export paths): a weak dominant track
+  // with no group frame renders as the blurred fit layout, not a tight track.
+  const lowConfidenceFallback =
+    Boolean(lowConfidenceTrack) &&
+    !groupFitView &&
+    primaryLayoutMode === 'track' &&
+    primaryVideoCropMode === 'fill';
 
   // Synchronize HTML video time with playhead smoothly
   useEffect(() => {
@@ -1204,7 +1216,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           className="relative overflow-hidden flex items-center justify-center"
         >
           {/* HTML5 VIDEO BASE STREAM */}
-          {(primaryVideoCropMode === 'blur' || Boolean(groupFitView)) && activeVideoSrc ? (
+          {(primaryVideoCropMode === 'blur' || Boolean(groupFitView) || lowConfidenceFallback) && activeVideoSrc ? (
             <video
               ref={backdropVideoRef}
               src={activeVideoSrc}
@@ -1295,7 +1307,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 : {}),
               // Fit/Blur = letterbox (matches export's buildFitFilter pad / blur fill); Fill = cover-crop;
               // group fit sizes the element exactly, so cover introduces no extra crop
-              objectFit: primaryVideoCropMode === 'fit' || primaryVideoCropMode === 'blur' ? 'contain' : 'cover',
+              objectFit: primaryVideoCropMode === 'fit' || primaryVideoCropMode === 'blur' || lowConfidenceFallback ? 'contain' : 'cover',
               objectPosition:
                 primaryLayoutMode === 'split'
                   ? splitView1

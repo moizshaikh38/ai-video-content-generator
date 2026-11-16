@@ -254,6 +254,9 @@ class ClipRenderService {
       sourceWidth: number;
       sourceHeight: number;
     } | null;
+    /** True when the dominant track is below the export tracking floor: the
+     * export degrades to the blurred layout and the preview must mirror it. */
+    lowConfidenceTrack?: boolean;
   }> {
     return backendRequest(`/clips/${clipId}/reframe`);
   }

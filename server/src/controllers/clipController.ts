@@ -1316,6 +1316,11 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       // Group framing for multi-person single-view (same helper the export
       // path uses): the preview mirrors the exported blur-fill fit. Null =
       // no credible multi-face group; tight tracking preview stays.
+      // Tracking-quality floor (same rule both render paths apply): when the
+      // dominant track is weak and no group frame engages, export degrades to
+      // the blurred layout; the preview must mirror that instead of showing
+      // a confident tight track the export will not produce.
+      lowConfidenceTrack: SmartReframeService.isLowConfidenceTrack(track),
       groupFrame: (() => {
         const g = SmartReframeService.computeGroupFrameGeometry({
           rawSamples: track.raw_samples,
