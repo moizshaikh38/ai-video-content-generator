@@ -18,3 +18,11 @@ Source: https://archive.org/details/0010_SY_BR_VI_3 file150; precise observed so
 Negative/counterexample: https://archive.org/details/twitch-vod-v1606973500 filev1606973500.mp4 lobby30-38s; https://archive.org/details/twitch-clips-491646082 is a dinosaur-mask IRL clip despite title, zero detected faces, not genuine gameplay.
 
 Initial Quick Clip generation still unchanged. Gaming genre new-Studio default remains review-required template. No automatic region inference connected to product, no paid processing, no main/release, no4K attempt. Same-source Opus/Wayin comparison still required.
+
+## Follow-on template and Split controls
+
+- Explicit Edit Split views converts only the chosen legacy Split scene to independently reviewable crop boxes. Existing automatic/anchor Split remains unchanged until clicked. Both new views initially unassigned; same export gate. Desktop and390x844touch both-panel gestures, dualsave200/reload,720p actual API passed; desktop locks passed. Pixels inspected. These manual fixture views are deliberately distinguishable, not an artistic auto-framing pass.
+- Game screen first independently implements observed60/40game-top/camera-bottom geometry from actual Wayin0AD output (seam768of1280). Editable/review-gated source views, not copied assets/code or semantic detection. Desktop and390x844touch crop/save/reload/API passed; pixels inspected.
+- Paired0AD first4s: providedCommons excerpt audio offset+.172375s fromWayin, correlation.962-.969at0/5/20/40s. Automatic Vireo detects artfaces and choosesSplit incorrectly. Explicit assigned template corrects layout/camera view but is MANUAL fixture assignment and has captions disabled. Not full automatic fix or caption parity. Source attribution: Let's Play0AD byFratm,CCBY3 https://commons.wikimedia.org/wiki/File:Let%27s_Play_0_AD.webm . Compared recordings not identical encodes.
+- PairedBeast first4s: recovered source start49.7155audioalignsOpusfirst2s(.938); later offsets drift~.04s. ActualOpusoriginal is406x720 comiccaption output, notTypewriterCopy. Vireo automatic blur sharp band is smaller thanOpus; gap not fixed by existing manual4:3policy. No false captioncomparison (Vireocaptionsoff), noframeexactclaim.
+- Typewritercalibration tests/note imported from isolatedworker37cee30 as a13cf38, no runtime/defaultsize change. ActualStudio87qualification remains.

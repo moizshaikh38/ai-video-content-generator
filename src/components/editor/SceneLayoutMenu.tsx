@@ -11,6 +11,7 @@ export const SCENE_LAYOUT_OPTIONS: Array<{ id: SceneLayout; label: string }> = [
   { id: 'four', label: 'Four' },
   { id: 'screenshare', label: 'ScreenShare' },
   { id: 'gameplay', label: 'Gameplay' },
+  { id: 'game_screen_first', label: 'Game screen first' },
 ];
 
 /** Tiny 9:16 schematic of each layout (geometry mirrors the measured reference). */
@@ -26,6 +27,7 @@ const Thumb: React.FC<{ id: SceneLayout | 'pip' }> = ({ id }) => {
     case 'split': case 'screenshare': body = [r(0, 0, W, H / 2, 0), r(0, H / 2, W, H / 2, 1, 0.8)]; break;
     case 'three': body = [r(0, 0, W, H / 2, 0), r(0, H / 2, W / 2, H / 2, 1, 0.8), r(W / 2, H / 2, W / 2, H / 2, 2, 0.65)]; break;
     case 'four': body = [r(0, 0, W / 2, H / 2, 0), r(W / 2, 0, W / 2, H / 2, 1, 0.8), r(0, H / 2, W / 2, H / 2, 2, 0.8), r(W / 2, H / 2, W / 2, H / 2, 3)]; break;
+    case 'game_screen_first': body = [r(0,0,W,H*.6,0),r(0,H*.6,W,H*.4,1,.8)]; break;
     case 'gameplay': body = [r(0, 0, W, H * 0.3, 0, 0.8), r(0, H * 0.3, W, H * 0.7, 1)]; break;
     case 'pip': body = [r(0, 0, W, H, 0, 0.4), r(11, 24, 8, 10, 1, 0.9)]; break;
     default: body = r(0, 0, W, H, 0);

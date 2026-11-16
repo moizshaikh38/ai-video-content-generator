@@ -21,3 +21,13 @@ test('measured region restricts crop to camera, preserving face-safe focus in re
  const f=buildPanelsFilter({layout:'gameplay',slots:[{...s,set:true},{focusX:.5,focusY:.5,scale:1,set:true}]},720,1280);
  assert.ok(f.includes('round(iw*0.22083333/2)*2'));assert.ok(f.includes('round(ih*0.37962963/2)*2'));assert.equal((f.match(/iw\*/g)||[]).length,2);
 });
+test('observed screen-first template has60/40tiles and unassigned initial views',()=>{
+ const p=normalizePanels({layout:'game_screen_first',slots:defaultPanelSlots('game_screen_first')})!;
+ assert.ok(p.slots.every(s=>!s.set));
+ const filter=buildPanelsFilter({...p,slots:p.slots.map(s=>({...s,set:true}))},720,1280);
+ assert.ok(filter.includes('scale=720:768'));assert.ok(filter.includes('scale=720:512'));
+});
+test('independent manual Split is two editable views, never preassigned',()=>{
+ const p=normalizePanels({layout:'split2',slots:[{focusX:.2,focusY:.5,scale:1},{focusX:.8,focusY:.5,scale:1}]})!;
+ assert.equal(p.slots.length,2);assert.ok(p.slots.every(s=>!s.set));assert.ok(buildPanelsFilter(p,720,1280).includes('scale=720:640'));
+});

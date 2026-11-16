@@ -5,8 +5,8 @@
  * disabled in the observed clip and is deliberately NOT defined here.
  * What each panel SHOWS is an independent per-panel source crop (focusX/focusY/scale), user-editable.
  */
-export type PanelLayout = 'split2' | 'three' | 'four' | 'screenshare' | 'gameplay';
-export const PANEL_LAYOUTS: PanelLayout[] = ['three', 'four', 'screenshare', 'gameplay'];
+export type PanelLayout = 'split2' | 'three' | 'four' | 'screenshare' | 'gameplay' | 'game_screen_first';
+export const PANEL_LAYOUTS: PanelLayout[] = ['three', 'four', 'screenshare', 'gameplay', 'game_screen_first'];
 
 export interface PanelRect { x: number; y: number; w: number; h: number }
 /** `set: true` only after the user chose this panel's view (crop box) or a detector assigned it. Defaults are unassigned placeholders. */
@@ -23,9 +23,12 @@ export const PANEL_RECTS: Record<PanelLayout, PanelRect[]> = {
   screenshare: [R(0, 0, 1, 0.5), R(0, 0.5, 1, 0.5)],
   // Reference: top 720x384 (30%), bottom 720x896 (70%). Which panel is "game" vs "face" is NOT assumed.
   gameplay: [R(0, 0, 1, 0.3), R(0, 0.3, 1, 0.7)],
+  // One actual Wayin Fighting Screen First output: seam at y768 of1280.
+  // Template geometry only, not proof of semantic roles or best crop.
+  game_screen_first: [R(0, 0, 1, 0.6), R(0, 0.6, 1, 0.4)],
 };
 
-export const PANEL_LABELS: Record<PanelLayout, string> = { split2: 'Split', three: 'Three', four: 'Four', screenshare: 'ScreenShare', gameplay: 'Gameplay' };
+export const PANEL_LABELS: Record<PanelLayout, string> = { split2: 'Split', three: 'Three', four: 'Four', screenshare: 'ScreenShare', gameplay: 'Gameplay', game_screen_first: 'Game screen first' };
 
 /**
  * Placeholder per-panel views. They are NOT subject detections: the first panel shows the whole frame
@@ -33,6 +36,7 @@ export const PANEL_LABELS: Record<PanelLayout, string> = { split2: 'Split', thre
  */
 export function defaultPanelSlots(layout: PanelLayout): PanelSlot[] {
   const n = PANEL_RECTS[layout].length;
+  if (layout === 'game_screen_first') return [{focusX:.5,focusY:.5,scale:1},{focusX:.5,focusY:.5,scale:1.6}];
   if (layout === 'screenshare') return [{ focusX: 0.5, focusY: 0.5, scale: 1 }, { focusX: 0.5, focusY: 0.5, scale: 1.6 }];
   if (layout === 'gameplay') return [{ focusX: 0.5, focusY: 0.5, scale: 1.6 }, { focusX: 0.5, focusY: 0.5, scale: 1 }];
   const xs = n === 3 ? [0.5, 0.25, 0.75] : [0.2, 0.8, 0.2, 0.8];

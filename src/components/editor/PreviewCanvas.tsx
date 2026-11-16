@@ -1280,6 +1280,18 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             </>
           )}
 
+          {onUpdateItemPanels && !activePanels && primaryLayoutMode === 'split' && baseVideoItem && (
+            <button type="button" disabled={videoCropLocked}
+              className="px-2 py-0.5 rounded-lg hover:bg-white/10 disabled:opacity-40"
+              title="Switch this scene to independent Split crop boxes. Review both views before export."
+              onClick={() => {
+                if (videoCropLocked) return;
+                onUpdateItemPanels(baseVideoItem.id, {layout:'split2',slots:[
+                  {focusX:splitAnchors.speaker1X,focusY:.5,scale:1},
+                  {focusX:splitAnchors.speaker2X,focusY:.5,scale:1},
+                ]}, {recordHistory:true,markAsDirty:true});
+              }}>Edit Split views</button>
+          )}
           {onUpdateItemPanels && activePanels && videoDims && videoDims.w > 0 && baseVideoItem && (
             <>
               {PANEL_RECTS[activePanels.layout].map((r, i) => {

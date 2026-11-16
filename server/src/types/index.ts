@@ -2128,7 +2128,7 @@ export interface EditorTrackItem {
   /** User-accepted auto-plan context window for this scene (see shared/framingWindow.ts). Pro render path only. */
   framing_window?: import('../shared/framingWindow.js').FramingWindow;
   /** Multi-panel scene layout (Three/Four/ScreenShare/Gameplay): per-panel source crops. Target rects live in shared/panelLayouts. */
-  panels?: { layout: 'split2' | 'three' | 'four' | 'screenshare' | 'gameplay'; slots: Array<{ focusX: number; focusY: number; scale: number; sourceRect?: { x: number; y: number; w: number; h: number }; set?: boolean; auto?: 'track' }> };
+  panels?: { layout: 'split2' | 'three' | 'four' | 'screenshare' | 'gameplay' | 'game_screen_first'; slots: Array<{ focusX: number; focusY: number; scale: number; sourceRect?: { x: number; y: number; w: number; h: number }; set?: boolean; auto?: 'track' }> };
   crop?: {
     mode: 'fit' | 'fill' | 'custom' | 'blur';
     /** Fit/Blur shape in a 9:16 canvas: '4:3' band or 'full' frame (legacy when absent). */
