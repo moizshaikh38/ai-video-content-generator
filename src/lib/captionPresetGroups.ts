@@ -43,7 +43,7 @@ export const CAPTION_PRESET_GROUPS: CaptionPresetGroup[] = [
     id: 'badge_pill',
     label: 'Badge & Pill',
     hint: 'Captions sit inside a rounded plate or chip.',
-    presetIds: ['with_backdrop', 'deep_diver', 'vireo_pill', 'vireo_capsule', 'two_color_highlight'],
+    presetIds: ['glide', 'with_backdrop', 'deep_diver', 'vireo_pill', 'vireo_capsule', 'two_color_highlight'],
   },
   {
     id: 'neon',

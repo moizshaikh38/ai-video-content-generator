@@ -271,3 +271,39 @@ https://github.com/google/fonts/blob/main/ofl/montserrat/OFL.txt
 A public weight800 static font instance was prepared outside the repository but is not
 bundled/qualified. Bound font advance/kerning and shared glyph layout must be solved
 before the moving-box engine can use this helper. Never guess character widths.
+
+### Experimental Glide hooked-up checkpoint and CSS audit correction
+
+Glide now uses the independent moving-box helper in gallery/preview/ASS. Public
+Montserrat ExtraBold800 is bundled as a corrected-name static instance, metric1000/1562,
+ASS91 for approximately58px em. Generated ASCII hmtx advances drive individual glyph
+positions. Per-glyph drawing deliberately avoids cross-glyph ligatures/kerning; this is
+an explicit candidate typography limitation, not claimed exact reference shaping.
+Unicode, braces/backslashes, custom token effects and incompatible family/bold/box/pop
+edits use the existing normal renderer, never guessed geometry. Active-color edits
+recolor the orange box. Segment-only cues remain static. No candidate count increase.
+
+IMPORTANT correction: earlier isolated esbuild full-size screenshots omitted utility
+CSS. That omitted relative/inline-block behavior and hid an inherited line-height gap.
+Those earlier full-size position parity claims are superseded. Actual Vite/index.css
+captures have now been inspected for Glide/Crossline default+manual positions and
+With Backdrop. The inner renderer wrapper is explicitly relative+inline-block, and the
+special-layout outer container uses lineHeight0 so its explicit-height lines do not
+inherit an extra baseline gap. Corrected actual-CSS comparisons show aligned glyph/band
+positions, with small remaining rasterization/width differences. Gallery captures use
+actual CSS and were rechecked. No reference parity is asserted by any of these captures.
+
+Glide remains experimental/unmatched pending exact font shaping, full-size reference,
+word grouping, timing/easing/radius, real API/save/reload/render and newer scene anchors.
+Its120ms cubic movement/100ms entry, rounded geometry/padding and phrase chunks are our
+candidate parameters. A bold override intentionally leaves this special engine because
+its precomputed advances bind only the exact ExtraBold800 face. Integrated serialization
+must qualify that distinction instead of claiming arbitrary-font moving boxes work.
+Official coverage remains4candidates,40unmatched,0verified matches.
+
+Serialization refinement: equivalent explicit bold:false/uppercase:false/outline0/shadow
+false or0 controls retain the exact bound face and moving engine. Numeric800 routed through
+a legacy bold:true-only adapter is NOT equivalent; such adapters still need qualification.
+The common resolver now preserves a preset's nonstandard weight when an explicit boolean
+matches the preset's existing bold flag, instead of accidentally losing Figtree600 or
+Montserrat800 on a no-op false value. Other bold choices still leave the special engine.

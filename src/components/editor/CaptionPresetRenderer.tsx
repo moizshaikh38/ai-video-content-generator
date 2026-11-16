@@ -65,6 +65,8 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
       }`}
       style={{
         ...(css.container as React.CSSProperties),
+        ...(frame.rollingRows || frame.movingBoxLayout || style.backdropBand ? {lineHeight:0}:{}),
+        ...((frame.rollingRows || frame.movingBoxLayout) && (frame.positionX!==undefined||frame.positionY!==undefined)?{textAlign:'center'}:{}),
         opacity: frame.opacity,
         ...(interactive ? { pointerEvents: 'auto' } : {}),
         ...(frame.positionX !== undefined || frame.positionY !== undefined
@@ -88,7 +90,7 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
       onClick={onClick}
     >
       <div
-        style={style.backdropBand ? {width:'100%'} : undefined}
+        style={{position:'relative',display:'inline-block',...(style.backdropBand?{width:'100%'}:{})}}
         className={`relative inline-block transition-all ${
           isDragging
             ? 'cursor-grabbing opacity-90'
@@ -102,7 +104,13 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
         }`}
       >
         {style.backdropBand && <div data-caption-backdrop-band="true" style={{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-50%)',width:(style.playResX-style.backdropBand.insetX*2)*scale,height:(style.fontSize*lines.filter(l=>l.length>0).length+style.backdropBand.paddingY*2)*scale,backgroundColor:style.backdropBand.color,opacity:style.backdropBand.opacity}}/>}
-        {frame.rollingRows ? (()=>{
+        {frame.movingBoxLayout ? (()=>{
+          const l=frame.movingBoxLayout,b=frame.movingBoxState;
+          return <div data-caption-moving-box="true" style={{position:'relative',width:l.width*scale,height:l.height*scale}}>
+            {b&&style.movingBox&&<div style={{position:'absolute',left:b.x*scale,top:b.y*scale,width:b.width*scale,height:b.height*scale,transform:`translate(-50%,-50%) scale(${b.scale})`,borderRadius:style.movingBox.radius*scale,backgroundColor:style.movingBox.color}}/>}
+            {l.glyphs.map((g,i)=><span key={i} style={{...css.line as React.CSSProperties,position:'absolute',whiteSpace:'pre',left:g.x*scale,top:g.line*l.lineHeight*scale+parseFloat(String(css.line.top??0)),fontKerning:'none',fontVariantLigatures:'none',fontSize:css.line.fontSize}}>{g.text}</span>)}
+          </div>;
+        })() : frame.rollingRows ? (()=>{
           const g=getCaptionRollingGeometry({position_x:frame.positionX,position_y:frame.positionY},style);
           return <div data-caption-rolling-rows="true" style={{position:'relative',width:g.width*scale,height:g.height*scale}}>
             {frame.rollingRows.map((row,index)=><div key={`${row.chunkId}:${index}`} data-caption-row={row.row} style={{...css.line as React.CSSProperties,position:'absolute',whiteSpace:'nowrap',left:(g.width/2+(row.row===0?-g.stagger:g.stagger))*scale,top:(row.row*g.lineHeight+row.offsetY)*scale+parseFloat(String(css.line.top??0)),transform:'translateX(-50%)',opacity:row.opacity}}>

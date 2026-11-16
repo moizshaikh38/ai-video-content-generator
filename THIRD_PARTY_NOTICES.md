@@ -39,3 +39,10 @@ These are public, independently distributed font files, not competitor-provided 
   Source: https://github.com/google/fonts/blob/main/ofl/lemon/METADATA.pb
   Unmodified Lemon-Regular.ttf, SIL Open Font License1.1 alongside both bundled copies.
   Font: https://raw.githubusercontent.com/google/fonts/main/ofl/lemon/Lemon-Regular.ttf
+
+- Montserrat ExtraBold800: static instance generated with fontTools from the public
+  OFL variable font; names updated to Montserrat ExtraBold/Montserrat-ExtraBold to
+  avoid stale Thin selection. Existing Montserrat OFL accompanies both directories.
+  Source: https://github.com/google/fonts/blob/main/ofl/montserrat/METADATA.pb
+  Source font: https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/Montserrat%5Bwght%5D.ttf
+  Generated ASCII hmtx advances are in captionMontserratMetrics.ts (UPM1000).
