@@ -50,7 +50,7 @@ export function normalizePanels(p: Partial<ItemPanels> | undefined | null): Item
       focusX: clamp(p.slots?.[i]?.focusX, 0, 1, def[i].focusX),
       focusY: clamp(p.slots?.[i]?.focusY, 0, 1, def[i].focusY),
       scale: clamp(p.slots?.[i]?.scale, 1, 4, def[i].scale),
-      ...(p.slots?.[i]?.set ? { set: true } : {}),
+      ...(p.slots?.[i]?.set === true ? { set: true } : {}),
       ...(p.slots?.[i]?.auto === 'track' ? { auto: 'track' as const } : {}),
     })),
   };

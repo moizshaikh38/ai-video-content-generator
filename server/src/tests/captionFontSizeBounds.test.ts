@@ -8,3 +8,6 @@ describe('Exact bundled-family ASS size bounds',()=>{
 
 import { captionLegacyColorDefaults } from '../../../src/lib/captionPresets';
 it('editing typography does not materialize legacy white/yellow over preset colors',()=>{assert.deepEqual(captionLegacyColorDefaults({style:'retro_3d'} as any),{primary_color:'#FFD23F',highlight_color:'#FFFFFF'});assert.equal(captionLegacyColorDefaults({style:'clean'} as any).primary_color,'#FFFFFF');});
+
+import {sanitizePlanOperations} from '../services/planSafetyService.js';
+it('producer plan cannot expand size using an unapplied family parameter',()=>{const {operations}=sanitizePlanOperations([{id:'test',type:'CAPTION_STYLE',enabled:true,parameters:{font_family:'Bungee',font_size:180}}] as any,10);assert.equal(operations[0].parameters.font_size,110);});

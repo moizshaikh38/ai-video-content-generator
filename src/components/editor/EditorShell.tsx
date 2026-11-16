@@ -347,6 +347,8 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   // Transcript dock (far right). UI-only, persisted per viewer — never touches project state.
   // Defaults collapsed on narrower screens so the stage keeps its share of the width.
   const [transcriptCollapsed, setTranscriptCollapsed] = useState<boolean>(() => {
+    // Phone: the dock is a bottom sheet that would cover the tool panels, so it always starts closed.
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return true;
     try {
       const stored = localStorage.getItem('vireo_transcript_collapsed');
       if (stored !== null) return stored === '1';
@@ -356,6 +358,8 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   const toggleTranscriptCollapsed = useCallback(() => {
     setTranscriptCollapsed((v) => {
       const next = !v;
+      // Phone: opening the transcript sheet hides the tool sheet (one bottom sheet at a time).
+      if (!next && typeof window !== 'undefined' && window.innerWidth < 768) setActiveSidebarTab('transcript');
       try {
         localStorage.setItem('vireo_transcript_collapsed', next ? '1' : '0');
       } catch {}
@@ -1440,6 +1444,8 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               return;
             }
             setActiveSidebarTab(tab);
+            // Phone: one bottom sheet at a time - choosing a tool closes the transcript sheet.
+            if (typeof window !== 'undefined' && window.innerWidth < 768) setTranscriptCollapsed(true);
             if (tab === 'captions') {
               setInspectorCollapsed(false);
             } else if (

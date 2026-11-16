@@ -139,3 +139,5 @@ test('subjectCenterInWindow takes median in window, null when empty', () => {
   assert.equal(subjectCenterInWindow(k, 20, 30), null);
   assert.equal(subjectCenterInWindow(undefined, 0, 1), null);
 });
+
+test('panel assignment flags require exact boolean true, not truthy strings',()=>{assert.equal(normalizePanels({layout:'gameplay',slots:[{set:'false'} as any]})!.slots[0].set,undefined)});
