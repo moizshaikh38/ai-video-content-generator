@@ -170,9 +170,9 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-scrim select-none">
-      <div className="relative w-full max-w-lg glass-float rounded-3xl overflow-hidden text-neutral-200">
+      <div className="relative w-full max-w-lg max-h-[calc(100dvh-2rem)] flex flex-col glass-float rounded-3xl overflow-hidden text-neutral-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
+        <div className="shrink-0 flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-white/[0.08]">
           <div className="flex items-center gap-2">
             <FileVideo className="w-5 h-5 text-neutral-300" />
             <h3 className="text-base font-semibold text-white">Export Video</h3>
@@ -186,7 +186,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-5">
+        <div className="p-4 md:p-6 space-y-5 flex-1 min-h-0 overflow-y-auto">
           {/* Export Settings Options */}
           {!isRendering && !renderSuccessMsg && (
             <>
@@ -424,7 +424,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-6 py-4 bg-vc-surface1 border-t border-white/[0.08]">
+        <div className="shrink-0 flex items-center justify-end gap-2 px-4 md:px-6 py-3 md:py-4 bg-vc-surface1 border-t border-white/[0.08]">
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-full bg-white/[0.06] hover:bg-white/[0.10] text-neutral-200 hover:text-white border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] active:bg-white/[0.04] text-xs font-medium transition"
