@@ -36,6 +36,8 @@ import {
 import { UpdateProjectOptions } from '../../hooks/useEditorProject';
 import { WaveformClip } from './WaveformClip';
 import { FilmstripClip } from './FilmstripClip';
+import { SceneLayoutBadge } from './SceneLayoutBadge';
+import { applyItemLayout, readItemLayout } from '../../lib/itemLayout';
 import {
   collectSnapPoints,
   rulerXToTime,
@@ -966,12 +968,15 @@ export const Timeline: React.FC<TimelineProps> = ({
                         )}
 
                         {/* Describe the persisted item framing, not a hardcoded Fill label. */}
-                        {showFilmstrip && (
-                          <div className="absolute left-2.5 top-1.5 z-20 pointer-events-none">
-                            <span className="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[10px] font-medium text-white shadow">
-                              {effectiveContentLayout(item,contentFramingDecision) === 'split' ? 'Split' : effectiveContentLayout(item,contentFramingDecision) === 'screencast' ? 'Screen + Cam' : effectiveContentLayout(item,contentFramingDecision) === 'blur' ? 'Blur' : item.crop?.mode === 'fit' ? 'Fit' : item.crop?.mode === 'blur' ? 'Blur' : 'Fill'}
-                            </span>
-                          </div>
+                        {showFilmstrip && track.type === 'VIDEO' && (
+                          <SceneLayoutBadge
+                            label={effectiveContentLayout(item,contentFramingDecision) === 'split' ? 'Split' : effectiveContentLayout(item,contentFramingDecision) === 'screencast' ? 'Screen + Cam' : effectiveContentLayout(item,contentFramingDecision) === 'blur' ? 'Blur' : item.crop?.mode === 'fit' ? 'Fit' : item.crop?.mode === 'blur' ? 'Blur' : 'Fill'}
+                            current={readItemLayout(item)}
+                            onPick={(layout) => {
+                              onCommitProject?.(project);
+                              onUpdateProject(applyItemLayout(project, item.id, layout), { recordHistory: true, markAsDirty: true });
+                            }}
+                          />
                         )}
 
                         {/* Full-height audio waveform for dialogue audio-track clips */}

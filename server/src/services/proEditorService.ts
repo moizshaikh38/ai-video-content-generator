@@ -822,36 +822,42 @@ export class ProEditorService {
     );
 
     if (hasUsableTrack && track) {
+      // Per-scene layout: a user-set item layout (timeline Split/Fill/Fit/Blur menu)
+      // overrides the clip-level layout for this slice only.
+      const itemCfg: any = (item as any).crop_config;
+      const userItemLayout = itemCfg?.layout_mode_source === 'user' ? (item as any).layout_mode : undefined;
+      const effLayout: string = userItemLayout || (reframe!.layoutMode as string);
+      const itemSplit = itemCfg?.split;
       // Labeled layout graphs (split/blur/screencast) are embedded inside the
       // per-slice comma chain here, so they must be chain-safe fragments with
       // graph-unique labels - raw [0:v]...[out] forms abort ffmpeg with
       // "Too many inputs specified for the split filter" (editor split exports
       // failed permanently until this).
       const layoutTag = 'vc' + crypto.createHash('sha256').update(String(item.id || 'x')).digest('hex').slice(0, 16);
-      if (reframe!.layoutMode === 'blur') {
+      if (effLayout === 'blur') {
         return SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: 1080, canvasHeight: 1920, tag: layoutTag });
       }
 
-      if (reframe!.layoutMode === 'split' || reframe!.layoutMode === 'screencast') {
+      if (effLayout === 'split' || effLayout === 'screencast') {
         const splitGeometry =
-          reframe!.layoutMode === 'split'
+          effLayout === 'split'
             ? SmartReframeService.computeSplitSpeakerGeometry({
                 rawSamples: (track as any).raw_samples,
                 sourceWidth: track.source_width || 1920,
                 sourceHeight: track.source_height || 1080,
-                speaker1X: reframe!.cropConfig?.split?.speaker1X,
-                speaker2X: reframe!.cropConfig?.split?.speaker2X,
+                speaker1X: itemSplit?.speaker1X ?? reframe!.cropConfig?.split?.speaker1X,
+                speaker2X: itemSplit?.speaker2X ?? reframe!.cropConfig?.split?.speaker2X,
               })
             : null;
         return SmartReframeService.buildLayoutCropFilter({
-          layoutMode: reframe!.layoutMode as any,
+          layoutMode: effLayout as any,
           aspectRatio: ratio,
           keyframes: track.smoothed_keyframes,
           sourceWidth: track.source_width || 1920,
           sourceHeight: track.source_height || 1080,
           duration: sliceDuration,
-          speaker1X: reframe!.cropConfig?.split?.speaker1X,
-          speaker2X: reframe!.cropConfig?.split?.speaker2X,
+          speaker1X: itemSplit?.speaker1X ?? reframe!.cropConfig?.split?.speaker1X,
+          speaker2X: itemSplit?.speaker2X ?? reframe!.cropConfig?.split?.speaker2X,
           splitGeometry,
           splitFit: (reframe!.cropConfig?.split as any)?.fit,
           splitDividerX: (reframe!.cropConfig?.split as any)?.dividerX,

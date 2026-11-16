@@ -49,3 +49,20 @@ test('pro editor slice filter uses canvas backdrop settings and keeps legacy out
   assert.match(build(blur, {}), /boxblur=25:5/);
   assert.doesNotMatch(build(blur, {}), /geq=/);
 });
+
+test('per-scene user layout overrides the clip-level layout for that slice only', () => {
+  const build = (item: any, layoutMode: string) => (ProEditorService as any).buildSliceCropFilter(item, {
+    aspectRatio: '9:16', cropConfig: null, clipStartSec: 0, mode: 'smart', layoutMode,
+    track: { source_width: 1920, source_height: 1080, smoothed_keyframes: [{ time: 0, centerX: .5, centerY: .5 }, { time: 5, centerX: .6, centerY: .5 }], metadata: {}, isStale: false, raw_samples: [] },
+  }, 0, 5);
+  const plain: any = { id: 's1' };
+  const splitUser: any = { id: 's2', layout_mode: 'split', crop_config: { layout_mode: 'split', layout_mode_source: 'user', split: { speaker1X: .3, speaker2X: .7 } } };
+  const blurUser: any = { id: 's3', layout_mode: 'blur', crop_config: { layout_mode: 'blur', layout_mode_source: 'user' } };
+  const clipTrack = build(plain, 'track');
+  const asSplit = build(splitUser, 'track');
+  const asBlur = build(blurUser, 'track');
+  assert.notEqual(clipTrack, asSplit);
+  assert.notEqual(clipTrack, asBlur);
+  assert.match(asBlur, /boxblur/);
+  assert.equal(build(plain, 'track'), clipTrack);
+});
