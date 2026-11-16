@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { execFile } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import ffmpegStatic from 'ffmpeg-static';
 
@@ -66,6 +66,7 @@ import { SmartReframeService } from './smartReframeService.js';
 import { partitionCaptionCues, shiftCaptionItemsForRippleDelete, cloneCaptionCuesForDuplicate } from '../utils/editorRippleCut.js';
 import { validateEditorSourcePath, isAllowedEditorSourcePath, overlayAssetExtension } from '../utils/editorAssetValidator.js';
 import { roundedCardPng } from '../utils/roundedCardPng.js';
+import { getDrawtextFfmpeg } from '../utils/drawtextFfmpeg.js';
 import { resolveXfadeName, getTransitionPreset, clampTransitionDuration } from '../shared/transitionPresets.js';
 import { drawtextFontArg } from './editorFontFiles.js';
 
@@ -1421,11 +1422,51 @@ export class ProEditorService {
       .sort((a, b) => (a.z_index || 10) - (b.z_index || 10));
 
     for (const ti of allTextItems) {
+      // Rounded background card: when the item asks for a rounded background
+      // and its animation keeps the block centered (none/pop/scale/fade), draw
+      // one synthesized rounded card under the whole block instead of ffmpeg's
+      // per-line square boxes - matching the preview's single rounded card.
+      // Other animations keep the legacy per-line boxes (named limit).
+      let forceNoBox = false;
+      const wantsRoundedCard =
+        !!ti.text?.background_color &&
+        (ti.text?.background_corner_radius ?? 0) > 0 &&
+        ['none', 'pop', 'scale', 'fade'].includes(ti.text?.animation || 'none');
+      if (wantsRoundedCard) {
+        const layout = ProEditorService.layoutTextBlock(ti, canvasW, canvasH, project.canvas.aspect_ratio || '9:16');
+        const bbox = layout && ProEditorService.measureTextBlockBBox(layout, ti.text?.font_weight, canvasW, canvasH);
+        if (layout && bbox) {
+          const pad = layout.boxBorderW;
+          const cardX = Math.max(0, bbox.x - pad);
+          const cardY = Math.max(0, bbox.y - pad);
+          const cardW = Math.min(canvasW - cardX, bbox.w + 2 * pad);
+          const cardH = Math.min(canvasH - cardY, bbox.h + 2 * pad);
+          const radius = Math.round((ti.text!.background_corner_radius || 0) * layout.scaleRatio);
+          const rawBg = (ti.text!.background_color || '').trim().replace(/^#/, '');
+          const alpha = /^[0-9a-fA-F]{8}$/.test(rawBg) ? parseInt(rawBg.slice(6, 8), 16) / 255 : 0.8;
+          const cardPath = path.join(tmpDir, `textcard_${ti.id}.png`);
+          if (!fs.existsSync(cardPath)) {
+            fs.writeFileSync(cardPath, roundedCardPng(cardW, cardH, radius, `#${rawBg.slice(0, 6)}`));
+          }
+          inputArgs.push('-i', cardPath);
+          currentInputIdx++;
+          const cardTag = `[textcard_${currentInputIdx}]`;
+          const nextCardLabel = `[txtcard_${ti.id.slice(0, 6)}]`;
+          const alphaChain = alpha < 0.99 ? `,format=rgba,colorchannelmixer=aa=${alpha.toFixed(2)}` : '';
+          filterComplex.push(`[${currentInputIdx}:v]loop=loop=-1:size=1:start=0,fps=${fps}${alphaChain}${cardTag}`);
+          filterComplex.push(
+            `${videoStreamLabel}${cardTag}overlay=x=${cardX}:y=${cardY}:enable='between(t,${layout.start.toFixed(2)},${layout.end.toFixed(2)})':format=auto${nextCardLabel}`
+          );
+          videoStreamLabel = nextCardLabel;
+          forceNoBox = true;
+        }
+      }
       const drawtextFilter = ProEditorService.compileTextLayerDrawtext(
         ti,
         canvasW,
         canvasH,
-        project.canvas.aspect_ratio || '9:16'
+        project.canvas.aspect_ratio || '9:16',
+        forceNoBox
       );
       if (drawtextFilter) {
         const nextLabel = `[txt_${ti.id.slice(0, 6)}]`;
@@ -1733,12 +1774,17 @@ export class ProEditorService {
    * Compiles an EditorTrackItem with EditorTextConfig into an FFmpeg drawtext filter string.
    * Accurately maps geometry, font size, color, background box, outline, shadow, and motion animations.
    */
-  public static compileTextLayerDrawtext(
+  /** Shared text-block layout: the exact wrap, sizing and geometry both the
+   * drawtext compiler and the rounded-card measurer must agree on. */
+  private static layoutTextBlock(
     item: EditorTrackItem,
     canvasW: number,
     canvasH: number,
     aspectRatio: string = '9:16'
-  ): string | null {
+  ): {
+    safeLines: string[]; font: SafeEditorFont; scaledFontSize: number; scaleRatio: number;
+    posX: number; posY: number; start: number; end: number; boxBorderW: number; lineGap: number;
+  } | null {
     if (!item.text || !item.text.text) return null;
 
     // Multi-line text (e.g. the auto-headline's wrapped title) renders as one drawtext
@@ -1786,17 +1832,85 @@ export class ProEditorService {
         .replace(/%/g, '\\%');
     const safeLines = finalLines.map(sanitizeLine);
 
-    const fontColor = this.sanitizeHexColor(item.text.color, 'FFFFFF');
-    const baseOpacity = item.transform?.opacity ?? 1.0;
-
     const posX = Math.round((item.transform?.position_x || 0) * (canvasW / previewW));
     const posY = Math.round((item.transform?.position_y || 0) * scaleRatio);
 
     const start = Math.max(0, item.timeline_start);
     const end = Math.max(start + 0.1, item.timeline_end);
+
+    const boxBorderW = Math.max(4, Math.round((item.text.background_padding || 8) * scaleRatio));
+    const lineGap = Math.max(2, Math.round(scaledFontSize * 1.15));
+    return { safeLines, font, scaledFontSize, scaleRatio, posX, posY, start, end, boxBorderW, lineGap };
+  }
+
+  /**
+   * Measures the exact rendered bounding box of a text block by drawing it
+   * once with the same drawtext parameters (final, un-animated state) onto a
+   * transparent canvas and scanning the alpha channel. Used to size the
+   * rounded card underlay so it matches the real font metrics instead of an
+   * estimate. Returns null on any probe failure (caller falls back to the
+   * legacy per-line boxes).
+   */
+  private static measureTextBlockBBox(
+    layout: NonNullable<ReturnType<typeof ProEditorService.layoutTextBlock>>,
+    fontWeight: string | undefined,
+    canvasW: number,
+    canvasH: number
+  ): { x: number; y: number; w: number; h: number } | null {
+    try {
+      const probeBin = getDrawtextFfmpeg();
+      if (!probeBin) return null;
+      const { safeLines, font, scaledFontSize, posX, posY, lineGap } = layout;
+      const chain = safeLines
+        .map((lineText, i) => {
+          const offset = (i - (safeLines.length - 1) / 2) * lineGap;
+          return `drawtext=text='${lineText}':${drawtextFontArg(font, fontWeight)}:fontsize=${scaledFontSize}:fontcolor=0xFFFFFF:x='(w-text_w)/2+${posX}':y='(h-text_h)/2+${posY}${offset >= 0 ? '+' : ''}${offset.toFixed(1)}'`;
+        })
+        .join(',');
+      const res = spawnSync(
+        probeBin,
+        ['-y', '-f', 'lavfi', '-i', `color=c=black@0.0:s=${canvasW}x${canvasH},format=rgba`, '-vf', chain, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-'],
+        { maxBuffer: canvasW * canvasH * 4 + 4096, timeout: 20000 }
+      );
+      if (res.status !== 0 || !res.stdout || res.stdout.length < canvasW * canvasH * 4) return null;
+      const buf = res.stdout;
+      let minX = canvasW, minY = canvasH, maxX = -1, maxY = -1;
+      for (let y = 0; y < canvasH; y += 1) {
+        const row = y * canvasW * 4;
+        for (let x = 0; x < canvasW; x += 1) {
+          if (buf[row + x * 4 + 3] > 8) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      if (maxX < 0) return null;
+      return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+    } catch {
+      return null;
+    }
+  }
+
+  public static compileTextLayerDrawtext(
+    item: EditorTrackItem,
+    canvasW: number,
+    canvasH: number,
+    aspectRatio: string = '9:16',
+    forceNoBox: boolean = false
+  ): string | null {
+    const layout = ProEditorService.layoutTextBlock(item, canvasW, canvasH, aspectRatio);
+    if (!layout) return null;
+    const textCfg = item.text!;
+    const { safeLines, font, scaledFontSize, scaleRatio, posX, posY, start, end } = layout;
+
+    const fontColor = this.sanitizeHexColor(textCfg.color, 'FFFFFF');
+    const baseOpacity = item.transform?.opacity ?? 1.0;
+
     const itemDur = end - start;
-    const animDur = Math.min(itemDur * 0.45, item.text.animation_duration || 0.45);
-    const anim = item.text.animation || 'none';
+    const animDur = Math.min(itemDur * 0.45, textCfg.animation_duration || 0.45);
+    const anim = textCfg.animation || 'none';
 
     // Base coordinates: center is (w-text_w)/2 and (h-text_h)/2
     let xExpr = `(w-text_w)/2+${posX}`;
@@ -1822,7 +1936,7 @@ export class ProEditorService {
 
     const filterParts: string[] = [
       `text='${safeLines[0]}'`,
-      drawtextFontArg(font, item.text.font_weight),
+      drawtextFontArg(font, textCfg.font_weight),
       `fontsize='${sizeExpr}'`,
       `fontcolor=0x${fontColor}`,
       `alpha='${alphaExpr}'`,
@@ -1830,26 +1944,28 @@ export class ProEditorService {
       `y='${yExpr}'`,
     ];
 
-    // Background box
-    if (item.text.background_color) {
-      const boxHex = this.sanitizeHexColor(item.text.background_color, '000000');
-      const boxBorderW = Math.max(4, Math.round((item.text.background_padding || 8) * scaleRatio));
+    // Background box (suppressed when the caller draws a rounded card underlay)
+    if (forceNoBox) {
+      filterParts.push('box=0');
+    } else if (textCfg.background_color) {
+      const boxHex = this.sanitizeHexColor(textCfg.background_color, '000000');
+      const boxBorderW = Math.max(4, Math.round((textCfg.background_padding || 8) * scaleRatio));
       filterParts.push(`box=1:boxcolor=0x${boxHex}@0.8:boxborderw=${boxBorderW}`);
     } else {
       filterParts.push('box=0');
     }
 
     // Stroke / outline
-    if (item.text.stroke_width && item.text.stroke_width > 0) {
-      const strokeW = Math.max(1, Math.round(item.text.stroke_width * scaleRatio));
-      const strokeHex = this.sanitizeHexColor(item.text.stroke_color, '000000');
+    if (textCfg.stroke_width && textCfg.stroke_width > 0) {
+      const strokeW = Math.max(1, Math.round(textCfg.stroke_width * scaleRatio));
+      const strokeHex = this.sanitizeHexColor(textCfg.stroke_color, '000000');
       filterParts.push(`borderw=${strokeW}:bordercolor=0x${strokeHex}`);
     }
 
     // Drop shadow
-    if (item.text.shadow_blur && item.text.shadow_blur > 0) {
+    if (textCfg.shadow_blur && textCfg.shadow_blur > 0) {
       const shadowOffset = Math.max(2, Math.round(3 * scaleRatio));
-      const shadowHex = this.sanitizeHexColor(item.text.shadow_color, '000000');
+      const shadowHex = this.sanitizeHexColor(textCfg.shadow_color, '000000');
       filterParts.push(`shadowx=${shadowOffset}:shadowy=${shadowOffset}:shadowcolor=0x${shadowHex}@0.75`);
     }
 
@@ -1860,7 +1976,7 @@ export class ProEditorService {
     }
 
     // Stack lines block-centered on the item position.
-    const lineGap = Math.max(2, Math.round(scaledFontSize * 1.15));
+    const lineGap = layout.lineGap;
     return safeLines
       .map((lineText, i) => {
         const offset = (i - (safeLines.length - 1) / 2) * lineGap;
