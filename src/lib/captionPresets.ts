@@ -123,3 +123,13 @@ export function captionLegacyColorDefaults(caption: EditorCaptionItem | undefine
     highlight_color: caption?.highlight_color || resolved?.activeColor || highlight,
   };
 }
+
+/** Display the actual resolved face, not the two-state faux-bold flag. Read-only. */
+export function captionWeightDisplay(caption?: Pick<EditorCaptionItem, 'font_weight'>, style?: ResolvedCaptionStyle | null) {
+  const raw = caption?.font_weight;
+  const weight = style
+    ? style.fontWeight ?? (style.fontFamily === 'Arial Black' ? 900 : style.bold ? 700 : 400)
+    : typeof raw === 'number' ? raw : raw === 'regular' ? 400 : raw === 'black' ? 900 : 700;
+  const names: Record<number, string> = {100:'Thin',200:'ExtraLight',300:'Light',400:'Regular',500:'Medium',600:'SemiBold',700:'Bold',800:'ExtraBold',900:'Black'};
+  return {weight, label: `${names[weight] || 'Weight'} ${weight}`, toggle: weight === 400 ? 'regular' : weight === 700 ? 'bold' : null};
+}

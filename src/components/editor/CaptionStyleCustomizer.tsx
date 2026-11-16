@@ -13,6 +13,7 @@ import {
 import { EditorCaptionItem } from '../../types';
 import {
   CAPTION_RENDER_FONTS,
+  captionWeightDisplay,
   getCaptionFontSizeBounds,
   clampCaptionFontSize,
   ResolvedCaptionStyle,
@@ -59,9 +60,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
     resolvedStyle?.uppercase ??
     (captionItem?.style === 'bold' || captionItem?.style === 'karaoke' || captionItem?.style === 'highlight');
 
-  const fontWeight =
-    captionItem?.font_weight ??
-    (resolvedStyle ? (resolvedStyle.bold ? 'bold' : 'regular') : 'bold');
+  const weightDisplay = captionWeightDisplay(captionItem, resolvedStyle);
 
   const fontFamily =
     captionItem?.font_family ??
@@ -200,7 +199,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
         <span>•</span>
         <span>{fontSize}px</span>
         <span>•</span>
-        <span className="capitalize">{fontWeight}</span>
+        <span className="capitalize">{weightDisplay.label}</span>
         <span>•</span>
         <span>{isUppercase ? 'ALL CAPS' : 'Normal'}</span>
       </div>
@@ -271,13 +270,14 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
       {/* Font Weight & Letter Spacing */}
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <span className="text-[10px] text-vc-text-secondary font-medium block mb-1">Weight</span>
+          <span className="text-[10px] text-vc-text-secondary font-medium block mb-1">Weight <span data-testid="caption-weight-face" className="font-mono">{weightDisplay.label}</span></span>
           <div className="grid grid-cols-2 p-0.5 bg-vc-surface1 rounded-lg ">
             <button
               type="button"
               onClick={() => onChange({ font_weight: 'regular' })}
+              aria-pressed={weightDisplay.toggle === 'regular'}
               className={`py-1 rounded-md text-[11px] font-medium transition flex items-center justify-center ${
-                fontWeight === 'regular'
+                weightDisplay.toggle === 'regular'
                   ? 'bg-white/[0.12] text-white font-semibold border border-white/20 shadow-sm'
                   : 'text-vc-text-secondary hover:text-white'
               }`}
@@ -287,8 +287,9 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
             <button
               type="button"
               onClick={() => onChange({ font_weight: 'bold' })}
+              aria-pressed={weightDisplay.toggle === 'bold'}
               className={`py-1 rounded-md text-[11px] font-medium transition flex items-center justify-center ${
-                fontWeight !== 'regular'
+                weightDisplay.toggle === 'bold'
                   ? 'bg-white/[0.12] text-white font-semibold border border-white/20 shadow-sm'
                   : 'text-vc-text-secondary hover:text-white'
               }`}

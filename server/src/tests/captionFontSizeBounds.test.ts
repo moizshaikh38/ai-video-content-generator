@@ -14,3 +14,6 @@ it('producer plan cannot expand size using an unapplied family parameter',()=>{c
 
 import {editorCaptionToPresetOverrides,resolveEditorCaptionStyle} from '../../../src/lib/captionPresets';
 it('equivalent numeric bound weights preserve Glide800 and SoftCut600 faces',()=>{for(const [style,font_weight,want] of [['glide',800,800],['soft_cut',600,600]]as const){const cap={style,font_weight,cues:[]}as any;assert.equal(editorCaptionToPresetOverrides(cap).bold,false);assert.equal(resolveEditorCaptionStyle(cap,'9:16')?.fontWeight,want)}assert.equal(editorCaptionToPresetOverrides({style:'glide',font_weight:'bold',cues:[]}as any).bold,true)});
+
+import {captionWeightDisplay} from '../../../src/lib/captionPresets';
+it('weight labels use actual bound face with neither faux toggle selected',()=>{for(const [style,weight,label]of [['glide',800,'ExtraBold 800'],['soft_cut',600,'SemiBold 600']]as const){const cap={style,cues:[]}as any;const before=JSON.stringify(cap);assert.deepEqual(captionWeightDisplay(cap,resolveEditorCaptionStyle(cap,'9:16')),{weight,label,toggle:null});assert.equal(JSON.stringify(cap),before)}assert.deepEqual(captionWeightDisplay({font_weight:'regular'}),{weight:400,label:'Regular 400',toggle:'regular'});assert.equal(captionWeightDisplay({font_weight:'bold'}).toggle,'bold')});
