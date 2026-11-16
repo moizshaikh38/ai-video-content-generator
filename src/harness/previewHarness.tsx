@@ -300,7 +300,20 @@ function ShellTemplateApp() {
           onUndo: () => {}, onRedo: () => {},
           onUpdateProject: (updater: any) => { setProject((prev) => updater(prev)); setSaveStatus('dirty'); },
           onCommitProject: () => {},
-          onUpdateTrackItem: () => {}, onUpdateCueText: () => {}, onDeleteCue: () => {},
+          // Real item update so crop-drag/manual-override paths are exercisable
+          // in this harness (the real ClipEditorPage updates state + persists).
+          onUpdateTrackItem: (trackId: string, itemId: string, updates: any) => {
+            setProject((prev: any) => ({
+              ...prev,
+              tracks: prev.tracks.map((t: any) =>
+                t.id === trackId
+                  ? { ...t, items: t.items.map((i: any) => (i.id === itemId ? { ...i, ...updates } : i)) }
+                  : t
+              ),
+            }));
+            setSaveStatus('dirty');
+          },
+          onUpdateCueText: () => {}, onDeleteCue: () => {},
           onSplitTrackItem: () => {}, onRippleDeleteTrackItem: () => {},
           onDuplicateTrackItem: () => {}, onReloadData: async () => {},
         } as any)}
