@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import React, { useEffect, useRef, useState } from 'react';
 import { Crop, X } from 'lucide-react';
 import { boxFromCrop, cropFromBox, moveBox, resizeBox, type CropBox, type CropState } from '../../lib/cropBox';
@@ -35,7 +36,7 @@ export const CropBoxControl: React.FC<Props> = ({ videoSrc, sourceTime, srcW, sr
         title={enabled ? 'Crop: drag the box, resize from a corner' : 'Crop applies to Fill scenes. Set this scene to Fill first.'}>
         <Crop className="w-3.5 h-3.5" /><span>Crop</span>
       </button>
-      {open && (
+      {open && createPortal(
         <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center" onClick={() => setOpen(false)}>
           <div className="bg-vc-surface1 border border-white/10 rounded-2xl p-5 w-[560px] max-w-[92vw] text-neutral-200" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1"><h3 className="text-sm font-semibold text-white">Crop</h3><button onClick={() => setOpen(false)} aria-label="Close"><X className="w-4 h-4" /></button></div>
@@ -67,7 +68,8 @@ export const CropBoxControl: React.FC<Props> = ({ videoSrc, sourceTime, srcW, sr
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
