@@ -30,7 +30,11 @@ export function applyItemLayout(project: EditorProject, itemId: string, layout: 
           const base: any = { ...i, crop_config: { ...((i as any).crop_config || {}), layout_mode: layout === 'split' ? 'split' : 'track', layout_mode_source: 'user' } };
           base.layout_mode = layout === 'split' ? 'split' : 'track';
           if (layout === 'fit' || layout === 'blur') {
-            base.crop = { mode: layout, focusX: i.crop?.focusX ?? 0.5, focusY: i.crop?.focusY ?? 0.5, scale: i.crop?.scale ?? 1 };
+            // Fit defaults to the blurred backdrop (no black bars). Only a colour the user explicitly picked
+            // in the Background panel (non-black canvas.background_color) keeps the plain letterbox 'fit'.
+            const bg = String((project.canvas as any)?.background_color || '').replace('#', '').toLowerCase();
+            const mode = layout === 'fit' && bg && bg !== '000000' ? 'fit' : layout === 'fit' ? 'blur' : layout;
+            base.crop = { mode, focusX: i.crop?.focusX ?? 0.5, focusY: i.crop?.focusY ?? 0.5, scale: i.crop?.scale ?? 1 };
           } else {
             delete base.crop;
           }
