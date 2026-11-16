@@ -114,3 +114,25 @@ smaller scale. Balcony still problematic at the opening, talking-head remains
 thinband because its face-free shot shares full-fit size across the entire clip.
 Not an aesthetic pass. These are helper graphs, not new actual Quick/Pro API or
 interactive editor acceptance. No release or full-parity claim.
+
+### Independent game benchmark, 16 Nov 21:05 IST
+
+Actual SuperTuxKart benchmark recording, not the prior synthetic game+camera
+fixture. Source: https://commons.wikimedia.org/wiki/File:Benchmark_SuperTux_Kart_Base_Profile_2025.07.04_-_10.19.10.02.webm
+Credit: SuperTux Kart-Autoren, uploader PantheraLeo1359531. CC BY-SA 4.0:
+https://creativecommons.org/licenses/by-sa/4.0/deed.en . Local changes: 15-27s
+excerpt of Wikimedia's 480p VP9 derivative, then portrait blurred-background fit.
+No facecam was added. The local render helper omits audio intentionally.
+
+48 samples at4Hz, explicit YuNet+NanoDet: 2 transient face boxes and20 person
+boxes. Reviewed face boxes are on scenery/HUD, not a person. The composition
+stays full-source with unresolved context under both default and opt-in review
+policies. Actual output: 12.000s,360frames,1080x1920,30fps. Sampled decoded output
+frames at0/3/6/9s show minimap, timer, rank gauge and kart within the unchanged
+source rectangle. A detected cut at7.75s is not treated as semantic game boundary
+proof. This is a false-crop guard qualification, NOT improved gaming composition,
+active-speaker evidence, automatic game/HUD segmentation or final vertical
+quality. Most of the portrait canvas remains blurred background.
+
+Recorded the numeric detector payload (no video) as a provenance-bearing test
+fixture to prevent transient detections becoming an invented subject crop.

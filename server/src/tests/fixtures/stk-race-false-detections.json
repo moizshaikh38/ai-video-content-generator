@@ -1,0 +1,447 @@
+{
+  "provenance": {
+    "page": "https://commons.wikimedia.org/wiki/File:Benchmark_SuperTux_Kart_Base_Profile_2025.07.04_-_10.19.10.02.webm",
+    "derivative": {
+      "bandwidth": 1550248,
+      "height": 480,
+      "src": "https://upload.wikimedia.org/wikipedia/commons/transcoded/b/b3/Benchmark_SuperTux_Kart_Base_Profile_2025.07.04_-_10.19.10.02.webm/Benchmark_SuperTux_Kart_Base_Profile_2025.07.04_-_10.19.10.02.webm.480p.vp9.webm",
+      "transcodekey": "480p.vp9.webm",
+      "type": "video/webm; codecs=\"vp9, opus\"",
+      "width": 854
+    },
+    "credit": "SuperTux Kart-Autoren; uploader PantheraLeo1359531",
+    "license": "CC BY-SA 4.0",
+    "licenseURL": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "changes": "15-27 seconds excerpt, scaled and rendered as portrait blurred background single-view"
+  },
+  "sample_fps": 4,
+  "duration": 12,
+  "source_width": 854,
+  "source_height": 480,
+  "scene_cuts": [
+    7.75
+  ],
+  "samples": [
+    {
+      "time": 0,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 0.25,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 0.5,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 0.75,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 1,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 1.25,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.2549,
+          "y": 0.0048,
+          "width": 0.2245,
+          "height": 0.2825,
+          "confidence": 0.4837
+        }
+      ]
+    },
+    {
+      "time": 1.5,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 1.75,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 2,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 2.25,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.2627,
+          "y": 0.007,
+          "width": 0.2165,
+          "height": 0.3137,
+          "confidence": 0.4372
+        }
+      ]
+    },
+    {
+      "time": 2.5,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 2.75,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 3,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 3.25,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.2498,
+          "y": 0.0072,
+          "width": 0.2287,
+          "height": 0.3015,
+          "confidence": 0.4111
+        }
+      ]
+    },
+    {
+      "time": 3.5,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 3.75,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4477,
+          "y": 0.5327,
+          "width": 0.1181,
+          "height": 0.1377,
+          "confidence": 0.5218
+        },
+        {
+          "x": 0.4675,
+          "y": 0.5286,
+          "width": 0.0793,
+          "height": 0.1272,
+          "confidence": 0.5062
+        }
+      ]
+    },
+    {
+      "time": 4,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4477,
+          "y": 0.5412,
+          "width": 0.1299,
+          "height": 0.1743,
+          "confidence": 0.4541
+        }
+      ]
+    },
+    {
+      "time": 4.25,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 4.5,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 4.75,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 5,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.2166,
+          "y": 0.0003,
+          "width": 0.1561,
+          "height": 0.4259,
+          "confidence": 0.4419
+        }
+      ]
+    },
+    {
+      "time": 5.25,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 5.5,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 5.75,
+      "faces": [
+        {
+          "x": 0.5117,
+          "y": 0.025,
+          "width": 0.0316,
+          "height": 0.0667,
+          "center_x": 0.5275,
+          "center_y": 0.0583,
+          "confidence": 0.83,
+          "track_id": "subject_1",
+          "area": 0.0021,
+          "mouth_score": 0.04
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.4089,
+          "y": 0.03,
+          "width": 0.1363,
+          "height": 0.3581,
+          "confidence": 0.5086
+        },
+        {
+          "x": 0.7738,
+          "y": 0.6938,
+          "width": 0.1844,
+          "height": 0.2939,
+          "confidence": 0.4258
+        }
+      ]
+    },
+    {
+      "time": 6,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 6.25,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 6.5,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4745,
+          "y": 0.5168,
+          "width": 0.061,
+          "height": 0.1236,
+          "confidence": 0.4091
+        }
+      ]
+    },
+    {
+      "time": 6.75,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4759,
+          "y": 0.484,
+          "width": 0.0578,
+          "height": 0.1247,
+          "confidence": 0.5143
+        },
+        {
+          "x": 0.366,
+          "y": 0.4264,
+          "width": 0.0614,
+          "height": 0.094,
+          "confidence": 0.4222
+        },
+        {
+          "x": 0.1459,
+          "y": 0.2234,
+          "width": 0.0821,
+          "height": 0.2805,
+          "confidence": 0.4122
+        }
+      ]
+    },
+    {
+      "time": 7,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 7.25,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.2412,
+          "y": 0.6656,
+          "width": 0.1308,
+          "height": 0.3265,
+          "confidence": 0.4342
+        }
+      ]
+    },
+    {
+      "time": 7.5,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 7.75,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 8,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.0016,
+          "y": 0.007,
+          "width": 0.0387,
+          "height": 0.1746,
+          "confidence": 0.5295
+        },
+        {
+          "x": 0.7428,
+          "y": 0.8812,
+          "width": 0.0758,
+          "height": 0.1188,
+          "confidence": 0.414
+        }
+      ]
+    },
+    {
+      "time": 8.25,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 8.5,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4289,
+          "y": 0.0274,
+          "width": 0.2352,
+          "height": 0.3265,
+          "confidence": 0.5194
+        }
+      ]
+    },
+    {
+      "time": 8.75,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 9,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.8685,
+          "y": 0.8569,
+          "width": 0.0722,
+          "height": 0.1427,
+          "confidence": 0.455
+        }
+      ]
+    },
+    {
+      "time": 9.25,
+      "faces": [
+        {
+          "x": 0.0492,
+          "y": 0.8021,
+          "width": 0.0211,
+          "height": 0.0458,
+          "center_x": 0.0597,
+          "center_y": 0.825,
+          "confidence": 0.62,
+          "track_id": "subject_2",
+          "area": 0.001,
+          "mouth_score": 0.091
+        }
+      ],
+      "persons": []
+    },
+    {
+      "time": 9.5,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 9.75,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 10,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 10.25,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 10.5,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 10.75,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 11,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4717,
+          "y": 0.5216,
+          "width": 0.0588,
+          "height": 0.0867,
+          "confidence": 0.4079
+        }
+      ]
+    },
+    {
+      "time": 11.25,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4641,
+          "y": 0.523,
+          "width": 0.0795,
+          "height": 0.0969,
+          "confidence": 0.4449
+        }
+      ]
+    },
+    {
+      "time": 11.5,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 11.75,
+      "faces": [],
+      "persons": []
+    }
+  ]
+}
