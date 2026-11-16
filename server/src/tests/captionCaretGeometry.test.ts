@@ -13,6 +13,17 @@ describe('Shared Typewriter caret geometry',()=>{
   assert.ok(Math.abs((b.x-a.x)-.2*s.playResX)<.001);
   assert.ok(Math.abs((b.y-a.y)-(.8*s.playResY-(s.playResY-s.marginV)))<.001);
  });
+ it('honors explicit manual center anchor without changing bottom/default geometry',()=>{
+  const s=resolveCaptionPreset('typewriter');
+  for(const text of['To get started','To get\\Nstarted']){
+   const c={...cue,text,position_x:.5,position_y:.8};
+   const bottom=getCaptionCaret({...c,position_anchor:'bottom'},1.16,s)!;
+   const legacy=getCaptionCaret(c,1.16,s)!;
+   const center=getCaptionCaret({...c,position_anchor:'center'},1.16,s)!;
+   assert.equal(bottom.y,legacy.y);assert.equal(center.x,bottom.x);
+   assert.ok(Math.abs((center.y-bottom.y)-s.fontSize*(text.includes('\\N')?1:.5))<1e-6);
+  }
+ });
  it('moves to the second line at a timed line break',()=>{
   const s=resolveCaptionPreset('typewriter');const c={...cue,text:'To get\\Nstarted'};
   const a=getCaptionCaret(c,.56,s)!;const b=getCaptionCaret(c,1.16,s)!;
@@ -29,7 +40,8 @@ describe('Shared Typewriter caret geometry',()=>{
  it('emits separate vector layers without moving or reflowing the text',()=>{
   const events=buildPresetCueEvents(cue,resolveCaptionPreset('typewriter'));
   assert.ok(events.filter(e=>e.startsWith('Dialogue: 1,')).every(e=>e.includes('\\an7')&&e.includes('\\bord0\\shad0')));
-  assert.equal(events.filter(e=>e.startsWith('Dialogue: 1,')).length,events.filter(e=>e.startsWith('Dialogue: 0,')).length);
+  assert.ok(events.some(e=>e.startsWith('Dialogue: 1,')));
+  assert.ok(events.filter(e=>e.startsWith('Dialogue: 1,')).length<=events.filter(e=>e.startsWith('Dialogue: 0,')).length);
  });
 });
 

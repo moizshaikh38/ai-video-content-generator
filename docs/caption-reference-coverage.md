@@ -366,3 +366,35 @@ source segments or user edits. Soft Build timing/grouping and all other families
 170targetedtests(26suites)and bothTypeScriptchecks pass for this focused change. Current coverage
 remains4candidates,40unmatched,0Opus-verified. No integrated save/render or production claim is
 made by these local checks.
+
+## Soft Cut hold and Typewriter idle-caret correction
+
+A second separately applied Soft Cut preview confirmed that its single word also holds through
+short speech gaps. The same independent bounded pause policy now applies to this named family,
+not all single-word styles. Metadata/cue boundaries and original word timing remain unchanged.
+Its font size remains88. Reference/local glyph proportions on three words do not agree by a
+uniform scale, so copying Word Cut's106size would be unjustified. This font-shape gap is open.
+
+Typewriter applied preview shows an idle blinking yellow caret while the phrase remains visible.
+A deterministic independent500mscycle(250mson,250msoff)now begins after the existing reveal
+model finishes all words. This is a candidate timing choice, NOT measured reference blink timing.
+Typing itself still follows Vireo's existing per-word reveal model. The reference may instead use
+phrase-relative typing, but the editor clock suffix/FPS and its relation to rendered canvas state
+are unresolved. A derivative video frame rate does not establish editor timeline units. No exact
+character rate or timing equivalence is claimed. Export includes blink boundaries explicitly;
+preview seek and ASS therefore use the same state, with text continuously visible during off.
+
+Expanded actualCSS/losslessASSchecks found an existing explicit-center-anchor caret defect:
+exported caret sat26pxabove preview at720width while the glyphs remained centered. The shared
+caret geometry now subtracts half its block height for position_anchor:center only. Legacy and
+explicit bottom geometry are unchanged; no common text baseline or scene-placement model changed.
+One-line on/off/on and two-line center-anchor pixels were inspected after the fix. Caret vertical
+bounds agree on the tested center fixture; small1pxhorizontal/raster differences remain.
+Soft Cut local hold/clear pixels were also inspected. These are direct/pre-regrouped harnesses,
+not actual Studio/CaptionService pipeline qualification.
+
+Important integration caveat discovered by the owner: actual CaptionService and PreviewCanvas
+had independent raw-editor-cue paths that bypassed regroup. The owner added Word Cut-only
+post-placement gates. Soft Cut needs its own explicit owner-coordinated extension in BOTH paths;
+this shared-only change does not imply those gates cover it. No service/PreviewCanvas edits here.
+Current180targetedtests(28suites)and bothTypeScriptchecks pass. Coverage stays4/40/0.

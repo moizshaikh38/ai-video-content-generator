@@ -1,3 +1,4 @@
+import{isCaptionCaretVisible,getCaptionCaretBlinkBoundaries}from'./captionCaretBlink.js';
 import { POPPINS_BOLD_ADVANCES } from './captionPoppinsMetrics.js';
 import { getCaptionChipStates, type CaptionChipState } from './captionChipState.js';
 import { getCaptionMovingBox, type CaptionMovingBoxState } from './captionMovingBox.js';
@@ -1434,13 +1435,14 @@ export function regroupCuesForPreset(cues: PresetTimedCue[], style: ResolvedCapt
     for (let i=0;i<parts.length;i++) {
       const part=parts[i];
       const start=Math.max(cue.start,part.start);
-      // Word Cut keeps its last displayed word through short inter-word pauses.
+      // Separately observed Word Cut / Soft Cut applied previews keep the last
+      // displayed word through short inter-word pauses.
       // Only extend inside this original edited cue, never through a scene/preset/
       // manual-position boundary, a long silence, or beyond the final word.
       const nextPart=parts[i+1];
       const gap=nextPart?Number((nextPart.start-part.end).toFixed(3)):0;
-      const holdShortGap=style.presetId==='word_cut'&&style.maxWordsPerCue===1
-        &&(!cue.presetOverride||cue.presetOverride==='word_cut')
+      const holdShortGap=(style.presetId==='word_cut'||style.presetId==='soft_cut')&&style.maxWordsPerCue===1
+        &&(!cue.presetOverride||cue.presetOverride===style.presetId)
         &&gap>0&&gap<=0.45;
       const end=Math.min(cue.end,holdShortGap?nextPart.start:part.end);
       if (end<=start) continue;
@@ -1858,6 +1860,14 @@ export function getCaptionRollingGeometry(cue:Pick<PresetTimedCue,'position_x'|'
   return {height,width,centerX,bottomY,lineHeight:style.fontSize,stagger:style.fontSize*.7};
 }
 
+/** Existing per-word reveal completion. The reference typing-rate model is not yet qualified. */
+function getCaptionCharacterCompletionTime(words:PresetTimedWord[]):number {
+  return Math.max(...words.map(word=>{
+    const count=Math.max(1,splitCaptionGraphemes(word.text).length);
+    return Number((word.start+Math.max(.01,(word.end-word.start)*.8)*(count-1)/count).toFixed(2));
+  }));
+}
+
 /** One monospaced caret position in canvas units, shared by preview and ASS.
  * Text retains its full line width while glyphs reveal. No caret for unqualified fonts,
  * segment timing, proportional custom scaling or words whose custom case changes width. */
@@ -1865,6 +1875,7 @@ export function getCaptionCaret(cue: PresetTimedCue, time: number, style: Resolv
   if (!style.caretColor || style.reveal !== 'character' || style.fontFamily !== 'JetBrains Mono') return null;
   const words = getValidCueWords(cue);
   if (!words.length || words.some(w => w.customStyle?.fontSizeMultiplier || w.customStyle?.uppercase || /[^\x20-\x7E]/.test(w.text))) return null;
+  if(!isCaptionCaretVisible(time,getCaptionCharacterCompletionTime(words)))return null;
   const breakIdx = getCueLineBreakIndex(cue, words.length);
   const lines = breakIdx >= 0 ? [words.slice(0, breakIdx + 1), words.slice(breakIdx + 1)] : [words];
   let index = 0;
@@ -1883,7 +1894,7 @@ export function getCaptionCaret(cue: PresetTimedCue, time: number, style: Resolv
   const blockHeight = lines.length * style.fontSize;
   const topAligned = align >= 7;
   const middleAligned = align >= 4 && align <= 6;
-  const top = cue.position_y !== undefined ? Math.max(.08, Math.min(.92,cue.position_y)) * style.playResY - blockHeight : topAligned ? style.marginV : middleAligned ? (style.playResY - blockHeight)/2 : style.playResY - style.marginV - blockHeight;
+  const top = cue.position_y !== undefined ? Math.max(.08, Math.min(.92,cue.position_y)) * style.playResY - blockHeight*(cue.position_anchor==='center'?.5:1) : topAligned ? style.marginV : middleAligned ? (style.playResY - blockHeight)/2 : style.playResY - style.marginV - blockHeight;
   const before = line.slice(0,localIndex).reduce((n,w) => n + splitCaptionGraphemes(w.text).length + 1, 0);
   const shown = getWordRevealState(words[index],time,style.reveal).visibleCharacters ?? 0;
   return { x: left + (before + shown) * advance, y: top + lineIdx * style.fontSize + style.fontSize * (0.30 + (FONT_PREVIEW_BASELINE_SHIFT['JetBrains Mono'] ?? 0)), width: advance * 0.72, height: style.fontSize * .54, color: style.caretColor };
@@ -2264,6 +2275,9 @@ function buildPresetCueEventsBare(cue: PresetTimedCue, baseStyle: ResolvedCaptio
         const t = w.start + duration * i / steps;
         if (t > cue.start && t < cue.end) boundaries.add(t);
       }
+    }
+    if(style.caretColor&&style.reveal==='character'&&style.fontFamily==='JetBrains Mono'){
+      for(const t of getCaptionCaretBlinkBoundaries(cue.start,cue.end,getCaptionCharacterCompletionTime(words)))boundaries.add(t);
     }
     if(style.exitFadeMs){
       const duration=Math.min(style.exitFadeMs/1000,(cue.end-cue.start)/2);
