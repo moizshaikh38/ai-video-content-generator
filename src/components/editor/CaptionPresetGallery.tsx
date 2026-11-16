@@ -130,7 +130,7 @@ const PresetCardPreview: React.FC<PresetCardPreviewProps> = React.memo(({
   // Enlarge for legibility, but never so far that a line would exceed the card (no re-wrapping).
   const base = effectiveWidth / style.playResX;
   const approxLinePx = longestLine * style.fontSize * FONT_EM_PER_ASS_SIZE[style.fontFamily] * 0.66 * base;
-  const approxHeight = style.fontSize * (lineCount-1 + FONT_EM_PER_ASS_SIZE[style.fontFamily]*.85) * base;
+  const approxHeight = style.backdropBand ? (style.fontSize*lineCount+style.backdropBand.paddingY*2)*base : style.fontSize * (lineCount-1 + FONT_EM_PER_ASS_SIZE[style.fontFamily]*.85) * base;
   const zoom = Math.min(CARD_ZOOM, (effectiveWidth - 20) / Math.max(1, approxLinePx), 68 / Math.max(1,approxHeight));
 
   return <CaptionPresetRenderer style={cardStyle} frame={frame} scale={base * zoom} noWrap />;

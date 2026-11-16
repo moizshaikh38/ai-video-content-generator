@@ -100,6 +100,7 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
             : ''
         }`}
       >
+        {style.backdropBand && <div data-caption-backdrop-band="true" style={{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-50%)',width:(style.playResX-style.backdropBand.insetX*2)*scale,height:(style.fontSize*lines.filter(l=>l.length>0).length+style.backdropBand.paddingY*2)*scale,backgroundColor:style.backdropBand.color,opacity:style.backdropBand.opacity}}/>}
         {frame.rollingRows ? (()=>{
           const g=getCaptionRollingGeometry({position_x:frame.positionX,position_y:frame.positionY},style);
           return <div data-caption-rolling-rows="true" style={{position:'relative',width:g.width*scale,height:g.height*scale}}>

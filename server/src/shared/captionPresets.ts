@@ -46,6 +46,7 @@ export const CAPTION_PRESET_IDS = [
   'soft_cut',
   'retro_3d',
   'crossline',
+  'with_backdrop',
 ] as const;
 
 export type CaptionPresetId = (typeof CAPTION_PRESET_IDS)[number];
@@ -84,6 +85,7 @@ export const PRESET_ONLY_CAPTION_STYLES = [
   'soft_cut',
   'retro_3d',
   'crossline',
+  'with_backdrop',
 ] as const;
 
 /** Every value accepted for `caption_style`. */
@@ -127,7 +129,7 @@ export function resolveRenderPresetId(
 // ── Fonts ────────────────────────────────────────────────────────
 
 /** Fonts the export renderer allows (mirrors SAFE_FONT_FAMILIES in server types). */
-export const CAPTION_RENDER_FONTS = ['Cal Sans', 'Bungee', 'Figtree', 'JetBrains Mono', 'League Spartan', 'Inter', 'Arial', 'Arial Black', 'DejaVu Sans', 'Liberation Sans'] as const;
+export const CAPTION_RENDER_FONTS = ['Lemon', 'Cal Sans', 'Bungee', 'Figtree', 'JetBrains Mono', 'League Spartan', 'Inter', 'Arial', 'Arial Black', 'DejaVu Sans', 'Liberation Sans'] as const;
 export type CaptionRenderFont = (typeof CAPTION_RENDER_FONTS)[number];
 export const CAPTION_FALLBACK_FONT: CaptionRenderFont = 'Arial';
 
@@ -136,7 +138,7 @@ export const CAPTION_FALLBACK_FONT: CaptionRenderFont = 'Arial';
  * through libass on the export host; the other CAPTION_RENDER_FONTS stay accepted for
  * API compatibility but may be substituted by the system font matcher.
  */
-export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Cal Sans', 'Arial', 'Arial Black', 'Inter', 'JetBrains Mono', 'League Spartan', 'Figtree', 'Bungee'];
+export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Lemon', 'Cal Sans', 'Arial', 'Arial Black', 'Inter', 'JetBrains Mono', 'League Spartan', 'Figtree', 'Bungee'];
 
 /**
  * libass scales a font so that (ascent + descent) equals the ASS font size, while CSS
@@ -145,6 +147,7 @@ export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Cal Sans', 'A
  * and fontselect logs. Other historical font ratios are preserved.
  */
 export const FONT_EM_PER_ASS_SIZE: Record<CaptionRenderFont, number> = {
+  Lemon: 1000 / 1553,
   'Cal Sans': 1000 / 1362,
   Bungee: 1000 / 2574,
   Figtree: 1000 / 1201,
@@ -160,6 +163,7 @@ export const FONT_EM_PER_ASS_SIZE: Record<CaptionRenderFont, number> = {
 /** Baseline offsets measured against bundled libass faces, as a fraction of ASS size.
  * Keep historical faces unchanged; these align the newly qualified candidate families. */
 export const FONT_PREVIEW_BASELINE_SHIFT: Partial<Record<CaptionRenderFont, number>> = {
+  Lemon: 0,
   'Cal Sans': 0.086022, // 4px at540wide/ASS93, measured against libass pixels
   Bungee: 0,
   Figtree: 0.034091, // 1.5px correction at540px wide, qualified with actual renders
@@ -180,6 +184,7 @@ export function clampCaptionFontSize(value: number,fontFamily: unknown,fallback=
 
 /** CSS font stacks used by the preview for each export font. */
 export const FONT_CSS_STACK: Record<CaptionRenderFont, string> = {
+  Lemon: "'Lemon', serif",
   'Cal Sans': "'Cal Sans', sans-serif",
   Bungee: "'Bungee', sans-serif",
   Figtree: "'Figtree', sans-serif",
@@ -214,6 +219,8 @@ export type CaptionReveal = 'all' | 'build' | 'character';
 export interface CaptionShadowLayer { x?: number; y: number; opacity: number; color: string }
 
 export interface CaptionPresetDefinition {
+  backdropBand?: { color:string; opacity:number; paddingY:number; insetX:number };
+  exitFadeMs?:number;
   rollingRows?: boolean;
   wordLift?: { distance: number; durationMs: number };
   shadowLayers?: readonly CaptionShadowLayer[];
@@ -333,6 +340,16 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
     box: null, activeWordBox: null,
     layout: { anchor: 'bottom', marginV: 320, marginH: 70, maxWordsPerCue: 1, maxLines: 2, maxCharsPerLine: 24 },
     highlight: 'none', wordAnimation: NO_ANIMATION, entrance: NO_ENTRANCE, reveal: 'all',
+  },
+  with_backdrop: {
+    qualification: 'candidate', id: 'with_backdrop', label: 'With Backdrop',
+    description: 'Yellow rounded display text builds above a broad dark band, then fades away.', sampleText: 'To get started',
+    font: { family: 'Lemon', bold: false, size: 62, uppercase: false, letterSpacing: 0 },
+    colors: { text: '#F4FF5B', active: '#F4FF5B', activeText: '#F4FF5B', outline: '#000000', shadow: '#000000', shadowOpacity: .3 },
+    outline: 0, shadow: 1, backdropBand: { color:'#000000',opacity:.35,paddingY:28,insetX:24 }, exitFadeMs:160,
+    box: null, activeWordBox: null,
+    layout: { anchor: 'bottom', marginV: 320, marginH: 70, maxWordsPerCue: 4, maxLines: 2, maxCharsPerLine: 10 },
+    highlight: 'none', wordAnimation: NO_ANIMATION, entrance: NO_ENTRANCE, reveal: 'build',
   },
   crossline: {
     qualification: 'candidate', id: 'crossline', label: 'Crossline',
@@ -729,6 +746,7 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
 
 export const CAPTION_PRESET_LABELS: Record<CaptionPresetId, string> = {
   none: 'No captions',
+  with_backdrop: CAPTION_PRESETS.with_backdrop.label,
   crossline: CAPTION_PRESETS.crossline.label,
   retro_3d: CAPTION_PRESETS.retro_3d.label,
   soft_cut: CAPTION_PRESETS.soft_cut.label,
@@ -808,6 +826,8 @@ export interface CaptionPresetOverrides {
 }
 
 export interface ResolvedCaptionStyle {
+  backdropBand?: { color:string; opacity:number; paddingY:number; insetX:number };
+  exitFadeMs?:number;
   rollingRows?: boolean;
   wordLift?: { distance: number; durationMs: number };
   fontWeight?: number;
@@ -1087,6 +1107,7 @@ export function resolveCaptionPreset(
 
   return {
     presetId: id,
+    backdropBand:o.boxEnabled===true?undefined:p.backdropBand, exitFadeMs:p.exitFadeMs,
     rollingRows: p.rollingRows,
     wordLift: p.wordLift,
     reveal: p.reveal ?? 'all',
@@ -1638,6 +1659,7 @@ export interface PreviewFrame {
 /** Computes exactly what the exported ASS shows for `cue` at `time` (seconds, clip-local). */
 export function getPreviewFrame(cue: PresetTimedCue, time: number, style: ResolvedCaptionStyle): PreviewFrame {
   const validWords = getValidCueWords(cue);
+  const exitOpacity = getCaptionExitOpacity(cue,time,style);
   const entranceOpacity = getEntranceOpacityAt(style.entrance, (time - cue.start) * 1000);
   if (canUseCaptionRollingRows(cue,style)) return {
     cueId:cue.id,words:[{text:cue.text,highlighted:false,active:false,scale:1,breakAfter:false}],
@@ -1688,12 +1710,27 @@ export function getPreviewFrame(cue: PresetTimedCue, time: number, style: Resolv
       breakAfter: i === breakIdx,
       customStyle: w.customStyle,
     })),
-    opacity: isFirstSlice ? entranceOpacity : 1,
+    opacity: (isFirstSlice ? entranceOpacity : 1)*exitOpacity,
     wordTiming: true,
     positionX: cue.position_x,
     positionY: cue.position_y,
       positionAnchor: cue.position_anchor,
   };
+}
+
+/** Candidate closing fade. Segment-only text remains static without fabricated word timing. */
+export function getCaptionExitOpacity(cue:PresetTimedCue,time:number,style:ResolvedCaptionStyle):number{
+  if(!style.exitFadeMs||!getValidCueWords(cue).length)return 1;
+  const duration=Math.min(style.exitFadeMs/1000,(cue.end-cue.start)/2);
+  if(duration<=0)return 1;
+  return Math.max(0,Math.min(1,(cue.end-Number(time.toFixed(2)))/duration));
+}
+export function getCaptionBackdropGeometry(cue:Pick<PresetTimedCue,'position_x'|'position_y'>,style:ResolvedCaptionStyle,lineCount:number){
+  const lines=Math.max(1,Math.min(2,lineCount)),h=style.fontSize*lines;
+  const x=cue.position_x!==undefined?cue.position_x*style.playResX:(style.marginL+style.playResX-style.marginR)/2;
+  const y=cue.position_y!==undefined?cue.position_y*style.playResY-h/2:
+    style.alignment>=7?style.marginV+h/2:style.alignment>=4?style.playResY/2:style.playResY-style.marginV-h/2;
+  return {x,y,width:Math.max(1,style.playResX-(style.backdropBand?.insetX??0)*2),height:h+(style.backdropBand?.paddingY??0)*2};
 }
 
 /** Independent phrase chunking within an original cue, never across metadata boundaries.
@@ -1965,8 +2002,10 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
     ? resolveCaptionPreset(cue.presetOverride, cue.styleOverrides, aspect) : baseStyle;
   if(canUseCaptionRollingRows(cue,style))return buildCaptionRollingEvents(cue,style,cue.presetOverride?`Style_${cue.presetOverride}`:fallbackStyleName);
   const events = buildPresetCueEventsBare(cue, baseStyle, fallbackStyleName);
-  if (!style.shadowLayers?.length) return events;
-  return events.flatMap(event => {
+  const band=style.backdropBand;
+  const background=band?buildCaptionBackdropEvents(cue,style):[];
+  if (!style.shadowLayers?.length) return [...background,...events];
+  return [...background,...events.flatMap(event => {
     const fields = event.split(',');
     const x = [1,4,7].includes(style.alignment) ? style.marginL : [3,6,9].includes(style.alignment) ? style.playResX-style.marginR : (style.marginL+style.playResX-style.marginR)/2;
     const y = style.alignment >= 7 ? style.marginV : style.alignment >= 4 ? style.playResY/2 : style.playResY-style.marginV;
@@ -1979,6 +2018,24 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
       const shifted = ink.replace(/\\pos\(([-\d.]+),([-\d.]+)\)/g,(_m,x,y)=>`\\pos(${Number(x)+(l.x??0)},${Number(y)+l.y})`);
       return header + `{\\1c${hexToAssColor(l.color)}\\alpha&H${alpha}&\\bord0\\shad0}` + shifted;
     }), (header + text).replace('Dialogue: 0,','Dialogue: 1,')];
+  })];
+}
+
+function buildCaptionBackdropEvents(cue:PresetTimedCue,style:ResolvedCaptionStyle):string[]{
+  const band=style.backdropBand!;
+  const g=getCaptionBackdropGeometry(cue,style,String(cue.text).split('\\N').length);
+  const times=new Set<number>([cue.start,cue.end]);
+  if(style.exitFadeMs&&getValidCueWords(cue).length){
+    const duration=Math.min(style.exitFadeMs/1000,(cue.end-cue.start)/2);
+    for(let i=0;i<=8;i++)times.add(Number((cue.end-duration+duration*i/8).toFixed(2)));
+  }
+  const sorted=[...times].filter(t=>t>=cue.start&&t<=cue.end).sort((a,b)=>a-b);
+  return sorted.slice(0,-1).flatMap((start,i)=>{
+    const end=sorted[i+1];if(formatAssTimestamp(start)===formatAssTimestamp(end))return [];
+    const alpha=Math.round((1-band.opacity*getCaptionExitOpacity(cue,start,style))*255).toString(16).padStart(2,'0').toUpperCase();
+    const x=(g.x-g.width/2).toFixed(3),y=(g.y-g.height/2).toFixed(3);
+    const text=String.raw`{\an7\pos(${x},${y})\bord0\shad0\alpha&H${alpha}&\c${hexToAssColor(band.color)}\p1}m 0 0 l ${g.width} 0 l ${g.width} ${g.height} l 0 ${g.height}{\p0}`;
+    return [`Dialogue: -1,${formatAssTimestamp(start)},${formatAssTimestamp(end)},Default,,0,0,0,,${text}`];
   });
 }
 
@@ -2065,6 +2122,10 @@ function buildPresetCueEventsBare(cue: PresetTimedCue, baseStyle: ResolvedCaptio
         if (t > cue.start && t < cue.end) boundaries.add(t);
       }
     }
+    if(style.exitFadeMs){
+      const duration=Math.min(style.exitFadeMs/1000,(cue.end-cue.start)/2);
+      for(let i=0;i<=8;i++){const t=cue.end-duration+duration*i/8;if(t>cue.start&&t<cue.end)boundaries.add(t);}
+    }
     const times = [...new Set([...boundaries].map(t => Number(t.toFixed(2))))].sort((a, b) => a - b);
     return times.slice(0, -1).flatMap((start, index) => {
       const end = times[index + 1];
@@ -2075,7 +2136,7 @@ function buildPresetCueEventsBare(cue: PresetTimedCue, baseStyle: ResolvedCaptio
         const state = getWordRevealState(w, start + 0.000001, style.reveal);
         const chars = splitCaptionGraphemes(w.text);
         const shown = state.visibleCharacters ?? chars.length;
-        const alpha = Math.round((1 - state.opacity) * 255).toString(16).padStart(2, '0').toUpperCase();
+        const alpha = Math.round((1 - state.opacity*getCaptionExitOpacity(cue,start,style)) * 255).toString(16).padStart(2, '0').toUpperCase();
         const color = hexToAssColor(w.customStyle?.color || style.textColor);
         const mult = Math.max(0.25, Math.min(3, w.customStyle?.fontSizeMultiplier ?? 1));
         text += `{\\c${color}\\fscx${Math.round(mult * 100)}\\fscy${Math.round(mult * 100)}\\alpha&H${alpha}&}${escapeAssText(chars.slice(0, shown).join(''))}`;

@@ -213,3 +213,29 @@ production scene anchors; integrated API save/reload/render. Static poster inten
 seeds the first two supplied row chunks, then replaces alternate rows.160ms/28unit movement
 and2word/10character candidate chunks are our parameters, not measured reference constants.
 Official coverage remains4candidates,40unmatched,0verified matches.
+
+### Experimental With Backdrop checkpoint
+
+Independent implementation uses public Lemon Regular, #F4FF5B text, sequential timed word
+fade, a closing phrase fade and a broad translucent black rectangle. This is NOT a tight
+per-line box alias. Gallery, preview and ASS read shared values. New getCaptionExitOpacity
+and getCaptionBackdropGeometry are deterministic. Font Windows metric1000/(1129+424),
+ASS62 for approximately40px em. No special font-size cap change needed.
+
+Actual gallery rendered-pixel samples from the independent rank4copy were inspected over
+2.8seconds without applying/saving/exporting. Full-sized local540x960 preview and lossless
+ASS were inspected at initial word, word fade and closing fade with default/manual anchors.
+The gallery was inspected with fonts and transitions settled. A first gallery attempt clipped
+the band due to fixed card height; its sizing now includes full line height and band padding.
+
+Experimental/unmatched, NOT another counted candidate. The band opacity.35,28unit vertical
+padding,24unit inset,160ms closing fade and phrase chunking are our candidate parameters,
+not measured reference values. Full-sized reference, exact grouping/geometry/motion,
+production font staging, API save/reload/render and newer scene anchors remain unqualified.
+Explicit per-line-box edits replace the band. Segment-only text/band stay static without
+fabricated word timing. Broad band moves with manual caption anchor and clips at viewport.
+Official coverage remains4candidates,40unmatched,0verified matches.
+
+Public font metadata/license:
+https://github.com/google/fonts/blob/main/ofl/lemon/METADATA.pb
+https://github.com/google/fonts/blob/main/ofl/lemon/OFL.txt

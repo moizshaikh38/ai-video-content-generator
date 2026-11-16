@@ -34,3 +34,8 @@ These are public, independently distributed font files, not competitor-provided 
   Source: https://github.com/google/fonts/blob/main/ofl/calsans/METADATA.pb
   Unmodified CalSans-Regular.ttf. SIL Open Font License1.1 bundled alongside each copy.
   Public source download: https://raw.githubusercontent.com/google/fonts/main/ofl/calsans/CalSans-Regular.ttf
+
+- Lemon Regular: Copyright 2011 The Lemon Project Authors, Reserved Font Name Lemon.
+  Source: https://github.com/google/fonts/blob/main/ofl/lemon/METADATA.pb
+  Unmodified Lemon-Regular.ttf, SIL Open Font License1.1 alongside both bundled copies.
+  Font: https://raw.githubusercontent.com/google/fonts/main/ofl/lemon/Lemon-Regular.ttf

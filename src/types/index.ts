@@ -371,6 +371,7 @@ export type CaptionStyle =
   | 'word_cut'
   | 'retro_3d'
   | 'crossline'
+  | 'with_backdrop'
   | 'soft_cut'
   | 'soft_build'
   | 'typewriter'

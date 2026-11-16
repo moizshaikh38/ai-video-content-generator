@@ -590,6 +590,7 @@ export type CaptionStyle =
   | 'word_cut'
   | 'retro_3d'
   | 'crossline'
+  | 'with_backdrop'
   | 'soft_cut'
   | 'soft_build'
   | 'typewriter'
@@ -688,6 +689,7 @@ export interface OverlayConfig {
 }
 
 export const SAFE_FONT_FAMILIES = [
+  'Lemon',
   'Cal Sans',
   'Bungee',
   'Figtree',

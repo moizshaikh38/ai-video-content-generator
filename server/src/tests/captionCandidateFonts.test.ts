@@ -10,6 +10,7 @@ import {buildPresetAssScript,resolveCaptionPreset,FONT_EM_PER_ASS_SIZE} from '..
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 describe('Caption candidate bundled font selection',()=>{
   for(const [id,font,file,postscript] of [
+    ['with_backdrop','Lemon','lemon/Lemon-Regular.ttf','Lemon-Regular'],
     ['crossline','Cal Sans','cal-sans/CalSans-Regular.ttf','CalSans-Regular'],
     ['retro_3d','Bungee','bungee/Bungee-Regular.ttf','Bungee-Regular'],
     ['soft_cut','Figtree','figtree/Figtree-SemiBold.ttf','Figtree-SemiBold'],

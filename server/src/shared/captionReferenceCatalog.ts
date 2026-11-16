@@ -26,6 +26,7 @@ export interface CaptionReferenceCoverage {
 
 /** No style is declared verified solely because its name exists or a gallery animation was seen. */
 export const CAPTION_REFERENCE_COVERAGE: CaptionReferenceCoverage[] = OPUS_CAPTION_REFERENCE.styles.map(name => {
+  if(name==='With Backdrop')return {name,status:'unmatched',presetId:'with_backdrop',evidence:'Experimental independent Lemon/yellow words over a broad dark horizontal band, timed build and closing fade. Rendered gallery tile pixels observed.',remaining:'Local pixel qualification, full-size reference, exact grouping/motion/band geometry, integrated save/render and newer scene anchors.'};
   if(name==='Crossline')return {name,status:'unmatched',presetId:'crossline',evidence:'Experimental independent alternating staggered-row slide/fade with public Cal Sans and two shadow layers. Actual local gallery and preview/ASS paired pixels inspected.',remaining:'Full-sized reference output, exact grouping/motion, integrated save/render and newer scene-anchor qualification. Not counted as a candidate yet.'};
   const candidate = {
     'Retro 3D': { presetId: 'retro_3d', evidence: 'Visible Bungee uppercase yellow type, orange diagonal extrusion, dark outline, white active word and small upward settling motion.', remaining: 'Full-sized output, exact lift timing, extrusion and segmentation comparison.' },
