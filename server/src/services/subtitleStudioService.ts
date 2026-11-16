@@ -763,7 +763,7 @@ export class SubtitleStudioService {
             '-y',
             '-i',
             sourceLocalPath,
-            '-vf',
+            '-filter_complex',
             filterChain.join(','),
             '-c:v',
             'libx264',

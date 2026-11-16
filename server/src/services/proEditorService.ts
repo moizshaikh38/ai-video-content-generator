@@ -2167,6 +2167,8 @@ export class ProEditorService {
           opacity: 1.0,
         },
         crop: seededCrop ? { ...seededCrop } : undefined,
+        layout_mode: clipCrop?.layout_mode || 'track',
+        crop_config: clipCrop ? structuredClone(clipCrop) : undefined,
         speed: { speed: 1.0, pitch_preserved: true },
         audio: {
           volume: clip.volume !== undefined ? clip.volume : 1.0,
@@ -2203,6 +2205,8 @@ export class ProEditorService {
         opacity: 1.0,
       },
       crop: seededCrop ? { ...seededCrop } : undefined,
+        layout_mode: clipCrop?.layout_mode || 'track',
+        crop_config: clipCrop ? structuredClone(clipCrop) : undefined,
       speed: { speed: 1.0, pitch_preserved: true },
       audio: {
         volume: clip.volume !== undefined ? clip.volume : 1.0,
@@ -2350,7 +2354,7 @@ export class ProEditorService {
     // Track 3: Caption Track
     const captionTrackId = crypto.randomUUID();
     const captionStyle = producerPlan?.operations.find((o) => o.type === 'CAPTION_STYLE')?.parameters.style ||
-      clip.caption_style || 'highlight';
+      clip.caption_style || 'clean';
 
     let initialCues: any[] = [];
     if (transcript) {

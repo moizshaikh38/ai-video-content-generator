@@ -962,11 +962,11 @@ export const Timeline: React.FC<TimelineProps> = ({
                           />
                         )}
 
-                        {/* Floating Fill layout badge at top-left matching Opus.pro */}
+                        {/* Describe the persisted item framing, not a hardcoded Fill label. */}
                         {showFilmstrip && (
                           <div className="absolute left-2.5 top-1.5 z-20 pointer-events-none">
                             <span className="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[10px] font-medium text-white shadow">
-                              Fill
+                              {item.layout_mode === 'split' ? 'Split' : item.layout_mode === 'screencast' ? 'Screen + Cam' : item.layout_mode === 'blur' ? 'Blur' : item.crop?.mode === 'fit' ? 'Fit' : item.crop?.mode === 'blur' ? 'Blur' : 'Fill'}
                             </span>
                           </div>
                         )}

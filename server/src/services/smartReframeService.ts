@@ -1310,7 +1310,7 @@ export class SmartReframeService {
     if (mode === 'split_stacked') {
       const topHeight = Math.round(canvasHeight * Math.max(0.3, Math.min(0.8, screenRatio)));
       const bottomHeight = canvasHeight - topHeight;
-      return `${inPad}split=2[${L('scr')}][${L('spk')}];[${L('scr')}]scale=${canvasWidth}:${topHeight}:force_original_aspect_ratio=decrease,pad=${canvasWidth}:${topHeight}:(ow-iw)/2:(oh-ih)/2:color=black[${L('v_top')}];[${L('spk')}]scale=${canvasWidth}:${bottomHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${bottomHeight}[${L('v_bot')}];[${L('v_top')}][${L('v_bot')}]vstack${outPad('out')}`;
+      return `${inPad}split=2[${L('scr')}][${L('spk')}];[${L('scr')}]scale=${canvasWidth}:${topHeight}:force_original_aspect_ratio=decrease,pad=${canvasWidth}:${topHeight}:(ow-iw)/2:(oh-ih)/2:color=black[${L('v_top')}];[${L('spk')}]${camSrc(canvasWidth, bottomHeight)}[${L('v_bot')}];[${L('v_top')}][${L('v_bot')}]vstack${outPad('out')}`;
     }
 
     // Circular or card inset position calculations
@@ -1338,7 +1338,12 @@ export class SmartReframeService {
     // rounded_card_inset
     const cardWidth = Math.round(insetDiameter * 1.15);
     const cardHeight = Math.round(insetDiameter * 0.85);
-    return `${inPad}split=2[${L('main')}][${L('cam')}];${mainStage('main', 'bg')};[${L('cam')}]${camSrc(cardWidth, cardHeight)}[${L('card')}];[${L('bg')}][${L('card')}]overlay=x=${posX}:y=${posY}${outPad('out')}`;
+    const cardX = insetPosition.endsWith('right') ? canvasWidth - cardWidth - marginX : marginX;
+    const cardY = insetPosition.startsWith('bottom') ? canvasHeight - cardHeight - marginY : marginY;
+    const radius = Math.round(Math.min(cardWidth, cardHeight) * 0.08);
+    // Rounded alpha, not merely a rectangular crop with a rounded name.
+    const cornerDistance = `(max(abs(X-${cardWidth}/2)-(${cardWidth}/2-${radius}),0))^2+(max(abs(Y-${cardHeight}/2)-(${cardHeight}/2-${radius}),0))^2`;
+    return `${inPad}split=2[${L('main')}][${L('cam')}];${mainStage('main', 'bg')};[${L('cam')}]${camSrc(cardWidth, cardHeight)},format=yuva420p,geq=lum='p(X,Y)':a='if(lte(${cornerDistance},${radius}*${radius}),255,0)'[${L('card')}];[${L('bg')}][${L('card')}]overlay=x=${cardX}:y=${cardY}${outPad('out')}`;
   }
 
   /**
@@ -1441,7 +1446,7 @@ export class SmartReframeService {
   }
 
   public static computeGroupFrameGeometry(options: {
-    rawSamples?: Array<{ time?: number; faces?: Array<{ center_x?: number; center_y?: number; width?: number; height?: number }> }> | null;
+    rawSamples?: Array<{ time?: number; faces?: Array<{ center_x?: number; center_y?: number; width?: number; height?: number; track_id?: string }> }> | null;
     sourceWidth: number;
     sourceHeight: number;
   }): {
@@ -1455,11 +1460,30 @@ export class SmartReframeService {
     if (!Number.isFinite(sourceWidth) || sourceWidth <= 0 || !Number.isFinite(sourceHeight) || sourceHeight <= 0) return null;
 
     const clamp01 = (v: number) => Math.min(0.95, Math.max(0.05, v));
+    // Ignore short-lived extra detections only when a persistent pair is
+    // established. Otherwise keep the conservative original evidence. This
+    // is identity persistence, not a face-size threshold that hands can pass.
+    const presence = new Map<string, number>();
+    for (const sample of rawSamples) {
+      for (const id of new Set((sample.faces || []).map((f) => f.track_id).filter(Boolean))) {
+        presence.set(id!, (presence.get(id!) || 0) + 1);
+      }
+    }
+    const persistent = new Set([...presence].filter(([, n]) => n >= Math.max(3, rawSamples.length * 0.4)).map(([id]) => id));
+    // One stable face plus intermittent hand/logo detections is not a group.
+    // With track identities available, require a persistent pair before
+    // promoting a single-person crop into a group composition.
+    if (presence.size > 0 && persistent.size < 2) return null;
     const groups: Array<{ time: number; cx: number; cy: number; span: number; spanY: number; top: number; bottom: number; faceW: number; faceH: number }> = [];
     rawSamples.forEach((sample, idx) => {
-      const allFaces = (sample?.faces || []).filter(
+      let allFaces = (sample?.faces || []).filter(
         (f) => Number.isFinite(f?.center_x) && Number.isFinite(f?.center_y)
       );
+      if (persistent.size >= 2) {
+        allFaces = allFaces.filter((f) => f.track_id && persistent.has(f.track_id));
+        // A missing member is not a reason to chase a fleeting extra box.
+        if (allFaces.length < 2) return;
+      }
       if (allFaces.length === 0) return;
       // Person-scale faces only: small stable false positives (lamps, hands,
       // decor) must not turn a single-speaker shot into a "group" that
@@ -1537,7 +1561,7 @@ export class SmartReframeService {
       // margins scaled to face size; height = head extent + headroom/body
       // margin, clamped so the rendered band stays between ~34% and ~48% of
       // the 9:16 canvas. Bigger faces, both people still in frame.
-      const xCover = maxSpan + Math.max(0.1, 2.2 * faceWMed);
+      const xCover = maxSpan + Math.max(0.14, 6.0 * faceWMed);
       windowW = Math.min(0.92, Math.max(0.35, xCover));
       const winWPx = windowW * sourceWidth;
       const extentY = Math.max(...groups.map((g) => g.bottom - g.top));
@@ -1553,6 +1577,32 @@ export class SmartReframeService {
       const xCover = maxSpan * 1.9 + 0.1;
       const yCover = ((maxSpanY * 1.6 + 0.15) * sourceHeight) / (0.75 * sourceWidth);
       windowW = Math.min(0.92, Math.max(0.4, xCover, yCover));
+    }
+
+    // A mostly stationary two-shot should not chase detection noise at all.
+    // Use a locked composition only when the robust center range fits inside
+    // the extra body/movement margin. Larger translations retain tracking.
+    if (hasSize) {
+      const quantile = (a: number[], q: number) => {
+        const sorted = [...a].sort((x, y) => x - y);
+        return sorted[Math.floor((sorted.length - 1) * q)];
+      };
+      const xs = groups.map((g) => g.cx), ys = groups.map((g) => g.cy);
+      const centerX = med(xs);
+      const driftX = quantile(xs, 0.9) - quantile(xs, 0.1);
+      const driftY = quantile(ys, 0.9) - quantile(ys, 0.1);
+      if (driftX <= Math.max(0.10, 2.5 * faceWMed) && driftY <= Math.max(0.08, faceHMed)) {
+        // Budget actual source-space room for the robust motion envelope,
+        // including faces+shoulders/context, not just detected face centers.
+        windowW = Math.min(0.92, Math.max(windowW, maxSpan + 6 * faceWMed + driftX));
+        // Preserve the composition band's height when width grows, limited
+        // by source pixels. No fake zoom or stretched people.
+        windowH = Math.min(1, Math.max(windowH || 0, windowW * sourceWidth * 0.72 / sourceHeight));
+        const cx = Math.min(1 - windowW / 2, Math.max(windowW / 2, centerX));
+        const top = med(groups.map((g) => g.top - 0.9 * g.faceH));
+        const cy = Math.min(1 - windowH / 2, Math.max(windowH / 2, top + windowH / 2));
+        return { windowW, windowH, keyframes: groups.map((g) => ({ time: g.time, centerX: cx, centerY: cy })) };
+      }
     }
 
     // Camera motion smoothing. Keyframes land every ~0.25s (4fps sampling)
@@ -1627,7 +1677,22 @@ export class SmartReframeService {
         if (i === groups.length - 1 && u > 0) break;
         const x0 = smX[Math.max(0, i - 1)], x1 = smX[i], x2 = smX[Math.min(smX.length - 1, i + 1)], x3 = smX[Math.min(smX.length - 1, i + 2)];
         const y0 = smY[Math.max(0, i - 1)], y1 = smY[i], y2 = smY[Math.min(smY.length - 1, i + 1)], y3 = smY[Math.min(smY.length - 1, i + 2)];
-        keyframes.push({ time: t0 + f * (t1 - t0), centerX: clamp01(catmull(x0, x1, x2, x3, f)), centerY: clamp01(catmull(y0, y1, y2, y3, f)) });
+        // Clamp spline overshoot to this segment, then enforce the speed cap
+        // on the emitted path too (not just the coarse samples).
+        const time = t0 + f * (t1 - t0);
+        const prev = keyframes[keyframes.length - 1];
+        const bounded = (value: number, a: number, b: number, previous?: number) => {
+          let v = Math.max(Math.min(a, b), Math.min(Math.max(a, b), value));
+          if (prev && previous !== undefined) {
+            const maxDelta = 0.12 * Math.max(0, time - prev.time);
+            v = Math.max(previous - maxDelta, Math.min(previous + maxDelta, v));
+          }
+          return clamp01(v);
+        };
+        keyframes.push({ time,
+          centerX: bounded(catmull(x0, x1, x2, x3, f), x1, x2, prev?.centerX),
+          centerY: bounded(catmull(y0, y1, y2, y3, f), y1, y2, prev?.centerY),
+        });
       }
     }
 
@@ -1681,8 +1746,12 @@ export class SmartReframeService {
 
     const kfs = [...keyframes]
       .filter((k) => Number.isFinite(k.time) && Number.isFinite(k.centerX))
-      .sort((a, b) => a.time - b.time)
-      .slice(0, 40);
+      .sort((a, b) => a.time - b.time);
+    // Retain the full timeline under the expression-size budget.
+    if (kfs.length > 40) {
+      const all = [...kfs];
+      kfs.splice(0, kfs.length, ...Array.from({ length: 40 }, (_, i) => all[Math.round(i * (all.length - 1) / 39)]));
+    }
     const piecewise = (vals: Array<{ time: number; v: number }>, last: number): string => {
       let expr = last.toFixed(4);
       for (let i = vals.length - 2; i >= 0; i--) {

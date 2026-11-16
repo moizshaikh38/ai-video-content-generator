@@ -390,7 +390,7 @@ export type CaptionStyle =
 export type CaptionPosition = 'top' | 'center' | 'bottom';
 export type CaptionTimingMode = 'word' | 'segment';
 
-export type CropMode = 'center' | 'manual' | 'smart';
+export type CropMode = 'center' | 'manual' | 'smart' | 'fit' | 'fit_blur';
 export type ReframeLayoutMode = 'track' | 'split' | 'screencast' | 'blur';
 
 export interface CropConfig {
@@ -408,6 +408,8 @@ export interface CropConfig {
     speaker1X?: number;
     speaker2X?: number;
     dividerColor?: string;
+    fit?: 'cover' | 'contain';
+    dividerX?: number;
   };
   screencast?: {
     mode?: 'split_stacked' | 'circular_inset' | 'rounded_card_inset';
@@ -1015,6 +1017,9 @@ export interface EditorTrackItem {
   source_start: number;
   source_end: number;
   transform: EditorTransform;
+  /** Persisted framing choice shared by editor preview and export. */
+  layout_mode?: ReframeLayoutMode;
+  crop_config?: CropConfig;
   crop?: {
     mode: 'fit' | 'fill' | 'custom' | 'blur';
     focusX?: number;

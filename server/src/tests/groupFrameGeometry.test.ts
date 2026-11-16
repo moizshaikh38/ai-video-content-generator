@@ -203,14 +203,13 @@ describe('computeGroupFrameGeometry adaptive composition (face sizes present)', 
     });
     assert.ok(g, 'group geometry expected');
     assert.ok(g!.windowH !== undefined, 'adaptive windowH expected when face sizes exist');
-    // winW = 0.42 span + max(0.1, 2.2*0.05) = 0.53; legacy 4:3 would be
-    // winH = winW*0.75 = 0.3975*1728/720 -> fraction ~0.954; adaptive must
-    // be strictly tighter (band 34-48% of a 9:16 canvas).
-    assert.ok(g!.windowW < 0.6, `windowW=${g!.windowW}`);
-    // Band = foreground strip height / 9:16 canvas height when the strip is
-    // contain-fit to canvas width: (winHPx/winWPx) * (1080/1920).
+    // Wider body/context safety is intentional. For a distant pair the
+    // source's height is the hard limit: do not shrink their context merely
+    // to meet an aesthetic band-height target.
+    assert.ok(g!.windowW >= 0.42 + 6 * 0.05 - 1e-6, `windowW=${g!.windowW}`);
     const bandFraction = ((g!.windowH! * 720) / (g!.windowW * 1728)) * (1080 / 1920);
-    assert.ok(bandFraction >= 0.38 && bandFraction <= 0.48, `band=${bandFraction}`);
+    const physicalMax = (720 / (g!.windowW * 1728)) * (1080 / 1920);
+    assert.ok(bandFraction >= Math.min(0.38, physicalMax) - 1e-6 && bandFraction <= 0.48, `band=${bandFraction}`);
   });
 
   test('headroom bias: window top sits above the highest face, eyes in upper band', () => {
@@ -276,16 +275,45 @@ test('group keyframes smooth jitter: velocity capped, no per-sample sign flips',
   const kf = g.keyframes;
   let prevSign = 0;
   let flips = 0;
-  // Reversals below perceptual speed (~10px/s at 1728w) are spline overshoot
-  // and invisible; count only reversals a viewer could notice.
-  const PERCEPT = 0.006;
+  // No perceptual threshold: even tiny spline reversals must be counted.
+  const NUMERIC_EPSILON = 1e-8;
   for (let i = 1; i < kf.length; i++) {
     const dt = kf[i].time - kf[i - 1].time;
     const vx = (kf[i].centerX - kf[i - 1].centerX) / dt;
-    assert.ok(Math.abs(vx) <= 0.125, `velocity ${vx} exceeds cap at t=${kf[i].time}`);
-    const sign = Math.abs(vx) < PERCEPT ? 0 : Math.sign(vx);
+    assert.ok(Math.abs(vx) <= 0.120001, `velocity ${vx} exceeds cap at t=${kf[i].time}`);
+    const sign = Math.abs(vx) < NUMERIC_EPSILON ? 0 : Math.sign(vx);
     if (sign !== 0 && prevSign !== 0 && sign !== prevSign) flips++;
     if (sign !== 0) prevSign = sign;
   }
   assert.ok(flips <= 1, `smoothed camera reverses direction ${flips} times`);
+});
+
+
+test('stationary two-shot ignores transient extra boxes and locks camera with body margin', () => {
+  const rawSamples = Array.from({length: 24}, (_, i) => ({time: i / 4, faces: [
+    {center_x: .35 + Math.sin(i)*.004, center_y: .23, width: .05, height: .12, track_id:'left'},
+    {center_x: .56 + Math.cos(i)*.004, center_y: .23, width: .05, height: .12, track_id:'right'},
+    ...(i % 6 === 0 ? [{center_x:.12,center_y:.32,width:.055,height:.13,track_id:'fleeting-'+i}] : []),
+  ]}));
+  const g = SmartReframeService.computeGroupFrameGeometry({rawSamples,sourceWidth:1728,sourceHeight:720})!;
+  assert.equal(new Set(g.keyframes.map(k => k.centerX)).size,1);
+  assert.ok(g.windowW >= .51, 'six face-widths of total body/context margin');
+  assert.ok(g.windowW < .65, 'fleeting extra boxes must not set composition width');
+});
+
+test('alternating single-person scenes are not mistaken for simultaneous group', () => {
+ const rawSamples=Array.from({length:24},(_,i)=>({time:i/4,faces:[{center_x:i<12?.25:.75,center_y:.3,width:.1,height:.2,track_id:i<12?'sceneA':'sceneB'}]}));
+ assert.equal(SmartReframeService.computeGroupFrameGeometry({rawSamples,sourceWidth:1280,sourceHeight:720}),null);
+});
+
+test('sustained group translation retains motion rather than locking the camera', () => {
+ const rawSamples=Array.from({length:24},(_,i)=>({time:i/4,faces:[{center_x:.15+i*.02,center_y:.3,width:.04,height:.12,track_id:'a'},{center_x:.35+i*.02,center_y:.3,width:.04,height:.12,track_id:'b'}]}));
+ const g=SmartReframeService.computeGroupFrameGeometry({rawSamples,sourceWidth:1280,sourceHeight:720})!;
+ assert.ok(new Set(g.keyframes.map(k=>k.centerX)).size>5);
+});
+
+
+test('one persistent face plus intermittent person-scale hands is not a group',()=>{
+ const rawSamples=Array.from({length:50},(_,i)=>({time:i/4,faces:[{track_id:'speaker',center_x:.27,center_y:.31,width:.14,height:.33},...(i<13?[{track_id:'hand',center_x:.32,center_y:.73,width:.14,height:.33}]:[])]}));
+ assert.equal(SmartReframeService.computeGroupFrameGeometry({rawSamples,sourceWidth:1920,sourceHeight:1080}),null);
 });

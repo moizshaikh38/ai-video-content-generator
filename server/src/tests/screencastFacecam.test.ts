@@ -15,12 +15,12 @@ describe('screencast facecam-region inset (burned-in facecam recordings)', () =>
     assert.match(filter, /overlay=x=\d+:y=\d+\[out\]/);
   });
 
-  it('legacy full-frame inset behavior is unchanged when no box is given', () => {
+  it('without a box the source crop stays full-frame, with rounded alpha added', () => {
     const filter = SmartReframeService.buildScreencastFilter({
       mode: 'rounded_card_inset',
       insetPosition: 'top_right',
     });
-    assert.match(filter, /\[cam\]scale=\d+:\d+:force_original_aspect_ratio=increase,crop=\d+:\d+\[card\]/);
+    assert.match(filter, /\[cam\]scale=\d+:\d+:force_original_aspect_ratio=increase,crop=\d+:\d+,format=yuva420p,geq=/);
   });
 
   it('findStaticFacecamBox returns the static track median box and ignores moving tracks', () => {

@@ -1,3 +1,5 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Db } from 'mongodb';
 import { EntitlementService } from './entitlementService.js';
 import { PlanEntitlements, AppError } from '../types/index.js';
@@ -73,7 +75,7 @@ export class WatermarkService {
     // period). x/y/alpha are per-frame drawtext expressions; the box badge
     // moves with the text. Commas inside expressions are escaped.
     const entry = '0.45';
-    const alpha = `if(lt(t\\,${entry})\\,t/${entry}\\,0.85+0.15*sin(2*PI*(t-${entry})/3.2))`;
+    const alpha = `if(lt(t\\,${entry})\\,t/${entry}\\,if(lt(t\\,1.5)\\,1\\,max(0\\,(2-t)/0.5)))`;
     // Ease-out slide (quadratic deceleration) instead of linear motion.
     const slide = (dist: string, finalX: string) =>
       `if(lt(t\\,${entry})\\,${finalX}+(${dist})*(1-t/${entry})*(1-t/${entry})\\,${finalX})`;
@@ -87,13 +89,20 @@ export class WatermarkService {
       const fs = options.fontSize;
       const m = options.margin;
       const finalX = `w-text_w-${m}`;
-      return `drawtext=text='${safeText}':${style}:fontsize=${fs}:x=${slide(`text_w+${m}`, finalX)}:y=${m}:alpha=${alpha}`;
+      return this.withAnimatedMark(`drawtext=text='${safeText}':${style}:fontsize=${fs}:x=${slide(`text_w+${m}`, finalX)}:y=${m}:alpha=${alpha}`);
     }
 
     const mx = 'max(24\\,trunc(w*0.03))';
     const my = 'max(24\\,trunc(h*0.025))';
     const finalX = `w-text_w-${mx}`;
-    return `drawtext=text='${safeText}':${style}:fontsize=max(24\\,trunc(h*0.032)):x=${slide(`text_w+${mx}`, finalX)}:y=${my}:alpha=${alpha}`;
+    return this.withAnimatedMark(`drawtext=text='${safeText}':${style}:fontsize=max(24\\,trunc(h*0.032)):x=${slide(`text_w+${mx}`, finalX)}:y=${my}:alpha=${alpha}`);
+  }
+
+  /** Chain-safe text-to-mark crossfade. All paths are packaged assets, never user input. */
+  private static withAnimatedMark(textFilter: string): string {
+    const asset = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../assets/brand/vireoclip-mark.png');
+    const safePath = asset.replace(/\\/g, '/').replace(/:/g, '\\:').replace(/'/g, "'\\''");
+    return `${textFilter},null[wm_base];movie=filename='${safePath}':loop=0,setpts=N/(24*TB),fps=24,scale=96:-1,format=rgba,fade=t=in:st=1.5:d=0.5:alpha=1[wm_mark];[wm_base][wm_mark]overlay=x=W-w-max(24\\,trunc(W*0.03)):y=max(24\\,trunc(H*0.025)):eof_action=repeat:shortest=1`;
   }
 
   /**

@@ -628,6 +628,8 @@ export interface CropConfig {
     speaker1X?: number;
     speaker2X?: number;
     dividerColor?: string;
+    fit?: 'cover' | 'contain';
+    dividerX?: number;
   };
   screencast?: {
     mode?: 'split_stacked' | 'circular_inset' | 'rounded_card_inset';
@@ -2058,6 +2060,9 @@ export interface EditorTrackItem {
   source_start: number; // seconds in source video
   source_end: number; // seconds in source video
   transform: EditorTransform;
+  /** Persisted framing choice shared by editor preview and export. */
+  layout_mode?: ReframeLayoutMode;
+  crop_config?: CropConfig;
   crop?: {
     mode: 'fit' | 'fill' | 'custom' | 'blur';
     focusX?: number;

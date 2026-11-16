@@ -2019,6 +2019,9 @@ export class ClipRenderService {
                 speaker1X: clampSpeakerX(incomingSplit.speaker1X),
                 speaker2X: clampSpeakerX(incomingSplit.speaker2X),
                 ...(incomingSplit.dividerColor ? { dividerColor: String(incomingSplit.dividerColor).slice(0, 9) } : {}),
+                ...(incomingSplit.fit === 'cover' || incomingSplit.fit === 'contain' ? { fit: incomingSplit.fit } : {}),
+                ...(typeof incomingSplit.dividerX === 'number' && Number.isFinite(incomingSplit.dividerX)
+                  ? { dividerX: Math.min(0.95, Math.max(0.05, incomingSplit.dividerX)) } : {}),
               },
             }
           : {}),

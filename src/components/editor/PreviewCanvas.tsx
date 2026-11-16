@@ -457,9 +457,27 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // the anchor at panel center, so scaling about 50% 50% tracks the export's
   // clamped crop window around the same point.
   const splitGeometryView = (
-    geometry: { x: number; y: number; windowW: number } | undefined
-  ): { left: string; top: string; width: string; height: string; panelH: number } | null => {
-    if (!geometry || !videoDims || videoDims.w <= 0 || videoDims.h <= 0) return null;
+    geometry: { x: number; y: number; windowW: number } | undefined,
+    panel = 0,
+  ): { left: string; top: string; width: string; height: string; panelH: number; clipPath?: string } | null => {
+    if (!videoDims || videoDims.w <= 0 || videoDims.h <= 0) return null;
+    const item = project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
+    const cfg = (item as any)?.crop_config?.split;
+    if (cfg?.fit === 'contain') {
+      const dims = getAspectRatioDimensions();
+      const boxW = parseFloat(dims.width) || 360;
+      const boxH = (parseFloat(dims.height) || 640) / 2;
+      const divider = Math.min(0.95, Math.max(0.05, Number(cfg.dividerX) || (splitAnchors.speaker1X + splitAnchors.speaker2X) / 2));
+      const anchor = panel === 0 ? splitAnchors.speaker1X : splitAnchors.speaker2X;
+      const start = anchor < divider ? 0 : divider;
+      const end = anchor < divider ? divider : 1;
+      const z = Math.min(boxW / ((end - start) * videoDims.w), boxH / videoDims.h);
+      const elW = videoDims.w * z, elH = videoDims.h * z;
+      return { left: `${((boxW - (end - start) * elW) / 2 - start * elW).toFixed(2)}px`,
+        top: `${((boxH - elH) / 2).toFixed(2)}px`, width: `${elW.toFixed(2)}px`, height: `${elH.toFixed(2)}px`, panelH: boxH,
+        clipPath: `inset(0 ${(1-end)*100}% 0 ${start*100}%)` };
+    }
+    if (!geometry) return null;
     const dims = getAspectRatioDimensions();
     const boxW = parseFloat(dims.width) || 360;
     const boxH = (parseFloat(dims.height) || 640) / 2;
@@ -481,7 +499,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     };
   };
   const splitView1 = splitGeometryView(speakerSplit?.splitGeometry?.speaker1);
-  const splitView2 = splitGeometryView(speakerSplit?.splitGeometry?.speaker2);
+  const splitView2 = splitGeometryView(speakerSplit?.splitGeometry?.speaker2, 1);
 
   // Blur band anchor (mirrors CaptionService.computeBlurFitBandAnchor): on a blur
   // layout the default caption position lands on the blurred fill in export, so
@@ -1308,7 +1326,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 ? { left: groupFitView.left, top: groupFitView.top, width: groupFitView.width, height: groupFitView.height, maxWidth: 'none' }
                 : {}),
               ...(primaryLayoutMode === 'split' && splitView1
-                ? { left: splitView1.left, top: splitView1.top, width: splitView1.width, height: splitView1.height, maxWidth: 'none' }
+                ? { left: splitView1.left, top: splitView1.top, width: splitView1.width, height: splitView1.height, clipPath: splitView1.clipPath, maxWidth: 'none' }
                 : {}),
               // Fit/Blur = letterbox (matches export's buildFitFilter pad / blur fill); Fill = cover-crop;
               // group fit sizes the element exactly, so cover introduces no extra crop
@@ -1387,6 +1405,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     top: `${(splitView2.panelH + parseFloat(splitView2.top)).toFixed(1)}px`,
                     width: splitView2.width,
                     height: splitView2.height,
+                    clipPath: splitView2.clipPath,
                     maxWidth: 'none',
                   }
                 : {}),
@@ -1417,9 +1436,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           const inEntry = t < ENTRY;
           const k = inEntry ? t / ENTRY : 1;
           const easeOut = 1 - (1 - k) * (1 - k);
-          const opacity = inEntry ? k : 0.85 + 0.15 * Math.sin((2 * Math.PI * (t - ENTRY)) / 3.2);
+          const opacity = inEntry ? k : Math.max(0, Math.min(1, (2 - t) / 0.5));
+          const markOpacity = Math.max(0, Math.min(1, (t - 1.5) / 0.5));
           const tx = inEntry ? (1 - easeOut) * 120 : 0;
-          return (
+          return (<>
+            <img src="/brand/vireoclip-mark.png" alt="" aria-hidden className="absolute top-[2.5%] right-[3%] z-30 pointer-events-none" style={{ width: `${96 / 1080 * 100}%`, opacity: markOpacity }} />
             <div
               aria-hidden
               className="absolute top-[2.5%] right-[3%] z-30 pointer-events-none select-none text-white/90 font-medium [text-shadow:0_2px_2px_rgba(0,0,0,0.6),0_0_1px_rgba(0,0,0,0.35)]"
@@ -1430,7 +1451,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               }}
             >
               VireoClip
-            </div>
+            </div></>
           );
         })()}
 
