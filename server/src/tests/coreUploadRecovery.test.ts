@@ -62,3 +62,9 @@ test('empty analysis review explains the result instead of silently inviting ano
   assert.match(empty, /setWorkflowState\('error'\)/);
   assert.doesNotMatch(empty, /setWorkflowState\('source_selected'\)/);
 });
+
+test('transcription-only project is not counted as a completed clipping job', () => {
+  const complete = dashboard.slice(dashboard.indexOf('const completeStatuses'), dashboard.indexOf('const failedStatuses'));
+  assert.doesNotMatch(complete, /'transcribed'/);
+  assert.match(dashboard, /Transcript ready\. Clip selection and export are separate steps\./);
+});

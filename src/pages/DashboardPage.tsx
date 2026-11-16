@@ -21,7 +21,7 @@ const activeStatuses = [
   'analyzing',
   'generating',
 ];
-const completeStatuses = ['completed', 'complete', 'transcribed'];
+const completeStatuses = ['completed', 'complete'];
 const failedStatuses = ['failed', 'error'];
 
 export function formatTimeAgo(dateString?: string): string {
@@ -397,6 +397,9 @@ export const DashboardPage: React.FC = () => {
 
                     {statusStr === 'uploaded' && (
                       <p className="mt-3 text-[11px] text-vc-text-secondary">Source saved. Processing has not started.</p>
+                    )}
+                    {statusStr === 'transcribed' && (
+                      <p className="mt-3 text-[11px] text-vc-text-secondary">Transcript ready. Clip selection and export are separate steps.</p>
                     )}
 
                     {/* Honest processing progress bar */}
