@@ -191,3 +191,53 @@ was insufficient for screenshot readiness and those earlier captures were discar
 
 28focused tests and server tsc pass. No default, detector config, production or
 main-release changes. Test-only auth/storage fixture adapters were not committed.
+
+### Moving-path slice, dense holdout and actual jobs, 16 Nov22:07 IST
+
+Fixed4Hz walking-derived plan was checked against a separate10Hz analysis:
+120sample instants,119body detections, zero observed body boxes outside the
+frozen crop. One missing body detection is not absence of a body. This remains
+sampled detector validation, not every-frame hand/foot segmentation.
+
+Source2.7-7.9s fractional Quick composition and real Pro graph output5.2s,
+156frames,5.2s audio; decoded video frameMD5 streams match. Pro's documented
+single-item caller input seek is required. A durable generated-source regression
+executes both with the independent real motion path and checks156 equal frames.
+The generated pixels prove timing/graph behavior, not real visual quality.
+
+Actual local renderClipJob then ran with persisted track/source/editor state:
+Quick ee1f1428-0969-464d-ac5d-e9056cc826a7 and Pro fractional slice
+bd8f229c-468b-42ca-a026-26742c99e8ee. Both clip ready/job completed/no error,
+local storage objects exist and decoded MP4s inspected. Quick12s360frames;
+Pro5.2s156frames, both1080x1920 with matching-duration audio and actual watermark
+transition. Pro uses existing bounded dynamic normalization fallback when linear
+loudnorm would exceed peak ceiling. Input-cache SHA256 matched the exact source.
+Local object-storage/auth fixtures only, no production auth/storage/release.
+
+### Independent sports/task-context failures retained, 16 Nov22:07 IST
+
+Sports: Erčulj F, Štrumbelj E,2015,CC BY4.0,full4.438s layup demonstration,
+scaled854x480.
+https://commons.wikimedia.org/wiki/File:Basketball-Shot-Types-and-Shot-Success-in-Different-Levels-of-Competitive-Basketball-pone.0128885.s009.ogv
+Cooking: Nahid Sultan,CC BY3.0,first12s scaled854x480.
+https://commons.wikimedia.org/wiki/File:Making_of_Kothu_Roti%2C_Sri_Lanka.webm
+
+Both remain unresolved/fullfit with current automatic policy. Sports wall
+silhouettes generate person detections; cooking has no face anchor. Neither is
+a quality win. Real numeric fixtures prevent bodies alone promoting a task crop.
+
+Local all-class NanoDet sees26bowl boxes in45cooking samples, median confidence
+.486; this is weak task evidence. An explicit cooking-workspace margin prototype
+was inspected: still mostly blur, and margins do not establish hands/utensils or
+complete action bounds. Not promoted and not automatic genre understanding.
+
+A separate local-only Apache2 OpenCVZoo YOLOX_s probe at2Hz/two threads finds
+28bowl and9spoon boxes over24cooking samples, median bowl confidence.744.
+Annotated boxes inspected: wok/spoon evidence is better, but the tossing food,
+hands, handles and interacting workspace exceed object boxes. Background-motion
+compensation plus nearby motion still covers nearly full source. Sports probe
+still misses ball/hoop and detects wall silhouettes. A larger detector alone is
+not the automatic content-framing solution. No detector/default/config change.
+
+31focused tests and server TypeScript pass. Historical related suites were not
+rerun wholesale. Audit publication remains batched, not rebuilt for these probes.

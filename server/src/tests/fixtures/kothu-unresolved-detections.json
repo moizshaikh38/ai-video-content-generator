@@ -1,0 +1,413 @@
+{
+  "status": "ok",
+  "person_detector": "nanodet-2022nov-sha256-4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186",
+  "scene_cut_evidence": [],
+  "source_width": 854,
+  "source_height": 480,
+  "source_fps": 30,
+  "duration": 12,
+  "total_video_duration": 12,
+  "sample_fps": 4,
+  "sample_count": 45,
+  "scene_cuts": [],
+  "samples": [
+    {
+      "time": 0,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 0.267,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 0.533,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 0.8,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4111,
+          "y": 0.0093,
+          "width": 0.579,
+          "height": 0.9665,
+          "confidence": 0.5962
+        }
+      ]
+    },
+    {
+      "time": 1.067,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4175,
+          "y": 0,
+          "width": 0.5419,
+          "height": 0.983,
+          "confidence": 0.591
+        },
+        {
+          "x": 0.6173,
+          "y": 0.0013,
+          "width": 0.3801,
+          "height": 0.9847,
+          "confidence": 0.4211
+        }
+      ]
+    },
+    {
+      "time": 1.333,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.7042,
+          "y": 0,
+          "width": 0.2942,
+          "height": 0.988,
+          "confidence": 0.6816
+        },
+        {
+          "x": 0.39,
+          "y": 0.0027,
+          "width": 0.5822,
+          "height": 0.9824,
+          "confidence": 0.5111
+        }
+      ]
+    },
+    {
+      "time": 1.6,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.7415,
+          "y": 0,
+          "width": 0.2583,
+          "height": 0.9891,
+          "confidence": 0.7144
+        }
+      ]
+    },
+    {
+      "time": 1.867,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.7544,
+          "y": 0,
+          "width": 0.2456,
+          "height": 1,
+          "confidence": 0.7155
+        }
+      ]
+    },
+    {
+      "time": 2.133,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 2.4,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 2.667,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 2.933,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 3.2,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 3.467,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 3.733,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.7699,
+          "y": 0.0571,
+          "width": 0.2301,
+          "height": 0.9293,
+          "confidence": 0.4463
+        }
+      ]
+    },
+    {
+      "time": 4,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.7728,
+          "y": 0.1432,
+          "width": 0.2271,
+          "height": 0.853,
+          "confidence": 0.6139
+        }
+      ]
+    },
+    {
+      "time": 4.267,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 4.533,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 4.8,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 5.067,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 5.333,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 5.6,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 5.867,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 6.133,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 6.4,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 6.667,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 6.933,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 7.2,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 7.467,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 7.733,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.5402,
+          "y": 0.0053,
+          "width": 0.4595,
+          "height": 0.9874,
+          "confidence": 0.6369
+        }
+      ]
+    },
+    {
+      "time": 8,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4659,
+          "y": 0.0012,
+          "width": 0.5341,
+          "height": 0.978,
+          "confidence": 0.5881
+        }
+      ]
+    },
+    {
+      "time": 8.267,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4318,
+          "y": 0,
+          "width": 0.5681,
+          "height": 0.9924,
+          "confidence": 0.5795
+        }
+      ]
+    },
+    {
+      "time": 8.533,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.2972,
+          "y": 0.0006,
+          "width": 0.7028,
+          "height": 0.9798,
+          "confidence": 0.5316
+        }
+      ]
+    },
+    {
+      "time": 8.8,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.3793,
+          "y": 0,
+          "width": 0.6207,
+          "height": 0.9695,
+          "confidence": 0.4715
+        }
+      ]
+    },
+    {
+      "time": 9.067,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.2899,
+          "y": 0,
+          "width": 0.7089,
+          "height": 0.9936,
+          "confidence": 0.5504
+        }
+      ]
+    },
+    {
+      "time": 9.333,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.3743,
+          "y": 0,
+          "width": 0.6257,
+          "height": 0.9865,
+          "confidence": 0.56
+        }
+      ]
+    },
+    {
+      "time": 9.6,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.5232,
+          "y": 0,
+          "width": 0.4768,
+          "height": 0.9927,
+          "confidence": 0.6394
+        }
+      ]
+    },
+    {
+      "time": 9.867,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.407,
+          "y": 0.008,
+          "width": 0.5929,
+          "height": 0.9871,
+          "confidence": 0.4631
+        }
+      ]
+    },
+    {
+      "time": 10.133,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.3136,
+          "y": 0.0007,
+          "width": 0.6864,
+          "height": 0.983,
+          "confidence": 0.4192
+        }
+      ]
+    },
+    {
+      "time": 10.4,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 10.667,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 10.933,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.661,
+          "y": 0.0066,
+          "width": 0.3387,
+          "height": 0.9729,
+          "confidence": 0.6067
+        }
+      ]
+    },
+    {
+      "time": 11.2,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.7078,
+          "y": 0.0648,
+          "width": 0.2918,
+          "height": 0.9179,
+          "confidence": 0.5576
+        }
+      ]
+    },
+    {
+      "time": 11.467,
+      "faces": [],
+      "persons": []
+    },
+    {
+      "time": 11.733,
+      "faces": [],
+      "persons": []
+    }
+  ],
+  "provenance": {
+    "source": "https://commons.wikimedia.org/wiki/File:Making_of_Kothu_Roti%2C_Sri_Lanka.webm",
+    "author": "Nahid Sultan",
+    "license": "CC BY3.0",
+    "changes": "Scaled854x480, local detectors, first12s for cooking/full4.438s sports",
+    "limits": "No automatic genre, task-object bounds or ball trajectory inference"
+  }
+}

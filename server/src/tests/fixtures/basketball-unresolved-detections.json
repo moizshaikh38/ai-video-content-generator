@@ -1,0 +1,594 @@
+{
+  "status": "ok",
+  "person_detector": "nanodet-2022nov-sha256-4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186",
+  "scene_cut_evidence": [],
+  "source_width": 854,
+  "source_height": 480,
+  "source_fps": 29.97,
+  "duration": 4.438,
+  "total_video_duration": 4.438,
+  "sample_fps": 4,
+  "sample_count": 19,
+  "scene_cuts": [],
+  "samples": [
+    {
+      "time": 0,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.7256,
+          "y": 0.5106,
+          "width": 0.0708,
+          "height": 0.3001,
+          "confidence": 0.7506
+        },
+        {
+          "x": 0.5133,
+          "y": 0.0648,
+          "width": 0.0941,
+          "height": 0.2685,
+          "confidence": 0.4408
+        },
+        {
+          "x": 0.8138,
+          "y": 0.0698,
+          "width": 0.0773,
+          "height": 0.2824,
+          "confidence": 0.4292
+        }
+      ]
+    },
+    {
+      "time": 0.234,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.7239,
+          "y": 0.5144,
+          "width": 0.071,
+          "height": 0.2987,
+          "confidence": 0.7641
+        },
+        {
+          "x": 0.5132,
+          "y": 0.0577,
+          "width": 0.0795,
+          "height": 0.277,
+          "confidence": 0.5045
+        },
+        {
+          "x": 0.8132,
+          "y": 0.0706,
+          "width": 0.0763,
+          "height": 0.283,
+          "confidence": 0.4171
+        }
+      ]
+    },
+    {
+      "time": 0.467,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.7239,
+          "y": 0.5139,
+          "width": 0.0724,
+          "height": 0.2933,
+          "confidence": 0.7429
+        },
+        {
+          "x": 0.5144,
+          "y": 0.0635,
+          "width": 0.0913,
+          "height": 0.2721,
+          "confidence": 0.5087
+        },
+        {
+          "x": 0.8132,
+          "y": 0.0688,
+          "width": 0.0808,
+          "height": 0.2822,
+          "confidence": 0.4112
+        }
+      ]
+    },
+    {
+      "time": 0.701,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.8118,
+          "y": 0.0701,
+          "width": 0.0864,
+          "height": 0.2855,
+          "confidence": 0.5228
+        },
+        {
+          "x": 0.5153,
+          "y": 0.0623,
+          "width": 0.0895,
+          "height": 0.2747,
+          "confidence": 0.4997
+        },
+        {
+          "x": 0.6954,
+          "y": 0.5097,
+          "width": 0.0978,
+          "height": 0.2999,
+          "confidence": 0.4788
+        }
+      ]
+    },
+    {
+      "time": 0.934,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.8095,
+          "y": 0.0752,
+          "width": 0.0909,
+          "height": 0.2804,
+          "confidence": 0.536
+        },
+        {
+          "x": 0.518,
+          "y": 0.0653,
+          "width": 0.0681,
+          "height": 0.2737,
+          "confidence": 0.4753
+        }
+      ]
+    },
+    {
+      "time": 1.168,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.5922,
+          "y": 0.5393,
+          "width": 0.1584,
+          "height": 0.2713,
+          "confidence": 0.6009
+        },
+        {
+          "x": 0.8165,
+          "y": 0.0893,
+          "width": 0.0828,
+          "height": 0.2797,
+          "confidence": 0.5537
+        },
+        {
+          "x": 0.5262,
+          "y": 0.0831,
+          "width": 0.0889,
+          "height": 0.27,
+          "confidence": 0.4466
+        }
+      ]
+    },
+    {
+      "time": 1.401,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.5336,
+          "y": 0.0727,
+          "width": 0.0662,
+          "height": 0.2752,
+          "confidence": 0.534
+        },
+        {
+          "x": 0.5811,
+          "y": 0.5287,
+          "width": 0.097,
+          "height": 0.2907,
+          "confidence": 0.4927
+        },
+        {
+          "x": 0.8312,
+          "y": 0.0865,
+          "width": 0.0802,
+          "height": 0.2881,
+          "confidence": 0.4533
+        }
+      ]
+    },
+    {
+      "time": 1.635,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.5456,
+          "y": 0.0756,
+          "width": 0.0914,
+          "height": 0.2791,
+          "confidence": 0.5507
+        },
+        {
+          "x": 0.5424,
+          "y": 0.5522,
+          "width": 0.079,
+          "height": 0.3029,
+          "confidence": 0.5076
+        },
+        {
+          "x": 0.8503,
+          "y": 0.093,
+          "width": 0.0744,
+          "height": 0.2787,
+          "confidence": 0.4668
+        }
+      ]
+    },
+    {
+      "time": 1.869,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4723,
+          "y": 0.5188,
+          "width": 0.1137,
+          "height": 0.3688,
+          "confidence": 0.6387
+        },
+        {
+          "x": 0.5536,
+          "y": 0.0905,
+          "width": 0.0943,
+          "height": 0.2739,
+          "confidence": 0.5962
+        },
+        {
+          "x": 0.8518,
+          "y": 0.1004,
+          "width": 0.087,
+          "height": 0.2753,
+          "confidence": 0.5081
+        }
+      ]
+    },
+    {
+      "time": 2.102,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4456,
+          "y": 0.5318,
+          "width": 0.0762,
+          "height": 0.366,
+          "confidence": 0.6033
+        },
+        {
+          "x": 0.5751,
+          "y": 0.097,
+          "width": 0.0956,
+          "height": 0.2707,
+          "confidence": 0.5737
+        },
+        {
+          "x": 0.8697,
+          "y": 0.0989,
+          "width": 0.09,
+          "height": 0.2794,
+          "confidence": 0.4504
+        }
+      ]
+    },
+    {
+      "time": 2.336,
+      "faces": [
+        {
+          "x": 0.4286,
+          "y": 0.5375,
+          "width": 0.0187,
+          "height": 0.0437,
+          "center_x": 0.4379,
+          "center_y": 0.5594,
+          "confidence": 0.88,
+          "track_id": "subject_1",
+          "area": 0.0008,
+          "mouth_score": 0.066
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3899,
+          "y": 0.5307,
+          "width": 0.105,
+          "height": 0.4272,
+          "confidence": 0.6085
+        },
+        {
+          "x": 0.5998,
+          "y": 0.0964,
+          "width": 0.0905,
+          "height": 0.2749,
+          "confidence": 0.5022
+        }
+      ]
+    },
+    {
+      "time": 2.569,
+      "faces": [
+        {
+          "x": 0.4063,
+          "y": 0.5375,
+          "width": 0.0199,
+          "height": 0.0458,
+          "center_x": 0.4163,
+          "center_y": 0.5604,
+          "confidence": 0.86,
+          "track_id": "subject_1",
+          "area": 0.0009,
+          "mouth_score": 0.112
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3515,
+          "y": 0.5364,
+          "width": 0.1108,
+          "height": 0.4388,
+          "confidence": 0.7818
+        },
+        {
+          "x": 0.6247,
+          "y": 0.0978,
+          "width": 0.0876,
+          "height": 0.2775,
+          "confidence": 0.505
+        }
+      ]
+    },
+    {
+      "time": 2.803,
+      "faces": [
+        {
+          "x": 0.3958,
+          "y": 0.5083,
+          "width": 0.0222,
+          "height": 0.05,
+          "center_x": 0.4069,
+          "center_y": 0.5333,
+          "confidence": 0.62,
+          "track_id": "subject_1",
+          "area": 0.0011,
+          "mouth_score": 0.053
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3298,
+          "y": 0.4757,
+          "width": 0.1044,
+          "height": 0.5116,
+          "confidence": 0.7479
+        },
+        {
+          "x": 0.6614,
+          "y": 0.1011,
+          "width": 0.0914,
+          "height": 0.2766,
+          "confidence": 0.5082
+        }
+      ]
+    },
+    {
+      "time": 3.036,
+      "faces": [
+        {
+          "x": 0.3958,
+          "y": 0.3708,
+          "width": 0.0269,
+          "height": 0.0521,
+          "center_x": 0.4093,
+          "center_y": 0.3969,
+          "confidence": 0.8,
+          "track_id": "subject_1",
+          "area": 0.0014,
+          "mouth_score": 0.086
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.324,
+          "y": 0.2707,
+          "width": 0.1155,
+          "height": 0.6475,
+          "confidence": 0.731
+        },
+        {
+          "x": 0.7003,
+          "y": 0.0976,
+          "width": 0.0936,
+          "height": 0.2719,
+          "confidence": 0.4864
+        }
+      ]
+    },
+    {
+      "time": 3.27,
+      "faces": [
+        {
+          "x": 0.404,
+          "y": 0.375,
+          "width": 0.0234,
+          "height": 0.0437,
+          "center_x": 0.4157,
+          "center_y": 0.3969,
+          "confidence": 0.8,
+          "track_id": "subject_2",
+          "area": 0.001,
+          "mouth_score": 0.084
+        },
+        {
+          "x": 0.3747,
+          "y": 0.0854,
+          "width": 0.0246,
+          "height": 0.0521,
+          "center_x": 0.387,
+          "center_y": 0.1115,
+          "confidence": 0.67,
+          "track_id": "subject_1",
+          "area": 0.0013,
+          "mouth_score": 0.148
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3291,
+          "y": 0.2724,
+          "width": 0.1274,
+          "height": 0.6634,
+          "confidence": 0.6778
+        },
+        {
+          "x": 0.7394,
+          "y": 0.0983,
+          "width": 0.0929,
+          "height": 0.2749,
+          "confidence": 0.4684
+        }
+      ]
+    },
+    {
+      "time": 3.504,
+      "faces": [
+        {
+          "x": 0.3958,
+          "y": 0.4979,
+          "width": 0.0222,
+          "height": 0.05,
+          "center_x": 0.4069,
+          "center_y": 0.5229,
+          "confidence": 0.83,
+          "track_id": "subject_2",
+          "area": 0.0011,
+          "mouth_score": 0.073
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3462,
+          "y": 0.4373,
+          "width": 0.0996,
+          "height": 0.5525,
+          "confidence": 0.5881
+        },
+        {
+          "x": 0.7762,
+          "y": 0.1,
+          "width": 0.0914,
+          "height": 0.2786,
+          "confidence": 0.4733
+        }
+      ]
+    },
+    {
+      "time": 3.737,
+      "faces": [
+        {
+          "x": 0.3841,
+          "y": 0.4854,
+          "width": 0.0211,
+          "height": 0.0458,
+          "center_x": 0.3946,
+          "center_y": 0.5083,
+          "confidence": 0.78,
+          "track_id": "subject_2",
+          "area": 0.001,
+          "mouth_score": 0.094
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3146,
+          "y": 0.481,
+          "width": 0.1118,
+          "height": 0.5183,
+          "confidence": 0.7747
+        },
+        {
+          "x": 0.7848,
+          "y": 0.102,
+          "width": 0.0959,
+          "height": 0.2677,
+          "confidence": 0.5388
+        }
+      ]
+    },
+    {
+      "time": 3.971,
+      "faces": [
+        {
+          "x": 0.3607,
+          "y": 0.4792,
+          "width": 0.0246,
+          "height": 0.0521,
+          "center_x": 0.373,
+          "center_y": 0.5052,
+          "confidence": 0.79,
+          "track_id": "subject_2",
+          "area": 0.0013,
+          "mouth_score": 0.14
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3076,
+          "y": 0.4874,
+          "width": 0.1082,
+          "height": 0.5002,
+          "confidence": 0.7781
+        },
+        {
+          "x": 0.786,
+          "y": 0.0945,
+          "width": 0.0953,
+          "height": 0.2712,
+          "confidence": 0.5443
+        }
+      ]
+    },
+    {
+      "time": 4.204,
+      "faces": [
+        {
+          "x": 0.3454,
+          "y": 0.4771,
+          "width": 0.0234,
+          "height": 0.0542,
+          "center_x": 0.3571,
+          "center_y": 0.5042,
+          "confidence": 0.88,
+          "track_id": "subject_2",
+          "area": 0.0013,
+          "mouth_score": 0.102
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.2861,
+          "y": 0.4634,
+          "width": 0.119,
+          "height": 0.5198,
+          "confidence": 0.7862
+        },
+        {
+          "x": 0.7846,
+          "y": 0.0786,
+          "width": 0.0979,
+          "height": 0.2849,
+          "confidence": 0.4889
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "source": "https://commons.wikimedia.org/wiki/File:Basketball-Shot-Types-and-Shot-Success-in-Different-Levels-of-Competitive-Basketball-pone.0128885.s009.ogv",
+    "author": "Er\u010dulj F, \u0160trumbelj E",
+    "license": "CC BY4.0",
+    "changes": "Scaled854x480, local detectors, first12s for cooking/full4.438s sports",
+    "limits": "No automatic genre, task-object bounds or ball trajectory inference"
+  }
+}
