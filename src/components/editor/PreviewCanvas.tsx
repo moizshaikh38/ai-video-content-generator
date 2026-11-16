@@ -78,6 +78,12 @@ interface PreviewCanvasProps {
     keyframes: Array<{ time: number; centerX: number }>;
     speaker1X?: number | null;
     speaker2X?: number | null;
+    /** Server-computed split framing geometry (mirrors the export's zoom and
+     * per-speaker x/y anchors). Null = legacy anchor-only split preview. */
+    splitGeometry?: {
+      speaker1: { x: number; y: number; windowW: number };
+      speaker2: { x: number; y: number; windowW: number };
+    } | null;
   } | null;
   onUpdateCaptionPosition?: (
     pos: { x?: number; y?: number; cueId?: string; fontSize?: number } | number,
@@ -423,6 +429,32 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     const p = Math.min(1, Math.max(0, (spkX * inW - boxW / 2) / (inW - boxW)));
     return `${(p * 100).toFixed(2)}%`;
   };
+
+  // Per-panel view when the server supplied split framing geometry: mirrors
+  // the export's zoom (scale height = srcH * 1080 / (windowW * srcW), min the
+  // panel height) and anchors the panel on the speaker's measured x/y instead
+  // of legacy X-only anchoring at vertical center. The object-position keeps
+  // the anchor at panel center, so scaling about 50% 50% tracks the export's
+  // clamped crop window around the same point.
+  const splitGeometryView = (
+    geometry: { x: number; y: number; windowW: number } | undefined
+  ): { position: string; zoom: number } | null => {
+    if (!geometry || !videoDims || videoDims.w <= 0 || videoDims.h <= 0) return null;
+    const dims = getAspectRatioDimensions();
+    const boxW = parseFloat(dims.width) || 360;
+    const boxH = (parseFloat(dims.height) || 640) / 2;
+    const coverScale = Math.max(boxW / videoDims.w, boxH / videoDims.h);
+    const inW = videoDims.w * coverScale;
+    const inH = videoDims.h * coverScale;
+    const clampW = Math.min(0.95, Math.max(0.05, geometry.windowW));
+    const exportScaleH = Math.max(960, (videoDims.h * 1080) / (clampW * videoDims.w));
+    const zoom = exportScaleH / 960;
+    const px = inW <= boxW ? 0.5 : Math.min(1, Math.max(0, (geometry.x * inW - boxW / 2) / (inW - boxW)));
+    const py = inH <= boxH ? 0.5 : Math.min(1, Math.max(0, (geometry.y * inH - boxH / 2) / (inH - boxH)));
+    return { position: `${(px * 100).toFixed(2)}% ${(py * 100).toFixed(2)}%`, zoom };
+  };
+  const splitView1 = splitGeometryView(speakerSplit?.splitGeometry?.speaker1);
+  const splitView2 = splitGeometryView(speakerSplit?.splitGeometry?.speaker2);
 
   // Blur band anchor (mirrors CaptionService.computeBlurFitBandAnchor): on a blur
   // layout the default caption position lands on the blurred fill in export, so
@@ -1197,7 +1229,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               objectFit: primaryVideoCropMode === 'fit' || primaryVideoCropMode === 'blur' ? 'contain' : 'cover',
               objectPosition:
                 primaryLayoutMode === 'split'
-                  ? `${splitObjectPositionX(splitAnchors.speaker1X)} 50%`
+                  ? (splitView1?.position ?? `${splitObjectPositionX(splitAnchors.speaker1X)} 50%`)
                   : smartPanPosition ||
                     `${((activeVideoItems[0]?.crop?.focusX ?? 0.5) * 100).toFixed(2)}% ${((activeVideoItems[0]?.crop?.focusY ?? 0.5) * 100).toFixed(2)}%`,
               transform: activeVideoItems[0]
@@ -1216,7 +1248,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     'scale',
                     playhead - activeVideoItems[0].timeline_start,
                     activeVideoItems[0].transform?.scale || 1
-                  ) as number) * (activeVideoItems[0].crop?.scale ?? 1)}) rotate(${interpolateKeyframes(
+                  ) as number) * (activeVideoItems[0].crop?.scale ?? 1) * (primaryLayoutMode === 'split' ? splitView1?.zoom ?? 1 : 1)}) rotate(${interpolateKeyframes(
                     activeVideoItems[0].keyframes,
                     'rotation',
                     playhead - activeVideoItems[0].timeline_start,
@@ -1257,14 +1289,14 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             style={{
               filter: cssColorFilters(activeVideoItems[0]),
               objectFit: 'cover',
-              objectPosition: `${splitObjectPositionX(splitAnchors.speaker2X)} 50%`,
+              objectPosition: splitView2?.position ?? `${splitObjectPositionX(splitAnchors.speaker2X)} 50%`,
               transform: activeVideoItems[0]
                 ? `scale(${(interpolateKeyframes(
                     activeVideoItems[0].keyframes,
                     'scale',
                     playhead - activeVideoItems[0].timeline_start,
                     activeVideoItems[0].transform?.scale || 1
-                  ) as number) * (activeVideoItems[0].crop?.scale ?? 1)})`
+                  ) as number) * (activeVideoItems[0].crop?.scale ?? 1) * (splitView2?.zoom ?? 1)})`
                 : undefined,
               transformOrigin: '50% 50%',
             }}

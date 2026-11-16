@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import ffmpeg from 'fluent-ffmpeg';
-import ffmpegStatic from 'ffmpeg-static';
 // @ts-ignore
 import ffprobeStatic from 'ffprobe-static';
+import { getRenderFfmpeg } from '../../utils/drawtextFfmpeg.js';
 import { config } from '../../config/index.js';
 import { logger } from '../../utils/logger.js';
 import {
@@ -31,9 +31,10 @@ import { GroqTranscriptionProvider } from '../transcription/groqTranscriptionPro
 import { HighlightFusionService } from './highlightFusionService.js';
 import { extractAudioFromVideo } from '../audioExtractionService.js';
 
-if (ffmpegStatic) {
-  ffmpeg.setFfmpegPath(ffmpegStatic as unknown as string);
-}
+// fluent-ffmpeg's setFfmpegPath writes a process-wide module cache; use the
+// shared drawtext-aware resolution so import order cannot leave the render
+// paths on the drawtext-lacking bundled binary.
+ffmpeg.setFfmpegPath(getRenderFfmpeg());
 const probeBinary = (ffprobeStatic as any)?.path || (ffprobeStatic as any)?.default?.path || ffprobeStatic;
 if (probeBinary && typeof probeBinary === 'string') {
   ffmpeg.setFfprobePath(probeBinary);

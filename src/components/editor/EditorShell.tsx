@@ -193,6 +193,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     keyframes: Array<{ time: number; centerX: number }>;
     speaker1X: number | null;
     speaker2X: number | null;
+    splitGeometry?: {
+      speaker1: { x: number; y: number; windowW: number };
+      speaker2: { x: number; y: number; windowW: number };
+    } | null;
   } | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -206,6 +210,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             keyframes: r.smoothedKeyframes.map((k) => ({ time: Number(k.time), centerX: Number(k.centerX) })),
             speaker1X: typeof r.speaker1X === 'number' ? r.speaker1X : null,
             speaker2X: typeof r.speaker2X === 'number' ? r.speaker2X : null,
+            splitGeometry: r.splitGeometry ?? null,
           });
         }
       })

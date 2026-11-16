@@ -4,20 +4,18 @@ import os from 'os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import ffmpeg from 'fluent-ffmpeg';
-import ffmpegStatic from 'ffmpeg-static';
 import ffprobeStatic from 'ffprobe-static';
+import { getRenderFfmpeg } from '../utils/drawtextFfmpeg.js';
 
 export const ffprobePath: string = (ffprobeStatic as any)?.path || 'ffprobe';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 
-// Configure fluent-ffmpeg to use ffmpeg-static binary
-if (ffmpegStatic) {
-  ffmpeg.setFfmpegPath(ffmpegStatic as unknown as string);
-  logger.info(`Configured FFmpeg static binary at: ${ffmpegStatic}`);
-} else {
-  logger.warn('ffmpegStatic path not resolved; relying on system PATH for ffmpeg.');
-}
+// fluent-ffmpeg's setFfmpegPath writes a process-wide module cache, so this
+// must resolve the same drawtext-capable binary the render services use;
+// pinning ffmpeg-static here would silently override the render binary for
+// the whole process depending on import order.
+ffmpeg.setFfmpegPath(getRenderFfmpeg());
 
 const execFileAsync = promisify(execFile);
 

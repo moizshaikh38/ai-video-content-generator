@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import ffmpegStatic from 'ffmpeg-static';
+import { logger } from './logger.js';
 
 /**
  * drawtext (compile-time text measurement probe in ProEditorService) needs
@@ -20,6 +21,47 @@ function probeDrawtextSupport(bin: string): boolean {
   } catch {
     return false;
   }
+}
+
+let renderResolved: string | undefined;
+
+/**
+ * The binary every fluent-ffmpeg render path must use. fluent-ffmpeg's
+ * setFfmpegPath writes a SHARED process-wide module cache, so any module
+ * that pins a different binary at import time silently overrides the render
+ * binary for the whole process (import order picks the winner). All
+ * module-level setFfmpegPath callers must use this same resolution so the
+ * cache holds one consistent value: FFMPEG_BIN override (honored even
+ * without drawtext, with a warning), then the bundled binary when it has
+ * drawtext, then well-known system ffmpeg paths, and finally the bundled
+ * binary again as last resort.
+ */
+export function getRenderFfmpeg(): string {
+  if (renderResolved !== undefined) return renderResolved;
+  const override = process.env.FFMPEG_BIN;
+  if (override) {
+    if (!probeDrawtextSupport(override)) {
+      logger.warn(`[FFmpeg] FFMPEG_BIN (${override}) lacks drawtext support; watermark, headline and text-overlay renders will fail with this binary. Point FFMPEG_BIN at a full ffmpeg build (libfreetype enabled).`);
+    }
+    renderResolved = override;
+    return renderResolved;
+  }
+  const bundled = (ffmpegStatic as unknown as string) || 'ffmpeg';
+  if (probeDrawtextSupport(bundled)) {
+    renderResolved = bundled;
+    return renderResolved;
+  }
+  for (const candidate of ['ffmpeg', '/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/opt/homebrew/bin/ffmpeg']) {
+    if (candidate === bundled) continue;
+    if (probeDrawtextSupport(candidate)) {
+      logger.warn(`[FFmpeg] Bundled ffmpeg lacks drawtext support; falling back to ${candidate} so watermark/text overlays render.`);
+      renderResolved = candidate;
+      return renderResolved;
+    }
+  }
+  logger.warn('[FFmpeg] No ffmpeg with drawtext support found; watermark and text-overlay renders will fail. Set FFMPEG_BIN to a full ffmpeg build.');
+  renderResolved = bundled;
+  return renderResolved;
 }
 
 let resolved: string | null | undefined;

@@ -1303,6 +1303,16 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       // from these. Null = no credible measurement, use defaults.
       speaker1X: (track.metadata as any)?.speaker1X ?? null,
       speaker2X: (track.metadata as any)?.speaker2X ?? null,
+      // Per-speaker split framing geometry (same helper the export path uses)
+      // so the preview can mirror the exported zoom/anchors. Null = legacy
+      // anchor-only split framing (no credible two-subject measurement).
+      splitGeometry: SmartReframeService.computeSplitSpeakerGeometry({
+        rawSamples: track.raw_samples,
+        sourceWidth: track.source_width || 1920,
+        sourceHeight: track.source_height || 1080,
+        speaker1X: (track.metadata as any)?.speaker1X ?? undefined,
+        speaker2X: (track.metadata as any)?.speaker2X ?? undefined,
+      }),
     });
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';

@@ -6,7 +6,7 @@ import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
 import ffmpeg from 'fluent-ffmpeg';
-import ffmpegStatic from 'ffmpeg-static';
+import { getRenderFfmpeg } from '../utils/drawtextFfmpeg.js';
 import { clipObjectPrefix, deletePrefix, downloadObjectToFile, renderObjectKey, signObjectGet, uploadFile } from './objectStorageService.js';
 import { deleteClipRecords } from '../db/repositories/deletionRepository.js';
 import { logger } from '../utils/logger.js';
@@ -36,7 +36,7 @@ import { JobReliabilityService } from './queue/jobReliabilityService.js';
 import { ProEditorService } from './proEditorService.js';
 import { AudioDuckingService } from './audioDuckingService.js';
 import { FilterGraphBuilder } from './ffmpeg/filterGraphBuilder.js';
-import { execFile, execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { ClipPosterService } from './clipPosterService.js';
 import { WatermarkService } from './watermarkService.js';
@@ -48,45 +48,13 @@ const execFileAsync = promisify(execFile);
 /**
  * drawtext (watermark, headline and text overlays) needs libfreetype, which
  * the bundled ffmpeg-static build lacks; renders under it fail with ffmpeg's
- * opaque "Error opening output files: Filter not found". FFMPEG_BIN stays the
- * explicit override. Otherwise probe the bundled binary for drawtext and fall
- * back to a system ffmpeg that has it, so deployments without FFMPEG_BIN set
- * still render correctly instead of failing every watermarked render.
+ * opaque "Error opening output files: Filter not found". getRenderFfmpeg is
+ * the single resolution every fluent-ffmpeg configuration in this process
+ * must share: setFfmpegPath writes a process-wide module cache, so any
+ * module pinning a different binary (e.g. ffmpeg-static) at import time
+ * silently overrides the render binary for the whole process.
  */
-function probeDrawtextSupport(bin: string): boolean {
-  try {
-    const out = execFileSync(bin, ['-hide_banner', '-filters'], {
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 10000,
-    }).toString();
-    return /(^|\s)drawtext\s/.test(out);
-  } catch {
-    return false;
-  }
-}
-
-function resolveFfmpegBinary(): string {
-  const override = process.env.FFMPEG_BIN;
-  if (override) {
-    if (!probeDrawtextSupport(override)) {
-      logger.warn(`[ClipRender] FFMPEG_BIN (${override}) lacks drawtext support; watermark, headline and text-overlay renders will fail with this binary. Point FFMPEG_BIN at a full ffmpeg build (libfreetype enabled).`);
-    }
-    return override;
-  }
-  const bundled = (ffmpegStatic as unknown as string) || 'ffmpeg';
-  if (probeDrawtextSupport(bundled)) return bundled;
-  for (const candidate of ['ffmpeg', '/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/opt/homebrew/bin/ffmpeg']) {
-    if (candidate === bundled) continue;
-    if (probeDrawtextSupport(candidate)) {
-      logger.warn(`[ClipRender] Bundled ffmpeg lacks drawtext support; falling back to ${candidate} so watermark/text overlays render.`);
-      return candidate;
-    }
-  }
-  logger.warn('[ClipRender] No ffmpeg with drawtext support found; watermark and text-overlay renders will fail. Set FFMPEG_BIN to a full ffmpeg build.');
-  return bundled;
-}
-
-const ffmpegBin = resolveFfmpegBinary();
+const ffmpegBin = getRenderFfmpeg();
 
 // Configure fluent-ffmpeg to use the same resolved binary
 if (ffmpegBin) {

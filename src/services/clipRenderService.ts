@@ -238,6 +238,13 @@ class ClipRenderService {
     isStale?: boolean;
     speaker1X?: number | null;
     speaker2X?: number | null;
+    /** Server-computed per-speaker split framing (same helper the export
+     * uses) so the preview mirrors the exported zoom/anchors. Null = legacy
+     * anchor-only split framing. */
+    splitGeometry?: {
+      speaker1: { x: number; y: number; windowW: number };
+      speaker2: { x: number; y: number; windowW: number };
+    } | null;
   }> {
     return backendRequest(`/clips/${clipId}/reframe`);
   }
