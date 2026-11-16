@@ -16,3 +16,17 @@ test('chunk merge retains diagnostic spans and word confidence on source clock',
 test('both provider adapters keep raw diagnostics and requested language, no extra network calls',async()=>{const priorFetch=globalThis.fetch,priorGroq=config.groqApiKey,priorOR=config.openrouterApiKey;let calls=0;try{(config as any).groqApiKey='fixture';(config as any).openrouterApiKey='fixture';globalThis.fetch=async(_input:any,init:any)=>{calls++;assert.equal(init.body.get('language'),'en');assert.equal(init.body.get('temperature'),'0');return new Response(JSON.stringify({text:'hold',language:'es',duration:2,segments:[{start:0,end:2,text:'hold',avg_logprob:-1.5,no_speech_prob:.9,compression_ratio:3}],words:[{word:'hold',start:0,end:1,probability:.4}]}),{status:200})};for(const provider of [new GroqTranscriptionProvider(),new OpenRouterTranscriptionProvider()]){const result=await provider.transcribeAudio(Buffer.from('fixture'),'fixture.mp3','audio/mp3',{language:'en'});assert.equal(result.segments[0].avg_logprob,-1.5);assert.equal(result.words[0].confidence,.4);assert.equal(result.provenance?.requested_language,'en');assert.equal(assessTranscriptQuality(result).status,'needs_review')}assert.equal(calls,2)}finally{globalThis.fetch=priorFetch;(config as any).groqApiKey=priorGroq;(config as any).openrouterApiKey=priorOR}});
 
 test('explicit source language survives preference normalization; auto/invalid never forces English',async()=>{const {GenreIntelligenceService}=await import('../services/genreIntelligenceService.js');assert.equal(GenreIntelligenceService.normalizePreferences({sourceLanguage:'EN'}).sourceLanguage,'en');assert.equal(GenreIntelligenceService.normalizePreferences({sourceLanguage:'auto'}).sourceLanguage,undefined);assert.equal(GenreIntelligenceService.normalizePreferences({sourceLanguage:'English;tool'}).sourceLanguage,undefined)});
+
+test('missing detected language stays unknown through adapters and chunk merge, never invented English',async()=>{
+ const priorFetch=globalThis.fetch,priorGroq=config.groqApiKey,priorOR=config.openrouterApiKey;
+ try {
+  (config as any).groqApiKey='fixture';(config as any).openrouterApiKey='fixture';
+  globalThis.fetch=async()=>new Response(JSON.stringify({text:'hello',duration:1,segments:[{start:0,end:1,text:'hello'}],words:[]}),{status:200});
+  for(const provider of [new GroqTranscriptionProvider(),new OpenRouterTranscriptionProvider()]) {
+   const result=await provider.transcribeAudio(Buffer.from('fixture'),'fixture.mp3','audio/mp3',{language:'hi'});
+   assert.equal(result.language,'');assert.equal(assessTranscriptQuality(result).status,'unverified');
+   const merged=mergeChunkTranscripts([{plan:{index:0,startSec:0,durationSec:1,ownStartSec:0,ownEndSec:1},result}],1);
+   assert.equal(merged.language,'');assert.equal(assessTranscriptQuality(merged).detected_language,'');
+  }
+ }finally{globalThis.fetch=priorFetch;(config as any).groqApiKey=priorGroq;(config as any).openrouterApiKey=priorOR}
+});

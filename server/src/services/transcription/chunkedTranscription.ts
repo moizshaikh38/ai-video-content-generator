@@ -150,7 +150,7 @@ export function mergeChunkTranscripts(
 
   segments.sort((a, b) => a.start - b.start);
   words.sort((a, b) => a.start - b.start);
-  const language = [...languageVotes.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || 'en';
+  const language = [...languageVotes.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
 
   const lastEnd = Math.max(segments[segments.length - 1]?.end || 0, words[words.length - 1]?.end || 0);
   return {

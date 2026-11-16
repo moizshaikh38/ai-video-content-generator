@@ -158,7 +158,8 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
       .filter((w: NormalizedTranscriptWord) => w.word.length > 0 && w.end > w.start);
 
     const durationSeconds = typeof result?.duration === 'number' ? result.duration : null;
-    const language = typeof result?.language === 'string' ? result.language : 'en';
+    // Missing language is unknown evidence, not detected English.
+    const language = typeof result?.language === 'string' ? result.language.trim() : '';
 
     logger.info(
       `[OpenRouter] Successfully transcribed audio: ${segments.length} segments, ${words.length} words, duration: ${durationSeconds}s, language: ${language}`
