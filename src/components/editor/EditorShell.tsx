@@ -573,6 +573,49 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       });
   };
 
+  // Face-safe hook placement: a template hook inserted at the template's
+  // default band can cover the tracked subject's face (measured: the
+  // headline_impact box at position_y -240 overlapped the woman's forehead in
+  // the two-shot fixture). When analysis exists, move the INSERTED hook (never
+  // a pre-existing/user-positioned text item) to the band opposite the
+  // dominant face zone inside the hook window. Without analysis the template
+  // default stands. Mirrors the export exactly: the item transform persists
+  // and drawtext burns the same position.
+  const seedHookPlacementFromAnalysis = (hookDurationSec: number) => {
+    if (!clip?.id) return;
+    void clipRenderService
+      .getClipReframe(clip.id)
+      .then((r) => {
+        const kfs = (r.smoothedKeyframes || []).filter((k) => k.time < hookDurationSec);
+        if (kfs.length === 0) return;
+        const faceY = kfs.reduce((acc, k) => acc + (k.centerY ?? 0.5), 0) / kfs.length;
+        // Face clearly in the upper band -> hook below center but ABOVE the
+        // caption zone (measured: +240 lands inside the bottom caption band);
+        // clearly lower -> upper band; middle -> keep the template default.
+        const hookY = faceY < 0.45 ? 140 : faceY > 0.6 ? -240 : null;
+        if (hookY === null) return;
+        onUpdateProject((prev) => ({
+          ...prev,
+          tracks: prev.tracks.map((t) => {
+            if (t.type !== 'TEXT') return t;
+            return {
+              ...t,
+              items: t.items.map((i: any) => {
+                // Only the template-inserted hook: starts inside the hook window
+                // and still sits at the template default band.
+                if (i.timeline_start >= hookDurationSec) return i;
+                if (i.transform?.position_y !== -240) return i;
+                return { ...i, transform: { ...i.transform, position_y: hookY } };
+              }),
+            };
+          }),
+        }));
+      })
+      .catch(() => {
+        // Placement fetch failed: the template default band stands.
+      });
+  };
+
   // One-click output template: ONE object owns aspect + framing + captions +
   // hook + transitions. Applied through the pure shared mapper so preview and
   // export see exactly what a hand-picked combination would produce.
@@ -585,6 +628,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     // (tracks/items/caption/crop/canvas), so the boundary cast is safe.
     onUpdateProject((prev) => applyOutputTemplateToProject(prev as any, tpl) as unknown as EditorProject);
     if (tpl.framing.layoutMode === 'split') seedSplitAnchorsFromAnalysis();
+    if (tpl.hook) seedHookPlacementFromAnalysis(tpl.hook.durationSec);
   };
 
   // Apply Caption Preset: 'none' hides the caption track (captionEnabled=false on save),
