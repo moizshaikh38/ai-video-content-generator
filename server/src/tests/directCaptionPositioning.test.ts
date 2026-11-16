@@ -333,7 +333,9 @@ describe('Direct Caption Positioning: State, Autosave & Undo/Redo parity', () =>
       highlight_color: '#FF0000',
       primary_color: '#FFFFFF',
     };
-    const transform = { position_x: 192, position_y: 810 }; // 192 / 1920 + 0.5 = 0.60; 810 / 1080 = 0.75
+    // Shared editor transform contract uses center-origin offsets on1080x1920,
+    // independent of the output canvas. Old landscape/top-origin assumptions were stale.
+    const transform = { position_x: 108, position_y: 480 }; // .5+108/1080=.6; .5+480/1920=.75
     const fallbackOverrides = editorCaptionToPresetOverrides(legacyCaption, transform);
     assert.equal(fallbackOverrides.positionX, 0.6);
     assert.equal(fallbackOverrides.positionY, 0.75);
