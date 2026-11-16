@@ -8,7 +8,7 @@ describe('Evidence-backed caption candidates and shared reveal', () => {
     assert.equal(OPUS_CAPTION_REFERENCE.styles.length, 44);
     assert.equal(new Set(OPUS_CAPTION_REFERENCE.styles).size, 44);
     assert.equal(CAPTION_REFERENCE_COVERAGE.filter(c => c.status === 'verified').length, 0);
-    assert.equal(CAPTION_REFERENCE_COVERAGE.filter(c => c.status === 'candidate').length, 3);
+    assert.equal(CAPTION_REFERENCE_COVERAGE.filter(c => c.status === 'candidate').length, 4);
     assert.equal(CAPTION_PRESETS.typewriter.qualification,'candidate');
     for (const c of CAPTION_REFERENCE_COVERAGE.filter(c => c.presetId)) assert.equal(resolveCaptionPreset(c.presetId).presetId, c.presetId);
   });

@@ -10,6 +10,7 @@ import {buildPresetAssScript,resolveCaptionPreset,FONT_EM_PER_ASS_SIZE} from '..
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 describe('Caption candidate bundled font selection',()=>{
   for(const [id,font,file,postscript] of [
+    ['soft_cut','Figtree','figtree/Figtree-SemiBold.ttf','Figtree-SemiBold'],
     ['word_cut','Inter','inter/Inter-Bold.ttf','Inter-Bold'],
     ['soft_build','League Spartan','league-spartan/LeagueSpartan-Regular.ttf','LeagueSpartan-Regular'],
     ['typewriter','JetBrains Mono','jetbrains-mono/JetBrainsMono-Bold.ttf','JetBrainsMono-Bold'],

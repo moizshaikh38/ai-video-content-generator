@@ -42,6 +42,7 @@ export const CAPTION_PRESET_IDS = [
   'word_cut',
   'soft_build',
   'typewriter',
+  'soft_cut',
 ] as const;
 
 export type CaptionPresetId = (typeof CAPTION_PRESET_IDS)[number];
@@ -77,6 +78,7 @@ export const PRESET_ONLY_CAPTION_STYLES = [
   'word_cut',
   'soft_build',
   'typewriter',
+  'soft_cut',
 ] as const;
 
 /** Every value accepted for `caption_style`. */
@@ -120,7 +122,7 @@ export function resolveRenderPresetId(
 // ── Fonts ────────────────────────────────────────────────────────
 
 /** Fonts the export renderer allows (mirrors SAFE_FONT_FAMILIES in server types). */
-export const CAPTION_RENDER_FONTS = ['JetBrains Mono', 'League Spartan', 'Inter', 'Arial', 'Arial Black', 'DejaVu Sans', 'Liberation Sans'] as const;
+export const CAPTION_RENDER_FONTS = ['Figtree', 'JetBrains Mono', 'League Spartan', 'Inter', 'Arial', 'Arial Black', 'DejaVu Sans', 'Liberation Sans'] as const;
 export type CaptionRenderFont = (typeof CAPTION_RENDER_FONTS)[number];
 export const CAPTION_FALLBACK_FONT: CaptionRenderFont = 'Arial';
 
@@ -129,7 +131,7 @@ export const CAPTION_FALLBACK_FONT: CaptionRenderFont = 'Arial';
  * through libass on the export host; the other CAPTION_RENDER_FONTS stay accepted for
  * API compatibility but may be substituted by the system font matcher.
  */
-export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Arial', 'Arial Black', 'Inter', 'JetBrains Mono', 'League Spartan'];
+export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Arial', 'Arial Black', 'Inter', 'JetBrains Mono', 'League Spartan', 'Figtree'];
 
 /**
  * libass scales a font so that (ascent + descent) equals the ASS font size, while CSS
@@ -138,6 +140,7 @@ export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Arial', 'Aria
  * and fontselect logs. Other historical font ratios are preserved.
  */
 export const FONT_EM_PER_ASS_SIZE: Record<CaptionRenderFont, number> = {
+  Figtree: 1000 / 1201,
   'JetBrains Mono': 0.638978,
   'League Spartan': 0.671141,
   Arial: 0.894,
@@ -150,6 +153,7 @@ export const FONT_EM_PER_ASS_SIZE: Record<CaptionRenderFont, number> = {
 /** Baseline offsets measured against bundled libass faces, as a fraction of ASS size.
  * Keep historical faces unchanged; these align the newly qualified candidate families. */
 export const FONT_PREVIEW_BASELINE_SHIFT: Partial<Record<CaptionRenderFont, number>> = {
+  Figtree: 0.034091, // 1.5px correction at540px wide, qualified with actual renders
   Inter: 0.05,
   'JetBrains Mono': 0.014377,
   'League Spartan': 0.112416,
@@ -157,6 +161,7 @@ export const FONT_PREVIEW_BASELINE_SHIFT: Partial<Record<CaptionRenderFont, numb
 
 /** CSS font stacks used by the preview for each export font. */
 export const FONT_CSS_STACK: Record<CaptionRenderFont, string> = {
+  Figtree: "'Figtree', sans-serif",
   'JetBrains Mono': "'JetBrains Mono', monospace",
   'League Spartan': "'League Spartan', sans-serif",
   Arial: "Arial, 'Liberation Sans', Helvetica, sans-serif",
@@ -185,7 +190,10 @@ export type CaptionAspect = '9:16' | '1:1' | '16:9';
 
 export type CaptionReveal = 'all' | 'build' | 'character';
 
+export interface CaptionShadowLayer { y: number; opacity: number; color: string }
+
 export interface CaptionPresetDefinition {
+  shadowLayers?: readonly CaptionShadowLayer[];
   /** Separate from its exact label: reference parity is still being qualified. */
   qualification?: 'candidate';
   caretColor?: string;
@@ -199,6 +207,7 @@ export interface CaptionPresetDefinition {
   font: {
     family: CaptionRenderFont;
     bold: boolean;
+    weight?: number;
     /** ASS font size (≈ line height in px on a 1080-wide portrait frame). */
     size: number;
     uppercase: boolean;
@@ -291,6 +300,16 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
     layout: { anchor: 'bottom', marginV: 320, marginH: 70, maxWordsPerCue: 5, maxLines: 2, maxCharsPerLine: 24 },
     highlight: 'none', wordAnimation: NO_ANIMATION, entrance: NO_ENTRANCE,
     reveal: 'character',
+  },
+  soft_cut: {
+    qualification: 'candidate', id: 'soft_cut', label: 'Soft Cut',
+    description: 'Cream semibold words with layered vertical shadows.', sampleText: 'To get started',
+    font: { family: 'Figtree', bold: false, weight: 600, size: 88, uppercase: false, letterSpacing: 0 },
+    colors: { text: '#F0E6B5', active: '#F0E6B5', activeText: '#F0E6B5', outline: '#000000', shadow: '#000000', shadowOpacity: 0 },
+    outline: 0, shadow: 0, shadowLayers: [{ y: 5.52, opacity: .4, color: '#000000' }, { y: 1.84, opacity: .3, color: '#000000' }],
+    box: null, activeWordBox: null,
+    layout: { anchor: 'bottom', marginV: 320, marginH: 70, maxWordsPerCue: 1, maxLines: 2, maxCharsPerLine: 24 },
+    highlight: 'none', wordAnimation: NO_ANIMATION, entrance: NO_ENTRANCE, reveal: 'all',
   },
   karaoke: {
     id: 'karaoke',
@@ -664,6 +683,7 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
 
 export const CAPTION_PRESET_LABELS: Record<CaptionPresetId, string> = {
   none: 'No captions',
+  soft_cut: CAPTION_PRESETS.soft_cut.label,
   word_cut: CAPTION_PRESETS.word_cut.label,
   soft_build: CAPTION_PRESETS.soft_build.label,
   typewriter: CAPTION_PRESETS.typewriter.label,
@@ -740,6 +760,8 @@ export interface CaptionPresetOverrides {
 }
 
 export interface ResolvedCaptionStyle {
+  fontWeight?: number;
+  shadowLayers?: readonly CaptionShadowLayer[];
   caretColor?: string;
   reveal: CaptionReveal;
   presetId: RenderableCaptionPresetId;
@@ -1022,6 +1044,7 @@ export function resolveCaptionPreset(
     requestedFontFamily: fontNorm.fellBack ? o.fontFamily : undefined,
     fontFallback: fontNorm.fellBack,
     bold: o.bold ?? p.font.bold,
+    fontWeight: o.bold === undefined && fontNorm.font === p.font.family ? p.font.weight : undefined,
     fontSize,
     uppercase: o.uppercase ?? p.font.uppercase,
     letterSpacing,
@@ -1033,6 +1056,8 @@ export function resolveCaptionPreset(
     shadowColor,
     shadowOpacity,
     shadowDepth,
+    // Explicit shadow/box controls replace the layered preset shadow.
+    shadowLayers: box || o.shadowEnabled !== undefined || o.shadowDepth !== undefined || o.shadowOpacity !== undefined || o.shadowColor !== undefined ? undefined : p.shadowLayers,
     box,
     activeWordBox: p.activeWordBox ? { ...p.activeWordBox } : null,
     alignment,
@@ -1668,8 +1693,9 @@ export function getPreviewCss(style: ResolvedCaptionStyle, scale: number): Previ
     container.transform = 'translateY(-50%)';
   }
 
-  const shadow =
-    style.shadowDepth > 0 && style.shadowOpacity > 0
+  const shadow = style.shadowLayers?.length
+    ? style.shadowLayers.map(l => `0 ${px(l.y)} 0 ${hexToRgba(l.color,l.opacity)}`).reverse().join(', ')
+    : style.shadowDepth > 0 && style.shadowOpacity > 0
       ? `${px(style.shadowDepth)} ${px(style.shadowDepth)} 0 ${hexToRgba(style.shadowColor, style.shadowOpacity)}`
       : 'none';
 
@@ -1679,7 +1705,7 @@ export function getPreviewCss(style: ResolvedCaptionStyle, scale: number): Previ
     top: px(style.fontSize * (FONT_PREVIEW_BASELINE_SHIFT[style.fontFamily] ?? 0)),
     fontFamily: FONT_CSS_STACK[style.fontFamily],
     // Arial Black is a single heavy face; libass gets Bold=0 for it so no faux-bold is synthesized.
-    fontWeight: style.fontFamily === 'Arial Black' ? 900 : style.bold ? 700 : 400,
+    fontWeight: style.fontWeight ?? (style.fontFamily === 'Arial Black' ? 900 : style.bold ? 700 : 400),
     fontSize: px(fontSize),
     lineHeight: px(style.fontSize),
     letterSpacing: style.letterSpacing ? px(style.letterSpacing) : 'normal',
@@ -1786,7 +1812,8 @@ export function buildPresetAssStyleLine(style: ResolvedCaptionStyle, styleName =
   const bold = style.bold || style.fontFamily === 'Arial Black' ? 1 : 0;
   return [
     `Style: ${styleName}`,
-    style.fontFamily,
+    // ASS style Bold is boolean. Use the exact semibold face name, not faux bold700.
+    style.fontFamily === 'Figtree' ? 'Figtree SemiBold' : style.fontFamily,
     style.fontSize,
     primary,
     secondary,
@@ -1811,8 +1838,30 @@ export function buildPresetAssStyleLine(style: ResolvedCaptionStyle, styleName =
   ].join(',');
 }
 
-/** Builds the Dialogue lines for one cue under a preset (supporting cue-level preset overrides and token custom styles). */
+/** Independent glyph-shadow passes keep multiple hard vertical shadows out of the fill. */
 export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCaptionStyle, fallbackStyleName = 'Default'): string[] {
+  const aspect = baseStyle.playResX === baseStyle.playResY ? '1:1' : baseStyle.playResX > baseStyle.playResY ? '16:9' : '9:16';
+  const style = cue.presetOverride && isRenderablePresetId(cue.presetOverride)
+    ? resolveCaptionPreset(cue.presetOverride, cue.styleOverrides, aspect) : baseStyle;
+  const events = buildPresetCueEventsBare(cue, baseStyle, fallbackStyleName);
+  if (!style.shadowLayers?.length) return events;
+  return events.flatMap(event => {
+    const fields = event.split(',');
+    const x = [1,4,7].includes(style.alignment) ? style.marginL : [3,6,9].includes(style.alignment) ? style.playResX-style.marginR : (style.marginL+style.playResX-style.marginR)/2;
+    const y = style.alignment >= 7 ? style.marginV : style.alignment >= 4 ? style.playResY/2 : style.playResY-style.marginV;
+    // Positioned layers opt out of libass collision-avoidance between duplicate glyph passes.
+    const originalText = fields.slice(9).join(',');
+    const text = /\\pos\(/.test(originalText) ? originalText : `{\\pos(${x},${y})}` + originalText; const header = fields.slice(0,9).join(',') + ',';
+    return [...style.shadowLayers!.map(l => {
+      const alpha = Math.round((1-l.opacity)*255).toString(16).padStart(2,'0').toUpperCase();
+      const ink = text.replace(/\\(?:1?c|3c)&H[0-9A-F]+&/gi, '');
+      return header + `{\\1c${hexToAssColor(l.color)}\\alpha&H${alpha}&\\bord0\\shad0\\pbo${-l.y}}` + ink;
+    }), (header + text).replace('Dialogue: 0,','Dialogue: 1,')];
+  });
+}
+
+/** Builds the Dialogue lines for one cue under a preset (supporting cue-level preset overrides and token custom styles). */
+function buildPresetCueEventsBare(cue: PresetTimedCue, baseStyle: ResolvedCaptionStyle, fallbackStyleName = 'Default'): string[] {
   const hasCuePreset = Boolean(cue.presetOverride && isRenderablePresetId(cue.presetOverride));
   const aspect = baseStyle.playResX === baseStyle.playResY ? '1:1' : baseStyle.playResX > baseStyle.playResY ? '16:9' : '9:16';
   const style = hasCuePreset

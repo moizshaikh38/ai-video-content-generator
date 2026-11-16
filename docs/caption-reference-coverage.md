@@ -113,3 +113,23 @@ work and is not included here.
 Unicode screenshot caveat: the joined-emoji cluster remains intact but renders missing-glyph boxes
 in this environment. Grapheme safety is not font-coverage support. Do not claim non-Latin/emoji
 rendering is qualified.
+
+## Soft Cut checkpoint
+
+Fourth independent candidate: exact name Soft Cut, cream #F0E6B5, Figtree Semibold600,
+one-word replacement and two hard vertical shadow layers. Public Figtree OFL and font
+are bundled. Public provenance: https://github.com/google/fonts/blob/main/ofl/figtree/METADATA.pb
+and https://github.com/google/fonts/blob/main/ofl/figtree/OFL.txt . Static weight600 instance
+updates font names. ASS selects Figtree SemiBold explicitly with boolean Bold0;
+using Bold600 in an ASS style is incorrect and selected fallback Bold700 in testing.
+
+CSS uses two text-shadow layers; ASS uses two translucent positioned glyph passes plus
+the fill. Explicit positioning avoids libass collision relocation of the duplicate passes;
+existing manual position tags are preserved, never prefixed with a competing default.
+Explicit shadow/box controls replace these preset layers. Actual Chrome/FFmpeg pixels
+were inspected on three words and manual x=.7/y=.65 through regroup. Baseline drift
+is within1px on that fixture. A default font override remains supported, not guaranteed
+to preserve reference typography. No scene-center anchor logic changed in this branch.
+
+Current coverage supersedes earlier counts:4 candidates,40 unmatched,0 Opus-verified.
+Full-sized applied reference timing/segmentation/shadow comparison remains open.
