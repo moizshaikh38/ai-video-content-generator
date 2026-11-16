@@ -1685,6 +1685,15 @@ export class SmartReframeService {
     sourceHeight?: number;
     speaker1Geometry?: { x: number; y: number; windowW: number };
     speaker2Geometry?: { x: number; y: number; windowW: number };
+    /** 'contain' fits each speaker's whole original camera region into their
+     * panel (padding when the aspect differs) instead of a face-anchored
+     * cover crop. User request: the full per-person facecam view must be
+     * visible, not a punch-in. */
+    splitFit?: 'cover' | 'contain';
+    /** Actual on-screen boundary between the two camera regions (fraction of
+     * source width), e.g. the split-screen divider. Falls back to the
+     * speaker-anchor midpoint when unknown. Only used with splitFit=contain. */
+    dividerX?: number;
     /** Chain-safe embedding (Pro editor graph): consumes the incoming stream
      * (no [0:v] prefix), ends UNLABELED so callers can keep appending filters,
      * and prefixes every link label with the tag. Must be unique per graph. */
@@ -1699,6 +1708,8 @@ export class SmartReframeService {
       sourceHeight = 1080,
       speaker1Geometry,
       speaker2Geometry,
+      splitFit = 'cover',
+      dividerX,
       tag,
     } = options;
 
@@ -1736,6 +1747,31 @@ export class SmartReframeService {
         (outputLabel ? `[${outputLabel}]` : '')
       );
     };
+
+    // Contain mode: each panel shows the speaker's ENTIRE original camera
+    // region (source edge to the detected divider), scaled to fit with black
+    // padding when the region aspect differs from the panel. Nothing of the
+    // original per-person view is cropped away.
+    if (splitFit === 'contain') {
+      const part = Number.isFinite(dividerX)
+        ? Math.min(0.9, Math.max(0.1, Number(dividerX)))
+        : (spk1XClamped + spk2XClamped) / 2;
+      const containChain = (inputLabel: string, outputLabel: string | null, x0: number, x1: number) =>
+        `[${inputLabel}]crop=in_w*${(x1 - x0).toFixed(4)}:in_h:in_w*${x0.toFixed(4)}:0,` +
+        `scale=${canvasWidth}:${halfHeight}:force_original_aspect_ratio=decrease,` +
+        `pad=${canvasWidth}:${halfHeight}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1` +
+        (outputLabel ? `[${outputLabel}]` : '');
+      if (tag) {
+        return `split=2[${tag}s1][${tag}s2];` +
+          containChain(`${tag}s1`, `${tag}top`, 0, part) + ';' +
+          containChain(`${tag}s2`, `${tag}bot`, part, 1) + ';' +
+          `[${tag}top][${tag}bot]vstack`;
+      }
+      return `[0:v]split=2[spk1][spk2];` +
+        containChain('spk1', 'v_top', 0, part) + ';' +
+        containChain('spk2', 'v_bot', part, 1) + ';' +
+        `[v_top][v_bot]vstack[out]`;
+    }
 
     if (tag) {
       return `split=2[${tag}s1][${tag}s2];` +
@@ -1992,6 +2028,11 @@ export class SmartReframeService {
       speaker1: { x: number; y: number; windowW: number };
       speaker2: { x: number; y: number; windowW: number };
     } | null;
+    /** Forwarded to buildSplitPodcastFilter: 'contain' fits each speaker's
+     * full original camera region (padded) instead of a face-anchored crop. */
+    splitFit?: 'cover' | 'contain';
+    /** Actual split-screen divider position (fraction of source width). */
+    splitDividerX?: number;
     /** Group framing for single-view multi-person clips, from
      * computeGroupFrameGeometry. When present for the track layout in 9:16,
      * the whole group stays visible (blur-fill fit) instead of tight
@@ -2020,6 +2061,8 @@ export class SmartReframeService {
       speaker1X,
       speaker2X,
       splitGeometry,
+      splitFit,
+      splitDividerX,
       screencastMode = 'split_stacked',
       screencastInsetPosition,
       screencastInsetDiameter,
@@ -2054,6 +2097,8 @@ export class SmartReframeService {
           sourceHeight,
           speaker1Geometry: splitGeometry?.speaker1,
           speaker2Geometry: splitGeometry?.speaker2,
+          splitFit,
+          dividerX: splitDividerX,
           tag,
         });
       }

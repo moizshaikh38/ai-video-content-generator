@@ -183,3 +183,41 @@ describe('buildSplitPodcastFilter with per-speaker geometry', () => {
     assert.ok(filter.includes('vstack[out]'));
   });
 });
+
+describe('buildSplitPodcastFilter contain mode', () => {
+  test('fits each full camera region with padding at the detected divider', () => {
+    const filter = SmartReframeService.buildSplitPodcastFilter({
+      speaker1X: 0.25,
+      speaker2X: 0.72,
+      sourceWidth: 854,
+      sourceHeight: 480,
+      splitFit: 'contain',
+      dividerX: 0.498,
+    });
+    assert.ok(filter.includes('crop=in_w*0.4980:in_h:in_w*0.0000:0'), 'left region = source start to divider');
+    assert.ok(filter.includes('crop=in_w*0.5020:in_h:in_w*0.4980:0'), 'right region = divider to source end');
+    assert.ok(filter.includes('force_original_aspect_ratio=decrease'), 'contain, not cover');
+    assert.ok((filter.match(/pad=1080:960/g) || []).length === 2, 'both panels padded');
+    assert.ok(filter.includes('vstack'));
+  });
+
+  test('contain falls back to the anchor midpoint without a divider', () => {
+    const filter = SmartReframeService.buildSplitPodcastFilter({
+      speaker1X: 0.2,
+      speaker2X: 0.8,
+      splitFit: 'contain',
+    });
+    assert.ok(filter.includes('in_w*0.5000:0'), 'midpoint partition');
+  });
+
+  test('default cover behavior unchanged (regression)', () => {
+    const filter = SmartReframeService.buildSplitPodcastFilter({
+      speaker1X: 0.25,
+      speaker2X: 0.75,
+      sourceWidth: 1920,
+      sourceHeight: 1080,
+    });
+    assert.ok(filter.includes('force_original_aspect_ratio=increase'));
+    assert.ok(!filter.includes('pad='), 'cover mode never pads');
+  });
+});

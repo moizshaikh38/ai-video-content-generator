@@ -1499,6 +1499,8 @@ export class ClipRenderService {
           speaker1X: clip.crop_config?.split?.speaker1X,
           speaker2X: clip.crop_config?.split?.speaker2X,
           splitGeometry,
+          splitFit: (clip.crop_config?.split as any)?.fit,
+          splitDividerX: (clip.crop_config?.split as any)?.dividerX,
           groupFrame,
           screencastMode: clip.crop_config?.screencast?.mode,
           screencastInsetPosition: clip.crop_config?.screencast?.insetPosition,

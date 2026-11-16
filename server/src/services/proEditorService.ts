@@ -844,6 +844,8 @@ export class ProEditorService {
           speaker1X: reframe!.cropConfig?.split?.speaker1X,
           speaker2X: reframe!.cropConfig?.split?.speaker2X,
           splitGeometry,
+          splitFit: (reframe!.cropConfig?.split as any)?.fit,
+          splitDividerX: (reframe!.cropConfig?.split as any)?.dividerX,
           tag: layoutTag,
           screencastMode: reframe!.cropConfig?.screencast?.mode,
           screencastInsetPosition: reframe!.cropConfig?.screencast?.insetPosition,
