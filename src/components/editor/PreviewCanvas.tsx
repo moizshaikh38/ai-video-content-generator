@@ -246,6 +246,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   useEffect(() => {
     projectRef.current = project;
   }, [project]);
+  const playheadRef = useRef(playhead);
+  useEffect(() => { playheadRef.current = playhead; }, [playhead]);
 
   // Track the stage viewport's available size so the canvas can scale to fill it responsively.
   useEffect(() => {
@@ -298,7 +300,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       if (viewMode !== 'edit') return;
       e.preventDefault();
       const proj = projectRef.current;
-      const item = proj?.tracks.find((t) => t.type === 'VIDEO')?.items[0];
+      // Zoom the scene under the playhead (per-scene crop), not always the first clip.
+      const vItems = proj?.tracks.find((t) => t.type === 'VIDEO')?.items ?? [];
+      const ph = playheadRef.current;
+      const item = vItems.find((i) => !i.hidden && ph >= i.timeline_start && ph < i.timeline_end) ?? vItems[0];
       if (!proj || !item) return;
       if (!preCropProjectRef.current) {
         preCropProjectRef.current = JSON.parse(JSON.stringify(proj));
@@ -420,36 +425,36 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       }
     }
   }
+  // Layout/crop/band/split state is PER SCENE: read the item under the playhead (the export compiles per item),
+  // falling back to the first video item only when the playhead is outside every item.
+  const baseVideoItem: EditorTrackItem | undefined = activeVideoItems[0] ?? project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
 
   const backdropVideoRef = useRef<HTMLVideoElement | null>(null);
   const splitBottomRef = useRef<HTMLVideoElement | null>(null);
   const [videoDims, setVideoDims] = useState<{ w: number; h: number } | null>(null);
 
   const primaryVideoCropMode = useMemo(() => {
-    const videoTrack = project.tracks.find((t) => t.type === 'VIDEO');
-    const item = videoTrack?.items[0];
+    const item = baseVideoItem;
     // Match the export compiler: item.crop.mode wins; legacy crop_mode only
     // applies when no explicit crop exists. 'fit' letterboxes, 'blur' is a
     // blurred-pad letterbox, everything else covers.
     if (item?.crop?.mode) return item.crop.mode === 'fit' ? 'fit' : item.crop.mode === 'blur' ? 'blur' : 'fill';
     return (item as any)?.crop_mode === 'fit' ? 'fit' : 'fill';
-  }, [project.tracks]);
+  }, [baseVideoItem]);
 
   // Framing layout pick (Framing panel): 'split' renders a two-speaker
   // top/bottom stack mirroring the export's buildSplitPodcastFilter.
   const primaryLayoutMode = useMemo(() => {
-    const item = project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
-    return effectiveContentLayout(item,contentFramingDecision);
-  }, [project.tracks,contentFramingDecision]);
+    return effectiveContentLayout(baseVideoItem,contentFramingDecision);
+  }, [baseVideoItem,contentFramingDecision]);
 
   const splitAnchors = useMemo(() => {
-    const item = project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
-    const splitCfg = (item as any)?.crop_config?.split;
+    const splitCfg = (baseVideoItem as any)?.crop_config?.split;
     return {
       speaker1X: Number(splitCfg?.speaker1X) || 0.25,
       speaker2X: Number(splitCfg?.speaker2X) || 0.75,
     };
-  }, [project.tracks]);
+  }, [baseVideoItem]);
 
   // CSS object-position x matching the export's speaker-centered crop window:
   // export crops x = in_w*spkX - out_w/2 (clamped); CSS p% places the window at
@@ -477,7 +482,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     panel = 0,
   ): { left: string; top: string; width: string; height: string; panelH: number; clipPath?: string } | null => {
     if (!videoDims || videoDims.w <= 0 || videoDims.h <= 0) return null;
-    const item = project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
+    const item = baseVideoItem;
     const cfg = (item as any)?.crop_config?.split;
     if (cfg?.fit === 'contain') {
       const dims = getAspectRatioDimensions();
@@ -1120,7 +1125,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const backdropInset = (() => {
     const mode = primaryVideoCropMode;
     // Fit band: 4:3 cover-cropped band, full canvas width (inset by spacing), centred; mirrors the band crop in buildBackdropFitChain.
-    if ((mode === 'fit' || mode === 'blur') && primaryLayoutMode !== 'split' && fitBandApplies(project.canvas.aspect_ratio) && effectiveFitBand(project.canvas, project.tracks.find((t) => t.type === 'VIDEO')?.items[0] as any) === '4:3') {
+    if ((mode === 'fit' || mode === 'blur') && primaryLayoutMode !== 'split' && fitBandApplies(project.canvas.aspect_ratio) && effectiveFitBand(project.canvas, baseVideoItem as any) === '4:3') {
       const w = parseFloat(canvasDims.width);
       const h = parseFloat(canvasDims.height);
       const exportW = project.canvas.aspect_ratio === '16:9' ? 1920 : 1080;
@@ -1229,6 +1234,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             <>
               <BackgroundControl
                 project={project}
+                sceneItem={baseVideoItem}
                 cropMode={primaryVideoCropMode === 'blur' ? 'blur' : primaryVideoCropMode === 'fit' ? 'fit' : 'fill'}
                 onSetCropMode={onUpdateCropMode}
                 onUpdateCanvas={onUpdateCanvas}

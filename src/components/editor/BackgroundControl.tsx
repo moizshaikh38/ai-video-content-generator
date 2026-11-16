@@ -7,6 +7,8 @@ const COLORS = ['#000000', '#090B10', '#0A0F1D', '#171922', '#FFFFFF', '#E11D48'
 
 interface Props {
   project: EditorProject;
+  /** The scene under the playhead (Fit shape is read from it unless the project-wide choice is set). */
+  sceneItem?: any;
   /** 'blur' | 'fit' (solid colour) | 'fill' (no backdrop) of the base video. */
   cropMode: 'fill' | 'fit' | 'blur';
   onSetCropMode: (mode: 'center' | 'fit' | 'blur') => void;
@@ -14,7 +16,7 @@ interface Props {
 }
 
 /** Preview-top "Background" control: Blur / Color + spacing + corner radius. Every value is read by the export compiler. */
-export const BackgroundControl: React.FC<Props> = ({ project, cropMode, onSetCropMode, onUpdateCanvas }) => {
+export const BackgroundControl: React.FC<Props> = ({ project, sceneItem, cropMode, onSetCropMode, onUpdateCanvas }) => {
   const [open, setOpen] = useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -30,7 +32,7 @@ export const BackgroundControl: React.FC<Props> = ({ project, cropMode, onSetCro
   const spacing = c.background_spacing ?? 0;
   const radius = c.background_corner_radius ?? 0;
   const color = (c.background_color || '#000000').toUpperCase();
-  const effBand = effectiveFitBand(c, project.tracks.find((t) => t.type === 'VIDEO')?.items[0] as any);
+  const effBand = effectiveFitBand(c, sceneItem ?? (project.tracks.find((t) => t.type === 'VIDEO')?.items[0] as any));
   const active = cropMode === 'blur' ? 'blur' : cropMode === 'fit' ? 'color' : 'none';
   const tab = (id: 'blur' | 'color', label: string) => (
     <button
