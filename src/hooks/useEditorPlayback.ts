@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { timelineToSourceTime, sourceToTimelineTime, playbackSliceAt, type PlaybackSlice } from '../lib/editorPlaybackTime';
+import { timelineToSourceTime, sourceToTimelineTime, playbackSliceAt, mediaTimeAdvanced, type PlaybackSlice } from '../lib/editorPlaybackTime';
 
 export interface UseEditorPlaybackOptions {
   initialDuration?: number;
@@ -15,6 +15,7 @@ export interface UseEditorPlaybackReturn {
   currentTime: number;
   duration: number;
   isPlaying: boolean;
+  isMediaAdvancing: boolean;
   playbackRate: number;
   volume: number;
   isMuted: boolean;
@@ -47,6 +48,9 @@ export function useEditorPlayback({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [currentTime, setCurrentTime] = useState<number>(initialTime);
   const [duration, setDurationState] = useState<number>(initialDuration);
+  // Auxiliary layers wait for observed primary-media progress, not Play intent.
+  const [isMediaAdvancing, setIsMediaAdvancing] = useState(false);
+  const lastMediaTime = useRef<number | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackRate, setPlaybackRateState] = useState<number>(1.0);
   const [volume, setVolumeState] = useState<number>(1.0);
@@ -208,6 +212,8 @@ export function useEditorPlayback({
       }
       const rawTimeline = sourceToTimelineTime(slicesRef.current, v.currentTime, timeRef.current, offset);
       const timelineTime = Math.max(0, Math.min(durationRef.current, Number(rawTimeline.toFixed(3))));
+      if (mediaTimeAdvanced(lastMediaTime.current, v.currentTime, v.paused)) setIsMediaAdvancing(true);
+      lastMediaTime.current = v.currentTime;
       timeRef.current = timelineTime;
       const slice = playbackSliceAt(slicesRef.current, timelineTime);
       v.playbackRate = rateRef.current * (slice?.speed?.speed || 1);
@@ -237,8 +243,8 @@ export function useEditorPlayback({
       }
     };
 
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
+    const handlePlay = () => { lastMediaTime.current=v.currentTime;setIsMediaAdvancing(false);setIsPlaying(true); };
+    const handlePause = () => { setIsMediaAdvancing(false);setIsPlaying(false); };
 
     v.addEventListener('loadedmetadata', handleLoadedMetadata);
     v.addEventListener('timeupdate', handleTimeUpdate);
@@ -259,7 +265,7 @@ export function useEditorPlayback({
     videoRef,
     currentTime,
     duration,
-    isPlaying,
+    isPlaying, isMediaAdvancing,
     playbackRate,
     volume,
     isMuted,

@@ -143,7 +143,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     videoRef,
     currentTime,
     duration,
-    isPlaying,
+    isPlaying, isMediaAdvancing,
     playbackRate,
     volume,
     isMuted,
@@ -1818,7 +1818,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
           <PreviewCanvas
             project={project}
             playhead={currentTime}
-            isPlaying={isPlaying}
+            isPlaying={isMediaAdvancing}
             sourceOffset={sourceOffset}
             cleanSourceUrl={cleanSourceUrl}
             renderedPreviewUrl={renderedPreviewUrl}

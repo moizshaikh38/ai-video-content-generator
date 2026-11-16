@@ -24,3 +24,8 @@ export function sourceToTimelineTime(slices: PlaybackSlice[], source: number, hi
   return Math.max(active.timeline_start, Math.min(active.timeline_end,
     active.timeline_start + (source - active.source_start) / (active.speed?.speed || 1)));
 }
+
+/** Readiness for auxiliary layers must come from physical media progress, not a Play request. */
+export function mediaTimeAdvanced(previous: number | null, current: number, paused: boolean): boolean {
+  return !paused && previous !== null && Number.isFinite(previous) && Number.isFinite(current) && current > previous + .005;
+}

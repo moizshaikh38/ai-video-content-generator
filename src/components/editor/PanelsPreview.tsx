@@ -27,9 +27,9 @@ export const PanelsPreview: React.FC<Props> = ({ src, panels, canvasW, canvasH, 
   useEffect(() => {
     refs.current.forEach((v) => {
       if (!v) return;
-      if (Math.abs(v.currentTime - time) > 0.3) v.currentTime = time;
+      if (Math.abs(v.currentTime - time) > (playing ? 0.3 : 0.001)) v.currentTime = time;
     });
-  }, [time]);
+  }, [time, playing]);
   useEffect(() => {
     refs.current.forEach((v) => {
       if (!v) return;
