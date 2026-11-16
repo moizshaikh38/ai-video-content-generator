@@ -1934,13 +1934,9 @@ export class ProEditorService {
     }
     const finalLines = wrappedLines.slice(0, 4);
 
-    // Sanitize user text for FFmpeg drawtext (escape backslashes, percent signs, and colons)
-    const sanitizeLine = (t: string) =>
-      t.replace(/\\/g, '\\\\')
-        .replace(/'/g, '')
-        .replace(/:/g, '\\:')
-        .replace(/%/g, '\\%');
-    const safeLines = finalLines.map(sanitizeLine);
+    // Literal UTF-8 text is transported in a textfile, never inside filter syntax.
+    // Preserve punctuation such as CHILD'S and disable %{...} expansion.
+    const safeLines = finalLines;
 
     const posX = Math.round((item.transform?.position_x || 0) * (canvasW / previewW));
     const posY = Math.round((item.transform?.position_y || 0) * scaleRatio);
@@ -1974,7 +1970,7 @@ export class ProEditorService {
       const chain = safeLines
         .map((lineText, i) => {
           const offset = (i - (safeLines.length - 1) / 2) * lineGap;
-          return `drawtext=text='${lineText}':${drawtextFontArg(font, fontWeight)}:fontsize=${scaledFontSize}:fontcolor=0xFFFFFF:x='(w-text_w)/2+${posX}':y='(h-text_h)/2+${posY}${offset >= 0 ? '+' : ''}${offset.toFixed(1)}'`;
+          return `drawtext=${ProEditorService.literalDrawtextArg(lineText)}:${drawtextFontArg(font, fontWeight)}:fontsize=${scaledFontSize}:fontcolor=0xFFFFFF:x='(w-text_w)/2+${posX}':y='(h-text_h)/2+${posY}${offset >= 0 ? '+' : ''}${offset.toFixed(1)}'`;
         })
         .join(',');
       const res = spawnSync(
@@ -2001,6 +1997,15 @@ export class ProEditorService {
     } catch {
       return null;
     }
+  }
+
+  /** Content-addressed literal files avoid drawtext's two escaping layers. */
+  private static literalDrawtextArg(text: string): string {
+    const dir = path.join(os.tmpdir(), 'vireo-drawtext-literals');
+    fs.mkdirSync(dir, {recursive:true, mode:0o700});
+    const file = path.join(dir, crypto.createHash('sha256').update(text).digest('hex') + '.txt');
+    if (!fs.existsSync(file)) fs.writeFileSync(file, text, {mode:0o600});
+    return `textfile='${file.replace(/\\/g, '/').replace(/:/g, '\\\\:')}':expansion=none`;
   }
 
   public static compileTextLayerDrawtext(
@@ -2045,7 +2050,7 @@ export class ProEditorService {
     }
 
     const filterParts: string[] = [
-      `text='${safeLines[0]}'`,
+      ProEditorService.literalDrawtextArg(safeLines[0]),
       drawtextFontArg(font, textCfg.font_weight),
       `fontsize='${sizeExpr}'`,
       `fontcolor=0x${fontColor}`,
@@ -2091,7 +2096,7 @@ export class ProEditorService {
       .map((lineText, i) => {
         const offset = (i - (safeLines.length - 1) / 2) * lineGap;
         const parts = filterParts.map((p) => {
-          if (p.startsWith('text=')) return `text='${lineText}'`;
+          if (p.startsWith('textfile=')) return ProEditorService.literalDrawtextArg(lineText);
           if (p.startsWith('y=')) return `y='${yExpr}${offset >= 0 ? '+' : ''}${offset.toFixed(1)}'`;
           return p;
         });
