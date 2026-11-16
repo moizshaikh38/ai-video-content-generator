@@ -79,7 +79,7 @@ describe('buildGroupFitFilter', () => {
     });
     assert.ok(f.startsWith('[0:v]split=2'), f);
     assert.ok(f.includes('boxblur=25:5'), f);
-    assert.ok(f.includes('crop=994:414'), f, 'window crop dims');
+    assert.ok(f.includes('crop=994:720'), f, 'window crop dims: 4:3 window clamped to source height');
     assert.ok(f.includes('scale=1080:-2'), f);
     assert.ok(f.includes('overlay=(W-w)/2:(H-h)*0.42'), f);
     assert.ok(f.endsWith('[out]'), f);

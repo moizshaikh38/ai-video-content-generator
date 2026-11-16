@@ -1432,7 +1432,7 @@ export class SmartReframeService {
     if (!Number.isFinite(sourceWidth) || sourceWidth <= 0 || !Number.isFinite(sourceHeight) || sourceHeight <= 0) return null;
 
     const clamp01 = (v: number) => Math.min(0.95, Math.max(0.05, v));
-    const groups: Array<{ time: number; cx: number; cy: number; span: number }> = [];
+    const groups: Array<{ time: number; cx: number; cy: number; span: number; spanY: number }> = [];
     rawSamples.forEach((sample, idx) => {
       const faces = (sample?.faces || []).filter(
         (f) => Number.isFinite(f?.center_x) && Number.isFinite(f?.center_y)
@@ -1447,6 +1447,7 @@ export class SmartReframeService {
         cx: (minX + maxX) / 2,
         cy: (Math.min(...ys) + Math.max(...ys)) / 2,
         span: maxX - minX,
+        spanY: Math.max(...ys) - Math.min(...ys),
       });
     });
     if (groups.length < 3) return null;
@@ -1459,7 +1460,14 @@ export class SmartReframeService {
     // Window covers the widest group arrangement plus margin; never wider
     // than the source, never so narrow that it defeats the purpose.
     const maxSpan = Math.max(...groups.map((g) => g.span));
-    const windowW = Math.min(0.92, Math.max(0.4, maxSpan * 1.9 + 0.1));
+    const maxSpanY = Math.max(...groups.map((g) => g.spanY));
+    // Horizontal coverage of the widest arrangement, and vertical coverage of
+    // the tallest face spread given the 4:3 window the fit filter renders
+    // (winH = winW * 3/4): both people must fit the taller composition, not
+    // just the width.
+    const xCover = maxSpan * 1.9 + 0.1;
+    const yCover = ((maxSpanY * 1.6 + 0.15) * sourceHeight) / (0.75 * sourceWidth);
+    const windowW = Math.min(0.92, Math.max(0.4, xCover, yCover));
 
     // Smooth the group midpoint with a 3-sample moving average so the camera
     // drifts instead of jittering; clamp away from edges.
@@ -1509,8 +1517,13 @@ export class SmartReframeService {
       tag,
     } = options;
 
+    // Composition window: 4:3, not the source's own wide aspect. A
+    // source-aspect window on wide footage yields a thin strip users reject;
+    // the 4:3 crop-with-fill is the pattern competitor tools ship for
+    // both-people-visible single view (Opus "Fit"), and it covers upper
+    // bodies instead of just faces.
     const winW = Math.round(windowW * sourceWidth);
-    const winH = Math.min(sourceHeight, Math.round((winW * sourceHeight) / sourceWidth));
+    const winH = Math.min(sourceHeight, Math.round(winW * 0.75));
 
     const kfs = [...keyframes]
       .filter((k) => Number.isFinite(k.time) && Number.isFinite(k.centerX))

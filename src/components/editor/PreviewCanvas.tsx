@@ -635,7 +635,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     const windowW = Math.min(0.92, Math.max(0.4, groupReframe.windowW));
     const elW = boxW / windowW;
     const elH = (elW * videoDims.h) / videoDims.w;
-    const bandH = boxW * (videoDims.h / videoDims.w);
+    // Mirror buildGroupFitFilter's 4:3 composition window (winH clamped to
+    // the source height): the band shows winH of every winW source columns.
+    const winH = Math.min(videoDims.h, Math.round(windowW * videoDims.w * 0.75));
+    const bandH = boxW * (winH / (windowW * videoDims.w));
     const center = interpolateReframeCenter(groupReframe.keyframes, targetVideoTime);
     const cx = Math.min(0.95, Math.max(0.05, center.centerX));
     const cy = Math.min(0.95, Math.max(0.05, center.centerY));
