@@ -514,8 +514,12 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     const tempVideo = document.createElement('video');
     tempVideo.preload = 'metadata';
     tempVideo.onloadedmetadata = () => {
-      source.duration = tempVideo.duration;
-      setSelectedSource({ ...source });
+      const duration = tempVideo.duration;
+      // Metadata may arrive after upload has started. Keep its project ID,
+      // and never resurrect an old selection after replacement/cancellation.
+      setSelectedSource((current) => current?.type === 'file' && current.file === file
+        ? { ...current, duration }
+        : current);
     };
     tempVideo.src = objectUrl;
 
@@ -660,7 +664,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
       // 1. Direct File Upload Flow
       if (selectedSource.type === 'file' && selectedSource.file) {
-        projectId = crypto.randomUUID();
+        projectId = selectedSource.projectId || crypto.randomUUID();
         setActiveProjectId(projectId);
         setWorkflowState('processing');
         setActiveProjectStatus('uploading');
@@ -678,16 +682,20 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           clipPreferences.customInstructions?.trim() || '',
         ].filter(Boolean).join(' ');
 
-        // Create project record in DB
-        await projectService.createProjectAsync({
-          id: projectId,
-          userId: user.id,
-          title: selectedSource.title,
-          sourceType: 'upload',
-          videoStatus: 'uploading',
-          notes,
-          clip_preferences: clipPreferences,
-        });
+        // Reuse a created upload session after transfer failure, rather than
+        // consuming another project slot on every retry.
+        if (!selectedSource.projectId) {
+          await projectService.createProjectAsync({
+            id: projectId,
+            userId: user.id,
+            title: selectedSource.title,
+            sourceType: 'upload',
+            videoStatus: 'uploading',
+            notes,
+            clip_preferences: clipPreferences,
+          });
+          setSelectedSource({ ...selectedSource, projectId });
+        }
 
         // Upload to storage with byte progress
         await uploadVideoFile({

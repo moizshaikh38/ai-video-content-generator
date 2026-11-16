@@ -44,3 +44,14 @@ test('provider setup errors use creator-facing copy without exposing environment
   assert.equal(clippingStartErrorMessage({ name: 'AbortError' }), 'Upload was cancelled.');
   assert.equal(clippingStartErrorMessage({ message: 'The source file is too large.' }), 'The source file is too large.');
 });
+
+test('failed transfer retry reuses the existing project rather than consuming another project slot', () => {
+  assert.match(workflow, /projectId = selectedSource\.projectId \|\| crypto\.randomUUID\(\)/);
+  assert.match(workflow, /if \(!selectedSource\.projectId\) \{\s*await projectService\.createProjectAsync/);
+  assert.match(workflow, /setSelectedSource\(\{ \.\.\.selectedSource, projectId \}\)/);
+});
+
+test('late metadata merges only into the current file selection and preserves its project ID', () => {
+  assert.match(workflow, /setSelectedSource\(\(current\) => current\?\.type === 'file' && current\.file === file\s*\? \{ \.\.\.current, duration \}\s*: current\)/);
+  assert.doesNotMatch(workflow, /source\.duration = tempVideo\.duration;\s*setSelectedSource\(\{ \.\.\.source \}\)/);
+});
