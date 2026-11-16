@@ -68,3 +68,11 @@ difference was0.15 (8-bit scale). These samples do not establish full parity.
 Actual editor source playback/reload checked the candidate9s clip and a4s
 source4.5-8.5s item. Media fixture needed Range responses before browser seek
 results were valid; its initial lack of Range support was not a product bug.
+
+## User-corrected crop stability, 2026-11-16 19:04 IST
+The per-shot scale change in b8ec0d3's delivered output was rejected by the user. Candidate computation now uses one maximum required source-window size across the full analyzed clip, while preserving shot-local subject decisions. Full-source fallback in any shot therefore gives full-source size for this entire clip. A fresh actual Pro API v5 output has270frames/9s and visually constant foreground bounds across the three shots; actual editor playback/reload inspected. This is a conservative anti-jump fix, NOT a satisfactory aesthetic solution: wide source becomes a thin horizontal foreground band. Genre-specific/content-aware stable-layout selection remains open. No defaults or live release changed.42 focused tests pass and both TypeScript checks clean.
+
+Independent new holdout sources acquired for broader motion/occlusion work:
+- Caracas walking crowd, Vicente Quintero / QuinteroP, CC BY3.0: https://commons.wikimedia.org/wiki/File:Sabana_Grande_Caracas._People_walking_on_the_Boulevard_of_Sabana_Grande,_famous_in_Caracas,_Venezuela.webm
+- Shibuya crossing, Basile Morin, attribution/share-alike: https://commons.wikimedia.org/wiki/File:Shibuya_Crossing,_Tokyo,_Japan_(video).webm
+Fresh analysis of12s excerpts reports no cuts; source pixels show moving and mutually occluding people. No output framing quality result yet. Downloads are local qualification only, no paid services.

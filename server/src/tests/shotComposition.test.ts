@@ -55,3 +55,13 @@ test('Quick and Pro slice graphs execute and preserve requested frame counts',()
  const pro=execFileSync(ffmpeg,['-v','error','-filter_complex_threads','1','-ss','1.5',...graph.inputArgs,'-filter_complex',graph.filterComplex.join(';'),'-map',graph.videoMap,'-map',graph.audioMap,'-t','3','-f','framemd5','-'],{timeout:30000}).toString();
  fs.writeFileSync('/tmp/pro-frames.txt',pro);assert.equal(pro.split('\n').filter(l=>/^0,/.test(l)).length,30);
 });
+
+test('all shots keep one crop size and foreground aspect, including full-fit fallback',()=>{
+ const p=S.computeShotComposition(opts as any);
+ assert.ok(p.every(s=>s.windowW===p[0].windowW && s.windowH===p[0].windowH));
+ assert.ok(p.every(s=>s.windowW===1 && s.windowH===1));
+ for(const s of p) for(const k of s.keyframes){assert.equal(k.centerX,.5);assert.equal(k.centerY,.5);}
+ const withoutFallback=S.computeShotComposition({...opts,rawSamples:samples.filter(s=>s.time<2||s.time>=4),sceneCuts:[2],duration:6} as any);
+ assert.equal(new Set(withoutFallback.map(s=>s.windowW)).size,1);
+ assert.equal(new Set(withoutFallback.map(s=>s.windowH)).size,1);
+});

@@ -1457,7 +1457,7 @@ export class SmartReframeService {
     const cuts = [...new Set((options.sceneCuts || []).filter(t => Number.isFinite(t) && t > 0 && t < duration))].sort((a,b)=>a-b);
     const bounds = [0, ...cuts, duration];
     const median = (v: number[]) => [...v].sort((a,b)=>a-b)[Math.floor(v.length/2)];
-    return bounds.slice(0,-1).map((start,i) => {
+    const shots = bounds.slice(0,-1).map((start,i) => {
       const end = bounds[i+1];
       const samples = rawSamples.filter(s => s.time >= start && s.time < end);
       const group = this.computeGroupFrameGeometry({rawSamples:samples, sourceWidth, sourceHeight});
@@ -1485,6 +1485,16 @@ export class SmartReframeService {
       const cy=Math.max(windowH/2,Math.min(1-windowH/2,top+windowH/2));
       return {start,end,kind:'solo' as const,windowW,windowH,keyframes:[{time:start,centerX:cx,centerY:cy}]};
     });
+    // A source cut may change the subject, not the presentation's crop size.
+    // Use the widest required context in both axes for the ENTIRE analyzed
+    // clip, including edited slices. A full-source fallback deliberately makes
+    // this full-source throughout rather than jumping between zoom levels.
+    const windowW = Math.max(...shots.map(s=>s.windowW));
+    const windowH = Math.max(...shots.map(s=>s.windowH));
+    return shots.map(s=>({...s,windowW,windowH,keyframes:s.keyframes.map(k=>({...k,
+      centerX:Math.max(windowW/2,Math.min(1-windowW/2,k.centerX)),
+      centerY:Math.max(windowH/2,Math.min(1-windowH/2,k.centerY)),
+    }))}));
   }
 
   public static buildShotCompositionFilter(options: {
