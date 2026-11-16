@@ -2821,6 +2821,7 @@ export class SmartReframeService {
           // Preserve the exact boundaries used by smoothing for downstream
           // shot-aware layout work and reproducible cached-track evidence.
           shot_composition_candidate: process.env.SMART_REFRAME_SHOT_COMPOSITION === '1',
+          analyzed_source_path: clip.source_storage_path,
           clip_duration: durationSec,
           scene_cuts: clipSceneCuts,
           scene_cut_evidence: cvResult.scene_cut_evidence || [],

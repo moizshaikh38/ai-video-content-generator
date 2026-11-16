@@ -3,7 +3,7 @@ import type { SceneLayout } from '../../lib/itemLayout';
 import { SceneLayoutMenu } from './SceneLayoutMenu';
 
 /** Per-scene layout label on a timeline clip; click to change THIS scene only. */
-export const SceneLayoutBadge: React.FC<{ label: string; current: SceneLayout; onPick: (l: SceneLayout) => void }> = ({ label, current, onPick }) => {
+export const SceneLayoutBadge: React.FC<{ label: string; current: SceneLayout | 'context_window'; onPick: (l: SceneLayout) => void }> = ({ label, current, onPick }) => {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const btn = useRef<HTMLButtonElement>(null);
   return (

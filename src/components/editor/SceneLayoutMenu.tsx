@@ -35,7 +35,7 @@ const Thumb: React.FC<{ id: SceneLayout | 'pip' }> = ({ id }) => {
 
 interface MenuProps {
   anchor: DOMRect | null;
-  current: SceneLayout;
+  current: SceneLayout | 'context_window';
   onPick: (l: SceneLayout) => void;
   onClose: () => void;
 }
@@ -94,7 +94,7 @@ export const SceneLayoutMenu: React.FC<MenuProps> = ({ anchor, current, onPick, 
 };
 
 /** Inline (non-popover) grid for use inside a side panel. */
-export const SceneLayoutGrid: React.FC<{ current: SceneLayout; onPick: (l: SceneLayout) => void; disabled?: boolean }> = ({ current, onPick, disabled }) => (
+export const SceneLayoutGrid: React.FC<{ current: SceneLayout | 'context_window'; onPick: (l: SceneLayout) => void; disabled?: boolean }> = ({ current, onPick, disabled }) => (
   <div className="grid grid-cols-4 gap-1.5 max-md:flex max-md:overflow-x-auto max-md:pb-1">
     {SCENE_LAYOUT_OPTIONS.map((o) => (
       <button key={o.id} type="button" disabled={disabled} aria-pressed={current === o.id} onClick={() => onPick(o.id)}

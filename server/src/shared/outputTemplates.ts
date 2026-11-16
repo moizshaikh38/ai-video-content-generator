@@ -177,6 +177,7 @@ export function applyOutputTemplateToProject(
             // templates leave it alone so the analysis keeps steering.
             ...(template.framing.cropMode
               ? {
+                  framing_window: undefined, // a fill-mode template replaces an accepted context window
                   crop_mode: template.framing.cropMode === 'blur' ? 'fit' : template.framing.cropMode,
                   crop: {
                     mode: template.framing.cropMode,

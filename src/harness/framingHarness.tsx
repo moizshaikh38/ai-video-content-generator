@@ -42,12 +42,26 @@ const project = {
   ],
 } as unknown as EditorProject;
 
+// ?plan=1 mounts the real ScenePlanReview with a MOCK stored plan (test-only; previewReady forced on for the screenshot).
+const mockPlan = new URLSearchParams(location.search).get('plan')
+  ? {
+      shots: [
+        { start: 0, end: 4, kind: 'solo' as const, windowW: 0.5, windowH: 0.6, keyframes: [{ time: 0, centerX: 0.5, centerY: 0.5 }] },
+        { start: 4, end: 8, kind: 'group' as const, windowW: 0.5, windowH: 0.6, keyframes: [{ time: 4, centerX: 0.5, centerY: 0.5 }], contextStatus: 'crowd-preserved', uncertainty: 'Important scene regions are unresolved.' },
+      ],
+      ctx: { clipStartSec: 0, analyzedTrimStart: 0, currentTrimStart: 0, planVersion: 'mock', sourceWidth: 1920, sourceHeight: 1080 },
+      previewReady: true,
+      onApply: () => ({ ok: true }),
+    }
+  : null;
+
 function App() {
   const [guides, setGuides] = useState(false);
   return (
     <div style={{ width: 350, height: '100vh' }}>
       <FramingWorkspacePanel
         project={project}
+        scenePlan={mockPlan}
         showSafeGuides={guides}
         onToggleSafeGuides={() => setGuides((g) => !g)}
         onUpdateCropMode={() => {}}

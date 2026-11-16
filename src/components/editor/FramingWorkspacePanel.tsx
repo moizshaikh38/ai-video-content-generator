@@ -8,6 +8,7 @@ import {
   LayoutTemplate,
 } from 'lucide-react';
 import { EditorProject } from '../../types';
+import { ScenePlanReview, type ScenePlanReviewProps } from './ScenePlanReview';
 import { OUTPUT_TEMPLATES, OutputTemplateId } from '../../../server/src/shared/outputTemplates';
 import { applySocialCardToProject, SOCIAL_CARD_TAG, SocialCardConfig } from '../../../server/src/shared/socialCard';
 
@@ -29,6 +30,8 @@ interface FramingWorkspacePanelProps {
   onUpdateSplitAnchors?: (anchors: { speaker1X: number; speaker2X: number }) => void;
   onUpdateScreencast?: (patch: ScreencastConfigEdit) => void;
   onUpdateProject: (updater: (prev: EditorProject) => EditorProject) => void;
+  /** Stored per-scene plan review + explicit single-scene Apply (see ScenePlanReview). */
+  scenePlan?: Omit<ScenePlanReviewProps, 'project'> | null;
 }
 
 export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
@@ -42,6 +45,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
   onUpdateSplitAnchors,
   onUpdateScreencast,
   onUpdateProject: _onUpdateProject,
+  scenePlan = null,
 }) => {
   // Read active framing mode from video track or default to smart
   const videoTrack = project.tracks.find((t) => t.type === 'VIDEO');
@@ -117,6 +121,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
           <p className="text-[10px] text-neutral-400">One frame size for the clip. Manual layout choices take priority.</p>
         </div>
       )}
+      {scenePlan && <ScenePlanReview project={project} {...scenePlan} />}
       {/* Reframe & Crop Modes */}
       <div>
         <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block mb-2">

@@ -248,6 +248,9 @@ class ClipRenderService {
   async getClipReframe(clipId: string): Promise<{
     contentFramingDecision?: import('../../server/src/shared/contentFramingDecision').ContentFramingDecision | null;
     status: 'pending' | 'analyzing' | 'ready' | 'failed';
+    analyzedSourcePath?: string | null;
+    sourceWidth?: number | null;
+    sourceHeight?: number | null;
     detectedFaceCount: number;
     dominantTrackId: string | null;
     smoothedKeyframes: Array<{ time: number; centerX: number; centerY: number }>;

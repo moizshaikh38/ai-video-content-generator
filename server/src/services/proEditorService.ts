@@ -1,3 +1,4 @@
+import { validateFramingWindow, FramingWindowError, FRAMING_WINDOW_ERROR_CODE } from '../shared/framingWindow.js';
 import { assertPanelViewsAssigned } from '../shared/panelLayouts.js';
 import { canvasDims } from '../shared/renderResolution.js';
 import fs from 'node:fs';
@@ -129,6 +130,9 @@ export interface ProReframeContext {
   track: (ReframeTrackRecord & { isStale?: boolean }) | null;
   /** Export resolution scale over the 1080-class design canvas (1 = legacy). */
   canvasScale?: number;
+  /** ACTUAL decoded source size from ffprobe at render. Required for any framing_window. */
+  decodedSource?: { width: number; height: number } | null;
+  sourceStoragePath?: string | null;
 }
 
 export class ProEditorService {
@@ -323,6 +327,7 @@ export class ProEditorService {
           if (item.transition_out && !EDITOR_TRANSITION_TYPES.includes(item.transition_out.type)) {
             throw new AppError(`Invalid transition type: ${item.transition_out.type}`, 400, 'INVALID_TRANSITION');
           }
+          ProEditorService.assertItemFramingWindow(item, dto.canvas?.aspect_ratio ?? current.canvas?.aspect_ratio ?? '9:16');
           // Source paths become server-side fetches and FFmpeg inputs — validate strictly.
           if (item.source_path !== undefined && item.source_path !== null) {
             await validateEditorSourcePath(userId, item.source_path);
@@ -777,6 +782,35 @@ export class ProEditorService {
     return project;
   }
 
+  /** Save-time gate: a malformed or conflicting framing_window is rejected with 400 INVALID_FRAMING_WINDOW. */
+  public static assertItemFramingWindow(item: EditorTrackItem, canvasAspect: string): void {
+    if ((item as any).framing_window === undefined) return;
+    const v = validateFramingWindow((item as any).framing_window, { item: item as any, canvasAspect });
+    if (!v.ok) throw new AppError(`Invalid framing window: ${v.reasons.join('; ')}`, 400, FRAMING_WINDOW_ERROR_CODE);
+  }
+
+  /** Compiles item.framing_window through the existing buildGroupFitFilter. Throws FramingWindowError (code INVALID_FRAMING_WINDOW). */
+  private static buildFramingWindowFilter(item: EditorTrackItem, reframe: ProReframeContext | undefined, _sliceDuration: number, canvas?: { aspect_ratio?: string }): string {
+    const fw = (item as any).framing_window;
+    const dec = reframe?.decodedSource;
+    const v = validateFramingWindow(fw, {
+      item: item as any, canvasAspect: canvas?.aspect_ratio ?? reframe?.aspectRatio ?? '9:16',
+      decodedWidth: dec?.width ?? null, decodedHeight: dec?.height ?? null, sourcePath: reframe?.sourceStoragePath,
+    });
+    if (!v.ok) throw new FramingWindowError(v.reasons);
+    if (!reframe?.sourceStoragePath) throw new FramingWindowError(['render source identity is missing']);
+    const w = v.value;
+    const base = item.source_start || 0;
+    const kfs = w.keyframes.map((k) => ({ time: Number((k.time - base).toFixed(3)), centerX: k.centerX, centerY: k.centerY }));
+    const cs = reframe?.canvasScale ?? 1;
+    const dims = canvasDims('9:16', cs);
+    const tag = 'vcw' + crypto.createHash('sha256').update(String(item.id || 'x')).digest('hex').slice(0, 16);
+    return SmartReframeService.buildGroupFitFilter({
+      keyframes: kfs, windowW: w.window.w, windowH: w.window.h, sourceWidth: w.source_width, sourceHeight: w.source_height,
+      canvasWidth: dims.width, canvasHeight: dims.height, tag,
+    });
+  }
+
   /**
    * Crop filter for one video item slice, mirroring the Quick Clip decision order:
    * per-item manual crop → clip-level smart reframe (dynamic, rebased to the slice
@@ -794,6 +828,10 @@ export class ProEditorService {
     const ratio = (reframe?.aspectRatio || '9:16') as ClipAspectRatio;
 
     if (item.is_title_card) return null;
+
+    if ((item as any).framing_window !== undefined) {
+      return ProEditorService.buildFramingWindowFilter(item, reframe, sliceDuration, canvas);
+    }
 
     // Multi-panel scene layout (Three/Four/ScreenShare/Gameplay): each panel is its own source crop.
     const panelCfg = normalizePanels((item as any).panels);
@@ -1166,6 +1204,9 @@ export class ProEditorService {
     reframe?: ProReframeContext,
     loudnorm?: LoudnormCompileMode
   ): CompiledRenderGraph {
+    for (const t of project.tracks) for (const i of t.items) {
+      if (i.framing_window !== undefined) ProEditorService.buildFramingWindowFilter(i, reframe, i.timeline_end-i.timeline_start, project.canvas);
+    }
     assertPanelViewsAssigned(project);
     const inputArgs: string[] = [];
     const filterComplex: string[] = [];

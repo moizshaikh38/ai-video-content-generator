@@ -939,7 +939,7 @@ export class ClipRenderService {
         // Candidate shot plans use source-relative item windows. A single
         // trimmed item must seek to its own source_start, just as multi-slice
         // trim filters do, not silently keep the clip's old opening.
-        const candidateSingle = reframeDecision.track?.metadata?.shot_composition_candidate === true && !isMultiSlice
+        const candidateSingle = (reframeDecision.track?.metadata?.shot_composition_candidate === true || videoTrackItems.some((i:any)=>i.framing_window !== undefined)) && !isMultiSlice
           ? editorProject.tracks.find((t: {type:string;hidden?:boolean}) => t.type === 'VIDEO' && !t.hidden)?.items.find((i: {hidden?:boolean}) => !i.hidden)
           : undefined;
         const candidateSourceStart = candidateSingle && !(candidateSingle as any).is_freeze
@@ -962,6 +962,8 @@ export class ClipRenderService {
             aspectRatio: clip.aspect_ratio as ClipAspectRatio,
             cropConfig: clip.crop_config || null,
             clipStartSec: startSec,
+            decodedSource: srcDims,
+            sourceStoragePath: clip.source_storage_path,
             mode: actualReframeMode,
             layoutMode: reframeDecision.layoutMode,
             track: reframeDecision.track,
@@ -2781,6 +2783,8 @@ export class ClipRenderService {
           const hasCustomCrop = Boolean(
             i.crop && ((cropMode && cropMode !== 'fill') || Math.abs(cropScale - 1) > 0.001)
           );
+          // A framing window (valid or not) only compiles in the Pro graph: force it, and let the compiler reject invalid ones.
+          const hasFramingWindow = i.framing_window !== undefined;
           const hasModifiedTimelineStart = i.timeline_start !== 0;
           const hasModifiedSourceStart =
             clip &&
@@ -2795,6 +2799,7 @@ export class ClipRenderService {
             hasCustomSpeed ||
             hasCustomAudio ||
             hasCustomCrop ||
+            hasFramingWindow ||
             hasModifiedTimelineStart ||
             hasModifiedSourceStart
           );

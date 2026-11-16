@@ -18,7 +18,8 @@ export function fitBandFields(canvas: { fit_band?: '4:3' | 'full' } | undefined 
 }
 
 /** Layout currently persisted on a video item (what the export compiler will use). */
-export function readItemLayout(item: EditorTrackItem): SceneLayout {
+export function readItemLayout(item: EditorTrackItem): SceneLayout | 'context_window' {
+  if (item.framing_window !== undefined) return 'context_window';
   const pl = (item as any).panels?.layout as PanelLayout | undefined;
   if (pl && PANEL_LAYOUTS.includes(pl)) return pl;
   const userLayout = (item as any).crop_config?.layout_mode_source === 'user' ? (item as any).layout_mode : undefined;
@@ -53,6 +54,8 @@ export function applyItemLayout(
           if (i.id !== itemId) return i;
           const base: any = { ...i, crop_config: { ...((i as any).crop_config || {}), layout_mode: layout === 'split' ? 'split' : 'track', layout_mode_source: 'user' } };
           base.layout_mode = layout === 'split' ? 'split' : 'track';
+          // A layout pick replaces an accepted auto-plan context window (never both).
+          delete base.framing_window;
           if ((PANEL_LAYOUTS as string[]).includes(layout)) {
             const prev = (i as any).panels?.layout === layout ? (i as any).panels : undefined;
             const seeded = prev?.slots ?? seedPanelsFromSubject(layout as PanelLayout, undefined, subjectCenterInWindow(subjectKeyframes, i.source_start || 0, i.source_end ?? ((i.source_start || 0) + (i.timeline_end - i.timeline_start))));

@@ -1,3 +1,4 @@
+import { framingWindowRect, validateFramingWindow } from '../../../server/src/shared/framingWindow';
 import { SceneLayoutMenu } from './SceneLayoutMenu';
 import { readItemLayout, type SceneLayout } from '../../lib/itemLayout';
 import { applySceneCaptionPlacement } from '../../../server/src/shared/sceneCaptionPlacement';
@@ -650,6 +651,17 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // keyframes, band resting at 42% canvas height, over the blurred backdrop.
   const groupFitView = (() => {
     if (isUsingRenderedPreview) return undefined;
+    const acceptedItem = activeVideoItems[0];
+    if (acceptedItem?.framing_window !== undefined && videoDims) {
+      const checked = validateFramingWindow(acceptedItem.framing_window, {item: acceptedItem as any, canvasAspect: project.canvas.aspect_ratio, decodedWidth: videoDims.w, decodedHeight: videoDims.h});
+      if (!checked.ok) return undefined;
+      const r = framingWindowRect(checked.value, acceptedItem.source_start, targetVideoTime - acceptedItem.source_start);
+      const dims = getAspectRatioDimensions(), bw = parseFloat(dims.width)||360, bh = parseFloat(dims.height)||640;
+      const scale = bw / r.w, eh = Math.round(videoDims.h * scale / 2) * 2;
+      const band = Math.round(r.h * scale / 2) * 2;
+      const shift = r.y * scale;
+      return {left: `${-r.x*scale}px`, top: `${(bh-band)*.42-shift}px`, width: `${Math.round(videoDims.w*scale/2)*2}px`, height: `${eh}px`, clipPath: `inset(${shift}px 0 ${Math.max(0,eh-shift-band)}px 0)`};
+    }
     if ((activeVideoItems[0] as any)?.tracker?.enabled) return undefined;
     const clipTime = targetVideoTime - compositionClipStart;
     const shot = shotComposition?.find(s => clipTime >= s.start && clipTime < s.end)
@@ -1246,7 +1258,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               title="Layout Mode (Click to cycle Fill / Fit / Blur background)"
             >
               <Maximize2 className="w-3.5 h-3.5" />
-              <span>Layout: {activePanels ? PANEL_LABELS[activePanels.layout] : primaryLayoutMode === 'split' ? 'Split' : primaryLayoutMode === 'blur' ? 'Blur' : primaryLayoutMode === 'screencast' ? 'Screencast' : (primaryVideoCropMode === 'fit' || (primaryVideoCropMode === 'blur' && (baseVideoItem as any)?.crop?.choice === 'fit')) ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
+              <span>Layout: {baseVideoItem?.framing_window ? 'Context window' : activePanels ? PANEL_LABELS[activePanels.layout] : primaryLayoutMode === 'split' ? 'Split' : primaryLayoutMode === 'blur' ? 'Blur' : primaryLayoutMode === 'screencast' ? 'Screencast' : (primaryVideoCropMode === 'fit' || (primaryVideoCropMode === 'blur' && (baseVideoItem as any)?.crop?.choice === 'fit')) ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
             </button>
             {layoutAnchor && onPickSceneLayout && baseVideoItem && (
               <SceneLayoutMenu anchor={layoutAnchor} current={readItemLayout(baseVideoItem)} onPick={(l) => onPickSceneLayout(baseVideoItem.id, l)} onClose={() => setLayoutAnchor(null)} />

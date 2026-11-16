@@ -1329,6 +1329,7 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       detectedFaceCount: track.detected_face_count || 0,
       dominantTrackId: track.dominant_track_id,
       contentFramingDecision: track.metadata?.content_framing_decision ?? null,
+      analyzedSourcePath: track.metadata?.analyzed_source_path ?? null,
       smoothedKeyframes: track.smoothed_keyframes || [],
       analysisVersion: track.analysis_version,
       analyzedTrimStart: track.analyzed_trim_start,
@@ -1358,6 +1359,8 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       // the blurred layout; the preview must mirror that instead of showing
       // a confident tight track the export will not produce.
       lowConfidenceTrack: SmartReframeService.isLowConfidenceTrack(track),
+      sourceWidth: track.source_width || null,
+      sourceHeight: track.source_height || null,
       shotComposition: track.metadata?.shot_composition_candidate === true
         ? SmartReframeService.computeShotComposition({rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
           duration:Number(track.metadata.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}) : null,

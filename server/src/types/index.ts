@@ -2125,6 +2125,8 @@ export interface EditorTrackItem {
   crop_config?: CropConfig;
   /** Manual subject tracker (Tracker control). Times are source-file seconds. */
   tracker?: EditorSubjectTracker;
+  /** User-accepted auto-plan context window for this scene (see shared/framingWindow.ts). Pro render path only. */
+  framing_window?: import('../shared/framingWindow.js').FramingWindow;
   /** Multi-panel scene layout (Three/Four/ScreenShare/Gameplay): per-panel source crops. Target rects live in shared/panelLayouts. */
   panels?: { layout: 'split2' | 'three' | 'four' | 'screenshare' | 'gameplay'; slots: Array<{ focusX: number; focusY: number; scale: number; set?: boolean; auto?: 'track' }> };
   crop?: {

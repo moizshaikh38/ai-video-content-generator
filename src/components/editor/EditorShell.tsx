@@ -1,4 +1,5 @@
 import { applyItemLayout, readItemLayout } from '../../lib/itemLayout';
+import { applyPlanSceneToProject, FRAMING_WINDOW_PREVIEW_PARITY, type PlanShot } from '../../../server/src/shared/framingWindow';
 import { SceneLayoutGrid } from './SceneLayoutMenu';
 import { captionLegacyColorDefaults } from '../../lib/captionPresets';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -217,9 +218,14 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       sourceHeight: number;
     } | null;
     lowConfidenceTrack?: boolean;
+    analyzedSourcePath?: string | null;
+    sourceWidth?: number | null;
+    sourceHeight?: number | null;
+    analysisVersion?: number | null;
   } | null>(null);
   useEffect(() => {
     let cancelled = false;
+    setSpeakerSplit(null);
     if (!clip?.id) return;
     clipRenderService
       .getClipReframe(clip.id)
@@ -236,6 +242,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             contentFramingDecision: r.contentFramingDecision ?? null,
             analyzedTrimStart: Number(r.analyzedTrimStart) || 0,
             lowConfidenceTrack: Boolean(r.lowConfidenceTrack),
+            analyzedSourcePath: typeof r.analyzedSourcePath === 'string' ? r.analyzedSourcePath : null,
+            sourceWidth: Number.isFinite(r.sourceWidth) ? Number(r.sourceWidth) : null,
+            sourceHeight: Number.isFinite(r.sourceHeight) ? Number(r.sourceHeight) : null,
+            analysisVersion: Number.isFinite(r.analysisVersion) ? Number(r.analysisVersion) : null,
           });
         }
       })
@@ -1658,6 +1668,28 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               );
             })()}
             <FramingWorkspacePanel
+              scenePlan={(() => {
+                const sp = speakerSplit;
+                if (!sp?.shotComposition?.length || !sp.sourceWidth || !sp.sourceHeight) return null;
+                const trim = Number(clip?.trim_start_offset) || 0;
+                const ctx = {
+                  clipStartSec: (Number(clip?.start_seconds) || 0) + trim, analyzedTrimStart: sp.analyzedTrimStart || 0, currentTrimStart: trim,
+                  sourcePath: sp.analyzedSourcePath,
+                  planVersion: `shot-composition-v1:a${sp.analysisVersion ?? 0}`, sourceWidth: sp.sourceWidth, sourceHeight: sp.sourceHeight,
+                };
+                const shots = sp.shotComposition as unknown as PlanShot[];
+                return {
+                  shots, ctx, previewReady: FRAMING_WINDOW_PREVIEW_PARITY,
+                  // ONE explicit scene, ONE project update: a single undo step. Never on load, never bulk.
+                  onApply: (index: number, replaceConflicts: boolean) => {
+                    if (!FRAMING_WINDOW_PREVIEW_PARITY) return { ok: false, reasons: ['Preview cannot show this window yet.'] };
+                    const r = applyPlanSceneToProject(project, shots[index], { ...ctx, replaceConflicts, nowIso: new Date().toISOString() });
+                    if (!r.ok) return { ok: false, reasons: r.reasons };
+                    onUpdateProject(() => r.project as typeof project); // updateProject records exactly one undo snapshot
+                    return { ok: true };
+                  },
+                };
+              })()}
               contentFramingDecision={speakerSplit?.contentFramingDecision ?? null}
               project={project}
               showSafeGuides={showSafeGuides}
@@ -1676,6 +1708,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                           ...i,
                           crop_mode: mode === 'blur' ? 'fit' : mode,
                           panels: undefined,
+                          framing_window: undefined,
                           ...(mode === 'smart'
                             ? {}
                             : {
@@ -1701,7 +1734,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                     if (t.type === 'VIDEO') {
                       return {
                         ...t,
-                        items: t.items.map((i:any) => ({ ...i, layout_mode: layout, crop_config:{...i.crop_config,layout_mode:layout,layout_mode_source:'user'} })),
+                        items: t.items.map((i:any) => ({ ...i, framing_window: undefined, layout_mode: layout, crop_config:{...i.crop_config,layout_mode:layout,layout_mode_source:'user'} })),
                       };
                     }
                     return t;
@@ -1826,12 +1859,12 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             onUpdateItemCrop={(itemId, crop, options) => {
               const track = project.tracks.find((t) => t.items.some((i) => i.id === itemId));
               if (track) {
-                onUpdateTrackItem(track.id, itemId, { crop }, options);
+                onUpdateTrackItem(track.id, itemId, { crop, framing_window: undefined }, options); // a manual crop replaces an accepted context window
               }
             }}
             onUpdateItemPanels={(itemId, panels, options) => {
               const track = project.tracks.find((t) => t.items.some((i) => i.id === itemId));
-              if (track) onUpdateTrackItem(track.id, itemId, { panels }, options);
+              if (track) onUpdateTrackItem(track.id, itemId, { panels, framing_window: undefined }, options);
             }}
             smartReframe={smartReframe}
             showSafeGuides={showSafeGuides}
@@ -1854,7 +1887,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                   items: t.items.map((i) => {
                     if (itemId && i.id !== itemId) return i;
                     const next: any = { ...i };
-                    if (tracker) next.tracker = tracker; else delete next.tracker;
+                    if (tracker) { next.tracker = tracker; delete next.framing_window; } else delete next.tracker;
                     return next;
                   }),
                 }),
@@ -1882,6 +1915,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                           ...i,
                           crop_mode: mode === 'blur' ? 'fit' : mode,
                           panels: undefined,
+                          framing_window: undefined,
                           crop: {
                             // 'smart' stays on the legacy crop_mode channel; the
                             // per-item compiler modes are fill/fit/blur/custom.
