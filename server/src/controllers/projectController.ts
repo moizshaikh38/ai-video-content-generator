@@ -78,28 +78,15 @@ export const listProjects = async (req: AuthenticatedRequest, res: Response): Pr
     }
 
     const rawList = data || [];
-    // Auto-clean any failed projects so they don't clutter the user's dashboard
-    const failedList = rawList.filter(
-      (p: any) => p.transcript_quality_status !== 'needs_review' && (p.video_status === 'failed' || p.status === 'failed' || p.status === 'error')
-    );
-    if (failedList.length > 0) {
-      for (const fp of failedList) {
-        try {
-          await dataRepository.from('projects').delete().eq('id', fp.id).eq('user_id', userId);
-        } catch {}
-      }
-    }
-    const cleanProjects = rawList.filter(
-      (p: any) => p.transcript_quality_status === 'needs_review' || (p.video_status !== 'failed' && p.status !== 'failed' && p.status !== 'error')
-    );
-
+    // Listing is read-only. Failed projects may contain recoverable sources/transcripts.
+    // Cleanup belongs to an explicit, separately authorized lifecycle operation.
     // Sign existing HD posters inline so the dashboard needs no extra request per card.
-    const projectsWithPosters = await Promise.all(cleanProjects.map(withPosterUrl));
+    const projectsWithPosters = await Promise.all(rawList.map(withPosterUrl));
 
     res.status(200).json({
       status: 'ok',
       projects: projectsWithPosters,
-      total: Math.max(0, (count ?? rawList.length) - failedList.length),
+      total: count ?? rawList.length,
       limit,
       offset,
     });
