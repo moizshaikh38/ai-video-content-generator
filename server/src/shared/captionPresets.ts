@@ -16,9 +16,6 @@
 export const CAPTION_PRESET_IDS = [
   'none',
   'karaoke',
-  'word_cut',
-  'soft_build',
-  'typewriter',
   'deep_diver',
   'youshaei',
   'simple',
@@ -42,6 +39,9 @@ export const CAPTION_PRESET_IDS = [
   'vireo_capsule',
   'vireo_editorial',
   'vireo_sweep',
+  'word_cut',
+  'soft_build',
+  'typewriter',
 ] as const;
 
 export type CaptionPresetId = (typeof CAPTION_PRESET_IDS)[number];
@@ -52,9 +52,6 @@ export const LEGACY_CAPTION_STYLES = ['clean', 'bold', 'minimal', 'podcast', 'hi
 
 /** Preset IDs that are new style values (karaoke is shared with the legacy list). */
 export const PRESET_ONLY_CAPTION_STYLES = [
-  'word_cut',
-  'soft_build',
-  'typewriter',
   'deep_diver',
   'youshaei',
   'simple',
@@ -77,6 +74,9 @@ export const PRESET_ONLY_CAPTION_STYLES = [
   'vireo_capsule',
   'vireo_editorial',
   'vireo_sweep',
+  'word_cut',
+  'soft_build',
+  'typewriter',
 ] as const;
 
 /** Every value accepted for `caption_style`. */
@@ -186,6 +186,8 @@ export type CaptionAspect = '9:16' | '1:1' | '16:9';
 export type CaptionReveal = 'all' | 'build' | 'character';
 
 export interface CaptionPresetDefinition {
+  /** Separate from its exact label: reference parity is still being qualified. */
+  qualification?: 'candidate';
   /** Timed visibility, shared by preview and ASS. No invented timing for segment-only cues. */
   reveal?: CaptionReveal;
   id: RenderableCaptionPresetId;
@@ -253,6 +255,7 @@ const NO_ENTRANCE = { type: 'none', durationMs: 0 } as const;
  */
 export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDefinition> = {
   word_cut: {
+    qualification: 'candidate',
     id: 'word_cut', label: 'Word Cut',
     description: 'One word at a time with clean bold type.',
     sampleText: 'To get started',
@@ -264,6 +267,7 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
     reveal: 'all',
   },
   soft_build: {
+    qualification: 'candidate',
     id: 'soft_build', label: 'Soft Build',
     description: 'Words softly appear and build a complete phrase.',
     sampleText: 'To get started',
@@ -275,6 +279,7 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
     reveal: 'build',
   },
   typewriter: {
+    qualification: 'candidate',
     id: 'typewriter', label: 'Typewriter',
     description: 'Monospaced characters reveal with speech timing.',
     sampleText: 'To get started',

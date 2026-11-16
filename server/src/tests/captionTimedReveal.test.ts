@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPresetCueEvents, getPreviewFrame, getWordRevealState, resolveCaptionPreset, regroupCuesForPreset, type PresetTimedCue } from '../shared/captionPresets.js';
+import { CAPTION_PRESETS, buildPresetCueEvents, getPreviewFrame, getWordRevealState, resolveCaptionPreset, regroupCuesForPreset, type PresetTimedCue } from '../shared/captionPresets.js';
 import { CAPTION_REFERENCE_COVERAGE, OPUS_CAPTION_REFERENCE } from '../shared/captionReferenceCatalog.js';
 const cue: PresetTimedCue = { id: 'sample', start: 0, end: 2, text: 'Hello world', words: [{ text: 'Hello', start: 0, end: 0.8 }, { text: 'world', start: 1, end: 2 }] };
 describe('Evidence-backed caption candidates and shared reveal', () => {
@@ -9,6 +9,7 @@ describe('Evidence-backed caption candidates and shared reveal', () => {
     assert.equal(new Set(OPUS_CAPTION_REFERENCE.styles).size, 44);
     assert.equal(CAPTION_REFERENCE_COVERAGE.filter(c => c.status === 'verified').length, 0);
     assert.equal(CAPTION_REFERENCE_COVERAGE.filter(c => c.status === 'candidate').length, 3);
+    assert.equal(CAPTION_PRESETS.typewriter.qualification,'candidate');
     for (const c of CAPTION_REFERENCE_COVERAGE.filter(c => c.presetId)) assert.equal(resolveCaptionPreset(c.presetId).presetId, c.presetId);
   });
   it('reveals characters, keeps future words hidden and remains deterministic on seek', () => {

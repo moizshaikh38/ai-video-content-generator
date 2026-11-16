@@ -224,6 +224,11 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
                     Upgrade
                   </span>
                 )}
+                {!isLocked && preset?.qualification === 'candidate' && (
+                  <span className="text-[9px] text-amber-300/90 shrink-0" title="Independent candidate. Reference animation and export parity are not yet fully verified.">
+                    In testing
+                  </span>
+                )}
                 {!isLocked && isSelected && (
                   <span className="w-4 h-4 rounded-full bg-white text-black flex items-center justify-center shrink-0 shadow-sm">
                     <Check className="w-2.5 h-2.5 stroke-[3]" aria-hidden="true" />

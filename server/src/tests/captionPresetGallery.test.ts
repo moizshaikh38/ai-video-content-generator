@@ -93,10 +93,11 @@ function baseClip(overrides: Partial<ClipRecord> = {}): ClipRecord {
 describe('Caption presets: configuration and stable IDs', () => {
   it('exposes the exact gallery IDs in display order', () => {
     assert.deepEqual([...CAPTION_PRESET_IDS], [
-      'none', 'karaoke', 'word_cut', 'soft_build', 'typewriter', 'deep_diver', 'youshaei', 'simple', 'beasty', 'mozi', 'popline', 'think_media',
+      'none', 'karaoke', 'deep_diver', 'youshaei', 'simple', 'beasty', 'mozi', 'popline', 'think_media',
       'editorial', 'bold_highlight', 'soft_backdrop', 'compact_creator', 'two_color_highlight',
       'vireo_oneword', 'vireo_pill', 'vireo_lime', 'vireo_hormozi', 'vireo_clean',
       'vireo_spring', 'vireo_neon', 'vireo_capsule', 'vireo_editorial', 'vireo_sweep',
+      'word_cut', 'soft_build', 'typewriter',
     ]);
   });
 

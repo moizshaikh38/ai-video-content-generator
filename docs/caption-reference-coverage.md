@@ -68,4 +68,7 @@ The complete observed control values are in `docs/caption-reference-visible-sett
 No private implementation or animation assets are included. The exact account-source evidence
 is retained separately; account-specific identifiers are omitted from the settings document.
 
-Final checkpoint checks:70 targeted tests pass and both TypeScript checks pass.
+Final checkpoint checks:98 targeted tests pass and both TypeScript checks pass.
+
+The three candidate gallery cards carry a separate "In testing" badge; exact preset names stay unchanged.
+The original preset ID list stays in its existing order; new IDs are appended.
