@@ -1453,6 +1453,43 @@ export class ClipRenderService {
                 sourceHeight: track.source_height || 1080,
               })
             : null;
+        // Tracking-quality floor: when the dominant subject is only weakly
+        // established (low presence/area/confidence mix), a tight track is
+        // confidently wrong more often than right (e.g. it locks onto a lamp
+        // or a background artifact). With no credible group frame either,
+        // degrade to the modern blurred layout instead of a bad tight track.
+        const dominantScore = Number(track.metadata?.dominant_score);
+        if (
+          targetLayout === 'track' &&
+          !groupFrame &&
+          Number.isFinite(dominantScore) &&
+          dominantScore < 0.3
+        ) {
+          logger.warn(
+            `[ClipRender] Dominant track score ${dominantScore.toFixed(3)} below tracking floor 0.30 for clip ${clip.id}. Degrading to blurred layout.`
+          );
+          if (clip.aspect_ratio === '9:16' || !clip.aspect_ratio) {
+            return {
+              cropFilter: SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: 1080, canvasHeight: 1920 }),
+              mode: 'smart',
+              metadata: {
+                layout_mode: 'blur',
+                reason: 'low_tracking_confidence',
+                dominant_score: dominantScore,
+                detected_face_count: track.detected_face_count || 0,
+              },
+              layoutMode: 'blur',
+              track,
+            };
+          }
+          return {
+            cropFilter: centerCrop(),
+            mode: 'fallback_center',
+            metadata: { reason: 'low_tracking_confidence', dominant_score: dominantScore, detected_face_count: track.detected_face_count || 0 },
+            layoutMode: 'track',
+            track,
+          };
+        }
         const cropFilter = SmartReframeService.buildLayoutCropFilter({
           layoutMode: targetLayout as any,
           aspectRatio: clip.aspect_ratio as ClipAspectRatio,

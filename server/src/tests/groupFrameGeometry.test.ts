@@ -140,3 +140,47 @@ describe('buildGroupFitFilter', () => {
     assert.ok(!f.includes('boxblur'), f);
   });
 });
+
+describe('group fit ghost-face filtering', () => {
+  const face = (x: number, y: number, w: number, h: number, id: string) => ({
+    center_x: x, center_y: y, width: w, height: h, confidence: 0.9, track_id: id,
+  });
+  test('ignores tiny false-positive faces far from the subject (no group zoom-out)', () => {
+    // single speaker + small ghosts (hand / lamp / top-edge artifact)
+    const samples = Array.from({ length: 12 }, (_, i) => ({
+      time: i * 0.5,
+      faces: [
+        face(0.28, 0.31, 0.22, 0.23, 'speaker'),
+        face(0.52, 0.06, 0.07, 0.08, 'ghost-top'),
+        face(0.37, 0.79, 0.06, 0.07, 'ghost-hand'),
+      ],
+    }));
+    const g = SmartReframeService.computeGroupFrameGeometry({
+      rawSamples: samples,
+      sourceWidth: 1920,
+      sourceHeight: 1080,
+    });
+    assert.equal(g, null, 'ghost faces must not force group fit');
+  });
+
+  test('keeps real two-person groups when faces are person-scale', () => {
+    const samples = Array.from({ length: 12 }, (_, i) => ({
+      time: i * 0.5,
+      faces: [
+        face(0.2, 0.3, 0.2, 0.22, 'a'),
+        face(0.75, 0.32, 0.19, 0.21, 'b'),
+        face(0.5, 0.05, 0.05, 0.05, 'ghost'),
+      ],
+    }));
+    const g = SmartReframeService.computeGroupFrameGeometry({
+      rawSamples: samples,
+      sourceWidth: 1920,
+      sourceHeight: 1080,
+    });
+    assert.ok(g, 'real group expected');
+    // span between real faces: 0.55 * 1.9 + 0.1 = 1.145 -> clamped 0.95; ghost must not widen
+    assert.ok(g!.windowW <= 0.95 + 1e-9);
+    const mid = g!.keyframes[Math.floor(g!.keyframes.length / 2)];
+    assert.ok(Math.abs(mid.centerX - 0.475) < 0.03, `centerX=${mid.centerX} should sit between the two real faces`);
+  });
+});

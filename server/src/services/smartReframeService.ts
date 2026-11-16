@@ -1420,7 +1420,7 @@ export class SmartReframeService {
    * so callers keep the existing tight-track behavior.
    */
   public static computeGroupFrameGeometry(options: {
-    rawSamples?: Array<{ time?: number; faces?: Array<{ center_x?: number; center_y?: number }> }> | null;
+    rawSamples?: Array<{ time?: number; faces?: Array<{ center_x?: number; center_y?: number; width?: number; height?: number }> }> | null;
     sourceWidth: number;
     sourceHeight: number;
   }): {
@@ -1434,9 +1434,20 @@ export class SmartReframeService {
     const clamp01 = (v: number) => Math.min(0.95, Math.max(0.05, v));
     const groups: Array<{ time: number; cx: number; cy: number; span: number; spanY: number }> = [];
     rawSamples.forEach((sample, idx) => {
-      const faces = (sample?.faces || []).filter(
+      const allFaces = (sample?.faces || []).filter(
         (f) => Number.isFinite(f?.center_x) && Number.isFinite(f?.center_y)
       );
+      if (allFaces.length === 0) return;
+      // Person-scale faces only: small stable false positives (lamps, hands,
+      // decor) must not turn a single-speaker shot into a "group" that
+      // zooms out to cover artifacts. A group member is at least a quarter
+      // of the largest face's area in the same sample (real two-shots have
+      // comparable face sizes; detectors' ghosts are far smaller).
+      const areaOf = (f: any) => Math.max(0, Number(f?.width) || 0) * Math.max(0, Number(f?.height) || 0);
+      const maxArea = Math.max(...allFaces.map(areaOf));
+      const faces = maxArea > 0
+        ? allFaces.filter((f) => areaOf(f) >= maxArea * 0.25)
+        : allFaces;
       if (faces.length === 0) return;
       const xs = faces.map((f) => Number(f.center_x));
       const ys = faces.map((f) => Number(f.center_y));
