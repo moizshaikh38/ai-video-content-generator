@@ -780,8 +780,19 @@ export class ClipAnalysisService {
         creatorProfile,
       });
 
-      const genreProfile = effectiveConfig.genreProfile;
+      const genreProfile = { ...effectiveConfig.genreProfile, targetDuration: { ...effectiveConfig.targetDuration } };
       const contentGoal = effectiveConfig.contentGoal;
+
+      // Match the existing duration acceptance bar before paying for analysis.
+      // Do not silently lower it when the selected source/profile cannot fit.
+      const measuredSourceDuration = Number(transcript.duration_seconds);
+      const minimumAcceptedDuration = measuredSourceDuration > 0 && measuredSourceDuration < 15
+        ? 2 : Math.max(15, genreProfile.targetDuration.min);
+      if (Number.isFinite(measuredSourceDuration) && measuredSourceDuration > 0 && measuredSourceDuration < minimumAcceptedDuration) {
+        const tooShort: any = new Error(`This source is shorter than the ${minimumAcceptedDuration}-second minimum for the current clip settings. Choose a longer source or change the clip settings before analyzing again.`);
+        tooShort.code = 'SOURCE_TOO_SHORT_FOR_CLIP_SETTINGS';
+        throw tooShort;
+      }
 
       // 5. Construct prompt and call LLM (using sliding-window chunks for long transcripts)
       const isLongTranscript =

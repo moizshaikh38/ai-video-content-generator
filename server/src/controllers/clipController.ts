@@ -117,6 +117,11 @@ export const analyzeProjectClips = async (req: AuthenticatedRequest, res: Respon
       return;
     }
 
+    if (err.code === 'SOURCE_TOO_SHORT_FOR_CLIP_SETTINGS') {
+      res.status(400).json({ status: 'error', code: err.code, message: err.message });
+      return;
+    }
+
     if (err.code === 'CLIP_SEGMENTS_UNAVAILABLE') {
       res.status(400).json({
         status: 'error',
