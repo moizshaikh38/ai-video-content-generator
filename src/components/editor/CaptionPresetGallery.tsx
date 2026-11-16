@@ -74,7 +74,7 @@ function useSampleCues(id: RenderableCaptionPresetId) {
     const duration = words[words.length - 1].end + SAMPLE_LOOP_PAUSE;
     const longestLine = Math.max(...cues.flatMap((c) => c.text.split('\\N').map((l) => l.length)));
     const lineCount = Math.max(1,...cues.map(c=>c.text.split('\\N').length));
-    return { style, cues, duration, longestLine, lineCount };
+    return { style, cues, duration, longestLine:style.rollingRows?8:longestLine, lineCount:style.rollingRows?2:lineCount };
   }, [id]);
 }
 

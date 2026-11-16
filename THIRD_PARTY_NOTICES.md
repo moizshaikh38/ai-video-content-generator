@@ -29,3 +29,8 @@ permits bundling and redistribution; the full text is in each family's
   SIL Open Font License 1.1 is copied beside the font in both bundled locations.
 
 These are public, independently distributed font files, not competitor-provided assets.
+
+- Cal Sans Regular: Copyright 2021 The Cal Sans Project Authors.
+  Source: https://github.com/google/fonts/blob/main/ofl/calsans/METADATA.pb
+  Unmodified CalSans-Regular.ttf. SIL Open Font License1.1 bundled alongside each copy.
+  Public source download: https://raw.githubusercontent.com/google/fonts/main/ofl/calsans/CalSans-Regular.ttf

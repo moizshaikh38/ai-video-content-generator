@@ -193,3 +193,23 @@ invent transcript timings, grouping rules or scene/anchor geometry. First2chunks
 rows; later chunks replace alternate rows. Candidate default160ms/28unit motion is Vireo's
 own parameter, not exact Opus timing. Eight deterministic tests cover seek, alternating state,
 bounds, invalid input, ties and one-row fallback. No preview/ASS integration or visual claim yet.
+
+### Experimental Crossline engine checkpoint
+
+Crossline now exists locally as an experimental/unmatched implementation, NOT a fifth
+counted candidate. The independently written shared state handles alternate row replacement
+and deterministic20ms slide/fade states. The gallery, full preview and ASS use the same
+chunks/state/layout. Cal Sans Regular is bundled with OFL and metrics1000/(1140+222),
+ASS93 for approximately68px em. Two hard vertical black shadows are separate glyph passes.
+
+Actual540x960 preview and lossless ASS pixels were inspected at .2,1.28,1.68,2.1s, both
+default/manual anchors. Initial preview4px baseline drift was corrected and re-inspected.
+Actual gallery was inspected with fonts ready. Segment-only cues remain static. Customized
+tokens and incompatible box/word-animation/one-line overrides use the existing normal
+renderer, not invented rolling timing. Original cue/metadata boundaries remain intact.
+
+Still unqualified: full-size competitor output; exact phrase groups/motion numbers; newer
+production scene anchors; integrated API save/reload/render. Static poster intentionally
+seeds the first two supplied row chunks, then replaces alternate rows.160ms/28unit movement
+and2word/10character candidate chunks are our parameters, not measured reference constants.
+Official coverage remains4candidates,40unmatched,0verified matches.

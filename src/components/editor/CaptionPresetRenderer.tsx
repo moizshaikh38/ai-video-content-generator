@@ -1,5 +1,5 @@
 import React from 'react';
-import { FONT_EM_PER_ASS_SIZE, getPreviewCss, PreviewFrame, PreviewWord, ResolvedCaptionStyle } from '../../lib/captionPresets';
+import { FONT_EM_PER_ASS_SIZE, getCaptionRollingGeometry, getPreviewCss, PreviewFrame, PreviewWord, ResolvedCaptionStyle } from '../../lib/captionPresets';
 
 interface CaptionPresetRendererProps {
   style: ResolvedCaptionStyle;
@@ -100,7 +100,15 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
             : ''
         }`}
       >
-        {lines
+        {frame.rollingRows ? (()=>{
+          const g=getCaptionRollingGeometry({position_x:frame.positionX,position_y:frame.positionY},style);
+          return <div data-caption-rolling-rows="true" style={{position:'relative',width:g.width*scale,height:g.height*scale}}>
+            {frame.rollingRows.map((row,index)=><div key={`${row.chunkId}:${index}`} data-caption-row={row.row} style={{...css.line as React.CSSProperties,position:'absolute',whiteSpace:'nowrap',left:(g.width/2+(row.row===0?-g.stagger:g.stagger))*scale,top:(row.row*g.lineHeight+row.offsetY)*scale+parseFloat(String(css.line.top??0)),transform:'translateX(-50%)',opacity:row.opacity}}>
+              {style.shadowLayers?.map((l,i)=><span key={i} style={{position:'absolute',left:(l.x??0)*scale,top:l.y*scale,color:l.color,opacity:l.opacity,fontSize:css.line.fontSize}}>{row.text}</span>)}
+              <span style={{...css.word({text:row.text,highlighted:false,active:false,scale:1,breakAfter:false}) as React.CSSProperties,position:'relative'}}>{row.text}</span>
+            </div>)}
+          </div>;
+        })() : lines
           .filter((l) => l.length > 0)
           .map((line, li) => (
             <div key={li} style={{ ...(css.line as React.CSSProperties), ...(noWrap ? { whiteSpace: 'nowrap' } : null) }}>

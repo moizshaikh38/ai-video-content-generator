@@ -370,6 +370,7 @@ export interface RenderedClip {
 export type CaptionStyle =
   | 'word_cut'
   | 'retro_3d'
+  | 'crossline'
   | 'soft_cut'
   | 'soft_build'
   | 'typewriter'

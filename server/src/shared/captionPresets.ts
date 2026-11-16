@@ -1,9 +1,10 @@
+import { getCaptionRollingRows, type CaptionRowChunk, type CaptionRollingRow } from './captionRollingRows.js';
 /**
  * VireoClip caption preset system — the single source of truth shared by the
  * editor (preset gallery cards + live preview) and the FFmpeg/ASS export.
  *
  * This file is imported by both the server (NodeNext) and the Vite frontend, so it
- * must stay dependency-free and must not import anything.
+ * must stay dependency-free apart from pure shared caption helpers.
  *
  * All sizes are expressed in ASS script units for a frame whose short side is 1080
  * (PlayRes 1080x1920 for 9:16, 1080x1080 for 1:1, 1920x1080 for 16:9). The preview
@@ -44,6 +45,7 @@ export const CAPTION_PRESET_IDS = [
   'typewriter',
   'soft_cut',
   'retro_3d',
+  'crossline',
 ] as const;
 
 export type CaptionPresetId = (typeof CAPTION_PRESET_IDS)[number];
@@ -81,6 +83,7 @@ export const PRESET_ONLY_CAPTION_STYLES = [
   'typewriter',
   'soft_cut',
   'retro_3d',
+  'crossline',
 ] as const;
 
 /** Every value accepted for `caption_style`. */
@@ -124,7 +127,7 @@ export function resolveRenderPresetId(
 // ── Fonts ────────────────────────────────────────────────────────
 
 /** Fonts the export renderer allows (mirrors SAFE_FONT_FAMILIES in server types). */
-export const CAPTION_RENDER_FONTS = ['Bungee', 'Figtree', 'JetBrains Mono', 'League Spartan', 'Inter', 'Arial', 'Arial Black', 'DejaVu Sans', 'Liberation Sans'] as const;
+export const CAPTION_RENDER_FONTS = ['Cal Sans', 'Bungee', 'Figtree', 'JetBrains Mono', 'League Spartan', 'Inter', 'Arial', 'Arial Black', 'DejaVu Sans', 'Liberation Sans'] as const;
 export type CaptionRenderFont = (typeof CAPTION_RENDER_FONTS)[number];
 export const CAPTION_FALLBACK_FONT: CaptionRenderFont = 'Arial';
 
@@ -133,7 +136,7 @@ export const CAPTION_FALLBACK_FONT: CaptionRenderFont = 'Arial';
  * through libass on the export host; the other CAPTION_RENDER_FONTS stay accepted for
  * API compatibility but may be substituted by the system font matcher.
  */
-export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Arial', 'Arial Black', 'Inter', 'JetBrains Mono', 'League Spartan', 'Figtree', 'Bungee'];
+export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Cal Sans', 'Arial', 'Arial Black', 'Inter', 'JetBrains Mono', 'League Spartan', 'Figtree', 'Bungee'];
 
 /**
  * libass scales a font so that (ascent + descent) equals the ASS font size, while CSS
@@ -142,6 +145,7 @@ export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Arial', 'Aria
  * and fontselect logs. Other historical font ratios are preserved.
  */
 export const FONT_EM_PER_ASS_SIZE: Record<CaptionRenderFont, number> = {
+  'Cal Sans': 1000 / 1362,
   Bungee: 1000 / 2574,
   Figtree: 1000 / 1201,
   'JetBrains Mono': 0.638978,
@@ -156,6 +160,7 @@ export const FONT_EM_PER_ASS_SIZE: Record<CaptionRenderFont, number> = {
 /** Baseline offsets measured against bundled libass faces, as a fraction of ASS size.
  * Keep historical faces unchanged; these align the newly qualified candidate families. */
 export const FONT_PREVIEW_BASELINE_SHIFT: Partial<Record<CaptionRenderFont, number>> = {
+  'Cal Sans': 0.086022, // 4px at540wide/ASS93, measured against libass pixels
   Bungee: 0,
   Figtree: 0.034091, // 1.5px correction at540px wide, qualified with actual renders
   Inter: 0.05,
@@ -175,6 +180,7 @@ export function clampCaptionFontSize(value: number,fontFamily: unknown,fallback=
 
 /** CSS font stacks used by the preview for each export font. */
 export const FONT_CSS_STACK: Record<CaptionRenderFont, string> = {
+  'Cal Sans': "'Cal Sans', sans-serif",
   Bungee: "'Bungee', sans-serif",
   Figtree: "'Figtree', sans-serif",
   'JetBrains Mono': "'JetBrains Mono', monospace",
@@ -208,6 +214,7 @@ export type CaptionReveal = 'all' | 'build' | 'character';
 export interface CaptionShadowLayer { x?: number; y: number; opacity: number; color: string }
 
 export interface CaptionPresetDefinition {
+  rollingRows?: boolean;
   wordLift?: { distance: number; durationMs: number };
   shadowLayers?: readonly CaptionShadowLayer[];
   /** Separate from its exact label: reference parity is still being qualified. */
@@ -325,6 +332,17 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
     outline: 0, shadow: 0, shadowLayers: [{ y: 5.52, opacity: .4, color: '#000000' }, { y: 1.84, opacity: .3, color: '#000000' }],
     box: null, activeWordBox: null,
     layout: { anchor: 'bottom', marginV: 320, marginH: 70, maxWordsPerCue: 1, maxLines: 2, maxCharsPerLine: 24 },
+    highlight: 'none', wordAnimation: NO_ANIMATION, entrance: NO_ENTRANCE, reveal: 'all',
+  },
+  crossline: {
+    qualification: 'candidate', id: 'crossline', label: 'Crossline',
+    description: 'Two staggered rows replace alternately with upward slide and fade.', sampleText: 'To get started clipping with AI today',
+    font: { family: 'Cal Sans', bold: false, size: 93, uppercase: false, letterSpacing: 0 },
+    colors: { text: '#FFFFFF', active: '#FFFFFF', activeText: '#FFFFFF', outline: '#000000', shadow: '#000000', shadowOpacity: 0 },
+    outline: 0, shadow: 0, rollingRows: true,
+    shadowLayers: [{ y: 5.52, opacity: .4, color: '#000000' }, { y: 1.84, opacity: .3, color: '#000000' }],
+    box: null, activeWordBox: null,
+    layout: { anchor: 'bottom', marginV: 320, marginH: 70, maxWordsPerCue: 6, maxLines: 2, maxCharsPerLine: 10 },
     highlight: 'none', wordAnimation: NO_ANIMATION, entrance: NO_ENTRANCE, reveal: 'all',
   },
   retro_3d: {
@@ -711,6 +729,7 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
 
 export const CAPTION_PRESET_LABELS: Record<CaptionPresetId, string> = {
   none: 'No captions',
+  crossline: CAPTION_PRESETS.crossline.label,
   retro_3d: CAPTION_PRESETS.retro_3d.label,
   soft_cut: CAPTION_PRESETS.soft_cut.label,
   word_cut: CAPTION_PRESETS.word_cut.label,
@@ -789,6 +808,7 @@ export interface CaptionPresetOverrides {
 }
 
 export interface ResolvedCaptionStyle {
+  rollingRows?: boolean;
   wordLift?: { distance: number; durationMs: number };
   fontWeight?: number;
   shadowLayers?: readonly CaptionShadowLayer[];
@@ -1067,6 +1087,7 @@ export function resolveCaptionPreset(
 
   return {
     presetId: id,
+    rollingRows: p.rollingRows,
     wordLift: p.wordLift,
     reveal: p.reveal ?? 'all',
     caretColor: p.caretColor,
@@ -1339,6 +1360,10 @@ export function regroupCuesForPreset(cues: PresetTimedCue[], style: ResolvedCapt
       continue;
     }
     hasWords = true;
+    if (style.rollingRows && !words.some(w=>w.customStyle)) {
+      result.push({...cue, words, text:words.map(w=>w.text).join(' ')});
+      continue;
+    }
     // An edited cue is a metadata/timeline boundary. Never merge across it:
     // manual positions, preset overrides and automatic scene anchors can differ.
     const parts = groupWordsIntoCues(words,style.maxWordsPerCue,style.maxLines,style.maxCharsPerLine);
@@ -1598,6 +1623,7 @@ export interface PreviewWord {
 export interface CaptionCaret { x: number; y: number; width: number; height: number; color: string; }
 
 export interface PreviewFrame {
+  rollingRows?: CaptionRollingRow[];
   caret?: CaptionCaret | null;
   cueId: string;
   words: PreviewWord[];
@@ -1613,6 +1639,11 @@ export interface PreviewFrame {
 export function getPreviewFrame(cue: PresetTimedCue, time: number, style: ResolvedCaptionStyle): PreviewFrame {
   const validWords = getValidCueWords(cue);
   const entranceOpacity = getEntranceOpacityAt(style.entrance, (time - cue.start) * 1000);
+  if (canUseCaptionRollingRows(cue,style)) return {
+    cueId:cue.id,words:[{text:cue.text,highlighted:false,active:false,scale:1,breakAfter:false}],
+    rollingRows:getCaptionRollingRows(getCaptionRollingChunks(cue),time,cue.start,cue.end),
+    opacity:1,wordTiming:true,positionX:cue.position_x,positionY:cue.position_y,
+  };
 
   if (validWords.length === 0) {
     const lines = String(cue.text || '').split('\\N');
@@ -1663,6 +1694,35 @@ export function getPreviewFrame(cue: PresetTimedCue, time: number, style: Resolv
     positionY: cue.position_y,
       positionAnchor: cue.position_anchor,
   };
+}
+
+/** Independent phrase chunking within an original cue, never across metadata boundaries.
+ * Parameters remain candidates, not inferred exact reference grouping. */
+export function getCaptionRollingChunks(cue:PresetTimedCue):CaptionRowChunk[] {
+  const words=getValidCueWords(cue).filter(w=>w.end>cue.start&&w.start<cue.end);
+  const chunks:CaptionRowChunk[]=[];
+  let parts:string[]=[]; let start=cue.start; let end=cue.start;
+  const flush=()=>{if(parts.length)chunks.push({id:`${cue.id}:row${chunks.length}`,text:parts.join(' '),start,end});parts=[];};
+  for(const w of words){
+    if(parts.length&&(parts.length>=2||[...parts,w.text].join(' ').length>10))flush();
+    if(!parts.length)start=Math.max(cue.start,w.start);
+    parts.push(w.text);end=Math.min(cue.end,w.end);
+  }flush();return chunks;
+}
+export function canUseCaptionRollingRows(cue:PresetTimedCue,style:ResolvedCaptionStyle):boolean {
+  const words=getValidCueWords(cue);
+  return !!style.rollingRows&&!style.box&&!style.activeWordBox&&style.maxLines===2&&style.wordAnimation.type==='none'&&words.length>0&&words.length<=120&&!words.some(w=>w.customStyle);
+}
+/** Layout shared by the special row renderer and ASS path. Row anchors are bottom-center. */
+export function getCaptionRollingGeometry(cue:Pick<PresetTimedCue,'position_x'|'position_y'>,style:ResolvedCaptionStyle){
+  const height=style.fontSize*2,width=style.fontSize*5;
+  const manual=cue.position_x!==undefined||cue.position_y!==undefined;
+  const centerX=cue.position_x!==undefined?cue.position_x*style.playResX:manual?style.playResX/2:
+    [1,4,7].includes(style.alignment)?style.marginL+width/2:
+    [3,6,9].includes(style.alignment)?style.playResX-style.marginR-width/2:(style.marginL+style.playResX-style.marginR)/2;
+  const bottomY=cue.position_y!==undefined?cue.position_y*style.playResY:
+    style.alignment>=7?style.marginV+height:style.alignment>=4?style.playResY/2+height/2:style.playResY-style.marginV;
+  return {height,width,centerX,bottomY,lineHeight:style.fontSize,stagger:style.fontSize*.7};
 }
 
 /** One monospaced caret position in canvas units, shared by preview and ASS.
@@ -1903,6 +1963,7 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
   const aspect = baseStyle.playResX === baseStyle.playResY ? '1:1' : baseStyle.playResX > baseStyle.playResY ? '16:9' : '9:16';
   const style = cue.presetOverride && isRenderablePresetId(cue.presetOverride)
     ? resolveCaptionPreset(cue.presetOverride, cue.styleOverrides, aspect) : baseStyle;
+  if(canUseCaptionRollingRows(cue,style))return buildCaptionRollingEvents(cue,style,cue.presetOverride?`Style_${cue.presetOverride}`:fallbackStyleName);
   const events = buildPresetCueEventsBare(cue, baseStyle, fallbackStyleName);
   if (!style.shadowLayers?.length) return events;
   return events.flatMap(event => {
@@ -1919,6 +1980,31 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
       return header + `{\\1c${hexToAssColor(l.color)}\\alpha&H${alpha}&\\bord0\\shad0}` + shifted;
     }), (header + text).replace('Dialogue: 0,','Dialogue: 1,')];
   });
+}
+
+/** Quantized seekable20ms motion for preview/export agreement. Explicit positions avoid
+ * libass collision relocation of row and glyph-shadow passes. */
+function buildCaptionRollingEvents(cue:PresetTimedCue,style:ResolvedCaptionStyle,styleName:string):string[]{
+  const chunks=getCaptionRollingChunks(cue),g=getCaptionRollingGeometry(cue,style);
+  const boundaries=new Set<number>([cue.start,cue.end]);
+  for(const c of chunks.slice(2))for(let step=0;step<=8;step++){
+    const t=Number((c.start+step*.02).toFixed(2));if(t>cue.start&&t<cue.end)boundaries.add(t);
+  }
+  const times=[...boundaries].sort((a,b)=>a-b),events:string[]=[];
+  times.slice(0,-1).forEach((start,i)=>{
+    const end=times[i+1];if(formatAssTimestamp(start)===formatAssTimestamp(end))return;
+    const rows=getCaptionRollingRows(chunks,start,cue.start,cue.end);
+    for(const row of rows){
+      if(row.opacity<=0)continue;
+      const x=g.centerX+(row.row===0?-g.stagger:g.stagger),y=g.bottomY-(row.row===0?g.lineHeight:0)+row.offsetY;
+      const passes=[...(style.shadowLayers??[]).map(l=>({x:x+(l.x??0),y:y+l.y,color:l.color,opacity:row.opacity*l.opacity,layer:0})),{x,y,color:style.textColor,opacity:row.opacity,layer:1}];
+      for(const p of passes){
+        const alpha=Math.round((1-p.opacity)*255).toString(16).padStart(2,'0').toUpperCase();
+        const tags=String.raw`{\an2\pos(${p.x.toFixed(3)},${p.y.toFixed(3)})\alpha&H${alpha}&\c${hexToAssColor(p.color)}\bord${p.layer?style.outlineWidth:0}\shad${p.layer?style.shadowDepth:0}}`;
+        events.push(`Dialogue: ${p.layer},${formatAssTimestamp(start)},${formatAssTimestamp(end)},${styleName},,0,0,0,,${tags}${escapeAssText(row.text)}`);
+      }
+    }
+  });return events;
 }
 
 /** Builds the Dialogue lines for one cue under a preset (supporting cue-level preset overrides and token custom styles). */

@@ -26,6 +26,7 @@ export interface CaptionReferenceCoverage {
 
 /** No style is declared verified solely because its name exists or a gallery animation was seen. */
 export const CAPTION_REFERENCE_COVERAGE: CaptionReferenceCoverage[] = OPUS_CAPTION_REFERENCE.styles.map(name => {
+  if(name==='Crossline')return {name,status:'unmatched',presetId:'crossline',evidence:'Experimental independent alternating staggered-row slide/fade with public Cal Sans and two shadow layers. Actual local gallery and preview/ASS paired pixels inspected.',remaining:'Full-sized reference output, exact grouping/motion, integrated save/render and newer scene-anchor qualification. Not counted as a candidate yet.'};
   const candidate = {
     'Retro 3D': { presetId: 'retro_3d', evidence: 'Visible Bungee uppercase yellow type, orange diagonal extrusion, dark outline, white active word and small upward settling motion.', remaining: 'Full-sized output, exact lift timing, extrusion and segmentation comparison.' },
     'Soft Cut': { presetId: 'soft_cut', evidence: 'Visible one-word replacement, cream Figtree Semibold and two vertical shadow layers; applied Font panel confirms face, size and color.', remaining: 'Full-sized reference output, exact temporal/phrase behavior and shadow geometry comparison.' },

@@ -589,6 +589,7 @@ export type { CaptionPresetId, CaptionPresetOverrides, WordCustomStyle } from '.
 export type CaptionStyle =
   | 'word_cut'
   | 'retro_3d'
+  | 'crossline'
   | 'soft_cut'
   | 'soft_build'
   | 'typewriter'
@@ -687,6 +688,7 @@ export interface OverlayConfig {
 }
 
 export const SAFE_FONT_FAMILIES = [
+  'Cal Sans',
   'Bungee',
   'Figtree',
   'JetBrains Mono',

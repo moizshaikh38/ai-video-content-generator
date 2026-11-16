@@ -37,7 +37,7 @@ export function getCaptionRollingRows(
     const start=Number(chunk.start.toFixed(2));
     const nextStart=sequence[current+1]?.start??cueEnd;
     const duration=Math.max(.01,Math.min(transition,nextStart-start,cueEnd-start));
-    const elapsed=tick-start;
+    const elapsed=Math.floor((tick-start)*50+1e-7)/50;
     if(current>0&&elapsed>=0&&elapsed<duration){
       const progress=Math.max(0,Math.min(1,elapsed/duration));
       const outgoing=sequence[current-1];
