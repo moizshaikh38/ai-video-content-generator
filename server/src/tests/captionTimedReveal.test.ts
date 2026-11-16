@@ -18,6 +18,8 @@ describe('Evidence-backed caption candidates and shared reveal', () => {
     assert.equal(first.words[0].visibleCharacters, 2);
     assert.equal(first.words[1].opacity, 0);
     assert.equal(getPreviewFrame(cue, 1.9, style).words[1].visibleCharacters, 5);
+    const boundaryCue = { ...cue, words: [{text:'started',start:1,end:2.4}] };
+    assert.equal(getPreviewFrame(boundaryCue, 1.16, style).words[0].visibleCharacters, 2);
     assert.deepEqual(getPreviewFrame(cue, 0.2, style), first);
   });
   it('soft build progressively reveals complete words with a short fade', () => {

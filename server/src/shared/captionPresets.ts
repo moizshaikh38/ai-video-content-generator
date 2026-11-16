@@ -133,17 +133,26 @@ export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Arial', 'Aria
 
 /**
  * libass scales a font so that (ascent + descent) equals the ASS font size, while CSS
- * `font-size` sets the em size. This is em / (ascent + descent) from each font's hhea
- * metrics, verified against libass renders for Arial (0.894) and Arial Black (0.705).
+ * `font-size` sets the em size. Inter, JetBrains Mono and League Spartan use the
+ * Windows ascent/descent metrics selected by libass, verified with actual renders
+ * and fontselect logs. Other historical font ratios are preserved.
  */
 export const FONT_EM_PER_ASS_SIZE: Record<CaptionRenderFont, number> = {
-  'JetBrains Mono': 0.757576,
-  'League Spartan': 1.086957,
+  'JetBrains Mono': 0.638978,
+  'League Spartan': 0.671141,
   Arial: 0.894,
   'Liberation Sans': 0.894,
   'Arial Black': 0.705,
-  Inter: 0.826,
+  Inter: 0.699215,
   'DejaVu Sans': 0.859,
+};
+
+/** Baseline offsets measured against bundled libass faces, as a fraction of ASS size.
+ * Keep historical faces unchanged; these align the newly qualified candidate families. */
+export const FONT_PREVIEW_BASELINE_SHIFT: Partial<Record<CaptionRenderFont, number>> = {
+  Inter: 0.05,
+  'JetBrains Mono': 0.014377,
+  'League Spartan': 0.112416,
 };
 
 /** CSS font stacks used by the preview for each export font. */
@@ -247,7 +256,7 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
     id: 'word_cut', label: 'Word Cut',
     description: 'One word at a time with clean bold type.',
     sampleText: 'To get started',
-    font: { family: 'Inter', bold: true, size: 64, uppercase: false, letterSpacing: 0 },
+    font: { family: 'Inter', bold: true, size: 90, uppercase: false, letterSpacing: 0 },
     colors: { text: '#FFFFFF', active: '#FFFFFF', activeText: '#FFFFFF', outline: '#000000', shadow: '#000000', shadowOpacity: 0.22 },
     outline: 0, shadow: 4, box: null, activeWordBox: null,
     layout: { anchor: 'bottom', marginV: 320, marginH: 70, maxWordsPerCue: 1, maxLines: 2, maxCharsPerLine: 24 },
@@ -258,7 +267,7 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
     id: 'soft_build', label: 'Soft Build',
     description: 'Words softly appear and build a complete phrase.',
     sampleText: 'To get started',
-    font: { family: 'League Spartan', bold: false, size: 64, uppercase: false, letterSpacing: 0 },
+    font: { family: 'League Spartan', bold: false, size: 94, uppercase: false, letterSpacing: 0 },
     colors: { text: '#FFFFFF', active: '#FFFFFF', activeText: '#FFFFFF', outline: '#000000', shadow: '#000000', shadowOpacity: 0.22 },
     outline: 0, shadow: 4, box: null, activeWordBox: null,
     layout: { anchor: 'bottom', marginV: 320, marginH: 70, maxWordsPerCue: 5, maxLines: 2, maxCharsPerLine: 24 },
@@ -269,7 +278,7 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
     id: 'typewriter', label: 'Typewriter',
     description: 'Monospaced characters reveal with speech timing.',
     sampleText: 'To get started',
-    font: { family: 'JetBrains Mono', bold: true, size: 48, uppercase: false, letterSpacing: 0 },
+    font: { family: 'JetBrains Mono', bold: true, size: 74, uppercase: false, letterSpacing: 0 },
     colors: { text: '#FFFFFF', active: '#FFFFFF', activeText: '#FFFFFF', outline: '#000000', shadow: '#000000', shadowOpacity: 0 },
     outline: 0, shadow: 0, box: null, activeWordBox: null,
     layout: { anchor: 'bottom', marginV: 320, marginH: 70, maxWordsPerCue: 5, maxLines: 2, maxCharsPerLine: 24 },
@@ -1449,8 +1458,17 @@ export function getWordRevealState(word: PresetTimedWord, time: number, reveal: 
   if (reveal === 'all') return { opacity: 1 };
   if (reveal === 'build') return { opacity: Math.max(0, Math.min(1, (time - word.start) / 0.1)) };
   const count = Array.from(word.text).length;
-  const progress = Math.max(0, Math.min(1, (time - word.start) / Math.max(0.01, (word.end - word.start) * 0.8)));
-  return { opacity: time < word.start ? 0 : 1, visibleCharacters: Math.min(count, Math.floor(progress * count) + (time >= word.start ? 1 : 0)) };
+  const tick = Number(time.toFixed(2));
+  const start = Number(word.start.toFixed(2));
+  if (tick < start) return { opacity: 0, visibleCharacters: 0 };
+  // ASS stores centiseconds. Use its exact reveal boundaries in the preview too,
+  // avoiding a character of drift from binary floating-point at a boundary.
+  const duration = Math.max(0.01, (word.end - word.start) * 0.8);
+  let shown = Math.min(1, count);
+  for (let i = 1; i < count; i++) {
+    if (tick >= Number((word.start + duration * i / count).toFixed(2))) shown++;
+  }
+  return { opacity: 1, visibleCharacters: shown };
 }
 
 // ── Preview frame state (consumed by the React renderer) ─────────
@@ -1590,6 +1608,8 @@ export function getPreviewCss(style: ResolvedCaptionStyle, scale: number): Previ
 
   const line: PreviewCss = {
     display: 'block',
+    position: 'relative',
+    top: px(style.fontSize * (FONT_PREVIEW_BASELINE_SHIFT[style.fontFamily] ?? 0)),
     fontFamily: FONT_CSS_STACK[style.fontFamily],
     // Arial Black is a single heavy face; libass gets Bold=0 for it so no faux-bold is synthesized.
     fontWeight: style.fontFamily === 'Arial Black' ? 900 : style.bold ? 700 : 400,
