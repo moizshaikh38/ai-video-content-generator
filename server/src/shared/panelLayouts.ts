@@ -9,7 +9,8 @@ export type PanelLayout = 'split2' | 'three' | 'four' | 'screenshare' | 'gamepla
 export const PANEL_LAYOUTS: PanelLayout[] = ['three', 'four', 'screenshare', 'gameplay'];
 
 export interface PanelRect { x: number; y: number; w: number; h: number }
-export interface PanelSlot { focusX: number; focusY: number; scale: number }
+/** `set: true` only after the user chose this panel's view (crop box) or a detector assigned it. Defaults are unassigned placeholders. */
+export interface PanelSlot { focusX: number; focusY: number; scale: number; set?: boolean }
 export interface ItemPanels { layout: PanelLayout; slots: PanelSlot[] }
 
 const R = (x: number, y: number, w: number, h: number): PanelRect => ({ x, y, w, h });
@@ -49,6 +50,7 @@ export function normalizePanels(p: Partial<ItemPanels> | undefined | null): Item
       focusX: clamp(p.slots?.[i]?.focusX, 0, 1, def[i].focusX),
       focusY: clamp(p.slots?.[i]?.focusY, 0, 1, def[i].focusY),
       scale: clamp(p.slots?.[i]?.scale, 1, 4, def[i].scale),
+      ...(p.slots?.[i]?.set ? { set: true } : {}),
     })),
   };
 }

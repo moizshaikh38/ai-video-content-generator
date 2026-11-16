@@ -114,7 +114,9 @@ const makeProject = (item: EditorTrackItem): EditorProject =>
         locked: false,
         muted: true,
         hidden: false,
-        items: [item],
+        items: params.get('scenes') === '2'
+          ? [{ ...item, timeline_end: 2, source_end: 2 } as any, { ...baseItem, id: 'item-2', timeline_start: 2, timeline_end: 4, source_start: 2, source_end: 4, crop: { mode: 'blur', band: '4:3', focusX: 0.5, focusY: 0.5, scale: 1 } } as any]
+          : [item],
       },
       ...(SPLIT_CAPTIONS
         ? [

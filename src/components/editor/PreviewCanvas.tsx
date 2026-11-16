@@ -433,7 +433,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // Layout/crop/band/split state is PER SCENE: read the item under the playhead (the export compiles per item),
   // falling back to the first video item only when the playhead is outside every item.
   const baseVideoItem: EditorTrackItem | undefined = activeVideoItems[0] ?? project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
-  const activePanels = normalizePanels((baseVideoItem as any)?.panels);
+  // The rendered export preview already contains the panels; only compose them live from the clean source.
+  const activePanels = viewMode === 'export_review' && renderedPreviewUrl ? null : normalizePanels((baseVideoItem as any)?.panels);
 
   const backdropVideoRef = useRef<HTMLVideoElement | null>(null);
   const splitBottomRef = useRef<HTMLVideoElement | null>(null);
@@ -1195,7 +1196,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     >
       {/* OPUS-STYLE TOP PREVIEW TOOLBAR */}
       <div className="w-full shrink-0 flex items-center justify-center gap-3 pb-2 z-30">
-        <div className="flex items-center gap-2 glass-float px-3 py-1 rounded-full text-xs">
+        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 max-w-full glass-float px-3 py-1 rounded-2xl text-xs whitespace-nowrap">
           {/* 1. Aspect Ratio Pill */}
           {onChangeAspectRatio && (
             <button
@@ -1256,7 +1257,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 return (
                   <CropBoxControl
                     key={`${baseVideoItem.id}-${activePanels.layout}-${i}`}
-                    label={`Panel ${i + 1}`}
+                    label={activePanels.slots[i].set ? `Panel ${i + 1}` : `Panel ${i + 1} (set view)`}
                     videoSrc={cleanSourceUrl || activeVideoSrc || null}
                     sourceTime={targetVideoTime}
                     srcW={videoDims.w}
@@ -1265,7 +1266,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     current={activePanels.slots[i]}
                     enabled
                     onApply={(c) => {
-                      const slots = activePanels.slots.map((s, j) => (j === i ? c : s));
+                      const slots = activePanels.slots.map((s, j) => (j === i ? { ...c, set: true } : s));
                       onUpdateItemPanels(baseVideoItem.id, { layout: activePanels.layout, slots }, { recordHistory: true, markAsDirty: true });
                     }}
                   />

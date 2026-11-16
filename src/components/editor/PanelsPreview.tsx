@@ -58,6 +58,9 @@ export const PanelsPreview: React.FC<Props> = ({ src, panels, canvasW, canvasH, 
               onLoadedMetadata={(e) => { e.currentTarget.currentTime = time; }}
               style={{ position: 'absolute', maxWidth: 'none', width: w, height: h, left: -(w - pw) * s.focusX, top: -(h - ph) * s.focusY, filter }}
             />
+            {!s.set && (
+              <span data-testid={`panel-unset-${i}`} className="absolute left-1 top-1 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-white/80">Unassigned view</span>
+            )}
           </div>
         );
       })}

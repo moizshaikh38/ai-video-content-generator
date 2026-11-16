@@ -108,3 +108,9 @@ test('applyItemLayout: panel layouts set item.panels, clear crop; switching back
 
 import {ProEditorService} from '../services/proEditorService.js';
 test('actual pro slice compiler passes requested resolution into panel geometry',()=>{const item:any={id:'p',panels:{layout:'four',slots:defaultPanelSlots('four')}};const f=(ProEditorService as any).buildSliceCropFilter(item,{aspectRatio:'9:16',canvasScale:2},0,1,{});assert.ok(f.includes('scale=1080:1920'));assert.ok(!f.includes('scale=540:960'));});
+test('panel slots: defaults are unassigned; set flag survives normalisation', () => {
+  const d = normalizePanels({ layout: 'three', slots: [] })!;
+  assert.ok(d.slots.every((s) => !s.set));
+  const n = normalizePanels({ layout: 'three', slots: [{ focusX: .1, focusY: .2, scale: 2, set: true }] as any })!;
+  assert.equal(n.slots[0].set, true); assert.equal(n.slots[1].set, undefined);
+});
