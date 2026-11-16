@@ -270,7 +270,12 @@ function ShellTemplateApp() {
           cleanSourceUrl: '/harness/clip-twoshot.mp4',
           renderedPreviewUrl: null,
           watermarkRequired: false,
-          cues: [],
+          // EditorShell forwards this prop to PreviewCanvas verbatim (the real
+          // ClipEditorPage supplies transcript cues); mirror the caption track.
+          cues: [
+            { id: 'cue-1', start: 0.5, end: 2.0, text: 'hello world this is' },
+            { id: 'cue-2', start: 2.5, end: 4.5, text: 'a real caption cue' },
+          ],
           canUndo: false, canRedo: false, saveStatus, saveError: null,
           onSaveNow: saveNow,
           onUndo: () => {}, onRedo: () => {},
