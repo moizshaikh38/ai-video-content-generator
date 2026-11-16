@@ -4,8 +4,10 @@ import {
   Sparkles,
   Maximize2,
   Shield,
+  LayoutTemplate,
 } from 'lucide-react';
 import { EditorProject } from '../../types';
+import { OUTPUT_TEMPLATES, OutputTemplateId } from '../../../server/src/shared/outputTemplates';
 
 interface ScreencastConfigEdit {
   mode?: 'split_stacked' | 'circular_inset' | 'rounded_card_inset';
@@ -20,6 +22,7 @@ interface FramingWorkspacePanelProps {
   onToggleSafeGuides: () => void;
   onUpdateCropMode: (mode: 'center' | 'fit' | 'blur' | 'smart') => void;
   onUpdateLayoutMode?: (layout: 'track' | 'split' | 'screencast' | 'blur') => void;
+  onApplyOutputTemplate?: (templateId: OutputTemplateId) => void;
   onUpdateSplitAnchors?: (anchors: { speaker1X: number; speaker2X: number }) => void;
   onUpdateScreencast?: (patch: ScreencastConfigEdit) => void;
   onUpdateProject: (updater: (prev: EditorProject) => EditorProject) => void;
@@ -31,6 +34,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
   onToggleSafeGuides,
   onUpdateCropMode,
   onUpdateLayoutMode,
+  onApplyOutputTemplate,
   onUpdateSplitAnchors,
   onUpdateScreencast,
   onUpdateProject: _onUpdateProject,
@@ -69,6 +73,33 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
           </div>
         </div>
       </div>
+
+      {/* One-click output templates: aspect + framing + captions + hook + transitions in one pick */}
+      {onApplyOutputTemplate && (
+        <div>
+          <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
+            <LayoutTemplate className="w-3 h-3" />
+            Output Templates
+          </label>
+          <div className="flex flex-col gap-1.5">
+            {OUTPUT_TEMPLATES.map((tpl) => (
+              <button
+                key={tpl.id}
+                type="button"
+                onClick={() => onApplyOutputTemplate(tpl.id)}
+                className="w-full text-left px-2.5 py-2 rounded-lg border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/[0.16] transition"
+                title={tpl.description}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-white text-[11px]">{tpl.name}</span>
+                  <span className="text-[9px] text-neutral-500">{tpl.aspectRatio}</span>
+                </div>
+                <div className="text-[10px] text-neutral-400 mt-0.5">{tpl.bestFor}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Reframe & Crop Modes */}
       <div>

@@ -44,6 +44,7 @@ import { ArrowLeft, Sparkles, Type as TypeIcon, Film, X, PanelRightOpen } from '
 import { insertIntroOutro, createTitleCardItem } from '../../utils/introOutro';
 import { initCoveredEnd, healCaptionTracks } from '../../lib/captionExtendMerge';
 import { clipRenderService } from '../../services/clipRenderService';
+import { applyOutputTemplateToProject, getOutputTemplate, OutputTemplateId } from '../../../server/src/shared/outputTemplates';
 
 interface EditorShellProps {
   clip: RenderedClip;
@@ -528,6 +529,62 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         return { ...tr, items };
       }),
     }));
+  };
+
+  // Split speaker-anchor seeding, shared by the panel's Split button and the
+  // Podcast Split output template: fetch measured analysis anchors (GET
+  // /clips/:id/reframe) and seed item.crop_config.split. Existing values are
+  // user picks (panel sliders) and are never overwritten; when analysis has
+  // no credible pair the symmetric defaults apply.
+  const seedSplitAnchorsFromAnalysis = () => {
+    if (!clip?.id) return;
+    const item = project.tracks.find((t) => t.type === 'VIDEO')?.items[0] as any;
+    const existing = item?.crop_config?.split;
+    if (Number.isFinite(existing?.speaker1X) && Number.isFinite(existing?.speaker2X)) return;
+    void clipRenderService
+      .getClipReframe(clip.id)
+      .then((r) => {
+        const s1 = typeof r.speaker1X === 'number' && Number.isFinite(r.speaker1X) ? r.speaker1X : 0.25;
+        const s2 = typeof r.speaker2X === 'number' && Number.isFinite(r.speaker2X) ? r.speaker2X : 0.75;
+        onUpdateProject((prev) => ({
+          ...prev,
+          tracks: prev.tracks.map((t) => {
+            if (t.type !== 'VIDEO') return t;
+            return {
+              ...t,
+              items: t.items.map((i: any) => {
+                const cur = i?.crop_config?.split;
+                if (Number.isFinite(cur?.speaker1X) && Number.isFinite(cur?.speaker2X)) return i;
+                return {
+                  ...i,
+                  crop_config: {
+                    ...(i.crop_config || {}),
+                    split: { ...(cur || {}), speaker1X: s1, speaker2X: s2 },
+                  },
+                };
+              }),
+            };
+          }),
+        }));
+      })
+      .catch(() => {
+        // Anchor fetch failed: preview + export both fall back to the
+        // symmetric defaults; sliders remain available.
+      });
+  };
+
+  // One-click output template: ONE object owns aspect + framing + captions +
+  // hook + transitions. Applied through the pure shared mapper so preview and
+  // export see exactly what a hand-picked combination would produce.
+  const handleApplyOutputTemplate = (templateId: OutputTemplateId) => {
+    const tpl = getOutputTemplate(templateId);
+    if (!tpl) return;
+    setExportStale(true);
+    // The shared mapper is typed against the server EditorProject; the client
+    // type is structurally identical for every field the mapper touches
+    // (tracks/items/caption/crop/canvas), so the boundary cast is safe.
+    onUpdateProject((prev) => applyOutputTemplateToProject(prev as any, tpl) as unknown as EditorProject);
+    if (tpl.framing.layoutMode === 'split') seedSplitAnchorsFromAnalysis();
   };
 
   // Apply Caption Preset: 'none' hides the caption track (captionEnabled=false on save),
@@ -1469,50 +1526,11 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                   }),
                 }));
                 // Split pick: seed the speaker windows from measured analysis
-                // anchors (GET /clips/:id/reframe) so both the preview and the
-                // export center the actual speakers. Existing values are user
-                // picks (panel sliders) and are never overwritten. When the
-                // analysis has no credible two-speaker geometry the symmetric
-                // defaults apply and the panel sliders are the adjustment path.
-                if (layout === 'split' && clip?.id) {
-                  const item = project.tracks.find((t) => t.type === 'VIDEO')?.items[0] as any;
-                  const existing = item?.crop_config?.split;
-                  const hasAnchors =
-                    Number.isFinite(existing?.speaker1X) && Number.isFinite(existing?.speaker2X);
-                  if (!hasAnchors) {
-                    void clipRenderService
-                      .getClipReframe(clip.id)
-                      .then((r) => {
-                        const s1 = typeof r.speaker1X === 'number' && Number.isFinite(r.speaker1X) ? r.speaker1X : 0.25;
-                        const s2 = typeof r.speaker2X === 'number' && Number.isFinite(r.speaker2X) ? r.speaker2X : 0.75;
-                        onUpdateProject((prev) => ({
-                          ...prev,
-                          tracks: prev.tracks.map((t) => {
-                            if (t.type !== 'VIDEO') return t;
-                            return {
-                              ...t,
-                              items: t.items.map((i: any) => {
-                                const cur = i?.crop_config?.split;
-                                if (Number.isFinite(cur?.speaker1X) && Number.isFinite(cur?.speaker2X)) return i;
-                                return {
-                                  ...i,
-                                  crop_config: {
-                                    ...(i.crop_config || {}),
-                                    split: { ...(cur || {}), speaker1X: s1, speaker2X: s2 },
-                                  },
-                                };
-                              }),
-                            };
-                          }),
-                        }));
-                      })
-                      .catch(() => {
-                        // Anchor fetch failed: preview + export both fall back
-                        // to the symmetric defaults; sliders remain available.
-                      });
-                  }
-                }
+                // anchors so both the preview and the export center the actual
+                // speakers (see seedSplitAnchorsFromAnalysis).
+                if (layout === 'split') seedSplitAnchorsFromAnalysis();
               }}
+              onApplyOutputTemplate={handleApplyOutputTemplate}
               onUpdateSplitAnchors={(anchors) => {
                 const clamp = (v: number) => Math.min(0.9, Math.max(0.1, Number(v)));
                 const s1 = clamp(anchors.speaker1X);
