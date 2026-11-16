@@ -290,7 +290,8 @@ function ShellTemplateApp() {
           project,
           cleanSourceUrl: '/harness/clip-twoshot.mp4',
           renderedPreviewUrl: null,
-          watermarkRequired: false,
+          // ?wm=1 exercises the free-plan watermark badge overlay in preview.
+          watermarkRequired: params.get('wm') === '1',
           // EditorShell forwards this prop to PreviewCanvas verbatim (the real
           // ClipEditorPage supplies transcript cues); mirror the caption track.
           cues: [
