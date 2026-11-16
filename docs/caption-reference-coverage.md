@@ -12,7 +12,7 @@ Same-name styles already in Vireo are not counted as matches.
 
 - Word Cut: Inter bold, white, a small shadow, one word per cue.
 - Soft Build: League Spartan regular, white, a small shadow, timed word accumulation with a short fade.
-- Typewriter: JetBrains Mono bold, white, timed character accumulation. Missing the reference's yellow cursor.
+- Typewriter: JetBrains Mono bold, white, timed character accumulation. Includes an independently implemented yellow caret (#F7C204), following the timed reveal.
 
 The gallery tile animations were observed, not downloaded, copied or embedded.
 No benchmark clip preset was selected, saved or exported during this inspection.
@@ -47,7 +47,7 @@ used a flat fonts directory explicitly; that is not proof that all production re
 
 ## Still open
 
-41 styles are unmatched; the 3 candidates are unverified. The yellow Typewriter cursor, full-sized
+41 styles are unmatched; the 3 candidates are unverified. The Typewriter full-sized
 reference comparisons, all-font production provisioning, per-scene anchor integration and broader
 aspect-ratio/word-customization tests remain. No main release is warranted by this checkpoint.
 
@@ -72,3 +72,16 @@ Final checkpoint checks:98 targeted tests pass and both TypeScript checks pass.
 
 The three candidate gallery cards carry a separate "In testing" badge; exact preset names stay unchanged.
 The original preset ID list stays in its existing order; new IDs are appended.
+
+## Typewriter caret checkpoint
+
+A yellow block caret is now rendered from time-derived character counts. The preview uses an
+inline overlay; ASS uses a separate vector layer, so neither changes paragraph width. Direct-cue
+manual x/y and two-line placement were compared as actual Chrome and FFmpeg pixels. Gallery
+pixels were also inspected. This is internal parity, not Opus timing or export parity.
+
+Important existing integration gap: `regroupCuesForPreset` drops cue position and style metadata
+when it flattens/rebuilds timed cues, and the segment fallback also rebuilds a reduced cue object.
+The direct-cue caret respects manual coordinates, but through-regroup persistence remains unverified
+until the caption/layout integration owner preserves that metadata or reapplies it afterward.
+No competing grouping or anchor contract was added here.

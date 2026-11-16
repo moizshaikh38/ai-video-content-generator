@@ -45,6 +45,7 @@ describe('Evidence-backed caption candidates and shared reveal', () => {
     const events = buildPresetCueEvents(cue, resolveCaptionPreset('typewriter'));
     assert.ok(events.length >= 10);
     assert.ok(events[0].includes('H{\\alpha&HFF&}ello'));
+    assert.ok(events.some(e=>e.startsWith('Dialogue: 1,') && e.includes('\\p1') && e.includes('&H0004C2F7')));
     assert.ok(events[0].includes('world'));
     assert.ok(events[0].includes('\\alpha&HFF&'));
     for (const event of events) { const p = event.split(','); assert.notEqual(p[1], p[2]); }
@@ -56,6 +57,6 @@ describe('Evidence-backed caption candidates and shared reveal', () => {
   });
   it('retains cue manual positions in generated events', () => {
     const events = buildPresetCueEvents({...cue,position_x:.3,position_y:.8},resolveCaptionPreset('typewriter'));
-    assert.ok(events.every(e => e.includes('\\pos(324,1536)')));
+    assert.ok(events.filter(e => e.startsWith('Dialogue: 0,')).every(e => e.includes('\\pos(324,1536)')));
   });
 });

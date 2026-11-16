@@ -29,7 +29,7 @@ export const CAPTION_REFERENCE_COVERAGE: CaptionReferenceCoverage[] = OPUS_CAPTI
   const candidate = {
     'Word Cut': { presetId: 'word_cut', evidence: 'Visible tile shows individual words replacing each other; Inter bold white type with a small black shadow.', remaining: 'Full-sized applied output, font metrics and phrase segmentation comparison.' },
     'Soft Build': { presetId: 'soft_build', evidence: 'Visible tile builds a sentence word by word; League Spartan regular white type with small black shadow.', remaining: 'Full-sized applied output, exact easing and layout comparison.' },
-    'Typewriter': { presetId: 'typewriter', evidence: 'Visible tile reveals characters progressively; JetBrains Mono bold white type with yellow cursor.', remaining: 'Yellow cursor, full-sized applied output and exact timing comparison.' },
+    'Typewriter': { presetId: 'typewriter', evidence: 'Visible tile reveals characters progressively; JetBrains Mono bold white type with yellow cursor.', remaining: 'Full-sized applied output, exact timing and phrase segmentation comparison. Yellow cursor is independently implemented but not reference-qualified.' },
   }[name as 'Word Cut' | 'Soft Build' | 'Typewriter'];
   return candidate ? { name, status: 'candidate', ...candidate } : {
     name, status: 'unmatched', evidence: 'Current gallery label observed. Existing same-name Vireo styles are not evidence of parity.',

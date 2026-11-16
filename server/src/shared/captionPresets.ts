@@ -188,6 +188,7 @@ export type CaptionReveal = 'all' | 'build' | 'character';
 export interface CaptionPresetDefinition {
   /** Separate from its exact label: reference parity is still being qualified. */
   qualification?: 'candidate';
+  caretColor?: string;
   /** Timed visibility, shared by preview and ASS. No invented timing for segment-only cues. */
   reveal?: CaptionReveal;
   id: RenderableCaptionPresetId;
@@ -281,6 +282,7 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
   typewriter: {
     qualification: 'candidate',
     id: 'typewriter', label: 'Typewriter',
+    caretColor: '#F7C204',
     description: 'Monospaced characters reveal with speech timing.',
     sampleText: 'To get started',
     font: { family: 'JetBrains Mono', bold: true, size: 74, uppercase: false, letterSpacing: 0 },
@@ -738,6 +740,7 @@ export interface CaptionPresetOverrides {
 }
 
 export interface ResolvedCaptionStyle {
+  caretColor?: string;
   reveal: CaptionReveal;
   presetId: RenderableCaptionPresetId;
   playResX: number;
@@ -1012,6 +1015,7 @@ export function resolveCaptionPreset(
   return {
     presetId: id,
     reveal: p.reveal ?? 'all',
+    caretColor: p.caretColor,
     playResX: playRes.x,
     playResY: playRes.y,
     fontFamily: fontNorm.font,
@@ -1480,6 +1484,7 @@ export function getWordRevealState(word: PresetTimedWord, time: number, reveal: 
 
 export interface PreviewWord {
   visibleCharacters?: number;
+  caretActive?: boolean;
   opacity?: number;
   text: string;
   highlighted: boolean;
@@ -1490,7 +1495,10 @@ export interface PreviewWord {
   customStyle?: WordCustomStyle;
 }
 
+export interface CaptionCaret { x: number; y: number; width: number; height: number; color: string; }
+
 export interface PreviewFrame {
+  caret?: CaptionCaret | null;
   cueId: string;
   words: PreviewWord[];
   opacity: number;
@@ -1535,9 +1543,11 @@ export function getPreviewFrame(cue: PresetTimedCue, time: number, style: Resolv
 
   return {
     cueId: cue.id,
+    caret: getCaptionCaret(cue, time, style),
     words: validWords.map((w, i) => ({
       text: w.text,
       ...getWordRevealState(w, time, style.reveal),
+      caretActive: !!style.caretColor && i === Math.max(0, validWords.reduce((last, word, index) => time >= word.start ? index : last, 0)),
       highlighted: states[i].highlighted,
       active: states[i].active,
       scale: states[i].active ? getActiveWordScaleAt(timing, elapsed) : 1,
@@ -1549,6 +1559,37 @@ export function getPreviewFrame(cue: PresetTimedCue, time: number, style: Resolv
     positionX: cue.position_x,
     positionY: cue.position_y,
   };
+}
+
+/** One monospaced caret position in canvas units, shared by preview and ASS.
+ * Text retains its full line width while glyphs reveal. No caret for unqualified fonts,
+ * segment timing, proportional custom scaling or words whose custom case changes width. */
+export function getCaptionCaret(cue: PresetTimedCue, time: number, style: ResolvedCaptionStyle): CaptionCaret | null {
+  if (!style.caretColor || style.reveal !== 'character' || style.fontFamily !== 'JetBrains Mono') return null;
+  const words = getValidCueWords(cue);
+  if (!words.length || words.some(w => w.customStyle?.fontSizeMultiplier || w.customStyle?.uppercase)) return null;
+  const breakIdx = getCueLineBreakIndex(cue, words.length);
+  const lines = breakIdx >= 0 ? [words.slice(0, breakIdx + 1), words.slice(breakIdx + 1)] : [words];
+  let index = 0;
+  for (let i = 0; i < words.length; i++) if (time >= words[i].start) index = i;
+  const lineIdx = breakIdx >= 0 && index > breakIdx ? 1 : 0;
+  const line = lines[lineIdx];
+  const localIndex = index - (lineIdx ? breakIdx + 1 : 0);
+  const advance = style.fontSize * FONT_EM_PER_ASS_SIZE['JetBrains Mono'] * 0.6 + style.letterSpacing;
+  const lineChars = line.reduce((n,w) => n + Array.from(w.text).length, 0) + line.length - 1;
+  const totalWidth = lineChars * advance;
+  const align = cue.position_x !== undefined || cue.position_y !== undefined ? 2 : style.alignment;
+  const leftAligned = align === 1 || align === 4 || align === 7;
+  const rightAligned = align === 3 || align === 6 || align === 9;
+  const centerX = cue.position_x !== undefined ? Math.max(.08, Math.min(.92,cue.position_x)) * style.playResX : (style.marginL + style.playResX - style.marginR) / 2;
+  const left = leftAligned ? style.marginL : rightAligned ? style.playResX - style.marginR - totalWidth : centerX - totalWidth / 2;
+  const blockHeight = lines.length * style.fontSize;
+  const topAligned = align >= 7;
+  const middleAligned = align >= 4 && align <= 6;
+  const top = cue.position_y !== undefined ? Math.max(.08, Math.min(.92,cue.position_y)) * style.playResY - blockHeight : topAligned ? style.marginV : middleAligned ? (style.playResY - blockHeight)/2 : style.playResY - style.marginV - blockHeight;
+  const before = line.slice(0,localIndex).reduce((n,w) => n + Array.from(w.text).length + 1, 0);
+  const shown = getWordRevealState(words[index],time,style.reveal).visibleCharacters ?? 0;
+  return { x: left + (before + shown) * advance, y: top + lineIdx * style.fontSize + style.fontSize * (0.30 + (FONT_PREVIEW_BASELINE_SHIFT['JetBrains Mono'] ?? 0)), width: advance * 0.72, height: style.fontSize * .54, color: style.caretColor };
 }
 
 // ── Preview CSS mapping (ASS units → CSS px) ─────────────────────
@@ -1823,7 +1864,12 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
         text += `{\\c${color}\\fscx${Math.round(mult * 100)}\\fscy${Math.round(mult * 100)}\\alpha&H${alpha}&}${escapeAssText(chars.slice(0, shown).join(''))}`;
         text += `{\\alpha&HFF&}${escapeAssText(chars.slice(shown).join(''))}{\\alpha&H00&}`;
       });
-      return [dialogue(start, end, text)];
+      const caret = getCaptionCaret(cue, start + 0.000001, style);
+      if (!caret) return [dialogue(start, end, text)];
+      const x=Number(caret.x.toFixed(2)), y=Number(caret.y.toFixed(2));
+      const w=Number(caret.width.toFixed(2)), h=Number(caret.height.toFixed(2));
+      const drawing = `{\\an7\\pos(${x},${y})\\bord0\\shad0\\alpha&H00&\\c${hexToAssColor(caret.color)}\\p1}m 0 0 l ${w} 0 l ${w} ${h} l 0 ${h}{\\p0}`;
+      return [dialogue(start, end, text), dialogue(start, end, drawing).replace('Dialogue: 0,','Dialogue: 1,')];
     });
   }
 
