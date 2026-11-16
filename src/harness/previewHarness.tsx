@@ -202,7 +202,9 @@ function ShellTemplateApp() {
             timeline_start: 0, timeline_end: 9, source_start: 0, source_end: 9,
             source_path: 'vireo-mark.png',
             transform: { position_x: 60, position_y: -200, scale: 0.5, rotation: 0, opacity: 1, position_space: 'design_center' },
-            keyframes: [], effects: [], hidden: false, locked: false, muted: false, z_index: 25,
+            // ?noovl=1 hides this overlay-parity fixture logo for clean
+            // preview/export framing comparisons.
+            keyframes: [], effects: [], hidden: params.get('noovl') === '1', locked: false, muted: false, z_index: 25,
           },
         ],
       },

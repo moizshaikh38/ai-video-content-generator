@@ -453,20 +453,27 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // clamped crop window around the same point.
   const splitGeometryView = (
     geometry: { x: number; y: number; windowW: number } | undefined
-  ): { position: string; zoom: number } | null => {
+  ): { left: string; top: string; width: string; height: string; panelH: number } | null => {
     if (!geometry || !videoDims || videoDims.w <= 0 || videoDims.h <= 0) return null;
     const dims = getAspectRatioDimensions();
     const boxW = parseFloat(dims.width) || 360;
     const boxH = (parseFloat(dims.height) || 640) / 2;
-    const coverScale = Math.max(boxW / videoDims.w, boxH / videoDims.h);
-    const inW = videoDims.w * coverScale;
-    const inH = videoDims.h * coverScale;
     const clampW = Math.min(0.95, Math.max(0.05, geometry.windowW));
-    const exportScaleH = Math.max(960, (videoDims.h * 1080) / (clampW * videoDims.w));
-    const zoom = exportScaleH / 960;
-    const px = inW <= boxW ? 0.5 : Math.min(1, Math.max(0, (geometry.x * inW - boxW / 2) / (inW - boxW)));
-    const py = inH <= boxH ? 0.5 : Math.min(1, Math.max(0, (geometry.y * inH - boxH / 2) / (inH - boxH)));
-    return { position: `${(px * 100).toFixed(2)}% ${(py * 100).toFixed(2)}%`, zoom };
+    // Exact mirror of buildSplitPodcastFilter: scale so the window fills the
+    // panel (height bound by the panel), then crop a panel-sized window whose
+    // center is the speaker anchor, edge-clamped like ffmpeg's crop x/y.
+    const z = Math.max(boxH, (videoDims.h * boxW) / (clampW * videoDims.w)) / videoDims.h;
+    const elW = videoDims.w * z;
+    const elH = videoDims.h * z;
+    const winL = Math.min(Math.max(geometry.x * elW - boxW / 2, 0), Math.max(0, elW - boxW));
+    const winT = Math.min(Math.max(geometry.y * elH - boxH / 2, 0), Math.max(0, elH - boxH));
+    return {
+      left: `${(-winL).toFixed(1)}px`,
+      top: `${(-winT).toFixed(1)}px`,
+      width: `${elW.toFixed(1)}px`,
+      height: `${elH.toFixed(1)}px`,
+      panelH: boxH,
+    };
   };
   const splitView1 = splitGeometryView(speakerSplit?.splitGeometry?.speaker1);
   const splitView2 = splitGeometryView(speakerSplit?.splitGeometry?.speaker2);
@@ -634,7 +641,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     const cy = Math.min(0.95, Math.max(0.05, center.centerY));
     const left = Math.min(0, Math.max(boxW - elW, -(cx * elW - boxW / 2)));
     const bandTop = (boxH - bandH) * 0.42;
-    const top = Math.min(boxH - bandH, Math.max(bandH - elH > 0 ? bandH - elH : -elH, bandTop - (cy * elH - bandH / 2)));
+    // Mirror the export's clamped window: the band shows source rows
+    // [shift, shift+bandH] of the oversized element, shift edge-clamped.
+    const shift = Math.min(Math.max(cy * elH - bandH / 2, 0), Math.max(0, elH - bandH));
+    const top = bandTop - shift;
     return { left: `${left.toFixed(1)}px`, top: `${top.toFixed(1)}px`, width: `${elW.toFixed(1)}px`, height: `${elH.toFixed(1)}px` };
   })();
 
@@ -1262,22 +1272,32 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               }}
               className={
                 primaryLayoutMode === 'split'
-                  ? 'w-full h-1/2 absolute top-0 left-0 cursor-pointer select-none'
+                  ? splitView1
+                    ? 'absolute top-0 left-0 cursor-pointer select-none'
+                    : 'w-full h-1/2 absolute top-0 left-0 cursor-pointer select-none'
                   : groupFitView
                     ? 'absolute cursor-pointer select-none'
                     : 'w-full h-full cursor-pointer select-none'
               }
             style={{
               filter: cssColorFilters(activeVideoItems[0]),
+              // Explicit px sizing mirrors the export's crop window; Tailwind
+              // preflight caps video at max-width:100%, which would silently
+              // shrink the oversized element back into the panel, so unset it.
               ...(groupFitView
-                ? { left: groupFitView.left, top: groupFitView.top, width: groupFitView.width, height: groupFitView.height }
+                ? { left: groupFitView.left, top: groupFitView.top, width: groupFitView.width, height: groupFitView.height, maxWidth: 'none' }
+                : {}),
+              ...(primaryLayoutMode === 'split' && splitView1
+                ? { left: splitView1.left, top: splitView1.top, width: splitView1.width, height: splitView1.height, maxWidth: 'none' }
                 : {}),
               // Fit/Blur = letterbox (matches export's buildFitFilter pad / blur fill); Fill = cover-crop;
               // group fit sizes the element exactly, so cover introduces no extra crop
               objectFit: primaryVideoCropMode === 'fit' || primaryVideoCropMode === 'blur' ? 'contain' : 'cover',
               objectPosition:
                 primaryLayoutMode === 'split'
-                  ? (splitView1?.position ?? `${splitObjectPositionX(splitAnchors.speaker1X)} 50%`)
+                  ? splitView1
+                    ? '0% 0%'
+                    : `${splitObjectPositionX(splitAnchors.speaker1X)} 50%`
                   : groupFitView
                     ? '0% 0%'
                     : smartPanPosition ||
@@ -1298,7 +1318,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     'scale',
                     playhead - activeVideoItems[0].timeline_start,
                     activeVideoItems[0].transform?.scale || 1
-                  ) as number) * (activeVideoItems[0].crop?.scale ?? 1) * (primaryLayoutMode === 'split' ? splitView1?.zoom ?? 1 : 1)}) rotate(${interpolateKeyframes(
+                  ) as number) * (activeVideoItems[0].crop?.scale ?? 1)}) rotate(${interpolateKeyframes(
                     activeVideoItems[0].keyframes,
                     'rotation',
                     playhead - activeVideoItems[0].timeline_start,
@@ -1335,18 +1355,29 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             playsInline
             muted
             aria-hidden
-            className="w-full h-1/2 absolute bottom-0 left-0 pointer-events-none select-none"
+            className={splitView2 ? 'absolute left-0 pointer-events-none select-none' : 'w-full h-1/2 absolute bottom-0 left-0 pointer-events-none select-none'}
             style={{
               filter: cssColorFilters(activeVideoItems[0]),
               objectFit: 'cover',
-              objectPosition: splitView2?.position ?? `${splitObjectPositionX(splitAnchors.speaker2X)} 50%`,
+              // Panel 2 sits at the canvas's bottom half: base offset panelH
+              // minus the export-mirrored clamped window top.
+              ...(splitView2
+                ? {
+                    left: splitView2.left,
+                    top: `${(splitView2.panelH + parseFloat(splitView2.top)).toFixed(1)}px`,
+                    width: splitView2.width,
+                    height: splitView2.height,
+                    maxWidth: 'none',
+                  }
+                : {}),
+              objectPosition: splitView2 ? '0% 0%' : `${splitObjectPositionX(splitAnchors.speaker2X)} 50%`,
               transform: activeVideoItems[0]
                 ? `scale(${(interpolateKeyframes(
                     activeVideoItems[0].keyframes,
                     'scale',
                     playhead - activeVideoItems[0].timeline_start,
                     activeVideoItems[0].transform?.scale || 1
-                  ) as number) * (activeVideoItems[0].crop?.scale ?? 1) * (splitView2?.zoom ?? 1)})`
+                  ) as number) * (activeVideoItems[0].crop?.scale ?? 1)})`
                 : undefined,
               transformOrigin: '50% 50%',
             }}
@@ -1357,24 +1388,31 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             (slide-in from the right, then gentle opacity breathing) while the
             preview plays the clean source. Hidden in export review, where the
             badge is already burned into the rendered file. */}
-        {watermarkRequired && !isUsingRenderedPreview && (
-          <>
-            <style>{`
-              @keyframes vireoWatermarkIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-              @keyframes vireoWatermarkBreath { 0%, 100% { opacity: 0.85; } 50% { opacity: 1; } }
-            `}</style>
+        {watermarkRequired && !isUsingRenderedPreview && (() => {
+          // Playhead-driven (not CSS wall-clock) so seek/pause mirror the
+          // export's t-based drawtext expressions exactly: 0.45s ease-out
+          // quadratic slide-in from the right, then 3.2s alpha breathing.
+          const t = Math.max(0, playhead);
+          const ENTRY = 0.45;
+          const inEntry = t < ENTRY;
+          const k = inEntry ? t / ENTRY : 1;
+          const easeOut = 1 - (1 - k) * (1 - k);
+          const opacity = inEntry ? k : 0.85 + 0.15 * Math.sin((2 * Math.PI * (t - ENTRY)) / 3.2);
+          const tx = inEntry ? (1 - easeOut) * 120 : 0;
+          return (
             <div
               aria-hidden
               className="absolute top-[2.5%] right-[3%] z-30 pointer-events-none select-none text-white/90 font-medium [text-shadow:0_2px_2px_rgba(0,0,0,0.6),0_0_1px_rgba(0,0,0,0.35)]"
               style={{
                 fontSize: 'clamp(11px, 1.6vw, 18px)',
-                animation: 'vireoWatermarkIn 0.45s ease-out both, vireoWatermarkBreath 3.2s ease-in-out 0.45s infinite',
+                opacity,
+                transform: tx > 0.01 ? `translateX(${tx.toFixed(2)}%)` : undefined,
               }}
             >
               VireoClip
             </div>
-          </>
-        )}
+          );
+        })()}
 
         {/* INTRO / OUTRO TITLE CARD (full-frame colored card with centered text) */}
         {activeTitleCard && (
