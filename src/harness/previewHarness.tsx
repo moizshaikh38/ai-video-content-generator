@@ -281,6 +281,9 @@ function ShellTemplateApp() {
           clip: {
             id: SHELL_CLIP_ID, title: 'Two shot template clip', aspect_ratio: '9:16',
             caption_enabled: true, render_status: 'ready', duration_seconds: 9,
+            // Mirrors the mongo fixture clip: smart reframe mode so the shell
+            // fetches the real reframe track for the base-video preview pan.
+            crop_config: { mode: 'smart' }, start_seconds: 0,
           },
           project,
           cleanSourceUrl: '/harness/clip-twoshot.mp4',

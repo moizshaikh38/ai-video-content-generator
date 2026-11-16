@@ -531,6 +531,40 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     }));
   };
 
+  // Smart-reframe track for the base-video preview pan. The export reads the
+  // same track (clip.crop_config.mode === 'smart' -> ReframeTrackRecord); the
+  // preview mirrors its crop window via PreviewCanvas. Fetched once per clip.
+  const [smartReframe, setSmartReframe] = useState<{
+    keyframes: Array<{ time: number; centerX: number; centerY?: number }>;
+    clipStartSec?: number;
+  } | null>(null);
+  useEffect(() => {
+    const clipId = clip?.id;
+    const mode = (clip?.crop_config as { mode?: string } | null | undefined)?.mode;
+    if (!clipId || mode !== 'smart') {
+      setSmartReframe(null);
+      return;
+    }
+    let cancelled = false;
+    void clipRenderService
+      .getClipReframe(clipId)
+      .then((r) => {
+        if (cancelled) return;
+        const kfs = Array.isArray(r.smoothedKeyframes) ? r.smoothedKeyframes : [];
+        if (r.status === 'ready' && kfs.length > 0) {
+          setSmartReframe({ keyframes: kfs, clipStartSec: Number(clip?.start_seconds) || 0 });
+        } else {
+          setSmartReframe(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSmartReframe(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [clip?.id, (clip?.crop_config as { mode?: string } | null | undefined)?.mode]);
+
   // Split speaker-anchor seeding, shared by the panel's Split button and the
   // Podcast Split output template: fetch measured analysis anchors (GET
   // /clips/:id/reframe) and seed item.crop_config.split. Existing values are
@@ -1691,6 +1725,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 onUpdateTrackItem(track.id, itemId, { crop }, options);
               }
             }}
+            smartReframe={smartReframe}
             showSafeGuides={showSafeGuides}
             onToggleSafeGuides={toggleSafeGuides}
             onChangeAspectRatio={(aspectRatio) => {

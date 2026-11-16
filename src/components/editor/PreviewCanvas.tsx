@@ -25,6 +25,7 @@ import {
 } from '../../lib/captionPresets';
 import { computeCanvasFitScale } from '../../lib/canvasFit';
 import { attributeCueSpeaker, SPEAKER1_POSITION_Y } from '../../../server/src/shared/speakerCaptionSplit';
+import { interpolateReframeCenter } from '../../../server/src/shared/reframeInterpolation';
 import { CaptionPresetRenderer } from './CaptionPresetRenderer';
 
 interface PreviewCanvasProps {
@@ -54,6 +55,17 @@ interface PreviewCanvasProps {
   onToggleSafeGuides?: () => void;
   onChangeAspectRatio?: (aspectRatio: ClipAspectRatio) => void;
   onUpdateCropMode?: (mode: 'center' | 'fit' | 'blur' | 'smart') => void;
+  /**
+   * Smart-reframe track for the base video (clip-level, mode 'smart'). When
+   * present and the item carries no manual crop override, the base video pans
+   * by these keyframes, mirroring the export's buildSmartCropFilter window.
+   * Keyframe times are clip-relative; clipStartSec rebases the preview's
+   * source time into that frame.
+   */
+  smartReframe?: {
+    keyframes: Array<{ time: number; centerX: number; centerY?: number }>;
+    clipStartSec?: number;
+  } | null;
   videoRef: React.RefObject<HTMLVideoElement>;
   cues: TimedCaptionCue[];
   /**
@@ -174,6 +186,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   onToggleSafeGuides,
   onChangeAspectRatio,
   onUpdateCropMode,
+  smartReframe,
   videoRef,
   cues,
   speakerSplit,
@@ -523,6 +536,33 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     }
     return (sourceOffset || 0) + playhead;
   }, [isUsingRenderedPreview, activeVideoItems, playhead, sourceOffset]);
+
+  // Smart-reframe pan for the base video (mirrors the export's
+  // buildSmartCropFilter crop window under a CSS cover fit). Applies only when
+  // the clip's reframe track is provided (clip crop mode 'smart'), the layout
+  // is the single-track view and the item carries no manual crop override —
+  // the same precedence the export's resolveReframeDecision uses. X mirrors
+  // the centered window (x = in_w*cX - out_w/2, clamped); Y mirrors the direct
+  // proportion ((in_h-out_h)*cY), which is exactly CSS object-position's y
+  // percentage semantics under cover fit.
+  const smartPanPosition = (() => {
+    if (!smartReframe || !smartReframe.keyframes || smartReframe.keyframes.length === 0) return undefined;
+    if (primaryLayoutMode !== 'track' || primaryVideoCropMode !== 'fill') return undefined;
+    const item = activeVideoItems[0] as any;
+    const itemCropMode = item?.crop?.mode;
+    if (itemCropMode && itemCropMode !== 'smart') return undefined;
+    if (!videoDims || videoDims.w <= 0 || videoDims.h <= 0) return undefined;
+    const reframeTime = targetVideoTime - (smartReframe.clipStartSec || 0);
+    const center = interpolateReframeCenter(smartReframe.keyframes, reframeTime);
+    const dims = getAspectRatioDimensions();
+    const boxW = parseFloat(dims.width) || 360;
+    const boxH = parseFloat(dims.height) || 640;
+    const coverScale = Math.max(boxW / videoDims.w, boxH / videoDims.h);
+    const inW = videoDims.w * coverScale;
+    const px = inW > boxW ? Math.min(1, Math.max(0, (center.centerX * inW - boxW / 2) / (inW - boxW))) : 0.5;
+    const py = Math.min(1, Math.max(0, center.centerY));
+    return `${(px * 100).toFixed(2)}% ${(py * 100).toFixed(2)}%`;
+  })();
 
   // Synchronize HTML video time with playhead smoothly
   useEffect(() => {
@@ -1145,7 +1185,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               objectPosition:
                 primaryLayoutMode === 'split'
                   ? `${splitObjectPositionX(splitAnchors.speaker1X)} 50%`
-                  : `${((activeVideoItems[0]?.crop?.focusX ?? 0.5) * 100).toFixed(2)}% ${((activeVideoItems[0]?.crop?.focusY ?? 0.5) * 100).toFixed(2)}%`,
+                  : smartPanPosition ||
+                    `${((activeVideoItems[0]?.crop?.focusX ?? 0.5) * 100).toFixed(2)}% ${((activeVideoItems[0]?.crop?.focusY ?? 0.5) * 100).toFixed(2)}%`,
               transform: activeVideoItems[0]
                 ? `translate(${interpolateKeyframes(
                     activeVideoItems[0].keyframes,
