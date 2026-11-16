@@ -248,6 +248,7 @@ class ClipRenderService {
     /** Server-computed group framing for multi-person single-view (same
      * helper the export uses) so the preview mirrors the blur-fill fit.
      * Null = tight tracking stays. */
+    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
     groupFrame?: {
       keyframes: Array<{ time: number; centerX: number; centerY: number }>;
       windowW: number;

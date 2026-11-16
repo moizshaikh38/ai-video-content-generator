@@ -1321,6 +1321,9 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       // the blurred layout; the preview must mirror that instead of showing
       // a confident tight track the export will not produce.
       lowConfidenceTrack: SmartReframeService.isLowConfidenceTrack(track),
+      shotComposition: track.metadata?.shot_composition_candidate === true
+        ? SmartReframeService.computeShotComposition({rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
+          duration:Number(track.metadata.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}) : null,
       groupFrame: (() => {
         const g = SmartReframeService.computeGroupFrameGeometry({
           rawSamples: track.raw_samples,

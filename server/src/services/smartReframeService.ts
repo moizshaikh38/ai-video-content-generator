@@ -1445,6 +1445,78 @@ export class SmartReframeService {
     return Number.isFinite(score) && score < SmartReframeService.TRACK_CONFIDENCE_FLOOR;
   }
 
+  /** Candidate shot-local composition. Times are always clip-relative; slices
+   * intersect/rebase this same plan instead of recomputing different evidence. */
+  public static computeShotComposition(options: {
+    rawSamples?: ReframeSample[] | null; sceneCuts?: number[]; duration: number;
+    sourceWidth: number; sourceHeight: number;
+  }): Array<{ start: number; end: number; kind: 'group' | 'solo' | 'fit'; windowW: number; windowH: number;
+    keyframes: Array<{ time: number; centerX: number; centerY: number }> }> {
+    const {rawSamples = [], duration, sourceWidth, sourceHeight} = options;
+    if (!rawSamples?.length || !(duration > 0) || sourceWidth <= 0 || sourceHeight <= 0) return [];
+    const cuts = [...new Set((options.sceneCuts || []).filter(t => Number.isFinite(t) && t > 0 && t < duration))].sort((a,b)=>a-b);
+    const bounds = [0, ...cuts, duration];
+    const median = (v: number[]) => [...v].sort((a,b)=>a-b)[Math.floor(v.length/2)];
+    return bounds.slice(0,-1).map((start,i) => {
+      const end = bounds[i+1];
+      const samples = rawSamples.filter(s => s.time >= start && s.time < end);
+      const group = this.computeGroupFrameGeometry({rawSamples:samples, sourceWidth, sourceHeight});
+      if (group) return {start,end,kind:'group' as const,windowW:group.windowW,
+        windowH:group.windowH ?? Math.min(1,group.windowW*sourceWidth*.75/sourceHeight),keyframes:group.keyframes};
+      const tracks = new Map<string, NormalizedFaceDetection[]>();
+      for (const s of samples) for (const f of s.faces) {
+        if (!f.track_id || !Number.isFinite(f.width) || !Number.isFinite(f.height) || f.width <= 0 || f.height <= 0) continue;
+        const a=tracks.get(f.track_id)||[];a.push(f);tracks.set(f.track_id,a);
+      }
+      const eligible = new Map([...tracks].filter(([,a])=>a.length>=Math.max(2,samples.length*.35)));
+      const selected = this.selectDominantTrack(eligible, samples.length);
+      const stable = selected.dominantTrackId ? eligible.get(selected.dominantTrackId) : undefined;
+      if (!stable) return {start,end,kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]};
+      // Faces are not bodies. Reserve an intentionally wider context envelope,
+      // locking the shot only when that envelope fits in one static window.
+      const fw=median(stable.map(f=>f.width)),fh=median(stable.map(f=>f.height));
+      const left=Math.max(0,Math.min(...stable.map(f=>f.center_x-f.width/2))-fw);
+      const right=Math.min(1,Math.max(...stable.map(f=>f.center_x+f.width/2))+fw);
+      const top=Math.max(0,Math.min(...stable.map(f=>f.center_y-f.height/2))-fh*.65);
+      const bottom=Math.min(1,Math.max(...stable.map(f=>f.center_y+f.height/2))+fh*2.4);
+      const windowW=Math.min(1,Math.max(.4,right-left,fw*3.5));
+      const windowH=Math.min(1,Math.max(bottom-top,windowW*sourceWidth*.85/sourceHeight));
+      const cx=Math.max(windowW/2,Math.min(1-windowW/2,(left+right)/2));
+      const cy=Math.max(windowH/2,Math.min(1-windowH/2,top+windowH/2));
+      return {start,end,kind:'solo' as const,windowW,windowH,keyframes:[{time:start,centerX:cx,centerY:cy}]};
+    });
+  }
+
+  public static buildShotCompositionFilter(options: {
+    plan: ReturnType<typeof SmartReframeService.computeShotComposition>;
+    sourceWidth: number; sourceHeight: number; start?: number; duration: number; tag?: string;
+  }): string {
+    const start=Math.max(0,options.start||0),end=start+options.duration;
+    const shots=options.plan.filter(s=>s.end>start && s.start<end);
+    if (!shots.length) return this.buildBlurBackgroundFilter({tag:options.tag});
+    const tag=options.tag||'shots';
+    const labels=shots.map((_,i)=>`${tag}_input${i}`);
+    let graph=`split=${shots.length}${labels.map(l=>`[${l}]`).join('')};`;
+    shots.forEach((s,i)=>{
+      const a=Math.max(start,s.start),b=Math.min(end,s.end),st=a-start;
+      const frameAt=(t:number)=>{
+        const k=s.keyframes;let n=0;while(n+1<k.length && k[n+1].time<=t)n++;
+        if(n+1===k.length)return {...k[n],time:t-a};
+        const f=Math.max(0,Math.min(1,(t-k[n].time)/(k[n+1].time-k[n].time||1)));
+        return {time:t-a,centerX:k[n].centerX+(k[n+1].centerX-k[n].centerX)*f,centerY:k[n].centerY+(k[n+1].centerY-k[n].centerY)*f};
+      };
+      const kfs=[frameAt(a),...s.keyframes.filter(k=>k.time>a && k.time<b).map(k=>({...k,time:k.time-a})),frameAt(b)];
+      const f=this.buildGroupFitFilter({keyframes:kfs,windowW:s.windowW,windowH:s.windowH,sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}`});
+      const frames = Math.max(1, Math.round((b-start)*30)-Math.round((a-start)*30));
+      graph+=`[${labels[i]}]trim=start=${st.toFixed(6)}:duration=${(b-a).toFixed(6)},setpts=PTS-STARTPTS,${f},fps=30,tpad=stop_mode=clone:stop_duration=0.1,trim=end_frame=${frames},setpts=N/(30*TB),setsar=1[${tag}_part${i}];`;
+    });
+    // concat's last frame has no following PTS to carry its duration. Keep
+    // one bounded tail hold so a downstream fps filter cannot discard it;
+    // trim restores the exact requested source-time window.
+    graph+=shots.map((_,i)=>`[${tag}_part${i}]`).join('')+`concat=n=${shots.length}:v=1:a=0,fps=30,tpad=stop_mode=clone:stop_duration=0.1,trim=end_frame=${Math.max(1,Math.round(options.duration*30))},setpts=N/(30*TB)`;
+    return options.tag?graph:`[0:v]${graph}[out]`;
+  }
+
   public static computeGroupFrameGeometry(options: {
     rawSamples?: Array<{ time?: number; faces?: Array<{ center_x?: number; center_y?: number; width?: number; height?: number; track_id?: string }> }> | null;
     sourceWidth: number;
@@ -2656,6 +2728,8 @@ export class SmartReframeService {
           speaker2X: speaker2X ?? SmartReframeService.estimateSpeakerAnchors(cvResult.samples)?.speaker2X ?? null,
           // Preserve the exact boundaries used by smoothing for downstream
           // shot-aware layout work and reproducible cached-track evidence.
+          shot_composition_candidate: process.env.SMART_REFRAME_SHOT_COMPOSITION === '1',
+          clip_duration: durationSec,
           scene_cuts: clipSceneCuts,
           scene_cut_evidence: cvResult.scene_cut_evidence || [],
           cv_duration: cvResult.duration,

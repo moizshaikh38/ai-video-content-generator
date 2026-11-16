@@ -197,6 +197,8 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       speaker1: { x: number; y: number; windowW: number };
       speaker2: { x: number; y: number; windowW: number };
     } | null;
+    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
+    analyzedTrimStart?: number;
     groupFrame?: {
       keyframes: Array<{ time: number; centerX: number; centerY: number }>;
       windowW: number;
@@ -215,13 +217,15 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       .getClipReframe(clip.id)
       .then((r) => {
         if (cancelled) return;
-        if (r.status === 'ready' && Array.isArray(r.smoothedKeyframes) && r.smoothedKeyframes.length > 0) {
+        if (r.status === 'ready' && !r.isStale && Array.isArray(r.smoothedKeyframes) && r.smoothedKeyframes.length > 0) {
           setSpeakerSplit({
             keyframes: r.smoothedKeyframes.map((k) => ({ time: Number(k.time), centerX: Number(k.centerX) })),
             speaker1X: typeof r.speaker1X === 'number' ? r.speaker1X : null,
             speaker2X: typeof r.speaker2X === 'number' ? r.speaker2X : null,
             splitGeometry: r.splitGeometry ?? null,
             groupFrame: r.groupFrame ?? null,
+            shotComposition: r.shotComposition ?? null,
+            analyzedTrimStart: Number(r.analyzedTrimStart) || 0,
             lowConfidenceTrack: Boolean(r.lowConfidenceTrack),
           });
         }
@@ -1754,6 +1758,8 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             viewMode={viewMode}
             speakerSplit={speakerSplit}
             groupReframe={speakerSplit?.groupFrame ?? null}
+            shotComposition={speakerSplit?.shotComposition ?? null}
+            compositionClipStart={(Number(clip?.start_seconds) || 0) + (speakerSplit?.analyzedTrimStart || 0)}
             lowConfidenceTrack={Boolean(speakerSplit?.lowConfidenceTrack)}
             watermarkRequired={watermarkRequired}
             onPlayheadChange={seek}

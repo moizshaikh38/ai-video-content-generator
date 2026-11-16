@@ -33,3 +33,38 @@ promote the detector flags or call general framing complete from this test.
 
 Blender footage credit: (CC) Blender Foundation | mango.blender.org.
 See realmedia-sources.md for the existing media source inventory.
+
+## Shot-local composition candidate
+
+SMART_REFRAME_SHOT_COMPOSITION=1 stamps newly analyzed tracks. It remains off
+by default and is separate from detector choice and cut discovery/refinement.
+Quick, Pro slice graphs, the safe track API and live preview use the same
+shot-local plan. Cached tracks do not silently opt in. Manual crop/layout
+choices still take precedence.
+
+Group decisions use only samples in each shot. Otherwise the existing
+subject-score function selects a sufficiently present solo track; its context
+window reserves extra width and lower-body room and stays fixed within the
+shot. With insufficient subject evidence, the source is fitted in full. This
+is a heuristic, not a person/body detector, and can produce a small foreground
+or trust detector artifacts. It is not universal framing acceptance.
+
+Source-time trims are rebased in each Pro slice before a speed change.
+Candidate single-item rendering seeks the item's actual source_start. The
+preview subtracts the analyzed source origin (clip start plus analyzed trim)
+when looking up the plan. Foreground clipping and auxiliary-video metadata
+seeks are explicit. Render-review mode does not crop a rendered group again.
+
+Cut pieces are resampled to a 30fps composition grid with integer frame budgets
+computed from cumulative boundaries, then bounded to the requested total.
+This avoids accumulated missing/excess frames at fractional cut boundaries.
+The displayed composition boundary may differ from source cut time by up to
+one output frame; source refinement evidence still retains its uncertainty.
+
+Local checks: actual Quick and Pro 9s exports each270frames at30fps; actual
+trimmed single-item Pro4s export120frames. At sampled matching6.2/8.5s frames,
+Quick and Pro pixels were identical; at0.5s full-frame mean absolute channel
+difference was0.15 (8-bit scale). These samples do not establish full parity.
+Actual editor source playback/reload checked the candidate9s clip and a4s
+source4.5-8.5s item. Media fixture needed Range responses before browser seek
+results were valid; its initial lack of Range support was not a product bug.

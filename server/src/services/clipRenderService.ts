@@ -817,8 +817,18 @@ export class ClipRenderService {
         const isMultiSlice = videoTrackItems.length > 1;
         // Single-slice renders seek the input; the loudnorm measurement pass must
         // apply the same seek so it measures the exact audio window being rendered.
+        // Candidate shot plans use source-relative item windows. A single
+        // trimmed item must seek to its own source_start, just as multi-slice
+        // trim filters do, not silently keep the clip's old opening.
+        const candidateSingle = reframeDecision.track?.metadata?.shot_composition_candidate === true && !isMultiSlice
+          ? editorProject.tracks.find((t: {type:string;hidden?:boolean}) => t.type === 'VIDEO' && !t.hidden)?.items.find((i: {hidden?:boolean}) => !i.hidden)
+          : undefined;
+        const candidateSourceStart = candidateSingle && !(candidateSingle as any).is_freeze
+          ? Number(candidateSingle.source_start ?? startSec) : startSec;
+        const candidateSourceDuration = candidateSingle && !(candidateSingle as any).is_freeze
+          ? Number(editorProject.canvas.duration || durationSec) * Math.min(4, Math.max(.25, candidateSingle.speed?.speed || 1)) : durationSec;
         const inputSeekArgs = !isMultiSlice
-          ? ['-ss', startSec.toFixed(3), '-t', durationSec.toFixed(3)]
+          ? ['-ss', candidateSourceStart.toFixed(3), '-t', candidateSourceDuration.toFixed(3)]
           : [];
         // Two-pass loudness normalization: measures dialogue audio first (audio-only
         // pass), then compiles with linear loudnorm when feasible, or a pre-rendered
@@ -1443,6 +1453,13 @@ export class ClipRenderService {
                 speaker2X: clip.crop_config?.split?.speaker2X,
               })
             : null;
+        if (targetLayout === 'track' && (clip.aspect_ratio === '9:16' || !clip.aspect_ratio) && track.metadata?.shot_composition_candidate === true) {
+          const plan = SmartReframeService.computeShotComposition({rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
+            duration:durationSec,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
+          if (plan.length) return {cropFilter:SmartReframeService.buildShotCompositionFilter({plan,duration:durationSec,
+            sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),mode:'smart',
+            metadata:{layout_mode:'track',shot_composition_candidate:true},layoutMode:'track',track};
+        }
         // Multi-person single-view: keep the whole group visible (blur-fill
         // fit) instead of tight tracking that crops people at the edges.
         const groupFrame =

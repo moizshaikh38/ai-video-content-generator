@@ -856,6 +856,12 @@ export class ProEditorService {
         });
       }
 
+      if (ratio === '9:16' && track.metadata?.shot_composition_candidate === true) {
+        const plan = SmartReframeService.computeShotComposition({rawSamples:(track as any).raw_samples,sceneCuts:track.metadata.scene_cuts,
+          duration:Number(track.metadata.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
+        if (plan.length) return SmartReframeService.buildShotCompositionFilter({plan,start:sliceWindowStartClipRel,duration:sliceDuration,
+          sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,tag:layoutTag});
+      }
       // Multi-person single-view: keep the whole group visible (blur-fill
       // fit) instead of tight tracking that crops people at the edges.
       const groupFrame = SmartReframeService.computeGroupFrameGeometry({
@@ -1212,7 +1218,7 @@ export class ProEditorService {
           // Keyframes are clip-relative; slices trim straight from the source file, so
           // the slice-local window starts at source_start - clipStart.
           const windowStartClipRel = (item.source_start || 0) - (reframe?.clipStartSec ?? 0);
-          const sliceCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRel, timelineDur);
+          const sliceCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRel, reframe?.track?.metadata?.shot_composition_candidate === true ? sourceWindowSec : timelineDur);
           const styleFilters = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH, fps);
           const chain = [`trim=start=${startStr}:end=${endStr}`, 'setpts=PTS-STARTPTS'];
           if (sliceCrop) chain.push(sliceCrop);
@@ -1318,7 +1324,10 @@ export class ProEditorService {
       // Single video item: the caller input-seeks with -ss clipStart, so filter time
       // is already clip-relative and the item keeps its own crop + styling.
       const single = allVideoItems[0];
-      const singleCrop = single ? ProEditorService.buildSliceCropFilter(single, reframe, 0, canvasDuration || 10) : null;
+      const candidateComposition = reframe?.track?.metadata?.shot_composition_candidate === true;
+      const singleSourceStart = candidateComposition ? Math.max(0, (single?.source_start || 0) - (reframe?.clipStartSec ?? 0)) : 0;
+      const singleSourceDuration = (canvasDuration || 10) * (candidateComposition ? Math.min(4, Math.max(.25, single?.speed?.speed || 1)) : 1);
+      const singleCrop = single ? ProEditorService.buildSliceCropFilter(single, reframe, singleSourceStart, singleSourceDuration) : null;
       const styleFilters = single ? ProEditorService.buildItemStyleFilters(single, canvasW, canvasH, fps) : [];
       const singleSpeed = single ? Math.min(4, Math.max(0.25, single.speed?.speed || 1.0)) : 1.0;
       const parts: string[] = [];

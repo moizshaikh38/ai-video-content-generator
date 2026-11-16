@@ -92,6 +92,8 @@ interface PreviewCanvasProps {
   /** Server-computed group framing for multi-person single-view (same helper
    * the export's buildGroupFitFilter uses): blur backdrop + the group window
    * fitted to canvas width at 42% height. Null = tight tracking preview. */
+    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
+  compositionClipStart?: number;
   groupReframe?: {
     keyframes: Array<{ time: number; centerX: number; centerY: number }>;
     windowW: number;
@@ -215,6 +217,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   speakerSplit,
   watermarkRequired = false,
   groupReframe = null,
+  shotComposition = null,
+  compositionClipStart = 0,
   lowConfidenceTrack = false,
   onUpdateCaptionPosition,
 }) => {
@@ -647,7 +651,12 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // oversized to the group window and positioned by the group midpoint
   // keyframes, band resting at 42% canvas height, over the blurred backdrop.
   const groupFitView = (() => {
-    if (!groupReframe || groupReframe.keyframes.length === 0) return undefined;
+    if (isUsingRenderedPreview) return undefined;
+    const clipTime = targetVideoTime - compositionClipStart;
+    const shot = shotComposition?.find(s => clipTime >= s.start && clipTime < s.end)
+      ?? (shotComposition?.length && clipTime >= shotComposition[shotComposition.length-1].end ? shotComposition[shotComposition.length-1] : undefined);
+    const geometry = shot || groupReframe;
+    if (!geometry || geometry.keyframes.length === 0) return undefined;
     if (primaryLayoutMode !== 'track' || primaryVideoCropMode !== 'fill') return undefined;
     const item = activeVideoItems[0] as any;
     const itemCropMode = item?.crop?.mode;
@@ -656,17 +665,17 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     const dims = getAspectRatioDimensions();
     const boxW = parseFloat(dims.width) || 360;
     const boxH = parseFloat(dims.height) || 640;
-    const windowW = Math.min(0.92, Math.max(0.4, groupReframe.windowW));
+    const windowW = Math.min(1, Math.max(0.01, geometry.windowW));
     const elW = boxW / windowW;
     const elH = (elW * videoDims.h) / videoDims.w;
     // Mirror buildGroupFitFilter's composition window: adaptive height when
     // the server computed one from face sizes, else the legacy 4:3 window
     // (winH clamped to the source height).
-    const winH = groupReframe.windowH !== undefined
-      ? Math.min(videoDims.h, Math.round(groupReframe.windowH * videoDims.h))
+    const winH = geometry.windowH !== undefined
+      ? Math.min(videoDims.h, Math.round(geometry.windowH * videoDims.h))
       : Math.min(videoDims.h, Math.round(windowW * videoDims.w * 0.75));
     const bandH = boxW * (winH / (windowW * videoDims.w));
-    const center = interpolateReframeCenter(groupReframe.keyframes, targetVideoTime);
+    const center = interpolateReframeCenter(geometry.keyframes, clipTime);
     const cx = Math.min(0.95, Math.max(0.05, center.centerX));
     const cy = Math.min(0.95, Math.max(0.05, center.centerY));
     const left = Math.min(0, Math.max(boxW - elW, -(cx * elW - boxW / 2)));
@@ -675,12 +684,13 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     // [shift, shift+bandH] of the oversized element, shift edge-clamped.
     const shift = Math.min(Math.max(cy * elH - bandH / 2, 0), Math.max(0, elH - bandH));
     const top = bandTop - shift;
-    return { left: `${left.toFixed(1)}px`, top: `${top.toFixed(1)}px`, width: `${elW.toFixed(1)}px`, height: `${elH.toFixed(1)}px` };
+    return { left: `${left.toFixed(1)}px`, top: `${top.toFixed(1)}px`, width: `${elW.toFixed(1)}px`, height: `${elH.toFixed(1)}px`, clipPath: `inset(${shift.toFixed(1)}px 0 ${Math.max(0,elH-shift-bandH).toFixed(1)}px 0)` };
   })();
 
   // Tracking-floor fallback (mirrors the export paths): a weak dominant track
   // with no group frame renders as the blurred fit layout, not a tight track.
   const lowConfidenceFallback =
+    !isUsingRenderedPreview &&
     Boolean(lowConfidenceTrack) &&
     !groupFitView &&
     primaryLayoutMode === 'track' &&
@@ -1242,6 +1252,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           {(primaryVideoCropMode === 'blur' || Boolean(groupFitView) || lowConfidenceFallback) && activeVideoSrc ? (
             <video
               ref={backdropVideoRef}
+              onLoadedMetadata={e => { e.currentTarget.currentTime = targetVideoTime; }}
               src={activeVideoSrc}
               muted
               playsInline
@@ -1323,7 +1334,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               // preflight caps video at max-width:100%, which would silently
               // shrink the oversized element back into the panel, so unset it.
               ...(groupFitView
-                ? { left: groupFitView.left, top: groupFitView.top, width: groupFitView.width, height: groupFitView.height, maxWidth: 'none' }
+                ? { left: groupFitView.left, top: groupFitView.top, width: groupFitView.width, height: groupFitView.height, clipPath: groupFitView.clipPath, maxWidth: 'none' }
                 : {}),
               ...(primaryLayoutMode === 'split' && splitView1
                 ? { left: splitView1.left, top: splitView1.top, width: splitView1.width, height: splitView1.height, clipPath: splitView1.clipPath, maxWidth: 'none' }
@@ -1389,6 +1400,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
         {primaryLayoutMode === 'split' && activeVideoSrc ? (
           <video
             ref={splitBottomRef}
+                onLoadedMetadata={e => { e.currentTarget.currentTime = targetVideoTime; }}
             src={activeVideoSrc}
             playsInline
             muted
