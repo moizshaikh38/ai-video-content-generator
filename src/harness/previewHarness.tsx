@@ -10,6 +10,8 @@ import { FramingWorkspacePanel } from '../components/editor/FramingWorkspacePane
 import { EditorShell } from '../components/editor/EditorShell';
 import { applyOutputTemplateToProject, getOutputTemplate, OutputTemplateId } from '../../server/src/shared/outputTemplates';
 import { buildClipEditorUpdatePayload } from '../lib/editorSavePayload';
+import { proEditorService } from '../services/proEditorService';
+import { clipRenderService } from '../services/clipRenderService';
 import { supabase } from '../lib/supabase';
 import { EditorProject, EditorTrackItem } from '../types';
 import '../index.css';
@@ -173,9 +175,34 @@ function ShellTemplateApp() {
         items: [
           {
             id: 'item-1', track_id: 'track-video-1', type: 'VIDEO',
-            timeline_start: 0, timeline_end: 9, source_start: 0, source_end: 9,
+            timeline_start: 0, timeline_end: 4.5, source_start: 0, source_end: 4.5,
             transform: { position_x: 0, position_y: 0, scale: 1, rotation: 0, opacity: 1 },
             speed: { speed: 1, pitch_preserved: true },
+            keyframes: [], effects: [], hidden: false, locked: false, muted: false,
+          },
+          // Second scene so template transitions have a join to land on.
+          {
+            id: 'item-2', track_id: 'track-video-1', type: 'VIDEO',
+            timeline_start: 4.5, timeline_end: 9, source_start: 4.5, source_end: 9,
+            transform: { position_x: 0, position_y: 0, scale: 1, rotation: 0, opacity: 1 },
+            speed: { speed: 1, pitch_preserved: true },
+            keyframes: [], effects: [], hidden: false, locked: false, muted: false,
+          },
+        ],
+      },
+      // Real captions track so template caption legs apply to actual cues.
+      {
+        id: 'track-caption-1', type: 'CAPTION', name: 'Captions', locked: false, muted: false, hidden: false,
+        items: [
+          {
+            id: 'cap-1', track_id: 'track-caption-1', type: 'CAPTION',
+            timeline_start: 0, timeline_end: 9,
+            caption: {
+              cues: [
+                { start: 0.5, end: 2.0, text: 'hello world this is' },
+                { start: 2.5, end: 4.5, text: 'a real caption cue' },
+              ],
+            },
             keyframes: [], effects: [], hidden: false, locked: false, muted: false,
           },
         ],
@@ -189,29 +216,46 @@ function ShellTemplateApp() {
 
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'dirty' | 'error'>('saved');
 
-  // REAL save path: the client's own payload builder + real PATCH to the
-  // fixture backend (what ClipEditorPage's save flow does).
+  // REAL save path: mirrors useEditorAutosave exactly - the real client
+  // services (proEditorService + clipRenderService) against the fixture
+  // backend: full project first (tracks carry hook/transitions/captions),
+  // then the synced clip fields via the client's own payload builder.
   const saveNow = async () => {
     setSaveStatus('saving');
-    const clipRes = await fetch(`http://127.0.0.1:5599/api/clips/${SHELL_CLIP_ID}`, {
-      headers: { Authorization: `Bearer ${SHELL_TOKEN}` },
-    });
-    const clipJson = await clipRes.json();
-    const clipRow = clipJson.clip || clipJson.data || clipJson;
-    const payload = buildClipEditorUpdatePayload(project as any, clipRow);
-    const res = await fetch(`http://127.0.0.1:5599/api/clips/${SHELL_CLIP_ID}/editor`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SHELL_TOKEN}` },
-      body: JSON.stringify(payload),
-    });
-    const after = await fetch(`http://127.0.0.1:5599/api/clips/${SHELL_CLIP_ID}`, {
-      headers: { Authorization: `Bearer ${SHELL_TOKEN}` },
-    });
-    const afterJson = await after.json();
-    const saved = (afterJson.clip || afterJson.data || afterJson)?.crop_config;
-    (window as any).__saveResult = { status: res.status, savedCropConfig: saved };
-    setSaveStatus(res.ok ? 'saved' : 'error');
-    return res.ok;
+    try {
+      const editorProject = await proEditorService.getOrCreateEditorProject(SHELL_CLIP_ID);
+      const savedProject = await proEditorService.updateEditorProject(editorProject.id, {
+        title: (project as any).title || 'Two shot template clip',
+        canvas: project.canvas,
+        tracks: project.tracks,
+        playhead: project.playhead,
+        settings: project.settings,
+        version: (project as any).version,
+      } as any);
+      const clipRow = await clipRenderService.getClip(SHELL_CLIP_ID);
+      const payload = buildClipEditorUpdatePayload(project as any, clipRow);
+      await clipRenderService.updateClipEditor(SHELL_CLIP_ID, payload);
+      const afterClip: any = await clipRenderService.getClip(SHELL_CLIP_ID);
+      const afterProject: any = await proEditorService.getEditorProject(editorProject.id);
+      const textItems = (afterProject.tracks || []).find((t: any) => t.type === 'TEXT')?.items || [];
+      const videoItems = (afterProject.tracks || []).find((t: any) => t.type === 'VIDEO')?.items || [];
+      const captionItems = (afterProject.tracks || []).find((t: any) => t.type === 'CAPTION')?.items || [];
+      (window as any).__saveResult = {
+        savedCropConfig: afterClip?.crop_config,
+        clipCaptionStyle: afterClip?.caption_style,
+        clipCaptionPosition: afterClip?.caption_position,
+        projectVersion: savedProject?.version,
+        hookItems: textItems.map((i: any) => ({ start: i.timeline_start, end: i.timeline_end, text: i.text?.text, template: i.text?.template_id })),
+        videoTransitions: videoItems.map((i: any) => (i as any).transition_in || null),
+        captionLegs: captionItems.map((i: any) => ({ style: i.caption?.style, position: i.caption?.position, cues: i.caption?.cues?.length })),
+      };
+      setSaveStatus('saved');
+      return true;
+    } catch (e: any) {
+      (window as any).__saveResult = { error: String(e?.message || e) };
+      setSaveStatus('error');
+      return false;
+    }
   };
 
   return (
