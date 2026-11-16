@@ -551,7 +551,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       .then((r) => {
         if (cancelled) return;
         const kfs = Array.isArray(r.smoothedKeyframes) ? r.smoothedKeyframes : [];
-        if (r.status === 'ready' && kfs.length > 0) {
+        // Stale tracks mirror the export's resolveReframeDecision: it falls
+        // back to center (reason stale_track), so the preview must not pan
+        // on them either.
+        if (r.status === 'ready' && kfs.length > 0 && !r.isStale) {
           setSmartReframe({ keyframes: kfs, clipStartSec: Number(clip?.start_seconds) || 0 });
         } else {
           setSmartReframe(null);
