@@ -40,7 +40,7 @@ export const CropBoxControl: React.FC<Props> = ({ videoSrc, sourceTime, srcW, sr
           <div className="bg-vc-surface1 border border-white/10 rounded-2xl p-5 w-[560px] max-w-[92vw] text-neutral-200" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1"><h3 className="text-sm font-semibold text-white">Crop</h3><button onClick={() => setOpen(false)} aria-label="Close"><X className="w-4 h-4" /></button></div>
             <p className="text-[11px] text-neutral-400 mb-3">Drag the box to move it. Drag a corner to resize (zoom 1x-4x). The box keeps the canvas shape.</p>
-            <div ref={stage} data-testid="crop-stage" className="relative bg-black rounded-lg overflow-hidden select-none touch-none" style={{ aspectRatio: `${sw}/${sh}` }}
+            <div ref={stage} data-testid="crop-stage" className="relative bg-black rounded-lg overflow-hidden select-none touch-none" style={{ aspectRatio: `${sw}/${sh}`, maxHeight: '58vh', maxWidth: '100%', margin: '0 auto' }}
               onPointerMove={(e) => {
                 const d = drag.current; if (!d) return; const p = pt(e);
                 if (d.kind === 'move') { setBox((b) => moveBox(b, p.x - d.last.x, p.y - d.last.y)); d.last = p; }
