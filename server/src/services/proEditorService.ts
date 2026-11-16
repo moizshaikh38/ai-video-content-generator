@@ -2,7 +2,7 @@ import { validateFramingWindow, FramingWindowError, FRAMING_WINDOW_ERROR_CODE } 
 import { assertPanelViewsAssigned } from '../shared/panelLayouts.js';
 import { canvasDims } from '../shared/renderResolution.js';
 import fs from 'node:fs';
-import { normalizePanels, buildPanelsFilter, buildManualSplitFilter } from '../shared/panelLayouts.js';
+import { normalizePanels, defaultPanelSlots, buildPanelsFilter, buildManualSplitFilter } from '../shared/panelLayouts.js';
 import { FIT_BAND_ASPECT, effectiveFitBand, fitBandApplies } from '../shared/fitBand.js';
 import path from 'node:path';
 import os from 'node:os';
@@ -209,7 +209,8 @@ export class ProEditorService {
       .maybeSingle();
 
     // 5. Build initial multi-track structure
-    const editorProject = this.buildInitialProject(clip, userId, producerPlan, transcript, dto);
+    const { data: sourceProject } = await dataRepository.from('projects').select('clip_preferences').eq('id', clip.project_id).eq('user_id', userId).maybeSingle();
+    const editorProject = this.buildInitialProject(clip, userId, producerPlan, transcript, dto, sourceProject?.clip_preferences);
 
     // 6. Save to MongoDB
     const { error: insertErr } = await dataRepository
@@ -2252,7 +2253,8 @@ export class ProEditorService {
     userId: string,
     producerPlan: ProducerEditPlan | null,
     transcript: any,
-    dto: CreateEditorProjectDTO
+    dto: CreateEditorProjectDTO,
+    projectPreferences?: { genre?: string; genreSelectionMode?: string } | null
   ): EditorProject {
     const rawDuration = clip.end_seconds - clip.start_seconds;
     const aspectRatio = dto.aspect_ratio || clip.aspect_ratio || '9:16';
@@ -2365,6 +2367,23 @@ export class ProEditorService {
       z_index: 0,
     };
     videoItems.push(videoItem);
+
+    // A user-selected Gaming genre chooses the Gameplay TEMPLATE for a NEW editor.
+    // It does not detect gameplay/facecam roles. Unassigned panels visibly require
+    // review and remain export-gated. Existing editors return before this builder.
+    const gamingTemplateDefault = isVertical && projectPreferences?.genre === 'gaming' &&
+      (projectPreferences.genreSelectionMode === 'manual' || projectPreferences.genreSelectionMode === 'suggested') &&
+      clipCrop?.layout_mode_source !== 'user' && !['manual', 'custom'].includes(clipCrop?.mode) &&
+      (!clipCrop?.layout_mode || clipCrop.layout_mode_source === 'genre_recommendation' || clipCrop.layout_mode === 'track') &&
+      !producerPlan;
+    if (gamingTemplateDefault) {
+      for (const item of videoItems) {
+        item.panels = { layout: 'gameplay', slots: defaultPanelSlots('gameplay') };
+        delete item.crop;
+        item.layout_mode = 'track';
+        item.crop_config = { ...item.crop_config, layout_mode: 'track', layout_mode_source: 'genre_recommendation' };
+      }
+    }
 
     tracks.push({
       id: videoTrackId,

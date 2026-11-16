@@ -1,0 +1,11 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {ProEditorService} from '../services/proEditorService.js';
+import {unassignedPanelViews} from '../shared/panelLayouts.js';
+const base:any={id:'test',project_id:'p',user_id:'u',start_seconds:0,end_seconds:8,source_storage_path:'test.mp4',aspect_ratio:'9:16',crop_config:{mode:'smart',layout_mode:'screencast',layout_mode_source:'genre_recommendation'}};
+const build=(clip:any=base,prefs:any={genre:'gaming',genreSelectionMode:'manual'},plan:any=null)=>(ProEditorService as any).buildInitialProject(clip,'u',plan,null,{clip_id:'test'},prefs);
+const item=(p:any)=>p.tracks.find((t:any)=>t.type==='VIDEO').items[0];
+test('selected Gaming initializes Gameplay template with visible unassigned/export-gated views',()=>{const p=build();assert.equal(item(p).panels.layout,'gameplay');assert.equal(item(p).panels.slots.length,2);assert.equal(unassignedPanelViews(p).length,2);assert.equal(item(p).crop,undefined)});
+test('accepted Gaming suggestion initializes the template but auto genre alone does not',()=>{assert.equal(item(build(base,{genre:'gaming',genreSelectionMode:'suggested'})).panels.layout,'gameplay');assert.equal(item(build(base,{genre:'gaming',genreSelectionMode:'auto'})).panels,undefined)});
+test('manual layout/crop and nonportrait choices beat Gaming default',()=>{for(const override of [{crop_config:{mode:'smart',layout_mode:'split',layout_mode_source:'user'}},{crop_config:{mode:'manual'}},{aspect_ratio:'16:9'},{aspect_ratio:'1:1'}])assert.equal(item(build({...base,...override})).panels,undefined)});
+test('other/missing genres and producer plan are not rewritten',()=>{assert.equal(item(build(base,{genre:'general',genreSelectionMode:'manual'})).panels,undefined);assert.equal(item(build(base,null)).panels,undefined);assert.equal(item(build(base,undefined,{operations:[]})).panels,undefined)});

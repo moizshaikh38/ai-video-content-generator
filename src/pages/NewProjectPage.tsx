@@ -479,6 +479,7 @@ export const NewProjectPage: React.FC = () => {
   const previewGenre = clipPreferences.genreSelectionMode === 'auto' ? 'auto' : clipPreferences.genre;
   const previewLayout = clipPreferences.genreSelectionMode === 'auto'
     ? 'face_track' as const
+    : clipPreferences.genre === 'gaming' && clipPreferences.aspectRatio === '9:16' ? 'gameplay' as const
     : (getGenreLayoutMode(clipPreferences.genre)) as any;
   const previewThumbnail = (probe.status === 'ok' && probe.thumbnail) || (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : null);
 

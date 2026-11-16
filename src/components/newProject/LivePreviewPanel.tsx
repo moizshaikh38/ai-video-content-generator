@@ -68,7 +68,7 @@ const GENRE_SCENES: Record<string, { gradient: string; line: string }> = {
 const CYCLE_MS = 4200;
 
 /** Layout mode the genre's reframe engine would produce. */
-export type PreviewLayoutMode = 'face_track' | 'split' | 'screencast' | 'blur' | 'center';
+export type PreviewLayoutMode = 'face_track' | 'split' | 'screencast' | 'gameplay' | 'blur' | 'center';
 
 export interface LivePreviewPanelProps {
   aspectRatio: ClipAspectRatio;
@@ -178,6 +178,14 @@ export const LivePreviewPanel: React.FC<LivePreviewPanelProps> = ({
             </div>
           )}
 
+          {layoutMode === 'gameplay' && (
+            <div className="absolute inset-0 pointer-events-none flex flex-col">
+              <div className="h-[30%] border-b border-white/30 bg-black/20 flex items-center justify-center text-[8px] text-white">Panel 1 - review view</div>
+              <div className="flex-1 bg-black/40 flex items-center justify-center text-[8px] text-white">Panel 2 - review view</div>
+              <span className="absolute top-[33%] inset-x-2 text-center text-[8px] text-white bg-black/60 rounded p-1">Gameplay template. Set each view in the editor.</span>
+            </div>
+          )}
+
           {/* 3. Blur — blurred bg with sharp center face */}
           {layoutMode === 'blur' && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center backdrop-blur-[2px] bg-black/10">
@@ -258,7 +266,7 @@ export const LivePreviewPanel: React.FC<LivePreviewPanelProps> = ({
         </span>
         <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-medium text-zinc-200 flex items-center gap-0.5">
           <Camera size={9} aria-hidden="true" />
-          {layoutMode === 'split' ? 'Split view' : layoutMode === 'screencast' ? '60/40 split' : layoutMode === 'blur' ? 'Blur bg' : layoutMode === 'face_track' ? 'Face tracking' : 'Center'}
+          {layoutMode === 'gameplay' ? 'Gameplay template - review views' : layoutMode === 'split' ? 'Split view' : layoutMode === 'screencast' ? '60/40 split' : layoutMode === 'blur' ? 'Blur bg' : layoutMode === 'face_track' ? 'Face tracking' : 'Center'}
         </span>
       </div>
     </div>
