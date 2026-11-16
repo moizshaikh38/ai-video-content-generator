@@ -771,6 +771,16 @@ export interface EditorTransform {
   scale: number; // 1.0 = 100%
   rotation: number; // degrees
   opacity: number; // 0 to 1
+  /**
+   * Overlay (IMAGE/OVERLAY element) coordinate semantics. Absent = legacy:
+   * preview translated from the top-left in 360px design space while the
+   * export overlaid raw canvas px from center (three divergences: origin,
+   * unit, size basis). 'design_center' = the versioned contract for new
+   * items: center-origin 360x640 design space (same convention as TEXT),
+   * size base 280 design px x scale; both channels interpret it identically.
+   * Only overlays read this; other channels are unchanged either way.
+   */
+  position_space?: 'design_center';
 }
 
 export interface EditorKeyframe {

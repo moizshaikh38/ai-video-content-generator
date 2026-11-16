@@ -1338,9 +1338,19 @@ export class ProEditorService {
 
         if (isElementOrSticker) {
           const scaleVal = item.transform?.scale || 1.0;
-          const targetW = Math.round(Math.min(canvasW * 0.85, Math.max(80, 360 * scaleVal)));
-          const posX = Math.round(item.transform?.position_x || 0);
-          const posY = Math.round(item.transform?.position_y || 0);
+          // Versioned semantics: 'design_center' items (new inserts) speak the
+          // preview's center-origin 360x640 design space; unmarked legacy items
+          // keep the historical raw-canvas-px interpretation unchanged.
+          const designSpace = item.transform?.position_space === 'design_center';
+          // Design canvas dims per aspect, same convention as TEXT layers.
+          const designW = canvasH > canvasW ? 360 : canvasH === canvasW ? 480 : 640;
+          const designH = canvasH > canvasW ? 640 : canvasH === canvasW ? 480 : 360;
+          const unitX = designSpace ? canvasW / designW : 1;
+          const unitY = designSpace ? canvasH / designH : 1;
+          const baseDesignW = designSpace ? 280 : 360;
+          const targetW = Math.round(Math.min(canvasW * 0.85, Math.max(80, baseDesignW * scaleVal * unitX)));
+          const posX = Math.round((item.transform?.position_x || 0) * unitX);
+          const posY = Math.round((item.transform?.position_y || 0) * unitY);
           const opacity = item.transform?.opacity ?? 1.0;
           const rotation = item.transform?.rotation || 0;
 

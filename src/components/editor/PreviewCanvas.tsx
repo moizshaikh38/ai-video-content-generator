@@ -1407,6 +1407,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 const scale = item.transform?.scale || 1.0;
                 const rotation = item.transform?.rotation || 0;
                 const opacity = item.transform?.opacity ?? 1.0;
+                // Versioned semantics: 'design_center' items (new inserts) use the
+                // export's center-origin design-space contract; legacy unmarked
+                // items keep the historical top-left translate so saved projects
+                // render exactly where the user left them.
+                const designCenter = item.transform?.position_space === 'design_center';
 
                 return (
                   <div
@@ -1422,7 +1427,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                       setInitialTransform({ ...item.transform });
                     }}
                     style={{
-                      transform: `translate(${posX}px, ${posY}px) scale(${scale}) rotate(${rotation}deg)`,
+                      ...(designCenter ? { left: '50%', top: '50%' } : {}),
+                      transform: designCenter
+                        ? `translate(-50%, -50%) translate(${posX}px, ${posY}px) scale(${scale}) rotate(${rotation}deg)`
+                        : `translate(${posX}px, ${posY}px) scale(${scale}) rotate(${rotation}deg)`,
                       opacity,
                       zIndex: item.z_index || 15,
                     }}

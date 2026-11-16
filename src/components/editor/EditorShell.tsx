@@ -772,6 +772,9 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             scale: 1.0,
             rotation: 0,
             opacity: 1.0,
+            // Versioned overlay semantics (see EditorTransform.position_space):
+            // new elements speak center-origin design space in both channels.
+            position_space: 'design_center',
           },
           source_path: element.sourceUrl,
           speed: { speed: 1.0, pitch_preserved: true },
@@ -805,6 +808,9 @@ export const EditorShell: React.FC<EditorShellProps> = ({
           scale: 1.0,
           rotation: 0,
           opacity: 1.0,
+          // Versioned overlay semantics (see EditorTransform.position_space):
+          // new elements speak center-origin design space in both channels.
+          position_space: 'design_center',
         },
         source_path: element.sourceUrl,
         speed: { speed: 1.0, pitch_preserved: true },
