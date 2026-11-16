@@ -76,8 +76,39 @@ export function maxConcurrentRenders(): number {
   return Math.max(1, Math.min(4, Math.floor(cpus / 2)));
 }
 
+// Admission slots are reserved synchronously, BEFORE any await, by every path that
+// starts a render (inline launch and background sweep). activeRenderSet only fills
+// after renderClipJob's first awaits (clip fetch, Mongo lease claim), so counting it
+// alone let two launches in the same tick both pass the cap, and the sweep never
+// checked the cap at all. A slot is always released in a finally.
+const reservedRenderSlots = new Set<string>();
+
+/** Clip ids that hold a slot, either reserved by a launcher or actively rendering. */
+function occupiedRenderClipIds(): string[] {
+  return Array.from(new Set<string>([...reservedRenderSlots, ...activeRenderSet]));
+}
+
+export function renderOccupancy(): number {
+  return occupiedRenderClipIds().length;
+}
+
+/**
+ * Reserves one render slot for a clip. Returns false (and reserves nothing) when the
+ * clip already holds a slot or the cap is reached. `cap` is injectable for tests.
+ */
+export function tryReserveRenderSlot(clipId: string, cap: number = maxConcurrentRenders()): boolean {
+  if (reservedRenderSlots.has(clipId) || activeRenderSet.has(clipId)) return false;
+  if (renderOccupancy() >= cap) return false;
+  reservedRenderSlots.add(clipId);
+  return true;
+}
+
+export function releaseRenderSlot(clipId: string): void {
+  reservedRenderSlots.delete(clipId);
+}
+
 export function shouldLaunchInlineRender(): boolean {
-  return activeRenderSet.size < maxConcurrentRenders();
+  return renderOccupancy() < maxConcurrentRenders();
 }
 
 /**
@@ -86,18 +117,25 @@ export function shouldLaunchInlineRender(): boolean {
  * started in index.ts picks it up.
  */
 export function launchInlineRender(clipId: string, userId: string, jobId: string | undefined): boolean {
-  if (!shouldLaunchInlineRender()) {
-    logger.warn(`[ClipRender] Inline render deferred to background sweep for clip ${clipId} (concurrency cap ${maxConcurrentRenders()} reached)`);
+  if (!tryReserveRenderSlot(clipId)) {
+    logger.warn(`[ClipRender] Inline render deferred to background sweep for clip ${clipId} (concurrency cap ${maxConcurrentRenders()} reached or clip already holds a slot)`);
     return false;
   }
-  ownerContext.run(userId, () => {
-    ClipRenderService.renderClipJob(clipId, userId, jobId).catch((renderErr) => {
-      logger.error('Background clip rendering caught top-level error', {
-        clipId,
-        error: renderErr instanceof Error ? renderErr.message : String(renderErr),
-      });
+  try {
+    ownerContext.run(userId, () => {
+      ClipRenderService.renderClipJob(clipId, userId, jobId)
+        .catch((renderErr) => {
+          logger.error('Background clip rendering caught top-level error', {
+            clipId,
+            error: renderErr instanceof Error ? renderErr.message : String(renderErr),
+          });
+        })
+        .finally(() => releaseRenderSlot(clipId));
     });
-  });
+  } catch (launchErr) {
+    releaseRenderSlot(clipId);
+    throw launchErr;
+  }
   return true;
 }
 
@@ -124,7 +162,7 @@ export interface QuickClipAudioGraph {
  * Checks if a clip is currently rendering in-memory
  */
 export function isClipRenderActive(clipId: string): boolean {
-  return activeRenderSet.has(clipId);
+  return activeRenderSet.has(clipId) || reservedRenderSlots.has(clipId);
 }
 
 /**
@@ -1758,12 +1796,18 @@ export class ClipRenderService {
       }
     );
 
-    // 2. Claim next due job
+    // 2. Admission: no free slot means leave the job queued. Checked before the
+    // query so the sweep never claims past the per-process cap shared with inline launches.
+    if (renderOccupancy() >= maxConcurrentRenders()) return 0;
+
+    // 3. Pick the next due job, skipping clips that already hold a slot.
+    const busyClipIds = occupiedRenderClipIds();
     const dueJob = await db.collection('render_jobs').findOne(
       {
         status: 'queued',
         attempts: { $lt: 3 },
         $or: [{ next_retry_at: null }, { next_retry_at: { $lte: now } }],
+        ...(busyClipIds.length > 0 ? { clip_id: { $nin: busyClipIds } } : {}),
       },
       { sort: { created_at: 1 } }
     );
@@ -1792,6 +1836,10 @@ export class ClipRenderService {
       );
       return 1;
     }
+
+    // Reserve synchronously (no await since the check above) so a concurrent inline
+    // launch cannot also pass the cap; released in the finally below.
+    if (!tryReserveRenderSlot(dueJob.clip_id)) return 0;
 
     try {
       // Part 1: Propagate authenticated owner context using trusted persisted owner ID
@@ -1887,6 +1935,8 @@ export class ClipRenderService {
       }
 
       return 1;
+    } finally {
+      releaseRenderSlot(dueJob.clip_id);
     }
   }
 

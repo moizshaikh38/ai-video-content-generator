@@ -70,7 +70,7 @@ async function getRenderQueueStats(): Promise<ReadinessStatus['renderQueue']> {
   if (!isMongoConfigured) return null;
   try {
     const { getMongoDb } = await import('../db/mongoClient.js');
-    const { activeRenderSet, maxConcurrentRenders } = await import('./clipRenderService.js');
+    const { renderOccupancy, maxConcurrentRenders } = await import('./clipRenderService.js');
     const db = await getMongoDb();
     const col = db.collection('render_jobs');
     const [queued, processing] = await Promise.all([
@@ -80,7 +80,7 @@ async function getRenderQueueStats(): Promise<ReadinessStatus['renderQueue']> {
     return {
       queued,
       processing,
-      activeRendersInProcess: activeRenderSet.size,
+      activeRendersInProcess: renderOccupancy(),
       concurrencyCap: maxConcurrentRenders(),
     };
   } catch {
