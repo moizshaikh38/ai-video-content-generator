@@ -15,6 +15,8 @@ interface Props {
   enabled: boolean;
   /** Toolbar label (default 'Crop'); used per panel in multi-panel scenes. */
   label?: string;
+  disabledReason?: string;
+  notice?: string;
   onApply: (crop: CropState) => void;
   /** Render directly inside the editor canvas, rather than a modal. */
   inlineTarget?: HTMLElement | null;
@@ -22,7 +24,7 @@ interface Props {
 }
 
 /** Preview-top "Crop": drag the box to move it, drag a corner to resize (zoom). Aspect is locked to the canvas. */
-export const CropBoxControl: React.FC<Props> = ({ label, videoSrc, sourceTime, srcW, srcH, canvasAspect, current, enabled, onApply, inlineTarget, onOpen }) => {
+export const CropBoxControl: React.FC<Props> = ({ label, videoSrc, sourceTime, srcW, srcH, canvasAspect, current, enabled, onApply, inlineTarget, onOpen, disabledReason, notice }) => {
   const [open, setOpen] = useState(false);
   const [box, setBox] = useState<CropBox>(() => boxFromCrop(srcW || 16, srcH || 9, canvasAspect, current));
   const stage = useRef<HTMLDivElement>(null);
@@ -39,7 +41,7 @@ export const CropBoxControl: React.FC<Props> = ({ label, videoSrc, sourceTime, s
     <div>
       <button type="button" disabled={!enabled} onClick={(e) => { e.stopPropagation(); onOpen?.(); setBox(boxFromCrop(sw, sh, canvasAspect, current)); setOpen(true); }}
         className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg hover:bg-white/[0.08] text-neutral-300 hover:text-white transition font-medium disabled:opacity-40"
-        title={enabled ? 'Crop: drag the box, resize from a corner' : 'Crop applies to Fill scenes. Set this scene to Fill first.'}>
+        title={enabled ? 'Crop: drag the box, resize from a corner' : (disabledReason || 'Crop applies to Fill scenes. Set this scene to Fill first.')}>
         <Crop className="w-3.5 h-3.5" /><span>{label ?? 'Crop'}</span>
       </button>
       {open && createPortal(
@@ -47,6 +49,7 @@ export const CropBoxControl: React.FC<Props> = ({ label, videoSrc, sourceTime, s
           <div className={inlineTarget ? "bg-black p-3 w-full max-w-full text-neutral-200" : "bg-vc-surface1 border border-white/10 rounded-2xl p-5 w-[560px] max-w-[92vw] text-neutral-200"} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1"><h3 className="text-sm font-semibold text-white">{label ?? 'Crop'}</h3><button onPointerUp={e => {if(e.pointerType==='touch'){e.preventDefault();setOpen(false);}}} onClick={() => setOpen(false)} aria-label="Close"><X className="w-4 h-4" /></button></div>
             <p className="text-[11px] text-neutral-400 mb-3">Drag the box to move it. Drag a corner to resize (zoom 1x-4x). The box keeps the canvas shape.</p>
+            {notice && <p className="text-[11px] text-amber-300 mb-2">{notice}</p>}
             <div ref={stage} data-testid="crop-stage" className="relative bg-black rounded-lg overflow-hidden select-none touch-none" style={{ aspectRatio: `${sw}/${sh}`, maxHeight: '58vh', maxWidth: '100%', margin: '0 auto' }}
               onPointerMove={(e) => {
                 const d = drag.current; if (!d) return; const p = pt(e);

@@ -1869,7 +1869,9 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             }}
             onUpdateItemPanels={(itemId, panels, options) => {
               const track = project.tracks.find((t) => t.items.some((i) => i.id === itemId));
-              if (track) onUpdateTrackItem(track.id, itemId, { panels, framing_window: undefined }, options);
+              if (track && !track.locked && !track.items.find(i => i.id === itemId)?.locked) {
+                onUpdateTrackItem(track.id, itemId, { panels, framing_window: undefined }, options);
+              }
             }}
             smartReframe={smartReframe}
             showSafeGuides={showSafeGuides}

@@ -1295,8 +1295,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     srcH={videoDims.h}
                     canvasAspect={(r.w * cw) / (r.h * ch)}
                     current={activePanels.slots[i]}
-                    enabled
+                    enabled={!videoCropLocked}
+                    disabledReason="Unlock this scene or track to change its panel crop."
+                    onOpen={onBeginCrop}
                     onApply={(c) => {
+                      if (videoCropLocked) return;
                       const slots = activePanels.slots.map((s, j) => (j === i ? { ...c, set: true } : s));
                       onUpdateItemPanels(baseVideoItem.id, { layout: activePanels.layout, slots }, { recordHistory: true, markAsDirty: true });
                     }}
@@ -1312,6 +1315,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 key={activeVideoItems[0].id}
                 inlineTarget={canvasContainerRef.current}
                 onOpen={onBeginCrop}
+                disabledReason={videoCropLocked ? "Unlock this scene or track to change its crop." : undefined}
+                notice={activeVideoItems[0].framing_window ? "Applying a manual crop replaces this scene's context window. Cancel keeps it unchanged." : undefined}
                 videoSrc={cleanSourceUrl || activeVideoSrc || null}
                 sourceTime={targetVideoTime}
                 srcW={videoDims.w}
