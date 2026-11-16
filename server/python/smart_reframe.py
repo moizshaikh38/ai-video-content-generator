@@ -17,6 +17,50 @@ import cv2
 import numpy as np
 
 
+def refine_scene_cuts(video_path, coarse_cuts, start_sec, sample_interval, source_fps):
+    """Local frame-accurate refinement, only around already-detected cuts.
+
+    Color histograms are discovery evidence, not proof of a semantic shot.
+    Keep this opt-in and retain coarse timestamps and frame uncertainty.
+    """
+    cap = cv2.VideoCapture(video_path)
+    results = []
+    fps = float(source_fps)
+    if not cap.isOpened() or fps <= 0:
+        cap.release()
+        return [{"time": float(t), "coarse_time": float(t), "refined": False} for t in coarse_cuts]
+    for coarse in coarse_cuts:
+        # Sample times mark the first sampled frame after a change. Inspect
+        # its preceding interval plus one frame on either side, not the clip.
+        lo = max(int(round(start_sec * fps)), int(np.floor((start_sec + coarse - sample_interval) * fps)) - 1)
+        hi = int(np.ceil((start_sec + coarse) * fps)) + 1
+        cap.set(cv2.CAP_PROP_POS_FRAMES, lo)
+        previous = None
+        best = None
+        for frame_no in range(lo, hi + 1):
+            ok, frame = cap.read()
+            if not ok:
+                break
+            frame = cv2.resize(frame, (320, 180))
+            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            hist = cv2.calcHist([hsv], [0, 1], None, [24, 24], [0, 180, 0, 256])
+            cv2.normalize(hist, hist, 0, 1, cv2.NORM_MINMAX)
+            if previous is not None:
+                correlation = float(cv2.compareHist(previous, hist, cv2.HISTCMP_CORREL))
+                if best is None or correlation < best[0]:
+                    best = (correlation, frame_no)
+            previous = hist
+        if best is None:
+            results.append({"time": float(coarse), "coarse_time": float(coarse), "refined": False})
+        else:
+            results.append({"time": round(best[1] / fps - start_sec, 6),
+                            "coarse_time": float(coarse), "refined": True,
+                            "uncertainty_seconds": round(1 / fps, 6),
+                            "correlation": round(best[0], 6)})
+    cap.release()
+    return results
+
+
 def load_cascades():
     """Load bundled Haar cascades for frontal and profile face detection."""
     frontal_path = os.path.join(cv2.data.haarcascades, 'haarcascade_frontalface_default.xml')
@@ -402,7 +446,14 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
 
     cap.release()
 
+    cut_evidence = []
+    if os.environ.get('SMART_REFRAME_REFINE_CUTS', '') == '1' and scene_cuts:
+        cut_evidence = refine_scene_cuts(video_path, scene_cuts, start_sec,
+                                         frame_interval / source_fps, source_fps)
+        scene_cuts = sorted(set(e["time"] for e in cut_evidence if e["time"] > 0))
+
     return {
+        "scene_cut_evidence": cut_evidence,
         "source_width": source_width,
         "source_height": source_height,
         "source_fps": round(source_fps, 2),

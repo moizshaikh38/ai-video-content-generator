@@ -2337,6 +2337,7 @@ export class SmartReframeService {
     sample_fps: number;
     sample_count: number;
     scene_cuts?: number[];
+    scene_cut_evidence?: Array<{ time: number; coarse_time: number; refined: boolean; uncertainty_seconds?: number; correlation?: number }>;
     samples: ReframeSample[];
   }> {
     if (!fs.existsSync(videoPath)) {
@@ -2653,6 +2654,10 @@ export class SmartReframeService {
           // symmetric defaults. Null when no credible two-speaker geometry.
           speaker1X: speaker1X ?? SmartReframeService.estimateSpeakerAnchors(cvResult.samples)?.speaker1X ?? null,
           speaker2X: speaker2X ?? SmartReframeService.estimateSpeakerAnchors(cvResult.samples)?.speaker2X ?? null,
+          // Preserve the exact boundaries used by smoothing for downstream
+          // shot-aware layout work and reproducible cached-track evidence.
+          scene_cuts: clipSceneCuts,
+          scene_cut_evidence: cvResult.scene_cut_evidence || [],
           cv_duration: cvResult.duration,
           sample_fps: cvResult.sample_fps,
           total_samples: cvResult.samples.length,
