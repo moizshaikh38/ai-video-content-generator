@@ -68,9 +68,9 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
   };
 
   return (
-    <header className="h-14 glass-chrome px-4 flex items-center justify-between select-none z-30 shrink-0">
+    <header className="h-14 glass-chrome px-2 md:px-4 flex items-center justify-between select-none z-30 shrink-0">
       {/* Left: Navigation, Title & Save Status */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1 md:gap-3 min-w-0">
         <button
           onClick={onBack}
           className="p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-white/[0.06] transition flex items-center gap-1.5 text-xs font-medium"
@@ -113,7 +113,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
               setLocalTitle(title);
               setIsEditingTitle(true);
             }}
-            className="text-sm font-semibold text-neutral-200 hover:text-white truncate max-w-[180px] sm:max-w-[280px] text-left hover:bg-white/[0.06] px-2 py-1 rounded transition"
+            className="text-sm font-semibold text-neutral-200 hover:text-white truncate max-w-[90px] sm:max-w-[280px] text-left hover:bg-white/[0.06] px-2 py-1 rounded transition"
             title="Click to rename"
           >
             {title || 'Untitled Clip'}
@@ -158,7 +158,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
       </div>
 
       {/* Center: Undo / Redo & Workspace Preset Switcher */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 md:gap-2 shrink-0">
         {/* Undo / Redo */}
         <div className="flex items-center bg-black/40 rounded-xl p-0.5 ">
           <button

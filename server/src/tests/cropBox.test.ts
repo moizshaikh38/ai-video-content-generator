@@ -70,7 +70,7 @@ describe('Fit band', () => {
   });
 });
 
-import { PANEL_RECTS, panelPixelRects, buildPanelsFilter, defaultPanelSlots, normalizePanels } from '../shared/panelLayouts.js';
+import { PANEL_RECTS, panelPixelRects, buildPanelsFilter, seedPanelsFromSubject, subjectCenterInWindow, defaultPanelSlots, normalizePanels } from '../shared/panelLayouts.js';
 import { applyItemLayout as applyLayout2, readItemLayout } from '../../../src/lib/itemLayout';
 
 test('panel rects: measured Opus 9:16 geometry, tile the canvas exactly (no gaps/overlaps), 4K scales', () => {
@@ -123,4 +123,18 @@ test('unassigned panel export gate covers every visible scene and rejects before
   assert.throws(()=>ProEditorService.compileRenderGraph(p,'/tmp/source'),/Set every panel view/);
   p.tracks[0].items[0].panels.slots.forEach((s:any)=>s.set=true);assertPanelViewsAssigned(p);
   p.tracks[0].items[0].panels.slots[0].set=false;p.tracks[0].items[0].hidden=true;assertPanelViewsAssigned(p);
+test('subject seed is a suggestion only: never marks slots set', () => {
+  const s = seedPanelsFromSubject('screenshare', undefined, { centerX: 0.3, centerY: 0.4 })!;
+  assert.equal(s.length, 2);
+  assert.ok(s.every((p) => p.set === false));
+  assert.equal(s[1].focusX, 0.3);
+  assert.equal(seedPanelsFromSubject('three', undefined, { centerX: 0.3 }), undefined);
+  assert.equal(seedPanelsFromSubject('gameplay', undefined, null), undefined);
+});
+
+test('subjectCenterInWindow takes median in window, null when empty', () => {
+  const k = [{ time: 0, centerX: 0.2 }, { time: 1, centerX: 0.4 }, { time: 2, centerX: 0.9 }, { time: 50, centerX: 0.1 }];
+  assert.equal(subjectCenterInWindow(k, 0, 2)!.centerX, 0.4);
+  assert.equal(subjectCenterInWindow(k, 20, 30), null);
+  assert.equal(subjectCenterInWindow(undefined, 0, 1), null);
 });

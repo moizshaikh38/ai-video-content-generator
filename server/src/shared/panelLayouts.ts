@@ -124,6 +124,7 @@ export function assertPanelViewsAssigned(project: Parameters<typeof unassignedPa
  * Gameplay: face in the small top strip) - Opus's panel roles are NOT known. Three/Four need several
  * distinct subjects, which a single track cannot supply, so they stay unassigned. No track -> unchanged.
  */
+/** Suggestion only: subject-track role (face vs game) is unverified, so slots stay set:false (unassigned) until the user confirms. */
 export function seedPanelsFromSubject(
   layout: PanelLayout,
   slots: PanelSlot[] | undefined,
@@ -132,8 +133,8 @@ export function seedPanelsFromSubject(
   if (!subject || (layout !== 'screenshare' && layout !== 'gameplay')) return slots;
   const faceIdx = layout === 'screenshare' ? 1 : 0;
   const cl = (v: number) => Math.min(1, Math.max(0, v));
-  const face: PanelSlot = { focusX: cl(subject.centerX), focusY: cl(subject.centerY ?? 0.4), scale: 1.8, set: true, auto: 'track' };
-  const whole: PanelSlot = { focusX: 0.5, focusY: 0.5, scale: 1, set: true, auto: 'track' };
+  const face: PanelSlot = { focusX: cl(subject.centerX), focusY: cl(subject.centerY ?? 0.4), scale: 1.8, set: false, auto: 'track' };
+  const whole: PanelSlot = { focusX: 0.5, focusY: 0.5, scale: 1, set: false, auto: 'track' };
   return [0, 1].map((i) => (i === faceIdx ? face : whole));
 }
 

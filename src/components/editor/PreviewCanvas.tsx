@@ -1195,7 +1195,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       className="flex-1 bg-vc-surface1 flex flex-col items-center p-3 overflow-hidden relative select-none"
     >
       {/* OPUS-STYLE TOP PREVIEW TOOLBAR */}
-      <div className="w-full shrink-0 flex items-center justify-center gap-3 pb-2 z-30">
+      <div className="w-full shrink-0 flex items-center justify-center gap-3 pb-2 z-30 max-md:pr-9">
         <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 max-w-full glass-float px-3 py-1 rounded-2xl text-xs whitespace-nowrap">
           {/* 1. Aspect Ratio Pill */}
           {onChangeAspectRatio && (
