@@ -2156,8 +2156,10 @@ export class ProEditorService {
     // applies exactly as the Quick Clip path decides. Without this mirror the pro
     // path fill-cropped every clip, silently overriding fit letterboxing.
     const clipCrop = (clip as any).crop_config;
-    const seededCrop: { mode: 'fill' | 'fit' | 'custom'; focusX: number; focusY: number } | undefined =
-      clipCrop?.mode === 'fit'
+    const seededCrop: { mode: 'fill' | 'fit' | 'blur' | 'custom'; focusX: number; focusY: number } | undefined =
+      clipCrop?.mode === 'fit_blur'
+        ? { mode: 'blur', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
+        : clipCrop?.mode === 'fit'
         ? { mode: 'fit', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
         : clipCrop?.mode === 'manual'
           ? { mode: 'custom', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
