@@ -10,6 +10,8 @@ export interface WatermarkFilterOptions {
   text?: string;
   fontSize?: number;
   margin?: number;
+  /** Export resolution scale over the 1080-class design canvas. */
+  canvasScale?: number;
 }
 
 /**
@@ -74,6 +76,7 @@ export class WatermarkService {
     // 0.45s, then holds with a gentle opacity breathing (0.85-1.0, 3.2s
     // period). x/y/alpha are per-frame drawtext expressions; the box badge
     // moves with the text. Commas inside expressions are escaped.
+    const cs = Math.max(0.5, Number(options?.canvasScale) || 1);
     const entry = '0.45';
     const alpha = `if(lt(t\\,${entry})\\,t/${entry}\\,if(lt(t\\,1.5)\\,1\\,max(0\\,(2-t)/0.5)))`;
     // Ease-out slide (quadratic deceleration) instead of linear motion.
@@ -95,14 +98,14 @@ export class WatermarkService {
     const mx = 'max(24\\,trunc(w*0.03))';
     const my = 'max(24\\,trunc(h*0.025))';
     const finalX = `w-text_w-${mx}`;
-    return this.withAnimatedMark(`drawtext=text='${safeText}':${style}:fontsize=max(24\\,trunc(h*0.032)):x=${slide(`text_w+${mx}`, finalX)}:y=${my}:alpha=${alpha}`);
+    return this.withAnimatedMark(`drawtext=text='${safeText}':${style}:fontsize=max(24\\,trunc(h*0.032)):x=${slide(`text_w+${mx}`, finalX)}:y=${my}:alpha=${alpha}`, Math.round(96 * cs));
   }
 
   /** Chain-safe text-to-mark crossfade. All paths are packaged assets, never user input. */
-  private static withAnimatedMark(textFilter: string): string {
+  private static withAnimatedMark(textFilter: string, markPx = 96): string {
     const asset = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../assets/brand/vireoclip-mark.png');
     const safePath = asset.replace(/\\/g, '/').replace(/:/g, '\\:').replace(/'/g, "'\\''");
-    return `${textFilter},null[wm_base];movie=filename='${safePath}':loop=0,setpts=N/(24*TB),fps=24,scale=96:-1,format=rgba,fade=t=in:st=1.5:d=0.5:alpha=1[wm_mark];[wm_base][wm_mark]overlay=x=W-w-max(24\\,trunc(W*0.03)):y=max(24\\,trunc(H*0.025)):eof_action=repeat:shortest=1`;
+    return `${textFilter},null[wm_base];movie=filename='${safePath}':loop=0,setpts=N/(24*TB),fps=24,scale=${markPx}:-1,format=rgba,fade=t=in:st=1.5:d=0.5:alpha=1[wm_mark];[wm_base][wm_mark]overlay=x=W-w-max(24\\,trunc(W*0.03)):y=max(24\\,trunc(H*0.025)):eof_action=repeat:shortest=1`;
   }
 
   /**

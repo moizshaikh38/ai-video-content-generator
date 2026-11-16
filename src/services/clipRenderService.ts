@@ -1,6 +1,8 @@
 import { backendRequest } from './backendClient';
 import { RenderedClip, ClipAspectRatio } from '../types';
 
+export type ExportResolution = '720p' | '1080p' | '1440p' | '2160p';
+
 export interface CreateClipResponse {
   status: 'ok';
   message: string;
@@ -74,7 +76,7 @@ class ClipRenderService {
   /**
    * Retries rendering for a failed or draft clip
    */
-  async renderClip(clipId: string, options?: { caption_enabled?: boolean; caption_style?: string }): Promise<void> {
+  async renderClip(clipId: string, options?: { caption_enabled?: boolean; caption_style?: string; render_resolution?: ExportResolution }): Promise<void> {
     await backendRequest<void>(`/clips/${clipId}/render`, {
       method: 'POST',
       body: options ? JSON.stringify(options) : undefined,

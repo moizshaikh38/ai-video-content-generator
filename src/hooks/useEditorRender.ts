@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { RenderedClip } from '../types';
-import { clipRenderService } from '../services/clipRenderService';
+import { clipRenderService, type ExportResolution } from '../services/clipRenderService';
 
 export interface UseEditorRenderOptions {
   clipId: string | null;
@@ -14,7 +14,7 @@ export interface UseEditorRenderReturn {
   renderStage: string;
   renderError: string | null;
   renderSuccessMsg: string | null;
-  triggerRender: () => Promise<boolean>;
+  triggerRender: (resolution?: ExportResolution) => Promise<boolean>;
   cancelRenderPolling: () => void;
   clearRenderStatus: () => void;
 }
@@ -40,7 +40,7 @@ export function useEditorRender({
     }
   }, []);
 
-  const triggerRender = useCallback(async (): Promise<boolean> => {
+  const triggerRender = useCallback(async (resolution?: ExportResolution): Promise<boolean> => {
     if (!clipId) return false;
 
     cancelRenderPolling();
@@ -51,7 +51,7 @@ export function useEditorRender({
     setRenderSuccessMsg(null);
 
     try {
-      await clipRenderService.renderClip(clipId);
+      await clipRenderService.renderClip(clipId, resolution ? { render_resolution: resolution } : undefined);
 
       // Start polling
       pollCountRef.current = 0;

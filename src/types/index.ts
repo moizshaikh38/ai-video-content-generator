@@ -342,6 +342,13 @@ export interface RenderedClip {
   muted?: boolean;
   editor_version?: number;
   render_version?: number;
+  render_resolution?: string | null;
+  render_resolution_requested?: string | null;
+  render_resolution_effective?: string | null;
+  render_output_width?: number | null;
+  render_output_height?: number | null;
+  render_resolution_note?: string | null;
+  render_upscale_factor?: number | null;
   /** Editor-project version snapshot taken at render start; mismatch with the loaded project version marks the rendered download stale. */
   rendered_editor_version?: number | null;
   /** Editor-project updated_at captured at render start; a later project save marks the rendered download stale. */

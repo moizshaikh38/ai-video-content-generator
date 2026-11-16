@@ -2179,10 +2179,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         renderStage={renderStage}
         renderError={renderError}
         renderSuccessMsg={renderSuccessMsg}
-        onTriggerRender={async () => {
+        onTriggerRender={async (resolution) => {
           // Flush pending edits first so export renders the caption preset the preview shows
           const saved = await onSaveNow();
-          if (saved !== false) triggerRender();
+          if (saved !== false) triggerRender(resolution);
         }}
         downloadUrl={renderedPreviewUrl}
         watermarkRequired={watermarkRequired}

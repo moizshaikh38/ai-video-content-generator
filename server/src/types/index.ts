@@ -547,6 +547,16 @@ export interface ClipRecord {
   editor_version?: number;
   render_version?: number;
   rendered_editor_version?: number | null;
+  /** Export tier requested by the user ('720p' | '1080p' | '1440p' | '2160p'); absent means 1080p. */
+  render_resolution?: string | null;
+  render_resolution_requested?: string | null;
+  render_resolution_effective?: string | null;
+  render_output_width?: number | null;
+  render_output_height?: number | null;
+  render_source_width?: number | null;
+  render_source_height?: number | null;
+  render_resolution_note?: string | null;
+  render_upscale_factor?: number | null;
   /** Editor-project updated_at captured at render start; a later project save marks the rendered download stale. */
   rendered_editor_saved_at?: string | null;
   reframe_mode?: 'smart' | 'fallback_center' | 'manual';

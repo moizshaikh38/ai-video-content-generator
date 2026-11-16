@@ -1,3 +1,4 @@
+import { canvasDims } from '../shared/renderResolution.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -77,6 +78,8 @@ export interface CompiledRenderGraph {
   inputArgs: string[];
   filterComplex: string[];
   videoMap: string;
+  /** Output frame size of the compiled graph (design canvas times resolution scale). */
+  canvas?: { width: number; height: number };
   audioMap: string;
   outputArgs: string[];
   duration: number;
@@ -121,6 +124,8 @@ export interface ProReframeContext {
   mode: 'smart' | 'fallback_center' | 'manual';
   layoutMode: ReframeLayoutMode | string;
   track: (ReframeTrackRecord & { isStale?: boolean }) | null;
+  /** Export resolution scale over the 1080-class design canvas (1 = legacy). */
+  canvasScale?: number;
 }
 
 export class ProEditorService {
@@ -781,6 +786,8 @@ export class ProEditorService {
     sliceDuration: number,
     canvas?: { background_color?: string; background_spacing?: number; background_corner_radius?: number }
   ): string | null {
+    const cs = reframe?.canvasScale ?? 1;
+    const csDims = canvasDims('9:16', cs);
     const ratio = (reframe?.aspectRatio || '9:16') as ClipAspectRatio;
 
     if (item.is_title_card) return null;
@@ -799,16 +806,17 @@ export class ProEditorService {
       if ((item.crop.mode === 'fit' || item.crop.mode === 'blur') && customBackdrop) {
         const spec: CanvasBackdropSpec = { kind: item.crop.mode === 'blur' ? 'blur' : 'color', color: canvas?.background_color, spacingPct, cornerRadius };
         const tag = ('vcd' + String(item.id || 'x')).replace(/[^a-zA-Z0-9]/g, '').slice(0, 16) || 'vcd';
-        return buildBackdropFitChain(ratio, zoom, spec, tag);
+        return buildBackdropFitChain(ratio, zoom, spec, tag, cs);
       }
-      if (item.crop.mode === 'fit') return buildFitFilter(ratio, zoom, clampFocus(item.crop.focusX), clampFocus(item.crop.focusY));
+      if (item.crop.mode === 'fit') return buildFitFilter(ratio, zoom, clampFocus(item.crop.focusX), clampFocus(item.crop.focusY), cs);
+
       if (item.crop.mode === 'blur') {
         // Chain-safe fragment: consumes the trimmed slice stream via split and
         // ends unlabeled, so the caller's comma chain keeps working.
         const tag = ('vc' + String(item.id || 'x')).replace(/[^a-zA-Z0-9]/g, '').slice(0, 16) || 'vcb';
-        return buildBlurFitChain(ratio, zoom, tag);
+        return buildBlurFitChain(ratio, zoom, tag, cs);
       }
-      return buildCropFilter(ratio, { focusX: clampFocus(item.crop.focusX), focusY: clampFocus(item.crop.focusY), scale: zoom });
+      return buildCropFilter(ratio, { focusX: clampFocus(item.crop.focusX), focusY: clampFocus(item.crop.focusY), scale: zoom }, cs);
     }
 
     // Manual subject tracker (Tracker control): the user picked a subject, so its
@@ -822,9 +830,9 @@ export class ProEditorService {
       const pick = trInWindow;
       const rebased = pick.map((k) => ({ time: Number(Math.max(0, Math.min(sliceDuration, k.time - winStart)).toFixed(3)), centerX: k.centerX, centerY: k.centerY }));
       const dedup = rebased.filter((k, i) => i === 0 || k.time > rebased[i - 1].time);
-      if (dedup.length === 1) return buildCropFilter(ratio, { focusX: dedup[0].centerX, focusY: dedup[0].centerY });
+      if (dedup.length === 1) return buildCropFilter(ratio, { focusX: dedup[0].centerX, focusY: dedup[0].centerY }, cs);
       return SmartReframeService.buildLayoutCropFilter({
-        layoutMode: 'track', aspectRatio: ratio, keyframes: dedup,
+        layoutMode: 'track', aspectRatio: ratio, keyframes: dedup, canvasScale:cs,
         sourceWidth: tr.source_width || 1920, sourceHeight: tr.source_height || 1080, duration: sliceDuration,
       });
     }
@@ -853,7 +861,8 @@ export class ProEditorService {
       // failed permanently until this).
       const layoutTag = 'vc' + crypto.createHash('sha256').update(String(item.id || 'x')).digest('hex').slice(0, 16);
       if (effLayout === 'blur') {
-        return SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: 1080, canvasHeight: 1920, tag: layoutTag });
+        return SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: canvasDims(ratio, cs).width, canvasHeight: canvasDims(ratio, cs).height, tag: layoutTag });
+
       }
 
       if (effLayout === 'split' || effLayout === 'screencast') {
@@ -880,6 +889,7 @@ export class ProEditorService {
           splitFit: (reframe!.cropConfig?.split as any)?.fit,
           splitDividerX: (reframe!.cropConfig?.split as any)?.dividerX,
           tag: layoutTag,
+          canvasScale: cs,
           screencastMode: reframe!.cropConfig?.screencast?.mode,
           screencastInsetPosition: reframe!.cropConfig?.screencast?.insetPosition,
           screencastInsetDiameter: reframe!.cropConfig?.screencast?.insetDiameter,
@@ -893,7 +903,7 @@ export class ProEditorService {
         const plan = SmartReframeService.computeShotComposition({rawSamples:(track as any).raw_samples,sceneCuts:track.metadata.scene_cuts,
           duration:Number(track.metadata.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
         if (plan.length) return SmartReframeService.buildShotCompositionFilter({plan,start:sliceWindowStartClipRel,duration:sliceDuration,
-          sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,tag:layoutTag});
+          sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,tag:layoutTag,canvasScale:cs});
       }
       // Multi-person single-view: keep the whole group visible (blur-fill
       // fit) instead of tight tracking that crops people at the edges.
@@ -909,8 +919,8 @@ export class ProEditorService {
           windowH: groupFrame.windowH,
           sourceWidth: track.source_width || 1920,
           sourceHeight: track.source_height || 1080,
-          canvasWidth: 1080,
-          canvasHeight: 1920,
+          canvasWidth: csDims.width,
+          canvasHeight: csDims.height,
           tag: layoutTag,
         });
       }
@@ -922,9 +932,9 @@ export class ProEditorService {
           `[ProEditor] Dominant track score ${Number((track as any).metadata?.dominant_score).toFixed(3)} below tracking floor ${SmartReframeService.TRACK_CONFIDENCE_FLOOR} for editor slice. Degrading to blurred layout.`
         );
         if (ratio === '9:16') {
-          return SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: 1080, canvasHeight: 1920, tag: layoutTag });
+          return SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: csDims.width, canvasHeight: csDims.height, tag: layoutTag });
         }
-        return buildCropFilter(ratio, { focusX: 0.5, focusY: 0.5 });
+        return buildCropFilter(ratio, { focusX: 0.5, focusY: 0.5 }, cs);
       }
 
       // 'track' layout: rebase clip-relative keyframes into slice-local time and
@@ -952,10 +962,10 @@ export class ProEditorService {
       if (after && !hasKfAtEnd) rebased.push({ time: Number(sliceDuration.toFixed(3)), centerX: after.centerX, centerY: after.centerY });
 
       if (rebased.length === 0) {
-        return buildCropFilter(ratio, { focusX: 0.5, focusY: 0.5 });
+        return buildCropFilter(ratio, { focusX: 0.5, focusY: 0.5 }, cs);
       }
       if (rebased.length === 1) {
-        return buildCropFilter(ratio, { focusX: rebased[0].centerX, focusY: rebased[0].centerY });
+        return buildCropFilter(ratio, { focusX: rebased[0].centerX, focusY: rebased[0].centerY }, cs);
       }
       return SmartReframeService.buildLayoutCropFilter({
         layoutMode: 'track',
@@ -964,10 +974,11 @@ export class ProEditorService {
         sourceWidth: track.source_width || 1920,
         sourceHeight: track.source_height || 1080,
         duration: sliceDuration,
+        canvasScale: cs,
       });
     }
 
-    return buildCropFilter(ratio, { focusX: 0.5, focusY: 0.5 });
+    return buildCropFilter(ratio, { focusX: 0.5, focusY: 0.5 }, cs);
   }
 
   /**
@@ -1034,7 +1045,7 @@ export class ProEditorService {
       if (eff.type === 'vignette') {
         videoFilters.push('vignette=PI/4');
       } else if (eff.type === 'blur') {
-        const r = Math.max(1, Math.round((eff.intensity || 0.5) * 10));
+        const r = Math.max(1, Math.round((eff.intensity || 0.5) * 10 * Math.max(1, canvasH / 1920)));
         videoFilters.push(`boxblur=${r}:1`);
       } else if (eff.type === 'sharpen') {
         videoFilters.push('unsharp=5:5:1.0:5:5:0.0');
@@ -1139,8 +1150,11 @@ export class ProEditorService {
     const audioOnlyChains: string[] = [];
 
     // Canvas properties
-    const canvasW = project.canvas.width || 1080;
-    const canvasH = project.canvas.height || 1920;
+    // Export resolution: the editor canvas is the 1080-class design space; the
+    // render canvas is that space times the requested resolution scale.
+    const renderCanvasScale = reframe?.canvasScale ?? 1;
+    const canvasW = Math.max(2, Math.round(((project.canvas.width || 1080) * renderCanvasScale) / 2) * 2);
+    const canvasH = Math.max(2, Math.round(((project.canvas.height || 1920) * renderCanvasScale) / 2) * 2);
     const fps = project.canvas.fps || 30;
 
     // 1. Primary input: source video
@@ -1823,6 +1837,7 @@ export class ProEditorService {
       inputArgs,
       filterComplex,
       videoMap: videoStreamLabel,
+      canvas: { width: canvasW, height: canvasH },
       audioMap: audioStreamLabel,
       outputArgs,
       duration: project.canvas.duration,

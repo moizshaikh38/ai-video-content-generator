@@ -1,3 +1,4 @@
+import { parseRenderResolutionStrict } from '../shared/renderResolution.js';
 import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { Response } from 'express';
@@ -581,6 +582,22 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
       return;
     }
 
+    // Export resolution chosen in the export dialog. Unknown values are
+    // rejected rather than silently rendered at another size.
+    let requestedResolution: string | null = null;
+    const bodyResolution = req.body?.render_resolution ?? req.body?.resolution;
+    if (bodyResolution !== undefined && bodyResolution !== null && bodyResolution !== '') {
+      requestedResolution = parseRenderResolutionStrict(bodyResolution);
+      if (!requestedResolution) {
+        res.status(400).json({
+          status: 'error',
+          code: 'INVALID_RESOLUTION',
+          message: 'render_resolution must be one of 720p, 1080p, 1440p, 2160p (4K).',
+        });
+        return;
+      }
+    }
+
     const nextRenderVersion = Number(clip.render_version || 1) + 1;
 
     // Snapshot the editor-project version being rendered so the studio can
@@ -612,6 +629,9 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
     }
     if (req.body?.caption_style) {
       clipUpdate.caption_style = String(req.body.caption_style);
+    }
+    if (requestedResolution) {
+      clipUpdate.render_resolution = requestedResolution;
     }
     await dataRepository
       .from('clips')

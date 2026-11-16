@@ -1,3 +1,4 @@
+import { canvasDims } from '../shared/renderResolution.js';
 import {associatedBodyEnvelope, anchoredSingleBodyPath} from '../shared/bodyContext.js';
 import {chooseContentFraming, type ContentFramingDecision} from '../shared/contentFramingDecision.js';
 import { isMongoConfigured } from '../db/mongoClient.js';
@@ -987,10 +988,11 @@ export class SmartReframeService {
     aspectRatio: ClipAspectRatio = '9:16',
     sourceWidth = 1920,
     sourceHeight = 1080,
-    duration = 30.0
+    duration = 30.0,
+    canvasScale = 1
   ): string {
     if (!keyframes || keyframes.length === 0) {
-      return this.buildStaticScaleCrop(aspectRatio, 0.5, 0.5);
+      return this.buildStaticScaleCrop(aspectRatio, 0.5, 0.5, canvasScale);
     }
 
     // Filter and sanitize numeric keyframes
@@ -1098,45 +1100,17 @@ export class SmartReframeService {
     const clampedYExpr = `min(max(${yExpr}\\,0)\\,1)`;
     const verticalCropExpr = `(in_h-out_h)*${clampedYExpr}`;
 
-    switch (aspectRatio) {
-      case '9:16':
-        return `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:'${centeredCropExpr}':${verticalCropExpr}`;
-      case '1:1':
-        return `scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080:'${centeredCropExpr}':${verticalCropExpr}`;
-      case '16:9':
-        return `scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080:'${centeredCropExpr}':${verticalCropExpr}`;
-      default:
-        return `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:'${centeredCropExpr}':${verticalCropExpr}`;
-    }
+    const { width: cw, height: ch } = canvasDims(aspectRatio, canvasScale);
+    return `scale=${cw}:${ch}:force_original_aspect_ratio=increase,crop=${cw}:${ch}:'${centeredCropExpr}':${verticalCropExpr}`;
   }
 
-  private static buildStaticScaleCrop(aspectRatio: ClipAspectRatio, fx: number, fy: number): string {
+  private static buildStaticScaleCrop(aspectRatio: ClipAspectRatio, fx: number, fy: number, canvasScale = 1): string {
     const clampedFx = Math.min(1.0, Math.max(0.0, fx));
     const clampedFy = Math.min(1.0, Math.max(0.0, fy));
-
-    if (clampedFx === 0.5 && clampedFy === 0.5) {
-      switch (aspectRatio) {
-        case '9:16':
-          return 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920';
-        case '1:1':
-          return 'scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080';
-        case '16:9':
-          return 'scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080';
-        default:
-          return 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920';
-      }
-    }
-
-    switch (aspectRatio) {
-      case '9:16':
-        return `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:(in_w-out_w)*${clampedFx}:(in_h-out_h)*${clampedFy}`;
-      case '1:1':
-        return `scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080:(in_w-out_w)*${clampedFx}:(in_h-out_h)*${clampedFy}`;
-      case '16:9':
-        return `scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080:(in_w-out_w)*${clampedFx}:(in_h-out_h)*${clampedFy}`;
-      default:
-        return `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:(in_w-out_w)*${clampedFx}:(in_h-out_h)*${clampedFy}`;
-    }
+    const { width: cw, height: ch } = canvasDims(aspectRatio, canvasScale);
+    const base = `scale=${cw}:${ch}:force_original_aspect_ratio=increase,crop=${cw}:${ch}`;
+    if (clampedFx === 0.5 && clampedFy === 0.5) return base;
+    return `${base}:(in_w-out_w)*${clampedFx}:(in_h-out_h)*${clampedFy}`;
   }
 
   /**
@@ -1256,7 +1230,7 @@ export class SmartReframeService {
     const {
       mode,
       insetPosition = 'bottom_right',
-      insetDiameter = 360,
+      insetDiameter: insetDiameterDesign = 360,
       screenRatio = 0.60,
       canvasWidth = 1080,
       canvasHeight = 1920,
@@ -1264,6 +1238,8 @@ export class SmartReframeService {
       facecamBox,
       tag,
     } = options;
+    const dsS = canvasWidth / 1080;
+    const insetDiameter = Math.round(insetDiameterDesign * dsS);
     // Chain-safe mode: no [0:v] prefix, no [out] suffix, tag-unique labels.
     const L = (l: string): string => (tag ? `${tag}${l}` : l);
     const inPad = tag ? '' : '[0:v]';
@@ -1273,7 +1249,7 @@ export class SmartReframeService {
     const mainStage = (mainLabel: string, outLabel: string): string => {
       if (background === 'blur') {
         return `[${L(mainLabel)}]split=2[${L('bgs')}][${L('fgs')}];` +
-          `[${L('bgs')}]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${canvasHeight},gblur=sigma=40[${L('bgb')}];` +
+          `[${L('bgs')}]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${canvasHeight},gblur=sigma=${Math.round(40 * dsS)}[${L('bgb')}];` +
           `[${L('fgs')}]scale=${canvasWidth}:-2:force_original_aspect_ratio=decrease[${L('fgf')}];` +
           `[${L('bgb')}][${L('fgf')}]overlay=(W-w)/2:(H-h)/2[${L(outLabel)}]`;
       }
@@ -1319,8 +1295,8 @@ export class SmartReframeService {
     }
 
     // Circular or card inset position calculations
-    const marginX = 40;
-    const marginY = 180; // Safe zone above TikTok/Reels bottom action buttons
+    const marginX = Math.round(40 * dsS);
+    const marginY = Math.round(180 * dsS); // Safe zone above TikTok/Reels bottom action buttons
     let posX = canvasWidth - insetDiameter - marginX;
     let posY = canvasHeight - insetDiameter - marginY;
 
@@ -1571,7 +1547,7 @@ export class SmartReframeService {
 
   public static buildShotCompositionFilter(options: {
     plan: ReturnType<typeof SmartReframeService.computeShotComposition>;
-    sourceWidth: number; sourceHeight: number; start?: number; duration: number; tag?: string;
+    sourceWidth: number; sourceHeight: number; start?: number; duration: number; tag?: string; canvasScale?: number;
   }): string {
     const start=Math.max(0,options.start||0),end=start+options.duration;
     const shots=options.plan.filter(s=>s.end>start && s.start<end);
@@ -1588,7 +1564,7 @@ export class SmartReframeService {
         return {time:t-a,centerX:k[n].centerX+(k[n+1].centerX-k[n].centerX)*f,centerY:k[n].centerY+(k[n+1].centerY-k[n].centerY)*f};
       };
       const kfs=[frameAt(a),...s.keyframes.filter(k=>k.time>a && k.time<b).map(k=>({...k,time:k.time-a})),frameAt(b)];
-      const f=this.buildGroupFitFilter({keyframes:kfs,windowW:s.windowW,windowH:s.windowH,sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}`});
+      const f=this.buildGroupFitFilter({keyframes:kfs,windowW:s.windowW,windowH:s.windowH,sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}`,canvasWidth:canvasDims('9:16',options.canvasScale??1).width,canvasHeight:canvasDims('9:16',options.canvasScale??1).height});
       const frames = Math.max(1, Math.round((b-start)*30)-Math.round((a-start)*30));
       graph+=`[${labels[i]}]trim=start=${st.toFixed(6)}:duration=${(b-a).toFixed(6)},setpts=PTS-STARTPTS,${f},fps=30,tpad=stop_mode=clone:stop_duration=0.1,trim=end_frame=${frames},setpts=N/(30*TB),setsar=1[${tag}_part${i}];`;
     });
@@ -1887,6 +1863,7 @@ export class SmartReframeService {
       focusY = 0.42,
       tag,
     } = options;
+    const gS = canvasWidth / 1080;
 
     // Composition window: 4:3, not the source's own wide aspect. A
     // source-aspect window on wide footage yields a thin strip users reject;
@@ -1933,7 +1910,7 @@ export class SmartReframeService {
     const L = (s: string) => (tag ? `${tag}_${s}_` : s);
     const inner =
       `split=2[${L('gbg')}][${L('gfg')}];` +
-      `[${L('gbg')}]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${canvasHeight},boxblur=25:5,eq=brightness=-0.15:contrast=0.95[${L('gb')}];` +
+      `[${L('gbg')}]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${canvasHeight},boxblur=${Math.round(25 * gS)}:5,eq=brightness=-0.15:contrast=0.95[${L('gb')}];` +
       `[${L('gfg')}]crop=${winW}:${winH}:'${cropX}':${cropY},scale=${canvasWidth}:-2[${L('gf')}];` +
       `[${L('gb')}][${L('gf')}]overlay=(W-w)/2:(H-h)*${focusY}`;
 
@@ -2077,10 +2054,11 @@ export class SmartReframeService {
     const {
       canvasWidth = 1080,
       canvasHeight = 1920,
-      blurRadius = 25,
+      blurRadius: blurRadiusDesign = 25,
       brightness = -0.15,
       tag,
     } = options;
+    const blurRadius = Math.round(blurRadiusDesign * (canvasWidth / 1080));
 
     if (tag) {
       return `split=2[${tag}bg][${tag}fg];` +
@@ -2344,8 +2322,11 @@ export class SmartReframeService {
     screencastFacecamBox?: { x: number; y: number; w: number; h: number };
     /** Chain-safe embedding (Pro editor graph): see buildSplitPodcastFilter. */
     tag?: string;
+    /** Export resolution scale over the 1080-class design canvas (1 = legacy). */
+    canvasScale?: number;
   }): string {
     const {
+      canvasScale = 1,
       layoutMode = 'track',
       aspectRatio,
       keyframes = [],
@@ -2366,6 +2347,7 @@ export class SmartReframeService {
       groupFrame,
       tag,
     } = options;
+    const lc = canvasDims('9:16', canvasScale);
 
     if (aspectRatio === '9:16' && (layoutMode === 'track' || !layoutMode) && groupFrame && groupFrame.keyframes.length > 0) {
       return this.buildGroupFitFilter({
@@ -2374,8 +2356,8 @@ export class SmartReframeService {
         windowH: groupFrame.windowH,
         sourceWidth,
         sourceHeight,
-        canvasWidth: 1080,
-        canvasHeight: 1920,
+        canvasWidth: lc.width,
+        canvasHeight: lc.height,
         tag,
       });
     }
@@ -2385,8 +2367,8 @@ export class SmartReframeService {
         return this.buildSplitPodcastFilter({
           speaker1X,
           speaker2X,
-          canvasWidth: 1080,
-          canvasHeight: 1920,
+          canvasWidth: lc.width,
+          canvasHeight: lc.height,
           sourceWidth,
           sourceHeight,
           speaker1Geometry: splitGeometry?.speaker1,
@@ -2399,8 +2381,8 @@ export class SmartReframeService {
 
       if (layoutMode === 'blur') {
         return this.buildBlurBackgroundFilter({
-          canvasWidth: 1080,
-          canvasHeight: 1920,
+          canvasWidth: lc.width,
+          canvasHeight: lc.height,
           tag,
         });
       }
@@ -2413,15 +2395,15 @@ export class SmartReframeService {
           screenRatio: screencastScreenRatio,
           background: screencastBackground,
           facecamBox: screencastFacecamBox,
-          canvasWidth: 1080,
-          canvasHeight: 1920,
+          canvasWidth: lc.width,
+          canvasHeight: lc.height,
           tag,
         });
       }
     }
 
     // Default 'track' mode uses smoothed keyframe camera pan
-    return this.buildSmartCropFilter(keyframes, aspectRatio, sourceWidth, sourceHeight, duration);
+    return this.buildSmartCropFilter(keyframes, aspectRatio, sourceWidth, sourceHeight, duration, canvasScale);
   }
 
   /**

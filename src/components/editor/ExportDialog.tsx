@@ -10,7 +10,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { RenderedClip, EditorProject } from '../../types';
-import { clipRenderService } from '../../services/clipRenderService';
+import { clipRenderService, type ExportResolution } from '../../services/clipRenderService';
 import { triggerBrowserDownload } from '../../utils/downloadUtils';
 import {
   generatePremiereXml,
@@ -18,6 +18,13 @@ import {
   downloadXmlFile,
   getFilenameBase,
 } from '../../utils/nleExport';
+
+const RESOLUTION_OPTIONS: Array<{ value: ExportResolution; title: string; hint: string }> = [
+  { value: '2160p', title: '4K Ultra HD', hint: '2160 short side. Sharpest, largest file' },
+  { value: '1440p', title: '1440p QHD', hint: 'Sharper than Full HD, moderate size' },
+  { value: '1080p', title: '1080p Full HD', hint: 'Recommended for TikTok, Shorts & Reels' },
+  { value: '720p', title: '720p HD', hint: 'Faster export, compact size' },
+];
 
 interface ExportDialogProps {
   isOpen: boolean;
@@ -30,7 +37,7 @@ interface ExportDialogProps {
   renderStage: string;
   renderError: string | null;
   renderSuccessMsg: string | null;
-  onTriggerRender: () => void;
+  onTriggerRender: (resolution: ExportResolution) => void;
   downloadUrl?: string | null;
   watermarkRequired?: boolean;
   /** Current editor caption visibility - the burn-in checkbox reflects and
@@ -60,7 +67,11 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   onToggleCaptions,
   downloadStale = false,
 }) => {
-  const [resolution, setResolution] = useState<'1080p' | '720p'>('1080p');
+  const [resolution, setResolution] = useState<ExportResolution>(
+    (['720p', '1080p', '1440p', '2160p'] as string[]).includes(String(clip?.render_resolution_requested || ''))
+      ? (clip!.render_resolution_requested as ExportResolution)
+      : '1080p'
+  );
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [resolvedDownloadUrl, setResolvedDownloadUrl] = useState<string | null>(null);
@@ -149,7 +160,10 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
   if (!isOpen) return null;
 
-  const estimatedSizeMb = Math.round((duration * 0.45 * (resolution === '1080p' ? 1.5 : 0.9)) * 10) / 10;
+  // Rough MB per second by tier at the render CRF (social-content footage).
+  const sizePerSec: Record<ExportResolution, number> = { '720p': 0.4, '1080p': 0.68, '1440p': 1.2, '2160p': 2.6 };
+  const estimatedSizeMb = Math.round(duration * sizePerSec[resolution] * 10) / 10;
+  const renderedMatches = Boolean(clip?.render_output_width) && clip?.render_resolution_requested === resolution;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-scrim select-none">
@@ -179,30 +193,36 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                   Resolution
                 </label>
                 <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setResolution('1080p')}
-                    className={`p-3 rounded-xl border text-left transition ${
-                      resolution === '1080p'
-                        ? 'bg-white/[0.06] border-white/40 text-white shadow-sm ring-1 ring-white/20'
-                        : 'bg-vc-canvas border-white/[0.08] text-neutral-400 hover:border-white/20 hover:text-neutral-200'
-                    }`}
-                  >
-                    <div className="text-sm font-semibold">1080p Full HD</div>
-                    <div className="text-xs text-neutral-500 mt-0.5">Recommended for TikTok, Shorts & Reels</div>
-                  </button>
-
-                  <button
-                    onClick={() => setResolution('720p')}
-                    className={`p-3 rounded-xl border text-left transition ${
-                      resolution === '720p'
-                        ? 'bg-white/[0.06] border-white/40 text-white shadow-sm ring-1 ring-white/20'
-                        : 'bg-vc-canvas border-white/[0.08] text-neutral-400 hover:border-white/20 hover:text-neutral-200'
-                    }`}
-                  >
-                    <div className="text-sm font-semibold">720p HD</div>
-                    <div className="text-xs text-neutral-500 mt-0.5">Faster export, compact size</div>
-                  </button>
+                  {RESOLUTION_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setResolution(opt.value)}
+                      className={`p-3 rounded-xl border text-left transition ${
+                        resolution === opt.value
+                          ? 'bg-white/[0.06] border-white/40 text-white shadow-sm ring-1 ring-white/20'
+                          : 'bg-vc-canvas border-white/[0.08] text-neutral-400 hover:border-white/20 hover:text-neutral-200'
+                      }`}
+                    >
+                      <div className="text-sm font-semibold">{opt.title}</div>
+                      <div className="text-xs text-neutral-500 mt-0.5">{opt.hint}</div>
+                    </button>
+                  ))}
                 </div>
+                {(resolution === '1440p' || resolution === '2160p') && (
+                  <p className="text-[11px] text-neutral-400 mt-2 leading-snug">
+                    Always renders at the size you pick. If your source video has fewer pixels than that, the file is
+                    enlarged (bigger, not sharper); the result below shows the exact enlargement factor. Larger files take longer.
+                  </p>
+                )}
+                {renderedMatches && clip?.render_resolution_note && (
+                  <p className="text-[11px] text-amber-200/90 mt-1 leading-snug">{clip.render_resolution_note}</p>
+                )}
+                {renderedMatches && clip?.render_output_width && clip?.render_output_height && (
+                  <p className="text-[11px] text-neutral-300 mt-2 font-mono">
+                    Last render: {clip.render_output_width}x{clip.render_output_height}
+                    {clip.render_upscale_factor ? ` (${clip.render_upscale_factor.toFixed(2)}x from source crop)` : ''}
+                  </p>
+                )}
               </div>
 
               {/* Subtitle burn-in toggle */}
@@ -404,7 +424,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
           {!isRendering && (!renderSuccessMsg || downloadStale) && (
             <button
-              onClick={onTriggerRender}
+              onClick={() => onTriggerRender(resolution)}
               className="px-5 py-2 rounded-full bg-vc-ai-hover text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai active:bg-violet-700 active:translate-y-px text-xs font-semibold flex items-center gap-1.5 transition"
             >
               <Sparkles className="w-3.5 h-3.5" />

@@ -1,3 +1,4 @@
+import { parseRenderResolutionStrict } from '../shared/renderResolution.js';
 import { Response } from 'express';
 import { AuthenticatedRequest, isValidUUID } from '../types/index.js';
 import { ProEditorService } from '../services/proEditorService.js';
@@ -355,6 +356,20 @@ export const renderEditorProject = async (
       .eq('user_id', userId)
       .maybeSingle();
 
+    let requestedResolution: string | null = null;
+    const bodyResolution = req.body?.render_resolution ?? req.body?.resolution;
+    if (bodyResolution !== undefined && bodyResolution !== null && bodyResolution !== '') {
+      requestedResolution = parseRenderResolutionStrict(bodyResolution);
+      if (!requestedResolution) {
+        res.status(400).json({
+          status: 'error',
+          code: 'INVALID_RESOLUTION',
+          message: 'resolution must be one of 720p, 1080p, 1440p, 2160p (4K).',
+        });
+        return;
+      }
+    }
+
     const nextRenderVersion = (clip?.render_version || 0) + 1;
 
     // Update clip status. Must stay 'queued' (mirroring the clip render
@@ -367,6 +382,7 @@ export const renderEditorProject = async (
         render_status: 'queued',
         render_version: nextRenderVersion,
         render_error_message: null,
+        ...(requestedResolution ? { render_resolution: requestedResolution } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('id', project.clip_id);

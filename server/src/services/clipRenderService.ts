@@ -1,4 +1,5 @@
 import { assFontsDirArg } from './editorFontFiles.js';
+import { canvasDims, parseRenderResolution, resolveEffectiveResolution, type EffectiveResolution } from '../shared/renderResolution.js';
 import { createClipWithJob } from '../db/repositories/clipRepository.js';
 import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
@@ -165,47 +166,30 @@ export function composeQuickVideoGraph(videoFilters: string[]): { graph: string;
 
 export function buildCropFilter(
   aspectRatio: ClipAspectRatio = '9:16',
-  cropConfig?: { focusX?: number; focusY?: number; scale?: number }
+  cropConfig?: { focusX?: number; focusY?: number; scale?: number },
+  canvasScale = 1
 ): string {
   const fx = Math.min(1.0, Math.max(0.0, Number(cropConfig?.focusX ?? 0.5)));
   const fy = Math.min(1.0, Math.max(0.0, Number(cropConfig?.focusY ?? 0.5)));
   // Zoom factor: 1 = cover window fills the frame, >1 crops a smaller window
   // around the focus and scales it back up (single-pass to avoid double blur).
   const zoom = Math.min(4.0, Math.max(1.0, Number(cropConfig?.scale ?? 1)));
+  const { width: ow, height: oh } = canvasDims(aspectRatio, canvasScale);
+  const arW = aspectRatio === '16:9' ? 16 : aspectRatio === '1:1' ? 1 : 9;
+  const arH = aspectRatio === '16:9' ? 9 : aspectRatio === '1:1' ? 1 : 16;
 
   if (zoom > 1) {
-    const ar = aspectRatio === '16:9' ? { w: 16, h: 9, ow: 1920, oh: 1080 } : aspectRatio === '1:1' ? { w: 1, h: 1, ow: 1080, oh: 1080 } : { w: 9, h: 16, ow: 1080, oh: 1920 };
     return (
-      `crop=w='min(iw,ih*${ar.w}/${ar.h})/${zoom}':h='min(ih,iw*${ar.h}/${ar.w})/${zoom}'` +
-      `:x='(in_w-out_w)*${fx}':y='(in_h-out_h)*${fy}',scale=${ar.ow}:${ar.oh}`
+      `crop=w='min(iw,ih*${arW}/${arH})/${zoom}':h='min(ih,iw*${arH}/${arW})/${zoom}'` +
+      `:x='(in_w-out_w)*${fx}':y='(in_h-out_h)*${fy}',scale=${ow}:${oh}`
     );
   }
 
-  // If focus is default center (0.5, 0.5), return the canonical center-crop filter
-  if (fx === 0.5 && fy === 0.5) {
-    switch (aspectRatio) {
-      case '9:16':
-        return 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920';
-      case '1:1':
-        return 'scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080';
-      case '16:9':
-        return 'scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080';
-      default:
-        return 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920';
-    }
-  }
-
+  const base = `scale=${ow}:${oh}:force_original_aspect_ratio=increase,crop=${ow}:${oh}`;
+  // Default focus is the canonical center-crop filter.
+  if (fx === 0.5 && fy === 0.5) return base;
   // Manual framing crop using exact clamped focus offsets
-  switch (aspectRatio) {
-    case '9:16':
-      return `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:(in_w-out_w)*${fx}:(in_h-out_h)*${fy}`;
-    case '1:1':
-      return `scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080:(in_w-out_w)*${fx}:(in_h-out_h)*${fy}`;
-    case '16:9':
-      return `scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080:(in_w-out_w)*${fx}:(in_h-out_h)*${fy}`;
-    default:
-      return `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:(in_w-out_w)*${fx}:(in_h-out_h)*${fy}`;
-  }
+  return `${base}:(in_w-out_w)*${fx}:(in_h-out_h)*${fy}`;
 }
 
 /**
@@ -216,9 +200,11 @@ export function buildFitFilter(
   aspectRatio: ClipAspectRatio = '9:16',
   zoom: number = 1,
   focusX: number = 0.5,
-  focusY: number = 0.5
+  focusY: number = 0.5,
+  canvasScale: number = 1
 ): string {
-  const ar = aspectRatio === '16:9' ? { w: 1920, h: 1080 } : aspectRatio === '1:1' ? { w: 1080, h: 1080 } : { w: 1080, h: 1920 };
+  const cd = canvasDims(aspectRatio, canvasScale);
+  const ar = { w: cd.width, h: cd.height };
   const z = Math.min(4, Math.max(1, Number(zoom) || 1));
   if (z <= 1) {
     return `scale=${ar.w}:${ar.h}:force_original_aspect_ratio=decrease,pad=${ar.w}:${ar.h}:(ow-iw)/2:(oh-ih)/2:color=black`;
@@ -244,14 +230,16 @@ export function buildFitFilter(
 export function buildBlurFitChain(
   aspectRatio: ClipAspectRatio = '9:16',
   zoom: number = 1,
-  tag: string = 'vcb'
+  tag: string = 'vcb',
+  canvasScale: number = 1
 ): string {
-  const ar = aspectRatio === '16:9' ? { w: 1920, h: 1080 } : aspectRatio === '1:1' ? { w: 1080, h: 1080 } : { w: 1080, h: 1920 };
+  const cd = canvasDims(aspectRatio, canvasScale);
+  const ar = { w: cd.width, h: cd.height };
   const z = Math.min(4, Math.max(1, Number(zoom) || 1));
   const fgW = Math.max(2, Math.round((ar.w * z) / 2) * 2);
   return (
     `split=2[${tag}_bgs][${tag}_fgs];` +
-    `[${tag}_bgs]scale=${ar.w}:${ar.h}:force_original_aspect_ratio=increase,crop=${ar.w}:${ar.h},boxblur=25:5,eq=brightness=-0.15:contrast=0.95[${tag}_bg];` +
+    `[${tag}_bgs]scale=${ar.w}:${ar.h}:force_original_aspect_ratio=increase,crop=${ar.w}:${ar.h},boxblur=${Math.round(25 * canvasScale)}:5,eq=brightness=-0.15:contrast=0.95[${tag}_bg];` +
     `[${tag}_fgs]scale=${fgW}:-2[${tag}_fg];` +
     `[${tag}_bg][${tag}_fg]overlay=(W-w)/2:(H-h)/2`
   );
@@ -638,7 +626,24 @@ export class ClipRenderService {
       await ClipRenderService.ensureReframeTrackAtRender(clip, sourcePath, jobId);
 
       // Shared reframing decision (Quick path filter + Pro per-slice context).
-      const reframeDecision = await ClipRenderService.resolveReframeDecision(clip, durationSec);
+      // Export resolution: requested tier from the clip (set by the export
+      // dialog), lowered only when the source cannot carry it.
+      const srcDims = await ClipRenderService.probeSourceDimensions(sourcePath);
+      const resolution = resolveEffectiveResolution(
+        parseRenderResolution((clip as any).render_resolution),
+        clip.aspect_ratio as string,
+        srcDims?.width,
+        srcDims?.height
+      );
+      const canvasScale = resolution.scale;
+      const outputCanvas = { width: resolution.width, height: resolution.height };
+      let expectedCanvas = outputCanvas;
+      logger.info(
+        `[ClipRender] Resolution for clip ${clipId}: requested=${resolution.requested} effective=${resolution.effective} ` +
+        `canvas=${outputCanvas.width}x${outputCanvas.height} source=${srcDims ? `${srcDims.width}x${srcDims.height}` : 'unknown'}` +
+        (resolution.warning ? ` WARNING: ${resolution.warning}` : '')
+      );
+      const reframeDecision = await ClipRenderService.resolveReframeDecision(clip, durationSec, canvasScale);
       const cropFilter = reframeDecision.cropFilter;
       const actualReframeMode = reframeDecision.mode;
       const reframeMetadata = reframeDecision.metadata;
@@ -790,7 +795,7 @@ export class ClipRenderService {
         // ffmpeg 5, and per-line filters center each line exactly anyway.
         const lines = headline.text.split('\n');
         const style =
-          'fontcolor=white:borderw=3:bordercolor=black@0.9:shadowcolor=black@0.6:shadowx=0:shadowy=2';
+          `fontcolor=white:borderw=${Math.max(1, Math.round(3 * canvasScale))}:bordercolor=black@0.9:shadowcolor=black@0.6:shadowx=0:shadowy=${Math.max(1, Math.round(2 * canvasScale))}`;
         const enable =
           headline.durationSec > 0 ? `:enable='lt(t,${headline.durationSec.toFixed(2)})'` : '';
         // Hook placement away from faces/captions (OpenShorts). The auto
@@ -821,9 +826,9 @@ export class ClipRenderService {
           const linePath = path.join(tempDir, `headline-${idx}.txt`);
           fs.writeFileSync(linePath, line, 'utf8');
           const safeLine = linePath.replace(/\\/g, '/').replace(/:/g, '\\:');
-          const y = firstY + idx * (headline.fontSize + 8);
+          const y = Math.round((firstY + idx * (headline.fontSize + 8)) * canvasScale);
           videoFilters.push(
-            `drawtext=textfile='${safeLine}':${style}:fontsize=${headline.fontSize}:x=(w-text_w)/2:y=${y}${enable}`
+            `drawtext=textfile='${safeLine}':${style}:fontsize=${Math.round(headline.fontSize * canvasScale)}:x=(w-text_w)/2:y=${y}${enable}`
           );
         });
       } else if (clip.overlay_config?.enabled && clip.overlay_config?.text) {
@@ -837,13 +842,13 @@ export class ClipRenderService {
         if (safeText) {
           const pos = clip.overlay_config.position || 'top';
           const size = clip.overlay_config.size || 'md';
-          const fontSize = size === 'sm' ? 36 : size === 'lg' ? 60 : 46;
-          let yExpr = '120';
+          const fontSize = Math.round((size === 'sm' ? 36 : size === 'lg' ? 60 : 46) * canvasScale);
+          let yExpr = String(Math.round(120 * canvasScale));
           if (pos === 'center') yExpr = '(h-text_h)/2';
-          else if (pos === 'bottom') yExpr = 'h-text_h-260';
+          else if (pos === 'bottom') yExpr = `h-text_h-${Math.round(260 * canvasScale)}`;
 
           videoFilters.push(
-            `drawtext=text='${safeText}':fontcolor=white:fontsize=${fontSize}:box=1:boxcolor=black@0.65:boxborderw=10:x=(w-text_w)/2:y=${yExpr}`
+            `drawtext=text='${safeText}':fontcolor=white:fontsize=${fontSize}:box=1:boxcolor=black@0.65:boxborderw=${Math.round(10 * canvasScale)}:x=(w-text_w)/2:y=${yExpr}`
           );
         }
       }
@@ -851,7 +856,7 @@ export class ClipRenderService {
       // Phase F: Authoritative Server-Side Watermark Enforcement
       const watermarkRequired = await WatermarkService.shouldWatermark(userId);
       if (watermarkRequired) {
-        videoFilters.push(WatermarkService.getFfmpegFilterString());
+        videoFilters.push(WatermarkService.getFfmpegFilterString({ canvasScale }));
         logger.info(`[ClipRender] Watermark enforced for user ${userId} on clip ${clipId}`);
       }
 
@@ -907,6 +912,7 @@ export class ClipRenderService {
             mode: actualReframeMode,
             layoutMode: reframeDecision.layoutMode,
             track: reframeDecision.track,
+            canvasScale,
           },
           inputSeekArgs
         );
@@ -917,9 +923,10 @@ export class ClipRenderService {
         const canvasDuration = Number((editorProject.canvas?.duration || durationSec).toFixed(3));
         const renderDuration = !isMultiSlice ? Math.min(canvasDuration, durationSec) : canvasDuration;
         expectedDurationSec = renderDuration;
+        if (graph.canvas) expectedCanvas = graph.canvas;
 
         if (watermarkRequired) {
-          const wmFilter = WatermarkService.getFfmpegFilterString();
+          const wmFilter = WatermarkService.getFfmpegFilterString({ canvasScale });
           const nextLabel = '[v_watermarked]';
           graph.filterComplex.push(`${graph.videoMap}${wmFilter}${nextLabel}`);
           graph.videoMap = nextLabel;
@@ -1103,7 +1110,10 @@ export class ClipRenderService {
       }
 
       // Output validation gate: streams + duration must match what was requested.
-      await ClipRenderService.validateRenderedOutput(outputPath, expectedDurationSec, { expectAudio: !clip.muted });
+      const outputDims = await ClipRenderService.validateRenderedOutput(outputPath, expectedDurationSec, {
+        expectAudio: !clip.muted,
+        expectDimensions: expectedCanvas,
+      });
 
       // 3. Upload rendered MP4 to storage with revision versioning
       await ClipRenderService.updateJobStage(jobId, clipId, 'uploading', 90, 'uploading', workerId);
@@ -1131,6 +1141,14 @@ export class ClipRenderService {
           reframe_mode: actualReframeMode,
           reframe_metadata: reframeMetadata || null,
           is_watermarked: watermarkRequired,
+          render_resolution_requested: resolution.requested,
+          render_resolution_effective: resolution.effective,
+          render_output_width: outputDims?.width ?? outputCanvas.width,
+          render_output_height: outputDims?.height ?? outputCanvas.height,
+          render_source_width: srcDims?.width ?? null,
+          render_source_height: srcDims?.height ?? null,
+          render_resolution_note: resolution.warning ?? null,
+          render_upscale_factor: resolution.upscaleFactor,
           render_error_code: null,
           render_error_message: null,
           updated_at: new Date().toISOString(),
@@ -1438,7 +1456,8 @@ export class ClipRenderService {
 
   public static async resolveReframeDecision(
     clip: ClipRecord,
-    durationSec: number
+    durationSec: number,
+    canvasScale = 1
   ): Promise<{
     cropFilter: string;
     mode: 'smart' | 'fallback_center' | 'manual';
@@ -1446,25 +1465,25 @@ export class ClipRenderService {
     layoutMode: ReframeLayoutMode | string;
     track: Awaited<ReturnType<typeof SmartReframeService.getReframeTrack>>;
   }> {
-    const centerCrop = () => buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 });
+    const centerCrop = () => buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 }, canvasScale);
 
     if (clip.crop_config?.mode === 'manual') {
-      return { cropFilter: buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config), mode: 'manual', layoutMode: 'manual', track: null };
+      return { cropFilter: buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config, canvasScale), mode: 'manual', layoutMode: 'manual', track: null };
     }
 
     if (clip.crop_config?.mode === 'fit_blur') {
       const zoom = Math.min(4, Math.max(1, Number(clip.crop_config.scale ?? 1)));
-      return { cropFilter: buildBlurFitChain(clip.aspect_ratio as ClipAspectRatio, zoom, 'vcb'), mode: 'manual', layoutMode: 'manual', track: null };
+      return { cropFilter: buildBlurFitChain(clip.aspect_ratio as ClipAspectRatio, zoom, 'vcb', canvasScale), mode: 'manual', layoutMode: 'manual', track: null };
     }
 
     if (clip.crop_config?.mode === 'fit') {
       const zoom = Math.min(4, Math.max(1, Number(clip.crop_config.scale ?? 1)));
       const clampF = (v: number | undefined): number => Math.min(1, Math.max(0, typeof v === 'number' && Number.isFinite(v) ? v : 0.5));
-      return { cropFilter: buildFitFilter(clip.aspect_ratio as ClipAspectRatio, zoom, clampF(clip.crop_config.focusX), clampF(clip.crop_config.focusY)), mode: 'manual', layoutMode: 'manual', track: null };
+      return { cropFilter: buildFitFilter(clip.aspect_ratio as ClipAspectRatio, zoom, clampF(clip.crop_config.focusX), clampF(clip.crop_config.focusY), canvasScale), mode: 'manual', layoutMode: 'manual', track: null };
     }
 
     if (clip.crop_config?.mode !== 'smart') {
-      return { cropFilter: buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config), mode: 'fallback_center', layoutMode: 'manual', track: null };
+      return { cropFilter: buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config, canvasScale), mode: 'fallback_center', layoutMode: 'manual', track: null };
     }
 
     try {
@@ -1488,7 +1507,7 @@ export class ClipRenderService {
           if (targetLayout === 'blur' && (clip.aspect_ratio === '9:16' || !clip.aspect_ratio)) {
             logger.info(`[ClipRender] No subject detected in smart reframe track for clip ${clip.id}. Using modern blurred background layout.`);
             return {
-              cropFilter: SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: 1080, canvasHeight: 1920 }),
+              cropFilter: SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: canvasDims('9:16', canvasScale).width, canvasHeight: canvasDims('9:16', canvasScale).height }),
               mode: 'smart',
               metadata: { layout_mode: 'blur', reason: 'broll_or_no_face', detected_face_count: 0 },
               layoutMode: 'blur',
@@ -1518,7 +1537,7 @@ export class ClipRenderService {
           const plan = SmartReframeService.computeShotComposition({rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
             duration:durationSec,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
           if (plan.length) return {cropFilter:SmartReframeService.buildShotCompositionFilter({plan,duration:durationSec,
-            sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),mode:'smart',
+            sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,canvasScale}),mode:'smart',
             metadata:{layout_mode:'track',shot_composition_candidate:true},layoutMode:'track',track};
         }
         // Multi-person single-view: keep the whole group visible (blur-fill
@@ -1547,7 +1566,7 @@ export class ClipRenderService {
           );
           if (clip.aspect_ratio === '9:16' || !clip.aspect_ratio) {
             return {
-              cropFilter: SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: 1080, canvasHeight: 1920 }),
+              cropFilter: SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: canvasDims('9:16', canvasScale).width, canvasHeight: canvasDims('9:16', canvasScale).height }),
               mode: 'smart',
               metadata: {
                 layout_mode: 'blur',
@@ -1586,6 +1605,7 @@ export class ClipRenderService {
           screencastScreenRatio: clip.crop_config?.screencast?.screenRatio,
           screencastBackground: clip.crop_config?.screencast?.background,
           screencastFacecamBox: SmartReframeService.resolveFacecamBox(clip.crop_config?.screencast, track.metadata),
+          canvasScale,
         });
         logger.info(`[ClipRender] Applied dynamic smart reframe filter (${targetLayout}) with ${track.smoothed_keyframes.length} keyframes for clip ${clip.id}`);
         return {
@@ -1623,14 +1643,14 @@ export class ClipRenderService {
   public static async validateRenderedOutput(
     filePath: string,
     expectedDurationSec: number,
-    options: { expectAudio: boolean }
-  ): Promise<void> {
+    options: { expectAudio: boolean; expectDimensions?: { width: number; height: number } }
+  ): Promise<{ width: number; height: number } | null> {
     try {
       const { stdout } = await execFileAsync(
         'ffprobe',
         [
           '-v', 'error',
-          '-show_entries', 'stream=codec_type',
+          '-show_entries', 'stream=codec_type,width,height',
           '-show_entries', 'format=duration',
           '-of', 'json',
           filePath,
@@ -1639,7 +1659,7 @@ export class ClipRenderService {
       );
 
       const probe = JSON.parse(stdout) as {
-        streams?: Array<{ codec_type?: string }>;
+        streams?: Array<{ codec_type?: string; width?: number; height?: number }>;
         format?: { duration?: string };
       };
       const streams = Array.isArray(probe.streams) ? probe.streams : [];
@@ -1647,8 +1667,16 @@ export class ClipRenderService {
       const hasAudio = streams.some((s) => s?.codec_type === 'audio');
       const duration = Number.parseFloat(probe.format?.duration || '0');
 
+      const videoStream = streams.find((s) => s?.codec_type === 'video');
+      const dims = videoStream && Number(videoStream.width) > 0 && Number(videoStream.height) > 0
+        ? { width: Number(videoStream.width), height: Number(videoStream.height) }
+        : null;
       const problems: string[] = [];
       if (!hasVideo) problems.push('no video stream');
+      if (options.expectDimensions && dims &&
+          (dims.width !== options.expectDimensions.width || dims.height !== options.expectDimensions.height)) {
+        problems.push(`frame size ${dims.width}x${dims.height} differs from requested ${options.expectDimensions.width}x${options.expectDimensions.height}`);
+      }
       if (options.expectAudio && !hasAudio) problems.push('missing audio stream');
       if (!Number.isFinite(duration) || duration <= 0) {
         problems.push('unreadable duration');
@@ -1661,9 +1689,31 @@ export class ClipRenderService {
         (err as any).code = 'OUTPUT_VALIDATION_FAILED';
         throw err;
       }
+      return dims;
     } catch (err: any) {
       if (err?.code === 'OUTPUT_VALIDATION_FAILED') throw err;
       logger.warn(`[ClipRender] Output validation probe unavailable, accepting render without stream checks: ${err.message}`);
+      return null;
+    }
+  }
+
+  /** Native frame size of the first video stream, or null when ffprobe is unavailable. */
+  public static async probeSourceDimensions(filePath: string): Promise<{ width: number; height: number } | null> {
+    try {
+      const { stdout } = await execFileAsync(
+        'ffprobe',
+        ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height:stream_tags=rotate:stream_side_data=rotation', '-of', 'json', filePath],
+        { timeout: 15000, maxBuffer: 1024 * 1024 }
+      );
+      const st = ((JSON.parse(stdout) as any).streams || [])[0] || {};
+      let w = Number(st.width);
+      let h = Number(st.height);
+      if (!(w > 0 && h > 0)) return null;
+      const rot = Math.abs(Number(st.tags?.rotate ?? st.side_data_list?.[0]?.rotation ?? 0)) % 180;
+      if (rot === 90) [w, h] = [h, w];
+      return { width: w, height: h };
+    } catch {
+      return null;
     }
   }
 

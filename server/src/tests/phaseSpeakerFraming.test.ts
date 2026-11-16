@@ -15,7 +15,7 @@ describe('Speaker framing — render-time auto-generation', () => {
 
   it('renderClipJob auto-generates a missing smart-reframe track before the decision', () => {
     const genIdx = render.indexOf('ensureReframeTrackAtRender(clip, sourcePath, jobId)');
-    const decisionIdx = render.indexOf('resolveReframeDecision(clip, durationSec)');
+    const decisionIdx = render.indexOf('resolveReframeDecision(clip, durationSec, canvasScale)');
     assert.ok(genIdx > 0, 'auto-generation call present');
     assert.ok(decisionIdx > genIdx, 'decision must follow generation');
   });

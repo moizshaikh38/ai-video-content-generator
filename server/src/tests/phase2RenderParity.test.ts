@@ -254,7 +254,7 @@ describe('Phase 2 — service wiring guards', () => {
   const renderSource = fs.readFileSync(path.resolve(process.cwd(), 'src/services/clipRenderService.ts'), 'utf8');
 
   it('both render paths share one reframing decision', () => {
-    assert.match(renderSource, /resolveReframeDecision\(clip, durationSec\)/);
+    assert.match(renderSource, /resolveReframeDecision\(clip, durationSec(, canvasScale)?\)/);
     assert.match(renderSource, /clipStartSec: startSec/);
   });
 
