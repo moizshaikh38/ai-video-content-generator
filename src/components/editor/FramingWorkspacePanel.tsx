@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { EditorProject } from '../../types';
 import { OUTPUT_TEMPLATES, OutputTemplateId } from '../../../server/src/shared/outputTemplates';
+import { applySocialCardToProject, SOCIAL_CARD_TAG, SocialCardConfig } from '../../../server/src/shared/socialCard';
 
 interface ScreencastConfigEdit {
   mode?: 'split_stacked' | 'circular_inset' | 'rounded_card_inset';
@@ -100,6 +101,9 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
           </div>
         </div>
       )}
+
+      {/* Social card chrome: creator name + @handle corner overlay (TEXT channel) */}
+      <SocialCardSection project={project} onUpdateProject={_onUpdateProject} />
 
       {/* Reframe & Crop Modes */}
       <div>
@@ -425,6 +429,120 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
             {showSafeGuides ? 'Active' : 'Hidden'}
           </button>
         </div>
+      </div>
+    </div>
+  );
+};
+
+// Social card chrome controls. Local draft state is seeded from the
+// project’s existing card items; every change applies the pure shared mapper
+// through the real onUpdateProject channel (idempotent re-apply).
+const SocialCardSection: React.FC<{
+  project: EditorProject;
+  onUpdateProject: (updater: (prev: EditorProject) => EditorProject) => void;
+}> = ({ project, onUpdateProject }) => {
+  const existing = React.useMemo(() => {
+    const items = project.tracks.flatMap((t) => t.items).filter((i: any) => i.social_card === SOCIAL_CARD_TAG);
+    if (items.length === 0) return null;
+    const name = items.find((i: any) => !(i.text?.text || '').startsWith('@'));
+    const handle = items.find((i: any) => (i.text?.text || '').startsWith('@'));
+    const x = name?.transform?.position_x ?? -96;
+    const y = name?.transform?.position_y ?? -250;
+    return {
+      displayName: name?.text?.text || '',
+      handle: (handle?.text?.text || '').replace(/^@/, ''),
+      theme: (name?.text?.color === '#111111' ? 'light' : 'dark') as 'dark' | 'light',
+      position: `${y < 0 ? 'top' : 'bottom'}-${x < 0 ? 'left' : 'right'}` as SocialCardConfig['position'],
+    };
+  }, [project]);
+
+  const [enabled, setEnabled] = React.useState(!!existing);
+  const [displayName, setDisplayName] = React.useState(existing?.displayName || '');
+  const [handle, setHandle] = React.useState(existing?.handle || '');
+  const [theme, setTheme] = React.useState<'dark' | 'light'>(existing?.theme || 'dark');
+  const [position, setPosition] = React.useState<SocialCardConfig['position']>(existing?.position || 'top-left');
+
+  const apply = (patch: Partial<SocialCardConfig> & { enabled?: boolean }) => {
+    const next = {
+      enabled: patch.enabled ?? enabled,
+      displayName: patch.displayName ?? displayName,
+      handle: patch.handle ?? handle,
+      theme: patch.theme ?? theme,
+      position: patch.position ?? position,
+    };
+    onUpdateProject((prev) => applySocialCardToProject(prev as any, next) as unknown as EditorProject);
+  };
+
+  return (
+    <div>
+      <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block mb-2">
+        Social Card
+      </label>
+      <div className="rounded-lg border border-white/[0.08] bg-white/[0.03] p-2.5 space-y-2">
+        <label className="flex items-center gap-2 text-[11px] text-neutral-300 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => {
+              setEnabled(e.target.checked);
+              apply({ enabled: e.target.checked });
+            }}
+            className="accent-vc-accent"
+          />
+          Show creator name & handle
+        </label>
+        {enabled && (
+          <>
+            <input
+              type="text"
+              value={displayName}
+              placeholder="Display name"
+              onChange={(e) => {
+                setDisplayName(e.target.value);
+                apply({ displayName: e.target.value });
+              }}
+              className="w-full px-2 py-1.5 rounded-md bg-white/[0.05] border border-white/[0.1] text-white text-[11px] placeholder:text-neutral-500"
+            />
+            <input
+              type="text"
+              value={handle}
+              placeholder="handle (without @)"
+              onChange={(e) => {
+                setHandle(e.target.value);
+                apply({ handle: e.target.value });
+              }}
+              className="w-full px-2 py-1.5 rounded-md bg-white/[0.05] border border-white/[0.1] text-white text-[11px] placeholder:text-neutral-500"
+            />
+            <div className="flex gap-1.5">
+              <select
+                value={theme}
+                onChange={(e) => {
+                  const v = e.target.value as 'dark' | 'light';
+                  setTheme(v);
+                  apply({ theme: v });
+                }}
+                className="flex-1 px-2 py-1.5 rounded-md bg-white/[0.05] border border-white/[0.1] text-white text-[11px]"
+              >
+                <option value="dark">Dark (white text)</option>
+                <option value="light">Light (black text)</option>
+              </select>
+              <select
+                value={position}
+                onChange={(e) => {
+                  const v = e.target.value as SocialCardConfig['position'];
+                  setPosition(v);
+                  apply({ position: v });
+                }}
+                className="flex-1 px-2 py-1.5 rounded-md bg-white/[0.05] border border-white/[0.1] text-white text-[11px]"
+              >
+                <option value="top-left">Top left</option>
+                <option value="top-right">Top right</option>
+                <option value="bottom-left">Bottom left</option>
+                <option value="bottom-right">Bottom right</option>
+              </select>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
