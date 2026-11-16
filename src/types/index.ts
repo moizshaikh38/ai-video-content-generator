@@ -800,6 +800,8 @@ export interface EditorCanvasConfig {
   background_corner_radius?: number;
   /** Set only when the user explicitly picks in the Background panel. Fit defaults to blur unless this is 'color' (black included). */
   background_user_choice?: 'blur' | 'color';
+  /** Fit shape in a 9:16 canvas: '4:3' band (default for new Fit) or 'full' frame. Overrides item.crop.band project-wide when set. */
+  fit_band?: '4:3' | 'full';
 }
 
 export interface EditorTransform {
@@ -1059,6 +1061,8 @@ export interface EditorTrackItem {
   tracker?: EditorSubjectTracker;
   crop?: {
     mode: 'fit' | 'fill' | 'custom' | 'blur';
+    /** Fit/Blur shape in a 9:16 canvas: '4:3' band or 'full' frame (legacy when absent). */
+    band?: '4:3' | 'full';
     focusX?: number;
     focusY?: number;
     /** Zoom factor for the crop window (1 = fill frame, >1 zoomed in). */

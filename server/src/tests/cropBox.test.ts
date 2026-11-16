@@ -50,3 +50,20 @@ describe('Fit default', () => {
     expect(applyItemLayout(mk({ background_color: '#000000', background_user_choice: 'color' }), 'a', 'fit').tracks[0].items[0].crop?.mode).toBe('fit');
   });
 });
+
+import { buildBackdropFitChain } from '../services/clipRenderService';
+import { effectiveFitBand, fitBandApplies } from '../shared/fitBand';
+describe('Fit band', () => {
+  it('chain crops source to 4:3 and places an 810px band on a 1080x1920 canvas', () => {
+    const c = buildBackdropFitChain('9:16', 1, { kind: 'blur', bandAspect: 4 / 3, focusX: .3 }, 'vcd');
+    expect(c).toContain('scale=1080:810'); expect(c).toContain('(iw-ow)*0.3000');
+    const c4k = buildBackdropFitChain('9:16', 1, { kind: 'blur', bandAspect: 4 / 3 }, 'vcd', 2);
+    expect(c4k).toContain('scale=2160:1620');
+  });
+  it('legacy items without band stay full frame; canvas choice overrides; only 9:16 applies', () => {
+    expect(effectiveFitBand({}, { crop: {} })).toBe('full');
+    expect(effectiveFitBand({}, { crop: { band: '4:3' } })).toBe('4:3');
+    expect(effectiveFitBand({ fit_band: 'full' }, { crop: { band: '4:3' } })).toBe('full');
+    expect(fitBandApplies('9:16')).toBe(true); expect(fitBandApplies('16:9')).toBe(false);
+  });
+});

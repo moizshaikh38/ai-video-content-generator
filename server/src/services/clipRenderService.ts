@@ -254,6 +254,11 @@ export interface CanvasBackdropSpec {
   spacingPct?: number;
   /** Video corner radius in output pixels (0-120). */
   cornerRadius?: number;
+  /** When set (w/h, e.g. 4/3), the source is cover-cropped to this band before placement (Fit band). */
+  bandAspect?: number;
+  /** Crop focus 0-1 inside the source for the band crop. */
+  focusX?: number;
+  focusY?: number;
 }
 
 export function normalizeBackdropHex(input: unknown, fallback = '000000'): string {
@@ -290,6 +295,13 @@ export function buildBackdropFitChain(
   // Fit inside the inset box (never wider than the box at zoom 1; zoom widens it, overlay crops at canvas edge).
   const fgScale = z > 1 ? `scale=${fgW}:-2` : `scale=${boxW}:${boxH}:force_original_aspect_ratio=decrease`;
   let fg = `${fgScale}`;
+  if (spec.bandAspect && spec.bandAspect > 0) {
+    const B = Number(spec.bandAspect).toFixed(5);
+    const fx = Math.min(1, Math.max(0, Number(spec.focusX ?? 0.5))).toFixed(4);
+    const fy = Math.min(1, Math.max(0, Number(spec.focusY ?? 0.5))).toFixed(4);
+    const bandH = Math.max(2, Math.round(fgW / spec.bandAspect / 2) * 2);
+    fg = `crop=w='min(iw,ih*${B})':h='min(ih,iw/${B})':x='(iw-ow)*${fx}':y='(ih-oh)*${fy}',scale=${fgW}:${bandH}`;
+  }
   if (radius > 0) {
     const r = radius;
     fg += `,format=yuva420p,geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':a='if(gt(max(abs(X+0.5-W/2)-(W/2-${r}),0)*max(abs(X+0.5-W/2)-(W/2-${r}),0)+max(abs(Y+0.5-H/2)-(H/2-${r}),0)*max(abs(Y+0.5-H/2)-(H/2-${r}),0),${r}*${r}),0,255)'`;

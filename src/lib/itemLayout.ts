@@ -10,6 +10,11 @@ export function resolveFitMode(canvas: { background_user_choice?: 'blur' | 'colo
   return canvas?.background_user_choice === 'color' ? 'fit' : 'blur';
 }
 
+/** New Fit/Blur scenes get the 4:3 band unless the project-wide Background choice is the full frame. */
+export function fitBandFields(canvas: { fit_band?: '4:3' | 'full' } | undefined | null): { band: '4:3' | 'full' } {
+  return { band: canvas?.fit_band === 'full' ? 'full' : '4:3' };
+}
+
 /** Layout currently persisted on a video item (what the export compiler will use). */
 export function readItemLayout(item: EditorTrackItem): SceneLayout {
   const userLayout = (item as any).crop_config?.layout_mode_source === 'user' ? (item as any).layout_mode : undefined;
@@ -39,7 +44,7 @@ export function applyItemLayout(project: EditorProject, itemId: string, layout: 
           base.layout_mode = layout === 'split' ? 'split' : 'track';
           if (layout === 'fit' || layout === 'blur') {
             const mode = layout === 'fit' ? resolveFitMode(project.canvas) : layout;
-            base.crop = { mode, focusX: i.crop?.focusX ?? 0.5, focusY: i.crop?.focusY ?? 0.5, scale: i.crop?.scale ?? 1 };
+            base.crop = { mode, ...(mode === 'fit' || mode === 'blur' ? fitBandFields(project.canvas) : {}), focusX: i.crop?.focusX ?? 0.5, focusY: i.crop?.focusY ?? 0.5, scale: i.crop?.scale ?? 1 };
           } else {
             delete base.crop;
           }

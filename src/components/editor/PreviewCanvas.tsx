@@ -30,6 +30,7 @@ import { CaptionPresetRenderer } from './CaptionPresetRenderer';
 import { BackgroundControl } from './BackgroundControl';
 import { TrackerControl } from './TrackerControl';
 import { CropBoxControl } from './CropBoxControl';
+import { FIT_BAND_ASPECT, effectiveFitBand, fitBandApplies } from '../../../server/src/shared/fitBand';
 
 interface PreviewCanvasProps {
   contentFramingDecision?: ContentFramingDecision | null;
@@ -1118,6 +1119,22 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // Background panel spacing/radius: mirrors buildBackdropFitChain (inset box, rounded corners) in export.
   const backdropInset = (() => {
     const mode = primaryVideoCropMode;
+    // Fit band: 4:3 cover-cropped band, full canvas width (inset by spacing), centred; mirrors the band crop in buildBackdropFitChain.
+    if ((mode === 'fit' || mode === 'blur') && primaryLayoutMode !== 'split' && fitBandApplies(project.canvas.aspect_ratio) && effectiveFitBand(project.canvas, project.tracks.find((t) => t.type === 'VIDEO')?.items[0] as any) === '4:3') {
+      const w = parseFloat(canvasDims.width);
+      const h = parseFloat(canvasDims.height);
+      const exportW = project.canvas.aspect_ratio === '16:9' ? 1920 : 1080;
+      const space = (w * (Number(project.canvas.background_spacing) || 0)) / 100;
+      const bw = Math.max(2, w - 2 * space);
+      const bh = Math.min(bw / FIT_BAND_ASPECT, Math.max(2, h - 2 * space));
+      return {
+        position: 'absolute' as const,
+        left: (w - bw) / 2, top: (h - bh) / 2, width: bw, height: bh,
+        borderRadius: (Number(project.canvas.background_corner_radius) || 0) * (w / exportW),
+        overflow: 'hidden' as const,
+        objectFit: 'cover' as const,
+      };
+    }
     const sp = Number(project.canvas.background_spacing) || 0;
     const rad = Number(project.canvas.background_corner_radius) || 0;
     if ((mode !== 'fit' && mode !== 'blur') || (sp <= 0 && rad <= 0) || primaryLayoutMode === 'split') return null;
@@ -1385,7 +1402,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 : {}),
               // Fit/Blur = letterbox (matches export's buildFitFilter pad / blur fill); Fill = cover-crop;
               // group fit sizes the element exactly, so cover introduces no extra crop
-              objectFit: primaryVideoCropMode === 'fit' || primaryVideoCropMode === 'blur' || primaryLayoutMode === 'blur' || lowConfidenceFallback ? 'contain' : 'cover',
+              objectFit: backdropInset && (backdropInset as any).objectFit === 'cover' ? 'cover' : primaryVideoCropMode === 'fit' || primaryVideoCropMode === 'blur' || primaryLayoutMode === 'blur' || lowConfidenceFallback ? 'contain' : 'cover',
               objectPosition:
                 primaryLayoutMode === 'split'
                   ? splitView1

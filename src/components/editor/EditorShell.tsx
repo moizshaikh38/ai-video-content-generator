@@ -44,7 +44,7 @@ import { ABStudioWorkspace } from '../abStudio/ABStudioWorkspace';
 import { ArrowLeft, Sparkles, Type as TypeIcon, Film, X, PanelRightOpen } from 'lucide-react';
 import { insertIntroOutro, createTitleCardItem } from '../../utils/introOutro';
 import { initCoveredEnd, healCaptionTracks } from '../../lib/captionExtendMerge';
-import { resolveFitMode } from '../../lib/itemLayout';
+import { resolveFitMode, fitBandFields } from '../../lib/itemLayout';
 import { clipRenderService } from '../../services/clipRenderService';
 import { applyOutputTemplateToProject, getOutputTemplate, OutputTemplateId } from '../../../server/src/shared/outputTemplates';
 
@@ -1658,6 +1658,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                                   focusX: i.crop?.focusX ?? 0.5,
                                   focusY: i.crop?.focusY ?? 0.5,
                                   scale: i.crop?.scale ?? 1,
+                                  ...((mode === 'fit' || mode === 'blur') ? fitBandFields(prev.canvas) : {}),
                                 },
                               }),
                         })),
@@ -1853,6 +1854,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                             focusX: i.crop?.focusX ?? 0.5,
                             focusY: i.crop?.focusY ?? 0.5,
                             scale: i.crop?.scale ?? 1,
+                            ...((mode === 'fit' || mode === 'blur') ? fitBandFields(prev.canvas) : {}),
                           },
                         })),
                       }

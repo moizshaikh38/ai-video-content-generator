@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ImageIcon } from 'lucide-react';
 import type { EditorProject } from '../../types';
+import { effectiveFitBand } from '../../../server/src/shared/fitBand';
 
 const COLORS = ['#000000', '#090B10', '#0A0F1D', '#171922', '#FFFFFF', '#E11D48', '#2563EB', '#16A34A', '#F59E0B', '#7C3AED'];
 
@@ -29,6 +30,7 @@ export const BackgroundControl: React.FC<Props> = ({ project, cropMode, onSetCro
   const spacing = c.background_spacing ?? 0;
   const radius = c.background_corner_radius ?? 0;
   const color = (c.background_color || '#000000').toUpperCase();
+  const effBand = effectiveFitBand(c, project.tracks.find((t) => t.type === 'VIDEO')?.items[0] as any);
   const active = cropMode === 'blur' ? 'blur' : cropMode === 'fit' ? 'color' : 'none';
   const tab = (id: 'blur' | 'color', label: string) => (
     <button
@@ -73,6 +75,17 @@ export const BackgroundControl: React.FC<Props> = ({ project, cropMode, onSetCro
               ))}
               <input type="color" value={color.length === 7 ? color : '#000000'} onChange={(e) => onUpdateCanvas({ background_color: e.target.value.toUpperCase(), background_mode: 'color', background_user_choice: 'color' })}
                 className="w-6 h-6 bg-transparent border-0 p-0" aria-label="Custom colour" />
+            </div>
+          )}
+          {active !== 'none' && (project.canvas.aspect_ratio || '9:16') === '9:16' && (
+            <div className="flex items-center gap-1 text-[11px] text-neutral-300">
+              <span className="w-20">Fit shape</span>
+              {(['4:3', 'full'] as const).map((b) => (
+                <button key={b} type="button" onClick={() => onUpdateCanvas({ fit_band: b })}
+                  className={`px-2.5 py-1 rounded-lg font-medium transition ${effBand === b ? 'bg-white/[0.16] text-white' : 'text-neutral-400 hover:text-white hover:bg-white/[0.08]'}`}>
+                  {b === '4:3' ? '4:3 band' : 'Full frame'}
+                </button>
+              ))}
             </div>
           )}
           {slider('Spacing', spacing, 20, '%', 'background_spacing')}

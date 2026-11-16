@@ -1,5 +1,6 @@
 import { canvasDims } from '../shared/renderResolution.js';
 import fs from 'node:fs';
+import { FIT_BAND_ASPECT, effectiveFitBand, fitBandApplies } from '../shared/fitBand.js';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
@@ -784,7 +785,7 @@ export class ProEditorService {
     reframe: ProReframeContext | undefined,
     sliceWindowStartClipRel: number,
     sliceDuration: number,
-    canvas?: { background_color?: string; background_spacing?: number; background_corner_radius?: number }
+    canvas?: { background_color?: string; background_spacing?: number; background_corner_radius?: number; aspect_ratio?: string; fit_band?: '4:3' | 'full' }
   ): string | null {
     const cs = reframe?.canvasScale ?? 1;
     const csDims = canvasDims('9:16', cs);
@@ -802,9 +803,11 @@ export class ProEditorService {
       const zoom = Math.min(4, Math.max(1, Number(item.crop.scale ?? 1)));
       const spacingPct = Number(canvas?.background_spacing) || 0;
       const cornerRadius = Number(canvas?.background_corner_radius) || 0;
-      const customBackdrop = spacingPct > 0 || cornerRadius > 0 || (item.crop.mode === 'fit' && !!canvas?.background_color && canvas.background_color.replace('#', '').toLowerCase() !== '000000');
+      const band = fitBandApplies(String(ratio)) && (item.crop.mode === 'fit' || item.crop.mode === 'blur') && effectiveFitBand(canvas as any, item as any) === '4:3';
+      const customBackdrop = band || spacingPct > 0 || cornerRadius > 0 || (item.crop.mode === 'fit' && !!canvas?.background_color && canvas.background_color.replace('#', '').toLowerCase() !== '000000');
       if ((item.crop.mode === 'fit' || item.crop.mode === 'blur') && customBackdrop) {
-        const spec: CanvasBackdropSpec = { kind: item.crop.mode === 'blur' ? 'blur' : 'color', color: canvas?.background_color, spacingPct, cornerRadius };
+        const spec: CanvasBackdropSpec = { kind: item.crop.mode === 'blur' ? 'blur' : 'color', color: canvas?.background_color, spacingPct, cornerRadius,
+          ...(band ? { bandAspect: FIT_BAND_ASPECT, focusX: clampFocus(item.crop.focusX), focusY: clampFocus(item.crop.focusY) } : {}) };
         const tag = ('vcd' + String(item.id || 'x')).replace(/[^a-zA-Z0-9]/g, '').slice(0, 16) || 'vcd';
         return buildBackdropFitChain(ratio, zoom, spec, tag, cs);
       }
@@ -2209,11 +2212,11 @@ export class ProEditorService {
     // applies exactly as the Quick Clip path decides. Without this mirror the pro
     // path fill-cropped every clip, silently overriding fit letterboxing.
     const clipCrop = (clip as any).crop_config;
-    const seededCrop: { mode: 'fill' | 'fit' | 'blur' | 'custom'; focusX: number; focusY: number } | undefined =
+    const seededCrop: { mode: 'fill' | 'fit' | 'blur' | 'custom'; band?: '4:3'; focusX: number; focusY: number } | undefined =
       clipCrop?.mode === 'fit_blur'
-        ? { mode: 'blur', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
+        ? { mode: 'blur', band: '4:3', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
         : clipCrop?.mode === 'fit'
-        ? { mode: 'blur', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
+        ? { mode: 'blur', band: '4:3', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
         : clipCrop?.mode === 'manual'
           ? { mode: 'custom', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
           : undefined;
