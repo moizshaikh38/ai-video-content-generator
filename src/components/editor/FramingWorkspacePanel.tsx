@@ -453,6 +453,10 @@ const SocialCardSection: React.FC<{
       handle: (handle?.text?.text || '').replace(/^@/, ''),
       theme: (name?.text?.color === '#111111' ? 'light' : 'dark') as 'dark' | 'light',
       position: `${y < 0 ? 'top' : 'bottom'}-${x < 0 ? 'left' : 'right'}` as SocialCardConfig['position'],
+      avatarUrl: (items.find((i: any) => i.social_card === SOCIAL_CARD_TAG && i.type === 'OVERLAY' && i.source_path) as any)?.source_path || '',
+      // Legacy text-only cards (no chrome items) read back as enabled, so
+      // re-applying an old card upgrades it instead of staying bare.
+      cardBackground: !items.some((i: any) => i.social_card === SOCIAL_CARD_TAG && i.type === 'OVERLAY') || items.some((i: any) => i.social_card === SOCIAL_CARD_TAG && (i as any).card),
     };
   }, [project]);
 
@@ -461,6 +465,8 @@ const SocialCardSection: React.FC<{
   const [handle, setHandle] = React.useState(existing?.handle || '');
   const [theme, setTheme] = React.useState<'dark' | 'light'>(existing?.theme || 'dark');
   const [position, setPosition] = React.useState<SocialCardConfig['position']>(existing?.position || 'top-left');
+  const [avatarUrl, setAvatarUrl] = React.useState(existing?.avatarUrl || '');
+  const [cardBackground, setCardBackground] = React.useState(existing?.cardBackground ?? true);
 
   const apply = (patch: Partial<SocialCardConfig> & { enabled?: boolean }) => {
     const next = {
@@ -469,6 +475,8 @@ const SocialCardSection: React.FC<{
       handle: patch.handle ?? handle,
       theme: patch.theme ?? theme,
       position: patch.position ?? position,
+      avatarUrl: (patch.avatarUrl ?? avatarUrl) || undefined,
+      cardBackground: patch.cardBackground ?? cardBackground,
     };
     onUpdateProject((prev) => applySocialCardToProject(prev as any, next) as unknown as EditorProject);
   };
@@ -513,6 +521,28 @@ const SocialCardSection: React.FC<{
               }}
               className="w-full px-2 py-1.5 rounded-md bg-white/[0.05] border border-white/[0.1] text-white text-[11px] placeholder:text-neutral-500"
             />
+            <input
+              type="text"
+              value={avatarUrl}
+              placeholder="Avatar image URL (optional)"
+              onChange={(e) => {
+                setAvatarUrl(e.target.value);
+                apply({ avatarUrl: e.target.value });
+              }}
+              className="w-full px-2 py-1.5 rounded-md bg-white/[0.05] border border-white/[0.1] text-white text-[11px] placeholder:text-neutral-500"
+            />
+            <label className="flex items-center gap-2 text-[11px] text-neutral-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={cardBackground}
+                onChange={(e) => {
+                  setCardBackground(e.target.checked);
+                  apply({ cardBackground: e.target.checked });
+                }}
+                className="accent-vc-accent"
+              />
+              Rounded card background
+            </label>
             <div className="flex gap-1.5">
               <select
                 value={theme}

@@ -65,6 +65,7 @@ import { SoundDesignService } from './soundDesignService.js';
 import { SmartReframeService } from './smartReframeService.js';
 import { partitionCaptionCues, shiftCaptionItemsForRippleDelete, cloneCaptionCuesForDuplicate } from '../utils/editorRippleCut.js';
 import { validateEditorSourcePath, isAllowedEditorSourcePath, overlayAssetExtension } from '../utils/editorAssetValidator.js';
+import { roundedCardPng } from '../utils/roundedCardPng.js';
 import { resolveXfadeName, getTransitionPreset, clampTransitionDuration } from '../shared/transitionPresets.js';
 import { drawtextFontArg } from './editorFontFiles.js';
 
@@ -1298,6 +1299,17 @@ export class ProEditorService {
       for (const item of st.items) {
         if (item.hidden) continue;
         let assetPath = item.source_path;
+        // Synthesized card backgrounds (social card chrome): no source asset;
+        // the PNG is rendered here from the item's own geometry so it always
+        // matches the preview's CSS borderRadius rendering.
+        const cardSpec = (item as any).card as { width: number; height: number; radius: number; color: string } | undefined;
+        if (!assetPath && cardSpec) {
+          const cardPath = path.join(tmpDir, `card_${item.id}.png`);
+          if (!fs.existsSync(cardPath)) {
+            fs.writeFileSync(cardPath, roundedCardPng(cardSpec.width, cardSpec.height, cardSpec.radius, cardSpec.color));
+          }
+          assetPath = cardPath;
+        }
         if (!assetPath) continue;
 
         // Defense in depth: items persisted before validation existed must not
@@ -1347,7 +1359,9 @@ export class ProEditorService {
           const designH = canvasH > canvasW ? 640 : canvasH === canvasW ? 480 : 360;
           const unitX = designSpace ? canvasW / designW : 1;
           const unitY = designSpace ? canvasH / designH : 1;
-          const baseDesignW = designSpace ? 280 : 360;
+          // Card items carry their exact design width; other design_center
+          // items use the preview's 280px cap as the base.
+          const baseDesignW = designSpace ? ((item as any).card?.width ?? 280) : 360;
           const targetW = Math.round(Math.min(canvasW * 0.85, Math.max(80, baseDesignW * scaleVal * unitX)));
           const posX = Math.round((item.transform?.position_x || 0) * unitX);
           const posY = Math.round((item.transform?.position_y || 0) * unitY);

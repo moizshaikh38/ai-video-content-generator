@@ -1440,12 +1440,26 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                         : 'hover:ring-1 hover:ring-white/40'
                     }`}
                   >
-                    <img
-                      src={item.source_path || ''}
-                      alt={item.name || 'Element Overlay'}
-                      className="max-w-[280px] max-h-[280px] object-contain pointer-events-none select-none"
-                      loading="eager"
-                    />
+                    {(item as any).card ? (
+                      // Synthesized card background: same width/height/radius/color
+                      // values the export's PNG synthesizer consumes (parity by construction).
+                      <div
+                        className="pointer-events-none select-none"
+                        style={{
+                          width: (item as any).card.width,
+                          height: (item as any).card.height,
+                          borderRadius: (item as any).card.radius,
+                          backgroundColor: (item as any).card.color,
+                        }}
+                      />
+                    ) : (
+                      <img
+                        src={item.source_path || ''}
+                        alt={item.name || 'Element Overlay'}
+                        className="max-w-[280px] max-h-[280px] object-contain pointer-events-none select-none"
+                        loading="eager"
+                      />
+                    )}
 
                     {/* DIRECT MANIPULATION HANDLES ATTACHED TO SELECTED STICKER / ELEMENT */}
                     {isSelected && (
