@@ -1444,7 +1444,8 @@ export function regroupCuesForPreset(cues: PresetTimedCue[], style: ResolvedCapt
       const holdShortGap=(style.presetId==='word_cut'||style.presetId==='soft_cut')&&style.maxWordsPerCue===1
         &&(!cue.presetOverride||cue.presetOverride===style.presetId)
         &&gap>0&&gap<=0.45;
-      const end=Math.min(cue.end,holdShortGap?nextPart.start:part.end);
+      const keepIdleCaret=style.presetId==='typewriter' && !nextPart;
+      const end=Math.min(cue.end,keepIdleCaret?cue.end:holdShortGap?nextPart.start:part.end);
       if (end<=start) continue;
       result.push({...cue,...part,id:parts.length===1?cue.id:`${cue.id}:part${i+1}`,start,end,
         tokens:part.words,
