@@ -250,3 +250,24 @@ as preview/export. One-line/pop/box/custom-token edits must not retain the speci
 cue after the renderer falls back. MaxWords1 uses normal one-word grouping. With MaxWords2
 or3, supplied row chunks are limited to one word each; default MaxWords6 retains observed
 candidate2word rows. Added regression covers these cases; default visual behavior unchanged.
+
+### Glide research and inactive state primitive
+
+Actual gallery screenshot and rendered geometry samples show fixed white Montserrat
+ExtraBold glyphs and an orange#FF4D2E rounded active box. Box center/width move between
+words, including row changes; phrase replacement includes a short scale entry. This is
+not a static word-box alias. Applied controls previously recorded ExtraBold58px.
+
+captionMovingBox.ts is an inactive pure state primitive with caller-supplied font/layout
+geometry. It interpolates center and dimensions, continues smoothly after an interrupted
+transition and has deterministic20ms candidate states. Eleven tests cover seeking, entry,
+row changes, changing width, invalid geometry, timing gaps, ties and cue boundaries.
+It is NOT wired into gallery/preview/ASS and makes no pixel/reference parity claim.
+120ms cubic easing,100ms entry are our candidate choices, not measured reference constants.
+
+Public Montserrat metadata/license verified:
+https://github.com/google/fonts/blob/main/ofl/montserrat/METADATA.pb
+https://github.com/google/fonts/blob/main/ofl/montserrat/OFL.txt
+A public weight800 static font instance was prepared outside the repository but is not
+bundled/qualified. Bound font advance/kerning and shared glyph layout must be solved
+before the moving-box engine can use this helper. Never guess character widths.
