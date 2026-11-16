@@ -315,7 +315,8 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
     id: 'word_cut', label: 'Word Cut',
     description: 'One word at a time with clean bold type.',
     sampleText: 'To get started',
-    font: { family: 'Inter', bold: true, size: 90, uppercase: false, letterSpacing: 0 },
+    // Empirically calibrated on four720px-wide applied reference words; UI63is not ASS63.
+    font: { family: 'Inter', bold: true, size: 106, uppercase: false, letterSpacing: 0 },
     colors: { text: '#FFFFFF', active: '#FFFFFF', activeText: '#FFFFFF', outline: '#000000', shadow: '#000000', shadowOpacity: 0.22 },
     outline: 0, shadow: 4, box: null, activeWordBox: null,
     layout: { anchor: 'bottom', marginV: 320, marginH: 70, maxWordsPerCue: 1, maxLines: 2, maxCharsPerLine: 24 },
@@ -1432,7 +1433,16 @@ export function regroupCuesForPreset(cues: PresetTimedCue[], style: ResolvedCapt
     const parts = groupWordsIntoCues(words,style.maxWordsPerCue,style.maxLines,style.maxCharsPerLine);
     for (let i=0;i<parts.length;i++) {
       const part=parts[i];
-      const start=Math.max(cue.start,part.start),end=Math.min(cue.end,part.end);
+      const start=Math.max(cue.start,part.start);
+      // Word Cut keeps its last displayed word through short inter-word pauses.
+      // Only extend inside this original edited cue, never through a scene/preset/
+      // manual-position boundary, a long silence, or beyond the final word.
+      const nextPart=parts[i+1];
+      const gap=nextPart?Number((nextPart.start-part.end).toFixed(3)):0;
+      const holdShortGap=style.presetId==='word_cut'&&style.maxWordsPerCue===1
+        &&(!cue.presetOverride||cue.presetOverride==='word_cut')
+        &&gap>0&&gap<=0.45;
+      const end=Math.min(cue.end,holdShortGap?nextPart.start:part.end);
       if (end<=start) continue;
       result.push({...cue,...part,id:parts.length===1?cue.id:`${cue.id}:part${i+1}`,start,end,
         tokens:part.words,

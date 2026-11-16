@@ -331,3 +331,38 @@ constants. Fullsize competitor output, shaping, spacing/grouping/motion, product
 staging, newer anchors and API/save/reload/render remain unqualified. Official4/40/0 stays.
 Public metadata/license: https://github.com/google/fonts/blob/main/ofl/poppins/METADATA.pb
 https://github.com/google/fonts/blob/main/ofl/poppins/OFL.txt
+
+## Applied Word Cut reference correction, 2026-11-17
+
+An explicitly permitted existing test-copy draft was used for reversible preset application and
+preview only. No original clip, Save changes, Export or credits were used. This is manual reference
+inspection, not automatic benchmarking or proof of the exported Opus output.
+
+Native720x1280preview pixels show larger Word Cut glyphs than Vireo's former ASS90default.
+The Opus Font UI63value cannot be treated as the same unit as ASS or Vireo's1080design space.
+Independent empirical calibration to ASS106 was checked on four words at720canvas width:
+white-pixel bounds reference/local fresh123x37/122x37, the76x35/75x36, hay84x45/84x46,
+yacht134x46/133x46. These are thresholded raster bounds on these samples, not a universal
+font-size conversion or pixel-perfect match. Explicit custom sizes remain unchanged.
+
+The applied preview holds a single word through the short pause before the next word.
+Word Cut regroup now extends only a positive gap of at most0.45s to the next word in the same
+original input cue. The0.45s bound reuses Vireo's independent pause-break policy, not a measured
+competitor threshold. No hold past the final word, across longer silence, into a separate original
+cue or into another preset. Original word timings remain unchanged; only display-cue end moves.
+Current position_anchor, position, preset/style overrides and input metadata remain intact.
+
+ActualVite/index.cssand losslessASSwere inspected at short-gap holds and after the final word,
+with an explicit center anchor. Both show the held word and both clear after the final word.
+ASSexplicitly selectedInter-BoldwithoutDejaVu. Glyph width agrees on tested holds, but ASSglyphs
+sit2-3pxabove preview at720wide with this center-anchor fixture. That residual anchor/baseline
+issue is not hidden by the reference-size correction and needs separate coordinated qualification.
+
+Soft Build large applied preview also confirms that visible words retain the final phrase's left
+edge while building. This supports its existing hidden-future-width contract, not Soft Landing's
+recenter-on-arrival behavior. Observed grouping boundaries are not assumed to transfer across
+source segments or user edits. Soft Build timing/grouping and all other families remain unqualified.
+
+170targetedtests(26suites)and bothTypeScriptchecks pass for this focused change. Current coverage
+remains4candidates,40unmatched,0Opus-verified. No integrated save/render or production claim is
+made by these local checks.
