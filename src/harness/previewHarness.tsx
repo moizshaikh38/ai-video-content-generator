@@ -4,9 +4,13 @@
 // component + callback contract EditorShell uses.
 import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { MemoryRouter } from 'react-router-dom';
 import { PreviewCanvas } from '../components/editor/PreviewCanvas';
 import { FramingWorkspacePanel } from '../components/editor/FramingWorkspacePanel';
+import { EditorShell } from '../components/editor/EditorShell';
 import { applyOutputTemplateToProject, getOutputTemplate, OutputTemplateId } from '../../server/src/shared/outputTemplates';
+import { buildClipEditorUpdatePayload } from '../lib/editorSavePayload';
+import { supabase } from '../lib/supabase';
 import { EditorProject, EditorTrackItem } from '../types';
 import '../index.css';
 
@@ -140,6 +144,103 @@ const makeProject = (item: EditorTrackItem): EditorProject =>
 // seeding; the GET /reframe fetch is stood in by the spk1/spk2 params).
 const SHOW_PANEL = params.get('panel') === 'templates';
 
+// TEST-ONLY: ?shell=templates mounts the REAL EditorShell against the local
+// fixture backend (harness-backend.mts; real routes, only the Supabase
+// verifier stubbed). The session stub below is the client half of that
+// labeled pattern. clip + token come from the fixture's BACKEND_READY line.
+const SHOW_SHELL = params.get('shell') === 'templates';
+const SHELL_CLIP_ID = params.get('clip') || '';
+const SHELL_TOKEN = params.get('token') || 'editorshell-proof-token';
+if (SHOW_SHELL) {
+  (supabase.auth as any).getSession = async () => ({
+    data: { session: { access_token: SHELL_TOKEN, expires_at: Math.floor(Date.now() / 1000) + 3600 } },
+    error: null,
+  });
+  (supabase.auth as any).refreshSession = async () => ({
+    data: { session: { access_token: SHELL_TOKEN, expires_at: Math.floor(Date.now() / 1000) + 3600 } },
+    error: null,
+  });
+}
+
+function ShellTemplateApp() {
+  const [project, setProject] = useState<EditorProject>(() => ({
+    id: 'shell-proof-project',
+    clip_id: SHELL_CLIP_ID,
+    canvas: { width: 1080, height: 1920, aspect_ratio: '9:16', fps: 30, duration: 9, background_color: '#000000' },
+    tracks: [
+      {
+        id: 'track-video-1', type: 'VIDEO', name: 'Video 1', locked: false, muted: false, hidden: false,
+        items: [
+          {
+            id: 'item-1', track_id: 'track-video-1', type: 'VIDEO',
+            timeline_start: 0, timeline_end: 9, source_start: 0, source_end: 9,
+            transform: { position_x: 0, position_y: 0, scale: 1, rotation: 0, opacity: 1 },
+            speed: { speed: 1, pitch_preserved: true },
+            keyframes: [], effects: [], hidden: false, locked: false, muted: false,
+          },
+        ],
+      },
+    ],
+    playhead: 0,
+    settings: { snapping: true, safe_guides: false, snap_tolerance_sec: 0.1, show_safe_zones: false },
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  } as unknown as EditorProject));
+
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'dirty' | 'error'>('saved');
+
+  // REAL save path: the client's own payload builder + real PATCH to the
+  // fixture backend (what ClipEditorPage's save flow does).
+  const saveNow = async () => {
+    setSaveStatus('saving');
+    const clipRes = await fetch(`http://127.0.0.1:5599/api/clips/${SHELL_CLIP_ID}`, {
+      headers: { Authorization: `Bearer ${SHELL_TOKEN}` },
+    });
+    const clipJson = await clipRes.json();
+    const clipRow = clipJson.clip || clipJson.data || clipJson;
+    const payload = buildClipEditorUpdatePayload(project as any, clipRow);
+    const res = await fetch(`http://127.0.0.1:5599/api/clips/${SHELL_CLIP_ID}/editor`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SHELL_TOKEN}` },
+      body: JSON.stringify(payload),
+    });
+    const after = await fetch(`http://127.0.0.1:5599/api/clips/${SHELL_CLIP_ID}`, {
+      headers: { Authorization: `Bearer ${SHELL_TOKEN}` },
+    });
+    const afterJson = await after.json();
+    const saved = (afterJson.clip || afterJson.data || afterJson)?.crop_config;
+    (window as any).__saveResult = { status: res.status, savedCropConfig: saved };
+    setSaveStatus(res.ok ? 'saved' : 'error');
+    return res.ok;
+  };
+
+  return (
+    <MemoryRouter>
+      <EditorShell
+        {...({
+          clip: {
+            id: SHELL_CLIP_ID, title: 'Two shot template clip', aspect_ratio: '9:16',
+            caption_enabled: true, render_status: 'ready', duration_seconds: 9,
+          },
+          project,
+          cleanSourceUrl: '/harness/clip-twoshot.mp4',
+          renderedPreviewUrl: null,
+          watermarkRequired: false,
+          cues: [],
+          canUndo: false, canRedo: false, saveStatus, saveError: null,
+          onSaveNow: saveNow,
+          onUndo: () => {}, onRedo: () => {},
+          onUpdateProject: (updater: any) => { setProject((prev) => updater(prev)); setSaveStatus('dirty'); },
+          onCommitProject: () => {},
+          onUpdateTrackItem: () => {}, onUpdateCueText: () => {}, onDeleteCue: () => {},
+          onSplitTrackItem: () => {}, onRippleDeleteTrackItem: () => {},
+          onDuplicateTrackItem: () => {}, onReloadData: async () => {},
+        } as any)}
+      />
+    </MemoryRouter>
+  );
+}
+
 function HarnessApp() {
   const [item, setItem] = useState<EditorTrackItem>(baseItem);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -225,4 +326,4 @@ function HarnessApp() {
   );
 }
 
-createRoot(document.getElementById('root')!).render(<HarnessApp />);
+createRoot(document.getElementById('root')!).render(SHOW_SHELL ? <ShellTemplateApp /> : <HarnessApp />);
