@@ -797,7 +797,8 @@ export class ProEditorService {
     // Multi-panel scene layout (Three/Four/ScreenShare/Gameplay): each panel is its own source crop.
     const panelCfg = normalizePanels((item as any).panels);
     if (panelCfg) {
-      const bd = ratio === '16:9' ? { w: 1920, h: 1080 } : ratio === '1:1' ? { w: 1080, h: 1080 } : { w: 1080, h: 1920 };
+      const dims = canvasDims(ratio, cs);
+      const bd = {w:dims.width,h:dims.height};
       const tag = ('vcp' + String(item.id || 'x')).replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || 'vcp';
       return buildPanelsFilter(panelCfg, bd.w, bd.h, tag);
     }

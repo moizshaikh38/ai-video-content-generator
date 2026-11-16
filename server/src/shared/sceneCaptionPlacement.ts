@@ -1,4 +1,5 @@
-export type CaptionSceneLayout = 'fill' | 'fit' | 'blur' | 'split';
+import {normalizePanels} from './panelLayouts.js';
+export type CaptionSceneLayout = 'fill' | 'fit' | 'blur' | 'split' | 'panel_seam' | 'panel_gameplay';
 export interface CaptionPlacementContext {
   project: any;
   sourceWidth?: number;
@@ -13,6 +14,8 @@ export interface CaptionPlacementContext {
 /** Reads the same persisted VIDEO-item layout contract as the editor controls.
  * No new scene store: callers use post-edit timeline windows, not source time. */
 export function captionSceneLayout(item: any, fallback = 'fill'): CaptionSceneLayout {
+  const panels=normalizePanels(item?.panels);
+  if (panels) return panels.layout === 'gameplay' ? 'panel_gameplay' : 'panel_seam';
   if (item?.crop?.mode === 'fit' || item?.crop?.mode === 'blur') return item.crop.mode;
   const layout = item?.crop_config?.layout_mode || item?.layout_mode;
   if (layout === 'split') return 'split';
@@ -35,8 +38,8 @@ function itemPositionIsExplicit(item: any): boolean {
  * This is a placement reference only, not same-moment or preset parity.
  * Split stays centered on the seam; Fill retains its lower safe edge. */
 export function autoCaptionAnchor(layout: CaptionSceneLayout, context: CaptionPlacementContext, _item?: any, _text = ''): number {
-  if (layout === 'split') return 0.5;
-  if (layout === 'fit' || layout === 'blur') return 585 / 720;
+  if (layout === 'split' || layout === 'panel_seam') return 0.5;
+  if (layout === 'fit' || layout === 'blur' || layout === 'panel_gameplay') return 585 / 720;
   const canvas = context.project?.canvas || {};
   const ratio = canvas.aspect_ratio || '9:16';
   const w = ratio === '16:9' ? 1920 : 1080;

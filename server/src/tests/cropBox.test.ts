@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it, test } from 'node:test';
 import assert from 'node:assert/strict';
 const close = (actual:number,expected:number,digits:number) => assert.ok(Math.abs(actual-expected)<.5*10**(-digits), `${actual} != ${expected} at ${digits} digits`);
 import { resolveFitMode, applyItemLayout } from '../../../src/lib/itemLayout';
@@ -105,3 +105,6 @@ test('applyItemLayout: panel layouts set item.panels, clear crop; switching back
   const it2: any = applyLayout2(p1, 'a', 'fit').tracks[0].items[0];
   assert.equal(it2.panels, undefined); assert.equal(it2.crop.mode, 'blur');
 });
+
+import {ProEditorService} from '../services/proEditorService.js';
+test('actual pro slice compiler passes requested resolution into panel geometry',()=>{const item:any={id:'p',panels:{layout:'four',slots:defaultPanelSlots('four')}};const f=(ProEditorService as any).buildSliceCropFilter(item,{aspectRatio:'9:16',canvasScale:2},0,1,{});assert.ok(f.includes('scale=1080:1920'));assert.ok(!f.includes('scale=540:960'));});
