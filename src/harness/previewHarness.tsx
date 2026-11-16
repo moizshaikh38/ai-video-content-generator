@@ -339,7 +339,9 @@ function HarnessApp() {
   const [item, setItem] = useState<EditorTrackItem>(baseItem);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const project = makeProject(item);
+  const [canvasPatch, setCanvasPatch] = useState<any>({});
+  const baseProject = makeProject(item);
+  const project = { ...baseProject, canvas: { ...baseProject.canvas, ...canvasPatch } } as any;
 
   const handleApplyOutputTemplate = (templateId: OutputTemplateId) => {
     const tpl = getOutputTemplate(templateId);
@@ -408,7 +410,10 @@ function HarnessApp() {
         showSafeGuides: false,
         onToggleSafeGuides: () => {},
         onChangeAspectRatio: () => {},
-        onUpdateCropMode: () => {},
+        onUpdateCropMode: (mode: string) => setItem((prev) => ({ ...prev, crop: { mode: (mode === 'center' || mode === 'smart' ? 'fill' : mode) as any, focusX: 0.5, focusY: 0.5, scale: 1 } })),
+        onUpdateCanvas: (patch: any) => setCanvasPatch((p: any) => ({ ...p, ...patch })),
+        clipId: 'harness-clip',
+        onSetTracker: () => {},
         videoRef,
         cues: HARNESS_CUES,
         speakerSplit: HARNESS_SPEAKER_SPLIT,

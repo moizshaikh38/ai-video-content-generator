@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ScanFace, X } from 'lucide-react';
 import type { EditorProject, EditorSubjectTracker } from '../../types';
 import { clipRenderService } from '../../services/clipRenderService';
@@ -24,6 +24,12 @@ export const TrackerControl: React.FC<Props> = ({ clipId, project, videoSrc, sou
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(false);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [menu]);
   const stageRef = useRef<HTMLDivElement>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const videoItems = project.tracks.filter((t) => t.type === 'VIDEO').flatMap((t) => t.items);

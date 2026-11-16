@@ -1174,9 +1174,18 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     const h = parseFloat(canvasDims.height);
     const exportW = project.canvas.aspect_ratio === '16:9' ? 1920 : 1080;
     const space = (w * sp) / 100;
+    const boxW = Math.max(2, w - 2 * space);
+    const boxH = Math.max(2, h - 2 * space);
+    // Size the element to the contained frame (not the whole inset box) so the rounded
+    // corners hug the visible video, matching buildBackdropFitChain.
+    const vw = videoDims && videoDims.w > 0 ? videoDims.w : 16;
+    const vh = videoDims && videoDims.h > 0 ? videoDims.h : 9;
+    const k = Math.min(boxW / vw, boxH / vh);
+    const fw = vw * k;
+    const fh = vh * k;
     return {
       position: 'absolute' as const,
-      left: space, top: space, width: Math.max(2, w - 2 * space), height: Math.max(2, h - 2 * space),
+      left: (w - fw) / 2, top: (h - fh) / 2, width: fw, height: fh,
       borderRadius: rad * (w / exportW),
       overflow: 'hidden' as const,
     };

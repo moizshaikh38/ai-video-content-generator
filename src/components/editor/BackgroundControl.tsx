@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ImageIcon } from 'lucide-react';
 import type { EditorProject } from '../../types';
 
@@ -15,6 +15,12 @@ interface Props {
 /** Preview-top "Background" control: Blur / Color + spacing + corner radius. Every value is read by the export compiler. */
 export const BackgroundControl: React.FC<Props> = ({ project, cropMode, onSetCropMode, onUpdateCanvas }) => {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [open]);
   const c = project.canvas;
   const spacing = c.background_spacing ?? 0;
   const radius = c.background_corner_radius ?? 0;
