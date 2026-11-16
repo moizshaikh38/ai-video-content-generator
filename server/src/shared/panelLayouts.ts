@@ -96,3 +96,24 @@ export function buildPanelsFilter(panelsIn: ItemPanels, canvasW: number, canvasH
   }
   return parts.join(';');
 }
+
+/** Export must never turn unassigned preview placeholders into a finished clip. */
+export function unassignedPanelViews(project: { tracks: Array<{type: string; hidden?: boolean; items: Array<{id: string; hidden?: boolean; panels?: Partial<ItemPanels>}>}> }): string[] {
+  const missing: string[] = [];
+  for (const track of project.tracks) {
+    if (track.type !== 'VIDEO' || track.hidden) continue;
+    for (const item of track.items) {
+      if (item.hidden) continue;
+      const panels = normalizePanels(item.panels);
+      panels?.slots.forEach((slot, index) => { if (!slot.set) missing.push(`${item.id}: Panel ${index + 1}`); });
+    }
+  }
+  return missing;
+}
+export function assertPanelViewsAssigned(project: Parameters<typeof unassignedPanelViews>[0]): void {
+  const missing = unassignedPanelViews(project);
+  if (missing.length) {
+    const err = new Error(`Set every panel view before exporting (${missing.length} unassigned). Open each scene and use its Panel buttons to review and Apply each view.`) as Error & { code: string; statusCode: number };
+    err.code = 'PANEL_VIEWS_UNASSIGNED'; err.statusCode = 409; throw err;
+  }
+}

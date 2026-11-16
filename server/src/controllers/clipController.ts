@@ -1,3 +1,4 @@
+import { assertPanelViewsAssigned } from '../shared/panelLayouts.js';
 import { parseRenderResolutionStrict } from '../shared/renderResolution.js';
 import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
@@ -559,6 +560,12 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
     }
 
     const clip = await ClipRenderService.getClip(clipId, userId);
+    // Gate the actual Studio/Quick render entry point before queuing. This check
+    // deliberately fails closed on repository errors, not a swallowed snapshot read.
+    const { data: panelProject, error: panelReadError } = await dataRepository.from('editor_projects')
+      .select('tracks').eq('clip_id', clipId).eq('user_id', userId).maybeSingle();
+    if (panelReadError) throw panelReadError;
+    if (panelProject) assertPanelViewsAssigned(panelProject);
 
     if (isClipRenderActive(clipId)) {
       res.status(409).json({
@@ -665,7 +672,7 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';
     const status =
-      code === 'CLIP_NOT_FOUND' ? 404 : code === 'RENDER_ALREADY_ACTIVE' ? 409 : 500;
+      err.statusCode || (code === 'CLIP_NOT_FOUND' ? 404 : code === 'RENDER_ALREADY_ACTIVE' ? 409 : 500);
 
     res.status(status).json({
       status: 'error',

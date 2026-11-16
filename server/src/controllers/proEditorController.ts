@@ -1,3 +1,4 @@
+import { assertPanelViewsAssigned } from '../shared/panelLayouts.js';
 import { parseRenderResolutionStrict } from '../shared/renderResolution.js';
 import { Response } from 'express';
 import { AuthenticatedRequest, isValidUUID } from '../types/index.js';
@@ -347,6 +348,8 @@ export const renderEditorProject = async (
 
   try {
     const project = await ProEditorService.getEditorProject(projectId, userId);
+
+    assertPanelViewsAssigned(project);
 
     // Fetch next render version
     const { data: clip } = await dataRepository

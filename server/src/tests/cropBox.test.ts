@@ -114,3 +114,13 @@ test('panel slots: defaults are unassigned; set flag survives normalisation', ()
   const n = normalizePanels({ layout: 'three', slots: [{ focusX: .1, focusY: .2, scale: 2, set: true }] as any })!;
   assert.equal(n.slots[0].set, true); assert.equal(n.slots[1].set, undefined);
 });
+
+import { unassignedPanelViews, assertPanelViewsAssigned } from '../shared/panelLayouts.js';
+test('unassigned panel export gate covers every visible scene and rejects before compile', () => {
+  const p:any = {tracks:[{type:'VIDEO',items:[{id:'a',panels:{layout:'three',slots:defaultPanelSlots('three')}},{id:'b',panels:{layout:'gameplay',slots:defaultPanelSlots('gameplay').map(s=>({...s,set:true}))}}]}]};
+  assert.equal(unassignedPanelViews(p).length,3);
+  assert.throws(()=>assertPanelViewsAssigned(p), (e:any)=>e.code==='PANEL_VIEWS_UNASSIGNED'&&e.statusCode===409);
+  assert.throws(()=>ProEditorService.compileRenderGraph(p,'/tmp/source'),/Set every panel view/);
+  p.tracks[0].items[0].panels.slots.forEach((s:any)=>s.set=true);assertPanelViewsAssigned(p);
+  p.tracks[0].items[0].panels.slots[0].set=false;p.tracks[0].items[0].hidden=true;assertPanelViewsAssigned(p);
+});

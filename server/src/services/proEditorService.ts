@@ -1,3 +1,4 @@
+import { assertPanelViewsAssigned } from '../shared/panelLayouts.js';
 import { canvasDims } from '../shared/renderResolution.js';
 import fs from 'node:fs';
 import { normalizePanels, buildPanelsFilter } from '../shared/panelLayouts.js';
@@ -1154,6 +1155,7 @@ export class ProEditorService {
     reframe?: ProReframeContext,
     loudnorm?: LoudnormCompileMode
   ): CompiledRenderGraph {
+    assertPanelViewsAssigned(project);
     const inputArgs: string[] = [];
     const filterComplex: string[] = [];
     const outputArgs: string[] = [];
