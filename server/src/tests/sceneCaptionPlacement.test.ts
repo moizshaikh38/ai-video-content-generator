@@ -26,3 +26,6 @@ test('split center anchor identical in preview frame and ASS tags',()=>{const st
 test('ASS font directory includes nested bundled families, not only empty root',()=>{const arg=assFontsDirArg();const dir=arg.slice(11,-1);assert.ok(fs.readdirSync(dir).some(n=>n==='Inter-Bold.ttf'));assert.ok(fs.readdirSync(dir).some(n=>n==='Montserrat-Black.ttf'))});
 
 test('fit/blur center position is identical in preview frame and export tags',()=>{const style=resolveCaptionPreset('beasty',{},'9:16');const c=applySceneCaptionPlacement([cue],ctx)[0];assert.equal(getPreviewFrame(c,1.5,style).positionY,.8125);assert.equal(getPreviewFrame(c,1.5,style).positionAnchor,'center');assert.match(buildPresetAssScript([c],style),/\\an5\\pos\(540,1560\)/)});
+
+test('Soft Cut layered glyph passes preserve scene center and a single position tag',()=>{const style=resolveCaptionPreset('soft_cut',{},'9:16');const c=applySceneCaptionPlacement([cue],ctx)[0];const ass=buildPresetAssScript([c],style);const events=ass.split('\n').filter(l=>l.startsWith('Dialogue:'));assert.ok(events.length>=3);for(const e of events){assert.match(e,/\\an5\\pos\(540,1560\)/);assert.equal((e.match(/\\pos\(/g)||[]).length,1)}});
+test('ASS staging includes new Figtree Semibold family',()=>{const dir=assFontsDirArg().slice(11,-1);assert.ok(fs.readdirSync(dir).includes('Figtree-SemiBold.ttf'))});
