@@ -27,11 +27,13 @@ export interface CaptionReferenceCoverage {
 /** No style is declared verified solely because its name exists or a gallery animation was seen. */
 export const CAPTION_REFERENCE_COVERAGE: CaptionReferenceCoverage[] = OPUS_CAPTION_REFERENCE.styles.map(name => {
   const candidate = {
+    'Retro 3D': { presetId: 'retro_3d', evidence: 'Visible Bungee uppercase yellow type, orange diagonal extrusion, dark outline, white active word and small upward settling motion.', remaining: 'Full-sized output, exact lift timing, extrusion and segmentation comparison.' },
     'Soft Cut': { presetId: 'soft_cut', evidence: 'Visible one-word replacement, cream Figtree Semibold and two vertical shadow layers; applied Font panel confirms face, size and color.', remaining: 'Full-sized reference output, exact temporal/phrase behavior and shadow geometry comparison.' },
     'Word Cut': { presetId: 'word_cut', evidence: 'Visible tile shows individual words replacing each other; Inter bold white type with a small black shadow.', remaining: 'Full-sized applied output, font metrics and phrase segmentation comparison.' },
     'Soft Build': { presetId: 'soft_build', evidence: 'Visible tile builds a sentence word by word; League Spartan regular white type with small black shadow.', remaining: 'Full-sized applied output, exact easing and layout comparison.' },
     'Typewriter': { presetId: 'typewriter', evidence: 'Visible tile reveals characters progressively; JetBrains Mono bold white type with yellow cursor.', remaining: 'Full-sized applied output, exact timing and phrase segmentation comparison. Yellow cursor is independently implemented but not reference-qualified.' },
-  }[name as 'Soft Cut' | 'Word Cut' | 'Soft Build' | 'Typewriter'];
+  }[name as 'Retro 3D' | 'Soft Cut' | 'Word Cut' | 'Soft Build' | 'Typewriter'];
+  if (name === 'Retro 3D' && candidate) return {name,status:'unmatched',...candidate,remaining:'Experimental local implementation only. Font-specific size serialization and integrated save/render roundtrip must qualify before counting as a candidate. '+candidate.remaining};
   return candidate ? { name, status: 'candidate', ...candidate } : {
     name, status: 'unmatched', evidence: 'Current gallery label and individually applied Font/Effects controls observed. Existing same-name Vireo styles are not evidence of parity.',
     remaining: 'Individual visual/timing specification, independent implementation and preview/export comparison.',

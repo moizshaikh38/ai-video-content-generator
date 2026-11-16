@@ -140,3 +140,42 @@ The full styled gallery exposed nested Typewriter glyph spans inheriting a small
 monospace size while the caret kept its fixed geometric size. Shared preview glyph spans now
 carry the exact same explicit em size as the line. Rechecked actual gallery pixels show normal
 text/caret proportion. This is a preview styling correction, not a change to ASS timing/geometry.
+
+## Experimental Retro 3D and bundled-font size bounds
+
+Not counted as an accepted fifth candidate until integrated serialization/save/render checks pass.
+Current coverage remains4 candidates,40 unmatched,0 verified. Retro 3D is exposed locally with
+the exact name and In testing badge: public OFL Bungee, yellow#FFD23F, white active word,
+dark#1B1B1Boutline, six orange#E4572Ediagonal extrusion passes and a small settling lift.
+Its timing and line spacing are independent candidate parameters, not a reference match.
+Font provenance: https://github.com/google/fonts/blob/main/ofl/bungee/METADATA.pb and
+https://github.com/google/fonts/blob/main/ofl/bungee/OFL.txt .
+
+Actual Bungee Windows metrics are1000units per em over2574ascent+descent. Matching70px
+em needs180ASSunits, so the previous blanket110cap cannot represent it. Exact bundled
+family Bungee alone now has shared bounds32..284; all other/unknown families retain32..110.
+getCaptionFontSizeBounds and clampCaptionFontSize are the source of truth. Sanitization
+requires explicit family or caller-supplied preset family context for high metric-size values.
+The isolated UI's number input and slider use these bounds;180->200updates were exercised
+as actual pixels. Production API/save validators still belong to the integration owner and
+are not changed here. This is why the coverage record remains unmatched/experimental.
+
+Lift uses deterministic20mssteps and separate positioned per-word events. Other words remain
+hidden but retain layout width. ASS polygon-baseline tags were experimentally found ineffective
+for ordinary text and are not used. Segment-only cues stay static. More than6edited words,
+custom glyph scaling or custom effects disable lift consistently in preview/export until those
+combinations are qualified. Existing scene/manual position tags are kept.
+
+Outline order matters: CSS text-shadow covered the front outline differently from ASS. Preview
+now paints separate glyph-shadow spans behind the outlined fill, with actual losslessFFmpeg
+and Chrome pixels rechecked for Retro and Soft Cut. Approximate glyph bounds differ by up
+to1px vertically and2px horizontally on the tested phrase. No pixel-perfect/reference claim.
+
+Gallery scale now also respects a vertical estimate, preventing two-line presets with large
+metric line boxes from clipping card edges. Nested monospace wrapper font sizes are pinned
+to the shared line size, keeping the Typewriter caret on its text baseline. Actual styled gallery
+and size customizer screenshots were inspected. These are not backend save/reload proof.
+
+Plan producer caveat: a declared font parameter is not enough to enable Bungee bounds if the
+producer does not actually apply that family. Unknown/unbound plan contexts keep110. Direct
+save/render paths need the validated effective family. This lane does not alter producer behavior.

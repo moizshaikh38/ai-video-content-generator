@@ -43,6 +43,7 @@ export const CAPTION_PRESET_IDS = [
   'soft_build',
   'typewriter',
   'soft_cut',
+  'retro_3d',
 ] as const;
 
 export type CaptionPresetId = (typeof CAPTION_PRESET_IDS)[number];
@@ -79,6 +80,7 @@ export const PRESET_ONLY_CAPTION_STYLES = [
   'soft_build',
   'typewriter',
   'soft_cut',
+  'retro_3d',
 ] as const;
 
 /** Every value accepted for `caption_style`. */
@@ -122,7 +124,7 @@ export function resolveRenderPresetId(
 // ── Fonts ────────────────────────────────────────────────────────
 
 /** Fonts the export renderer allows (mirrors SAFE_FONT_FAMILIES in server types). */
-export const CAPTION_RENDER_FONTS = ['Figtree', 'JetBrains Mono', 'League Spartan', 'Inter', 'Arial', 'Arial Black', 'DejaVu Sans', 'Liberation Sans'] as const;
+export const CAPTION_RENDER_FONTS = ['Bungee', 'Figtree', 'JetBrains Mono', 'League Spartan', 'Inter', 'Arial', 'Arial Black', 'DejaVu Sans', 'Liberation Sans'] as const;
 export type CaptionRenderFont = (typeof CAPTION_RENDER_FONTS)[number];
 export const CAPTION_FALLBACK_FONT: CaptionRenderFont = 'Arial';
 
@@ -131,7 +133,7 @@ export const CAPTION_FALLBACK_FONT: CaptionRenderFont = 'Arial';
  * through libass on the export host; the other CAPTION_RENDER_FONTS stay accepted for
  * API compatibility but may be substituted by the system font matcher.
  */
-export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Arial', 'Arial Black', 'Inter', 'JetBrains Mono', 'League Spartan', 'Figtree'];
+export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Arial', 'Arial Black', 'Inter', 'JetBrains Mono', 'League Spartan', 'Figtree', 'Bungee'];
 
 /**
  * libass scales a font so that (ascent + descent) equals the ASS font size, while CSS
@@ -140,6 +142,7 @@ export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Arial', 'Aria
  * and fontselect logs. Other historical font ratios are preserved.
  */
 export const FONT_EM_PER_ASS_SIZE: Record<CaptionRenderFont, number> = {
+  Bungee: 1000 / 2574,
   Figtree: 1000 / 1201,
   'JetBrains Mono': 0.638978,
   'League Spartan': 0.671141,
@@ -153,14 +156,26 @@ export const FONT_EM_PER_ASS_SIZE: Record<CaptionRenderFont, number> = {
 /** Baseline offsets measured against bundled libass faces, as a fraction of ASS size.
  * Keep historical faces unchanged; these align the newly qualified candidate families. */
 export const FONT_PREVIEW_BASELINE_SHIFT: Partial<Record<CaptionRenderFont, number>> = {
+  Bungee: 0,
   Figtree: 0.034091, // 1.5px correction at540px wide, qualified with actual renders
   Inter: 0.05,
   'JetBrains Mono': 0.014377,
   'League Spartan': 0.112416,
 };
 
+/** Exact bundled-family bounds. Bungee has large Windows metrics (1000/2574em per ASS unit).
+ * Keep unknown/unqualified families at the historical110 cap. Never derive this from raw size. */
+export function getCaptionFontSizeBounds(fontFamily: unknown): { min: number; max: number } {
+  return { min:32, max:fontFamily === 'Bungee' ? 284 : 110 };
+}
+export function clampCaptionFontSize(value: number,fontFamily: unknown,fallback=64):number {
+  const bounds=getCaptionFontSizeBounds(fontFamily);
+  return Math.min(bounds.max,Math.max(bounds.min,Math.round(Number.isFinite(value)?value:Number.isFinite(fallback)?fallback:64)));
+}
+
 /** CSS font stacks used by the preview for each export font. */
 export const FONT_CSS_STACK: Record<CaptionRenderFont, string> = {
+  Bungee: "'Bungee', sans-serif",
   Figtree: "'Figtree', sans-serif",
   'JetBrains Mono': "'JetBrains Mono', monospace",
   'League Spartan': "'League Spartan', sans-serif",
@@ -190,9 +205,10 @@ export type CaptionAspect = '9:16' | '1:1' | '16:9';
 
 export type CaptionReveal = 'all' | 'build' | 'character';
 
-export interface CaptionShadowLayer { y: number; opacity: number; color: string }
+export interface CaptionShadowLayer { x?: number; y: number; opacity: number; color: string }
 
 export interface CaptionPresetDefinition {
+  wordLift?: { distance: number; durationMs: number };
   shadowLayers?: readonly CaptionShadowLayer[];
   /** Separate from its exact label: reference parity is still being qualified. */
   qualification?: 'candidate';
@@ -310,6 +326,18 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
     box: null, activeWordBox: null,
     layout: { anchor: 'bottom', marginV: 320, marginH: 70, maxWordsPerCue: 1, maxLines: 2, maxCharsPerLine: 24 },
     highlight: 'none', wordAnimation: NO_ANIMATION, entrance: NO_ENTRANCE, reveal: 'all',
+  },
+  retro_3d: {
+    qualification: 'candidate', id: 'retro_3d', label: 'Retro 3D',
+    description: 'Yellow display type with orange extrusion and lifting white active words.', sampleText: 'To get started',
+    font: { family: 'Bungee', bold: false, size: 180, uppercase: true, letterSpacing: 0 },
+    colors: { text: '#FFD23F', active: '#FFFFFF', activeText: '#FFFFFF', outline: '#1B1B1B', shadow: '#E4572E', shadowOpacity: 0 },
+    outline: 2, shadow: 0,
+    shadowLayers: [6,5,4,3,2,1].map(step => ({x:step*1.5,y:step*2,opacity:1,color:'#E4572E'})),
+    wordLift: { distance: 10, durationMs: 140 },
+    box: null, activeWordBox: null,
+    layout: { anchor: 'bottom', marginV: 320, marginH: 70, maxWordsPerCue: 3, maxLines: 2, maxCharsPerLine: 12 },
+    highlight: 'active', wordAnimation: NO_ANIMATION, entrance: NO_ENTRANCE, reveal: 'all',
   },
   karaoke: {
     id: 'karaoke',
@@ -683,6 +711,7 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
 
 export const CAPTION_PRESET_LABELS: Record<CaptionPresetId, string> = {
   none: 'No captions',
+  retro_3d: CAPTION_PRESETS.retro_3d.label,
   soft_cut: CAPTION_PRESETS.soft_cut.label,
   word_cut: CAPTION_PRESETS.word_cut.label,
   soft_build: CAPTION_PRESETS.soft_build.label,
@@ -760,6 +789,7 @@ export interface CaptionPresetOverrides {
 }
 
 export interface ResolvedCaptionStyle {
+  wordLift?: { distance: number; durationMs: number };
   fontWeight?: number;
   shadowLayers?: readonly CaptionShadowLayer[];
   caretColor?: string;
@@ -860,7 +890,7 @@ export function getCaptionPlayRes(aspect: string | undefined): { x: number; y: n
 }
 
 /** Sanitizes untrusted override input (API payloads, stored configs) into a clean object. */
-export function sanitizePresetOverrides(input: unknown): CaptionPresetOverrides {
+export function sanitizePresetOverrides(input: unknown, fontFamilyContext?: unknown): CaptionPresetOverrides {
   const out: CaptionPresetOverrides = {};
   if (!input || typeof input !== 'object') return out;
   const o = input as Record<string, unknown>;
@@ -933,7 +963,8 @@ export function sanitizePresetOverrides(input: unknown): CaptionPresetOverrides 
     out.highlightKeywordColor = sanitizeHexColor(o.highlightKeywordColor, '#FFE500');
   }
   if (o.fontSize !== undefined) {
-    const n = clampNum(o.fontSize, 32, 110, NaN);
+    const bounds=getCaptionFontSizeBounds(out.fontFamily ?? fontFamilyContext);
+    const n = clampNum(o.fontSize, bounds.min, bounds.max, NaN);
     if (Number.isFinite(n)) out.fontSize = Math.round(n);
   }
   if (o.position === 'top' || o.position === 'center' || o.position === 'bottom') out.position = o.position;
@@ -960,7 +991,7 @@ export function resolveCaptionPreset(
 ): ResolvedCaptionStyle {
   const id: RenderableCaptionPresetId = isRenderablePresetId(presetId) ? presetId : DEFAULT_CAPTION_PRESET_ID;
   const p = CAPTION_PRESETS[id];
-  const o = sanitizePresetOverrides(rawOverrides);
+  const o = sanitizePresetOverrides(rawOverrides,p.font.family);
   const playRes = getCaptionPlayRes(aspect);
   const vScale = playRes.y / 1920;
 
@@ -1024,7 +1055,7 @@ export function resolveCaptionPreset(
   const activeColor = o.activeColor ?? p.colors.active;
   const activeTextColor = p.activeWordBox ? p.colors.activeText : o.activeColor ?? p.colors.activeText;
 
-  const fontSize = o.fontSize !== undefined ? Math.min(110, Math.max(32, Math.round(o.fontSize))) : p.font.size;
+  const fontSize = o.fontSize !== undefined ? clampCaptionFontSize(o.fontSize,fontNorm.font) : p.font.size;
   const letterSpacing = o.letterSpacing !== undefined ? o.letterSpacing : p.font.letterSpacing;
 
   const wordAnimation = {
@@ -1036,6 +1067,7 @@ export function resolveCaptionPreset(
 
   return {
     presetId: id,
+    wordLift: p.wordLift,
     reveal: p.reveal ?? 'all',
     caretColor: p.caretColor,
     playResX: playRes.x,
@@ -1523,9 +1555,34 @@ export function getWordRevealState(word: PresetTimedWord, time: number, reveal: 
   return { opacity: 1, visibleCharacters: shown };
 }
 
+/** Candidate lift motion uses a deterministic20ms clock shared by CSS and ASS. */
+export function getCaptionWordOffsetY(word: PresetTimedWord,time:number,style:ResolvedCaptionStyle):number {
+  const start=Number(word.start.toFixed(2)),end=Number(word.end.toFixed(2)),tick=Number(time.toFixed(2));
+  if (!style.wordLift || tick < start || tick >= end) return 0;
+  const elapsed = Math.floor((tick-start+1e-6)*50)*20;
+  const duration = Math.min(style.wordLift.durationMs,(end-start)*800);
+  if (elapsed >= duration || duration <= 0) return 0;
+  return -Number((style.wordLift.distance * Math.pow(1-elapsed/duration,2)).toFixed(3));
+}
+function canUseWordLift(words:PresetTimedWord[],style:ResolvedCaptionStyle):boolean {
+  return !!style.wordLift && words.length<=6 && !words.some(w=>w.customStyle?.effect || w.customStyle?.fontSizeMultiplier);
+}
+function getPresetCueSlices(cue:PresetTimedCue,words:PresetTimedWord[],style:ResolvedCaptionStyle):CueWordSlice[] {
+  const slices=computeCueWordSlices(cue,words);if(!canUseWordLift(words,style))return slices;
+  return slices.flatMap(slice=>{
+    const word=words[slice.activeIdx];if(!word)return [slice];
+    const bounds=[slice.start,slice.end];
+    for(let step=1;step<=Math.ceil(style.wordLift!.durationMs/20);step++) {
+      const t=Number((word.start+step*.02).toFixed(2));if(t>slice.start&&t<slice.end)bounds.push(t);
+    }
+    bounds.sort((a,b)=>a-b);return bounds.slice(0,-1).map((start,i)=>({...slice,start,end:bounds[i+1]}));
+  });
+}
+
 // ── Preview frame state (consumed by the React renderer) ─────────
 
 export interface PreviewWord {
+  offsetY?: number;
   visibleCharacters?: number;
   caretActive?: boolean;
   opacity?: number;
@@ -1595,6 +1652,7 @@ export function getPreviewFrame(cue: PresetTimedCue, time: number, style: Resolv
       caretActive: !!style.caretColor && i === Math.max(0, validWords.reduce((last, word, index) => time >= word.start ? index : last, 0)),
       highlighted: states[i].highlighted,
       active: states[i].active,
+      offsetY: canUseWordLift(validWords,style) ? getCaptionWordOffsetY(w,time,style) : 0,
       scale: states[i].active ? getActiveWordScaleAt(timing, elapsed) : 1,
       breakAfter: i === breakIdx,
       customStyle: w.customStyle,
@@ -1693,9 +1751,9 @@ export function getPreviewCss(style: ResolvedCaptionStyle, scale: number): Previ
     container.transform = 'translateY(-50%)';
   }
 
-  const shadow = style.shadowLayers?.length
-    ? style.shadowLayers.map(l => `0 ${px(l.y)} 0 ${hexToRgba(l.color,l.opacity)}`).reverse().join(', ')
-    : style.shadowDepth > 0 && style.shadowOpacity > 0
+  // Layered glyph copies are painted independently by CaptionPresetRenderer,
+  // otherwise CSS text-shadow covers the front outline differently from libass.
+  const shadow = style.shadowLayers?.length ? 'none' : style.shadowDepth > 0 && style.shadowOpacity > 0
       ? `${px(style.shadowDepth)} ${px(style.shadowDepth)} 0 ${hexToRgba(style.shadowColor, style.shadowOpacity)}`
       : 'none';
 
@@ -1735,7 +1793,7 @@ export function getPreviewCss(style: ResolvedCaptionStyle, scale: number): Previ
     const fontMultiplier = typeof cs?.fontSizeMultiplier === 'number' && cs.fontSizeMultiplier > 0 ? cs.fontSizeMultiplier : 1;
     const effectiveScale = w.scale * fontMultiplier;
     css.display = 'inline-block';
-    css.transform = `scale(${effectiveScale.toFixed(3)})`;
+    css.transform = `${w.offsetY ? `translateY(${px(w.offsetY)}) ` : ''}scale(${effectiveScale.toFixed(3)})`;
     css.transformOrigin = 'center bottom';
     css.transition = style.reveal === 'all' ? 'transform 0.08s ease-out, color 0.1s ease' : 'none';
     if (cs?.uppercase) {
@@ -1856,8 +1914,9 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
     const text = /\\pos\(/.test(originalText) ? originalText : `{\\pos(${x},${y})}` + originalText; const header = fields.slice(0,9).join(',') + ',';
     return [...style.shadowLayers!.map(l => {
       const alpha = Math.round((1-l.opacity)*255).toString(16).padStart(2,'0').toUpperCase();
-      const ink = text.replace(/\\(?:1?c|3c)&H[0-9A-F]+&/gi, '');
-      return header + `{\\1c${hexToAssColor(l.color)}\\alpha&H${alpha}&\\bord0\\shad0\\pbo${-l.y}}` + ink;
+      const ink = text.replace(/\\(?:1?c|3c)&H[0-9A-F]+&/gi, '').replace(/\\bord[\d.]+/g,'');
+      const shifted = ink.replace(/\\pos\(([-\d.]+),([-\d.]+)\)/g,(_m,x,y)=>`\\pos(${Number(x)+(l.x??0)},${Number(y)+l.y})`);
+      return header + `{\\1c${hexToAssColor(l.color)}\\alpha&H${alpha}&\\bord0\\shad0}` + shifted;
     }), (header + text).replace('Dialogue: 0,','Dialogue: 1,')];
   });
 }
@@ -1945,7 +2004,28 @@ function buildPresetCueEventsBare(cue: PresetTimedCue, baseStyle: ResolvedCaptio
     });
   }
 
-  const slices = computeCueWordSlices(cue, validWords);
+  if (canUseWordLift(validWords,style)) {
+    const words=getValidCueWords(cue),breakIdx=getCueLineBreakIndex(cue,words.length);
+    const slices=getPresetCueSlices(cue,words,style);
+    const defaultX=[1,4,7].includes(style.alignment)?style.marginL:[3,6,9].includes(style.alignment)?style.playResX-style.marginR:(style.marginL+style.playResX-style.marginR)/2;
+    const defaultY=style.alignment>=7?style.marginV:style.alignment>=4?style.playResY/2:style.playResY-style.marginV;
+    const basePos=posTag || String.raw`{\pos(${defaultX},${defaultY})}`;
+    return slices.flatMap(slice=>words.map((word,visibleIndex)=>{
+      const offset=getCaptionWordOffsetY(word,slice.start,style);
+      const position=basePos.replace(/\\pos\(([-\d.]+),([-\d.]+)\)/g,(_m,x,y)=>String.raw`\pos(${x},${Number(y)+offset})`);
+      let text=position;
+      words.forEach((w,i)=>{
+        if(i)text+=i-1===breakIdx?String.raw`\N`:' ';
+        const color=w.customStyle?.color || (slice.activeIdx===i?style.activeColor:style.textColor);
+        const multiplier=Math.max(.25,Math.min(3,w.customStyle?.fontSizeMultiplier??1));
+        const wordText=w.customStyle?.uppercase?w.text.toUpperCase():w.text;
+        text+=String.raw`{\alpha&H${i===visibleIndex?'00':'FF'}&\c${hexToAssColor(color)}\fscx${Math.round(multiplier*100)}\fscy${Math.round(multiplier*100)}}${escapeAssText(wordText)}`;
+      });
+      return dialogue(slice.start,slice.end,text);
+    }));
+  }
+
+  const slices = getPresetCueSlices(cue, validWords, style);
   const breakIdx = getCueLineBreakIndex(cue, validWords.length);
   const events: string[] = [];
 

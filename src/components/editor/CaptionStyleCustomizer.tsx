@@ -13,6 +13,8 @@ import {
 import { EditorCaptionItem } from '../../types';
 import {
   CAPTION_RENDER_FONTS,
+  getCaptionFontSizeBounds,
+  clampCaptionFontSize,
   ResolvedCaptionStyle,
 } from '../../lib/captionPresets';
 
@@ -66,6 +68,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
     resolvedStyle?.fontFamily ??
     (captionItem?.style === 'bold' ? 'Arial Black' : 'Arial');
 
+  const fontSizeBounds=getCaptionFontSizeBounds(fontFamily);
   const fontSize = captionItem?.font_size ?? resolvedStyle?.fontSize ?? 64;
   const letterSpacing = captionItem?.letter_spacing ?? resolvedStyle?.letterSpacing ?? 0;
   const alignment =
@@ -239,12 +242,12 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
             <div className="h-8 rounded-xl bg-vc-surface1 px-2 flex items-center justify-between text-xs font-mono tabular-nums text-white">
               <input
                 type="number"
-                min="32"
-                max="110"
+                min={fontSizeBounds.min}
+                max={fontSizeBounds.max}
                 value={fontSize}
                 onChange={(e) => {
                   const val = parseInt(e.target.value, 10);
-                  if (!isNaN(val)) onChange({ font_size: Math.max(32, Math.min(110, val)) });
+                  if (!isNaN(val)) onChange({ font_size: clampCaptionFontSize(val,fontFamily) });
                 }}
                 className="w-8 bg-transparent text-xs font-mono text-white text-center focus:outline-none"
               />
@@ -256,8 +259,8 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
         {/* Range Slider */}
         <input
           type="range"
-          min="32"
-          max="110"
+          min={fontSizeBounds.min}
+          max={fontSizeBounds.max}
           step="1"
           value={fontSize}
           onChange={(e) => onChange({ font_size: parseInt(e.target.value, 10) })}

@@ -16,6 +16,7 @@ import {
   CAPTION_RENDER_FONTS,
   DEFAULT_CAPTION_PRESET_ID,
   FONT_EM_PER_ASS_SIZE,
+  getCaptionFontSizeBounds,
   PRESET_FONT_CHOICES,
   buildPresetAssScript,
   buildPresetCueEvents,
@@ -97,7 +98,7 @@ describe('Caption presets: configuration and stable IDs', () => {
       'editorial', 'bold_highlight', 'soft_backdrop', 'compact_creator', 'two_color_highlight',
       'vireo_oneword', 'vireo_pill', 'vireo_lime', 'vireo_hormozi', 'vireo_clean',
       'vireo_spring', 'vireo_neon', 'vireo_capsule', 'vireo_editorial', 'vireo_sweep',
-      'word_cut', 'soft_build', 'typewriter', 'soft_cut',
+      'word_cut', 'soft_build', 'typewriter', 'soft_cut', 'retro_3d',
     ]);
   });
 
@@ -116,7 +117,7 @@ describe('Caption presets: configuration and stable IDs', () => {
       for (const c of [p.colors.text, p.colors.active, p.colors.activeText, p.colors.outline, p.colors.shadow]) {
         assert.match(c, HEX, `${id} color ${c}`);
       }
-      assert.ok(p.font.size >= 48 && p.font.size <= 110, `${id} size`);
+      assert.ok(p.font.size >= 48 && p.font.size <= getCaptionFontSizeBounds(p.font.family).max, `${id} size`);
       assert.ok(p.layout.maxWordsPerCue >= 1 && p.layout.maxWordsPerCue <= 6, `${id} words`);
       assert.ok(p.wordAnimation.scale >= 1 && p.wordAnimation.scale <= 1.3, `${id} scale`);
       assert.ok(p.sampleText.split(' ').length >= 2);
@@ -124,7 +125,7 @@ describe('Caption presets: configuration and stable IDs', () => {
   });
 
   it('has a metric ratio for every render font', () => {
-    for (const f of CAPTION_RENDER_FONTS) assert.ok(FONT_EM_PER_ASS_SIZE[f] > 0.5 && FONT_EM_PER_ASS_SIZE[f] < 1.2);
+    for (const f of CAPTION_RENDER_FONTS) assert.ok(FONT_EM_PER_ASS_SIZE[f] > 0.3 && FONT_EM_PER_ASS_SIZE[f] < 1.2);
   });
 });
 

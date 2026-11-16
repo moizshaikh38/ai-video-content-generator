@@ -104,12 +104,13 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
           .filter((l) => l.length > 0)
           .map((line, li) => (
             <div key={li} style={{ ...(css.line as React.CSSProperties), ...(noWrap ? { whiteSpace: 'nowrap' } : null) }}>
-              <span style={css.lineBox as React.CSSProperties}>
+              <span style={{...css.lineBox as React.CSSProperties,fontSize:css.line.fontSize}}>
                 {line.map((w, wi) => (
                   <React.Fragment key={wi}>
                     {wi > 0 && ' '}
-                    {style.caretColor ? <span style={{position:'relative',display:'inline-block'}}>
-                      <span style={css.word(w) as React.CSSProperties}>{w.text}</span>
+                    {style.caretColor || style.shadowLayers?.length ? <span style={{position:'relative',display:'inline-block',fontSize:css.line.fontSize}}>
+                      {style.shadowLayers?.map((layer,idx)=><span key={idx} data-caption-shadow-layer={idx} style={{...css.word(w) as React.CSSProperties,position:'absolute',left:(layer.x??0)*scale,top:layer.y*scale,color:layer.color,opacity:(w.opacity??1)*layer.opacity,WebkitTextStroke:'0 transparent',textShadow:'none'}}>{w.text}</span>)}
+                      <span style={{...css.word(w) as React.CSSProperties,position:'relative'}}>{w.text}</span>
                       {w.caretActive && style.caretColor && frame.caret && <span data-caption-caret="true" style={{position:'absolute',pointerEvents:'none',left:(w.visibleCharacters ?? 0)*(style.fontSize*FONT_EM_PER_ASS_SIZE[style.fontFamily]*.6+style.letterSpacing)*scale,top:style.fontSize*.30*scale,width:frame.caret.width*scale,height:frame.caret.height*scale,backgroundColor:style.caretColor}}/>}
                     </span> : <span style={css.word(w) as React.CSSProperties}>{w.text}</span>}
                   </React.Fragment>

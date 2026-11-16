@@ -37,7 +37,7 @@ export const CAPTION_PRESET_GROUPS: CaptionPresetGroup[] = [
     id: 'word_by_word',
     label: 'Word-by-Word',
     hint: 'Each word lands on beat with the audio.',
-    presetIds: ['word_cut', 'soft_build', 'typewriter', 'soft_cut', 'karaoke', 'vireo_oneword', 'vireo_sweep', 'vireo_spring', 'compact_creator'],
+    presetIds: ['word_cut', 'soft_build', 'typewriter', 'soft_cut', 'retro_3d', 'karaoke', 'vireo_oneword', 'vireo_sweep', 'vireo_spring', 'compact_creator'],
   },
   {
     id: 'badge_pill',

@@ -588,6 +588,7 @@ export type { CaptionPresetId, CaptionPresetOverrides, WordCustomStyle } from '.
 /** Legacy styles plus the preset-gallery styles (see shared/captionPresets.ts). */
 export type CaptionStyle =
   | 'word_cut'
+  | 'retro_3d'
   | 'soft_cut'
   | 'soft_build'
   | 'typewriter'
@@ -686,6 +687,7 @@ export interface OverlayConfig {
 }
 
 export const SAFE_FONT_FAMILIES = [
+  'Bungee',
   'Figtree',
   'JetBrains Mono',
   'League Spartan',

@@ -10,6 +10,7 @@ import {buildPresetAssScript,resolveCaptionPreset,FONT_EM_PER_ASS_SIZE} from '..
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 describe('Caption candidate bundled font selection',()=>{
   for(const [id,font,file,postscript] of [
+    ['retro_3d','Bungee','bungee/Bungee-Regular.ttf','Bungee-Regular'],
     ['soft_cut','Figtree','figtree/Figtree-SemiBold.ttf','Figtree-SemiBold'],
     ['word_cut','Inter','inter/Inter-Bold.ttf','Inter-Bold'],
     ['soft_build','League Spartan','league-spartan/LeagueSpartan-Regular.ttf','LeagueSpartan-Regular'],
@@ -26,7 +27,7 @@ describe('Caption candidate bundled font selection',()=>{
       assert.ok(selection.includes(postscript), selection);
       assert.ok(!selection.includes('DejaVu'),selection);
       assert.equal(style.fontFamily,font);
-      assert.ok(FONT_EM_PER_ASS_SIZE[style.fontFamily] > .6);
+      assert.ok(FONT_EM_PER_ASS_SIZE[style.fontFamily] > .3);
       assert.ok(fs.existsSync(path.join(fonts,path.basename(file))));
     }finally{fs.rmSync(tmp,{recursive:true,force:true});}
   });

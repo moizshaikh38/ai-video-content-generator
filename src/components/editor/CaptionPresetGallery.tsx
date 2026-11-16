@@ -73,7 +73,8 @@ function useSampleCues(id: RenderableCaptionPresetId) {
     const { cues } = regroupCuesForPreset([{ id: 'sample', start: 0, end: words[words.length - 1].end, text: '', words }], style);
     const duration = words[words.length - 1].end + SAMPLE_LOOP_PAUSE;
     const longestLine = Math.max(...cues.flatMap((c) => c.text.split('\\N').map((l) => l.length)));
-    return { style, cues, duration, longestLine };
+    const lineCount = Math.max(1,...cues.map(c=>c.text.split('\\N').length));
+    return { style, cues, duration, longestLine, lineCount };
   }, [id]);
 }
 
@@ -92,7 +93,7 @@ const PresetCardPreview: React.FC<PresetCardPreviewProps> = React.memo(({
   reducedMotion,
   width,
 }) => {
-  const { style, cues, duration, longestLine } = useSampleCues(id);
+  const { style, cues, duration, longestLine, lineCount } = useSampleCues(id);
   const [clock, setClock] = useState(STATIC_PREVIEW_CLOCK);
 
   // Animate strictly on hover or selection, respecting prefers-reduced-motion
@@ -129,7 +130,8 @@ const PresetCardPreview: React.FC<PresetCardPreviewProps> = React.memo(({
   // Enlarge for legibility, but never so far that a line would exceed the card (no re-wrapping).
   const base = effectiveWidth / style.playResX;
   const approxLinePx = longestLine * style.fontSize * FONT_EM_PER_ASS_SIZE[style.fontFamily] * 0.66 * base;
-  const zoom = Math.min(CARD_ZOOM, (effectiveWidth - 20) / Math.max(1, approxLinePx));
+  const approxHeight = style.fontSize * (lineCount-1 + FONT_EM_PER_ASS_SIZE[style.fontFamily]*.85) * base;
+  const zoom = Math.min(CARD_ZOOM, (effectiveWidth - 20) / Math.max(1, approxLinePx), 68 / Math.max(1,approxHeight));
 
   return <CaptionPresetRenderer style={cardStyle} frame={frame} scale={base * zoom} noWrap />;
 });
