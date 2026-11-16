@@ -1,10 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { timelineToSourceTime, sourceToTimelineTime, playbackSliceAt, type PlaybackSlice } from '../lib/editorPlaybackTime';
 
 export interface UseEditorPlaybackOptions {
   initialDuration?: number;
   initialTime?: number;
   fps?: number;
   sourceOffset?: number;
+  sourceSlices?: PlaybackSlice[];
   onTimeUpdate?: (time: number) => void;
 }
 
@@ -39,6 +41,7 @@ export function useEditorPlayback({
   initialTime = 0,
   fps = 30,
   sourceOffset = 0,
+  sourceSlices = [],
   onTimeUpdate,
 }: UseEditorPlaybackOptions = {}): UseEditorPlaybackReturn {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -52,6 +55,12 @@ export function useEditorPlayback({
   const [showSafeGuides, setShowSafeGuides] = useState<boolean>(true);
   const [previewQuality, setPreviewQuality] = useState<'auto' | '360p' | '540p' | '720p'>('auto');
 
+  const durationRef = useRef(duration); durationRef.current = duration;
+  const timeRef = useRef(currentTime); timeRef.current = currentTime;
+  const slicesRef = useRef(sourceSlices); slicesRef.current = sourceSlices;
+  const rateRef = useRef(playbackRate); rateRef.current = playbackRate;
+  const toSource = (t: number) => timelineToSourceTime(slicesRef.current, t, sourceOffsetRef.current);
+  useEffect(() => { if (initialDuration > 0) setDurationState(initialDuration); }, [initialDuration]);
   const sourceOffsetRef = useRef<number>(sourceOffset);
   useEffect(() => {
     const prev = sourceOffsetRef.current;
@@ -60,7 +69,7 @@ export function useEditorPlayback({
     // Re-align physical video time if offset changes while paused or if video is out of bounds
     if (videoRef.current && !isPlaying) {
       if (Math.abs(prev - next) > 0.05 || (next > 0 && videoRef.current.currentTime < next - 0.15)) {
-        videoRef.current.currentTime = next + currentTime;
+        videoRef.current.currentTime = toSource(currentTime);
       }
     }
   }, [sourceOffset, currentTime, isPlaying]);
@@ -81,14 +90,14 @@ export function useEditorPlayback({
       const offset = sourceOffsetRef.current;
       // If at end of timeline, loop back to start before playing
       if (currentTime >= duration - 0.05) {
-        videoRef.current.currentTime = offset;
+        videoRef.current.currentTime = toSource(0);
         setCurrentTime(0);
       } else if (
         offset > 0 &&
         (videoRef.current.currentTime < offset - 0.15 ||
           videoRef.current.currentTime > offset + duration + 0.15)
       ) {
-        videoRef.current.currentTime = offset + currentTime;
+        videoRef.current.currentTime = toSource(currentTime);
       }
       videoRef.current.play().catch(() => {});
     }
@@ -115,7 +124,7 @@ export function useEditorPlayback({
       const clamped = Math.max(0, Math.min(duration, Number(time.toFixed(3))));
       setCurrentTime(clamped);
       if (videoRef.current) {
-        videoRef.current.currentTime = sourceOffsetRef.current + clamped;
+        videoRef.current.currentTime = toSource(clamped);
       }
       if (onTimeUpdateRef.current) {
         onTimeUpdateRef.current(clamped);
@@ -189,42 +198,39 @@ export function useEditorPlayback({
     const v = videoRef.current;
     if (!v) return;
 
-    const handleLoadedMetadata = () => {
-      const offset = sourceOffsetRef.current;
-      if (offset > 0 && v.currentTime < offset - 0.15) {
-        v.currentTime = offset + currentTime;
-      }
-    };
+    const handleLoadedMetadata = () => { v.currentTime = toSource(timeRef.current); };
 
     const handleTimeUpdate = () => {
       const offset = sourceOffsetRef.current;
-      if (offset > 0 && v.currentTime < offset - 0.25) {
-        v.currentTime = offset + currentTime;
+      if (!slicesRef.current.length && offset > 0 && v.currentTime < offset - 0.25) {
+        v.currentTime = toSource(timeRef.current);
         return;
       }
-      const rawTimeline = v.currentTime - offset;
-      const timelineTime = Math.max(0, Math.min(duration, Number(rawTimeline.toFixed(3))));
+      const rawTimeline = sourceToTimelineTime(slicesRef.current, v.currentTime, timeRef.current, offset);
+      const timelineTime = Math.max(0, Math.min(durationRef.current, Number(rawTimeline.toFixed(3))));
+      timeRef.current = timelineTime;
+      const slice = playbackSliceAt(slicesRef.current, timelineTime);
+      v.playbackRate = rateRef.current * (slice?.speed?.speed || 1);
       setCurrentTime(timelineTime);
       if (onTimeUpdateRef.current) {
         onTimeUpdateRef.current(timelineTime);
       }
       // Natural clip boundary enforcement: stop or loop when timeline reaches duration
-      if (v.currentTime >= offset + duration - 0.03) {
+      if (timelineTime >= durationRef.current - 0.03) {
         if (isLooping) {
-          v.currentTime = offset;
+          v.currentTime = toSource(0);
           v.play().catch(() => {});
         } else {
           v.pause();
           setIsPlaying(false);
-          setCurrentTime(duration);
+          setCurrentTime(durationRef.current);
         }
       }
     };
 
     const handleEnded = () => {
-      const offset = sourceOffsetRef.current;
       if (isLooping) {
-        v.currentTime = offset;
+        v.currentTime = toSource(0);
         v.play().catch(() => {});
       } else {
         setIsPlaying(false);

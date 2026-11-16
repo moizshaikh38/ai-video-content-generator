@@ -160,6 +160,9 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     initialTime: project.playhead || 0,
     fps: project.canvas.fps || 30,
     sourceOffset,
+    sourceSlices: isCleanSource ? (project.tracks.find(t => t.type === 'VIDEO' && !t.hidden)?.items || [])
+      .filter(i => !i.hidden && !(i as any).is_title_card && !(i as any).is_freeze)
+      .slice().sort((a,b) => a.timeline_start-b.timeline_start) : [],
     onTimeUpdate: (t) => {
       // Keep playhead aligned in project
       project.playhead = t;
