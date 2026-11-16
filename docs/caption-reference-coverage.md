@@ -179,3 +179,17 @@ and size customizer screenshots were inspected. These are not backend save/reloa
 Plan producer caveat: a declared font parameter is not enough to enable Bungee bounds if the
 producer does not actually apply that family. Unknown/unbound plan contexts keep110. Direct
 save/render paths need the validated effective family. This lane does not alter producer behavior.
+
+## Crossline behavior research / inactive primitive
+
+Observed tile: white Cal Sans regular68px, two black shadow layers. Two staggered rows replace
+alternately. Outgoing text moves upward/fades while new text enters from below; the peer row
+stays. Public font provenance: https://github.com/google/fonts/blob/main/ofl/calsans/METADATA.pb
+and https://github.com/google/fonts/blob/main/ofl/calsans/OFL.txt . Font not yet bundled here.
+
+captionRollingRows.ts is an independent inactive state primitive for this family, not a shipped
+Crossline preset. Caller must supply row chunks from one bounded metadata cue. It does not
+invent transcript timings, grouping rules or scene/anchor geometry. First2chunks seed both
+rows; later chunks replace alternate rows. Candidate default160ms/28unit motion is Vireo's
+own parameter, not exact Opus timing. Eight deterministic tests cover seek, alternating state,
+bounds, invalid input, ties and one-row fallback. No preview/ASS integration or visual claim yet.
