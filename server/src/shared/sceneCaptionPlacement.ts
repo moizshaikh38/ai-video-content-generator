@@ -31,7 +31,7 @@ function itemPositionIsExplicit(item: any): boolean {
 }
 
 /** Automatic canvas anchors. Fit/Blur use the measured Opus reference glyph
- * center: y=585/720 at 4s,20s,24s in the preserved 406x720 preview.
+ * center: y=585/720 at 4s and 20s in the preserved 406x720 preview.
  * This is a placement reference only, not same-moment or preset parity.
  * Split stays centered on the seam; Fill retains its lower safe edge. */
 export function autoCaptionAnchor(layout: CaptionSceneLayout, context: CaptionPlacementContext, _item?: any, _text = ''): number {
