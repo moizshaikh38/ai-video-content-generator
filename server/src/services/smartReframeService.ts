@@ -1457,6 +1457,8 @@ export class SmartReframeService {
     sourceWidth: number; sourceHeight: number;
     /** Review-only opt-in. No production caller selects this policy. */
     unresolvedContextPolicy?: 'preserve' | 'shared-subject-window';
+    /** Optional measured regions, local qualification only. Not semantic proof. */
+    protectedContentRegions?: Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>;
   }): Array<{ start: number; end: number; kind: 'group' | 'solo' | 'fit'; windowW: number; windowH: number;
     keyframes: Array<{ time: number; centerX: number; centerY: number }>;
     contextStatus?: 'crowd-preserved'|'unresolved-preserved'|'unresolved-review-required';
@@ -1512,6 +1514,24 @@ export class SmartReframeService {
       const cy=Math.max(windowH/2,Math.min(1-windowH/2,top+windowH/2));
       return {start,end,kind:'solo' as const,windowW,windowH,keyframes:[{time:start,centerX:cx,centerY:cy}]};
     });
+    // Explicit measured content constrains the same single view as subjects.
+    // Missing regions are not evidence that no important text/object exists.
+    const contentConstrainedShots = new Set<typeof shots[number]>();
+    for (const shot of shots) {
+      const regions = (options.protectedContentRegions || []).filter(r =>
+        [r.start,r.end,r.x,r.y,r.width,r.height,r.confidence].every(Number.isFinite) &&
+        r.end > r.start && r.end > shot.start && r.start < shot.end &&
+        r.x >= 0 && r.y >= 0 && r.width > 0 && r.height > 0 &&
+        r.x+r.width <= 1.001 && r.y+r.height <= 1.001 && r.confidence >= .7);
+      if (!regions.length) continue;
+      contentConstrainedShots.add(shot);
+      const left = Math.max(0,Math.min(...shot.keyframes.map(k=>k.centerX-shot.windowW/2),...regions.map(r=>r.x-.025)));
+      const right = Math.min(1,Math.max(...shot.keyframes.map(k=>k.centerX+shot.windowW/2),...regions.map(r=>r.x+r.width+.025)));
+      const top = Math.max(0,Math.min(...shot.keyframes.map(k=>k.centerY-shot.windowH/2),...regions.map(r=>r.y-.025)));
+      const bottom = Math.min(1,Math.max(...shot.keyframes.map(k=>k.centerY+shot.windowH/2),...regions.map(r=>r.y+r.height+.025)));
+      shot.windowW=right-left; shot.windowH=bottom-top;
+      shot.keyframes=[{time:shot.start,centerX:(left+right)/2,centerY:(top+bottom)/2}];
+    }
     // A source cut may change the subject, not the presentation's crop size.
     // Use the widest required context in both axes for the ENTIRE analyzed
     // clip, including edited slices. A full-source fallback deliberately makes
@@ -1521,7 +1541,7 @@ export class SmartReframeService {
     // but it must expose the resulting context risk, not call it a safe crop.
     // Crowds remain protected; an all-unknown clip still preserves full source.
     const reviewCandidate = options.unresolvedContextPolicy === 'shared-subject-window';
-    const constraints = reviewCandidate ? shots.filter(s => s.contextStatus !== 'unresolved-preserved') : shots;
+    const constraints = reviewCandidate ? shots.filter(s => s.contextStatus !== 'unresolved-preserved' || contentConstrainedShots.has(s)) : shots;
     const sizedFrom = constraints.length ? constraints : shots;
     const windowW = Math.max(...sizedFrom.map(s=>s.windowW));
     const windowH = Math.max(...sizedFrom.map(s=>s.windowH));

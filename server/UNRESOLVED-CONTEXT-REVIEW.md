@@ -18,3 +18,15 @@ https://commons.wikimedia.org/wiki/File:VOA_Interview%2C_Part_2-_Zambia%E2%80%99
 Blender footage: (CC) Blender Foundation | mango.blender.org.
 
 Checks: 16 shot-composition, associated-body and uncertainty tests pass; server TypeScript check passes. No production/default configuration change, model promotion or release. Actual rendered files remain review evidence, not product acceptance.
+
+## Protected content qualification, 20:47 IST
+
+Fresh Panetta two-feed analysis exposed a failure independent of the Hichilema hand-margin check: the body-only source window (width .979351, height .8364) clipped the lower third. Subject boxes do not measure text or graphics.
+
+A separate LOCAL Tesseract probe at 1 Hz, PSM11, 2x upscale measures line boxes with at least two alphanumeric words at >=70 confidence. A line must recur at another sampled time with >=60% overlap relative to the smaller box before the rendering helper uses it. This is a geometry guard, not text-importance classification. No recognized words are executed or used as instructions. OCR is not added to runtime and the existing model/default configuration is unchanged.
+
+`protectedContentRegions` is an optional measured-region constraint on `computeShotComposition`. Valid overlapping regions add 2.5% source margin and union with the subject window before constant clip-wide size is chosen. Invalid, weak, and out-of-time regions are ignored. A protected unknown shot is not discarded by the subject-window review opt-in. This conservative API does not automatically establish the caller's evidence quality.
+
+Panetta probe: 13 line detections across seconds 2-7, 12 spatially repeated regions accepted. Actual rendered output expands to width1, height .945292; decoded checks at 0/2/3/5/7/9 seconds preserve the previously clipped "VOA NEWS" and bottom ticker. Both people remain visible. The view is still a short horizontal band, not a large-speaker or active-speaker result. No safe-region claim for unmeasured graphics, transient/low-resolution text or unsampled frames. Source: https://commons.wikimedia.org/wiki/File:VOA_Interview-_Leon_Panetta.webm .
+
+The same probe found zero qualifying lines in 12s Hichilema gestures and 9s Blender footage. That is not proof those scenes lack important content. No semantic framing promotion follows from this probe. The new text-aware output retains source audio and has 360 decoded video frames at30fps over12s.

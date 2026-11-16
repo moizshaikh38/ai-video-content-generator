@@ -1,0 +1,7 @@
+import fs from 'node:fs';import{execFileSync}from'node:child_process';import{SmartReframeService as S}from'../src/services/smartReframeService.js';
+const a=JSON.parse(fs.readFileSync('/tmp/body-panetta-2speaker-analysis.json','utf8'));const m=JSON.parse(fs.readFileSync('/tmp/text-panetta-2speaker.json','utf8'));
+// Probe regions must recur spatially in at least two distinct sampled frames.
+const overlap=(a:any,b:any)=>Math.max(0,Math.min(a.x+a.width,b.x+b.width)-Math.max(a.x,b.x))*Math.max(0,Math.min(a.y+a.height,b.y+b.height)-Math.max(a.y,b.y));
+const regions=m.regions.filter((r:any)=>m.regions.some((s:any)=>s.time!==r.time&&overlap(r,s)/Math.min(r.width*r.height,s.width*s.height)>.6)).map((r:any)=>({...r,start:r.time,end:Math.min(12,r.time+1)}));
+const o={rawSamples:a.samples,sceneCuts:a.scene_cuts,duration:12,sourceWidth:a.source_width,sourceHeight:a.source_height,protectedContentRegions:regions};const plan=S.computeShotComposition(o);fs.writeFileSync('/tmp/panetta-protected-plan.json',JSON.stringify({plan,regions},null,2));
+const f=S.buildShotCompositionFilter({...o,plan});execFileSync('ffmpeg',['-y','-v','error','-threads','2','-filter_complex_threads','1','-i','/tmp/realmedia/panetta-2speaker.mp4','-filter_complex',f,'-map','[out]','-map','0:a?','-c:a','aac','-c:v','libx264','-threads','2','-preset','veryfast','-crf','23','/tmp/panetta-protected-singleview.mp4'],{timeout:120000});console.log(JSON.stringify(plan),'repeat regions',regions.length);
