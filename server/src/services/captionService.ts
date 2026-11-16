@@ -1,3 +1,4 @@
+import {assertTranscriptUsable} from './transcription/transcriptQuality.js';
 import { applySceneCaptionPlacement } from '../shared/sceneCaptionPlacement.js';
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
@@ -1408,6 +1409,8 @@ export class CaptionService {
       .eq('project_id', clip.project_id)
       .eq('user_id', clip.user_id)
       .maybeSingle();
+
+    if (transcript) assertTranscriptUsable(transcript);
 
     if (!editorCues && (transErr || !transcript)) {
       logger.warn(`No transcript found for clip ${clip.id}, rendering without burned captions.`);

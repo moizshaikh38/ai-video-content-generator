@@ -1,3 +1,4 @@
+import {assessTranscriptQuality,assertTranscriptUsable} from './transcription/transcriptQuality.js';
 import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import os from 'node:os';
@@ -85,6 +86,7 @@ export async function processProjectVideo(
     });
 
     if (existingTranscript && (existingTranscript.segments?.length || existingTranscript.transcript_text)) {
+      assertTranscriptUsable(existingTranscript);
       logger.info(`Reusing existing transcript for project ${projectId}`, { projectId, userId });
       const effectiveDuration = Number(
         existingTranscript.duration_seconds ||
@@ -273,6 +275,8 @@ export async function processProjectVideo(
     const transcriptPayload: any = {
       project_id: projectId,
       user_id: userId,
+      quality_assessment: assessTranscriptQuality(transcription),
+      transcription_provenance: transcription.provenance,
       transcript_text: transcription.text,
       text: transcription.text,
       language: transcription.language,
@@ -309,6 +313,9 @@ export async function processProjectVideo(
       });
       throw new Error(`Failed to save transcript: ${saveError.message}`);
     }
+
+    // Preserve flagged output for inspection, but never promote it into automatic clips.
+    assertTranscriptUsable(transcriptPayload);
 
     // 7. Classify video genre locally and enrich project metadata
     const durationMin = Math.max(0.1, effectiveDuration / 60);

@@ -137,6 +137,9 @@ export interface TranscriptWord {
 }
 
 export interface TranscriptSegment {
+  avg_logprob?: number;
+  no_speech_prob?: number;
+  compression_ratio?: number;
   start: number;
   end: number;
   text: string;
@@ -144,6 +147,8 @@ export interface TranscriptSegment {
 }
 
 export interface TranscriptRecord {
+  quality_assessment?: import('../services/transcription/transcriptQuality.js').TranscriptQualityAssessment;
+  transcription_provenance?: {provider: string; model: string; requested_language?: string};
   id: string;
   project_id: string;
   user_id: string;

@@ -772,6 +772,7 @@ export class ClipRenderService {
             logger.info(`[ClipRender] Burning ${captionResult.cues.length} caption cues using style "${clip.caption_style || 'clean'}"`);
           }
         } catch (capErr: any) {
+          if (capErr?.code === 'TRANSCRIPT_REVIEW_REQUIRED') throw capErr;
           logger.warn(`Failed to generate ASS subtitles for clip ${clipId}: ${capErr.message}. Rendering without subtitles.`);
         }
       }

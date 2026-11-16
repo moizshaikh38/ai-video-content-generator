@@ -105,6 +105,7 @@ export function mergeChunkTranscripts(
     const offset = plan.startSec;
     const chunkWords = (result.words || []).map((w) => ({
       word: w.word,
+      ...(w.confidence !== undefined ? {confidence:w.confidence} : {}),
       start: round3(w.start + offset),
       end: round3(w.end + offset),
     }));
@@ -127,7 +128,7 @@ export function mergeChunkTranscripts(
       if (segWords.length === 0) {
         // No timing detail to split on: the window holding the segment's midpoint keeps it whole.
         if (owns(plan, (start + end) / 2, isLast) && seg.text.trim()) {
-          segments.push({ start, end, text: seg.text.trim() });
+          segments.push({ ...seg, start, end, text: seg.text.trim() });
         }
         continue;
       }
@@ -135,6 +136,7 @@ export function mergeChunkTranscripts(
       const text = clippedSegmentText(seg.text.trim(), segWords, kept);
       if (!text) continue;
       segments.push({
+        ...seg,
         start: kept.length === segWords.length ? start : kept[0].start,
         end: kept.length === segWords.length ? end : kept[kept.length - 1].end,
         text,
@@ -155,6 +157,7 @@ export function mergeChunkTranscripts(
     text: segments.map((s) => s.text).join(' ').trim(),
     language,
     durationSeconds: round3(Math.max(totalSec, lastEnd)),
+    provenance: ordered[0]?.result.provenance,
     segments,
     words,
   };

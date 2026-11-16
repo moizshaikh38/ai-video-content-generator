@@ -1,3 +1,4 @@
+import {readSegmentDiagnostics} from './transcriptQuality.js';
 import { config } from '../../config/index.js';
 import { logger } from '../../utils/logger.js';
 import { TranscriptionProvider } from './transcriptionProvider.js';
@@ -133,6 +134,7 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
         start: Number(seg.start ?? 0),
         end: Number(seg.end ?? 0),
         text: String(seg.text ?? '').trim(),
+        ...readSegmentDiagnostics(seg),
       }))
       .filter((seg: NormalizedTranscriptSegment) => seg.text.length > 0 || seg.end > seg.start);
 
@@ -148,6 +150,7 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
         const end = rawEnd > start ? rawEnd : Number((start + 0.05).toFixed(3));
         return {
           word: String(w.word || w.text || '').trim(),
+          ...(typeof w.probability === 'number' && Number.isFinite(w.probability) ? {confidence:w.probability} : {}),
           start: Number(start.toFixed(3)),
           end: Number(end.toFixed(3)),
         };
@@ -165,6 +168,7 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
       text,
       language,
       durationSeconds,
+      provenance: {provider:'openrouter',model:OPENROUTER_MODEL,requested_language:options?.language},
       segments,
       words,
     };
