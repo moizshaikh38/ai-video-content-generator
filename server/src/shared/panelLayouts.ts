@@ -10,7 +10,7 @@ export const PANEL_LAYOUTS: PanelLayout[] = ['three', 'four', 'screenshare', 'ga
 
 export interface PanelRect { x: number; y: number; w: number; h: number }
 /** `set: true` only after the user chose this panel's view (crop box) or a detector assigned it. Defaults are unassigned placeholders. */
-export interface PanelSlot { focusX: number; focusY: number; scale: number; set?: boolean; /** 'track' = framed on the clip's subject track (a design choice, not Opus's rule). */ auto?: 'track' }
+export interface PanelSlot { focusX: number; focusY: number; scale: number; /** Restrict this view to a measured source rectangle before cover/zoom. Normalized source coordinates. */ sourceRect?: PanelRect; set?: boolean; /** 'track' = framed on the clip's subject track (a design choice, not Opus's rule). */ auto?: 'track' }
 export interface ItemPanels { layout: PanelLayout; slots: PanelSlot[] }
 
 const R = (x: number, y: number, w: number, h: number): PanelRect => ({ x, y, w, h });
@@ -39,6 +39,26 @@ export function defaultPanelSlots(layout: PanelLayout): PanelSlot[] {
   return Array.from({ length: n }, (_, i) => ({ focusX: xs[i] ?? 0.5, focusY: 0.5, scale: i === 0 && n === 3 ? 1 : 1.6 }));
 }
 
+/** Reject malformed/outside/tiny source regions; do not turn them into different valid crops. */
+export function normalizeSourceRect(r: unknown): PanelRect | null {
+  if (!r || typeof r !== 'object') return null;
+  const {x,y,w,h} = r as PanelRect;
+  if (![x,y,w,h].every(v => typeof v === 'number' && Number.isFinite(v)) || x < 0 || y < 0 || w < 0.01 || h < 0.01 || x+w > 1.000001 || y+h > 1.000001) return null;
+  return {x,y,w:Math.min(w,1-x),h:Math.min(h,1-y)};
+}
+
+/** Source-pixel cover window, shared with the live preview. Focus is relative to sourceRect when present. */
+export function panelSourceWindow(slot: PanelSlot, sourceW: number, sourceH: number, targetAspect: number): PanelRect {
+  const r = normalizeSourceRect(slot.sourceRect) || {x:0,y:0,w:1,h:1};
+  const ev=(v:number)=>Math.round(v/2)*2;
+  const rw=slot.sourceRect ? Math.min(sourceW,Math.max(2,ev(sourceW*r.w))) : sourceW;
+  const rh=slot.sourceRect ? Math.min(sourceH,Math.max(2,ev(sourceH*r.h))) : sourceH;
+  const rx=slot.sourceRect ? Math.min(sourceW-rw,Math.max(0,ev(sourceW*r.x))) : 0;
+  const ry=slot.sourceRect ? Math.min(sourceH-rh,Math.max(0,ev(sourceH*r.y))) : 0;
+  const w=Math.min(rw,rh*targetAspect)/slot.scale, h=Math.min(rh,rw/targetAspect)/slot.scale;
+  return {x:rx+(rw-w)*slot.focusX,y:ry+(rh-h)*slot.focusY,w,h};
+}
+
 export function normalizePanels(p: Partial<ItemPanels> | undefined | null): ItemPanels | null {
   if (!p || !p.layout || !PANEL_RECTS[p.layout]) return null;
   const rects = PANEL_RECTS[p.layout];
@@ -50,6 +70,7 @@ export function normalizePanels(p: Partial<ItemPanels> | undefined | null): Item
       focusX: clamp(p.slots?.[i]?.focusX, 0, 1, def[i].focusX),
       focusY: clamp(p.slots?.[i]?.focusY, 0, 1, def[i].focusY),
       scale: clamp(p.slots?.[i]?.scale, 1, 4, def[i].scale),
+      ...(normalizeSourceRect(p.slots?.[i]?.sourceRect) ? { sourceRect: normalizeSourceRect(p.slots?.[i]?.sourceRect)! } : {}),
       ...(p.slots?.[i]?.set === true ? { set: true } : {}),
       ...(p.slots?.[i]?.auto === 'track' ? { auto: 'track' as const } : {}),
     })),
@@ -81,7 +102,7 @@ export function buildPanelsFilter(panelsIn: ItemPanels, canvasW: number, canvasH
     const a = (r.w / r.h).toFixed(5);
     const s = panels.slots[i];
     parts.push(
-      `[${tag}_i${i}]crop=w='min(iw,ih*${a})/${s.scale.toFixed(4)}':h='min(ih,iw/${a})/${s.scale.toFixed(4)}':x='(iw-ow)*${s.focusX.toFixed(4)}':y='(ih-oh)*${s.focusY.toFixed(4)}',scale=${r.w}:${r.h},setsar=1[${tag}_p${i}]`
+      `[${tag}_i${i}]${s.sourceRect ? `crop=w='min(iw,max(2,round(iw*${s.sourceRect.w.toFixed(8)}/2)*2))':h='min(ih,max(2,round(ih*${s.sourceRect.h.toFixed(8)}/2)*2))':x='min(iw-ow,max(0,round(iw*${s.sourceRect.x.toFixed(8)}/2)*2))':y='min(ih-oh,max(0,round(ih*${s.sourceRect.y.toFixed(8)}/2)*2))',` : ''}crop=w='min(iw,ih*${a})/${s.scale.toFixed(4)}':h='min(ih,iw/${a})/${s.scale.toFixed(4)}':x='(iw-ow)*${s.focusX.toFixed(4)}':y='(ih-oh)*${s.focusY.toFixed(4)}',scale=${r.w}:${r.h},setsar=1[${tag}_p${i}]`
     );
   });
   const p = (i: number) => `[${tag}_p${i}]`;

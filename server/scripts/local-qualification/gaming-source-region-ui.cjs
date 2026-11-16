@@ -1,0 +1,41 @@
+const fs=require('fs'),cp=require('child_process'),puppeteer=require(process.env.PUPPETEER_CORE_PATH || '/tmp/vireo-local-restore/ui-driver/node_modules/puppeteer-core');
+const r=JSON.parse(fs.readFileSync('/tmp/vireo-local-restore/gaming-fixture.json'));const procs=[];let browser;
+(async()=>{const api=cp.spawn('/home/sandbox/avcg/server/node_modules/.bin/tsx',['scripts/local-qualification/render-recovered.mts'],{cwd:'/home/sandbox/avcg/server',env:{...process.env,KEEP_LOCAL_SERVER:'1',QUALIFICATION_FIXTURE:'/tmp/vireo-local-restore/gaming-fixture.json',QUALIFICATION_SOURCE:'/downloads/gaming-source/valorant-630-638.mp4',...(process.env.QUALIFY_REAL_ANALYSIS==='1'?{QUALIFY_REAL_ANALYSIS:'1',PYTHON_PATH:'/tmp/vireo-local-restore/cv-env/bin/python'}:{})},stdio:['ignore',fs.openSync('/tmp/vireo-local-restore/ui-api.log','w'),'pipe']});procs.push(api);api.stderr.on('data',d=>fs.appendFileSync('/tmp/vireo-local-restore/ui-api.log',d));
+const vite=cp.spawn('/home/sandbox/avcg/node_modules/.bin/vite',['--host','127.0.0.1','--port','5199'],{cwd:'/home/sandbox/avcg',env:{...process.env,VITE_API_URL:'http://127.0.0.1:5581/api'},stdio:['ignore',fs.openSync('/tmp/vireo-local-restore/vite.log','w'),'pipe']});procs.push(vite);
+for(let i=0;i<400;i++){try{if(fs.readFileSync('/tmp/vireo-local-restore/ui-api.log','utf8').includes('LOCAL_UI_SERVER_READY')&&(await fetch('http://127.0.0.1:5199/harness-studio-e2e.html')).ok)break}catch{}await new Promise(r=>setTimeout(r,100))}
+browser=await puppeteer.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage'],defaultViewport:{width:1440,height:1000}});const page=await browser.newPage();const errors=[],writes=[];page.on('pageerror',e=>errors.push(e.message));page.on('response',async x=>{if(x.url().includes('/api/')&&x.request().method()==='PATCH')writes.push({url:x.url(),status:x.status(),body:x.request().postData(),response:await x.text().catch(()=>'<body unavailable>')})});
+await page.goto('http://127.0.0.1:5199/harness-studio-e2e.html?clip='+r.clip_id,{waitUntil:'domcontentloaded',timeout:20000});await page.waitForFunction(()=>document.body.innerText.includes('Main Video'),{timeout:15000});await page.screenshot({path:'/downloads/restored-editor-desktop.png'});
+
+await page.waitForFunction(()=>[...document.querySelectorAll('video')].some(v=>v.videoWidth>0));
+
+
+
+const getEditor=async()=> (await(await fetch('http://127.0.0.1:5581/api/editor-projects/'+r.editor_id,{headers:{authorization:'Bearer e2e-studio-token'}})).json()).data;
+const panelBefore=(await getEditor()).tracks.find(t=>t.type==='VIDEO').items[0].panels;
+if(!panelBefore.slots[0].sourceRect)throw Error('No measured source region');
+await page.waitForFunction(()=>{const vs=[...document.querySelectorAll('[data-testid="panels-preview"] video')];return vs.length===2&&vs.every(v=>v.readyState>=2&&!v.seeking)});
+await page.screenshot({path:'/downloads/gaming-source/actual-studio-region-desktop.png'});
+await(await page.$('[data-testid="panels-preview"]')).screenshot({path:'/downloads/gaming-source/actual-studio-region-preview.png'});
+const p2=await page.evaluateHandle(()=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Panel 2'));await p2.asElement().click();await page.waitForSelector('[data-testid="crop-dialog"]');await page.evaluate(()=>[...document.querySelectorAll('[data-testid="crop-dialog"] button')].find(b=>b.textContent.trim()==='Apply').click());
+await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='Save'));
+await page.evaluate(()=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Save').click());
+await page.waitForFunction(()=>document.body.innerText.includes('Saved'),{timeout:5000});
+await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.body.innerText.includes('Main Video'));
+const panelAfter=(await getEditor()).tracks.find(t=>t.type==='VIDEO').items[0].panels;console.log('PANELS_COMPARE',JSON.stringify({before:panelBefore,after:panelAfter}));require('assert/strict').deepEqual(panelAfter.slots[0],panelBefore.slots[0]);
+await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='Panel 1'));
+const control=await page.evaluateHandle(()=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Panel 1'));await control.asElement().click();await page.waitForSelector('[data-testid="crop-dialog"]');
+if(!(await page.$eval('[data-testid="crop-dialog"]',e=>e.innerText)).includes('Apply replaces'))throw Error('Missing region replacement notice');
+await page.screenshot({path:'/downloads/gaming-source/actual-studio-region-manual-notice.png'});
+await page.evaluate(()=>[...document.querySelectorAll('[data-testid="crop-dialog"] button')].find(b=>b.getAttribute('aria-label')==='Close').click());
+const phone=await browser.newPage();await phone.setViewport({width:390,height:844,deviceScaleFactor:1,isMobile:true,hasTouch:true});
+await phone.goto('http://127.0.0.1:5199/harness-studio-e2e.html?clip='+r.clip_id,{waitUntil:'domcontentloaded'});await phone.waitForFunction(()=>document.body.innerText.includes('Main Video'));
+await phone.waitForFunction(()=>{const vs=[...document.querySelectorAll('[data-testid="panels-preview"] video')];return vs.length===2&&vs.every(v=>v.readyState>=2&&!v.seeking)});await phone.screenshot({path:'/downloads/gaming-source/phone-fresh-no-obstruction.png'});
+await phone.reload({waitUntil:'domcontentloaded'});await phone.waitForFunction(()=>document.body.innerText.includes('Main Video'));await phone.waitForFunction(()=>{const vs=[...document.querySelectorAll('[data-testid="panels-preview"] video')];return vs.length===2&&vs.every(v=>v.readyState>=2&&!v.seeking)});await phone.screenshot({path:'/downloads/gaming-source/phone-reload-no-obstruction.png'});
+await phone.click('button[title="Captions"]');await new Promise(r=>setTimeout(r,200));await phone.screenshot({path:'/downloads/gaming-source/phone-captions-explicit-open.png'});await phone.click('button[title="Captions"]');await new Promise(r=>setTimeout(r,200));await phone.screenshot({path:'/downloads/gaming-source/phone-captions-closed.png'});
+console.log('PHONE_CAPTURE_COMPLETE');
+// Apply is an explicit full-source replacement, and one Undo must restore the measured region.
+await page.bringToFront();const firstPanel=await page.evaluateHandle(()=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Panel 1'));await firstPanel.asElement().click();await page.waitForSelector('[data-testid="crop-dialog"]');await page.evaluate(()=>[...document.querySelectorAll('[data-testid="crop-dialog"] button')].find(b=>b.textContent.trim()==='Apply').click());
+const save=async()=>{await page.evaluate(()=>{const b=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Save');if(b)b.click()});await page.waitForFunction(()=>document.body.innerText.includes('Saved'),{timeout:7000});await new Promise(r=>setTimeout(r,700));};await save();console.log('MANUAL_APPLY_SAVED');if((await getEditor()).tracks.find(t=>t.type==='VIDEO').items[0].panels.slots[0].sourceRect)throw Error('Manual Apply retained source region');
+await page.keyboard.down('Control');await page.keyboard.press('z');await page.keyboard.up('Control');console.log('UNDO_KEY_SENT',await page.evaluate(()=>document.body.innerText.slice(0,160)));await save();require('assert/strict').deepEqual((await getEditor()).tracks.find(t=>t.type==='VIDEO').items[0].panels.slots[0].sourceRect,panelBefore.slots[0].sourceRect);console.log('REGION_MANUAL_REPLACE_ONE_UNDO_PASS');
+console.log('REGION_SAVE_RELOAD_PASS',JSON.stringify(panelBefore),'WRITES',writes.map(w=>({url:w.url,status:w.status})),'ERRORS',errors);console.log('PHONE_BUTTONS',await phone.evaluate(()=>[...document.querySelectorAll('button')].filter(b=>/caption/i.test((b.textContent||'')+' '+b.title+' '+b.getAttribute('aria-label'))).map(b=>({text:b.textContent,title:b.title,aria:b.getAttribute('aria-label')}))));
+})().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{if(browser)await browser.close();for(const p of procs)p.kill('SIGTERM')});

@@ -324,6 +324,9 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   // UI-only inspector collapse: lets the stage reclaim the right column's width when toggled.
   const [inspectorCollapsed, setInspectorCollapsed] = useState<boolean>(() => {
     try {
+      // Compact phone sheets must not cover the stage on every fresh open.
+      // Selecting Captions explicitly reopens the sheet; desktop keeps its preference.
+      if (typeof window !== 'undefined' && window.innerWidth < 768) return true;
       return localStorage.getItem('vireo_inspector_collapsed') === '1';
     } catch {
       return false;

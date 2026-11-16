@@ -1208,7 +1208,6 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
 
   return (
     <div
-      ref={stageViewportRef}
       onPointerDown={(e) => {
         // Deselect item/caption when clicking on empty stage backdrop or non-selectable area
         if (!(e.target as HTMLElement).closest('[data-selectable-item]')) {
@@ -1295,6 +1294,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     srcH={videoDims.h}
                     canvasAspect={(r.w * cw) / (r.h * ch)}
                     current={activePanels.slots[i]}
+                    notice={activePanels.slots[i].sourceRect ? "This view uses a measured source region. Apply replaces that region with your manual full-source crop." : undefined}
                     enabled={!videoCropLocked}
                     disabledReason="Unlock this scene or track to change its panel crop."
                     onOpen={onBeginCrop}
@@ -1367,7 +1367,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       </div>
 
       {/* Main Canvas Viewport container (centered in remaining space) */}
-      <div className="flex-1 flex items-center justify-center w-full min-h-0 relative">
+      <div ref={stageViewportRef} className="flex-1 flex items-center justify-center w-full min-h-0 relative">
         <div
           style={{ width: fitW, height: fitH }}
           className="relative shadow-2xl rounded-xl border border-neutral-800/80 overflow-hidden"

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { normalizePanels, PANEL_RECTS, type ItemPanels } from '../../../server/src/shared/panelLayouts';
+import { normalizePanels, panelSourceWindow, PANEL_RECTS, type ItemPanels } from '../../../server/src/shared/panelLayouts';
 
 interface Props {
   src: string;
@@ -45,7 +45,8 @@ export const PanelsPreview: React.FC<Props> = ({ src, panels, canvasW, canvasH, 
         const bottom = r.y + r.h >= 0.999 ? canvasH : Math.round((r.y + r.h) * canvasH);
         const pw = right - left, ph = bottom - top;
         const s = cfg.slots[i];
-        const k = Math.max(pw / srcW, ph / srcH) * s.scale;
+        const sourceWindow = panelSourceWindow(s, srcW, srcH, pw / ph);
+        const k = pw / sourceWindow.w;
         const w = srcW * k, h = srcH * k;
         return (
           <div key={i} data-testid={`panel-${i}`} className="absolute overflow-hidden bg-black" style={{ left, top, width: pw, height: ph }}>
@@ -56,7 +57,7 @@ export const PanelsPreview: React.FC<Props> = ({ src, panels, canvasW, canvasH, 
               playsInline
               preload="auto"
               onLoadedMetadata={(e) => { e.currentTarget.currentTime = time; }}
-              style={{ position: 'absolute', maxWidth: 'none', width: w, height: h, left: -(w - pw) * s.focusX, top: -(h - ph) * s.focusY, filter }}
+              style={{ position: 'absolute', maxWidth: 'none', width: w, height: h, left: -sourceWindow.x * k, top: -sourceWindow.y * k, filter }}
             />
             {!s.set && (
               <span data-testid={`panel-unset-${i}`} className="absolute left-1 top-1 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-white/80">Unassigned view</span>
