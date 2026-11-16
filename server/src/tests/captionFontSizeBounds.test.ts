@@ -11,3 +11,6 @@ it('editing typography does not materialize legacy white/yellow over preset colo
 
 import {sanitizePlanOperations} from '../services/planSafetyService.js';
 it('producer plan cannot expand size using an unapplied family parameter',()=>{const {operations}=sanitizePlanOperations([{id:'test',type:'CAPTION_STYLE',enabled:true,parameters:{font_family:'Bungee',font_size:180}}] as any,10);assert.equal(operations[0].parameters.font_size,110);});
+
+import {editorCaptionToPresetOverrides,resolveEditorCaptionStyle} from '../../../src/lib/captionPresets';
+it('equivalent numeric bound weights preserve Glide800 and SoftCut600 faces',()=>{for(const [style,font_weight,want] of [['glide',800,800],['soft_cut',600,600]]as const){const cap={style,font_weight,cues:[]}as any;assert.equal(editorCaptionToPresetOverrides(cap).bold,false);assert.equal(resolveEditorCaptionStyle(cap,'9:16')?.fontWeight,want)}assert.equal(editorCaptionToPresetOverrides({style:'glide',font_weight:'bold',cues:[]}as any).bold,true)});

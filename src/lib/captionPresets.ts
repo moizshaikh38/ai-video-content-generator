@@ -31,7 +31,12 @@ export function editorCaptionToPresetOverrides(
   if (caption.font_size !== undefined) o.fontSize = caption.font_size;
   if (caption.font_weight !== undefined) {
     const w = caption.font_weight;
-    o.bold = w === 'regular' ? false : w === 'bold' || w === 'black' ? true : Number(w) >= 700;
+    const presetId = getEditorCaptionPresetId(caption);
+    const preset = presetId ? resolveCaptionPreset(presetId) : null;
+    // Equivalent numeric weights must preserve a preset's bound static face (600/800).
+    o.bold = typeof w === 'number' && preset && w === preset.fontWeight
+      ? preset.bold
+      : w === 'regular' ? false : w === 'bold' || w === 'black' ? true : Number(w) >= 700;
   }
   if (caption.uppercase !== undefined) o.uppercase = caption.uppercase;
   if (caption.letter_spacing !== undefined) o.letterSpacing = caption.letter_spacing;
