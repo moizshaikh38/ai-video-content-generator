@@ -2213,7 +2213,7 @@ export class ProEditorService {
       clipCrop?.mode === 'fit_blur'
         ? { mode: 'blur', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
         : clipCrop?.mode === 'fit'
-        ? { mode: 'fit', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
+        ? { mode: 'blur', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
         : clipCrop?.mode === 'manual'
           ? { mode: 'custom', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
           : undefined;

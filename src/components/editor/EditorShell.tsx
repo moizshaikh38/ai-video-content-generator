@@ -44,6 +44,7 @@ import { ABStudioWorkspace } from '../abStudio/ABStudioWorkspace';
 import { ArrowLeft, Sparkles, Type as TypeIcon, Film, X, PanelRightOpen } from 'lucide-react';
 import { insertIntroOutro, createTitleCardItem } from '../../utils/introOutro';
 import { initCoveredEnd, healCaptionTracks } from '../../lib/captionExtendMerge';
+import { resolveFitMode } from '../../lib/itemLayout';
 import { clipRenderService } from '../../services/clipRenderService';
 import { applyOutputTemplateToProject, getOutputTemplate, OutputTemplateId } from '../../../server/src/shared/outputTemplates';
 
@@ -1653,7 +1654,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                             ? {}
                             : {
                                 crop: {
-                                  mode: (mode === 'center' ? 'fill' : mode) as 'fit' | 'fill' | 'blur',
+                                  mode: (mode === 'center' ? 'fill' : mode === 'fit' ? resolveFitMode(prev.canvas) : mode) as 'fit' | 'fill' | 'blur',
                                   focusX: i.crop?.focusX ?? 0.5,
                                   focusY: i.crop?.focusY ?? 0.5,
                                   scale: i.crop?.scale ?? 1,
@@ -1848,7 +1849,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                           crop: {
                             // 'smart' stays on the legacy crop_mode channel; the
                             // per-item compiler modes are fill/fit/blur/custom.
-                            mode: (mode === 'center' || mode === 'smart' ? 'fill' : mode) as 'fit' | 'fill' | 'blur',
+                            mode: (mode === 'center' || mode === 'smart' ? 'fill' : mode === 'fit' ? resolveFitMode(prev.canvas) : mode) as 'fit' | 'fill' | 'blur',
                             focusX: i.crop?.focusX ?? 0.5,
                             focusY: i.crop?.focusY ?? 0.5,
                             scale: i.crop?.scale ?? 1,

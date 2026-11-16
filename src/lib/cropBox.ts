@@ -31,17 +31,34 @@ export function cropFromBox(srcW: number, srcH: number, canvasAspect: number, bo
   return { focusX: Number(fx.toFixed(4)), focusY: Number(fy.toFixed(4)), scale: Number(scale.toFixed(3)) };
 }
 
-/** Resize from a corner while the opposite corner stays fixed; aspect locked to the canvas. */
+/**
+ * Resize from a corner while the opposite corner (anchor) stays fixed; aspect locked to the canvas.
+ * Contract: the result is ALWAYS inside the source frame and has w in [cover/4, cover], so
+ * cropFromBox(result) maps to exactly the box that is drawn (no hidden clamping at Apply).
+ * - Pointer crossing the anchor flips the box to the other side, using the room available there.
+ * - If neither side has room for the minimum size (anchor within min/size of both edges), the box
+ *   keeps the minimum size and slides inside the frame; the anchor moves, nothing leaves the frame.
+ */
 export function resizeBox(srcW: number, srcH: number, canvasAspect: number, anchor: { x: number; y: number }, pointer: { x: number; y: number }): CropBox {
   const c = coverWindow(srcW, srcH, canvasAspect);
   const k = c.h / c.w; // h per w
-  const dirX = pointer.x >= anchor.x ? 1 : -1;
-  const dirY = pointer.y >= anchor.y ? 1 : -1;
-  let w = Math.max(Math.abs(pointer.x - anchor.x), Math.abs(pointer.y - anchor.y) / k);
-  const maxW = Math.min(c.w, dirX > 0 ? 1 - anchor.x : anchor.x, (dirY > 0 ? 1 - anchor.y : anchor.y) / k);
-  w = clamp(w, c.w / 4, Math.max(c.w / 4, maxW));
+  const minW = c.w / 4;
+  const maxFor = (dx: number, dy: number) => Math.min(c.w, dx > 0 ? 1 - anchor.x : anchor.x, (dy > 0 ? 1 - anchor.y : anchor.y) / k);
+  let dirX = pointer.x >= anchor.x ? 1 : -1;
+  let dirY = pointer.y >= anchor.y ? 1 : -1;
+  const raw = Math.max(Math.abs(pointer.x - anchor.x), Math.abs(pointer.y - anchor.y) / k);
+  // Not enough room toward the pointer: use the opposite side if it has more.
+  if (maxFor(dirX, dirY) < minW) {
+    const flipped = maxFor(-dirX, -dirY);
+    if (flipped > maxFor(dirX, dirY)) { dirX = -dirX; dirY = -dirY; }
+  }
+  const w = clamp(raw, minW, Math.max(minW, maxFor(dirX, dirY)));
   const h = w * k;
-  return { left: dirX > 0 ? anchor.x : anchor.x - w, top: dirY > 0 ? anchor.y : anchor.y - h, w, h };
+  let left = dirX > 0 ? anchor.x : anchor.x - w;
+  let top = dirY > 0 ? anchor.y : anchor.y - h;
+  left = clamp(left, 0, 1 - w);
+  top = clamp(top, 0, 1 - h);
+  return { left, top, w, h };
 }
 
 export function moveBox(box: CropBox, dx: number, dy: number): CropBox {

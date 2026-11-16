@@ -798,6 +798,8 @@ export interface EditorCanvasConfig {
   background_spacing?: number;
   /** Background panel: rounded corner radius of the video in output px (0-120). */
   background_corner_radius?: number;
+  /** Set only when the user explicitly picks in the Background panel. Fit defaults to blur unless this is 'color' (black included). */
+  background_user_choice?: 'blur' | 'color';
 }
 
 export interface EditorTransform {

@@ -2,6 +2,14 @@ import type { EditorProject, EditorTrackItem } from '../types';
 
 export type SceneLayout = 'fill' | 'fit' | 'blur' | 'split';
 
+/**
+ * ONE rule for every "Fit" entry point: Fit means blurred backdrop (no black bars) unless the user
+ * explicitly chose a colour in the Background panel (any colour, black included).
+ */
+export function resolveFitMode(canvas: { background_user_choice?: 'blur' | 'color' } | undefined | null): 'fit' | 'blur' {
+  return canvas?.background_user_choice === 'color' ? 'fit' : 'blur';
+}
+
 /** Layout currently persisted on a video item (what the export compiler will use). */
 export function readItemLayout(item: EditorTrackItem): SceneLayout {
   const userLayout = (item as any).crop_config?.layout_mode_source === 'user' ? (item as any).layout_mode : undefined;
@@ -30,10 +38,7 @@ export function applyItemLayout(project: EditorProject, itemId: string, layout: 
           const base: any = { ...i, crop_config: { ...((i as any).crop_config || {}), layout_mode: layout === 'split' ? 'split' : 'track', layout_mode_source: 'user' } };
           base.layout_mode = layout === 'split' ? 'split' : 'track';
           if (layout === 'fit' || layout === 'blur') {
-            // Fit defaults to the blurred backdrop (no black bars). Only a colour the user explicitly picked
-            // in the Background panel (non-black canvas.background_color) keeps the plain letterbox 'fit'.
-            const bg = String((project.canvas as any)?.background_color || '').replace('#', '').toLowerCase();
-            const mode = layout === 'fit' && bg && bg !== '000000' ? 'fit' : layout === 'fit' ? 'blur' : layout;
+            const mode = layout === 'fit' ? resolveFitMode(project.canvas) : layout;
             base.crop = { mode, focusX: i.crop?.focusX ?? 0.5, focusY: i.crop?.focusY ?? 0.5, scale: i.crop?.scale ?? 1 };
           } else {
             delete base.crop;

@@ -34,8 +34,8 @@ export const BackgroundControl: React.FC<Props> = ({ project, cropMode, onSetCro
     <button
       type="button"
       onClick={() => {
-        if (id === 'blur') onSetCropMode('blur');
-        else { onUpdateCanvas({ background_mode: 'color' }); onSetCropMode('fit'); }
+        if (id === 'blur') { onUpdateCanvas({ background_user_choice: 'blur' }); onSetCropMode('blur'); }
+        else { onUpdateCanvas({ background_mode: 'color', background_user_choice: 'color' }); onSetCropMode('fit'); }
       }}
       className={`px-3 py-1 rounded-lg text-[11px] font-medium transition ${active === id ? 'bg-white/[0.16] text-white' : 'text-neutral-400 hover:text-white hover:bg-white/[0.08]'}`}
     >
@@ -68,10 +68,10 @@ export const BackgroundControl: React.FC<Props> = ({ project, cropMode, onSetCro
           {active === 'color' && (
             <div className="flex flex-wrap items-center gap-1.5">
               {COLORS.map((col) => (
-                <button key={col} type="button" aria-label={col} onClick={() => onUpdateCanvas({ background_color: col, background_mode: 'color' })}
+                <button key={col} type="button" aria-label={col} onClick={() => onUpdateCanvas({ background_color: col, background_mode: 'color', background_user_choice: 'color' })}
                   style={{ backgroundColor: col }} className={`w-5 h-5 rounded-full border ${color === col ? 'border-white ring-1 ring-white' : 'border-white/20'}`} />
               ))}
-              <input type="color" value={color.length === 7 ? color : '#000000'} onChange={(e) => onUpdateCanvas({ background_color: e.target.value.toUpperCase(), background_mode: 'color' })}
+              <input type="color" value={color.length === 7 ? color : '#000000'} onChange={(e) => onUpdateCanvas({ background_color: e.target.value.toUpperCase(), background_mode: 'color', background_user_choice: 'color' })}
                 className="w-6 h-6 bg-transparent border-0 p-0" aria-label="Custom colour" />
             </div>
           )}
