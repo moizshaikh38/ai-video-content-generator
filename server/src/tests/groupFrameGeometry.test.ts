@@ -258,3 +258,34 @@ describe('computeGroupFrameGeometry adaptive composition (face sizes present)', 
     assert.ok(mid.centerY < 0.55, `centerY=${mid.centerY} dragged down by hand outlier`);
   });
 });
+
+test('group keyframes smooth jitter: velocity capped, no per-sample sign flips', () => {
+  // Raw centers zigzagging like real detector noise (±0.03 fraction = ±50px at 1728w).
+  const rawSamples = [];
+  for (let i = 0; i <= 16; i++) {
+    const jitter = (i % 2 === 0 ? 1 : -1) * 0.03;
+    rawSamples.push({
+      time: i * 0.25,
+      faces: [
+        { center_x: 0.40 + jitter, center_y: 0.5, confidence: 0.9, track_id: 'a' },
+        { center_x: 0.70 + jitter, center_y: 0.5, confidence: 0.9, track_id: 'b' },
+      ],
+    });
+  }
+  const g = SmartReframeService.computeGroupFrameGeometry({ rawSamples, sourceWidth: 1728, sourceHeight: 720 });
+  const kf = g.keyframes;
+  let prevSign = 0;
+  let flips = 0;
+  // Reversals below perceptual speed (~10px/s at 1728w) are spline overshoot
+  // and invisible; count only reversals a viewer could notice.
+  const PERCEPT = 0.006;
+  for (let i = 1; i < kf.length; i++) {
+    const dt = kf[i].time - kf[i - 1].time;
+    const vx = (kf[i].centerX - kf[i - 1].centerX) / dt;
+    assert.ok(Math.abs(vx) <= 0.125, `velocity ${vx} exceeds cap at t=${kf[i].time}`);
+    const sign = Math.abs(vx) < PERCEPT ? 0 : Math.sign(vx);
+    if (sign !== 0 && prevSign !== 0 && sign !== prevSign) flips++;
+    if (sign !== 0) prevSign = sign;
+  }
+  assert.ok(flips <= 1, `smoothed camera reverses direction ${flips} times`);
+});

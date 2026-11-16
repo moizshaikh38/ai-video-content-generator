@@ -1555,29 +1555,81 @@ export class SmartReframeService {
       windowW = Math.min(0.92, Math.max(0.4, xCover, yCover));
     }
 
-    // Smooth the group midpoint with a 3-sample moving average so the camera
-    // drifts instead of jittering; clamp away from edges. With face sizes the
-    // window is headroom-biased: its top sits ~0.9 face-heights above the
-    // highest head (eyes land in the band's upper third), so centerY is the
-    // resulting window center, not the raw face midpoint.
-    const keyframes = groups.map((g, i) => {
-      const lo = Math.max(0, i - 1);
-      const hi = Math.min(groups.length - 1, i + 1);
-      let sx = 0;
-      let sy = 0;
-      for (let j = lo; j <= hi; j++) {
-        const gj = groups[j];
-        sx += gj.cx;
-        if (windowH !== undefined && gj.faceH > 0) {
-          const top = gj.top - 0.9 * gj.faceH;
-          sy += Math.min(1 - windowH / 2, Math.max(windowH / 2, top + windowH / 2));
-        } else {
-          sy += gj.cy;
-        }
+    // Camera motion smoothing. Keyframes land every ~0.25s (4fps sampling)
+    // and the filter interpolates linearly between them, so velocity is
+    // piecewise-constant: any zigzag in the centers reads as judder (user
+    // report: movement "not smooth"). Three stages: (1) a 7-tap Gaussian-ish
+    // kernel over the raw centers, (2) a deadband that snaps sub-perceptual
+    // deltas (<0.3% of frame, ~5px at 1728w) to the previous value, (3) a
+    // velocity cap so the camera glides to large moves instead of snapping.
+    // With face sizes the window is headroom-biased: its top sits ~0.9
+    // face-heights above the highest head (eyes land in the band's upper
+    // third), so centerY is the resulting window center, not the raw face
+    // midpoint.
+    const rawCX = groups.map((g) => g.cx);
+    const rawCY = groups.map((g) => {
+      if (windowH !== undefined && g.faceH > 0) {
+        const top = g.top - 0.9 * g.faceH;
+        return Math.min(1 - windowH / 2, Math.max(windowH / 2, top + windowH / 2));
       }
-      const n = hi - lo + 1;
-      return { time: g.time, centerX: clamp01(sx / n), centerY: clamp01(sy / n) };
+      return g.cy;
     });
+    const KERNEL = [1, 3, 6, 8, 6, 3, 1];
+    const smooth = (vals: number[]) =>
+      vals.map((_, i) => {
+        let acc = 0;
+        let wsum = 0;
+        for (let k = -3; k <= 3; k++) {
+          const j = Math.min(vals.length - 1, Math.max(0, i + k));
+          const w = KERNEL[k + 3];
+          acc += vals[j] * w;
+          wsum += w;
+        }
+        return acc / wsum;
+      });
+    const post = (vals: number[]) => {
+      const sm = smooth(vals);
+      const DEADBAND = 0.003;
+      const MAXV = 0.12; // fraction of frame per second
+      const out: number[] = [];
+      for (let i = 0; i < sm.length; i++) {
+        if (i === 0) {
+          out.push(sm[0]);
+          continue;
+        }
+        const dt = Math.max(0.05, groups[i].time - groups[i - 1].time);
+        const prev = out[i - 1];
+        const delta = sm[i] - prev;
+        const capped = Math.abs(delta) < DEADBAND
+          ? 0
+          : Math.sign(delta) * Math.min(Math.abs(delta), MAXV * dt);
+        out.push(prev + capped);
+      }
+      return out;
+    };
+    const smX = post(rawCX);
+    const smY = post(rawCY);
+    // Upsample with Catmull-Rom splines: the filtergraph interpolates
+    // linearly between keyframes, so emitting denser keyframes along a smooth
+    // curve removes the velocity step at each original 0.25s boundary.
+    const catmull = (p0: number, p1: number, p2: number, p3: number, t: number) => {
+      const t2 = t * t;
+      const t3 = t2 * t;
+      return 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+    };
+    const UPSAMPLE = 2;
+    const keyframes: Array<{ time: number; centerX: number; centerY: number }> = [];
+    for (let i = 0; i < groups.length; i++) {
+      const t0 = groups[i].time;
+      const t1 = i + 1 < groups.length ? groups[i + 1].time : t0;
+      for (let u = 0; u < UPSAMPLE; u++) {
+        const f = u / UPSAMPLE;
+        if (i === groups.length - 1 && u > 0) break;
+        const x0 = smX[Math.max(0, i - 1)], x1 = smX[i], x2 = smX[Math.min(smX.length - 1, i + 1)], x3 = smX[Math.min(smX.length - 1, i + 2)];
+        const y0 = smY[Math.max(0, i - 1)], y1 = smY[i], y2 = smY[Math.min(smY.length - 1, i + 1)], y3 = smY[Math.min(smY.length - 1, i + 2)];
+        keyframes.push({ time: t0 + f * (t1 - t0), centerX: clamp01(catmull(x0, x1, x2, x3, f)), centerY: clamp01(catmull(y0, y1, y2, y3, f)) });
+      }
+    }
 
     return { keyframes, windowW, windowH };
   }
