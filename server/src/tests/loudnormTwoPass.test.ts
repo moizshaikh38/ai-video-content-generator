@@ -26,7 +26,10 @@ const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
  * sine) prove pipeline mechanics only, not launch-asset quality.
  */
 
-const FIX_DIR = '/tmp/loudnorm-2pass-fixtures';
+// Reduced input dimensions for memory-constrained functional runs. This does not
+// qualify the 1080p memory stress case; normal runs retain full-size fixtures.
+const SMALL_FIXTURES = process.env.LOUDNORM_SMALL_FIXTURES === '1';
+const FIX_DIR = SMALL_FIXTURES ? '/tmp/loudnorm-2pass-small-fixtures' : '/tmp/loudnorm-2pass-fixtures';
 const MODULATED_120S = path.join(FIX_DIR, 'modulated-120s.mp4');
 const MODULATED_15S = path.join(FIX_DIR, 'modulated-15s.mp4');
 const MODULATED_SMALL = path.join(FIX_DIR, 'modulated-small.mp4');
@@ -37,7 +40,7 @@ const BROLL_RED = path.join(FIX_DIR, 'broll-red.mp4');
 
 function gen(fix: string, args: string[]) {
   if (!fs.existsSync(fix)) {
-    execFileSync(ffmpegBin, ['-y', '-v', 'error', ...args, fix], { timeout: 120_000 });
+    execFileSync(ffmpegBin, ['-y', '-v', 'error', '-filter_threads', '1', '-filter_complex_threads', '1', ...args.map(a => SMALL_FIXTURES ? a.replace('1920x1080', '480x270') : a), '-threads', '2', fix], { timeout: 120_000 });
   }
 }
 
@@ -123,12 +126,12 @@ function buildProject(sourcePath: string, duration: number, brollPath: string = 
 
 async function renderGraph(graph: any, outPath: string, duration: number) {
   await execFileAsync(ffmpegBin, [
-    '-y', '-v', 'error',
+    '-y', '-v', 'error', '-filter_complex_threads', '1',
     ...graph.inputArgs,
     '-filter_complex', graph.filterComplex.join(';'),
     '-map', graph.videoMap, '-map', graph.audioMap,
     '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-c:a', 'aac',
-    '-t', String(duration), outPath,
+    '-threads', '2', '-threads', '2', '-t', String(duration), outPath,
   ], { timeout: 300_000, maxBuffer: 64 * 1024 * 1024 });
 }
 
@@ -301,12 +304,14 @@ describe('LoudnormTwoPassService - integration (synthetic fixtures)', () => {
     assert.ok(Math.abs(l1 - l2) <= 2.0, `one-pass ${l1} vs two-pass ${l2} differ by >2 LU`);
   });
 
-  it('silent dialogue fails with a clear normalization error instead of rendering', { timeout: 120_000 }, async () => {
+  it('silent dialogue renders without normalization instead of aborting export', { timeout: 120_000 }, async () => {
     const project = buildProject(SILENT_10S, 3.5);
-    await assert.rejects(
-      () => ProEditorService.compileRenderGraphWithNormalization(project, SILENT_10S, path.join(FIX_DIR, 'out-silent.mp4'), FIX_DIR),
-      (e: any) => e instanceof LoudnormNormalizationError && /silent or below the loudness measurement gate/.test(e.message)
-    );
+    const out = path.join(FIX_DIR, 'out-silent.mp4');
+    const graph = await ProEditorService.compileRenderGraphWithNormalization(project, SILENT_10S, out, FIX_DIR);
+    assert.equal(graph.normalizationMode, 'skipped-silent');
+    assert.ok(!graph.filterComplex.join(';').includes('loudnorm='));
+    await renderGraph(graph, out, 3.5);
+    assert.ok(fs.statSync(out).size > 0);
   });
 
   it('hot quiet dialogue (linear-infeasible) renders via pre-rendered dynamic fallback', { timeout: 300_000 }, async () => {

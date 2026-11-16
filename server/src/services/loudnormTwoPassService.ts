@@ -61,10 +61,14 @@ export interface LoudnormMeasurementGraph {
 
 export class LoudnormNormalizationError extends Error {
   public readonly reason: string;
-  constructor(reason: string) {
+  /** True when the measurement failed because the dialogue is silent/below the
+   * ebur128 absolute gate - the render can proceed WITHOUT normalization. */
+  public readonly silent: boolean;
+  constructor(reason: string, silent = false) {
     super(`Loudness normalization cannot be applied to this dialogue audio: ${reason}`);
     this.name = 'LoudnormNormalizationError';
     this.reason = reason;
+    this.silent = silent;
   }
 }
 
@@ -100,7 +104,8 @@ export class LoudnormTwoPassService {
       // Silence or audio below the absolute gate: ebur128 pins I at -70 LUFS and
       // reports Peak=-inf.
       throw new LoudnormNormalizationError(
-        'dialogue audio is silent or below the loudness measurement gate (measured loudness is -inf)'
+        'dialogue audio is silent or below the loudness measurement gate (measured loudness is -inf)',
+        true
       );
     }
     if (!Number.isFinite(raw.inputLRA)) {

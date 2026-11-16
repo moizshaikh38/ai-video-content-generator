@@ -94,12 +94,15 @@ export interface CompiledRenderGraph {
    * loudnorm on a bounded audio-only pre-render, used when linear mode is
    * infeasible for the measured peaks/range). Undefined when not requested.
    */
-  normalizationMode?: 'linear' | 'dynamic-prerendered';
+  normalizationMode?: 'linear' | 'dynamic-prerendered' | 'skipped-silent';
 }
 
 /** Mode for loudnorm emission: default one-pass (legacy), 'measure', measured
- * two-pass linear, or dialogue pre-rendered into a normalized WAV file. */
+ * two-pass linear, dialogue pre-rendered into a normalized WAV file, or 'off'
+ * (no loudnorm emitted - used when the dialogue is measured silent and
+ * normalization would abort an otherwise valid render). */
 export type LoudnormCompileMode =
+  | 'off'
   | 'measure'
   | { measured: LoudnormMeasured }
   | { preNormalizedDialoguePath: string };
@@ -1545,7 +1548,7 @@ export class ProEditorService {
       if (primaryAudioItem?.audio?.enhancement) {
         const enh = primaryAudioItem.audio.enhancement;
         let loudnormFilter: string | undefined;
-        if (enh.normalize_enabled) {
+        if (enh.normalize_enabled && loudnorm !== 'off') {
           loudnormTargetI = AudioEnhancementService.resolveTargetLufs(enh);
           loudnormFilter = buildLoudnorm(loudnormTargetI);
         }
@@ -1558,7 +1561,7 @@ export class ProEditorService {
         const needsNormalize = project.tracks.some((t) =>
           t.items.some((i) => i.audio?.normalized)
         );
-        if (needsNormalize) {
+        if (needsNormalize && loudnorm !== 'off') {
           loudnormTargetI = -16;
           audioFilters.push(buildLoudnorm(-16));
         }
@@ -1743,10 +1746,27 @@ export class ProEditorService {
     if (!probe.measurement) {
       return probe;
     }
-    const measured = await LoudnormTwoPassService.measure(
-      [...inputSeekArgs, ...probe.inputArgs],
-      probe.measurement
-    );
+    let measured: LoudnormMeasured;
+    try {
+      measured = await LoudnormTwoPassService.measure(
+        [...inputSeekArgs, ...probe.inputArgs],
+        probe.measurement
+      );
+    } catch (err: any) {
+      // Silent/degenerate dialogue (screen recordings, muted stems, music-only
+      // cuts): normalizing silence must not abort the whole export. Compile the
+      // same graph with the loudnorm stage omitted instead.
+      if (err instanceof LoudnormNormalizationError && err.silent) {
+        logger.warn(
+          `[ProEditorService] Dialogue measured silent (${err.reason}); ` +
+            `rendering without loudness normalization.`
+        );
+        const graph = ProEditorService.compileRenderGraph(project, sourceVideoPath, outputPath, tmpDir, reframe, 'off');
+        graph.normalizationMode = 'skipped-silent';
+        return graph;
+      }
+      throw err;
+    }
     const check = LoudnormTwoPassService.assessLinearFeasibility(measured, probe.measurement.targetI, -2.0, 11);
     if (!check.ok) {
       if (check.fallback === 'dynamic-prerender') {
@@ -2278,7 +2298,7 @@ export class ProEditorService {
     // Track 3: Caption Track
     const captionTrackId = crypto.randomUUID();
     const captionStyle = producerPlan?.operations.find((o) => o.type === 'CAPTION_STYLE')?.parameters.style ||
-      clip.caption_style || 'highlight';
+      clip.caption_style || 'clean';
 
     let initialCues: any[] = [];
     if (transcript) {
