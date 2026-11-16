@@ -55,6 +55,7 @@ import { AiToolDef } from '../../lib/aiToolsRegistry';
 import { clipRenderService } from '../../services/clipRenderService';
 import {
   CaptionPresetId,
+  CAPTION_PRESETS,
   getEditorCaptionPresetId,
   resolveEditorCaptionStyle,
   applyPresetToEditorCaption,
@@ -74,6 +75,8 @@ interface ContextualInspectorProps {
   onAddKeyframe: (itemId: string, property: any, value: number, easing: any, time?: number) => void;
   onDeleteKeyframe: (itemId: string, keyframeId: string) => void;
   onApplyCaptionPreset: (preset: CaptionPresetId) => void;
+  /** Plan-allowed caption preset ids (lowercase); undefined while entitlements load. */
+  allowedCaptionPresetIds?: string[];
   /** Discoverable Captions On/Off; re-enabling restores the last chosen preset. */
   onToggleCaptions?: (enabled: boolean) => void;
   /** False when the clip's transcript only has segment-level timing. */
@@ -114,6 +117,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
   onAddKeyframe: _onAddKeyframe,
   onDeleteKeyframe: _onDeleteKeyframe,
   onApplyCaptionPreset,
+  allowedCaptionPresetIds,
   onToggleCaptions,
   onActionNotice,
   hasWordTiming,
@@ -1309,6 +1313,9 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                 <CaptionPresetGallery
                   selectedId={selectedPresetId}
                   onSelect={handleSelectCaptionPreset}
+                  lockedIds={allowedCaptionPresetIds && !allowedCaptionPresetIds.includes('*')
+                    ? (Object.keys(CAPTION_PRESETS) as CaptionPresetId[]).filter((id) => !allowedCaptionPresetIds.includes(id.toLowerCase()))
+                    : undefined}
                   legacyStyleLabel={legacyStyleLabel}
                   hasWordTiming={hasWordTiming}
                   resolvedStyle={resolvedCaptionStyle}

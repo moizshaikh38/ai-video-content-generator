@@ -36,6 +36,8 @@ const SAMPLE_LOOP_PAUSE = 0.7;
 interface CaptionPresetGalleryProps {
   selectedId: CaptionPresetId | null;
   onSelect: (id: CaptionPresetId) => void;
+  /** Presets not available on the current plan: shown locked, not selectable. */
+  lockedIds?: CaptionPresetId[];
   /** Caption style that is not part of the gallery (legacy clips), shown as a note. */
   legacyStyleLabel?: string | null;
   /** False when the transcript only has segment timing. */
@@ -135,6 +137,7 @@ const PresetCardPreview: React.FC<PresetCardPreviewProps> = React.memo(({
 export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
   selectedId,
   onSelect,
+  lockedIds,
   legacyStyleLabel,
   hasWordTiming,
   resolvedStyle,
@@ -171,6 +174,7 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
           const isHovered = hoveredId === id;
           const isAnimating = (isSelected || isHovered) && !reducedMotion;
           const preset = id === 'none' ? null : CAPTION_PRESETS[id];
+          const isLocked = !!preset && !!lockedIds?.includes(id);
           return (
             <button
               key={id}
@@ -182,13 +186,15 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
               aria-checked={isSelected}
               aria-label={preset ? `${preset.label}: ${preset.description}` : 'No Caption: render without captions'}
               tabIndex={index === focusIndex ? 0 : -1}
-              onClick={() => onSelect(id)}
+              onClick={() => { if (!isLocked) onSelect(id); }}
+              disabled={isLocked}
+              title={isLocked ? `${preset?.label} is not available on your current plan` : undefined}
               onPointerEnter={() => setHoveredId(id)}
               onPointerLeave={() => setHoveredId((cur) => (cur === id ? null : cur))}
               onFocus={() => setHoveredId(id)}
               onBlur={() => setHoveredId((cur) => (cur === id ? null : cur))}
               onKeyDown={(e) => handleKeyDown(e, index)}
-              className={`group relative rounded-xl border text-left transition-all duration-200 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-vc-surface1 ${
+              className={`group relative rounded-xl border text-left transition-all duration-200 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-vc-surface1 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''} ${
                 isSelected
                   ? 'border-white/40 ring-1 ring-white/30 bg-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.5),0_0_15px_rgba(255,255,255,0.05)] -translate-y-0.5'
                   : 'border-white/[0.08] bg-vc-canvas/90 hover:border-white/25 hover:bg-white/[0.02] hover:-translate-y-0.5'
@@ -211,8 +217,14 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
                 )}
               </div>
               <div className="flex items-center justify-between gap-1.5 px-2.5 py-2 bg-vc-surface1/80">
-                <span className="text-xs font-semibold text-vc-text-primary truncate">{CAPTION_PRESET_LABELS[id]}</span>
-                {isSelected && (
+                <span className={`text-xs font-semibold truncate ${isLocked ? 'text-vc-text-muted' : 'text-vc-text-primary'}`}>{CAPTION_PRESET_LABELS[id]}</span>
+                {isLocked && (
+                  <span className="flex items-center gap-1 text-[9px] uppercase tracking-wide text-amber-300/90 shrink-0">
+                    <Lock className="w-3 h-3" aria-hidden="true" />
+                    Upgrade
+                  </span>
+                )}
+                {!isLocked && isSelected && (
                   <span className="w-4 h-4 rounded-full bg-white text-black flex items-center justify-center shrink-0 shadow-sm">
                     <Check className="w-2.5 h-2.5 stroke-[3]" aria-hidden="true" />
                   </span>

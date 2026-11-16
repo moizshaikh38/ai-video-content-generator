@@ -9,6 +9,8 @@ import {
   EditorCaptionItem,
 } from '../../types';
 import { applyPresetToEditorCaption, CaptionPresetId, DEFAULT_CAPTION_PRESET_ID, RenderableCaptionPresetId } from '../../lib/captionPresets';
+import { CreditService } from '../../services/creditService';
+import { CreditService } from '../../services/creditService';
 import { useEditorPlayback } from '../../hooks/useEditorPlayback';
 import { useEditorSelection, SidebarTab, AiToolType } from '../../hooks/useEditorSelection';
 import { useEditorShortcuts } from '../../hooks/useEditorShortcuts';
@@ -223,6 +225,28 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   const [exportStale, setExportStale] = useState<boolean>(false);
   // Last non-'none' caption preset, so Captions Off/On restores the chosen style.
   const [lastCaptionPreset, setLastCaptionPreset] = useState<RenderableCaptionPresetId>(DEFAULT_CAPTION_PRESET_ID);
+  // Plan-allowed caption presets (null until loaded). Applying a premium preset
+  // the plan does not include would make every subsequent save fail with
+  // PRESET_RESTRICTED (the save endpoint enforces the same list), so resolve to
+  // a free fallback at apply time instead. Fail-open while unloaded: the save
+  // endpoint remains the backstop, matching SubtitleEditor's gallery behavior.
+  const [allowedCaptionPresets, setAllowedCaptionPresets] = useState<string[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    CreditService.getUserEntitlements()
+      .then((e) => {
+        if (!cancelled) setAllowedCaptionPresets((e.allowedSubtitlePresets || []).map((x) => x.toLowerCase()));
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
+  const resolvePlanAllowedPreset = useCallback((preset: RenderableCaptionPresetId): RenderableCaptionPresetId => {
+    if (!allowedCaptionPresets) return preset;
+    if (allowedCaptionPresets.includes('*')) return preset; // pro/studio wildcard
+    // Fallback must be both plan-free and a renderable preset (CAPTION_PRESETS
+    // has no 'clean' entry; the output-template mapper resolves preset colors).
+    return allowedCaptionPresets.includes(preset.toLowerCase()) ? preset : 'simple';
+  }, [allowedCaptionPresets]);
   // Intro/outro: which menu is open, and a pending position armed for the next media pick.
   const [introOutroMenu, setIntroOutroMenu] = useState<'intro' | 'outro' | null>(null);
   const [pendingIntroOutro, setPendingIntroOutro] = useState<'intro' | 'outro' | null>(null);
@@ -660,17 +684,33 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     const tpl = getOutputTemplate(templateId);
     if (!tpl) return;
     setExportStale(true);
+    // A template whose caption preset exceeds the current plan would otherwise
+    // stamp a premium style the save endpoint then rejects (PRESET_RESTRICTED),
+    // blocking every later save. Substitute the free fallback for this plan.
+    const allowedPreset = resolvePlanAllowedPreset(tpl.captions.presetId);
+    if (allowedPreset !== tpl.captions.presetId) {
+      setActionNotice(`The "${tpl.name}" template's caption preset is not on your current plan - applied the free "simple" preset instead. Framing, aspect and hook are unchanged.`);
+    }
+    const effectiveTpl = allowedPreset === tpl.captions.presetId
+      ? tpl
+      : { ...tpl, captions: { ...tpl.captions, presetId: allowedPreset } };
     // The shared mapper is typed against the server EditorProject; the client
     // type is structurally identical for every field the mapper touches
     // (tracks/items/caption/crop/canvas), so the boundary cast is safe.
-    onUpdateProject((prev) => applyOutputTemplateToProject(prev as any, tpl) as unknown as EditorProject);
+    onUpdateProject((prev) => applyOutputTemplateToProject(prev as any, effectiveTpl) as unknown as EditorProject);
     if (tpl.framing.layoutMode === 'split') seedSplitAnchorsFromAnalysis();
     if (tpl.hook) seedHookPlacementFromAnalysis(tpl.hook.durationSec);
   };
 
   // Apply Caption Preset: 'none' hides the caption track (captionEnabled=false on save),
   // any other preset re-enables it and swaps the style while keeping cues and position.
-  const handleApplyCaptionPreset = (preset: CaptionPresetId) => {
+  const handleApplyCaptionPreset = (requested: CaptionPresetId) => {
+    const preset: CaptionPresetId = requested === 'none'
+      ? 'none'
+      : resolvePlanAllowedPreset(requested as RenderableCaptionPresetId);
+    if (requested !== 'none' && preset !== requested) {
+      setActionNotice(`The "${requested.replace(/_/g, ' ')}" caption preset is not on your current plan - applied the free "simple" preset instead. Your other edits are unaffected.`);
+    }
     if (preset !== 'none') setLastCaptionPreset(preset as RenderableCaptionPresetId);
     setExportStale(true);
     onUpdateProject((prev) => ({
@@ -1043,6 +1083,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         }
       }}
       onApplyCaptionPreset={handleApplyCaptionPreset}
+      allowedCaptionPresetIds={allowedCaptionPresets ?? undefined}
       onToggleCaptions={handleToggleCaptions}
       hasWordTiming={hasWordTiming}
       onAddTextLayer={handleAddTextLayer}

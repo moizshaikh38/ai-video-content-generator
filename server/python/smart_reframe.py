@@ -97,7 +97,7 @@ def compute_mouth_score(gray, prev_gray, face_box, prev_box):
     mouth_roi = gray[my1:my2, mx1:mx2]
     forehead_roi = gray[fy1:fy2, fx1:fx2]
     if mouth_roi.size == 0 or forehead_roi.size == 0:
-        return 0.0
+        return 0.0, 0.0, 0.0
 
     m_grid = cv2.resize(mouth_roi, (24, 16)).astype(np.float32)
     f_grid = cv2.resize(forehead_roi, (24, 16)).astype(np.float32)
@@ -131,8 +131,10 @@ def compute_mouth_score(gray, prev_gray, face_box, prev_box):
             temporal_delta = max(0.0, m_diff - 0.7 * f_diff)
 
     # Combined normalized score (0.0 - 1.0)
-    score = (0.6 * min(1.0, temporal_delta / 18.0)) + (0.4 * min(1.0, sobel_energy / 80.0))
-    return round(float(np.clip(score, 0.0, 1.0)), 3)
+    temporal_norm = min(1.0, temporal_delta / 18.0)
+    static_norm = min(1.0, sobel_energy / 80.0)
+    score = (0.6 * temporal_norm) + (0.4 * static_norm)
+    return round(float(np.clip(score, 0.0, 1.0)), 3), round(temporal_norm, 3), round(static_norm, 3)
 
 
 def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0.0, duration_sec: float = 0.0, max_samples: int = 600):
@@ -239,7 +241,12 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
             is_cut = correl < 0.50
             if hsv_cuts_enabled and prev_hsv_hist is not None:
                 hsv_correl = float(cv2.compareHist(prev_hsv_hist, hsv_hist, cv2.HISTCMP_CORREL))
-                is_cut = is_cut or hsv_correl < 0.50
+                # Tightened from 0.50: real person-to-person cuts register at
+                # 0.01-0.11 while fast in-shot motion dips to ~0.38 (Sintel t=2.5
+                # false positive at 0.50). 0.25 separates the measured cases;
+                # env-overridable for wider fixture tuning.
+                hsv_cut_threshold = float(os.environ.get('SMART_REFRAME_HSV_CUT_THRESHOLD', '0.25'))
+                is_cut = is_cut or hsv_correl < hsv_cut_threshold
             if is_cut and time_sec > 0.4:
                 # Dedup window: 1.0s on the classic gray path (unchanged default);
                 # with HSV enabled, 0.5s - at 4fps sampling a single cut registers
@@ -356,7 +363,7 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
                     best_dist = dist
                     prev_match = pbox
 
-            mouth_score = compute_mouth_score(gray, prev_gray, (x, y, w, h), prev_match)
+            mouth_score, mouth_temporal, mouth_static = compute_mouth_score(gray, prev_gray, (x, y, w, h), prev_match)
 
             nx = round(x / source_width, 4)
             ny = round(y / source_height, 4)
@@ -377,6 +384,9 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
                 "confidence": item["confidence"],
                 "mouth_score": mouth_score
             })
+            if os.environ.get('SMART_REFRAME_DUMP_MOUTH_COMPONENTS'):
+                face_list[-1]["mouth_temporal"] = mouth_temporal
+                face_list[-1]["mouth_static"] = mouth_static
 
         samples.append({
             "time": time_sec,

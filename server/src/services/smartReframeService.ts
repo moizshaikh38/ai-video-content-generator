@@ -190,7 +190,12 @@ export class SmartReframeService {
           const lastArea = info.lastDetection.width * info.lastDetection.height;
           const areaRatio = currentArea > 0 && lastArea > 0 ? Math.max(currentArea / lastArea, lastArea / currentArea) : 1;
 
-          if (dist < maxDistanceThreshold && areaRatio < 2.5) {
+          // Area guard: reject matches whose size jump implies a different
+          // person. Limit raised 2.5 -> 4.0: a subject walking TOWARD the
+          // camera grows fast (observed 3.3x in 0.75s on pacing footage) and
+          // was being fragmented into a new track, which then lost dominance
+          // and let the camera drift while the person kept being detected.
+          if (dist < maxDistanceThreshold && areaRatio < 4.0) {
             // Combined cost: distance from velocity-predicted position + area ratio penalty
             const cost = dist + 0.1 * (areaRatio - 1.0);
             candidates.push({ trackId, faceIdx: i, cost });
@@ -316,7 +321,18 @@ export class SmartReframeService {
     for (const [trackId, detections] of candidateTracks.entries()) {
       if (detections.length === 0) continue;
 
-      const presenceRatio = Math.min(1.0, detections.length / totalSampleCount);
+      // A track whose average face fills >=10% of the frame is a high-precision
+      // sighting (same principle as LARGE_FACE_MIN_AREA eligibility above). When
+      // the detector catches such a subject only briefly - a close-up lost to a
+      // head turn right after a cut - raw presence understates it, and a small
+      // stable background fragment can edge it out on the 30% presence term by a
+      // fraction of a point. Floor presence at 0.5 for large-face tracks so the
+      // area term can actually decide, while small glimpses stay un-floored.
+      const quickAvgArea = detections.reduce((sum, d) => sum + d.width * d.height, 0) / detections.length;
+      let presenceRatio = Math.min(1.0, detections.length / totalSampleCount);
+      if (quickAvgArea >= LARGE_FACE_MIN_AREA) {
+        presenceRatio = Math.max(presenceRatio, 0.5);
+      }
 
       let totalArea = 0;
       let totalConfidence = 0;
@@ -370,6 +386,59 @@ export class SmartReframeService {
       if (score > bestScore) {
         bestScore = score;
         bestTrackId = trackId;
+      }
+    }
+
+    // Glimpse-vs-established margin: a track seen in under ~10% of samples (a
+    // one-glimpse fragment) may anchor the crop only when it is CLEARLY better
+    // than every established track - a large real face the detector catches
+    // once (the d271a47 case) wins on quality, but a phantom fragment that
+    // merely edges out a good persistent track must not, or the whole crop
+    // anchors to one sighting and stops following anyone.
+    if (bestTrackId !== null) {
+      let bestPresentScore = -1;
+      let bestPresentTrackId: string | null = null;
+      for (const [trackId, detections] of candidateTracks.entries()) {
+        if (detections.length === 0) continue;
+        const quickAvgArea = detections.reduce((sum, d) => sum + d.width * d.height, 0) / detections.length;
+        let presenceRatio = Math.min(1.0, detections.length / totalSampleCount);
+        if (quickAvgArea >= LARGE_FACE_MIN_AREA) {
+          presenceRatio = Math.max(presenceRatio, 0.5);
+        }
+        if (presenceRatio < 0.10) continue;
+        let totalArea = 0;
+        let totalConfidence = 0;
+        let totalCentrality = 0;
+        let activeSpeakerScoreSum = 0;
+        let activeSpeakerWeightSum = 0;
+        for (const d of detections) {
+          totalArea += d.width * d.height;
+          totalConfidence += d.confidence;
+          totalCentrality += Math.max(0, 1 - Math.abs(d.center_x - 0.5) * 2);
+          if (hasMouthScores) {
+            activeSpeakerScoreSum += d.mouth_score ?? 0;
+            activeSpeakerWeightSum += 1;
+          }
+        }
+        const avgArea = totalArea / detections.length;
+        const areaScore = Math.min(1.0, avgArea / 0.15);
+        const avgConfidence = totalConfidence / detections.length;
+        const avgCentrality = totalCentrality / detections.length;
+        const avgActiveSpeaker = activeSpeakerWeightSum > 0 ? Math.min(1.0, activeSpeakerScoreSum / activeSpeakerWeightSum) : 0;
+        const s = hasMouthScores
+          ? 0.30 * presenceRatio + 0.35 * avgActiveSpeaker + 0.20 * areaScore + 0.15 * (0.5 * avgConfidence + 0.5 * avgCentrality)
+          : 0.4 * presenceRatio + 0.3 * areaScore + 0.2 * avgConfidence + 0.1 * avgCentrality;
+        if (s > bestPresentScore) {
+          bestPresentScore = s;
+          bestPresentTrackId = trackId;
+        }
+      }
+      if (bestPresentTrackId !== null && bestPresentTrackId !== bestTrackId) {
+        const winnerPresence = Math.min(1.0, (candidateTracks.get(bestTrackId)?.length ?? 0) / totalSampleCount);
+        if (winnerPresence < 0.10 && bestScore < bestPresentScore * 1.25) {
+          bestTrackId = bestPresentTrackId;
+          bestScore = bestPresentScore;
+        }
       }
     }
 
@@ -499,6 +568,7 @@ export class SmartReframeService {
 
       // Audio-Visual Active Speaker Selection for this shot
       let shotDominantTrackId = dominantTrackId;
+      let midpointPair: [string, string] | null = null;
 
       if (shotTracks.size > 1) {
         // Filter speech intervals intersecting this shot
@@ -521,14 +591,30 @@ export class SmartReframeService {
           }
         }
 
-        // Two-shot tight framing check: if two prominent speakers are close (|x1 - x2| <= 0.32), frame midpoint
+        // Two-shot tight framing check: if two prominent speakers are close (|x1 - x2| <= 0.32), frame midpoint.
+        // Both tracks must be sustained through the shot: a walking single person leaves
+        // sparse track fragments that otherwise impersonate a second seated speaker, and
+        // the midpoint + union-box then frames a false pair, cutting the real subject.
+        // A large close-up face (>=10% of frame) outranks pair framing: when one
+        // exists in the shot, two small sustained tracks are typically stable
+        // background false positives (a lamp ghost and a shelf object in the ToS
+        // scene-3 case, both 100%-present), and their midpoint frames empty set
+        // dressing while the real subject sits outside the crop. Without a large
+        // face, the pair is usually the actual content (podcast two-shot), so the
+        // midpoint check runs as before.
+        const PAIR_LARGE_FACE_MIN_AREA = 0.10;
+        const shotHasLargeFace = Array.from(shotTracks.values()).some(
+          (dets) => dets.reduce((sum, d) => sum + d.width * d.height, 0) / dets.length >= PAIR_LARGE_FACE_MIN_AREA
+        );
         const sortedTracks = Array.from(shotTracks.entries()).sort((a, b) => b[1].length - a[1].length);
-        if (sortedTracks.length >= 2 && sortedTracks[0][1].length > 2 && sortedTracks[1][1].length > 2) {
+        const minPairPresence = Math.max(3, Math.ceil(shotSamples.length * 0.35));
+        if (!shotHasLargeFace && sortedTracks.length >= 2 && sortedTracks[0][1].length >= minPairPresence && sortedTracks[1][1].length >= minPairPresence) {
           const avgX1 = sortedTracks[0][1].reduce((sum, d) => sum + d.center_x, 0) / sortedTracks[0][1].length;
           const avgX2 = sortedTracks[1][1].reduce((sum, d) => sum + d.center_x, 0) / sortedTracks[1][1].length;
           if (Math.abs(avgX1 - avgX2) <= 0.32) {
             // Midpoint framing to avoid whip-panning between tight two-shot conversationalists
             shotDominantTrackId = '__midpoint__';
+            midpointPair = [sortedTracks[0][0], sortedTracks[1][0]];
           }
         }
       } else if (shotTracks.size === 1) {
@@ -551,10 +637,75 @@ export class SmartReframeService {
         }
       }
 
+      if (process.env.SMART_REFRAME_DEBUG_SHOTS === '1') {
+        const dbg = Array.from(shotTracks.entries()).map(([id, dets]) => `${id}:n=${dets.length},cx=${(dets.reduce((s, d) => s + d.center_x, 0) / dets.length).toFixed(3)},area=${(dets.reduce((s, d) => s + d.width * d.height, 0) / dets.length).toFixed(4)}`);
+        console.log(`[DBGSHOT] shot ${shot.start}-${shot.end} samples=${shotSamples.length} dominant=${shotDominantTrackId} global=${dominantTrackId} tracks: ${dbg.join(' | ')}`);
+      }
+
+      if (process.env.SMART_REFRAME_DEBUG_SHOTS === '1') {
+        const dbg = Array.from(shotTracks.entries()).map(([id, dets]) => `${id}:n=${dets.length},cx=${(dets.reduce((s, d) => s + d.center_x, 0) / dets.length).toFixed(3)},area=${(dets.reduce((s, d) => s + d.width * d.height, 0) / dets.length).toFixed(4)}`);
+        console.log(`[DBGSHOT] shot ${shot.start}-${shot.end} samples=${shotSamples.length} dominant=${shotDominantTrackId} global=${dominantTrackId} tracks: ${dbg.join(' | ')}`);
+      }
+
       // Build raw trajectory for this shot
       const rawShotTraj: ShotTrajectoryPoint[] = [];
       let lastSeenFace: NormalizedFaceDetection | null = null;
       let lastSeenTime = -1;
+      let lastDominantSeenTime = -1;
+
+      // Re-acquisition: a confident face that is not a known other person - its
+      // track never shared a sample with the track we are currently following
+      // (a seated second person co-occurs with the tracked speaker; the same
+      // mover re-detected under a new id after fast motion does not). Used when
+      // the near guard has no candidate and during the short-occlusion hold, so
+      // a fast-relocating subject (ToS t=4.25-5.0: conf 0.78-0.83 faces at cx
+      // 0.64-0.84, areas 0.006-0.008) is picked up instead of the crop drifting
+      // on the stale position. Small areas are allowed here because confidence,
+      // not size, separates a real distant face from a speck; the near branch
+      // keeps the stricter area bar.
+      const REACQUIRE_MIN_CONF = 0.75;
+      const REACQUIRE_MIN_AREA = 0.005;
+      const findReacquisition = (sample: AnalyzedSample, time: number): NormalizedFaceDetection | null => {
+        const cooccurring = new Set<string>();
+        if (lastSeenFace?.track_id) {
+          const followedId = lastSeenFace.track_id;
+          for (const s of shotSamples) {
+            if (s.time >= time) break;
+            if (s.faces.some((f) => f.track_id === followedId)) {
+              for (const f of s.faces) {
+                if (f.track_id && f.track_id !== followedId) cooccurring.add(f.track_id);
+              }
+            }
+          }
+        }
+        // Lookahead confirmation: a real mover persists in position; a one-frame
+        // false positive (the ToS t=8.75 ghost lamp, conf 0.80) does not. Require
+        // a face near the candidate in the NEXT sample of this shot. At the
+        // shot's final sample there is no lookahead, so no re-acquisition - the
+        // hold/center-ease stands, which also keeps a cut-boundary sample from
+        // anchoring on a pre-cut glimpse of the next scene.
+        const nextIdx = shotSamples.findIndex((s) => s.time > time);
+        const nextSample = nextIdx >= 0 ? shotSamples[nextIdx] : null;
+        if (!nextSample) return null;
+        let farAlt: NormalizedFaceDetection | null = null;
+        for (const f of sample.faces) {
+          if (f.track_id === shotDominantTrackId) continue;
+          const conf = Number(f.confidence ?? 0);
+          const area = f.width * f.height;
+          if (
+            conf >= REACQUIRE_MIN_CONF &&
+            area >= REACQUIRE_MIN_AREA &&
+            f.track_id &&
+            !cooccurring.has(f.track_id) &&
+            nextSample.faces.some(
+              (g) => Math.abs(g.center_x - f.center_x) <= 0.25 && Number(g.confidence ?? 0) >= 0.7
+            )
+          ) {
+            if (!farAlt || conf > Number(farAlt.confidence ?? 0)) farAlt = f;
+          }
+        }
+        return farAlt;
+      };
 
       const weightedCentering = process.env.SMART_REFRAME_WEIGHTED_CENTERING === '1';
       for (const sample of shotSamples) {
@@ -565,9 +716,15 @@ export class SmartReframeService {
         let subjectBox: { x: number; y: number; w: number; h: number } | null = null;
 
         if (shotDominantTrackId === '__midpoint__') {
+          // Only the sustained pair steers the midpoint and its retention box:
+          // a stray third detection (false positive or passerby) must not widen
+          // the union box and push the real speakers toward the frame edge.
+          const pairFaces = midpointPair
+            ? sample.faces.filter((f) => f.track_id === midpointPair![0] || f.track_id === midpointPair![1])
+            : sample.faces;
           // EXPERIMENTAL (SMART_REFRAME_WEIGHTED_CENTERING=1): weak detections
           // pull the midpoint only weakly away from center. Default: unweighted.
-          const weighted = sample.faces.map((f) => {
+          const weighted = pairFaces.map((f) => {
             const conf = Number(f.confidence ?? 0.5);
             const w = weightedCentering ? Math.min(1, Math.max(0, (conf - 0.68) / 0.2)) : 1;
             return { x: 0.5 + (f.center_x - 0.5) * w, y: 0.38 + (f.center_y - 0.38) * w };
@@ -581,11 +738,11 @@ export class SmartReframeService {
             targetX = validFaceXs[0];
             targetY = validFaceYs[0];
           }
-          if (sample.faces.length > 0) {
-            const minX = Math.min(...sample.faces.map((f) => f.x));
-            const minY = Math.min(...sample.faces.map((f) => f.y));
-            const maxX = Math.max(...sample.faces.map((f) => f.x + f.width));
-            const maxY = Math.max(...sample.faces.map((f) => f.y + f.height));
+          if (pairFaces.length > 0) {
+            const minX = Math.min(...pairFaces.map((f) => f.x));
+            const minY = Math.min(...pairFaces.map((f) => f.y));
+            const maxX = Math.max(...pairFaces.map((f) => f.x + f.width));
+            const maxY = Math.max(...pairFaces.map((f) => f.y + f.height));
             subjectBox = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
           }
         } else if (shotDominantTrackId) {
@@ -603,7 +760,42 @@ export class SmartReframeService {
             targetY = 0.38 + (match.center_y - 0.38) * confWeight;
             lastSeenFace = match;
             lastSeenTime = time;
+            lastDominantSeenTime = time;
             subjectBox = confWeight >= 0.5 ? { x: match.x, y: match.y, w: match.width, h: match.height } : null;
+          } else if (lastDominantSeenTime === -1 || time - lastDominantSeenTime > 1.0) {
+            // Dominant dark > 1s after being seen - OR never seen yet in this
+            // shot: follow the strongest other visible face. The never-seen
+            // case is a glimpse-dominant (a strong 1-detection fragment late
+            // in the shot wins dominance); without this, the crop center-holds
+            // while a plainly visible speaker moves (ToS talking-head scene 1).
+            // Original rule: follow the strongest other
+            // visible face instead of easing to center. Face detectors fragment
+            // one person into several track ids when appearance changes fast
+            // (walking toward camera, profile turns); the shot-level hysteresis
+            // then stays locked on the stale id while the person is plainly
+            // visible under another id, and the retention clamp never sees the
+            // box. A dark-for-1s dominant yields to a large confident face.
+            // Identity guard: the stand-in must be spatially continuous with
+            // the last tracked position (same mover re-detected under a new
+            // id). A different seated person sits at their own x and must NOT
+            // steal the camera when the tracked speaker is briefly occluded.
+            const FALLBACK_MAX_JUMP = 0.25;
+            let alt: NormalizedFaceDetection | null = null;
+            for (const f of sample.faces) {
+              if (f.track_id === shotDominantTrackId) continue;
+              if (Number(f.confidence ?? 0) < 0.7) continue;
+              if (f.width * f.height < 0.02) continue;
+              if (lastSeenFace && Math.abs(f.center_x - lastSeenFace.center_x) > FALLBACK_MAX_JUMP) continue;
+              if (!alt || f.width * f.height > alt.width * alt.height) alt = f;
+            }
+            if (!alt) alt = findReacquisition(sample, time);
+            if (alt) {
+              targetX = alt.center_x;
+              targetY = alt.center_y;
+              lastSeenFace = alt;
+              lastSeenTime = time;
+              subjectBox = { x: alt.x, y: alt.y, w: alt.width, h: alt.height };
+            }
           }
         }
 
@@ -613,12 +805,26 @@ export class SmartReframeService {
           rawShotTraj.push({ time, x: targetX, y: targetY ?? fallbackY, box: subjectBox ?? undefined });
         } else if (lastSeenFace !== null && (time - lastSeenTime) <= 1.0) {
           // Short occlusion (<= 1.0s) within this shot: hold last known position
-          rawShotTraj.push({
-            time,
-            x: lastSeenFace.center_x,
-            y: lastSeenFace.center_y,
-            box: { x: lastSeenFace.x, y: lastSeenFace.y, w: lastSeenFace.width, h: lastSeenFace.height },
-          });
+          // unless a confident non-co-occurring face says the subject relocated
+          // (fast stand/move) rather than being occluded.
+          const reacq = findReacquisition(sample, time);
+          if (reacq) {
+            rawShotTraj.push({
+              time,
+              x: reacq.center_x,
+              y: reacq.center_y,
+              box: { x: reacq.x, y: reacq.y, w: reacq.width, h: reacq.height },
+            });
+            lastSeenFace = reacq;
+            lastSeenTime = time;
+          } else {
+            rawShotTraj.push({
+              time,
+              x: lastSeenFace.center_x,
+              y: lastSeenFace.center_y,
+              box: { x: lastSeenFace.x, y: lastSeenFace.y, w: lastSeenFace.width, h: lastSeenFace.height },
+            });
+          }
         } else {
           // Longer occlusion or no face: ease toward center (0.5 for X, 0.38 for eye-level headroom Y)
           const prevX = lastSeenFace ? lastSeenFace.center_x : 0.5;
@@ -1039,6 +1245,8 @@ export class SmartReframeService {
      * CropConfig; omitting it preserves the legacy full-frame inset behavior.
      */
     facecamBox?: { x: number; y: number; w: number; h: number };
+    /** Chain-safe embedding: see buildSplitPodcastFilter. */
+    tag?: string;
   }): string {
     const {
       mode,
@@ -1049,17 +1257,22 @@ export class SmartReframeService {
       canvasHeight = 1920,
       background = 'black',
       facecamBox,
+      tag,
     } = options;
+    // Chain-safe mode: no [0:v] prefix, no [out] suffix, tag-unique labels.
+    const L = (l: string): string => (tag ? `${tag}${l}` : l);
+    const inPad = tag ? '' : '[0:v]';
+    const outPad = (l: string): string => (tag ? '' : `[${l}]`);
 
     // Main-content stage: legacy letterbox (black pad) or blurred cover fill.
     const mainStage = (mainLabel: string, outLabel: string): string => {
       if (background === 'blur') {
-        return `[${mainLabel}]split=2[bgs][fgs];` +
-          `[bgs]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${canvasHeight},gblur=sigma=40[bgb];` +
-          `[fgs]scale=${canvasWidth}:-2:force_original_aspect_ratio=decrease[fgf];` +
-          `[bgb][fgf]overlay=(W-w)/2:(H-h)/2[${outLabel}]`;
+        return `[${L(mainLabel)}]split=2[${L('bgs')}][${L('fgs')}];` +
+          `[${L('bgs')}]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${canvasHeight},gblur=sigma=40[${L('bgb')}];` +
+          `[${L('fgs')}]scale=${canvasWidth}:-2:force_original_aspect_ratio=decrease[${L('fgf')}];` +
+          `[${L('bgb')}][${L('fgf')}]overlay=(W-w)/2:(H-h)/2[${L(outLabel)}]`;
       }
-      return `[${mainLabel}]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=decrease,pad=${canvasWidth}:${canvasHeight}:(ow-iw)/2:(oh-ih)/2:color=black[${outLabel}]`;
+      return `[${L(mainLabel)}]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=decrease,pad=${canvasWidth}:${canvasHeight}:(ow-iw)/2:(oh-ih)/2:color=black[${L(outLabel)}]`;
     };
 
     // Inset source branch: crop the burned-in facecam region when provided,
@@ -1097,7 +1310,7 @@ export class SmartReframeService {
     if (mode === 'split_stacked') {
       const topHeight = Math.round(canvasHeight * Math.max(0.3, Math.min(0.8, screenRatio)));
       const bottomHeight = canvasHeight - topHeight;
-      return `[0:v]split=2[scr][spk];[scr]scale=${canvasWidth}:${topHeight}:force_original_aspect_ratio=decrease,pad=${canvasWidth}:${topHeight}:(ow-iw)/2:(oh-ih)/2:color=black[v_top];[spk]scale=${canvasWidth}:${bottomHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${bottomHeight}[v_bot];[v_top][v_bot]vstack[out]`;
+      return `${inPad}split=2[${L('scr')}][${L('spk')}];[${L('scr')}]scale=${canvasWidth}:${topHeight}:force_original_aspect_ratio=decrease,pad=${canvasWidth}:${topHeight}:(ow-iw)/2:(oh-ih)/2:color=black[${L('v_top')}];[${L('spk')}]scale=${canvasWidth}:${bottomHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${bottomHeight}[${L('v_bot')}];[${L('v_top')}][${L('v_bot')}]vstack${outPad('out')}`;
     }
 
     // Circular or card inset position calculations
@@ -1119,13 +1332,13 @@ export class SmartReframeService {
 
     if (mode === 'circular_inset') {
       const radius = Math.round(insetDiameter / 2);
-      return `[0:v]split=2[main][cam];${mainStage('main', 'bg')};[cam]${camSrc(insetDiameter, insetDiameter)},format=yuva420p,geq=lum='p(X,Y)':a='if(lte((X-${radius})*(X-${radius})+(Y-${radius})*(Y-${radius}),${radius}*${radius}),255,0)'[cam_circle];[bg][cam_circle]overlay=x=${posX}:y=${posY}[out]`;
+      return `${inPad}split=2[${L('main')}][${L('cam')}];${mainStage('main', 'bg')};[${L('cam')}]${camSrc(insetDiameter, insetDiameter)},format=yuva420p,geq=lum='p(X,Y)':a='if(lte((X-${radius})*(X-${radius})+(Y-${radius})*(Y-${radius}),${radius}*${radius}),255,0)'[${L('cam_circle')}];[${L('bg')}][${L('cam_circle')}]overlay=x=${posX}:y=${posY}${outPad('out')}`;
     }
 
     // rounded_card_inset
     const cardWidth = Math.round(insetDiameter * 1.15);
     const cardHeight = Math.round(insetDiameter * 0.85);
-    return `[0:v]split=2[main][cam];${mainStage('main', 'bg')};[cam]${camSrc(cardWidth, cardHeight)}[card];[bg][card]overlay=x=${posX}:y=${posY}[out]`;
+    return `${inPad}split=2[${L('main')}][${L('cam')}];${mainStage('main', 'bg')};[${L('cam')}]${camSrc(cardWidth, cardHeight)}[${L('card')}];[${L('bg')}][${L('card')}]overlay=x=${posX}:y=${posY}${outPad('out')}`;
   }
 
   /**
@@ -1138,12 +1351,17 @@ export class SmartReframeService {
     speaker2X?: number;
     canvasWidth?: number;
     canvasHeight?: number;
+    /** Chain-safe embedding (Pro editor graph): consumes the incoming stream
+     * (no [0:v] prefix), ends UNLABELED so callers can keep appending filters,
+     * and prefixes every link label with the tag. Must be unique per graph. */
+    tag?: string;
   } = {}): string {
     const {
       speaker1X = 0.25,
       speaker2X = 0.75,
       canvasWidth = 1080,
       canvasHeight = 1920,
+      tag,
     } = options;
 
     const halfHeight = Math.round(canvasHeight / 2);
@@ -1152,6 +1370,13 @@ export class SmartReframeService {
 
     const crop1Expr = `min(max(in_w*${spk1XClamped}-out_w/2\\,0)\\,in_w-out_w)`;
     const crop2Expr = `min(max(in_w*${spk2XClamped}-out_w/2\\,0)\\,in_w-out_w)`;
+
+    if (tag) {
+      return `split=2[${tag}s1][${tag}s2];` +
+        `[${tag}s1]scale=-1:${halfHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${halfHeight}:'${crop1Expr}':(in_h-out_h)/2[${tag}top];` +
+        `[${tag}s2]scale=-1:${halfHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${halfHeight}:'${crop2Expr}':(in_h-out_h)/2[${tag}bot];` +
+        `[${tag}top][${tag}bot]vstack`;
+    }
 
     return `[0:v]split=2[spk1][spk2];` +
       `[spk1]scale=-1:${halfHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${halfHeight}:'${crop1Expr}':(in_h-out_h)/2[v_top];` +
@@ -1169,13 +1394,23 @@ export class SmartReframeService {
     canvasHeight?: number;
     blurRadius?: number;
     brightness?: number;
+    /** Chain-safe embedding: see buildSplitPodcastFilter. */
+    tag?: string;
   } = {}): string {
     const {
       canvasWidth = 1080,
       canvasHeight = 1920,
       blurRadius = 25,
       brightness = -0.15,
+      tag,
     } = options;
+
+    if (tag) {
+      return `split=2[${tag}bg][${tag}fg];` +
+        `[${tag}bg]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${canvasHeight},boxblur=${blurRadius}:5,eq=brightness=${brightness}:contrast=0.95[${tag}b];` +
+        `[${tag}fg]scale=${canvasWidth}:-1:force_original_aspect_ratio=decrease[${tag}f];` +
+        `[${tag}b][${tag}f]overlay=(W-w)/2:(H-h)/2`;
+    }
 
     return `[0:v]split=2[bg][fg];` +
       `[bg]scale=${canvasWidth}:${canvasHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${canvasHeight},boxblur=${blurRadius}:5,eq=brightness=${brightness}:contrast=0.95[v_blur];` +
@@ -1391,6 +1626,8 @@ export class SmartReframeService {
     screencastScreenRatio?: number;
     screencastBackground?: 'black' | 'blur';
     screencastFacecamBox?: { x: number; y: number; w: number; h: number };
+    /** Chain-safe embedding (Pro editor graph): see buildSplitPodcastFilter. */
+    tag?: string;
   }): string {
     const {
       layoutMode = 'track',
@@ -1407,6 +1644,7 @@ export class SmartReframeService {
       screencastScreenRatio,
       screencastBackground,
       screencastFacecamBox,
+      tag,
     } = options;
 
     if (aspectRatio === '9:16') {
@@ -1416,6 +1654,7 @@ export class SmartReframeService {
           speaker2X,
           canvasWidth: 1080,
           canvasHeight: 1920,
+          tag,
         });
       }
 
@@ -1423,6 +1662,7 @@ export class SmartReframeService {
         return this.buildBlurBackgroundFilter({
           canvasWidth: 1080,
           canvasHeight: 1920,
+          tag,
         });
       }
 
@@ -1436,6 +1676,7 @@ export class SmartReframeService {
           facecamBox: screencastFacecamBox,
           canvasWidth: 1080,
           canvasHeight: 1920,
+          tag,
         });
       }
     }

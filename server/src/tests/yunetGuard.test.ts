@@ -36,7 +36,7 @@ async function runAnalyzer(
     ? ['-c', `${prelude}\nimport sys; sys.argv=['smart_reframe.py']; exec(compile(open(${JSON.stringify(SCRIPT)}).read(), 'smart_reframe.py', 'exec'))`]
     : [SCRIPT];
   return new Promise((resolve) => {
-    const child = execFile('python3', args, { env: { ...process.env, ...env } }, (err, stdout, stderr) => {
+    const child = execFile(process.env.PYTHON_PATH || 'python3', args, { env: { ...process.env, ...env } }, (err, stdout, stderr) => {
       resolve({ code: err ? ((err as any).code ?? 1) : 0, stdout: String(stdout), stderr: String(stderr) });
     });
     child.stdin!.end(payload);
@@ -95,7 +95,7 @@ test('Default path (env unset) still runs Haar analyzer with expected schema', a
   delete env.SMART_REFRAME_YUNET_THRESHOLD;
   const payload = JSON.stringify({ videoPath: clip, sampleFps: 4 });
   const r = await new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve) => {
-    const child = execFile('python3', [SCRIPT], { env }, (err, stdout, stderr) => {
+    const child = execFile(process.env.PYTHON_PATH || 'python3', [SCRIPT], { env }, (err, stdout, stderr) => {
       resolve({ code: err ? ((err as any).code ?? 1) : 0, stdout: String(stdout), stderr: String(stderr) });
     });
     child.stdin!.end(payload);
