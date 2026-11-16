@@ -47,6 +47,8 @@ import { computeSceneReorder, isReorderBlocked } from '../../utils/timelineReord
 
 interface TimelineProps {
   contentFramingDecision?: ContentFramingDecision | null;
+  /** Clip subject track (smart reframe keyframes, source seconds) used to seed ScreenShare/Gameplay panel framing. */
+  subjectKeyframes?: Array<{ time: number; centerX: number; centerY?: number }> | null;
   project: EditorProject;
   /** Source clip for this editor session; its window backs the audio waveform overlay. */
   clip?: RenderedClip | null;
@@ -78,6 +80,7 @@ interface TimelineProps {
 export const Timeline: React.FC<TimelineProps> = ({
   project,
   contentFramingDecision = null,
+  subjectKeyframes = null,
   clip,
   sourceVideoUrl,
   playhead,
@@ -484,9 +487,9 @@ export const Timeline: React.FC<TimelineProps> = ({
           Left: [📹 Hide timeline] | [⬚] [🔗] [🗑️] [✂️] [📋]
           Center: [⏮] [▶] [⏭] 01:07.03 / 02:23.08
           Right: [🔍-] [====O====] [🔍+] [⤢] */}
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-1.5 bg-vc-surface1 border-b border-white/[0.07] text-xs">
+      <div className="grid grid-cols-[1fr_auto_1fr] max-md:flex max-md:flex-wrap max-md:justify-center items-center gap-2 px-3 py-1.5 bg-vc-surface1 border-b border-white/[0.07] text-xs">
         {/* Left: edit actions */}
-        <div className="flex items-center gap-1.5 justify-self-start min-w-0 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1.5 justify-self-start min-w-0 overflow-x-auto no-scrollbar max-md:w-full">
           {/* Hide timeline toggle button matching Opus */}
           {onToggleCollapse && (
             <button
@@ -615,10 +618,10 @@ export const Timeline: React.FC<TimelineProps> = ({
         </div>
 
         {/* Center: shared transport (play/pause, stepping, timecode, settings) */}
-        <div className="justify-self-center">{transportSlot}</div>
+        <div className="justify-self-center max-md:order-3">{transportSlot}</div>
 
         {/* Right: zoom & collapse */}
-        <div className="flex items-center gap-2.5 justify-self-end min-w-0">
+        <div className="flex items-center gap-2.5 justify-self-end min-w-0 max-md:order-2 max-md:w-full max-md:justify-center">
           <button
             type="button"
             onClick={() => setPixelsPerSec((p) => Math.max(20, p - 20))}
@@ -974,7 +977,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                             current={readItemLayout(item)}
                             onPick={(layout) => {
                               onCommitProject?.(project);
-                              onUpdateProject(applyItemLayout(project, item.id, layout), { recordHistory: true, markAsDirty: true });
+                              onUpdateProject(applyItemLayout(project, item.id, layout, subjectKeyframes), { recordHistory: true, markAsDirty: true });
                             }}
                           />
                         )}

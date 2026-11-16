@@ -1464,7 +1464,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* DIRECT B-ROLL DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'broll' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
             <MediaBin
               project={project}
               sourceVideoUrl={cleanSourceUrl || renderedPreviewUrl}
@@ -1478,7 +1478,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* DIRECT TRANSLATE DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'translate' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
             <TranslationWorkspace
               project={project}
               sourceTranscriptText={cues.map((c) => c.text).join(' ')}
@@ -1531,7 +1531,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* MEDIA LIBRARY DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'media' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
             <MediaBin
               project={project}
               sourceVideoUrl={cleanSourceUrl || renderedPreviewUrl}
@@ -1545,7 +1545,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* AI COPILOT DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'copilot' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
             <AICopilotPanel
               project={project}
               cues={cues}
@@ -1557,7 +1557,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* AI TOOLS DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'ai_tools' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
             <AiToolsPanel
               activeToolId={null}
               onSelectToolId={() => {}}
@@ -1574,7 +1574,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* AUDIO STUDIO DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'audio' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
             <AudioWorkspacePanel
               project={project}
               currentTime={currentTime}
@@ -1586,7 +1586,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* BRAND KIT DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'brand' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
             <BrandKitPanel
               project={project}
               onUpdateProject={onUpdateProject}
@@ -1596,7 +1596,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* TEXT & MOTION TEMPLATES DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'text' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
             <TextWorkspacePanel
               project={project}
               currentTime={currentTime}
@@ -1608,7 +1608,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* ELEMENTS & STICKERS DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'elements' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
             <ElementsWorkspacePanel
               project={project}
               currentTime={currentTime}
@@ -1620,7 +1620,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* MOTION DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'layout' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
             <MotionWorkspacePanel
               project={project}
               selectedItemId={selectedItemId}
@@ -1631,7 +1631,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* FRAMING & SMART REFRAME DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'framing' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
             <FramingWorkspacePanel
               contentFramingDecision={speakerSplit?.contentFramingDecision ?? null}
               project={project}
@@ -1740,7 +1740,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* ASPECT RATIO DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'aspect_ratio' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
             <AspectRatioWorkspacePanel
               project={project}
               onUpdateProject={onUpdateProject}
@@ -1750,7 +1750,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* CONTEXTUAL INSPECTOR PANEL — smoothly docks beside the rail */}
         {showRightInspector && !inspectorCollapsed && (
-          <div className="relative shrink-0 flex z-20">
+          <div className="relative shrink-0 flex z-20 max-md:contents">
             {inspectorPanel}
           </div>
         )}
@@ -1937,7 +1937,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* TRANSCRIPT DOCK — persistent on the far right, independent of the selected tool */}
         {transcriptCollapsed ? (
-          <div className="w-10 shrink-0 glass-rail flex flex-col items-center py-3 z-20 border-l border-white/[0.08]">
+          <div className="w-10 shrink-0 max-md:absolute max-md:right-0 max-md:top-0 max-md:h-auto max-md:rounded-bl-xl max-md:z-40 glass-rail flex flex-col items-center py-3 z-20 border-l border-white/[0.08]">
             <button
               onClick={toggleTranscriptCollapsed}
               title="Show transcript"
@@ -1951,7 +1951,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             </span>
           </div>
         ) : (
-          <div className="w-[320px] md:w-[340px] xl:w-[360px] shrink-0 glass-dock flex flex-col min-h-0 z-20 border-l border-white/[0.08]">
+          <div className="w-[320px] md:w-[340px] xl:w-[360px] max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-l-0 max-md:border-t max-md:rounded-t-2xl shrink-0 glass-dock flex flex-col min-h-0 z-20 border-white/[0.08] md:border-l">
             <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
               {actionNotice && (
                 <div className="mx-3 mt-2 flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-950/40 border border-amber-800/50">
@@ -2110,6 +2110,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       {/* 3. MULTI-TRACK UNIFIED TIMELINE */}
       <UnifiedTimeline
         contentFramingDecision={speakerSplit?.contentFramingDecision ?? null}
+        subjectKeyframes={smartReframe?.keyframes ?? null}
         height={timelineHeight}
         project={project}
         clip={clip}

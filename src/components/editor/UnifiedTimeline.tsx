@@ -9,6 +9,7 @@ import { Timeline } from './Timeline';
 
 interface UnifiedTimelineProps {
   contentFramingDecision?: ContentFramingDecision | null;
+  subjectKeyframes?: Array<{ time: number; centerX: number; centerY?: number }> | null;
   project: EditorProject;
   clip?: RenderedClip | null;
   /** Source video the preview plays; the filmstrip grabs instant frames from it. */
@@ -38,6 +39,7 @@ interface UnifiedTimelineProps {
 export const UnifiedTimeline: React.FC<UnifiedTimelineProps> = ({
   project,
   contentFramingDecision = null,
+  subjectKeyframes = null,
   clip,
   sourceVideoUrl,
   playhead,
@@ -98,6 +100,7 @@ export const UnifiedTimeline: React.FC<UnifiedTimelineProps> = ({
         <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           <Timeline
             contentFramingDecision={contentFramingDecision}
+            subjectKeyframes={subjectKeyframes}
             project={project}
             clip={clip}
             sourceVideoUrl={sourceVideoUrl}

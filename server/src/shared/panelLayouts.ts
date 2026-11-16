@@ -10,7 +10,7 @@ export const PANEL_LAYOUTS: PanelLayout[] = ['three', 'four', 'screenshare', 'ga
 
 export interface PanelRect { x: number; y: number; w: number; h: number }
 /** `set: true` only after the user chose this panel's view (crop box) or a detector assigned it. Defaults are unassigned placeholders. */
-export interface PanelSlot { focusX: number; focusY: number; scale: number; set?: boolean }
+export interface PanelSlot { focusX: number; focusY: number; scale: number; set?: boolean; /** 'track' = framed on the clip's subject track (a design choice, not Opus's rule). */ auto?: 'track' }
 export interface ItemPanels { layout: PanelLayout; slots: PanelSlot[] }
 
 const R = (x: number, y: number, w: number, h: number): PanelRect => ({ x, y, w, h });
@@ -51,6 +51,7 @@ export function normalizePanels(p: Partial<ItemPanels> | undefined | null): Item
       focusY: clamp(p.slots?.[i]?.focusY, 0, 1, def[i].focusY),
       scale: clamp(p.slots?.[i]?.scale, 1, 4, def[i].scale),
       ...(p.slots?.[i]?.set ? { set: true } : {}),
+      ...(p.slots?.[i]?.auto === 'track' ? { auto: 'track' as const } : {}),
     })),
   };
 }
@@ -116,4 +117,35 @@ export function assertPanelViewsAssigned(project: Parameters<typeof unassignedPa
     const err = new Error(`Set every panel view before exporting (${missing.length} unassigned). Open each scene and use its Panel buttons to review and Apply each view.`) as Error & { code: string; statusCode: number };
     err.code = 'PANEL_VIEWS_UNASSIGNED'; err.statusCode = 409; throw err;
   }
+/**
+ * Seed ScreenShare/Gameplay from ONE tracked subject (the clip's smart-reframe track), when it exists:
+ * the speaker/face panel is framed on the subject (zoomed), the other panel shows the whole frame
+ * (screen or game). Which side holds the face is a Vireo design choice (ScreenShare: face bottom;
+ * Gameplay: face in the small top strip) - Opus's panel roles are NOT known. Three/Four need several
+ * distinct subjects, which a single track cannot supply, so they stay unassigned. No track -> unchanged.
+ */
+export function seedPanelsFromSubject(
+  layout: PanelLayout,
+  slots: PanelSlot[] | undefined,
+  subject: { centerX: number; centerY?: number } | null | undefined
+): PanelSlot[] | undefined {
+  if (!subject || (layout !== 'screenshare' && layout !== 'gameplay')) return slots;
+  const faceIdx = layout === 'screenshare' ? 1 : 0;
+  const cl = (v: number) => Math.min(1, Math.max(0, v));
+  const face: PanelSlot = { focusX: cl(subject.centerX), focusY: cl(subject.centerY ?? 0.4), scale: 1.8, set: true, auto: 'track' };
+  const whole: PanelSlot = { focusX: 0.5, focusY: 0.5, scale: 1, set: true, auto: 'track' };
+  return [0, 1].map((i) => (i === faceIdx ? face : whole));
+}
+
+/** Median subject centre of the track keyframes inside [start, end] (source seconds); null if none. */
+export function subjectCenterInWindow(
+  keyframes: Array<{ time: number; centerX: number; centerY?: number }> | undefined | null,
+  start: number,
+  end: number
+): { centerX: number; centerY?: number } | null {
+  const k = (keyframes || []).filter((f) => f.time >= start - 0.5 && f.time <= end + 0.5 && Number.isFinite(f.centerX));
+  if (!k.length) return null;
+  const med = (a: number[]) => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+  const ys = k.map((f) => f.centerY).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+  return { centerX: med(k.map((f) => f.centerX)), ...(ys.length ? { centerY: med(ys) } : {}) };
 }

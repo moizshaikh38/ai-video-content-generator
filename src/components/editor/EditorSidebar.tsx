@@ -131,7 +131,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
   }, [activeTab]);
 
   return (
-    <aside className="w-[68px] h-full max-h-full glass-chrome border-r border-white/[0.08] flex flex-col items-center select-none z-20 shrink-0 relative overflow-hidden">
+    <aside className="w-[68px] max-md:w-[52px] h-full max-h-full glass-chrome border-r border-white/[0.08] flex flex-col items-center select-none z-20 shrink-0 relative overflow-hidden">
       {/* Top scroll fade effect */}
       <div
         className={`pointer-events-none absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-[#0A0A0A] via-[#0A0A0A]/90 to-transparent z-10 transition-opacity duration-200 ${
@@ -156,7 +156,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
               key={tab.id}
               onClick={() => onChangeTab(tab.id)}
               data-active={isActive ? 'true' : 'false'}
-              className={`group relative flex flex-col items-center justify-center w-[50px] h-[50px] rounded-xl transition-all duration-150 shrink-0 ${
+              className={`group relative flex flex-col items-center justify-center w-[50px] max-md:w-[44px] h-[50px] rounded-xl transition-all duration-150 shrink-0 ${
                 isActive
                   ? isAi
                     ? 'bg-violet-500/20 text-violet-200 shadow-[0_2px_12px_rgba(139,92,246,0.2)] ring-1 ring-violet-500/40'

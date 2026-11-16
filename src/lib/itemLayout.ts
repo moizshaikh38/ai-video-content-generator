@@ -1,6 +1,6 @@
 import type { EditorProject, EditorTrackItem } from '../types';
 
-import { normalizePanels, PANEL_LAYOUTS, type PanelLayout } from '../../server/src/shared/panelLayouts';
+import { normalizePanels, PANEL_LAYOUTS, seedPanelsFromSubject, subjectCenterInWindow, type PanelLayout } from '../../server/src/shared/panelLayouts';
 
 export type SceneLayout = 'fill' | 'fit' | 'blur' | 'split' | PanelLayout;
 
@@ -35,7 +35,13 @@ export function readItemLayout(item: EditorTrackItem): SceneLayout {
  * split geometry applies. layout_mode is marked user-owned so export honours it
  * for this item only.
  */
-export function applyItemLayout(project: EditorProject, itemId: string, layout: SceneLayout): EditorProject {
+export function applyItemLayout(
+  project: EditorProject,
+  itemId: string,
+  layout: SceneLayout,
+  /** Optional clip subject track (smart reframe) used to seed ScreenShare/Gameplay framing. */
+  subjectKeyframes?: Array<{ time: number; centerX: number; centerY?: number }> | null
+): EditorProject {
   return {
     ...project,
     tracks: project.tracks.map((t) => {
@@ -48,7 +54,8 @@ export function applyItemLayout(project: EditorProject, itemId: string, layout: 
           base.layout_mode = layout === 'split' ? 'split' : 'track';
           if ((PANEL_LAYOUTS as string[]).includes(layout)) {
             const prev = (i as any).panels?.layout === layout ? (i as any).panels : undefined;
-            base.panels = normalizePanels({ layout: layout as PanelLayout, slots: prev?.slots });
+            const seeded = prev?.slots ?? seedPanelsFromSubject(layout as PanelLayout, undefined, subjectCenterInWindow(subjectKeyframes, i.source_start || 0, i.source_end ?? ((i.source_start || 0) + (i.timeline_end - i.timeline_start))));
+            base.panels = normalizePanels({ layout: layout as PanelLayout, slots: seeded });
             delete base.crop;
             return base as EditorTrackItem;
           }
