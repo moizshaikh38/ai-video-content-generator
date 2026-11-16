@@ -65,8 +65,8 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
       }`}
       style={{
         ...(css.container as React.CSSProperties),
-        ...(frame.rollingRows || frame.movingBoxLayout || style.backdropBand ? {lineHeight:0}:{}),
-        ...((frame.rollingRows || frame.movingBoxLayout) && (frame.positionX!==undefined||frame.positionY!==undefined)?{textAlign:'center'}:{}),
+        ...(frame.chipLayout || frame.rollingRows || frame.movingBoxLayout || style.backdropBand ? {lineHeight:0}:{}),
+        ...((frame.chipLayout || frame.rollingRows || frame.movingBoxLayout) && (frame.positionX!==undefined||frame.positionY!==undefined)?{textAlign:'center'}:{}),
         opacity: frame.opacity,
         ...(interactive ? { pointerEvents: 'auto' } : {}),
         ...(frame.positionX !== undefined || frame.positionY !== undefined
@@ -104,7 +104,15 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
         }`}
       >
         {style.backdropBand && <div data-caption-backdrop-band="true" style={{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-50%)',width:(style.playResX-style.backdropBand.insetX*2)*scale,height:(style.fontSize*lines.filter(l=>l.length>0).length+style.backdropBand.paddingY*2)*scale,backgroundColor:style.backdropBand.color,opacity:style.backdropBand.opacity}}/>}
-        {frame.movingBoxLayout ? (()=>{
+        {frame.chipLayout ? (()=>{
+          const l=frame.chipLayout;
+          return <div data-caption-chips="true" style={{position:'relative',width:l.width*scale,height:l.height*scale}}>
+            {l.targets.map((target,index)=>{const st=frame.chipStates![index];return <div key={index} style={{position:'absolute',left:target.x*scale,top:(target.y+st.offsetY)*scale,transform:`scale(${st.scale})`}}>
+              <div style={{position:'absolute',left:-target.width*scale/2,top:-target.height*scale/2,width:target.width*scale,height:target.height*scale,borderRadius:style.chips!.radius*scale,backgroundColor:st.color}}/>
+              {l.glyphs.filter(g=>g.wordIndex===index).map((g,i)=><span key={i} style={{...css.line as React.CSSProperties,position:'absolute',whiteSpace:'pre',left:(g.x-target.x)*scale,top:(g.line*l.lineHeight-target.y)*scale+parseFloat(String(css.line.top??0)),fontKerning:'none',fontVariantLigatures:'none',fontSize:css.line.fontSize}}>{g.text}</span>)}
+            </div>})}
+          </div>;
+        })() : frame.movingBoxLayout ? (()=>{
           const l=frame.movingBoxLayout,b=frame.movingBoxState;
           return <div data-caption-moving-box="true" style={{position:'relative',width:l.width*scale,height:l.height*scale}}>
             {b&&style.movingBox&&<div style={{position:'absolute',left:b.x*scale,top:b.y*scale,width:b.width*scale,height:b.height*scale,transform:`translate(-50%,-50%) scale(${b.scale})`,borderRadius:style.movingBox.radius*scale,backgroundColor:style.movingBox.color}}/>}

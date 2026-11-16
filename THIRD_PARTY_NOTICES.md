@@ -46,3 +46,9 @@ These are public, independently distributed font files, not competitor-provided 
   Source: https://github.com/google/fonts/blob/main/ofl/montserrat/METADATA.pb
   Source font: https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/Montserrat%5Bwght%5D.ttf
   Generated ASCII hmtx advances are in captionMontserratMetrics.ts (UPM1000).
+
+- Poppins Bold: Copyright 2020 The Poppins Project Authors.
+  Unmodified public Poppins-Bold.ttf and SIL Open Font License1.1 bundled beside both copies.
+  Metadata: https://github.com/google/fonts/blob/main/ofl/poppins/METADATA.pb
+  Font: https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Bold.ttf
+  ASCII hmtx advances generated from that bundled face are in captionPoppinsMetrics.ts.

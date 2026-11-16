@@ -307,3 +307,27 @@ a legacy bold:true-only adapter is NOT equivalent; such adapters still need qual
 The common resolver now preserves a preset's nonstandard weight when an explicit boolean
 matches the preset's existing bold flag, instead of accidentally losing Figtree600 or
 Montserrat800 on a no-op false value. Other bold choices still leave the special engine.
+
+### Experimental Chip background checkpoint
+
+Exact label retained. Actual rendered gallery screenshot/geometry shows separate white
+word chips, dark#111111 Poppins Bold text, yellow#F7C204 active fill and small per-word
+lift/scale with return to rest. This is independently implemented as separate rounded
+chip drawings beneath individually positioned glyphs, not Glide's one traveling box.
+Public Poppins Bold is unmodified/OFL, Windows metric1000/(1135+627), ASS100 for about57px
+em. Generated ASCII hmtx advances bind the layout to that face. The reusable layout helper
+now accepts an explicit metrics/gap contract; Glide's defaults are unchanged.
+
+Actual Vite/index.css gallery and540x960 default/manual preview+losslessASS were inspected
+at first active chip, phrase entry and later active chip. Fontselection test checks
+Poppins-Bold explicitly. Small glyph rasterization/width differences remain. Gallery
+height includes chip padding/lift clearance. Segment-only text keeps white chips and no
+fabricated active timing. Unicode/braces/backslashes/custom effects/incompatible font/
+bold/uppercase/pop/box edits use normal rendering, never guessed chip geometry.
+
+Experimental/unmatched. The160ms cubic transition,4.5percent scale,14unit lift, chip gap/
+padding/radius and cue grouping are Vireo candidate values, not exact measured reference
+constants. Fullsize competitor output, shaping, spacing/grouping/motion, production font
+staging, newer anchors and API/save/reload/render remain unqualified. Official4/40/0 stays.
+Public metadata/license: https://github.com/google/fonts/blob/main/ofl/poppins/METADATA.pb
+https://github.com/google/fonts/blob/main/ofl/poppins/OFL.txt

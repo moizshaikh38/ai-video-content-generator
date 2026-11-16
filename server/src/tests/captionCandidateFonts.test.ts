@@ -10,6 +10,7 @@ import {buildPresetAssScript,resolveCaptionPreset,FONT_EM_PER_ASS_SIZE} from '..
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 describe('Caption candidate bundled font selection',()=>{
   for(const [id,font,file,postscript] of [
+    ['chip_background','Poppins','poppins/Poppins-Bold.ttf','Poppins-Bold'],
     ['glide','Montserrat','montserrat/Montserrat-ExtraBold.ttf','Montserrat-ExtraBold'],
     ['with_backdrop','Lemon','lemon/Lemon-Regular.ttf','Lemon-Regular'],
     ['crossline','Cal Sans','cal-sans/CalSans-Regular.ttf','CalSans-Regular'],

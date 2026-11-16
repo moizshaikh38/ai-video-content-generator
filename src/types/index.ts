@@ -373,6 +373,7 @@ export type CaptionStyle =
   | 'crossline'
   | 'with_backdrop'
   | 'glide'
+  | 'chip_background'
   | 'soft_cut'
   | 'soft_build'
   | 'typewriter'

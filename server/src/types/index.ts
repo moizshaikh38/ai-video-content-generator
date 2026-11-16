@@ -592,6 +592,7 @@ export type CaptionStyle =
   | 'crossline'
   | 'with_backdrop'
   | 'glide'
+  | 'chip_background'
   | 'soft_cut'
   | 'soft_build'
   | 'typewriter'
@@ -690,6 +691,7 @@ export interface OverlayConfig {
 }
 
 export const SAFE_FONT_FAMILIES = [
+  'Poppins',
   'Lemon',
   'Cal Sans',
   'Bungee',
