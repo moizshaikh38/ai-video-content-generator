@@ -342,7 +342,9 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
     caretColor: '#F7C204',
     description: 'Monospaced characters reveal with speech timing.',
     sampleText: 'To get started',
-    font: { family: 'JetBrains Mono', bold: true, size: 74, uppercase: false, letterSpacing: 0 },
+    // Native720 same-phrase calibration, then actual Studio/save/Quick-render qualified.
+    // Size correction only; candidate status still covers timing/readability gaps.
+    font: { family: 'JetBrains Mono', bold: true, size: 87, uppercase: false, letterSpacing: 0 },
     colors: { text: '#FFFFFF', active: '#FFFFFF', activeText: '#FFFFFF', outline: '#000000', shadow: '#000000', shadowOpacity: 0 },
     outline: 0, shadow: 0, box: null, activeWordBox: null,
     layout: { anchor: 'bottom', marginV: 320, marginH: 70, maxWordsPerCue: 5, maxLines: 2, maxCharsPerLine: 24 },

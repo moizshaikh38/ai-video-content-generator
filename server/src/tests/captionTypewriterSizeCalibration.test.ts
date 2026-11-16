@@ -2,14 +2,17 @@ import {describe,it} from 'node:test';
 import assert from 'node:assert/strict';
 import {CAPTION_PRESETS,FONT_EM_PER_ASS_SIZE,resolveCaptionPreset,getPreviewCss,getPreviewFrame,getCaptionCaret,buildPresetAssScript,type PresetTimedCue} from '../shared/captionPresets.js';
 
-// Measured candidate only. This fixture must not silently promote a default.
+// Size default promoted only after actual Studio/save/service/render qualification.
+// The preset remains a candidate, not full visual/timing parity.
 // Same visible Opus Copy phrase: JetBrains Mono Bold, 47px in its Font panel,
 // native 720px-wide canvas. Timing is a local fixture, not a reference timing claim.
 const words=[{text:'hit',start:.321,end:.421},{text:'the',start:.441,end:.521},{text:'hay',start:.561,end:.821},{text:'in',start:1.122,end:1.182}];
 const cue:PresetTimedCue={id:'real-phrase',start:.321,end:1.3,text:'hit the hay in',words};
 describe('Typewriter size calibration remains an editable candidate',()=>{
- it('keeps the existing default separate from the measured 87 candidate and saved 75 override',()=>{
-  assert.equal(CAPTION_PRESETS.typewriter.font.size,74);
+ it('uses calibrated87 for new selections and preserves older explicit74/75 overrides',()=>{
+  assert.equal(CAPTION_PRESETS.typewriter.font.size,87);
+  assert.equal(resolveCaptionPreset('typewriter').fontSize,87);
+  assert.equal(resolveCaptionPreset('typewriter',{fontSize:74}).fontSize,74);
   assert.equal(CAPTION_PRESETS.typewriter.qualification,'candidate');
   assert.equal(resolveCaptionPreset('typewriter',{fontSize:75}).fontSize,75);
   assert.equal(resolveCaptionPreset('typewriter',{fontSize:87}).fontSize,87);
