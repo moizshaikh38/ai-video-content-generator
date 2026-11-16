@@ -1404,9 +1404,19 @@ export class SmartReframeService {
 
     const userX = (v: number | undefined, measured: number) =>
       Number.isFinite(v) ? clamp01(Number(v)) : clamp01(measured);
+    const x1 = userX(speaker1X, first.cx);
+    const x2 = userX(speaker2X, second.cx);
+    // Partition guard: a speaker's window may not cross the midpoint between
+    // the two anchors. Without it, wide windows on side-by-side sources
+    // (split-screen interviews) bleed the other speaker's shoulder/strip
+    // into this speaker's panel. Shrinks the window toward the anchor instead
+    // of shifting the anchor, keeping each speaker centered in their panel.
+    const mid = (x1 + x2) / 2;
+    const w1 = Math.max(0.2, Math.min(windowW, 2 * (mid - x1)));
+    const w2 = Math.max(0.2, Math.min(windowW, 2 * (x2 - mid)));
     return {
-      speaker1: { x: userX(speaker1X, first.cx), y: clamp01(first.cy), windowW },
-      speaker2: { x: userX(speaker2X, second.cx), y: clamp01(second.cy), windowW },
+      speaker1: { x: x1, y: clamp01(first.cy), windowW: w1 },
+      speaker2: { x: x2, y: clamp01(second.cy), windowW: w2 },
     };
   }
 

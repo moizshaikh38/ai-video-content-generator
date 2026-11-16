@@ -21,9 +21,14 @@ describe('computeSplitSpeakerGeometry', () => {
       sourceHeight: 720,
     });
     assert.ok(geom, 'two persistent subjects must yield geometry');
-    // Window is 1.7x subject separation (0.4 * 1.7 = 0.68), clamped to the 0.62 ceiling.
-    assert.ok(Math.abs(geom!.speaker1.windowW - 0.62) < 1e-6, `windowW=${geom!.speaker1.windowW}`);
+    // Raw window is 1.7x subject separation (0.4 * 1.7 = 0.68), clamped to
+    // the 0.62 ceiling, then the partition guard shrinks it to the speaker
+    // midpoint: mid=0.5, so 2*(0.5-0.3)=0.4 - a 0.62 window would bleed
+    // 0.11 of frame into the other speaker's half.
+    assert.ok(Math.abs(geom!.speaker1.windowW - 0.4) < 1e-6, `windowW=${geom!.speaker1.windowW}`);
     assert.equal(geom!.speaker1.windowW, geom!.speaker2.windowW);
+    // Right edge of speaker1's window stops at the midpoint.
+    assert.ok(geom!.speaker1.x + geom!.speaker1.windowW / 2 <= 0.5 + 1e-9);
     // Speaker assignment follows the default anchors: subject_a (x=0.3) is speaker1.
     assert.ok(Math.abs(geom!.speaker1.x - 0.3) < 1e-6);
     assert.ok(Math.abs(geom!.speaker1.y - 0.25) < 1e-6);
@@ -53,7 +58,10 @@ describe('computeSplitSpeakerGeometry', () => {
       sourceHeight: 720,
     });
     assert.ok(tight);
-    assert.equal(tight!.speaker1.windowW, 0.28, 'very tight separation clamps to the 0.28 floor');
+    // Near-overlapping speakers: the partition guard (mid=0.475) would force
+    // a 0.05 window; the 0.2 minimum keeps a usable frame. The 0.28 floor
+    // cannot hold without crossing the midpoint.
+    assert.equal(tight!.speaker1.windowW, 0.2, 'partition guard minimum for near-overlapping speakers');
 
     const wide = SmartReframeService.computeSplitSpeakerGeometry({
       rawSamples: twoSubjectSamples(0.12, 0.3, 0.88, 0.3),
@@ -62,6 +70,22 @@ describe('computeSplitSpeakerGeometry', () => {
     });
     assert.ok(wide);
     assert.equal(wide!.speaker1.windowW, 0.62, 'wide separation clamps to the 0.62 ceiling');
+  });
+
+  test('partition guard keeps split-screen panels out of each other (user anchors)', () => {
+    // Split-screen interview: speakers anchored at 0.25/0.72, midpoint 0.485.
+    const geom = SmartReframeService.computeSplitSpeakerGeometry({
+      rawSamples: twoSubjectSamples(0.25, 0.25, 0.72, 0.3),
+      sourceWidth: 854,
+      sourceHeight: 480,
+      speaker1X: 0.25,
+      speaker2X: 0.72,
+    });
+    assert.ok(geom);
+    assert.ok(Math.abs(geom!.speaker1.windowW - 0.47) < 1e-6, `w1=${geom!.speaker1.windowW}`);
+    assert.ok(Math.abs(geom!.speaker2.windowW - 0.47) < 1e-6, `w2=${geom!.speaker2.windowW}`);
+    assert.ok(geom!.speaker1.x + geom!.speaker1.windowW / 2 <= 0.485 + 1e-9, 'left panel must not cross midpoint');
+    assert.ok(geom!.speaker2.x - geom!.speaker2.windowW / 2 >= 0.485 - 1e-9, 'right panel must not cross midpoint');
   });
 
   test('returns null without two usable subjects (legacy split preserved)', () => {
