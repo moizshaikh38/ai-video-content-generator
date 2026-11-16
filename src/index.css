@@ -1,3 +1,5 @@
+@font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/jetbrains-mono/JetBrainsMono-Bold.ttf') format('truetype'); }
+@font-face { font-family: 'League Spartan'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/league-spartan/LeagueSpartan-Regular.ttf') format('truetype'); }
 /* Bundled editor fonts (SIL OFL 1.1, licenses under /fonts/*/OFL.txt).
    The pro export burns text with these exact files via drawtext fontfile=,
    so the preview and the export render the same letterforms and weights. */

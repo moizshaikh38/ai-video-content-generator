@@ -1,0 +1,38 @@
+/** Observed names, not an implementation or entitlement claim. No competitor assets/code. */
+export const OPUS_CAPTION_REFERENCE = {
+  observedAt: '2026-11-16',
+  sourceUrl: 'https://clip.opus.pro/editor-ux/P31116181V7e.t5k6CjmiGb?clipId=t5k6CjmiGb&clipRank=3&editType=normal',
+  noCaptionsLabel: 'No captions',
+  styles: [
+    'Word Cut', 'Marker Sweep', 'Negative keywords', 'Karaoke', 'Handwritten', 'Mozi',
+    'Simple', 'Soft Build', 'Typewriter', 'Glide', 'Doodle', 'Editorial', 'Soft Cut',
+    'Beasty', 'Think Media', 'Popline', 'Deep Diver', 'Youshaei', 'Pod P', 'Punch',
+    'Retro 3D', 'Bouncing dot', 'Breathe', 'Crossline', 'Focus', 'With Backdrop',
+    'Elastic', 'Handheld', 'Stack Cut', 'Negative text', 'Chip background',
+    'Glitch Infinite', 'Highlighter Box', 'Baby Earthquake', 'Grow', 'Seamless Bounce',
+    'Soft Landing', 'Blur Switch', 'Sticker', 'Font Shuffle', 'Decode', 'Comic',
+    'Blur In', 'Baby Steps',
+  ],
+} as const;
+
+export type CaptionReferenceName = typeof OPUS_CAPTION_REFERENCE.styles[number];
+export interface CaptionReferenceCoverage {
+  name: CaptionReferenceName;
+  status: 'unmatched' | 'candidate' | 'verified';
+  presetId?: string;
+  evidence: string;
+  remaining: string;
+}
+
+/** No style is declared verified solely because its name exists or a gallery animation was seen. */
+export const CAPTION_REFERENCE_COVERAGE: CaptionReferenceCoverage[] = OPUS_CAPTION_REFERENCE.styles.map(name => {
+  const candidate = {
+    'Word Cut': { presetId: 'word_cut', evidence: 'Visible tile shows individual words replacing each other; Inter bold white type with a small black shadow.', remaining: 'Full-sized applied output, font metrics and phrase segmentation comparison.' },
+    'Soft Build': { presetId: 'soft_build', evidence: 'Visible tile builds a sentence word by word; League Spartan regular white type with small black shadow.', remaining: 'Full-sized applied output, exact easing and layout comparison.' },
+    'Typewriter': { presetId: 'typewriter', evidence: 'Visible tile reveals characters progressively; JetBrains Mono bold white type with yellow cursor.', remaining: 'Yellow cursor, full-sized applied output and exact timing comparison.' },
+  }[name as 'Word Cut' | 'Soft Build' | 'Typewriter'];
+  return candidate ? { name, status: 'candidate', ...candidate } : {
+    name, status: 'unmatched', evidence: 'Current gallery label observed. Existing same-name Vireo styles are not evidence of parity.',
+    remaining: 'Individual visual/timing specification, independent implementation and preview/export comparison.',
+  };
+});

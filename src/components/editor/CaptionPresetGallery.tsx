@@ -184,7 +184,7 @@ export const CaptionPresetGallery: React.FC<CaptionPresetGalleryProps> = ({
               type="button"
               role="radio"
               aria-checked={isSelected}
-              aria-label={preset ? `${preset.label}: ${preset.description}` : 'No Caption: render without captions'}
+              aria-label={preset ? `${preset.label}: ${preset.description}` : 'No captions: render without captions'}
               tabIndex={index === focusIndex ? 0 : -1}
               onClick={() => { if (!isLocked) onSelect(id); }}
               disabled={isLocked}

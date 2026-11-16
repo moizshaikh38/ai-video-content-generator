@@ -16,6 +16,9 @@
 export const CAPTION_PRESET_IDS = [
   'none',
   'karaoke',
+  'word_cut',
+  'soft_build',
+  'typewriter',
   'deep_diver',
   'youshaei',
   'simple',
@@ -49,6 +52,9 @@ export const LEGACY_CAPTION_STYLES = ['clean', 'bold', 'minimal', 'podcast', 'hi
 
 /** Preset IDs that are new style values (karaoke is shared with the legacy list). */
 export const PRESET_ONLY_CAPTION_STYLES = [
+  'word_cut',
+  'soft_build',
+  'typewriter',
   'deep_diver',
   'youshaei',
   'simple',
@@ -114,7 +120,7 @@ export function resolveRenderPresetId(
 // ── Fonts ────────────────────────────────────────────────────────
 
 /** Fonts the export renderer allows (mirrors SAFE_FONT_FAMILIES in server types). */
-export const CAPTION_RENDER_FONTS = ['Inter', 'Arial', 'Arial Black', 'DejaVu Sans', 'Liberation Sans'] as const;
+export const CAPTION_RENDER_FONTS = ['JetBrains Mono', 'League Spartan', 'Inter', 'Arial', 'Arial Black', 'DejaVu Sans', 'Liberation Sans'] as const;
 export type CaptionRenderFont = (typeof CAPTION_RENDER_FONTS)[number];
 export const CAPTION_FALLBACK_FONT: CaptionRenderFont = 'Arial';
 
@@ -123,7 +129,7 @@ export const CAPTION_FALLBACK_FONT: CaptionRenderFont = 'Arial';
  * through libass on the export host; the other CAPTION_RENDER_FONTS stay accepted for
  * API compatibility but may be substituted by the system font matcher.
  */
-export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Arial', 'Arial Black'];
+export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Arial', 'Arial Black', 'Inter', 'JetBrains Mono', 'League Spartan'];
 
 /**
  * libass scales a font so that (ascent + descent) equals the ASS font size, while CSS
@@ -131,6 +137,8 @@ export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Arial', 'Aria
  * metrics, verified against libass renders for Arial (0.894) and Arial Black (0.705).
  */
 export const FONT_EM_PER_ASS_SIZE: Record<CaptionRenderFont, number> = {
+  'JetBrains Mono': 0.757576,
+  'League Spartan': 1.086957,
   Arial: 0.894,
   'Liberation Sans': 0.894,
   'Arial Black': 0.705,
@@ -140,6 +148,8 @@ export const FONT_EM_PER_ASS_SIZE: Record<CaptionRenderFont, number> = {
 
 /** CSS font stacks used by the preview for each export font. */
 export const FONT_CSS_STACK: Record<CaptionRenderFont, string> = {
+  'JetBrains Mono': "'JetBrains Mono', monospace",
+  'League Spartan': "'League Spartan', sans-serif",
   Arial: "Arial, 'Liberation Sans', Helvetica, sans-serif",
   'Liberation Sans': "'Liberation Sans', Arial, Helvetica, sans-serif",
   'Arial Black': "'Arial Black', 'Arial Bold', Gadget, sans-serif",
@@ -164,7 +174,11 @@ export type CaptionHighlightMode = 'none' | 'active' | 'progressive';
 export type CaptionAnchor = 'top' | 'center' | 'bottom';
 export type CaptionAspect = '9:16' | '1:1' | '16:9';
 
+export type CaptionReveal = 'all' | 'build' | 'character';
+
 export interface CaptionPresetDefinition {
+  /** Timed visibility, shared by preview and ASS. No invented timing for segment-only cues. */
+  reveal?: CaptionReveal;
   id: RenderableCaptionPresetId;
   label: string;
   description: string;
@@ -229,6 +243,39 @@ const NO_ENTRANCE = { type: 'none', durationMs: 0 } as const;
  * any third-party preset.
  */
 export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDefinition> = {
+  word_cut: {
+    id: 'word_cut', label: 'Word Cut',
+    description: 'One word at a time with clean bold type.',
+    sampleText: 'To get started',
+    font: { family: 'Inter', bold: true, size: 64, uppercase: false, letterSpacing: 0 },
+    colors: { text: '#FFFFFF', active: '#FFFFFF', activeText: '#FFFFFF', outline: '#000000', shadow: '#000000', shadowOpacity: 0.22 },
+    outline: 0, shadow: 4, box: null, activeWordBox: null,
+    layout: { anchor: 'bottom', marginV: 320, marginH: 70, maxWordsPerCue: 1, maxLines: 2, maxCharsPerLine: 24 },
+    highlight: 'none', wordAnimation: NO_ANIMATION, entrance: NO_ENTRANCE,
+    reveal: 'all',
+  },
+  soft_build: {
+    id: 'soft_build', label: 'Soft Build',
+    description: 'Words softly appear and build a complete phrase.',
+    sampleText: 'To get started',
+    font: { family: 'League Spartan', bold: false, size: 64, uppercase: false, letterSpacing: 0 },
+    colors: { text: '#FFFFFF', active: '#FFFFFF', activeText: '#FFFFFF', outline: '#000000', shadow: '#000000', shadowOpacity: 0.22 },
+    outline: 0, shadow: 4, box: null, activeWordBox: null,
+    layout: { anchor: 'bottom', marginV: 320, marginH: 70, maxWordsPerCue: 5, maxLines: 2, maxCharsPerLine: 24 },
+    highlight: 'none', wordAnimation: NO_ANIMATION, entrance: NO_ENTRANCE,
+    reveal: 'build',
+  },
+  typewriter: {
+    id: 'typewriter', label: 'Typewriter',
+    description: 'Monospaced characters reveal with speech timing.',
+    sampleText: 'To get started',
+    font: { family: 'JetBrains Mono', bold: true, size: 48, uppercase: false, letterSpacing: 0 },
+    colors: { text: '#FFFFFF', active: '#FFFFFF', activeText: '#FFFFFF', outline: '#000000', shadow: '#000000', shadowOpacity: 0 },
+    outline: 0, shadow: 0, box: null, activeWordBox: null,
+    layout: { anchor: 'bottom', marginV: 320, marginH: 70, maxWordsPerCue: 5, maxLines: 2, maxCharsPerLine: 24 },
+    highlight: 'none', wordAnimation: NO_ANIMATION, entrance: NO_ENTRANCE,
+    reveal: 'character',
+  },
   karaoke: {
     id: 'karaoke',
     label: 'Karaoke',
@@ -600,7 +647,10 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
 };
 
 export const CAPTION_PRESET_LABELS: Record<CaptionPresetId, string> = {
-  none: 'No Caption',
+  none: 'No captions',
+  word_cut: CAPTION_PRESETS.word_cut.label,
+  soft_build: CAPTION_PRESETS.soft_build.label,
+  typewriter: CAPTION_PRESETS.typewriter.label,
   karaoke: CAPTION_PRESETS.karaoke.label,
   deep_diver: CAPTION_PRESETS.deep_diver.label,
   youshaei: CAPTION_PRESETS.youshaei.label,
@@ -674,6 +724,7 @@ export interface CaptionPresetOverrides {
 }
 
 export interface ResolvedCaptionStyle {
+  reveal: CaptionReveal;
   presetId: RenderableCaptionPresetId;
   playResX: number;
   playResY: number;
@@ -946,6 +997,7 @@ export function resolveCaptionPreset(
 
   return {
     presetId: id,
+    reveal: p.reveal ?? 'all',
     playResX: playRes.x,
     playResY: playRes.y,
     fontFamily: fontNorm.font,
@@ -1392,9 +1444,20 @@ export function getEntranceOpacityAt(entrance: ResolvedCaptionStyle['entrance'],
   return Math.min(1, elapsedSinceCueStartMs / entrance.durationMs);
 }
 
+/** Deterministic timed reveal. Unicode code points are never split into surrogate halves. */
+export function getWordRevealState(word: PresetTimedWord, time: number, reveal: CaptionReveal): { opacity: number; visibleCharacters?: number } {
+  if (reveal === 'all') return { opacity: 1 };
+  if (reveal === 'build') return { opacity: Math.max(0, Math.min(1, (time - word.start) / 0.1)) };
+  const count = Array.from(word.text).length;
+  const progress = Math.max(0, Math.min(1, (time - word.start) / Math.max(0.01, (word.end - word.start) * 0.8)));
+  return { opacity: time < word.start ? 0 : 1, visibleCharacters: Math.min(count, Math.floor(progress * count) + (time >= word.start ? 1 : 0)) };
+}
+
 // ── Preview frame state (consumed by the React renderer) ─────────
 
 export interface PreviewWord {
+  visibleCharacters?: number;
+  opacity?: number;
   text: string;
   highlighted: boolean;
   active: boolean;
@@ -1451,6 +1514,7 @@ export function getPreviewFrame(cue: PresetTimedCue, time: number, style: Resolv
     cueId: cue.id,
     words: validWords.map((w, i) => ({
       text: w.text,
+      ...getWordRevealState(w, time, style.reveal),
       highlighted: states[i].highlighted,
       active: states[i].active,
       scale: states[i].active ? getActiveWordScaleAt(timing, elapsed) : 1,
@@ -1544,6 +1608,8 @@ export function getPreviewCss(style: ResolvedCaptionStyle, scale: number): Previ
     const baseColor = cs?.color || (w.highlighted ? (style.activeWordBox ? style.textColor : style.activeColor) : style.textColor);
     const css: PreviewCss = {
       color: baseColor,
+      opacity: w.opacity ?? 1,
+      ...(w.visibleCharacters !== undefined ? { clipPath: `inset(-100% ${100 * (1 - w.visibleCharacters / Math.max(1, Array.from(w.text).length))}% -100% -100%)` } : {}),
       textShadow: shadow,
     };
     if (!style.box) Object.assign(css, strokeFor(style.outlineColor, style.outlineWidth));
@@ -1556,7 +1622,7 @@ export function getPreviewCss(style: ResolvedCaptionStyle, scale: number): Previ
     css.display = 'inline-block';
     css.transform = `scale(${effectiveScale.toFixed(3)})`;
     css.transformOrigin = 'center bottom';
-    css.transition = 'transform 0.08s ease-out, color 0.1s ease';
+    css.transition = style.reveal === 'all' ? 'transform 0.08s ease-out, color 0.1s ease' : 'none';
     if (cs?.uppercase) {
       css.textTransform = 'uppercase';
     }
@@ -1701,6 +1767,39 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
       .join('\\N');
     if (!text || cue.end <= cue.start) return [];
     return [dialogue(cue.start, cue.end, `${posTag}${fade}${text}`)];
+  }
+
+  if (style.reveal !== 'all') {
+    const words = getValidCueWords(cue);
+    const breakIdx = getCueLineBreakIndex(cue, words.length);
+    const boundaries = new Set<number>([cue.start, cue.end]);
+    for (const w of words) {
+      if (w.start > cue.start && w.start < cue.end) boundaries.add(w.start);
+      const steps = style.reveal === 'character' ? Math.max(1, Array.from(w.text).length) : 5;
+      const duration = style.reveal === 'character' ? (w.end - w.start) * 0.8 : 0.1;
+      for (let i = 1; i <= steps; i++) {
+        const t = w.start + duration * i / steps;
+        if (t > cue.start && t < cue.end) boundaries.add(t);
+      }
+    }
+    const times = [...new Set([...boundaries].map(t => Number(t.toFixed(2))))].sort((a, b) => a - b);
+    return times.slice(0, -1).flatMap((start, index) => {
+      const end = times[index + 1];
+      if (end <= start) return [];
+      let text = posTag;
+      words.forEach((w, i) => {
+        if (i) text += i - 1 === breakIdx ? '\\N' : ' ';
+        const state = getWordRevealState(w, start + 0.000001, style.reveal);
+        const chars = Array.from(w.text);
+        const shown = state.visibleCharacters ?? chars.length;
+        const alpha = Math.round((1 - state.opacity) * 255).toString(16).padStart(2, '0').toUpperCase();
+        const color = hexToAssColor(w.customStyle?.color || style.textColor);
+        const mult = Math.max(0.25, Math.min(3, w.customStyle?.fontSizeMultiplier ?? 1));
+        text += `{\\c${color}\\fscx${Math.round(mult * 100)}\\fscy${Math.round(mult * 100)}\\alpha&H${alpha}&}${escapeAssText(chars.slice(0, shown).join(''))}`;
+        text += `{\\alpha&HFF&}${escapeAssText(chars.slice(shown).join(''))}{\\alpha&H00&}`;
+      });
+      return [dialogue(start, end, text)];
+    });
   }
 
   const slices = computeCueWordSlices(cue, validWords);

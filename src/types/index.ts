@@ -359,6 +359,9 @@ export interface RenderedClip {
 
 /** Legacy styles plus the preset-gallery styles (see server/src/shared/captionPresets.ts). */
 export type CaptionStyle =
+  | 'word_cut'
+  | 'soft_build'
+  | 'typewriter'
   | 'clean'
   | 'bold'
   | 'minimal'
@@ -456,6 +459,8 @@ export interface OverlayConfig {
 }
 
 export const SAFE_FONT_FAMILIES = [
+  'JetBrains Mono',
+  'League Spartan',
   'Montserrat',
   'Inter',
   'Arial',

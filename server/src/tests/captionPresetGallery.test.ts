@@ -93,7 +93,7 @@ function baseClip(overrides: Partial<ClipRecord> = {}): ClipRecord {
 describe('Caption presets: configuration and stable IDs', () => {
   it('exposes the exact gallery IDs in display order', () => {
     assert.deepEqual([...CAPTION_PRESET_IDS], [
-      'none', 'karaoke', 'deep_diver', 'youshaei', 'simple', 'beasty', 'mozi', 'popline', 'think_media',
+      'none', 'karaoke', 'word_cut', 'soft_build', 'typewriter', 'deep_diver', 'youshaei', 'simple', 'beasty', 'mozi', 'popline', 'think_media',
       'editorial', 'bold_highlight', 'soft_backdrop', 'compact_creator', 'two_color_highlight',
       'vireo_oneword', 'vireo_pill', 'vireo_lime', 'vireo_hormozi', 'vireo_clean',
       'vireo_spring', 'vireo_neon', 'vireo_capsule', 'vireo_editorial', 'vireo_sweep',
@@ -123,7 +123,7 @@ describe('Caption presets: configuration and stable IDs', () => {
   });
 
   it('has a metric ratio for every render font', () => {
-    for (const f of CAPTION_RENDER_FONTS) assert.ok(FONT_EM_PER_ASS_SIZE[f] > 0.5 && FONT_EM_PER_ASS_SIZE[f] < 1);
+    for (const f of CAPTION_RENDER_FONTS) assert.ok(FONT_EM_PER_ASS_SIZE[f] > 0.5 && FONT_EM_PER_ASS_SIZE[f] < 1.2);
   });
 });
 
@@ -355,7 +355,7 @@ describe('Caption presets: preview ↔ export mapping', () => {
     assert.equal(word.WebkitTextStroke, `${px(18)} #000000`);
     assert.equal(word.paintOrder, 'stroke fill');
     assert.equal(word.textShadow, `${px(5)} ${px(5)} 0 rgba(0, 0, 0, 0.85)`);
-    assert.equal(word.fontSize, px(104 * FONT_EM_PER_ASS_SIZE['Arial Black'] * 1.2));
+    assert.equal(word.transform, 'scale(1.200)');
 
     const box = getPreviewCss(resolveCaptionPreset('think_media'), scale);
     assert.equal(box.lineBox.padding, px(18));
