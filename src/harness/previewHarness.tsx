@@ -336,7 +336,7 @@ function ShellTemplateApp() {
 }
 
 function HarnessApp() {
-  const [item, setItem] = useState<EditorTrackItem>(baseItem);
+  const [item, setItem] = useState<EditorTrackItem>(params.get('panels') ? ({ ...baseItem, panels: { layout: params.get('panels') as any, slots: [] } } as any) : baseItem);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [canvasPatch, setCanvasPatch] = useState<any>({});
@@ -400,6 +400,10 @@ function HarnessApp() {
         onSelectItem: (id: string | null) => setSelectedItemId(id),
         onDeleteItem: () => {},
         onUpdateItemTransform: () => {},
+        onUpdateItemPanels: (itemId: string, panels: any) => {
+          (window as any).__panelCalls = [...((window as any).__panelCalls || []), { itemId, panels }];
+          setItem((prev) => ({ ...prev, panels } as any));
+        },
         onUpdateItemCrop: (itemId: string, crop: { mode: 'fit' | 'fill' | 'custom'; focusX: number; focusY: number; scale?: number }) => {
           window.__cropCalls.push({ itemId, crop });
           setItem((prev) => ({ ...prev, crop: { ...crop } }));

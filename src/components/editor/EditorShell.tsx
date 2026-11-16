@@ -1650,6 +1650,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                         items: t.items.map((i) => ({
                           ...i,
                           crop_mode: mode === 'blur' ? 'fit' : mode,
+                          panels: undefined,
                           ...(mode === 'smart'
                             ? {}
                             : {
@@ -1803,6 +1804,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 onUpdateTrackItem(track.id, itemId, { crop }, options);
               }
             }}
+            onUpdateItemPanels={(itemId, panels, options) => {
+              const track = project.tracks.find((t) => t.items.some((i) => i.id === itemId));
+              if (track) onUpdateTrackItem(track.id, itemId, { panels }, options);
+            }}
             smartReframe={smartReframe}
             showSafeGuides={showSafeGuides}
             onToggleSafeGuides={toggleSafeGuides}
@@ -1847,6 +1852,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                         items: t.items.map((i) => ({
                           ...i,
                           crop_mode: mode === 'blur' ? 'fit' : mode,
+                          panels: undefined,
                           crop: {
                             // 'smart' stays on the legacy crop_mode channel; the
                             // per-item compiler modes are fill/fit/blur/custom.

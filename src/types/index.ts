@@ -1059,6 +1059,8 @@ export interface EditorTrackItem {
   crop_config?: CropConfig;
   /** Manual subject tracker (Tracker control). Times are source-file seconds. */
   tracker?: EditorSubjectTracker;
+  /** Multi-panel scene layout (Three/Four/ScreenShare/Gameplay): per-panel source crops. Target rects live in shared/panelLayouts. */
+  panels?: { layout: 'split2' | 'three' | 'four' | 'screenshare' | 'gameplay'; slots: Array<{ focusX: number; focusY: number; scale: number }> };
   crop?: {
     mode: 'fit' | 'fill' | 'custom' | 'blur';
     /** Fit/Blur shape in a 9:16 canvas: '4:3' band or 'full' frame (legacy when absent). */

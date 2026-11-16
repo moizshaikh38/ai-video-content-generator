@@ -6,6 +6,10 @@ const OPTIONS: Array<{ id: SceneLayout; label: string }> = [
   { id: 'fit', label: 'Fit' },
   { id: 'blur', label: 'Blur' },
   { id: 'split', label: 'Split' },
+  { id: 'three', label: 'Three' },
+  { id: 'four', label: 'Four' },
+  { id: 'screenshare', label: 'ScreenShare' },
+  { id: 'gameplay', label: 'Gameplay' },
 ];
 
 /** Per-scene layout label on a timeline clip; click to change THIS scene only. */

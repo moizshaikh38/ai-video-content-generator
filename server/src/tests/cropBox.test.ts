@@ -69,3 +69,39 @@ describe('Fit band', () => {
     assert.equal(fitBandApplies('9:16'), true); assert.equal(fitBandApplies('16:9'), false);
   });
 });
+
+import { PANEL_RECTS, panelPixelRects, buildPanelsFilter, defaultPanelSlots, normalizePanels } from '../shared/panelLayouts.js';
+import { applyItemLayout as applyLayout2, readItemLayout } from '../../../src/lib/itemLayout';
+
+test('panel rects: measured Opus 9:16 geometry, tile the canvas exactly (no gaps/overlaps), 4K scales', () => {
+  assert.deepEqual(PANEL_RECTS.gameplay.map((r) => [r.y, r.h]), [[0, 0.3], [0.3, 0.7]]);
+  for (const layout of ['three', 'four', 'screenshare', 'gameplay'] as const) {
+    for (const [W, H] of [[1080, 1920], [2160, 3840], [1920, 1080]]) {
+      const rs = panelPixelRects(layout, W, H);
+      assert.equal(rs.reduce((a, r) => a + r.w * r.h, 0), W * H, `${layout} area ${W}x${H}`);
+      for (const r of rs) { assert.ok(r.w > 0 && r.h > 0 && r.x + r.w <= W && r.y + r.h <= H); assert.equal(r.w % 2, 0); assert.equal(r.h % 2, 0); }
+    }
+  }
+  // measured 720x1280 reference: gameplay 720x384 / 720x896 => at 1080x1920 576 / 1344
+  assert.deepEqual(panelPixelRects('gameplay', 1080, 1920).map((r) => r.h), [576, 1344]);
+  assert.deepEqual(panelPixelRects('three', 1080, 1920).map((r) => [r.w, r.h]), [[1080, 960], [540, 960], [540, 960]]);
+});
+
+test('panel filter: independent per-panel crops, chain-safe, normalises bad input', () => {
+  const f = buildPanelsFilter({ layout: 'four', slots: defaultPanelSlots('four') }, 1080, 1920, 'vcpx');
+  assert.equal((f.match(/crop=/g) || []).length, 4);
+  assert.ok(f.startsWith('split=4') && f.endsWith('vstack=inputs=2') && !/\]$/.test(f));
+  const n = normalizePanels({ layout: 'three', slots: [{ focusX: 9, focusY: -1, scale: 99 }] as any })!;
+  assert.equal(n.slots.length, 3); assert.deepEqual(n.slots[0], { focusX: 1, focusY: 0, scale: 4 });
+  assert.equal(normalizePanels({ layout: 'pip' as any }), null);
+});
+
+test('applyItemLayout: panel layouts set item.panels, clear crop; switching back clears panels', () => {
+  const mk = (): any => ({ canvas: {}, tracks: [{ type: 'VIDEO', items: [{ id: 'a', crop: { mode: 'blur', focusX: .5, focusY: .5 } }] }] });
+  const p1 = applyLayout2(mk(), 'a', 'gameplay'); const it1: any = p1.tracks[0].items[0];
+  assert.equal(it1.panels.layout, 'gameplay'); assert.equal(it1.crop, undefined); assert.equal(readItemLayout(it1), 'gameplay');
+  it1.panels.slots[1] = { focusX: .1, focusY: .2, scale: 2 };
+  assert.equal((applyLayout2(p1, 'a', 'gameplay').tracks[0].items[0] as any).panels.slots[1].scale, 2); // same layout keeps edits
+  const it2: any = applyLayout2(p1, 'a', 'fit').tracks[0].items[0];
+  assert.equal(it2.panels, undefined); assert.equal(it2.crop.mode, 'blur');
+});

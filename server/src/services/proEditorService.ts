@@ -1,5 +1,6 @@
 import { canvasDims } from '../shared/renderResolution.js';
 import fs from 'node:fs';
+import { normalizePanels, buildPanelsFilter } from '../shared/panelLayouts.js';
 import { FIT_BAND_ASPECT, effectiveFitBand, fitBandApplies } from '../shared/fitBand.js';
 import path from 'node:path';
 import os from 'node:os';
@@ -792,6 +793,14 @@ export class ProEditorService {
     const ratio = (reframe?.aspectRatio || '9:16') as ClipAspectRatio;
 
     if (item.is_title_card) return null;
+
+    // Multi-panel scene layout (Three/Four/ScreenShare/Gameplay): each panel is its own source crop.
+    const panelCfg = normalizePanels((item as any).panels);
+    if (panelCfg) {
+      const bd = ratio === '16:9' ? { w: 1920, h: 1080 } : ratio === '1:1' ? { w: 1080, h: 1080 } : { w: 1080, h: 1920 };
+      const tag = ('vcp' + String(item.id || 'x')).replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || 'vcp';
+      return buildPanelsFilter(panelCfg, bd.w, bd.h, tag);
+    }
 
     // Per-item manual crop override wins over clip-level reframing.
     if (item.crop && (item.crop.mode === 'custom' || item.crop.mode === 'fit' || item.crop.mode === 'fill' || item.crop.mode === 'blur')) {

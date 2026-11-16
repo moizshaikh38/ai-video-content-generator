@@ -970,7 +970,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         {/* Describe the persisted item framing, not a hardcoded Fill label. */}
                         {showFilmstrip && track.type === 'VIDEO' && (
                           <SceneLayoutBadge
-                            label={effectiveContentLayout(item,contentFramingDecision) === 'split' ? 'Split' : effectiveContentLayout(item,contentFramingDecision) === 'screencast' ? 'Screen + Cam' : effectiveContentLayout(item,contentFramingDecision) === 'blur' ? 'Blur' : item.crop?.mode === 'fit' ? 'Fit' : item.crop?.mode === 'blur' ? 'Blur' : 'Fill'}
+                            label={(item as any).panels ? ({ three: 'Three', four: 'Four', screenshare: 'ScreenShare', gameplay: 'Gameplay', split2: 'Split' } as any)[(item as any).panels.layout] : effectiveContentLayout(item,contentFramingDecision) === 'split' ? 'Split' : effectiveContentLayout(item,contentFramingDecision) === 'screencast' ? 'Screen + Cam' : effectiveContentLayout(item,contentFramingDecision) === 'blur' ? 'Blur' : item.crop?.mode === 'fit' ? 'Fit' : item.crop?.mode === 'blur' ? 'Blur' : 'Fill'}
                             current={readItemLayout(item)}
                             onPick={(layout) => {
                               onCommitProject?.(project);

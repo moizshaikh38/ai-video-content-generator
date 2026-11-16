@@ -30,6 +30,8 @@ import { CaptionPresetRenderer } from './CaptionPresetRenderer';
 import { BackgroundControl } from './BackgroundControl';
 import { TrackerControl } from './TrackerControl';
 import { CropBoxControl } from './CropBoxControl';
+import { PanelsPreview } from './PanelsPreview';
+import { normalizePanels, PANEL_RECTS, PANEL_LABELS } from '../../../server/src/shared/panelLayouts';
 import { FIT_BAND_ASPECT, effectiveFitBand, fitBandApplies } from '../../../server/src/shared/fitBand';
 
 interface PreviewCanvasProps {
@@ -55,6 +57,8 @@ interface PreviewCanvasProps {
     crop: { mode: 'fit' | 'fill' | 'blur' | 'custom'; focusX: number; focusY: number; scale?: number },
     options?: UpdateProjectOptions
   ) => void;
+  /** Multi-panel scene: update one scene's per-panel crops. */
+  onUpdateItemPanels?: (itemId: string, panels: NonNullable<EditorTrackItem['panels']>, options?: UpdateProjectOptions) => void;
   onCommitProject?: (preOperationProject: EditorProject) => void;
   showSafeGuides: boolean;
   onToggleSafeGuides?: () => void;
@@ -214,6 +218,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   onDeleteItem,
   onUpdateItemTransform,
   onUpdateItemCrop,
+  onUpdateItemPanels,
   onCommitProject,
   showSafeGuides,
   onToggleSafeGuides,
@@ -428,6 +433,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // Layout/crop/band/split state is PER SCENE: read the item under the playhead (the export compiles per item),
   // falling back to the first video item only when the playhead is outside every item.
   const baseVideoItem: EditorTrackItem | undefined = activeVideoItems[0] ?? project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
+  const activePanels = normalizePanels((baseVideoItem as any)?.panels);
 
   const backdropVideoRef = useRef<HTMLVideoElement | null>(null);
   const splitBottomRef = useRef<HTMLVideoElement | null>(null);
@@ -1224,7 +1230,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               title="Layout Mode (Click to cycle Fill / Fit / Blur background)"
             >
               <Maximize2 className="w-3.5 h-3.5" />
-              <span>Layout: {primaryLayoutMode === 'split' ? 'Split' : primaryLayoutMode === 'blur' ? 'Blur' : primaryLayoutMode === 'screencast' ? 'Screencast' : primaryVideoCropMode === 'fit' ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
+              <span>Layout: {activePanels ? PANEL_LABELS[activePanels.layout] : primaryLayoutMode === 'split' ? 'Split' : primaryLayoutMode === 'blur' ? 'Blur' : primaryLayoutMode === 'screencast' ? 'Screencast' : primaryVideoCropMode === 'fit' ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
             </button>
           )}
 
@@ -1243,7 +1249,32 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             </>
           )}
 
-          {onUpdateItemCrop && videoDims && videoDims.w > 0 && activeVideoItems[0] && (
+          {onUpdateItemPanels && activePanels && videoDims && videoDims.w > 0 && baseVideoItem && (
+            <>
+              {PANEL_RECTS[activePanels.layout].map((r, i) => {
+                const cw = parseFloat(canvasDims.width), ch = parseFloat(canvasDims.height);
+                return (
+                  <CropBoxControl
+                    key={`${baseVideoItem.id}-${activePanels.layout}-${i}`}
+                    label={`Panel ${i + 1}`}
+                    videoSrc={cleanSourceUrl || activeVideoSrc || null}
+                    sourceTime={targetVideoTime}
+                    srcW={videoDims.w}
+                    srcH={videoDims.h}
+                    canvasAspect={(r.w * cw) / (r.h * ch)}
+                    current={activePanels.slots[i]}
+                    enabled
+                    onApply={(c) => {
+                      const slots = activePanels.slots.map((s, j) => (j === i ? c : s));
+                      onUpdateItemPanels(baseVideoItem.id, { layout: activePanels.layout, slots }, { recordHistory: true, markAsDirty: true });
+                    }}
+                  />
+                );
+              })}
+              <div className="w-px h-3.5 bg-white/[0.1]" />
+            </>
+          )}
+          {onUpdateItemCrop && videoDims && videoDims.w > 0 && activeVideoItems[0] && !activePanels && (
             <>
               <CropBoxControl
                 videoSrc={cleanSourceUrl || activeVideoSrc || null}
@@ -1400,6 +1431,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               // preflight caps video at max-width:100%, which would silently
               // shrink the oversized element back into the panel, so unset it.
               ...(backdropInset ?? {}),
+              ...(activePanels ? { opacity: 0 } : {}),
               ...(groupFitView
                 ? { left: groupFitView.left, top: groupFitView.top, width: groupFitView.width, height: groupFitView.height, clipPath: groupFitView.clipPath, maxWidth: 'none' }
                 : {}),
@@ -1499,6 +1531,20 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 : undefined,
               transformOrigin: '50% 50%',
             }}
+          />
+        ) : null}
+
+        {activePanels && activeVideoSrc && videoDims && videoDims.w > 0 ? (
+          <PanelsPreview
+            src={activeVideoSrc}
+            panels={activePanels}
+            canvasW={parseFloat(canvasDims.width)}
+            canvasH={parseFloat(canvasDims.height)}
+            srcW={videoDims.w}
+            srcH={videoDims.h}
+            time={targetVideoTime}
+            playing={Boolean(isPlaying)}
+            filter={cssColorFilters(baseVideoItem)}
           />
         ) : null}
 
