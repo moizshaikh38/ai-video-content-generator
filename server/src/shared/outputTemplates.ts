@@ -27,8 +27,13 @@ export interface OutputTemplate {
   framing: {
     /** 'track' follows the smart-reframe analysis; 'split' is the two-speaker stack. */
     layoutMode: 'track' | 'split';
-    /** Background fill mode (item.crop), same routing as the preview toolbar. */
-    cropMode: 'fill' | 'fit' | 'blur';
+    /**
+     * Background fill mode (item.crop), same routing as the preview toolbar.
+     * OMIT for smart-reframe templates: writing a fill-mode crop stomps the
+     * smart channel and the export decision never reaches the layout
+     * precedence (caught by the template-applied export proof).
+     */
+    cropMode?: 'fit' | 'blur';
   };
   captions: {
     presetId: RenderableCaptionPresetId;
@@ -47,7 +52,7 @@ export const OUTPUT_TEMPLATES: readonly OutputTemplate[] = [
     description: 'Two speakers stacked top/bottom with clean captions',
     bestFor: 'Two-person conversations and interviews',
     aspectRatio: '9:16',
-    framing: { layoutMode: 'split', cropMode: 'fill' },
+    framing: { layoutMode: 'split' },
     captions: { presetId: 'compact_creator', position: 'bottom' },
     transition: { type: 'cut', duration: 0 },
   },
@@ -57,7 +62,7 @@ export const OUTPUT_TEMPLATES: readonly OutputTemplate[] = [
     description: 'Smart-tracked subject, simple captions, opening hook',
     bestFor: 'Talking-head shorts and reels',
     aspectRatio: '9:16',
-    framing: { layoutMode: 'track', cropMode: 'fill' },
+    framing: { layoutMode: 'track' },
     captions: { presetId: 'simple', position: 'bottom' },
     hook: { textTemplateId: 'headline_impact', durationSec: 3 },
     transition: { type: 'cross_dissolve', duration: 0.5 },
@@ -68,7 +73,7 @@ export const OUTPUT_TEMPLATES: readonly OutputTemplate[] = [
     description: 'High-energy word-by-word captions and punchy hook',
     bestFor: 'Fast-paced viral clips',
     aspectRatio: '9:16',
-    framing: { layoutMode: 'track', cropMode: 'fill' },
+    framing: { layoutMode: 'track' },
     captions: { presetId: 'vireo_hormozi', position: 'center' },
     hook: { textTemplateId: 'headline_impact', durationSec: 3 },
     transition: { type: 'zoom_lite', duration: 0.4 },
@@ -168,13 +173,19 @@ export function applyOutputTemplateToProject(
           const item: EditorTrackItem = {
             ...i,
             layout_mode: template.framing.layoutMode,
-            crop_mode: template.framing.cropMode === 'blur' ? 'fit' : template.framing.cropMode,
-            crop: {
-              mode: template.framing.cropMode,
-              focusX: i.crop?.focusX ?? 0.5,
-              focusY: i.crop?.focusY ?? 0.5,
-              scale: i.crop?.scale ?? 1,
-            },
+            // Only fill-mode templates touch the crop channel; smart-reframe
+            // templates leave it alone so the analysis keeps steering.
+            ...(template.framing.cropMode
+              ? {
+                  crop_mode: template.framing.cropMode === 'blur' ? 'fit' : template.framing.cropMode,
+                  crop: {
+                    mode: template.framing.cropMode,
+                    focusX: i.crop?.focusX ?? 0.5,
+                    focusY: i.crop?.focusY ?? 0.5,
+                    scale: i.crop?.scale ?? 1,
+                  },
+                }
+              : {}),
           } as EditorTrackItem;
           if (template.transition) {
             (item as any).transition_in =

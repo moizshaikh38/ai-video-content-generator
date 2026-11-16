@@ -69,9 +69,12 @@ test('apply: podcast_split sets 9:16 split layout, captions preset+position, no 
   const vids = p.tracks.find((t: any) => t.type === 'VIDEO').items;
   for (const v of vids) {
     assert.equal(v.layout_mode, 'split');
-    assert.equal(v.crop.mode, 'fill');
   }
-  // User crop focus survives the template.
+  // Smart-reframe templates must NOT write the crop channel (a fill-mode crop
+  // stomps the smart channel and the export never reaches the layout
+  // precedence - caught by the template-applied export proof).
+  assert.equal(vids[1].crop, undefined);
+  assert.equal(vids[0].crop.mode, 'fill', 'pre-existing crop untouched');
   assert.equal(vids[0].crop.focusX, 0.4);
   const cap = p.tracks.find((t: any) => t.type === 'CAPTION');
   assert.equal(cap.hidden, false);
@@ -113,6 +116,9 @@ test('apply: bold_shorts uses middle captions + zoom joins; clean_landscape is 1
   assert.equal(land.canvas.aspect_ratio, '16:9');
   assert.equal(land.canvas.width, 1920);
   assert.equal(land.tracks.find((t: any) => t.type === 'VIDEO').items[0].crop.mode, 'fit');
+  assert.equal(land.tracks.find((t: any) => t.type === 'VIDEO').items[1].crop.mode, 'fit');
+  const sq = applyOutputTemplateToProject(makeProject(), getOutputTemplate('square_social')!);
+  assert.equal(sq.tracks.find((t: any) => t.type === 'VIDEO').items[0].crop.mode, 'blur');
 });
 
 test('apply: does not mutate the input project', () => {
