@@ -535,6 +535,7 @@ export interface TimedCaptionCue {
   tokens?: TimedCaptionToken[];
   position_x?: number;
   position_y?: number;
+  position_anchor?: 'center' | 'bottom';
   presetOverride?: CaptionPresetId;
   styleOverrides?: CaptionPresetOverrides;
 }

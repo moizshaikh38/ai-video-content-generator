@@ -1,3 +1,4 @@
+import { applySceneCaptionPlacement } from '../../../server/src/shared/sceneCaptionPlacement';
 import {effectiveContentLayout, type ContentFramingDecision} from '../../../server/src/shared/contentFramingDecision';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
@@ -18,14 +19,12 @@ import {
 import { UpdateProjectOptions } from '../../hooks/useEditorProject';
 import {
   getPreviewFrame,
-  regroupCuesForPreset,
   resolveEditorCaptionStyle,
   resolveCaptionPreset,
   isRenderablePresetId,
   getEditorCaptionPresetId,
 } from '../../lib/captionPresets';
 import { computeCanvasFitScale } from '../../lib/canvasFit';
-import { attributeCueSpeaker, SPEAKER1_POSITION_Y } from '../../../server/src/shared/speakerCaptionSplit';
 import { interpolateReframeCenter } from '../../../server/src/shared/reframeInterpolation';
 import { CaptionPresetRenderer } from './CaptionPresetRenderer';
 
@@ -215,7 +214,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   onUpdateCropMode,
   smartReframe,
   videoRef,
-  cues,
+  cues: rawCues,
   speakerSplit,
   watermarkRequired = false,
   groupReframe = null,
@@ -508,66 +507,23 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const splitView1 = splitGeometryView(speakerSplit?.splitGeometry?.speaker1);
   const splitView2 = splitGeometryView(speakerSplit?.splitGeometry?.speaker2, 1);
 
-  // Blur band anchor (mirrors CaptionService.computeBlurFitBandAnchor): on a blur
-  // layout the default caption position lands on the blurred fill in export, so
-  // the export anchors the block's bottom edge just inside the fitted content
-  // band. The preview must show the same placement - but only for the DEFAULT
-  // position: an explicit choice (provenance flag, numeric position_y, non-bottom
-  // position, or a dragged transform other than the materialized 500px default)
-  // always wins, exactly as in captionService.
-  const captionBandAnchorY = useMemo(() => {
-    if (primaryVideoCropMode !== 'blur' || !videoDims || videoDims.w <= 0 || videoDims.h <= 0) return undefined;
-    const cap = captionItem?.caption;
-    const capPos = cap?.position || 'bottom';
-    if (capPos !== 'bottom') return undefined;
-    if (cap?.position_explicit === true) return undefined;
-    if (cap?.position_y !== undefined) return undefined;
-    const ty = captionItem?.transform?.position_y;
-    if (ty !== undefined && Math.abs(ty - 500) > 0.5) return undefined;
-    const isPortrait = project.canvas.aspect_ratio !== '16:9';
-    const playRes = project.canvas.aspect_ratio === '1:1' ? { x: 1080, y: 1080 } : isPortrait ? { x: 1080, y: 1920 } : { x: 1920, y: 1080 };
-    const scale = Math.min(playRes.x / videoDims.w, playRes.y / videoDims.h);
-    const fitH = videoDims.h * scale;
-    if (fitH >= playRes.y - 1) return undefined; // source fills the canvas vertically: no band
-    const bandBottom = (playRes.y + fitH) / 2;
-    const targetY = bandBottom - Math.max(24, fitH * 0.08);
-    return Math.min(0.92, Math.max(0.08, targetY / playRes.y));
-  }, [primaryVideoCropMode, videoDims, captionItem, project.canvas.aspect_ratio]);
-
-  // Legacy overlay path: same band anchor as the preset path.
-  const effectiveCaptionCoords = useMemo(
-    () =>
-      captionBandAnchorY !== undefined
-        ? { x: currentCaptionCoords.x, y: captionBandAnchorY, anchorY: 'bottom' as const }
-        : currentCaptionCoords,
-    [currentCaptionCoords, captionBandAnchorY]
-  );
-
-
-  // Find active caption cue
-  const activeCue = cues.find((c) => playhead >= c.start && playhead <= c.end);
-
-  // Split-zone captions (mirrors captionService's speakerSplit path): in the
-  // split layout, a cue attributed to the top-half speaker (nearest reframe
-  // keyframe to its start, distinguishable zones) renders with its bottom
-  // edge at position_y 0.4 - the upper-half band above the divider, exactly
-  // where the exported ASS places it. User/editor-positioned cues are never
-  // moved. Zone Xs prefer the analysis metadata, falling back to the saved
-  // crop anchors, same precedence as the export.
-  const splitCaptionCueY = (() => {
-    if (primaryLayoutMode !== 'split' || !speakerSplit || !activeCue) return undefined;
-    if (activeCue.position_x !== undefined || activeCue.position_y !== undefined) return undefined;
-    const speaker1X =
-      typeof speakerSplit.speaker1X === 'number' && Number.isFinite(speakerSplit.speaker1X)
-        ? speakerSplit.speaker1X
-        : splitAnchors.speaker1X;
-    const speaker2X =
-      typeof speakerSplit.speaker2X === 'number' && Number.isFinite(speakerSplit.speaker2X)
-        ? speakerSplit.speaker2X
-        : splitAnchors.speaker2X;
-    const attributed = attributeCueSpeaker(activeCue.start, speakerSplit.keyframes || [], { speaker1X, speaker2X });
-    return attributed === 'speaker1' ? SPEAKER1_POSITION_Y : undefined;
-  })();
+  // Source dimensions come from the active media element. Layout windows are
+  // the edited VIDEO timeline, shared with export, never the original source clock.
+  const placementStyle = resolveEditorCaptionStyle(captionItem?.caption, project.canvas.aspect_ratio, captionItem?.transform);
+  const cues = useMemo(() => applySceneCaptionPlacement(rawCues, {
+    project, sourceWidth: videoDims?.w, sourceHeight: videoDims?.h,
+    fallbackLayout: primaryLayoutMode,
+    fontSize: placementStyle?.fontSize ?? captionItem?.caption?.font_size,
+    maxCharsPerLine: placementStyle?.maxCharsPerLine,
+    maxLines: placementStyle?.maxLines ?? captionItem?.caption?.max_lines,
+  }), [rawCues, project, videoDims, primaryLayoutMode, captionItem, placementStyle?.fontSize, placementStyle?.maxLines, placementStyle?.maxCharsPerLine]);
+  const activeCue = cues.find(c => playhead >= c.start && playhead < c.end);
+  const splitCaptionCueY = undefined;
+  const effectiveCaptionCoords = {
+    x: activeCue?.position_x ?? currentCaptionCoords.x,
+    y: activeCue?.position_y ?? currentCaptionCoords.y,
+    anchorY: activeCue?.position_anchor ?? currentCaptionCoords.anchorY,
+  };
 
   // Intro/outro title card active at the playhead (full-frame colored card with text).
   const activeTitleCard = project.tracks
@@ -579,19 +535,13 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const captionData = captionItem?.caption;
   const captionTransform = captionItem?.transform;
   const aspectRatio = project.canvas.aspect_ratio;
-  const presetStyle = useMemo(() => {
-    const st = resolveEditorCaptionStyle(captionData, aspectRatio, captionTransform);
-    if (st && captionBandAnchorY !== undefined) {
-      // ASS marginV anchors the block's BOTTOM edge; positionY is the bottom-edge
-      // fraction from the top (see resolveCaptionPreset's positionY mapping).
-      return { ...st, marginV: Math.round(st.playResY * (1 - captionBandAnchorY)) };
-    }
-    return st;
-  }, [captionData, aspectRatio, captionTransform, captionBandAnchorY]);
-  const presetCues = useMemo(
-    () => (presetStyle ? regroupCuesForPreset(cues, presetStyle).cues : null),
-    [cues, presetStyle]
+  const presetStyle = useMemo(
+    () => resolveEditorCaptionStyle(captionData, aspectRatio, captionTransform),
+    [captionData, aspectRatio, captionTransform]
   );
+  // Editor cues are already grouped/sliced and export uses those exact windows.
+  // Regrouping here loses cue overrides and merges across scene boundaries.
+  const presetCues = presetStyle ? cues : null;
 
   // Selected item reference
   const selectedItem = project.tracks
@@ -1895,7 +1845,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               // at position_y (0.4 = upper-half band above the divider).
               const cueHasOwnY =
                 (captionScope === 'cue' && activeCue?.position_y !== undefined) || splitCaptionCueY !== undefined;
-              const effAnchorY = cueHasOwnY ? 'bottom' : effectiveCaptionCoords.anchorY;
+              const effAnchorY = activeCue.position_anchor ?? (cueHasOwnY ? 'bottom' : effectiveCaptionCoords.anchorY);
               const anchorTransform =
                 effAnchorY === 'center'
                   ? 'translate(-50%, -50%)'

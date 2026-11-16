@@ -1,7 +1,7 @@
+import { applySceneCaptionPlacement } from '../shared/sceneCaptionPlacement.js';
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { mergeExtendedCues, maxCueEnd, editorProjectCoveredEnd } from './captionExtendMerge.js';
-import { applySpeakerSplitToCues } from '../shared/speakerCaptionSplit.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { logger } from '../utils/logger.js';
@@ -42,6 +42,9 @@ export interface GenerateCaptionsOptions {
    * an explicit vertical position or a non-bottom caption position.
    */
   bandAnchorPositionY?: number;
+  sourceWidth?: number;
+  sourceHeight?: number;
+  sceneLayoutFallback?: string;
   /**
    * Optional two-speaker split context from the render pipeline (split layout
    * only): reframe keyframes (clip-relative) + the two speaker source-x zones.
@@ -1083,7 +1086,7 @@ export class CaptionService {
         const effY = Math.max(0.08, Math.min(0.92, cue.position_y ?? defaultY));
         const px = Math.round(effX * playRes.x);
         const py = Math.round(effY * playRes.y);
-        cuePosTag = `{\\pos(${px},${py})}`;
+        cuePosTag = `{${cue.position_anchor === 'center' ? '\\an5' : cue.position_anchor === 'bottom' ? '\\an2' : ''}\\pos(${px},${py})}`;
       }
 
       if (isKinetic && timingMode === 'word' && Array.isArray(cue.words) && cue.words.length > 0) {
@@ -1372,6 +1375,7 @@ export class CaptionService {
     let editorPositionExplicit = false;
     let editorPositionYNumeric: number | null = null;
     let editorCoveredEnd: number | null = null;
+    let editorProject: any = null;
 
     try {
       const { data: proj } = await dataRepository
@@ -1382,6 +1386,7 @@ export class CaptionService {
         .maybeSingle();
 
       if (proj && Array.isArray(proj.tracks)) {
+        editorProject = proj;
         const extracted = CaptionService.extractEditorCuesFromProject(proj);
         if (extracted && extracted.cues.length > 0) {
           editorCues = extracted.cues;
@@ -1441,7 +1446,7 @@ export class CaptionService {
       mergedConfigPre.positionY !== undefined ||
       (prePo.positionY !== undefined && prePo.positionYDerived !== true);
     const bandY =
-      options.bandAnchorPositionY !== undefined &&
+      !editorProject && options.bandAnchorPositionY !== undefined &&
       !hasExplicitEditorPosition &&
       !hasExplicitConfigPosition &&
       (clip.caption_position ?? 'bottom') === 'bottom'
@@ -1532,20 +1537,15 @@ export class CaptionService {
       preset = extracted.preset;
     }
 
-    // Speaker-split captions (OpenShorts): in a two-speaker split layout,
-    // cues attributed to the top-half speaker anchor inside the top half.
-    // Grounded only: needs reframe keyframes + distinguishable speaker zones
-    // from the render pipeline; user/editor-positioned cues are never moved.
-    if (options.speakerSplit) {
-      const { cues: splitCues, attributedTop } = applySpeakerSplitToCues(
-        cues,
-        options.speakerSplit.keyframes,
-        { speaker1X: options.speakerSplit.speaker1X, speaker2X: options.speakerSplit.speaker2X }
-      );
-      if (attributedTop > 0) {
-        logger.info(`[Captions] Speaker-split: ${attributedTop}/${cues.length} cues anchored to the top-half speaker for clip ${clip.id}`);
-        cues = splitCues;
-      }
+    if (editorProject) {
+      cues = applySceneCaptionPlacement(cues, {
+        project: editorProject, sourceWidth: options.sourceWidth, sourceHeight: options.sourceHeight,
+        fallbackLayout: options.sceneLayoutFallback,
+        fontSize: preset?.fontSize, maxLines: preset?.maxLines, maxCharsPerLine: preset?.maxCharsPerLine,
+        explicitConfigPosition: hasExplicitConfigPosition || (clip.caption_position ?? 'bottom') !== 'bottom',
+      });
+    } else if (options.speakerSplit && !hasExplicitEditorPosition && !hasExplicitConfigPosition) {
+      cues = cues.map(c => c.position_x !== undefined || c.position_y !== undefined ? c : ({...c, position_y:0.5, position_anchor:'center'}));
     }
 
     const isKinetic = Boolean(

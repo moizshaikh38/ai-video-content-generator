@@ -1010,6 +1010,7 @@ export interface PresetTimedCue {
   tokens?: PresetTimedWord[];
   position_x?: number;
   position_y?: number;
+  position_anchor?: 'center' | 'bottom';
   presetOverride?: CaptionPresetId;
   styleOverrides?: CaptionPresetOverrides;
 }
@@ -1412,6 +1413,7 @@ export interface PreviewFrame {
   wordTiming: boolean;
   positionX?: number;
   positionY?: number;
+  positionAnchor?: 'center' | 'bottom';
 }
 
 /** Computes exactly what the exported ASS shows for `cue` at `time` (seconds, clip-local). */
@@ -1435,6 +1437,7 @@ export function getPreviewFrame(cue: PresetTimedCue, time: number, style: Resolv
       wordTiming: false,
       positionX: cue.position_x,
       positionY: cue.position_y,
+      positionAnchor: cue.position_anchor,
     };
   }
 
@@ -1461,6 +1464,7 @@ export function getPreviewFrame(cue: PresetTimedCue, time: number, style: Resolv
     wordTiming: true,
     positionX: cue.position_x,
     positionY: cue.position_y,
+      positionAnchor: cue.position_anchor,
   };
 }
 
@@ -1689,7 +1693,7 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
     const effY = Math.max(0.08, Math.min(0.92, cue.position_y ?? defaultY));
     const px = Math.round(effX * style.playResX);
     const py = Math.round(effY * style.playResY);
-    posTag = `{\\pos(${px},${py})}`;
+    posTag = `{${cue.position_anchor === 'center' ? '\\an5' : cue.position_anchor === 'bottom' ? '\\an2' : ''}\\pos(${px},${py})}`;
   }
 
   // Segment timing / no usable words: static text with preset typography, no fake highlight.

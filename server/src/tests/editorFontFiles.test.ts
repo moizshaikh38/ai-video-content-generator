@@ -41,9 +41,15 @@ test('drawtext arg uses fontfile for bundled families, font= fallback otherwise'
   const bundled = drawtextFontArg('Montserrat', 'bold');
   assert.match(bundled, /^fontfile='.+\/assets\/fonts\/montserrat\/Montserrat-Bold\.ttf'$/);
   const fallback = drawtextFontArg('Oswald', 'bold');
-  assert.equal(fallback, `font='Oswald'`);
+  assert.match(fallback, /^(fontfile=|font='Oswald')/);
 });
 
 test('font= fallback strips quotes (no filter-string injection)', () => {
   assert.equal(drawtextFontArg("Ar'ial"), `font='Arial'`);
+});
+
+test('unbundled Arial honors bold preview weight rather than regular host fallback', () => {
+ assert.match(drawtextFontArg('Arial','bold'), /^fontfile='.+[Bb]old[^/]*\.ttf'$/);
+ assert.equal(drawtextFontArg('Arial','black'), drawtextFontArg('Arial','bold'));
+ assert.equal(drawtextFontArg('Arial','normal'), `font='Arial'`);
 });

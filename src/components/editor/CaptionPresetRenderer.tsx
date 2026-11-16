@@ -73,7 +73,7 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
               top: `${((frame.positionY ?? 0.667) * 100).toFixed(2)}%`,
               right: 'auto',
               bottom: 'auto',
-              transform: 'translate(-50%, -100%)',
+              transform: frame.positionAnchor === 'center' ? 'translate(-50%, -50%)' : 'translate(-50%, -100%)',
             }
           : {}),
       }}

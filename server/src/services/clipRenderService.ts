@@ -1,3 +1,4 @@
+import { assFontsDirArg } from './editorFontFiles.js';
 import { createClipWithJob } from '../db/repositories/clipRepository.js';
 import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
@@ -635,7 +636,7 @@ export class ClipRenderService {
               : undefined;
           let proBlurSourceWidth: number | undefined;
           let proBlurSourceHeight: number | undefined;
-          if (proPrimaryCropMode === 'blur' && !reframeDecision.track) {
+          if (editorProject && !reframeDecision.track) {
             try {
               const { stdout } = await execFileAsync('ffprobe', [
                 '-v', 'error', '-select_streams', 'v:0',
@@ -697,12 +698,15 @@ export class ClipRenderService {
             targetAspectRatio: clip.aspect_ratio as ClipAspectRatio,
             outputPath: assPath,
             bandAnchorPositionY,
+            sourceWidth: reframeDecision.track?.source_width ?? proBlurSourceWidth,
+            sourceHeight: reframeDecision.track?.source_height ?? proBlurSourceHeight,
+            sceneLayoutFallback: reframeDecision.layoutMode,
             speakerSplit,
           });
 
           if (captionResult.cues.length > 0 && fs.existsSync(assPath)) {
             const safeAss = assPath.replace(/\\/g, '/').replace(/:/g, '\\\\:');
-            videoFilters.push(`ass=${safeAss}`);
+            videoFilters.push(`ass=${safeAss}${assFontsDirArg()}`);
             logger.info(`[ClipRender] Burning ${captionResult.cues.length} caption cues using style "${clip.caption_style || 'clean'}"`);
           }
         } catch (capErr: any) {

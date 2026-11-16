@@ -68,7 +68,7 @@ import { validateEditorSourcePath, isAllowedEditorSourcePath, overlayAssetExtens
 import { roundedCardPng } from '../utils/roundedCardPng.js';
 import { getDrawtextFfmpeg } from '../utils/drawtextFfmpeg.js';
 import { resolveXfadeName, getTransitionPreset, clampTransitionDuration } from '../shared/transitionPresets.js';
-import { drawtextFontArg } from './editorFontFiles.js';
+import { drawtextFontArg, assFontsDirArg } from './editorFontFiles.js';
 
 const execFileAsync = promisify(execFile);
 const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
@@ -1573,7 +1573,7 @@ export class ProEditorService {
     if (fs.existsSync(assPath)) {
       const safeAss = assPath.replace(/\\/g, '/').replace(/:/g, '\\\\:');
       const nextLabel = `[sub_v_${currentInputIdx}]`;
-      filterComplex.push(`${videoStreamLabel}ass=${safeAss}${nextLabel}`);
+      filterComplex.push(`${videoStreamLabel}ass=${safeAss}${assFontsDirArg()}${nextLabel}`);
       videoStreamLabel = nextLabel;
     }
 
