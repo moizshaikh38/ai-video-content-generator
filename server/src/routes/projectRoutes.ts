@@ -43,6 +43,7 @@ import {
   getClipCaptions,
   analyzeClipReframe,
   getClipReframe,
+  trackClipSubject,
   generateClipProducerPlan,
   getClipProducerPlans,
   getClipProducerPlan,
@@ -137,6 +138,7 @@ router.get('/audio-assets/:assetId/waveform', requireAuth, asyncHandler(getAsset
 // Phase 13: Smart Auto-Reframe Routes
 router.post('/clips/:clipId/reframe/analyze', requireAuth, expensiveLimiter, asyncHandler(analyzeClipReframe));
 router.get('/clips/:clipId/reframe', requireAuth, asyncHandler(getClipReframe));
+router.post('/clips/:clipId/track-subject', requireAuth, expensiveLimiter, asyncHandler(trackClipSubject));
 
 // Phase 17: Vireo Producer (AI Editing Agent) Routes
 router.post('/clips/:clipId/producer/plan', requireAuth, expensiveLimiter, asyncHandler(generateClipProducerPlan));

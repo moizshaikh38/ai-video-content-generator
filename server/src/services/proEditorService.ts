@@ -811,6 +811,24 @@ export class ProEditorService {
       return buildCropFilter(ratio, { focusX: clampFocus(item.crop.focusX), focusY: clampFocus(item.crop.focusY), scale: zoom });
     }
 
+    // Manual subject tracker (Tracker control): the user picked a subject, so its
+    // tracked path drives the crop window for this slice (fill layout only).
+    const tr = (item as any).tracker as import('../types/index.js').EditorSubjectTracker | undefined;
+    const userLayout = (item as any).crop_config?.layout_mode_source === 'user' ? (item as any).layout_mode : undefined;
+    const trWinStart = item.source_start || 0;
+    const trInWindow = tr?.enabled && Array.isArray(tr.keyframes) ? tr.keyframes.filter((k) => k.time >= trWinStart - 1 && k.time <= trWinStart + sliceDuration + 1) : [];
+    if (tr?.enabled && trInWindow.length >= 1 && !userLayout?.match(/^(split|blur|screencast)$/)) {
+      const winStart = trWinStart;
+      const pick = trInWindow;
+      const rebased = pick.map((k) => ({ time: Number(Math.max(0, Math.min(sliceDuration, k.time - winStart)).toFixed(3)), centerX: k.centerX, centerY: k.centerY }));
+      const dedup = rebased.filter((k, i) => i === 0 || k.time > rebased[i - 1].time);
+      if (dedup.length === 1) return buildCropFilter(ratio, { focusX: dedup[0].centerX, focusY: dedup[0].centerY });
+      return SmartReframeService.buildLayoutCropFilter({
+        layoutMode: 'track', aspectRatio: ratio, keyframes: dedup,
+        sourceWidth: tr.source_width || 1920, sourceHeight: tr.source_height || 1080, duration: sliceDuration,
+      });
+    }
+
     const track = reframe?.track;
     const hasUsableTrack = Boolean(
       reframe &&

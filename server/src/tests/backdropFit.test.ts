@@ -66,3 +66,33 @@ test('per-scene user layout overrides the clip-level layout for that slice only'
   assert.match(asBlur, /boxblur/);
   assert.equal(build(plain, 'track'), clipTrack);
 });
+
+test('subject tracker keyframes drive a dynamic crop for the item slice', () => {
+  const item: any = { id: 't1', source_start: 10, source_end: 15, tracker: { enabled: true, scope: 'scene', ref_time: 10, box: { x: .2, y: .3, w: .1, h: .2 }, source_width: 1920, source_height: 1080,
+    keyframes: [{ time: 10, centerX: .2, centerY: .5 }, { time: 12.5, centerX: .5, centerY: .5 }, { time: 15, centerX: .8, centerY: .5 }] } };
+  const f = (ProEditorService as any).buildSliceCropFilter(item, undefined, 10, 5);
+  assert.match(f, /crop=/);
+  assert.notEqual(f, (ProEditorService as any).buildSliceCropFilter({ id: 'x' }, undefined, 10, 5));
+  const r = spawnSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc=s=1280x720:r=10:d=5', '-vf', f, '-frames:v', '1', '-f', 'null', '-']);
+  assert.equal(r.status, 0, String(r.stderr));
+});
+
+import { validateTrackRequest, SubjectTrackerService } from '../services/subjectTrackerService.js';
+test('track request validation rejects junk and clamps the box', () => {
+  assert.throws(() => validateTrackRequest({ refTime: -1, box: { x: 0, y: 0, w: .1, h: .1 } }));
+  assert.throws(() => validateTrackRequest({ refTime: 1, box: { x: 'a' } }));
+  const ok = validateTrackRequest({ refTime: 2, box: { x: .95, y: .5, w: .5, h: .1 } });
+  assert.ok(ok.box.x + ok.box.w <= 1.0000001);
+});
+
+test('tracker script follows a moving subject and is usable through the service', async () => {
+  const mk = spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'mandelbrot=s=640x360:r=25', '-f', 'lavfi', '-i', 'testsrc=s=80x80:r=25', '-filter_complex', "[0][1]overlay=x='60+80*t':y=140", '-t', '4', '/tmp/vc-track-test.mp4']);
+  assert.equal(mk.status, 0, String(mk.stderr));
+  const py = spawnSync('python3', ['-c', 'import cv2,numpy']);
+  if (py.status !== 0) return; // OpenCV not installed on this host
+  const r = await SubjectTrackerService.runScript('/tmp/vc-track-test.mp4', { refTime: 1, box: { x: 140 / 640, y: 140 / 360, w: 80 / 640, h: 80 / 360 }, startSec: 0, endSec: 4 });
+  const first = r.keyframes[0], last = r.keyframes[r.keyframes.length - 1];
+  assert.ok(last.time - first.time > 2.5, 'tracked most of the clip');
+  assert.ok(last.centerX - first.centerX > 0.3, 'centre moved right with the subject');
+  assert.equal(r.source_width, 640);
+});

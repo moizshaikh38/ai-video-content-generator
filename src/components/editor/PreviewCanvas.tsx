@@ -29,6 +29,7 @@ import { attributeCueSpeaker, SPEAKER1_POSITION_Y } from '../../../server/src/sh
 import { interpolateReframeCenter } from '../../../server/src/shared/reframeInterpolation';
 import { CaptionPresetRenderer } from './CaptionPresetRenderer';
 import { BackgroundControl } from './BackgroundControl';
+import { TrackerControl } from './TrackerControl';
 
 interface PreviewCanvasProps {
   contentFramingDecision?: ContentFramingDecision | null;
@@ -59,6 +60,8 @@ interface PreviewCanvasProps {
   onChangeAspectRatio?: (aspectRatio: ClipAspectRatio) => void;
   onUpdateCropMode?: (mode: 'center' | 'fit' | 'blur' | 'smart') => void;
   onUpdateCanvas?: (patch: Partial<EditorProject['canvas']>) => void;
+  clipId?: string;
+  onSetTracker?: (target: { itemId: string | null }, tracker: import('../../types').EditorSubjectTracker | null) => void;
   /**
    * Smart-reframe track for the base video (clip-level, mode 'smart'). When
    * present and the item carries no manual crop override, the base video pans
@@ -216,6 +219,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   onChangeAspectRatio,
   onUpdateCropMode,
   onUpdateCanvas,
+  clipId,
+  onSetTracker,
   smartReframe,
   videoRef,
   cues,
@@ -633,6 +638,18 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // proportion ((in_h-out_h)*cY), which is exactly CSS object-position's y
   // percentage semantics under cover fit.
   const smartPanPosition = (() => {
+    const trItem = activeVideoItems[0] as any;
+    const tr = trItem?.tracker;
+    if (tr?.enabled && tr.keyframes?.length && primaryVideoCropMode === 'fill' && primaryLayoutMode !== 'split' && videoDims && videoDims.w > 0 && videoDims.h > 0) {
+      const center = interpolateReframeCenter(tr.keyframes, targetVideoTime);
+      const dims = getAspectRatioDimensions();
+      const boxW = parseFloat(dims.width) || 360;
+      const boxH = parseFloat(dims.height) || 640;
+      const coverScale = Math.max(boxW / videoDims.w, boxH / videoDims.h);
+      const inW = videoDims.w * coverScale;
+      const px = inW > boxW ? Math.min(1, Math.max(0, (center.centerX * inW - boxW / 2) / (inW - boxW))) : 0.5;
+      return `${(px * 100).toFixed(2)}% ${(Math.min(1, Math.max(0, center.centerY)) * 100).toFixed(2)}%`;
+    }
     if (!smartReframe || !smartReframe.keyframes || smartReframe.keyframes.length === 0) return undefined;
     if (primaryLayoutMode !== 'track' || primaryVideoCropMode !== 'fill') return undefined;
     if (lowConfidenceTrack) return undefined; // weak track exports as blur; group fit (if any) overrides at consumption
@@ -658,6 +675,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // keyframes, band resting at 42% canvas height, over the blurred backdrop.
   const groupFitView = (() => {
     if (isUsingRenderedPreview) return undefined;
+    if ((activeVideoItems[0] as any)?.tracker?.enabled) return undefined;
     const clipTime = targetVideoTime - compositionClipStart;
     const shot = shotComposition?.find(s => clipTime >= s.start && clipTime < s.end)
       ?? (shotComposition?.length && clipTime >= shotComposition[shotComposition.length-1].end ? shotComposition[shotComposition.length-1] : undefined);
@@ -1237,6 +1255,20 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 cropMode={primaryVideoCropMode === 'blur' ? 'blur' : primaryVideoCropMode === 'fit' ? 'fit' : 'fill'}
                 onSetCropMode={onUpdateCropMode}
                 onUpdateCanvas={onUpdateCanvas}
+              />
+              <div className="w-px h-3.5 bg-white/[0.1]" />
+            </>
+          )}
+
+          {clipId && onSetTracker && (
+            <>
+              <TrackerControl
+                clipId={clipId}
+                project={project}
+                videoSrc={cleanSourceUrl || activeVideoSrc || null}
+                sourceTime={targetVideoTime}
+                activeItemId={(activeVideoItems[0] as any)?.id ?? null}
+                onSetTracker={onSetTracker}
               />
               <div className="w-px h-3.5 bg-white/[0.1]" />
             </>

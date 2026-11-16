@@ -9,6 +9,7 @@ import { mergeExtendedCues, maxCueEnd } from '../services/captionExtendMerge.js'
 import { WaveformService } from '../services/waveformService.js';
 import { ThumbnailService } from '../services/thumbnailService.js';
 import { SmartReframeService, activeReframeAnalysisSet } from '../services/smartReframeService.js';
+import { SubjectTrackerService, validateTrackRequest } from '../services/subjectTrackerService.js';
 import { ProducerPlanningService } from '../services/producerPlanningService.js';
 import { ProducerRenderService } from '../services/producerRenderService.js';
 import { GenreIntelligenceService } from '../services/genreIntelligenceService.js';
@@ -1611,5 +1612,27 @@ export const regenerateClipHook = async (req: AuthenticatedRequest, res: Respons
     res
       .status(err.statusCode || (err.code === 'CLIP_NOT_FOUND' ? 404 : 500))
       .json({ status: 'error', code: err.code || 'HOOK_GENERATION_FAILED', message: err.message || 'Hook generation failed.' });
+  }
+};
+
+/** POST /clips/:clipId/track-subject - follow a user-picked subject (Tracker control). Same entitlement as Smart Reframe; no billing. */
+export const trackClipSubject = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const clipId = req.params.clipId;
+  if (!userId) { res.status(401).json({ status: 'error', code: 'AUTH_REQUIRED', message: 'User not authenticated.' }); return; }
+  if (!clipId || !isValidUUID(clipId)) { res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid clip UUID is required.' }); return; }
+  const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
+  if (!EntitlementService.isFeatureAllowed(entitlements, 'smartReframe')) {
+    res.status(403).json({ status: 'error', code: 'FEATURE_NOT_PERMITTED', message: `Subject tracking is not available on your current plan (${entitlements.displayName}).`, feature: 'smartReframe' });
+    return;
+  }
+  try {
+    const payload = validateTrackRequest(req.body);
+    const result = await SubjectTrackerService.trackForClip(clipId, userId, payload);
+    res.json({ status: 'ok', ...result });
+  } catch (err: any) {
+    const code = err?.code || 'TRACK_FAILED';
+    const http = code === 'INVALID_PAYLOAD' ? 400 : code === 'CLIP_NOT_FOUND' ? 404 : code === 'ACCESS_DENIED' ? 403 : 500;
+    res.status(http).json({ status: 'error', code, message: err?.message || 'Subject tracking failed.' });
   }
 };

@@ -1788,6 +1788,18 @@ export const EDITOR_PROJECT_STATUSES: readonly EditorProjectStatus[] = [
   'failed',
 ] as const;
 
+export interface EditorSubjectTracker {
+  enabled: boolean;
+  /** 'scene' = this timeline item only; 'clip' = applied to every video item. */
+  scope: 'scene' | 'clip';
+  ref_time: number;
+  box: { x: number; y: number; w: number; h: number };
+  source_width: number;
+  source_height: number;
+  /** Tracked subject centre per sampled time (normalised 0-1). */
+  keyframes: Array<{ time: number; centerX: number; centerY: number }>;
+}
+
 export interface EditorCanvasConfig {
   width: number;
   height: number;
@@ -2073,6 +2085,8 @@ export interface EditorTrackItem {
   /** Persisted framing choice shared by editor preview and export. */
   layout_mode?: ReframeLayoutMode;
   crop_config?: CropConfig;
+  /** Manual subject tracker (Tracker control). Times are source-file seconds. */
+  tracker?: EditorSubjectTracker;
   crop?: {
     mode: 'fit' | 'fill' | 'custom' | 'blur';
     focusX?: number;

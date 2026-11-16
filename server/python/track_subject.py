@@ -121,7 +121,7 @@ def track(params):
     ref = {"time": round(ref_t, 3), "centerX": (box0[0] + box0[2] / 2) / W, "centerY": (box0[1] + box0[3] / 2) / H,
            "w": box0[2] / W, "h": box0[3] / H, "confidence": 1.0}
     kfs = list(reversed(bwd)) + [ref] + fwd
-    return {"keyframes": kfs, "lost_after": lost_f, "lost_before": lost_b,
+    return {"source_width": int(W), "source_height": int(H), "keyframes": kfs, "lost_after": lost_f, "lost_before": lost_b,
             "tracked_from": kfs[0]["time"], "tracked_to": kfs[-1]["time"]}
 
 
