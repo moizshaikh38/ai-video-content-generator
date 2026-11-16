@@ -156,3 +156,38 @@ pairs and12s/360frame actual helper output retain those source edges. This is a
 content-loss repair, NOT final vertical aesthetics or body segmentation. A
 centered-group regression still permits less than full-source width.24focused
 tests and server TypeScript pass. No defaults, model settings or deployment changed.
+
+### Continuous-body following, independent walking source, 16 Nov21:46 IST
+
+Source: sgu18ify, Walking in the sands, CC BY3.0.
+https://commons.wikimedia.org/wiki/File:Walking_in_the_sands.webm
+https://creativecommons.org/licenses/by/3.0/
+Local changes: first12seconds, scaled854x480, body/face detection, portrait reframe.
+
+The previous static solo envelope cropped most of the opening person because
+rear/side faces fragmented into two tracks. One body is detected in all45samples.
+A shot-local path now requires repeated face/body associations and exactly one
+continuous valid body, rejecting missing/ambiguous bodies, competing faces,
+sampling gaps and implausible jumps. It follows the measured body rather than
+assuming a persistent frontal face. Fixed window dimensions are computed after
+smoothing and knot reduction, against all observed boxes; no per-frame zoom.
+Near-stationary paths remain locked. This is continuity geometry, not identity,
+active-speaker inference, unseen limb segmentation or scene/object semantics.
+
+Walking result: constant windowW0.26789227, windowH0.84733333,32knots. Decoded
+12s/360frame1080x1920/30fps output with12s audio reviewed, including exact0/3/6/9s.
+This is a more useful portrait result than the old clipped opening/full-fit guard,
+not evidence that arbitrary moving bodies or all genre contexts are solved.
+
+Integration: local real reframe API returns this path; Quick resolveReframeDecision
+uses smart shot candidate; Pro graph compiled from this source's real persisted
+editor project produces an identical decoded360-frame MD5 stream to Quick.
+Both have12.000s audio. This is decision/graph qualification, not a completed
+production export job. Real editor opened the bound source. Actual timeline clicks
+at3/6/9s were inspected only after video-frame callbacks confirmed presented
+mediaTime for both foreground/background. They match the composition with
+expected safe-zone/watermark UI; no broad pixel-parity claim. currentTime alone
+was insufficient for screenshot readiness and those earlier captures were discarded.
+
+28focused tests and server tsc pass. No default, detector config, production or
+main-release changes. Test-only auth/storage fixture adapters were not committed.

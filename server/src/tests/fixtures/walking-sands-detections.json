@@ -1,0 +1,1011 @@
+{
+  "status": "ok",
+  "person_detector": "nanodet-2022nov-sha256-4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186",
+  "scene_cut_evidence": [],
+  "source_width": 854,
+  "source_height": 480,
+  "source_fps": 30,
+  "duration": 12,
+  "total_video_duration": 12,
+  "sample_fps": 4,
+  "sample_count": 45,
+  "scene_cuts": [],
+  "samples": [
+    {
+      "time": 0,
+      "faces": [
+        {
+          "x": 0.5141,
+          "y": 0.2562,
+          "width": 0.0269,
+          "height": 0.0688,
+          "center_x": 0.5275,
+          "center_y": 0.2906,
+          "confidence": 0.64,
+          "track_id": "subject_1",
+          "area": 0.0019,
+          "mouth_score": 0.03
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.4917,
+          "y": 0.1996,
+          "width": 0.1183,
+          "height": 0.7649,
+          "confidence": 0.7538
+        }
+      ]
+    },
+    {
+      "time": 0.267,
+      "faces": [
+        {
+          "x": 0.493,
+          "y": 0.275,
+          "width": 0.0258,
+          "height": 0.0625,
+          "center_x": 0.5059,
+          "center_y": 0.3063,
+          "confidence": 0.61,
+          "track_id": "subject_1",
+          "area": 0.0016,
+          "mouth_score": 0.058
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.4662,
+          "y": 0.2174,
+          "width": 0.126,
+          "height": 0.7212,
+          "confidence": 0.8073
+        }
+      ]
+    },
+    {
+      "time": 0.533,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4489,
+          "y": 0.2255,
+          "width": 0.1226,
+          "height": 0.6839,
+          "confidence": 0.8279
+        }
+      ]
+    },
+    {
+      "time": 0.8,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.44,
+          "y": 0.2481,
+          "width": 0.1247,
+          "height": 0.6773,
+          "confidence": 0.8323
+        }
+      ]
+    },
+    {
+      "time": 1.067,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.442,
+          "y": 0.2752,
+          "width": 0.1301,
+          "height": 0.6563,
+          "confidence": 0.8313
+        }
+      ]
+    },
+    {
+      "time": 1.333,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.437,
+          "y": 0.3026,
+          "width": 0.1235,
+          "height": 0.61,
+          "confidence": 0.8181
+        }
+      ]
+    },
+    {
+      "time": 1.6,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4297,
+          "y": 0.3204,
+          "width": 0.106,
+          "height": 0.5566,
+          "confidence": 0.797
+        }
+      ]
+    },
+    {
+      "time": 1.867,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4151,
+          "y": 0.3434,
+          "width": 0.0983,
+          "height": 0.5199,
+          "confidence": 0.7818
+        }
+      ]
+    },
+    {
+      "time": 2.133,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.405,
+          "y": 0.3277,
+          "width": 0.1093,
+          "height": 0.5408,
+          "confidence": 0.8137
+        }
+      ]
+    },
+    {
+      "time": 2.4,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.4086,
+          "y": 0.3424,
+          "width": 0.1017,
+          "height": 0.5128,
+          "confidence": 0.7593
+        }
+      ]
+    },
+    {
+      "time": 2.667,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.3974,
+          "y": 0.3224,
+          "width": 0.0937,
+          "height": 0.5076,
+          "confidence": 0.7291
+        }
+      ]
+    },
+    {
+      "time": 2.933,
+      "faces": [
+        {
+          "x": 0.4239,
+          "y": 0.3583,
+          "width": 0.0211,
+          "height": 0.0563,
+          "center_x": 0.4344,
+          "center_y": 0.3865,
+          "confidence": 0.77,
+          "track_id": "subject_2",
+          "area": 0.0012,
+          "mouth_score": 0.074
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3794,
+          "y": 0.3269,
+          "width": 0.0819,
+          "height": 0.5187,
+          "confidence": 0.6807
+        }
+      ]
+    },
+    {
+      "time": 3.2,
+      "faces": [
+        {
+          "x": 0.3923,
+          "y": 0.3688,
+          "width": 0.0187,
+          "height": 0.0521,
+          "center_x": 0.4016,
+          "center_y": 0.3948,
+          "confidence": 0.78,
+          "track_id": "subject_2",
+          "area": 0.001,
+          "mouth_score": 0.06
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3353,
+          "y": 0.3275,
+          "width": 0.0878,
+          "height": 0.4914,
+          "confidence": 0.6486
+        }
+      ]
+    },
+    {
+      "time": 3.467,
+      "faces": [
+        {
+          "x": 0.3653,
+          "y": 0.375,
+          "width": 0.0187,
+          "height": 0.05,
+          "center_x": 0.3747,
+          "center_y": 0.4,
+          "confidence": 0.73,
+          "track_id": "subject_2",
+          "area": 0.0009,
+          "mouth_score": 0.065
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.2876,
+          "y": 0.3439,
+          "width": 0.1076,
+          "height": 0.4955,
+          "confidence": 0.7461
+        }
+      ]
+    },
+    {
+      "time": 3.733,
+      "faces": [
+        {
+          "x": 0.3396,
+          "y": 0.375,
+          "width": 0.0187,
+          "height": 0.0458,
+          "center_x": 0.3489,
+          "center_y": 0.3979,
+          "confidence": 0.69,
+          "track_id": "subject_2",
+          "area": 0.0009,
+          "mouth_score": 0.05
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.2842,
+          "y": 0.3363,
+          "width": 0.0889,
+          "height": 0.4812,
+          "confidence": 0.6183
+        }
+      ]
+    },
+    {
+      "time": 4,
+      "faces": [
+        {
+          "x": 0.322,
+          "y": 0.375,
+          "width": 0.0199,
+          "height": 0.0458,
+          "center_x": 0.332,
+          "center_y": 0.3979,
+          "confidence": 0.71,
+          "track_id": "subject_2",
+          "area": 0.0009,
+          "mouth_score": 0.051
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.2751,
+          "y": 0.3382,
+          "width": 0.0833,
+          "height": 0.4723,
+          "confidence": 0.5868
+        }
+      ]
+    },
+    {
+      "time": 4.267,
+      "faces": [
+        {
+          "x": 0.3173,
+          "y": 0.375,
+          "width": 0.0187,
+          "height": 0.0479,
+          "center_x": 0.3267,
+          "center_y": 0.399,
+          "confidence": 0.81,
+          "track_id": "subject_2",
+          "area": 0.0009,
+          "mouth_score": 0.05
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.2554,
+          "y": 0.3474,
+          "width": 0.0893,
+          "height": 0.4718,
+          "confidence": 0.6291
+        }
+      ]
+    },
+    {
+      "time": 4.533,
+      "faces": [
+        {
+          "x": 0.308,
+          "y": 0.375,
+          "width": 0.0199,
+          "height": 0.0479,
+          "center_x": 0.3179,
+          "center_y": 0.399,
+          "confidence": 0.81,
+          "track_id": "subject_2",
+          "area": 0.001,
+          "mouth_score": 0.034
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.2483,
+          "y": 0.3501,
+          "width": 0.084,
+          "height": 0.4779,
+          "confidence": 0.4995
+        }
+      ]
+    },
+    {
+      "time": 4.8,
+      "faces": [
+        {
+          "x": 0.2939,
+          "y": 0.3896,
+          "width": 0.0222,
+          "height": 0.05,
+          "center_x": 0.305,
+          "center_y": 0.4146,
+          "confidence": 0.84,
+          "track_id": "subject_2",
+          "area": 0.0011,
+          "mouth_score": 0.038
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.2482,
+          "y": 0.3586,
+          "width": 0.0818,
+          "height": 0.4616,
+          "confidence": 0.5586
+        }
+      ]
+    },
+    {
+      "time": 5.067,
+      "faces": [
+        {
+          "x": 0.2881,
+          "y": 0.4104,
+          "width": 0.0222,
+          "height": 0.0479,
+          "center_x": 0.2992,
+          "center_y": 0.4344,
+          "confidence": 0.81,
+          "track_id": "subject_2",
+          "area": 0.0011,
+          "mouth_score": 0.029
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.2189,
+          "y": 0.3724,
+          "width": 0.1016,
+          "height": 0.4903,
+          "confidence": 0.7132
+        }
+      ]
+    },
+    {
+      "time": 5.333,
+      "faces": [
+        {
+          "x": 0.2857,
+          "y": 0.4062,
+          "width": 0.0222,
+          "height": 0.05,
+          "center_x": 0.2968,
+          "center_y": 0.4313,
+          "confidence": 0.78,
+          "track_id": "subject_2",
+          "area": 0.0011,
+          "mouth_score": 0.06
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.2367,
+          "y": 0.3663,
+          "width": 0.0726,
+          "height": 0.5005,
+          "confidence": 0.4761
+        }
+      ]
+    },
+    {
+      "time": 5.6,
+      "faces": [
+        {
+          "x": 0.3033,
+          "y": 0.4083,
+          "width": 0.0211,
+          "height": 0.0479,
+          "center_x": 0.3138,
+          "center_y": 0.4323,
+          "confidence": 0.8,
+          "track_id": "subject_2",
+          "area": 0.001,
+          "mouth_score": 0.035
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.2492,
+          "y": 0.3694,
+          "width": 0.0989,
+          "height": 0.4897,
+          "confidence": 0.745
+        }
+      ]
+    },
+    {
+      "time": 5.867,
+      "faces": [
+        {
+          "x": 0.3279,
+          "y": 0.3937,
+          "width": 0.0199,
+          "height": 0.0458,
+          "center_x": 0.3378,
+          "center_y": 0.4167,
+          "confidence": 0.82,
+          "track_id": "subject_2",
+          "area": 0.0009,
+          "mouth_score": 0.028
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.251,
+          "y": 0.3564,
+          "width": 0.108,
+          "height": 0.5004,
+          "confidence": 0.7671
+        }
+      ]
+    },
+    {
+      "time": 6.133,
+      "faces": [
+        {
+          "x": 0.3443,
+          "y": 0.3875,
+          "width": 0.0187,
+          "height": 0.0437,
+          "center_x": 0.3536,
+          "center_y": 0.4094,
+          "confidence": 0.81,
+          "track_id": "subject_2",
+          "area": 0.0008,
+          "mouth_score": 0.015
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.2957,
+          "y": 0.3524,
+          "width": 0.081,
+          "height": 0.4888,
+          "confidence": 0.4568
+        }
+      ]
+    },
+    {
+      "time": 6.4,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.3088,
+          "y": 0.3563,
+          "width": 0.0769,
+          "height": 0.4508,
+          "confidence": 0.5422
+        }
+      ]
+    },
+    {
+      "time": 6.667,
+      "faces": [
+        {
+          "x": 0.3735,
+          "y": 0.3896,
+          "width": 0.0187,
+          "height": 0.0458,
+          "center_x": 0.3829,
+          "center_y": 0.4125,
+          "confidence": 0.78,
+          "track_id": "subject_2",
+          "area": 0.0009,
+          "mouth_score": 0.041
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3101,
+          "y": 0.3599,
+          "width": 0.0931,
+          "height": 0.4824,
+          "confidence": 0.7574
+        }
+      ]
+    },
+    {
+      "time": 6.933,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.3337,
+          "y": 0.3653,
+          "width": 0.0897,
+          "height": 0.4919,
+          "confidence": 0.7086
+        }
+      ]
+    },
+    {
+      "time": 7.2,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.3374,
+          "y": 0.3709,
+          "width": 0.0875,
+          "height": 0.4933,
+          "confidence": 0.6703
+        }
+      ]
+    },
+    {
+      "time": 7.467,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.3431,
+          "y": 0.3676,
+          "width": 0.0798,
+          "height": 0.4826,
+          "confidence": 0.5649
+        }
+      ]
+    },
+    {
+      "time": 7.733,
+      "faces": [
+        {
+          "x": 0.4005,
+          "y": 0.4042,
+          "width": 0.0187,
+          "height": 0.0458,
+          "center_x": 0.4098,
+          "center_y": 0.4271,
+          "confidence": 0.76,
+          "track_id": "subject_2",
+          "area": 0.0009,
+          "mouth_score": 0.042
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3543,
+          "y": 0.3652,
+          "width": 0.0785,
+          "height": 0.5013,
+          "confidence": 0.4622
+        }
+      ]
+    },
+    {
+      "time": 8,
+      "faces": [
+        {
+          "x": 0.4052,
+          "y": 0.4083,
+          "width": 0.0187,
+          "height": 0.0458,
+          "center_x": 0.4145,
+          "center_y": 0.4313,
+          "confidence": 0.78,
+          "track_id": "subject_2",
+          "area": 0.0009,
+          "mouth_score": 0.043
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3541,
+          "y": 0.3821,
+          "width": 0.0881,
+          "height": 0.4726,
+          "confidence": 0.6829
+        }
+      ]
+    },
+    {
+      "time": 8.267,
+      "faces": [
+        {
+          "x": 0.4122,
+          "y": 0.4208,
+          "width": 0.0187,
+          "height": 0.0458,
+          "center_x": 0.4215,
+          "center_y": 0.4437,
+          "confidence": 0.79,
+          "track_id": "subject_2",
+          "area": 0.0009,
+          "mouth_score": 0.328
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3355,
+          "y": 0.3906,
+          "width": 0.1004,
+          "height": 0.4752,
+          "confidence": 0.7576
+        }
+      ]
+    },
+    {
+      "time": 8.533,
+      "faces": [
+        {
+          "x": 0.4016,
+          "y": 0.425,
+          "width": 0.0199,
+          "height": 0.0479,
+          "center_x": 0.4116,
+          "center_y": 0.449,
+          "confidence": 0.71,
+          "track_id": "subject_2",
+          "area": 0.001,
+          "mouth_score": 0.055
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3525,
+          "y": 0.3986,
+          "width": 0.0877,
+          "height": 0.4603,
+          "confidence": 0.6688
+        }
+      ]
+    },
+    {
+      "time": 8.8,
+      "faces": [
+        {
+          "x": 0.3888,
+          "y": 0.4333,
+          "width": 0.0222,
+          "height": 0.0521,
+          "center_x": 0.3999,
+          "center_y": 0.4594,
+          "confidence": 0.79,
+          "track_id": "subject_2",
+          "area": 0.0012,
+          "mouth_score": 0.561
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3432,
+          "y": 0.4065,
+          "width": 0.0899,
+          "height": 0.4584,
+          "confidence": 0.626
+        }
+      ]
+    },
+    {
+      "time": 9.067,
+      "faces": [
+        {
+          "x": 0.3864,
+          "y": 0.4375,
+          "width": 0.0199,
+          "height": 0.0458,
+          "center_x": 0.3964,
+          "center_y": 0.4604,
+          "confidence": 0.77,
+          "track_id": "subject_2",
+          "area": 0.0009,
+          "mouth_score": 0.32
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3352,
+          "y": 0.4164,
+          "width": 0.0809,
+          "height": 0.4532,
+          "confidence": 0.5439
+        }
+      ]
+    },
+    {
+      "time": 9.333,
+      "faces": [
+        {
+          "x": 0.3829,
+          "y": 0.4417,
+          "width": 0.0199,
+          "height": 0.0437,
+          "center_x": 0.3929,
+          "center_y": 0.4635,
+          "confidence": 0.72,
+          "track_id": "subject_2",
+          "area": 0.0009,
+          "mouth_score": 0.205
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3312,
+          "y": 0.4183,
+          "width": 0.0799,
+          "height": 0.4489,
+          "confidence": 0.4867
+        }
+      ]
+    },
+    {
+      "time": 9.6,
+      "faces": [
+        {
+          "x": 0.3712,
+          "y": 0.4437,
+          "width": 0.0211,
+          "height": 0.0479,
+          "center_x": 0.3817,
+          "center_y": 0.4677,
+          "confidence": 0.79,
+          "track_id": "subject_2",
+          "area": 0.001,
+          "mouth_score": 0.052
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3228,
+          "y": 0.4248,
+          "width": 0.0824,
+          "height": 0.4487,
+          "confidence": 0.6044
+        }
+      ]
+    },
+    {
+      "time": 9.867,
+      "faces": [
+        {
+          "x": 0.3689,
+          "y": 0.4604,
+          "width": 0.0199,
+          "height": 0.0417,
+          "center_x": 0.3788,
+          "center_y": 0.4813,
+          "confidence": 0.75,
+          "track_id": "subject_2",
+          "area": 0.0008,
+          "mouth_score": 0.167
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3075,
+          "y": 0.4319,
+          "width": 0.0872,
+          "height": 0.4645,
+          "confidence": 0.6697
+        }
+      ]
+    },
+    {
+      "time": 10.133,
+      "faces": [
+        {
+          "x": 0.37,
+          "y": 0.4688,
+          "width": 0.0211,
+          "height": 0.05,
+          "center_x": 0.3806,
+          "center_y": 0.4938,
+          "confidence": 0.72,
+          "track_id": "subject_2",
+          "area": 0.0011,
+          "mouth_score": 0.413
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3155,
+          "y": 0.4389,
+          "width": 0.0883,
+          "height": 0.4912,
+          "confidence": 0.6884
+        }
+      ]
+    },
+    {
+      "time": 10.4,
+      "faces": [
+        {
+          "x": 0.3829,
+          "y": 0.4813,
+          "width": 0.0199,
+          "height": 0.0458,
+          "center_x": 0.3929,
+          "center_y": 0.5042,
+          "confidence": 0.64,
+          "track_id": "subject_2",
+          "area": 0.0009,
+          "mouth_score": 0.551
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3277,
+          "y": 0.4527,
+          "width": 0.0968,
+          "height": 0.4865,
+          "confidence": 0.7752
+        }
+      ]
+    },
+    {
+      "time": 10.667,
+      "faces": [
+        {
+          "x": 0.4028,
+          "y": 0.4813,
+          "width": 0.0187,
+          "height": 0.0437,
+          "center_x": 0.4122,
+          "center_y": 0.5031,
+          "confidence": 0.69,
+          "track_id": "subject_2",
+          "area": 0.0008,
+          "mouth_score": 0.059
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3539,
+          "y": 0.4545,
+          "width": 0.0819,
+          "height": 0.4763,
+          "confidence": 0.5373
+        }
+      ]
+    },
+    {
+      "time": 10.933,
+      "faces": [],
+      "persons": [
+        {
+          "x": 0.3756,
+          "y": 0.4402,
+          "width": 0.0823,
+          "height": 0.465,
+          "confidence": 0.6032
+        }
+      ]
+    },
+    {
+      "time": 11.2,
+      "faces": [
+        {
+          "x": 0.4426,
+          "y": 0.4604,
+          "width": 0.0187,
+          "height": 0.0437,
+          "center_x": 0.452,
+          "center_y": 0.4823,
+          "confidence": 0.76,
+          "track_id": "subject_2",
+          "area": 0.0008,
+          "mouth_score": 0.063
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.3975,
+          "y": 0.4319,
+          "width": 0.0825,
+          "height": 0.4704,
+          "confidence": 0.6232
+        }
+      ]
+    },
+    {
+      "time": 11.467,
+      "faces": [
+        {
+          "x": 0.4684,
+          "y": 0.4437,
+          "width": 0.0199,
+          "height": 0.05,
+          "center_x": 0.4783,
+          "center_y": 0.4688,
+          "confidence": 0.67,
+          "track_id": "subject_2",
+          "area": 0.001,
+          "mouth_score": 0.085
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.407,
+          "y": 0.4202,
+          "width": 0.09,
+          "height": 0.4606,
+          "confidence": 0.6688
+        }
+      ]
+    },
+    {
+      "time": 11.733,
+      "faces": [
+        {
+          "x": 0.4778,
+          "y": 0.4521,
+          "width": 0.0187,
+          "height": 0.0437,
+          "center_x": 0.4871,
+          "center_y": 0.474,
+          "confidence": 0.67,
+          "track_id": "subject_2",
+          "area": 0.0008,
+          "mouth_score": 0.24
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.4316,
+          "y": 0.4213,
+          "width": 0.0866,
+          "height": 0.469,
+          "confidence": 0.6309
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "source": "https://commons.wikimedia.org/wiki/File:Walking_in_the_sands.webm",
+    "author": "sgu18ify",
+    "license": "CC BY 3.0",
+    "license_url": "https://creativecommons.org/licenses/by/3.0/",
+    "excerpt": "local first12seconds, scaled854x480; body/face detections; associated face tracks locally",
+    "not_claimed": "Identity, full-scene semantics or frame-by-frame limb segmentation"
+  }
+}

@@ -1,4 +1,4 @@
-import {associatedBodyEnvelope} from '../shared/bodyContext.js';
+import {associatedBodyEnvelope, anchoredSingleBodyPath} from '../shared/bodyContext.js';
 import {chooseContentFraming, type ContentFramingDecision} from '../shared/contentFramingDecision.js';
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
@@ -1512,6 +1512,8 @@ export class SmartReframeService {
       const selected = this.selectDominantTrack(eligible, samples.length);
       const stable = selected.dominantTrackId ? eligible.get(selected.dominantTrackId) : undefined;
       if (!stable) return {start,end,kind:'fit' as const,contextStatus:'unresolved-preserved' as const,uncertainty:'No reliable subject anchor. Important scene/object regions are unresolved.',windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]};
+      const followingBody=anchoredSingleBodyPath(samples,selected.dominantTrackId!,sourceWidth,sourceHeight);
+      if(followingBody)return {start,end,kind:'solo' as const,...followingBody};
       const measuredBody=fromBody([selected.dominantTrackId!]);
       if(measuredBody)return {start,end,kind:'solo' as const,...measuredBody};
       // Faces are not bodies. Reserve an intentionally wider context envelope,
