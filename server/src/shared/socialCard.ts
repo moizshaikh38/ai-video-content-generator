@@ -40,7 +40,10 @@ function cardTextItems(
   const isTop = config.position.startsWith('top');
   const isLeft = config.position.endsWith('left');
   const nameColor = config.theme === 'dark' ? '#FFFFFF' : '#111111';
-  const handleColor = config.theme === 'dark' ? '#B0B0B0' : '#555555';
+  // Handle readability on moving footage: brighter grays + a drop shadow in
+  // BOTH channels (measured: #B0B0B0 was low-contrast against the image).
+  const handleColor = config.theme === 'dark' ? '#E0E0E0' : '#333333';
+  const shadowColor = config.theme === 'dark' ? '#000000' : '#FFFFFF';
   const x = (isLeft ? -1 : 1) * CARD_MARGIN_X;
   const nameY = (isTop ? -1 : 1) * (DESIGN_H / 2 - 70);
   const handleY = nameY + (isTop ? 38 : 38);
@@ -73,6 +76,8 @@ function cardTextItems(
         alignment: 'center',
         color: nameColor,
         animation: 'none',
+        shadow_color: shadowColor,
+        shadow_blur: 6,
       },
       social_card: SOCIAL_CARD_TAG,
     } as unknown as EditorTrackItem,
@@ -89,6 +94,8 @@ function cardTextItems(
         alignment: 'center',
         color: handleColor,
         animation: 'none',
+        shadow_color: shadowColor,
+        shadow_blur: 6,
       },
       social_card: SOCIAL_CARD_TAG,
     } as unknown as EditorTrackItem,
