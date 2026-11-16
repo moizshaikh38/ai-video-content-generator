@@ -136,3 +136,23 @@ quality. Most of the portrait canvas remains blurred background.
 
 Recorded the numeric detector payload (no video) as a provenance-bearing test
 fixture to prevent transient detections becoming an invented subject crop.
+
+### Independent moving dance group, 16 Nov21:17 IST
+
+Source: Alvin Ategyeka, Maganda Dance (Traditional Dance), CC BY-SA4.0.
+https://commons.wikimedia.org/wiki/File%3AMaganda_Dance_%28Traditional_Dance%29.webm
+https://creativecommons.org/licenses/by-sa/4.0/deed.en
+Changes: local0-12s excerpt scaled854x480, portrait crop comparison. No audio in
+helper renders.45measurements atapproximately4Hz, no discovered cuts.
+
+This group falls below the four-face-majority crowd guard. Old group body logic
+required exactly two sufficiently large face tracks, so it ignored small and
+occluded body anchors and kept the92%-width group window. Actual decoded source
+and output pairs showed additional clipping at the left dancer and right-edge
+person. Group composition now unions individually reliable body envelopes with
+the existing window; it does not replace the group with the supported subset.
+On this clip measured edge extents require full-source. Reviewed exact0/3/6/9s
+pairs and12s/360frame actual helper output retain those source edges. This is a
+content-loss repair, NOT final vertical aesthetics or body segmentation. A
+centered-group regression still permits less than full-source width.24focused
+tests and server TypeScript pass. No defaults, model settings or deployment changed.

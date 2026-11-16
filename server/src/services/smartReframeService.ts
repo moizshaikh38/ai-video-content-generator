@@ -1487,8 +1487,21 @@ export class SmartReframeService {
         for(const sample of samples)for(const f of sample.faces)if(f.track_id&&f.width*f.height>=.002)counts.set(f.track_id,(counts.get(f.track_id)||0)+1);
         const ids=[...counts].filter(([,n])=>n>=Math.max(3,samples.length*.35)).map(([id])=>id);
         const measured=ids.length===2?fromBody(ids):null;
-        return {start,end,kind:'group' as const,...(measured||{windowW:group.windowW,
-          windowH:group.windowH ?? Math.min(1,group.windowW*sourceWidth*.75/sourceHeight),keyframes:group.keyframes})};
+        const base=measured||{windowW:group.windowW,
+          windowH:group.windowH ?? Math.min(1,group.windowW*sourceWidth*.75/sourceHeight),keyframes:group.keyframes};
+        // A group need not be two large frontal faces. Independently reliable
+        // face/body associations also constrain smaller, partly occluded groups.
+        // Union with the existing window, never replace it with a subset.
+        const allIds=[...new Set(samples.flatMap(s=>s.faces.map(f=>f.track_id).filter((id):id is string=>!!id)))];
+        const envelopes=allIds.map(id=>associatedBodyEnvelope(samples,[id])).filter((b):b is NonNullable<typeof b>=>!!b);
+        if(envelopes.length){
+          const left=Math.max(0,Math.min(...base.keyframes.map(k=>k.centerX-base.windowW/2),...envelopes.map(b=>b.left)));
+          const right=Math.min(1,Math.max(...base.keyframes.map(k=>k.centerX+base.windowW/2),...envelopes.map(b=>b.right)));
+          const top=Math.max(0,Math.min(...base.keyframes.map(k=>(k.centerY??.5)-base.windowH/2),...envelopes.map(b=>b.top)));
+          const bottom=Math.min(1,Math.max(...base.keyframes.map(k=>(k.centerY??.5)+base.windowH/2),...envelopes.map(b=>b.bottom)));
+          return {start,end,kind:'group' as const,windowW:right-left,windowH:bottom-top,keyframes:[{time:start,centerX:(left+right)/2,centerY:(top+bottom)/2}]};
+        }
+        return {start,end,kind:'group' as const,...base};
       }
       const tracks = new Map<string, NormalizedFaceDetection[]>();
       for (const s of samples) for (const f of s.faces) {
