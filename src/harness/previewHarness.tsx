@@ -5,6 +5,8 @@
 import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PreviewCanvas } from '../components/editor/PreviewCanvas';
+import { FramingWorkspacePanel } from '../components/editor/FramingWorkspacePanel';
+import { applyOutputTemplateToProject, getOutputTemplate, OutputTemplateId } from '../../server/src/shared/outputTemplates';
 import { EditorProject, EditorTrackItem } from '../types';
 import '../index.css';
 
@@ -132,13 +134,59 @@ const makeProject = (item: EditorTrackItem): EditorProject =>
     updated_at: new Date().toISOString(),
   } as unknown as EditorProject);
 
+// TEST-ONLY: ?panel=templates mounts the real FramingWorkspacePanel so a
+// template card click can be driven end-to-end into the preview: the handler
+// mirrors EditorShell.handleApplyOutputTemplate (shared mapper + split-anchor
+// seeding; the GET /reframe fetch is stood in by the spk1/spk2 params).
+const SHOW_PANEL = params.get('panel') === 'templates';
+
 function HarnessApp() {
   const [item, setItem] = useState<EditorTrackItem>(baseItem);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const project = makeProject(item);
 
+  const handleApplyOutputTemplate = (templateId: OutputTemplateId) => {
+    const tpl = getOutputTemplate(templateId);
+    if (!tpl) return;
+    const next = applyOutputTemplateToProject(project as any, tpl);
+    const videoItems = next.tracks.find((t) => t.type === 'VIDEO')!.items;
+    let nextItem = videoItems[0] as any;
+    // EditorShell.seedSplitAnchorsFromAnalysis equivalent: the analysis fetch
+    // is stubbed by the spk params (measured anchors for this fixture).
+    if (tpl.framing.layoutMode === 'split') {
+      nextItem = {
+        ...nextItem,
+        crop_config: {
+          ...(nextItem.crop_config || {}),
+          split: { speaker1X: Number(params.get('spk1')) || 0.33, speaker2X: Number(params.get('spk2')) || 0.56 },
+        },
+      };
+    }
+    (window as any).__template = {
+      id: tpl.id,
+      layout_mode: nextItem.layout_mode,
+      split: nextItem.crop_config?.split || null,
+      aspect: next.canvas.aspect_ratio,
+    };
+    setItem(nextItem);
+  };
+
   return (
+    <div style={{ display: 'flex', width: '100%', height: '100%' }}>
+      {SHOW_PANEL && (
+        <div style={{ width: 300, flexShrink: 0, height: '100%' }}>
+          <FramingWorkspacePanel
+            project={project}
+            showSafeGuides={false}
+            onToggleSafeGuides={() => {}}
+            onUpdateCropMode={() => {}}
+            onApplyOutputTemplate={handleApplyOutputTemplate}
+            onUpdateProject={() => {}}
+          />
+        </div>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
     <PreviewCanvas
       {...({
         project,
@@ -172,6 +220,8 @@ function HarnessApp() {
         onUpdateCaptionPosition: () => {},
       } as any)}
     />
+      </div>
+    </div>
   );
 }
 
