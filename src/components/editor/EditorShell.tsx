@@ -1,3 +1,5 @@
+import { applyItemLayout, readItemLayout } from '../../lib/itemLayout';
+import { SceneLayoutGrid } from './SceneLayoutMenu';
 import { captionLegacyColorDefaults } from '../../lib/captionPresets';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -1638,6 +1640,23 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         {/* FRAMING & SMART REFRAME DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'framing' && (
           <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
+            {(() => {
+              const vids = project.tracks.filter((t) => t.type === 'VIDEO').flatMap((t) => t.items);
+              const sceneItem = vids.find((i) => currentTime >= i.timeline_start && currentTime < i.timeline_end) ?? vids[0];
+              if (!sceneItem) return null;
+              return (
+                <div className="shrink-0 px-4 pt-3 pb-2 border-b border-white/[0.08]" data-testid="framing-scene-layouts">
+                  <div className="text-[10px] uppercase tracking-wider text-neutral-400 mb-1.5">Scene layout (scene at playhead)</div>
+                  <SceneLayoutGrid
+                    current={readItemLayout(sceneItem)}
+                    onPick={(layout) => {
+                      onCommitProject?.(project);
+                      onUpdateProject((prev) => applyItemLayout(prev, sceneItem.id, layout, smartReframe?.keyframes ?? null));
+                    }}
+                  />
+                </div>
+              );
+            })()}
             <FramingWorkspacePanel
               contentFramingDecision={speakerSplit?.contentFramingDecision ?? null}
               project={project}
@@ -1843,6 +1862,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             }}
             onUpdateCanvas={(patch) => {
               onUpdateProject((prev) => ({ ...prev, canvas: { ...prev.canvas, ...patch } }));
+            }}
+            onPickSceneLayout={(itemId, layout) => {
+              onCommitProject?.(project);
+              onUpdateProject((prev) => applyItemLayout(prev, itemId, layout, smartReframe?.keyframes ?? null));
             }}
             onUpdateCropMode={(mode) => {
               // Route through item.crop: the export compiler (buildSliceCropFilter)

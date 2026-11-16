@@ -1,3 +1,5 @@
+import { SceneLayoutMenu } from './SceneLayoutMenu';
+import { readItemLayout, type SceneLayout } from '../../lib/itemLayout';
 import { applySceneCaptionPlacement } from '../../../server/src/shared/sceneCaptionPlacement';
 import {effectiveContentLayout, type ContentFramingDecision} from '../../../server/src/shared/contentFramingDecision';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
@@ -64,6 +66,8 @@ interface PreviewCanvasProps {
   onToggleSafeGuides?: () => void;
   onChangeAspectRatio?: (aspectRatio: ClipAspectRatio) => void;
   onUpdateCropMode?: (mode: 'center' | 'fit' | 'blur' | 'smart') => void;
+  /** Set ONE scene's layout (all Opus layouts). When provided the toolbar Layout button opens the full picker. */
+  onPickSceneLayout?: (itemId: string, layout: SceneLayout) => void;
   onUpdateCanvas?: (patch: Partial<EditorProject['canvas']>) => void;
   clipId?: string;
   onSetTracker?: (target: { itemId: string | null }, tracker: import('../../types').EditorSubjectTracker | null) => void;
@@ -224,6 +228,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   onToggleSafeGuides,
   onChangeAspectRatio,
   onUpdateCropMode,
+  onPickSceneLayout,
   onUpdateCanvas,
   clipId,
   onSetTracker,
@@ -432,6 +437,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   }
   // Layout/crop/band/split state is PER SCENE: read the item under the playhead (the export compiles per item),
   // falling back to the first video item only when the playhead is outside every item.
+  const layoutBtnRef = React.useRef<HTMLButtonElement>(null);
+  const [layoutAnchor, setLayoutAnchor] = React.useState<DOMRect | null>(null);
   const baseVideoItem: EditorTrackItem | undefined = activeVideoItems[0] ?? project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
   // The rendered export preview already contains the panels; only compose them live from the clean source.
   const activePanels = viewMode === 'export_review' && renderedPreviewUrl ? null : normalizePanels((baseVideoItem as any)?.panels);
@@ -1220,10 +1227,14 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
 
           {/* 2. Layout: Fill / Fit / Blur - one toggle cycling the three fill modes */}
           {onUpdateCropMode && (
+            <>
             <button
               type="button"
+              ref={layoutBtnRef}
+              data-testid="toolbar-layout"
               onClick={(e) => {
                 e.stopPropagation();
+                if (onPickSceneLayout && baseVideoItem) { setLayoutAnchor(layoutAnchor ? null : layoutBtnRef.current!.getBoundingClientRect()); return; }
                 const nextMode = primaryVideoCropMode === 'fill' ? 'fit' : primaryVideoCropMode === 'fit' ? 'blur' : 'center';
                 onUpdateCropMode(nextMode);
               }}
@@ -1233,6 +1244,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               <Maximize2 className="w-3.5 h-3.5" />
               <span>Layout: {activePanels ? PANEL_LABELS[activePanels.layout] : primaryLayoutMode === 'split' ? 'Split' : primaryLayoutMode === 'blur' ? 'Blur' : primaryLayoutMode === 'screencast' ? 'Screencast' : primaryVideoCropMode === 'fit' ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
             </button>
+            {layoutAnchor && onPickSceneLayout && baseVideoItem && (
+              <SceneLayoutMenu anchor={layoutAnchor} current={readItemLayout(baseVideoItem)} onPick={(l) => onPickSceneLayout(baseVideoItem.id, l)} onClose={() => setLayoutAnchor(null)} />
+            )}
+            </>
           )}
 
           <div className="w-px h-3.5 bg-white/[0.1]" />
