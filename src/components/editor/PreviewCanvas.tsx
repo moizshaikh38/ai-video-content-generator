@@ -1365,7 +1365,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             `}</style>
             <div
               aria-hidden
-              className="absolute top-[2.5%] right-[3%] z-30 pointer-events-none select-none px-2.5 py-1 rounded-md bg-black/55 text-white font-medium shadow-[2px_2px_0_rgba(0,0,0,0.8)]"
+              className="absolute top-[2.5%] right-[3%] z-30 pointer-events-none select-none text-white/90 font-medium [text-shadow:0_2px_2px_rgba(0,0,0,0.6),0_0_1px_rgba(0,0,0,0.35)]"
               style={{
                 fontSize: 'clamp(11px, 1.6vw, 18px)',
                 animation: 'vireoWatermarkIn 0.45s ease-out both, vireoWatermarkBreath 3.2s ease-in-out 0.45s infinite',

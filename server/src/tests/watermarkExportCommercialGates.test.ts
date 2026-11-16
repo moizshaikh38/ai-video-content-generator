@@ -253,7 +253,7 @@ describe('VireoClip Phase F: Server-Side Watermark Enforcement & Commercial Gate
 
     // Verify escaped commas to prevent FFmpeg filterchain parse errors
     assert.ok(filter.includes('max(24\\,trunc('), 'Commas inside expressions must be escaped');
-    assert.ok(filter.includes('box=1:boxcolor=black@0.55'), 'Box badge styling must be configured');
+    assert.ok(filter.includes('fontcolor=white@0.92') && filter.includes('shadowcolor=black@0.6') && !filter.includes('box=1'), 'Premium floating wordmark: soft shadow, hairline outline, no box badge');
     assert.ok(filter.includes('fontcolor=white'), 'Font color must be white');
     assert.ok(filter.includes('x=if(lt(t\\,0.45)'), 'Badge must slide in from the right over the first 0.45s');
     assert.ok(filter.includes('alpha=if(lt(t\\,0.45)'), 'Badge must fade in then breathe (animated alpha)');

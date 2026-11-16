@@ -74,20 +74,26 @@ export class WatermarkService {
     // moves with the text. Commas inside expressions are escaped.
     const entry = '0.45';
     const alpha = `if(lt(t\\,${entry})\\,t/${entry}\\,0.85+0.15*sin(2*PI*(t-${entry})/3.2))`;
+    // Ease-out slide (quadratic deceleration) instead of linear motion.
+    const slide = (dist: string, finalX: string) =>
+      `if(lt(t\\,${entry})\\,${finalX}+(${dist})*(1-t/${entry})*(1-t/${entry})\\,${finalX})`;
+    // Premium floating wordmark (CapCut-style): no box badge - clean white
+    // text with a soft shadow and a hairline dark outline for legibility on
+    // bright footage, slight transparency, gentle breathing after entry.
+    const style =
+      'fontcolor=white@0.92:borderw=1:bordercolor=black@0.35:shadowcolor=black@0.6:shadowx=0:shadowy=2';
 
     if (options?.fontSize && options?.margin) {
       const fs = options.fontSize;
       const m = options.margin;
       const finalX = `w-text_w-${m}`;
-      const slideX = `if(lt(t\\,${entry})\\,${finalX}+(text_w+${m})*(1-t/${entry})\\,${finalX})`;
-      return `drawtext=text='${safeText}':fontcolor=white:fontsize=${fs}:box=1:boxcolor=black@0.55:boxborderw=12:shadowcolor=black@0.8:shadowx=2:shadowy=2:x=${slideX}:y=${m}:alpha=${alpha}`;
+      return `drawtext=text='${safeText}':${style}:fontsize=${fs}:x=${slide(`text_w+${m}`, finalX)}:y=${m}:alpha=${alpha}`;
     }
 
     const mx = 'max(24\\,trunc(w*0.03))';
     const my = 'max(24\\,trunc(h*0.025))';
     const finalX = `w-text_w-${mx}`;
-    const slideX = `if(lt(t\\,${entry})\\,${finalX}+(text_w+${mx})*(1-t/${entry})\\,${finalX})`;
-    return `drawtext=text='${safeText}':fontcolor=white:fontsize=max(24\\,trunc(h*0.032)):box=1:boxcolor=black@0.55:boxborderw=12:shadowcolor=black@0.8:shadowx=2:shadowy=2:x=${slideX}:y=${my}:alpha=${alpha}`;
+    return `drawtext=text='${safeText}':${style}:fontsize=max(24\\,trunc(h*0.032)):x=${slide(`text_w+${mx}`, finalX)}:y=${my}:alpha=${alpha}`;
   }
 
   /**
