@@ -665,7 +665,7 @@ export class SmartReframeService {
       // keeps the stricter area bar.
       const REACQUIRE_MIN_CONF = 0.75;
       const REACQUIRE_MIN_AREA = 0.005;
-      const findReacquisition = (sample: AnalyzedSample, time: number): NormalizedFaceDetection | null => {
+      const findReacquisition = (sample: ReframeSample, time: number): NormalizedFaceDetection | null => {
         const cooccurring = new Set<string>();
         if (lastSeenFace?.track_id) {
           const followedId = lastSeenFace.track_id;

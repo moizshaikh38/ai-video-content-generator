@@ -10,7 +10,6 @@ import {
 } from '../../types';
 import { applyPresetToEditorCaption, CaptionPresetId, DEFAULT_CAPTION_PRESET_ID, RenderableCaptionPresetId } from '../../lib/captionPresets';
 import { CreditService } from '../../services/creditService';
-import { CreditService } from '../../services/creditService';
 import { useEditorPlayback } from '../../hooks/useEditorPlayback';
 import { useEditorSelection, SidebarTab, AiToolType } from '../../hooks/useEditorSelection';
 import { useEditorShortcuts } from '../../hooks/useEditorShortcuts';
