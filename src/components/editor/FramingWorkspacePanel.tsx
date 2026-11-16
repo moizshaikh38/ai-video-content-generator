@@ -1,3 +1,4 @@
+import {effectiveContentLayout, type ContentFramingDecision} from '../../../server/src/shared/contentFramingDecision';
 import React from 'react';
 import {
   Crop,
@@ -18,6 +19,7 @@ interface ScreencastConfigEdit {
 }
 
 interface FramingWorkspacePanelProps {
+  contentFramingDecision?: ContentFramingDecision | null;
   project: EditorProject;
   showSafeGuides: boolean;
   onToggleSafeGuides: () => void;
@@ -31,6 +33,7 @@ interface FramingWorkspacePanelProps {
 
 export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
   project,
+  contentFramingDecision = null,
   showSafeGuides,
   onToggleSafeGuides,
   onUpdateCropMode,
@@ -50,7 +53,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
   const activeFillMode: 'fill' | 'fit' | 'blur' = videoItem?.crop?.mode
     ? (videoItem.crop.mode === 'fit' ? 'fit' : videoItem.crop.mode === 'blur' ? 'blur' : 'fill')
     : ((videoItem as any)?.crop_mode === 'fit' ? 'fit' : 'fill');
-  const activeLayoutMode = (videoItem as any)?.layout_mode || 'track';
+  const activeLayoutMode = effectiveContentLayout(videoItem,contentFramingDecision);
   const screencastCfg = ((videoItem as any)?.crop_config?.screencast || {}) as ScreencastConfigEdit;
   // Split speaker anchors: persisted picks win; otherwise the symmetric
   // defaults the export filter uses (EditorShell seeds measured analysis
@@ -105,6 +108,15 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
       {/* Social card chrome: creator name + @handle corner overlay (TEXT channel) */}
       <SocialCardSection project={project} onUpdateProject={_onUpdateProject} />
 
+      {contentFramingDecision && (
+        <div className="rounded-lg border border-violet-400/20 bg-violet-500/5 p-3 space-y-1">
+          <div className="font-medium text-white">Experimental auto framing</div>
+          <div>{contentFramingDecision.genre.replace(/_/g,' ')} / {contentFramingDecision.policy.replace(/_/g,' ')}</div>
+          {contentFramingDecision.reasons.map((reason,i)=><p key={i} className="text-[11px] text-neutral-300">{reason}</p>)}
+          {contentFramingDecision.uncertainties.map((reason,i)=><p key={i} className="text-[10px] text-amber-200/80">{reason}</p>)}
+          <p className="text-[10px] text-neutral-400">One frame size for the clip. Manual layout choices take priority.</p>
+        </div>
+      )}
       {/* Reframe & Crop Modes */}
       <div>
         <label className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block mb-2">

@@ -198,6 +198,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       speaker2: { x: number; y: number; windowW: number };
     } | null;
     shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
+    contentFramingDecision?: import('../../../server/src/shared/contentFramingDecision').ContentFramingDecision | null;
     analyzedTrimStart?: number;
     groupFrame?: {
       keyframes: Array<{ time: number; centerX: number; centerY: number }>;
@@ -225,6 +226,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             splitGeometry: r.splitGeometry ?? null,
             groupFrame: r.groupFrame ?? null,
             shotComposition: r.shotComposition ?? null,
+            contentFramingDecision: r.contentFramingDecision ?? null,
             analyzedTrimStart: Number(r.analyzedTrimStart) || 0,
             lowConfidenceTrack: Boolean(r.lowConfidenceTrack),
           });
@@ -1627,6 +1629,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         {showLeftDrawer && activeSidebarTab === 'framing' && (
           <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn">
             <FramingWorkspacePanel
+              contentFramingDecision={speakerSplit?.contentFramingDecision ?? null}
               project={project}
               showSafeGuides={showSafeGuides}
               onToggleSafeGuides={toggleSafeGuides}
@@ -1667,7 +1670,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                     if (t.type === 'VIDEO') {
                       return {
                         ...t,
-                        items: t.items.map((i) => ({ ...i, layout_mode: layout })),
+                        items: t.items.map((i:any) => ({ ...i, layout_mode: layout, crop_config:{...i.crop_config,layout_mode:layout,layout_mode_source:'user'} })),
                       };
                     }
                     return t;
@@ -1758,6 +1761,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             viewMode={viewMode}
             speakerSplit={speakerSplit}
             groupReframe={speakerSplit?.groupFrame ?? null}
+            contentFramingDecision={speakerSplit?.contentFramingDecision ?? null}
             shotComposition={speakerSplit?.shotComposition ?? null}
             compositionClipStart={(Number(clip?.start_seconds) || 0) + (speakerSplit?.analyzedTrimStart || 0)}
             lowConfidenceTrack={Boolean(speakerSplit?.lowConfidenceTrack)}
@@ -2075,6 +2079,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
       {/* 3. MULTI-TRACK UNIFIED TIMELINE */}
       <UnifiedTimeline
+        contentFramingDecision={speakerSplit?.contentFramingDecision ?? null}
         height={timelineHeight}
         project={project}
         clip={clip}

@@ -133,6 +133,9 @@ export class LayoutPickerService {
         };
       }
 
+      if (process.env.SMART_REFRAME_CONTENT_AWARE === '1' && SmartReframeService.isCrowdScene(samples)) {
+        return {layout:'general',confidence:.7,reason:'Crowded scene with four or more concurrent faces in most samples; a two-speaker split is not supported.',frameCountAnalyzed:samples.length,method:'opencv_heuristics'};
+      }
       let multiFaceCount = 0;
       let singleFaceCount = 0;
       let zeroFaceCount = 0;

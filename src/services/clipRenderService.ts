@@ -227,6 +227,7 @@ class ClipRenderService {
    * Phase 13: Fetches latest smart reframe tracking data
    */
   async getClipReframe(clipId: string): Promise<{
+    contentFramingDecision?: import('../../server/src/shared/contentFramingDecision').ContentFramingDecision | null;
     status: 'pending' | 'analyzing' | 'ready' | 'failed';
     detectedFaceCount: number;
     dominantTrackId: string | null;

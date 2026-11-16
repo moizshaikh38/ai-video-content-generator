@@ -1292,6 +1292,7 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       status: track.status,
       detectedFaceCount: track.detected_face_count || 0,
       dominantTrackId: track.dominant_track_id,
+      contentFramingDecision: track.metadata?.content_framing_decision ?? null,
       smoothedKeyframes: track.smoothed_keyframes || [],
       analysisVersion: track.analysis_version,
       analyzedTrimStart: track.analyzed_trim_start,

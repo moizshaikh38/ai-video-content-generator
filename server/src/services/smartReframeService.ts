@@ -1,3 +1,4 @@
+import {chooseContentFraming, type ContentFramingDecision} from '../shared/contentFramingDecision.js';
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
 /**
@@ -1186,10 +1187,13 @@ export class SmartReframeService {
     minPresence = 0.25,
     maxStddev = 0.03,
   ): { trackId: string; box: { x: number; y: number; w: number; h: number } } | null {
+    // Stillness does not distinguish a tiny distant person or poster from a
+    // camera inset. Crowds cannot supply a reliable single-facecam signal.
+    if (process.env.SMART_REFRAME_CONTENT_AWARE === '1' && (this.isCrowdScene(samples) || this.determineOptimalLayoutMode(samples).layoutMode === 'split')) return null;
     const byTrack = new Map<string, Array<{ x: number; y: number; w: number; h: number }>>();
     for (const s of samples) {
       for (const f of s.faces || []) {
-        if (!f.track_id) continue;
+        if (!f.track_id || (process.env.SMART_REFRAME_CONTENT_AWARE === '1' && (!Number.isFinite(f.width*f.height) || f.width*f.height < 0.001))) continue;
         const arr = byTrack.get(f.track_id) || [];
         arr.push({ x: Number(f.x), y: Number(f.y), w: Number(f.width), h: Number(f.height) });
         byTrack.set(f.track_id, arr);
@@ -1460,6 +1464,7 @@ export class SmartReframeService {
     const shots = bounds.slice(0,-1).map((start,i) => {
       const end = bounds[i+1];
       const samples = rawSamples.filter(s => s.time >= start && s.time < end);
+      if (this.isCrowdScene(samples)) return {start,end,kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]};
       const group = this.computeGroupFrameGeometry({rawSamples:samples, sourceWidth, sourceHeight});
       if (group) return {start,end,kind:'group' as const,windowW:group.windowW,
         windowH:group.windowH ?? Math.min(1,group.windowW*sourceWidth*.75/sourceHeight),keyframes:group.keyframes};
@@ -2030,6 +2035,15 @@ export class SmartReframeService {
    * - 'screencast': If explicitly requested or screencast detected
    * - 'track': Default active speaker tracking
    */
+  /** Geometric crowd evidence only, not a semantic activity classifier.
+   * Four or more concurrent faces in a majority of samples cannot establish a
+   * two-person conversation. Keep the whole scene instead of picking extremes.
+   */
+  public static isCrowdScene(samples: ReframeSample[]): boolean {
+    return Array.isArray(samples) && samples.length > 0 &&
+      samples.filter(s=>(s.faces||[]).filter(f=>Number.isFinite(f.width*f.height)&&f.width>0&&f.height>0).length>=4).length / samples.length >= .5;
+  }
+
   public static determineOptimalLayoutMode(
     samples: ReframeSample[],
     options: { isScreencastHint?: boolean; preferredMode?: ReframeLayoutMode; fallbackMode?: ReframeLayoutMode } = {}
@@ -2047,6 +2061,7 @@ export class SmartReframeService {
       return { layoutMode: options.fallbackMode ?? 'blur' };
     }
 
+    if (process.env.SMART_REFRAME_CONTENT_AWARE === '1' && this.isCrowdScene(samples)) return { layoutMode: 'blur' };
     let noFaceFrames = 0;
     let twoSpeakerFrames = 0;
     const leftFaceXs: number[] = [];
@@ -2057,7 +2072,9 @@ export class SmartReframeService {
       if (faces.length === 0) {
         noFaceFrames++;
       } else if (faces.length >= 2) {
-        const sorted = [...faces].sort((a, b) => a.center_x - b.center_x);
+        // Discard sub-0.1%-frame detections before inferring a conversation.
+        const sorted = (process.env.SMART_REFRAME_CONTENT_AWARE === '1' ? faces.filter(f=>f.width*f.height>=.001) : faces).sort((a, b) => a.center_x - b.center_x);
+        if (process.env.SMART_REFRAME_CONTENT_AWARE === '1' && sorted.length !== 2) continue;
         const leftFace = sorted[0];
         const rightFace = sorted[sorted.length - 1];
 
@@ -2175,6 +2192,13 @@ export class SmartReframeService {
    *   two-shot conversation. Faceless sources (documentary, B-roll, pure
    *   gameplay) no longer inherit split_stacked duplication from a genre label.
    */
+  public static computeContentFramingDecision(args: {genre?:string|null;samples:ReframeSample[];explicitMode?:ReframeLayoutMode}):ContentFramingDecision {
+    const measured=this.determineOptimalLayoutMode(args.samples);
+    return chooseContentFraming({genre:args.genre,measuredMode:measured.layoutMode,explicitMode:args.explicitMode,
+      sampleCount:args.samples.length,crowd:this.isCrowdScene(args.samples),possibleEmbeddedCamera:!!this.findStaticFacecamTrack(args.samples),
+      hasAnchorableFace:args.samples.filter(s=>s.faces.some(f=>f.width*f.height>=this.TRACK_ANCHOR_MIN_FACE_AREA)).length/Math.max(1,args.samples.length)>=.5});
+  }
+
   public static resolveLayoutWithProvenance(args: {
     cropLayoutMode?: ReframeLayoutMode;
     cropLayoutSource?: 'genre_recommendation' | 'user' | 'legacy_unknown';
@@ -2573,6 +2597,7 @@ export class SmartReframeService {
       // zone, velocity cap, smoothing) and layout preference follow the content
       // type. Explicit per-call options and the user's own layout choice win.
       let genreReframe: ReturnType<typeof resolveGenreReframeOptions> = {};
+      let sourceGenre: string | null = null;
       try {
         if (clip.project_id) {
           const { data: proj } = await dataRepository
@@ -2580,8 +2605,8 @@ export class SmartReframeService {
             .select('clip_preferences')
             .eq('id', clip.project_id)
             .maybeSingle();
-          const genre = (proj as any)?.clip_preferences?.genre ?? null;
-          genreReframe = resolveGenreReframeOptions(options, genre);
+          sourceGenre = (proj as any)?.clip_preferences?.genre ?? null;
+          genreReframe = resolveGenreReframeOptions(options, sourceGenre);
         }
       } catch (genreErr: any) {
         logger.warn(`[SmartReframe] Genre profile resolution skipped: ${genreErr.message}`);
@@ -2682,13 +2707,19 @@ export class SmartReframeService {
         if (selectionTracks.size === 0) selectionTracks = tracks; // never drop the only subject
       }
       const { dominantTrackId, score } = this.selectDominantTrack(selectionTracks, cvResult.samples.length, { speechIntervals });
-      const { layoutMode, speaker1X, speaker2X } = this.resolveLayoutWithProvenance({
+      const resolvedLayout = this.resolveLayoutWithProvenance({
         cropLayoutMode: clip.crop_config?.layout_mode,
         cropLayoutSource: (clip.crop_config as any)?.layout_mode_source,
         genrePreferredLayoutMode: genreReframe.preferredLayoutMode,
         samples: cvResult.samples,
         facecamSuggestionPresent: !!facecamSuggestion,
       });
+      const contentDecision = process.env.SMART_REFRAME_CONTENT_AWARE === '1'
+        ? this.computeContentFramingDecision({genre:sourceGenre,samples:cvResult.samples,
+            explicitMode:clip.crop_config?.layout_mode && (clip.crop_config as any).layout_mode_source !== 'genre_recommendation' ? clip.crop_config.layout_mode : undefined})
+        : null;
+      const {speaker1X,speaker2X} = resolvedLayout;
+      const layoutMode = contentDecision?.layoutMode ?? resolvedLayout.layoutMode;
 
       logger.info(
         `[SmartReframe] Analysis complete for clip ${clipId}: detected ${faceCount} tracks, dominant: ${dominantTrackId} (score: ${score}), layout: ${layoutMode}`
@@ -2731,6 +2762,7 @@ export class SmartReframeService {
         metadata: {
           dominant_score: score,
           layout_mode: layoutMode,
+          content_framing_decision: contentDecision,
           // Decision-provided Xs win; otherwise persist estimated anchors so a
           // later MANUAL Split pick can frame measured speakers instead of the
           // symmetric defaults. Null when no credible two-speaker geometry.

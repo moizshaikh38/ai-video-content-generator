@@ -1,3 +1,4 @@
+import {effectiveContentLayout, type ContentFramingDecision} from '../../../server/src/shared/contentFramingDecision';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   Layers,
@@ -29,6 +30,7 @@ import { interpolateReframeCenter } from '../../../server/src/shared/reframeInte
 import { CaptionPresetRenderer } from './CaptionPresetRenderer';
 
 interface PreviewCanvasProps {
+  contentFramingDecision?: ContentFramingDecision | null;
   project: EditorProject;
   playhead: number;
   isPlaying?: boolean;
@@ -217,6 +219,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   speakerSplit,
   watermarkRequired = false,
   groupReframe = null,
+  contentFramingDecision = null,
   shotComposition = null,
   compositionClipStart = 0,
   lowConfidenceTrack = false,
@@ -427,8 +430,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // top/bottom stack mirroring the export's buildSplitPodcastFilter.
   const primaryLayoutMode = useMemo(() => {
     const item = project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
-    return ((item as any)?.layout_mode as string | undefined) || 'track';
-  }, [project.tracks]);
+    return effectiveContentLayout(item,contentFramingDecision);
+  }, [project.tracks,contentFramingDecision]);
 
   const splitAnchors = useMemo(() => {
     const item = project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
@@ -1201,7 +1204,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               title="Layout Mode (Click to cycle Fill / Fit / Blur background)"
             >
               <Maximize2 className="w-3.5 h-3.5" />
-              <span>Layout: {primaryLayoutMode === 'split' ? 'Split' : primaryVideoCropMode === 'fit' ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
+              <span>Layout: {primaryLayoutMode === 'split' ? 'Split' : primaryLayoutMode === 'blur' ? 'Blur' : primaryLayoutMode === 'screencast' ? 'Screencast' : primaryVideoCropMode === 'fit' ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
             </button>
           )}
 
@@ -1249,7 +1252,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           className="relative overflow-hidden flex items-center justify-center"
         >
           {/* HTML5 VIDEO BASE STREAM */}
-          {(primaryVideoCropMode === 'blur' || Boolean(groupFitView) || lowConfidenceFallback) && activeVideoSrc ? (
+          {(primaryVideoCropMode === 'blur' || primaryLayoutMode === 'blur' || Boolean(groupFitView) || lowConfidenceFallback) && activeVideoSrc ? (
             <video
               ref={backdropVideoRef}
               onLoadedMetadata={e => { e.currentTarget.currentTime = targetVideoTime; }}
@@ -1341,7 +1344,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 : {}),
               // Fit/Blur = letterbox (matches export's buildFitFilter pad / blur fill); Fill = cover-crop;
               // group fit sizes the element exactly, so cover introduces no extra crop
-              objectFit: primaryVideoCropMode === 'fit' || primaryVideoCropMode === 'blur' || lowConfidenceFallback ? 'contain' : 'cover',
+              objectFit: primaryVideoCropMode === 'fit' || primaryVideoCropMode === 'blur' || primaryLayoutMode === 'blur' || lowConfidenceFallback ? 'contain' : 'cover',
               objectPosition:
                 primaryLayoutMode === 'split'
                   ? splitView1

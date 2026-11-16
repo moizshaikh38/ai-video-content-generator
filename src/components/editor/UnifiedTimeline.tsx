@@ -1,3 +1,4 @@
+import {type ContentFramingDecision} from '../../../server/src/shared/contentFramingDecision';
 import React from 'react';
 import {
   ChevronUp,
@@ -7,6 +8,7 @@ import { UpdateProjectOptions } from '../../hooks/useEditorProject';
 import { Timeline } from './Timeline';
 
 interface UnifiedTimelineProps {
+  contentFramingDecision?: ContentFramingDecision | null;
   project: EditorProject;
   clip?: RenderedClip | null;
   /** Source video the preview plays; the filmstrip grabs instant frames from it. */
@@ -35,6 +37,7 @@ interface UnifiedTimelineProps {
 
 export const UnifiedTimeline: React.FC<UnifiedTimelineProps> = ({
   project,
+  contentFramingDecision = null,
   clip,
   sourceVideoUrl,
   playhead,
@@ -94,6 +97,7 @@ export const UnifiedTimeline: React.FC<UnifiedTimelineProps> = ({
         /* Multi-Track Body with Unified Toolbar (single top border) */
         <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           <Timeline
+            contentFramingDecision={contentFramingDecision}
             project={project}
             clip={clip}
             sourceVideoUrl={sourceVideoUrl}

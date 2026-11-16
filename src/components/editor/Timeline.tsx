@@ -1,3 +1,4 @@
+import {effectiveContentLayout, type ContentFramingDecision} from '../../../server/src/shared/contentFramingDecision';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   Scissors,
@@ -43,6 +44,7 @@ import {
 import { computeSceneReorder, isReorderBlocked } from '../../utils/timelineReorder';
 
 interface TimelineProps {
+  contentFramingDecision?: ContentFramingDecision | null;
   project: EditorProject;
   /** Source clip for this editor session; its window backs the audio waveform overlay. */
   clip?: RenderedClip | null;
@@ -73,6 +75,7 @@ interface TimelineProps {
 
 export const Timeline: React.FC<TimelineProps> = ({
   project,
+  contentFramingDecision = null,
   clip,
   sourceVideoUrl,
   playhead,
@@ -966,7 +969,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         {showFilmstrip && (
                           <div className="absolute left-2.5 top-1.5 z-20 pointer-events-none">
                             <span className="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[10px] font-medium text-white shadow">
-                              {item.layout_mode === 'split' ? 'Split' : item.layout_mode === 'screencast' ? 'Screen + Cam' : item.layout_mode === 'blur' ? 'Blur' : item.crop?.mode === 'fit' ? 'Fit' : item.crop?.mode === 'blur' ? 'Blur' : 'Fill'}
+                              {effectiveContentLayout(item,contentFramingDecision) === 'split' ? 'Split' : effectiveContentLayout(item,contentFramingDecision) === 'screencast' ? 'Screen + Cam' : effectiveContentLayout(item,contentFramingDecision) === 'blur' ? 'Blur' : item.crop?.mode === 'fit' ? 'Fit' : item.crop?.mode === 'blur' ? 'Blur' : 'Fill'}
                             </span>
                           </div>
                         )}
