@@ -169,7 +169,7 @@ function cssColorFilters(item?: EditorTrackItem | null): string | undefined {
 export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   project,
   playhead,
-  isPlaying: _isPlaying,
+  isPlaying,
   sourceOffset = 0,
   cleanSourceUrl,
   renderedPreviewUrl,
@@ -572,6 +572,19 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       v.currentTime = targetVideoTime;
     }
   }, [targetVideoTime, videoRef]);
+
+  // Mirror play/pause onto the auxiliary videos (split bottom half, blur
+  // backdrop): only the main element is driven by useEditorPlayback, and a
+  // never-played aux video freezes until the >0.3s drift corrector teleports
+  // it, which reads as a ~2fps slide show in split layout.
+  useEffect(() => {
+    for (const ref of [splitBottomRef, backdropVideoRef]) {
+      const v = ref.current;
+      if (!v) continue;
+      if (isPlaying && v.paused) v.play().catch(() => {});
+      else if (!isPlaying && !v.paused) v.pause();
+    }
+  }, [isPlaying]);
 
   // Handle direct item manipulation dragging
   useEffect(() => {
