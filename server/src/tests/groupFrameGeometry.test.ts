@@ -184,3 +184,77 @@ describe('group fit ghost-face filtering', () => {
     assert.ok(Math.abs(mid.centerX - 0.475) < 0.03, `centerX=${mid.centerX} should sit between the two real faces`);
   });
 });
+
+describe('computeGroupFrameGeometry adaptive composition (face sizes present)', () => {
+  const sizedTwoShot = (n = 12) =>
+    Array.from({ length: n }, (_, i) => ({
+      time: i * 0.5,
+      faces: [
+        { center_x: 0.21, center_y: 0.28, width: 0.05, height: 0.12, confidence: 0.9, track_id: 'a' },
+        { center_x: 0.63, center_y: 0.3, width: 0.05, height: 0.12, confidence: 0.9, track_id: 'b' },
+      ],
+    }));
+
+  test('returns an adaptive windowH tighter than the legacy 4:3 window', () => {
+    const g = SmartReframeService.computeGroupFrameGeometry({
+      rawSamples: sizedTwoShot(),
+      sourceWidth: 1728,
+      sourceHeight: 720,
+    });
+    assert.ok(g, 'group geometry expected');
+    assert.ok(g!.windowH !== undefined, 'adaptive windowH expected when face sizes exist');
+    // winW = 0.42 span + max(0.1, 2.2*0.05) = 0.53; legacy 4:3 would be
+    // winH = winW*0.75 = 0.3975*1728/720 -> fraction ~0.954; adaptive must
+    // be strictly tighter (band 34-48% of a 9:16 canvas).
+    assert.ok(g!.windowW < 0.6, `windowW=${g!.windowW}`);
+    // Band = foreground strip height / 9:16 canvas height when the strip is
+    // contain-fit to canvas width: (winHPx/winWPx) * (1080/1920).
+    const bandFraction = ((g!.windowH! * 720) / (g!.windowW * 1728)) * (1080 / 1920);
+    assert.ok(bandFraction >= 0.33 && bandFraction <= 0.48, `band=${bandFraction}`);
+  });
+
+  test('headroom bias: window top sits above the highest face, eyes in upper band', () => {
+    const g = SmartReframeService.computeGroupFrameGeometry({
+      rawSamples: sizedTwoShot(),
+      sourceWidth: 1728,
+      sourceHeight: 720,
+    });
+    assert.ok(g && g.windowH !== undefined);
+    const mid = g!.keyframes[Math.floor(g!.keyframes.length / 2)];
+    const top = mid.centerY - g!.windowH! / 2;
+    const highestFaceTop = 0.28 - 0.12 / 2; // 0.22
+    assert.ok(top < highestFaceTop, `window top ${top} must be above highest face top ${highestFaceTop}`);
+    const faceCenterRelWindow = (0.28 - top) / g!.windowH!;
+    assert.ok(faceCenterRelWindow < 0.45, `face center sits at ${faceCenterRelWindow} of window height`);
+  });
+
+  test('samples without face sizes keep the legacy 4:3 path and no windowH', () => {
+    const g = SmartReframeService.computeGroupFrameGeometry({
+      rawSamples: twoFaceSamples(0.35, 0.6),
+      sourceWidth: 1728,
+      sourceHeight: 720,
+    });
+    assert.ok(g);
+    assert.equal(g!.windowH, undefined);
+    assert.ok(Math.abs(g!.windowW - 0.575) < 1e-6, `windowW=${g!.windowW}`);
+  });
+
+  test('person-scale outlier far below the group does not drag the window down', () => {
+    const samples = sizedTwoShot().map((s) => ({
+      ...s,
+      faces: [
+        ...s.faces,
+        // hand closeup: area >= real faces but 2.5x taller than median face height
+        { center_x: 0.4, center_y: 0.82, width: 0.12, height: 0.42, confidence: 0.9, track_id: 'hand' },
+      ],
+    }));
+    const g = SmartReframeService.computeGroupFrameGeometry({
+      rawSamples: samples,
+      sourceWidth: 1728,
+      sourceHeight: 720,
+    });
+    assert.ok(g, 'real two-person group still expected');
+    const mid = g!.keyframes[Math.floor(g!.keyframes.length / 2)];
+    assert.ok(mid.centerY < 0.55, `centerY=${mid.centerY} dragged down by hand outlier`);
+  });
+});

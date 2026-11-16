@@ -95,6 +95,8 @@ interface PreviewCanvasProps {
   groupReframe?: {
     keyframes: Array<{ time: number; centerX: number; centerY: number }>;
     windowW: number;
+    /** Export-mirrored composition window height (fraction of source height). */
+    windowH?: number;
     sourceWidth: number;
     sourceHeight: number;
   } | null;
@@ -639,9 +641,12 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     const windowW = Math.min(0.92, Math.max(0.4, groupReframe.windowW));
     const elW = boxW / windowW;
     const elH = (elW * videoDims.h) / videoDims.w;
-    // Mirror buildGroupFitFilter's 4:3 composition window (winH clamped to
-    // the source height): the band shows winH of every winW source columns.
-    const winH = Math.min(videoDims.h, Math.round(windowW * videoDims.w * 0.75));
+    // Mirror buildGroupFitFilter's composition window: adaptive height when
+    // the server computed one from face sizes, else the legacy 4:3 window
+    // (winH clamped to the source height).
+    const winH = groupReframe.windowH !== undefined
+      ? Math.min(videoDims.h, Math.round(groupReframe.windowH * videoDims.h))
+      : Math.min(videoDims.h, Math.round(windowW * videoDims.w * 0.75));
     const bandH = boxW * (winH / (windowW * videoDims.w));
     const center = interpolateReframeCenter(groupReframe.keyframes, targetVideoTime);
     const cx = Math.min(0.95, Math.max(0.05, center.centerX));

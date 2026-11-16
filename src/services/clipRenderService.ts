@@ -251,6 +251,9 @@ class ClipRenderService {
     groupFrame?: {
       keyframes: Array<{ time: number; centerX: number; centerY: number }>;
       windowW: number;
+      /** Composition window height (fraction of source height) when face
+       * sizes are known; absent = legacy 4:3 window. */
+      windowH?: number;
       sourceWidth: number;
       sourceHeight: number;
     } | null;

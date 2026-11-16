@@ -865,6 +865,7 @@ export class ProEditorService {
         return SmartReframeService.buildGroupFitFilter({
           keyframes: groupFrame.keyframes,
           windowW: groupFrame.windowW,
+          windowH: groupFrame.windowH,
           sourceWidth: track.source_width || 1920,
           sourceHeight: track.source_height || 1080,
           canvasWidth: 1080,

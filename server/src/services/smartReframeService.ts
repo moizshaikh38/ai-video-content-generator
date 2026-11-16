@@ -1437,13 +1437,15 @@ export class SmartReframeService {
   }): {
     keyframes: Array<{ time: number; centerX: number; centerY: number }>;
     windowW: number;
+    /** Fraction of source height; present only when face size data exists. */
+    windowH?: number;
   } | null {
     const { rawSamples, sourceWidth, sourceHeight } = options;
     if (!Array.isArray(rawSamples) || rawSamples.length === 0) return null;
     if (!Number.isFinite(sourceWidth) || sourceWidth <= 0 || !Number.isFinite(sourceHeight) || sourceHeight <= 0) return null;
 
     const clamp01 = (v: number) => Math.min(0.95, Math.max(0.05, v));
-    const groups: Array<{ time: number; cx: number; cy: number; span: number; spanY: number }> = [];
+    const groups: Array<{ time: number; cx: number; cy: number; span: number; spanY: number; top: number; bottom: number; faceW: number; faceH: number }> = [];
     rawSamples.forEach((sample, idx) => {
       const allFaces = (sample?.faces || []).filter(
         (f) => Number.isFinite(f?.center_x) && Number.isFinite(f?.center_y)
@@ -1452,24 +1454,52 @@ export class SmartReframeService {
       // Person-scale faces only: small stable false positives (lamps, hands,
       // decor) must not turn a single-speaker shot into a "group" that
       // zooms out to cover artifacts. A group member is at least a quarter
-      // of the largest face's area in the same sample (real two-shots have
-      // comparable face sizes; detectors' ghosts are far smaller).
+      // of the median face area in the same sample (real two-shots have
+      // comparable face sizes; detectors' ghosts are far smaller). The
+      // median - not the max - is the reference: a person-scale outlier
+      // (e.g. a gesturing hand closeup much larger than the heads) would
+      // otherwise inflate the reference and get the real heads filtered
+      // out; the vertical-extent guard below handles those outliers.
       const areaOf = (f: any) => Math.max(0, Number(f?.width) || 0) * Math.max(0, Number(f?.height) || 0);
-      const maxArea = Math.max(...allFaces.map(areaOf));
-      const faces = maxArea > 0
-        ? allFaces.filter((f) => areaOf(f) >= maxArea * 0.25)
+      const sortedAreas = allFaces.map(areaOf).filter((a) => a > 0).sort((a, b) => a - b);
+      const refArea = sortedAreas.length ? sortedAreas[Math.floor(sortedAreas.length / 2)] : 0;
+      const faces = refArea > 0
+        ? allFaces.filter((f) => areaOf(f) >= refArea * 0.25)
         : allFaces;
       if (faces.length === 0) return;
-      const xs = faces.map((f) => Number(f.center_x));
-      const ys = faces.map((f) => Number(f.center_y));
+      // Vertical-extent guard: a person-scale detection well below/above the
+      // group (e.g. a gesturing hand closeup) is not a head - keep it out of
+      // the head band so the window is not stretched to the waist. Reference
+      // is the MEDIAN center_y: an area-weighted centroid would itself be
+      // dragged by the outlier's large area and filter out the real heads.
+      const medY = (() => {
+        const ys = faces.map((f) => Number(f.center_y)).sort((a, b) => a - b);
+        return ys[Math.floor(ys.length / 2)];
+      })();
+      const medH = (() => {
+        const hs = faces.map((f) => Number(f.height) || 0).filter((h) => h > 0).sort((a, b) => a - b);
+        return hs.length ? hs[Math.floor(hs.length / 2)] : 0;
+      })();
+      const heads = medH > 0
+        ? faces.filter((f) => Math.abs(Number(f.center_y) - medY) <= 2.5 * medH)
+        : faces;
+      const use = heads.length > 0 ? heads : faces;
+      const xs = use.map((f) => Number(f.center_x));
+      const ys = use.map((f) => Number(f.center_y));
       const minX = Math.min(...xs);
       const maxX = Math.max(...xs);
+      const sortedW = use.map((f) => Number(f.width) || 0).filter((w) => w > 0).sort((a, b) => a - b);
+      const sortedH = use.map((f) => Number(f.height) || 0).filter((h) => h > 0).sort((a, b) => a - b);
       groups.push({
         time: Number.isFinite(sample?.time) ? Number(sample.time) : idx * 0.5,
         cx: (minX + maxX) / 2,
         cy: (Math.min(...ys) + Math.max(...ys)) / 2,
         span: maxX - minX,
         spanY: Math.max(...ys) - Math.min(...ys),
+        top: Math.min(...use.map((f) => Number(f.center_y) - (Number(f.height) || 0) / 2)),
+        bottom: Math.max(...use.map((f) => Number(f.center_y) + (Number(f.height) || 0) / 2)),
+        faceW: sortedW.length ? sortedW[Math.floor(sortedW.length / 2)] : 0,
+        faceH: sortedH.length ? sortedH[Math.floor(sortedH.length / 2)] : 0,
       });
     });
     if (groups.length < 3) return null;
@@ -1483,30 +1513,59 @@ export class SmartReframeService {
     // than the source, never so narrow that it defeats the purpose.
     const maxSpan = Math.max(...groups.map((g) => g.span));
     const maxSpanY = Math.max(...groups.map((g) => g.spanY));
-    // Horizontal coverage of the widest arrangement, and vertical coverage of
-    // the tallest face spread given the 4:3 window the fit filter renders
-    // (winH = winW * 3/4): both people must fit the taller composition, not
-    // just the width.
-    const xCover = maxSpan * 1.9 + 0.1;
-    const yCover = ((maxSpanY * 1.6 + 0.15) * sourceHeight) / (0.75 * sourceWidth);
-    const windowW = Math.min(0.92, Math.max(0.4, xCover, yCover));
+    const med = (vals: number[]) => {
+      const v = [...vals].sort((a, b) => a - b);
+      return v.length ? v[Math.floor(v.length / 2)] : 0;
+    };
+    const faceWMed = med(groups.map((g) => g.faceW).filter((w) => w > 0));
+    const faceHMed = med(groups.map((g) => g.faceH).filter((h) => h > 0));
+    const hasSize = faceWMed > 0 && faceHMed > 0;
+    let windowW: number;
+    let windowH: number | undefined;
+    if (hasSize) {
+      // Composition policy (judgment, not fixed aspect): width = face span +
+      // margins scaled to face size; height = head extent + headroom/body
+      // margin, clamped so the rendered band stays between ~34% and ~48% of
+      // the 9:16 canvas. Bigger faces, both people still in frame.
+      const xCover = maxSpan + Math.max(0.1, 2.2 * faceWMed);
+      windowW = Math.min(0.92, Math.max(0.35, xCover));
+      const winWPx = windowW * sourceWidth;
+      const extentY = Math.max(...groups.map((g) => g.bottom - g.top));
+      const desiredHPx = (extentY + 2.6 * faceHMed) * sourceHeight;
+      const winHPx = Math.min(sourceHeight, Math.min(Math.max(desiredHPx, winWPx * 0.6), winWPx * 0.85));
+      windowH = winHPx / sourceHeight;
+    } else {
+      // No face size data: legacy fixed 4:3 window behavior, unchanged.
+      const xCover = maxSpan * 1.9 + 0.1;
+      const yCover = ((maxSpanY * 1.6 + 0.15) * sourceHeight) / (0.75 * sourceWidth);
+      windowW = Math.min(0.92, Math.max(0.4, xCover, yCover));
+    }
 
     // Smooth the group midpoint with a 3-sample moving average so the camera
-    // drifts instead of jittering; clamp away from edges.
+    // drifts instead of jittering; clamp away from edges. With face sizes the
+    // window is headroom-biased: its top sits ~0.9 face-heights above the
+    // highest head (eyes land in the band's upper third), so centerY is the
+    // resulting window center, not the raw face midpoint.
     const keyframes = groups.map((g, i) => {
       const lo = Math.max(0, i - 1);
       const hi = Math.min(groups.length - 1, i + 1);
       let sx = 0;
       let sy = 0;
       for (let j = lo; j <= hi; j++) {
-        sx += groups[j].cx;
-        sy += groups[j].cy;
+        const gj = groups[j];
+        sx += gj.cx;
+        if (windowH !== undefined && gj.faceH > 0) {
+          const top = gj.top - 0.9 * gj.faceH;
+          sy += Math.min(1 - windowH / 2, Math.max(windowH / 2, top + windowH / 2));
+        } else {
+          sy += gj.cy;
+        }
       }
       const n = hi - lo + 1;
       return { time: g.time, centerX: clamp01(sx / n), centerY: clamp01(sy / n) };
     });
 
-    return { keyframes, windowW };
+    return { keyframes, windowW, windowH };
   }
 
   /**
@@ -1519,6 +1578,10 @@ export class SmartReframeService {
   public static buildGroupFitFilter(options: {
     keyframes: Array<{ time: number; centerX: number; centerY: number }>;
     windowW: number;
+    /** Composition window height as a fraction of source height (from
+     * computeGroupFrameGeometry when face sizes are known). Omit for the
+     * legacy 4:3 window. */
+    windowH?: number;
     sourceWidth: number;
     sourceHeight: number;
     canvasWidth?: number;
@@ -1531,6 +1594,7 @@ export class SmartReframeService {
     const {
       keyframes,
       windowW,
+      windowH,
       sourceWidth,
       sourceHeight,
       canvasWidth = 1080,
@@ -1545,7 +1609,9 @@ export class SmartReframeService {
     // both-people-visible single view (Opus "Fit"), and it covers upper
     // bodies instead of just faces.
     const winW = Math.round(windowW * sourceWidth);
-    const winH = Math.min(sourceHeight, Math.round(winW * 0.75));
+    const winH = windowH !== undefined
+      ? Math.min(sourceHeight, Math.max(1, Math.round(windowH * sourceHeight)))
+      : Math.min(sourceHeight, Math.round(winW * 0.75));
 
     const kfs = [...keyframes]
       .filter((k) => Number.isFinite(k.time) && Number.isFinite(k.centerX))
@@ -1919,6 +1985,7 @@ export class SmartReframeService {
     groupFrame?: {
       keyframes: Array<{ time: number; centerX: number; centerY: number }>;
       windowW: number;
+      windowH?: number;
     } | null;
     screencastMode?: 'split_stacked' | 'circular_inset' | 'rounded_card_inset';
     screencastInsetPosition?: 'bottom_right' | 'bottom_left' | 'top_right' | 'top_left';
@@ -1953,6 +2020,7 @@ export class SmartReframeService {
       return this.buildGroupFitFilter({
         keyframes: groupFrame.keyframes,
         windowW: groupFrame.windowW,
+        windowH: groupFrame.windowH,
         sourceWidth,
         sourceHeight,
         canvasWidth: 1080,
