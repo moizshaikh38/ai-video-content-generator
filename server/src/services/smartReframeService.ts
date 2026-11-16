@@ -1532,7 +1532,11 @@ export class SmartReframeService {
       const winWPx = windowW * sourceWidth;
       const extentY = Math.max(...groups.map((g) => g.bottom - g.top));
       const desiredHPx = (extentY + 2.6 * faceHMed) * sourceHeight;
-      const winHPx = Math.min(sourceHeight, Math.min(Math.max(desiredHPx, winWPx * 0.6), winWPx * 0.85));
+      // Floor raised 0.6 -> 0.72: seated/side-by-side subjects have small
+      // head extents, and the low floor left the strip at ~34% of canvas
+      // (blur-majority). 0.72 keeps such shots near ~40% band presence;
+      // the 0.85 cap still bounds the band under ~48%.
+      const winHPx = Math.min(sourceHeight, Math.min(Math.max(desiredHPx, winWPx * 0.72), winWPx * 0.85));
       windowH = winHPx / sourceHeight;
     } else {
       // No face size data: legacy fixed 4:3 window behavior, unchanged.

@@ -210,7 +210,7 @@ describe('computeGroupFrameGeometry adaptive composition (face sizes present)', 
     // Band = foreground strip height / 9:16 canvas height when the strip is
     // contain-fit to canvas width: (winHPx/winWPx) * (1080/1920).
     const bandFraction = ((g!.windowH! * 720) / (g!.windowW * 1728)) * (1080 / 1920);
-    assert.ok(bandFraction >= 0.33 && bandFraction <= 0.48, `band=${bandFraction}`);
+    assert.ok(bandFraction >= 0.38 && bandFraction <= 0.48, `band=${bandFraction}`);
   });
 
   test('headroom bias: window top sits above the highest face, eyes in upper band', () => {
