@@ -1465,6 +1465,16 @@ export class ClipRenderService {
         // rules) beats a genre-stamped crop_config value.
         const cropLayout = (clip.crop_config as any)?.layout_mode_source !== 'genre_recommendation' ? clip.crop_config?.layout_mode : undefined;
         const targetLayout = cropLayout || track.layout_mode || clip.crop_config?.layout_mode || 'track';
+        const splitGeometry =
+          targetLayout === 'split'
+            ? SmartReframeService.computeSplitSpeakerGeometry({
+                rawSamples: track.raw_samples,
+                sourceWidth: track.source_width || 1920,
+                sourceHeight: track.source_height || 1080,
+                speaker1X: clip.crop_config?.split?.speaker1X,
+                speaker2X: clip.crop_config?.split?.speaker2X,
+              })
+            : null;
         const cropFilter = SmartReframeService.buildLayoutCropFilter({
           layoutMode: targetLayout as any,
           aspectRatio: clip.aspect_ratio as ClipAspectRatio,
@@ -1474,6 +1484,7 @@ export class ClipRenderService {
           duration: durationSec,
           speaker1X: clip.crop_config?.split?.speaker1X,
           speaker2X: clip.crop_config?.split?.speaker2X,
+          splitGeometry,
           screencastMode: clip.crop_config?.screencast?.mode,
           screencastInsetPosition: clip.crop_config?.screencast?.insetPosition,
           screencastInsetDiameter: clip.crop_config?.screencast?.insetDiameter,

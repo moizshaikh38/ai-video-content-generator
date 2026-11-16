@@ -357,11 +357,14 @@ export const renderEditorProject = async (
 
     const nextRenderVersion = (clip?.render_version || 0) + 1;
 
-    // Update clip status
+    // Update clip status. Must stay 'queued' (mirroring the clip render
+    // endpoint): renderClipJob's concurrency guard rejects clips already in
+    // 'rendering', so setting it here deadlocked every editor-project render
+    // until the 15-minute stale lease expired.
     await dataRepository
       .from('clips')
       .update({
-        render_status: 'rendering',
+        render_status: 'queued',
         render_version: nextRenderVersion,
         render_error_message: null,
         updated_at: new Date().toISOString(),

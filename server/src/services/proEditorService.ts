@@ -824,6 +824,16 @@ export class ProEditorService {
       }
 
       if (reframe!.layoutMode === 'split' || reframe!.layoutMode === 'screencast') {
+        const splitGeometry =
+          reframe!.layoutMode === 'split'
+            ? SmartReframeService.computeSplitSpeakerGeometry({
+                rawSamples: (track as any).raw_samples,
+                sourceWidth: track.source_width || 1920,
+                sourceHeight: track.source_height || 1080,
+                speaker1X: reframe!.cropConfig?.split?.speaker1X,
+                speaker2X: reframe!.cropConfig?.split?.speaker2X,
+              })
+            : null;
         return SmartReframeService.buildLayoutCropFilter({
           layoutMode: reframe!.layoutMode as any,
           aspectRatio: ratio,
@@ -833,6 +843,7 @@ export class ProEditorService {
           duration: sliceDuration,
           speaker1X: reframe!.cropConfig?.split?.speaker1X,
           speaker2X: reframe!.cropConfig?.split?.speaker2X,
+          splitGeometry,
           tag: layoutTag,
           screencastMode: reframe!.cropConfig?.screencast?.mode,
           screencastInsetPosition: reframe!.cropConfig?.screencast?.insetPosition,

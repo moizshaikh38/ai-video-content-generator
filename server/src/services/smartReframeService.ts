@@ -1342,15 +1342,90 @@ export class SmartReframeService {
   }
 
   /**
+   * Per-speaker framing geometry for the dual-speaker split layout, derived
+   * from the reframe track's raw per-face samples. Returns null when fewer
+   * than two usable subjects exist - callers then use the legacy anchor-only
+   * split behavior unchanged.
+   *
+   * Rule (qualified visually against manual filter renders, Nov 2026): each
+   * panel crops a window as wide as the distance between the two subject
+   * centers (clamped to 20%-50% of source width), centered on the speaker's
+   * measured face position. The legacy rule kept the full source height in
+   * every panel, leaving both speakers visible in each half.
+   */
+  public static computeSplitSpeakerGeometry(options: {
+    rawSamples?: Array<{ faces?: Array<{ center_x?: number; center_y?: number; track_id?: string }> }> | null;
+    sourceWidth: number;
+    sourceHeight: number;
+    speaker1X?: number;
+    speaker2X?: number;
+  }): {
+    speaker1: { x: number; y: number; windowW: number };
+    speaker2: { x: number; y: number; windowW: number };
+  } | null {
+    const { rawSamples, sourceWidth, sourceHeight, speaker1X, speaker2X } = options;
+    if (!Array.isArray(rawSamples) || rawSamples.length === 0) return null;
+    if (!Number.isFinite(sourceWidth) || sourceWidth <= 0 || !Number.isFinite(sourceHeight) || sourceHeight <= 0) return null;
+
+    const byTrack = new Map<string, { sx: number; sy: number; n: number }>();
+    for (const sample of rawSamples) {
+      for (const face of sample?.faces || []) {
+        const tid = face?.track_id;
+        if (!tid || !Number.isFinite(face?.center_x) || !Number.isFinite(face?.center_y)) continue;
+        const acc = byTrack.get(tid) || { sx: 0, sy: 0, n: 0 };
+        acc.sx += Number(face.center_x);
+        acc.sy += Number(face.center_y);
+        acc.n += 1;
+        byTrack.set(tid, acc);
+      }
+    }
+    // A subject needs enough detections to trust its mean position.
+    const subjects = [...byTrack.values()]
+      .filter((a) => a.n >= 3)
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 2)
+      .map((a) => ({ cx: a.sx / a.n, cy: a.sy / a.n }));
+    if (subjects.length < 2) return null;
+
+    const clamp01 = (v: number) => Math.min(0.9, Math.max(0.1, v));
+    const anchor1 = Number.isFinite(speaker1X) ? clamp01(Number(speaker1X)) : 0.25;
+    const first =
+      Math.abs(subjects[0].cx - anchor1) <= Math.abs(subjects[1].cx - anchor1) ? subjects[0] : subjects[1];
+    const second = first === subjects[0] ? subjects[1] : subjects[0];
+
+    // Window as wide as the subject separation keeps the other speaker out of
+    // the crop; clamped so near-overlapping faces do not over-zoom and distant
+    // faces still get a tighter frame than the legacy full-height window.
+    const minDistPx = Math.abs(first.cx - second.cx) * sourceWidth;
+    const windowW = Math.min(0.5, Math.max(0.2, minDistPx / sourceWidth));
+
+    const userX = (v: number | undefined, measured: number) =>
+      Number.isFinite(v) ? clamp01(Number(v)) : clamp01(measured);
+    return {
+      speaker1: { x: userX(speaker1X, first.cx), y: clamp01(first.cy), windowW },
+      speaker2: { x: userX(speaker2X, second.cx), y: clamp01(second.cy), windowW },
+    };
+  }
+
+  /**
    * Generates FFmpeg filter expression for Dual-Speaker Podcast Split Layout (OpenShorts / Opus Clip style):
    * Stacks Speaker 1 on top (1080x960) and Speaker 2 on bottom (1080x960) into a 1080x1920 (9:16) frame,
    * with clean dividing line between speakers where captions rest.
+   *
+   * When per-speaker geometry (from computeSplitSpeakerGeometry) is supplied,
+   * each panel zooms to the geometry's crop window around the measured face
+   * position (x and y anchors); without it the legacy anchor-only behavior is
+   * preserved byte-for-byte.
    */
   public static buildSplitPodcastFilter(options: {
     speaker1X?: number;
     speaker2X?: number;
     canvasWidth?: number;
     canvasHeight?: number;
+    sourceWidth?: number;
+    sourceHeight?: number;
+    speaker1Geometry?: { x: number; y: number; windowW: number };
+    speaker2Geometry?: { x: number; y: number; windowW: number };
     /** Chain-safe embedding (Pro editor graph): consumes the incoming stream
      * (no [0:v] prefix), ends UNLABELED so callers can keep appending filters,
      * and prefixes every link label with the tag. Must be unique per graph. */
@@ -1361,6 +1436,10 @@ export class SmartReframeService {
       speaker2X = 0.75,
       canvasWidth = 1080,
       canvasHeight = 1920,
+      sourceWidth = 1920,
+      sourceHeight = 1080,
+      speaker1Geometry,
+      speaker2Geometry,
       tag,
     } = options;
 
@@ -1368,19 +1447,47 @@ export class SmartReframeService {
     const spk1XClamped = Math.min(0.9, Math.max(0.1, speaker1X));
     const spk2XClamped = Math.min(0.9, Math.max(0.1, speaker2X));
 
-    const crop1Expr = `min(max(in_w*${spk1XClamped}-out_w/2\\,0)\\,in_w-out_w)`;
-    const crop2Expr = `min(max(in_w*${spk2XClamped}-out_w/2\\,0)\\,in_w-out_w)`;
+    const cropXExpr = (spkX: number) => `min(max(in_w*${spkX}-out_w/2\\,0)\\,in_w-out_w)`;
+    const cropYExpr = (spkY: number) => `min(max(in_h*${spkY}-out_h/2\\,0)\\,in_h-out_h)`;
+    // Scale so the geometry's window (fraction of source width) maps to the
+    // panel width. Even height keeps yuv420p-compatible dimensions downstream.
+    const scaledHeightFor = (windowW: number) => {
+      const h = Math.round((sourceHeight * canvasWidth) / (Math.min(0.95, Math.max(0.05, windowW)) * sourceWidth));
+      return Math.max(halfHeight, h % 2 === 0 ? h : h + 1);
+    };
+
+    const panelChain = (
+      inputLabel: string,
+      outputLabel: string | null,
+      spkXClamped: number,
+      geometry?: { x: number; y: number; windowW: number }
+    ): string => {
+      if (geometry) {
+        const gx = Math.min(0.9, Math.max(0.1, geometry.x));
+        const gy = Math.min(0.9, Math.max(0.1, geometry.y));
+        return (
+          `[${inputLabel}]scale=-1:${scaledHeightFor(geometry.windowW)}:force_original_aspect_ratio=increase,` +
+          `crop=${canvasWidth}:${halfHeight}:'${cropXExpr(gx)}':'${cropYExpr(gy)}'` +
+          (outputLabel ? `[${outputLabel}]` : '')
+        );
+      }
+      return (
+        `[${inputLabel}]scale=-1:${halfHeight}:force_original_aspect_ratio=increase,` +
+        `crop=${canvasWidth}:${halfHeight}:'${cropXExpr(spkXClamped)}':(in_h-out_h)/2` +
+        (outputLabel ? `[${outputLabel}]` : '')
+      );
+    };
 
     if (tag) {
       return `split=2[${tag}s1][${tag}s2];` +
-        `[${tag}s1]scale=-1:${halfHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${halfHeight}:'${crop1Expr}':(in_h-out_h)/2[${tag}top];` +
-        `[${tag}s2]scale=-1:${halfHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${halfHeight}:'${crop2Expr}':(in_h-out_h)/2[${tag}bot];` +
+        panelChain(`${tag}s1`, `${tag}top`, spk1XClamped, speaker1Geometry) + ';' +
+        panelChain(`${tag}s2`, `${tag}bot`, spk2XClamped, speaker2Geometry) + ';' +
         `[${tag}top][${tag}bot]vstack`;
     }
 
     return `[0:v]split=2[spk1][spk2];` +
-      `[spk1]scale=-1:${halfHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${halfHeight}:'${crop1Expr}':(in_h-out_h)/2[v_top];` +
-      `[spk2]scale=-1:${halfHeight}:force_original_aspect_ratio=increase,crop=${canvasWidth}:${halfHeight}:'${crop2Expr}':(in_h-out_h)/2[v_bot];` +
+      panelChain('spk1', 'v_top', spk1XClamped, speaker1Geometry) + ';' +
+      panelChain('spk2', 'v_bot', spk2XClamped, speaker2Geometry) + ';' +
       `[v_top][v_bot]vstack[out]`;
   }
 
@@ -1620,6 +1727,12 @@ export class SmartReframeService {
     duration: number;
     speaker1X?: number;
     speaker2X?: number;
+    /** Per-speaker zoom/anchor geometry for the split layout, from
+     * computeSplitSpeakerGeometry. Omitted keeps the legacy split framing. */
+    splitGeometry?: {
+      speaker1: { x: number; y: number; windowW: number };
+      speaker2: { x: number; y: number; windowW: number };
+    } | null;
     screencastMode?: 'split_stacked' | 'circular_inset' | 'rounded_card_inset';
     screencastInsetPosition?: 'bottom_right' | 'bottom_left' | 'top_right' | 'top_left';
     screencastInsetDiameter?: number;
@@ -1638,6 +1751,7 @@ export class SmartReframeService {
       duration,
       speaker1X,
       speaker2X,
+      splitGeometry,
       screencastMode = 'split_stacked',
       screencastInsetPosition,
       screencastInsetDiameter,
@@ -1654,6 +1768,10 @@ export class SmartReframeService {
           speaker2X,
           canvasWidth: 1080,
           canvasHeight: 1920,
+          sourceWidth,
+          sourceHeight,
+          speaker1Geometry: splitGeometry?.speaker1,
+          speaker2Geometry: splitGeometry?.speaker2,
           tag,
         });
       }
