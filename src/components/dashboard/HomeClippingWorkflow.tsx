@@ -445,8 +445,10 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           setActivePreviewClipId(firstId);
         }
       } else if (!hasResults && forceShowReview) {
-        // If completed but no candidates yet, stay in source selected so user can analyze
-        setWorkflowState('source_selected');
+        // A completed analysis can legitimately return nothing. Make that
+        // outcome explicit rather than quietly inviting another paid run.
+        setErrorMessage('No suitable standalone moment was found in this video. Your source is saved. Try a longer video with a complete thought, or choose another source.');
+        setWorkflowState('error');
       }
     } catch {
       setWorkflowState('source_selected');

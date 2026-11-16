@@ -55,3 +55,10 @@ test('late metadata merges only into the current file selection and preserves it
   assert.match(workflow, /setSelectedSource\(\(current\) => current\?\.type === 'file' && current\.file === file\s*\? \{ \.\.\.current, duration \}\s*: current\)/);
   assert.doesNotMatch(workflow, /source\.duration = tempVideo\.duration;\s*setSelectedSource\(\{ \.\.\.source \}\)/);
 });
+
+test('empty analysis review explains the result instead of silently inviting another paid run', () => {
+  const empty = workflow.slice(workflow.indexOf('} else if (!hasResults && forceShowReview)'), workflow.indexOf('} catch {', workflow.indexOf('} else if (!hasResults && forceShowReview)')));
+  assert.match(empty, /No suitable standalone moment was found/);
+  assert.match(empty, /setWorkflowState\('error'\)/);
+  assert.doesNotMatch(empty, /setWorkflowState\('source_selected'\)/);
+});
