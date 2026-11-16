@@ -27,9 +27,13 @@ export const TrackerControl: React.FC<Props> = ({ clipId, project, videoSrc, sou
   useEffect(() => {
     if (!menu) return;
     const close = () => setMenu(false);
-    document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
+    const outside = (e: Event) => { if (!rootRef.current?.contains(e.target as Node)) close(); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('pointerdown', outside, true);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('pointerdown', outside, true); document.removeEventListener('keydown', esc); };
   }, [menu]);
+  const rootRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const videoItems = project.tracks.filter((t) => t.type === 'VIDEO').flatMap((t) => t.items);
@@ -63,7 +67,7 @@ export const TrackerControl: React.FC<Props> = ({ clipId, project, videoSrc, sou
   };
 
   return (
-    <div className="relative">
+    <div ref={rootRef} className="relative">
       <button type="button" onClick={(e) => { e.stopPropagation(); setMenu((v) => !v); }}
         className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg hover:bg-white/[0.08] text-neutral-300 hover:text-white transition font-medium"
         title="Tracker: follow a subject you pick">

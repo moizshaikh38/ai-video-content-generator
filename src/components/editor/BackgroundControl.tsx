@@ -15,11 +15,15 @@ interface Props {
 /** Preview-top "Background" control: Blur / Color + spacing + corner radius. Every value is read by the export compiler. */
 export const BackgroundControl: React.FC<Props> = ({ project, cropMode, onSetCropMode, onUpdateCanvas }) => {
   const [open, setOpen] = useState(false);
+  const rootRef = React.useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
     const close = () => setOpen(false);
-    document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
+    const outside = (e: Event) => { if (!rootRef.current?.contains(e.target as Node)) close(); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('pointerdown', outside, true);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('pointerdown', outside, true); document.removeEventListener('keydown', esc); };
   }, [open]);
   const c = project.canvas;
   const spacing = c.background_spacing ?? 0;
@@ -47,7 +51,7 @@ export const BackgroundControl: React.FC<Props> = ({ project, cropMode, onSetCro
     </label>
   );
   return (
-    <div className="relative">
+    <div ref={rootRef} className="relative">
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
