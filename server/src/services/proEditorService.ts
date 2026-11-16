@@ -1227,6 +1227,10 @@ export class ProEditorService {
           // halves/doubles the effective cadence and feeds xfade an invalid frame rate.
           if (speed !== 1) chain.push(`setpts=PTS/${speed}`);
           chain.push(`fps=${fps}`, 'setsar=1', 'format=yuv420p');
+          if (reframe?.track?.metadata?.shot_composition_candidate === true) {
+            const frames=Math.max(1,Math.round((item.timeline_start+sliceDur)*fps)-Math.round(item.timeline_start*fps));
+            chain.push('tpad=stop_mode=clone:stop_duration=0.1',`trim=end_frame=${frames}`,`setpts=N/(${fps}*TB)`);
+          }
           if (gapPad) chain.push(`tpad=stop_duration=${gap.toFixed(3)}:color=black`);
           filterComplex.push(`[0:v]${chain.join(',')}${vSlice}`);
 
@@ -1335,6 +1339,13 @@ export class ProEditorService {
       parts.push(...styleFilters);
       if (singleSpeed !== 1) parts.push(`setpts=PTS/${singleSpeed}`);
       parts.push(`fps=${fps}`, 'format=yuv420p');
+      if (candidateComposition) {
+        // A 24fps source's final PTS is before its full duration. Resampling
+        // it to 30fps can otherwise drop the final output frame even without
+        // cuts. Bound the tail hold and enforce the declared frame budget.
+        parts.push('tpad=stop_mode=clone:stop_duration=0.1',
+          `trim=end_frame=${Math.max(1,Math.round((canvasDuration||10)*fps))}`,`setpts=N/(${fps}*TB)`);
+      }
       // No comma between the input pad and the first filter: `[0:v],fps=...` parses
       // as an empty filter and aborts every single-item render (found by Phase 1b tests).
       filterComplex.push(`${videoStreamLabel}${parts.join(',')}[base_v]`);

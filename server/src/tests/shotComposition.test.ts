@@ -65,3 +65,13 @@ test('all shots keep one crop size and foreground aspect, including full-fit fal
  assert.equal(new Set(withoutFallback.map(s=>s.windowW)).size,1);
  assert.equal(new Set(withoutFallback.map(s=>s.windowH)).size,1);
 });
+
+test('candidate Pro blur preserves 24-to-30fps last frame without shot concat',()=>{
+ const source24=path.join(dir,'source24.mp4');
+ execFileSync(ffmpeg,['-y','-v','error','-threads','2','-f','lavfi','-i','testsrc2=s=640x360:r=24:d=8','-f','lavfi','-i','sine=frequency=440:duration=8','-c:v','libx264','-threads','2','-preset','ultrafast','-c:a','aac','-shortest',source24]);
+ const project={canvas:{width:1080,height:1920,aspect_ratio:'9:16',fps:30,duration:8},tracks:[{type:'VIDEO',name:'main',items:[{id:'no-cuts-blur',timeline_start:0,timeline_end:8,source_start:0,source_end:8}]}]} as any;
+ const reframe={mode:'smart',aspectRatio:'9:16',clipStartSec:0,layoutMode:'blur',track:{smoothed_keyframes:[{time:0,centerX:.5,centerY:.5}],source_width:640,source_height:360,metadata:{shot_composition_candidate:true,clip_duration:8}}} as any;
+ const graph=ProEditorService.compileRenderGraph(project,source24,path.join(dir,'blur24.mp4'),dir,reframe,'off');
+ const frames=execFileSync(ffmpeg,['-v','error','-filter_complex_threads','1',...graph.inputArgs,'-filter_complex',graph.filterComplex.join(';'),'-map',graph.videoMap,'-map',graph.audioMap,'-t','8','-f','framemd5','-'],{timeout:30000}).toString();
+ assert.equal(frames.split('\n').filter(l=>/^0,/.test(l)).length,240);
+});
