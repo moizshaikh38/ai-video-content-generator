@@ -39,3 +39,7 @@ Earlier talking-head/interview checks demonstrated selected local editor save/re
 4. Production authentication/save/export remains unpassed. The prior live Supabase DNS failure is not repaired by local auth fixtures.
 
 The source default for transcription is `groq` when `TRANSCRIPTION_PROVIDER` is absent. This local provider-unconfigured test inherited that default. It is distinct from LLM/model selection, and is not evidence of the current deployed provider environment. The user's stated AI direction is OpenRouter only; do not silently provision or change providers or invoke them as a fix.
+
+## Explicit OpenRouter routing boundary
+
+Local follow-up at 22:38 IST: the failover factory now respects an explicit OpenRouter selection as a service boundary. Failure propagates without calling a separately configured direct Groq service. Unsupported provider names fail closed instead of silently selecting Groq. Existing environment/default selection is unchanged, as is legacy explicitly selected Groq-to-OpenRouter failover. This is a backup-only code guard, not a deployed configuration change. A no-network test installs fixture provider methods with both fixture keys present, forces an OpenRouter timeout and checks that Groq is never called. Nineteen routing/recovery/reliability tests and server TypeScript pass. This does not verify live OpenRouter model availability, pricing or transcription accuracy. OpenRouter can route internally to its upstream providers; this guard concerns only the application's direct service boundary.

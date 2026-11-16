@@ -72,7 +72,8 @@ export class FailoverTranscriptionProvider implements TranscriptionProvider {
 
 /**
  * Production entrypoint: primary provider per TRANSCRIPTION_PROVIDER env, with
- * automatic failover to the alternate provider when its API key is configured.
+ * legacy Groq-to-OpenRouter failover when its API key is configured.
+ * An explicit OpenRouter selection never sends audio directly to another service.
  */
 export function getTranscriptionProviderWithFailover(): TranscriptionProvider {
   const chosen = (config.transcriptionProvider || 'groq').toLowerCase().trim();
@@ -83,10 +84,13 @@ export function getTranscriptionProviderWithFailover(): TranscriptionProvider {
   let secondary: TranscriptionProvider | null = null;
   if (chosen === 'openrouter') {
     primary = openrouter;
-    if (config.groqApiKey) secondary = groq;
-  } else {
+    // Selecting OpenRouter is a service-routing boundary, not permission to
+    // send audio to a separately configured Groq account after an error.
+  } else if (chosen === 'groq') {
     primary = groq;
     if (config.openrouterApiKey) secondary = openrouter;
+  } else {
+    throw new Error(`Unsupported transcription provider: ${chosen}`);
   }
 
   return new FailoverTranscriptionProvider(primary, secondary);
