@@ -137,6 +137,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
   // Render Live Preview Stage Box
   const renderSamplePreview = () => (
     <div className="p-3 rounded-xl bg-vc-canvas/90 text-center select-none overflow-hidden relative shadow-[inset_0_2px_12px_rgba(0,0,0,0.8)]">
+      <div className="text-[9px] text-vc-text-secondary mb-1">Typography sample</div>
       {hasCustomPos && (
         <button
           type="button"
@@ -152,7 +153,7 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
       <div
         style={{
           fontFamily: effectiveFontFamily,
-          fontWeight: 900,
+          fontWeight: weightDisplay.weight,
           fontSize: `${Math.min(20, Math.max(13, Math.round(fontSize * 0.26)))}px`,
           letterSpacing: `${letterSpacing}px`,
           textAlign: alignment,
@@ -170,9 +171,9 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
           style={{
             backgroundColor: boxEnabled
               ? `${boxColor}${Math.round(boxOpacity * 255).toString(16).padStart(2, '0')}`
-              : 'transparent',
-            padding: boxEnabled ? `${Math.round(boxPadding * 0.25)}px ${Math.round(boxPadding * 0.4)}px` : undefined,
-            borderRadius: boxEnabled ? '5px' : undefined,
+              : resolvedStyle?.chips?.rest ?? 'transparent',
+            padding: resolvedStyle?.chips ? '3px 5px' : boxEnabled ? `${Math.round(boxPadding * 0.25)}px ${Math.round(boxPadding * 0.4)}px` : undefined,
+            borderRadius: boxEnabled || resolvedStyle?.chips ? '5px' : undefined,
             color: primaryColor,
             paintOrder: 'stroke fill',
             WebkitTextStroke: strokePx > 0 ? `${strokePx}px ${effectiveOutlineColor}` : undefined,
@@ -181,7 +182,10 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
           <span>VIRAL HOOKS THAT </span>
           <span
             style={{
-              color: highlightColor,
+              color: resolvedStyle?.chips ? primaryColor : highlightColor,
+              backgroundColor: resolvedStyle?.chips?.active,
+              borderRadius: resolvedStyle?.chips ? '3px' : undefined,
+              padding: resolvedStyle?.chips ? '1px 3px' : undefined,
               display: 'inline-block',
               transform: animationType === 'pop' ? `scale(${animationScale})` : undefined,
               transition: 'transform 0.15s ease',
