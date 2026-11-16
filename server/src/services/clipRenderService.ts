@@ -257,6 +257,63 @@ export function buildBlurFitChain(
   );
 }
 
+export interface CanvasBackdropSpec {
+  /** 'blur' = blurred copy of the source; 'color' = solid fill. */
+  kind: 'blur' | 'color';
+  /** #RRGGBB for kind 'color'. */
+  color?: string;
+  /** Inset of the video from every canvas edge, percent of canvas width (0-20). */
+  spacingPct?: number;
+  /** Video corner radius in output pixels (0-120). */
+  cornerRadius?: number;
+}
+
+export function normalizeBackdropHex(input: unknown, fallback = '000000'): string {
+  const m = String(input ?? '').trim().replace(/^#/, '');
+  return /^[0-9a-fA-F]{6}$/.test(m) ? m.toUpperCase() : fallback;
+}
+
+/**
+ * Chain-safe backdrop layout used by the pro editor for the Background panel:
+ * the whole frame is scaled to fit inside a spaced inset, optionally rounded,
+ * and composited over a blurred copy of the source or a solid colour. Callers
+ * keep legacy filters when spacing and radius are both 0 (see proEditorService).
+ */
+export function buildBackdropFitChain(
+  aspectRatio: ClipAspectRatio = '9:16',
+  zoom: number = 1,
+  spec: CanvasBackdropSpec,
+  tag: string = 'vcd',
+  /** Output scale vs the 1080-based canvas (1 = 1080p, 2 = 4K-class). Geometry, radius and blur scale with it. */
+  canvasScale: number = 1
+): string {
+  const cs = Math.min(4, Math.max(0.25, Number(canvasScale) || 1));
+  const base = aspectRatio === '16:9' ? { w: 1920, h: 1080 } : aspectRatio === '1:1' ? { w: 1080, h: 1080 } : { w: 1080, h: 1920 };
+  const ar = { w: Math.round(base.w * cs / 2) * 2, h: Math.round(base.h * cs / 2) * 2 };
+  const z = Math.min(4, Math.max(1, Number(zoom) || 1));
+  const space = Math.round((ar.w * Math.min(20, Math.max(0, Number(spec.spacingPct) || 0))) / 100 / 2) * 2;
+  const radius = Math.round(Math.min(120, Math.max(0, Number(spec.cornerRadius) || 0)) * cs);
+  const boxW = Math.max(2, ar.w - 2 * space);
+  const boxH = Math.max(2, ar.h - 2 * space);
+  const fgW = Math.max(2, Math.round((boxW * z) / 2) * 2);
+  const bg = spec.kind === 'color'
+    ? `scale=${ar.w}:${ar.h},drawbox=x=0:y=0:w=${ar.w}:h=${ar.h}:color=0x${normalizeBackdropHex(spec.color)}:t=fill`
+    : `scale=${ar.w}:${ar.h}:force_original_aspect_ratio=increase,crop=${ar.w}:${ar.h},boxblur=${Math.round(25 * cs)}:5,eq=brightness=-0.15:contrast=0.95`;
+  // Fit inside the inset box (never wider than the box at zoom 1; zoom widens it, overlay crops at canvas edge).
+  const fgScale = z > 1 ? `scale=${fgW}:-2` : `scale=${boxW}:${boxH}:force_original_aspect_ratio=decrease`;
+  let fg = `${fgScale}`;
+  if (radius > 0) {
+    const r = radius;
+    fg += `,format=yuva420p,geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':a='if(gt(max(abs(X+0.5-W/2)-(W/2-${r}),0)*max(abs(X+0.5-W/2)-(W/2-${r}),0)+max(abs(Y+0.5-H/2)-(H/2-${r}),0)*max(abs(Y+0.5-H/2)-(H/2-${r}),0),${r}*${r}),0,255)'`;
+  }
+  return (
+    `split=2[${tag}_bgs][${tag}_fgs];` +
+    `[${tag}_bgs]${bg}[${tag}_bg];` +
+    `[${tag}_fgs]${fg}[${tag}_fg];` +
+    `[${tag}_bg][${tag}_fg]overlay=(W-w)/2:(H-h)/2:format=auto`
+  );
+}
+
 /**
  * Builds an FFmpeg dynamic crop filter graph expression for smart auto-reframe
  */

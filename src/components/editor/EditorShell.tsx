@@ -1813,6 +1813,24 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 },
               }));
             }}
+            clipId={clip.id}
+            onSetTracker={({ itemId }, tracker) => {
+              onUpdateProject((prev) => ({
+                ...prev,
+                tracks: prev.tracks.map((t) => t.type !== 'VIDEO' ? t : {
+                  ...t,
+                  items: t.items.map((i) => {
+                    if (itemId && i.id !== itemId) return i;
+                    const next: any = { ...i };
+                    if (tracker) next.tracker = tracker; else delete next.tracker;
+                    return next;
+                  }),
+                }),
+              }));
+            }}
+            onUpdateCanvas={(patch) => {
+              onUpdateProject((prev) => ({ ...prev, canvas: { ...prev.canvas, ...patch } }));
+            }}
             onUpdateCropMode={(mode) => {
               // Route through item.crop: the export compiler (buildSliceCropFilter)
               // honors item.crop.mode and never reads legacy crop_mode, so writing

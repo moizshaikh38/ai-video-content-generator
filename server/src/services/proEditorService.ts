@@ -52,7 +52,7 @@ import {
 import { downloadObjectToFile, uploadFile, signObjectGet } from './objectStorageService.js';
 import { CaptionService } from './captionService.js';
 import { isKnownCaptionStyle } from '../shared/captionPresets.js';
-import { buildCropFilter, buildFitFilter, buildBlurFitChain } from './clipRenderService.js';
+import { buildCropFilter, buildFitFilter, buildBlurFitChain, buildBackdropFitChain, type CanvasBackdropSpec } from './clipRenderService.js';
 import { AudioEnhancementService } from './audioEnhancementService.js';
 import {
   LoudnormMeasured,
@@ -778,7 +778,8 @@ export class ProEditorService {
     item: EditorTrackItem,
     reframe: ProReframeContext | undefined,
     sliceWindowStartClipRel: number,
-    sliceDuration: number
+    sliceDuration: number,
+    canvas?: { background_color?: string; background_spacing?: number; background_corner_radius?: number }
   ): string | null {
     const ratio = (reframe?.aspectRatio || '9:16') as ClipAspectRatio;
 
@@ -792,6 +793,14 @@ export class ProEditorService {
       const clampFocus = (v: number | undefined): number =>
         Math.min(1, Math.max(0, typeof v === 'number' && Number.isFinite(v) ? v : 0.5));
       const zoom = Math.min(4, Math.max(1, Number(item.crop.scale ?? 1)));
+      const spacingPct = Number(canvas?.background_spacing) || 0;
+      const cornerRadius = Number(canvas?.background_corner_radius) || 0;
+      const customBackdrop = spacingPct > 0 || cornerRadius > 0 || (item.crop.mode === 'fit' && !!canvas?.background_color && canvas.background_color.replace('#', '').toLowerCase() !== '000000');
+      if ((item.crop.mode === 'fit' || item.crop.mode === 'blur') && customBackdrop) {
+        const spec: CanvasBackdropSpec = { kind: item.crop.mode === 'blur' ? 'blur' : 'color', color: canvas?.background_color, spacingPct, cornerRadius };
+        const tag = ('vcd' + String(item.id || 'x')).replace(/[^a-zA-Z0-9]/g, '').slice(0, 16) || 'vcd';
+        return buildBackdropFitChain(ratio, zoom, spec, tag);
+      }
       if (item.crop.mode === 'fit') return buildFitFilter(ratio, zoom, clampFocus(item.crop.focusX), clampFocus(item.crop.focusY));
       if (item.crop.mode === 'blur') {
         // Chain-safe fragment: consumes the trimmed slice stream via split and
@@ -800,6 +809,24 @@ export class ProEditorService {
         return buildBlurFitChain(ratio, zoom, tag);
       }
       return buildCropFilter(ratio, { focusX: clampFocus(item.crop.focusX), focusY: clampFocus(item.crop.focusY), scale: zoom });
+    }
+
+    // Manual subject tracker (Tracker control): the user picked a subject, so its
+    // tracked path drives the crop window for this slice (fill layout only).
+    const tr = (item as any).tracker as import('../types/index.js').EditorSubjectTracker | undefined;
+    const userLayout = (item as any).crop_config?.layout_mode_source === 'user' ? (item as any).layout_mode : undefined;
+    const trWinStart = item.source_start || 0;
+    const trInWindow = tr?.enabled && Array.isArray(tr.keyframes) ? tr.keyframes.filter((k) => k.time >= trWinStart - 1 && k.time <= trWinStart + sliceDuration + 1) : [];
+    if (tr?.enabled && trInWindow.length >= 1 && !userLayout?.match(/^(split|blur|screencast)$/)) {
+      const winStart = trWinStart;
+      const pick = trInWindow;
+      const rebased = pick.map((k) => ({ time: Number(Math.max(0, Math.min(sliceDuration, k.time - winStart)).toFixed(3)), centerX: k.centerX, centerY: k.centerY }));
+      const dedup = rebased.filter((k, i) => i === 0 || k.time > rebased[i - 1].time);
+      if (dedup.length === 1) return buildCropFilter(ratio, { focusX: dedup[0].centerX, focusY: dedup[0].centerY });
+      return SmartReframeService.buildLayoutCropFilter({
+        layoutMode: 'track', aspectRatio: ratio, keyframes: dedup,
+        sourceWidth: tr.source_width || 1920, sourceHeight: tr.source_height || 1080, duration: sliceDuration,
+      });
     }
 
     const track = reframe?.track;
@@ -813,36 +840,42 @@ export class ProEditorService {
     );
 
     if (hasUsableTrack && track) {
+      // Per-scene layout: a user-set item layout (timeline Split/Fill/Fit/Blur menu)
+      // overrides the clip-level layout for this slice only.
+      const itemCfg: any = (item as any).crop_config;
+      const userItemLayout = itemCfg?.layout_mode_source === 'user' ? (item as any).layout_mode : undefined;
+      const effLayout: string = userItemLayout || (reframe!.layoutMode as string);
+      const itemSplit = itemCfg?.split;
       // Labeled layout graphs (split/blur/screencast) are embedded inside the
       // per-slice comma chain here, so they must be chain-safe fragments with
       // graph-unique labels - raw [0:v]...[out] forms abort ffmpeg with
       // "Too many inputs specified for the split filter" (editor split exports
       // failed permanently until this).
       const layoutTag = 'vc' + crypto.createHash('sha256').update(String(item.id || 'x')).digest('hex').slice(0, 16);
-      if (reframe!.layoutMode === 'blur') {
+      if (effLayout === 'blur') {
         return SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: 1080, canvasHeight: 1920, tag: layoutTag });
       }
 
-      if (reframe!.layoutMode === 'split' || reframe!.layoutMode === 'screencast') {
+      if (effLayout === 'split' || effLayout === 'screencast') {
         const splitGeometry =
-          reframe!.layoutMode === 'split'
+          effLayout === 'split'
             ? SmartReframeService.computeSplitSpeakerGeometry({
                 rawSamples: (track as any).raw_samples,
                 sourceWidth: track.source_width || 1920,
                 sourceHeight: track.source_height || 1080,
-                speaker1X: reframe!.cropConfig?.split?.speaker1X,
-                speaker2X: reframe!.cropConfig?.split?.speaker2X,
+                speaker1X: itemSplit?.speaker1X ?? reframe!.cropConfig?.split?.speaker1X,
+                speaker2X: itemSplit?.speaker2X ?? reframe!.cropConfig?.split?.speaker2X,
               })
             : null;
         return SmartReframeService.buildLayoutCropFilter({
-          layoutMode: reframe!.layoutMode as any,
+          layoutMode: effLayout as any,
           aspectRatio: ratio,
           keyframes: track.smoothed_keyframes,
           sourceWidth: track.source_width || 1920,
           sourceHeight: track.source_height || 1080,
           duration: sliceDuration,
-          speaker1X: reframe!.cropConfig?.split?.speaker1X,
-          speaker2X: reframe!.cropConfig?.split?.speaker2X,
+          speaker1X: itemSplit?.speaker1X ?? reframe!.cropConfig?.split?.speaker1X,
+          speaker2X: itemSplit?.speaker2X ?? reframe!.cropConfig?.split?.speaker2X,
           splitGeometry,
           splitFit: (reframe!.cropConfig?.split as any)?.fit,
           splitDividerX: (reframe!.cropConfig?.split as any)?.dividerX,
@@ -1193,7 +1226,7 @@ export class ProEditorService {
           currentInputIdx++;
           const silenceIdx = currentInputIdx;
           const windowStartClipRelFreeze = T - (reframe?.clipStartSec ?? 0);
-          const freezeCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRelFreeze, timelineDur);
+          const freezeCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRelFreeze, timelineDur, project.canvas);
           const freezeStyle = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH, fps);
           const chain = [`trim=start=${T.toFixed(3)}:end=${(T + lead).toFixed(3)}`, 'setpts=PTS-STARTPTS'];
           if (freezeCrop) chain.push(freezeCrop);
@@ -1218,7 +1251,7 @@ export class ProEditorService {
           // Keyframes are clip-relative; slices trim straight from the source file, so
           // the slice-local window starts at source_start - clipStart.
           const windowStartClipRel = (item.source_start || 0) - (reframe?.clipStartSec ?? 0);
-          const sliceCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRel, reframe?.track?.metadata?.shot_composition_candidate === true ? sourceWindowSec : timelineDur);
+          const sliceCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRel, reframe?.track?.metadata?.shot_composition_candidate === true ? sourceWindowSec : timelineDur, project.canvas);
           const styleFilters = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH, fps);
           const chain = [`trim=start=${startStr}:end=${endStr}`, 'setpts=PTS-STARTPTS'];
           if (sliceCrop) chain.push(sliceCrop);
@@ -1331,7 +1364,7 @@ export class ProEditorService {
       const candidateComposition = reframe?.track?.metadata?.shot_composition_candidate === true;
       const singleSourceStart = candidateComposition ? Math.max(0, (single?.source_start || 0) - (reframe?.clipStartSec ?? 0)) : 0;
       const singleSourceDuration = (canvasDuration || 10) * (candidateComposition ? Math.min(4, Math.max(.25, single?.speed?.speed || 1)) : 1);
-      const singleCrop = single ? ProEditorService.buildSliceCropFilter(single, reframe, singleSourceStart, singleSourceDuration) : null;
+      const singleCrop = single ? ProEditorService.buildSliceCropFilter(single, reframe, singleSourceStart, singleSourceDuration, project.canvas) : null;
       const styleFilters = single ? ProEditorService.buildItemStyleFilters(single, canvasW, canvasH, fps) : [];
       const singleSpeed = single ? Math.min(4, Math.max(0.25, single.speed?.speed || 1.0)) : 1.0;
       const parts: string[] = [];

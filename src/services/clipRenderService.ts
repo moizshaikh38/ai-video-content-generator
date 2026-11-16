@@ -226,6 +226,23 @@ class ClipRenderService {
   /**
    * Phase 13: Fetches latest smart reframe tracking data
    */
+  /** Tracker control: follow a user-picked subject. Times are source-file seconds. */
+  async trackClipSubject(
+    clipId: string,
+    body: { refTime: number; box: { x: number; y: number; w: number; h: number }; startSec: number; endSec: number }
+  ): Promise<{
+    status: 'ok';
+    source_width: number;
+    source_height: number;
+    keyframes: Array<{ time: number; centerX: number; centerY: number }>;
+    tracked_from: number;
+    tracked_to: number;
+    lost_after: number | null;
+    lost_before: number | null;
+  }> {
+    return backendRequest(`/clips/${clipId}/track-subject`, { method: 'POST', body: JSON.stringify(body) });
+  }
+
   async getClipReframe(clipId: string): Promise<{
     contentFramingDecision?: import('../../server/src/shared/contentFramingDecision').ContentFramingDecision | null;
     status: 'pending' | 'analyzing' | 'ready' | 'failed';

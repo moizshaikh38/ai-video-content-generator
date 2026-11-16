@@ -27,6 +27,8 @@ import {
 import { computeCanvasFitScale } from '../../lib/canvasFit';
 import { interpolateReframeCenter } from '../../../server/src/shared/reframeInterpolation';
 import { CaptionPresetRenderer } from './CaptionPresetRenderer';
+import { BackgroundControl } from './BackgroundControl';
+import { TrackerControl } from './TrackerControl';
 
 interface PreviewCanvasProps {
   contentFramingDecision?: ContentFramingDecision | null;
@@ -56,6 +58,9 @@ interface PreviewCanvasProps {
   onToggleSafeGuides?: () => void;
   onChangeAspectRatio?: (aspectRatio: ClipAspectRatio) => void;
   onUpdateCropMode?: (mode: 'center' | 'fit' | 'blur' | 'smart') => void;
+  onUpdateCanvas?: (patch: Partial<EditorProject['canvas']>) => void;
+  clipId?: string;
+  onSetTracker?: (target: { itemId: string | null }, tracker: import('../../types').EditorSubjectTracker | null) => void;
   /**
    * Smart-reframe track for the base video (clip-level, mode 'smart'). When
    * present and the item carries no manual crop override, the base video pans
@@ -212,6 +217,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   onToggleSafeGuides,
   onChangeAspectRatio,
   onUpdateCropMode,
+  onUpdateCanvas,
+  clipId,
+  onSetTracker,
   smartReframe,
   videoRef,
   cues: rawCues,
@@ -580,6 +588,18 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // proportion ((in_h-out_h)*cY), which is exactly CSS object-position's y
   // percentage semantics under cover fit.
   const smartPanPosition = (() => {
+    const trItem = activeVideoItems[0] as any;
+    const tr = trItem?.tracker;
+    if (tr?.enabled && tr.keyframes?.length && primaryVideoCropMode === 'fill' && primaryLayoutMode !== 'split' && videoDims && videoDims.w > 0 && videoDims.h > 0) {
+      const center = interpolateReframeCenter(tr.keyframes, targetVideoTime);
+      const dims = getAspectRatioDimensions();
+      const boxW = parseFloat(dims.width) || 360;
+      const boxH = parseFloat(dims.height) || 640;
+      const coverScale = Math.max(boxW / videoDims.w, boxH / videoDims.h);
+      const inW = videoDims.w * coverScale;
+      const px = inW > boxW ? Math.min(1, Math.max(0, (center.centerX * inW - boxW / 2) / (inW - boxW))) : 0.5;
+      return `${(px * 100).toFixed(2)}% ${(Math.min(1, Math.max(0, center.centerY)) * 100).toFixed(2)}%`;
+    }
     if (!smartReframe || !smartReframe.keyframes || smartReframe.keyframes.length === 0) return undefined;
     if (primaryLayoutMode !== 'track' || primaryVideoCropMode !== 'fill') return undefined;
     if (lowConfidenceTrack) return undefined; // weak track exports as blur; group fit (if any) overrides at consumption
@@ -605,6 +625,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // keyframes, band resting at 42% canvas height, over the blurred backdrop.
   const groupFitView = (() => {
     if (isUsingRenderedPreview) return undefined;
+    if ((activeVideoItems[0] as any)?.tracker?.enabled) return undefined;
     const clipTime = targetVideoTime - compositionClipStart;
     const shot = shotComposition?.find(s => clipTime >= s.start && clipTime < s.end)
       ?? (shotComposition?.length && clipTime >= shotComposition[shotComposition.length-1].end ? shotComposition[shotComposition.length-1] : undefined);
@@ -1093,6 +1114,32 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   ]);
 
   const canvasDims = getAspectRatioDimensions();
+  // Background panel spacing/radius: mirrors buildBackdropFitChain (inset box, rounded corners) in export.
+  const backdropInset = (() => {
+    const mode = primaryVideoCropMode;
+    const sp = Number(project.canvas.background_spacing) || 0;
+    const rad = Number(project.canvas.background_corner_radius) || 0;
+    if ((mode !== 'fit' && mode !== 'blur') || (sp <= 0 && rad <= 0) || primaryLayoutMode === 'split') return null;
+    const w = parseFloat(canvasDims.width);
+    const h = parseFloat(canvasDims.height);
+    const exportW = project.canvas.aspect_ratio === '16:9' ? 1920 : 1080;
+    const space = (w * sp) / 100;
+    const boxW = Math.max(2, w - 2 * space);
+    const boxH = Math.max(2, h - 2 * space);
+    // Size the element to the contained frame (not the whole inset box) so the rounded
+    // corners hug the visible video, matching buildBackdropFitChain.
+    const vw = videoDims && videoDims.w > 0 ? videoDims.w : 16;
+    const vh = videoDims && videoDims.h > 0 ? videoDims.h : 9;
+    const k = Math.min(boxW / vw, boxH / vh);
+    const fw = vw * k;
+    const fh = vh * k;
+    return {
+      position: 'absolute' as const,
+      left: (w - fw) / 2, top: (h - fh) / 2, width: fw, height: fh,
+      borderRadius: rad * (w / exportW),
+      overflow: 'hidden' as const,
+    };
+  })();
 
   // Fit the fixed design-resolution canvas into the available stage via a uniform scale, so the
   // video grows to fill reclaimed space (e.g. when the inspector collapses) while every child —
@@ -1159,6 +1206,32 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           )}
 
           <div className="w-px h-3.5 bg-white/[0.1]" />
+
+          {onUpdateCropMode && onUpdateCanvas && (
+            <>
+              <BackgroundControl
+                project={project}
+                cropMode={primaryVideoCropMode === 'blur' ? 'blur' : primaryVideoCropMode === 'fit' ? 'fit' : 'fill'}
+                onSetCropMode={onUpdateCropMode}
+                onUpdateCanvas={onUpdateCanvas}
+              />
+              <div className="w-px h-3.5 bg-white/[0.1]" />
+            </>
+          )}
+
+          {clipId && onSetTracker && (
+            <>
+              <TrackerControl
+                clipId={clipId}
+                project={project}
+                videoSrc={cleanSourceUrl || activeVideoSrc || null}
+                sourceTime={targetVideoTime}
+                activeItemId={(activeVideoItems[0] as any)?.id ?? null}
+                onSetTracker={onSetTracker}
+              />
+              <div className="w-px h-3.5 bg-white/[0.1]" />
+            </>
+          )}
 
           {/* 3. Platform Safe Zones */}
           {onToggleSafeGuides && (
@@ -1286,6 +1359,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               // Explicit px sizing mirrors the export's crop window; Tailwind
               // preflight caps video at max-width:100%, which would silently
               // shrink the oversized element back into the panel, so unset it.
+              ...(backdropInset ?? {}),
               ...(groupFitView
                 ? { left: groupFitView.left, top: groupFitView.top, width: groupFitView.width, height: groupFitView.height, clipPath: groupFitView.clipPath, maxWidth: 'none' }
                 : {}),
