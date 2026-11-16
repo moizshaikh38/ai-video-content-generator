@@ -338,6 +338,19 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
 
   return (
     <div className={`${compact ? 'space-y-2.5' : 'space-y-4'} ${className}`}>
+      <div className="p-4 rounded-2xl bg-white/[0.02] space-y-2">
+        <label htmlFor="source-speech-language" className="text-[13px] font-semibold text-vc-text-primary">Spoken language</label>
+        <select id="source-speech-language" aria-label="Spoken source language" disabled={disabled}
+          value={preferences.sourceLanguage || 'auto'}
+          onChange={(e) => { const updated={...preferences,sourceLanguage:e.target.value==='auto'?undefined:e.target.value}; onChange(updated);saveClipPreferencesToStorage(updated); }}
+          className="w-full rounded-lg bg-zinc-900 text-white border border-white/10 p-2 text-sm">
+          <option value="auto">Auto-detect / multilingual</option>
+          <option value="en">English</option><option value="hi">Hindi</option><option value="es">Spanish</option>
+          <option value="ur">Urdu</option><option value="ar">Arabic</option><option value="fr">French</option>
+          <option value="de">German</option><option value="pt">Portuguese</option><option value="ja">Japanese</option><option value="ko">Korean</option>
+        </select>
+        <p className="text-xs text-vc-text-secondary">Choose the language actually spoken, not a translation. For mixed-language speech, keep auto-detect. Automatic captions can still need audio review.</p>
+      </div>
       {/* ── 1. Content Genre Selection ── */}
       <div className="p-4 rounded-2xl bg-white/[0.02] space-y-3">
         <div className="flex items-center justify-between gap-2">

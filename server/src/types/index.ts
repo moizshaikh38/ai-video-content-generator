@@ -359,6 +359,8 @@ export interface GenreSuggestion {
 }
 
 export interface ClipPreferences {
+  /** Spoken source language, not translation target. Omit/auto to detect. */
+  sourceLanguage?: string;
   genre: ContentGenre;
   genreSelectionMode: GenreSelectionMode;
   suggestedGenre?: ContentGenre;

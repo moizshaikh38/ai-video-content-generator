@@ -80,7 +80,7 @@ export const listProjects = async (req: AuthenticatedRequest, res: Response): Pr
     const rawList = data || [];
     // Auto-clean any failed projects so they don't clutter the user's dashboard
     const failedList = rawList.filter(
-      (p: any) => p.video_status === 'failed' || p.status === 'failed' || p.status === 'error'
+      (p: any) => p.transcript_quality_status !== 'needs_review' && (p.video_status === 'failed' || p.status === 'failed' || p.status === 'error')
     );
     if (failedList.length > 0) {
       for (const fp of failedList) {
@@ -90,7 +90,7 @@ export const listProjects = async (req: AuthenticatedRequest, res: Response): Pr
       }
     }
     const cleanProjects = rawList.filter(
-      (p: any) => p.video_status !== 'failed' && p.status !== 'failed' && p.status !== 'error'
+      (p: any) => p.transcript_quality_status === 'needs_review' || (p.video_status !== 'failed' && p.status !== 'failed' && p.status !== 'error')
     );
 
     // Sign existing HD posters inline so the dashboard needs no extra request per card.

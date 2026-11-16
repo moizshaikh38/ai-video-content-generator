@@ -64,3 +64,10 @@ export function readSegmentDiagnostics(raw: any): Pick<import('./types.js').Norm
   }
   return out;
 }
+
+/** Explicit source-language preference only; auto leaves provider detection alone. */
+export function normalizeSourceLanguage(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const code=value.trim().toLowerCase();
+  return /^[a-z]{2,3}$/.test(code) && code !== 'auto' ? code : undefined;
+}

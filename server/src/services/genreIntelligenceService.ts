@@ -1,3 +1,4 @@
+import {normalizeSourceLanguage} from './transcription/transcriptQuality.js';
 import {
   ContentGenre,
   ContentGoal,
@@ -876,6 +877,7 @@ export class GenreIntelligenceService {
         : parsedGoal || defaultProfile.defaultGoal;
 
     return {
+      sourceLanguage: normalizeSourceLanguage(input?.sourceLanguage),
       genre: resolvedGenre,
       // Selection-mode default follows the UI: 'auto' when no genre was chosen
       // (enables classification), 'manual' when a client set an explicit genre

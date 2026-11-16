@@ -1,4 +1,4 @@
-import {assessTranscriptQuality,assertTranscriptUsable} from './transcription/transcriptQuality.js';
+import {assessTranscriptQuality,assertTranscriptUsable,normalizeSourceLanguage} from './transcription/transcriptQuality.js';
 import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import os from 'node:os';
@@ -155,7 +155,7 @@ export async function processProjectVideo(
     // 2b. HD poster frame for the dashboard while we have the file locally (best-effort, ~100ms).
     const { data: posterRow } = await dataRepository
       .from('projects')
-      .select('source_type, duration_seconds')
+      .select('source_type, duration_seconds, clip_preferences')
       .eq('id', projectId)
       .eq('user_id', userId)
       .maybeSingle();
@@ -190,7 +190,8 @@ export async function processProjectVideo(
       provider,
       extractedAudio,
       posterRow?.duration_seconds,
-      `${projectId}.mp3`
+      `${projectId}.mp3`,
+      {language:normalizeSourceLanguage(posterRow?.clip_preferences?.sourceLanguage)}
     );
 
     // Compute effective duration from audio probe or last transcript segment timestamp
@@ -472,6 +473,7 @@ export async function processProjectVideo(
         .update({
           video_status: 'failed',
           error_message: message || 'Video processing failed.',
+          ...((err as any)?.code === 'TRANSCRIPT_REVIEW_REQUIRED' ? {transcript_quality_status:'needs_review'} : {}),
         })
         .eq('id', projectId)
         .eq('user_id', userId);
