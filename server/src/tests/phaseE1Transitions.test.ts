@@ -318,3 +318,15 @@ describe('E1 — real FFmpeg renders (executability)', () => {
     }
   });
 });
+
+
+describe('zoom_lite canvas geometry regression',()=>{
+ it('zoom_lite follows requested portrait, square and landscape canvas dimensions',()=>{
+  for(const [width,height]of [[720,1280],[2160,3840],[720,720],[1280,720]]){
+   const project=makeProject([makeItem({id:'z1',timeline_start:0,timeline_end:2,source_start:0,source_end:2}),makeItem({id:'z2',timeline_start:2,timeline_end:4,source_start:2,source_end:4,transition_in:{type:'zoom_lite',duration:.3}as any})],4);
+   project.canvas.width=width;project.canvas.height=height;
+   const text=ProEditorService.compileRenderGraph(project,'/tmp/s.mp4').filterComplex.join(';');
+   assert.ok(text.includes(`:d=1:s=${width}x${height}:fps=`));assert.doesNotMatch(text,/:s=1080x1920/);
+  }
+ });
+});

@@ -1375,7 +1375,7 @@ export class ProEditorService {
             filterComplex.push(
               `${vLabels[i]}split=2[zzh_${i}][zzr_${i}]`,
               `[zzh_${i}]trim=start=0:end=${dStr},setpts=PTS-STARTPTS,` +
-                `zoompan=z='${zExpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1080x1920:fps=${fps}[zzh2_${i}]`,
+                `zoompan=z='${zExpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${canvasW}x${canvasH}:fps=${fps}[zzh2_${i}]`,
               `[zzr_${i}]trim=start=${dStr},setpts=PTS-STARTPTS[zzr2_${i}]`,
               // fps normalizes the branch timebase to match the sibling slice (xfade
               // requires identical timebases on both inputs).
