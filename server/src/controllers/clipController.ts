@@ -364,7 +364,7 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
       }
     }
 
-    // Fall back gracefully from 'smart' to 'center' crop if plan does not include Smart Reframe
+    // Keep generated defaults within plan access; never crop an untracked person by default.
     if (caption_style && !EntitlementService.isPresetAllowed(entitlements, String(caption_style))) {
       res.status(403).json({
         status: 'error',
@@ -377,7 +377,10 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
     }
 
     const hasSmartReframe = EntitlementService.isFeatureAllowed(entitlements, 'smartReframe');
-    const effectiveCropMode = cropMode === 'smart' && !hasSmartReframe ? 'center' : cropMode;
+    const effectiveCropMode = cropMode === 'smart' && !hasSmartReframe ? 'fit' : cropMode;
+    const effectiveCaptionStyle = caption_style ||
+      (EntitlementService.isPresetAllowed(entitlements, 'karaoke') ? 'karaoke' : 'clean');
+    const effectiveCaptionConfig = caption_config || { presetId: effectiveCaptionStyle };
 
     const result = await ClipRenderService.createClipFromCandidate(
       projectId,
@@ -385,7 +388,7 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
       candidateId,
       aspectRatio,
       effectiveCropMode,
-      { caption_enabled, caption_style, caption_config }
+      { caption_enabled, caption_style: effectiveCaptionStyle, caption_config: effectiveCaptionConfig }
     );
 
     res.status(202).json({

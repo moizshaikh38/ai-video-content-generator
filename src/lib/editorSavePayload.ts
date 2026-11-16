@@ -16,8 +16,20 @@ export function buildClipEditorUpdatePayload(
   const captionItem = captionTrack?.items[0];
   const presetId = getEditorCaptionPresetId(captionItem?.caption);
 
-  const trimStart = primaryVideo ? primaryVideo.source_start - clip.start_seconds : 0;
-  const trimEnd = primaryVideo ? clip.end_seconds - primaryVideo.source_end : 0;
+  // A ripple cut turns the primary source into multiple video slices. Clip-level
+  // trim fields describe their source envelope, not just the first short slice.
+  // The EditorProject remains authoritative for cuts inside that envelope.
+  const sourceSlices = project.tracks.find((t) => t.type === 'VIDEO')?.items.filter((i) =>
+    !i.hidden && i.type === 'VIDEO' && (
+      i.source_asset_id === clip.id ||
+      (i.source_path && i.source_path === clip.source_storage_path) ||
+      (!i.source_asset_id && !i.source_path)
+    )
+  ) || [];
+  const sourceStart = sourceSlices.length ? Math.min(...sourceSlices.map((i) => i.source_start)) : primaryVideo?.source_start;
+  const sourceEnd = sourceSlices.length ? Math.max(...sourceSlices.map((i) => i.source_end)) : primaryVideo?.source_end;
+  const trimStart = sourceStart !== undefined ? sourceStart - clip.start_seconds : 0;
+  const trimEnd = sourceEnd !== undefined ? clip.end_seconds - sourceEnd : 0;
 
   // Framing parity: the studio Framing panel writes crop_mode on the video
   // track item, but the render path reads clip.crop_config - so the save
