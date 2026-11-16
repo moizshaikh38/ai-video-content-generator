@@ -244,3 +244,9 @@ Follow-up alignment audit: the band renderer's inner wrapper now occupies the co
 caption layout width, rather than shrink-to-fit text width. This keeps the broad band
 center stable under left/right text alignment. Actual left/center/right preview+ASS pixels
 were inspected and the settled gallery rechecked. No preset coverage status change.
+
+Crossline customization audit: regroup now uses the same rolling-compatibility predicate
+as preview/export. One-line/pop/box/custom-token edits must not retain the special unsplit
+cue after the renderer falls back. MaxWords1 uses normal one-word grouping. With MaxWords2
+or3, supplied row chunks are limited to one word each; default MaxWords6 retains observed
+candidate2word rows. Added regression covers these cases; default visual behavior unchanged.

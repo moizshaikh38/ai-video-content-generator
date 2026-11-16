@@ -1381,7 +1381,7 @@ export function regroupCuesForPreset(cues: PresetTimedCue[], style: ResolvedCapt
       continue;
     }
     hasWords = true;
-    if (style.rollingRows && !words.some(w=>w.customStyle)) {
+    if (canUseCaptionRollingRows(cue,style)) {
       result.push({...cue, words, text:words.map(w=>w.text).join(' ')});
       continue;
     }
@@ -1663,7 +1663,7 @@ export function getPreviewFrame(cue: PresetTimedCue, time: number, style: Resolv
   const entranceOpacity = getEntranceOpacityAt(style.entrance, (time - cue.start) * 1000);
   if (canUseCaptionRollingRows(cue,style)) return {
     cueId:cue.id,words:[{text:cue.text,highlighted:false,active:false,scale:1,breakAfter:false}],
-    rollingRows:getCaptionRollingRows(getCaptionRollingChunks(cue),time,cue.start,cue.end),
+    rollingRows:getCaptionRollingRows(getCaptionRollingChunks(cue,style),time,cue.start,cue.end),
     opacity:1,wordTiming:true,positionX:cue.position_x,positionY:cue.position_y,
   };
 
@@ -1735,20 +1735,22 @@ export function getCaptionBackdropGeometry(cue:Pick<PresetTimedCue,'position_x'|
 
 /** Independent phrase chunking within an original cue, never across metadata boundaries.
  * Parameters remain candidates, not inferred exact reference grouping. */
-export function getCaptionRollingChunks(cue:PresetTimedCue):CaptionRowChunk[] {
+export function getCaptionRollingChunks(cue:PresetTimedCue,style?:Pick<ResolvedCaptionStyle,'maxWordsPerCue'|'maxCharsPerLine'>):CaptionRowChunk[] {
+  const maxWords=Math.max(1,Math.min(2,Math.floor((style?.maxWordsPerCue??4)/2)));
+  const maxChars=style?.maxCharsPerLine??10;
   const words=getValidCueWords(cue).filter(w=>w.end>cue.start&&w.start<cue.end);
   const chunks:CaptionRowChunk[]=[];
   let parts:string[]=[]; let start=cue.start; let end=cue.start;
   const flush=()=>{if(parts.length)chunks.push({id:`${cue.id}:row${chunks.length}`,text:parts.join(' '),start,end});parts=[];};
   for(const w of words){
-    if(parts.length&&(parts.length>=2||[...parts,w.text].join(' ').length>10))flush();
+    if(parts.length&&(parts.length>=maxWords||[...parts,w.text].join(' ').length>maxChars))flush();
     if(!parts.length)start=Math.max(cue.start,w.start);
     parts.push(w.text);end=Math.min(cue.end,w.end);
   }flush();return chunks;
 }
 export function canUseCaptionRollingRows(cue:PresetTimedCue,style:ResolvedCaptionStyle):boolean {
   const words=getValidCueWords(cue);
-  return !!style.rollingRows&&!style.box&&!style.activeWordBox&&style.maxLines===2&&style.wordAnimation.type==='none'&&words.length>0&&words.length<=120&&!words.some(w=>w.customStyle);
+  return !!style.rollingRows&&!style.box&&!style.activeWordBox&&style.maxLines===2&&style.maxWordsPerCue>=2&&style.wordAnimation.type==='none'&&words.length>0&&words.length<=120&&!words.some(w=>w.customStyle);
 }
 /** Layout shared by the special row renderer and ASS path. Row anchors are bottom-center. */
 export function getCaptionRollingGeometry(cue:Pick<PresetTimedCue,'position_x'|'position_y'>,style:ResolvedCaptionStyle){
@@ -2042,7 +2044,7 @@ function buildCaptionBackdropEvents(cue:PresetTimedCue,style:ResolvedCaptionStyl
 /** Quantized seekable20ms motion for preview/export agreement. Explicit positions avoid
  * libass collision relocation of row and glyph-shadow passes. */
 function buildCaptionRollingEvents(cue:PresetTimedCue,style:ResolvedCaptionStyle,styleName:string):string[]{
-  const chunks=getCaptionRollingChunks(cue),g=getCaptionRollingGeometry(cue,style);
+  const chunks=getCaptionRollingChunks(cue,style),g=getCaptionRollingGeometry(cue,style);
   const boundaries=new Set<number>([cue.start,cue.end]);
   for(const c of chunks.slice(2))for(let step=0;step<=8;step++){
     const t=Number((c.start+step*.02).toFixed(2));if(t>cue.start&&t<cue.end)boundaries.add(t);
