@@ -66,6 +66,7 @@ import { SmartReframeService } from './smartReframeService.js';
 import { partitionCaptionCues, shiftCaptionItemsForRippleDelete, cloneCaptionCuesForDuplicate } from '../utils/editorRippleCut.js';
 import { validateEditorSourcePath, isAllowedEditorSourcePath, overlayAssetExtension } from '../utils/editorAssetValidator.js';
 import { resolveXfadeName, getTransitionPreset, clampTransitionDuration } from '../shared/transitionPresets.js';
+import { drawtextFontArg } from './editorFontFiles.js';
 
 const execFileAsync = promisify(execFile);
 const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
@@ -1797,7 +1798,7 @@ export class ProEditorService {
 
     const filterParts: string[] = [
       `text='${safeLines[0]}'`,
-      `font='${font}'`,
+      drawtextFontArg(font, item.text.font_weight),
       `fontsize='${sizeExpr}'`,
       `fontcolor=0x${fontColor}`,
       `alpha='${alphaExpr}'`,
