@@ -133,3 +133,10 @@ to preserve reference typography. No scene-center anchor logic changed in this b
 
 Current coverage supersedes earlier counts:4 candidates,40 unmatched,0 Opus-verified.
 Full-sized applied reference timing/segmentation/shadow comparison remains open.
+
+## Gallery inherited-font correction
+
+The full styled gallery exposed nested Typewriter glyph spans inheriting a smaller generic
+monospace size while the caret kept its fixed geometric size. Shared preview glyph spans now
+carry the exact same explicit em size as the line. Rechecked actual gallery pixels show normal
+text/caret proportion. This is a preview styling correction, not a change to ASS timing/geometry.

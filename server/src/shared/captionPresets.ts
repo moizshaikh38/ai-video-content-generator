@@ -1721,6 +1721,8 @@ export function getPreviewCss(style: ResolvedCaptionStyle, scale: number): Previ
     const baseColor = cs?.color || (w.highlighted ? (style.activeWordBox ? style.textColor : style.activeColor) : style.textColor);
     const css: PreviewCss = {
       color: baseColor,
+      // Pin the em size on glyph spans too. Generic monospace inheritance may rescale nested spans.
+      fontSize: px(fontSize),
       opacity: w.opacity ?? 1,
       ...(w.visibleCharacters !== undefined ? { clipPath: `inset(-100% ${100 * (1 - w.visibleCharacters / Math.max(1, splitCaptionGraphemes(w.text).length))}% -100% -100%)` } : {}),
       textShadow: shadow,

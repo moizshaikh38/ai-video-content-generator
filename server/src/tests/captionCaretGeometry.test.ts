@@ -1,6 +1,6 @@
 import {describe,it} from 'node:test';
 import assert from 'node:assert/strict';
-import {getCaptionCaret,getPreviewFrame,resolveCaptionPreset,buildPresetCueEvents,type PresetTimedCue} from '../shared/captionPresets.js';
+import {getPreviewCss,getCaptionCaret,getPreviewFrame,resolveCaptionPreset,buildPresetCueEvents,type PresetTimedCue} from '../shared/captionPresets.js';
 const cue:PresetTimedCue={id:'q',start:0,end:2.4,text:'To get started',words:[{text:'To',start:0,end:.5},{text:'get',start:.5,end:1},{text:'started',start:1,end:2.4}]};
 describe('Shared Typewriter caret geometry',()=>{
  it('uses the observed yellow color and reveals only one caret',()=>{
@@ -31,4 +31,11 @@ describe('Shared Typewriter caret geometry',()=>{
   assert.ok(events.filter(e=>e.startsWith('Dialogue: 1,')).every(e=>e.includes('\\an7')&&e.includes('\\bord0\\shad0')));
   assert.equal(events.filter(e=>e.startsWith('Dialogue: 1,')).length,events.filter(e=>e.startsWith('Dialogue: 0,')).length);
  });
+});
+
+// Explicit glyph sizing prevents nested generic-monospace spans from shrinking in the gallery.
+it('pins Typewriter glyph em size to the shared line size',()=>{
+ const style=resolveCaptionPreset('typewriter');const css=getPreviewCss(style,.5);
+ const frame=getPreviewFrame({id:'q',start:0,end:1,text:'Hi',words:[{text:'Hi',start:0,end:1}]},.2,style)!;
+ assert.equal(css.word(frame.words[0]).fontSize,css.line.fontSize);
 });
