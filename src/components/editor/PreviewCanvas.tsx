@@ -571,8 +571,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   );
   // Editor cues are already grouped/sliced and export uses those exact windows.
   // Regrouping here loses cue overrides and merges across scene boundaries.
-  const presetCues = presetStyle ? (presetStyle.presetId === 'word_cut'
-    ? cues.flatMap(cue => cue.presetOverride && cue.presetOverride !== 'word_cut' ? [cue]
+  const presetCues = presetStyle ? (['word_cut','soft_cut'].includes(presetStyle.presetId)
+    ? cues.flatMap(cue => cue.presetOverride && cue.presetOverride !== presetStyle.presetId ? [cue]
       : regroupCuesForPreset([cue], presetStyle).cues.map(part => ({...part, id: cue.id})))
     : cues) : null;
 

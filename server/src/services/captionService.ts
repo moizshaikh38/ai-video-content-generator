@@ -1556,8 +1556,8 @@ export class CaptionService {
     // Actual editor exports must use the same Word Cut grouping as preview.
     // Placement has already split scene/position boundaries. Keep explicit other
     // preset overrides untouched and never manufacture or rewrite word timings.
-    if (preset?.presetId === 'word_cut') {
-      cues = cues.flatMap(cue => cue.presetOverride && cue.presetOverride !== 'word_cut'
+    if (preset && ['word_cut','soft_cut'].includes(preset.presetId)) {
+      cues = cues.flatMap(cue => cue.presetOverride && cue.presetOverride !== preset!.presetId
         ? [cue]
         : regroupCuesForPreset([cue], preset!).cues as TimedCaptionCue[]);
     }
