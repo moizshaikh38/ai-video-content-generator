@@ -1553,10 +1553,10 @@ export class CaptionService {
       cues = cues.map(c => c.position_x !== undefined || c.position_y !== undefined ? c : ({...c, position_y:0.5, position_anchor:'center'}));
     }
 
-    // Actual editor exports must use the same Word Cut grouping as preview.
+    // Actual editor exports must use the same per-cue preset bounds as preview.
     // Placement has already split scene/position boundaries. Keep explicit other
     // preset overrides untouched and never manufacture or rewrite word timings.
-    if (preset && ['word_cut','soft_cut'].includes(preset.presetId)) {
+    if (preset) {
       cues = cues.flatMap(cue => cue.presetOverride && cue.presetOverride !== preset!.presetId
         ? [cue]
         : regroupCuesForPreset([cue], preset!).cues as TimedCaptionCue[]);

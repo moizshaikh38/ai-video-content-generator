@@ -1856,9 +1856,14 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 onUpdateTrackItem(selectedTrackId, itemId, { transform }, options);
               }
             }}
+            onBeginCrop={() => {
+              if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                clearSelection(); setActiveSidebarTab('captions'); setInspectorCollapsed(true); setTranscriptCollapsed(true);
+              }
+            }}
             onUpdateItemCrop={(itemId, crop, options) => {
               const track = project.tracks.find((t) => t.items.some((i) => i.id === itemId));
-              if (track) {
+              if (track && !track.locked && !track.items.find(i => i.id===itemId)?.locked) {
                 onUpdateTrackItem(track.id, itemId, { crop, framing_window: undefined }, options); // a manual crop replaces an accepted context window
               }
             }}

@@ -56,6 +56,7 @@ interface PreviewCanvasProps {
   // Preview-first crop override: dragging the base video pans the per-item crop
   // focus (EditorTrackItem.crop.focusX/focusY), which the render compiler honors
   // ahead of the auto face track.
+  onBeginCrop?: () => void;
   onUpdateItemCrop?: (
     itemId: string,
     crop: { mode: 'fit' | 'fill' | 'blur' | 'custom'; focusX: number; focusY: number; scale?: number },
@@ -224,6 +225,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   onDeleteItem,
   onUpdateItemTransform,
   onUpdateItemCrop,
+  onBeginCrop,
   onUpdateItemPanels,
   onCommitProject,
   showSafeGuides,
@@ -316,7 +318,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       const vItems = proj?.tracks.find((t) => t.type === 'VIDEO')?.items ?? [];
       const ph = playheadRef.current;
       const item = vItems.find((i) => !i.hidden && ph >= i.timeline_start && ph < i.timeline_end) ?? vItems[0];
-      if (!proj || !item) return;
+      if (!proj || !item || item.locked || proj.tracks.some(t => t.locked && t.items.some(i => i.id===item.id))) return;
       if (!preCropProjectRef.current) {
         preCropProjectRef.current = JSON.parse(JSON.stringify(proj));
       }
@@ -443,6 +445,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const [layoutAnchor, setLayoutAnchor] = React.useState<DOMRect | null>(null);
   const baseVideoItem: EditorTrackItem | undefined = activeVideoItems[0] ?? project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
   // The rendered export preview already contains the panels; only compose them live from the clean source.
+  const videoCropLocked = Boolean(baseVideoItem?.locked || project.tracks.some(t => t.locked && t.items.some(i => i.id === baseVideoItem?.id)));
   const activePanels = viewMode === 'export_review' && renderedPreviewUrl ? null : normalizePanels((baseVideoItem as any)?.panels);
 
   const backdropVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -570,12 +573,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     () => resolveEditorCaptionStyle(captionData, aspectRatio, captionTransform),
     [captionData, aspectRatio, captionTransform]
   );
-  // Editor cues are already grouped/sliced and export uses those exact windows.
-  // Regrouping here loses cue overrides and merges across scene boundaries.
-  const presetCues = presetStyle ? (['word_cut','soft_cut'].includes(presetStyle.presetId)
-    ? cues.flatMap(cue => cue.presetOverride && cue.presetOverride !== presetStyle.presetId ? [cue]
-      : regroupCuesForPreset([cue], presetStyle).cues.map(part => ({...part, id: cue.id})))
-    : cues) : null;
+  // Bound each existing edited cue independently. Never merge scene/position/override boundaries.
+  const presetCues = presetStyle ? cues.flatMap(cue => cue.presetOverride && cue.presetOverride !== presetStyle.presetId ? [cue]
+      : regroupCuesForPreset([cue], presetStyle).cues.map(part => ({...part, id: cue.id}))) : null;
 
   // Selected item reference
   const selectedItem = project.tracks
@@ -1309,13 +1309,16 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           {onUpdateItemCrop && videoDims && videoDims.w > 0 && activeVideoItems[0] && !activePanels && (
             <>
               <CropBoxControl
+                key={activeVideoItems[0].id}
+                inlineTarget={canvasContainerRef.current}
+                onOpen={onBeginCrop}
                 videoSrc={cleanSourceUrl || activeVideoSrc || null}
                 sourceTime={targetVideoTime}
                 srcW={videoDims.w}
                 srcH={videoDims.h}
                 canvasAspect={(parseFloat(canvasDims.width) || 360) / (parseFloat(canvasDims.height) || 640)}
                 current={{ focusX: activeVideoItems[0].crop?.focusX ?? 0.5, focusY: activeVideoItems[0].crop?.focusY ?? 0.5, scale: activeVideoItems[0].crop?.scale ?? 1 }}
-                enabled={primaryVideoCropMode === 'fill' && primaryLayoutMode !== 'split'}
+                enabled={!videoCropLocked && primaryVideoCropMode === 'fill' && primaryLayoutMode !== 'split'}
                 onApply={(c) => onUpdateItemCrop(activeVideoItems[0].id, { mode: 'custom', ...c }, { recordHistory: true, markAsDirty: true })}
               />
               <div className="w-px h-3.5 bg-white/[0.1]" />
@@ -1417,7 +1420,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 // Double-click resets the crop reframe (edit mode only).
                 if (viewMode !== 'edit' || !onUpdateItemCrop) return;
                 const item = activeVideoItems[0];
-                if (!item || !item.crop) return;
+                if (!item || !item.crop || videoCropLocked) return;
                 e.stopPropagation();
                 onUpdateItemCrop(item.id, { mode: item.crop.mode ?? ((item as any).crop_mode === 'fit' ? 'fit' : 'custom'), focusX: 0.5, focusY: 0.5, scale: 1 });
               }}
@@ -1425,7 +1428,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 // Drag the base video to pan its crop focus (edit mode only).
                 if (viewMode !== 'edit' || !onUpdateItemCrop) return;
                 const item = activeVideoItems[0];
-                if (!item) return;
+                if (!item || videoCropLocked) return;
                 preCropProjectRef.current = JSON.parse(JSON.stringify(projectRef.current));
                 setCropDrag({
                   itemId: item.id,

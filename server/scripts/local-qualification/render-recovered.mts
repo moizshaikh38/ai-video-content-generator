@@ -27,6 +27,25 @@ if(process.env.QUALIFY_RETRO==='1'||process.env.QUALIFY_CROSSLINE==='1'||process
  if(process.env.QUALIFY_ZOOM==='1'){const v=edit.tracks.find((t:any)=>t.type==='VIDEO');if(v?.items?.[1])v.items[1].transition_in={type:'zoom_lite',duration:.3};}
  edit.playhead=.3;await db.collection('editor_projects').updateOne({id:prior.editor_id},{$set:{tracks:edit.tracks,playhead:.3}});await db.collection('clips').updateOne({id:prior.clip_id},{$set:{caption_enabled:true,caption_style:preset,caption_config:{presetId:preset,presetOverrides:{fontFamily:family,fontSize:size}}}});
 }
+if(process.env.QUALIFY_INLINE_CROP==='1') {
+ const video=edit.tracks.find((t:any)=>t.type==='VIDEO');
+ if(video.items.length===1){video.items[0].timeline_end=4;video.items[0].source_end=35.62;}
+ for(const i of video.items){delete i.framing_window;delete i.panels;i.layout_mode='track';i.crop_config={layout_mode:'track',layout_mode_source:'user'};i.crop={mode:'fill',focusX:.5,focusY:.5,scale:1};}
+ await db.collection('editor_projects').updateOne({id:prior.editor_id},{$set:{tracks:edit.tracks}});
+}
+if(process.env.QUALIFY_REAL_ANALYSIS==='1') {
+ const video=edit.tracks.find((t:any)=>t.type==='VIDEO');
+ video.items=[{...video.items[0],timeline_start:0,timeline_end:4,source_end:35.62}];
+ await db.collection('editor_projects').updateOne({id:prior.editor_id},{$set:{tracks:edit.tracks}});
+ const {SmartReframeService}=await import('../../src/services/smartReframeService.ts');
+ // Qualification-local opt-in only, not a shipped flag/default change.
+ process.env.SMART_REFRAME_SHOT_COMPOSITION='1';
+ const began=Date.now();
+ const {ownerContext}=await import('../../src/db/repositories/dataRepository.ts');
+ const analyzed=await ownerContext.run(prior.user_id,()=>SmartReframeService.analyzeClipFraming(prior.clip_id,prior.user_id,{localSourcePath:input,sampleFps:4,timeoutMs:30000}));
+ fs.writeFileSync('/tmp/vireo-local-restore/actual-cv-record.json',JSON.stringify({elapsed_ms:Date.now()-began,record:analyzed},null,2));
+ console.log('ACTUAL_CV_STORED',analyzed.status,analyzed.raw_samples?.length,analyzed.detected_face_count);
+}
 app.get('/__qualification/status',async(_req,res)=>res.json({clip:await db.collection('clips').findOne({id:prior.clip_id}),job:await db.collection('render_jobs').findOne({clip_id:prior.clip_id},{sort:{created_at:-1}})}));
 if(process.env.KEEP_LOCAL_SERVER==='1'){console.log('LOCAL_UI_SERVER_READY');await new Promise<void>(r=>process.on('SIGTERM',()=>r()));await new Promise<void>(r=>server.close(()=>r()));await new Promise<void>(r=>storage.close(()=>r()));await closeMongo();process.exit(0)}
 try{if(process.env.QUALIFY_PANELS==='1'){const saved=await fetchReal(`http://127.0.0.1:5581/api/editor-projects/${prior.editor_id}`,{method:'PATCH',headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({tracks:edit.tracks})});assert.equal(saved.status,200);const reloaded=await fetchReal(`http://127.0.0.1:5581/api/editor-projects/${prior.editor_id}`,{headers:{authorization:'Bearer '+token}});const q=(await reloaded.json()).data;assert.deepEqual(q.tracks.find((t:any)=>t.type==='VIDEO').items.map((i:any)=>i.panels),edit.tracks.find((t:any)=>t.type==='VIDEO').items.map((i:any)=>i.panels));}const res=await fetchReal(`http://127.0.0.1:5581/api/editor-projects/${prior.editor_id}/render`,{method:'POST',headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({resolution:'720p'})});const body=await res.json();console.log('RENDER_ACCEPT',res.status,body);assert.equal(res.status,202);

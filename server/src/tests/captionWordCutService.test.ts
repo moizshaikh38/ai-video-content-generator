@@ -22,3 +22,21 @@ test('actual CaptionService export groups Word Cut after placement, preserves ti
  style='chip_background';const unchanged=await CaptionService.generateCaptionsForClip({clip:{...clip,caption_style:style},targetAspectRatio:'9:16'});assert.equal(unchanged.cues[0].text,'hay in');assert.equal(unchanged.cues.length,2);
  }finally{dataRepository.from=original;}
 });
+
+
+test('actual editor Chip export bounds a long cue independently of video item duration',async()=>{
+ const original=dataRepository.from;
+ const words='To get started clipping with AI today'.split(' ').map((text,n)=>({text,start:n*.55,end:(n+1)*.55}));
+ const long={id:'long',start:0,end:4,text:words.map(w=>w.text).join(' '),words,position_x:.5,position_y:.8,position_anchor:'center'};
+ const run=async(duration:number)=>{
+  (dataRepository as any).from=(table:string)=>{const q:any={select:()=>q,eq:()=>q,maybeSingle:async()=>({data:table==='editor_projects'?{canvas:{aspect_ratio:'9:16'},tracks:[{type:'VIDEO',items:[{timeline_start:0,timeline_end:duration,source_start:0,source_end:duration}]},{type:'CAPTION',items:[{timeline_start:0,timeline_end:4,caption:{style:'chip_background',cues:[long]}}]}]}:null,error:null})};return q;};
+  const clip:any={id:'test',user_id:'u',project_id:'p',start_seconds:0,end_seconds:4,caption_style:'chip_background',caption_position:'bottom',caption_config:{}};
+  return CaptionService.generateCaptionsForClip({clip,targetAspectRatio:'9:16'});
+ };
+ try{for(const duration of [2,4]){
+  const r=await run(duration);
+  assert.ok(r.cues.length>1);assert.ok(r.cues.every(c=>(c.words?.length??0)<=4));
+  assert.deepEqual(r.cues.flatMap(c=>c.words?.map(w=>w.text)||[]),words.map(w=>w.text));
+  assert.ok(r.cues.every(c=>c.position_x===.5&&c.position_y===.8));
+ }}finally{dataRepository.from=original;}
+});
