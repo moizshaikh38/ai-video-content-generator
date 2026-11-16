@@ -239,3 +239,8 @@ Official coverage remains4candidates,40unmatched,0verified matches.
 Public font metadata/license:
 https://github.com/google/fonts/blob/main/ofl/lemon/METADATA.pb
 https://github.com/google/fonts/blob/main/ofl/lemon/OFL.txt
+
+Follow-up alignment audit: the band renderer's inner wrapper now occupies the complete
+caption layout width, rather than shrink-to-fit text width. This keeps the broad band
+center stable under left/right text alignment. Actual left/center/right preview+ASS pixels
+were inspected and the settled gallery rechecked. No preset coverage status change.

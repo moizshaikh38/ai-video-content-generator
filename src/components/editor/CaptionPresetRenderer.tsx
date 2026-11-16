@@ -88,6 +88,7 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
       onClick={onClick}
     >
       <div
+        style={style.backdropBand ? {width:'100%'} : undefined}
         className={`relative inline-block transition-all ${
           isDragging
             ? 'cursor-grabbing opacity-90'
