@@ -1242,7 +1242,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               title="Layout Mode (Click to cycle Fill / Fit / Blur background)"
             >
               <Maximize2 className="w-3.5 h-3.5" />
-              <span>Layout: {activePanels ? PANEL_LABELS[activePanels.layout] : primaryLayoutMode === 'split' ? 'Split' : primaryLayoutMode === 'blur' ? 'Blur' : primaryLayoutMode === 'screencast' ? 'Screencast' : primaryVideoCropMode === 'fit' ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
+              <span>Layout: {activePanels ? PANEL_LABELS[activePanels.layout] : primaryLayoutMode === 'split' ? 'Split' : primaryLayoutMode === 'blur' ? 'Blur' : primaryLayoutMode === 'screencast' ? 'Screencast' : (primaryVideoCropMode === 'fit' || (primaryVideoCropMode === 'blur' && (baseVideoItem as any)?.crop?.choice === 'fit')) ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
             </button>
             {layoutAnchor && onPickSceneLayout && baseVideoItem && (
               <SceneLayoutMenu anchor={layoutAnchor} current={readItemLayout(baseVideoItem)} onPick={(l) => onPickSceneLayout(baseVideoItem.id, l)} onClose={() => setLayoutAnchor(null)} />

@@ -1069,6 +1069,8 @@ export interface EditorTrackItem {
     mode: 'fit' | 'fill' | 'custom' | 'blur';
     /** Fit/Blur shape in a 9:16 canvas: '4:3' band or 'full' frame (legacy when absent). */
     band?: '4:3' | 'full';
+    /** What the user picked in the layout selector: Fit may be stored as mode 'blur' (blurred backdrop default), so remember the label. Dropped by any other crop writer. */
+    choice?: 'fit' | 'blur';
     focusX?: number;
     focusY?: number;
     /** Zoom factor for the crop window (1 = fill frame, >1 zoomed in). */

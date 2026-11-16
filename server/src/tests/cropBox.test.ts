@@ -1,7 +1,7 @@
 import { describe, it, test } from 'node:test';
 import assert from 'node:assert/strict';
 const close = (actual:number,expected:number,digits:number) => assert.ok(Math.abs(actual-expected)<.5*10**(-digits), `${actual} != ${expected} at ${digits} digits`);
-import { resolveFitMode, applyItemLayout } from '../../../src/lib/itemLayout';
+import { resolveFitMode, applyItemLayout, readItemLayout } from '../../../src/lib/itemLayout';
 import { boxFromCrop, cropFromBox, resizeBox, moveBox } from '../../../src/lib/cropBox';
 
 const A = 9 / 16;
@@ -141,3 +141,18 @@ test('subjectCenterInWindow takes median in window, null when empty', () => {
 });
 
 test('panel assignment flags require exact boolean true, not truthy strings',()=>{assert.equal(normalizePanels({layout:'gameplay',slots:[{set:'false'} as any]})!.slots[0].set,undefined)});
+
+
+test('Fit selection survives read-back: Fit stored as blurred backdrop still reads Fit; Blur reads Blur', () => {
+  const proj: any = { canvas: {}, tracks: [{ type: 'VIDEO', items: [{ id: 'a', timeline_start: 0, timeline_end: 5 }] }] };
+  const fit = applyItemLayout(proj, 'a', 'fit').tracks[0].items[0] as any;
+  assert.equal(fit.crop.mode, 'blur');
+  assert.equal(readItemLayout(fit), 'fit');
+  const blur = applyItemLayout(proj, 'a', 'blur').tracks[0].items[0] as any;
+  assert.equal(readItemLayout(blur), 'blur');
+  const colour = applyItemLayout({ ...proj, canvas: { background_user_choice: 'color' } }, 'a', 'fit').tracks[0].items[0] as any;
+  assert.equal(colour.crop.mode, 'fit');
+  assert.equal(readItemLayout(colour), 'fit');
+  // another crop writer (no choice) reading a blur-mode item falls back to Blur
+  assert.equal(readItemLayout({ crop: { mode: 'blur' } } as any), 'blur');
+});

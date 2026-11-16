@@ -24,7 +24,8 @@ export function readItemLayout(item: EditorTrackItem): SceneLayout {
   const userLayout = (item as any).crop_config?.layout_mode_source === 'user' ? (item as any).layout_mode : undefined;
   if (userLayout === 'split') return 'split';
   if (item.crop?.mode === 'fit') return 'fit';
-  if (item.crop?.mode === 'blur') return 'blur';
+  // Fit resolves to a blurred backdrop by default, so mode 'blur' + choice 'fit' is still the user's Fit.
+  if (item.crop?.mode === 'blur') return (item.crop as any).choice === 'fit' ? 'fit' : 'blur';
   if (userLayout === 'blur') return 'blur';
   return 'fill';
 }
@@ -62,7 +63,7 @@ export function applyItemLayout(
           delete base.panels;
           if (layout === 'fit' || layout === 'blur') {
             const mode = layout === 'fit' ? resolveFitMode(project.canvas) : layout;
-            base.crop = { mode, ...(mode === 'fit' || mode === 'blur' ? fitBandFields(project.canvas) : {}), focusX: i.crop?.focusX ?? 0.5, focusY: i.crop?.focusY ?? 0.5, scale: i.crop?.scale ?? 1 };
+            base.crop = { mode, choice: layout, ...(mode === 'fit' || mode === 'blur' ? fitBandFields(project.canvas) : {}), focusX: i.crop?.focusX ?? 0.5, focusY: i.crop?.focusY ?? 0.5, scale: i.crop?.scale ?? 1 };
           } else {
             delete base.crop;
           }
