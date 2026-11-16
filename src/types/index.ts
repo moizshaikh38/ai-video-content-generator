@@ -60,6 +60,7 @@ export interface ContentOutput {
 }
 
 export interface Project {
+  transcript_quality_status?: 'unverified' | 'needs_review' | null;
   retention_policy?: import('../../server/src/shared/projectRetention').ProjectRetentionPolicy | null;
   id: string;
   user_id?: string;

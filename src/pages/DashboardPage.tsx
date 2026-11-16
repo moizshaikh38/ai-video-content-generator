@@ -279,6 +279,7 @@ export const DashboardPage: React.FC = () => {
               const isComp = completeStatuses.includes(statusStr);
               const isProc = activeStatuses.includes(statusStr);
               const isFail = failedStatuses.includes(statusStr);
+              const needsReview = p.transcript_quality_status === 'needs_review';
               const thumbUrl = getProjectThumbnail(p);
               const durationFormatted = formatDuration(p.duration_seconds);
               const genreBadge = p.clip_preferences?.genre;
@@ -353,7 +354,9 @@ export const DashboardPage: React.FC = () => {
                     {/* Bottom Status Badge */}
                     <span
                       className={`relative z-10 text-[11.5px] font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5 backdrop-blur-md ${
-                        isComp
+                        needsReview
+                          ? 'bg-amber-400/20 text-amber-200 border border-amber-400/30'
+                          : isComp
                           ? 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30'
                           : isProc
                           ? 'bg-white/[0.10] text-zinc-200 border border-white/20 animate-pulse'
@@ -364,7 +367,9 @@ export const DashboardPage: React.FC = () => {
                     >
                       <span
                         className={`size-1.5 rounded-full ${
-                          isComp
+                          needsReview
+                            ? 'bg-amber-300'
+                            : isComp
                             ? 'bg-emerald-400'
                             : isProc
                             ? 'bg-white'
@@ -373,7 +378,7 @@ export const DashboardPage: React.FC = () => {
                             : 'bg-white/50'
                         }`}
                       />
-                      <span className="capitalize">{statusStr}</span>
+                      <span className="capitalize">{needsReview ? 'Transcript needs review' : statusStr}</span>
                     </span>
 
                     {/* Source / Format Badge */}
@@ -438,7 +443,7 @@ export const DashboardPage: React.FC = () => {
                       to={projectPath(p)}
                       className="mt-3.5 inline-flex items-center justify-center h-9 w-full rounded-full bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] text-xs font-semibold text-vc-text-primary transition-all cursor-pointer"
                     >
-                      {isComp ? 'Open project' : isProc ? 'View status' : isFail ? 'View error & retry' : 'Continue'}
+                      {needsReview ? 'View transcript issue' : isComp ? 'Open project' : isProc ? 'View status' : isFail ? 'View error & retry' : 'Continue'}
                     </Link>
                   </div>
                 </article>

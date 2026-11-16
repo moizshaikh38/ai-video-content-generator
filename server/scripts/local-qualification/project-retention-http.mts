@@ -20,6 +20,7 @@ try{
  {id:reviewId,user_id:uid,title:'Transcript needs review',video_status:'failed',transcript_quality_status:'needs_review',created_at:new Date().toISOString()},
  {id:oldId,user_id:uid,title:'Legacy source, no retroactive expiry',video_status:'uploaded',created_at:'2020-01-01T00:00:00.000Z'},
  {id:crypto.randomUUID(),user_id:foreign,title:'Another account',video_status:'failed',created_at:new Date().toISOString()}]);
+ await db.collection('transcripts').insertOne({id:crypto.randomUUID(),project_id:reviewId,user_id:uid,transcript_text:'Synthetic flagged phrase for read-only review',language:'en',segments:[{start:0,end:2,text:'Synthetic flagged phrase for read-only review'}],quality_assessment:{version:1,status:'needs_review'},created_at:new Date().toISOString()});
  const before=await db.collection('projects').find({user_id:uid}).sort({id:1}).toArray();
  for(let n=0;n<2;n++){const list=await call('/projects');assert.equal(list.total,5);assert.equal(list.projects.length,5);assert.ok(list.projects.some((p:any)=>p.id===failedId&&p.video_status==='failed'));assert.ok(list.projects.some((p:any)=>p.id===reviewId&&p.transcript_quality_status==='needs_review'));assert.equal(list.projects.find((p:any)=>p.id===oldId).retention_policy,undefined);assert.equal(list.projects.find((p:any)=>p.id===paid.id).retention_policy.proposedExpiresAt,null);}
  const after=await db.collection('projects').find({user_id:uid}).sort({id:1}).toArray();assert.deepEqual(after,before);
@@ -27,6 +28,6 @@ try{
  const read=(await call('/projects/'+free.id)).project;assert.deepEqual(read.retention_policy,free.retention_policy);events.push({check:'read_only_list_twice_failed_review_legacy_paid_downgrade_count_pagination_owner',total:5});
  // Expire proposal in THIS fixture for visual proof that access remains available.
  await db.collection('projects').updateOne({id:free.id},{$set:{'retention_policy.proposedExpiresAt':'2026-11-16T00:00:00.000Z'}});
- fs.writeFileSync('/tmp/vireo-local-restore/retention-result.json',JSON.stringify({uid,token,events},null,2));console.log('RETENTION_HTTP_PASS',JSON.stringify(events));
+ fs.writeFileSync('/tmp/vireo-local-restore/retention-result.json',JSON.stringify({uid,token,reviewId,events},null,2));console.log('RETENTION_HTTP_PASS',JSON.stringify(events));
  if(process.env.KEEP_LOCAL_SERVER==='1'){console.log('RETENTION_UI_READY');await new Promise<void>(r=>process.on('SIGTERM',()=>r()))}
 }finally{await new Promise<void>(r=>server.close(()=>r()));await closeMongo()}

@@ -191,6 +191,9 @@ export const ProjectDetailPage: React.FC = () => {
       // Load current content outputs from the backend
       const realOutputs = await projectService.fetchContentOutputs(id);
       if (realOutputs) setOutputs(realOutputs);
+    } else if (p?.transcript_quality_status === 'needs_review') {
+      // Reading flagged text does not approve it or bypass the export gate.
+      setTranscript(await projectService.fetchTranscript(id));
     } else {
       setTranscript(null);
     }
@@ -300,6 +303,7 @@ export const ProjectDetailPage: React.FC = () => {
   const isUrl = project.source_type === 'url';
   const statusVal = project.video_status || project.status;
   const isUploaded = statusVal === 'uploaded';
+  const transcriptNeedsReview = project.transcript_quality_status === 'needs_review';
   const hasOutputs = outputs && outputs.length > 0;
 
 
@@ -395,16 +399,16 @@ export const ProjectDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* Failed State */}
-      {statusVal === 'failed' ? (
+      {/* Failed State: preserve flagged transcript visibility without clearing the quality gate. */}
+      {statusVal === 'failed' || transcriptNeedsReview ? (
         <div className="rounded-2xl p-8 text-center space-y-4 bg-rose-500/10">
           <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-400 mx-auto flex items-center justify-center border border-rose-500/25">
             <RefreshCw className="size-6" />
           </div>
           <div>
-            <p className="font-bold text-lg text-white font-['Sora',sans-serif]">Video Processing Failed</p>
+            <p className="font-bold text-lg text-white font-['Sora',sans-serif]">{transcriptNeedsReview ? 'Transcript Needs Review' : 'Video Processing Failed'}</p>
             <p className="text-sm text-zinc-300 max-w-md mx-auto mt-1">
-              {actionError || 'The video processing or transcription failed. Please verify your video audio or try again.'}
+              {actionError || project.error_message || (transcriptNeedsReview ? 'Automatic captions are blocked by the transcript quality check. Check the source audio and language. Opening or copying this text does not approve it for export.' : 'The video processing or transcription failed. Please verify your video audio or try again.')}
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -430,6 +434,12 @@ export const ProjectDetailPage: React.FC = () => {
               <Link to="/dashboard">Try New Video</Link>
             </Button>
           </div>
+          {transcriptNeedsReview && transcript && (
+            <div className="text-left" data-testid="flagged-transcript-readonly">
+              <p className="mb-3 text-sm text-amber-200">Unverified transcript. Reading or copying it does not clear the export block.</p>
+              <TranscriptSection transcript={transcript} />
+            </div>
+          )}
         </div>
       ) : (
         /* Video Uploaded / Processing / Transcribed State */
@@ -918,7 +928,7 @@ function TranscriptSection({ transcript }: { transcript: Transcript }) {
                 <Globe className="size-3 text-zinc-500" />
                 <span className="uppercase">{transcript.language || 'en'}</span>
               </span>
-              {transcript.duration_seconds !== null && (
+              {typeof transcript.duration_seconds === 'number' && Number.isFinite(transcript.duration_seconds) && transcript.duration_seconds >= 0 && (
                 <>
                   <span>•</span>
                   <span className="flex items-center gap-1">

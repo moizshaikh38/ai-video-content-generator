@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { AuthProvider } from '../context/AuthContext';
+import { ProjectDetailPage } from '../pages/ProjectDetailPage';
 import { DashboardPage } from '../pages/DashboardPage';
 
 const E2E_USER = { id: '11111111-1111-4111-8111-111111111111', email: 'e2e@vireoclip.test' };
@@ -33,6 +34,8 @@ createRoot(document.getElementById('root')!).render(
       <Suspense fallback={<div>loading</div>}>
         <Routes>
           <Route path="/dashboard" element={<div className="max-w-7xl mx-auto p-6"><DashboardPage /></div>} />
+          <Route path="/project/:id" element={<ProjectDetailPage />} />
+          <Route path="/projects/:id" element={<ProjectDetailPage />} />
         </Routes>
       </Suspense>
     </AuthProvider>
