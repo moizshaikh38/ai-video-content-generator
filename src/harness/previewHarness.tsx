@@ -190,6 +190,22 @@ function ShellTemplateApp() {
           },
         ],
       },
+      // Marked design_center overlay so overlay preview/export parity is
+      // provable in this harness: loopback URL resolves in the browser and
+      // passes the dev-loopback asset validator; the render proof pre-writes
+      // the overlay_<id> tmp cache exactly like the real pipeline's download.
+      {
+        id: 'track-overlay-1', type: 'OVERLAY', name: 'Elements & Stickers', locked: false, muted: false, hidden: false,
+        items: [
+          {
+            id: 'ovl-proof-1', track_id: 'track-overlay-1', type: 'OVERLAY', name: 'Logo mark',
+            timeline_start: 0, timeline_end: 9, source_start: 0, source_end: 9,
+            source_path: 'vireo-mark.png',
+            transform: { position_x: 60, position_y: -200, scale: 0.5, rotation: 0, opacity: 1, position_space: 'design_center' },
+            keyframes: [], effects: [], hidden: false, locked: false, muted: false, z_index: 25,
+          },
+        ],
+      },
       // Real captions track so template caption legs apply to actual cues.
       {
         id: 'track-caption-1', type: 'CAPTION', name: 'Captions', locked: false, muted: false, hidden: false,
