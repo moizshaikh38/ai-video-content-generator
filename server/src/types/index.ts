@@ -1796,6 +1796,10 @@ export interface EditorCanvasConfig {
   duration: number;
   background_color: string;
   background_mode: 'color' | 'blur_source' | 'transparent';
+  /** Background panel: inset of the video from the canvas edges, percent of width (0-20). */
+  background_spacing?: number;
+  /** Background panel: rounded corner radius of the video in output px (0-120). */
+  background_corner_radius?: number;
 }
 
 export interface EditorTransform {

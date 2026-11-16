@@ -52,7 +52,7 @@ import {
 import { downloadObjectToFile, uploadFile, signObjectGet } from './objectStorageService.js';
 import { CaptionService } from './captionService.js';
 import { isKnownCaptionStyle } from '../shared/captionPresets.js';
-import { buildCropFilter, buildFitFilter, buildBlurFitChain } from './clipRenderService.js';
+import { buildCropFilter, buildFitFilter, buildBlurFitChain, buildBackdropFitChain, type CanvasBackdropSpec } from './clipRenderService.js';
 import { AudioEnhancementService } from './audioEnhancementService.js';
 import {
   LoudnormMeasured,
@@ -778,7 +778,8 @@ export class ProEditorService {
     item: EditorTrackItem,
     reframe: ProReframeContext | undefined,
     sliceWindowStartClipRel: number,
-    sliceDuration: number
+    sliceDuration: number,
+    canvas?: { background_color?: string; background_spacing?: number; background_corner_radius?: number }
   ): string | null {
     const ratio = (reframe?.aspectRatio || '9:16') as ClipAspectRatio;
 
@@ -792,6 +793,14 @@ export class ProEditorService {
       const clampFocus = (v: number | undefined): number =>
         Math.min(1, Math.max(0, typeof v === 'number' && Number.isFinite(v) ? v : 0.5));
       const zoom = Math.min(4, Math.max(1, Number(item.crop.scale ?? 1)));
+      const spacingPct = Number(canvas?.background_spacing) || 0;
+      const cornerRadius = Number(canvas?.background_corner_radius) || 0;
+      const customBackdrop = spacingPct > 0 || cornerRadius > 0 || (item.crop.mode === 'fit' && !!canvas?.background_color && canvas.background_color.replace('#', '').toLowerCase() !== '000000');
+      if ((item.crop.mode === 'fit' || item.crop.mode === 'blur') && customBackdrop) {
+        const spec: CanvasBackdropSpec = { kind: item.crop.mode === 'blur' ? 'blur' : 'color', color: canvas?.background_color, spacingPct, cornerRadius };
+        const tag = ('vcd' + String(item.id || 'x')).replace(/[^a-zA-Z0-9]/g, '').slice(0, 16) || 'vcd';
+        return buildBackdropFitChain(ratio, zoom, spec, tag);
+      }
       if (item.crop.mode === 'fit') return buildFitFilter(ratio, zoom, clampFocus(item.crop.focusX), clampFocus(item.crop.focusY));
       if (item.crop.mode === 'blur') {
         // Chain-safe fragment: consumes the trimmed slice stream via split and
@@ -1193,7 +1202,7 @@ export class ProEditorService {
           currentInputIdx++;
           const silenceIdx = currentInputIdx;
           const windowStartClipRelFreeze = T - (reframe?.clipStartSec ?? 0);
-          const freezeCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRelFreeze, timelineDur);
+          const freezeCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRelFreeze, timelineDur, project.canvas);
           const freezeStyle = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH, fps);
           const chain = [`trim=start=${T.toFixed(3)}:end=${(T + lead).toFixed(3)}`, 'setpts=PTS-STARTPTS'];
           if (freezeCrop) chain.push(freezeCrop);
@@ -1218,7 +1227,7 @@ export class ProEditorService {
           // Keyframes are clip-relative; slices trim straight from the source file, so
           // the slice-local window starts at source_start - clipStart.
           const windowStartClipRel = (item.source_start || 0) - (reframe?.clipStartSec ?? 0);
-          const sliceCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRel, reframe?.track?.metadata?.shot_composition_candidate === true ? sourceWindowSec : timelineDur);
+          const sliceCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRel, reframe?.track?.metadata?.shot_composition_candidate === true ? sourceWindowSec : timelineDur, project.canvas);
           const styleFilters = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH, fps);
           const chain = [`trim=start=${startStr}:end=${endStr}`, 'setpts=PTS-STARTPTS'];
           if (sliceCrop) chain.push(sliceCrop);
@@ -1331,7 +1340,7 @@ export class ProEditorService {
       const candidateComposition = reframe?.track?.metadata?.shot_composition_candidate === true;
       const singleSourceStart = candidateComposition ? Math.max(0, (single?.source_start || 0) - (reframe?.clipStartSec ?? 0)) : 0;
       const singleSourceDuration = (canvasDuration || 10) * (candidateComposition ? Math.min(4, Math.max(.25, single?.speed?.speed || 1)) : 1);
-      const singleCrop = single ? ProEditorService.buildSliceCropFilter(single, reframe, singleSourceStart, singleSourceDuration) : null;
+      const singleCrop = single ? ProEditorService.buildSliceCropFilter(single, reframe, singleSourceStart, singleSourceDuration, project.canvas) : null;
       const styleFilters = single ? ProEditorService.buildItemStyleFilters(single, canvasW, canvasH, fps) : [];
       const singleSpeed = single ? Math.min(4, Math.max(0.25, single.speed?.speed || 1.0)) : 1.0;
       const parts: string[] = [];

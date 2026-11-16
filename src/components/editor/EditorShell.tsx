@@ -1813,6 +1813,9 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 },
               }));
             }}
+            onUpdateCanvas={(patch) => {
+              onUpdateProject((prev) => ({ ...prev, canvas: { ...prev.canvas, ...patch } }));
+            }}
             onUpdateCropMode={(mode) => {
               // Route through item.crop: the export compiler (buildSliceCropFilter)
               // honors item.crop.mode and never reads legacy crop_mode, so writing

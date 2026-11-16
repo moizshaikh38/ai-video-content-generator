@@ -28,6 +28,7 @@ import { computeCanvasFitScale } from '../../lib/canvasFit';
 import { attributeCueSpeaker, SPEAKER1_POSITION_Y } from '../../../server/src/shared/speakerCaptionSplit';
 import { interpolateReframeCenter } from '../../../server/src/shared/reframeInterpolation';
 import { CaptionPresetRenderer } from './CaptionPresetRenderer';
+import { BackgroundControl } from './BackgroundControl';
 
 interface PreviewCanvasProps {
   contentFramingDecision?: ContentFramingDecision | null;
@@ -57,6 +58,7 @@ interface PreviewCanvasProps {
   onToggleSafeGuides?: () => void;
   onChangeAspectRatio?: (aspectRatio: ClipAspectRatio) => void;
   onUpdateCropMode?: (mode: 'center' | 'fit' | 'blur' | 'smart') => void;
+  onUpdateCanvas?: (patch: Partial<EditorProject['canvas']>) => void;
   /**
    * Smart-reframe track for the base video (clip-level, mode 'smart'). When
    * present and the item carries no manual crop override, the base video pans
@@ -213,6 +215,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   onToggleSafeGuides,
   onChangeAspectRatio,
   onUpdateCropMode,
+  onUpdateCanvas,
   smartReframe,
   videoRef,
   cues,
@@ -1143,6 +1146,23 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   ]);
 
   const canvasDims = getAspectRatioDimensions();
+  // Background panel spacing/radius: mirrors buildBackdropFitChain (inset box, rounded corners) in export.
+  const backdropInset = (() => {
+    const mode = primaryVideoCropMode;
+    const sp = Number(project.canvas.background_spacing) || 0;
+    const rad = Number(project.canvas.background_corner_radius) || 0;
+    if ((mode !== 'fit' && mode !== 'blur') || (sp <= 0 && rad <= 0) || primaryLayoutMode === 'split') return null;
+    const w = parseFloat(canvasDims.width);
+    const h = parseFloat(canvasDims.height);
+    const exportW = project.canvas.aspect_ratio === '16:9' ? 1920 : 1080;
+    const space = (w * sp) / 100;
+    return {
+      position: 'absolute' as const,
+      left: space, top: space, width: Math.max(2, w - 2 * space), height: Math.max(2, h - 2 * space),
+      borderRadius: rad * (w / exportW),
+      overflow: 'hidden' as const,
+    };
+  })();
 
   // Fit the fixed design-resolution canvas into the available stage via a uniform scale, so the
   // video grows to fill reclaimed space (e.g. when the inspector collapses) while every child —
@@ -1209,6 +1229,18 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           )}
 
           <div className="w-px h-3.5 bg-white/[0.1]" />
+
+          {onUpdateCropMode && onUpdateCanvas && (
+            <>
+              <BackgroundControl
+                project={project}
+                cropMode={primaryVideoCropMode === 'blur' ? 'blur' : primaryVideoCropMode === 'fit' ? 'fit' : 'fill'}
+                onSetCropMode={onUpdateCropMode}
+                onUpdateCanvas={onUpdateCanvas}
+              />
+              <div className="w-px h-3.5 bg-white/[0.1]" />
+            </>
+          )}
 
           {/* 3. Platform Safe Zones */}
           {onToggleSafeGuides && (
@@ -1336,6 +1368,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               // Explicit px sizing mirrors the export's crop window; Tailwind
               // preflight caps video at max-width:100%, which would silently
               // shrink the oversized element back into the panel, so unset it.
+              ...(backdropInset ?? {}),
               ...(groupFitView
                 ? { left: groupFitView.left, top: groupFitView.top, width: groupFitView.width, height: groupFitView.height, clipPath: groupFitView.clipPath, maxWidth: 'none' }
                 : {}),
