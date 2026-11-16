@@ -800,9 +800,15 @@ export interface NormalizedFaceDetection {
   mouth_score?: number;
 }
 
+export interface NormalizedPersonRegion {
+  x: number; y: number; width: number; height: number; confidence: number;
+}
+
 export interface ReframeSample {
   time: number;
   faces: NormalizedFaceDetection[];
+  /** Experimental measured boxes. Absence is not evidence of no person. */
+  persons?: NormalizedPersonRegion[];
 }
 
 export interface ReframeKeyframe {

@@ -247,6 +247,12 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
             print("ERROR: failed to load YuNet model %s: %s" % (yunet_model, exc), file=sys.stderr)
             sys.exit(2)
 
+    person_detector = None
+    person_model = os.environ.get('SMART_REFRAME_PERSON_MODEL', '')
+    if person_model:
+        from person_regions import PersonRegions
+        person_detector = PersonRegions(person_model)
+
     samples = []
     scene_cuts = []
     frame_index = start_frame
@@ -432,10 +438,10 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
                 face_list[-1]["mouth_temporal"] = mouth_temporal
                 face_list[-1]["mouth_static"] = mouth_static
 
-        samples.append({
-            "time": time_sec,
-            "faces": face_list
-        })
+        sample = {"time": time_sec, "faces": face_list}
+        if person_detector is not None:
+            sample["persons"] = person_detector.infer(frame)
+        samples.append(sample)
 
         prev_gray = gray
         prev_face_boxes = curr_face_boxes
@@ -453,6 +459,7 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
         scene_cuts = sorted(set(e["time"] for e in cut_evidence if e["time"] > 0))
 
     return {
+        **({"person_detector": "nanodet-2022nov-sha256-" + __import__("person_regions").MODEL_SHA256} if person_detector else {}),
         "scene_cut_evidence": cut_evidence,
         "source_width": source_width,
         "source_height": source_height,

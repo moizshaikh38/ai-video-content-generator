@@ -85,3 +85,32 @@ Added a shared inspectable clip-wide `ContentFramingDecision`, persisted with fr
 A fresh local synthetic Pong+VOA candidate was analyzed through the actual service with localSourcePath (the normal analysis endpoint correctly returned403 on the fixture's Free entitlement, no upgrade/bypass of live account). Analysis32samples found a possible embedded camera and chose single full-source presentation, rather than duplicating that camera as an extra inset. Actual Quick and Pro API exports are8s, inspected; both paddles and source camera appear once. This fixes automatic duplicate presentation in this bounded fixture, but game remains small and most canvas is background. It is not the final genre-aware gaming composition. Sampled Quick/Pro mean pixel error at0.5/3.5/6.5s was0.068/0.069/0.070 per255, not a full parity proof. Actual editor playback/reload inspected, automatic Blur label matches timeline after correction. Manual/default paths remain separate.
 
 Follow-up cadence correction: first real Pro gaming candidate had239frames at30fps (audio8s/video7.9667s); this was not timing-qualified. Candidate single-item and multi-slice compiler paths now add a bounded tail clone plus exact per-output frame budget after resampling, including non-shot-concat Blur. New24fps-to30fps FFmpeg regression reproduces/catches the missing final frame. Fresh actual Pro API v5 now240frames/8.000s. Quick remains192frames/8s at source24fps.63 focused tests pass; both TypeScript checks clean. No claim that duplicating24fps motion to30fps adds motion detail.
+
+## Face-associated body context experiment, 2026-11-16 19:35 IST
+Separate explicit `SMART_REFRAME_PERSON_MODEL` opt-in. No model setting adds no
+person keys to the analyzer's existing output. No runtime download or default
+change. OpenCV Zoo NanoDet (Apache-2.0, local binary SHA-checked) yields candidate
+person boxes, not active-speaker/gameplay semantics. Provenance/license and model
+checksum are in `python/third_party/nanodet/README.md`.
+
+A 24-frame/8-source local feasibility probe found built-in HOG unsuitable: it
+missed closeups/leaning people and boxed bridge architecture. NanoDet found the
+bridge bodies and seated interview people, but missed the foreground leaning
+person at balcony0.5s, found only a subset in Shibuya, and sometimes boxed
+background/pillow regions. Probe inference after first frame was about59-61ms,
+150MiB peak RSS for the whole24-frame probe process, not deployed resource proof.
+Model card source: https://huggingface.co/opencv/object_detection_nanodet
+
+Candidate composition only uses repeated face-associated boxes (at least3
+measurements and70% of that track's face sightings). Rejects invalid/weak boxes,
+faces too low in a box, ambiguous multi-face bodies and unassociated regions.
+It unions associated face bounds as well as padded body boxes. This is not limb
+segmentation, body tracking or assurance about content outside detections.
+
+Fresh full analyzer + helper graph renders: bridge4.5s, seated VOA8s,
+balcony8s, talking-head9s. Inspected before/after sheets and sampled MP4 frames.
+Bridge reserves more outer body room, seated VOA shows more shoulder context at
+smaller scale. Balcony still problematic at the opening, talking-head remains
+thinband because its face-free shot shares full-fit size across the entire clip.
+Not an aesthetic pass. These are helper graphs, not new actual Quick/Pro API or
+interactive editor acceptance. No release or full-parity claim.

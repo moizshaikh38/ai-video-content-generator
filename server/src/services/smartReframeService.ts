@@ -1,3 +1,4 @@
+import {associatedBodyEnvelope} from '../shared/bodyContext.js';
 import {chooseContentFraming, type ContentFramingDecision} from '../shared/contentFramingDecision.js';
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
@@ -1465,9 +1466,24 @@ export class SmartReframeService {
       const end = bounds[i+1];
       const samples = rawSamples.filter(s => s.time >= start && s.time < end);
       if (this.isCrowdScene(samples)) return {start,end,kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]};
+      const fromBody = (ids:string[]) => {
+        const b=associatedBodyEnvelope(samples,ids);
+        if(!b)return null;
+        const windowW=Math.min(1,Math.max(.25,b.right-b.left));
+        const windowH=Math.min(1,Math.max(.25,b.bottom-b.top));
+        return {windowW,windowH,keyframes:[{time:start,
+          centerX:Math.max(windowW/2,Math.min(1-windowW/2,(b.left+b.right)/2)),
+          centerY:Math.max(windowH/2,Math.min(1-windowH/2,(b.top+b.bottom)/2))}]};
+      };
       const group = this.computeGroupFrameGeometry({rawSamples:samples, sourceWidth, sourceHeight});
-      if (group) return {start,end,kind:'group' as const,windowW:group.windowW,
-        windowH:group.windowH ?? Math.min(1,group.windowW*sourceWidth*.75/sourceHeight),keyframes:group.keyframes};
+      if (group) {
+        const counts=new Map<string,number>();
+        for(const sample of samples)for(const f of sample.faces)if(f.track_id&&f.width*f.height>=.002)counts.set(f.track_id,(counts.get(f.track_id)||0)+1);
+        const ids=[...counts].filter(([,n])=>n>=Math.max(3,samples.length*.35)).map(([id])=>id);
+        const measured=ids.length===2?fromBody(ids):null;
+        return {start,end,kind:'group' as const,...(measured||{windowW:group.windowW,
+          windowH:group.windowH ?? Math.min(1,group.windowW*sourceWidth*.75/sourceHeight),keyframes:group.keyframes})};
+      }
       const tracks = new Map<string, NormalizedFaceDetection[]>();
       for (const s of samples) for (const f of s.faces) {
         if (!f.track_id || !Number.isFinite(f.width) || !Number.isFinite(f.height) || f.width <= 0 || f.height <= 0) continue;
@@ -1477,6 +1493,8 @@ export class SmartReframeService {
       const selected = this.selectDominantTrack(eligible, samples.length);
       const stable = selected.dominantTrackId ? eligible.get(selected.dominantTrackId) : undefined;
       if (!stable) return {start,end,kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]};
+      const measuredBody=fromBody([selected.dominantTrackId!]);
+      if(measuredBody)return {start,end,kind:'solo' as const,...measuredBody};
       // Faces are not bodies. Reserve an intentionally wider context envelope,
       // locking the shot only when that envelope fits in one static window.
       const fw=median(stable.map(f=>f.width)),fh=median(stable.map(f=>f.height));
@@ -2443,6 +2461,7 @@ export class SmartReframeService {
     sample_fps: number;
     sample_count: number;
     scene_cuts?: number[];
+    person_detector?: string | null;
     scene_cut_evidence?: Array<{ time: number; coarse_time: number; refined: boolean; uncertainty_seconds?: number; correlation?: number }>;
     samples: ReframeSample[];
   }> {
@@ -2774,6 +2793,7 @@ export class SmartReframeService {
           clip_duration: durationSec,
           scene_cuts: clipSceneCuts,
           scene_cut_evidence: cvResult.scene_cut_evidence || [],
+          person_detector: cvResult.person_detector ?? null,
           cv_duration: cvResult.duration,
           sample_fps: cvResult.sample_fps,
           total_samples: cvResult.samples.length,
