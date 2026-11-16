@@ -15,7 +15,6 @@ const prefetchProjectDetail = () => { void import('../pages/ProjectDetailPage');
 
 const activeStatuses = [
   'uploading',
-  'uploaded',
   'queued',
   'processing',
   'transcribing',
@@ -61,7 +60,8 @@ export function getProgressInfo(status: string, numericProgress?: number | null)
   const s = status.toLowerCase();
   let stageName = 'Processing';
   if (s === 'uploading') stageName = 'Uploading video';
-  else if (s === 'uploaded' || s === 'queued') stageName = 'Queued for AI';
+  else if (s === 'uploaded') stageName = 'Ready to process';
+  else if (s === 'queued') stageName = 'Queued for AI';
   else if (s === 'processing' || s === 'transcribing') stageName = 'Transcribing speech';
   else if (s === 'analyzing' || s === 'generating') stageName = 'Finding viral clips';
 
@@ -394,6 +394,10 @@ export const DashboardPage: React.FC = () => {
                         Updated {formatTimeAgo(p.updated_at || p.created_at)}
                       </p>
                     </div>
+
+                    {statusStr === 'uploaded' && (
+                      <p className="mt-3 text-[11px] text-vc-text-secondary">Source saved. Processing has not started.</p>
+                    )}
 
                     {/* Honest processing progress bar */}
                     {isProc && (

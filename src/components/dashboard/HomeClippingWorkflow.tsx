@@ -35,6 +35,7 @@ import { clipService } from '../../services/clipService';
 import { clipRenderService } from '../../services/clipRenderService';
 import { CreditService, CreditBalanceSummary, CreditEstimate } from '../../services/creditService';
 import { CostTransparencySummary } from '../credits/CostTransparencySummary';
+import { clippingStartErrorMessage } from '../../lib/clippingRecovery';
 import { triggerBrowserDownload } from '../../utils/downloadUtils';
 import { useAuth } from '../../context/AuthContext';
 import { Project, ClipCandidate, RenderedClip, ClipPreferences } from '../../types';
@@ -257,13 +258,20 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           if (!proj) return;
           const status = proj.video_status || proj.status;
           setSelectedSource({
-            type: (proj.source_type as any) || 'upload',
+            type: 'project',
             projectId: proj.id,
             title: proj.title,
             thumbnailUrl: null,
           });
 
-          if (['uploading', 'queued', 'processing', 'transcribing', 'analyzing', 'generating'].includes(status)) {
+          if (!proj.source_url && status === 'uploading') {
+            setSelectedSource(null);
+            setWorkflowState('error');
+            setErrorMessage('The previous upload did not finish. Select the video file again to continue.');
+          } else if (status === 'uploaded') {
+            setActiveProjectStatus(status);
+            setWorkflowState('source_selected');
+          } else if (['queued', 'processing', 'transcribing', 'analyzing', 'generating'].includes(status)) {
             setWorkflowState('processing');
             setActiveProjectStatus(status);
           } else if (['completed', 'transcribed'].includes(status)) {
@@ -690,6 +698,11 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         });
 
         setUploadProgress(100);
+        // Confirmation makes this a reusable project source. A later processing
+        // failure must not create another project or upload these bytes again.
+        setSelectedSource({ ...selectedSource, type: 'project', projectId, file: undefined });
+        setActiveProjectStatus('uploaded');
+        onRefreshProjects();
         setProcessingStageMessage('Starting AI transcription & video analysis...');
 
         // Start backend processing
@@ -723,6 +736,9 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
         projectId = proj.id;
         setActiveProjectId(projectId);
+        setSelectedSource({ ...selectedSource, type: 'project', projectId });
+        setActiveProjectStatus('uploaded');
+        onRefreshProjects();
         setProcessingStageMessage('Queuing video for AI transcription...');
 
         await projectService.startProcessing(projectId);
@@ -748,11 +764,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       }
     } catch (err: any) {
       loadWalletBalance();
-      if (err.name === 'AbortError' || err.message?.includes('cancelled')) {
-        setErrorMessage('Upload was cancelled.');
-      } else {
-        setErrorMessage(err.message || 'Failed to start video clipping job.');
-      }
+      setErrorMessage(clippingStartErrorMessage(err));
       setWorkflowState('error');
     } finally {
       setIsSubmitting(false);
@@ -1932,8 +1944,8 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             </div>
           </div>
 
-          {/* Actionable Direct Upload Fallback if YouTube / external video download failed */}
-          <div className="p-3.5 rounded-xl bg-white/[0.03] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-vc-text-secondary">
+          {/* Direct upload is a recovery only while URL ingestion is unresolved. */}
+          {selectedSource?.type === 'url' && <div className="p-3.5 rounded-xl bg-white/[0.03] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-vc-text-secondary">
             <div className="space-y-0.5">
               <div className="font-semibold text-vc-text-primary flex items-center gap-1.5">
                 <UploadCloud className="size-3.5 text-zinc-200" />
@@ -1950,7 +1962,13 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             >
               Upload Video File
             </button>
-          </div>
+          </div>}
+
+          {selectedSource?.type === 'project' && activeProjectStatus === 'uploaded' && (
+            <p className="text-xs text-vc-text-secondary">
+              Your source upload is saved. Retry processing without uploading the video again.
+            </p>
+          )}
 
           <div className="pt-2 flex flex-wrap items-center gap-3">
             {selectedSource && (
