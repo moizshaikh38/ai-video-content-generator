@@ -1,3 +1,4 @@
+import { clampCaptionFontSize } from '../shared/captionPresets.js';
 import {assertTranscriptUsable} from './transcription/transcriptQuality.js';
 import { applySceneCaptionPlacement } from '../shared/sceneCaptionPlacement.js';
 import { isMongoConfigured } from '../db/mongoClient.js';
@@ -959,7 +960,7 @@ export class CaptionService {
     const rawFont = customConfig.fontFamily;
     const fontName = this.validateFontFamily(rawFont);
 
-    // Safe font size clamping (32 to 110)
+    // Bounds are exact bundled-family metrics, unknown families retain historical caps.
     let defaultFontSize = 64;
     switch (style) {
       case 'bold':
@@ -984,7 +985,7 @@ export class CaptionService {
     }
 
     const rawSize = customConfig.fontSize || defaultFontSize;
-    const fontSize = Math.min(110, Math.max(32, Math.round(rawSize)));
+    const fontSize = clampCaptionFontSize(Number(rawSize), rawFont, defaultFontSize);
 
     // Font weight (400 - 900)
     const fontWeight = customConfig.fontWeight ?? (style === 'bold' || style === 'highlight' || style === 'karaoke' ? 800 : 700);

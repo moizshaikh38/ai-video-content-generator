@@ -5,3 +5,6 @@ describe('Exact bundled-family ASS size bounds',()=>{
  it('requires font family context when sanitizing high sizes',()=>{assert.equal(sanitizePresetOverrides({fontSize:180}).fontSize,110);assert.equal(sanitizePresetOverrides({fontSize:180},'Bungee').fontSize,180);assert.equal(sanitizePresetOverrides({fontSize:180,fontFamily:'Bungee'}).fontSize,180);assert.equal(sanitizePresetOverrides({fontSize:180,fontFamily:'Unknown'},'Bungee').fontSize,110);});
  it('roundtrips explicit metric-size defaults without shrink and keeps unknown-font limit',()=>{const s=resolveCaptionPreset('retro_3d');assert.equal(s.fontSize,180);assert.equal(resolveCaptionPreset('retro_3d',{fontSize:s.fontSize}).fontSize,180);assert.equal(resolveCaptionPreset('retro_3d',{fontFamily:'Unknown',fontSize:180}).fontSize,110);assert.equal(resolveCaptionPreset('simple',{fontSize:180}).fontSize,110);});
 });
+
+import { captionLegacyColorDefaults } from '../../../src/lib/captionPresets';
+it('editing typography does not materialize legacy white/yellow over preset colors',()=>{assert.deepEqual(captionLegacyColorDefaults({style:'retro_3d'} as any),{primary_color:'#FFD23F',highlight_color:'#FFFFFF'});assert.equal(captionLegacyColorDefaults({style:'clean'} as any).primary_color,'#FFFFFF');});

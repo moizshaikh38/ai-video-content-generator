@@ -108,3 +108,13 @@ export function applyPresetToEditorCaption(
 }
 
 export type { CaptionPresetId, ResolvedCaptionStyle };
+
+/** Materializing legacy edit defaults must not overwrite a preset's own colors. */
+export function captionLegacyColorDefaults(caption: EditorCaptionItem | undefined, highlight = '#FFE600'): Pick<EditorCaptionItem, 'primary_color' | 'highlight_color'> {
+  const id = getEditorCaptionPresetId(caption);
+  const resolved = id ? resolveCaptionPreset(id) : null;
+  return {
+    primary_color: caption?.primary_color || resolved?.textColor || '#FFFFFF',
+    highlight_color: caption?.highlight_color || resolved?.activeColor || highlight,
+  };
+}

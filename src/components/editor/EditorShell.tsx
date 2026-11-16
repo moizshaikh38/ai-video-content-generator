@@ -1,3 +1,4 @@
+import { captionLegacyColorDefaults } from '../../lib/captionPresets';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -1514,8 +1515,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                             cues: newCues,
                             style: i.caption?.style || 'clean',
                             position: i.caption?.position || 'bottom',
-                            highlight_color: i.caption?.highlight_color || '#8B5CF6',
-                            primary_color: i.caption?.primary_color || '#FFFFFF',
+                            ...captionLegacyColorDefaults(i.caption, '#8B5CF6'),
                             ...i.caption,
                           },
                         })),
@@ -1896,8 +1896,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                     cues: updatedCues,
                     style: item.caption?.style || 'clean',
                     position: item.caption?.position || 'bottom',
-                    highlight_color: item.caption?.highlight_color || '#FF6B35',
-                    primary_color: item.caption?.primary_color || '#FFFFFF',
+                    ...captionLegacyColorDefaults(item.caption, '#FF6B35'),
                     ...item.caption,
                     ...(newFontSize !== undefined ? { font_size: newFontSize } : {}),
                   };
@@ -1914,8 +1913,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                     cues: item.caption?.cues || [],
                     style: item.caption?.style || 'clean',
                     position: item.caption?.position || 'bottom',
-                    highlight_color: item.caption?.highlight_color || '#FF6B35',
-                    primary_color: item.caption?.primary_color || '#FFFFFF',
+                    ...captionLegacyColorDefaults(item.caption, '#FF6B35'),
                     ...item.caption,
                     position_x: Number(posX.toFixed(3)),
                     position_y: Number(posY.toFixed(3)),

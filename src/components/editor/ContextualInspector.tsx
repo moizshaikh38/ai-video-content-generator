@@ -1,3 +1,4 @@
+import { captionLegacyColorDefaults } from '../../lib/captionPresets';
 import React, { useRef, useState } from 'react';
 import { UpdateProjectOptions } from '../../hooks/useEditorProject';
 import { retimeItemSpeed } from '../../utils/timelineRipple';
@@ -1188,8 +1189,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                     cues: i.caption?.cues || [],
                     style: i.caption?.style || 'clean',
                     position: i.caption?.position || 'bottom',
-                    highlight_color: i.caption?.highlight_color || '#FFE600',
-                    primary_color: i.caption?.primary_color || '#FFFFFF',
+                    ...captionLegacyColorDefaults(i.caption, '#FFE600'),
                     ...i.caption,
                     ...updates,
                   },

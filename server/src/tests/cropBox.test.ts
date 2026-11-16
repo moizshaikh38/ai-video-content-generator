@@ -123,6 +123,7 @@ test('unassigned panel export gate covers every visible scene and rejects before
   assert.throws(()=>ProEditorService.compileRenderGraph(p,'/tmp/source'),/Set every panel view/);
   p.tracks[0].items[0].panels.slots.forEach((s:any)=>s.set=true);assertPanelViewsAssigned(p);
   p.tracks[0].items[0].panels.slots[0].set=false;p.tracks[0].items[0].hidden=true;assertPanelViewsAssigned(p);
+});
 test('subject seed is a suggestion only: never marks slots set', () => {
   const s = seedPanelsFromSubject('screenshare', undefined, { centerX: 0.3, centerY: 0.4 })!;
   assert.equal(s.length, 2);

@@ -1,3 +1,5 @@
+import { resolveCaptionPreset } from '../shared/captionPresets.js';
+import { clampCaptionFontSize } from '../shared/captionPresets.js';
 import { assFontsDirArg } from './editorFontFiles.js';
 import { canvasDims, parseRenderResolution, resolveEffectiveResolution, type EffectiveResolution } from '../shared/renderResolution.js';
 import { createClipWithJob } from '../db/repositories/clipRepository.js';
@@ -2208,7 +2210,7 @@ export class ClipRenderService {
         sanitized.fontFamily = CaptionService.validateFontFamily(String(incoming.fontFamily));
       }
       if (incoming.fontSize !== undefined) {
-        sanitized.fontSize = Math.min(110, Math.max(32, Math.round(Number(incoming.fontSize) || 64)));
+        sanitized.fontSize = clampCaptionFontSize(Number(incoming.fontSize), incoming.fontFamily !== undefined ? incoming.fontFamily : safeCaptionConfig.fontFamily);
       }
       if (incoming.fontWeight !== undefined) {
         const fw = Math.round(Number(incoming.fontWeight) || 700);
@@ -2300,7 +2302,7 @@ export class ClipRenderService {
         } else {
           logger.warn(`[ClipEditor] Ignoring unknown caption presetId for clip ${clipId}. Supported: ${CAPTION_PRESET_IDS.join(', ')}`);
         }
-        sanitized.presetOverrides = sanitizePresetOverrides(incoming.presetOverrides);
+        sanitized.presetOverrides = sanitizePresetOverrides(incoming.presetOverrides, sanitized.presetId ? resolveCaptionPreset(sanitized.presetId as any).fontFamily : undefined);
       }
 
       if (Array.isArray(incoming.caption_overrides)) {

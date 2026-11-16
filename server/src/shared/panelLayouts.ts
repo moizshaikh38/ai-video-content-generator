@@ -117,6 +117,7 @@ export function assertPanelViewsAssigned(project: Parameters<typeof unassignedPa
     const err = new Error(`Set every panel view before exporting (${missing.length} unassigned). Open each scene and use its Panel buttons to review and Apply each view.`) as Error & { code: string; statusCode: number };
     err.code = 'PANEL_VIEWS_UNASSIGNED'; err.statusCode = 409; throw err;
   }
+}
 /**
  * Seed ScreenShare/Gameplay from ONE tracked subject (the clip's smart-reframe track), when it exists:
  * the speaker/face panel is framed on the subject (zoomed), the other panel shows the whole frame

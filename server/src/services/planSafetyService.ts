@@ -1,3 +1,4 @@
+import { getCaptionFontSizeBounds } from '../shared/captionPresets.js';
 /**
  * PlanSafetyService — code-enforced limits on producer edit plan operations.
  *
@@ -161,7 +162,11 @@ export function sanitizePlanOperations(
         break;
 
       case 'CAPTION_STYLE':
-        clampParam(op, 'font_size', 32, 110, warnings);
+        // Producer CAPTION_STYLE does not apply font_family in either renderer.
+        // Never let an unapplied claim of Bungee expand the size range.
+        { const bounds = getCaptionFontSizeBounds(undefined);
+          clampParam(op, 'font_size', bounds.min, bounds.max, warnings); }
+
         if (op.parameters.primary_color !== undefined && !HEX_COLOR_RE.test(String(op.parameters.primary_color))) {
           delete op.parameters.primary_color;
           warnings.push('CAPTION_STYLE:primary_color invalid, removed');
