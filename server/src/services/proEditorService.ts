@@ -1436,11 +1436,29 @@ export class ProEditorService {
         const layout = ProEditorService.layoutTextBlock(ti, canvasW, canvasH, project.canvas.aspect_ratio || '9:16');
         const bbox = layout && ProEditorService.measureTextBlockBBox(layout, ti.text?.font_weight, canvasW, canvasH);
         if (layout && bbox) {
+          // Card box mirrors the preview's CSS box, not the raw ink bbox:
+          // - padding is asymmetric (pad vertical, pad*1.5 horizontal),
+          // - height uses line boxes (fontSize * line_height per line, default
+          //   1.2) rather than the ink height,
+          // - width includes the CSS letter-spacing allowance (drawtext cannot
+          //   track; the card still covers the tracked width the preview shows),
+          // - width caps at 90% of the canvas like the preview's max width.
           const pad = layout.boxBorderW;
-          const cardX = Math.max(0, bbox.x - pad);
-          const cardY = Math.max(0, bbox.y - pad);
-          const cardW = Math.min(canvasW - cardX, bbox.w + 2 * pad);
-          const cardH = Math.min(canvasH - cardY, bbox.h + 2 * pad);
+          const padH = Math.round(pad * 1.5);
+          const textStyle = ti.text as { line_height?: number; letter_spacing?: number } | undefined;
+          const lineHeightFactor = Number(textStyle?.line_height) > 0 ? Number(textStyle?.line_height) : 1.2;
+          const trackingPx = Number(textStyle?.letter_spacing) > 0 ? Number(textStyle?.letter_spacing) * layout.scaleRatio : 0;
+          const maxLineChars = Math.max(1, ...layout.safeLines.map((l) => l.replace(/\\/g, '').length));
+          const nLines = layout.safeLines.length;
+          const cardW = Math.min(
+            Math.round(0.9 * canvasW),
+            Math.round(bbox.w + trackingPx * (maxLineChars - 1) + 2 * padH)
+          );
+          const cardH = Math.round(nLines * layout.scaledFontSize * lineHeightFactor + 2 * pad);
+          const blockCx = bbox.x + bbox.w / 2;
+          const blockCy = bbox.y + bbox.h / 2;
+          const cardX = Math.max(0, Math.min(canvasW - cardW, Math.round(blockCx - cardW / 2)));
+          const cardY = Math.max(0, Math.min(canvasH - cardH, Math.round(blockCy - cardH / 2)));
           const radius = Math.round((ti.text!.background_corner_radius || 0) * layout.scaleRatio);
           const rawBg = (ti.text!.background_color || '').trim().replace(/^#/, '');
           const alpha = /^[0-9a-fA-F]{8}$/.test(rawBg) ? parseInt(rawBg.slice(6, 8), 16) / 255 : 0.8;
