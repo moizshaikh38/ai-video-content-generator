@@ -45,7 +45,13 @@ const baseItem: EditorTrackItem = {
 const params = new URLSearchParams(window.location.search);
 const AR = (params.get('ar') || '9:16') as '9:16' | '1:1' | '16:9';
 const vp = params.get('video');
-const VIDEO_URL = vp === 'portrait' ? '/harness/clip-portrait.mp4' : vp === 'twoshot' ? '/harness/clip-twoshot.mp4' : '/harness/clip.mp4';
+const HARNESS_VIDEOS: Record<string, string> = {
+  portrait: '/harness/clip-portrait.mp4',
+  twoshot: '/harness/clip-twoshot.mp4',
+  lab: '/harness/clip-lab.mp4',
+  voa: '/harness/clip-voa.mp4',
+};
+const VIDEO_URL = HARNESS_VIDEOS[vp || ''] || '/harness/clip.mp4';
 // TEST-ONLY: ?framing=split exercises the split-layout preview (top/bottom speaker stack).
 if (params.get('framing') === 'split') {
   (baseItem as any).layout_mode = 'split';
@@ -290,7 +296,9 @@ function ShellTemplateApp() {
             crop_config: { mode: 'smart' }, start_seconds: 0,
           },
           project,
-          cleanSourceUrl: '/harness/clip-twoshot.mp4',
+          // Source binding follows ?video= so per-clip reframe data is shown
+          // on that clip's actual media (default stays the twoshot fixture).
+          cleanSourceUrl: HARNESS_VIDEOS[vp || ''] || '/harness/clip-twoshot.mp4',
           renderedPreviewUrl: null,
           // ?wm=1 exercises the free-plan watermark badge overlay in preview.
           watermarkRequired: params.get('wm') === '1',
