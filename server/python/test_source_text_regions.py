@@ -18,4 +18,19 @@ class ShortLinesTest(unittest.TestCase):
   r=regions_from_tsv(HEADER+row(1,10,95,'short')+row(2,40,94,'caption'),200,100)
   self.assertEqual(len(r),1)
 
+
+class PersistenceTests(unittest.TestCase):
+ def test_single_words_require_spatial_persistence_before_constraints(self):
+  from source_text_regions import persistent_word_regions
+  r=regions_from_tsv(HEADER+row(1,10,95,'ALPHA'),200,100,True)[0]
+  self.assertEqual(r['kind'],'ocr-word-candidate')
+  self.assertEqual(persistent_word_regions([{'time':0,'regions':[r]}]),[])
+  samples=[{'time':t,'regions':[r]}for t in [0,.5,1]]
+  self.assertEqual(len(persistent_word_regions(samples)),1)
+ def test_duplicate_same_time_gap_and_moving_words_do_not_fake_persistence(self):
+  from source_text_regions import persistent_word_regions
+  r=regions_from_tsv(HEADER+row(1,10,95,'ALPHA'),200,100,True)[0]
+  for rows in [[{'time':0,'regions':[r,r,r]}],[{'time':t,'regions':[r]}for t in [0,2,4]],[{'time':i*.5,'regions':[{**r,'x':i*.3}]}for i in range(3)]]:
+   self.assertEqual(persistent_word_regions(rows),[])
+
 if __name__=='__main__':unittest.main()

@@ -288,6 +288,7 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
     protected_content_regions = []
     last_text_sample = -1.0
     last_general_text_sample = -1.0
+    word_region_samples = []
     scene_cuts = []
     frame_index = start_frame
     # max_samples enforced via parameter and uniform interval decimation
@@ -324,8 +325,11 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
         # host lacks Tesseract; never silently claim text coverage.
         if os.environ.get('SMART_REFRAME_SOURCE_TEXT_OCR', '') == '1' and time_sec-last_general_text_sample>=.49:
             from source_text_regions import source_text_regions
-            for region in source_text_regions(frame):
-                protected_content_regions.append({**region,'start':max(0,time_sec-.3),'end':min(effective_duration,time_sec+.8)})
+            regions=source_text_regions(frame,include_word_candidates=True)
+            word_region_samples.append({'time':time_sec,'regions':[r for r in regions if r['kind']=='ocr-word-candidate']})
+            for region in regions:
+                if region['kind']!='ocr-word-candidate':
+                    protected_content_regions.append({**region,'start':max(0,time_sec-.3),'end':min(effective_duration,time_sec+.8)})
             last_general_text_sample=time_sec
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -515,6 +519,11 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
 
     cap.release()
 
+    if word_region_samples:
+        from source_text_regions import persistent_word_regions
+        for region in persistent_word_regions(word_region_samples):
+            region['end']=min(effective_duration,region['end']);protected_content_regions.append(region)
+
     cut_evidence = []
     if os.environ.get('SMART_REFRAME_REFINE_CUTS', '') == '1' and scene_cuts:
         cut_evidence = refine_scene_cuts(video_path, scene_cuts, start_sec,
@@ -534,7 +543,7 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
     return {
         **({"person_detector": "nanodet-2022nov-sha256-" + __import__("person_regions").MODEL_SHA256} if person_detector else {}),
         "protected_content_regions": protected_content_regions,
-        "source_text_detector": "tesseract-local-multiword-review-v1" if os.environ.get("SMART_REFRAME_SOURCE_TEXT_OCR", "") == "1" else None,
+        "source_text_detector": "tesseract-local-lines-and-persistent-words-review-v2" if os.environ.get("SMART_REFRAME_SOURCE_TEXT_OCR", "") == "1" else None,
         "scene_cut_evidence": cut_evidence,
         "source_width": source_width,
         "source_height": source_height,
