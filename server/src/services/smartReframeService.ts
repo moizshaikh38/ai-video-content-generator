@@ -1,3 +1,4 @@
+import {adaptiveSceneEligible} from '../shared/adaptiveSceneEligibility.js';
 import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
 import {reframeTrackFreshness} from '../shared/reframeTrackFreshness.js';
 import {reviewMeasuredSplitSeams} from '../shared/measuredSplitSeamReview.js';
@@ -2958,7 +2959,7 @@ export class SmartReframeService {
             explicitMode:clip.crop_config?.layout_mode && (clip.crop_config as any).layout_mode_source !== 'genre_recommendation' ? clip.crop_config.layout_mode : undefined})
         : null;
       const {speaker1X,speaker2X} = resolvedLayout;
-      const adaptiveScenes = process.env.SMART_REFRAME_ADAPTIVE_SCENES === '1' && clip.aspect_ratio === '9:16' && !(clip.crop_config?.layout_mode && (clip.crop_config as any).layout_mode_source !== 'genre_recommendation');
+      const adaptiveScenes = adaptiveSceneEligible(clip,process.env.SMART_REFRAME_ADAPTIVE_SCENES === '1');
       const layoutMode = adaptiveScenes ? 'track' : contentDecision?.layoutMode ?? resolvedLayout.layoutMode;
 
       logger.info(
