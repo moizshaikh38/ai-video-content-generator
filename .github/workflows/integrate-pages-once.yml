@@ -31,7 +31,7 @@ jobs:
                   p=pathlib.Path(name)
                   p.parent.mkdir(parents=True,exist_ok=True)
                   p.write_bytes(z.read(name))
-          subprocess.run(['git','add','--',*expected],check=True)
+          subprocess.run(['git','add','-f','--',*expected],check=True)
           subprocess.run(['git','rm','--','1-vireo-pages-integrated-source.zip','.github/workflows/integrate-pages-once.yml'],check=True)
       - name: Commit integrated source only to backup preview branch
         run: |
