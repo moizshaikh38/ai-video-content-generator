@@ -610,14 +610,6 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const isUsingRenderedPreview = viewMode === 'export_review' && Boolean(renderedPreviewUrl);
   const targetVideoTime = useMemo(() => {
     if (isUsingRenderedPreview) return playhead;
-    const backdrop = backdropVideoRef.current;
-    if (backdrop && videoRef.current && Math.abs(backdrop.currentTime - videoRef.current.currentTime) > 0.3) {
-      backdrop.currentTime = videoRef.current.currentTime;
-    }
-    const splitBottom = splitBottomRef.current;
-    if (splitBottom && videoRef.current && Math.abs(splitBottom.currentTime - videoRef.current.currentTime) > 0.3) {
-      splitBottom.currentTime = videoRef.current.currentTime;
-    }
     if (activeVideoItems[0]) {
       const item = activeVideoItems[0];
       // Freeze-frame still: hold the exact source frame for the whole span.
@@ -762,18 +754,28 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     }
   }, [targetVideoTime, videoRef]);
 
-  // Mirror play/pause onto the auxiliary videos (split bottom half, blur
-  // backdrop): only the main element is driven by useEditorPlayback, and a
-  // never-played aux video freezes until the >0.3s drift corrector teleports
-  // it, which reads as a ~2fps slide show in split layout.
+  // Auxiliary views share the primary media clock, not React render cadence.
+  // A 300ms tolerance left split speakers visibly out of sync during playback.
   useEffect(() => {
-    for (const ref of [splitBottomRef, backdropVideoRef]) {
-      const v = ref.current;
-      if (!v) continue;
-      if (isPlaying && v.paused) v.play().catch(() => {});
-      else if (!isPlaying && !v.paused) v.pause();
-    }
-  }, [isPlaying]);
+    let frame = 0;
+    let disposed = false;
+    const sync = () => {
+      if (disposed) return;
+      const primary = videoRef.current;
+      if (primary) for (const ref of [splitBottomRef, backdropVideoRef]) {
+        const aux = ref.current;
+        if (!aux || aux.readyState < 1) continue;
+        const drift = Math.abs(aux.currentTime - primary.currentTime);
+        if (!aux.seeking && drift > (primary.paused ? 1 / 60 : 0.06)) aux.currentTime = primary.currentTime;
+        if (aux.playbackRate !== primary.playbackRate) aux.playbackRate = primary.playbackRate;
+        if (primary.paused || primary.ended) { if (!aux.paused) aux.pause(); }
+        else if (aux.paused && !primary.seeking) aux.play().catch(() => {});
+      }
+      frame = requestAnimationFrame(sync);
+    };
+    sync();
+    return () => { disposed = true; cancelAnimationFrame(frame); };
+  }, [videoRef, activeVideoSrc, primaryLayoutMode]);
 
   // Handle direct item manipulation dragging
   useEffect(() => {
@@ -1625,7 +1627,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
 
         {/* SPLIT LAYOUT: bottom speaker half (mirrors export's buildSplitPodcastFilter
             vstack: top = speaker1, bottom = speaker2). Synced to the main video
-            via splitBottomRef in targetVideoTime; same look chain + transform. */}
+            via the primary media clock; same look chain + transform. */}
         {primaryLayoutMode === 'split' && activeVideoSrc ? (
           <video
             ref={splitBottomRef}
