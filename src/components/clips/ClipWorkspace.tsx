@@ -738,7 +738,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                               {candidate.content_goal}
                             </span>
                           )}
-                          {visualScore !== undefined && (
+                          {typeof visualScore === 'number' && Number.isFinite(visualScore) && (
                             <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-mono text-zinc-300">
                               <Activity className="size-2.5 text-violet-400" />
                               {visualScore} Visual

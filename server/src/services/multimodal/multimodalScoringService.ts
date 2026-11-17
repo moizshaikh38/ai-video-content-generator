@@ -46,6 +46,7 @@ export interface ScoredCandidateResult {
   end_seconds: number;
   duration_seconds: number;
   vireo_score: number;
+  ranking_status:'heuristic'|'insufficient-evidence';
   explanation: VireoClipScoreExplanation;
   was_snapped: boolean;
 }
@@ -76,13 +77,19 @@ export class MultimodalScoringService {
     } = input;
 
     const genreProfile = incomingGenreProfile || GenreIntelligenceService.getGenreProfile('general');
+    const executionEvidence=timeline?.signal_evidence||unverifiedMultimodalSignals();
+    const silenceMeasured=executionEvidence.silence.status==='completed';
+    const overlapping=timeline?.segments.filter(segment=>Math.max(rawStart,segment.start)<Math.min(rawEnd,segment.end))||[];
+    const visualMeasured=executionEvidence.sceneCuts.status==='completed'&&overlapping.length>0&&overlapping.every(segment=>Number.isFinite(segment.visual_activity_score));
+    const audioMeasured=executionEvidence.audioVolume.status==='completed'&&silenceMeasured&&overlapping.length>0&&overlapping.every(segment=>Number.isFinite(segment.audio_energy_db));
+    const facesMeasured=executionEvidence.faces.status==='completed';
 
     // 1. Boundary snapping to silence pauses
     let start_seconds = rawStart;
     let end_seconds = rawEnd;
     let was_snapped = false;
 
-    if (timeline && timeline.silence_intervals.length > 0) {
+    if (timeline && silenceMeasured && timeline.silence_intervals.length > 0) {
       const snapStart = AudioFeatureService.snapBoundaryToSilence({
         targetSecond: rawStart,
         silenceIntervals: timeline.silence_intervals,
@@ -212,8 +219,8 @@ export class MultimodalScoringService {
       }
     }
     if (hook_score !== null) {
-      if (hasFaceInHook) hook_score = clampScore(hook_score + 8);
-      if (visualActivityScore >= 70) hook_score = clampScore(hook_score + 5);
+      if (facesMeasured && hasFaceInHook) hook_score = clampScore(hook_score + 8);
+      if (visualMeasured && visualActivityScore >= 70) hook_score = clampScore(hook_score + 5);
       if (hook && hook.length >= 10) hook_score = clampScore(hook_score + 4);
       if (gameplayAlignment) hook_score = clampScore(hook_score + (gameplayAlignment.corroborated ? 10 : 6));
     }
@@ -224,7 +231,7 @@ export class MultimodalScoringService {
     let standalone_score: number | null = hasBase(baseStandaloneScore) ? clampScore(baseStandaloneScore) : null;
     let contextPenaltyApplied = false;
     if (standalone_score !== null) {
-      if (hasCleanSilenceEnd) standalone_score = clampScore(standalone_score + 10);
+      if (silenceMeasured && hasCleanSilenceEnd) standalone_score = clampScore(standalone_score + 10);
       if (duration_seconds >= targetMin && duration_seconds <= targetMax) {
         standalone_score = clampScore(standalone_score + 8);
       } else if (duration_seconds < targetMin || duration_seconds > targetMax + 10) {
@@ -247,13 +254,13 @@ export class MultimodalScoringService {
 
     // Insight / Value Score
     let insight_score: number | null = hasBase(baseInsightScore) ? clampScore(baseInsightScore) : null;
-    if (insight_score !== null && hasOcrText) {
+    if (insight_score !== null && hasOcrText && timeline?.summary_metadata.ocr_status==='detected') {
       insight_score = clampScore(insight_score + 6); // visual slide or graphic reinforcing concept
     }
 
     // Visual Activity Score
     let visual_activity_score = visualActivityScore;
-    if (hasFaceOverall) visual_activity_score = Math.min(100, visual_activity_score + 6);
+    if (facesMeasured && hasFaceOverall) visual_activity_score = Math.min(100, visual_activity_score + 6);
 
     // Audio Energy Score
     let audio_energy_score = audioEnergyScore;
@@ -271,8 +278,8 @@ export class MultimodalScoringService {
       { label: 'hook', weight: weights.hook, value: hook_score },
       { label: 'standalone', weight: weights.standalone, value: standalone_score },
       { label: 'insight', weight: weights.insight, value: insight_score },
-      { label: 'visual', weight: weights.visual, value: visual_activity_score },
-      { label: 'audio', weight: weights.audio, value: audio_energy_score },
+      { label: 'visual', weight: weights.visual, value: visualMeasured?visual_activity_score:null },
+      { label: 'audio', weight: weights.audio, value: audioMeasured?audio_energy_score:null },
     ];
     const scoredDims = weightedDims.filter(
       (d): d is { label: string; weight: number; value: number } => d.value !== null
@@ -281,14 +288,15 @@ export class MultimodalScoringService {
     const baseWeighted =
       weightSum > 0
         ? scoredDims.reduce((acc, d) => acc + d.weight * d.value, 0) / weightSum
-        : 60;
+        : 0;
 
-    const overall_score = Math.round(baseWeighted * 0.90 + platform_fit_score * 0.10);
+    // Duration/platform heuristics alone must never mint a plausible winner.
+    const overall_score = weightSum>0?Math.round(baseWeighted * 0.90 + platform_fit_score * 0.10):0;
+    const ranking_status=weightSum>0?'heuristic' as const:'insufficient-evidence' as const;
 
     // 5. Generate Transparent Explainability Reasons
     const reasons: string[] = [];
 
-    const executionEvidence=timeline?.signal_evidence||unverifiedMultimodalSignals();
     // Genre-specific reason
     reasons.push(`Targeted for ${genreProfile.displayName}: ${genreProfile.selectionObjective}`);
 
@@ -314,7 +322,7 @@ export class MultimodalScoringService {
     if (hasCleanSilenceEnd && executionEvidence.silence.status==='completed') {
       reasons.push('The ending is near a detected silence interval; sentence completeness still needs review.');
     }
-    if(executionEvidence.sceneCuts.status==='completed'){
+    if(visualMeasured){
       reasons.push(`Scene-cut-derived activity heuristic: ${visual_activity_score}/100. This is not a viewer-attention measurement.`);
     }
     if (duration_seconds >= targetMin && duration_seconds <= targetMax) {
@@ -325,7 +333,7 @@ export class MultimodalScoringService {
     if (hasOcrText) {
       reasons.push('On-screen graphic text reinforces topic retention');
     }
-    if (audio_energy_score >= 75 && executionEvidence.audioVolume.status==='completed') {
+    if (audio_energy_score >= 75 && audioMeasured) {
       reasons.push(`Whole-source audio-volume-derived heuristic: ${audio_energy_score}/100. Speech clarity and candidate-local loudness are not measured here.`);
     }
 
@@ -378,21 +386,22 @@ export class MultimodalScoringService {
       hook_score,
       standalone_score,
       insight_score,
-      visual_activity_score,
-      audio_energy_score,
+      visual_activity_score:visualMeasured?visual_activity_score:null,
+      audio_energy_score:audioMeasured?audio_energy_score:null,
       platform_fit_score,
       reasons,
       platform_suitability,
     };
 
     reasons.push('Signal execution receipts describe extraction status only; source freshness, story completeness and listening quality are not verified.');
-    if(!timeline||Object.values(timeline.signal_evidence||unverifiedMultimodalSignals()).some(receipt=>receipt.status!=='completed'))reasons.push('Some visual/audio inputs are missing, partial or unverified; this legacy score may include numeric defaults.');
+    if(!timeline||Object.values(timeline.signal_evidence||unverifiedMultimodalSignals()).some(receipt=>receipt.status!=='completed'))reasons.push('Some visual/audio inputs are missing, partial or unverified. Unmeasured score dimensions are omitted from the weighted score.');
+    if(ranking_status==='insufficient-evidence')reasons.push('No supported weighted score dimensions are available. This candidate is unranked; the numeric storage sentinel is not a quality score.');
 
     // Transparency: record which LLM dimensions were missing so weight
     // redistribution is auditable from the stored explanation alone.
     for (const d of weightedDims) {
       if (d.value === null) {
-        reasons.push(`LLM did not return a ${d.label} subscore; its genre weight was redistributed across the scored dimensions.`);
+        reasons.push(`${['hook','standalone','insight'].includes(d.label)?'Provider subscore missing':'Signal measurement unavailable'}: ${d.label}. Its genre weight was omitted.`);
       }
     }
 
@@ -401,6 +410,7 @@ export class MultimodalScoringService {
       end_seconds,
       duration_seconds,
       vireo_score: overall_score,
+      ranking_status,
       explanation,
       was_snapped,
     };

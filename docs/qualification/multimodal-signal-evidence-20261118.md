@@ -46,3 +46,40 @@ UI pixel check, human selection benchmark, score reweighting, STT accuracy or
 E1 completion is claimed. Existing numeric defaults and legacy records remain
 explicit work for the next change. No spend, auth change, merge, deploy or 4K
 attempt occurred.
+
+## Follow-on: omit unmeasured dimensions
+
+The score now omits visual/audio dimensions unless their extraction receipts are
+completed and overlapping segment numbers are finite. Audio also requires a
+completed silence scan because that heuristic uses silence-derived density.
+Face/silence/visual bonuses to provider subscores are gated on their own receipts.
+Legacy numeric defaults do not count. Timeline fusion cannot certify its default
+volume if the actual volume argument was absent, even if a caller supplied a
+completed receipt.
+
+With no supported weighted dimensions, scoring returns insufficient-evidence and
+only a numeric storage sentinel of zero. Provider proposals with that status are
+persisted unranked with null public vireo_score, just like the separate review
+fallback display rule. A real provider subscore can still produce a heuristic
+ranking without imaginary sensor dimensions. The duration/platform term alone
+cannot mint a winner. This is not a probability or a calibrated quality score.
+
+Unknown visual/audio scores are null in explanations and displayed as '-' in the
+actual ClipWorkspace component. A 390px mobile and desktop mocked-data view was
+inspected. Its 80-point provider rank is explicitly harness data, not a measured
+ranking result; it demonstrates missing sensor scores, not real clip quality.
+The first visual inspection caught an empty Visual badge for null and the guard
+was fixed, then screenshots were recaptured and inspected.
+
+A real local Mongo selection test now also persists a provider proposal with no
+subscores/no sensor timeline as unranked, rather than a default-driven winner.
+The focused score/selection/Phase16/clip-quality set passed 44 tests. Both type
+checks passed; the selected baseline passed 88/88. The genre audio fixture now
+supplies explicitly declared synthetic extraction receipts and asserts the more
+honest audio-volume-derived explanation. Its numeric dynamic-energy checks pass;
+the unrelated 14-versus-12 genre-count failure remains (11 pass, 1 fail).
+
+Still open: exact source-version and transcript identity binding, independent
+human ranking benchmarks, detector accuracy/coverage, actual worker/provider
+end-to-end qualification and current platform-rule verification. Completed
+execution receipts still do not establish fresh or accurate source evidence.

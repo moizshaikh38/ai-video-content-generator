@@ -120,11 +120,11 @@ export const WhyThisClipSection: React.FC<WhyThisClipSectionProps> = ({
                 </div>
                 <div className="p-1.5 rounded-lg bg-white/[0.03] ">
                   <span className="text-vc-text-secondary block text-[9px]">Visual</span>
-                  <span className="font-bold text-vc-text-primary">{explanation.visual_activity_score}</span>
+                  <span className="font-bold text-vc-text-primary">{explanation.visual_activity_score ?? '-'}</span>
                 </div>
                 <div className="p-1.5 rounded-lg bg-white/[0.03] ">
                   <span className="text-vc-text-secondary block text-[9px]">Audio</span>
-                  <span className="font-bold text-zinc-200">{explanation.audio_energy_score}</span>
+                  <span className="font-bold text-zinc-200">{explanation.audio_energy_score ?? '-'}</span>
                 </div>
                 <div className="p-1.5 rounded-lg bg-white/[0.03] ">
                   <span className="text-vc-text-secondary block text-[9px]">Platform Fit</span>

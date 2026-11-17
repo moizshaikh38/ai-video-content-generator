@@ -1541,8 +1541,8 @@ export interface VireoClipScoreExplanation {
   hook_score: number | null;
   standalone_score: number | null;
   insight_score: number | null;
-  visual_activity_score: number; // 0–100
-  audio_energy_score: number; // 0–100
+  visual_activity_score: number | null; // omitted when unmeasured
+  audio_energy_score: number | null; // omitted when unmeasured
   platform_fit_score: number; // 0–100
   reasons: string[];
   platform_suitability: Record<OutputPlatform, PlatformFitDetail>;

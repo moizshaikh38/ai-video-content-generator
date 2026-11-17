@@ -1159,8 +1159,8 @@ export class ClipAnalysisService {
           metadata: {
             selection_origin: usedShortSourceFallback ? 'short-source-fallback' : 'provider-proposal',
             narrative_evidence_status: 'unreviewed',
-            ranking_status: usedShortSourceFallback ? 'unranked' : 'heuristic',
-            vireo_score: usedShortSourceFallback ? null : scored.vireo_score,
+            ranking_status: usedShortSourceFallback||scored.ranking_status==='insufficient-evidence' ? 'unranked' : 'heuristic',
+            vireo_score: usedShortSourceFallback||scored.ranking_status==='insufficient-evidence' ? null : scored.vireo_score,
             explanation: usedShortSourceFallback ? null : scored.explanation,
             genre: genreProfile.genre,
             layout_mode: genreProfile.recommendedLayoutMode || 'track',

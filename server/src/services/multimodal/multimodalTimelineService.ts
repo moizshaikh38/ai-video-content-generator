@@ -52,6 +52,9 @@ export class MultimodalTimelineService {
       ocrStatus = 'empty',
     } = options;
 
+    const signalEvidence=structuredClone(options.signalEvidence||unverifiedMultimodalSignals());
+    // A successful receipt cannot promote the fuser's compatibility fallback.
+    if(signalEvidence.audioVolume.status==='completed'&&!Number.isFinite(options.audioEnergyDb))signalEvidence.audioVolume={status:'unavailable',method:'missing-volume-measurement',scope:'whole-source'};
     const timelineSegments: MultimodalTimelineSegment[] = [];
 
     let totalVisualActivity = 0;
@@ -116,7 +119,7 @@ export class MultimodalTimelineService {
       segments.length > 0 ? Math.round(totalVisualActivity / segments.length) : 50;
 
     return {
-      signal_evidence:structuredClone(options.signalEvidence||unverifiedMultimodalSignals()),
+      signal_evidence:signalEvidence,
       project_id: projectId,
       duration_seconds: durationSeconds,
       scene_cuts: sceneCuts,
