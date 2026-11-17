@@ -528,6 +528,20 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
         </div>
       </div>
 
+      {/* Optional readability edit. Keep the reference preset and existing projects unchanged. */}
+      {resolvedStyle?.presetId === 'typewriter' && (
+        <div className="bg-vc-surface1 rounded-xl p-2.5 space-y-1.5">
+          <span className="text-[10px] text-vc-text-secondary block">White letters can disappear over bright footage.</span>
+          <button
+            type="button"
+            data-testid="typewriter-dark-edge"
+            onClick={() => onChange({ stroke_width: 3, stroke_color: '#000000' })}
+            className="text-[11px] text-white bg-white/10 hover:bg-white/20 rounded-lg px-2.5 py-1.5"
+          >Add dark edge</button>
+          <span className="text-[9px] text-vc-text-muted block">Adds a 3px black stroke. Adjust Stroke below or set it to 0 to remove.</span>
+        </div>
+      )}
+
       {/* Stroke Width & Shadow */}
       <div className="grid grid-cols-12 gap-1.5">
         {/* Stroke Width Slider */}
