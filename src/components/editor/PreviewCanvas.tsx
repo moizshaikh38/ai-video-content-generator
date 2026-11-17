@@ -1307,7 +1307,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           )}
           {onSetAutoCandidate && <button type="button" data-testid="auto-layout-candidate-toggle" aria-pressed={Boolean(autoCandidateEnabled)} onClick={()=>onSetAutoCandidate(!autoCandidateEnabled)}
             className="px-2 py-1 rounded-lg text-amber-200 hover:bg-white/10"
-            title="Review candidate for this clip. Tries measured head/shoulder Split and body-only framing. Manual edits keep priority. Text protection requires available analysis evidence; review before sharing.">
+            title="Review candidate for this clip. Tries measured head/shoulder Split and body-only framing. Manual edits and locked items keep priority. Text protection requires available analysis evidence; review before sharing.">
             Auto candidate: {autoCandidateEnabled?'ON · review':'OFF'}
           </button>}
           {automaticLayoutLabel?.includes('Fit') && <span className="text-[10px] text-amber-300" title="Fit uses a 4:3 sharp band. Side content may be cropped. Review before sharing.">4:3 Fit · check sides</span>}

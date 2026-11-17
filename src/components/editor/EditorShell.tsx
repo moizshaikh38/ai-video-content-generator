@@ -197,7 +197,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   const [extendCaptionNotice, setExtendCaptionNotice] = useState<string | null>(null);
   // Split-layout caption zones: reframe keyframes + measured speaker anchors
   // for the preview's export-parity caption attribution (speakerSplit).
-  const [speakerSplit, setSpeakerSplit] = useState<{
+  const [speakerSplitData, setSpeakerSplit] = useState<{
     keyframes: Array<{ time: number; centerX: number }>;
     speaker1X: number | null;
     speaker2X: number | null;
@@ -224,14 +224,18 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     analysisVersion?: number | null;
   } | null>(null);
   const autoCandidateEnabled=projectAutoCandidate(project);
+  const [stableShotComposition,setStableShotComposition]=useState<NonNullable<typeof speakerSplitData>['shotComposition']>(null);
+  const activeCandidateItem=project.tracks.find(t=>t.type==='VIDEO'&&!t.hidden)?.items.find(i=>!i.hidden&&currentTime>=i.timeline_start&&currentTime<i.timeline_end);
+  const activeCandidate=activeCandidateItem?.crop_config?.automaticLayoutCandidate==='review-v1';
+  const speakerSplit=speakerSplitData?{...speakerSplitData,shotComposition:activeCandidate?speakerSplitData.shotComposition:stableShotComposition}:null;
   useEffect(() => {
     let cancelled = false;
     setSpeakerSplit(null);
     if (!clip?.id) return;
-    clipRenderService
-      .getClipReframe(clip.id,autoCandidateEnabled)
-      .then((r) => {
+    Promise.all([clipRenderService.getClipReframe(clip.id,true),clipRenderService.getClipReframe(clip.id,false)])
+      .then(([r,stable]) => {
         if (cancelled) return;
+        setStableShotComposition(stable.status==='ready'&&!stable.isStale?stable.shotComposition??null:null);
         if (r.status === 'ready' && !r.isStale && Array.isArray(r.smoothedKeyframes) && r.smoothedKeyframes.length > 0) {
           setSpeakerSplit({
             keyframes: r.smoothedKeyframes.map((k) => ({ time: Number(k.time), centerX: Number(k.centerX) })),
@@ -256,7 +260,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [clip?.id,autoCandidateEnabled]);
+  }, [clip?.id]);
   // Non-destructive reason when an action is refused (e.g. locked followers).
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
