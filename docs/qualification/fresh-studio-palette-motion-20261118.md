@@ -45,3 +45,11 @@ Limited cyan-mask check in a central caption band:235frame pairs contain cyan in
 Evidence: `/downloads/vireo-compact-inter-verified-0332/{paired.mp4,contact.png,preview-states.json,cyan-bounds-measurement.json,outlier-contact.png}` and `/downloads/vireo-real-transcript-compact_creator-pro-inter-bold/actual-download.mp4`. Preset is still Compact Creator plus explicit Inter/bold override. No provider request, catalogue migration, main push or deployment. Default Compact Creator remains unqualified because its unbundled Arial Black can select different host faces. A future deliberate default/version choice requires its own review, not silent substitution.
 
 Fresh font/motion/default tests26/26pass; frontend/server types pass. Actual replica-set generated-Free fixture1/1also passes, including existing manual-editor preservation. Broad safe baseline remains415pass/6fail/1skip of422and does not include all these selected files.
+
+## House style and safe-suite checkpoint,0340IST
+
+Current `vireo_comic_default`(Bangers, without the Inter experiment) was rendered again from saved provider words, fresh editor initialization and actual Pro download.240frame pairs over0-4and18-22seconds were inspected through the paired video/contact: displayed phrases use matching Bangers letterforms, green final-word accent and yellow numbers. Actual browser font is bundled Bangers-Regular. Evidence `/downloads/vireo-house-default-verified-0336`. No new mismatch was observed in the displayed samples. Candidate interval/center crop remain manual; this is not accuracy, listening, full motion or multi-source qualification.
+
+Reusable `caption-motion-pair.py` now builds the exact two-window pair/contact/provenance from a full240-frame capture, refuses to overwrite earlier paired evidence, and verifies recorded seek times first. It produces evidence, never a parity verdict.
+
+The broad safe suite's stale source-text wiring assertions were updated to the current verified-source-digest render call and stored-plan source-anchor fallback. This is test-maintenance, not another product-quality fix. Fresh broad result422tests:416pass,5fail,1skip. Remaining failures are the previously tracked scoring/genre expectations. New focused caption/source/audio files still require explicit commands because test:safe is an enumerated list. No all-green claim.
