@@ -1,3 +1,4 @@
+import { projectClippingFailure, transcriptReviewRequired } from '../lib/clippingRecovery';
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { BTN_PILL_BRAND_SOFT } from '../lib/buttonStyles';
@@ -191,7 +192,7 @@ export const ProjectDetailPage: React.FC = () => {
       // Load current content outputs from the backend
       const realOutputs = await projectService.fetchContentOutputs(id);
       if (realOutputs) setOutputs(realOutputs);
-    } else if (p?.transcript_quality_status === 'needs_review') {
+    } else if (p && transcriptReviewRequired(projectClippingFailure(p))) {
       // Reading flagged text does not approve it or bypass the export gate.
       setTranscript(await projectService.fetchTranscript(id));
     } else {
@@ -254,7 +255,7 @@ export const ProjectDetailPage: React.FC = () => {
   }, [id, project?.video_status, project?.status]);
 
   const handleRetryProcessing = async () => {
-    if (!id) return;
+    if (!id || (project && transcriptReviewRequired(projectClippingFailure(project)))) return;
     setIsRetrying(true);
     setActionError(null);
     setQuotaError(null);
@@ -303,7 +304,7 @@ export const ProjectDetailPage: React.FC = () => {
   const isUrl = project.source_type === 'url';
   const statusVal = project.video_status || project.status;
   const isUploaded = statusVal === 'uploaded';
-  const transcriptNeedsReview = project.transcript_quality_status === 'needs_review';
+  const transcriptNeedsReview = transcriptReviewRequired(projectClippingFailure(project));
   const hasOutputs = outputs && outputs.length > 0;
 
 
@@ -412,7 +413,7 @@ export const ProjectDetailPage: React.FC = () => {
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <Button
+            {!transcriptNeedsReview && <Button
               variant="primary"
               disabled={isRetrying}
               onClick={handleRetryProcessing}
@@ -429,11 +430,21 @@ export const ProjectDetailPage: React.FC = () => {
                   Retry Processing
                 </>
               )}
-            </Button>
+            </Button>}
             <Button variant="outline" asChild>
               <Link to="/dashboard">Try New Video</Link>
             </Button>
           </div>
+          {transcriptNeedsReview && <p className="text-sm text-amber-200" role="status">
+            Check the source audio and transcript below. Reading or copying text does not verify it.
+            No automatic retry will run. A new transcription requires a separate decision and credit estimate.
+          </p>}
+          {transcriptNeedsReview && (videoPreviewUrl ? (
+            <div className="text-left space-y-2">
+              <p className="text-sm text-zinc-300">Source audio and video for review</p>
+              <video controls preload="metadata" src={videoPreviewUrl} className="w-full max-h-80 rounded-xl bg-black" />
+            </div>
+          ) : <p className="text-sm text-zinc-400">Source playback is unavailable. Do not treat this transcript as verified without checking the original video.</p>)}
           {transcriptNeedsReview && transcript && (
             <div className="text-left" data-testid="flagged-transcript-readonly">
               <p className="mb-3 text-sm text-amber-200">Unverified transcript. Reading or copying it does not clear the export block.</p>

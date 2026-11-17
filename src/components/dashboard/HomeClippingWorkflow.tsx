@@ -34,7 +34,7 @@ import { clipService } from '../../services/clipService';
 import { clipRenderService } from '../../services/clipRenderService';
 import { CreditService, CreditBalanceSummary, CreditEstimate } from '../../services/creditService';
 import { CostTransparencySummary } from '../credits/CostTransparencySummary';
-import { clippingStartErrorMessage } from '../../lib/clippingRecovery';
+import { clippingStartErrorMessage, projectClippingFailure, transcriptReviewRequired, type ClippingFailure } from '../../lib/clippingRecovery';
 import { triggerBrowserDownload } from '../../utils/downloadUtils';
 import { useAuth } from '../../context/AuthContext';
 import { Project, ClipCandidate, RenderedClip, ClipPreferences } from '../../types';
@@ -177,7 +177,17 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [processingStageMessage, setProcessingStageMessage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessageValue] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  const setErrorMessage = (message: string | null) => {
+    setErrorMessageValue(message);
+    setErrorCode(null);
+  };
+  const setClippingFailure = (failure: ClippingFailure) => {
+    setErrorMessageValue(clippingStartErrorMessage(failure));
+    setErrorCode(failure.code || null);
+  };
+  const needsTranscriptReview = transcriptReviewRequired({ code: errorCode });
 
   // Results state
   const [candidates, setCandidates] = useState<ClipCandidate[]>([]);
@@ -285,7 +295,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             loadResults(proj.id, isReview);
           } else if (status === 'failed') {
             setWorkflowState('error');
-            setErrorMessage(proj.error_message || 'Previous clipping job failed. You can retry processing.');
+            setClippingFailure(projectClippingFailure(proj));
           }
         }).catch(() => {
           localStorage.removeItem(STORAGE_KEY);
@@ -375,7 +385,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         } else if (status === 'failed') {
           clearInterval(interval);
           setWorkflowState('error');
-          setErrorMessage(proj.error_message || 'Processing failed on the server. Please check your video or retry.');
+          setClippingFailure(projectClippingFailure(proj));
         }
       } catch (err: any) {
         // Polling failure, will retry next interval
@@ -482,7 +492,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       window.dispatchEvent(new CustomEvent('vireo_credit_updated'));
     } catch (err: any) {
       setWorkflowState('error');
-      setErrorMessage(err.message || 'Failed to extract viral clips.');
+      setClippingFailure(err);
     }
   };
 
@@ -657,7 +667,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   // -------------------------------------------------------------
 
   const handleGenerateClips = async () => {
-    if (isSubmitting || !selectedSource || isCreditEstimateLoading || !creditEstimate?.has_sufficient_credits) return;
+    if (needsTranscriptReview || isSubmitting || !selectedSource || isCreditEstimateLoading || !creditEstimate?.has_sufficient_credits) return;
 
     if (!user) {
       setErrorMessage('Please sign in to generate clips with AI.');
@@ -786,7 +796,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       }
     } catch (err: any) {
       loadWalletBalance();
-      setErrorMessage(clippingStartErrorMessage(err));
+      setClippingFailure(err);
       setWorkflowState('error');
     } finally {
       setIsSubmitting(false);
@@ -1892,7 +1902,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
             <div className="space-y-1">
               <h2 className="text-lg font-bold text-vc-text-primary">
-                Unable to complete video clipping
+                {needsTranscriptReview ? 'Review the transcript before continuing' : 'Unable to complete video clipping'}
               </h2>
               <p className="text-xs sm:text-sm text-destructive leading-relaxed">
                 {errorMessage || 'An unexpected error occurred during processing.'}
@@ -1901,7 +1911,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           </div>
 
           {/* Direct upload is a recovery only while URL ingestion is unresolved. */}
-          {selectedSource?.type === 'url' && <div className="p-3.5 rounded-xl bg-white/[0.03] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-vc-text-secondary">
+          {!needsTranscriptReview && selectedSource?.type === 'url' && <div className="p-3.5 rounded-xl bg-white/[0.03] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-vc-text-secondary">
             <div className="space-y-0.5">
               <div className="font-semibold text-vc-text-primary flex items-center gap-1.5">
                 <UploadCloud className="size-3.5 text-zinc-200" />
@@ -1920,14 +1930,22 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             </button>
           </div>}
 
-          {selectedSource?.type === 'project' && activeProjectStatus === 'uploaded' && (
+          {!needsTranscriptReview && selectedSource?.type === 'project' && activeProjectStatus === 'uploaded' && (
             <p className="text-xs text-vc-text-secondary">
               Your source upload is saved. Retry processing without uploading the video again.
             </p>
           )}
 
+          {needsTranscriptReview && <p className="text-xs text-vc-text-secondary" role="status">
+            No automatic retry will run from this screen. Opening the project does not approve its transcript or start a new transcription.
+          </p>}
           <div className="pt-2 flex flex-wrap items-center gap-3">
-            {selectedSource && (
+            {needsTranscriptReview && activeProjectId && <button type="button"
+              onClick={() => navigate(`/projects/${encodeURIComponent(activeProjectId)}`)}
+              className={`px-5 py-2.5 text-xs font-semibold cursor-pointer ${BTN_PILL_BRAND}`}>
+              Open Project for Review
+            </button>}
+            {selectedSource && !needsTranscriptReview && (
               <button
                 type="button"
                 onClick={handleGenerateClips}

@@ -26,6 +26,7 @@ class ProjectService {
       source_type: row.source_type || 'upload', source_url: row.source_url || null,
       video_url: row.source_url || null, notes: row.notes || '',
       clip_preferences: row.clip_preferences,
+      error_code: row.error_code ?? null,
       duration_seconds: row.duration_seconds ?? null,
       metadata: row.metadata ?? null,
       retention_policy: row.retention_policy ?? null,
