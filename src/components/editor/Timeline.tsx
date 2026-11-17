@@ -703,6 +703,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             {/* RULER */}
             <div
               ref={rulerRef}
+              aria-label="Timeline ruler"
               onClick={handleRulerClick}
               className="h-7 border-b border-white/[0.07] bg-vc-surface1/80 sticky top-0 z-30 cursor-pointer overflow-hidden relative"
             >

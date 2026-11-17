@@ -1467,6 +1467,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
         <div
           ref={canvasContainerRef}
           data-testid="preview-layout-canvas"
+          data-automatic-shot-start={activeAutomaticShot?.start}
+          data-automatic-shot-kind={activeAutomaticShot?.kind}
           onContextMenu={e=>{if(!onPickSceneLayout||!baseVideoItem||baseVideoItem.locked)return;e.preventDefault();e.stopPropagation();setLayoutAnchor(new DOMRect(e.clientX,e.clientY,1,1));}}
           style={{
             width: canvasDims.width,
