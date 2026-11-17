@@ -1,0 +1,767 @@
+{
+  "count": 38,
+  "noneExcluded": true,
+  "claim": "Every current renderable ID has individually inspected actual sparse preview/export pairs, NOT every style fixed/approved",
+  "presets": [
+    {
+      "id": "karaoke",
+      "artifactRoot": "/downloads/vireo-catalogue-karaoke-after-0509",
+      "pairs": "/downloads/vireo-catalogue-karaoke-after-0509-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-karaoke-after-0509/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "deep_diver",
+      "artifactRoot": "/downloads/vireo-catalogue-deep_diver-baseline-0507",
+      "pairs": "/downloads/vireo-catalogue-deep_diver-baseline-0507-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-deep_diver-baseline-0507/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "youshaei",
+      "artifactRoot": "/downloads/vireo-catalogue-youshaei-current-0525",
+      "pairs": "/downloads/vireo-catalogue-youshaei-current-0525-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-youshaei-current-0525/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "simple",
+      "artifactRoot": "/downloads/vireo-catalogue-simple-baseline-0507",
+      "pairs": "/downloads/vireo-catalogue-simple-baseline-0507-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-simple-baseline-0507/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "beasty",
+      "artifactRoot": "/downloads/vireo-catalogue-beasty-after-0509",
+      "pairs": "/downloads/vireo-catalogue-beasty-after-0509-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-beasty-after-0509/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "mozi",
+      "artifactRoot": "/downloads/vireo-catalogue-mozi-after-0509",
+      "pairs": "/downloads/vireo-catalogue-mozi-after-0509-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-mozi-after-0509/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "popline",
+      "artifactRoot": "/downloads/vireo-catalogue-popline-baseline-0507",
+      "pairs": "/downloads/vireo-catalogue-popline-baseline-0507-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-popline-baseline-0507/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "think_media",
+      "artifactRoot": "/downloads/vireo-catalogue-think_media-boxreset-0519",
+      "pairs": "/downloads/vireo-catalogue-think_media-boxreset-0519-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-think_media-boxreset-0519/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "editorial",
+      "artifactRoot": "/downloads/vireo-catalogue-editorial-baseline-0517",
+      "pairs": "/downloads/vireo-catalogue-editorial-baseline-0517-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-editorial-baseline-0517/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "bold_highlight",
+      "artifactRoot": "/downloads/vireo-catalogue-bold_highlight-after-0509",
+      "pairs": "/downloads/vireo-catalogue-bold_highlight-after-0509-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-bold_highlight-after-0509/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "soft_backdrop",
+      "artifactRoot": "/downloads/vireo-catalogue-soft_backdrop-boxreset-0519",
+      "pairs": "/downloads/vireo-catalogue-soft_backdrop-boxreset-0519-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-soft_backdrop-boxreset-0519/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "compact_creator",
+      "artifactRoot": "/downloads/vireo-catalogue-compact_creator-current-0525",
+      "pairs": "/downloads/vireo-catalogue-compact_creator-current-0525-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-compact_creator-current-0525/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "two_color_highlight",
+      "artifactRoot": "/downloads/vireo-catalogue-two_color_highlight-after-0509",
+      "pairs": "/downloads/vireo-catalogue-two_color_highlight-after-0509-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-two_color_highlight-after-0509/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "vireo_oneword",
+      "artifactRoot": "/downloads/vireo-catalogue-vireo_oneword-after-0514",
+      "pairs": "/downloads/vireo-catalogue-vireo_oneword-after-0514-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-vireo_oneword-after-0514/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "vireo_pill",
+      "artifactRoot": "/downloads/vireo-catalogue-vireo_pill-after-0514",
+      "pairs": "/downloads/vireo-catalogue-vireo_pill-after-0514-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-vireo_pill-after-0514/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Active word box geometry/rounding remains different.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "vireo_lime",
+      "artifactRoot": "/downloads/vireo-catalogue-vireo_lime-after-0514",
+      "pairs": "/downloads/vireo-catalogue-vireo_lime-after-0514-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-vireo_lime-after-0514/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Active word box geometry/rounding remains different.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "vireo_hormozi",
+      "artifactRoot": "/downloads/vireo-catalogue-vireo_hormozi-after-0514",
+      "pairs": "/downloads/vireo-catalogue-vireo_hormozi-after-0514-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-vireo_hormozi-after-0514/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "vireo_clean",
+      "artifactRoot": "/downloads/vireo-catalogue-vireo_clean-baseline-0517",
+      "pairs": "/downloads/vireo-catalogue-vireo_clean-baseline-0517-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-vireo_clean-baseline-0517/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Light text loses contrast on bright explosion; unchanged.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "vireo_spring",
+      "artifactRoot": "/downloads/vireo-catalogue-vireo_spring-after-0514",
+      "pairs": "/downloads/vireo-catalogue-vireo_spring-after-0514-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-vireo_spring-after-0514/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "vireo_neon",
+      "artifactRoot": "/downloads/vireo-catalogue-vireo_neon-after-0514",
+      "pairs": "/downloads/vireo-catalogue-vireo_neon-after-0514-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-vireo_neon-after-0514/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "vireo_capsule",
+      "artifactRoot": "/downloads/vireo-catalogue-vireo_capsule-boxreset-0519",
+      "pairs": "/downloads/vireo-catalogue-vireo_capsule-boxreset-0519-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-vireo_capsule-boxreset-0519/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Square per-line box remains, not a newly joined rounded capsule.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "vireo_editorial",
+      "artifactRoot": "/downloads/vireo-catalogue-vireo_editorial-boxreset-0519",
+      "pairs": "/downloads/vireo-catalogue-vireo_editorial-boxreset-0519-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-vireo_editorial-boxreset-0519/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Square per-line box remains; full motion/tracking reference not qualified.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "vireo_sweep",
+      "artifactRoot": "/downloads/vireo-catalogue-vireo_sweep-baseline-0517",
+      "pairs": "/downloads/vireo-catalogue-vireo_sweep-baseline-0517-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-vireo_sweep-baseline-0517/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "word_cut",
+      "artifactRoot": "/downloads/vireo-catalogue-word_cut-baseline-0521",
+      "pairs": "/downloads/vireo-catalogue-word_cut-baseline-0521-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-word_cut-baseline-0521/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Light white glyphs lose contrast over bright shot; still geometry agreement is not readability approval.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "soft_build",
+      "artifactRoot": "/downloads/vireo-catalogue-soft_build-baseline-0521",
+      "pairs": "/downloads/vireo-catalogue-soft_build-baseline-0521-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-soft_build-baseline-0521/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Export shadow visibly darker than preview in bright shot. Reveal branch global ASS alpha overrides shadow opacity; diagnosis to test, not fixed.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "typewriter",
+      "artifactRoot": "/downloads/vireo-catalogue-typewriter-baseline-0521",
+      "pairs": "/downloads/vireo-catalogue-typewriter-baseline-0521-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-typewriter-baseline-0521/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Sampled partial characters/caret agree; white text low contrast over bright explosion; full reveal timing not qualified.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "soft_cut",
+      "artifactRoot": "/downloads/vireo-catalogue-soft_cut-baseline-0521",
+      "pairs": "/downloads/vireo-catalogue-soft_cut-baseline-0521-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-soft_cut-baseline-0521/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Light cream glyphs have weak contrast over explosion; shadow still differences need closer diagnosis.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "retro_3d",
+      "artifactRoot": "/downloads/vireo-catalogue-retro_3d-baseline-0521",
+      "pairs": "/downloads/vireo-catalogue-retro_3d-baseline-0521-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-retro_3d-baseline-0521/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "crossline",
+      "artifactRoot": "/downloads/vireo-catalogue-crossline-baseline-0521",
+      "pairs": "/downloads/vireo-catalogue-crossline-baseline-0521-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-crossline-baseline-0521/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Light glyphs weak against explosion; two-line states sampled, rolling transition not qualified.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "with_backdrop",
+      "artifactRoot": "/downloads/vireo-catalogue-with_backdrop-baseline-0521",
+      "pairs": "/downloads/vireo-catalogue-with_backdrop-baseline-0521-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-with_backdrop-baseline-0521/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "glide",
+      "artifactRoot": "/downloads/vireo-catalogue-glide-baseline-0523",
+      "pairs": "/downloads/vireo-catalogue-glide-baseline-0523-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-glide-baseline-0523/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "chip_background",
+      "artifactRoot": "/downloads/vireo-catalogue-chip_background-baseline-0523",
+      "pairs": "/downloads/vireo-catalogue-chip_background-baseline-0523-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-chip_background-baseline-0523/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "vireo_prism_stamp",
+      "artifactRoot": "/downloads/vireo-catalogue-vireo_prism_stamp-baseline-0523",
+      "pairs": "/downloads/vireo-catalogue-vireo_prism_stamp-baseline-0523-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-vireo_prism_stamp-baseline-0523/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "vireo_echo_slide",
+      "artifactRoot": "/downloads/vireo-catalogue-vireo_echo_slide-baseline-0523",
+      "pairs": "/downloads/vireo-catalogue-vireo_echo_slide-baseline-0523-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-vireo_echo_slide-baseline-0523/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "White phrase low contrast over explosion; sampled echo offsets only, not temporal acceptance.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "vireo_comic_punch",
+      "artifactRoot": "/downloads/vireo-catalogue-vireo_comic_punch-baseline-0523",
+      "pairs": "/downloads/vireo-catalogue-vireo_comic_punch-baseline-0523-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-vireo_comic_punch-baseline-0523/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "vireo_comic_default",
+      "artifactRoot": "/downloads/vireo-catalogue-vireo_comic_default-baseline-0523",
+      "pairs": "/downloads/vireo-catalogue-vireo_comic_default-baseline-0523-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-vireo_comic_default-baseline-0523/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "vireo_comic_red_green",
+      "artifactRoot": "/downloads/vireo-catalogue-vireo_comic_red_green-baseline-0523",
+      "pairs": "/downloads/vireo-catalogue-vireo_comic_red_green-baseline-0523-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-vireo_comic_red_green-baseline-0523/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "These sample times contain no numbers, so red number color is not exercised.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    },
+    {
+      "id": "vireo_comic_violet_white",
+      "artifactRoot": "/downloads/vireo-catalogue-vireo_comic_violet_white-baseline-0523",
+      "pairs": "/downloads/vireo-catalogue-vireo_comic_violet_white-baseline-0523-ui/pairs.png",
+      "actualMp4": "/downloads/vireo-catalogue-vireo_comic_violet_white-baseline-0523/actual-download.mp4",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "inspected": true,
+      "sourceSha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d",
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "actualJobUploadDownload": true,
+      "scope": "Local auth/entitlement/storage/encoder doubles; sparse stills only",
+      "remaining": "Full-duration/multisource motion, reference fidelity, typography/readability acceptance remain open.",
+      "fullStyleApproved": false,
+      "referenceParityApproved": false
+    }
+  ]
+}

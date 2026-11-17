@@ -1,0 +1,9 @@
+# Current caption catalogue, sparse actual-output inventory
+
+All 38 current renderable IDs, excluding None, now have an individual current actual normal Pro creation/render-job/local object-upload/signed-download output and three inspected PreviewCanvas/export pairs at .267/1.667/19.1 seconds. The JSON inventory records exact per-ID evidence roots and unresolved notes. This closes only sparse catalogue evidence coverage, not preset improvement, full temporal quality, reference fidelity or release acceptance.
+
+The same unchanged real-provider transcript and source are used, with manual whole-source selection and center crop, local auth/entitlement/storage/encoder doubles. No recognition accuracy, autonomous composition, listening, real account storage or default-route claim. Comic Red+Green sample times do not exercise number color. Thirteen fresh font mismatches corrected separately; box reset corrected separately. Original negatives preserved.
+
+Unchanged specialized candidates were individually re-rendered and inspected, not approved from pre-existing tests. White/light candidates including Word Cut, Soft Build, Typewriter, Soft Cut, Crossline, Clean and Echo Slide visibly have weak contrast against the explosion. Soft Build export shadow is visibly darker than preview. Source diagnosis: reveal path emits global ASS alpha tags to reveal words, which also overrides the style shadow alpha. This likely explains the opaque shadow; requires isolated regression and actual rerender before calling it fixed. No repair to this path in this checkpoint.
+
+Pill/Lime box geometry remains different, Capsule remains square per-line rather than joined rounded, heavy strokes and tight spacing remain in several styles. Three samples do not qualify spring, karaoke sweep, moving highlights, reveal cadence, comic/echo/stamp timing, between-sample collisions, or full source playback. Independent source references and listening remain required.
