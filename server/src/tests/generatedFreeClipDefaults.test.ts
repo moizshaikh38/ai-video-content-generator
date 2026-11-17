@@ -38,6 +38,10 @@ test('fresh generated Free defaults accept verified fixture decisions and preser
   assert.equal(EntitlementService.isPresetAllowed(e,'karaoke'),false);assert.equal(EntitlementService.isFeatureAllowed(e,'smartReframe'),false);
   const ep=(ProEditorService as any).buildInitialProject(clip,uid,null,null,{clip_id:clip.id});
   assert.equal(ep.tracks.find((t:any)=>t.type==='CAPTION').items[0].caption.style,NEW_CAPTION_PRESET_ID);
+  const captionItem=ep.tracks.find((t:any)=>t.type==='CAPTION').items[0];
+  captionItem.caption={...captionItem.caption,font_family:'Arial',font_size:73,highlight_color:'#123456',animation:'none'};
+  const manualBefore=JSON.stringify(captionItem.caption);await db.collection('editor_projects').insertOne(ep);
+  const existing=await ProEditorService.getOrCreateEditorProject(clip.id,uid);assert.equal(JSON.stringify(existing.tracks.find((t:any)=>t.type==='CAPTION')!.items[0].caption),manualBefore,'existing manual editor must not be reinitialized');
   // Fit is the existing product 4:3 sharp band on blur, not full-source retention.
   assert.equal(ep.tracks.find((t:any)=>t.type==='VIDEO').items[0].crop.mode,'blur');
   assert.equal(ep.tracks.find((t:any)=>t.type==='VIDEO').items[0].crop.band,'4:3');
@@ -47,5 +51,5 @@ test('fresh generated Free defaults accept verified fixture decisions and preser
   const clipsBefore=await db.collection('clips').countDocuments({user_id:uid});
   await createProjectClip({user:{id:uid,email:'free-generated@test.invalid'},params:{id:pid},body:{candidateId:legacyId}} as any,res);
   assert.equal(status,409);assert.equal(body.code,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');assert.equal(await db.collection('clips').countDocuments({user_id:uid}),clipsBefore);
- }finally{ClipRenderService.createClipFromCandidate=orig;for(const col of ['projects','transcripts','clip_candidates','clips','render_jobs','credit_wallets','credit_transactions'])await db.collection(col).deleteMany({user_id:uid});await closeMongo();Object.assign(config,storageBefore);await new Promise<void>(r=>storage.close(()=>r()))}
+ }finally{ClipRenderService.createClipFromCandidate=orig;for(const col of ['projects','transcripts','clip_candidates','clips','render_jobs','editor_projects','credit_wallets','credit_transactions'])await db.collection(col).deleteMany({user_id:uid});await closeMongo();Object.assign(config,storageBefore);await new Promise<void>(r=>storage.close(()=>r()))}
 });

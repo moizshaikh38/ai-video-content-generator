@@ -2663,7 +2663,6 @@ export class ProEditorService {
             position: clip.caption_position || 'bottom',
             ...freshEditorCaptionAppearance(captionStyle, clip.caption_config, aspectRatio),
             ...(producerPlan?.operations.find((o) => o.type === 'CAPTION_EMPHASIS' && o.enabled)?.parameters.highlight_color ? {highlight_color: producerPlan.operations.find((o) => o.type === 'CAPTION_EMPHASIS' && o.enabled)!.parameters.highlight_color} : {}),
-            ...(captionStyle===NEW_CAPTION_PRESET_ID ? {font_family:'Bangers',font_size:136,animation:'none',box_enabled:false} : {}),
           },
           effects: [],
           keyframes: [],
