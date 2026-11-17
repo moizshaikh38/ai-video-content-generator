@@ -53,3 +53,13 @@ test('normal Quick composition binds current source/config and never swallows it
   const manual=await R.resolveReframeDecision({...clip,crop_config:{mode:'manual',focusX:.3,focusY:.4}},6);assert.equal(manual.mode,'manual');
  }finally{S.getReframeTrack=old;}
 });
+
+test('recorded millisecond analyzer duration remains separate from exact source bounds',async()=>{
+ const {acceptItemAutomaticPlan}=await import('../shared/itemAutomaticPlan.js');
+ const c=context();c.track.metadata.analyzed_source_end=16.0004;
+ const r=resolveMeasuredItemPlan({...item(),source_end:16.0004},c,compute);assert.equal(r.status,'ready');
+ if(r.status==='ready'){assert.equal(r.identity.analysisSourceEnd,16.0004);assert.equal(r.identity.sourceEnd,16.0004);assert.equal(r.identity.analysisDuration,6);assert.ok(acceptItemAutomaticPlan(r,r.identity));assert.equal(acceptItemAutomaticPlan(r,{...r.identity,analysisDuration:6.0001}),null);}
+ const wrong=context();wrong.track.metadata.analyzed_source_end=16.002;assert.equal(resolveMeasuredItemPlan(item(),wrong,compute).status,'unavailable');
+ // Duration precision never permits an item beyond the actual analyzed bound.
+ assert.equal(resolveMeasuredItemPlan({...item(),source_end:16.0008},c,compute).status,'unavailable');
+});
