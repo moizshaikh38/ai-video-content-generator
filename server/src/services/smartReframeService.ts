@@ -1,3 +1,4 @@
+import {movingBodyPortraitProposal} from '../shared/movingBodyPortraitProposal.js';
 import {adaptiveSceneEligible} from '../shared/adaptiveSceneEligibility.js';
 import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
 import {reframeTrackFreshness} from '../shared/reframeTrackFreshness.js';
@@ -1649,7 +1650,8 @@ export class SmartReframeService {
         split:{speaker1X:.25,speaker2X:.75,dividerX:.5,focusPanels:pairFocus.panels},
         contextStatus:'unresolved-review-required' as const,uncertainty:'Two persistent measured faces with bounded head/shoulder views. '+(pairFocus.changed?'Geometry adjusted to avoid measured competing-person fragments. ':'')+'Hands, side objects, screen content, speaker dominance and scene meaning remain unverified.'} : null;
       const bodyOnly=options.bodyOnlyPortraitReview&&options.windowScope==='shot'&&!originalShot.split?bodyOnlyPortraitProposal(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight,[...(options.protectedContentRegions||[]),...(objectRegions.get(originalShot)||[])]):null;
-      const shot:ReturnType<typeof SmartReframeService.computeShotComposition>[number]=focusShot||compactPair||closeup||bodyOnly||originalShot;
+      const movingBody=options.bodyOnlyPortraitReview&&options.windowScope==='shot'&&!originalShot.split&&!bodyOnly?movingBodyPortraitProposal(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight,[...(options.protectedContentRegions||[]),...(objectRegions.get(originalShot)||[])]):null;
+      const shot:ReturnType<typeof SmartReframeService.computeShotComposition>[number]=focusShot||compactPair||closeup||bodyOnly||movingBody||originalShot;
       if (options.automaticFitAspect !== '4:3' || shot.split || shot.contextStatus==='unresolved-preserved' || shot.contextStatus==='crowd-preserved') return shot;
       const maxWidth = shot.windowH * (4/3) * sourceHeight/sourceWidth;
       if (shot.windowW <= maxWidth) return shot;
