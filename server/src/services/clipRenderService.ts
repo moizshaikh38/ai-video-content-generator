@@ -1,3 +1,4 @@
+import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 import {candidateCompositionOptions} from '../shared/automaticLayoutCandidate.js';
 import {legacyFit43Plan,legacyPolicyFallback} from '../shared/automaticLayoutPolicy.js';
 import {storedScenePlanWindow} from '../shared/storedScenePlanWindow.js';
@@ -1615,8 +1616,7 @@ export class ClipRenderService {
               })
             : null;
         if (targetLayout === 'track' && (clip.aspect_ratio === '9:16' || !clip.aspect_ratio) && track.metadata?.shot_composition_candidate === true) {
-          const plan = SmartReframeService.computeShotComposition({...candidateCompositionOptions(clip.crop_config?.automaticLayoutCandidate),layoutPolicy:clip.crop_config?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
-            duration:durationSec,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
+          const plan = SmartReframeService.computeShotComposition(shotPlanOptions({track,candidate:clip.crop_config?.automaticLayoutCandidate,layoutPolicy:clip.crop_config?.layoutPolicy,duration:durationSec}));
           if (plan.length) return {cropFilter:SmartReframeService.buildShotCompositionFilter({plan,duration:durationSec,
             sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,canvasScale}),mode:'smart',
             metadata:{layout_mode:'track',shot_composition_candidate:true},layoutMode:'track',track};

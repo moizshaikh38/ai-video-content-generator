@@ -1,3 +1,4 @@
+import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 import {validateAutomaticLayoutCropConfig} from '../shared/automaticLayoutValidation.js';
 import {normalizeEditorCanvasAspect} from '../shared/editorCanvasAspect.js';
 import {candidateCompositionOptions} from '../shared/automaticLayoutCandidate.js';
@@ -1217,8 +1218,7 @@ export class ProEditorService {
    */
   private static resolveShotCompositionPlan(item:EditorTrackItem,reframe:ProReframeContext){
     const track=reframe.track!;
-    return SmartReframeService.computeShotComposition({...candidateCompositionOptions(item.crop_config?.automaticLayoutCandidate),layoutPolicy:item.crop_config?.layoutPolicy||reframe?.cropConfig?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:(track as any).raw_samples,sceneCuts:track.metadata.scene_cuts,
-          duration:Number(track.metadata.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
+    return SmartReframeService.computeShotComposition(shotPlanOptions({track,candidate:item.crop_config?.automaticLayoutCandidate,layoutPolicy:item.crop_config?.layoutPolicy||reframe?.cropConfig?.layoutPolicy,duration:Number(track.metadata.clip_duration)}));
   }
 
   /** Bounded adaptive scene contract: same measured shot plan as picture export.
@@ -1241,7 +1241,7 @@ export class ProEditorService {
       const track=reframe.track;
       project={...project,tracks:project.tracks.map(t=>t.type!=='VIDEO'?t:{...t,items:t.items.map(item=>{
         if((item as any)._tracker_handoff||!item.tracker?.enabled||item.scene_layout_overrides?.length)return item;
-        const plan=SmartReframeService.computeShotComposition({...candidateCompositionOptions(item.crop_config?.automaticLayoutCandidate),layoutPolicy:item.crop_config?.layoutPolicy||reframe.cropConfig?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate===true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect==='4:3'?'4:3':undefined,windowScope:track.metadata?.shot_composition_window_scope==='shot'?'shot':'clip',rawSamples:track.raw_samples,sceneCuts:track.metadata?.scene_cuts,duration:Number(track.metadata?.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
+        const plan=SmartReframeService.computeShotComposition(shotPlanOptions({track,candidate:item.crop_config?.automaticLayoutCandidate,layoutPolicy:item.crop_config?.layoutPolicy||reframe.cropConfig?.layoutPolicy,duration:Number(track.metadata?.clip_duration)}));
         const spec=trackerHandoffSpec(item,plan,track.source_width||1920,track.source_height||1080,reframe.clipStartSec||0);
         return spec?{...item,_tracker_handoff:spec}:item;
       })})};
