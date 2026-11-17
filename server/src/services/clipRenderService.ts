@@ -16,7 +16,7 @@ import os from 'os';
 import crypto from 'crypto';
 import ffmpeg from 'fluent-ffmpeg';
 import { getRenderFfmpeg } from '../utils/drawtextFfmpeg.js';
-import { clipObjectPrefix, deletePrefix, downloadObjectToFile, renderObjectKey, signObjectGet, uploadFile } from './objectStorageService.js';
+import { clipObjectPrefix, deletePrefix, downloadObjectToFile, headObject, renderObjectKey, signObjectGet, uploadFile } from './objectStorageService.js';
 import { deleteClipRecords } from '../db/repositories/deletionRepository.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
@@ -480,11 +480,15 @@ export class ClipRenderService {
       }
     } catch {}
 
-    const hash = crypto.createHash('sha256').update(sourceStoragePath).digest('hex');
+    // A path identifies an object location, not immutable source bytes. Recheck
+    // its validator before reusing disk cache; unversioned objects are fetched.
+    const snapshot = await headObject('source',sourceStoragePath);
+    const validator = snapshot.versionId || (snapshot.etag && !snapshot.etag.startsWith('W/') ? snapshot.etag : undefined);
+    const hash = crypto.createHash('sha256').update(JSON.stringify([sourceStoragePath,validator || crypto.randomUUID(),snapshot.size])).digest('hex');
     const cachedFile = path.join(cacheDir, `${hash}.mp4`);
 
     try {
-      if (fs.existsSync(cachedFile) && fs.statSync(cachedFile).size > 0) {
+      if (validator && fs.existsSync(cachedFile) && fs.statSync(cachedFile).size === snapshot.size && snapshot.size > 0) {
         logger.info(`[ClipRender] Reused cached source video: ${cachedFile}`);
         ClipRenderService.placeSourceFile(cachedFile, targetLocalPath);
         return 'cache_hit';
@@ -493,13 +497,23 @@ export class ClipRenderService {
 
     // 3. Strict Download from R2 with Timeout and Atomic Cache Placement
     const downloadTimeout = Math.max(options.timeoutMs || 120000, 120000);
-    const stagingFile = path.join(cacheDir, `${hash}.tmp.${Date.now()}`);
+    const stagingFile = path.join(cacheDir, `${hash}.tmp.${crypto.randomUUID()}`);
 
     try {
       await downloadObjectToFile('source', sourceStoragePath, stagingFile, { timeoutMs: downloadTimeout });
+      const after = await headObject('source',sourceStoragePath);
+      if (after.size !== snapshot.size || after.etag !== snapshot.etag || after.versionId !== snapshot.versionId) {
+        throw new AppError('Source object changed while preparing the render. Retry with the current source.',409,'SOURCE_VERSION_CHANGED');
+      }
 
       if (!fs.existsSync(stagingFile) || fs.statSync(stagingFile).size === 0) {
         throw new AppError('Downloaded source file is empty.', 500, 'EMPTY_SOURCE_FILE');
+      }
+
+      if (!validator) {
+        ClipRenderService.placeSourceFile(stagingFile,targetLocalPath);
+        fs.unlinkSync(stagingFile);
+        return 'downloaded';
       }
 
       // Atomically move staging file into cache

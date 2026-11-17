@@ -83,10 +83,10 @@ export async function signSourceUpload(key: string, contentType: string): Promis
   }), { expiresIn: 900 });
 }
 
-export async function headObject(bucket: ObjectBucket, key: string): Promise<{ size: number; contentType: string }> {
+export async function headObject(bucket: ObjectBucket, key: string): Promise<{ size: number; contentType: string; etag?: string; versionId?: string }> {
   try {
     const result = await storageClient().send(new HeadObjectCommand({ Bucket: bucketName(bucket), Key: key }));
-    return { size: result.ContentLength ?? 0, contentType: result.ContentType ?? '' };
+    return { size: result.ContentLength ?? 0, contentType: result.ContentType ?? '', etag: result.ETag, versionId: result.VersionId };
   } catch (error: any) {
     if (error?.$metadata?.httpStatusCode === 404 || error?.name === 'NotFound' || error?.name === 'NoSuchKey') {
       throw new AppError('Uploaded object was not found.', 404, 'UPLOAD_NOT_FOUND');
