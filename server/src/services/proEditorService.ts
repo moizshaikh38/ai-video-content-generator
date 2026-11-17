@@ -89,6 +89,8 @@ const execFileAsync = promisify(execFile);
 const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
 
 export interface CompiledRenderGraph {
+  /** Offline qualification only. Not selected by production render execution. */
+  sliceStaging?: { stages:Array<{filterComplex:string[];videoMap:string;audioMap:string}>;tailFilterComplex:string[] };
   inputArgs: string[];
   filterComplex: string[];
   videoMap: string;
@@ -1276,6 +1278,8 @@ export class ProEditorService {
     // collected for the two-pass loudnorm measurement graph. Every string appended
     // here is the exact string also appended to filterComplex for that audio chain.
     const audioOnlyChains: string[] = [];
+    const qualificationSliceStages:NonNullable<CompiledRenderGraph['sliceStaging']>['stages']=[];
+    let qualificationTailStart:number|undefined;
 
     // Canvas properties
     // Export resolution: the editor canvas is the 1080-class design space; the
@@ -1332,6 +1336,7 @@ export class ProEditorService {
 
       for (let i = 0; i < allVideoItems.length; i++) {
         const item = allVideoItems[i];
+        const qualificationStageStart=filterComplex.length;
         const vSlice = `[v_slice_${i}]`;
         const aSlice = `[a_slice_${i}]`;
         const timelineDur = Math.max(0.1, item.timeline_end - item.timeline_start);
@@ -1426,6 +1431,7 @@ export class ProEditorService {
           audioOnlyChains.push(sliceAChain);
           sliceDurations.push(sliceDur + gap);
         }
+        qualificationSliceStages.push({filterComplex:filterComplex.slice(qualificationStageStart),videoMap:vSlice,audioMap:aSlice});
         vLabels.push(vSlice);
         aLabels.push(aSlice);
       }
@@ -1438,6 +1444,7 @@ export class ProEditorService {
         .some((item) => item.transition_in && resolveXfadeName(item.transition_in.type, item.transition_in.direction));
 
       if (!boundaryHasTransition) {
+        qualificationTailStart=filterComplex.length;
         const concatInputs = vLabels.map((v, i) => `${v}${aLabels[i]}`).join('');
         filterComplex.push(`${concatInputs}concat=n=${allVideoItems.length}:v=1:a=1[base_v][base_a]`);
         audioOnlyChains.push(`${aLabels.join('')}concat=n=${allVideoItems.length}:v=0:a=1[base_a]`);
@@ -1970,6 +1977,7 @@ export class ProEditorService {
     }
 
     return {
+      ...(qualificationTailStart!==undefined && qualificationSliceStages.length>=2 && qualificationSliceStages.length<=12 && inputArgs.length===2 && inputArgs[0]==='-i' && reframe?.sourceHasAudio!==false && allVideoItems.every(i=>!(i as any).is_title_card&&!(i as any).is_freeze) ? {sliceStaging:{stages:qualificationSliceStages,tailFilterComplex:filterComplex.slice(qualificationTailStart)}} : {}),
       inputArgs,
       filterComplex,
       videoMap: videoStreamLabel,

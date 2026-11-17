@@ -58,3 +58,43 @@ saved edits, frame clocks or audio behavior to lower memory.
 Evidence is saved separately under vireo-resource-isolation, including compiled
 graphs, commands, per-case results and FFmpeg logs. This note is measured resource
 evidence only, not a visual or final-output milestone.
+
+## Follow-on staged implementation (offline only)
+
+The compiler can now describe ordinary cut slices and the untouched post-concat
+filter tail. `buildSliceRenderStaging` builds a separate execution plan, limited
+to 2-12 ordinary cuts, one real source input and no transitions. It is NOT called
+by normal render jobs. Graph mutations after compilation, measurement graphs,
+additional music/overlay inputs, freeze/title cards and synthetic silent-source
+inputs are refused. The helper never changes the saved project.
+
+Each slice is rendered sequentially to lossless FFV1 video and float PCM in NUT.
+The final pass uses the original concat, global captions/audio filters and final
+maps. An initial signed-16-bit PCM intermediate changed sample hashes. Float PCM
+removed that mismatch. Do not substitute an integer intermediate.
+
+Measured follow-on evidence:
+- A 1.5-second six-layout fixture matched the original shared-input graph exactly
+  in 44 decoded video frames and 67 PCM framehash packets, including timestamps,
+  sizes and hashes. This was deliberately short enough to stay under the cap.
+- The full 12-second 720x1280 six-layout fixture matched an independent-input
+  diagnostic baseline in all 360 decoded video frames and 522 PCM framehash
+  packets. The long shared-input graph was NOT retried as a reference.
+- Actual native-helper stage RSS peaks: 208284-249668 KiB. Final raw-hash pass:
+  119056 KiB. Final H264/AAC encode: 137124 KiB. Each process completed under the
+  same 420000 KiB / 15-second safety limits.
+- Final controlled output: 12.000 seconds, 720x1280 H264, 360 video frames,
+  44100 Hz stereo AAC. Actual six-view contact sheet and the split frame were
+  inspected. These preserve this fixture's existing composition, not a new
+  layout-quality judgment. ASS captions were intentionally absent.
+- A generated-source regression with nonzero source trims and a 2x speed change
+  also matched exact decoded video and PCM hashes. Staging, silent-source and
+  layout-chain tests: 15 passed; server TypeScript check passed.
+
+Caveats before normal export integration: temporary-disk bounds, deadline and
+cleanup ownership, multi-process work budgeting, longer edits, production
+hardware-encoder path, actual captions/watermarks, source EOF, transitions,
+overlays, music, title/freeze, silent sources and normalization modes still need
+qualification or explicit exclusion. This does not establish general 4K capacity
+or justify removing the earlier stop. FFmpeg in this environment was 4.4.2,
+matching the installed ffmpeg-static executable.
