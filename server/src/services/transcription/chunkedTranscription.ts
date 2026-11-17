@@ -158,6 +158,7 @@ export function mergeChunkTranscripts(
     language,
     durationSeconds: round3(Math.max(totalSec, lastEnd)),
     provenance: ordered[0]?.result.provenance,
+    timingIssues: ordered.flatMap(({plan,result}) => (result.timingIssues || []).map(issue => ({...issue,sourceOffset:plan.startSec}))),
     segments,
     words,
   };

@@ -19,6 +19,7 @@ export interface NormalizedTranscriptionResult {
   text: string;
   language: string;
   durationSeconds: number | null;
+  timingIssues?: Array<{kind: 'word' | 'segment'; index: number; reason: 'invalid-or-missing-provider-clock'; sourceOffset?: number}>;
   provenance?: {provider: string; model: string; requested_language?: string};
   segments: NormalizedTranscriptSegment[];
   words: NormalizedTranscriptWord[];

@@ -9,6 +9,8 @@ export interface TranscriptionResult {
   duration: number | null;
   segments: TranscriptSegment[];
   words: TranscriptWord[];
+  provenance?: NormalizedTranscriptionResult['provenance'];
+  timingIssues?: NormalizedTranscriptionResult['timingIssues'];
 }
 
 /**
@@ -35,5 +37,7 @@ export async function transcribeAudioWithOpenRouter(
     duration: result.durationSeconds,
     segments: result.segments,
     words: identifiedWords,
+    provenance: result.provenance,
+    timingIssues: result.timingIssues,
   };
 }

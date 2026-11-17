@@ -278,6 +278,7 @@ export async function processProjectVideo(
       user_id: userId,
       quality_assessment: assessTranscriptQuality(transcription),
       transcription_provenance: transcription.provenance,
+      transcription_timing_issues: transcription.timingIssues,
       transcript_text: transcription.text,
       text: transcription.text,
       language: transcription.language,

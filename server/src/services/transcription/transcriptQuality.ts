@@ -25,6 +25,14 @@ const languageCode = (v: string) => ({english:'en',spanish:'es',hindi:'hi'}[v.to
  * No dictionary rewrite, translation, language guess or extra provider call. */
 export function assessTranscriptQuality(result: NormalizedTranscriptionResult, expectedLanguage?: string): TranscriptQualityAssessment {
   const issues: TranscriptQualityIssue[] = [];
+  for (const issue of result.timingIssues || []) {
+    issues.push({code:'invalid_timing',detail:`Provider ${issue.kind} ${issue.index} has missing or invalid timing${issue.sourceOffset !== undefined ? ` in source chunk at ${issue.sourceOffset}s` : ''}. No replacement timestamp was invented.`});
+  }
+  for (const word of result.words || []) {
+    if (![word.start,word.end].every(Number.isFinite) || word.start < 0 || word.end <= word.start) {
+      issues.push({code:'invalid_timing',detail:'Speech word has an invalid time window.'});
+    }
+  }
   const requested = expectedLanguage || result.provenance?.requested_language;
   if (requested && requested !== 'auto' && result.language && languageCode(requested) !== languageCode(result.language)) {
     issues.push({code:'language_mismatch',detail:`Requested ${requested}, provider reported ${result.language}. Confirm the source language before using automatic captions.`});
