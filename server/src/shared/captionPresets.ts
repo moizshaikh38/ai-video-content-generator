@@ -2124,7 +2124,15 @@ export function getPreviewCss(style: ResolvedCaptionStyle, scale: number): Previ
     css.display = 'inline-block';
     css.transform = `${w.offsetY ? `translateY(${px(w.offsetY)}) ` : ''}scale(${effectiveScale.toFixed(3)})`;
     css.transformOrigin = 'center bottom';
-    css.transition = style.cueMotion ? 'none' : style.reveal === 'all' ? 'transform 0.08s ease-out, color 0.1s ease' : 'none';
+    // libass scales the glyph advance too. Transform-only scaling leaves the
+    // original inline width, letting Compact Creator's held word cover its peer.
+    // CSS zoom participates in inline layout and scales outline/shadow together.
+    // Keep this measured correction scoped until other pop families qualify.
+    if (style.presetId === 'compact_creator') {
+      css.zoom = Number(effectiveScale.toFixed(3));
+      css.transform = w.offsetY ? `translateY(${px(w.offsetY / effectiveScale)})` : 'none';
+    }
+    css.transition = style.cueMotion || style.presetId === 'compact_creator' ? 'none' : style.reveal === 'all' ? 'transform 0.08s ease-out, color 0.1s ease' : 'none';
     if (cs?.uppercase) {
       css.textTransform = 'uppercase';
     }
