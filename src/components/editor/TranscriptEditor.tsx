@@ -836,9 +836,9 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
             ) : (
               <>
                 <FileText className="w-8 h-8 mx-auto opacity-30 text-neutral-400" />
-                <p className="text-neutral-300 font-semibold text-sm">No Transcript Available</p>
+                <p className="text-neutral-300 font-semibold text-sm">No captions in this view</p>
                 <p className="text-neutral-500 max-w-xs mx-auto text-[11px] leading-relaxed">
-                  Transcribe your audio or load caption cues to view and edit spoken dialog.
+                  This clip has no caption cues to show.
                 </p>
               </>
             )}
