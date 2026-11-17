@@ -1,3 +1,4 @@
+import {selectionSourceReceiptMatches, type SelectionSourceReceipt} from '../../shared/selectionSourceReceipt.js';
 import crypto from 'node:crypto';
 import { AppError } from '../../types/index.js';
 import { getMongoClient, getMongoDb } from '../mongoClient.js';
@@ -5,7 +6,7 @@ import { validateRecord } from '../schemaValidation.js';
 
 /** Replace suggestions atomically while preserving candidates the user selected. */
 export async function replaceSuggestedCandidates(userId: string, projectId: string,
-  candidates: Array<Record<string, unknown>>) {
+  candidates: Array<Record<string, unknown>>, selectionReceipt?: SelectionSourceReceipt) {
   const client = await getMongoClient();
   const db = await getMongoDb();
   const session = client.startSession();
@@ -13,6 +14,12 @@ export async function replaceSuggestedCandidates(userId: string, projectId: stri
     return await session.withTransaction(async () => {
       const project = await db.collection('projects').findOne({ id: projectId, user_id: userId }, { session });
       if (!project) throw new AppError('Project not found.', 404, 'PROJECT_NOT_FOUND');
+      if (selectionReceipt) {
+        const transcript = await db.collection('transcripts').findOne({project_id:projectId,user_id:userId},{session});
+        if (!transcript || !selectionSourceReceiptMatches(selectionReceipt,transcript,project.source_url)) {
+          throw new AppError('Source or transcript changed before suggestions could be saved. No stale suggestions were promoted.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+        }
+      }
       const collection = db.collection('clip_candidates');
       const selected = await collection.find({ project_id: projectId, user_id: userId, status: 'selected' }, { session }).toArray();
       const selectedKeys = new Set(selected.map((row) => `${row.start_segment_index}-${row.end_segment_index}`));

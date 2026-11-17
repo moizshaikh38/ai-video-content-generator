@@ -65,6 +65,7 @@ import {
   ReframeTrackRecord,
 } from '../types/index.js';
 import { downloadObjectToFile, uploadFile, signObjectGet } from './objectStorageService.js';
+import {assertSelectionSourceCurrent} from './selectionSourceGuardService.js';
 import { CaptionService } from './captionService.js';
 import { isKnownCaptionStyle } from '../shared/captionPresets.js';
 import { buildCropFilter, buildFitFilter, buildBlurFitChain, buildBackdropFitChain, type CanvasBackdropSpec } from './clipRenderService.js';
@@ -220,7 +221,9 @@ export class ProEditorService {
       .from('transcripts')
       .select('*')
       .eq('project_id', clip.project_id)
+      .eq('user_id', userId)
       .maybeSingle();
+    if (transcript) await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
 
     // 5. Build initial multi-track structure
     const { data: sourceProject } = await dataRepository.from('projects').select('clip_preferences').eq('id', clip.project_id).eq('user_id', userId).maybeSingle();

@@ -4,6 +4,8 @@ import {candidateCompositionOptions,projectAutoCandidate} from '../shared/automa
 import {storedScenePlanWindow} from '../shared/storedScenePlanWindow.js';
 import {legacyFit43Plan,legacyPolicyFallback} from '../shared/automaticLayoutPolicy.js';
 import {expandSceneLayoutProject} from '../shared/sceneLayoutOverrides.js';
+import {assertSelectionSourceCurrent} from '../services/selectionSourceGuardService.js';
+
 import { assertPanelViewsAssigned } from '../shared/panelLayouts.js';
 import { parseRenderResolutionStrict } from '../shared/renderResolution.js';
 import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
@@ -131,7 +133,7 @@ export const analyzeProjectClips = async (req: AuthenticatedRequest, res: Respon
       return;
     }
 
-    if(err.code==='TRANSCRIPT_REVIEW_REQUIRED'||err.code==='CLIP_SEGMENTS_INVALID'){
+    if(err.code==='TRANSCRIPT_REVIEW_REQUIRED'||err.code==='TRANSCRIPT_SOURCE_REVIEW_REQUIRED'||err.code==='CLIP_SEGMENTS_INVALID'){
       res.status(409).json({status:'error',code:err.code,message:err.message});
       return;
     }
@@ -418,7 +420,7 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
     const status =
       code === 'PROJECT_NOT_FOUND' || code === 'CANDIDATE_NOT_FOUND'
         ? 404
-        : code === 'RENDER_ALREADY_ACTIVE'
+        : code === 'RENDER_ALREADY_ACTIVE' || code === 'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'
         ? 409
         : code === 'INVALID_TIMESTAMPS' || code === 'INVALID_UUID' || code === 'SOURCE_VIDEO_NOT_FOUND'
         ? 400
@@ -573,6 +575,7 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
     }
 
     const clip = await ClipRenderService.getClip(clipId, userId);
+    await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
     // Gate the actual Studio/Quick render entry point before queuing. This check
     // deliberately fails closed on repository errors, not a swallowed snapshot read.
     const { data: panelProject, error: panelReadError } = await dataRepository.from('editor_projects')
@@ -757,7 +760,7 @@ export const getClipPreviewUrl = async (req: AuthenticatedRequest, res: Response
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';
     const status =
-      code === 'CLIP_NOT_FOUND' ? 404 : code === 'CLIP_NOT_READY' ? 400 : code === 'WATERMARK_REQUIRED_RERENDER' ? 403 : 500;
+      err.statusCode || (code === 'CLIP_NOT_FOUND' ? 404 : code === 'CLIP_NOT_READY' ? 400 : code === 'WATERMARK_REQUIRED_RERENDER' ? 403 : 500);
     res.status(status).json({
       status: 'error',
       code,
@@ -793,7 +796,7 @@ export const getClipDownloadUrl = async (req: AuthenticatedRequest, res: Respons
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';
     const status =
-      code === 'CLIP_NOT_FOUND' ? 404 : code === 'CLIP_NOT_READY' ? 400 : code === 'WATERMARK_REQUIRED_RERENDER' ? 403 : 500;
+      err.statusCode || (code === 'CLIP_NOT_FOUND' ? 404 : code === 'CLIP_NOT_READY' ? 400 : code === 'WATERMARK_REQUIRED_RERENDER' ? 403 : 500);
     res.status(status).json({
       status: 'error',
       code,
@@ -1152,12 +1155,14 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
                 .eq('user_id', userId)
                 .maybeSingle();
               if (transcript) {
+                await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
                 const fresh = CaptionService.extractCuesForClipSettings(transcript, clip, undefined, { preserveCase: true });
                 const merged = mergeExtendedCues(cuesOut, fresh.cues as any, coveredEnd);
                 if (merged.appended > 0) cuesOut = merged.cues as any;
               }
             }
-          } catch {
+          } catch (error:any) {
+            if (error?.code === 'TRANSCRIPT_SOURCE_REVIEW_REQUIRED' || error?.code === 'TRANSCRIPT_REVIEW_REQUIRED') throw error;
             // Fall through with the saved cues.
           }
         }
@@ -1187,6 +1192,7 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
       return;
     }
 
+    await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
     // Same extraction the export uses, so preview cues match the burned-in captions.
     const { timingMode, cues } = CaptionService.extractCuesForClipSettings(transcript, clip, undefined, { preserveCase: true });
 
@@ -1197,7 +1203,7 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
     });
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';
-    const status = (code === 'CLIP_NOT_FOUND' || code === 'NOT_FOUND' || err.status === 404) ? 404 : 500;
+    const status = err.statusCode || ((code === 'CLIP_NOT_FOUND' || code === 'NOT_FOUND' || err.status === 404) ? 404 : 500);
     res.status(status).json({
       status: 'error',
       code,

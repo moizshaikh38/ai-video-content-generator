@@ -1,5 +1,6 @@
 import {newCaptionDefaults} from '../shared/newCaptionDefaults.js';
 import { clampCaptionFontSize } from '../shared/captionPresets.js';
+import {assertSelectionSourceCurrent} from './selectionSourceGuardService.js';
 import {assertTranscriptUsable} from './transcription/transcriptQuality.js';
 import { applySceneCaptionPlacement } from '../shared/sceneCaptionPlacement.js';
 import { isMongoConfigured } from '../db/mongoClient.js';
@@ -1419,7 +1420,10 @@ export class CaptionService {
       .eq('user_id', clip.user_id)
       .maybeSingle();
 
-    if (transcript) assertTranscriptUsable(transcript);
+    if (transcript) {
+      assertTranscriptUsable(transcript);
+      await assertSelectionSourceCurrent(clip.user_id,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
+    }
 
     if (!editorCues && (transErr || !transcript)) {
       logger.warn(`No transcript found for clip ${clip.id}, rendering without burned captions.`);

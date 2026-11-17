@@ -1,5 +1,7 @@
 import {prepareSliceRender} from './sliceRenderPreparation.js';
 import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
+import {assertSelectionSourceCurrent} from './selectionSourceGuardService.js';
+
 import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 import {candidateCompositionOptions} from '../shared/automaticLayoutCandidate.js';
 import {legacyFit43Plan,legacyPolicyFallback} from '../shared/automaticLayoutPolicy.js';
@@ -417,6 +419,8 @@ export class ClipRenderService {
 
     const validRatios: ClipAspectRatio[] = ['9:16', '1:1', '16:9'];
     const validAspectRatio = validRatios.includes(aspectRatio) ? aspectRatio : '9:16';
+    const {data:candidateForSource} = await dataRepository.from('clip_candidates').select('metadata').eq('id',candidateId).eq('project_id',projectId).eq('user_id',userId).maybeSingle();
+    await assertSelectionSourceCurrent(userId,projectId,candidateForSource?.metadata?.selection_source_receipt);
     const { clip, renderJob } = await createClipWithJob(projectId, candidateId, userId, validAspectRatio, cropMode, options);
 
     // 6. Launch in-process background rendering (deferred to the sweep when at cap)
@@ -674,6 +678,7 @@ export class ClipRenderService {
     const tempDir = path.join(os.tmpdir(), `vireo-render-${clipId}-${uniqueTag}`);
 
     try {
+      await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
       fs.mkdirSync(tempDir, { recursive: true });
 
       // Update stage: downloading (5%)
@@ -699,6 +704,9 @@ export class ClipRenderService {
       });
 
       const sourceSha256 = await computeFileStreamSha256(sourcePath);
+      if (sourceSha256 !== (clip as any).selection_source_receipt?.source_receipt?.sha256) {
+        throw new AppError('Downloaded source bytes do not match the source used for selection. Export stopped.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+      }
 
       // 2. FFmpeg cut, manual framing, ASS subtitles, text overlay, and MP4 encode
       await ClipRenderService.updateJobStage(jobId, clipId, 'cutting', 10, 'rendering', workerId);
@@ -862,7 +870,7 @@ export class ClipRenderService {
             logger.info(`[ClipRender] Burning ${captionResult.cues.length} caption cues using style "${clip.caption_style || 'clean'}"`);
           }
         } catch (capErr: any) {
-          if (capErr?.code === 'TRANSCRIPT_REVIEW_REQUIRED') throw capErr;
+          if (['TRANSCRIPT_REVIEW_REQUIRED','TRANSCRIPT_SOURCE_REVIEW_REQUIRED'].includes(capErr?.code)) throw capErr;
           logger.warn(`Failed to generate ASS subtitles for clip ${clipId}: ${capErr.message}. Rendering without subtitles.`);
         }
       }
@@ -1236,6 +1244,7 @@ export class ClipRenderService {
         expectDimensions: expectedCanvas,
       });
 
+      await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
       // 3. Upload rendered MP4 to storage with revision versioning
       await ClipRenderService.updateJobStage(jobId, clipId, 'uploading', 90, 'uploading', workerId);
 
@@ -1248,6 +1257,7 @@ export class ClipRenderService {
       );
       await uploadFile('clips', outputStoragePath, outputPath, renderedSize, 'video/mp4');
       const finalStoragePath = outputStoragePath;
+      await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
 
       // Output verification guard: ensure deliverable exists before marking ready
       JobReliabilityService.verifyRequiredOutputs('clip_render', { output_storage_path: finalStoragePath });
@@ -2096,6 +2106,7 @@ export class ClipRenderService {
    */
   public static async getSignedPreviewUrl(clipId: string, userId: string): Promise<SignedUrlResult> {
     const clip = await ClipRenderService.getClip(clipId, userId);
+    await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
 
     if (clip.render_status !== 'ready' || !clip.output_storage_path) {
       const err = new Error('Clip is not ready for preview.');
@@ -2120,6 +2131,7 @@ export class ClipRenderService {
    */
   public static async getSignedDownloadUrl(clipId: string, userId: string): Promise<SignedUrlResult> {
     const clip = await ClipRenderService.getClip(clipId, userId);
+    await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
 
     if (clip.render_status !== 'ready' || !clip.output_storage_path) {
       const err = new Error('Clip is not ready for download.');
