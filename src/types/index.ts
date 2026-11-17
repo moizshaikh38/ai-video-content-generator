@@ -318,6 +318,7 @@ export interface RenderJob {
 }
 
 export interface RenderedClip {
+  encoded_audio_review?: import('../../server/src/shared/encodedAudioReview').EncodedAudioReview | null;
   id: string;
   project_id: string;
   candidate_id?: string | null;

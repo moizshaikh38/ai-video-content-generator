@@ -1,5 +1,6 @@
 import {prepareSliceRender} from './sliceRenderPreparation.js';
 import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
+import {reviewEncodedAudio} from './encodedAudioReviewService.js';
 import {assertSelectionSourceCurrent} from './selectionSourceGuardService.js';
 
 import {shotPlanOptions} from '../shared/shotPlanOptions.js';
@@ -1244,6 +1245,7 @@ export class ClipRenderService {
         expectDimensions: expectedCanvas,
       });
 
+      const encodedAudioReview = await reviewEncodedAudio(outputPath,Boolean(clip.muted),timeoutMs);
       await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
       // 3. Upload rendered MP4 to storage with revision versioning
       await ClipRenderService.updateJobStage(jobId, clipId, 'uploading', 90, 'uploading', workerId);
@@ -1267,6 +1269,7 @@ export class ClipRenderService {
         .from('clips')
         .update({
           render_status: 'ready',
+          encoded_audio_review: encodedAudioReview,
           output_storage_path: finalStoragePath,
           output_object_key: finalStoragePath,
           reframe_mode: actualReframeMode,

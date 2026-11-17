@@ -296,6 +296,20 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                 </div>
               )}
 
+              {clip?.render_status === 'ready' && !downloadStale && clip.encoded_audio_review?.status !== 'muted' && (
+                <div role="status" data-testid="encoded-audio-review" className="p-3 rounded-xl border border-amber-800/40 bg-amber-950/20 text-[11px] text-amber-100 leading-snug space-y-1">
+                  <p className="font-semibold">{clip.encoded_audio_review?.status === 'needs_review'
+                    ? 'Audio needs review' : clip.encoded_audio_review?.status === 'measured'
+                      ? 'Encoded audio measured' : 'Audio measurements unavailable'}</p>
+                  {typeof clip.encoded_audio_review?.integrated_lufs === 'number' && Number.isFinite(clip.encoded_audio_review.integrated_lufs) &&
+                    typeof clip.encoded_audio_review.true_peak_dbtp === 'number' && Number.isFinite(clip.encoded_audio_review.true_peak_dbtp) && <p>
+                      {clip.encoded_audio_review.integrated_lufs.toFixed(1)} LUFS · {clip.encoded_audio_review.true_peak_dbtp.toFixed(1)} dBTP
+                    </p>}
+                  {clip.encoded_audio_review?.issues.includes('true_peak_above_zero') && <p>The encoded true peak reaches or exceeds 0 dBTP. Review the level before publishing.</p>}
+                  <p>Listen to speech, music balance and cuts before publishing. Measurements do not verify listening quality.</p>
+                </div>
+              )}
+
               {/* Existing rendered version available */}
               {clip?.render_status === 'ready' && !downloadStale && unassignedViews.length === 0 && (
                 <div className="p-3.5 rounded-xl bg-emerald-950/20 flex items-center justify-between gap-3">
