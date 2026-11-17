@@ -1,3 +1,4 @@
+import {reframeTrackFreshness} from '../shared/reframeTrackFreshness.js';
 import {reviewMeasuredSplitSeams} from '../shared/measuredSplitSeamReview.js';
 import {buildSharedViewReviewPlan} from '../shared/sharedViewReview.js';
 import {normalizeFaceEvidence} from '../shared/faceEvidence.js';
@@ -2875,8 +2876,13 @@ export class SmartReframeService {
       const trimStart = Number(clip.trim_start_offset || 0);
       const trimEnd = Number(clip.trim_end_offset || 0);
       const startSec = Number(clip.start_seconds) + trimStart;
-      const originalDuration = Number(clip.duration_seconds || (clip.end_seconds - clip.start_seconds));
-      const durationSec = Math.max(0.1, Number((originalDuration - trimStart - trimEnd).toFixed(3)));
+      const endSec = Number(clip.end_seconds) - trimEnd;
+      const durationSec = Number((endSec - startSec).toFixed(3));
+      if (![startSec,endSec,durationSec,trimStart,trimEnd].every(Number.isFinite) || startSec < 0 || durationSec <= 0 || trimStart < 0 || trimEnd < 0) {
+        const error = new Error('Clip source window is invalid; reframe analysis was not started.');
+        (error as any).code = 'INVALID_CLIP_WINDOW';
+        throw error;
+      }
 
       const sampleFps = options.sampleFps || 4.0;
       const timeoutMs = options.timeoutMs || 120000;
@@ -3024,6 +3030,8 @@ export class SmartReframeService {
           conversation_split_candidate: adaptiveScenes && sourceGenre === 'podcast_interview' && process.env.SMART_REFRAME_AUTO_CONVERSATION_SPLIT === '1',
           automatic_fit_aspect: adaptiveScenes && process.env.SMART_REFRAME_AUTOMATIC_FIT_4_3 === '1' ? '4:3' : null,
           analyzed_source_path: clip.source_storage_path,
+          analyzed_source_start: startSec,
+          analyzed_source_end: endSec,
           clip_duration: durationSec,
           scene_cuts: clipSceneCuts,
           scene_cut_evidence: cvResult.scene_cut_evidence || [],
@@ -3088,7 +3096,7 @@ export class SmartReframeService {
     // Fetch clip to verify ownership and current trim/aspect ratio
     const { data: clip, error: clipErr } = await dataRepository
       .from('clips')
-      .select('id, user_id, trim_start_offset, trim_end_offset, aspect_ratio')
+      .select('id, user_id, source_storage_path, start_seconds, end_seconds, trim_start_offset, trim_end_offset, aspect_ratio')
       .eq('id', clipId)
       .maybeSingle();
 
@@ -3108,12 +3116,7 @@ export class SmartReframeService {
       return null;
     }
 
-    const trimStart = Number(clip.trim_start_offset || 0);
-    const trimEnd = Number(clip.trim_end_offset || 0);
-    const isStale =
-      Math.abs(Number(track.analyzed_trim_start) - trimStart) > 0.05 ||
-      Math.abs(Number(track.analyzed_trim_end) - trimEnd) > 0.05 ||
-      track.analyzed_aspect_ratio !== (clip.aspect_ratio || '9:16');
+    const {isStale} = reframeTrackFreshness(clip,track);
 
     return {
       ...track,
