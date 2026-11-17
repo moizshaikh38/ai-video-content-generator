@@ -98,3 +98,28 @@ overlays, music, title/freeze, silent sources and normalization modes still need
 qualification or explicit exclusion. This does not establish general 4K capacity
 or justify removing the earlier stop. FFmpeg in this environment was 4.4.2,
 matching the installed ffmpeg-static executable.
+
+## Bounded offline preparation and real ASS follow-up
+
+`prepareSliceRender` now owns a private temporary directory, sequential child
+processes and a single preparation deadline. Defaults: 60 seconds, 256 MiB of
+temporary files and 420000 KiB sampled child RSS. Limits are polled at 50ms and
+can overshoot; they are safety stops, not OS-enforced reservations. Failures kill
+the current child and remove its owned directory. Success returns an explicit
+idempotent cleanup function for after final encoding. It does not own the final
+encode deadline or global job concurrency, and remains outside normal exports.
+
+Tests cover successful preparation/cleanup, deliberate disk-limit failure,
+deadline failure, and refusing unsupported graphs without creating a directory.
+The trim/speed hash regression now also burns an actual generated ASS file and
+keeps the original global audio filters.
+
+A second actual 12s 720p controlled render used the saved fixture's six synthetic
+caption cues and explicit coordinates via the caption extractor and ASS builder.
+The native preparation helper peaked at 249660 KiB and generated 84355389 bytes
+of intermediates. The guarded final H264/AAC pass peaked at 156976 KiB. Its
+temporary intermediates were removed afterward; saved project JSON was unchanged.
+The actual contact sheet was inspected: the synthetic POSITION CHECK text is
+visible across all six existing layouts. This is a direct helper/render exercise,
+not an authenticated Studio/API/export-job test, language-accuracy evidence or a
+claim that all caption styles and animations are qualified.
