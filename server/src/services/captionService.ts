@@ -1,6 +1,6 @@
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
-import { mergeExtendedCues, maxCueEnd, editorProjectCoveredEnd } from './captionExtendMerge.js';
+import { mergeExtendedCues, maxCueEnd, editorProjectCoveredEnd, hasAuthoritativeCaptionCues } from './captionExtendMerge.js';
 import { applySpeakerSplitToCues } from '../shared/speakerCaptionSplit.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -1238,8 +1238,7 @@ export class CaptionService {
       (item: any) =>
         !item.hidden &&
         item.caption &&
-        Array.isArray(item.caption.cues) &&
-        item.caption.cues.length > 0
+        hasAuthoritativeCaptionCues(item.caption)
     );
 
     if (validItems.length === 0) return null;
@@ -1383,7 +1382,7 @@ export class CaptionService {
 
       if (proj && Array.isArray(proj.tracks)) {
         const extracted = CaptionService.extractEditorCuesFromProject(proj);
-        if (extracted && extracted.cues.length > 0) {
+        if (extracted) {
           editorCues = extracted.cues;
           editorStyle = extracted.style || null;
           editorPosition = extracted.position || null;
@@ -1480,7 +1479,7 @@ export class CaptionService {
     let cues: TimedCaptionCue[] = [];
     let preset: ResolvedCaptionStyle | null = null;
 
-    if (editorCues && editorCues.length > 0) {
+    if (editorCues !== null) {
       const effectiveStyle = editorStyle || clip.caption_style;
       preset = this.resolveClipPreset(effectiveStyle, mergedConfig, targetAspectRatio);
       const hasWords = editorCues.some((c) => Array.isArray(c.words) && c.words.length > 0);

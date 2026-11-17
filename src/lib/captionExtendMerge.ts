@@ -134,7 +134,10 @@ export function healCaptionTracks<T = any>(
   const next = (tracks as any[]).map((t) => {
     if (t?.type !== 'CAPTION' || t.hidden || !Array.isArray(t.items)) return t;
     const items = t.items.map((itm: any) => {
-      if (itm.hidden || !itm.caption || !Array.isArray(itm.caption.cues) || itm.caption.cues.length === 0) return itm;
+      if (itm.hidden || !itm.caption || !Array.isArray(itm.caption.cues)) return itm;
+      // An explicit coverage marker preserves a deliberately empty saved edit,
+      // while allowing only newly extended speech to be appended.
+      if (itm.caption.cues.length === 0 && !(typeof itm.caption.cues_covered_end === 'number' && Number.isFinite(itm.caption.cues_covered_end) && itm.caption.cues_covered_end >= 0)) return itm;
       const offset = itemCueOffset(itm);
       const marker = itm.caption.cues_covered_end;
       if (marker == null) {

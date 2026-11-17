@@ -123,3 +123,11 @@ test('healCaptionTracks: non-CAPTION tracks and cue-less items pass through unch
   assert.equal(r.appended, 0);
   assert.equal(r.markersChanged, false);
 });
+
+test('empty covered edit appends extension without resurrecting deleted old speech',()=>{
+ const tracks:any=[{type:'CAPTION',items:[{timeline_start:0,timeline_end:10,caption:{cues:[],cues_covered_end:10}}]}];
+ const r=healCaptionTracks(tracks,[{id:'deleted',start:1,end:2,text:'old'},{id:'new',start:11,end:12,text:'new'}],12);
+ assert.equal(r.appended,1);assert.deepEqual(r.tracks[0].items[0].caption.cues.map((c:any)=>c.id),['new']);
+ assert.equal(r.tracks[0].items[0].caption.cues_covered_end,12);
+ assert.deepEqual(tracks[0].items[0].caption.cues,[]);
+});

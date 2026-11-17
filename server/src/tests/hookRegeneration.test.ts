@@ -115,6 +115,17 @@ describe('Hook regeneration route (HTTP + Mongo, mocked provider)', () => {
     assert.equal(body.title, 'Big Reveal');
   });
 
+  it('provider receives only complete speech inside a trimmed short clip',async()=>{
+    const db=await getMongoDb();
+    await db.collection('clips').updateOne({id:clipId},{$set:{end_seconds:15,trim_start_offset:1,trim_end_offset:1}});
+    let prompt='';
+    (defaultAiProvider as any).generateJsonCompletion=async(options:any)=>{prompt=options.userPrompt;return{hook:'Short clip',title:'Bounded'};};
+    try{
+      const res=await fetch(`${baseUrl}/api/clips/${clipId}/hook/regenerate`,{method:'POST',headers:{Authorization:`Bearer ${TOKEN}`}});
+      assert.equal(res.status,200);assert.match(prompt,/word1 word2 word3/);assert.doesNotMatch(prompt,/word0\b|word4\b|word10\b/);
+    }finally{await db.collection('clips').updateOne({id:clipId},{$set:{end_seconds:70,trim_start_offset:0,trim_end_offset:0}});}
+  });
+
   it('fails closed with 503 HOOK_PROVIDER_UNAVAILABLE when no provider is available', async () => {
     // Remove the instance-level mock so the real provider path (and its key
     // availability check) is exercised.

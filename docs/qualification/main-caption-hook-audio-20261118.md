@@ -1,0 +1,16 @@
+# Main-based caption, hook and audio fixes, 18 Nov 2026
+
+Base: current main 273fae85b7a78e17241d78d2f242e72798744005. This slice excludes the broad backup, Auto/framing experiments, new caption defaults, resolution tiers, staged rendering and source/transcript lineage gates.
+
+Changes:
+- Saved empty cue arrays with a valid explicit coverage marker remain intentional edits in caption preview/export and later extension. Legacy empty tracks are not upgraded. Empty-state text describes the cue view rather than claiming source transcription is absent. Main's speaker-split import/behavior is retained.
+- Hook input is bounded by both trimmed clip endpoints and the opening 40 seconds. Only complete valid words/segments enter the provider prompt. This is input provenance, not generated-claim accuracy. No new provider calls or routing changes.
+- Secondary ducking pads are allocated only for allowed assets. Sidechain inputs explicitly use double samples and stereo channel layout, preventing the measured FFmpeg format-negotiation deadlock. Saved timing, volume and ducking parameters remain unchanged. This is stereo editor delivery, not surround preservation qualification.
+
+Qualification on this main-based slice:
+- Both TypeScript checks pass. Exact production frontend build command completes with NODE_OPTIONS=--max-old-space-size=640; Vite 15.97 seconds, chunk-size warning only. Earlier unbounded/timed attempts did not complete and are not counted as successes.
+- Safe suite: 419 passed, 0 failed, 1 missing-asset skip. Caption endpoint: 9 passed. Focused source-span/hook HTTP/asset/empty-cue: 14 passed. Client extension: 10 passed. Synthetic selection benchmark sanity passes.
+- Actual Editor component fixture: click caption delete, choose Text Only, save, reload, read captions API, trigger real API/job/storage FFmpeg export. Saved cues stay empty with explicit coverage. Inspected before/after screenshots and decoded 2fps contact sheet: caption present before, absent after reload and throughout sampled export frames. Output is 4.000s 1080x1920 with audio, despite harness requesting 720p. This does not establish resolution-tier behavior. Local auth/storage/entitlement/one-thread encoder substitutions, manually supplied source and synthetic caption; no STT or broad layout claim. Harness bundle uses the real main-based component, not a product auth edit. Vite dev navigation initially timed out; compiled component harness completed.
+- Actual two-second rejected-only, permitted-only and mixed secondary-audio encodes pass for stereo and mono fixtures after correction. Streams decode with audio; mixed fixture mean -21.4dB/max -17.9dB, not silent or clipped in that fixture. Current-main comparison reproduced orphan pads for rejected/mixed and format negotiation failure for permitted-only. Actual-encode regression is included. Not an independent listening-quality assessment.
+
+Only these changes may be promoted under the owner's conditional instruction to make the three fixes ready then merge. Backup and main commit IDs plus deployment status must be checked after push; a successful push alone does not prove the live frontend/backend updated. Prior main is the rollback reference. No production data migration is required.
