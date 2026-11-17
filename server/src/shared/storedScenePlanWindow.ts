@@ -1,7 +1,8 @@
 /** Reuse measured shots only inside their recorded source interval. A current
  * clip start cannot rebase historical analysis onto different source frames.
  * This is a clip-window guard, not source-content-version certification. */
-export function storedScenePlanWindow(project:any,clip:any,track:any):{track:any;sourceAnchor:number}|null{
+export function storedScenePlanWindow(project:any,clip:any,track:any,expectedSourceSha256?:string):{track:any;sourceAnchor:number}|null{
+ if(expectedSourceSha256!==undefined&&(!/^[a-f0-9]{64}$/.test(expectedSourceSha256)||track?.metadata?.analyzed_source_sha256!==expectedSourceSha256))return null;
  if(!track||track.status!=='ready'||track.metadata?.shot_composition_candidate!==true||track.analyzed_aspect_ratio!==(clip.aspect_ratio||'9:16'))return null;
  const source=track.metadata?.analyzed_source_path;if(!source||source!==clip.source_storage_path)return null;
  const anchor=track.metadata?.analyzed_source_start,end=track.metadata?.analyzed_source_end,duration=track.metadata?.clip_duration;

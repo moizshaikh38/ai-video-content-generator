@@ -23,3 +23,5 @@ test('retained scene window cannot infer historical source anchor from a changed
  const moved=structuredClone(p);moved.tracks[0].items[0].source_start=140;moved.tracks[0].items[0].source_end=164;
  assert.equal(storedScenePlanWindow(moved,clip,track),null);
 });
+
+test('render cannot revive a stored scene plan whose actual source bytes mismatch',async()=>{const {storedScenePlanWindow}=await import('../shared/storedScenePlanWindow.js');const sha='a'.repeat(64),p=make(),clip={aspect_ratio:'9:16',source_storage_path:'same'},track={status:'ready',isStale:true,analyzed_aspect_ratio:'9:16',raw_samples:[{}],smoothed_keyframes:[{}],metadata:{shot_composition_candidate:true,analyzed_source_path:'same',analyzed_source_start:0,analyzed_source_end:70,clip_duration:70,analyzed_source_sha256:sha}};assert.ok(storedScenePlanWindow(p,clip,track,sha));assert.equal(storedScenePlanWindow(p,clip,track,'b'.repeat(64)),null);});

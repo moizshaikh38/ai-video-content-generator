@@ -2,10 +2,12 @@
  * stronger item/source-content-version/config identity acceptance contract. */
 export function reframeTrackFreshness(
   clip: {source_storage_path?: string | null;start_seconds:number;end_seconds:number;trim_start_offset?:number|null;trim_end_offset?:number|null;aspect_ratio?:string|null},
-  track: {analyzed_aspect_ratio?:string;metadata?:Record<string,any>}
+  track: {analyzed_aspect_ratio?:string;metadata?:Record<string,any>},
+  expectedSourceSha256?:string
 ): {isStale:boolean;reasons:string[]} {
   const reasons:string[]=[];
   const metadata=track.metadata||{};
+  if(expectedSourceSha256!==undefined && (!/^[a-f0-9]{64}$/.test(expectedSourceSha256)||metadata.analyzed_source_sha256!==expectedSourceSha256))reasons.push('source-bytes-changed-or-unverified');
   const finite=(value:unknown):value is number=>typeof value==='number'&&Number.isFinite(value);
   const trimStart=clip.trim_start_offset??0,trimEnd=clip.trim_end_offset??0;
   if(![clip.start_seconds,clip.end_seconds,trimStart,trimEnd].every(finite)||trimStart<0||trimEnd<0)reasons.push('invalid-current-source-window');

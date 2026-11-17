@@ -16,7 +16,7 @@ import os from 'os';
 import crypto from 'crypto';
 import ffmpeg from 'fluent-ffmpeg';
 import { getRenderFfmpeg } from '../utils/drawtextFfmpeg.js';
-import { clipObjectPrefix, deletePrefix, downloadObjectToFile, headObject, renderObjectKey, signObjectGet, uploadFile } from './objectStorageService.js';
+import { clipObjectPrefix, deletePrefix, downloadObjectToFile, headObject, computeFileStreamSha256, renderObjectKey, signObjectGet, uploadFile } from './objectStorageService.js';
 import { deleteClipRecords } from '../db/repositories/deletionRepository.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
@@ -683,6 +683,8 @@ export class ClipRenderService {
         clipId,
       });
 
+      const sourceSha256 = await computeFileStreamSha256(sourcePath);
+
       // 2. FFmpeg cut, manual framing, ASS subtitles, text overlay, and MP4 encode
       await ClipRenderService.updateJobStage(jobId, clipId, 'cutting', 10, 'rendering', workerId);
 
@@ -694,7 +696,7 @@ export class ClipRenderService {
 
       // Speaker-following guarantee: generate the smart-reframe track on demand
       // so active-speaker framing works out of the box.
-      await ClipRenderService.ensureReframeTrackAtRender(clip, sourcePath, jobId);
+      await ClipRenderService.ensureReframeTrackAtRender(clip, sourcePath, jobId, sourceSha256);
 
       // Shared reframing decision (Quick path filter + Pro per-slice context).
       // Export resolution: requested tier from the clip (set by the export
@@ -714,7 +716,7 @@ export class ClipRenderService {
         `canvas=${outputCanvas.width}x${outputCanvas.height} source=${srcDims ? `${srcDims.width}x${srcDims.height}` : 'unknown'}` +
         (resolution.warning ? ` WARNING: ${resolution.warning}` : '')
       );
-      const reframeDecision = await ClipRenderService.resolveReframeDecision(clip, durationSec, canvasScale);
+      const reframeDecision = await ClipRenderService.resolveReframeDecision(clip, durationSec, canvasScale, sourceSha256);
       const cropFilter = reframeDecision.cropFilter;
       const actualReframeMode = reframeDecision.mode;
       const reframeMetadata = reframeDecision.metadata;
@@ -976,7 +978,7 @@ export class ClipRenderService {
         // pass), then compiles with linear loudnorm when feasible, or a pre-rendered
         // dynamic-normalized dialogue WAV when peak/range-limited. Throws
         // LoudnormNormalizationError only for degenerate/silent measurements.
-        const storedPlan=clip.crop_config?.mode==='smart' ? storedScenePlanWindow(editorProject,clip,reframeDecision.track) : null;
+        const storedPlan=clip.crop_config?.mode==='smart' ? storedScenePlanWindow(editorProject,clip,reframeDecision.track,sourceSha256) : null;
         const graph = await ProEditorService.compileRenderGraphWithNormalization(
           editorProject,
           sourcePath,
@@ -1435,12 +1437,13 @@ export class ClipRenderService {
   private static async ensureReframeTrackAtRender(
     clip: ClipRecord,
     localSourcePath: string,
-    jobId?: string
+    jobId?: string,
+    expectedSourceSha256?: string
   ): Promise<void> {
     if (!config.smartReframeEnabled || !config.reframeAutoGenerate) return;
     if (clip.crop_config?.mode !== 'smart') return;
 
-    const existing = await SmartReframeService.getReframeTrack(clip.id, clip.user_id);
+    const existing = await SmartReframeService.getReframeTrack(clip.id, clip.user_id, expectedSourceSha256);
     if (existing && existing.status === 'ready' && !existing.isStale &&
         Array.isArray(existing.smoothed_keyframes) && existing.smoothed_keyframes.length > 0) {
       return;
@@ -1549,7 +1552,8 @@ export class ClipRenderService {
   public static async resolveReframeDecision(
     clip: ClipRecord,
     durationSec: number,
-    canvasScale = 1
+    canvasScale = 1,
+    expectedSourceSha256?: string
   ): Promise<{
     cropFilter: string;
     mode: 'smart' | 'fallback_center' | 'manual';
@@ -1579,7 +1583,7 @@ export class ClipRenderService {
     }
 
     try {
-      const track = await SmartReframeService.getReframeTrack(clip.id, clip.user_id);
+      const track = await SmartReframeService.getReframeTrack(clip.id, clip.user_id, expectedSourceSha256);
       if (
         track &&
         track.status === 'ready' &&

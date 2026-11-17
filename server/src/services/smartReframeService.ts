@@ -32,7 +32,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { execFile, ChildProcess } from 'node:child_process';
 import { promisify } from 'node:util';
-import { downloadObjectToFile } from './objectStorageService.js';
+import { downloadObjectToFile, computeFileStreamSha256 } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
 import { applyWordEnergyFusion } from '../utils/wordEnergyFusion.js';
 import { GenreIntelligenceService } from './genreIntelligenceService.js';
@@ -2872,6 +2872,8 @@ export class SmartReframeService {
         await downloadObjectToFile('source', clip.source_storage_path, localSourcePath);
       }
 
+      const analyzedSourceSha256 = await computeFileStreamSha256(localSourcePath);
+
       // 4. Determine effective clip boundaries
       const trimStart = Number(clip.trim_start_offset || 0);
       const trimEnd = Number(clip.trim_end_offset || 0);
@@ -3030,6 +3032,7 @@ export class SmartReframeService {
           conversation_split_candidate: adaptiveScenes && sourceGenre === 'podcast_interview' && process.env.SMART_REFRAME_AUTO_CONVERSATION_SPLIT === '1',
           automatic_fit_aspect: adaptiveScenes && process.env.SMART_REFRAME_AUTOMATIC_FIT_4_3 === '1' ? '4:3' : null,
           analyzed_source_path: clip.source_storage_path,
+          analyzed_source_sha256: analyzedSourceSha256,
           analyzed_source_start: startSec,
           analyzed_source_end: endSec,
           clip_duration: durationSec,
@@ -3089,7 +3092,8 @@ export class SmartReframeService {
    */
   public static async getReframeTrack(
     clipId: string,
-    userId: string
+    userId: string,
+    expectedSourceSha256?: string
   ): Promise<(ReframeTrackRecord & { isStale?: boolean }) | null> {
     if (!isMongoConfigured) return null;
 
@@ -3116,7 +3120,7 @@ export class SmartReframeService {
       return null;
     }
 
-    const {isStale} = reframeTrackFreshness(clip,track);
+    const {isStale} = reframeTrackFreshness(clip,track,expectedSourceSha256);
 
     return {
       ...track,

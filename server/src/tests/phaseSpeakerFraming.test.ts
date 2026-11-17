@@ -14,8 +14,8 @@ describe('Speaker framing — render-time auto-generation', () => {
   const render = fs.readFileSync(path.resolve(process.cwd(), 'src/services/clipRenderService.ts'), 'utf8');
 
   it('renderClipJob auto-generates a missing smart-reframe track before the decision', () => {
-    const genIdx = render.indexOf('ensureReframeTrackAtRender(clip, sourcePath, jobId)');
-    const decisionIdx = render.indexOf('resolveReframeDecision(clip, durationSec, canvasScale)');
+    const genIdx = render.indexOf('ensureReframeTrackAtRender(clip, sourcePath, jobId, sourceSha256)');
+    const decisionIdx = render.indexOf('resolveReframeDecision(clip, durationSec, canvasScale, sourceSha256)');
     assert.ok(genIdx > 0, 'auto-generation call present');
     assert.ok(decisionIdx > genIdx, 'decision must follow generation');
   });
