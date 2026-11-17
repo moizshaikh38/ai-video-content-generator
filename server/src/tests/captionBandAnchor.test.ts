@@ -59,16 +59,16 @@ async function run() {
 
   console.log('\n[CaptionBandAnchor] resolveDefaultCaptionStyle');
 
-  await it('no explicit style -> karaoke preset default', () => {
+  await it('no explicit style -> house comic preset default', () => {
     const r = CaptionService.resolveDefaultCaptionStyle({ caption_style: null as any, caption_config: {} } as any);
-    assert.equal(r.captionStyle, 'karaoke');
-    assert.equal((r.captionConfig as any).presetId, 'karaoke');
+    assert.equal(r.captionStyle, 'vireo_comic_default');
+    assert.equal((r.captionConfig as any).presetId, 'vireo_comic_default');
   });
 
-  await it('undefined style -> karaoke preset default', () => {
+  await it('undefined style -> house comic preset default', () => {
     const r = CaptionService.resolveDefaultCaptionStyle({ caption_style: undefined as any, caption_config: undefined as any } as any);
-    assert.equal(r.captionStyle, 'karaoke');
-    assert.equal((r.captionConfig as any).presetId, 'karaoke');
+    assert.equal(r.captionStyle, 'vireo_comic_default');
+    assert.equal((r.captionConfig as any).presetId, 'vireo_comic_default');
   });
 
   await it("explicit 'clean' style is preserved untouched", () => {
@@ -85,7 +85,7 @@ async function run() {
 
   await it('unset style with an explicit presetId keeps that presetId', () => {
     const r = CaptionService.resolveDefaultCaptionStyle({ caption_style: null as any, caption_config: { presetId: 'mozi' } } as any);
-    assert.equal(r.captionStyle, 'karaoke');
+    assert.equal(r.captionStyle, 'mozi');
     assert.equal((r.captionConfig as any).presetId, 'mozi');
   });
 
