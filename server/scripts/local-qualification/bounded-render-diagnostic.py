@@ -11,7 +11,7 @@ import argparse, json, os, pathlib, signal, subprocess, time
 
 def cgroup_snapshot():
     try:
-        relative = next(line.strip().split(':', 2)[2] for line in open('/proc/self/cgroup') if line.startswith('0::'))
+        relative = next(line.strip().split(':', 2)[2] for line in pathlib.Path('/proc/self/cgroup').read_text().splitlines() if line.startswith('0::'))
         base = pathlib.Path('/sys/fs/cgroup') / relative.lstrip('/')
         result = {'path': str(base)}
         for name in ['memory.max', 'memory.current', 'memory.peak', 'memory.events', 'cpu.max']:
