@@ -4,3 +4,7 @@ test('two stable bounded views propose focus, not scene semantics',()=>{const p=
 test('missing/competing face, identity swap, tight pair and cut gap abstain',()=>{for(const alter of[(s:any[])=>s[1].faces.pop(),(s:any[])=>s[1].faces.push(s[1].faces[0]),(s:any[])=>s[1].faces[0].track_id='other',(s:any[])=>s.forEach(q=>q.faces[1].x=.36),(s:any[])=>s.splice(0,2)]){const s=samples();alter(s);assert.equal(choose(s,0,1,1920,1080),null)}});
 
 test('invalid numeric evidence and repeated times abstain',()=>{for(const change of[(s:any[])=>s[1].time=NaN,(s:any[])=>s[1].time=s[0].time,(s:any[])=>s[0].faces[0].center_x=NaN]){const s=samples();change(s);assert.equal(choose(s,0,1,1920,1080),null)}});
+
+test('out-of-shot samples and inconsistent face centers are not framing evidence',()=>{
+ for(const change of[(s:any[])=>s[0].time=-.1,(s:any[])=>s[4].time=1,(s:any[])=>s[1].faces[0].confidence=1.2,(s:any[])=>s[1].faces[0].center_x=.1,(s:any[])=>s[1].faces[0].center_y=.8]){const s=samples();change(s);assert.equal(choose(s,0,1,1920,1080),null);}
+});

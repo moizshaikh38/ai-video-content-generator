@@ -6,10 +6,10 @@ import type {ItemPanels,PanelRect} from './panelLayouts.js';
 export function pairFocusPresentation(samples:ReframeSample[],start:number,end:number,sourceW:number,sourceH:number): {panels:ItemPanels;reason:string}|null {
  if(end-start<.75||samples.length<4||!(sourceW>sourceH&&sourceH>0))return null;
  const ss=[...samples].sort((a,b)=>a.time-b.time);
- if(![start,end,sourceW,sourceH].every(Number.isFinite)||ss.some(s=>!Number.isFinite(s.time)))return null;
+ if(![start,end,sourceW,sourceH].every(Number.isFinite)||ss.some(s=>!Number.isFinite(s.time)||s.time<start||s.time>=end))return null;
  if(ss[0].time-start>.3||end-ss.at(-1)!.time>.3||ss.some((v,i)=>i>0&&(v.time-ss[i-1].time>.35||v.time<=ss[i-1].time)))return null;
  const pairs=ss.map(s=>[...s.faces].sort((a,b)=>a.center_x-b.center_x));
- if(pairs.some(p=>p.length!==2||p.some(f=>!f.track_id||![f.x,f.y,f.width,f.height,f.confidence,f.center_x,f.center_y].every(Number.isFinite)||f.confidence<.85||f.height<.04||f.height>.45||f.width<=0||f.x<0||f.y<0||f.x+f.width>1||f.y+f.height>1)))return null;
+ if(pairs.some(p=>p.length!==2||p.some(f=>!f.track_id||![f.x,f.y,f.width,f.height,f.confidence,f.center_x,f.center_y].every(Number.isFinite)||f.confidence<.85||f.confidence>1||f.center_x<f.x||f.center_x>f.x+f.width||f.center_y<f.y||f.center_y>f.y+f.height||f.height<.04||f.height>.45||f.width<=0||f.x<0||f.y<0||f.x+f.width>1||f.y+f.height>1)))return null;
  if([0,1].some(i=>new Set(pairs.map(p=>p[i].track_id)).size!==1)||pairs[0][0].track_id===pairs[0][1].track_id)return null;
  if(pairs.some(p=>p[1].x-(p[0].x+p[0].width)<.025||Math.max(p[0].height/p[1].height,p[1].height/p[0].height)>2))return null;
  const rects:PanelRect[]=[];
