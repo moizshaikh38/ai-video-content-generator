@@ -122,10 +122,11 @@ async function streamObjectToFile(
   bucket: ObjectBucket,
   key: string,
   path: string,
-  signal: AbortSignal
+  signal: AbortSignal,
+  expected?: {size:number;etag?:string}
 ): Promise<{ sizeBytes: number; sha256: string }> {
   const result = await storageClient().send(
-    new GetObjectCommand({ Bucket: bucketName(bucket), Key: key }),
+    new GetObjectCommand({ Bucket: bucketName(bucket), Key: key, IfMatch: expected?.etag }),
     { abortSignal: signal }
   );
   if (!result.Body) throw new Error('Empty object body');
@@ -137,6 +138,7 @@ async function streamObjectToFile(
     totalBytes += chunk.length;
   });
   await pipeline(bodyStream, createWriteStream(path, { flags: 'w' }), { signal });
+  if (expected && totalBytes !== expected.size) throw new Error('Source object length changed during download.');
   return { sizeBytes: totalBytes, sha256: hasher.digest('hex') };
 }
 
@@ -253,7 +255,7 @@ export async function downloadObjectToFile(
         if (!(err instanceof RangeNotHonoredError)) throw err;
       }
     }
-    return await streamObjectToFile(bucket, key, path, controller.signal);
+    return await streamObjectToFile(bucket, key, path, controller.signal, {size,etag:head.ETag});
   } catch (err: any) {
     if (controller.signal.aborted || err?.name === 'AbortError') {
       throw new AppError(`Source object download timed out after ${timeoutMs / 1000}s.`, 504, 'DOWNLOAD_TIMEOUT');
