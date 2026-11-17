@@ -1251,6 +1251,16 @@ export class CaptionService {
 
     if (validItems.length === 0) return null;
 
+    // Persisted item drag coordinates are authoritative even without the clip's
+    // mirrored preset config. Per-cue edits stay more specific than the item.
+    const placedCue = (cue: TimedCaptionCue, item: any): TimedCaptionCue => ({
+      ...cue,
+      ...(cue.position_x === undefined && Number.isFinite(item.caption.position_x)
+        ? {position_x:item.caption.position_x} : {}),
+      ...(cue.position_y === undefined && Number.isFinite(item.caption.position_y)
+        ? {position_y:item.caption.position_y,position_anchor:cue.position_anchor ?? 'bottom'} : {}),
+    });
+
     // Single item fast-path for maximum backward compatibility
     if (validItems.length === 1) {
       const item = validItems[0];
@@ -1280,7 +1290,7 @@ export class CaptionService {
         : rawCues;
 
       return {
-        cues: finalCues,
+        cues: finalCues.map(c => placedCue(c,item)),
         style: item.caption.style,
         position: item.caption.position,
         positionExplicit: item.caption.position_explicit === true,
@@ -1339,7 +1349,7 @@ export class CaptionService {
           : rawCue.words;
 
         aggregatedCues.push({
-          ...rawCue,
+          ...placedCue(rawCue,item),
           start: cueStart,
           end: cueEnd,
           words: translatedWords,

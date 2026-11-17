@@ -1,5 +1,5 @@
 import {expandSceneLayoutProject} from './sceneLayoutOverrides.js';
-import {normalizePanels} from './panelLayouts.js';
+import {normalizePanels,PANEL_RECTS} from './panelLayouts.js';
 export type CaptionSceneLayout = 'fill' | 'fit' | 'blur' | 'split' | 'panel_seam' | 'panel_gameplay';
 export interface CaptionPlacementContext {
   project: any;
@@ -37,7 +37,7 @@ export function captionCompositionWindows(project:any,plan:any[],clipStart:numbe
  * No new scene store: callers use post-edit timeline windows, not source time. */
 export function captionSceneLayout(item: any, fallback = 'fill'): CaptionSceneLayout {
   const panels=normalizePanels(item?.panels);
-  if (panels) return ['gameplay','watch_party','streaming'].includes(panels.layout) ? 'panel_gameplay' : 'panel_seam';
+  if (panels) return ['gameplay','watch_party','streaming','game_screen_first'].includes(panels.layout) ? 'panel_gameplay' : 'panel_seam';
   if (item?.crop?.mode === 'fit' || item?.crop?.mode === 'blur') return item.crop.mode;
   const layout = item?.crop_config?.layout_mode || item?.layout_mode;
   if (layout === 'split') return 'split';
@@ -60,8 +60,11 @@ function itemPositionIsExplicit(item: any): boolean {
  * This is a placement reference only, not same-moment or preset parity.
  * Split stays centered on the seam; Fill retains its lower safe edge. */
 export function autoCaptionAnchor(layout: CaptionSceneLayout, context: CaptionPlacementContext, _item?: any, _text = ''): number {
+  if(layout==='panel_gameplay'){
+    const p=normalizePanels(_item?.panels);return p?PANEL_RECTS[p.layout][0].h:.5;
+  }
   if (layout === 'split' || layout === 'panel_seam') return 0.5;
-  if (layout === 'fit' || layout === 'blur' || layout === 'panel_gameplay') return 585 / 720;
+  if (layout === 'fit' || layout === 'blur' || layout === 'fill') return 585 / 720;
   const canvas = context.project?.canvas || {};
   const ratio = canvas.aspect_ratio || '9:16';
   const w = ratio === '16:9' ? 1920 : 1080;
@@ -96,7 +99,7 @@ export function applySceneCaptionPlacement<T extends {start:number;end:number;te
       const window=windows.find(w=>w.itemId===scene.id&&start>=w.start-.001&&start<w.end-.001);
       const layout=window?.layout??captionSceneLayout(scene,context.fallbackLayout);
       result.push({...cue,id:cue.id,start,end,...(words?{words}:{}),text,
-        position_y:autoCaptionAnchor(layout,context,scene,text),position_anchor:layout==='fill'?'bottom':'center',auto_position:true});
+        position_y:autoCaptionAnchor(layout,context,scene,text),position_anchor:'center',auto_position:true});
     }
   }
   return result;

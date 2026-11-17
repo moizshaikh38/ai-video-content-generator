@@ -104,6 +104,9 @@ export function applyPresetToEditorCaption(
   return {
     cues: prev?.cues || [],
     position: prev?.position || 'bottom',
+    position_x:prev?.position_x,
+    position_y:prev?.position_y,
+    ...(prev && 'position_explicit' in prev ? {position_explicit:(prev as any).position_explicit} : {}),
     emphasis_words: prev?.emphasis_words,
     style: presetId,
     primary_color: p.colors.text,

@@ -120,7 +120,7 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
             {l.glyphs.map((g,i)=><span key={i} style={{...css.line as React.CSSProperties,position:'absolute',whiteSpace:'pre',left:g.x*scale,top:g.line*l.lineHeight*scale+parseFloat(String(css.line.top??0)),fontKerning:'none',fontVariantLigatures:'none',fontSize:css.line.fontSize}}>{g.text}</span>)}
           </div>;
         })() : frame.rollingRows ? (()=>{
-          const g=getCaptionRollingGeometry({position_x:frame.positionX,position_y:frame.positionY},style);
+          const g=getCaptionRollingGeometry({position_x:frame.positionX,position_y:frame.positionY,position_anchor:frame.positionAnchor},style);
           return <div data-caption-rolling-rows="true" style={{position:'relative',width:g.width*scale,height:g.height*scale}}>
             {frame.rollingRows.map((row,index)=><div key={`${row.chunkId}:${index}`} data-caption-row={row.row} style={{...css.line as React.CSSProperties,position:'absolute',whiteSpace:'nowrap',left:(g.width/2+(row.row===0?-g.stagger:g.stagger))*scale,top:(row.row*g.lineHeight+row.offsetY)*scale+parseFloat(String(css.line.top??0)),transform:'translateX(-50%)',opacity:row.opacity}}>
               {style.shadowLayers?.map((l,i)=><span key={i} style={{position:'absolute',left:(l.x??0)*scale,top:l.y*scale,color:l.color,opacity:l.opacity,fontSize:css.line.fontSize}}>{row.text}</span>)}

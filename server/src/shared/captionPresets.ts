@@ -1821,15 +1821,15 @@ export interface PreviewFrame {
 export function getPreviewFrame(cue: PresetTimedCue, time: number, style: ResolvedCaptionStyle): PreviewFrame {
   const validWords = getValidCueWords(cue);
   const chipLayout=getCaptionChipLayout(cue,style);
-  if(chipLayout)return {cueId:cue.id,words:[{text:cue.text,highlighted:false,active:false,scale:1,breakAfter:false}],opacity:time>=cue.start&&time<cue.end?1:0,wordTiming:getValidCueWords(cue).length>0,positionX:cue.position_x,positionY:cue.position_y,chipLayout,chipStates:getCaptionChipVisuals(cue,style,time)};
+  if(chipLayout)return {cueId:cue.id,words:[{text:cue.text,highlighted:false,active:false,scale:1,breakAfter:false}],opacity:time>=cue.start&&time<cue.end?1:0,wordTiming:getValidCueWords(cue).length>0,positionX:cue.position_x,positionY:cue.position_y,positionAnchor:cue.position_anchor,chipLayout,chipStates:getCaptionChipVisuals(cue,style,time)};
   const movingLayout=getCaptionMovingLayout(cue,style);
-  if(movingLayout)return {cueId:cue.id,words:[{text:cue.text,highlighted:false,active:false,scale:1,breakAfter:false}],opacity:time>=cue.start&&time<cue.end?1:0,wordTiming:true,positionX:cue.position_x,positionY:cue.position_y,movingBoxLayout:movingLayout,movingBoxState:getCaptionMovingBox(movingLayout.targets,time,cue.start,cue.end)};
+  if(movingLayout)return {cueId:cue.id,words:[{text:cue.text,highlighted:false,active:false,scale:1,breakAfter:false}],opacity:time>=cue.start&&time<cue.end?1:0,wordTiming:true,positionX:cue.position_x,positionY:cue.position_y,positionAnchor:cue.position_anchor,movingBoxLayout:movingLayout,movingBoxState:getCaptionMovingBox(movingLayout.targets,time,cue.start,cue.end)};
   const exitOpacity = getCaptionExitOpacity(cue,time,style);
   const entranceOpacity = getEntranceOpacityAt(style.entrance, (time - cue.start) * 1000);
   if (canUseCaptionRollingRows(cue,style)) return {
     cueId:cue.id,words:[{text:cue.text,highlighted:false,active:false,scale:1,breakAfter:false}],
     rollingRows:getCaptionRollingRows(getCaptionRollingChunks(cue,style),time,cue.start,cue.end),
-    opacity:1,wordTiming:true,positionX:cue.position_x,positionY:cue.position_y,
+    opacity:1,wordTiming:true,positionX:cue.position_x,positionY:cue.position_y,positionAnchor:cue.position_anchor,
   };
 
   if (validWords.length === 0) {
@@ -1908,11 +1908,11 @@ export function getCaptionMovingLayout(cue:PresetTimedCue,style:ResolvedCaptionS
   const align=[1,4,7].includes(style.alignment)?'left':[3,6,9].includes(style.alignment)?'right':'center';
   return layoutCaptionMovingBox(words,getCueLineBreakIndex(cue,words.length),style.fontSize,style.letterSpacing,align,style.movingBox.paddingX,style.movingBox.paddingY);
 }
-export function getCaptionMovingOrigin(cue:Pick<PresetTimedCue,'position_x'|'position_y'>,style:ResolvedCaptionStyle,layout:CaptionBoxLayout){
+export function getCaptionMovingOrigin(cue:Pick<PresetTimedCue,'position_x'|'position_y'|'position_anchor'>,style:ResolvedCaptionStyle,layout:CaptionBoxLayout){
  const manual=cue.position_x!==undefined||cue.position_y!==undefined;
  const x=cue.position_x!==undefined?cue.position_x*style.playResX-layout.width/2:manual?(style.playResX-layout.width)/2:
  [1,4,7].includes(style.alignment)?style.marginL:[3,6,9].includes(style.alignment)?style.playResX-style.marginR-layout.width:(style.marginL+style.playResX-style.marginR-layout.width)/2;
- const y=cue.position_y!==undefined?cue.position_y*style.playResY-layout.height:
+ const y=cue.position_y!==undefined?cue.position_y*style.playResY-layout.height*(cue.position_anchor==='center'?.5:1):
  style.alignment>=7?style.marginV:style.alignment>=4?(style.playResY-layout.height)/2:style.playResY-style.marginV-layout.height;
  return {x,y};
 }
@@ -1930,10 +1930,10 @@ export function getCaptionExitOpacity(cue:PresetTimedCue,time:number,style:Resol
   if(duration<=0)return 1;
   return Math.max(0,Math.min(1,(cue.end-Number(time.toFixed(2)))/duration));
 }
-export function getCaptionBackdropGeometry(cue:Pick<PresetTimedCue,'position_x'|'position_y'>,style:ResolvedCaptionStyle,lineCount:number){
+export function getCaptionBackdropGeometry(cue:Pick<PresetTimedCue,'position_x'|'position_y'|'position_anchor'>,style:ResolvedCaptionStyle,lineCount:number){
   const lines=Math.max(1,Math.min(2,lineCount)),h=style.fontSize*lines;
   const x=cue.position_x!==undefined?cue.position_x*style.playResX:(style.marginL+style.playResX-style.marginR)/2;
-  const y=cue.position_y!==undefined?cue.position_y*style.playResY-h/2:
+  const y=cue.position_y!==undefined?cue.position_y*style.playResY-(cue.position_anchor==='center'?0:h/2):
     style.alignment>=7?style.marginV+h/2:style.alignment>=4?style.playResY/2:style.playResY-style.marginV-h/2;
   return {x,y,width:Math.max(1,style.playResX-(style.backdropBand?.insetX??0)*2),height:h+(style.backdropBand?.paddingY??0)*2};
 }
@@ -1958,13 +1958,13 @@ export function canUseCaptionRollingRows(cue:PresetTimedCue,style:ResolvedCaptio
   return !!style.rollingRows&&!style.box&&!style.activeWordBox&&style.maxLines===2&&style.maxWordsPerCue>=2&&style.wordAnimation.type==='none'&&words.length>0&&words.length<=120&&!words.some(w=>w.customStyle);
 }
 /** Layout shared by the special row renderer and ASS path. Row anchors are bottom-center. */
-export function getCaptionRollingGeometry(cue:Pick<PresetTimedCue,'position_x'|'position_y'>,style:ResolvedCaptionStyle){
+export function getCaptionRollingGeometry(cue:Pick<PresetTimedCue,'position_x'|'position_y'|'position_anchor'>,style:ResolvedCaptionStyle){
   const height=style.fontSize*2,width=style.fontSize*5;
   const manual=cue.position_x!==undefined||cue.position_y!==undefined;
   const centerX=cue.position_x!==undefined?cue.position_x*style.playResX:manual?style.playResX/2:
     [1,4,7].includes(style.alignment)?style.marginL+width/2:
     [3,6,9].includes(style.alignment)?style.playResX-style.marginR-width/2:(style.marginL+style.playResX-style.marginR)/2;
-  const bottomY=cue.position_y!==undefined?cue.position_y*style.playResY:
+  const bottomY=cue.position_y!==undefined?cue.position_y*style.playResY+(cue.position_anchor==='center'?height/2:0):
     style.alignment>=7?style.marginV+height:style.alignment>=4?style.playResY/2+height/2:style.playResY-style.marginV;
   return {height,width,centerX,bottomY,lineHeight:style.fontSize,stagger:style.fontSize*.7};
 }
