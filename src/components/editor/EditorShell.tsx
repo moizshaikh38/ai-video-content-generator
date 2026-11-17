@@ -14,7 +14,8 @@ import {
   EditorTrack,
   EditorCaptionItem,
 } from '../../types';
-import { applyPresetToEditorCaption, CaptionPresetId, DEFAULT_CAPTION_PRESET_ID, RenderableCaptionPresetId } from '../../lib/captionPresets';
+import {NEW_CAPTION_PRESET_ID} from '../../../server/src/shared/captionPresets';
+import { applyPresetToEditorCaption, CaptionPresetId, RenderableCaptionPresetId } from '../../lib/captionPresets';
 import { CreditService } from '../../services/creditService';
 import { useEditorPlayback } from '../../hooks/useEditorPlayback';
 import { useEditorSelection, SidebarTab, AiToolType } from '../../hooks/useEditorSelection';
@@ -271,7 +272,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   // the previously rendered file must not be offered as the changed export.
   const [exportStale, setExportStale] = useState<boolean>(false);
   // Last non-'none' caption preset, so Captions Off/On restores the chosen style.
-  const [lastCaptionPreset, setLastCaptionPreset] = useState<RenderableCaptionPresetId>(DEFAULT_CAPTION_PRESET_ID);
+  const [lastCaptionPreset, setLastCaptionPreset] = useState<RenderableCaptionPresetId>(NEW_CAPTION_PRESET_ID);
   // Plan-allowed caption presets (null until loaded). Applying a premium preset
   // the plan does not include would make every subsequent save fail with
   // PRESET_RESTRICTED (the save endpoint enforces the same list), so resolve to
@@ -2246,7 +2247,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
           }
         }}
         onAddText={() => handleAddTextLayer('New Text Overlay')}
-        onAddCaption={() => handleApplyCaptionPreset(DEFAULT_CAPTION_PRESET_ID)}
+        onAddCaption={() => handleApplyCaptionPreset(NEW_CAPTION_PRESET_ID)}
         onReframe={() => {}}
         onNormalizeAudio={() => {}}
         onOpenProducer={() => setActiveAiTool('producer')}

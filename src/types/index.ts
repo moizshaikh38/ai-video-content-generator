@@ -383,6 +383,7 @@ export type CaptionStyle =
   | 'vireo_prism_stamp'
   | 'vireo_echo_slide'
   | 'vireo_comic_punch'
+  | 'vireo_comic_default'
   | 'soft_cut'
   | 'soft_build'
   | 'typewriter'

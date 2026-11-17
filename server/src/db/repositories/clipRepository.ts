@@ -1,3 +1,4 @@
+import {newCaptionDefaults} from '../../shared/newCaptionDefaults.js';
 import crypto from 'node:crypto';
 import { getMongoClient, getMongoDb } from '../mongoClient.js';
 import { AppError, ClipAspectRatio, ClipCropMode } from '../../types/index.js';
@@ -46,12 +47,9 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
         },
         caption_position: captionPos,
         caption_enabled: options?.caption_enabled !== undefined ? Boolean(options.caption_enabled) : true,
-        // Default presentation: the karaoke preset (large uppercase,
-        // word-by-word highlight). The previous default 'hormozi' resolved to
-        // no gallery preset and fell through to small static legacy captions
-        // (user-reported 15 Nov 2026: captions not clean/appealing vs Opus).
-        caption_style: options?.caption_style || 'karaoke',
-        caption_config: options?.caption_config || { presetId: 'karaoke' },
+        // New captions use the house style. Explicit choices/config are preserved.
+        caption_style: newCaptionDefaults(options?.caption_style,options?.caption_config).captionStyle,
+        caption_config: newCaptionDefaults(options?.caption_style,options?.caption_config).captionConfig,
         // Carried for the automatic render headline (Opus-parity): burned at
         // render time unless an explicit overlay config opts out.
         title: (candidate as any)?.title || null,

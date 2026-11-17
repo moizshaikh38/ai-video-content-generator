@@ -1,3 +1,4 @@
+import {newCaptionDefaults} from '../shared/newCaptionDefaults.js';
 import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 import {candidateCompositionOptions,projectAutoCandidate} from '../shared/automaticLayoutCandidate.js';
 import {storedScenePlanWindow} from '../shared/storedScenePlanWindow.js';
@@ -386,9 +387,11 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
 
     const hasSmartReframe = EntitlementService.isFeatureAllowed(entitlements, 'smartReframe');
     const effectiveCropMode = cropMode === 'smart' && !hasSmartReframe ? 'fit' : cropMode;
-    const effectiveCaptionStyle = caption_style ||
-      (EntitlementService.isPresetAllowed(entitlements, 'karaoke') ? 'karaoke' : 'clean');
-    const effectiveCaptionConfig = caption_config || { presetId: effectiveCaptionStyle };
+    const initialCaption = newCaptionDefaults(caption_style,caption_config);
+    const effectiveCaptionStyle = EntitlementService.isPresetAllowed(entitlements,initialCaption.captionStyle)
+      ? initialCaption.captionStyle : 'simple';
+    const effectiveCaptionConfig = effectiveCaptionStyle===initialCaption.captionStyle
+      ? initialCaption.captionConfig : {presetId:effectiveCaptionStyle};
 
     const result = await ClipRenderService.createClipFromCandidate(
       projectId,

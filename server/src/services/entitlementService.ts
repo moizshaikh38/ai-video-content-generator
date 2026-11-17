@@ -47,7 +47,7 @@ export const PLAN_ENTITLEMENT_DEFINITIONS: Record<PlanId | 'developer', PlanEnti
     displayName: 'Free',
     monthlyCredits: PROVISIONAL_MONTHLY_CREDITS.free,
     watermarkRequired: true,
-    allowedSubtitlePresets: ['simple', 'clean', 'none'],
+    allowedSubtitlePresets: ['vireo_comic_default', 'simple', 'clean', 'none'],
     features: {
       smartReframe: false,
       animatedCaptions: false,
@@ -75,6 +75,7 @@ export const PLAN_ENTITLEMENT_DEFINITIONS: Record<PlanId | 'developer', PlanEnti
     monthlyCredits: PROVISIONAL_MONTHLY_CREDITS.creator,
     watermarkRequired: false,
     allowedSubtitlePresets: [
+      'vireo_comic_default',
       'simple',
       'clean',
       'none',

@@ -1,3 +1,4 @@
+import {NEW_CAPTION_PRESET_ID} from '../shared/captionPresets.js';
 import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 import {validateAutomaticLayoutCropConfig} from '../shared/automaticLayoutValidation.js';
 import {normalizeEditorCanvasAspect} from '../shared/editorCanvasAspect.js';
@@ -2589,7 +2590,7 @@ export class ProEditorService {
     // Track 3: Caption Track
     const captionTrackId = crypto.randomUUID();
     const captionStyle = producerPlan?.operations.find((o) => o.type === 'CAPTION_STYLE')?.parameters.style ||
-      clip.caption_style || 'clean';
+      clip.caption_style || NEW_CAPTION_PRESET_ID;
 
     let initialCues: any[] = [];
     if (transcript) {
@@ -2651,6 +2652,7 @@ export class ProEditorService {
             highlight_color: producerPlan?.operations.find((o) => o.type === 'CAPTION_EMPHASIS' && o.enabled)?.parameters.highlight_color || '#FACC15',
             primary_color: '#FFFFFF',
             animation: 'highlight',
+            ...(captionStyle===NEW_CAPTION_PRESET_ID ? {font_family:'Bangers',font_size:136,highlight_color:'#20FF35',animation:'none',box_enabled:false} : {}),
           },
           effects: [],
           keyframes: [],

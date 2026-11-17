@@ -61,6 +61,7 @@ export const CAPTION_PRESET_IDS = [
   'vireo_prism_stamp',
   'vireo_echo_slide',
   'vireo_comic_punch',
+  'vireo_comic_default',
 ] as const;
 
 export type CaptionPresetId = (typeof CAPTION_PRESET_IDS)[number];
@@ -105,12 +106,15 @@ export const PRESET_ONLY_CAPTION_STYLES = [
   'vireo_prism_stamp',
   'vireo_echo_slide',
   'vireo_comic_punch',
+  'vireo_comic_default',
 ] as const;
 
 /** Every value accepted for `caption_style`. */
 export const ALL_CAPTION_STYLES = [...LEGACY_CAPTION_STYLES, ...PRESET_ONLY_CAPTION_STYLES] as const;
 
 export const DEFAULT_CAPTION_PRESET_ID: RenderableCaptionPresetId = 'simple';
+/** New captions only. Unknown legacy IDs still resolve to simple. */
+export const NEW_CAPTION_PRESET_ID: RenderableCaptionPresetId = 'vireo_comic_default';
 
 export function isCaptionPresetId(value: unknown): value is CaptionPresetId {
   return typeof value === 'string' && (CAPTION_PRESET_IDS as readonly string[]).includes(value);
@@ -328,6 +332,15 @@ const NO_ENTRANCE = { type: 'none', durationMs: 0 } as const;
  * any third-party preset.
  */
 export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDefinition> = {
+  vireo_comic_default: {
+    id:'vireo_comic_default',label:'Comic Punch',qualification:'candidate',
+    description:'House comic phrases with an open-license font, yellow numbers and green final-word accents.',sampleText:'Those 15 sea bombs',
+    font:{family:'Bangers',bold:false,size:136,uppercase:true,letterSpacing:0},
+    colors:{text:'#FFFFFF',active:'#20FF35',activeText:'#20FF35',outline:'#000000',shadow:'#FFFFFF',shadowOpacity:0},
+    outline:8,shadow:0,box:null,activeWordBox:null,
+    layout:{anchor:'bottom',marginV:306,marginH:90,maxWordsPerCue:3,maxLines:2,maxCharsPerLine:18},
+    highlight:'none',wordAnimation:NO_ANIMATION,entrance:NO_ENTRANCE,cueMotion:'comic',
+  },
   vireo_comic_punch: {
     id:'vireo_comic_punch',label:'Vireo Comic Punch',qualification:'candidate',
     description:'Comic phrase zoom with persistent numeric yellow and final-word green defaults; per-word colors remain editable.',sampleText:'Those 15 sea bombs',
@@ -835,6 +848,7 @@ export const CAPTION_PRESET_LABELS: Record<CaptionPresetId, string> = {
   vireo_prism_stamp: CAPTION_PRESETS.vireo_prism_stamp.label,
   vireo_echo_slide: CAPTION_PRESETS.vireo_echo_slide.label,
   vireo_comic_punch: CAPTION_PRESETS.vireo_comic_punch.label,
+  vireo_comic_default: CAPTION_PRESETS.vireo_comic_default.label,
   chip_background: CAPTION_PRESETS.chip_background.label,
   glide: CAPTION_PRESETS.glide.label,
   with_backdrop: CAPTION_PRESETS.with_backdrop.label,

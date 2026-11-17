@@ -1,3 +1,4 @@
+import {newCaptionDefaults} from '../shared/newCaptionDefaults.js';
 import { clampCaptionFontSize } from '../shared/captionPresets.js';
 import {assertTranscriptUsable} from './transcription/transcriptQuality.js';
 import { applySceneCaptionPlacement } from '../shared/sceneCaptionPlacement.js';
@@ -276,18 +277,14 @@ export class CaptionService {
 
   /**
    * Default caption presentation for clips with no explicit caption style.
-   * The karaoke preset (large uppercase, word-by-word highlight, no backdrop
-   * box) is the house default; any explicit clip caption_style is preserved.
+   * The house comic preset is used only without an explicit saved style/config.
    */
   public static resolveDefaultCaptionStyle(clip: Pick<ClipRecord, 'caption_style' | 'caption_config'>): { captionStyle: ClipRecord['caption_style']; captionConfig: CaptionConfig } {
     if (clip.caption_style) {
       return { captionStyle: clip.caption_style, captionConfig: { ...(clip.caption_config || {}) } };
     }
-    const captionConfig: CaptionConfig = { ...(clip.caption_config || {}) };
-    if ((captionConfig as any).presetId === undefined) {
-      (captionConfig as any).presetId = 'karaoke';
-    }
-    return { captionStyle: 'karaoke', captionConfig };
+    const defaults=newCaptionDefaults(clip.caption_style,clip.caption_config);
+    return{captionStyle:defaults.captionStyle as ClipRecord['caption_style'],captionConfig:defaults.captionConfig};
   }
 
   public static getPositionConfig(
