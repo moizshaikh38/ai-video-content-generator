@@ -67,7 +67,7 @@ export const TrackerControl: React.FC<Props> = ({ clipId, project, videoSrc, sou
   };
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative max-md:static">
       <button type="button" onClick={(e) => { e.stopPropagation(); setMenu((v) => !v); }}
         className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg hover:bg-white/[0.08] text-neutral-300 hover:text-white transition font-medium"
         title="Tracker: follow a subject you pick">
@@ -75,10 +75,10 @@ export const TrackerControl: React.FC<Props> = ({ clipId, project, videoSrc, sou
         <span>Tracker: {activeOn ? 'ON' : 'OFF'}</span>
       </button>
       {menu && (
-        <div onClick={(e) => e.stopPropagation()} className="absolute top-full mt-2 right-0 w-64 glass-float rounded-xl p-1 z-40 text-[11px]">
-          <button className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-white" onClick={() => { setMenu(false); setDialog(true); setBox(null); setError(null); }}>Manual subject tracking</button>
-          <button disabled={!activeOn} className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-neutral-300 disabled:opacity-40" onClick={() => { setMenu(false); onSetTracker({ itemId: active?.id ?? null }, null); }}>Turn off tracking for this scene</button>
-          <button disabled={!anyOn} className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-neutral-300 disabled:opacity-40" onClick={() => { setMenu(false); onSetTracker({ itemId: null }, null); }}>Turn off all tracking</button>
+        <div onClick={(e) => e.stopPropagation()} className="absolute top-full mt-2 right-0 max-md:right-auto max-md:left-1/2 max-md:-translate-x-1/2 w-64 max-md:max-w-full glass-float rounded-xl p-1 z-40 text-[11px]">
+          <button className="block w-full whitespace-normal text-left px-3 py-2 rounded-lg hover:bg-white/10 text-white" onClick={() => { setMenu(false); setDialog(true); setBox(null); setError(null); }}>Manual subject tracking</button>
+          <button disabled={!activeOn} className="block w-full whitespace-normal text-left px-3 py-2 rounded-lg hover:bg-white/10 text-neutral-300 disabled:opacity-40" onClick={() => { setMenu(false); onSetTracker({ itemId: active?.id ?? null }, null); }}>Turn off tracking for this scene</button>
+          <button disabled={!anyOn} className="block w-full whitespace-normal text-left px-3 py-2 rounded-lg hover:bg-white/10 text-neutral-300 disabled:opacity-40" onClick={() => { setMenu(false); onSetTracker({ itemId: null }, null); }}>Turn off all tracking</button>
           {note && <p className="px-3 py-1 text-[10px] text-neutral-500">{note}</p>}
         </div>
       )}

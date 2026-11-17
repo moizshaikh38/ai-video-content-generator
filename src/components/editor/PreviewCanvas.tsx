@@ -443,6 +443,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // falling back to the first video item only when the playhead is outside every item.
   const layoutBtnRef = React.useRef<HTMLButtonElement>(null);
   const [layoutAnchor, setLayoutAnchor] = React.useState<DOMRect | null>(null);
+  const [mobileFramingToolsOpen, setMobileFramingToolsOpen] = useState(false);
   const baseVideoItem: EditorTrackItem | undefined = activeVideoItems[0] ?? project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
   // The rendered export preview already contains the panels; only compose them live from the clean source.
   const videoCropLocked = Boolean(baseVideoItem?.locked || project.tracks.some(t => t.locked && t.items.some(i => i.id === baseVideoItem?.id)));
@@ -1217,8 +1218,19 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       className="flex-1 bg-vc-surface1 flex flex-col items-center p-3 overflow-hidden relative select-none"
     >
       {/* OPUS-STYLE TOP PREVIEW TOOLBAR */}
-      <div className="w-full shrink-0 flex items-center justify-center gap-3 pb-2 z-30 max-md:pr-9">
-        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 max-w-full glass-float px-3 py-1 rounded-2xl text-xs whitespace-nowrap">
+      <div className="w-full shrink-0 flex flex-col items-center justify-center gap-1 pb-2 z-30 max-md:pr-9">
+        <div className="md:hidden w-full flex items-center justify-between gap-2 glass-float px-2 py-1 rounded-xl text-xs" data-testid="mobile-framing-summary">
+          <span className="truncate min-w-0 text-neutral-300">{project.canvas.aspect_ratio || '9:16'} · {baseVideoItem?.framing_window ? 'Context window' : activePanels ? PANEL_LABELS[activePanels.layout] : primaryLayoutMode === 'split' ? 'Split' : primaryVideoCropMode === 'fit' ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
+          <button
+            type="button"
+            data-testid="mobile-framing-toggle"
+            aria-expanded={mobileFramingToolsOpen}
+            aria-label={mobileFramingToolsOpen ? 'Close framing tools' : 'Open framing tools'}
+            onClick={(e) => { e.stopPropagation(); setLayoutAnchor(null); setMobileFramingToolsOpen(open => !open); }}
+            className="shrink-0 min-h-[36px] rounded-lg px-2 bg-white/10 text-white font-medium"
+          >{mobileFramingToolsOpen ? 'Done' : 'Framing tools'}</button>
+        </div>
+        <div data-testid="preview-framing-tools" className={`${mobileFramingToolsOpen ? 'flex' : 'hidden'} md:flex relative flex-wrap items-center justify-center gap-x-2 gap-y-1 max-w-full glass-float px-3 py-1 rounded-2xl text-xs whitespace-nowrap`}>
           {/* 1. Aspect Ratio Pill */}
           {onChangeAspectRatio && (
             <button
