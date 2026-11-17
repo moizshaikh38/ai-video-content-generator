@@ -1,3 +1,4 @@
+import {assertTranscriptReusable} from './transcriptSourceBindingService.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -216,6 +217,7 @@ export class SubtitleStudioService {
       user_id: userId,
     });
     if (directTranscript && (directTranscript.segments?.length || directTranscript.transcript_text)) {
+      await assertTranscriptReusable(directTranscript,sourceUrl || "");
       return directTranscript;
     }
 
@@ -234,6 +236,7 @@ export class SubtitleStudioService {
         });
 
         if (sourceTranscript && (sourceTranscript.segments?.length || sourceTranscript.transcript_text)) {
+          await assertTranscriptReusable(sourceTranscript,sourceUrl || "");
           // Clone to current project for fast subsequent access
           await db.collection('transcripts').updateOne(
             { project_id: projectId, user_id: userId },
@@ -248,6 +251,11 @@ export class SubtitleStudioService {
                 duration_seconds: sourceTranscript.duration_seconds,
                 segments: sourceTranscript.segments,
                 words: sourceTranscript.words,
+                quality_assessment: sourceTranscript.quality_assessment,
+                transcription_provenance: sourceTranscript.transcription_provenance,
+                transcription_timing_issues: sourceTranscript.transcription_timing_issues,
+                source_binding: sourceTranscript.source_binding,
+                av_start_offset_sec: sourceTranscript.av_start_offset_sec,
                 created_at: new Date(),
                 updated_at: new Date(),
               },

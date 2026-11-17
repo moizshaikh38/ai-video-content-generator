@@ -148,6 +148,7 @@ export interface TranscriptSegment {
 }
 
 export interface TranscriptRecord {
+  source_binding?: import('../shared/transcriptSourceBinding.js').TranscriptSourceBinding;
   quality_assessment?: import('../services/transcription/transcriptQuality.js').TranscriptQualityAssessment;
   transcription_provenance?: {provider: string; model: string; requested_language?: string};
   id: string;

@@ -221,7 +221,7 @@ describe('VireoClip Phase E: Subtitle Studio Credit Integration', () => {
   // --------------------------------------------------------------------------
   // TEST 5: AI Clipping -> Subtitle Studio cross-workflow transcript reuse (0 credits)
   // --------------------------------------------------------------------------
-  test('5. AI Clipping -> Subtitle Studio cross-workflow transcript reuse charges 0 credits', async () => {
+  test('5. Legacy AI Clipping transcript without source lineage stops Subtitle Studio reuse without charging', async () => {
     const db = await getMongoDb();
     const clipProjectId = crypto.randomUUID();
     const sourceVideoUrl = `sources/${testUserA}/${clipProjectId}/podcast_interview.mp4`;
@@ -266,15 +266,9 @@ describe('VireoClip Phase E: Subtitle Studio Credit Integration', () => {
     const balanceBefore = (await CreditWalletService.getWalletSummary(testUserA)).available_credits;
 
     // 3. User opens / transcribes this project in Subtitle Studio
-    const transcribeResult = await ownerContext.run(testUserA, async () => {
+    await assert.rejects(ownerContext.run(testUserA, async () => {
       return SubtitleStudioService.transcribeProject(clipProjectId, testUserA);
-    });
-
-    // Verify 0 credits charged
-    assert.equal(transcribeResult.isReusedTranscript, true);
-    assert.equal(transcribeResult.creditsCharged, 0);
-    assert.ok(transcribeResult.cues.length > 0, 'Must extract cues from existing transcript');
-    assert.equal(transcribeResult.cues[0].text, 'Welcome to the show');
+    }), {code:'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'});
 
     // Verify wallet balance is completely unchanged
     const balanceAfter = (await CreditWalletService.getWalletSummary(testUserA)).available_credits;
@@ -284,7 +278,7 @@ describe('VireoClip Phase E: Subtitle Studio Credit Integration', () => {
   // --------------------------------------------------------------------------
   // TEST 6: Subtitle Studio -> AI Clipping cross-workflow transcript reuse (0 credits)
   // --------------------------------------------------------------------------
-  test('6. Subtitle Studio -> AI Clipping cross-workflow transcript reuse charges 0 credits', async () => {
+  test('6. Legacy Subtitle Studio transcript stops AI Clipping reuse without charging', async () => {
     const db = await getMongoDb();
     const subProjectId = crypto.randomUUID();
     const sourceVideoUrl = `sources/${testUserA}/${subProjectId}/webinar_talk.mp4`;
@@ -339,9 +333,10 @@ describe('VireoClip Phase E: Subtitle Studio Credit Integration', () => {
 
     const result = await processProjectVideo(subProjectId, testUserA, sourceVideoUrl, attemptId);
 
-    assert.equal(result.status, 'transcribed');
-    assert.ok(result.transcript);
-    assert.equal(result.transcript.transcript_text, 'Artificial Intelligence');
+    assert.equal(result.status, 'failed');
+    assert.match(result.error!, /cannot be verified/);
+    // Zero-amount reservations settle immediately in the existing ledger.
+    assert.equal((await db.collection('credit_reservations').findOne({attempt_id:attemptId}))?.settled_amount,0);
 
     // Balance remains untouched
     const balanceAfter = (await CreditWalletService.getWalletSummary(testUserA)).available_credits;
@@ -351,7 +346,7 @@ describe('VireoClip Phase E: Subtitle Studio Credit Integration', () => {
   // --------------------------------------------------------------------------
   // TEST 7: Cross-Project Same-User Reuse by Source Video URL
   // --------------------------------------------------------------------------
-  test('7. Same user reusing the same source video across different projects incurs 0 credits', async () => {
+  test('7. Same URL alone does not permit cross-project transcript reuse or charge credits', async () => {
     const db = await getMongoDb();
     const sourceVideoUrl = `sources/${testUserA}/shared_folder/common_video.mp4`;
 
@@ -399,13 +394,10 @@ describe('VireoClip Phase E: Subtitle Studio Credit Integration', () => {
 
     const balanceBefore = (await CreditWalletService.getWalletSummary(testUserA)).available_credits;
 
-    // Transcribe Project 2
-    const result = await ownerContext.run(testUserA, async () => {
+    await assert.rejects(ownerContext.run(testUserA, async () => {
       return SubtitleStudioService.transcribeProject(proj2Id, testUserA);
-    });
-
-    assert.equal(result.isReusedTranscript, true);
-    assert.equal(result.creditsCharged, 0);
+    }), {code:'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'});
+    assert.equal(await db.collection('transcripts').countDocuments({project_id:proj2Id}),0);
 
     const balanceAfter = (await CreditWalletService.getWalletSummary(testUserA)).available_credits;
     assert.equal(balanceAfter, balanceBefore);

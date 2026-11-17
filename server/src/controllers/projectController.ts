@@ -1,3 +1,4 @@
+import {assertTranscriptReusable} from '../services/transcriptSourceBindingService.js';
 import {withNewProjectFraming} from '../shared/newProjectFraming.js';
 import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
@@ -929,6 +930,7 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
           user_id: userId,
         });
         if (sourceTranscript && (sourceTranscript.segments?.length || sourceTranscript.transcript_text)) {
+          await assertTranscriptReusable(sourceTranscript,project.source_url);
           // Clone transcript to this project so subsequent queries find it
           await db.collection('transcripts').updateOne(
             { project_id: projectId, user_id: userId },
@@ -943,6 +945,11 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
                 duration_seconds: sourceTranscript.duration_seconds,
                 segments: sourceTranscript.segments,
                 words: sourceTranscript.words,
+                quality_assessment: sourceTranscript.quality_assessment,
+                transcription_provenance: sourceTranscript.transcription_provenance,
+                transcription_timing_issues: sourceTranscript.transcription_timing_issues,
+                source_binding: sourceTranscript.source_binding,
+                av_start_offset_sec: sourceTranscript.av_start_offset_sec,
                 created_at: new Date(),
                 updated_at: new Date(),
               },
@@ -953,6 +960,7 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
         }
       }
     }
+    if(existingTranscript)await assertTranscriptReusable(existingTranscript,project.source_url);
     const isReusedTranscript = Boolean(existingTranscript);
 
     const durationForEstimate = Number(project.duration_seconds) > 0 ? Number(project.duration_seconds) : 60;

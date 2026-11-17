@@ -1,3 +1,8 @@
+import {observeTranscriptionInputs} from './transcription/transcriptionInputObserver.js';
+import {assertTranscriptReusable} from './transcriptSourceBindingService.js';
+import {audioInputSha256,transcriptContentIdentity} from '../shared/transcriptSourceBinding.js';
+import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
+import {AppError} from '../types/index.js';
 import {assessTranscriptQuality,assertTranscriptUsable,normalizeSourceLanguage} from './transcription/transcriptQuality.js';
 import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
@@ -5,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
-import { downloadObjectToFile } from './objectStorageService.js';
+import { headObject } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
 import { extractAudioFromVideo } from './audioExtractionService.js';
 import { getTranscriptionProviderWithFailover } from './transcription/failoverTranscriptionProvider.js';
@@ -78,15 +83,18 @@ export async function processProjectVideo(
       .eq('id', projectId)
       .eq('user_id', userId);
 
-    // 1b. Check if valid transcript already exists for this project and user (Cross-workflow reuse at 0 credits)
     const db = await getMongoDb();
+    const currentProject=await db.collection('projects').findOne({id:projectId,user_id:userId});
+    if(!currentProject || currentProject.source_url!==sourceUrl)throw new AppError('Project source changed before transcription. Reload the project.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+
+    // 1b. Check if valid transcript already exists for this project and user (Cross-workflow reuse at 0 credits)
     const existingTranscript = await db.collection<TranscriptRecord>('transcripts').findOne({
       project_id: projectId,
       user_id: userId,
     });
 
     if (existingTranscript && (existingTranscript.segments?.length || existingTranscript.transcript_text)) {
-      assertTranscriptUsable(existingTranscript);
+      await assertTranscriptReusable(existingTranscript,sourceUrl);
       logger.info(`Reusing existing transcript for project ${projectId}`, { projectId, userId });
       const effectiveDuration = Number(
         existingTranscript.duration_seconds ||
@@ -149,7 +157,8 @@ export async function processProjectVideo(
     const originalFileName = storagePath.split('/').pop() || 'video.mp4';
     const videoPath = path.join(os.tmpdir(), `vireo-source-${crypto.randomUUID()}${path.extname(originalFileName) || '.mp4'}`);
     downloadedVideoPath = videoPath;
-    const sourceResolution = await ClipRenderService.ensureSourceVideo(storagePath, videoPath);
+    const snapshot:{receipt?:SourceObjectReceipt}={};
+    const sourceResolution = await ClipRenderService.ensureSourceVideo(storagePath, videoPath,{snapshotOut:snapshot});
     logger.info(`Source video resolved for project ${projectId} via ${sourceResolution}: ${videoPath}`);
 
     // 2b. HD poster frame for the dashboard while we have the file locally (best-effort, ~100ms).
@@ -184,7 +193,15 @@ export async function processProjectVideo(
 
     // 5. Transcribe audio with the configured provider, failing over to the
     // alternate provider on transient runtime failures (rate limit, 5xx, timeout).
-    const provider = getTranscriptionProviderWithFailover();
+    if(!snapshot.receipt)throw new AppError('Source has no verified download receipt. No transcription was started; review the source before retrying.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+    if(processingAttemptId){
+      const reservation=await db.collection<CreditReservationRecord>('credit_reservations').findOne({attempt_id:processingAttemptId,user_id:userId});
+      if(reservation?.metadata?.isReusedTranscript)throw new AppError('The transcript selected for reuse is no longer available. No new transcription was started.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+    }
+    const delegate = getTranscriptionProviderWithFailover();
+    const inputs=observeTranscriptionInputs(delegate);
+    const {provider,requests}=inputs;
+    const preparedAudioSha256=audioInputSha256(extractedAudio.audioBuffer);
     logger.info(`Using transcription provider: ${provider.name}`, { projectId, provider: provider.name });
     const transcription = await transcribeAudioFast(
       provider,
@@ -193,6 +210,8 @@ export async function processProjectVideo(
       `${projectId}.mp3`,
       {language:normalizeSourceLanguage(posterRow?.clip_preferences?.sourceLanguage)}
     );
+
+    await inputs.settle();
 
     // Compute effective duration from audio probe or last transcript segment timestamp
     const effectiveDuration = Number(
@@ -272,6 +291,11 @@ export async function processProjectVideo(
       }
     }
 
+    // Do not promote output if the project pointer or source version moved
+    // during extraction/provider work. No replacement provider call is made.
+    const latestProject=await db.collection('projects').findOne({id:projectId,user_id:userId});
+    if(latestProject?.source_url!==sourceUrl || (snapshot.receipt && !sourceObjectReceiptMatches(snapshot.receipt,sourceUrl,await headObject('source',sourceUrl))))throw new AppError('Source changed during transcription. Review before requesting another transcription.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+
     // 6. Store transcript in MongoDB (upsert to avoid duplicates)
     const transcriptPayload: any = {
       project_id: projectId,
@@ -294,6 +318,8 @@ export async function processProjectVideo(
     if (Array.isArray(transcription.words) && transcription.words.length > 0) {
       transcriptPayload.words = assignWordIds(transcription.words, projectId);
     }
+
+    if(snapshot.receipt)transcriptPayload.source_binding={version:1,source_receipt:snapshot.receipt,prepared_audio_sha256:preparedAudioSha256,requests,transcript_content_sha256:transcriptContentIdentity(transcriptPayload)};
 
     logger.info(`Storing transcript for project ${projectId} into 'transcripts' table...`, {
       projectId,
@@ -474,7 +500,7 @@ export async function processProjectVideo(
         .update({
           video_status: 'failed',
           error_message: message || 'Video processing failed.',
-          ...((err as any)?.code === 'TRANSCRIPT_REVIEW_REQUIRED' ? {transcript_quality_status:'needs_review'} : {}),
+          ...(['TRANSCRIPT_REVIEW_REQUIRED','TRANSCRIPT_SOURCE_REVIEW_REQUIRED'].includes((err as any)?.code) ? {transcript_quality_status:'needs_review'} : {}),
         })
         .eq('id', projectId)
         .eq('user_id', userId);
