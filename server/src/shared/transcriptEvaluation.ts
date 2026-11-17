@@ -31,8 +31,11 @@ export interface WordAlignment {
 // Versioned normalization is deliberately narrow. Do not translate, remove
 // diacritics, convert number words, rewrite names, or silently split tokens.
 export function normalizeEvaluationWord(text: string): string {
-  return text.normalize('NFC').toLocaleLowerCase('und').trim()
-    .replace(/^[\p{P}\p{S}]+|[\p{P}\p{S}]+$/gu, '');
+  const token = text.normalize('NFC').toLocaleLowerCase('und').trim();
+  // Numeric punctuation/signs/currency may change meaning (.5, -1, $50).
+  // Leave numeric tokens exact apart from case/NFC/outer whitespace.
+  if (/\p{N}/u.test(token)) return token;
+  return token.replace(/^[\p{P}]+|[\p{P}]+$/gu, '');
 }
 function checkWords(words: EvaluationWord[], label: string): void {
   if (!Array.isArray(words) || words.some(word => !word || typeof word.text !== 'string' || !normalizeEvaluationWord(word.text))) {
@@ -103,7 +106,7 @@ export function evaluateTranscript(input: TranscriptEvaluationCase) {
   const recordEligible = input.reference.provenance === 'independently-reviewed' && input.hypothesis.execution === 'actual-provider' && !input.hypothesis.manuallyCorrected;
   return {
     version: 1,
-    normalization: 'NFC+Unicode-lowercase+edge-punctuation-symbol-trim-v1',
+    normalization: 'NFC+Unicode-lowercase+non-numeric-edge-punctuation-trim-v2',
     identity: { caseId: input.caseId, sourceSha256: input.sourceSha256, language: input.language, noiseBucket: input.noiseBucket },
     provenance: { reference: input.reference.provenance, provider: input.hypothesis.provider, model: input.hypothesis.model,
       execution: input.hypothesis.execution, manuallyCorrected: input.hypothesis.manuallyCorrected },
