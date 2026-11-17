@@ -145,15 +145,18 @@ export const PrivacyPage: React.FC = () => {
           <section>
             <h2 className="text-xl font-bold text-[#183d2d] mb-3">4. Cookies and Client-Side Storage</h2>
             <p>
-              VireoClip does <strong>not</strong> employ third-party advertising cookies, behavioural cross-site tracking pixels, or data-broker trackers.
+              VireoClip uses browser storage for the functions listed below. Third-party services, including payment services, may also load on the site. This section is not a complete third-party tracking inventory.
             </p>
             <p className="mt-2">
-              We utilize strictly necessary local storage mechanisms:
+              Browser storage includes:
             </p>
             <ul className="list-disc pl-5 mt-2 space-y-1 text-xs">
               <li><strong>Session Authentication:</strong> Storing authorized tokens to maintain user sign-in status across navigation.</li>
               <li><strong>Interface Preferences:</strong> Retaining local UI preferences (such as editor display modes and notice dismissals).</li>
+              <li><strong>Project Recovery:</strong> Restoring an active clipping project using its ID, preferences, custom instructions and recovery timestamp.</li>
+              <li><strong>Preview Cache:</strong> Keeping thumbnail data in session storage.</li>
             </ul>
+            <p className="mt-2 text-xs">Dismissing the notice stores a flag in this browser without a coded expiry. It does not manage advertising-cookie choices or block third-party services. Clearing site storage can also remove sign-in and project-recovery state.</p>
           </section>
 
           <section>

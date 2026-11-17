@@ -15,64 +15,23 @@ interface FooterColumn {
 }
 
 const FOOTER_COLUMNS: FooterColumn[] = [
-  {
-    title: 'Creation Studio',
-    links: [
-      { label: 'AI Clipping', href: '/#clipping' },
-      { label: 'AI Captions', href: '/#captions' },
-      { label: 'AI Auto-Reframe (9:16)', href: '/#reframe' },
-      { label: 'AI B-Roll Insertion', href: '/#broll' },
-      { label: 'Audio Enhancement', href: '/#audio' },
-      { label: 'AI Voice & Dubbing', href: '/#voice' },
-      { label: 'Multi-Track Timeline Editor', href: '/dashboard' },
-      { label: 'New Project Upload', href: '/dashboard' },
-    ],
-  },
-  {
-    title: 'Creator Intelligence',
-    links: [
-      { label: 'Brand Brain', href: '/brand', badge: 'Live' },
-      { label: 'A/B Testing Studio', href: '/ab-testing', badge: 'Live' },
-      { label: 'Performance Analytics', href: '/analytics', badge: 'Live' },
-      { label: 'Hook Lab', href: '/#product' },
-      { label: 'Thumbnail Lab', href: '/#product' },
-      { label: 'Content Pack Studio', href: '/#product' },
-      { label: 'Autopilot Engine', href: '/workflows' },
-    ],
-  },
-  {
-    title: 'Workspaces & Teams',
-    links: [
-      { label: 'Team Workspaces & RBAC', href: '/workspaces', badge: 'New' },
-      { label: 'Workflow Automation', href: '/workflows' },
-      { label: 'Social Publishing Queue & Post Scheduling', href: '/publishing' },
-      { label: 'Project History & Library', href: '/history' },
-      { label: 'Creator Dashboard', href: '/dashboard' },
-      { label: 'Account Settings', href: '/settings' },
-    ],
-  },
-  {
-    title: 'Platform Channels',
-    links: [
-      { label: 'YouTube Shorts Repurposing', href: '/#platforms' },
-      { label: 'TikTok & Reels Optimization', href: '/#platforms' },
-      { label: 'Instagram Captions & Hooks', href: '/#platforms' },
-      { label: 'LinkedIn Professional Posts', href: '/#platforms' },
-      { label: 'X (Twitter) Thread Kits', href: '/#platforms' },
-      { label: '4-Step Pipeline Architecture', href: '/#how' },
-    ],
-  },
-  {
-    title: 'Company & Trust',
-    links: [
-      { label: 'Plans & Pricing (USD / INR)', href: '/#pricing' },
-      { label: 'Creator Use Cases', href: '/#use-cases' },
-      { label: 'Frequently Asked Questions', href: '/#faq' },
-      { label: 'Terms of Service', href: '/terms' },
-      { label: 'Privacy Policy', href: '/privacy' },
-      { label: 'Official Support', href: '/support' },
-    ],
-  },
+  { title: 'Explore', links: [
+    {label:'Features',href:'/features'}, {label:'Tools',href:'/tools'},
+    {label:'Use Cases',href:'/use-cases'}, {label:'Resources',href:'/resources'}, {label:'Plans & Pricing',href:'/pricing'},
+  ]},
+  { title: 'Editing workflows', links: [
+    {label:'Captions',href:'/tools/captions'}, {label:'Reframe',href:'/tools/reframe'},
+    {label:'Gaming layout demos',href:'/tools/ai-gaming-clip-generator/'},
+  ]},
+  { title: 'Made for your recording', links: [
+    {label:'Podcasters',href:'/use-cases/podcasters'}, {label:'Streamers',href:'/use-cases/streamers'},
+    {label:'Agencies',href:'/use-cases/agencies'},
+  ]},
+  { title: 'Resources & help', links: [
+    {label:'Help Centre',href:'/resources/help-centre'}, {label:'Learning Center',href:'/resources/learning-center'}, {label:'Blog',href:'/resources/blog'},
+    {label:'FAQ',href:'/#faq'}, {label:'Support',href:'/support'},
+    {label:'Terms of Service',href:'/terms'}, {label:'Privacy Policy',href:'/privacy'},
+  ]},
 ];
 
 export const Footer: React.FC = () => {
@@ -153,7 +112,7 @@ export const Footer: React.FC = () => {
 
               <ul className="space-y-2.5 text-xs sm:text-[13px] text-zinc-400">
                 {col.links.map((link) => {
-                  const isInternalRoute = link.href.startsWith('/') && !link.href.includes('#');
+                  const isInternalRoute = false; // Static marketing routes need a document navigation, not the SPA router.
 
                   return (
                     <li key={link.label}>
