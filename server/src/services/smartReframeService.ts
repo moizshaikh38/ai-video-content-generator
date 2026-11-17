@@ -1677,7 +1677,7 @@ export class SmartReframeService {
       return {...shot, windowW:width, windowH:height, keyframes:shot.keyframes.map(k => ({...k,
         centerX:Math.max(width/2,Math.min(1-width/2,k.centerX)),
         centerY:Math.max(height/2,Math.min(1-height/2,k.centerY))}))};
-    }),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight),options.automaticFitAspect==='4:3'?rawSamples:[],sourceWidth,sourceHeight));
+    }),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight),options.automaticFitAspect==='4:3'?rawSamples:[],sourceWidth,sourceHeight,options.pairFocusReview===true));
     // A source cut may change the subject, not the presentation's crop size.
     // Use the widest required context in both axes for the ENTIRE analyzed
     // clip, including edited slices. A full-source fallback deliberately makes
