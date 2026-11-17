@@ -1,0 +1,20 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {buildSharedViewReviewPlan as plan} from '../shared/sharedViewReview.js';
+const box=(x:number,y:number,width:number,height:number)=>({x,y,width,height,confidence:.95});
+const face=(x:number,id:string)=>({...box(x,.15,.08,.15),center_x:x+.04,center_y:.225,track_id:id,area:.012});
+const baseline=()=>[{start:0,end:3,kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}]}];
+const evidence=()=>({sourceWidth:1920,sourceHeight:1080,protectedRegions:[],samples:Array.from({length:12},(_,i)=>({time:i*.25,faces:[face(.22,'a'),face(.65,'b')],persons:[box(.08,.1,.34,.85),box(.58,.1,.35,.85)],hands:[box(.38,.6,.09,.15)]}))});
+test('two repeated face/body anchors and positive hands yield a disclosed review crop',()=>{const p=plan(baseline(),evidence());assert.equal(p.decisions[0].selected,'shared43');assert.equal(p.shots[0].windowW,.75);assert.equal(p.shots[0].windowH,1);assert.match(p.shots[0].uncertainty!,/unverified/);assert.equal(p.decisions[0].intent?.semanticVerification,'unknown')});
+test('missing hands are unknown and preserve baseline',()=>{const e=evidence();e.samples.forEach(s=>s.hands=[]);assert.deepEqual(plan(baseline(),e).shots,baseline())});
+test('less than80 percent hand sample support rejected',()=>{const e=evidence();e.samples.slice(0,3).forEach(s=>s.hands=[]);assert.equal(plan(baseline(),e).decisions[0].selected,'legacy')});
+test('no person observations rejected',()=>{const e=evidence();e.samples.forEach(s=>s.persons=[]);assert.equal(plan(baseline(),e).decisions[0].selected,'legacy')});
+test('one face track rejected',()=>{const e=evidence();e.samples.forEach(s=>s.faces.pop());assert.equal(plan(baseline(),e).decisions[0].selected,'legacy')});
+test('explicit full body requirement vetoes proposal',()=>{assert.equal(plan(baseline(),{...evidence(),fullBodyRequired:true}).decisions[0].selected,'legacy')});
+test('wide supplied hard region prevents crop',()=>{assert.equal(plan(baseline(),{...evidence(),protectedRegions:[{...box(0,0,1,1),start:0,end:3}]}).decisions[0].selected,'legacy')});
+test('invalid supplied region rejected rather than clipped',()=>{assert.equal(plan(baseline(),{...evidence(),protectedRegions:[{...box(-.1,0,.2,.2),start:0,end:3}]}).decisions[0].selected,'legacy')});
+test('long sample gap rejected',()=>{const e=evidence();e.samples.splice(3,3);assert.equal(plan(baseline(),e).decisions[0].selected,'legacy')});
+test('non-full-source existing decisions retained',()=>{const b=baseline();b[0].windowW=.7;assert.deepEqual(plan(b,evidence()).shots,b)});
+test('all inputs unmutated; deterministic byte equivalent',()=>{const b=baseline(),e=evidence(),before=JSON.stringify([b,e]),a=plan(b,e);assert.equal(JSON.stringify([b,e]),before);assert.deepEqual(plan(b,e),a)});
+test('every sampled face hand and supplied region fits selected window',()=>{const e=evidence(),p=plan(baseline(),e),s=p.shots[0],x=s.keyframes[0].centerX;for(const row of e.samples)for(const b of [...row.faces,...row.hands]){assert.ok(b.x>=x-s.windowW/2);assert.ok(b.x+b.width<=x+s.windowW/2)}});
+
+test('invalid source dimensions cannot yield review geometry',()=>{for(const sourceWidth of [0,-1,NaN,Infinity])assert.equal(plan(baseline(),{...evidence(),sourceWidth}).decisions[0].selected,'legacy')});

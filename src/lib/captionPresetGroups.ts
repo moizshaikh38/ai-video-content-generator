@@ -49,7 +49,7 @@ export const CAPTION_PRESET_GROUPS: CaptionPresetGroup[] = [
     id: 'neon',
     label: 'Neon & Color Pop',
     hint: 'Saturated accents for a louder look.',
-    presetIds: ['vireo_neon', 'vireo_lime', 'vireo_comic_punch', 'vireo_prism_stamp'],
+    presetIds: ['vireo_comic_default', 'vireo_comic_red_green', 'vireo_comic_violet_white', 'vireo_neon', 'vireo_lime', 'vireo_comic_punch', 'vireo_prism_stamp'],
   },
 ];
 

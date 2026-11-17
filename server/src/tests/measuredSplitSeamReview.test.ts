@@ -1,0 +1,8 @@
+import test from'node:test';import assert from'node:assert/strict';import{reviewMeasuredSplitSeams as review}from'../shared/measuredSplitSeamReview.js';
+const shot=()=>({start:0,end:12,kind:'group' as const,windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}],split:{speaker1X:.25,speaker2X:.75,dividerX:.5}});
+const sample=(x=.45,width=.1,confidence=.9,time=3):any=>({time,faces:[],hands:[{x,y:.4,width,height:.1,confidence}]});
+test('positive crossing rejects the split without assigning hand ownership',()=>{const p=shot(),r=review([p],[sample()]);assert.equal(r.decisions[0].crossingSamples,1);assert.equal(r.shots[0].split,undefined);assert.equal(r.shots[0].windowW,1);assert.ok(p.split)});
+test('unknown or weak hands never certify or veto a split',()=>{for(const s of[{time:3,faces:[]},sample(.45,.1,.79),sample(NaN),sample(.1,-.1),sample(.99,.2)]){const p=shot(),r=review([p],[s as any]);assert.equal(r.shots[0],p);assert.equal(r.decisions[0].changed,false)}});
+test('contained hands preserve split and touching its boundary is not a crossing',()=>{for(const s of[sample(.2,.2),sample(.6,.2),sample(.4,.1),sample(.5,.1)]){const p=shot();assert.equal(review([p],[s]).shots[0],p)}});
+test('shot-local evidence cannot affect another shot or include end boundary',()=>{const p=shot();assert.equal(review([p],[sample(.45,.1,.9,12)]).shots[0],p);assert.equal(review([p],[sample(.45,.1,.9,-1)]).shots[0],p)});
+test('ordinary single views and focus panels remain untouched',()=>{const p:any=shot();delete p.split;assert.equal(review([p],[sample()]).shots[0],p);const q:any=shot();q.split.focusPanels={};assert.equal(review([q],[sample()]).shots[0],q)});

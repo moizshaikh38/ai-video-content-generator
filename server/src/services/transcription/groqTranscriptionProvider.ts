@@ -1,4 +1,4 @@
-import {readSegmentDiagnostics} from './transcriptQuality.js';
+import {normalizeProviderTiming} from './providerTiming.js';
 import { config } from '../../config/index.js';
 import { logger } from '../../utils/logger.js';
 import { TranscriptionProvider } from './transcriptionProvider.js';
@@ -124,34 +124,7 @@ export class GroqTranscriptionProvider implements TranscriptionProvider {
       );
     }
 
-    const rawSegments = Array.isArray(result?.segments) ? result.segments : [];
-    const segments: NormalizedTranscriptSegment[] = rawSegments
-      .map((seg: any) => ({
-        start: Number(seg.start ?? 0),
-        end: Number(seg.end ?? 0),
-        text: String(seg.text ?? '').trim(),
-        ...readSegmentDiagnostics(seg),
-      }))
-      .filter((seg: NormalizedTranscriptSegment) => seg.text.length > 0 || seg.end > seg.start);
-
-    // Extract real word timestamps if returned by provider
-    const rawWords = Array.isArray(result?.words)
-      ? result.words
-      : rawSegments.flatMap((s: any) => (Array.isArray(s?.words) ? s.words : []));
-
-    const words: NormalizedTranscriptWord[] = rawWords
-      .map((w: any) => {
-        const start = Number(w.start ?? 0);
-        const rawEnd = Number(w.end ?? 0);
-        const end = rawEnd > start ? rawEnd : Number((start + 0.05).toFixed(3));
-        return {
-          word: String(w.word || w.text || '').trim(),
-          ...(typeof w.probability === 'number' && Number.isFinite(w.probability) ? {confidence:w.probability} : {}),
-          start: Number(start.toFixed(3)),
-          end: Number(end.toFixed(3)),
-        };
-      })
-      .filter((w: NormalizedTranscriptWord) => w.word.length > 0 && w.end > w.start);
+    const {segments,words,timingIssues} = normalizeProviderTiming(result);
 
     const durationSeconds = typeof result?.duration === 'number' ? result.duration : null;
     // Missing language is unknown evidence, not detected English.
@@ -168,6 +141,7 @@ export class GroqTranscriptionProvider implements TranscriptionProvider {
       provenance: {provider:'groq',model:GROQ_MODEL,requested_language:options?.language},
       segments,
       words,
+      timingIssues,
     };
   }
 }

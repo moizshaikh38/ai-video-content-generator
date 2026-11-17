@@ -9,6 +9,10 @@ test('selecting a self-animated preset clears incompatible inherited pop, preser
   assert.ok(getPreviewFrame(cue,.12,style).stampMotion);assert.match(buildPresetAssScript([cue],style),/\\frz/);
  }
 });
-test('unrelated existing presets retain their historical animation-selection behavior',()=>{
- const c=applyPresetToEditorCaption({cues:[cue],animation:'pop'}as any,'soft_build');assert.equal(c.animation,'pop');
+test('new preset selection does not inherit an incompatible old animation override',()=>{
+ const c=applyPresetToEditorCaption({cues:[cue],style:'vireo_comic_default',animation:'none'}as any,'compact_creator');assert.equal(c.animation,undefined);assert.equal(resolveEditorCaptionStyle(c)!.wordAnimation.type,'pop');
+ const soft=applyPresetToEditorCaption({cues:[cue],style:'beasty',animation:'pop'}as any,'soft_build');assert.equal(soft.animation,undefined);assert.equal(resolveEditorCaptionStyle(soft)!.wordAnimation.type,'none');
+});
+test('reselecting same preset preserves a deliberate edit and stored input is not mutated',()=>{
+ for(const animation of['none','pop','bounce']as const){const old={cues:[cue],style:'compact_creator',animation},before=JSON.stringify(old),out=applyPresetToEditorCaption(old as any,'compact_creator');assert.equal(out.animation,animation);assert.equal(JSON.stringify(old),before);}
 });

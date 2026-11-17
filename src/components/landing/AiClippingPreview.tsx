@@ -1,3 +1,4 @@
+import {candidateRankingDisplay} from '../../../server/src/shared/candidateRankingDisplay';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Loader2, AlertCircle } from 'lucide-react';
@@ -820,7 +821,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
             thumbnail: c.metadata?.thumbnail_url || DEMO_POSTERS[i % DEMO_POSTERS.length],
             videoSrc: DEMO_VIDEOS[i % DEMO_VIDEOS.length],
             platform: ICONS[i % ICONS.length],
-            score: c.engagement_score || 0,
+            score: candidateRankingDisplay(c) ?? 0,
             isReal: true,
             projectId: project.id,
           };

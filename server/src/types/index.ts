@@ -601,6 +601,9 @@ export type CaptionStyle =
   | 'vireo_prism_stamp'
   | 'vireo_echo_slide'
   | 'vireo_comic_punch'
+  | 'vireo_comic_default'
+  | 'vireo_comic_red_green'
+  | 'vireo_comic_violet_white'
   | 'soft_cut'
   | 'soft_build'
   | 'typewriter'
@@ -834,6 +837,8 @@ export interface QuickClipMusicConfig {
 // ── Phase 13: Smart Auto-Reframe + Face Tracking ─────────────────
 
 export interface NormalizedFaceDetection {
+  /** Missing on legacy payloads; unknown identity, not a failed detection. */
+  face_evidence?: import('../shared/faceEvidence.js').FaceEvidence;
   x: number;
   y: number;
   width: number;
@@ -1504,6 +1509,7 @@ export interface MultimodalTimelineSegment {
 }
 
 export interface MultimodalTimeline {
+  signal_evidence?:import('../shared/multimodalSignalEvidence.js').MultimodalSignalEvidence;
   project_id: string;
   duration_seconds: number;
   scene_cuts: VideoSceneCut[];
@@ -1528,14 +1534,15 @@ export interface PlatformFitDetail {
 }
 
 export interface VireoClipScoreExplanation {
+  signal_evidence?:import('../shared/multimodalSignalEvidence.js').MultimodalSignalEvidence;
   overall_score: number; // 0–100
   // LLM-derived dimensions: null when the model did not return a subscore
   // (weight is redistributed across the scored dimensions — no fabricated defaults).
   hook_score: number | null;
   standalone_score: number | null;
   insight_score: number | null;
-  visual_activity_score: number; // 0–100
-  audio_energy_score: number; // 0–100
+  visual_activity_score: number | null; // omitted when unmeasured
+  audio_energy_score: number | null; // omitted when unmeasured
   platform_fit_score: number; // 0–100
   reasons: string[];
   platform_suitability: Record<OutputPlatform, PlatformFitDetail>;

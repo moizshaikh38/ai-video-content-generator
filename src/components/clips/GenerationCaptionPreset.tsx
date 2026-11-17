@@ -9,7 +9,7 @@ import { CreditService } from '../../services/creditService';
 export function GenerationCaptionPreset({value, disabled, onChange}:{value?:CaptionStyle;disabled:boolean;onChange:(value?:CaptionStyle)=>void}) {
   const [allowed,setAllowed]=useState<string[]>(['simple']);
   useEffect(()=>{let live=true;CreditService.getUserEntitlements().then(e=>{if(live)setAllowed(e.allowedSubtitlePresets)}).catch(()=>undefined);return()=>{live=false}},[]);
-  const ids=['simple','word_cut','karaoke'] as const;
+  const ids=['vireo_comic_default','simple','word_cut','karaoke'] as const;
   const id=isRenderablePresetId(value)?value:'simple';
   const style=resolveCaptionPreset(id,undefined,'9:16');
   const words=CAPTION_PRESETS[id].sampleText.split(' ').map((text,i)=>({text,start:i*.42,end:(i+1)*.42-.04}));

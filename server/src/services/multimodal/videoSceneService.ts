@@ -1,3 +1,4 @@
+import type {SignalExecutionReceipt} from '../../shared/multimodalSignalEvidence.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -51,8 +52,10 @@ export class VideoSceneService {
   public static async detectSceneCuts(
     videoPath: string,
     threshold = 0.25,
-    timeoutMs?: number
+    timeoutMs?: number,
+    evidenceOut?:{receipt?:SignalExecutionReceipt}
   ): Promise<VideoSceneCut[]> {
+    if(evidenceOut)evidenceOut.receipt={status:'unavailable',method:'ffmpeg-scene-cut',scope:'whole-source'};
     if (!fs.existsSync(videoPath)) {
       throw new Error(`Video file not found for scene cut detection: ${videoPath}`);
     }
@@ -77,12 +80,13 @@ export class VideoSceneService {
         maxBuffer: 20 * 1024 * 1024,
       });
 
+      if(evidenceOut)evidenceOut.receipt={status:'completed',method:'ffmpeg-scene-cut',scope:'whole-source'};
       return this.parseSceneCutOutput(stderr);
     } catch (err: any) {
       // In FFmpeg, output may still be in err.stderr if non-zero exit or normal stderr logging
       if (err.stderr) {
         const cuts = this.parseSceneCutOutput(err.stderr);
-        if (cuts.length > 0) return cuts;
+        if (cuts.length > 0){if(evidenceOut)evidenceOut.receipt={status:'partial',method:'ffmpeg-scene-cut',scope:'whole-source'};return cuts;}
       }
       logger.warn(`[VideoSceneService] FFmpeg scene detection returned warning: ${err.message}`);
       return [];

@@ -1,0 +1,14 @@
+# Covered empty saved caption edits
+
+Reproduced a real manual-edit loss: getClipCaptions treated saved cues=[] as absent even when cues_covered_end=30, then returned the automatic source transcript. Export's extraction and branch selection did the same. Regression before fix returned Raw/unedited/speech/transcript instead of an empty saved edit.
+
+Narrow fix: a saved caption cue array is authoritative when nonempty, or when it has a real finite nonnegative coverage marker. Empty legacy/missing/invalid-marker arrays are not upgraded. The preview endpoint, export extraction, export branch and aggregate coverage now retain covered-empty edits. The client extension-heal permits covered-empty edits to append only speech after the marker, without regenerating deleted old speech. Hidden items remain untouched. No transcript or saved record is migrated.
+
+21focused assertions pass: actual controller plus localMongo saved edit, generateCaptionsForClip empty cues and noASSDialogue, shared extraction/invalid-marker cases, existing extension cases and new frontend empty-then-extend case. Both TypeScript checks pass. Provider keys blank, local test DB only. No encoded-video inspection or actual delete/save/reload Studio interaction performed yet; this checkpoint is code/data regression qualified, not user-facing completion or visual/export qualification. Source/source-clock composition and multi-item/relative-empty ambiguity need separate coverage.
+
+
+## Actual local Studio/API qualification
+
+Fresh isolated4sfixture: actual caption-row delete action, Text Only confirmation, save, reload. Mongo saved cues=[] with coverage4; caption endpoint returns[]; real API/job/storage720p export completes at4.000s. Inspected before screenshot with DELETE THIS visible, after-reload screenshot with no caption, decoded export frame and2fpscontact sheet. Original saved comparison project's tracks unchanged. Authentication/entitlement/storage/encoder mocked locally, alternate footage and caption supplied manually; this proves deletion persistence, not automatic source transcription/layout/quality. Initial native pointer click failed to open the hidden hover action; bounded rerun used DOMclick on that same UI action, not a direct state mutation. One remaining UI clarity issue: the empty transcript panel says No Transcript Available after intentional deletion, which is misleading but did not resurrect cues. No production deployment.
+
+Empty-state wording follow-up: changed No Transcript Available to No captions in this view / This clip has no caption cues to show. This avoids claiming the source transcript is absent merely because the user intentionally deleted display captions. Real localStudio delete/save/reload fixture repeated; inspected screenshot shows the neutral wording and no resurrected caption. Frontend typecheck passes. No data/behavior migration.

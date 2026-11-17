@@ -111,8 +111,10 @@ export function applyPresetToEditorCaption(
     style: presetId,
     primary_color: p.colors.text,
     highlight_color: p.colors.active,
-    // Choosing a self-animated preset must not inherit an incompatible old pop override.
-    animation: p.cueMotion ? 'none' : prev?.animation,
+    // A different preset starts its own motion defaults, just as font/size reset.
+    // Reapplying the same preset preserves a deliberate animation edit. Loading
+    // a saved project never calls this explicit-selection helper.
+    animation: p.cueMotion ? 'none' : prev?.style === presetId ? prev.animation : undefined,
   };
 }
 

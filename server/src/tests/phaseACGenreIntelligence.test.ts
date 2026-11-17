@@ -1,3 +1,4 @@
+import {unverifiedMultimodalSignals} from '../shared/multimodalSignalEvidence.js';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -273,12 +274,15 @@ describe('Phase A & C — Genre Intelligence & Scoring Verification', () => {
         },
       };
 
+      // This synthetic measurement fixture deliberately supplies successful
+      // extraction receipts. Legacy numeric values alone are no longer enough.
+      const fixtureEvidence=unverifiedMultimodalSignals();for(const receipt of Object.values(fixtureEvidence)){receipt.status='completed';receipt.method='declared-synthetic-test-fixture';}
       const highEnergyScore = MultimodalScoringService.scoreCandidate({
         start_seconds: 10,
         end_seconds: 35,
         title: 'High energy candidate',
         hook: 'This changes everything we know about artificial intelligence!',
-        timeline: highEnergyTimeline,
+        timeline: {...highEnergyTimeline,signal_evidence:fixtureEvidence},
         genreProfile: GenreIntelligenceService.getGenreProfile('podcast_interview'),
         contentGoal: 'shareable_moments',
       });
@@ -327,7 +331,7 @@ describe('Phase A & C — Genre Intelligence & Scoring Verification', () => {
         end_seconds: 35,
         title: 'Low energy candidate',
         hook: 'Quiet whisper hook',
-        timeline: lowEnergyTimeline,
+        timeline: {...lowEnergyTimeline,signal_evidence:fixtureEvidence},
         genreProfile: GenreIntelligenceService.getGenreProfile('podcast_interview'),
         contentGoal: 'shareable_moments',
       });
@@ -358,8 +362,8 @@ describe('Phase A & C — Genre Intelligence & Scoring Verification', () => {
 
       // Check explainability reasons
       assert.ok(
-        highEnergyScore.explanation.reasons.some((r) => /audio energy/i.test(r)),
-        'Score explanation must include audio energy breakdown'
+        highEnergyScore.explanation.reasons.some((r) => /audio-volume-derived/i.test(r)),
+        'Score explanation must disclose the audio-volume-derived heuristic'
       );
     });
   });

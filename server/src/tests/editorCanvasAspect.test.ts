@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {normalizeEditorCanvasAspect as normalize} from '../shared/editorCanvasAspect.js';
+import {canvasDims} from '../shared/renderResolution.js';
+test('aspect change canonicalizes stale design dimensions used by graph validation',()=>{for(const [aspect,width,height]of[['9:16',1080,1920],['1:1',1080,1080],['16:9',1920,1080]]as const){const result=normalize({aspect_ratio:aspect,width:1080,height:1920,fps:30,duration:12,background_mode:'blur'});assert.equal(result.width,width);assert.equal(result.height,height);assert.equal(result.duration,12);assert.equal(result.background_mode,'blur');assert.deepEqual({width:result.width*2/3,height:result.height*2/3},canvasDims(aspect,2/3));}});
+test('partial save repairs legacy mismatch and does not mutate input',()=>{const current={aspect_ratio:'1:1',width:1080,height:1920,duration:12};const result=normalize({...current,background_color:'#112233'});assert.equal(result.height,1080);assert.equal(current.height,1920);assert.equal(result.background_color,'#112233');});
+test('unknown or custom aspect remains unchanged',()=>{for(const aspect of[undefined,'4:5','custom']){const input={aspect_ratio:aspect,width:500,height:625};assert.deepEqual(normalize(input),input);}});

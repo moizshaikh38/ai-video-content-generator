@@ -1,3 +1,4 @@
+import {validateAutomaticLayoutCropConfig} from './automaticLayoutValidation.js';
 import {resolveTrackerEvidence,trackerEvidenceRange} from './trackerEvidence.js';
 import {normalizePanels} from './panelLayouts.js';
 export interface SceneLayoutOverride {start:number;end:number;layout:string;patch:{crop?:any;panels?:any;layout_mode?:string;crop_config?:any}}
@@ -13,6 +14,7 @@ export function validateSceneLayoutOverrides(item:any):void{
   const finiteTree=(x:any):boolean=>typeof x==='number'?Number.isFinite(x):Array.isArray(x)?x.every(finiteTree):x&&typeof x==='object'?Object.values(x).every(finiteTree):true;
   if(!finiteTree(o.patch)||Array.isArray(o.patch))throw Error('Invalid scene layout values');
   if(o.patch.crop_config&&(typeof o.patch.crop_config!=='object'||Array.isArray(o.patch.crop_config)))throw Error('Invalid scene crop config');
+  validateAutomaticLayoutCropConfig(o.patch.crop_config);
   if(o.patch.panels&&!normalizePanels(o.patch.panels))throw Error('Invalid scene panels');
   if(o.patch.crop&&!['fill','fit','blur','custom'].includes(o.patch.crop.mode))throw Error('Invalid scene crop');
   if(o.patch.layout_mode&&!['track','split','screencast','blur'].includes(o.patch.layout_mode))throw Error('Invalid scene mode');

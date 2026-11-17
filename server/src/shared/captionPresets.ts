@@ -61,6 +61,9 @@ export const CAPTION_PRESET_IDS = [
   'vireo_prism_stamp',
   'vireo_echo_slide',
   'vireo_comic_punch',
+  'vireo_comic_default',
+  'vireo_comic_red_green',
+  'vireo_comic_violet_white',
 ] as const;
 
 export type CaptionPresetId = (typeof CAPTION_PRESET_IDS)[number];
@@ -105,12 +108,17 @@ export const PRESET_ONLY_CAPTION_STYLES = [
   'vireo_prism_stamp',
   'vireo_echo_slide',
   'vireo_comic_punch',
+  'vireo_comic_default',
+  'vireo_comic_red_green',
+  'vireo_comic_violet_white',
 ] as const;
 
 /** Every value accepted for `caption_style`. */
 export const ALL_CAPTION_STYLES = [...LEGACY_CAPTION_STYLES, ...PRESET_ONLY_CAPTION_STYLES] as const;
 
 export const DEFAULT_CAPTION_PRESET_ID: RenderableCaptionPresetId = 'simple';
+/** New captions only. Unknown legacy IDs still resolve to simple. */
+export const NEW_CAPTION_PRESET_ID: RenderableCaptionPresetId = 'vireo_comic_default';
 
 export function isCaptionPresetId(value: unknown): value is CaptionPresetId {
   return typeof value === 'string' && (CAPTION_PRESET_IDS as readonly string[]).includes(value);
@@ -250,6 +258,7 @@ export type CaptionReveal = 'all' | 'build' | 'character';
 export interface CaptionShadowLayer { x?: number; y: number; opacity: number; color: string }
 
 export interface CaptionPresetDefinition {
+  comicNumberColor?: string;
   cueMotion?: 'stamp'|'echo'|'comic';
   chips?: {rest:string;active:string;radius:number;paddingX:number;paddingY:number;gap:number};
   movingBox?: {color:string;radius:number;paddingX:number;paddingY:number};
@@ -328,6 +337,35 @@ const NO_ENTRANCE = { type: 'none', durationMs: 0 } as const;
  * any third-party preset.
  */
 export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDefinition> = {
+  vireo_comic_default: {
+    id:'vireo_comic_default',label:'Comic Punch',qualification:'candidate',
+    description:'House comic phrases with an open-license font, yellow numbers and green final-word accents.',sampleText:'Those 15 sea bombs',
+    font:{family:'Bangers',bold:false,size:136,uppercase:true,letterSpacing:0},
+    colors:{text:'#FFFFFF',active:'#20FF35',activeText:'#20FF35',outline:'#000000',shadow:'#FFFFFF',shadowOpacity:0},
+    outline:8,shadow:0,box:null,activeWordBox:null,
+    layout:{anchor:'bottom',marginV:306,marginH:90,maxWordsPerCue:3,maxLines:2,maxCharsPerLine:18},
+    highlight:'none',wordAnimation:NO_ANIMATION,entrance:NO_ENTRANCE,cueMotion:'comic',
+  },
+  vireo_comic_red_green: {
+    id:'vireo_comic_red_green',label:'Comic Punch Red + Green',qualification:'candidate',
+    description:'White phrases, red numbers and green final-word accents. Same comic motion, separate saved preset.',sampleText:'Those 15 sea bombs',
+    font:{family:'Bangers',bold:false,size:136,uppercase:true,letterSpacing:0},
+    comicNumberColor:'#FF4545',
+    colors:{text:'#FFFFFF',active:'#20FF35',activeText:'#20FF35',outline:'#000000',shadow:'#FFFFFF',shadowOpacity:0},
+    outline:8,shadow:0,box:null,activeWordBox:null,
+    layout:{anchor:'bottom',marginV:306,marginH:90,maxWordsPerCue:3,maxLines:2,maxCharsPerLine:18},
+    highlight:'none',wordAnimation:NO_ANIMATION,entrance:NO_ENTRANCE,cueMotion:'comic',
+  },
+  vireo_comic_violet_white: {
+    id:'vireo_comic_violet_white',label:'Comic Punch Violet + White',qualification:'candidate',
+    description:'Violet phrases and numbers with white final-word accents. Same comic motion, separate saved preset.',sampleText:'Those 15 sea bombs',
+    font:{family:'Bangers',bold:false,size:136,uppercase:true,letterSpacing:0},
+    comicNumberColor:'#C59AFF',
+    colors:{text:'#C59AFF',active:'#FFFFFF',activeText:'#FFFFFF',outline:'#000000',shadow:'#FFFFFF',shadowOpacity:0},
+    outline:8,shadow:0,box:null,activeWordBox:null,
+    layout:{anchor:'bottom',marginV:306,marginH:90,maxWordsPerCue:3,maxLines:2,maxCharsPerLine:18},
+    highlight:'none',wordAnimation:NO_ANIMATION,entrance:NO_ENTRANCE,cueMotion:'comic',
+  },
   vireo_comic_punch: {
     id:'vireo_comic_punch',label:'Vireo Comic Punch',qualification:'candidate',
     description:'Comic phrase zoom with persistent numeric yellow and final-word green defaults; per-word colors remain editable.',sampleText:'Those 15 sea bombs',
@@ -835,6 +873,9 @@ export const CAPTION_PRESET_LABELS: Record<CaptionPresetId, string> = {
   vireo_prism_stamp: CAPTION_PRESETS.vireo_prism_stamp.label,
   vireo_echo_slide: CAPTION_PRESETS.vireo_echo_slide.label,
   vireo_comic_punch: CAPTION_PRESETS.vireo_comic_punch.label,
+  vireo_comic_default: CAPTION_PRESETS.vireo_comic_default.label,
+  vireo_comic_red_green: CAPTION_PRESETS.vireo_comic_red_green.label,
+  vireo_comic_violet_white: CAPTION_PRESETS.vireo_comic_violet_white.label,
   chip_background: CAPTION_PRESETS.chip_background.label,
   glide: CAPTION_PRESETS.glide.label,
   with_backdrop: CAPTION_PRESETS.with_backdrop.label,
@@ -919,6 +960,7 @@ export interface CaptionPresetOverrides {
 export interface ResolvedCaptionStyle {
   comicHalo?:boolean;
   wordSpacing?:number;
+  comicNumberColor?: string;
   cueMotion?: 'stamp'|'echo'|'comic';
   chips?: {rest:string;active:string;radius:number;paddingX:number;paddingY:number;gap:number};
   movingBox?: {color:string;radius:number;paddingX:number;paddingY:number};
@@ -1228,6 +1270,7 @@ export function resolveCaptionPreset(
     shadowColor,
     shadowOpacity,
     shadowDepth,
+    comicNumberColor: p.comicNumberColor,
     cueMotion: p.cueMotion,
     wordSpacing:p.cueMotion==='comic'?12:0,
     comicHalo:p.cueMotion==='comic'&&!box&&o.shadowEnabled===undefined&&o.shadowDepth===undefined&&o.shadowOpacity===undefined&&o.shadowColor===undefined,
@@ -1838,7 +1881,7 @@ export function getPreviewFrame(cue: PresetTimedCue, time: number, style: Resolv
     lines.forEach((line, li) => {
       const parts = line.trim().split(/\s+/).filter(Boolean);
       parts.forEach((p, pi) =>
-        words.push({ text: p, customStyle:style.cueMotion==='comic'&&canUseCaptionCueMotion(cue,style)?{color:getComicTokenColor(p,pi,parts,style.textColor,style.activeColor)}:undefined, highlighted: false, active: false, scale: 1, breakAfter: pi === parts.length - 1 && li < lines.length - 1 })
+        words.push({ text: p, customStyle:style.cueMotion==='comic'&&canUseCaptionCueMotion(cue,style)?{color:getComicTokenColor(p,pi,parts,style.textColor,style.activeColor,style.comicNumberColor)}:undefined, highlighted: false, active: false, scale: 1, breakAfter: pi === parts.length - 1 && li < lines.length - 1 })
       );
     });
     return {
@@ -1879,7 +1922,7 @@ export function getPreviewFrame(cue: PresetTimedCue, time: number, style: Resolv
       offsetY: canUseWordLift(validWords,style) ? getCaptionWordOffsetY(w,time,style) : 0,
       scale: states[i].active ? getActiveWordScaleAt(timing, elapsed) : 1,
       breakAfter: i === breakIdx,
-      customStyle: style.cueMotion==='comic'?{...w.customStyle,color:w.customStyle?.color??getComicTokenColor(w.text,i,validWords.map(w=>w.text),style.textColor,style.activeColor)}:w.customStyle,
+      customStyle: style.cueMotion==='comic'?{...w.customStyle,color:w.customStyle?.color??getComicTokenColor(w.text,i,validWords.map(w=>w.text),style.textColor,style.activeColor,style.comicNumberColor)}:w.customStyle,
     })),
     opacity: (isFirstSlice ? entranceOpacity : 1)*exitOpacity,
     wordTiming: true,
@@ -2110,7 +2153,15 @@ export function getPreviewCss(style: ResolvedCaptionStyle, scale: number): Previ
     css.display = 'inline-block';
     css.transform = `${w.offsetY ? `translateY(${px(w.offsetY)}) ` : ''}scale(${effectiveScale.toFixed(3)})`;
     css.transformOrigin = 'center bottom';
-    css.transition = style.cueMotion ? 'none' : style.reveal === 'all' ? 'transform 0.08s ease-out, color 0.1s ease' : 'none';
+    // libass scales the glyph advance too. Transform-only scaling leaves the
+    // original inline width, letting Compact Creator's held word cover its peer.
+    // CSS zoom participates in inline layout and scales outline/shadow together.
+    // Keep this measured correction scoped until other pop families qualify.
+    if (style.presetId === 'compact_creator') {
+      css.zoom = Number(effectiveScale.toFixed(3));
+      css.transform = w.offsetY ? `translateY(${px(w.offsetY / effectiveScale)})` : 'none';
+    }
+    css.transition = style.cueMotion || style.presetId === 'compact_creator' ? 'none' : style.reveal === 'all' ? 'transform 0.08s ease-out, color 0.1s ease' : 'none';
     if (cs?.uppercase) {
       css.textTransform = 'uppercase';
     }
@@ -2218,7 +2269,7 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
   const aspect = baseStyle.playResX === baseStyle.playResY ? '1:1' : baseStyle.playResX > baseStyle.playResY ? '16:9' : '9:16';
   const style = cue.presetOverride && isRenderablePresetId(cue.presetOverride)
     ? resolveCaptionPreset(cue.presetOverride, cue.styleOverrides, aspect) : baseStyle;
-  if(style.cueMotion==='comic'&&cue.words?.length){const texts=cue.words.map(w=>w.text);cue={...cue,words:cue.words.map((w,i)=>({...w,customStyle:{...w.customStyle,color:w.customStyle?.color??getComicTokenColor(w.text,i,texts,style.textColor,style.activeColor)}}))};}
+  if(style.cueMotion==='comic'&&cue.words?.length){const texts=cue.words.map(w=>w.text);cue={...cue,words:cue.words.map((w,i)=>({...w,customStyle:{...w.customStyle,color:w.customStyle?.color??getComicTokenColor(w.text,i,texts,style.textColor,style.activeColor,style.comicNumberColor)}}))};}
   if(canUseCaptionCueMotion(cue,style))return buildCaptionCueMotionEvents(cue,style,cue.presetOverride?`Style_${cue.presetOverride}`:fallbackStyleName);
   const chipLayout=getCaptionChipLayout(cue,style);
   if(chipLayout)return buildCaptionChipEvents(cue,style,chipLayout,cue.presetOverride?`Style_${cue.presetOverride}`:fallbackStyleName);
@@ -2249,8 +2300,8 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
 
 
 /** Simple transparent defaults, not inferred semantic/AI emphasis. Explicit colors win. */
-export function getComicTokenColor(text:string,index:number,words:string[],base='#FFFFFF',accent='#20FF35'):string {
- if(/\d/.test(text))return '#F5FF00';
+export function getComicTokenColor(text:string,index:number,words:string[],base='#FFFFFF',accent='#20FF35',number='#F5FF00'):string {
+ if(/\d/.test(text))return number;
  const picks=words.map((w,i)=>({w,i})).filter(({w})=>w.replace(/[^A-Za-z]/g,'').length>=4);const last=picks[picks.length-1]?.i;
  return words.length>1&&index===last?accent:base;
 }

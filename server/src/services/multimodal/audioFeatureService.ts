@@ -1,3 +1,4 @@
+import type {SignalExecutionReceipt} from '../../shared/multimodalSignalEvidence.js';
 import fs from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -8,6 +9,7 @@ import { VideoSceneService } from './videoSceneService.js';
 const execFileAsync = promisify(execFile);
 
 export interface AudioVolumeStats {
+  evidence?:SignalExecutionReceipt;
   mean_volume_db: number;
   max_volume_db: number;
   energy_score: number; // 0–100 normalized score
@@ -26,8 +28,10 @@ export class AudioFeatureService {
     audioOrVideoPath: string,
     noiseThresholdDb = -30,
     minDurationSec = 0.3,
-    timeoutMs = 60000
+    timeoutMs = 60000,
+    evidenceOut?:{receipt?:SignalExecutionReceipt}
   ): Promise<AudioSilenceInterval[]> {
+    if(evidenceOut)evidenceOut.receipt={status:'unavailable',method:'ffmpeg-silencedetect',scope:'whole-source'};
     if (!fs.existsSync(audioOrVideoPath)) {
       throw new Error(`Media file not found for silence detection: ${audioOrVideoPath}`);
     }
@@ -52,11 +56,12 @@ export class AudioFeatureService {
         maxBuffer: 20 * 1024 * 1024,
       });
 
+      if(evidenceOut)evidenceOut.receipt={status:'completed',method:'ffmpeg-silencedetect',scope:'whole-source'};
       return this.parseSilenceOutput(stderr);
     } catch (err: any) {
       if (err.stderr) {
         const intervals = this.parseSilenceOutput(err.stderr);
-        if (intervals.length > 0) return intervals;
+        if (intervals.length > 0) {if(evidenceOut)evidenceOut.receipt={status:'partial',method:'ffmpeg-silencedetect',scope:'whole-source'};return intervals;}
       }
       logger.warn(`[AudioFeatureService] Silence detection warning: ${err.message}`);
       return [];
@@ -131,10 +136,12 @@ export class AudioFeatureService {
       return this.parseVolumeOutput(stderr);
     } catch (err: any) {
       if (err.stderr) {
-        return this.parseVolumeOutput(err.stderr);
+        const result=this.parseVolumeOutput(err.stderr);
+        if(result.evidence?.status==='completed')result.evidence={...result.evidence,status:'partial'};
+        return result;
       }
       logger.warn(`[AudioFeatureService] Volume detection warning: ${err.message}`);
-      return { mean_volume_db: -24.0, max_volume_db: -6.0, energy_score: 70 };
+      return { mean_volume_db: -24.0, max_volume_db: -6.0, energy_score: 70,evidence:{status:'unavailable',method:'ffmpeg-volumedetect',scope:'whole-source'} };
     }
   }
 
@@ -175,6 +182,7 @@ export class AudioFeatureService {
     }
 
     return {
+      evidence:{status:meanMatch&&maxMatch&&Number.isFinite(meanVolume)&&Number.isFinite(maxVolume)?'completed':'unavailable',method:'ffmpeg-volumedetect',scope:'whole-source'},
       mean_volume_db: Math.round(meanVolume * 10) / 10,
       max_volume_db: Math.round(maxVolume * 10) / 10,
       energy_score: Math.min(100, Math.max(0, energyScore)),

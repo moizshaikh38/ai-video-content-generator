@@ -1,9 +1,10 @@
+import {newCaptionDefaults} from '../shared/newCaptionDefaults.js';
 import { clampCaptionFontSize } from '../shared/captionPresets.js';
 import {assertTranscriptUsable} from './transcription/transcriptQuality.js';
 import { applySceneCaptionPlacement } from '../shared/sceneCaptionPlacement.js';
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
-import { mergeExtendedCues, maxCueEnd, editorProjectCoveredEnd } from './captionExtendMerge.js';
+import { mergeExtendedCues, maxCueEnd, editorProjectCoveredEnd, hasAuthoritativeCaptionCues } from './captionExtendMerge.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { logger } from '../utils/logger.js';
@@ -276,18 +277,14 @@ export class CaptionService {
 
   /**
    * Default caption presentation for clips with no explicit caption style.
-   * The karaoke preset (large uppercase, word-by-word highlight, no backdrop
-   * box) is the house default; any explicit clip caption_style is preserved.
+   * The house comic preset is used only without an explicit saved style/config.
    */
   public static resolveDefaultCaptionStyle(clip: Pick<ClipRecord, 'caption_style' | 'caption_config'>): { captionStyle: ClipRecord['caption_style']; captionConfig: CaptionConfig } {
     if (clip.caption_style) {
       return { captionStyle: clip.caption_style, captionConfig: { ...(clip.caption_config || {}) } };
     }
-    const captionConfig: CaptionConfig = { ...(clip.caption_config || {}) };
-    if ((captionConfig as any).presetId === undefined) {
-      (captionConfig as any).presetId = 'karaoke';
-    }
-    return { captionStyle: 'karaoke', captionConfig };
+    const defaults=newCaptionDefaults(clip.caption_style,clip.caption_config);
+    return{captionStyle:defaults.captionStyle as ClipRecord['caption_style'],captionConfig:defaults.captionConfig};
   }
 
   public static getPositionConfig(
@@ -1245,8 +1242,7 @@ export class CaptionService {
       (item: any) =>
         !item.hidden &&
         item.caption &&
-        Array.isArray(item.caption.cues) &&
-        item.caption.cues.length > 0
+        hasAuthoritativeCaptionCues(item.caption)
     );
 
     if (validItems.length === 0) return null;
@@ -1402,7 +1398,7 @@ export class CaptionService {
       if (proj && Array.isArray(proj.tracks)) {
         editorProject = proj;
         const extracted = CaptionService.extractEditorCuesFromProject(proj);
-        if (extracted && extracted.cues.length > 0) {
+        if (extracted) {
           editorCues = extracted.cues;
           editorStyle = extracted.style || null;
           editorPosition = extracted.position || null;
@@ -1501,7 +1497,7 @@ export class CaptionService {
     let cues: TimedCaptionCue[] = [];
     let preset: ResolvedCaptionStyle | null = null;
 
-    if (editorCues && editorCues.length > 0) {
+    if (editorCues !== null) {
       const effectiveStyle = editorStyle || clip.caption_style;
       preset = this.resolveClipPreset(effectiveStyle, mergedConfig, targetAspectRatio);
       const hasWords = editorCues.some((c) => Array.isArray(c.words) && c.words.length > 0);

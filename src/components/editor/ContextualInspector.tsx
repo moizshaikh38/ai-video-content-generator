@@ -1247,7 +1247,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
               <div className="flex items-center gap-2">
                 {selectedPresetId && selectedPresetId !== 'none' && (
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.08] text-vc-text-primary capitalize">
-                    {selectedPresetId.replace('_', ' ')}
+                    {CAPTION_PRESETS[selectedPresetId].label}
                   </span>
                 )}
                 {onToggleCaptions && (

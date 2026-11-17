@@ -1,3 +1,7 @@
+import {NEW_CAPTION_PRESET_ID} from '../shared/captionPresets.js';
+import {shotPlanOptions} from '../shared/shotPlanOptions.js';
+import {validateAutomaticLayoutCropConfig} from '../shared/automaticLayoutValidation.js';
+import {normalizeEditorCanvasAspect} from '../shared/editorCanvasAspect.js';
 import {candidateCompositionOptions} from '../shared/automaticLayoutCandidate.js';
 import {captionCompositionWindows,type CaptionLayoutWindow} from '../shared/sceneCaptionPlacement.js';
 import {trackerHandoffSpec,buildTrackerHandoffFilter} from '../shared/trackerHandoff.js';
@@ -85,6 +89,8 @@ const execFileAsync = promisify(execFile);
 const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
 
 export interface CompiledRenderGraph {
+  /** Offline qualification only. Not selected by production render execution. */
+  sliceStaging?: { stages:Array<{filterComplex:string[];videoMap:string;audioMap:string}>;tailFilterComplex:string[] };
   inputArgs: string[];
   filterComplex: string[];
   videoMap: string;
@@ -336,8 +342,8 @@ export class ProEditorService {
           if (item.transition_out && !EDITOR_TRANSITION_TYPES.includes(item.transition_out.type)) {
             throw new AppError(`Invalid transition type: ${item.transition_out.type}`, 400, 'INVALID_TRANSITION');
           }
-          if(item.crop_config?.automaticLayoutCandidate!==undefined&&item.crop_config.automaticLayoutCandidate!=='review-v1')throw new AppError('Invalid Auto Layout candidate',400,'INVALID_AUTO_LAYOUT_CANDIDATE');
-          try{validateSceneLayoutOverrides(item)}catch(e){throw new AppError(String((e as Error).message),400,'INVALID_SCENE_LAYOUT')}
+          try{validateAutomaticLayoutCropConfig(item.crop_config)}catch(e){throw new AppError(String((e as Error).message),400,(e as any).code||'INVALID_CROP_CONFIG')}
+          try{validateSceneLayoutOverrides(item)}catch(e){throw new AppError(String((e as Error).message),400,(e as any).code||'INVALID_SCENE_LAYOUT')}
           ProEditorService.assertItemFramingWindow(item, dto.canvas?.aspect_ratio ?? current.canvas?.aspect_ratio ?? '9:16');
           // Source paths become server-side fetches and FFmpeg inputs — validate strictly.
           if (item.source_path !== undefined && item.source_path !== null) {
@@ -364,7 +370,7 @@ export class ProEditorService {
     };
 
     if (dto.title) updates.title = dto.title.trim().slice(0, 120);
-    if (dto.canvas) updates.canvas = { ...current.canvas, ...dto.canvas };
+    if (dto.canvas) updates.canvas = normalizeEditorCanvasAspect({ ...current.canvas, ...dto.canvas });
     if (dto.tracks) updates.tracks = dto.tracks;
     if (dto.playhead !== undefined) updates.playhead = Math.max(0, dto.playhead);
     if (dto.settings) updates.settings = { ...current.settings, ...dto.settings };
@@ -1215,8 +1221,7 @@ export class ProEditorService {
    */
   private static resolveShotCompositionPlan(item:EditorTrackItem,reframe:ProReframeContext){
     const track=reframe.track!;
-    return SmartReframeService.computeShotComposition({...candidateCompositionOptions(item.crop_config?.automaticLayoutCandidate),layoutPolicy:item.crop_config?.layoutPolicy||reframe?.cropConfig?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:(track as any).raw_samples,sceneCuts:track.metadata.scene_cuts,
-          duration:Number(track.metadata.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
+    return SmartReframeService.computeShotComposition(shotPlanOptions({track,candidate:item.crop_config?.automaticLayoutCandidate,layoutPolicy:item.crop_config?.layoutPolicy||reframe?.cropConfig?.layoutPolicy,duration:Number(track.metadata.clip_duration)}));
   }
 
   /** Bounded adaptive scene contract: same measured shot plan as picture export.
@@ -1239,7 +1244,7 @@ export class ProEditorService {
       const track=reframe.track;
       project={...project,tracks:project.tracks.map(t=>t.type!=='VIDEO'?t:{...t,items:t.items.map(item=>{
         if((item as any)._tracker_handoff||!item.tracker?.enabled||item.scene_layout_overrides?.length)return item;
-        const plan=SmartReframeService.computeShotComposition({...candidateCompositionOptions(item.crop_config?.automaticLayoutCandidate),layoutPolicy:item.crop_config?.layoutPolicy||reframe.cropConfig?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate===true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect==='4:3'?'4:3':undefined,windowScope:track.metadata?.shot_composition_window_scope==='shot'?'shot':'clip',rawSamples:track.raw_samples,sceneCuts:track.metadata?.scene_cuts,duration:Number(track.metadata?.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
+        const plan=SmartReframeService.computeShotComposition(shotPlanOptions({track,candidate:item.crop_config?.automaticLayoutCandidate,layoutPolicy:item.crop_config?.layoutPolicy||reframe.cropConfig?.layoutPolicy,duration:Number(track.metadata?.clip_duration)}));
         const spec=trackerHandoffSpec(item,plan,track.source_width||1920,track.source_height||1080,reframe.clipStartSec||0);
         return spec?{...item,_tracker_handoff:spec}:item;
       })})};
@@ -1273,6 +1278,8 @@ export class ProEditorService {
     // collected for the two-pass loudnorm measurement graph. Every string appended
     // here is the exact string also appended to filterComplex for that audio chain.
     const audioOnlyChains: string[] = [];
+    const qualificationSliceStages:NonNullable<CompiledRenderGraph['sliceStaging']>['stages']=[];
+    let qualificationTailStart:number|undefined;
 
     // Canvas properties
     // Export resolution: the editor canvas is the 1080-class design space; the
@@ -1329,6 +1336,7 @@ export class ProEditorService {
 
       for (let i = 0; i < allVideoItems.length; i++) {
         const item = allVideoItems[i];
+        const qualificationStageStart=filterComplex.length;
         const vSlice = `[v_slice_${i}]`;
         const aSlice = `[a_slice_${i}]`;
         const timelineDur = Math.max(0.1, item.timeline_end - item.timeline_start);
@@ -1423,6 +1431,7 @@ export class ProEditorService {
           audioOnlyChains.push(sliceAChain);
           sliceDurations.push(sliceDur + gap);
         }
+        qualificationSliceStages.push({filterComplex:filterComplex.slice(qualificationStageStart),videoMap:vSlice,audioMap:aSlice});
         vLabels.push(vSlice);
         aLabels.push(aSlice);
       }
@@ -1435,6 +1444,7 @@ export class ProEditorService {
         .some((item) => item.transition_in && resolveXfadeName(item.transition_in.type, item.transition_in.direction));
 
       if (!boundaryHasTransition) {
+        qualificationTailStart=filterComplex.length;
         const concatInputs = vLabels.map((v, i) => `${v}${aLabels[i]}`).join('');
         filterComplex.push(`${concatInputs}concat=n=${allVideoItems.length}:v=1:a=1[base_v][base_a]`);
         audioOnlyChains.push(`${aLabels.join('')}concat=n=${allVideoItems.length}:v=0:a=1[base_a]`);
@@ -1841,7 +1851,7 @@ export class ProEditorService {
       return (
         acc +
         t.items.filter((item) => {
-          if (item.hidden || item.muted || !item.source_path || !fs.existsSync(item.source_path)) return false;
+          if (item.hidden || item.muted || !item.source_path || !fs.existsSync(item.source_path) || !isAllowedEditorSourcePath(project.user_id, item.source_path)) return false;
           return AudioDuckingService.resolveDuckingConfig(item.audio?.ducking).enabled;
         }).length
       );
@@ -1967,6 +1977,7 @@ export class ProEditorService {
     }
 
     return {
+      ...(qualificationTailStart!==undefined && qualificationSliceStages.length>=2 && qualificationSliceStages.length<=12 && inputArgs.length===2 && inputArgs[0]==='-i' && reframe?.sourceHasAudio!==false && allVideoItems.every(i=>!(i as any).is_title_card&&!(i as any).is_freeze) ? {sliceStaging:{stages:qualificationSliceStages,tailFilterComplex:filterComplex.slice(qualificationTailStart)}} : {}),
       inputArgs,
       filterComplex,
       videoMap: videoStreamLabel,
@@ -2587,7 +2598,7 @@ export class ProEditorService {
     // Track 3: Caption Track
     const captionTrackId = crypto.randomUUID();
     const captionStyle = producerPlan?.operations.find((o) => o.type === 'CAPTION_STYLE')?.parameters.style ||
-      clip.caption_style || 'clean';
+      CaptionService.resolveDefaultCaptionStyle(clip).captionStyle || NEW_CAPTION_PRESET_ID;
 
     let initialCues: any[] = [];
     if (transcript) {
@@ -2649,6 +2660,7 @@ export class ProEditorService {
             highlight_color: producerPlan?.operations.find((o) => o.type === 'CAPTION_EMPHASIS' && o.enabled)?.parameters.highlight_color || '#FACC15',
             primary_color: '#FFFFFF',
             animation: 'highlight',
+            ...(captionStyle===NEW_CAPTION_PRESET_ID ? {font_family:'Bangers',font_size:136,highlight_color:'#20FF35',animation:'none',box_enabled:false} : {}),
           },
           effects: [],
           keyframes: [],

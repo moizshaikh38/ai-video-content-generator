@@ -10,7 +10,9 @@ import { AudioAnalysisService } from '../services/audioAnalysisService.js';
 import { AudioEnhancementService } from '../services/audioEnhancementService.js';
 import { AUDIO_CLEAN_PRESETS, AUDIO_DUCKING_PRESETS, AudioAnalysisMetrics } from '../types/index.js';
 
-const REAL_VIDEO_ASSET = path.resolve(
+// Explicit alternate media is reported by the qualification runner, never
+// silently substituted for the missing historical launch asset.
+const REAL_VIDEO_ASSET = process.env.VIREO_QUALIFICATION_MEDIA || path.resolve(
   process.cwd(),
   '../artifacts/vireo-launch/vireo-launch-preview-1080p.mp4'
 );

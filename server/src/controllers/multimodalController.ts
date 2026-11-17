@@ -1,3 +1,4 @@
+import {unverifiedMultimodalSignals} from '../shared/multimodalSignalEvidence.js';
 import { Response } from 'express';
 import { AuthenticatedRequest, AppError, isValidUUID } from '../types/index.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
@@ -36,7 +37,7 @@ export async function findProjectMoments(req: AuthenticatedRequest, res: Respons
   }
 
   // 2. Load existing multimodal analysis
-  let analysis = await MultimodalTimelineService.getAnalysis(projectId, userId);
+  let analysis = await MultimodalTimelineService.getFreshAnalysis(projectId, userId);
 
   // If no persistent multimodal analysis yet, build an on-the-fly timeline from transcript segments
   if (!analysis) {
@@ -61,7 +62,9 @@ export async function findProjectMoments(req: AuthenticatedRequest, res: Respons
 
     const duration = Number(transcript.duration_seconds || 60);
 
+    const notRun=unverifiedMultimodalSignals();for(const key of Object.keys(notRun) as Array<keyof typeof notRun>)notRun[key]={status:'not-run',method:'transcript-only-fallback'};
     const fallbackTimeline = MultimodalTimelineService.fuseTimeline({
+      signalEvidence:notRun,
       projectId,
       durationSeconds: duration,
       segments,
@@ -119,8 +122,10 @@ export async function getProjectMultimodalTimeline(
     throw new AppError('Invalid project ID.', 400, 'INVALID_PROJECT_ID');
   }
 
-  const analysis = await MultimodalTimelineService.getAnalysis(projectId, userId);
+  const analysis = await MultimodalTimelineService.getFreshAnalysis(projectId, userId);
   if (!analysis) {
+    const stored=await MultimodalTimelineService.getAnalysis(projectId,userId);
+    if(stored)throw new AppError('Stored analysis cannot be verified against the current source and transcript. Check source access or run analysis again.',409,'MULTIMODAL_ANALYSIS_UNVERIFIED');
     throw new AppError('Multimodal analysis not found for this project.', 404, 'NOT_FOUND');
   }
 

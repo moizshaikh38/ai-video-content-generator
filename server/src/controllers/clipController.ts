@@ -1,3 +1,5 @@
+import {newCaptionDefaults} from '../shared/newCaptionDefaults.js';
+import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 import {candidateCompositionOptions,projectAutoCandidate} from '../shared/automaticLayoutCandidate.js';
 import {storedScenePlanWindow} from '../shared/storedScenePlanWindow.js';
 import {legacyFit43Plan,legacyPolicyFallback} from '../shared/automaticLayoutPolicy.js';
@@ -11,7 +13,7 @@ import { AuthenticatedRequest, isValidUUID, ClipCandidateStatus, ClipAspectRatio
 import { ClipAnalysisService, activeClipAnalysisSet } from '../services/clipAnalysisService.js';
 import { ClipRenderService, isClipRenderActive, launchInlineRender } from '../services/clipRenderService.js';
 import { CaptionService } from '../services/captionService.js';
-import { mergeExtendedCues, maxCueEnd } from '../services/captionExtendMerge.js';
+import { mergeExtendedCues, maxCueEnd, hasAuthoritativeCaptionCues } from '../services/captionExtendMerge.js';
 import { WaveformService } from '../services/waveformService.js';
 import { ThumbnailService } from '../services/thumbnailService.js';
 import { SmartReframeService, activeReframeAnalysisSet } from '../services/smartReframeService.js';
@@ -126,6 +128,11 @@ export const analyzeProjectClips = async (req: AuthenticatedRequest, res: Respon
 
     if (err.code === 'SOURCE_TOO_SHORT_FOR_CLIP_SETTINGS') {
       res.status(400).json({ status: 'error', code: err.code, message: err.message });
+      return;
+    }
+
+    if(err.code==='TRANSCRIPT_REVIEW_REQUIRED'||err.code==='CLIP_SEGMENTS_INVALID'){
+      res.status(409).json({status:'error',code:err.code,message:err.message});
       return;
     }
 
@@ -385,9 +392,11 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
 
     const hasSmartReframe = EntitlementService.isFeatureAllowed(entitlements, 'smartReframe');
     const effectiveCropMode = cropMode === 'smart' && !hasSmartReframe ? 'fit' : cropMode;
-    const effectiveCaptionStyle = caption_style ||
-      (EntitlementService.isPresetAllowed(entitlements, 'karaoke') ? 'karaoke' : 'clean');
-    const effectiveCaptionConfig = caption_config || { presetId: effectiveCaptionStyle };
+    const initialCaption = newCaptionDefaults(caption_style,caption_config);
+    const effectiveCaptionStyle = EntitlementService.isPresetAllowed(entitlements,initialCaption.captionStyle)
+      ? initialCaption.captionStyle : 'simple';
+    const effectiveCaptionConfig = effectiveCaptionStyle===initialCaption.captionStyle
+      ? initialCaption.captionConfig : {presetId:effectiveCaptionStyle};
 
     const result = await ClipRenderService.createClipFromCandidate(
       projectId,
@@ -1119,7 +1128,7 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
     if (proj && Array.isArray(proj.tracks)) {
       const captionTrack = proj.tracks.find((t: any) => t.type === 'CAPTION' && !t.hidden);
       const captionItem = captionTrack?.items?.[0];
-      if (captionItem?.caption && Array.isArray(captionItem.caption.cues) && captionItem.caption.cues.length > 0) {
+      if (captionItem?.caption && hasAuthoritativeCaptionCues(captionItem.caption)) {
         let cuesOut = captionItem.caption.cues;
         // Beyond-candidate extend: saved cues are authoritative through their
         // coverage marker; if the clip's trim window now runs past it, append
@@ -1309,7 +1318,7 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
   }
 
   try {
-    const track = await SmartReframeService.getReframeTrack(clipId, userId);
+    const track = await SmartReframeService.getReframeTrack(clipId, userId, undefined, true);
 
     if (!track) {
       // If no track yet, check if currently analyzing
@@ -1329,7 +1338,7 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
 
     const {data:policyClip}=await dataRepository.from('clips').select('*').eq('id',clipId).eq('user_id',userId).maybeSingle();
     const {data:policyProject}=await dataRepository.from('editor_projects').select('tracks').eq('clip_id',clipId).eq('user_id',userId).maybeSingle();
-    const retainedPlan=policyClip?.crop_config?.mode==='smart'&&policyProject?storedScenePlanWindow(policyProject,policyClip,track):null;
+    const retainedPlan=track.sourceObjectVerified!==false&&policyClip?.crop_config?.mode==='smart'&&policyProject?storedScenePlanWindow(policyProject,policyClip,track):null;
     // Return safe data without exposing server paths
     res.status(200).json({
       status: track.status,
@@ -1369,8 +1378,7 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       sourceWidth: track.source_width || null,
       sourceHeight: track.source_height || null,
       shotComposition: legacyFit43Plan(track,Number(track.metadata?.clip_duration)||1,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)) || legacyPolicyFallback(policyClip?.crop_config?.layoutPolicy,track,Number(track.metadata?.clip_duration)||track.smoothed_keyframes?.at(-1)?.time||1) || (track.metadata?.shot_composition_candidate === true
-        ? SmartReframeService.computeShotComposition({...candidateCompositionOptions(req.query.layoutCandidate==='review-v1'?'review-v1':req.query.layoutCandidate==='off'?undefined:policyProject&&projectAutoCandidate(policyProject)?'review-v1':policyClip?.crop_config?.automaticLayoutCandidate),layoutPolicy:policyClip?.crop_config?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
-          duration:Number(track.metadata.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}) : null),
+        ? SmartReframeService.computeShotComposition(shotPlanOptions({track,candidate:req.query.layoutCandidate==='review-v1'?'review-v1':req.query.layoutCandidate==='off'?undefined:policyProject&&projectAutoCandidate(policyProject)?'review-v1':policyClip?.crop_config?.automaticLayoutCandidate,layoutPolicy:policyClip?.crop_config?.layoutPolicy,duration:Number(track.metadata.clip_duration)})) : null),
       groupFrame: (() => {
         const g = SmartReframeService.computeGroupFrameGeometry({
           rawSamples: track.raw_samples,

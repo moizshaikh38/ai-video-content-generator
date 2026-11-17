@@ -1,3 +1,8 @@
+import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
+import {reframeTrackFreshness} from '../shared/reframeTrackFreshness.js';
+import {reviewMeasuredSplitSeams} from '../shared/measuredSplitSeamReview.js';
+import {buildSharedViewReviewPlan} from '../shared/sharedViewReview.js';
+import {normalizeFaceEvidence} from '../shared/faceEvidence.js';
 import {constrainedFit43} from '../shared/constrainedFit43.js';
 import {bodyOnlyPortraitProposal} from '../shared/bodyOnlyPortraitProposal.js';
 import {auditPairComposition} from '../shared/pairCompositionQuality.js';
@@ -28,7 +33,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { execFile, ChildProcess } from 'node:child_process';
 import { promisify } from 'node:util';
-import { downloadObjectToFile } from './objectStorageService.js';
+import { downloadObjectToFile, computeFileStreamSha256, headObject } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
 import { applyWordEnergyFusion } from '../utils/wordEnergyFusion.js';
 import { GenreIntelligenceService } from './genreIntelligenceService.js';
@@ -91,6 +96,30 @@ export function resolveGenreReframeOptions(
   };
 }
 
+/** Existing planner input contract. Extraction does not change evidence or policy. */
+export interface ShotCompositionOptions {
+    layoutPolicy?:AutomaticLayoutPolicy;
+    rawSamples?: ReframeSample[] | null; sceneCuts?: number[]; duration: number;
+    sourceWidth: number; sourceHeight: number;
+    /** Review-only opt-in. No production caller selects this policy. */
+    unresolvedContextPolicy?: 'preserve' | 'shared-subject-window' | 'balanced-inset-review';
+    /** Scene-adaptive opt-in. Unknown shots remain full source locally. */
+    windowScope?: 'clip' | 'shot';
+    /** Explicit presentation preference. Crop conflicts remain review-required. */
+    automaticFitAspect?: '4:3';
+    /** Developmental opt-in only. Not read from project/user settings. */
+    pairFocusReview?: boolean;
+    /** Review-only. Requires independently supplied hand observations. */
+    sharedViewReview?: boolean;
+    /** Internal positive-hand-evidence seam veto. Off by default, not a setting. */
+    splitHandSafetyReview?: boolean;
+    bodyOnlyPortraitReview?: boolean;
+    /** Requires independently declared podcast/interview context. */
+    allowConversationSplit?: boolean;
+    /** Optional measured regions, local qualification only. Not semantic proof. */
+    protectedContentRegions?: Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>;
+  }
+
 export class SmartReframeService {
   /**
    * Validates a single face detection record from CV output.
@@ -107,6 +136,7 @@ export class SmartReframeService {
     const centerX = Number(raw.center_x ?? raw.centerX ?? (x + width / 2));
     const centerY = Number(raw.center_y ?? raw.centerY ?? (y + height / 2));
     const confidence = Number(raw.confidence ?? 0.85);
+    const faceEvidence = normalizeFaceEvidence(raw.face_evidence);
     const mouthScore = raw.mouth_score !== undefined && raw.mouth_score !== null ? Number(raw.mouth_score) : undefined;
 
     if (
@@ -142,6 +172,7 @@ export class SmartReframeService {
       confidence: Math.round(Math.min(1.0, Math.max(0.0, confidence)) * 100) / 100,
       track_id: raw.track_id ? String(raw.track_id) : undefined,
       area: Math.round(width * height * 10000) / 10000,
+      ...(faceEvidence ? {face_evidence: faceEvidence} : {}),
       mouth_score: mouthScore !== undefined && Number.isFinite(mouthScore) ? Math.min(1.0, Math.max(0.0, Math.round(mouthScore * 1000) / 1000)) : undefined,
     };
   }
@@ -1444,28 +1475,21 @@ export class SmartReframeService {
 
   /** Candidate shot-local composition. Times are always clip-relative; slices
    * intersect/rebase this same plan instead of recomputing different evidence. */
-  public static computeShotComposition(options: {
-    layoutPolicy?:AutomaticLayoutPolicy;
-    rawSamples?: ReframeSample[] | null; sceneCuts?: number[]; duration: number;
-    sourceWidth: number; sourceHeight: number;
-    /** Review-only opt-in. No production caller selects this policy. */
-    unresolvedContextPolicy?: 'preserve' | 'shared-subject-window' | 'balanced-inset-review';
-    /** Scene-adaptive opt-in. Unknown shots remain full source locally. */
-    windowScope?: 'clip' | 'shot';
-    /** Explicit presentation preference. Crop conflicts remain review-required. */
-    automaticFitAspect?: '4:3';
-    /** Developmental opt-in only. Not read from project/user settings. */
-    pairFocusReview?: boolean;
-    bodyOnlyPortraitReview?: boolean;
-    /** Requires independently declared podcast/interview context. */
-    allowConversationSplit?: boolean;
-    /** Optional measured regions, local qualification only. Not semantic proof. */
-    protectedContentRegions?: Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>;
-  }): Array<{ start: number; end: number; kind: 'group' | 'solo' | 'fit'; windowW: number; windowH: number;
+  public static computeShotComposition(options: ShotCompositionOptions): Array<{ start: number; end: number; kind: 'group' | 'solo' | 'fit'; windowW: number; windowH: number;
     keyframes: Array<{ time: number; centerX: number; centerY: number }>;
     split?: {speaker1X:number;speaker2X:number;dividerX:number;focusPanels?:ItemPanels};
     contextStatus?: 'crowd-preserved'|'unresolved-preserved'|'unresolved-review-required';
     uncertainty?: string; presentationProtection?: import('../shared/automaticLayoutPolicy.js').PresentationProtection }> {
+    const plan=this.computeShotCompositionLegacy(options);
+    return options.splitHandSafetyReview&&(!options.layoutPolicy||options.layoutPolicy.allowed.includes('fit'))
+      ? reviewMeasuredSplitSeams(plan,options.rawSamples||[]).shots : plan;
+  }
+
+  private static computeShotCompositionLegacy(options: ShotCompositionOptions): ReturnType<typeof SmartReframeService.computeShotComposition> {
+    if(options.sharedViewReview && options.windowScope==='shot' && options.automaticFitAspect==='4:3' && (!options.layoutPolicy||options.layoutPolicy.allowed.includes('fit'))){
+      const baseline=this.computeShotComposition({...options,sharedViewReview:false});
+      return buildSharedViewReviewPlan(baseline,{samples:options.rawSamples||[],sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,protectedRegions:options.protectedContentRegions||[]}).shots as ReturnType<typeof SmartReframeService.computeShotComposition>;
+    }
     const {rawSamples = [], duration, sourceWidth, sourceHeight} = options;
     if (!rawSamples?.length || !(duration > 0) || sourceWidth <= 0 || sourceHeight <= 0) return [];
     const cuts = [...new Set((options.sceneCuts || []).filter(t => Number.isFinite(t) && t > 0 && t < duration))].sort((a,b)=>a-b);
@@ -2773,7 +2797,7 @@ export class SmartReframeService {
   public static async analyzeClipFraming(
     clipId: string,
     userId: string,
-    options: SmartReframeOptions & { localSourcePath?: string } = {}
+    options: SmartReframeOptions & { localSourcePath?: string;sourceReceipt?:SourceObjectReceipt } = {}
   ): Promise<ReframeTrackRecord> {
     if (!isMongoConfigured) {
       const err = new Error('Database service is not configured.');
@@ -2845,16 +2869,26 @@ export class SmartReframeService {
 
       // 3. Download source video to temp location
       logger.info(`[SmartReframe] Downloading source video from Storage for clip ${clipId}: ${clip.source_storage_path}`);
+      let sourceReceipt:SourceObjectReceipt|undefined;
       if (!options.localSourcePath || !fs.existsSync(options.localSourcePath)) {
-        await downloadObjectToFile('source', clip.source_storage_path, localSourcePath);
+        const downloaded=await downloadObjectToFile('source', clip.source_storage_path, localSourcePath,{requireSnapshotReceipt:true});
+        sourceReceipt=downloaded.sourceReceipt;
       }
+
+      const analyzedSourceSha256 = await computeFileStreamSha256(localSourcePath);
+      if(options.localSourcePath&&options.sourceReceipt&&sourceObjectReceiptMatches(options.sourceReceipt,clip.source_storage_path,{size:fs.statSync(localSourcePath).size,etag:options.sourceReceipt.etag},analyzedSourceSha256))sourceReceipt=options.sourceReceipt;
 
       // 4. Determine effective clip boundaries
       const trimStart = Number(clip.trim_start_offset || 0);
       const trimEnd = Number(clip.trim_end_offset || 0);
       const startSec = Number(clip.start_seconds) + trimStart;
-      const originalDuration = Number(clip.duration_seconds || (clip.end_seconds - clip.start_seconds));
-      const durationSec = Math.max(0.1, Number((originalDuration - trimStart - trimEnd).toFixed(3)));
+      const endSec = Number(clip.end_seconds) - trimEnd;
+      const durationSec = Number((endSec - startSec).toFixed(3));
+      if (![startSec,endSec,durationSec,trimStart,trimEnd].every(Number.isFinite) || startSec < 0 || durationSec <= 0 || trimStart < 0 || trimEnd < 0) {
+        const error = new Error('Clip source window is invalid; reframe analysis was not started.');
+        (error as any).code = 'INVALID_CLIP_WINDOW';
+        throw error;
+      }
 
       const sampleFps = options.sampleFps || 4.0;
       const timeoutMs = options.timeoutMs || 120000;
@@ -3002,6 +3036,10 @@ export class SmartReframeService {
           conversation_split_candidate: adaptiveScenes && sourceGenre === 'podcast_interview' && process.env.SMART_REFRAME_AUTO_CONVERSATION_SPLIT === '1',
           automatic_fit_aspect: adaptiveScenes && process.env.SMART_REFRAME_AUTOMATIC_FIT_4_3 === '1' ? '4:3' : null,
           analyzed_source_path: clip.source_storage_path,
+          analyzed_source_sha256: analyzedSourceSha256,
+          analyzed_source_receipt: sourceReceipt,
+          analyzed_source_start: startSec,
+          analyzed_source_end: endSec,
           clip_duration: durationSec,
           scene_cuts: clipSceneCuts,
           scene_cut_evidence: cvResult.scene_cut_evidence || [],
@@ -3059,14 +3097,16 @@ export class SmartReframeService {
    */
   public static async getReframeTrack(
     clipId: string,
-    userId: string
-  ): Promise<(ReframeTrackRecord & { isStale?: boolean }) | null> {
+    userId: string,
+    expectedSourceSha256?: string,
+    verifyObjectReceipt = false
+  ): Promise<(ReframeTrackRecord & { isStale?: boolean; sourceObjectVerified?:boolean }) | null> {
     if (!isMongoConfigured) return null;
 
     // Fetch clip to verify ownership and current trim/aspect ratio
     const { data: clip, error: clipErr } = await dataRepository
       .from('clips')
-      .select('id, user_id, trim_start_offset, trim_end_offset, aspect_ratio')
+      .select('id, user_id, source_storage_path, start_seconds, end_seconds, trim_start_offset, trim_end_offset, aspect_ratio')
       .eq('id', clipId)
       .maybeSingle();
 
@@ -3086,15 +3126,19 @@ export class SmartReframeService {
       return null;
     }
 
-    const trimStart = Number(clip.trim_start_offset || 0);
-    const trimEnd = Number(clip.trim_end_offset || 0);
-    const isStale =
-      Math.abs(Number(track.analyzed_trim_start) - trimStart) > 0.05 ||
-      Math.abs(Number(track.analyzed_trim_end) - trimEnd) > 0.05 ||
-      track.analyzed_aspect_ratio !== (clip.aspect_ratio || '9:16');
-
+    let {isStale} = reframeTrackFreshness(clip,track,expectedSourceSha256);
+    let sourceObjectVerified:boolean|undefined;
+    if(verifyObjectReceipt){
+      sourceObjectVerified=false;
+      const receipt=track.metadata?.analyzed_source_receipt;
+      if(receipt && clip.source_storage_path){
+        try{sourceObjectVerified=sourceObjectReceiptMatches(receipt,clip.source_storage_path,await headObject('source',clip.source_storage_path),track.metadata?.analyzed_source_sha256);}catch{}
+      }
+      if(!sourceObjectVerified)isStale=true;
+    }
     return {
       ...track,
+      sourceObjectVerified,
       isStale,
     };
   }

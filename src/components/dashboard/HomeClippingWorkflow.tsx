@@ -1,3 +1,4 @@
+import {candidateRankingDisplay} from '../../../server/src/shared/candidateRankingDisplay';
 import { GenerationCaptionPreset } from '../clips/GenerationCaptionPreset';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -1809,10 +1810,10 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                         <span className="px-2 py-0.5 rounded bg-black/60 font-mono text-[10px] text-white">
                           {formatDuration(cand.duration_seconds)}
                         </span>
-                        {cand.engagement_score !== undefined && (
+                        {candidateRankingDisplay(cand) !== null && (
                           <span className="px-2 py-0.5 rounded bg-violet-500/30 text-violet-200 text-[10px] font-bold flex items-center gap-1">
                             <Sparkles className="size-2.5 text-zinc-200" />
-                            <span>Score: {Math.round(cand.engagement_score)}</span>
+                            <span>Score: {Math.round(candidateRankingDisplay(cand)!)}</span>
                           </span>
                         )}
                       </div>

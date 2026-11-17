@@ -9,6 +9,7 @@ import { GroqTranscriptionProvider } from '../services/transcription/groqTranscr
 import { OpenRouterTranscriptionProvider } from '../services/transcription/openRouterTranscriptionProvider.js';
 import { normalizeTranscriptionError } from '../services/transcription/errorNormalizer.js';
 import { config } from '../config/index.js';
+import {normalizeProviderTiming} from '../services/transcription/providerTiming.js';
 
 let passed = 0;
 let total = 0;
@@ -225,25 +226,12 @@ async function runTests() {
       { start: null, end: undefined, text: '' }, // empty/invalid
     ];
 
-    const normalized = mockRawSegments
-      .map((seg: any) => ({
-        start: Number(seg.start ?? 0),
-        end: Number(seg.end ?? 0),
-        text: String(seg.text ?? '').trim(),
-      }))
-      .filter((seg) => seg.text.length > 0 || seg.end > seg.start);
+    const result = normalizeProviderTiming({segments:mockRawSegments});
+    assert.strictEqual(result.segments.length, 1);
+    assert.deepStrictEqual(result.segments[0], {start:0,end:2.5,text:'Hello world!'});
+    assert.strictEqual(result.timingIssues.length,2);
+    assert.ok(result.timingIssues.every(issue=>issue.kind==='segment'));
 
-    assert.strictEqual(normalized.length, 2);
-    assert.deepStrictEqual(normalized[0], {
-      start: 0,
-      end: 2.5,
-      text: 'Hello world!',
-    });
-    assert.deepStrictEqual(normalized[1], {
-      start: 2.5,
-      end: 4.8,
-      text: 'Testing normalized segments.',
-    });
   });
 
   // Test 11: Database payload compatibility test

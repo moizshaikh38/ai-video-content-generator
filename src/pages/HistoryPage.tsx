@@ -1,3 +1,4 @@
+import {candidateRankingDisplay} from '../../server/src/shared/candidateRankingDisplay';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { BTN_PILL_BRAND, BTN_PILL_DESTRUCTIVE, BTN_PILL_SECONDARY } from '../lib/buttonStyles';
@@ -395,7 +396,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                 const durationSec = Math.round(clip.duration_seconds || (clip.end_seconds - clip.start_seconds) || 30);
                 // Show the internal AI ranking only when the clip actually has one —
                 // never fabricate a score for clips that were not ranked.
-                const engagementScore = typeof (clip as any).engagement_score === 'number' ? (clip as any).engagement_score : null;
+                const engagementScore = candidateRankingDisplay(clip);
 
                 return (
                   <div

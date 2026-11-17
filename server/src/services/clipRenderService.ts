@@ -1,3 +1,6 @@
+import {prepareSliceRender} from './sliceRenderPreparation.js';
+import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
+import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 import {candidateCompositionOptions} from '../shared/automaticLayoutCandidate.js';
 import {legacyFit43Plan,legacyPolicyFallback} from '../shared/automaticLayoutPolicy.js';
 import {storedScenePlanWindow} from '../shared/storedScenePlanWindow.js';
@@ -15,7 +18,7 @@ import os from 'os';
 import crypto from 'crypto';
 import ffmpeg from 'fluent-ffmpeg';
 import { getRenderFfmpeg } from '../utils/drawtextFfmpeg.js';
-import { clipObjectPrefix, deletePrefix, downloadObjectToFile, renderObjectKey, signObjectGet, uploadFile } from './objectStorageService.js';
+import { clipObjectPrefix, deletePrefix, downloadObjectToFile, headObject, computeFileStreamSha256, renderObjectKey, signObjectGet, uploadFile } from './objectStorageService.js';
 import { deleteClipRecords } from '../db/repositories/deletionRepository.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
@@ -447,12 +450,13 @@ export class ClipRenderService {
   public static async ensureSourceVideo(
     sourceStoragePath: string | null | undefined,
     targetLocalPath: string,
-    options: { timeoutMs?: number; projectId?: string; clipId?: string } = {}
+    options: { timeoutMs?: number; projectId?: string; clipId?: string; snapshotOut?:{receipt?:SourceObjectReceipt} } = {}
   ): Promise<'local_fallback' | 'cache_hit' | 'downloaded'> {
     if (!sourceStoragePath) {
       throw new AppError('Source storage path is missing for clip.', 400, 'SOURCE_PATH_MISSING');
     }
 
+    if(options.snapshotOut)delete options.snapshotOut.receipt;
     // 1. Local filesystem fallback check
     const candidatePaths = [
       sourceStoragePath,
@@ -479,26 +483,44 @@ export class ClipRenderService {
       }
     } catch {}
 
-    const hash = crypto.createHash('sha256').update(sourceStoragePath).digest('hex');
+    // A path identifies an object location, not immutable source bytes. Recheck
+    // its validator before reusing disk cache; unversioned objects are fetched.
+    const snapshot = await headObject('source',sourceStoragePath);
+    const validator = snapshot.etag && !snapshot.etag.startsWith('W/') ? snapshot.etag : undefined;
+    const hash = crypto.createHash('sha256').update(JSON.stringify([sourceStoragePath,validator || crypto.randomUUID(),snapshot.size])).digest('hex');
     const cachedFile = path.join(cacheDir, `${hash}.mp4`);
 
     try {
-      if (fs.existsSync(cachedFile) && fs.statSync(cachedFile).size > 0) {
-        logger.info(`[ClipRender] Reused cached source video: ${cachedFile}`);
-        ClipRenderService.placeSourceFile(cachedFile, targetLocalPath);
-        return 'cache_hit';
+      if (validator && fs.existsSync(cachedFile) && fs.statSync(cachedFile).size === snapshot.size && snapshot.size > 0) {
+        const receipt=JSON.parse(fs.readFileSync(cachedFile+'.receipt.json','utf8'));
+        if(sourceObjectReceiptMatches(receipt,sourceStoragePath,snapshot,await computeFileStreamSha256(cachedFile))){
+          logger.info(`[ClipRender] Reused cached source video: ${cachedFile}`);
+          ClipRenderService.placeSourceFile(cachedFile, targetLocalPath);
+          if(options.snapshotOut)options.snapshotOut.receipt=receipt;
+          return 'cache_hit';
+        }
       }
     } catch {}
 
     // 3. Strict Download from R2 with Timeout and Atomic Cache Placement
     const downloadTimeout = Math.max(options.timeoutMs || 120000, 120000);
-    const stagingFile = path.join(cacheDir, `${hash}.tmp.${Date.now()}`);
+    const stagingFile = path.join(cacheDir, `${hash}.tmp.${crypto.randomUUID()}`);
 
     try {
-      await downloadObjectToFile('source', sourceStoragePath, stagingFile, { timeoutMs: downloadTimeout });
+      const downloaded=await downloadObjectToFile('source', sourceStoragePath, stagingFile, { timeoutMs: downloadTimeout,requireSnapshotReceipt:true });
+      const after = await headObject('source',sourceStoragePath);
+      if (after.size !== snapshot.size || after.etag !== snapshot.etag || after.versionId !== snapshot.versionId) {
+        throw new AppError('Source object changed while preparing the render. Retry with the current source.',409,'SOURCE_VERSION_CHANGED');
+      }
 
       if (!fs.existsSync(stagingFile) || fs.statSync(stagingFile).size === 0) {
         throw new AppError('Downloaded source file is empty.', 500, 'EMPTY_SOURCE_FILE');
+      }
+
+      if (!validator) {
+        ClipRenderService.placeSourceFile(stagingFile,targetLocalPath);
+        fs.unlinkSync(stagingFile);
+        return 'downloaded';
       }
 
       // Atomically move staging file into cache
@@ -509,6 +531,12 @@ export class ClipRenderService {
         try { fs.unlinkSync(stagingFile); } catch {}
       }
 
+      if(downloaded.sourceReceipt&&sourceObjectReceiptMatches(downloaded.sourceReceipt,sourceStoragePath,snapshot)){
+        const receiptStage=cachedFile+'.receipt.'+crypto.randomUUID()+'.tmp';
+        fs.writeFileSync(receiptStage,JSON.stringify(downloaded.sourceReceipt));
+        fs.renameSync(receiptStage,cachedFile+'.receipt.json');
+        if(options.snapshotOut)options.snapshotOut.receipt=downloaded.sourceReceipt;
+      }
       ClipRenderService.placeSourceFile(cachedFile, targetLocalPath);
       logger.info(`[ClipRender] Downloaded and cached source video to ${cachedFile}`);
       return 'downloaded';
@@ -662,11 +690,15 @@ export class ClipRenderService {
         sourcePath: clip.source_storage_path,
       });
 
+      const sourceSnapshot:{receipt?:SourceObjectReceipt}={};
       await ClipRenderService.ensureSourceVideo(clip.source_storage_path, sourcePath, {
+        snapshotOut:sourceSnapshot,
         timeoutMs,
         projectId: clip.project_id,
         clipId,
       });
+
+      const sourceSha256 = await computeFileStreamSha256(sourcePath);
 
       // 2. FFmpeg cut, manual framing, ASS subtitles, text overlay, and MP4 encode
       await ClipRenderService.updateJobStage(jobId, clipId, 'cutting', 10, 'rendering', workerId);
@@ -679,7 +711,7 @@ export class ClipRenderService {
 
       // Speaker-following guarantee: generate the smart-reframe track on demand
       // so active-speaker framing works out of the box.
-      await ClipRenderService.ensureReframeTrackAtRender(clip, sourcePath, jobId);
+      await ClipRenderService.ensureReframeTrackAtRender(clip, sourcePath, jobId, sourceSha256, sourceSnapshot.receipt);
 
       // Shared reframing decision (Quick path filter + Pro per-slice context).
       // Export resolution: requested tier from the clip (set by the export
@@ -699,7 +731,7 @@ export class ClipRenderService {
         `canvas=${outputCanvas.width}x${outputCanvas.height} source=${srcDims ? `${srcDims.width}x${srcDims.height}` : 'unknown'}` +
         (resolution.warning ? ` WARNING: ${resolution.warning}` : '')
       );
-      const reframeDecision = await ClipRenderService.resolveReframeDecision(clip, durationSec, canvasScale);
+      const reframeDecision = await ClipRenderService.resolveReframeDecision(clip, durationSec, canvasScale, sourceSha256);
       const cropFilter = reframeDecision.cropFilter;
       const actualReframeMode = reframeDecision.mode;
       const reframeMetadata = reframeDecision.metadata;
@@ -961,8 +993,8 @@ export class ClipRenderService {
         // pass), then compiles with linear loudnorm when feasible, or a pre-rendered
         // dynamic-normalized dialogue WAV when peak/range-limited. Throws
         // LoudnormNormalizationError only for degenerate/silent measurements.
-        const storedPlan=clip.crop_config?.mode==='smart' ? storedScenePlanWindow(editorProject,clip,reframeDecision.track) : null;
-        const graph = await ProEditorService.compileRenderGraphWithNormalization(
+        const storedPlan=clip.crop_config?.mode==='smart' ? storedScenePlanWindow(editorProject,clip,reframeDecision.track,sourceSha256) : null;
+        let graph = await ProEditorService.compileRenderGraphWithNormalization(
           editorProject,
           sourcePath,
           outputPath,
@@ -989,6 +1021,15 @@ export class ClipRenderService {
         const renderDuration = !isMultiSlice ? Math.min(canvasDuration, durationSec) : canvasDuration;
         expectedDurationSec = renderDuration;
         if (graph.canvas) expectedCanvas = graph.canvas;
+
+        const stagedDeadline=config.clipRenderSliceStagingQualification?Date.now()+timeoutMs:undefined;
+        const preparedSlices=config.clipRenderSliceStagingQualification
+          ? await prepareSliceRender(graph,{parentDirectory:tempDir,timeoutMs:Math.min(timeoutMs,120000),ffmpegPath:ffmpegBin}) : null;
+        if(config.clipRenderSliceStagingQualification&&!preparedSlices)throw new AppError('This graph is outside the bounded slice-render qualification scope.',422,'STAGED_RENDER_UNSUPPORTED');
+        if(preparedSlices){
+          graph=preparedSlices.finalGraph;
+          logger.info(`[ClipRender] Qualification slice staging prepared ${preparedSlices.intermediateBytes} bytes; sampled child peak ${preparedSlices.peakRssKiB} KiB`);
+        }
 
         if (watermarkRequired) {
           const wmFilter = WatermarkService.getFfmpegFilterString({ canvasScale });
@@ -1020,7 +1061,9 @@ export class ClipRenderService {
             ];
 
             try {
-              await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: timeoutMs });
+              const remaining=stagedDeadline===undefined?timeoutMs:stagedDeadline-Date.now();
+              if(remaining<=0)throw new AppError('Bounded staged render deadline exceeded.',504,'RENDER_TIMEOUT');
+              await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: remaining,...(stagedDeadline===undefined?{}:{killSignal:'SIGKILL' as const}) });
             } catch (err: any) {
               const detail = String(err?.stderr || '').trim().split('\n').slice(-12).join('\n');
               if (detail) err.message = `${err.message}\nffmpeg stderr: ${detail}`;
@@ -1029,6 +1072,7 @@ export class ClipRenderService {
           });
         } finally {
           await scriptExec.cleanup();
+          preparedSlices?.cleanup();
         }
         await ClipRenderService.updateJobProgress(jobId, 85, 'encoding');
       } else {
@@ -1420,12 +1464,14 @@ export class ClipRenderService {
   private static async ensureReframeTrackAtRender(
     clip: ClipRecord,
     localSourcePath: string,
-    jobId?: string
+    jobId?: string,
+    expectedSourceSha256?: string,
+    sourceReceipt?:SourceObjectReceipt
   ): Promise<void> {
     if (!config.smartReframeEnabled || !config.reframeAutoGenerate) return;
     if (clip.crop_config?.mode !== 'smart') return;
 
-    const existing = await SmartReframeService.getReframeTrack(clip.id, clip.user_id);
+    const existing = await SmartReframeService.getReframeTrack(clip.id, clip.user_id, expectedSourceSha256);
     if (existing && existing.status === 'ready' && !existing.isStale &&
         Array.isArray(existing.smoothed_keyframes) && existing.smoothed_keyframes.length > 0) {
       return;
@@ -1438,7 +1484,7 @@ export class ClipRenderService {
       if (jobId) {
         await ClipRenderService.updateJobStage(jobId, clip.id, 'analyzing_speakers', 8, 'rendering');
       }
-      await SmartReframeService.analyzeClipFraming(clip.id, clip.user_id, { localSourcePath });
+      await SmartReframeService.analyzeClipFraming(clip.id, clip.user_id, { localSourcePath,sourceReceipt });
     } catch (err: any) {
       logger.warn(`[ClipRender] Auto reframe analysis failed for clip ${clip.id}: ${err?.message || err}. Falling back to center crop.`);
     }
@@ -1534,7 +1580,8 @@ export class ClipRenderService {
   public static async resolveReframeDecision(
     clip: ClipRecord,
     durationSec: number,
-    canvasScale = 1
+    canvasScale = 1,
+    expectedSourceSha256?: string
   ): Promise<{
     cropFilter: string;
     mode: 'smart' | 'fallback_center' | 'manual';
@@ -1564,7 +1611,7 @@ export class ClipRenderService {
     }
 
     try {
-      const track = await SmartReframeService.getReframeTrack(clip.id, clip.user_id);
+      const track = await SmartReframeService.getReframeTrack(clip.id, clip.user_id, expectedSourceSha256);
       if (
         track &&
         track.status === 'ready' &&
@@ -1615,8 +1662,7 @@ export class ClipRenderService {
               })
             : null;
         if (targetLayout === 'track' && (clip.aspect_ratio === '9:16' || !clip.aspect_ratio) && track.metadata?.shot_composition_candidate === true) {
-          const plan = SmartReframeService.computeShotComposition({...candidateCompositionOptions(clip.crop_config?.automaticLayoutCandidate),layoutPolicy:clip.crop_config?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
-            duration:durationSec,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
+          const plan = SmartReframeService.computeShotComposition(shotPlanOptions({track,candidate:clip.crop_config?.automaticLayoutCandidate,layoutPolicy:clip.crop_config?.layoutPolicy,duration:durationSec}));
           if (plan.length) return {cropFilter:SmartReframeService.buildShotCompositionFilter({plan,duration:durationSec,
             sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,canvasScale}),mode:'smart',
             metadata:{layout_mode:'track',shot_composition_candidate:true},layoutMode:'track',track};

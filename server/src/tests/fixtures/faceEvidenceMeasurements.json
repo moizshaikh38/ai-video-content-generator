@@ -1,0 +1,1805 @@
+{
+  "scope": "Local source-inspected candidate measurements, not verified identity or role. Development sources walking/pair/dust; source-held-out studio/c3/freedom; source labels reviewed before diagnostic. Selected samples, not population metrics.",
+  "rows": [
+    {
+      "id": "walking-6-0",
+      "source": "walking",
+      "split": "development",
+      "time": 6,
+      "rect": [
+        290,
+        188,
+        17,
+        21
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 854,
+        "source_height": 480,
+        "raw_box": [
+          289.19647216796875,
+          187.1033172607422,
+          17.838586807250977,
+          22.026159286499023
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.8200571537017822,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 300.480224609375,
+            "y": 194.3897705078125
+          },
+          {
+            "name": "left_eye",
+            "x": 305.0186462402344,
+            "y": 194.16734313964844
+          },
+          {
+            "name": "nose",
+            "x": 305.48236083984375,
+            "y": 199.58555603027344
+          },
+          {
+            "name": "right_mouth",
+            "x": 299.99090576171875,
+            "y": 203.59164428710938
+          },
+          {
+            "name": "left_mouth",
+            "x": 302.7604064941406,
+            "y": 204.49554443359375
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "walking-10-0",
+      "source": "walking",
+      "split": "development",
+      "time": 10,
+      "rect": [
+        315,
+        224,
+        17,
+        21
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 854,
+        "source_height": 480,
+        "raw_box": [
+          314.60791015625,
+          223.52064514160156,
+          17.5007266998291,
+          21.491907119750977
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.7138397097587585,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 322.960205078125,
+            "y": 231.5391387939453
+          },
+          {
+            "name": "left_eye",
+            "x": 329.2186279296875,
+            "y": 231.45188903808594
+          },
+          {
+            "name": "nose",
+            "x": 327.08447265625,
+            "y": 236.535888671875
+          },
+          {
+            "name": "right_mouth",
+            "x": 323.2332458496094,
+            "y": 241.177001953125
+          },
+          {
+            "name": "left_mouth",
+            "x": 326.88189697265625,
+            "y": 240.7747802734375
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "pair-0.5-0",
+      "source": "pair",
+      "split": "development",
+      "time": 0.5,
+      "rect": [
+        644,
+        121,
+        88,
+        109
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 960,
+        "source_height": 506,
+        "raw_box": [
+          643.7180786132812,
+          120.03634643554688,
+          89.08250427246094,
+          110.48905181884766
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.9288403987884521,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 671.0718383789062,
+            "y": 162.45132446289062
+          },
+          {
+            "name": "left_eye",
+            "x": 709.3609008789062,
+            "y": 163.57420349121094
+          },
+          {
+            "name": "nose",
+            "x": 690.6810302734375,
+            "y": 184.47470092773438
+          },
+          {
+            "name": "right_mouth",
+            "x": 671.0213012695312,
+            "y": 198.91891479492188
+          },
+          {
+            "name": "left_mouth",
+            "x": 703.4096069335938,
+            "y": 202.0857696533203
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "pair-0.5-1",
+      "source": "pair",
+      "split": "development",
+      "time": 0.5,
+      "rect": [
+        212,
+        113,
+        82,
+        111
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 960,
+        "source_height": 506,
+        "raw_box": [
+          211.23226928710938,
+          112.01165771484375,
+          83.66065216064453,
+          112.55194854736328
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.9184991121292114,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 243.84510803222656,
+            "y": 154.3113555908203
+          },
+          {
+            "name": "left_eye",
+            "x": 280.22003173828125,
+            "y": 154.48231506347656
+          },
+          {
+            "name": "nose",
+            "x": 268.9342956542969,
+            "y": 176.16567993164062
+          },
+          {
+            "name": "right_mouth",
+            "x": 246.83641052246094,
+            "y": 193.8164520263672
+          },
+          {
+            "name": "left_mouth",
+            "x": 277.0965576171875,
+            "y": 194.23605346679688
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "pair-6-0",
+      "source": "pair",
+      "split": "development",
+      "time": 6,
+      "rect": [
+        625,
+        93,
+        86,
+        117
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 960,
+        "source_height": 506,
+        "raw_box": [
+          624.4993286132812,
+          92.21356964111328,
+          86.82572174072266,
+          118.43223571777344
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.9321221709251404,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 639.7749633789062,
+            "y": 136.02601623535156
+          },
+          {
+            "name": "left_eye",
+            "x": 677.3795166015625,
+            "y": 138.7848663330078
+          },
+          {
+            "name": "nose",
+            "x": 649.4322509765625,
+            "y": 161.747314453125
+          },
+          {
+            "name": "right_mouth",
+            "x": 639.39404296875,
+            "y": 175.93820190429688
+          },
+          {
+            "name": "left_mouth",
+            "x": 672.2005004882812,
+            "y": 178.4088592529297
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "pair-6-1",
+      "source": "pair",
+      "split": "development",
+      "time": 6,
+      "rect": [
+        233,
+        98,
+        80,
+        107
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 960,
+        "source_height": 506,
+        "raw_box": [
+          232.2261962890625,
+          97.84220886230469,
+          81.05567932128906,
+          107.824951171875
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.9232318997383118,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 262.4136962890625,
+            "y": 140.83883666992188
+          },
+          {
+            "name": "left_eye",
+            "x": 298.0892028808594,
+            "y": 141.2713623046875
+          },
+          {
+            "name": "nose",
+            "x": 284.51409912109375,
+            "y": 161.8443145751953
+          },
+          {
+            "name": "right_mouth",
+            "x": 264.4567565917969,
+            "y": 179.93063354492188
+          },
+          {
+            "name": "left_mouth",
+            "x": 295.041015625,
+            "y": 177.86248779296875
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "pair-10-0",
+      "source": "pair",
+      "split": "development",
+      "time": 10,
+      "rect": [
+        639,
+        118,
+        81,
+        106
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 960,
+        "source_height": 506,
+        "raw_box": [
+          638.2179565429688,
+          117.85773468017578,
+          82.44233703613281,
+          107.13624572753906
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.9300897121429443,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 646.5011596679688,
+            "y": 162.6324462890625
+          },
+          {
+            "name": "left_eye",
+            "x": 679.98974609375,
+            "y": 161.68466186523438
+          },
+          {
+            "name": "nose",
+            "x": 653.170654296875,
+            "y": 183.43626403808594
+          },
+          {
+            "name": "right_mouth",
+            "x": 651.2716064453125,
+            "y": 201.07904052734375
+          },
+          {
+            "name": "left_mouth",
+            "x": 678.7991943359375,
+            "y": 198.99655151367188
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "pair-10-1",
+      "source": "pair",
+      "split": "development",
+      "time": 10,
+      "rect": [
+        255,
+        118,
+        81,
+        103
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 960,
+        "source_height": 506,
+        "raw_box": [
+          254.8480987548828,
+          117.29231262207031,
+          81.7290267944336,
+          104.57906341552734
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.9245272278785706,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 280.7049865722656,
+            "y": 159.80963134765625
+          },
+          {
+            "name": "left_eye",
+            "x": 318.0562438964844,
+            "y": 159.33108520507812
+          },
+          {
+            "name": "nose",
+            "x": 301.46075439453125,
+            "y": 181.3884735107422
+          },
+          {
+            "name": "right_mouth",
+            "x": 283.84027099609375,
+            "y": 195.86785888671875
+          },
+          {
+            "name": "left_mouth",
+            "x": 314.39483642578125,
+            "y": 196.40074157714844
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "dust-0.5-0",
+      "source": "dust",
+      "split": "development",
+      "time": 0.5,
+      "rect": [
+        841,
+        237,
+        105,
+        150
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1280,
+        "source_height": 720,
+        "raw_box": [
+          840.70751953125,
+          236.05374145507812,
+          105.38450622558594,
+          151.4666748046875
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.9491266012191772,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 854.1328125,
+            "y": 294.8982238769531
+          },
+          {
+            "name": "left_eye",
+            "x": 903.4171142578125,
+            "y": 292.22381591796875
+          },
+          {
+            "name": "nose",
+            "x": 865.603515625,
+            "y": 322.1106872558594
+          },
+          {
+            "name": "right_mouth",
+            "x": 860.2986450195312,
+            "y": 350.2599792480469
+          },
+          {
+            "name": "left_mouth",
+            "x": 904.4588012695312,
+            "y": 347.64630126953125
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "dust-0.5-1",
+      "source": "dust",
+      "split": "development",
+      "time": 0.5,
+      "rect": [
+        317,
+        194,
+        120,
+        160
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1280,
+        "source_height": 720,
+        "raw_box": [
+          316.552001953125,
+          193.62332153320312,
+          121.31385040283203,
+          160.8538055419922
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.9322384595870972,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 346.53118896484375,
+            "y": 253.16104125976562
+          },
+          {
+            "name": "left_eye",
+            "x": 404.05084228515625,
+            "y": 256.86273193359375
+          },
+          {
+            "name": "nose",
+            "x": 369.7068786621094,
+            "y": 288.681640625
+          },
+          {
+            "name": "right_mouth",
+            "x": 347.2601623535156,
+            "y": 311.5665283203125
+          },
+          {
+            "name": "left_mouth",
+            "x": 395.1720275878906,
+            "y": 314.26904296875
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "dust-6-0",
+      "source": "dust",
+      "split": "development",
+      "time": 6,
+      "rect": [
+        710,
+        163,
+        203,
+        307
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1280,
+        "source_height": 720,
+        "raw_box": [
+          709.6336669921875,
+          162.99668884277344,
+          203.489990234375,
+          307.3136901855469
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.9312604069709778,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 722.8933715820312,
+            "y": 275.510009765625
+          },
+          {
+            "name": "left_eye",
+            "x": 789.1281127929688,
+            "y": 287.1495361328125
+          },
+          {
+            "name": "nose",
+            "x": 703.053466796875,
+            "y": 337.5903625488281
+          },
+          {
+            "name": "right_mouth",
+            "x": 720.6181030273438,
+            "y": 389.4981384277344
+          },
+          {
+            "name": "left_mouth",
+            "x": 777.5513305664062,
+            "y": 396.88006591796875
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "suspicious",
+      "reasons": [
+        "landmark-outside-raw-box"
+      ]
+    },
+    {
+      "id": "dust-10-0",
+      "source": "dust",
+      "split": "development",
+      "time": 10,
+      "rect": [
+        529,
+        136,
+        211,
+        276
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1280,
+        "source_height": 720,
+        "raw_box": [
+          528.107177734375,
+          135.77432250976562,
+          212.6110382080078,
+          276.71490478515625
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.9439465403556824,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 611.6834106445312,
+            "y": 232.10025024414062
+          },
+          {
+            "name": "left_eye",
+            "x": 707.0607299804688,
+            "y": 254.5576934814453
+          },
+          {
+            "name": "nose",
+            "x": 661.1329345703125,
+            "y": 306.0989685058594
+          },
+          {
+            "name": "right_mouth",
+            "x": 590.6356201171875,
+            "y": 327.1079406738281
+          },
+          {
+            "name": "left_mouth",
+            "x": 677.1722412109375,
+            "y": 346.0673828125
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "studio-0.5-0",
+      "source": "studio",
+      "split": "held-out",
+      "time": 0.5,
+      "rect": [
+        337,
+        0,
+        162,
+        121
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 960,
+        "source_height": 506,
+        "raw_box": [
+          336.8507995605469,
+          -0.6877899169921875,
+          162.432861328125,
+          122.14073944091797
+        ],
+        "clipped": {
+          "left": false,
+          "top": true,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.9329022169113159,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 358.138427734375,
+            "y": 4.553668975830078
+          },
+          {
+            "name": "left_eye",
+            "x": 428.7120666503906,
+            "y": 0.5702857971191406
+          },
+          {
+            "name": "nose",
+            "x": 380.2361755371094,
+            "y": 38.994422912597656
+          },
+          {
+            "name": "right_mouth",
+            "x": 371.83551025390625,
+            "y": 73.5667953491211
+          },
+          {
+            "name": "left_mouth",
+            "x": 427.72406005859375,
+            "y": 69.08663940429688
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "c3-6.5-0",
+      "source": "c3",
+      "split": "held-out",
+      "time": 6.5,
+      "rect": [
+        880,
+        282,
+        214,
+        300
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1920,
+        "source_height": 1080,
+        "raw_box": [
+          879.0772094726562,
+          281.96990966796875,
+          215.266845703125,
+          300.8937072753906
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.894125759601593,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 903.85400390625,
+            "y": 407.6910705566406
+          },
+          {
+            "name": "left_eye",
+            "x": 978.2051391601562,
+            "y": 407.02459716796875
+          },
+          {
+            "name": "nose",
+            "x": 909.3043212890625,
+            "y": 464.3805847167969
+          },
+          {
+            "name": "right_mouth",
+            "x": 919.8677978515625,
+            "y": 517.5004272460938
+          },
+          {
+            "name": "left_mouth",
+            "x": 974.2708129882812,
+            "y": 515.0693359375
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "c3-6.5-1",
+      "source": "c3",
+      "split": "held-out",
+      "time": 6.5,
+      "rect": [
+        1789,
+        341,
+        131,
+        241
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1920,
+        "source_height": 1080,
+        "raw_box": [
+          1788.9730224609375,
+          340.34698486328125,
+          131.6962890625,
+          242.41799926757812
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": true,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.7669460773468018,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 1835.439208984375,
+            "y": 435.9208068847656
+          },
+          {
+            "name": "left_eye",
+            "x": 1862.0880126953125,
+            "y": 449.2992248535156
+          },
+          {
+            "name": "nose",
+            "x": 1824.496826171875,
+            "y": 480.7043762207031
+          },
+          {
+            "name": "right_mouth",
+            "x": 1823.2725830078125,
+            "y": 516.1485595703125
+          },
+          {
+            "name": "left_mouth",
+            "x": 1845.6005859375,
+            "y": 527.4385375976562
+          }
+        ]
+      },
+      "label": {
+        "label": "nonface",
+        "description": "door latch"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "c3-6.5-2",
+      "source": "c3",
+      "split": "held-out",
+      "time": 6.5,
+      "rect": [
+        1160,
+        438,
+        271,
+        394
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1920,
+        "source_height": 1080,
+        "raw_box": [
+          1159.783447265625,
+          437.2357177734375,
+          271.7613830566406,
+          394.8415832519531
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.6030551195144653,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 1152.5631103515625,
+            "y": 619.4212036132812
+          },
+          {
+            "name": "left_eye",
+            "x": 1207.9410400390625,
+            "y": 610.9277954101562
+          },
+          {
+            "name": "nose",
+            "x": 1121.2779541015625,
+            "y": 688.1705322265625
+          },
+          {
+            "name": "right_mouth",
+            "x": 1168.7982177734375,
+            "y": 747.70751953125
+          },
+          {
+            "name": "left_mouth",
+            "x": 1219.4476318359375,
+            "y": 743.1151123046875
+          }
+        ]
+      },
+      "label": {
+        "label": "nonface",
+        "description": "microphone hardware, not woman at left edge"
+      },
+      "diagnostic": "suspicious",
+      "reasons": [
+        "landmark-outside-raw-box"
+      ]
+    },
+    {
+      "id": "c3-9-0",
+      "source": "c3",
+      "split": "held-out",
+      "time": 9,
+      "rect": [
+        868,
+        218,
+        217,
+        305
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1920,
+        "source_height": 1080,
+        "raw_box": [
+          867.7438354492188,
+          217.83404541015625,
+          217.81007385253906,
+          305.64337158203125
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.9159228205680847,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 889.0899047851562,
+            "y": 337.7472229003906
+          },
+          {
+            "name": "left_eye",
+            "x": 980.1055908203125,
+            "y": 332.2657165527344
+          },
+          {
+            "name": "nose",
+            "x": 912.474365234375,
+            "y": 398.57476806640625
+          },
+          {
+            "name": "right_mouth",
+            "x": 909.2455444335938,
+            "y": 452.509765625
+          },
+          {
+            "name": "left_mouth",
+            "x": 980.4570922851562,
+            "y": 446.9207763671875
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "c3-9-1",
+      "source": "c3",
+      "split": "held-out",
+      "time": 9,
+      "rect": [
+        1791,
+        342,
+        129,
+        237
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1920,
+        "source_height": 1080,
+        "raw_box": [
+          1790.8572998046875,
+          341.3961486816406,
+          130.2605438232422,
+          237.96131896972656
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": true,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.7960678339004517,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 1834.97705078125,
+            "y": 432.94195556640625
+          },
+          {
+            "name": "left_eye",
+            "x": 1862.740966796875,
+            "y": 445.9311828613281
+          },
+          {
+            "name": "nose",
+            "x": 1824.5264892578125,
+            "y": 476.97052001953125
+          },
+          {
+            "name": "right_mouth",
+            "x": 1823.6474609375,
+            "y": 513.0949096679688
+          },
+          {
+            "name": "left_mouth",
+            "x": 1846.2781982421875,
+            "y": 524.0883178710938
+          }
+        ]
+      },
+      "label": {
+        "label": "nonface",
+        "description": "door latch"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "c3-9-2",
+      "source": "c3",
+      "split": "held-out",
+      "time": 9,
+      "rect": [
+        1154,
+        511,
+        172,
+        201
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1920,
+        "source_height": 1080,
+        "raw_box": [
+          1153.12158203125,
+          510.1922302246094,
+          173.1138153076172,
+          202.23846435546875
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.7770153284072876,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 1165.177978515625,
+            "y": 596.9884033203125
+          },
+          {
+            "name": "left_eye",
+            "x": 1191.3040771484375,
+            "y": 585.2283935546875
+          },
+          {
+            "name": "nose",
+            "x": 1149.7894287109375,
+            "y": 624.5294799804688
+          },
+          {
+            "name": "right_mouth",
+            "x": 1187.969970703125,
+            "y": 670.1019897460938
+          },
+          {
+            "name": "left_mouth",
+            "x": 1209.6322021484375,
+            "y": 660.942626953125
+          }
+        ]
+      },
+      "label": {
+        "label": "nonface",
+        "description": "chair/jacket, not woman at left edge"
+      },
+      "diagnostic": "suspicious",
+      "reasons": [
+        "landmark-outside-raw-box"
+      ]
+    },
+    {
+      "id": "c3-11-0",
+      "source": "c3",
+      "split": "held-out",
+      "time": 11,
+      "rect": [
+        866,
+        240,
+        211,
+        293
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1920,
+        "source_height": 1080,
+        "raw_box": [
+          865.3494873046875,
+          239.7367706298828,
+          212.13162231445312,
+          293.2757873535156
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.9078269004821777,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 894.2904052734375,
+            "y": 352.5862731933594
+          },
+          {
+            "name": "left_eye",
+            "x": 981.1976928710938,
+            "y": 356.12469482421875
+          },
+          {
+            "name": "nose",
+            "x": 911.5626220703125,
+            "y": 411.21478271484375
+          },
+          {
+            "name": "right_mouth",
+            "x": 903.2818603515625,
+            "y": 464.04095458984375
+          },
+          {
+            "name": "left_mouth",
+            "x": 967.1425170898438,
+            "y": 466.86553955078125
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "c3-11-1",
+      "source": "c3",
+      "split": "held-out",
+      "time": 11,
+      "rect": [
+        1790,
+        337,
+        130,
+        245
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1920,
+        "source_height": 1080,
+        "raw_box": [
+          1789.96337890625,
+          336.5536804199219,
+          132.12791442871094,
+          246.18017578125
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": true,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.7801591753959656,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 1835.6151123046875,
+            "y": 433.4824523925781
+          },
+          {
+            "name": "left_eye",
+            "x": 1862.9053955078125,
+            "y": 447.4566345214844
+          },
+          {
+            "name": "nose",
+            "x": 1824.218994140625,
+            "y": 479.1102294921875
+          },
+          {
+            "name": "right_mouth",
+            "x": 1823.2315673828125,
+            "y": 514.7510986328125
+          },
+          {
+            "name": "left_mouth",
+            "x": 1845.9876708984375,
+            "y": 526.5103759765625
+          }
+        ]
+      },
+      "label": {
+        "label": "nonface",
+        "description": "door latch"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "freedom-0.5-0",
+      "source": "freedom",
+      "split": "held-out",
+      "time": 0.5,
+      "rect": [
+        381,
+        116,
+        198,
+        255
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1920,
+        "source_height": 1080,
+        "raw_box": [
+          380.63470458984375,
+          115.83631896972656,
+          199.3238983154297,
+          255.87936401367188
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.9025015830993652,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 414.32073974609375,
+            "y": 238.89541625976562
+          },
+          {
+            "name": "left_eye",
+            "x": 472.75726318359375,
+            "y": 223.3997039794922
+          },
+          {
+            "name": "nose",
+            "x": 426.7376403808594,
+            "y": 290.25238037109375
+          },
+          {
+            "name": "right_mouth",
+            "x": 445.01959228515625,
+            "y": 322.7007751464844
+          },
+          {
+            "name": "left_mouth",
+            "x": 489.7366027832031,
+            "y": 309.2732849121094
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "freedom-0.5-1",
+      "source": "freedom",
+      "split": "held-out",
+      "time": 0.5,
+      "rect": [
+        1090,
+        52,
+        258,
+        364
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1920,
+        "source_height": 1080,
+        "raw_box": [
+          1089.542236328125,
+          51.73143005371094,
+          259.37884521484375,
+          365.2466125488281
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.8968289494514465,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 1123.0950927734375,
+            "y": 211.2470703125
+          },
+          {
+            "name": "left_eye",
+            "x": 1178.8385009765625,
+            "y": 199.6911163330078
+          },
+          {
+            "name": "nose",
+            "x": 1102.2882080078125,
+            "y": 274.53887939453125
+          },
+          {
+            "name": "right_mouth",
+            "x": 1148.0518798828125,
+            "y": 332.7785949707031
+          },
+          {
+            "name": "left_mouth",
+            "x": 1197.50390625,
+            "y": 322.7064208984375
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "freedom-0.5-2",
+      "source": "freedom",
+      "split": "held-out",
+      "time": 0.5,
+      "rect": [
+        1515,
+        679,
+        176,
+        203
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1920,
+        "source_height": 1080,
+        "raw_box": [
+          1514.077392578125,
+          678.4794921875,
+          177.5028076171875,
+          203.87850952148438
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.6393707990646362,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 1566.1199951171875,
+            "y": 758.3193359375
+          },
+          {
+            "name": "left_eye",
+            "x": 1620.12353515625,
+            "y": 764.447265625
+          },
+          {
+            "name": "nose",
+            "x": 1584.585205078125,
+            "y": 800.0159912109375
+          },
+          {
+            "name": "right_mouth",
+            "x": 1564.960205078125,
+            "y": 822.7781982421875
+          },
+          {
+            "name": "left_mouth",
+            "x": 1607.10107421875,
+            "y": 828.7756958007812
+          }
+        ]
+      },
+      "label": {
+        "label": "nonface",
+        "description": "uniform shoulder patch"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "freedom-6-0",
+      "source": "freedom",
+      "split": "held-out",
+      "time": 6,
+      "rect": [
+        1157,
+        228,
+        170,
+        243
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1920,
+        "source_height": 1080,
+        "raw_box": [
+          1156.3594970703125,
+          227.97640991210938,
+          170.8263702392578,
+          243.9486541748047
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.9462149739265442,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 1208.5113525390625,
+            "y": 328.0292053222656
+          },
+          {
+            "name": "left_eye",
+            "x": 1284.6544189453125,
+            "y": 331.2030944824219
+          },
+          {
+            "name": "nose",
+            "x": 1245.9481201171875,
+            "y": 377.5118408203125
+          },
+          {
+            "name": "right_mouth",
+            "x": 1210.074462890625,
+            "y": 411.24609375
+          },
+          {
+            "name": "left_mouth",
+            "x": 1272.658935546875,
+            "y": 413.9176330566406
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    },
+    {
+      "id": "freedom-10-0",
+      "source": "freedom",
+      "split": "held-out",
+      "time": 10,
+      "rect": [
+        1161,
+        232,
+        177,
+        242
+      ],
+      "face_evidence": {
+        "schema_version": 1,
+        "detector": "opencv-yunet",
+        "coordinate_space": "source-pixels",
+        "source_width": 1920,
+        "source_height": 1080,
+        "raw_box": [
+          1160.1683349609375,
+          231.656982421875,
+          177.95787048339844,
+          242.8178253173828
+        ],
+        "clipped": {
+          "left": false,
+          "top": false,
+          "right": false,
+          "bottom": false
+        },
+        "verification": {
+          "state": "unknown",
+          "reason": "detector-candidate-only"
+        },
+        "raw_score": 0.9483800530433655,
+        "landmarks": [
+          {
+            "name": "right_eye",
+            "x": 1206.58544921875,
+            "y": 324.0580139160156
+          },
+          {
+            "name": "left_eye",
+            "x": 1290.586181640625,
+            "y": 327.260498046875
+          },
+          {
+            "name": "nose",
+            "x": 1248.1453857421875,
+            "y": 377.9754638671875
+          },
+          {
+            "name": "right_mouth",
+            "x": 1211.0098876953125,
+            "y": 412.8865661621094
+          },
+          {
+            "name": "left_mouth",
+            "x": 1279.087646484375,
+            "y": 415.3942565917969
+          }
+        ]
+      },
+      "label": {
+        "label": "real-face",
+        "description": "visibly human head/face, profile/partial accepted"
+      },
+      "diagnostic": "plausible-topology",
+      "reasons": []
+    }
+  ]
+}

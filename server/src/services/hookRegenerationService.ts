@@ -3,6 +3,7 @@ import { logger } from '../utils/logger.js';
 import { AppError } from '../types/index.js';
 import { defaultAiProvider } from './aiProviderClient.js';
 import { ClipRenderService } from './clipRenderService.js';
+import { collectHookOpeningEvidence,type HookOpeningEvidence } from '../shared/hookSourceSpan.js';
 
 /**
  * Regenerates the opening hook (and title) text for one clip from its own
@@ -15,7 +16,7 @@ export class HookRegenerationService {
   static async regenerateClipHook(
     userId: string,
     clipId: string
-  ): Promise<{ hook: string; title: string | null }> {
+  ): Promise<{ hook: string; title: string | null; sourceEvidence: HookOpeningEvidence }> {
     const clip = await ClipRenderService.getClip(clipId, userId);
 
     // Tests may override generateJsonCompletion on the instance (mock telemetry
@@ -43,32 +44,25 @@ export class HookRegenerationService {
       throw new AppError('No transcript is available for this clip yet.', 409, 'HOOK_NO_TRANSCRIPT');
     }
 
-    // Opening of the clip window (source seconds -> clip-local): the first
-    // ~40s of spoken content is what the hook should preview.
-    const clipStart = Number(clip.start_seconds) + Number(clip.trim_start_offset || 0);
-    const windowEnd = clipStart + 40;
-    let openingText = '';
-    if (Array.isArray(transcript.words) && transcript.words.length > 0) {
-      openingText = transcript.words
-        .filter((w: any) => Number(w.end) > clipStart && Number(w.start) < windowEnd)
-        .map((w: any) => w.text ?? w.word ?? '')
-        .filter(Boolean)
-        .join(' ');
-    } else if (Array.isArray(transcript.segments)) {
-      openingText = transcript.segments
-        .filter((s: any) => Number(s.end) > clipStart && Number(s.start) < windowEnd)
-        .map((s: any) => s.text ?? '')
-        .filter(Boolean)
-        .join(' ');
+    // A transcript already flagged for review must not become trusted hook input
+    // through a different endpoint. Missing/legacy diagnostics stay unverified.
+    if (transcript.quality_assessment?.status === 'needs_review') {
+      throw new AppError(
+        'Transcript needs audio review before generating a hook. Check the flagged spans and source language.',
+        409,
+        'TRANSCRIPT_REVIEW_REQUIRED'
+      );
     }
 
-    if (!openingText.trim()) {
+    const sourceEvidence=collectHookOpeningEvidence(clip,transcript);
+    if (!sourceEvidence) {
       throw new AppError(
-        'The transcript has no spoken words in this clip\'s opening, so a hook cannot be generated.',
+        'No complete, unambiguous transcript span is available in the trimmed clip opening.',
         409,
         'HOOK_NO_SPEECH'
       );
     }
+    const openingText=sourceEvidence.text;
 
     const result = await defaultAiProvider.generateJsonCompletion<{ title?: string; hook?: string }>({
       systemPrompt:
@@ -87,6 +81,6 @@ export class HookRegenerationService {
       logger.warn(`Hook regeneration returned no hook for clip ${clipId}.`);
       throw new AppError('Hook generation returned no usable hook.', 502, 'HOOK_GENERATION_EMPTY');
     }
-    return { hook, title };
+    return { hook, title, sourceEvidence };
   }
 }

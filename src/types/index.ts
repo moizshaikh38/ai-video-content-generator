@@ -383,6 +383,9 @@ export type CaptionStyle =
   | 'vireo_prism_stamp'
   | 'vireo_echo_slide'
   | 'vireo_comic_punch'
+  | 'vireo_comic_default'
+  | 'vireo_comic_red_green'
+  | 'vireo_comic_violet_white'
   | 'soft_cut'
   | 'soft_build'
   | 'typewriter'
@@ -615,11 +618,11 @@ export interface PlatformFitDetail {
 
 export interface VireoClipScoreExplanation {
   overall_score: number;
-  hook_score: number;
-  standalone_score: number;
-  insight_score: number;
-  visual_activity_score: number;
-  audio_energy_score: number;
+  hook_score: number | null;
+  standalone_score: number | null;
+  insight_score: number | null;
+  visual_activity_score: number | null;
+  audio_energy_score: number | null;
   platform_fit_score: number;
   reasons: string[];
   platform_suitability: Record<string, PlatformFitDetail>;
