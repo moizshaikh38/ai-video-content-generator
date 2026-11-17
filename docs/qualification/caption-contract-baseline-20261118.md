@@ -1,0 +1,9 @@
+# Caption contract reconciliation, 18 Nov 2026 IST
+
+A selected contract-only lane now reports323passed0failed0cancelled0skipped across47files. Selection: case-sensitive *aption*.test.ts, excluding direct test text with getMongoDb/spawn/spawnSync/execFile/ffmpeg/fetch. Some imported services still open local DB connections, so this is not a purely in-memory guarantee. Run used random isolated localMongo database, blank provider keys, local dummy Supabase config, Node test timeout3000ms per file and test-force-exit. No timeout failures in the completed run. Force-exit is explicit: completion is assertion coverage, not open-handle/resource-cleanup qualification.
+
+Initial bounded run:320passed3failed, all in captionAccuracyInvestigationAndFix.test.ts. All three exposed a stale Express response mock missing set(), required by the real controller's Cache-Control:no-store. Added tracked header mock and assertions for no-store. After that, one assertion exposed an ambiguous old fixture: it claimed a30sfully-edited clip but marked only5sof cue coverage, and current append-on-extend behavior correctly supplied later transcript cues. Fixture now explicitly marks cues_covered_end:30 for its intended edited/silent remainder. No controller/renderer behavior changed. It now genuinely tests preserved manual cues for a covered edit, not legacy missing-marker semantics. The missing-marker ambiguity is NOT resolved by this fixture change.
+
+This does not supersede the earlier wider280test caption report or erase every old failure: suite membership differs and direct render/probe tests are excluded here. Visual, motion/export, listening, full4K and entire-product end-to-end coverage require separate evidence.
+
+Logs and exact selected paths: /downloads/vireo-cleanclip-baseline/caption-contracts-{bounded,fixed}.log and caption-contracts-selection.json. Server typecheck passed.

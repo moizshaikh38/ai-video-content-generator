@@ -23,8 +23,10 @@ function mockReqRes(reqOverrides: any = {}) {
 
   let statusCode = 200;
   let responseData: any = null;
+  const headers: Record<string,string> = {};
 
   const res = {
+    set(name:string,value:string) { headers[name.toLowerCase()]=value; return this; },
     status(code: number) {
       statusCode = code;
       return this;
@@ -38,6 +40,7 @@ function mockReqRes(reqOverrides: any = {}) {
   return {
     req,
     res,
+    getHeader: (name:string) => headers[name.toLowerCase()],
     getStatusCode: () => statusCode,
     getResponseData: () => responseData,
   };
@@ -99,6 +102,9 @@ describe('VireoClip — Critical Caption Accuracy Investigation & Fix Verificati
                   timeline_end: 30.0,
                   caption: {
                     style: 'bold_stroke',
+                    // The saved edit covers the entire30sclip, including an
+                    // intentional caption-free remainder. Not a trim extension.
+                    cues_covered_end: 30,
                     cues: [
                       {
                         id: 'custom-cue-1',
@@ -121,12 +127,13 @@ describe('VireoClip — Critical Caption Accuracy Investigation & Fix Verificati
           ],
         });
 
-        const { req, res, getStatusCode, getResponseData } = mockReqRes({
+        const { req, res, getStatusCode, getResponseData, getHeader } = mockReqRes({
           user: { id: testUserId },
           params: { clipId: testClipId },
         });
 
         await getClipCaptions(req, res);
+        assert.equal(getHeader('Cache-Control'),'no-store');
         assert.equal(getStatusCode(), 200);
         const data = getResponseData();
         assert.equal(data.status, 'ok');
@@ -151,12 +158,13 @@ describe('VireoClip — Critical Caption Accuracy Investigation & Fix Verificati
           caption_enabled: true,
         });
 
-        const { req, res, getStatusCode, getResponseData } = mockReqRes({
+        const { req, res, getStatusCode, getResponseData, getHeader } = mockReqRes({
           user: { id: testUserId },
           params: { clipId: freshClipId },
         });
 
         await getClipCaptions(req, res);
+        assert.equal(getHeader('Cache-Control'),'no-store');
         assert.equal(getStatusCode(), 200);
         const data = getResponseData();
         assert.equal(data.status, 'ok');
