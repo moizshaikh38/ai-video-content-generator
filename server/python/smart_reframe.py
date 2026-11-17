@@ -18,6 +18,7 @@ import re
 import cv2
 import numpy as np
 from detector_geometry import visible_detector_rect
+from sample_clock import sample_relative_time
 
 
 def discover_dense_scene_cuts(video_path, start_sec, duration_sec, source_fps):
@@ -34,7 +35,10 @@ def discover_dense_scene_cuts(video_path, start_sec, duration_sec, source_fps):
                           '-an', '-vf', "scale=320:-1,select='gt(scene,0.28)',showinfo",
                           '-f', 'null', '-'], capture_output=True, text=True, timeout=45,
                          check=True)
-    times = sorted(set(float(t) for t in re.findall(r'pts_time:([0-9.]+)', run.stderr)))
+    # showinfo uses limited decimal precision; snap CFR frame evidence onto
+    # the same source-frame/requested-trim clock as sampled detections.
+    times = sorted(set(sample_relative_time(round((start_sec+float(t))*source_fps),source_fps,start_sec)
+                       for t in re.findall(r'pts_time:([0-9.]+)', run.stderr)))
     selected = []
     for t in times:
         if .04 < t < duration_sec-.04 and (not selected or t-selected[-1] >= .16):
@@ -309,7 +313,7 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
         if not ret:
             break
 
-        time_sec = round((frame_index - start_frame) / source_fps, 3)
+        time_sec = sample_relative_time(frame_index, source_fps, start_sec)
         if os.environ.get('SMART_REFRAME_SOURCE_CLOCK_TEXT', '') == '1' and time_sec-last_text_sample>=.49:
             from source_overlay_text import clock_overlay
             for region in clock_overlay(frame):
