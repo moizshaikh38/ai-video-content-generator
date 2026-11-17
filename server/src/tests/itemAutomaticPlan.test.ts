@@ -12,3 +12,13 @@ test('computed malformed geometry rejected',()=>{for(const p of[[],[{...plan()[0
 test('layout output aspect gate separate from analysis dimensions',()=>{const f=fixture();f.identity.outputAspect='1:1';assert.equal(resolve(f,plan).status,'bypassed');const g=fixture();g.options.sourceWidth=1280;assert.equal(resolve(g,plan).status,'unavailable')});
 test('no freeze speed or unrelated project version enters identity contract',()=>{const f=fixture();assert.equal(same(f.identity,structuredClone(f.identity)),true);assert.equal('freeze_source_time'in f.identity,false);assert.equal('speed'in f.identity,false);assert.equal('projectVersion'in f.identity,false)});
 test('resolver and consumer clone protects the saved decision from caller mutation',()=>{const f=fixture(),p=plan(),r=resolve(f,()=>p);p[0].windowW=1;assert.equal(accept(r,f.identity)![0].windowW,.75);const a=accept(r,f.identity)!;a[0].keyframes[0].centerX=.4;assert.equal(accept(r,f.identity)![0].keyframes[0].centerX,.5)});
+
+test('leading, internal and trailing uncovered source intervals cannot be accepted as a full plan',()=>{
+ for(const shots of[
+  [{...plan()[0],start:1,keyframes:[{time:1,centerX:.5,centerY:.5}]}],
+  [{...plan()[0],end:9}],
+  [{...plan()[0],end:4},{...plan()[0],start:5,keyframes:[{time:5,centerX:.5,centerY:.5}]}],
+ ])assert.equal(resolve(fixture(),()=>shots).status,'unavailable');
+ const contiguous=[{...plan()[0],end:4},{...plan()[0],start:4,keyframes:[{time:4,centerX:.5,centerY:.5}]}];
+ assert.equal(resolve(fixture(),()=>contiguous).status,'ready');
+});
