@@ -384,6 +384,8 @@ export type CaptionStyle =
   | 'vireo_echo_slide'
   | 'vireo_comic_punch'
   | 'vireo_comic_default'
+  | 'vireo_comic_red_green'
+  | 'vireo_comic_violet_white'
   | 'soft_cut'
   | 'soft_build'
   | 'typewriter'
