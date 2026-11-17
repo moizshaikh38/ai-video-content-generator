@@ -395,7 +395,7 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
 
     const hasSmartReframe = EntitlementService.isFeatureAllowed(entitlements, 'smartReframe');
     const effectiveCropMode = cropMode === 'smart' && !hasSmartReframe ? 'fit' : cropMode;
-    const initialCaption = newCaptionDefaults(caption_style,caption_config);
+    const initialCaption = newCaptionDefaults(caption_style,caption_config,{freshSelection:true});
     const effectiveCaptionStyle = EntitlementService.isPresetAllowed(entitlements,initialCaption.captionStyle)
       ? initialCaption.captionStyle : 'simple';
     const effectiveCaptionConfig = effectiveCaptionStyle===initialCaption.captionStyle

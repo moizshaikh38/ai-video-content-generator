@@ -53,8 +53,8 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
         caption_position: captionPos,
         caption_enabled: options?.caption_enabled !== undefined ? Boolean(options.caption_enabled) : true,
         // New captions use the house style. Explicit choices/config are preserved.
-        caption_style: newCaptionDefaults(options?.caption_style,options?.caption_config).captionStyle,
-        caption_config: newCaptionDefaults(options?.caption_style,options?.caption_config).captionConfig,
+        caption_style: newCaptionDefaults(options?.caption_style,options?.caption_config,{freshSelection:true}).captionStyle,
+        caption_config: newCaptionDefaults(options?.caption_style,options?.caption_config,{freshSelection:true}).captionConfig,
         // Carried for the automatic render headline (Opus-parity): burned at
         // render time unless an explicit overlay config opts out.
         title: (candidate as any)?.title || null,
