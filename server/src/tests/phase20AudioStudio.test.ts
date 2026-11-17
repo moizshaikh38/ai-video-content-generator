@@ -44,8 +44,12 @@ describe('Phase 20 — Vireo Audio + Voice Studio System Tests', () => {
   const mockOtherUserId = crypto.randomUUID();
   const mockProjectId = crypto.randomUUID();
   const mockClipId = crypto.randomUUID();
+  const secondaryFixtureDir=path.join(os.tmpdir(),`vireo-test-secondary-${crypto.randomUUID()}`);
+  const secondaryFixturePath=path.join(secondaryFixtureDir,'source-audio-copy.mp4');
 
   before(async () => {
+    // Explicit permitted copy for secondary-input routing, not a music-quality fixture.
+    fs.mkdirSync(secondaryFixtureDir,{recursive:true});fs.copyFileSync(REAL_VIDEO_ASSET,secondaryFixturePath);
     // Warm up and verify Mongo connection with retries
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
@@ -72,6 +76,7 @@ describe('Phase 20 — Vireo Audio + Voice Studio System Tests', () => {
       // Ignore cleanup error if any
     }
     await closeMongo();
+    fs.rmSync(secondaryFixtureDir,{recursive:true,force:true});
   });
 
   // Test fixture generator
@@ -704,6 +709,7 @@ describe('Phase 20 — Vireo Audio + Voice Studio System Tests', () => {
   // SUITE 7: RENDER GRAPH V2 INTEGRATION & REAL LOCAL E2E RENDER
   // ==========================================================================
   describe('7. Render Graph V2 Integration & Real Local E2E Render', () => {
+    let actualRenderedProbe:any;
     it('32. compiles Render Graph V2 with dialogue cleanup, secondary music, and sidechain ducking', () => {
       const project = createMockProject();
 
@@ -730,7 +736,7 @@ describe('Phase 20 — Vireo Audio + Voice Studio System Tests', () => {
             id: crypto.randomUUID(),
             track_id: crypto.randomUUID(),
             type: 'AUDIO',
-            source_path: REAL_VIDEO_ASSET,
+            source_path: secondaryFixturePath,
             timeline_start: 0,
             timeline_end: 10.0,
             source_start: 0,
@@ -817,7 +823,7 @@ describe('Phase 20 — Vireo Audio + Voice Studio System Tests', () => {
       fs.rmSync(preview.preview_audio_path, { force: true });
     });
 
-    it('36. executes real multi-track render with dialogue, background music, and dynamic sidechain ducking', async () => {
+    it('36. executes real multi-track render with dialogue and a same-source secondary-audio routing fixture', async () => {
       const tmpDir = path.join(os.tmpdir(), `vireo-audio-render-${crypto.randomUUID()}`);
       fs.mkdirSync(tmpDir, { recursive: true });
       const outputVideo = path.join(tmpDir, 'ducked-render.mp4');
@@ -838,7 +844,7 @@ describe('Phase 20 — Vireo Audio + Voice Studio System Tests', () => {
               id: crypto.randomUUID(),
               track_id: crypto.randomUUID(),
               type: 'AUDIO',
-              source_path: REAL_VIDEO_ASSET,
+              source_path: secondaryFixturePath,
               timeline_start: 0,
               timeline_end: 2.5,
               source_start: 0,
@@ -870,12 +876,16 @@ describe('Phase 20 — Vireo Audio + Voice Studio System Tests', () => {
           ],
         });
 
+        // Same-source secondary audio proves routing only, not music balance.
         // Exercise the production normalization compiler, not the legacy
         // synchronous one-pass graph whose buffering is already deprecated.
         project.canvas.duration=2.5;
         project.tracks[0].items[0].timeline_end=2.5;
         project.tracks[0].items[0].source_end=2.5;
         const graph = await ProEditorService.compileRenderGraphWithNormalization(project, REAL_VIDEO_ASSET, outputVideo, tmpDir);
+        assert.ok(graph.inputArgs.includes(secondaryFixturePath),'Secondary asset must actually be consumed');
+        assert.ok(graph.filterComplex.some(s=>s.includes('sidechaincompress')),'Rendered graph must actually duck');
+        assert.ok(graph.filterComplex.some(s=>s.includes('amix')),'Rendered graph must actually mix');
 
         // Bound every input to the rendered window plus a small margin: without it,
         // one-pass loudnorm stalls the muxer until input EOF and the unbounded 1080p
@@ -911,12 +921,12 @@ describe('Phase 20 — Vireo Audio + Voice Studio System Tests', () => {
         // Probe with ffprobe
         const probeArgs = [
           '-v', 'error',
-          '-show_entries', 'stream=codec_type,width,height:format=duration',
+          '-show_entries', 'stream=codec_type,width,height,duration,start_time:format=duration',
           '-of', 'json',
           outputVideo,
         ];
         const { stdout: probeOut } = await execFileAsync('ffprobe', probeArgs);
-        const probeData = JSON.parse(probeOut);
+        const probeData = JSON.parse(probeOut);actualRenderedProbe=probeData;
 
         const vStream = probeData.streams?.find((s: any) => s.codec_type === 'video');
         const aStream = probeData.streams?.find((s: any) => s.codec_type === 'audio');
@@ -930,10 +940,11 @@ describe('Phase 20 — Vireo Audio + Voice Studio System Tests', () => {
     });
 
     it('37. verifies rendered output decodes with ffprobe, audio stream preserved, and A/V sync intact', async () => {
-      // Validate that source media duration and format remain intact
-      const probe = await AudioAnalysisService.probeAudioStream(REAL_VIDEO_ASSET);
-      assert.ok(probe.duration_sec > 0);
-      assert.ok(probe.channels >= 1);
+      assert.ok(actualRenderedProbe,'Previous render must supply actual output evidence');
+      const video=actualRenderedProbe.streams.find((s:any)=>s.codec_type==='video'),audio=actualRenderedProbe.streams.find((s:any)=>s.codec_type==='audio');
+      assert.ok(video&&audio,'Actual output retains both streams');
+      assert.ok(Math.abs(Number(video.duration)-2.5)<.05);assert.ok(Math.abs(Number(audio.duration)-2.5)<.05);
+      assert.ok(Math.abs(Number(video.duration)-Number(audio.duration))<.05,'Output stream duration agreement, not perceptual lip-sync proof');
     });
   });
 });

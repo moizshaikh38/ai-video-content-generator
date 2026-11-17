@@ -1,0 +1,17 @@
+# Real-audio window and sidechain qualification
+
+Recovered actual source `/downloads/rank1-clean-source-approx-aligned.mp4`, SHA256 `77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d`, is explicitly supplied through VIREO_QUALIFICATION_MEDIA instead of the absent historical launch asset. This does not restore or qualify that historical source. No provider keys/calls, user audio settings, default gain, music or processing policy changed.
+
+First audioPipelineUpgrade + phase20AudioStudio + encoded review run47/48: graph-sidechain assertion failed because the secondary asset path under /downloads was correctly rejected by the render asset guard. The actual render test had nevertheless passed after skipping the secondary input, so its former title was not valid evidence of music/ducking. Retained initial log `/downloads/vireo-real-audio-qualification-0440.log` and output; do not use it as sidechain proof.
+
+Test correction: an explicit source copy is created under the existing permitted server temp area and cleaned up with the test. No guard was relaxed. Actual render now asserts consumption of that secondary asset, sidechaincompress and amix before running FFmpeg. The secondary input is the same source audio, not an independent music-quality fixture. Corrected the misleading real-render title accordingly. The following duration/sync test now checks the preceding actual rendered output's video/audio streams and2.5second duration agreement within.05seconds, not merely source probe metadata. This is stream-duration agreement, not perceptual lip-sync proof.
+
+Final audio tests50/50, no skips: `/downloads/vireo-real-audio-qualification-final-0442.log`, real bounded2.5second render `/downloads/vireo-real-audio-secondary-final-0442.mp4` and actual graph/probe evidence sibling JSON. Local Mongo with random fixtures; voice providers explicitly unconfigured; no real-account or listening-quality claim. Renderer still uses1080portrait canonical composition in this tiny functional render, not4K or a memory stress test.
+
+## Matched listening preparation, unreviewed
+
+`real-audio-listening-kit.mts` ran existing production AudioEnhancementService snippet DSP off versus natural for source windows0-6and18-24seconds. No synthetic noise/music was added and no original media changed. Bypass and natural outputs retain actual before/after metrics outside the listener folder. Constant post-render gain matches neutral A/B PCM listening samples to measured-18LUFS in each window; all four matched samples meter-18LUFS and true peak below0. Never use louder as the quality comparison. This single source/two-window set is not the required representative clean/noise/quiet/shouting/music listening benchmark.
+
+Artifact `/downloads/vireo-real-audio-listening-0442/listener-only`: four neutral WAVs, instructions and EMPTY review form. Reviewer, exposure, preference, clarity/artifact/pumping/balance answers remain null and listeningVerified=false. Private mapping/config/gain/hash receipts remain outside that folder. There has been no independent listener and no clean-speech, denoise, speech-intelligibility or background-balance approval. Do not mark E7 complete.
+
+Quick hot encoded audio and its measured divergence from Pro remain open. Existing DSP demonstrably runs on real source windows and corrected test routing, but those facts do not justify silently enabling it for saved/manual settings or declaring the output pleasant.
