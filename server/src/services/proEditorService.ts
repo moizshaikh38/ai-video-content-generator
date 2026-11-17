@@ -1844,7 +1844,7 @@ export class ProEditorService {
       return (
         acc +
         t.items.filter((item) => {
-          if (item.hidden || item.muted || !item.source_path || !fs.existsSync(item.source_path)) return false;
+          if (item.hidden || item.muted || !item.source_path || !fs.existsSync(item.source_path) || !isAllowedEditorSourcePath(project.user_id, item.source_path)) return false;
           return AudioDuckingService.resolveDuckingConfig(item.audio?.ducking).enabled;
         }).length
       );
