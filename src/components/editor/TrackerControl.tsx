@@ -70,15 +70,16 @@ export const TrackerControl: React.FC<Props> = ({ clipId, project, videoSrc, sou
     <div ref={rootRef} className="relative max-md:static">
       <button type="button" onClick={(e) => { e.stopPropagation(); setMenu((v) => !v); }}
         className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg hover:bg-white/[0.08] text-neutral-300 hover:text-white transition font-medium"
-        title="Tracker: follow a subject you pick">
+        title="Object tracker: follows the subject you select. Separate from automatic framing.">
         <ScanFace className="w-3.5 h-3.5" />
-        <span>Tracker: {activeOn ? 'ON' : 'OFF'}</span>
+        <span>Object tracker: {activeOn ? 'ON' : 'OFF'}</span>
       </button>
       {menu && (
         <div onClick={(e) => e.stopPropagation()} className="absolute top-full mt-2 right-0 max-md:right-auto max-md:left-1/2 max-md:-translate-x-1/2 w-64 max-md:max-w-full glass-float rounded-xl p-1 z-40 text-[11px]">
-          <button className="block w-full whitespace-normal text-left px-3 py-2 rounded-lg hover:bg-white/10 text-white" onClick={() => { setMenu(false); setDialog(true); setBox(null); setError(null); }}>Manual subject tracking</button>
-          <button disabled={!activeOn} className="block w-full whitespace-normal text-left px-3 py-2 rounded-lg hover:bg-white/10 text-neutral-300 disabled:opacity-40" onClick={() => { setMenu(false); onSetTracker({ itemId: active?.id ?? null }, null); }}>Turn off tracking for this scene</button>
-          <button disabled={!anyOn} className="block w-full whitespace-normal text-left px-3 py-2 rounded-lg hover:bg-white/10 text-neutral-300 disabled:opacity-40" onClick={() => { setMenu(false); onSetTracker({ itemId: null }, null); }}>Turn off all tracking</button>
+          <p className="px-3 py-2 whitespace-normal leading-relaxed text-[10px] text-neutral-400">Tracks the subject you pick. Turning this off does not turn off automatic framing.</p>
+          <button className="block w-full whitespace-normal text-left px-3 py-2 rounded-lg hover:bg-white/10 text-white" onClick={() => { setMenu(false); setDialog(true); setBox(null); setError(null); }}>Select object / subject</button>
+          <button disabled={!activeOn} className="block w-full whitespace-normal text-left px-3 py-2 rounded-lg hover:bg-white/10 text-neutral-300 disabled:opacity-40" onClick={() => { setMenu(false); onSetTracker({ itemId: active?.id ?? null }, null); }}>Turn off object tracker - this scene</button>
+          <button disabled={!anyOn} className="block w-full whitespace-normal text-left px-3 py-2 rounded-lg hover:bg-white/10 text-neutral-300 disabled:opacity-40" onClick={() => { setMenu(false); onSetTracker({ itemId: null }, null); }}>Turn off object tracker - whole clip</button>
           {note && <p className="px-3 py-1 text-[10px] text-neutral-500">{note}</p>}
         </div>
       )}
@@ -86,7 +87,7 @@ export const TrackerControl: React.FC<Props> = ({ clipId, project, videoSrc, sou
         <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center" onClick={() => setDialog(false)}>
           <div className="bg-vc-surface1 border border-white/10 rounded-2xl p-5 w-[560px] max-w-[92vw] text-neutral-200" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-sm font-semibold text-white">Manual subject tracking</h3>
+              <h3 className="text-sm font-semibold text-white">Select object / subject</h3>
               <button onClick={() => setDialog(false)} aria-label="Close"><X className="w-4 h-4" /></button>
             </div>
             <p className="text-[11px] text-neutral-400 mb-3">Drag a box around the subject you want to follow. Tracking stops at a scene change or if the subject is lost.</p>

@@ -1,3 +1,4 @@
+import {freezeAutomaticPlan} from '../shared/automaticFraming.js';
 import { validateFramingWindow, FramingWindowError, FRAMING_WINDOW_ERROR_CODE } from '../shared/framingWindow.js';
 import { assertPanelViewsAssigned } from '../shared/panelLayouts.js';
 import { canvasDims } from '../shared/renderResolution.js';
@@ -133,6 +134,8 @@ export interface ProReframeContext {
   /** ACTUAL decoded source size from ffprobe at render. Required for any framing_window. */
   decodedSource?: { width: number; height: number } | null;
   sourceStoragePath?: string | null;
+  /** Decoded source probe, not guessed from editor audio settings. */
+  sourceHasAudio?: boolean;
 }
 
 export class ProEditorService {
@@ -964,9 +967,9 @@ export class ProEditorService {
       }
 
       if (ratio === '9:16' && track.metadata?.shot_composition_candidate === true) {
-        const plan = SmartReframeService.computeShotComposition({rawSamples:(track as any).raw_samples,sceneCuts:track.metadata.scene_cuts,
+        const plan = SmartReframeService.computeShotComposition({allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:(track as any).raw_samples,sceneCuts:track.metadata.scene_cuts,
           duration:Number(track.metadata.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
-        if (plan.length) return SmartReframeService.buildShotCompositionFilter({plan,start:sliceWindowStartClipRel,duration:sliceDuration,
+        if (plan.length) return SmartReframeService.buildShotCompositionFilter({plan:freezeAutomaticPlan(plan,item.automatic_framing,reframe?.clipStartSec||0),start:sliceWindowStartClipRel,duration:sliceDuration,
           sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,tag:layoutTag,canvasScale:cs});
       }
       // Multi-person single-view: keep the whole group visible (blur-fill
@@ -1228,6 +1231,14 @@ export class ProEditorService {
     // 1. Primary input: source video
     inputArgs.push('-i', sourceVideoPath);
     let currentInputIdx = 0;
+    let sourceAudioLabel = '[0:a]';
+    if (reframe?.sourceHasAudio === false) {
+      // Keep the normal audio graph/mixing contract for genuinely silent media.
+      // This is generated silence, not an invented recording or transcription.
+      inputArgs.push('-f','lavfi','-i','anullsrc=channel_layout=stereo:sample_rate=44100');
+      currentInputIdx = 1;
+      sourceAudioLabel = '[1:a]';
+    }
 
     // Locate video items
     const videoTracks = project.tracks.filter((t) => t.type === 'VIDEO' && !t.hidden);
@@ -1246,7 +1257,7 @@ export class ProEditorService {
 
     // Build base video stream
     let videoStreamLabel = '[0:v]';
-    let audioStreamLabel = '[0:a]';
+    let audioStreamLabel = sourceAudioLabel;
 
     // Base video scaling & crop filter — resolved per slice below (parity with Quick path).
     const canvasDuration = Number((project.canvas.duration || 0).toFixed(3));
@@ -1353,7 +1364,7 @@ export class ProEditorService {
           if (speedAudio) aChain.push(speedAudio);
           aChain.push(UNIFORM_AUDIO);
           if (gapPad) aChain.push(`apad=pad_dur=${gap.toFixed(3)}`);
-          const sliceAChain = `[0:a]${aChain.join(',')}${aSlice}`;
+          const sliceAChain = `${sourceAudioLabel}${aChain.join(',')}${aSlice}`;
           filterComplex.push(sliceAChain);
           audioOnlyChains.push(sliceAChain);
           sliceDurations.push(sliceDur + gap);

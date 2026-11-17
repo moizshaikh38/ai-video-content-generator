@@ -28,7 +28,7 @@ export const ScenePlanReview: React.FC<ScenePlanReviewProps> = ({ project, shots
     <div className="rounded-lg border border-white/[0.1] bg-white/[0.03] p-3 space-y-2" data-testid="scene-plan">
       <div className="font-medium text-white">Scene plan (stored analysis)</div>
       <p className="text-[10px] text-neutral-400">
-        Each scene can take a framing window from the analysis. The window size is shared across the whole clip. Nothing is applied unless you press Apply on a scene.
+        Each scene can take a framing window from the analysis. Automatic scene sizes may differ. Nothing is applied unless you press Apply on a scene.
         It does not check what is on screen.
       </p>
       {!previewReady && (
@@ -43,7 +43,7 @@ export const ScenePlanReview: React.FC<ScenePlanReviewProps> = ({ project, shots
         return (
           <div key={idx} className="rounded-md bg-white/[0.04] p-2 space-y-1" data-testid="scene-plan-row">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] text-white">{mmss(shot.start)}-{mmss(shot.end)} - {KIND_LABEL[shot.kind] || shot.kind}</span>
+              <span className="text-[11px] text-white">{mmss(shot.start)}-{mmss(shot.end)} - {shot.split ? 'Automatic two-person Split' : KIND_LABEL[shot.kind] || shot.kind}</span>
               {applied ? (
                 <span className="text-[10px] text-violet-200">Window set</span>
               ) : needs ? (

@@ -50,7 +50,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
   // Read active framing mode from video track or default to smart
   const videoTrack = project.tracks.find((t) => t.type === 'VIDEO');
   const videoItem = videoTrack?.items[0];
-  const activeCropMode = (videoItem as any)?.crop_mode || 'smart';
+  const activeCropMode = videoItem?.crop || videoItem?.tracker?.enabled || videoItem?.framing_window || (videoItem as any)?.panels || (videoItem as any)?.crop_config?.layout_mode_source === 'user' ? ((videoItem as any)?.crop_mode === 'center' ? 'center' : 'manual') : (videoItem as any)?.crop_mode || 'smart';
   // Fill/fit/blur state comes from the same channel the export compiler and the
   // preview toolbar toggle use (item.crop), with legacy crop_mode as fallback so
   // the panel and the toolbar always agree, including after save/reopen/undo.
@@ -143,7 +143,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
               <span>Smart Reframe</span>
             </div>
             <div className="text-[10px] text-neutral-400 mt-1 leading-tight">
-              AI speaker face & motion tracking across cuts
+              Use stored automatic framing for all scenes. Replaces manual crops, layouts and subject tracking.
             </div>
           </button>
 
@@ -162,7 +162,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
               <span>Center Fill</span>
             </div>
             <div className="text-[10px] text-neutral-400 mt-1 leading-tight">
-              Fixed center crop filling stage dimensions
+              Fixed center crop for all scenes. Resets crop focus and zoom.
             </div>
           </button>
         </div>

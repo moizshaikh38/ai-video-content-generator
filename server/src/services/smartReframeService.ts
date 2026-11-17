@@ -1432,11 +1432,18 @@ export class SmartReframeService {
     rawSamples?: ReframeSample[] | null; sceneCuts?: number[]; duration: number;
     sourceWidth: number; sourceHeight: number;
     /** Review-only opt-in. No production caller selects this policy. */
-    unresolvedContextPolicy?: 'preserve' | 'shared-subject-window';
+    unresolvedContextPolicy?: 'preserve' | 'shared-subject-window' | 'balanced-inset-review';
+    /** Scene-adaptive opt-in. Unknown shots remain full source locally. */
+    windowScope?: 'clip' | 'shot';
+    /** Explicit presentation preference. Crop conflicts remain review-required. */
+    automaticFitAspect?: '4:3';
+    /** Requires independently declared podcast/interview context. */
+    allowConversationSplit?: boolean;
     /** Optional measured regions, local qualification only. Not semantic proof. */
     protectedContentRegions?: Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>;
   }): Array<{ start: number; end: number; kind: 'group' | 'solo' | 'fit'; windowW: number; windowH: number;
     keyframes: Array<{ time: number; centerX: number; centerY: number }>;
+    split?: {speaker1X:number;speaker2X:number;dividerX:number};
     contextStatus?: 'crowd-preserved'|'unresolved-preserved'|'unresolved-review-required';
     uncertainty?: string }> {
     const {rawSamples = [], duration, sourceWidth, sourceHeight} = options;
@@ -1447,6 +1454,26 @@ export class SmartReframeService {
     const shots = bounds.slice(0,-1).map((start,i) => {
       const end = bounds[i+1];
       const samples = rawSamples.filter(s => s.time >= start && s.time < end);
+      if (options.windowScope === 'shot' && options.allowConversationSplit && end-start>=1.5 && samples.length>=6 &&
+          !(options.protectedContentRegions||[]).some(r=>r.confidence>=.7&&r.start<end&&r.end>start)) {
+        const pairs=samples.filter(s=>s.faces.length===2&&s.faces.every(f=>!!f.track_id && [f.x,f.y,f.width,f.height,f.center_x,f.center_y,f.confidence].every(Number.isFinite) && f.confidence>=.7&&f.width*f.height>=.002))
+          .map(s=>[...s.faces].sort((a,b)=>a.center_x-b.center_x));
+        if (pairs.length>=samples.length*.8) {
+          const left=pairs.map(p=>p[0]),right=pairs.map(p=>p[1]);
+          const stable=(fs:NormalizedFaceDetection[])=>new Set(fs.map(f=>f.track_id)).size===1;
+          const speaker1X=median(left.map(f=>f.center_x)),speaker2X=median(right.map(f=>f.center_x));
+          const leftBody=associatedBodyEnvelope(samples,[left[0].track_id!]);
+          const rightBody=associatedBodyEnvelope(samples,[right[0].track_id!]);
+          // A cut between faces alone can cut a torso or arm. Require a gap
+          // between independently associated, padded body envelopes. This is
+          // a safe composition seam, not a claimed physical camera boundary.
+          const dividerX=leftBody && rightBody ? (leftBody.right+rightBody.left)/2 : .5;
+          if(leftBody && rightBody && leftBody.right<rightBody.left && stable(left)&&stable(right)&&speaker2X-speaker1X>=.3&&
+            pairs.every(p=>p[0].x+p[0].width+.025<dividerX&&p[1].x-.025>dividerX))
+            return {start,end,kind:'group' as const,windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}],
+              split:{speaker1X,speaker2X,dividerX}};
+        }
+      }
       if (this.isCrowdScene(samples)) return {start,end,kind:'fit' as const,contextStatus:'crowd-preserved' as const,windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]};
       const fromBody = (ids:string[]) => {
         const b=associatedBodyEnvelope(samples,ids);
@@ -1487,7 +1514,30 @@ export class SmartReframeService {
       const eligible = new Map([...tracks].filter(([,a])=>a.length>=Math.max(2,samples.length*.35)));
       const selected = this.selectDominantTrack(eligible, samples.length);
       const stable = selected.dominantTrackId ? eligible.get(selected.dominantTrackId) : undefined;
-      if (!stable) return {start,end,kind:'fit' as const,contextStatus:'unresolved-preserved' as const,uncertainty:'No reliable subject anchor. Important scene/object regions are unresolved.',windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]};
+      if (!stable) {
+        // Explicit review candidate only. Sparse, high-confidence face evidence
+        // can anchor a modest 4:3 inset without pretending the unseen sides
+        // were semantically checked. No production caller selects this policy.
+        if (options.unresolvedContextPolicy === 'balanced-inset-review') {
+          const faces=samples.flatMap(s=>s.faces.filter(f=>
+            [f.center_x,f.center_y,f.width,f.height,f.confidence].every(Number.isFinite) &&
+            f.confidence >= .8 && f.width*f.height >= .002));
+          const supported=samples.filter(s=>s.faces.some(f=>faces.includes(f))).length;
+          const windowW=Math.min(1,(4/3)*sourceHeight/sourceWidth),windowH=1;
+          if(faces.length>=2 && supported>=Math.max(2,samples.length*.1) && windowW>=.65 && windowW<1){
+            // Sparse observations must not shift the whole clip toward a late face.
+            // Prefer the source centre, constrained only when all evidence fits.
+            const left=Math.min(...faces.map(f=>f.center_x-f.width*.9));
+            const right=Math.max(...faces.map(f=>f.center_x+f.width*.9));
+            const cx=Math.max(windowW/2,right-windowW/2,Math.min(1-windowW/2,left+windowW/2,.5));
+            const fits=faces.every(f=>f.center_x-f.width*.9>=cx-windowW/2 && f.center_x+f.width*.9<=cx+windowW/2);
+            if(fits)return {start,end,kind:'fit' as const,contextStatus:'unresolved-review-required' as const,
+              uncertainty:'Balanced 4:3 candidate from sparse face evidence. Side objects, text and undetected people are not verified; review before sharing.',
+              windowW,windowH,keyframes:[{time:start,centerX:cx,centerY:.5}]};
+          }
+        }
+        return {start,end,kind:'fit' as const,contextStatus:'unresolved-preserved' as const,uncertainty:'No reliable subject anchor. Important scene/object regions are unresolved.',windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]};
+      }
       const followingBody=anchoredSingleBodyPath(samples,selected.dominantTrackId!,sourceWidth,sourceHeight);
       if(followingBody)return {start,end,kind:'solo' as const,...followingBody};
       const measuredBody=fromBody([selected.dominantTrackId!]);
@@ -1523,6 +1573,47 @@ export class SmartReframeService {
       shot.windowW=right-left; shot.windowH=bottom-top;
       shot.keyframes=[{time:shot.start,centerX:(left+right)/2,centerY:(top+bottom)/2}];
     }
+    const presentationShots = shots.map(shot => {
+      if (options.automaticFitAspect !== '4:3' || shot.split) return shot;
+      const maxWidth = shot.windowH * (4/3) * sourceHeight/sourceWidth;
+      if (shot.windowW <= maxWidth) return shot;
+      const width = Math.min(1,maxWidth);
+      const regions=(options.protectedContentRegions||[]).filter(r=>r.confidence>=.7 && r.start<shot.end && r.end>shot.start &&
+        [r.x,r.y,r.width,r.height].every(Number.isFinite) && r.x>=0 && r.y>=0 && r.width>0 && r.height>0 && r.x+r.width<=1.001 && r.y+r.height<=1.001);
+      const samples=rawSamples.filter(s=>s.time>=shot.start&&s.time<shot.end);
+      const faces=samples.flatMap(s=>s.faces.filter(f=>f.confidence>=.8));
+      const ids=[...new Set(faces.map(f=>f.track_id).filter((id): id is string=>!!id))];
+      const body=associatedBodyEnvelope(samples,ids);
+      const lefts=[...regions.map(r=>Math.max(0,r.x-.015)),...faces.map(f=>Math.max(0,f.x-.025)),...(body?[body.left]:[])];
+      const rights=[...regions.map(r=>Math.min(1,r.x+r.width+.015)),...faces.map(f=>Math.min(1,f.x+f.width+.025)),...(body?[body.right]:[])];
+      const minimumCenter=rights.length?Math.max(width/2,...rights.map(x=>x-width/2)):width/2;
+      const maximumCenter=lefts.length?Math.min(1-width/2,...lefts.map(x=>x+width/2)):1-width/2;
+      const conflict=minimumCenter>maximumCenter;
+      return {...shot, windowW:width, contextStatus:'unresolved-review-required' as const,
+        uncertainty:conflict
+          ? 'Preferred 4:3 automatic Fit cannot include all measured side text/subjects together. Review this context conflict before sharing.'
+          : 'Preferred 4:3 automatic Fit keeps measured text/face anchors where available, but other side objects/action remain unverified.',
+        keyframes:shot.keyframes.map(k=>({...k,centerX:conflict
+          ? Math.max(width/2,Math.min(1-width/2,k.centerX))
+          : Math.max(minimumCenter,Math.min(maximumCenter,k.centerX))}))};
+    });
+    if (options.windowScope === 'shot') return presentationShots.map(shot => {
+      // Automatic Fill is a portrait-shaped window, not a synonym for zoom.
+      // Only expand a reliable single-person/body window to portrait. Never
+      // trim its measured extent just because one face is visible. Existing
+      // protected-content unions can still force a wider Fit presentation.
+      if (shot.kind !== 'solo' || shot.contextStatus || contentConstrainedShots.has(shot)) return shot;
+      const samples = rawSamples.filter(s => s.time >= shot.start && s.time < shot.end);
+      const ids = [...new Set(samples.flatMap(s => s.faces.map(f => f.track_id).filter((id): id is string => !!id)))];
+      if (ids.length !== 1 || !associatedBodyEnvelope(samples, ids)) return shot;
+      const portrait = (9/16) * sourceHeight/sourceWidth;
+      const height = Math.max(shot.windowH, shot.windowW/portrait);
+      if (!(height > 0 && height <= 1)) return shot;
+      const width = height*portrait;
+      return {...shot, windowW:width, windowH:height, keyframes:shot.keyframes.map(k => ({...k,
+        centerX:Math.max(width/2,Math.min(1-width/2,k.centerX)),
+        centerY:Math.max(height/2,Math.min(1-height/2,k.centerY))}))};
+    });
     // A source cut may change the subject, not the presentation's crop size.
     // Use the widest required context in both axes for the ENTIRE analyzed
     // clip, including edited slices. A full-source fallback deliberately makes
@@ -1564,7 +1655,10 @@ export class SmartReframeService {
         return {time:t-a,centerX:k[n].centerX+(k[n+1].centerX-k[n].centerX)*f,centerY:k[n].centerY+(k[n+1].centerY-k[n].centerY)*f};
       };
       const kfs=[frameAt(a),...s.keyframes.filter(k=>k.time>a && k.time<b).map(k=>({...k,time:k.time-a})),frameAt(b)];
-      const f=this.buildGroupFitFilter({keyframes:kfs,windowW:s.windowW,windowH:s.windowH,sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}`,canvasWidth:canvasDims('9:16',options.canvasScale??1).width,canvasHeight:canvasDims('9:16',options.canvasScale??1).height});
+      const f=s.split ? this.buildSplitPodcastFilter({speaker1X:s.split.speaker1X,speaker2X:s.split.speaker2X,dividerX:s.split.dividerX,
+        splitFit:'contain',canvasWidth:canvasDims('9:16',options.canvasScale??1).width,canvasHeight:canvasDims('9:16',options.canvasScale??1).height,
+        sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}_split`})
+        : this.buildGroupFitFilter({keyframes:kfs,windowW:s.windowW,windowH:s.windowH,sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}`,canvasWidth:canvasDims('9:16',options.canvasScale??1).width,canvasHeight:canvasDims('9:16',options.canvasScale??1).height});
       const frames = Math.max(1, Math.round((b-start)*30)-Math.round((a-start)*30));
       graph+=`[${labels[i]}]trim=start=${st.toFixed(6)}:duration=${(b-a).toFixed(6)},setpts=PTS-STARTPTS,${f},fps=30,tpad=stop_mode=clone:stop_duration=0.1,trim=end_frame=${frames},setpts=N/(30*TB),setsar=1[${tag}_part${i}];`;
     });
@@ -2492,6 +2586,7 @@ export class SmartReframeService {
     sample_fps: number;
     sample_count: number;
     scene_cuts?: number[];
+    protected_content_regions?: Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>;
     person_detector?: string | null;
     scene_cut_evidence?: Array<{ time: number; coarse_time: number; refined: boolean; uncertainty_seconds?: number; correlation?: number }>;
     samples: ReframeSample[];
@@ -2712,7 +2807,7 @@ export class SmartReframeService {
         if (cvResult.scene_cuts && Array.isArray(cvResult.scene_cuts)) {
           for (const c of cvResult.scene_cuts) {
             const relCut = Number(c);
-            if (relCut > 0.25 && relCut < durationSec - 0.25 && !clipSceneCuts.some((x) => Math.abs(x - relCut) < 0.4)) {
+            if (relCut > 0.25 && relCut < durationSec - 0.25 && !clipSceneCuts.some((x) => Math.abs(x - relCut) < (process.env.SMART_REFRAME_DENSE_CUTS === '1' ? 0.12 : 0.4))) {
               clipSceneCuts.push(relCut);
             }
           }
@@ -2769,7 +2864,8 @@ export class SmartReframeService {
             explicitMode:clip.crop_config?.layout_mode && (clip.crop_config as any).layout_mode_source !== 'genre_recommendation' ? clip.crop_config.layout_mode : undefined})
         : null;
       const {speaker1X,speaker2X} = resolvedLayout;
-      const layoutMode = contentDecision?.layoutMode ?? resolvedLayout.layoutMode;
+      const adaptiveScenes = process.env.SMART_REFRAME_ADAPTIVE_SCENES === '1' && clip.aspect_ratio === '9:16' && !(clip.crop_config?.layout_mode && (clip.crop_config as any).layout_mode_source !== 'genre_recommendation');
+      const layoutMode = adaptiveScenes ? 'track' : contentDecision?.layoutMode ?? resolvedLayout.layoutMode;
 
       logger.info(
         `[SmartReframe] Analysis complete for clip ${clipId}: detected ${faceCount} tracks, dominant: ${dominantTrackId} (score: ${score}), layout: ${layoutMode}`
@@ -2820,12 +2916,16 @@ export class SmartReframeService {
           speaker2X: speaker2X ?? SmartReframeService.estimateSpeakerAnchors(cvResult.samples)?.speaker2X ?? null,
           // Preserve the exact boundaries used by smoothing for downstream
           // shot-aware layout work and reproducible cached-track evidence.
-          shot_composition_candidate: process.env.SMART_REFRAME_SHOT_COMPOSITION === '1',
+          shot_composition_candidate: adaptiveScenes || process.env.SMART_REFRAME_SHOT_COMPOSITION === '1',
+          shot_composition_window_scope: adaptiveScenes ? 'shot' : 'clip',
+          conversation_split_candidate: adaptiveScenes && sourceGenre === 'podcast_interview' && process.env.SMART_REFRAME_AUTO_CONVERSATION_SPLIT === '1',
+          automatic_fit_aspect: adaptiveScenes && process.env.SMART_REFRAME_AUTOMATIC_FIT_4_3 === '1' ? '4:3' : null,
           analyzed_source_path: clip.source_storage_path,
           clip_duration: durationSec,
           scene_cuts: clipSceneCuts,
           scene_cut_evidence: cvResult.scene_cut_evidence || [],
           person_detector: cvResult.person_detector ?? null,
+          protected_content_regions: cvResult.protected_content_regions || [],
           cv_duration: cvResult.duration,
           sample_fps: cvResult.sample_fps,
           total_samples: cvResult.samples.length,

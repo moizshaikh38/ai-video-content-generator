@@ -33,7 +33,7 @@ export function readItemLayout(item: EditorTrackItem): SceneLayout | 'context_wi
 
 /**
  * Set ONE timeline item's (scene's) layout. Fit/Blur go through item.crop (the
- * compiler's per-item override); Fill/Split clear item.crop so the smart track /
+ * compiler's per-item override); Fill writes an explicit cover crop; Split clears item.crop so
  * split geometry applies. layout_mode is marked user-owned so export honours it
  * for this item only.
  */
@@ -67,6 +67,8 @@ export function applyItemLayout(
           if (layout === 'fit' || layout === 'blur') {
             const mode = layout === 'fit' ? resolveFitMode(project.canvas) : layout;
             base.crop = { mode, choice: layout, ...(mode === 'fit' || mode === 'blur' ? fitBandFields(project.canvas) : {}), focusX: i.crop?.focusX ?? 0.5, focusY: i.crop?.focusY ?? 0.5, scale: i.crop?.scale ?? 1 };
+          } else if (layout === 'fill') {
+            base.crop = { mode: 'fill', focusX: i.crop?.focusX ?? 0.5, focusY: i.crop?.focusY ?? 0.5, scale: i.crop?.scale ?? 1 };
           } else {
             delete base.crop;
           }
@@ -75,4 +77,26 @@ export function applyItemLayout(
       };
     }),
   };
+}
+
+/** Framing Strategy is clip-wide. Smart explicitly releases manual framing
+ * channels so the stored automatic plan can run again in preview AND export. */
+export function applyFramingStrategy(project: EditorProject, mode: 'center'|'fit'|'blur'|'smart'): EditorProject {
+  return {...project,tracks:project.tracks.map(t=>t.type!=='VIDEO'?t:{...t,items:t.items.map(i=>{
+    const next:any={...i,crop_mode:mode==='blur'?'fit':mode};
+    delete next.panels;delete next.framing_window;
+    if(mode==='smart'){
+      delete next.crop;delete next.tracker;delete next.layout_mode;
+      const cfg={...next.crop_config};
+      delete cfg.layout_mode;delete cfg.layout_mode_source;delete cfg.split;delete cfg.screencast;
+      next.crop_config=cfg;
+    }else{
+      next.layout_mode='track';
+      next.crop_config={...next.crop_config,layout_mode:'track',layout_mode_source:'user'};
+      next.crop={mode:mode==='center'?'fill':mode==='fit'?resolveFitMode(project.canvas):mode,
+        focusX:mode==='center'?.5:i.crop?.focusX??.5,focusY:mode==='center'?.5:i.crop?.focusY??.5,
+        scale:mode==='center'?1:i.crop?.scale??1,...((mode==='fit'||mode==='blur')?fitBandFields(project.canvas):{})};
+    }
+    return next;
+  })})};
 }

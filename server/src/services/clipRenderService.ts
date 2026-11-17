@@ -756,7 +756,8 @@ export class ClipRenderService {
                 '-v', 'error', '-select_streams', 'v:0',
                 '-show_entries', 'stream=width,height', '-of', 'json', sourcePath,
               ]);
-              const st = ((JSON.parse(stdout) as any).streams || [])[0] || {};
+              const streams = ((JSON.parse(stdout) as any).streams || []);
+      const st = streams.find((s:any)=>s.codec_type === 'video') || {};
               proBlurSourceWidth = Number(st.width) || undefined;
               proBlurSourceHeight = Number(st.height) || undefined;
             } catch {
@@ -963,6 +964,7 @@ export class ClipRenderService {
             cropConfig: clip.crop_config || null,
             clipStartSec: startSec,
             decodedSource: srcDims,
+            sourceHasAudio: srcDims?.hasAudio,
             sourceStoragePath: clip.source_storage_path,
             mode: actualReframeMode,
             layoutMode: reframeDecision.layoutMode,
@@ -1009,7 +1011,13 @@ export class ClipRenderService {
               outputPath,
             ];
 
-            await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: timeoutMs });
+            try {
+              await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: timeoutMs });
+            } catch (err: any) {
+              const detail = String(err?.stderr || '').trim().split('\n').slice(-12).join('\n');
+              if (detail) err.message = `${err.message}\nffmpeg stderr: ${detail}`;
+              throw err;
+            }
           });
         } finally {
           await scriptExec.cleanup();
@@ -1054,7 +1062,13 @@ export class ClipRenderService {
               outputPath,
             ];
 
-            await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: timeoutMs });
+            try {
+              await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: timeoutMs });
+            } catch (err: any) {
+              const detail = String(err?.stderr || '').trim().split('\n').slice(-12).join('\n');
+              if (detail) err.message = `${err.message}\nffmpeg stderr: ${detail}`;
+              throw err;
+            }
           });
           await ClipRenderService.updateJobProgress(jobId, 85, 'encoding');
         } else {
@@ -1589,7 +1603,7 @@ export class ClipRenderService {
               })
             : null;
         if (targetLayout === 'track' && (clip.aspect_ratio === '9:16' || !clip.aspect_ratio) && track.metadata?.shot_composition_candidate === true) {
-          const plan = SmartReframeService.computeShotComposition({rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
+          const plan = SmartReframeService.computeShotComposition({allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
             duration:durationSec,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
           if (plan.length) return {cropFilter:SmartReframeService.buildShotCompositionFilter({plan,duration:durationSec,
             sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,canvasScale}),mode:'smart',
@@ -1753,20 +1767,21 @@ export class ClipRenderService {
   }
 
   /** Native frame size of the first video stream, or null when ffprobe is unavailable. */
-  public static async probeSourceDimensions(filePath: string): Promise<{ width: number; height: number } | null> {
+  public static async probeSourceDimensions(filePath: string): Promise<{ width: number; height: number; hasAudio: boolean } | null> {
     try {
       const { stdout } = await execFileAsync(
         'ffprobe',
-        ['-v', 'error', '-select_streams', 'v:0', '-show_streams', '-of', 'json', filePath],
+        ['-v', 'error', '-show_streams', '-of', 'json', filePath],
         { timeout: 15000, maxBuffer: 1024 * 1024 }
       );
-      const st = ((JSON.parse(stdout) as any).streams || [])[0] || {};
+      const streams = ((JSON.parse(stdout) as any).streams || []);
+      const st = streams.find((s:any)=>s.codec_type === 'video') || {};
       let w = Number(st.width);
       let h = Number(st.height);
       if (!(w > 0 && h > 0)) return null;
       const rot = Math.abs(Number(st.tags?.rotate ?? st.side_data_list?.[0]?.rotation ?? 0)) % 180;
       if (rot === 90) [w, h] = [h, w];
-      return { width: w, height: h };
+      return { width: w, height: h, hasAudio: streams.some((s:any)=>s.codec_type === 'audio') };
     } catch {
       return null;
     }

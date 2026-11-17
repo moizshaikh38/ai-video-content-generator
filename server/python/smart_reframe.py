@@ -13,8 +13,34 @@ Invoked ONLY by Node.js backend via execFile — never by frontend.
 import sys
 import json
 import os
+import subprocess
+import re
 import cv2
 import numpy as np
+
+
+def discover_dense_scene_cuts(video_path, start_sec, duration_sec, source_fps):
+    """Opt-in frame-level visual discontinuities, not semantic scene proof.
+
+    Decode sequentially into a small analysis image. Unlike sparse color
+    histograms this can discover rapid cuts between similarly colored shots.
+    A false boundary only separates windows; it must not authorize a crop.
+    """
+    if duration_sec <= 0 or duration_sec > 180:
+        return []  # Bounded qualification candidate, no unbounded source pass.
+    run = subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'info', '-threads', '2',
+                          '-ss', str(start_sec), '-i', video_path, '-t', str(duration_sec),
+                          '-an', '-vf', "scale=320:-1,select='gt(scene,0.28)',showinfo",
+                          '-f', 'null', '-'], capture_output=True, text=True, timeout=45,
+                         check=True)
+    times = sorted(set(float(t) for t in re.findall(r'pts_time:([0-9.]+)', run.stderr)))
+    selected = []
+    for t in times:
+        if .04 < t < duration_sec-.04 and (not selected or t-selected[-1] >= .16):
+            selected.append(t)
+    return [{"time": round(t, 6), "coarse_time": round(t, 6), "refined": True,
+             "uncertainty_seconds": round(1/source_fps, 6), "method": "dense-luma-discontinuity"}
+            for t in selected]
 
 
 def refine_scene_cuts(video_path, coarse_cuts, start_sec, sample_interval, source_fps):
@@ -254,6 +280,8 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
         person_detector = PersonRegions(person_model)
 
     samples = []
+    protected_content_regions = []
+    last_text_sample = -1.0
     scene_cuts = []
     frame_index = start_frame
     # max_samples enforced via parameter and uniform interval decimation
@@ -273,6 +301,11 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
             break
 
         time_sec = round((frame_index - start_frame) / source_fps, 3)
+        if os.environ.get('SMART_REFRAME_SOURCE_CLOCK_TEXT', '') == '1' and time_sec-last_text_sample>=.49:
+            from source_overlay_text import clock_overlay
+            for region in clock_overlay(frame):
+                protected_content_regions.append({**region,'start':max(0,time_sec-.3),'end':min(effective_duration,time_sec+.3)})
+            last_text_sample=time_sec
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # 1. Fast scene cut detection via normalized histogram correlation
@@ -458,8 +491,19 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
                                          frame_interval / source_fps, source_fps)
         scene_cuts = sorted(set(e["time"] for e in cut_evidence if e["time"] > 0))
 
+    if os.environ.get('SMART_REFRAME_DENSE_CUTS', '') == '1':
+        dense_evidence = discover_dense_scene_cuts(video_path, start_sec, effective_duration, source_fps)
+        # Prefer precise dense boundaries near a sampled color boundary. Keep
+        # other refined color boundaries, but never double one visual change.
+        cut_evidence = dense_evidence + [e for e in cut_evidence
+            if not any(abs(e["time"]-d["time"]) < .3 for d in dense_evidence)]
+        if not cut_evidence:
+            cut_evidence = [{"time": t, "coarse_time": t, "refined": False} for t in scene_cuts]
+        scene_cuts = sorted(set(e["time"] for e in cut_evidence if e["time"] > 0))
+
     return {
         **({"person_detector": "nanodet-2022nov-sha256-" + __import__("person_regions").MODEL_SHA256} if person_detector else {}),
+        "protected_content_regions": protected_content_regions,
         "scene_cut_evidence": cut_evidence,
         "source_width": source_width,
         "source_height": source_height,

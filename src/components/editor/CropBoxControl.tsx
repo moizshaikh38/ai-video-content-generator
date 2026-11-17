@@ -47,7 +47,7 @@ export const CropBoxControl: React.FC<Props> = ({ label, videoSrc, sourceTime, s
       {open && createPortal(
         <div onPointerDown={e => e.stopPropagation()} data-testid={inlineTarget ? "inline-preview-crop" : "crop-dialog"} className={inlineTarget ? "absolute inset-0 z-[80] bg-black flex items-center justify-center" : "fixed inset-0 z-[100] bg-black/60 flex items-center justify-center"} onClick={() => setOpen(false)}>
           <div className={inlineTarget ? "bg-black p-3 w-full max-w-[560px] max-h-full overflow-y-auto text-neutral-200" : "bg-vc-surface1 border border-white/10 rounded-2xl p-5 w-[560px] max-w-[92vw] text-neutral-200"} onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-1"><h3 className="text-sm font-semibold text-white">{label ?? 'Crop'}</h3><button onPointerUp={e => {if(e.pointerType==='touch'){e.preventDefault();setOpen(false);}}} onClick={() => setOpen(false)} aria-label="Close"><X className="w-4 h-4" /></button></div>
+            <div className="flex items-center justify-between mb-1"><h3 className="text-sm font-semibold text-white">{label ?? 'Crop'}</h3><button type="button" onClick={(e) => { e.stopPropagation(); setOpen(false); }} aria-label="Close"><X className="w-4 h-4" /></button></div>
             <p className="text-[11px] text-neutral-400 mb-3">Drag the box to move it. Drag a corner to resize (zoom 1x-4x). The box keeps the canvas shape.</p>
             {notice && <p className="text-[11px] text-amber-300 mb-2">{notice}</p>}
             <div ref={stage} data-testid="crop-stage" className="relative bg-black rounded-lg overflow-hidden select-none touch-none" style={{ aspectRatio: `${sw}/${sh}`, maxHeight: '58vh', maxWidth: '100%', margin: '0 auto' }}
@@ -72,8 +72,8 @@ export const CropBoxControl: React.FC<Props> = ({ label, videoSrc, sourceTime, s
             <div className="flex items-center justify-between mt-3 text-[11px]">
               <span className="text-neutral-400">Zoom {(cropFromBox(sw, sh, canvasAspect, box).scale).toFixed(2)}x</span>
               <div className="flex gap-2">
-                <button className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15" onPointerUp={e => {if(e.pointerType==='touch'){e.preventDefault();setBox(boxFromCrop(sw, sh, canvasAspect, {focusX:.5,focusY:.5,scale:1}));}}} onClick={() => setBox(boxFromCrop(sw, sh, canvasAspect, { focusX: 0.5, focusY: 0.5, scale: 1 }))}>Reset</button>
-                <button className="px-3 py-1.5 rounded-lg bg-white text-black font-medium" onPointerUp={e => { if(e.pointerType==='touch'){e.preventDefault();e.stopPropagation();onApply(cropFromBox(sw, sh, canvasAspect, box));setOpen(false);} }} onClick={() => { onApply(cropFromBox(sw, sh, canvasAspect, box)); setOpen(false); }}>Apply</button>
+                <button type="button" className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15" onClick={() => setBox(boxFromCrop(sw, sh, canvasAspect, { focusX: 0.5, focusY: 0.5, scale: 1 }))}>Reset</button>
+                <button type="button" className="px-3 py-1.5 rounded-lg bg-white text-black font-medium" onClick={(e) => { e.stopPropagation(); onApply(cropFromBox(sw, sh, canvasAspect, box)); setOpen(false); }}>Apply</button>
               </div>
             </div>
           </div>

@@ -20,6 +20,20 @@ class RefinementTests(unittest.TestCase):
                 self.assertEqual(result['coarse_time'],coarse)
                 self.assertTrue(result['refined'])
                 self.assertAlmostEqual(result['uncertainty_seconds'],1/24,places=5)
+    def test_dense_discovers_rapid_cut_and_rebases_trim(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=os.path.join(d,'dense.avi')
+            writer=cv2.VideoWriter(path,cv2.VideoWriter_fourcc(*'MJPG'),24,(160,90))
+            for i in range(72):
+                frame=np.zeros((90,160,3),dtype=np.uint8)
+                frame[:]=255 if i>=30 else 0
+                writer.write(frame)
+            writer.release()
+            result=m.discover_dense_scene_cuts(path,.5,2,24)
+            self.assertTrue(any(abs(e['time']-.75)<1/24 for e in result),result)
+            self.assertTrue(all(e['method']=='dense-luma-discontinuity' for e in result))
+    def test_dense_is_bounded(self):
+        self.assertEqual(m.discover_dense_scene_cuts('/not/a/file',0,181,24),[])
     def test_empty_does_not_invent_cuts(self):
         self.assertEqual(m.refine_scene_cuts('/not/a/file',[],0,.25,24),[])
     def test_unreadable_preserves_coarse_evidence(self):

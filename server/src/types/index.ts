@@ -2110,6 +2110,7 @@ export interface EditorAudioConfig {
 }
 
 export interface EditorTrackItem {
+  automatic_framing?: {enabled:boolean;freeze_source_time?:number};
   id: string;
   track_id: string;
   type: EditorTrackType;

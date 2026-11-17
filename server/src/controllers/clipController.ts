@@ -1362,7 +1362,7 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       sourceWidth: track.source_width || null,
       sourceHeight: track.source_height || null,
       shotComposition: track.metadata?.shot_composition_candidate === true
-        ? SmartReframeService.computeShotComposition({rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
+        ? SmartReframeService.computeShotComposition({allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
           duration:Number(track.metadata.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}) : null,
       groupFrame: (() => {
         const g = SmartReframeService.computeGroupFrameGeometry({

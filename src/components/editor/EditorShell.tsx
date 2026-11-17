@@ -1,4 +1,4 @@
-import { applyItemLayout, readItemLayout } from '../../lib/itemLayout';
+import { applyItemLayout, readItemLayout, applyFramingStrategy } from '../../lib/itemLayout';
 import { applyPlanSceneToProject, FRAMING_WINDOW_PREVIEW_PARITY, type PlanShot } from '../../../server/src/shared/framingWindow';
 import { SceneLayoutGrid } from './SceneLayoutMenu';
 import { captionLegacyColorDefaults } from '../../lib/captionPresets';
@@ -48,7 +48,6 @@ import { ABStudioWorkspace } from '../abStudio/ABStudioWorkspace';
 import { ArrowLeft, Sparkles, Type as TypeIcon, Film, X, PanelRightOpen } from 'lucide-react';
 import { insertIntroOutro, createTitleCardItem } from '../../utils/introOutro';
 import { initCoveredEnd, healCaptionTracks } from '../../lib/captionExtendMerge';
-import { resolveFitMode, fitBandFields } from '../../lib/itemLayout';
 import { clipRenderService } from '../../services/clipRenderService';
 import { applyOutputTemplateToProject, getOutputTemplate, OutputTemplateId } from '../../../server/src/shared/outputTemplates';
 
@@ -205,7 +204,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       speaker1: { x: number; y: number; windowW: number };
       speaker2: { x: number; y: number; windowW: number };
     } | null;
-    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
+    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';split?:{speaker1X:number;speaker2X:number;dividerX:number};windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
     contentFramingDecision?: import('../../../server/src/shared/contentFramingDecision').ContentFramingDecision | null;
     analyzedTrimStart?: number;
     groupFrame?: {
@@ -1698,37 +1697,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               showSafeGuides={showSafeGuides}
               onToggleSafeGuides={toggleSafeGuides}
               onUpdateCropMode={(mode) => {
-                // Same routing as the preview toolbar Layout toggle: fill/fit/blur
-                // write item.crop (the channel the export compiler honors); 'smart'
-                // stays legacy-only. crop_mode is mirrored for back-compat.
-                onUpdateProject((prev) => ({
-                  ...prev,
-                  tracks: prev.tracks.map((t) => {
-                    if (t.type === 'VIDEO') {
-                      return {
-                        ...t,
-                        items: t.items.map((i) => ({
-                          ...i,
-                          crop_mode: mode === 'blur' ? 'fit' : mode,
-                          panels: undefined,
-                          framing_window: undefined,
-                          ...(mode === 'smart'
-                            ? {}
-                            : {
-                                crop: {
-                                  mode: (mode === 'center' ? 'fill' : mode === 'fit' ? resolveFitMode(prev.canvas) : mode) as 'fit' | 'fill' | 'blur',
-                                  focusX: i.crop?.focusX ?? 0.5,
-                                  focusY: i.crop?.focusY ?? 0.5,
-                                  scale: i.crop?.scale ?? 1,
-                                  ...((mode === 'fit' || mode === 'blur') ? fitBandFields(prev.canvas) : {}),
-                                },
-                              }),
-                        })),
-                      };
-                    }
-                    return t;
-                  }),
-                }));
+                onUpdateProject(prev => applyFramingStrategy(prev, mode));
               }}
               onUpdateLayoutMode={(layout) => {
                 onUpdateProject((prev) => ({
@@ -1830,6 +1799,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             groupReframe={speakerSplit?.groupFrame ?? null}
             contentFramingDecision={speakerSplit?.contentFramingDecision ?? null}
             shotComposition={speakerSplit?.shotComposition ?? null}
+            onSetAutomaticFraming={(itemId,enabled,sourceTime)=>onUpdateProject(prev=>({...prev,tracks:prev.tracks.map(t=>t.type!=='VIDEO'?t:{...t,items:t.items.map(i=>itemId&&i.id!==itemId?i:{...i,automatic_framing:{enabled,...(!enabled?{freeze_source_time:sourceTime}:{})}})})}))}
             compositionClipStart={(Number(clip?.start_seconds) || 0) + (speakerSplit?.analyzedTrimStart || 0)}
             lowConfidenceTrack={Boolean(speakerSplit?.lowConfidenceTrack)}
             watermarkRequired={watermarkRequired}
@@ -1860,6 +1830,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               }
             }}
             onBeginCrop={() => {
+              if (isPlaying) togglePlay();
               if (typeof window !== 'undefined' && window.innerWidth < 768) {
                 clearSelection(); setActiveSidebarTab('captions'); setInspectorCollapsed(true); setTranscriptCollapsed(true);
               }
@@ -1911,35 +1882,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               onUpdateProject((prev) => applyItemLayout(prev, itemId, layout, smartReframe?.keyframes ?? null));
             }}
             onUpdateCropMode={(mode) => {
-              // Route through item.crop: the export compiler (buildSliceCropFilter)
-              // honors item.crop.mode and never reads legacy crop_mode, so writing
-              // crop_mode alone left this toggle with no effect on the render.
-              // crop_mode is still mirrored for legacy preview fallbacks.
-              onUpdateProject((prev) => ({
-                ...prev,
-                tracks: prev.tracks.map((t) =>
-                  t.type === 'VIDEO'
-                    ? {
-                        ...t,
-                        items: t.items.map((i) => ({
-                          ...i,
-                          crop_mode: mode === 'blur' ? 'fit' : mode,
-                          panels: undefined,
-                          framing_window: undefined,
-                          crop: {
-                            // 'smart' stays on the legacy crop_mode channel; the
-                            // per-item compiler modes are fill/fit/blur/custom.
-                            mode: (mode === 'center' || mode === 'smart' ? 'fill' : mode === 'fit' ? resolveFitMode(prev.canvas) : mode) as 'fit' | 'fill' | 'blur',
-                            focusX: i.crop?.focusX ?? 0.5,
-                            focusY: i.crop?.focusY ?? 0.5,
-                            scale: i.crop?.scale ?? 1,
-                            ...((mode === 'fit' || mode === 'blur') ? fitBandFields(prev.canvas) : {}),
-                          },
-                        })),
-                      }
-                    : t
-                ),
-              }));
+              onUpdateProject(prev => applyFramingStrategy(prev, mode));
             }}
             videoRef={videoRef}
             cues={cues}

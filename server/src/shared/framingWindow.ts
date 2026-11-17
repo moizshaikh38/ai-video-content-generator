@@ -143,7 +143,7 @@ export function framingWindowRect(fw: FramingWindow, sliceStartSource: number, t
 
 // ---------------------------------------------------------------- apply (pure, atomic)
 
-export interface PlanShot { start: number; end: number; kind: 'group' | 'solo' | 'fit'; windowW: number; windowH: number; keyframes: FramingWindowKeyframe[]; contextStatus?: string; uncertainty?: string }
+export interface PlanShot { split?: {speaker1X:number;speaker2X:number;dividerX:number}; start: number; end: number; kind: 'group' | 'solo' | 'fit'; windowW: number; windowH: number; keyframes: FramingWindowKeyframe[]; contextStatus?: string; uncertainty?: string }
 export interface ApplyContext {
   clipStartSec: number;
   analyzedTrimStart: number;
@@ -170,6 +170,7 @@ export function applyPlanSceneToProject(project: any, shot: PlanShot, ctx: Apply
   if (!project || !Array.isArray(project.tracks)) return no('No project.');
   if (project.canvas?.aspect_ratio && project.canvas.aspect_ratio !== '9:16') return no('Only 9:16 projects are supported.');
   if (!shot || !fin(shot.start) || !fin(shot.end) || !(shot.end > shot.start)) return no('Scene bounds are not usable.');
+  if (shot.split) return no('This is a two-panel automatic Split, not a single framing window. Use the Split layout controls to edit it.');
   if (shot.contextStatus === 'unresolved-review-required' || shot.contextStatus === 'unresolved-preserved') return no('This scene is unresolved in the analysis, so it cannot be applied.');
   if (!['group', 'solo', 'fit'].includes(shot.kind)) return no('Unknown scene kind.');
   if (!fin(ctx.clipStartSec) || !fin(ctx.analyzedTrimStart) || !fin(ctx.currentTrimStart)) return no('Clip clock is unknown.');
