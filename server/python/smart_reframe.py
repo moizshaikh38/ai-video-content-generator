@@ -208,7 +208,7 @@ def compute_mouth_score(gray, prev_gray, face_box, prev_box):
     return round(float(np.clip(score, 0.0, 1.0)), 3), round(temporal_norm, 3), round(static_norm, 3)
 
 
-def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0.0, duration_sec: float = 0.0, max_samples: int = 600):
+def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0.0, duration_sec: float = 0.0, max_samples: int = 600, precomputed_cuts: list = None):
     """
     Sample frames from video and detect faces within [start_sec, start_sec + duration_sec].
     Returns normalized face bounding boxes, mouth_scores, and lightweight scene cuts.
@@ -239,6 +239,27 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
     else:
         effective_duration = total_video_duration - start_sec
     end_frame = min(frame_count, start_frame + int(round(effective_duration * source_fps)))
+
+    # Validate optional precomputed cuts (P0.1) with robust sanitization
+    valid_precomputed = []
+    has_valid_precomputed = False
+    if precomputed_cuts is not None:
+        try:
+            if isinstance(precomputed_cuts, (list, tuple)):
+                import math
+                for item in precomputed_cuts:
+                    try:
+                        val = float(item)
+                        if math.isfinite(val) and 0.25 < val < (effective_duration - 0.25):
+                            valid_precomputed.append(round(val, 3))
+                    except (TypeError, ValueError):
+                        continue
+                valid_precomputed = sorted(set(valid_precomputed))
+                if len(valid_precomputed) > 0:
+                    has_valid_precomputed = True
+        except Exception as cut_err:
+            print(f"WARN: precomputedCuts processing error ({cut_err}), falling back to local histogram discovery", file=sys.stderr)
+            has_valid_precomputed = False
 
     # Calculate frame sampling interval
     effective_sample_fps = min(sample_fps, source_fps)
@@ -283,7 +304,7 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
     samples = []
     protected_content_regions = []
     last_text_sample = -1.0
-    scene_cuts = []
+    scene_cuts = list(valid_precomputed) if has_valid_precomputed else []
     frame_index = start_frame
     # max_samples enforced via parameter and uniform interval decimation
 
@@ -309,39 +330,40 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
             last_text_sample=time_sec
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        # 1. Fast scene cut detection via normalized histogram correlation
-        hist = cv2.calcHist([gray], [0], None, [32], [0, 256])
-        cv2.normalize(hist, hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
-        hsv_hist = None
-        if hsv_cuts_enabled:
-            # EXPERIMENTAL (SMART_REFRAME_HSV_CUTS=1): luma-only histograms miss
-            # cuts between same-lighting scenes (measured gray correl min 0.739
-            # on a person-to-person cut). Hue+saturation separates them.
-            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-            hsv_hist = cv2.calcHist([hsv], [0, 1], None, [24, 24], [0, 180, 0, 256])
-            cv2.normalize(hsv_hist, hsv_hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
-        if prev_hist is not None:
-            correl = float(cv2.compareHist(prev_hist, hist, cv2.HISTCMP_CORREL))
-            is_cut = correl < 0.50
-            if hsv_cuts_enabled and prev_hsv_hist is not None:
-                hsv_correl = float(cv2.compareHist(prev_hsv_hist, hsv_hist, cv2.HISTCMP_CORREL))
-                # Tightened from 0.50: real person-to-person cuts register at
-                # 0.01-0.11 while fast in-shot motion dips to ~0.38 (Sintel t=2.5
-                # false positive at 0.50). 0.25 separates the measured cases;
-                # env-overridable for wider fixture tuning.
-                hsv_cut_threshold = float(os.environ.get('SMART_REFRAME_HSV_CUT_THRESHOLD', '0.25'))
-                is_cut = is_cut or hsv_correl < hsv_cut_threshold
-            if is_cut and time_sec > 0.4:
-                # Dedup window: 1.0s on the classic gray path (unchanged default);
-                # with HSV enabled, 0.5s - at 4fps sampling a single cut registers
-                # on exactly one sample pair, so 0.5s (two samples) is the minimum
-                # window that prevents double-counting one cut while still
-                # allowing genuinely rapid successive cuts (e.g. 0.75s apart).
-                dedup = 0.5 if hsv_cuts_enabled else 1.0
-                if not scene_cuts or (time_sec - scene_cuts[-1]) >= dedup:
-                    scene_cuts.append(time_sec)
-        prev_hist = hist
-        prev_hsv_hist = hsv_hist
+        # 1. Fast scene cut detection via normalized histogram correlation (bypassed if valid precomputed cuts supplied)
+        if not has_valid_precomputed:
+            hist = cv2.calcHist([gray], [0], None, [32], [0, 256])
+            cv2.normalize(hist, hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+            hsv_hist = None
+            if hsv_cuts_enabled:
+                # EXPERIMENTAL (SMART_REFRAME_HSV_CUTS=1): luma-only histograms miss
+                # cuts between same-lighting scenes (measured gray correl min 0.739
+                # on a person-to-person cut). Hue+saturation separates them.
+                hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+                hsv_hist = cv2.calcHist([hsv], [0, 1], None, [24, 24], [0, 180, 0, 256])
+                cv2.normalize(hsv_hist, hsv_hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+            if prev_hist is not None:
+                correl = float(cv2.compareHist(prev_hist, hist, cv2.HISTCMP_CORREL))
+                is_cut = correl < 0.50
+                if hsv_cuts_enabled and prev_hsv_hist is not None:
+                    hsv_correl = float(cv2.compareHist(prev_hsv_hist, hsv_hist, cv2.HISTCMP_CORREL))
+                    # Tightened from 0.50: real person-to-person cuts register at
+                    # 0.01-0.11 while fast in-shot motion dips to ~0.38 (Sintel t=2.5
+                    # false positive at 0.50). 0.25 separates the measured cases;
+                    # env-overridable for wider fixture tuning.
+                    hsv_cut_threshold = float(os.environ.get('SMART_REFRAME_HSV_CUT_THRESHOLD', '0.25'))
+                    is_cut = is_cut or hsv_correl < hsv_cut_threshold
+                if is_cut and time_sec > 0.4:
+                    # Dedup window: 1.0s on the classic gray path (unchanged default);
+                    # with HSV enabled, 0.5s - at 4fps sampling a single cut registers
+                    # on exactly one sample pair, so 0.5s (two samples) is the minimum
+                    # window that prevents double-counting one cut while still
+                    # allowing genuinely rapid successive cuts (e.g. 0.75s apart).
+                    dedup = 0.5 if hsv_cuts_enabled else 1.0
+                    if not scene_cuts or (time_sec - scene_cuts[-1]) >= dedup:
+                        scene_cuts.append(time_sec)
+            prev_hist = hist
+            prev_hsv_hist = hsv_hist
 
         # 2. Face detection: YuNet DNN when enabled, else Haar cascades
         raw_candidates = []
@@ -510,6 +532,8 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
         if not cut_evidence:
             cut_evidence = [{"time": t, "coarse_time": t, "refined": False} for t in scene_cuts]
         scene_cuts = sorted(set(e["time"] for e in cut_evidence if e["time"] > 0))
+    elif not cut_evidence and has_valid_precomputed:
+        cut_evidence = [{"time": t, "coarse_time": t, "refined": False, "source": "global_precomputed"} for t in scene_cuts]
 
     return {
         **({"person_detector": "nanodet-2022nov-sha256-" + __import__("person_regions").MODEL_SHA256} if person_detector else {}),
@@ -537,6 +561,7 @@ def main():
         start_sec = float(params.get("startSec", 0.0))
         duration_sec = float(params.get("durationSec", 0.0))
         max_samples = int(params.get("maxSamples", 600))
+        precomputed_cuts = params.get("precomputedCuts", None)
 
         # Validate input — only accept an existing file path
         if not video_path or not isinstance(video_path, str):
@@ -549,7 +574,7 @@ def main():
         start_sec = max(0.0, start_sec)
         duration_sec = max(0.0, duration_sec)
 
-        result = analyze_video(video_path, sample_fps, start_sec, duration_sec, max_samples)
+        result = analyze_video(video_path, sample_fps, start_sec, duration_sec, max_samples, precomputed_cuts=precomputed_cuts)
 
         # Output structured JSON
         print(json.dumps({"status": "ok", **result}))

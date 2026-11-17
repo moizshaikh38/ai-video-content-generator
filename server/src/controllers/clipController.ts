@@ -2,7 +2,7 @@ import {storedScenePlanWindow} from '../shared/storedScenePlanWindow.js';
 import {legacyFit43Plan,legacyPolicyFallback} from '../shared/automaticLayoutPolicy.js';
 import {expandSceneLayoutProject} from '../shared/sceneLayoutOverrides.js';
 import { assertPanelViewsAssigned } from '../shared/panelLayouts.js';
-import { parseRenderResolutionStrict } from '../shared/renderResolution.js';
+import { parseRenderResolutionStrict, canvasDims } from '../shared/renderResolution.js';
 import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { Response } from 'express';
@@ -1356,6 +1356,12 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
         sourceHeight: track.source_height || 1080,
         speaker1X: (track.metadata as any)?.speaker1X ?? undefined,
         speaker2X: (track.metadata as any)?.speaker2X ?? undefined,
+        speaker1Y: (track.metadata as any)?.speaker1Y ?? undefined,
+        speaker2Y: (track.metadata as any)?.speaker2Y ?? undefined,
+        speaker1TrackId: (track.metadata as any)?.speaker1TrackId ?? undefined,
+        speaker2TrackId: (track.metadata as any)?.speaker2TrackId ?? undefined,
+        canvasWidth: 1080,
+        canvasHeight: 1920,
       }),
       // Group framing for multi-person single-view (same helper the export
       // path uses): the preview mirrors the exported blur-fill fit. Null =
@@ -1367,9 +1373,30 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       lowConfidenceTrack: SmartReframeService.isLowConfidenceTrack(track),
       sourceWidth: track.source_width || null,
       sourceHeight: track.source_height || null,
-      shotComposition: legacyFit43Plan(track,Number(track.metadata?.clip_duration)||1,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)) || legacyPolicyFallback(policyClip?.crop_config?.layoutPolicy,track,Number(track.metadata?.clip_duration)||track.smoothed_keyframes?.at(-1)?.time||1) || (track.metadata?.shot_composition_candidate === true
-        ? SmartReframeService.computeShotComposition({layoutPolicy:policyClip?.crop_config?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
-          duration:Number(track.metadata.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}) : null),
+      shotComposition: legacyFit43Plan(track,Number(track.metadata?.clip_duration)||1,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)) || legacyPolicyFallback(policyClip?.crop_config?.layoutPolicy,track,Number(track.metadata?.clip_duration)||track.smoothed_keyframes?.at(-1)?.time||1) || ((track.metadata?.shot_composition_candidate === true || policyClip?.crop_config?.layout_mode === 'split' || track.layout_mode === 'split')
+        ? SmartReframeService.computeShotComposition({
+            layoutPolicy: policyClip?.crop_config?.layoutPolicy,
+            allowConversationSplit: track.metadata?.conversation_split_candidate === true,
+            targetLayout: (policyClip?.crop_config?.layout_mode === 'split' || track.layout_mode === 'split') ? 'split' : undefined,
+            speaker1TrackId: (policyClip?.crop_config?.split as any)?.speaker1TrackId ?? (track.metadata as any)?.speaker1TrackId,
+            speaker2TrackId: (policyClip?.crop_config?.split as any)?.speaker2TrackId ?? (track.metadata as any)?.speaker2TrackId,
+            speaker1X: policyClip?.crop_config?.split?.speaker1X ?? (track.metadata as any)?.speaker1X,
+            speaker2X: policyClip?.crop_config?.split?.speaker2X ?? (track.metadata as any)?.speaker2X,
+            speaker1Y: (policyClip?.crop_config?.split as any)?.speaker1Y ?? (track.metadata as any)?.speaker1Y,
+            speaker2Y: (policyClip?.crop_config?.split as any)?.speaker2Y ?? (track.metadata as any)?.speaker2Y,
+            splitFit: (policyClip?.crop_config?.split as any)?.fit,
+            splitDividerX: (policyClip?.crop_config?.split as any)?.dividerX,
+            protectedContentRegions: track.metadata?.protected_content_regions,
+            automaticFitAspect: track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,
+            windowScope: track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',
+            rawSamples: track.raw_samples,
+            sceneCuts: track.metadata.scene_cuts,
+            duration: Number(track.metadata.clip_duration),
+            sourceWidth: track.source_width || 1920,
+            sourceHeight: track.source_height || 1080,
+            canvasWidth: canvasDims(policyClip?.aspect_ratio || '9:16').width,
+            canvasHeight: canvasDims(policyClip?.aspect_ratio || '9:16').height,
+          }) : null),
       groupFrame: (() => {
         const g = SmartReframeService.computeGroupFrameGeometry({
           rawSamples: track.raw_samples,

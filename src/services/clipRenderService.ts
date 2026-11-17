@@ -264,14 +264,11 @@ class ClipRenderService {
     /** Server-computed per-speaker split framing (same helper the export
      * uses) so the preview mirrors the exported zoom/anchors. Null = legacy
      * anchor-only split framing. */
-    splitGeometry?: {
-      speaker1: { x: number; y: number; windowW: number };
-      speaker2: { x: number; y: number; windowW: number };
-    } | null;
+    splitGeometry?: import('../../server/src/shared/splitLayoutGeometry').SplitLayoutGeometry | null;
     /** Server-computed group framing for multi-person single-view (same
      * helper the export uses) so the preview mirrors the blur-fill fit.
      * Null = tight tracking stays. */
-    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
+    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';split?:{speaker1X:number;speaker2X:number;dividerX:number};splitGeometry?:import('../../server/src/shared/splitLayoutGeometry').SplitLayoutGeometry|null;windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
     groupFrame?: {
       keyframes: Array<{ time: number; centerX: number; centerY: number }>;
       windowW: number;

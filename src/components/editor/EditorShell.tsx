@@ -200,11 +200,8 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     keyframes: Array<{ time: number; centerX: number }>;
     speaker1X: number | null;
     speaker2X: number | null;
-    splitGeometry?: {
-      speaker1: { x: number; y: number; windowW: number };
-      speaker2: { x: number; y: number; windowW: number };
-    } | null;
-    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';split?:{speaker1X:number;speaker2X:number;dividerX:number};windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
+    splitGeometry?: import('../../../server/src/shared/splitLayoutGeometry').SplitLayoutGeometry | null;
+    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';split?:{speaker1X:number;speaker2X:number;dividerX:number};splitGeometry?:import('../../../server/src/shared/splitLayoutGeometry').SplitLayoutGeometry|null;windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
     contentFramingDecision?: import('../../../server/src/shared/contentFramingDecision').ContentFramingDecision | null;
     analyzedTrimStart?: number;
     groupFrame?: {

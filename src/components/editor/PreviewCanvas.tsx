@@ -2,6 +2,11 @@ import {presentFit43} from '../../../server/src/shared/automaticLayoutPolicy';
 import {resolveSceneLayoutItem} from '../../../server/src/shared/sceneLayoutOverrides';
 import {freezeAutomaticPlan,freezeAutomaticKeyframes} from '../../../server/src/shared/automaticFraming';
 import { framingWindowRect, validateFramingWindow } from '../../../server/src/shared/framingWindow';
+import {
+  type SplitLayoutGeometry,
+  type SplitPanelGeometry,
+  renderSplitPanelCss,
+} from '../../../server/src/shared/splitLayoutGeometry';
 import { SceneLayoutMenu } from './SceneLayoutMenu';
 import { readItemLayout, type SceneLayout } from '../../lib/itemLayout';
 import { applySceneCaptionPlacement } from '../../../server/src/shared/sceneCaptionPlacement';
@@ -103,10 +108,7 @@ interface PreviewCanvasProps {
     speaker2X?: number | null;
     /** Server-computed split framing geometry (mirrors the export's zoom and
      * per-speaker x/y anchors). Null = legacy anchor-only split preview. */
-    splitGeometry?: {
-      speaker1: { x: number; y: number; windowW: number };
-      speaker2: { x: number; y: number; windowW: number };
-    } | null;
+    splitGeometry?: SplitLayoutGeometry | null;
   } | null;
   /** Free-plan exports burn a VireoClip badge; preview mirrors it (animated
    * like the export) while showing the clean source. Rendered previews
@@ -115,7 +117,7 @@ interface PreviewCanvasProps {
   /** Server-computed group framing for multi-person single-view (same helper
    * the export's buildGroupFitFilter uses): blur backdrop + the group window
    * fitted to canvas width at 42% height. Null = tight tracking preview. */
-    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';split?:{speaker1X:number;speaker2X:number;dividerX:number};contextStatus?:string;uncertainty?:string;windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
+    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';split?:{speaker1X:number;speaker2X:number;dividerX:number};splitGeometry?:SplitLayoutGeometry|null;contextStatus?:string;uncertainty?:string;windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
   compositionClipStart?: number;
   onSetAutomaticFraming?: (itemId:string|null,enabled:boolean,sourceTime:number)=>void;
   groupReframe?: {
@@ -476,19 +478,24 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const shotRelativeTime = Math.max(0,shotSourceTime-compositionClipStart);
   const activePlanShot = !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && !baseVideoItem?.framing_window && !activePanels && (baseVideoItem as any)?.crop_config?.layout_mode_source !== 'user'
     ? effectiveShotComposition.find(s=>shotRelativeTime>=s.start&&shotRelativeTime<s.end) : undefined;
+  const activeSplitGeometry = (activePlanShot as any)?.splitGeometry ?? speakerSplit?.splitGeometry;
   // Framing layout pick (Framing panel): 'split' renders a two-speaker
   // top/bottom stack mirroring the export's buildSplitPodcastFilter.
   const primaryLayoutMode = useMemo(() => {
-    return activePlanShot?.split && !(viewMode === 'export_review' && renderedPreviewUrl) ? 'split' : effectiveContentLayout(baseVideoItem,contentFramingDecision);
-  }, [baseVideoItem,contentFramingDecision,activePlanShot,viewMode,renderedPreviewUrl]);
+    const rawMode = activePlanShot?.split && !(viewMode === 'export_review' && renderedPreviewUrl) ? 'split' : effectiveContentLayout(baseVideoItem,contentFramingDecision);
+    if (rawMode === 'split' && activeSplitGeometry?.unresolved) {
+      return 'blur';
+    }
+    return rawMode;
+  }, [baseVideoItem,contentFramingDecision,activePlanShot,viewMode,renderedPreviewUrl,activeSplitGeometry?.unresolved]);
 
   const splitAnchors = useMemo(() => {
     const splitCfg = activePlanShot?.split || (baseVideoItem as any)?.crop_config?.split;
     return {
-      speaker1X: Number(splitCfg?.speaker1X) || 0.25,
-      speaker2X: Number(splitCfg?.speaker2X) || 0.75,
+      speaker1X: Number(activeSplitGeometry?.speaker1?.x ?? splitCfg?.speaker1X) || 0.25,
+      speaker2X: Number(activeSplitGeometry?.speaker2?.x ?? splitCfg?.speaker2X) || 0.75,
     };
-  }, [baseVideoItem,activePlanShot]);
+  }, [baseVideoItem,activePlanShot,activeSplitGeometry]);
 
   // CSS object-position x matching the export's speaker-centered crop window:
   // export crops x = in_w*spkX - out_w/2 (clamped); CSS p% places the window at
@@ -512,18 +519,18 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // the anchor at panel center, so scaling about 50% 50% tracks the export's
   // clamped crop window around the same point.
   const splitGeometryView = (
-    geometry: { x: number; y: number; windowW: number } | undefined,
+    geometry: SplitPanelGeometry | undefined,
     panel = 0,
   ): { left: string; top: string; width: string; height: string; panelH: number; clipPath?: string } | null => {
     if (!videoDims || videoDims.w <= 0 || videoDims.h <= 0) return null;
     const item = baseVideoItem;
-    const cfg = activePlanShot?.split ? {...activePlanShot.split,fit:'contain'} : (item as any)?.crop_config?.split;
-    if (cfg?.fit === 'contain') {
+    const effectiveFit = activeSplitGeometry?.fit ?? (activePlanShot?.split ? 'contain' : (item as any)?.crop_config?.split?.fit ?? 'cover');
+    if (effectiveFit === 'contain') {
       const dims = getAspectRatioDimensions();
       const boxW = parseFloat(dims.width) || 360;
       const boxH = (parseFloat(dims.height) || 640) / 2;
-      const divider = Math.min(0.95, Math.max(0.05, Number(cfg.dividerX) || (splitAnchors.speaker1X + splitAnchors.speaker2X) / 2));
-      const anchor = panel === 0 ? splitAnchors.speaker1X : splitAnchors.speaker2X;
+      const divider = Math.min(0.95, Math.max(0.05, Number(activeSplitGeometry?.dividerX ?? (item as any)?.crop_config?.split?.dividerX ?? activePlanShot?.split?.dividerX) || (splitAnchors.speaker1X + splitAnchors.speaker2X) / 2));
+      const anchor = panel === 0 ? (activeSplitGeometry?.speaker1.x ?? splitAnchors.speaker1X) : (activeSplitGeometry?.speaker2.x ?? splitAnchors.speaker2X);
       const start = anchor < divider ? 0 : divider;
       const end = anchor < divider ? divider : 1;
       const z = Math.min(boxW / ((end - start) * videoDims.w), boxH / videoDims.h);
@@ -536,25 +543,24 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     const dims = getAspectRatioDimensions();
     const boxW = parseFloat(dims.width) || 360;
     const boxH = (parseFloat(dims.height) || 640) / 2;
-    const clampW = Math.min(0.95, Math.max(0.05, geometry.windowW));
-    // Exact mirror of buildSplitPodcastFilter: scale so the window fills the
-    // panel (height bound by the panel), then crop a panel-sized window whose
-    // center is the speaker anchor, edge-clamped like ffmpeg's crop x/y.
-    const z = Math.max(boxH, (videoDims.h * boxW) / (clampW * videoDims.w)) / videoDims.h;
-    const elW = videoDims.w * z;
-    const elH = videoDims.h * z;
-    const winL = Math.min(Math.max(geometry.x * elW - boxW / 2, 0), Math.max(0, elW - boxW));
-    const winT = Math.min(Math.max(geometry.y * elH - boxH / 2, 0), Math.max(0, elH - boxH));
-    return {
-      left: `${(-winL).toFixed(1)}px`,
-      top: `${(-winT).toFixed(1)}px`,
-      width: `${elW.toFixed(1)}px`,
-      height: `${elH.toFixed(1)}px`,
-      panelH: boxH,
-    };
+    const exportW = project.canvas.aspect_ratio === '16:9' ? 1920 : 1080;
+    const exportH = project.canvas.aspect_ratio === '16:9' ? 1080 : project.canvas.aspect_ratio === '1:1' ? 1080 : project.canvas.aspect_ratio === '4:5' ? 1350 : 1920;
+    return renderSplitPanelCss({
+      geometry,
+      sourceWidth: videoDims.w,
+      sourceHeight: videoDims.h,
+      boxW,
+      boxH,
+      canvasWidth: exportW,
+      canvasHeight: exportH,
+    });
   };
-  const splitView1 = splitGeometryView(speakerSplit?.splitGeometry?.speaker1);
-  const splitView2 = splitGeometryView(speakerSplit?.splitGeometry?.speaker2, 1);
+  const splitView1 = activeSplitGeometry?.unresolved
+    ? null
+    : splitGeometryView(activeSplitGeometry?.speaker1);
+  const splitView2 = activeSplitGeometry?.unresolved
+    ? null
+    : splitGeometryView(activeSplitGeometry?.speaker2, 1);
 
   // Source dimensions come from the active media element. Layout windows are
   // the edited VIDEO timeline, shared with export, never the original source clock.
@@ -1256,8 +1262,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           >{mobileFramingToolsOpen ? 'Done' : 'Framing tools'}</button>
         </div>
         <div data-testid="preview-framing-tools" className={`${mobileFramingToolsOpen ? 'flex' : 'hidden'} md:flex relative flex-wrap items-center justify-center gap-x-2 gap-y-1 max-w-full glass-float px-3 py-1 rounded-2xl text-xs whitespace-nowrap`}>
-          {shotComposition?.some(s=>s.contextStatus?.startsWith('unresolved')) && (
-            <span data-testid="automatic-context-review" className="text-amber-300" title={activeAutomaticShot?.uncertainty || "Automatic 4:3 Fit crops side pixels. Some scenes need a side-content review before sharing."}>Review side context</span>
+          {(shotComposition?.some(s=>s.contextStatus?.startsWith('unresolved')) || activeSplitGeometry?.unresolved) && (
+            <span data-testid="automatic-context-review" className="text-amber-300" title={activeSplitGeometry?.unresolved ? `Split layout unresolved (${activeSplitGeometry.unresolvedReason || 'review required'}). Using safe blur fallback.` : activeAutomaticShot?.uncertainty || "Automatic 4:3 Fit crops side pixels. Some scenes need a side-content review before sharing."}>Review framing</span>
           )}
           {/* 1. Aspect Ratio Pill */}
           {onChangeAspectRatio && (

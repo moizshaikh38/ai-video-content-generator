@@ -23,9 +23,38 @@ export function legacyPolicyFallback(policy:AutomaticLayoutPolicy|undefined,trac
 }
 /** User-selected presentation default: Auto still chooses the layout; every
  * non-portrait Fit sharp band is 4:3. Side-loss is disclosed, never called safe. */
-export function presentFit43<T extends {start:number;windowW:number;windowH:number;keyframes:any[];split?:any;contextStatus?:string;uncertainty?:string}>(shots:T[],w:number,h:number):T[]{return shots.map(s=>{
- if(s.split||Math.abs(s.windowW*w/(s.windowH*h)-9/16)<.01)return s;
+export function presentFit43<T extends {start:number;windowW:number;windowH:number;keyframes:any[];split?:any;contextStatus?:string;uncertainty?:string;contentConstrained?:boolean;protectedBounds?:{left:number;right:number;top:number;bottom:number}}>(shots:T[],w:number,h:number):T[]{return shots.map(s=>{
+ if(s.split||Math.abs(s.windowW*w/(s.windowH*h)-9/16)<.01||s.uncertainty?.includes('Safe full-source Fit')||(s as any)._preserveInShotScope||(s.contextStatus==='unresolved-preserved'&&(s as any).contentConstrained))return s;
  const target=4/3,old=s.windowW*w/(s.windowH*h);if(Math.abs(old-target)<.005)return s;
+ if((s as any).contentConstrained){
+   const pb=(s as any).protectedBounds as {left:number;right:number;top:number;bottom:number}|undefined;
+   const minW=Math.max(s.windowW, pb ? pb.right - pb.left : 0);
+   const minH=Math.max(s.windowH, pb ? pb.bottom - pb.top : 0);
+   let width=s.windowW,height=s.windowH;
+   if(old>target){height=Math.min(1,width*w/(target*h));width=Math.min(width,height*target*h/w);}
+   else {width=Math.min(1,height*target*h/w);height=Math.min(height,width*w/(target*h));}
+   if(width<minW-1e-4||height<minH-1e-4){
+     return {
+       ...s,
+       kind:'fit' as const,
+       windowW:1,
+       windowH:1,
+       contextStatus:s.contextStatus==='unresolved-preserved'?'unresolved-preserved':'unresolved-review-required',
+       uncertainty:'Safe full-source Fit: preferred 4:3 would cut measured subjects or side content. Review the scene before sharing.',
+       keyframes:[{time:s.start,centerX:.5,centerY:.5}],
+     };
+   }
+   const kfs=s.keyframes.map(k=>{
+     let cx=k.centerX,cy=k.centerY;
+     if(pb){
+       cx=Math.max(pb.right-width/2,Math.min(pb.left+width/2,cx));
+       cy=Math.max(pb.bottom-height/2,Math.min(pb.top+height/2,cy));
+     }
+     return {...k,centerX:Math.max(width/2,Math.min(1-width/2,cx)),centerY:Math.max(height/2,Math.min(1-height/2,cy))};
+   });
+   return {...s,windowW:width,windowH:height,contextStatus:s.contextStatus,
+     uncertainty:s.uncertainty||'4:3 Fit preserves protected content while adapting aspect ratio.',keyframes:kfs};
+ }
  // Expand the short dimension first. Shrinking a measured tall body into
  //4:3 discards head/feet even when the source has ample horizontal context.
  let width=s.windowW,height=s.windowH;

@@ -3,6 +3,11 @@ import {persistentObjectRegions} from '../shared/objectContext.js';
 import { canvasDims } from '../shared/renderResolution.js';
 import {associatedBodyEnvelope, anchoredSingleBodyPath} from '../shared/bodyContext.js';
 import {chooseContentFraming, type ContentFramingDecision} from '../shared/contentFramingDecision.js';
+import {
+  SplitLayoutGeometry,
+  SplitPanelGeometry,
+  computeSplitPanelBounds,
+} from '../shared/splitLayoutGeometry.js';
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
 /**
@@ -24,6 +29,8 @@ import { downloadObjectToFile } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
 import { applyWordEnergyFusion } from '../utils/wordEnergyFusion.js';
 import { GenreIntelligenceService } from './genreIntelligenceService.js';
+import { VideoIntelligenceRepository, CURRENT_ENGINE_VERSION } from '../db/repositories/videoIntelligenceRepository.js';
+import { VideoIntelligenceService } from './intelligence/videoIntelligenceService.js';
 
 const execFileAsync = promisify(execFile);
 import type {
@@ -55,6 +62,9 @@ export interface SmartReframeOptions {
   timeoutMs?: number;
   sceneCuts?: number[];
   speechIntervals?: Array<{ start: number; end: number }>;
+  sourceHash?: string;
+  precomputedCuts?: number[];
+  reuseGlobalCuts?: boolean;
 }
 
 /**
@@ -474,6 +484,7 @@ export class SmartReframeService {
     aspectRatio?: ClipAspectRatio;
     sourceWidth?: number;
     sourceHeight?: number;
+    sourceFps?: number;
     sceneCuts?: number[];
     speechIntervals?: Array<{ start: number; end: number }>;
   }): ReframeKeyframe[] {
@@ -489,6 +500,7 @@ export class SmartReframeService {
       aspectRatio = '9:16',
       sourceWidth = 1920,
       sourceHeight = 1080,
+      sourceFps = 30,
     } = params;
 
     // Subject-retention window: half-size of the crop window in normalized
@@ -519,18 +531,24 @@ export class SmartReframeService {
       return [{ time: 0, centerX: 0.5, centerY: 0.5 }];
     }
 
-    // 1. Sanitize and sort scene cut boundaries within (0.25s, duration - 0.25s)
+    // 1. Sanitize, sort, and deduplicate scene cut boundaries within (0.25s, duration - 0.25s).
+    // Sorting first prevents an unsorted cut from dropping an earlier valid boundary.
+    // Timebase-aware separation preserves genuine rapid montage cuts (e.g. 6-8 frames) while collapsing duplicate spikes.
+    const fps = Number.isFinite(sourceFps) && sourceFps > 0 ? sourceFps : 30;
+    const minCutSeparation = process.env.SMART_REFRAME_CUT_DEDUP_WINDOW
+      ? Math.max(0.04, Number(process.env.SMART_REFRAME_CUT_DEDUP_WINDOW))
+      : Math.max(0.12, 3.5 / fps);
+
     const validCuts: number[] = [];
     if (Array.isArray(sceneCuts)) {
-      for (const c of sceneCuts) {
-        const cutTime = Number(c);
-        if (Number.isFinite(cutTime) && cutTime > 0.25 && cutTime < safeDuration - 0.25) {
-          if (!validCuts.some((existing) => Math.abs(existing - cutTime) < 0.4)) {
+      const sortedCandidates = [...new Set(sceneCuts.map(Number).filter(Number.isFinite))].sort((a, b) => a - b);
+      for (const cutTime of sortedCandidates) {
+        if (cutTime > 0.25 && cutTime < safeDuration - 0.25) {
+          if (!validCuts.some((existing) => Math.abs(existing - cutTime) < minCutSeparation)) {
             validCuts.push(Math.round(cutTime * 1000) / 1000);
           }
         }
       }
-      validCuts.sort((a, b) => a - b);
     }
 
     // 2. Partition clip timeline into discrete shots
@@ -1348,69 +1366,306 @@ export class SmartReframeService {
    * every panel, leaving both speakers visible in each half.
    */
   public static computeSplitSpeakerGeometry(options: {
-    rawSamples?: Array<{ faces?: Array<{ center_x?: number; center_y?: number; track_id?: string }> }> | null;
+    rawSamples?: Array<{ faces?: Array<{ center_x?: number; center_y?: number; track_id?: string; confidence?: number; width?: number; height?: number; x?: number; y?: number }> }> | null;
     sourceWidth: number;
     sourceHeight: number;
     speaker1X?: number;
     speaker2X?: number;
-  }): {
-    speaker1: { x: number; y: number; windowW: number };
-    speaker2: { x: number; y: number; windowW: number };
-  } | null {
-    const { rawSamples, sourceWidth, sourceHeight, speaker1X, speaker2X } = options;
-    if (!Array.isArray(rawSamples) || rawSamples.length === 0) return null;
-    if (!Number.isFinite(sourceWidth) || sourceWidth <= 0 || !Number.isFinite(sourceHeight) || sourceHeight <= 0) return null;
+    speaker1Y?: number;
+    speaker2Y?: number;
+    speaker1TrackId?: string;
+    speaker2TrackId?: string;
+    splitFit?: 'cover' | 'contain';
+    splitDividerX?: number;
+    canvasWidth?: number;
+    canvasHeight?: number;
+    minTrackObservations?: number;
+  }): SplitLayoutGeometry | null {
+    const {
+      rawSamples,
+      sourceWidth,
+      sourceHeight,
+      speaker1X,
+      speaker2X,
+      speaker1Y,
+      speaker2Y,
+      speaker1TrackId,
+      speaker2TrackId,
+      splitFit,
+      splitDividerX,
+      canvasWidth,
+      canvasHeight,
+      minTrackObservations,
+    } = options;
+    const clamp01 = (v: number) => Math.min(0.9, Math.max(0.1, v));
 
-    const byTrack = new Map<string, { sx: number; sy: number; n: number }>();
+    const hasTid1 = typeof speaker1TrackId === 'string' && speaker1TrackId.length > 0;
+    const hasTid2 = typeof speaker2TrackId === 'string' && speaker2TrackId.length > 0;
+
+    const makeUnresolved = (reason: string): SplitLayoutGeometry => ({
+      architecture: 'continuous',
+      fit: splitFit ?? 'cover',
+      speaker1: {
+        x: Number.isFinite(speaker1X) ? clamp01(Number(speaker1X)) : 0.25,
+        y: Number.isFinite(speaker1Y) ? clamp01(Number(speaker1Y)) : 0.5,
+        windowW: 0,
+        windowH: 0,
+        sourceBounds: { left: 0, top: 0, right: 0, bottom: 0 },
+      },
+      speaker2: {
+        x: Number.isFinite(speaker2X) ? clamp01(Number(speaker2X)) : 0.75,
+        y: Number.isFinite(speaker2Y) ? clamp01(Number(speaker2Y)) : 0.5,
+        windowW: 0,
+        windowH: 0,
+        sourceBounds: { left: 0, top: 0, right: 0, bottom: 0 },
+      },
+      ...(hasTid1 ? { speaker1TrackId } : {}),
+      ...(hasTid2 ? { speaker2TrackId } : {}),
+      ...(Number.isFinite(splitDividerX) ? { dividerX: splitDividerX } : {}),
+      unresolved: true,
+      unresolvedReason: reason,
+    });
+
+    if (!Array.isArray(rawSamples) || rawSamples.length === 0) {
+      return (hasTid1 || hasTid2) ? makeUnresolved('requested_speaker_track_not_found') : null;
+    }
+    if (!Number.isFinite(sourceWidth) || sourceWidth <= 0 || !Number.isFinite(sourceHeight) || sourceHeight <= 0) {
+      return (hasTid1 || hasTid2) ? makeUnresolved('requested_speaker_track_not_found') : null;
+    }
+
+    const byTrack = new Map<
+      string,
+      { trackId: string; sx: number; sy: number; n: number; confidences: number[]; areas: number[] }
+    >();
     for (const sample of rawSamples) {
       for (const face of sample?.faces || []) {
-        const tid = face?.track_id;
+        const tid = face?.track_id ? String(face.track_id) : undefined;
         if (!tid || !Number.isFinite(face?.center_x) || !Number.isFinite(face?.center_y)) continue;
-        const acc = byTrack.get(tid) || { sx: 0, sy: 0, n: 0 };
+
+        // Detector confidence filtering:
+        // Reject explicit low-confidence detections (< 0.50)
+        const conf = Number(face.confidence);
+        const hasConf = Number.isFinite(conf);
+        if (hasConf && conf < 0.50) continue;
+
+        const w = Number(face.width);
+        const h = Number(face.height);
+        const area = Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0 ? w * h : undefined;
+
+        const acc = byTrack.get(tid) || { trackId: tid, sx: 0, sy: 0, n: 0, confidences: [], areas: [] };
         acc.sx += Number(face.center_x);
         acc.sy += Number(face.center_y);
         acc.n += 1;
+        if (hasConf) acc.confidences.push(conf);
+        if (area !== undefined) acc.areas.push(area);
         byTrack.set(tid, acc);
       }
     }
-    // A subject needs enough detections to trust its mean position.
-    const subjects = [...byTrack.values()]
-      .filter((a) => a.n >= 3)
+    // Build the full eligible pool sorted by detection count.
+    // Track-ID resolution must happen BEFORE the top-two slice so that
+    // explicitly requested tracks outside the most-frequent two can still
+    // be found and honoured.
+    //
+    // Short-shot false-positive protection:
+    // 1. A single-frame detection must NEVER independently establish a speaker layout (minObs >= 2).
+    // 2. Minimum 2 independent observations required; defaults to 3 unless explicitly specified.
+    const minObs = Number.isFinite(minTrackObservations) && (minTrackObservations as number) > 0
+      ? Math.max(2, Math.min(3, Math.round(minTrackObservations as number)))
+      : 3;
+    const eligiblePool = [...byTrack.values()]
+      .filter((a) => {
+        // Enforce minimum 2 independent observations
+        if (a.n < minObs) return false;
+
+        // If confidence is present, average confidence across detections must be >= 0.55
+        if (a.confidences.length > 0) {
+          const meanConf = a.confidences.reduce((sum, c) => sum + c, 0) / a.confidences.length;
+          if (meanConf < 0.55) return false;
+        }
+
+        // Tiny detector artifacts (< 0.0002 normalized area) rejected unless corroborated by >= 4 observations.
+        // Legitimate small or distant faces (e.g. area >= 0.0003, or small with repeated detections) are preserved.
+        if (a.areas.length > 0) {
+          const meanArea = a.areas.reduce((sum, ar) => sum + ar, 0) / a.areas.length;
+          if (meanArea < 0.0002 && a.n < 4) return false;
+        }
+
+        return true;
+      })
       .sort((a, b) => b.n - a.n)
-      .slice(0, 2)
-      .map((a) => ({ cx: a.sx / a.n, cy: a.sy / a.n }));
-    if (subjects.length < 2) return null;
+      .map((a) => ({ trackId: a.trackId, cx: a.sx / a.n, cy: a.sy / a.n }));
 
-    const clamp01 = (v: number) => Math.min(0.9, Math.max(0.1, v));
-    const anchor1 = Number.isFinite(speaker1X) ? clamp01(Number(speaker1X)) : 0.25;
-    const first =
-      Math.abs(subjects[0].cx - anchor1) <= Math.abs(subjects[1].cx - anchor1) ? subjects[0] : subjects[1];
-    const second = first === subjects[0] ? subjects[1] : subjects[0];
+    if (eligiblePool.length < 2) {
+      return (hasTid1 || hasTid2) ? makeUnresolved('requested_speaker_track_not_found') : null;
+    }
 
-    // Window ~1.7x the subject separation: wide enough that each speaker sits
-    // in frame with visible breathing room (user feedback: separation-width
-    // windows looked over-zoomed), still narrow enough that the other
-    // speaker's face stays out of the crop. Clamped so near-overlapping faces
-    // do not over-zoom and distant faces still get a tighter frame than the
-    // legacy full-height window.
-    const minDistPx = Math.abs(first.cx - second.cx) * sourceWidth;
-    const windowW = Math.min(0.62, Math.max(0.28, (minDistPx / sourceWidth) * 1.7));
+    // 2D Speaker Identity Decoupling:
+    // 1. Prefer stable track IDs if explicitly supplied by caller.
+    //    Resolution happens from the full eligible pool — not just the top-two —
+    //    so an explicitly requested track outside the most-frequent pair is still found.
+    //    If an explicit track identity cannot be resolved (missing, duplicate, or unresolvable),
+    //    return a typed unresolved result — NEVER silently substitute a different track.
+    // 2. Otherwise use 2D pixel distance matching when explicit anchors are supplied.
+    // 3. Fall back to spatial orientation: leftmost (or topmost in pixel space) to speaker 1.
+    let subj1: { trackId: string; cx: number; cy: number };
+    let subj2: { trackId: string; cx: number; cy: number };
 
-    const userX = (v: number | undefined, measured: number) =>
-      Number.isFinite(v) ? clamp01(Number(v)) : clamp01(measured);
-    const x1 = userX(speaker1X, first.cx);
-    const x2 = userX(speaker2X, second.cx);
-    // Partition guard: a speaker's window may not cross the midpoint between
-    // the two anchors. Without it, wide windows on side-by-side sources
-    // (split-screen interviews) bleed the other speaker's shoulder/strip
-    // into this speaker's panel. Shrinks the window toward the anchor instead
-    // of shifting the anchor, keeping each speaker centered in their panel.
-    const mid = (x1 + x2) / 2;
-    const w1 = Math.max(0.2, Math.min(windowW, 2 * (mid - x1)));
-    const w2 = Math.max(0.2, Math.min(windowW, 2 * (x2 - mid)));
+    const hasSpk1 = Number.isFinite(speaker1X) || Number.isFinite(speaker1Y);
+    const hasSpk2 = Number.isFinite(speaker2X) || Number.isFinite(speaker2Y);
+
+    // Alias: the top-two most-frequent subjects (used for all non-track-ID paths).
+    const subjects = eligiblePool.slice(0, 2);
+
+    if (hasTid1 || hasTid2) {
+      // Duplicate track IDs are ambiguous — cannot form two distinct speakers.
+      if (hasTid1 && hasTid2 && speaker1TrackId === speaker2TrackId) {
+        return makeUnresolved('duplicate_speaker_track_ids');
+      }
+
+      // Resolve each requested ID from the FULL eligible pool.
+      const resolved1 = hasTid1 ? eligiblePool.find((s) => s.trackId === speaker1TrackId) : undefined;
+      const resolved2 = hasTid2 ? eligiblePool.find((s) => s.trackId === speaker2TrackId) : undefined;
+
+      // If a requested ID was provided but not found, return explicit unresolved — never silently substitute.
+      if (hasTid1 && !resolved1) return makeUnresolved('requested_speaker_track_not_found');
+      if (hasTid2 && !resolved2) return makeUnresolved('requested_speaker_track_not_found');
+
+      if (hasTid1 && hasTid2) {
+        // Both IDs explicitly provided and both resolved.
+        subj1 = resolved1!;
+        subj2 = resolved2!;
+      } else if (hasTid1) {
+        // Only speaker1TrackId provided — assign the highest-count distinct track to speaker2.
+        const other = eligiblePool.find((s) => s.trackId !== speaker1TrackId);
+        if (!other) return makeUnresolved('requested_speaker_track_not_found');
+        subj1 = resolved1!;
+        subj2 = other;
+      } else {
+        // Only speaker2TrackId provided — assign the highest-count distinct track to speaker1.
+        const other = eligiblePool.find((s) => s.trackId !== speaker2TrackId);
+        if (!other) return makeUnresolved('requested_speaker_track_not_found');
+        subj1 = other;
+        subj2 = resolved2!;
+      }
+    } else if (hasSpk1 && hasSpk2) {
+      const dist2DPx = (s: { cx: number; cy: number }, ax?: number, ay?: number) => {
+        const dx = Number.isFinite(ax) ? (s.cx - clamp01(Number(ax))) * sourceWidth : 0;
+        const dy = Number.isFinite(ay) ? (s.cy - clamp01(Number(ay))) * sourceHeight : 0;
+        return Math.sqrt(dx * dx + dy * dy);
+      };
+      const costOrder = dist2DPx(subjects[0], speaker1X, speaker1Y) + dist2DPx(subjects[1], speaker2X, speaker2Y);
+      const costSwap = dist2DPx(subjects[1], speaker1X, speaker1Y) + dist2DPx(subjects[0], speaker2X, speaker2Y);
+      if (costOrder <= costSwap) {
+        subj1 = subjects[0];
+        subj2 = subjects[1];
+      } else {
+        subj1 = subjects[1];
+        subj2 = subjects[0];
+      }
+    } else if (hasSpk1) {
+      const dx0 = Number.isFinite(speaker1X) ? (subjects[0].cx - clamp01(Number(speaker1X))) * sourceWidth : 0;
+      const dy0 = Number.isFinite(speaker1Y) ? (subjects[0].cy - clamp01(Number(speaker1Y))) * sourceHeight : 0;
+      const d0 = Math.sqrt(dx0 * dx0 + dy0 * dy0);
+
+      const dx1 = Number.isFinite(speaker1X) ? (subjects[1].cx - clamp01(Number(speaker1X))) * sourceWidth : 0;
+      const dy1 = Number.isFinite(speaker1Y) ? (subjects[1].cy - clamp01(Number(speaker1Y))) * sourceHeight : 0;
+      const d1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+
+      subj1 = d0 <= d1 ? subjects[0] : subjects[1];
+      subj2 = subj1 === subjects[0] ? subjects[1] : subjects[0];
+    } else if (hasSpk2) {
+      const dx0 = Number.isFinite(speaker2X) ? (subjects[0].cx - clamp01(Number(speaker2X))) * sourceWidth : 0;
+      const dy0 = Number.isFinite(speaker2Y) ? (subjects[0].cy - clamp01(Number(speaker2Y))) * sourceHeight : 0;
+      const d0 = Math.sqrt(dx0 * dx0 + dy0 * dy0);
+
+      const dx1 = Number.isFinite(speaker2X) ? (subjects[1].cx - clamp01(Number(speaker2X))) * sourceWidth : 0;
+      const dy1 = Number.isFinite(speaker2Y) ? (subjects[1].cy - clamp01(Number(speaker2Y))) * sourceHeight : 0;
+      const d1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+
+      subj2 = d0 <= d1 ? subjects[0] : subjects[1];
+      subj1 = subj2 === subjects[0] ? subjects[1] : subjects[0];
+    } else {
+      // Default: leftmost to speaker1; if vertically aligned in pixel space, topmost to speaker1
+      const sDxPx = Math.abs(subjects[0].cx - subjects[1].cx) * sourceWidth;
+      const sDyPx = Math.abs(subjects[0].cy - subjects[1].cy) * sourceHeight;
+      if (sDxPx >= sDyPx) {
+        subj1 = subjects[0].cx <= subjects[1].cx ? subjects[0] : subjects[1];
+        subj2 = subj1 === subjects[0] ? subjects[1] : subjects[0];
+      } else {
+        subj1 = subjects[0].cy <= subjects[1].cy ? subjects[0] : subjects[1];
+        subj2 = subj1 === subjects[0] ? subjects[1] : subjects[0];
+      }
+    }
+
+    const x1 = Number.isFinite(speaker1X) ? clamp01(Number(speaker1X)) : clamp01(subj1.cx);
+    const y1 = Number.isFinite(speaker1Y) ? clamp01(Number(speaker1Y)) : clamp01(subj1.cy);
+    const x2 = Number.isFinite(speaker2X) ? clamp01(Number(speaker2X)) : clamp01(subj2.cx);
+    const y2 = Number.isFinite(speaker2Y) ? clamp01(Number(speaker2Y)) : clamp01(subj2.cy);
+
+    // Aspect-ratio-aware distance in pixel space, converted to normalized horizontal width units
+    const dxPx = Math.abs(subj1.cx - subj2.cx) * sourceWidth;
+    const dyPx = Math.abs(subj1.cy - subj2.cy) * sourceHeight;
+    const distPx = Math.sqrt(dxPx * dxPx + dyPx * dyPx);
+    const distNormX = distPx / sourceWidth;
+    const baseWindowW = Math.min(0.62, Math.max(0.28, distNormX * 1.7));
+
+    // Hard Partition Safety:
+    // Output container invariant for split layout is 9:16 (each panel is 9:8 aspect ratio).
+    // When options provide explicit canvasWidth/canvasHeight, use them; otherwise default to 1080x1920.
+    const canvasW = Number.isFinite(canvasWidth) && Number(canvasWidth) > 0 ? Number(canvasWidth) : 1080;
+    const canvasH = Number.isFinite(canvasHeight) && Number(canvasHeight) > 0 ? Number(canvasHeight) : 1920;
+    const halfH = canvasH / 2;
+    const arEff = (sourceWidth * halfH) / (sourceHeight * canvasW);
+
+    const anchorDx = Math.abs(x1 - x2);
+    const anchorDy = Math.abs(y1 - y2);
+    const anchorDxPx = anchorDx * sourceWidth;
+    const anchorDyPx = anchorDy * sourceHeight;
+
+    const maxPartitionW = anchorDxPx >= anchorDyPx
+      ? anchorDx
+      : anchorDy / arEff;
+
+    if (maxPartitionW <= 0) {
+      return (hasTid1 || hasTid2) ? makeUnresolved('insufficient_speaker_separation') : null;
+    }
+
+    // Hard boundary enforcement: windowW must NEVER exceed maxPartitionW.
+    // If maxPartitionW < 0.20, safe normal framing is impossible without crossing the midpoint.
+    // In that case, windowW is constrained strictly to maxPartitionW so NO crop crosses the midpoint,
+    // and an explicit unresolved state is returned.
+    const safeW = Math.min(baseWindowW, maxPartitionW);
+    const isUnresolved = safeW < 0.20;
+
+    const panel1 = computeSplitPanelBounds({
+      x: x1,
+      y: y1,
+      windowW: safeW,
+      sourceWidth,
+      sourceHeight,
+      canvasWidth: canvasW,
+      canvasHeight: canvasH,
+    });
+
+    const panel2 = computeSplitPanelBounds({
+      x: x2,
+      y: y2,
+      windowW: safeW,
+      sourceWidth,
+      sourceHeight,
+      canvasWidth: canvasW,
+      canvasHeight: canvasH,
+    });
+
     return {
-      speaker1: { x: x1, y: clamp01(first.cy), windowW: w1 },
-      speaker2: { x: x2, y: clamp01(second.cy), windowW: w2 },
+      architecture: 'continuous',
+      fit: splitFit ?? 'cover',
+      speaker1: panel1,
+      speaker2: panel2,
+      speaker1TrackId: subj1.trackId,
+      speaker2TrackId: subj2.trackId,
+      ...(Number.isFinite(splitDividerX) ? { dividerX: splitDividerX } : {}),
+      ...(isUnresolved ? { unresolved: true, unresolvedReason: 'insufficient_speaker_separation' } : { unresolved: false }),
     };
   }
 
@@ -1450,9 +1705,21 @@ export class SmartReframeService {
     allowConversationSplit?: boolean;
     /** Optional measured regions, local qualification only. Not semantic proof. */
     protectedContentRegions?: Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>;
+    targetLayout?: 'split' | 'track' | 'blur' | 'fit' | 'fill';
+    speaker1TrackId?: string;
+    speaker2TrackId?: string;
+    speaker1X?: number;
+    speaker2X?: number;
+    speaker1Y?: number;
+    speaker2Y?: number;
+    splitFit?: 'cover' | 'contain';
+    splitDividerX?: number;
+    canvasWidth?: number;
+    canvasHeight?: number;
   }): Array<{ start: number; end: number; kind: 'group' | 'solo' | 'fit'; windowW: number; windowH: number;
     keyframes: Array<{ time: number; centerX: number; centerY: number }>;
     split?: {speaker1X:number;speaker2X:number;dividerX:number};
+    splitGeometry?: SplitLayoutGeometry | null;
     contextStatus?: 'crowd-preserved'|'unresolved-preserved'|'unresolved-review-required';
     uncertainty?: string }> {
     const {rawSamples = [], duration, sourceWidth, sourceHeight} = options;
@@ -1460,27 +1727,253 @@ export class SmartReframeService {
     const cuts = [...new Set((options.sceneCuts || []).filter(t => Number.isFinite(t) && t > 0 && t < duration))].sort((a,b)=>a-b);
     const bounds = [0, ...cuts, duration];
     const median = (v: number[]) => [...v].sort((a,b)=>a-b)[Math.floor(v.length/2)];
+
+    const hasExplicitRequestedTrack = Boolean(options.speaker1TrackId || options.speaker2TrackId);
+    let lastShotIdentity: { spk1TrackId?: string; spk2TrackId?: string } | null = null;
+
     const shots = bounds.slice(0,-1).map((start,i) => {
       const end = bounds[i+1];
       const samples = rawSamples.filter(s => s.time >= start && s.time < end);
+
+      // Shot-local split when explicitly requested by targetLayout === 'split'
+      if (options.targetLayout === 'split') {
+        // If a shot has fewer than 2 samples, return explicit unresolved geometry with
+        // reason 'insufficient_shot_observations' (or 'requested_speaker_track_not_found' if explicit IDs were requested).
+        // Never substitute clip-wide raw samples for insufficient shot-local samples.
+        if (samples.length < 2) {
+          const unresolvedGeom: SplitLayoutGeometry = {
+            architecture: 'continuous',
+            fit: options.splitFit ?? 'cover',
+            speaker1: {
+              x: Number.isFinite(options.speaker1X) ? Math.min(0.9, Math.max(0.1, Number(options.speaker1X))) : 0.25,
+              y: Number.isFinite(options.speaker1Y) ? Math.min(0.9, Math.max(0.1, Number(options.speaker1Y))) : 0.5,
+              windowW: 0,
+              windowH: 0,
+              sourceBounds: { left: 0, top: 0, right: 0, bottom: 0 },
+            },
+            speaker2: {
+              x: Number.isFinite(options.speaker2X) ? Math.min(0.9, Math.max(0.1, Number(options.speaker2X))) : 0.75,
+              y: Number.isFinite(options.speaker2Y) ? Math.min(0.9, Math.max(0.1, Number(options.speaker2Y))) : 0.5,
+              windowW: 0,
+              windowH: 0,
+              sourceBounds: { left: 0, top: 0, right: 0, bottom: 0 },
+            },
+            ...(options.speaker1TrackId ? { speaker1TrackId: options.speaker1TrackId } : {}),
+            ...(options.speaker2TrackId ? { speaker2TrackId: options.speaker2TrackId } : {}),
+            unresolved: true,
+            unresolvedReason: hasExplicitRequestedTrack ? 'requested_speaker_track_not_found' : 'insufficient_shot_observations',
+          };
+          lastShotIdentity = null;
+          return {
+            start,
+            end,
+            kind: 'group' as const,
+            windowW: 1,
+            windowH: 1,
+            keyframes: [{ time: start, centerX: 0.5, centerY: 0.5 }],
+            splitGeometry: unresolvedGeom,
+            contextStatus: 'unresolved-review-required' as const,
+            uncertainty: hasExplicitRequestedTrack
+              ? 'Split layout unresolved (requested_speaker_track_not_found). Using safe blur fallback.'
+              : 'Split layout unresolved (insufficient_shot_observations). Using safe blur fallback.',
+          };
+        }
+
+        // Determine eligible candidate tracks within THIS shot
+        const shotTrackCounts = new Map<string, number>();
+        for (const s of samples) {
+          for (const f of s.faces || []) {
+            if (f.track_id && Number.isFinite(f.center_x)) {
+              if (Number.isFinite(f.confidence) && f.confidence < 0.50) continue;
+              shotTrackCounts.set(f.track_id, (shotTrackCounts.get(f.track_id) || 0) + 1);
+            }
+          }
+        }
+        const minShotObs = Math.max(2, Math.min(3, Math.floor(samples.length * 0.25)));
+        const eligibleInShot = [...shotTrackCounts.entries()]
+          .filter(([, n]) => n >= minShotObs)
+          .sort((a, b) => b[1] - a[1])
+          .map(([tid]) => tid);
+
+        let shotSpk1Id: string | undefined = undefined;
+        let shotSpk2Id: string | undefined = undefined;
+        let continuityAmbiguous = false;
+
+        if (hasExplicitRequestedTrack) {
+          // Explicit requested track IDs take strict precedence
+          shotSpk1Id = options.speaker1TrackId;
+          shotSpk2Id = options.speaker2TrackId;
+        } else if (lastShotIdentity?.spk1TrackId || lastShotIdentity?.spk2TrackId) {
+          const has1 = Boolean(lastShotIdentity.spk1TrackId && eligibleInShot.includes(lastShotIdentity.spk1TrackId));
+          const has2 = Boolean(lastShotIdentity.spk2TrackId && eligibleInShot.includes(lastShotIdentity.spk2TrackId));
+
+          if (has1 && has2) {
+            // Both speakers continue from preceding shot: preserve exact panel identities
+            shotSpk1Id = lastShotIdentity.spk1TrackId;
+            shotSpk2Id = lastShotIdentity.spk2TrackId;
+          } else if (has1 && !has2) {
+            // Speaker 1 continues (e.g. Host); previous Speaker 2 replaced by new guest
+            shotSpk1Id = lastShotIdentity.spk1TrackId;
+          } else if (!has1 && has2) {
+            // Speaker 2 continues; previous Speaker 1 replaced by new guest
+            shotSpk2Id = lastShotIdentity.spk2TrackId;
+          } else {
+            // Neither track ID continues across cut (e.g. tracker reset or new conversation pair).
+            // Do NOT use weak spatial proximity guesses to invent identity across cuts.
+            continuityAmbiguous = true;
+          }
+        }
+
+        const shotGeom = this.computeSplitSpeakerGeometry({
+          rawSamples: samples,
+          sourceWidth,
+          sourceHeight,
+          speaker1X: options.speaker1X,
+          speaker2X: options.speaker2X,
+          speaker1Y: options.speaker1Y,
+          speaker2Y: options.speaker2Y,
+          speaker1TrackId: shotSpk1Id,
+          speaker2TrackId: shotSpk2Id,
+          splitFit: options.splitFit ?? 'cover',
+          splitDividerX: options.splitDividerX,
+          canvasWidth: options.canvasWidth ?? 1080,
+          canvasHeight: options.canvasHeight ?? 1920,
+          minTrackObservations: minShotObs,
+        });
+
+        const isUnresolved = Boolean(shotGeom?.unresolved || !shotGeom);
+
+        if (shotGeom && !shotGeom.unresolved) {
+          lastShotIdentity = {
+            spk1TrackId: shotGeom.speaker1TrackId,
+            spk2TrackId: shotGeom.speaker2TrackId,
+          };
+        } else {
+          lastShotIdentity = null;
+        }
+
+        // Rule E.4: If split is unresolved because an explicit requested track is missing, enforce safe blur
+        if (isUnresolved && hasExplicitRequestedTrack && shotGeom?.unresolvedReason === 'requested_speaker_track_not_found') {
+          return {
+            start,
+            end,
+            kind: 'group' as const,
+            windowW: 1,
+            windowH: 1,
+            keyframes: [{ time: start, centerX: 0.5, centerY: 0.5 }],
+            split: shotGeom ? {
+              speaker1X: shotGeom.speaker1.x,
+              speaker2X: shotGeom.speaker2.x,
+              dividerX: shotGeom.dividerX ?? 0.5,
+            } : undefined,
+            splitGeometry: shotGeom,
+            contextStatus: 'unresolved-review-required' as const,
+            uncertainty: `Split layout unresolved (${shotGeom?.unresolvedReason || 'insufficient_speaker_evidence'}). Using safe blur fallback.`,
+          };
+        }
+
+        // Rule E.2: If split is unresolved and caller did not explicitly pin missing track identities,
+        // evaluate whether there is a single confident speaker in this shot for solo portrait framing.
+        if (isUnresolved && !hasExplicitRequestedTrack && samples.length >= 2) {
+          const shotFaces = samples.flatMap(s => s.faces || []).filter(f => f.track_id && [f.x, f.y, f.width, f.height, f.center_x, f.center_y].every(Number.isFinite) && (f.confidence ?? 1) >= 0.7 && f.width * f.height >= 0.002);
+          const distinctTracks = [...new Set(shotFaces.map(f => f.track_id!))];
+          if (distinctTracks.length === 1) {
+            const soloTrackId = distinctTracks[0];
+            const body = associatedBodyEnvelope(samples, [soloTrackId]);
+            const targetAspect = (options.canvasWidth && options.canvasHeight ? options.canvasWidth / options.canvasHeight : 9 / 16) * sourceHeight / sourceWidth;
+            const avgCx = shotFaces.reduce((sum, f) => sum + f.center_x, 0) / shotFaces.length;
+            const avgCy = shotFaces.reduce((sum, f) => sum + f.center_y, 0) / shotFaces.length;
+            const winW = Math.min(1, Math.max(targetAspect, body ? body.right - body.left : 0.4));
+            const winH = Math.min(1, Math.max(1, body ? body.bottom - body.top : winW / targetAspect));
+            const cx = Math.max(winW / 2, Math.min(1 - winW / 2, avgCx));
+            const cy = Math.max(winH / 2, Math.min(1 - winH / 2, avgCy));
+
+            return {
+              start,
+              end,
+              kind: 'solo' as const,
+              windowW: winW,
+              windowH: winH,
+              keyframes: [{ time: start, centerX: cx, centerY: cy }],
+            };
+          }
+        }
+
+        return {
+          start,
+          end,
+          kind: 'group' as const,
+          windowW: 1,
+          windowH: 1,
+          keyframes: [{ time: start, centerX: 0.5, centerY: 0.5 }],
+          split: shotGeom ? {
+            speaker1X: shotGeom.speaker1.x,
+            speaker2X: shotGeom.speaker2.x,
+            dividerX: shotGeom.dividerX ?? 0.5,
+          } : undefined,
+          splitGeometry: shotGeom,
+          ...(isUnresolved ? {
+            contextStatus: 'unresolved-review-required' as const,
+            uncertainty: `Split layout unresolved (${shotGeom?.unresolvedReason || 'insufficient_speaker_evidence'}). Using safe blur fallback.`,
+          } : continuityAmbiguous ? {
+            uncertainty: 'Split layout speaker continuity unverified across cut. Retaining shot-local framing.',
+          } : {}),
+        };
+      }
+
+      // Shot-local conversation split qualification
       if (options.windowScope === 'shot' && options.allowConversationSplit && end-start>=1.5 && samples.length>=6 &&
-          !(options.protectedContentRegions||[]).some(r=>r.confidence>=.7&&r.start<end&&r.end>start)) {
+          !(options.protectedContentRegions||[]).some(r=>Number.isFinite(r.confidence) && r.confidence>=.7 && (Number.isFinite(r.start)?r.start:0)<end && (Number.isFinite(r.end)?r.end:duration)>start)) {
         const pairs=samples.filter(s=>s.faces.length===2&&s.faces.every(f=>!!f.track_id && [f.x,f.y,f.width,f.height,f.center_x,f.center_y,f.confidence].every(Number.isFinite) && f.confidence>=.7&&f.width*f.height>=.002))
           .map(s=>[...s.faces].sort((a,b)=>a.center_x-b.center_x));
         if (pairs.length>=samples.length*.8) {
           const left=pairs.map(p=>p[0]),right=pairs.map(p=>p[1]);
           const stable=(fs:NormalizedFaceDetection[])=>new Set(fs.map(f=>f.track_id)).size===1;
-          const speaker1X=median(left.map(f=>f.center_x)),speaker2X=median(right.map(f=>f.center_x));
-          const leftBody=associatedBodyEnvelope(samples,[left[0].track_id!]);
-          const rightBody=associatedBodyEnvelope(samples,[right[0].track_id!]);
+          const leftId=left[0]?.track_id;
+          const rightId=right[0]?.track_id;
+          const leftBody=leftId ? associatedBodyEnvelope(samples,[leftId]) : null;
+          const rightBody=rightId ? associatedBodyEnvelope(samples,[rightId]) : null;
           // A cut between faces alone can cut a torso or arm. Require a gap
           // between independently associated, padded body envelopes. This is
           // a safe composition seam, not a claimed physical camera boundary.
           const dividerX=leftBody && rightBody ? (leftBody.right+rightBody.left)/2 : .5;
-          if(leftBody && rightBody && leftBody.right<rightBody.left && stable(left)&&stable(right)&&speaker2X-speaker1X>=.3&&
-            pairs.every(p=>p[0].x+p[0].width+.025<dividerX&&p[1].x-.025>dividerX))
-            return {start,end,kind:'group' as const,windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}],
-              split:{speaker1X,speaker2X,dividerX}};
+          const sepX = median(right.map(f=>f.center_x)) - median(left.map(f=>f.center_x));
+          if(leftBody && rightBody && leftBody.right<rightBody.left && stable(left)&&stable(right)&&sepX>=.3&&
+            pairs.every(p=>p[0].x+p[0].width+.025<dividerX&&p[1].x-.025>dividerX)) {
+            // Maintain speaker identity across cuts: Speaker 1 must not swap
+            // to Speaker 2 simply because their left/right position changed.
+            if (!lastShotIdentity) {
+              lastShotIdentity = { spk1TrackId: leftId, spk2TrackId: rightId };
+            }
+            const spk1IsRight = lastShotIdentity.spk1TrackId === rightId;
+            const spk1TrackId = spk1IsRight ? rightId : leftId;
+            const spk2TrackId = spk1IsRight ? leftId : rightId;
+            const speaker1X = spk1IsRight ? median(right.map(f=>f.center_x)) : median(left.map(f=>f.center_x));
+            const speaker2X = spk1IsRight ? median(left.map(f=>f.center_x)) : median(right.map(f=>f.center_x));
+
+            const shotGeom = this.computeSplitSpeakerGeometry({
+              rawSamples: samples,
+              sourceWidth,
+              sourceHeight,
+              speaker1TrackId: spk1TrackId,
+              speaker2TrackId: spk2TrackId,
+              splitFit: 'contain',
+              splitDividerX: dividerX,
+              canvasWidth: options.canvasWidth ?? 1080,
+              canvasHeight: options.canvasHeight ?? 1920,
+            });
+
+            return {
+              start,
+              end,
+              kind: 'group' as const,
+              windowW: 1,
+              windowH: 1,
+              keyframes: [{ time: start, centerX: 0.5, centerY: 0.5 }],
+              split: { speaker1X, speaker2X, dividerX },
+              splitGeometry: shotGeom,
+            };
+          }
         }
       }
       if (this.isCrowdScene(samples)) return {start,end,kind:'fit' as const,contextStatus:'crowd-preserved' as const,windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]};
@@ -1566,30 +2059,52 @@ export class SmartReframeService {
     });
     // Explicit measured content constrains the same single view as subjects.
     // Missing regions are not evidence that no important text/object exists.
+    const normalizedProtectedRegions = (options.protectedContentRegions || []).map(r => ({
+      ...r,
+      start: Number.isFinite(r.start) ? r.start : 0,
+      end: Number.isFinite(r.end) ? r.end : duration,
+      confidence: r.confidence,
+    }));
+    const isValidRegion = (r: typeof normalizedProtectedRegions[number]) =>
+      Number.isFinite(r.confidence) && r.confidence >= 0.7 &&
+      [r.start, r.end, r.x, r.y, r.width, r.height].every(Number.isFinite) &&
+      r.end > r.start &&
+      r.x >= 0 && r.y >= 0 && r.width > 0 && r.height > 0 &&
+      r.x + r.width <= 1.001 && r.y + r.height <= 1.001;
     const contentConstrainedShots = new Set<typeof shots[number]>();
     const objectRegions = new Map(shots.map(shot=>[shot,persistentObjectRegions(rawSamples.filter(s=>s.time>=shot.start&&s.time<shot.end)).map(r=>({...r,start:shot.start,end:shot.end}))]));
     for (const shot of shots) {
-      const regions = [...(options.protectedContentRegions || []),...(objectRegions.get(shot)||[])].filter(r =>
-        [r.start,r.end,r.x,r.y,r.width,r.height,r.confidence].every(Number.isFinite) &&
-        r.end > r.start && r.end > shot.start && r.start < shot.end &&
-        r.x >= 0 && r.y >= 0 && r.width > 0 && r.height > 0 &&
-        r.x+r.width <= 1.001 && r.y+r.height <= 1.001 && r.confidence >= .7);
+      if ((shot as any).split) continue;
+      const regions = [...normalizedProtectedRegions,...(objectRegions.get(shot)||[])].filter(r =>
+        isValidRegion(r) && r.end > shot.start && r.start < shot.end);
       if (!regions.length) continue;
       contentConstrainedShots.add(shot);
-      const left = Math.max(0,Math.min(...shot.keyframes.map(k=>k.centerX-shot.windowW/2),...regions.map(r=>r.x-.025)));
-      const right = Math.min(1,Math.max(...shot.keyframes.map(k=>k.centerX+shot.windowW/2),...regions.map(r=>r.x+r.width+.025)));
-      const top = Math.max(0,Math.min(...shot.keyframes.map(k=>k.centerY-shot.windowH/2),...regions.map(r=>r.y-.025)));
-      const bottom = Math.min(1,Math.max(...shot.keyframes.map(k=>k.centerY+shot.windowH/2),...regions.map(r=>r.y+r.height+.025)));
+      (shot as any).contentConstrained = true;
+      const pLeft = Math.max(0, Math.min(...regions.map(r => r.x - 0.025)));
+      const pRight = Math.min(1, Math.max(...regions.map(r => r.x + r.width + 0.025)));
+      const pTop = Math.max(0, Math.min(...regions.map(r => r.y - 0.025)));
+      const pBottom = Math.min(1, Math.max(...regions.map(r => r.y + r.height + 0.025)));
+      const left = Math.max(0,Math.min(...shot.keyframes.map(k=>k.centerX-shot.windowW/2),pLeft));
+      const right = Math.min(1,Math.max(...shot.keyframes.map(k=>k.centerX+shot.windowW/2),pRight));
+      const top = Math.max(0,Math.min(...shot.keyframes.map(k=>k.centerY-shot.windowH/2),pTop));
+      const bottom = Math.min(1,Math.max(...shot.keyframes.map(k=>k.centerY+shot.windowH/2),pBottom));
+      (shot as any).protectedBounds = { left, right, top, bottom };
       shot.windowW=right-left; shot.windowH=bottom-top;
       shot.keyframes=[{time:shot.start,centerX:(left+right)/2,centerY:(top+bottom)/2}];
     }
     const presentationShots = shots.map(shot => {
-      if (options.automaticFitAspect !== '4:3' || shot.split || shot.contextStatus==='unresolved-preserved' || shot.contextStatus==='crowd-preserved') return shot;
-      const maxWidth = shot.windowH * (4/3) * sourceHeight/sourceWidth;
-      if (shot.windowW <= maxWidth) return shot;
-      const width = Math.min(1,maxWidth);
-      const regions=[...(options.protectedContentRegions||[]),...(objectRegions.get(shot)||[])].filter(r=>r.confidence>=.7 && r.start<shot.end && r.end>shot.start &&
-        [r.x,r.y,r.width,r.height].every(Number.isFinite) && r.x>=0 && r.y>=0 && r.width>0 && r.height>0 && r.x+r.width<=1.001 && r.y+r.height<=1.001);
+      if (options.automaticFitAspect !== '4:3' || (shot as any).split || shot.contextStatus==='unresolved-preserved' || shot.contextStatus==='crowd-preserved') return shot;
+      const target = 4/3;
+      let width = shot.windowW, height = shot.windowH;
+      const old = width * sourceWidth / (height * sourceHeight);
+      if (old > target) {
+        height = Math.min(1, width * sourceWidth / (target * sourceHeight));
+        width = Math.min(width, height * target * sourceHeight / sourceWidth);
+      } else {
+        width = Math.min(1, height * target * sourceHeight / sourceWidth);
+        height = Math.min(height, width * sourceWidth / (target * sourceHeight));
+      }
+      const regions=[...normalizedProtectedRegions,...(objectRegions.get(shot)||[])].filter(r=>isValidRegion(r) && r.start<shot.end && r.end>shot.start);
       const samples=rawSamples.filter(s=>s.time>=shot.start&&s.time<shot.end);
       const faces=samples.flatMap(s=>s.faces.filter(f=>f.confidence>=.8));
       const ids=[...new Set(faces.map(f=>f.track_id).filter((id): id is string=>!!id))];
@@ -1602,34 +2117,49 @@ export class SmartReframeService {
       // A preferred presentation ratio cannot overrule measured content.
       // Preserve the full source when no 4:3 window can contain it together.
       if(conflict)return {...shot,kind:'fit' as const,windowW:1,windowH:1,
+        contentConstrained: true,
         contextStatus:'unresolved-review-required' as const,
         uncertainty:'Safe full-source Fit: preferred 4:3 would cut measured subjects or side content. Review the scene before sharing.',
         keyframes:[{time:shot.start,centerX:.5,centerY:.5}]};
-      return {...shot, windowW:width, contextStatus:'unresolved-review-required' as const,
-        uncertainty:conflict
-          ? 'Preferred 4:3 automatic Fit cannot include all measured side text/subjects together. Review this context conflict before sharing.'
-          : 'Preferred 4:3 automatic Fit keeps measured text/face anchors where available, but other side objects/action remain unverified.',
-        keyframes:shot.keyframes.map(k=>({...k,centerX:conflict
-          ? Math.max(width/2,Math.min(1-width/2,k.centerX))
-          : Math.max(minimumCenter,Math.min(maximumCenter,k.centerX))}))};
+      const isConstrained = contentConstrainedShots.has(shot);
+      return {...shot, kind:'fit' as const, windowW:width, windowH:height,
+        contentConstrained: isConstrained,
+        protectedBounds: (shot as any).protectedBounds,
+        contextStatus: isConstrained ? shot.contextStatus : 'unresolved-review-required' as const,
+        uncertainty: isConstrained && !shot.uncertainty
+          ? '4:3 Fit preserves protected content while adapting aspect ratio.'
+          : (shot.uncertainty || 'Preferred 4:3 automatic Fit keeps measured text/face anchors where available, but other side objects/action remain unverified.'),
+        keyframes:shot.keyframes.map(k=>({...k,centerX:
+          Math.max(minimumCenter,Math.min(maximumCenter,k.centerX))}))};
     });
-    if (options.windowScope === 'shot') return presentFit43(applyAutomaticLayoutPolicy(presentationShots.map(shot => {
-      // Automatic Fill is a portrait-shaped window, not a synonym for zoom.
-      // Only expand a reliable single-person/body window to portrait. Never
-      // trim its measured extent just because one face is visible. Existing
-      // protected-content unions can still force a wider Fit presentation.
-      if (shot.kind !== 'solo' || shot.contextStatus || contentConstrainedShots.has(shot)) return shot;
-      const samples = rawSamples.filter(s => s.time >= shot.start && s.time < shot.end);
-      const ids = [...new Set(samples.flatMap(s => s.faces.map(f => f.track_id).filter((id): id is string => !!id)))];
-      if (ids.length !== 1 || !associatedBodyEnvelope(samples, ids)) return shot;
-      const portrait = (9/16) * sourceHeight/sourceWidth;
-      const height = Math.max(shot.windowH, shot.windowW/portrait);
-      if (!(height > 0 && height <= 1)) return shot;
-      const width = height*portrait;
-      return {...shot, windowW:width, windowH:height, keyframes:shot.keyframes.map(k => ({...k,
-        centerX:Math.max(width/2,Math.min(1-width/2,k.centerX)),
-        centerY:Math.max(height/2,Math.min(1-height/2,k.centerY))}))};
-    }),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight);
+    if (options.windowScope === 'shot') {
+      const scopedShots = applyAutomaticLayoutPolicy(presentationShots.map(shot => {
+        // Automatic Fill is a portrait-shaped window, not a synonym for zoom.
+        // Only expand a reliable single-person/body window to portrait. Never
+        // trim its measured extent just because one face is visible. Existing
+        // protected-content unions can still force a wider Fit presentation.
+        if (shot.kind !== 'solo' || shot.contextStatus || contentConstrainedShots.has(shot)) return shot;
+        const samples = rawSamples.filter(s => s.time >= shot.start && s.time < shot.end);
+        const ids = [...new Set(samples.flatMap(s => s.faces.map(f => f.track_id).filter((id): id is string => !!id)))];
+        if (ids.length !== 1 || !associatedBodyEnvelope(samples, ids)) return shot;
+        const portrait = (9/16) * sourceHeight/sourceWidth;
+        const height = Math.max(shot.windowH, shot.windowW/portrait);
+        if (!(height > 0 && height <= 1)) return shot;
+        const width = height*portrait;
+        return {...shot, windowW:width, windowH:height, keyframes:shot.keyframes.map(k => ({...k,
+          centerX:Math.max(width/2,Math.min(1-width/2,k.centerX)),
+          centerY:Math.max(height/2,Math.min(1-height/2,k.centerY))}))};
+      }),options.layoutPolicy,sourceWidth,sourceHeight);
+      if (options.automaticFitAspect === '4:3') {
+        return presentFit43(scopedShots.map(s => {
+          if (s.contextStatus === 'unresolved-preserved' || s.contextStatus === 'crowd-preserved') {
+            return { ...s, _preserveInShotScope: true };
+          }
+          return s;
+        }), sourceWidth, sourceHeight);
+      }
+      return scopedShots;
+    }
     // A source cut may change the subject, not the presentation's crop size.
     // Use the widest required context in both axes for the ENTIRE analyzed
     // clip, including edited slices. A full-source fallback deliberately makes
@@ -1643,18 +2173,48 @@ export class SmartReframeService {
     const sizedFrom = constraints.length ? constraints : shots;
     const windowW = Math.max(...sizedFrom.map(s=>s.windowW));
     const windowH = Math.max(...sizedFrom.map(s=>s.windowH));
-    return presentFit43(applyAutomaticLayoutPolicy(shots.map(s=>({...s,
-      contextStatus: s.contextStatus === 'unresolved-preserved' && reviewCandidate && (windowW < 1 || windowH < 1)
-        ? 'unresolved-review-required' as const : s.contextStatus,
-      windowW,windowH,keyframes:s.keyframes.map(k=>({...k,
-      centerX:Math.max(windowW/2,Math.min(1-windowW/2,k.centerX)),
-      centerY:Math.max(windowH/2,Math.min(1-windowH/2,k.centerY)),
-    }))})),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight);
+    const anyContentConstrained = shots.some(s => contentConstrainedShots.has(s));
+    const isAllUnresolved = shots.every(s => s.contextStatus === 'unresolved-preserved');
+    const preserveUnresolvedClip = isAllUnresolved && !reviewCandidate;
+    return presentFit43(applyAutomaticLayoutPolicy(shots.map(s => {
+      const isConstrained = contentConstrainedShots.has(s);
+      const pb = (s as any).protectedBounds as {left:number;right:number;top:number;bottom:number}|undefined;
+      return {
+        ...s,
+        _preserveInShotScope: preserveUnresolvedClip || undefined,
+        contentConstrained: isConstrained || (anyContentConstrained && windowW === 1),
+        protectedBounds: pb,
+        contextStatus: s.contextStatus === 'unresolved-preserved' && reviewCandidate && (windowW < 1 || windowH < 1)
+          ? 'unresolved-review-required' as const : s.contextStatus,
+        windowW,
+        windowH,
+        keyframes: s.keyframes.map(k => {
+          let cx = k.centerX, cy = k.centerY;
+          if (pb) {
+            if (pb.right - pb.left <= windowW) cx = Math.max(pb.right - windowW/2, Math.min(pb.left + windowW/2, cx));
+            if (pb.bottom - pb.top <= windowH) cy = Math.max(pb.bottom - windowH/2, Math.min(pb.top + windowH/2, cy));
+          }
+          return {
+            ...k,
+            centerX: Math.max(windowW/2, Math.min(1 - windowW/2, cx)),
+            centerY: Math.max(windowH/2, Math.min(1 - windowH/2, cy)),
+          };
+        }),
+      };
+    }),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight);
   }
 
   public static buildShotCompositionFilter(options: {
     plan: ReturnType<typeof SmartReframeService.computeShotComposition>;
-    sourceWidth: number; sourceHeight: number; start?: number; duration: number; tag?: string; canvasScale?: number;
+    sourceWidth: number;
+    sourceHeight: number;
+    start?: number;
+    duration: number;
+    tag?: string;
+    canvasScale?: number;
+    aspectRatio?: '9:16' | '16:9' | '1:1' | '4:5' | string;
+    canvasWidth?: number;
+    canvasHeight?: number;
   }): string {
     const start=Math.max(0,options.start||0),end=start+options.duration;
     const shots=options.plan.filter(s=>s.end>start && s.start<end);
@@ -1662,6 +2222,11 @@ export class SmartReframeService {
     const tag=options.tag||'shots';
     const labels=shots.map((_,i)=>`${tag}_input${i}`);
     let graph=`split=${shots.length}${labels.map(l=>`[${l}]`).join('')};`;
+
+    const effectiveRatio = (options.aspectRatio || '9:16') as any;
+    const cWidth = options.canvasWidth ?? canvasDims(effectiveRatio, options.canvasScale ?? 1).width;
+    const cHeight = options.canvasHeight ?? canvasDims(effectiveRatio, options.canvasScale ?? 1).height;
+
     shots.forEach((s,i)=>{
       const a=Math.max(start,s.start),b=Math.min(end,s.end),st=a-start;
       const frameAt=(t:number)=>{
@@ -1671,10 +2236,36 @@ export class SmartReframeService {
         return {time:t-a,centerX:k[n].centerX+(k[n+1].centerX-k[n].centerX)*f,centerY:k[n].centerY+(k[n+1].centerY-k[n].centerY)*f};
       };
       const kfs=[frameAt(a),...s.keyframes.filter(k=>k.time>a && k.time<b).map(k=>({...k,time:k.time-a})),frameAt(b)];
-      const f=s.split ? this.buildSplitPodcastFilter({speaker1X:s.split.speaker1X,speaker2X:s.split.speaker2X,dividerX:s.split.dividerX,
-        splitFit:'contain',canvasWidth:canvasDims('9:16',options.canvasScale??1).width,canvasHeight:canvasDims('9:16',options.canvasScale??1).height,
-        sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}_split`})
-        : this.buildGroupFitFilter({keyframes:kfs,windowW:s.windowW,windowH:s.windowH,sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}`,canvasWidth:canvasDims('9:16',options.canvasScale??1).width,canvasHeight:canvasDims('9:16',options.canvasScale??1).height});
+      const isSplitUnresolved = Boolean(s.splitGeometry?.unresolved);
+      const f = s.split
+        ? (isSplitUnresolved
+            ? this.buildBlurBackgroundFilter({
+                canvasWidth: cWidth,
+                canvasHeight: cHeight,
+                tag: `${tag}_${i}_unresolved_blur`,
+              })
+            : this.buildSplitPodcastFilter({
+                speaker1X: s.split.speaker1X,
+                speaker2X: s.split.speaker2X,
+                dividerX: s.split.dividerX,
+                geometry: s.splitGeometry ?? undefined,
+                splitFit: s.splitGeometry?.fit ?? 'contain',
+                canvasWidth: cWidth,
+                canvasHeight: cHeight,
+                sourceWidth: options.sourceWidth,
+                sourceHeight: options.sourceHeight,
+                tag: `${tag}_${i}_split`,
+              }))
+        : this.buildGroupFitFilter({
+            keyframes: kfs,
+            windowW: s.windowW,
+            windowH: s.windowH,
+            sourceWidth: options.sourceWidth,
+            sourceHeight: options.sourceHeight,
+            tag: `${tag}_${i}`,
+            canvasWidth: cWidth,
+            canvasHeight: cHeight,
+          });
       const frames = Math.max(1, Math.round((b-start)*30)-Math.round((a-start)*30));
       graph+=`[${labels[i]}]trim=start=${st.toFixed(6)}:duration=${(b-a).toFixed(6)},setpts=PTS-STARTPTS,${f},fps=30,tpad=stop_mode=clone:stop_duration=0.1,trim=end_frame=${frames},setpts=N/(30*TB),setsar=1[${tag}_part${i}];`;
     });
@@ -1988,10 +2579,24 @@ export class SmartReframeService {
     const kfs = [...keyframes]
       .filter((k) => Number.isFinite(k.time) && Number.isFinite(k.centerX))
       .sort((a, b) => a.time - b.time);
-    // Retain the full timeline under the expression-size budget.
+    // Retain the full timeline under the expression-size budget while strictly
+    // protecting hard-cut boundary pairs (delta <= 20ms) from decimation.
     if (kfs.length > 40) {
-      const all = [...kfs];
-      kfs.splice(0, kfs.length, ...Array.from({ length: 40 }, (_, i) => all[Math.round(i * (all.length - 1) / 39)]));
+      const step = Math.ceil(kfs.length / 38);
+      const capped: Array<{ time: number; centerX: number; centerY: number }> = [];
+      for (let i = 0; i < kfs.length; i++) {
+        const isCut =
+          (i > 0 && Math.abs(kfs[i].time - kfs[i - 1].time) <= 0.02) ||
+          (i < kfs.length - 1 && Math.abs(kfs[i + 1].time - kfs[i].time) <= 0.02);
+        if (i === 0 || i === kfs.length - 1 || isCut || i % step === 0) {
+          capped.push({
+            time: kfs[i].time,
+            centerX: kfs[i].centerX,
+            centerY: kfs[i].centerY ?? 0.38,
+          });
+        }
+      }
+      kfs.splice(0, kfs.length, ...capped);
     }
     const piecewise = (vals: Array<{ time: number; v: number }>, last: number): string => {
       let expr = last.toFixed(4);
@@ -2045,8 +2650,9 @@ export class SmartReframeService {
     canvasHeight?: number;
     sourceWidth?: number;
     sourceHeight?: number;
-    speaker1Geometry?: { x: number; y: number; windowW: number };
-    speaker2Geometry?: { x: number; y: number; windowW: number };
+    geometry?: SplitLayoutGeometry;
+    speaker1Geometry?: SplitPanelGeometry;
+    speaker2Geometry?: SplitPanelGeometry;
     /** 'contain' fits each speaker's whole original camera region into their
      * panel (padding when the aspect differs) instead of a face-anchored
      * cover crop. User request: the full per-person facecam view must be
@@ -2068,12 +2674,16 @@ export class SmartReframeService {
       canvasHeight = 1920,
       sourceWidth = 1920,
       sourceHeight = 1080,
+      geometry,
       speaker1Geometry,
       speaker2Geometry,
       splitFit = 'cover',
       dividerX,
       tag,
     } = options;
+
+    const spk1Geom = speaker1Geometry ?? geometry?.speaker1;
+    const spk2Geom = speaker2Geometry ?? geometry?.speaker2;
 
     const halfHeight = Math.round(canvasHeight / 2);
     const spk1XClamped = Math.min(0.9, Math.max(0.1, speaker1X));
@@ -2092,13 +2702,30 @@ export class SmartReframeService {
       inputLabel: string,
       outputLabel: string | null,
       spkXClamped: number,
-      geometry?: { x: number; y: number; windowW: number }
+      geometry?: SplitPanelGeometry
     ): string => {
       if (geometry) {
-        const gx = Math.min(0.9, Math.max(0.1, geometry.x));
-        const gy = Math.min(0.9, Math.max(0.1, geometry.y));
+        // Shared geometry contract: sourceBounds define the exact normalized crop
+        // region [0, 1] on the source. When present, sourceBounds govern the
+        // scale and crop position so windowW/windowH cannot silently override them.
+        const bounds = geometry.sourceBounds ?? computeSplitPanelBounds({
+          x: geometry.x,
+          y: geometry.y,
+          windowW: geometry.windowW,
+          sourceWidth,
+          sourceHeight,
+          canvasWidth,
+          canvasHeight,
+        }).sourceBounds;
+        const normW = Math.max(0.001, bounds.right - bounds.left);
+        const gx = geometry.sourceBounds
+          ? Math.min(0.9, Math.max(0.1, (bounds.left + bounds.right) / 2))
+          : Math.min(0.9, Math.max(0.1, geometry.x));
+        const gy = geometry.sourceBounds
+          ? Math.min(0.9, Math.max(0.1, (bounds.top + bounds.bottom) / 2))
+          : Math.min(0.9, Math.max(0.1, geometry.y));
         return (
-          `[${inputLabel}]scale=-1:${scaledHeightFor(geometry.windowW)}:force_original_aspect_ratio=increase,` +
+          `[${inputLabel}]scale=-1:${scaledHeightFor(normW)}:force_original_aspect_ratio=increase,` +
           `crop=${canvasWidth}:${halfHeight}:'${cropXExpr(gx)}':'${cropYExpr(gy)}'` +
           (outputLabel ? `[${outputLabel}]` : '')
         );
@@ -2137,14 +2764,14 @@ export class SmartReframeService {
 
     if (tag) {
       return `split=2[${tag}s1][${tag}s2];` +
-        panelChain(`${tag}s1`, `${tag}top`, spk1XClamped, speaker1Geometry) + ';' +
-        panelChain(`${tag}s2`, `${tag}bot`, spk2XClamped, speaker2Geometry) + ';' +
+        panelChain(`${tag}s1`, `${tag}top`, spk1XClamped, spk1Geom) + ';' +
+        panelChain(`${tag}s2`, `${tag}bot`, spk2XClamped, spk2Geom) + ';' +
         `[${tag}top][${tag}bot]vstack`;
     }
 
     return `[0:v]split=2[spk1][spk2];` +
-      panelChain('spk1', 'v_top', spk1XClamped, speaker1Geometry) + ';' +
-      panelChain('spk2', 'v_bot', spk2XClamped, speaker2Geometry) + ';' +
+      panelChain('spk1', 'v_top', spk1XClamped, spk1Geom) + ';' +
+      panelChain('spk2', 'v_bot', spk2XClamped, spk2Geom) + ';' +
       `[v_top][v_bot]vstack[out]`;
   }
 
@@ -2406,10 +3033,7 @@ export class SmartReframeService {
     speaker2X?: number;
     /** Per-speaker zoom/anchor geometry for the split layout, from
      * computeSplitSpeakerGeometry. Omitted keeps the legacy split framing. */
-    splitGeometry?: {
-      speaker1: { x: number; y: number; windowW: number };
-      speaker2: { x: number; y: number; windowW: number };
-    } | null;
+    splitGeometry?: SplitLayoutGeometry | null;
     /** Forwarded to buildSplitPodcastFilter: 'contain' fits each speaker's
      * full original camera region (padded) instead of a face-anchored crop. */
     splitFit?: 'cover' | 'contain';
@@ -2474,6 +3098,16 @@ export class SmartReframeService {
 
     if (aspectRatio === '9:16') {
       if (layoutMode === 'split') {
+        // Guard: if splitGeometry is flagged unresolved (e.g. speakers too close or
+        // explicitly requested speaker track not found), do NOT render an ordinary
+        // split. Fall back to the safe blur layout.
+        if (splitGeometry?.unresolved) {
+          return this.buildBlurBackgroundFilter({
+            canvasWidth: lc.width,
+            canvasHeight: lc.height,
+            tag,
+          });
+        }
         return this.buildSplitPodcastFilter({
           speaker1X,
           speaker2X,
@@ -2483,8 +3117,8 @@ export class SmartReframeService {
           sourceHeight,
           speaker1Geometry: splitGeometry?.speaker1,
           speaker2Geometry: splitGeometry?.speaker2,
-          splitFit,
-          dividerX: splitDividerX,
+          splitFit: splitGeometry?.fit ?? splitFit,
+          dividerX: splitGeometry?.dividerX ?? splitDividerX,
           tag,
         });
       }
@@ -2584,6 +3218,34 @@ export class SmartReframeService {
     detail?: string;
   }> | null = null;
 
+  private static sourceHashCache = new Map<string, { hash: string; mtimeMs: number; size: number }>();
+
+  /**
+   * Resolves tenant-isolated source hash for a local file without repeated full-content hashing.
+   */
+  public static async resolveSourceHash(userId: string, filePath: string): Promise<string | null> {
+    try {
+      if (!fs.existsSync(filePath)) return null;
+      const stat = fs.statSync(filePath);
+      const cached = this.sourceHashCache.get(filePath);
+      let rawSha256: string;
+      if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
+        rawSha256 = cached.hash;
+      } else {
+        rawSha256 = VideoIntelligenceService.computeFullContentSha256(filePath);
+        this.sourceHashCache.set(filePath, { hash: rawSha256, mtimeMs: stat.mtimeMs, size: stat.size });
+      }
+      const tenantHash = crypto
+        .createHash('sha256')
+        .update(`tenant:${userId}|engine:${CURRENT_ENGINE_VERSION}|full_sha256:${rawSha256}`)
+        .digest('hex');
+      return tenantHash;
+    } catch (err: any) {
+      logger.warn(`[SmartReframe] Failed to resolve source hash: ${err.message}`);
+      return null;
+    }
+  }
+
   /**
    * Invokes Python face detection script via execFile with strict timeout and input isolation.
    */
@@ -2593,7 +3255,8 @@ export class SmartReframeService {
     startSec = 0.0,
     durationSec = 0.0,
     timeoutMs = 120000,
-    maxSamples = 600
+    maxSamples = 600,
+    precomputedCuts?: number[]
   ): Promise<{
     source_width: number;
     source_height: number;
@@ -2634,6 +3297,7 @@ export class SmartReframeService {
       startSec,
       durationSec,
       maxSamples,
+      ...(Array.isArray(precomputedCuts) && precomputedCuts.length > 0 ? { precomputedCuts } : {}),
     });
 
     return new Promise((resolve, reject) => {
@@ -2794,12 +3458,47 @@ export class SmartReframeService {
       const sampleFps = options.sampleFps || 4.0;
       const timeoutMs = options.timeoutMs || 120000;
 
+      // 4b. Optional P0.1 Global Cut Bridge: query video_intelligence for completed global scene cuts
+      let precomputedCuts: number[] | undefined = Array.isArray(options.precomputedCuts)
+        ? options.precomputedCuts
+        : Array.isArray(options.sceneCuts)
+        ? options.sceneCuts
+        : undefined;
+
+      const reuseGlobalCuts = process.env.SMART_REFRAME_REUSE_GLOBAL_CUTS === '1' || (options as any).reuseGlobalCuts === true;
+      if (reuseGlobalCuts && !precomputedCuts) {
+        try {
+          const tenantHash = options.sourceHash ?? (await SmartReframeService.resolveSourceHash(userId, localSourcePath));
+          if (tenantHash) {
+            const viRecord = await VideoIntelligenceRepository.findBySourceHash(userId, tenantHash);
+            if (viRecord && viRecord.status === 'completed' && Array.isArray(viRecord.visual_intelligence?.sceneCuts)) {
+              const cuts = viRecord.visual_intelligence.sceneCuts
+                .filter((c: any) => Number.isFinite(c?.timestamp))
+                .map((c: any) => Number(c.timestamp))
+                .filter((t: number) => t > startSec + 0.25 && t < startSec + durationSec - 0.25)
+                .map((t: number) => Number((t - startSec).toFixed(3)))
+                .sort((a: number, b: number) => a - b);
+              if (cuts.length > 0) {
+                precomputedCuts = cuts;
+                logger.info(`[SmartReframe] Reusing ${cuts.length} global scene cuts from video_intelligence for clip ${clipId}`);
+              }
+            }
+          }
+        } catch (globErr: any) {
+          logger.warn(`[SmartReframe] Global scene cut resolution skipped: ${globErr.message}`);
+        }
+      }
+
       // 5. Run local Computer Vision analysis
       logger.info(`[SmartReframe] Starting CV face analysis for clip ${clipId}: start=${startSec}s, dur=${durationSec}s`);
-      const cvResult = await this.runCvAnalyzer(localSourcePath, sampleFps, startSec, durationSec, timeoutMs);
+      const cvResult = await this.runCvAnalyzer(localSourcePath, sampleFps, startSec, durationSec, timeoutMs, 600, precomputedCuts);
 
       // 6. Gather scene cuts and speech intervals for audio-visual shot-aware reframe
-      let clipSceneCuts = options.sceneCuts ? [...options.sceneCuts] : [];
+      let clipSceneCuts = options.sceneCuts
+        ? [...options.sceneCuts]
+        : precomputedCuts
+        ? [...precomputedCuts]
+        : [];
       let speechIntervals = options.speechIntervals;
       let wordTimings: Array<{ start: number; end: number; word?: string }> = [];
 
@@ -2898,6 +3597,7 @@ export class SmartReframeService {
         aspectRatio: clip.aspect_ratio as ClipAspectRatio,
         sourceWidth: cvResult.source_width,
         sourceHeight: cvResult.source_height,
+        sourceFps: cvResult.source_fps,
         sceneCuts: clipSceneCuts,
         speechIntervals,
       });

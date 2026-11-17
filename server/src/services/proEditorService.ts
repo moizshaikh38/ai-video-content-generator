@@ -948,8 +948,77 @@ export class ProEditorService {
                 sourceHeight: track.source_height || 1080,
                 speaker1X: itemSplit?.speaker1X ?? reframe!.cropConfig?.split?.speaker1X,
                 speaker2X: itemSplit?.speaker2X ?? reframe!.cropConfig?.split?.speaker2X,
+                speaker1Y: (itemSplit as any)?.speaker1Y ?? (reframe!.cropConfig?.split as any)?.speaker1Y,
+                speaker2Y: (itemSplit as any)?.speaker2Y ?? (reframe!.cropConfig?.split as any)?.speaker2Y,
+                speaker1TrackId: (itemSplit as any)?.speaker1TrackId ?? (reframe!.cropConfig?.split as any)?.speaker1TrackId,
+                speaker2TrackId: (itemSplit as any)?.speaker2TrackId ?? (reframe!.cropConfig?.split as any)?.speaker2TrackId,
+                canvasWidth: canvasDims(ratio, cs).width,
+                canvasHeight: canvasDims(ratio, cs).height,
               })
             : null;
+        const hasRequestedTrack = Boolean(
+          (itemSplit as any)?.speaker1TrackId ?? (reframe!.cropConfig?.split as any)?.speaker1TrackId ??
+          (itemSplit as any)?.speaker2TrackId ?? (reframe!.cropConfig?.split as any)?.speaker2TrackId
+        );
+
+        const sceneCuts = Array.isArray(track.metadata?.scene_cuts)
+          ? track.metadata.scene_cuts.filter((t: any) => Number.isFinite(t) && t > 0 && t < Number(track.metadata?.clip_duration || sliceDuration))
+          : [];
+
+        // P1.3 Scene-Cut Boundary Invariance: shot-local split framing across scene cuts
+        if (effLayout === 'split' && sceneCuts.length > 0) {
+          const plan = SmartReframeService.computeShotComposition({
+            targetLayout: 'split',
+            rawSamples: (track as any).raw_samples,
+            sceneCuts,
+            duration: Number(track.metadata?.clip_duration) || sliceDuration,
+            sourceWidth: track.source_width || 1920,
+            sourceHeight: track.source_height || 1080,
+            speaker1X: itemSplit?.speaker1X ?? reframe!.cropConfig?.split?.speaker1X,
+            speaker2X: itemSplit?.speaker2X ?? reframe!.cropConfig?.split?.speaker2X,
+            speaker1Y: (itemSplit as any)?.speaker1Y ?? (reframe!.cropConfig?.split as any)?.speaker1Y,
+            speaker2Y: (itemSplit as any)?.speaker2Y ?? (reframe!.cropConfig?.split as any)?.speaker2Y,
+            speaker1TrackId: (itemSplit as any)?.speaker1TrackId ?? (reframe!.cropConfig?.split as any)?.speaker1TrackId,
+            speaker2TrackId: (itemSplit as any)?.speaker2TrackId ?? (reframe!.cropConfig?.split as any)?.speaker2TrackId,
+            splitFit: (reframe!.cropConfig?.split as any)?.fit,
+            splitDividerX: (reframe!.cropConfig?.split as any)?.dividerX,
+            canvasWidth: csDims.width,
+            canvasHeight: csDims.height,
+            windowScope: 'shot',
+          });
+          if (plan.length) {
+            const allUnresolved = plan.every(s => s.splitGeometry?.unresolved || !s.splitGeometry);
+            if (allUnresolved && hasRequestedTrack) {
+              return SmartReframeService.buildBlurBackgroundFilter({
+                canvasWidth: csDims.width,
+                canvasHeight: csDims.height,
+                tag: layoutTag,
+              });
+            }
+            return SmartReframeService.buildShotCompositionFilter({
+              plan: freezeAutomaticPlan(plan, item.automatic_framing, reframe?.clipStartSec || 0),
+              start: sliceWindowStartClipRel,
+              duration: sliceDuration,
+              sourceWidth: track.source_width || 1920,
+              sourceHeight: track.source_height || 1080,
+              tag: layoutTag,
+              canvasScale: cs,
+              aspectRatio: ratio as any,
+              canvasWidth: csDims.width,
+              canvasHeight: csDims.height,
+            });
+          }
+        }
+        // Guard: if the split geometry is unresolved (speakers too close to safely
+        // separate, or requested speaker track not found), fall back to a blur layout
+        // rather than producing a dangerously narrow or incorrect split crop in the export.
+        if (effLayout === 'split' && (splitGeometry?.unresolved || (!splitGeometry && hasRequestedTrack))) {
+          return SmartReframeService.buildBlurBackgroundFilter({
+            canvasWidth: canvasDims(ratio, cs).width,
+            canvasHeight: canvasDims(ratio, cs).height,
+            tag: layoutTag,
+          });
+        }
         return SmartReframeService.buildLayoutCropFilter({
           layoutMode: effLayout as any,
           aspectRatio: ratio,

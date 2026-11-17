@@ -1609,8 +1609,100 @@ export class ClipRenderService {
                 sourceHeight: track.source_height || 1080,
                 speaker1X: clip.crop_config?.split?.speaker1X,
                 speaker2X: clip.crop_config?.split?.speaker2X,
+                speaker1Y: (clip.crop_config?.split as any)?.speaker1Y,
+                speaker2Y: (clip.crop_config?.split as any)?.speaker2Y,
+                speaker1TrackId: (clip.crop_config?.split as any)?.speaker1TrackId,
+                speaker2TrackId: (clip.crop_config?.split as any)?.speaker2TrackId,
+                canvasWidth: 1080 * (canvasScale || 1),
+                canvasHeight: 1920 * (canvasScale || 1),
               })
             : null;
+        const hasRequestedTrack = Boolean(
+          (clip.crop_config?.split as any)?.speaker1TrackId || (clip.crop_config?.split as any)?.speaker2TrackId
+        );
+
+        const sceneCuts = Array.isArray(track.metadata?.scene_cuts)
+          ? track.metadata.scene_cuts.filter((t: any) => Number.isFinite(t) && t > 0 && t < durationSec)
+          : [];
+
+        const effectiveRatio = clip.aspect_ratio || '9:16';
+        const targetCanvasDims = canvasDims(effectiveRatio, canvasScale);
+
+        // P1.3 Scene-Cut Boundary Invariance: when scene cuts exist, compute shot-local
+        // split geometry across any supported aspect ratio (9:16, 1:1, 16:9) so that camera
+        // angle changes and inverted speaker positions frame each shot independently.
+        if (targetLayout === 'split' && sceneCuts.length > 0) {
+          const plan = SmartReframeService.computeShotComposition({
+            targetLayout: 'split',
+            rawSamples: track.raw_samples,
+            sceneCuts,
+            duration: durationSec,
+            sourceWidth: track.source_width || 1920,
+            sourceHeight: track.source_height || 1080,
+            speaker1X: clip.crop_config?.split?.speaker1X,
+            speaker2X: clip.crop_config?.split?.speaker2X,
+            speaker1Y: (clip.crop_config?.split as any)?.speaker1Y,
+            speaker2Y: (clip.crop_config?.split as any)?.speaker2Y,
+            speaker1TrackId: (clip.crop_config?.split as any)?.speaker1TrackId,
+            speaker2TrackId: (clip.crop_config?.split as any)?.speaker2TrackId,
+            splitFit: (clip.crop_config?.split as any)?.fit,
+            splitDividerX: (clip.crop_config?.split as any)?.dividerX,
+            canvasWidth: targetCanvasDims.width,
+            canvasHeight: targetCanvasDims.height,
+            windowScope: 'shot',
+          });
+          if (plan.length) {
+            const allUnresolved = plan.every(s => s.splitGeometry?.unresolved || !s.splitGeometry);
+            if (allUnresolved && hasRequestedTrack) {
+              const reason = plan[0]?.splitGeometry?.unresolvedReason || 'requested_speaker_track_not_found';
+              logger.warn(`[ClipRender] All split shots unresolved (${reason}) for clip ${clip.id}. Falling back to blur.`);
+              return {
+                cropFilter: SmartReframeService.buildBlurBackgroundFilter({
+                  canvasWidth: targetCanvasDims.width,
+                  canvasHeight: targetCanvasDims.height,
+                }),
+                mode: 'smart',
+                metadata: { layout_mode: 'blur', reason: 'split_unresolved', unresolvedReason: reason },
+                layoutMode: 'blur',
+                track,
+              };
+            }
+            return {
+              cropFilter: SmartReframeService.buildShotCompositionFilter({
+                plan,
+                duration: durationSec,
+                sourceWidth: track.source_width || 1920,
+                sourceHeight: track.source_height || 1080,
+                canvasScale,
+                aspectRatio: effectiveRatio as any,
+                canvasWidth: targetCanvasDims.width,
+                canvasHeight: targetCanvasDims.height,
+              }),
+              mode: 'smart',
+              metadata: { layout_mode: 'split', shot_composition_candidate: true, shot_count: plan.length },
+              layoutMode: 'split',
+              track,
+            };
+          }
+        }
+        // Guard: if the split geometry is unresolved (speakers too close to safely
+        // separate without panels crossing each other, or requested speaker track not found),
+        // fall back to a safe blur layout rather than rendering a dangerously narrow or incorrect split crop.
+        if (targetLayout === 'split' && (splitGeometry?.unresolved || (!splitGeometry && hasRequestedTrack))) {
+          const reason = splitGeometry?.unresolvedReason || 'requested_speaker_track_not_found';
+          logger.warn(`[ClipRender] Split geometry unresolved (${reason}) for clip ${clip.id}. Falling back to blur.`);
+          return {
+            cropFilter: SmartReframeService.buildBlurBackgroundFilter({
+              canvasWidth: targetCanvasDims.width,
+              canvasHeight: targetCanvasDims.height,
+            }),
+            mode: 'smart',
+            metadata: { layout_mode: 'blur', reason: 'split_unresolved', unresolvedReason: reason },
+            layoutMode: 'blur',
+            track,
+          };
+        }
+
         if (targetLayout === 'track' && (clip.aspect_ratio === '9:16' || !clip.aspect_ratio) && track.metadata?.shot_composition_candidate === true) {
           const plan = SmartReframeService.computeShotComposition({layoutPolicy:clip.crop_config?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
             duration:durationSec,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
