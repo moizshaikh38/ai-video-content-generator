@@ -37,7 +37,7 @@ export async function findProjectMoments(req: AuthenticatedRequest, res: Respons
   }
 
   // 2. Load existing multimodal analysis
-  let analysis = await MultimodalTimelineService.getAnalysis(projectId, userId);
+  let analysis = await MultimodalTimelineService.getFreshAnalysis(projectId, userId);
 
   // If no persistent multimodal analysis yet, build an on-the-fly timeline from transcript segments
   if (!analysis) {
@@ -122,8 +122,10 @@ export async function getProjectMultimodalTimeline(
     throw new AppError('Invalid project ID.', 400, 'INVALID_PROJECT_ID');
   }
 
-  const analysis = await MultimodalTimelineService.getAnalysis(projectId, userId);
+  const analysis = await MultimodalTimelineService.getFreshAnalysis(projectId, userId);
   if (!analysis) {
+    const stored=await MultimodalTimelineService.getAnalysis(projectId,userId);
+    if(stored)throw new AppError('Stored analysis cannot be verified against the current source and transcript. Check source access or run analysis again.',409,'MULTIMODAL_ANALYSIS_UNVERIFIED');
     throw new AppError('Multimodal analysis not found for this project.', 404, 'NOT_FOUND');
   }
 

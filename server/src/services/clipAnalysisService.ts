@@ -679,7 +679,7 @@ export class ClipAnalysisService {
       let multimodalTimeline: any = null;
       try {
         const { MultimodalTimelineService } = await import('./multimodal/multimodalTimelineService.js');
-        const mmAnalysis = await MultimodalTimelineService.getAnalysis(projectId, userId);
+        const mmAnalysis = await MultimodalTimelineService.getFreshAnalysis(projectId, userId);
         if (mmAnalysis?.timeline) {
           multimodalTimeline = mmAnalysis.timeline;
         }

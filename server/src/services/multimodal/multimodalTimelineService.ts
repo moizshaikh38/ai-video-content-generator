@@ -1,3 +1,6 @@
+import {transcriptSnapshotIdentity} from '../../shared/transcriptSnapshotIdentity.js';
+import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../../shared/sourceObjectReceipt.js';
+import {headObject} from '../objectStorageService.js';
 import {unverifiedMultimodalSignals,type MultimodalSignalEvidence} from '../../shared/multimodalSignalEvidence.js';
 import crypto from 'node:crypto';
 import { dataRepository, ownerContext } from '../../db/repositories/dataRepository.js';
@@ -144,6 +147,7 @@ export class MultimodalTimelineService {
     projectId: string;
     userId: string;
     timeline: MultimodalTimeline;
+    sourceReceipt?:SourceObjectReceipt;transcriptSnapshot?:string;
   }): Promise<VideoAnalysisRecord> {
     const { projectId, userId, timeline } = params;
 
@@ -154,6 +158,8 @@ export class MultimodalTimelineService {
         status: 'completed',
         timeline,
         metadata: {
+          source_receipt:params.sourceReceipt,
+          transcript_snapshot_sha256:params.transcriptSnapshot,
           analyzed_at: new Date().toISOString(),
           duration_seconds: timeline.duration_seconds,
           segment_count: timeline.segments.length,
@@ -198,6 +204,21 @@ export class MultimodalTimelineService {
         }
         return inserted as VideoAnalysisRecord;
       }
+    });
+  }
+
+  /** Normal consumers must use this freshness boundary, not the raw record
+   * getter. No migration: legacy/local-only records cannot certify current data.
+   * HEAD receipt validation proves object validator continuity at this read,
+   * not transcript accuracy or browser-media-byte parity. */
+  public static async getFreshAnalysis(projectId:string,userId:string):Promise<VideoAnalysisRecord|null>{
+    return ownerContext.run(userId,async()=>{
+      const record=await this.getAnalysis(projectId,userId);if(!record||record.status!=='completed')return null;
+      const {data:project}=await dataRepository.from('projects').select('id,storage_path').eq('id',projectId).eq('user_id',userId).maybeSingle();
+      const {data:transcript}=await dataRepository.from('transcripts').select('*').eq('project_id',projectId).eq('user_id',userId).maybeSingle();
+      if(!project?.storage_path||!transcript||transcript.quality_assessment?.status==='needs_review'||record.metadata?.transcript_snapshot_sha256!==transcriptSnapshotIdentity(transcript))return null;
+      try{const head=await headObject('source',project.storage_path);if(!sourceObjectReceiptMatches(record.metadata?.source_receipt,project.storage_path,head))return null;}catch{return null;}
+      return record;
     });
   }
 

@@ -1,3 +1,5 @@
+import {transcriptSnapshotIdentity} from '../../shared/transcriptSnapshotIdentity.js';
+import type {SourceObjectReceipt} from '../../shared/sourceObjectReceipt.js';
 import type {SignalExecutionReceipt} from '../../shared/multimodalSignalEvidence.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -167,9 +169,12 @@ export class VideoAnalysisWorker {
     let keyframeCleanup: (() => void) | null = null;
 
     try {
+      let sourceReceipt:SourceObjectReceipt|undefined;
+      const transcriptSnapshot=transcriptSnapshotIdentity(transcript);
       // Step 0: Obtain source video
       if (project.storage_path) {
-        await downloadObjectToFile('source', project.storage_path, videoPath);
+        const downloaded=await downloadObjectToFile('source', project.storage_path, videoPath,{requireSnapshotReceipt:true});
+        sourceReceipt=downloaded.sourceReceipt;
       } else if (project.source_url && fs.existsSync(project.source_url)) {
         fs.copyFileSync(project.source_url, videoPath);
       } else {
@@ -231,6 +236,7 @@ export class VideoAnalysisWorker {
         projectId: job.project_id,
         userId: job.user_id,
         timeline: fusedTimeline,
+        sourceReceipt,transcriptSnapshot,
       });
 
       if (!savedRecord || !savedRecord.id) {
