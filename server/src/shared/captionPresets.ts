@@ -2505,10 +2505,16 @@ function buildPresetCueEventsBare(cue: PresetTimedCue, baseStyle: ResolvedCaptio
         const state = getWordRevealState(w, start + 0.000001, style.reveal);
         const chars = splitCaptionGraphemes(w.text);
         const shown = state.visibleCharacters ?? chars.length;
-        const alpha = Math.round((1 - state.opacity*getCaptionExitOpacity(cue,start,style)) * 255).toString(16).padStart(2, '0').toUpperCase();
+        const opacity = state.opacity * getCaptionExitOpacity(cue, start, style);
+        const alphaFor = (amount: number) => Math.round((1 - amount) * 255).toString(16).padStart(2, '0').toUpperCase();
+        // A global ASS alpha overrides BackColour/OutlineColour alpha too. Keep
+        // reveal opacity multiplied by each channel's own opacity, as in CSS.
+        const alpha = alphaFor(opacity);
+        const outlineAlpha = alphaFor(opacity * (style.box?.opacity ?? 1));
+        const shadowAlpha = alphaFor(opacity * style.shadowOpacity);
         const color = hexToAssColor(w.customStyle?.color || style.textColor);
         const mult = Math.max(0.25, Math.min(3, w.customStyle?.fontSizeMultiplier ?? 1));
-        text += `{\\c${color}\\fscx${Math.round(mult * 100)}\\fscy${Math.round(mult * 100)}\\alpha&H${alpha}&}${escapeAssText(chars.slice(0, shown).join(''))}`;
+        text += `{\\c${color}\\fscx${Math.round(mult * 100)}\\fscy${Math.round(mult * 100)}\\1a&H${alpha}&\\2a&H${alpha}&\\3a&H${outlineAlpha}&\\4a&H${shadowAlpha}&}${escapeAssText(chars.slice(0, shown).join(''))}`;
         text += `{\\alpha&HFF&}${escapeAssText(chars.slice(shown).join(''))}{\\alpha&H00&}`;
       });
       const caret = getCaptionCaret(cue, start + 0.000001, style);

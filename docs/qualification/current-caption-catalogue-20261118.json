@@ -763,5 +763,6 @@
       "fullStyleApproved": false,
       "referenceParityApproved": false
     }
-  ]
+  ],
+  "followup": "Soft Build reveal-channel alpha correction and fresh Soft Build/Typewriter actual outputs recorded in caption-reveal-channel-alpha-20261118.md. Initial coverage evidence is retained unchanged."
 }
