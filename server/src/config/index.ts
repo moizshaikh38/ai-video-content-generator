@@ -84,6 +84,8 @@ export const config = {
   contentGenerationTimeoutMs: parseInt(process.env.CONTENT_GENERATION_TIMEOUT_MS || '60000', 10),
   ffmpegTimeoutMs: parseInt(process.env.FFMPEG_TIMEOUT_MS || '180000', 10),
   clipRenderTimeoutMs: parseInt(process.env.CLIP_RENDER_TIMEOUT_MS || '300000', 10),
+  // Qualification-only, opt-in. Unsupported graphs fail instead of unsafe fallback.
+  clipRenderSliceStagingQualification: process.env.CLIP_RENDER_SLICE_STAGING_QUALIFICATION === '1',
   // Social OAuth & Encryption (Phase 9)
   socialTokenEncryptionKey:
     process.env.SOCIAL_TOKEN_ENCRYPTION_KEY ||

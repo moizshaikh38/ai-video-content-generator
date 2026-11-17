@@ -1,3 +1,4 @@
+import {prepareSliceRender} from './sliceRenderPreparation.js';
 import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
 import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 import {candidateCompositionOptions} from '../shared/automaticLayoutCandidate.js';
@@ -993,7 +994,7 @@ export class ClipRenderService {
         // dynamic-normalized dialogue WAV when peak/range-limited. Throws
         // LoudnormNormalizationError only for degenerate/silent measurements.
         const storedPlan=clip.crop_config?.mode==='smart' ? storedScenePlanWindow(editorProject,clip,reframeDecision.track,sourceSha256) : null;
-        const graph = await ProEditorService.compileRenderGraphWithNormalization(
+        let graph = await ProEditorService.compileRenderGraphWithNormalization(
           editorProject,
           sourcePath,
           outputPath,
@@ -1020,6 +1021,15 @@ export class ClipRenderService {
         const renderDuration = !isMultiSlice ? Math.min(canvasDuration, durationSec) : canvasDuration;
         expectedDurationSec = renderDuration;
         if (graph.canvas) expectedCanvas = graph.canvas;
+
+        const stagedDeadline=config.clipRenderSliceStagingQualification?Date.now()+timeoutMs:undefined;
+        const preparedSlices=config.clipRenderSliceStagingQualification
+          ? await prepareSliceRender(graph,{parentDirectory:tempDir,timeoutMs:Math.min(timeoutMs,120000),ffmpegPath:ffmpegBin}) : null;
+        if(config.clipRenderSliceStagingQualification&&!preparedSlices)throw new AppError('This graph is outside the bounded slice-render qualification scope.',422,'STAGED_RENDER_UNSUPPORTED');
+        if(preparedSlices){
+          graph=preparedSlices.finalGraph;
+          logger.info(`[ClipRender] Qualification slice staging prepared ${preparedSlices.intermediateBytes} bytes; sampled child peak ${preparedSlices.peakRssKiB} KiB`);
+        }
 
         if (watermarkRequired) {
           const wmFilter = WatermarkService.getFfmpegFilterString({ canvasScale });
@@ -1051,7 +1061,9 @@ export class ClipRenderService {
             ];
 
             try {
-              await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: timeoutMs });
+              const remaining=stagedDeadline===undefined?timeoutMs:stagedDeadline-Date.now();
+              if(remaining<=0)throw new AppError('Bounded staged render deadline exceeded.',504,'RENDER_TIMEOUT');
+              await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: remaining,...(stagedDeadline===undefined?{}:{killSignal:'SIGKILL' as const}) });
             } catch (err: any) {
               const detail = String(err?.stderr || '').trim().split('\n').slice(-12).join('\n');
               if (detail) err.message = `${err.message}\nffmpeg stderr: ${detail}`;
@@ -1060,6 +1072,7 @@ export class ClipRenderService {
           });
         } finally {
           await scriptExec.cleanup();
+          preparedSlices?.cleanup();
         }
         await ClipRenderService.updateJobProgress(jobId, 85, 'encoding');
       } else {

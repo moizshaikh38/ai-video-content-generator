@@ -1,5 +1,5 @@
-/** Offline-only execution of a qualified staging plan. Normal export jobs do not
- * import this module. Limits are deliberately small until integration review. */
+/** Qualification-only execution of a staged plan. Normal exports select this
+ * only through an explicit, disabled-by-default qualification flag. */
 import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {spawn} from 'node:child_process';import ffmpegStatic from 'ffmpeg-static';
 import type {CompiledRenderGraph} from './proEditorService.js';import {buildSliceRenderStaging} from './sliceRenderStaging.js';
 export interface SlicePreparationOptions {parentDirectory?:string;timeoutMs?:number;maxDiskBytes?:number;maxRssKiB?:number;ffmpegPath?:string}

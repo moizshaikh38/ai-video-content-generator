@@ -123,3 +123,33 @@ The actual contact sheet was inspected: the synthetic POSITION CHECK text is
 visible across all six existing layouts. This is a direct helper/render exercise,
 not an authenticated Studio/API/export-job test, language-accuracy evidence or a
 claim that all caption styles and animations are qualified.
+
+## Disabled-by-default render-job integration qualification
+
+`CLIP_RENDER_SLICE_STAGING_QUALIFICATION=1` now selects preparation in the real
+multi-track job path. The default is OFF. Unsupported graphs fail clearly rather
+than falling back to the memory-heavy shared-input graph while this flag is on.
+Preparation and final encoding share the existing render execution deadline.
+Intermediate cleanup happens after encode, with the job's outer temporary-dir
+cleanup covering earlier errors. No login, auth middleware or plan policy changed.
+
+`server/scripts/local-qualification/staged-render-api.mts` creates new UUID
+fixtures in a separate local Mongo database. It exercises the actual HTTP render
+route, job lifecycle, local S3 GET/HEAD/PUT protocol and real FFmpeg. Identity,
+plan and one-thread CPU encoder selection are mocked for the fixture only;
+watermark enforcement is explicitly on. No connected account or paid provider is
+used. Original fixture records are read as templates, not edited.
+
+The final run was accepted (202), reached clip ready AND job completed, uploaded
+an actual 12s 720x1280 H264/AAC file, retained the saved tracks byte-for-byte, and
+removed the job's temporary directory. Preparation recorded 92830807 bytes and a
+227416 KiB sampled child peak. The six-view contact sheet was inspected: all six
+saved manual layout modes, synthetic captions and watermark are present.
+
+Important: this API fixture has no reframe analysis track. Its manual split uses
+existing fallback geometry rather than the earlier helper fixture's analyzed
+speaker zoom. It has 359 encoded frames, not the 360 of the earlier analyzed
+fixture. Do not call the two exports picture-identical or Auto-qualified. It is
+also an upscaled 854x480 source, not native 720p detail. The first harness attempt
+observed clip ready before job completion; the harness was corrected to wait for
+both states and the fresh run passed. This was not a 4K attempt or a release.
