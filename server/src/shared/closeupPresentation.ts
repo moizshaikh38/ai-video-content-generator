@@ -1,7 +1,7 @@
 import type {ReframeSample} from '../types/index.js';
 /** A deliberate head-and-shoulders presentation, NOT a full-body-preservation
  * claim. Only a large, repeatedly visible single face with one associated
- * person. No identity, speech or object-importance inference. Full source
+ * person whose measured lateral extent also fits. No identity, speech or object-importance inference. Full source
  * height remains; measured face, other faces/persons and explicit regions
  * must fit at every sample. Missing semantic context remains review-required. */
 export function closeupPortraitPresentation(samples:ReframeSample[],start:number,end:number,w:number,h:number,regions:Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>=[],allowExistingExtremeCloseup=false){
@@ -17,6 +17,10 @@ export function closeupPortraitPresentation(samples:ReframeSample[],start:number
   if(bodies.length!==1)return null;
   const body=bodies[0];if(f.center_x<body.x||f.center_x>body.x+body.width||f.center_y<body.y||f.center_y>body.y+body.height*.65)return null;
   const x=Math.max(portrait/2,Math.min(1-portrait/2,f.center_x));
+  // A large face is not permission to replace a wider measured person view.
+  // Lateral torso/arm extent can carry action. Keep the existing body-aware
+  // path when this portrait would cut it, without guessing hand importance.
+  if(![body.x,body.y,body.width,body.height].every(Number.isFinite)||body.x<0||body.y<0||body.x+body.width>1.001||body.y+body.height>1.001||body.x<x-portrait/2-1e-6||body.x+body.width>x+portrait/2+1e-6)return null;
   const rs=regions.filter(r=>r.confidence>=.7&&r.start<=s.time&&r.end>s.time);
   if(rs.some(r=>![r.x,r.y,r.width,r.height].every(Number.isFinite)||r.x<x-portrait/2||r.x+r.width>x+portrait/2))return null;
   if(f.x-.012<x-portrait/2-1e-6||f.x+f.width+.012>x+portrait/2+1e-6)return null;
@@ -25,5 +29,5 @@ export function closeupPortraitPresentation(samples:ReframeSample[],start:number
  }
  if(points[0].time-start>.3||end-points.at(-1)!.time>.3)return null;
  return {start,end,kind:'solo' as const,windowW:portrait,windowH:1,keyframes:points,
-  contextStatus:'unresolved-review-required' as const,uncertainty:'Close-up portrait from one repeated large face. Head/shoulder presentation intentionally crops body sides; unseen objects and story context need review.'};
+  contextStatus:'unresolved-review-required' as const,uncertainty:'Close-up portrait from one repeated large face. Measured lateral body extent retained at sampled points; unseen hands, objects and story context still need review.'};
 }
