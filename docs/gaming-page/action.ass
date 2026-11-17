@@ -1,0 +1,15 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 540
+PlayResY: 960
+WrapStyle: 2
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,35,&H00FFFFFF,&H00FF92B7,&H00140D20,&H80000000,-1,0,0,0,100,100,0,0,1,3,1,2,22,22,260,1
+Style: Brand,DejaVu Sans,14,&H00FFFFFF,&H00FFFFFF,&H00140D20,&H00000000,-1,0,0,0,100,100,0,0,1,1,0,9,20,20,18,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:03.40,Default,,0,0,100,,{\fscx90\fscy90\t(0,120,\fscx100\fscy100)}NO TIME TO\N{\c&HFF92B7&}STAND STILL.
+Dialogue: 0,0:00:03.40,0:00:07.00,Default,,0,0,100,,{\fscx90\fscy90\t(0,120,\fscx100\fscy100)}KEEP\N{\c&HFF92B7&}MOVING.
+Dialogue: 0,0:00:07.00,0:00:10.50,Default,,0,0,100,,{\fscx90\fscy90\t(0,120,\fscx100\fscy100)}MAKE IT\N{\c&HFF92B7&}A REPLAY.
+Dialogue: 1,0:00:00.00,0:00:10.50,Brand,,0,0,0,,VireoClip

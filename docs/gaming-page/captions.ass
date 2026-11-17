@@ -1,0 +1,18 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 540
+PlayResY: 960
+WrapStyle: 2
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,35,&H00FFFFFF,&H00FF92B7,&H00140D20,&H80000000,-1,0,0,0,100,100,0,0,1,3,1,2,22,22,260,1
+Style: Brand,DejaVu Sans,14,&H00FFFFFF,&H00FFFFFF,&H00140D20,&H00000000,-1,0,0,0,100,100,0,0,1,1,0,9,20,20,18,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:02.60,Default,,0,0,0,,{\c&HFF92B7&}AGE OF EMPIRES
+Dialogue: 0,0:00:02.60,0:00:04.70,Default,,0,0,0,,I probably spent\N{\c&HFF92B7&}MORE HOURS
+Dialogue: 0,0:00:04.70,0:00:06.10,Default,,0,0,0,,in that game
+Dialogue: 0,0:00:06.10,0:00:08.10,Default,,0,0,0,,than any game\NI've ever played.
+Dialogue: 0,0:00:08.10,0:00:09.30,Default,,0,0,0,,I had a buddy
+Dialogue: 0,0:00:09.30,0:00:11.80,Default,,0,0,0,,we used to play it\N{\c&HFF92B7&}ALL THE TIME.
+Dialogue: 1,0:00:00.00,0:00:11.80,Brand,,0,0,0,,VireoClip
