@@ -1,3 +1,4 @@
+import {validateAutomaticLayoutCropConfig} from '../shared/automaticLayoutValidation.js';
 import {normalizeEditorCanvasAspect} from '../shared/editorCanvasAspect.js';
 import {candidateCompositionOptions} from '../shared/automaticLayoutCandidate.js';
 import {captionCompositionWindows,type CaptionLayoutWindow} from '../shared/sceneCaptionPlacement.js';
@@ -337,8 +338,8 @@ export class ProEditorService {
           if (item.transition_out && !EDITOR_TRANSITION_TYPES.includes(item.transition_out.type)) {
             throw new AppError(`Invalid transition type: ${item.transition_out.type}`, 400, 'INVALID_TRANSITION');
           }
-          if(item.crop_config?.automaticLayoutCandidate!==undefined&&item.crop_config.automaticLayoutCandidate!=='review-v1')throw new AppError('Invalid Auto Layout candidate',400,'INVALID_AUTO_LAYOUT_CANDIDATE');
-          try{validateSceneLayoutOverrides(item)}catch(e){throw new AppError(String((e as Error).message),400,'INVALID_SCENE_LAYOUT')}
+          try{validateAutomaticLayoutCropConfig(item.crop_config)}catch(e){throw new AppError(String((e as Error).message),400,(e as any).code||'INVALID_CROP_CONFIG')}
+          try{validateSceneLayoutOverrides(item)}catch(e){throw new AppError(String((e as Error).message),400,(e as any).code||'INVALID_SCENE_LAYOUT')}
           ProEditorService.assertItemFramingWindow(item, dto.canvas?.aspect_ratio ?? current.canvas?.aspect_ratio ?? '9:16');
           // Source paths become server-side fetches and FFmpeg inputs — validate strictly.
           if (item.source_path !== undefined && item.source_path !== null) {
