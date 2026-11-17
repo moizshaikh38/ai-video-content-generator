@@ -1322,7 +1322,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     notice={activePanels.slots[i].sourceRect ? "This view uses a measured source region. Apply replaces that region with your manual full-source crop." : undefined}
                     enabled={!videoCropLocked}
                     disabledReason="Unlock this scene or track to change its panel crop."
-                    onOpen={onBeginCrop}
+                    onOpen={() => { setMobileFramingToolsOpen(false); onBeginCrop?.(); }}
                     onApply={(c) => {
                       if (videoCropLocked) return;
                       const slots = activePanels.slots.map((s, j) => (j === i ? { ...c, set: true } : s));
@@ -1338,8 +1338,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             <>
               <CropBoxControl
                 key={activeVideoItems[0].id}
-                inlineTarget={canvasContainerRef.current}
-                onOpen={onBeginCrop}
+                inlineTarget={stageViewportRef.current}
+                onOpen={() => { setMobileFramingToolsOpen(false); onBeginCrop?.(); }}
                 disabledReason={videoCropLocked ? "Unlock this scene or track to change its crop." : undefined}
                 notice={activeVideoItems[0].framing_window ? "Applying a manual crop replaces this scene's context window. Cancel keeps it unchanged." : undefined}
                 videoSrc={cleanSourceUrl || activeVideoSrc || null}

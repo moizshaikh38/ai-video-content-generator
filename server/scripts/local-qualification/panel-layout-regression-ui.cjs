@@ -1,0 +1,37 @@
+// LOCAL ONLY: real Studio panel inline crop, desktop/touch apply/cancel, save/reload and bounded720p API.
+const fs=require('fs'),cp=require('child_process'),assert=require('assert/strict'),puppeteer=require('/tmp/vireo-local-restore/ui-driver/node_modules/puppeteer-core');
+const procs=[];let browser;
+(async()=>{
+ const fixture='/tmp/vireo-local-restore/beast-aligned-fixture.json';const f=JSON.parse(fs.readFileSync(fixture));
+ for(const [bin,args,cwd,env,log] of [
+  ['/home/sandbox/avcg/server/node_modules/.bin/tsx',['scripts/local-qualification/render-recovered.mts'],'/home/sandbox/avcg/server',{KEEP_LOCAL_SERVER:'1',QUALIFICATION_FIXTURE:fixture,QUALIFICATION_SOURCE:'/downloads/recovered-source/beast-yacht-120-210.mp4'},'/tmp/mobile-api.log'],
+  ['/home/sandbox/avcg/node_modules/.bin/vite',['--host','127.0.0.1','--port','5199'],'/home/sandbox/avcg',{VITE_API_URL:'http://127.0.0.1:5581/api'},'/tmp/mobile-vite.log']]){
+  const p=cp.spawn(bin,args,{cwd,env:{...process.env,...env},detached:true,stdio:['ignore',fs.openSync(log,'w'),fs.openSync(log,'a')]});procs.push(p);
+ }
+ for(let n=0;n<300;n++){try{if(fs.readFileSync('/tmp/mobile-api.log','utf8').includes('LOCAL_UI_SERVER_READY')&&(await fetch('http://127.0.0.1:5199/harness-studio-e2e.html')).ok)break}catch{}await new Promise(r=>setTimeout(r,100))}
+ browser=await puppeteer.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage'],defaultViewport:{width:390,height:844,isMobile:true,hasTouch:true}});
+ const page=await browser.newPage(),errors=[],writes=[],metrics=[];
+ page.on('response',res=>{if(res.request().method()==='PATCH'&&res.url().includes('/api/')){assert.equal(res.status(),200)}});page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().includes('/api/')&&['PATCH','DELETE'].includes(r.method()))writes.push(r.url())});
+ await page.goto('http://127.0.0.1:5199/harness-studio-e2e.html?clip='+f.clip_id,{waitUntil:'domcontentloaded'});
+ const clickText=async(text)=>{if(text.startsWith('Panel ')||text==='Crop')await openTools();await page.waitForFunction(text=>[...document.querySelectorAll('button')].some(b=>b.textContent.trim()===text),{},text);await page.evaluate(text=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===text).click(),text)};
+ const slots=async()=>{const st=await(await fetch('http://127.0.0.1:5581/api/editor-projects/'+f.editor_id,{headers:{authorization:'Bearer e2e-studio-token'}})).json();return (st.data||st.project||st).tracks.find(t=>t.type==='VIDEO').items[0].panels.slots};
+ const save=async()=>{const expected=writes.length+2;await clickText('Save');for(let i=0;i<100&&writes.length<expected;i++)await new Promise(r=>setTimeout(r,100));assert.equal(writes.length,expected);await new Promise(r=>setTimeout(r,200))};
+ const openTools=async()=>{const t=await page.$('[data-testid="mobile-framing-toggle"]');if(t&&await t.evaluate(e=>getComputedStyle(e.parentElement).display!=='none'&&e.getAttribute('aria-expanded')==='false'))await t.click()};
+ const pick=async label=>{await openTools();await page.click('[data-testid="toolbar-layout"]');await page.waitForSelector('[role="menu"]',{visible:true});await page.evaluate(label=>[...document.querySelectorAll('[role="menuitemradio"]')].find(b=>b.textContent.trim()===label).click(),label);await save()};
+ for(const width of [1440,390,320]){
+  await page.setViewport({width,height:width===1440?1000:844,isMobile:width<768,hasTouch:width<768});await page.waitForSelector('[data-testid="toolbar-layout"]');
+  for(const [label,count] of [['Three',3],['Four',4],['ScreenShare',2],['Game screen first',2]]){
+   await pick(label);const before=await slots();assert.equal(before.length,count);
+   await clickText('Panel '+count+' (set view)');await page.waitForSelector('[data-testid="inline-preview-crop"]',{visible:true});await page.waitForFunction(()=>[...document.querySelectorAll('[data-testid="inline-preview-crop"] video')].every(v=>v.readyState>=2&&!v.seeking));
+   const box=await page.$eval('[data-testid="crop-box"]',e=>e.getBoundingClientRect().toJSON());assert.ok(box.width>20&&box.height>20);await page.keyboard.press('Escape');assert.deepEqual(await slots(),before);
+   await clickText('Panel '+count+' (set view)');await page.waitForSelector('[data-testid="inline-preview-crop"]',{visible:true});await clickText('Reset');await clickText('Apply');await save();const after=await slots();assert.equal(after[count-1].set,true);for(let i=0;i<count-1;i++)assert.deepEqual(after[i],before[i]);
+   await clickText('Panel '+count);await page.waitForSelector('[data-testid="inline-preview-crop"]',{visible:true});await page.waitForFunction(()=>[...document.querySelectorAll('[data-testid="inline-preview-crop"] video')].length>0&&[...document.querySelectorAll('[data-testid="inline-preview-crop"] video')].every(v=>v.readyState>=2&&!v.seeking));await new Promise(r=>setTimeout(r,150));await page.screenshot({path:'/downloads/panel-regression-'+width+'-'+label.replaceAll(' ','-')+'.png'});await page.keyboard.press('Escape');metrics.push({width,label,count,passed:true});
+  }
+  await pick('Fill');await clickText('Crop');await page.waitForSelector('[data-testid="inline-preview-crop"]',{visible:true});await page.waitForFunction(()=>[...document.querySelectorAll('[data-testid="inline-preview-crop"] video')].every(v=>v.readyState>=2&&!v.seeking));await page.screenshot({path:'/downloads/panel-regression-'+width+'-Fill.png'});
+ const applyBox=await page.evaluate(()=>{const r=[...document.querySelectorAll('[data-testid="inline-preview-crop"] button')].find(b=>b.textContent==='Apply').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}});assert.ok(applyBox.x>=50&&(width===1440||applyBox.y+applyBox.h<604));
+ await clickText('Reset');if(width<768)await page.tap('[data-testid="inline-preview-crop"] button.bg-white.text-black');else await clickText('Apply');await save();
+ await clickText('Crop');await page.waitForSelector('[data-testid="inline-preview-crop"]',{visible:true});metrics.push({width,label:'Fill',stage:await page.$eval('[data-testid="crop-stage"]',e=>e.getBoundingClientRect().toJSON())});await page.keyboard.press('Escape');
+ }
+ assert.equal(errors.length,0);
+ console.log(JSON.stringify({status:'passed',metrics,errors,writes},null,2));
+})().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{if(browser)await browser.close();for(const p of procs){try{process.kill(-p.pid,'SIGTERM')}catch{}}});
