@@ -1,0 +1,13 @@
+# Youshaei fresh font and actual-output catalogue follow-up
+
+Reproduced with new normal Pro clip creation/job/upload/download from unchanged saved actual provider transcript/source. Before /downloads/vireo-catalogue-youshaei-before-0502 and before-ui-0502. Three actual preview/export samples at .267/1.667/19.1 seconds show different glyph sizes/letterforms. Browser platform evidence is LiberationSans-Bold for unbundled Arial Black. This repeats the previously measured Compact fallback class; it is not a new downloaded font or reference-parity result.
+
+Fresh creation and explicit Youshaei selection now bind existing bundled Inter Bold, using the same narrow boundary as Compact. Explicit font/bold fields win. Saved clips/editors, catalogue legacy resolver, timings, cues, anchor and manual styles are unchanged. This does not migrate or repair existing saved Arial Black clips.
+
+After /downloads/vireo-catalogue-youshaei-after-0503 and after-ui-0503: browser reports custom Inter-Bold, actual normal fresh clip stored Inter/bold. Inspected .267/1.667/19.1 pairs: letterforms and size broadly agree now, with green active word retained. Stroke-heavy tight spacing remains visible, so no claim of best typography or collision-free strokes. Positive DOM glyph advance gaps are not pixel-stroke clearance. Native media cast icon is preview-only.
+
+Full 240-frame explicit-seek audit across 0-4 and18-22 at /downloads/vireo-catalogue-youshaei-motion-0504. Paired MP4/contact/provenance produced; twelve sampled paired frames inspected, matching visible word changes and green emphasis. This is frame-stepped visual evidence, not real-time playback, full28-second parity, independent transcript truth, listening review or automatic selection. Source/frame phase and anti-aliasing differences remain. Actual normal Pro render is full28.444seconds, manual whole-source interval and center crop, local auth/entitlements/storage/encoder doubles, not production login/export-dialog proof.
+
+Reusable catalogue exporter accepts implemented renderable preset IDs and uses the same source binding and actual job/storage/download qualification as earlier three-style runner. Explicit AUDIT_TIMES permits sparse still diagnostics; it must not be represented as a motion audit. Existing full240 default remains. Current rendered preset list should be obtained from captionPresets.ts, not the older pre-existing untracked inventory's count. Reference-only names remain unimplemented until individually built and qualified.
+
+No spend, providers, deployment, release, account/data migration or additional architecture. Remaining presets, reference fidelity, old saved fallback, listening, independent transcript reference, Auto generalization and4K remain open.
