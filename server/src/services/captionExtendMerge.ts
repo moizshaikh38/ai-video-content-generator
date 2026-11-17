@@ -14,6 +14,13 @@ export interface ExtendMergeCue {
   words?: Array<{ start: number; end: number; text?: string; word?: string }>;
 }
 
+/** An explicit finite coverage marker makes even an empty saved edit
+ * authoritative. Legacy empty/uninitialized tracks are not upgraded here. */
+export function hasAuthoritativeCaptionCues(caption: any): boolean {
+  return Array.isArray(caption?.cues) && (caption.cues.length > 0 ||
+    (typeof caption.cues_covered_end === 'number' && Number.isFinite(caption.cues_covered_end) && caption.cues_covered_end >= 0));
+}
+
 const EPS = 0.001;
 
 export function maxCueEnd(cues: ExtendMergeCue[]): number {
@@ -84,7 +91,7 @@ export function editorProjectCoveredEnd(proj: any): number | null {
   for (const t of proj.tracks) {
     if (t?.type !== 'CAPTION' || t.hidden || !Array.isArray(t.items)) continue;
     for (const item of t.items) {
-      if (item.hidden || !item.caption || !Array.isArray(item.caption.cues) || item.caption.cues.length === 0) continue;
+      if (item.hidden || !hasAuthoritativeCaptionCues(item.caption)) continue;
       const itemStart = typeof item.timeline_start === 'number' ? item.timeline_start : 0;
       const raw = item.caption.cues as ExtendMergeCue[];
       const isRel = itemStart > 0 && raw.length > 0 && raw[0].start < itemStart - 0.05;

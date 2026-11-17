@@ -1,0 +1,7 @@
+# Covered empty saved caption edits
+
+Reproduced a real manual-edit loss: getClipCaptions treated saved cues=[] as absent even when cues_covered_end=30, then returned the automatic source transcript. Export's extraction and branch selection did the same. Regression before fix returned Raw/unedited/speech/transcript instead of an empty saved edit.
+
+Narrow fix: a saved caption cue array is authoritative when nonempty, or when it has a real finite nonnegative coverage marker. Empty legacy/missing/invalid-marker arrays are not upgraded. The preview endpoint, export extraction, export branch and aggregate coverage now retain covered-empty edits. The client extension-heal permits covered-empty edits to append only speech after the marker, without regenerating deleted old speech. Hidden items remain untouched. No transcript or saved record is migrated.
+
+21focused assertions pass: actual controller plus localMongo saved edit, generateCaptionsForClip empty cues and noASSDialogue, shared extraction/invalid-marker cases, existing extension cases and new frontend empty-then-extend case. Both TypeScript checks pass. Provider keys blank, local test DB only. No encoded-video inspection or actual delete/save/reload Studio interaction performed yet; this checkpoint is code/data regression qualified, not user-facing completion or visual/export qualification. Source/source-clock composition and multi-item/relative-empty ambiguity need separate coverage.

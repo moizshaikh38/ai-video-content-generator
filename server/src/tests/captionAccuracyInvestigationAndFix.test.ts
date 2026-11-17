@@ -144,6 +144,24 @@ describe('VireoClip — Critical Caption Accuracy Investigation & Fix Verificati
       });
     });
 
+    it('covered empty saved edits do not resurrect transcript captions in preview or export',async()=>{
+      await ownerContext.run(testUserId,async()=>{
+        const {data:project}=await dataRepository.from('editor_projects').select('*').eq('clip_id',testClipId).maybeSingle();
+        const original=structuredClone(project);
+        project.tracks[0].items[0].caption.cues=[];
+        project.tracks[0].items[0].caption.cues_covered_end=30;
+        await dataRepository.from('editor_projects').upsert(project);
+        try{
+          const {req,res,getResponseData,getStatusCode}=mockReqRes({user:{id:testUserId},params:{clipId:testClipId}});
+          await getClipCaptions(req,res);
+          assert.equal(getStatusCode(),200);assert.deepEqual(getResponseData().cues,[]);
+          const {data:clip}=await dataRepository.from('clips').select('*').eq('id',testClipId).maybeSingle();
+          const generated=await CaptionService.generateCaptionsForClip({clip});
+          assert.deepEqual(generated.cues,[]);assert.ok(!generated.assContent.includes('Dialogue:'));
+        }finally{await dataRepository.from('editor_projects').upsert(original);}
+      });
+    });
+
     it('falls back to raw transcript extraction when no custom editor_projects cues exist', async () => {
       const freshClipId = '00000000-0000-4000-8000-000000000050';
       await ownerContext.run(testUserId, async () => {

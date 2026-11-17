@@ -13,7 +13,7 @@ import { AuthenticatedRequest, isValidUUID, ClipCandidateStatus, ClipAspectRatio
 import { ClipAnalysisService, activeClipAnalysisSet } from '../services/clipAnalysisService.js';
 import { ClipRenderService, isClipRenderActive, launchInlineRender } from '../services/clipRenderService.js';
 import { CaptionService } from '../services/captionService.js';
-import { mergeExtendedCues, maxCueEnd } from '../services/captionExtendMerge.js';
+import { mergeExtendedCues, maxCueEnd, hasAuthoritativeCaptionCues } from '../services/captionExtendMerge.js';
 import { WaveformService } from '../services/waveformService.js';
 import { ThumbnailService } from '../services/thumbnailService.js';
 import { SmartReframeService, activeReframeAnalysisSet } from '../services/smartReframeService.js';
@@ -1123,7 +1123,7 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
     if (proj && Array.isArray(proj.tracks)) {
       const captionTrack = proj.tracks.find((t: any) => t.type === 'CAPTION' && !t.hidden);
       const captionItem = captionTrack?.items?.[0];
-      if (captionItem?.caption && Array.isArray(captionItem.caption.cues) && captionItem.caption.cues.length > 0) {
+      if (captionItem?.caption && hasAuthoritativeCaptionCues(captionItem.caption)) {
         let cuesOut = captionItem.caption.cues;
         // Beyond-candidate extend: saved cues are authoritative through their
         // coverage marker; if the clip's trim window now runs past it, append
