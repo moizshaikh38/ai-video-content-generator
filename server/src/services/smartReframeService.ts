@@ -1,3 +1,5 @@
+import {pairFocusPresentation} from '../shared/pairFocusPresentation.js';
+import {buildPanelsFilter,type ItemPanels} from '../shared/panelLayouts.js';
 import {groupPortraitPresentation} from '../shared/groupPortraitPresentation.js';
 import {closeupPortraitPresentation} from '../shared/closeupPresentation.js';
 import {anchorFitToMeasuredFaces} from '../shared/fitSubjectAnchor.js';
@@ -1449,13 +1451,15 @@ export class SmartReframeService {
     windowScope?: 'clip' | 'shot';
     /** Explicit presentation preference. Crop conflicts remain review-required. */
     automaticFitAspect?: '4:3';
+    /** Developmental opt-in only. Not read from project/user settings. */
+    pairFocusReview?: boolean;
     /** Requires independently declared podcast/interview context. */
     allowConversationSplit?: boolean;
     /** Optional measured regions, local qualification only. Not semantic proof. */
     protectedContentRegions?: Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>;
   }): Array<{ start: number; end: number; kind: 'group' | 'solo' | 'fit'; windowW: number; windowH: number;
     keyframes: Array<{ time: number; centerX: number; centerY: number }>;
-    split?: {speaker1X:number;speaker2X:number;dividerX:number};
+    split?: {speaker1X:number;speaker2X:number;dividerX:number;focusPanels?:ItemPanels};
     contextStatus?: 'crowd-preserved'|'unresolved-preserved'|'unresolved-review-required';
     uncertainty?: string }> {
     const {rawSamples = [], duration, sourceWidth, sourceHeight} = options;
@@ -1592,10 +1596,16 @@ export class SmartReframeService {
     const presentationShots = shots.map(originalShot => {
       const local=rawSamples.filter(s=>s.time>=originalShot.start&&s.time<originalShot.end);
       const closeup=options.windowScope==='shot'&&!originalShot.split
-        ? closeupPortraitPresentation(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight,[...(options.protectedContentRegions||[]),...(objectRegions.get(originalShot)||[])]) : null;
+        ? closeupPortraitPresentation(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight,[...(options.protectedContentRegions||[]),...(objectRegions.get(originalShot)||[])],options.pairFocusReview===true) : null;
       const compactPair=options.windowScope==='shot'&&!originalShot.split
         ? groupPortraitPresentation(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight,[...(options.protectedContentRegions||[]),...(objectRegions.get(originalShot)||[])]) : null;
-      const shot:ReturnType<typeof SmartReframeService.computeShotComposition>[number]=compactPair||closeup||originalShot;
+      const pairFocus=options.pairFocusReview&&options.windowScope==='shot'
+        ? pairFocusPresentation(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight) : null;
+      const focusShot=pairFocus ? {...originalShot,kind:'group' as const,windowW:1,windowH:1,
+        keyframes:[{time:originalShot.start,centerX:.5,centerY:.5}],
+        split:{speaker1X:.25,speaker2X:.75,dividerX:.5,focusPanels:pairFocus.panels},
+        contextStatus:'unresolved-review-required' as const,uncertainty:pairFocus.reason} : null;
+      const shot:ReturnType<typeof SmartReframeService.computeShotComposition>[number]=focusShot||compactPair||closeup||originalShot;
       if (options.automaticFitAspect !== '4:3' || shot.split || shot.contextStatus==='unresolved-preserved' || shot.contextStatus==='crowd-preserved') return shot;
       const maxWidth = shot.windowH * (4/3) * sourceHeight/sourceWidth;
       if (shot.windowW <= maxWidth) return shot;
@@ -1683,7 +1693,7 @@ export class SmartReframeService {
         return {time:t-a,centerX:k[n].centerX+(k[n+1].centerX-k[n].centerX)*f,centerY:k[n].centerY+(k[n+1].centerY-k[n].centerY)*f};
       };
       const kfs=[frameAt(a),...s.keyframes.filter(k=>k.time>a && k.time<b).map(k=>({...k,time:k.time-a})),frameAt(b)];
-      const f=s.split ? this.buildSplitPodcastFilter({speaker1X:s.split.speaker1X,speaker2X:s.split.speaker2X,dividerX:s.split.dividerX,
+      const f=s.split?.focusPanels ? buildPanelsFilter(s.split.focusPanels,canvasDims('9:16',options.canvasScale??1).width,canvasDims('9:16',options.canvasScale??1).height,`${tag}_${i}_focus`) : s.split ? this.buildSplitPodcastFilter({speaker1X:s.split.speaker1X,speaker2X:s.split.speaker2X,dividerX:s.split.dividerX,
         splitFit:'contain',canvasWidth:canvasDims('9:16',options.canvasScale??1).width,canvasHeight:canvasDims('9:16',options.canvasScale??1).height,
         sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}_split`})
         : this.buildGroupFitFilter({keyframes:kfs,windowW:s.windowW,windowH:s.windowH,sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}`,canvasWidth:canvasDims('9:16',options.canvasScale??1).width,canvasHeight:canvasDims('9:16',options.canvasScale??1).height});

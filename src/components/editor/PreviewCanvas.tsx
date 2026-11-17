@@ -39,7 +39,7 @@ import { BackgroundControl } from './BackgroundControl';
 import { TrackerControl } from './TrackerControl';
 import { CropBoxControl } from './CropBoxControl';
 import { PanelsPreview } from './PanelsPreview';
-import { normalizePanels, PANEL_RECTS, PANEL_LABELS } from '../../../server/src/shared/panelLayouts';
+import { normalizePanels, panelSourceWindow, PANEL_RECTS, PANEL_LABELS } from '../../../server/src/shared/panelLayouts';
 import { FIT_BAND_ASPECT, effectiveFitBand, fitBandApplies } from '../../../server/src/shared/fitBand';
 
 interface PreviewCanvasProps {
@@ -116,7 +116,7 @@ interface PreviewCanvasProps {
   /** Server-computed group framing for multi-person single-view (same helper
    * the export's buildGroupFitFilter uses): blur backdrop + the group window
    * fitted to canvas width at 42% height. Null = tight tracking preview. */
-    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';split?:{speaker1X:number;speaker2X:number;dividerX:number};contextStatus?:string;uncertainty?:string;windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
+    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';split?:{speaker1X:number;speaker2X:number;dividerX:number;focusPanels?:import('../../../server/src/shared/panelLayouts').ItemPanels};contextStatus?:string;uncertainty?:string;windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
   compositionClipStart?: number;
   onSetAutomaticFraming?: (itemId:string|null,enabled:boolean,sourceTime:number)=>void;
   groupReframe?: {
@@ -519,6 +519,14 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     if (!videoDims || videoDims.w <= 0 || videoDims.h <= 0) return null;
     const item = baseVideoItem;
     const cfg = activePlanShot?.split ? {...activePlanShot.split,fit:'contain'} : (item as any)?.crop_config?.split;
+    const focus=activePlanShot?.split?.focusPanels;
+    if(focus){
+      const dims=getAspectRatioDimensions(),boxW=parseFloat(dims.width)||360,boxH=(parseFloat(dims.height)||640)/2;
+      const r=panelSourceWindow(focus.slots[panel],videoDims.w,videoDims.h,boxW/boxH);
+      const z=boxW/r.w,elW=videoDims.w*z,elH=videoDims.h*z;
+      return {left:`${-r.x*z}px`,top:`${-r.y*z}px`,width:`${elW}px`,height:`${elH}px`,panelH:boxH,
+        clipPath:`inset(${r.y/videoDims.h*100}% ${(videoDims.w-r.x-r.w)/videoDims.w*100}% ${(videoDims.h-r.y-r.h)/videoDims.h*100}% ${r.x/videoDims.w*100}%)`};
+    }
     if (cfg?.fit === 'contain') {
       const dims = getAspectRatioDimensions();
       const boxW = parseFloat(dims.width) || 360;

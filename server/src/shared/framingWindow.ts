@@ -143,7 +143,7 @@ export function framingWindowRect(fw: FramingWindow, sliceStartSource: number, t
 
 // ---------------------------------------------------------------- apply (pure, atomic)
 
-export interface PlanShot { split?: {speaker1X:number;speaker2X:number;dividerX:number}; start: number; end: number; kind: 'group' | 'solo' | 'fit'; windowW: number; windowH: number; keyframes: FramingWindowKeyframe[]; contextStatus?: string; uncertainty?: string }
+export interface PlanShot { split?: {speaker1X:number;speaker2X:number;dividerX:number;focusPanels?:import('./panelLayouts.js').ItemPanels}; start: number; end: number; kind: 'group' | 'solo' | 'fit'; windowW: number; windowH: number; keyframes: FramingWindowKeyframe[]; contextStatus?: string; uncertainty?: string }
 export interface ApplyContext {
   clipStartSec: number;
   analyzedTrimStart: number;
