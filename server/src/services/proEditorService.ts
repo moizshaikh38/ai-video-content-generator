@@ -1,3 +1,4 @@
+import {normalizeEditorCanvasAspect} from '../shared/editorCanvasAspect.js';
 import {candidateCompositionOptions} from '../shared/automaticLayoutCandidate.js';
 import {captionCompositionWindows,type CaptionLayoutWindow} from '../shared/sceneCaptionPlacement.js';
 import {trackerHandoffSpec,buildTrackerHandoffFilter} from '../shared/trackerHandoff.js';
@@ -364,7 +365,7 @@ export class ProEditorService {
     };
 
     if (dto.title) updates.title = dto.title.trim().slice(0, 120);
-    if (dto.canvas) updates.canvas = { ...current.canvas, ...dto.canvas };
+    if (dto.canvas) updates.canvas = normalizeEditorCanvasAspect({ ...current.canvas, ...dto.canvas });
     if (dto.tracks) updates.tracks = dto.tracks;
     if (dto.playhead !== undefined) updates.playhead = Math.max(0, dto.playhead);
     if (dto.settings) updates.settings = { ...current.settings, ...dto.settings };

@@ -1,3 +1,4 @@
+import {normalizeEditorCanvasAspect} from '../../../server/src/shared/editorCanvasAspect';
 import {setProjectAutoCandidate,projectAutoCandidate,projectAutoCandidateState} from '../../../server/src/shared/automaticLayoutCandidate';
 import { applyItemLayout, applySceneLayout, applyWholeClipLayout, readItemLayout, applyFramingStrategy } from '../../lib/itemLayout';
 import { applyPlanSceneToProject, FRAMING_WINDOW_PREVIEW_PARITY, type PlanShot } from '../../../server/src/shared/framingWindow';
@@ -1864,10 +1865,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             onChangeAspectRatio={(aspectRatio) => {
               onUpdateProject((prev) => ({
                 ...prev,
-                canvas: {
+                canvas: normalizeEditorCanvasAspect({
                   ...prev.canvas,
                   aspect_ratio: aspectRatio,
-                },
+                }),
               }));
             }}
             clipId={clip.id}
