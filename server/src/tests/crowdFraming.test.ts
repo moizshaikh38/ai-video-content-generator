@@ -5,7 +5,7 @@ const samples=(faces:any[])=>Array.from({length:20},(_,i)=>({time:i*.25,faces:fa
 test('walking/crowd geometry is not a two-person conversation or facecam',()=>{
  const a=samples(Array.from({length:11},(_,i)=>face('crowd'+i,.04+i*.09)));
  assert.equal(S.isCrowdScene(a),true);assert.equal(S.determineOptimalLayoutMode(a).layoutMode,'blur');assert.equal(S.findStaticFacecamTrack(a),null);
- const p=S.computeShotComposition({rawSamples:a,duration:5,sourceWidth:1920,sourceHeight:1080});assert.equal(p[0].kind,'fit');assert.equal(p[0].windowW,1);
+ const p=S.computeShotComposition({rawSamples:a,duration:5,sourceWidth:1920,sourceHeight:1080});assert.equal(p[0].kind,'fit');assert.equal(p[0].windowW,.75);assert.equal(p[0].contextStatus,'unresolved-review-required');assert.equal(p[0].split,undefined);
 });
 test('two persistent interview faces still split, explicit user choice preserved',()=>{
  const a=samples([face('left',.25,.12,.18),face('right',.75,.12,.18)]);assert.equal(S.determineOptimalLayoutMode(a).layoutMode,'split');assert.equal(S.findStaticFacecamTrack(a),null);

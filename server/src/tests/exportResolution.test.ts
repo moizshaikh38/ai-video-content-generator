@@ -160,6 +160,9 @@ test('actual source dimension probe returns decoded frame size', async () => {
  const file=path.join(dir,'tiny.mp4');
  try {
   execFileSync('ffmpeg',['-v','error','-f','lavfi','-i','color=s=854x480:d=0.1','-frames:v','1','-c:v','libx264','-threads','1','-y',file],{timeout:10000});
-  assert.deepEqual(await ClipRenderService.probeSourceDimensions(file),{width:854,height:480});
+  assert.deepEqual(await ClipRenderService.probeSourceDimensions(file),{width:854,height:480,hasAudio:false});
+  const audible=path.join(dir,'with-audio.mp4');
+  execFileSync('ffmpeg',['-v','error','-f','lavfi','-i','color=s=854x480:d=0.2','-f','lavfi','-i','sine=frequency=440:duration=0.2','-c:v','libx264','-threads','1','-c:a','aac','-shortest','-y',audible],{timeout:10000});
+  assert.deepEqual(await ClipRenderService.probeSourceDimensions(audible),{width:854,height:480,hasAudio:true});
  } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });

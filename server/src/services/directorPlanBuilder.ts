@@ -30,6 +30,8 @@ const GENRE_CLAMPS: Record<string, DirectorGenreClamps> = {
   motivation: { minDurationSec: 25, maxDurationSec: 60 },
   business_finance: { minDurationSec: 20, maxDurationSec: 60 },
   gaming: { minDurationSec: 15, maxDurationSec: 45 },
+  watch_party: { minDurationSec: 20, maxDurationSec: 60 },
+  streaming: { minDurationSec: 20, maxDurationSec: 60 },
   sports: { minDurationSec: 15, maxDurationSec: 50 },
   news_politics: { minDurationSec: 25, maxDurationSec: 75 },
   comedy_entertainment: { minDurationSec: 15, maxDurationSec: 60 },

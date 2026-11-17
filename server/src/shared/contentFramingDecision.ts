@@ -19,7 +19,7 @@ export function chooseContentFraming(input: {
 }):ContentFramingDecision {
   const genre=input.genre||'general';
   const policy:ContentFramingDecision['policy']=genre==='podcast_interview'?'conversation':
-    ['gaming','education_tutorial','product_marketing'].includes(genre)?'screen_content':
+    ['gaming','education_tutorial','product_marketing','watch_party','streaming'].includes(genre)?'screen_content':
     genre==='sports'?'action_context':['documentary','storytelling'].includes(genre)?'scene_context':
     ['motivation','business_finance','news_politics','comedy_entertainment'].includes(genre)?'speaker_context':'measured_auto';
   const d:ContentFramingDecision={version:1,genre,policy,layoutMode:input.measuredMode,source:input.explicitMode?'user':'content_candidate',stableFrameSize:true,

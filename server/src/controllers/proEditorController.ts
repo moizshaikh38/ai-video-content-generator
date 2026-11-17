@@ -1,3 +1,4 @@
+import {expandSceneLayoutProject} from '../shared/sceneLayoutOverrides.js';
 import { assertPanelViewsAssigned } from '../shared/panelLayouts.js';
 import { parseRenderResolutionStrict } from '../shared/renderResolution.js';
 import { Response } from 'express';
@@ -349,7 +350,7 @@ export const renderEditorProject = async (
   try {
     const project = await ProEditorService.getEditorProject(projectId, userId);
 
-    assertPanelViewsAssigned(project);
+    assertPanelViewsAssigned(expandSceneLayoutProject(project));
 
     // Fetch next render version
     const { data: clip } = await dataRepository

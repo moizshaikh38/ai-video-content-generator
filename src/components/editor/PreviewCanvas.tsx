@@ -1,4 +1,6 @@
-import {freezeAutomaticPlan} from '../../../server/src/shared/automaticFraming';
+import {presentFit43} from '../../../server/src/shared/automaticLayoutPolicy';
+import {resolveSceneLayoutItem} from '../../../server/src/shared/sceneLayoutOverrides';
+import {freezeAutomaticPlan,freezeAutomaticKeyframes} from '../../../server/src/shared/automaticFraming';
 import { framingWindowRect, validateFramingWindow } from '../../../server/src/shared/framingWindow';
 import { SceneLayoutMenu } from './SceneLayoutMenu';
 import { readItemLayout, type SceneLayout } from '../../lib/itemLayout';
@@ -72,6 +74,7 @@ interface PreviewCanvasProps {
   onUpdateCropMode?: (mode: 'center' | 'fit' | 'blur' | 'smart') => void;
   /** Set ONE scene's layout (all Opus layouts). When provided the toolbar Layout button opens the full picker. */
   onPickSceneLayout?: (itemId: string, layout: SceneLayout) => void;
+  onPickWholeClipLayout?:(layout:SceneLayout)=>void;
   onUpdateCanvas?: (patch: Partial<EditorProject['canvas']>) => void;
   clipId?: string;
   onSetTracker?: (target: { itemId: string | null }, tracker: import('../../types').EditorSubjectTracker | null) => void;
@@ -235,6 +238,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   onChangeAspectRatio,
   onUpdateCropMode,
   onPickSceneLayout,
+  onPickWholeClipLayout,
   onUpdateCanvas,
   clipId,
   onSetTracker,
@@ -436,7 +440,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     for (const item of track.items) {
       if (item.hidden) continue;
       if (playhead >= item.timeline_start && (playhead < item.timeline_end || (playhead === project.canvas.duration && playhead === item.timeline_end))) {
-        if (track.type === 'VIDEO') activeVideoItems.push(item);
+        if (track.type === 'VIDEO') activeVideoItems.push(resolveSceneLayoutItem(item,item.source_start+(playhead-item.timeline_start)*(item.speed?.speed||1)));
         else if (track.type === 'TEXT') activeTextItems.push(item);
         else if (track.type === 'IMAGE' || track.type === 'OVERLAY') activeOverlayItems.push(item);
       }
@@ -462,10 +466,12 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     // applies when no explicit crop exists. 'fit' letterboxes, 'blur' is a
     // blurred-pad letterbox, everything else covers.
     if (item?.crop?.mode) return item.crop.mode === 'fit' ? 'fit' : item.crop.mode === 'blur' ? 'blur' : 'fill';
+    if((item as any)?.crop_config?.layout_mode_source==='auto'&&!shotComposition?.length&&!smartReframe?.keyframes?.length&&!groupReframe?.keyframes?.length)return 'fill';
     return (item as any)?.crop_mode === 'fit' ? 'fit' : 'fill';
-  }, [baseVideoItem]);
+  }, [baseVideoItem,shotComposition,smartReframe,groupReframe]);
 
-  const effectiveShotComposition = freezeAutomaticPlan(shotComposition||[],baseVideoItem?.automatic_framing,compositionClipStart);
+  const rawPlan=shotComposition?.length?shotComposition:((baseVideoItem as any)?.crop_config?.layout_mode_source==='auto'&&videoDims?[{start:0,end:Math.max(project.canvas.duration||1,1),kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}]}]:[]);
+  const effectiveShotComposition = freezeAutomaticPlan(presentFit43(rawPlan,videoDims?.w||1920,videoDims?.h||1080),baseVideoItem?.automatic_framing,compositionClipStart);
   const shotSourceTime = (baseVideoItem?.source_start || 0) + (playhead-(baseVideoItem?.timeline_start||0)) * (baseVideoItem?.speed?.speed||1);
   const shotRelativeTime = Math.max(0,shotSourceTime-compositionClipStart);
   const activePlanShot = !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && !baseVideoItem?.framing_window && !activePanels && (baseVideoItem as any)?.crop_config?.layout_mode_source !== 'user'
@@ -643,7 +649,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     if (itemCropMode && itemCropMode !== 'smart') return undefined;
     if (!videoDims || videoDims.w <= 0 || videoDims.h <= 0) return undefined;
     const reframeTime = targetVideoTime - (smartReframe.clipStartSec || 0);
-    const center = interpolateReframeCenter(smartReframe.keyframes, reframeTime);
+    const center = interpolateReframeCenter(freezeAutomaticKeyframes(smartReframe.keyframes,baseVideoItem?.automatic_framing,smartReframe.clipStartSec||0), reframeTime);
     const dims = getAspectRatioDimensions();
     const boxW = parseFloat(dims.width) || 360;
     const boxH = parseFloat(dims.height) || 640;
@@ -698,7 +704,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       ? Math.min(videoDims.h, Math.round(geometry.windowH * videoDims.h))
       : Math.min(videoDims.h, Math.round(windowW * videoDims.w * 0.75));
     const bandH = boxW * (winH / (windowW * videoDims.w));
-    const center = interpolateReframeCenter(geometry.keyframes, clipTime);
+    const center = interpolateReframeCenter(shot ? geometry.keyframes : freezeAutomaticKeyframes(geometry.keyframes,baseVideoItem?.automatic_framing,compositionClipStart), clipTime);
     const cx = Math.min(0.95, Math.max(0.05, center.centerX));
     const cy = Math.min(0.95, Math.max(0.05, center.centerY));
     const left = Math.min(0, Math.max(boxW - elW, -(cx * elW - boxW / 2)));
@@ -711,9 +717,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   })();
 
   const autoShotTime = Math.max(0,targetVideoTime-compositionClipStart);
-  const activeAutomaticShot = !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && (primaryLayoutMode === 'track' || Boolean(activePlanShot?.split))
+  const activeAutomaticShot = !activePanels && !baseVideoItem?.framing_window && !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && (primaryLayoutMode === 'track' || Boolean(activePlanShot?.split))
     ? effectiveShotComposition.find(s=>autoShotTime>=s.start&&autoShotTime<s.end) : undefined;
-  const automaticLayoutLabel = activeAutomaticShot && videoDims
+  const automaticLayoutLabel = !baseVideoItem?.crop&&!activePanels&&(baseVideoItem as any)?.crop_config?.layout_mode_source==='auto'&&!shotComposition?.length&&!smartReframe?.keyframes?.length ? 'Auto Fit · Review' : activeAutomaticShot && videoDims
     ? activeAutomaticShot.split ? 'Auto Split' : Math.abs(activeAutomaticShot.windowW*videoDims.w/(activeAutomaticShot.windowH!*videoDims.h)-9/16)<.01 ? 'Auto Fill' : 'Auto Fit'
     : undefined;
 
@@ -1250,7 +1256,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           >{mobileFramingToolsOpen ? 'Done' : 'Framing tools'}</button>
         </div>
         <div data-testid="preview-framing-tools" className={`${mobileFramingToolsOpen ? 'flex' : 'hidden'} md:flex relative flex-wrap items-center justify-center gap-x-2 gap-y-1 max-w-full glass-float px-3 py-1 rounded-2xl text-xs whitespace-nowrap`}>
-          {shotComposition?.some(s=>s.contextStatus === 'unresolved-review-required') && (
+          {shotComposition?.some(s=>s.contextStatus?.startsWith('unresolved')) && (
             <span data-testid="automatic-context-review" className="text-amber-300" title={activeAutomaticShot?.uncertainty || "Automatic 4:3 Fit crops side pixels. Some scenes need a side-content review before sharing."}>Review side context</span>
           )}
           {/* 1. Aspect Ratio Pill */}
@@ -1274,20 +1280,21 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
 
           <div className="w-px h-3.5 bg-white/[0.1]" />
 
-          {onSetAutomaticFraming && baseVideoItem && Boolean(shotComposition?.length) && (
+          {onSetAutomaticFraming && baseVideoItem && Boolean((baseVideoItem as any).crop_config?.layout_mode_source==='auto'||shotComposition?.length || smartReframe?.keyframes?.length || groupReframe?.keyframes?.length) && (
             <div className="flex items-center gap-1 flex-wrap whitespace-normal" data-testid="auto-reframe-controls">
               <button type="button" data-testid="auto-reframe-toggle" aria-pressed={baseVideoItem.automatic_framing?.enabled !== false}
                 className="px-2 py-1 rounded-lg hover:bg-white/10 text-neutral-200"
-                title="This scene: hold automatic movement at the current position. Each detected shot keeps its layout. Manual edits stay unchanged."
+                title="This video item: hold automatic movement at the current position. Each detected shot keeps its layout. Manual edits stay unchanged."
                 onClick={()=>onSetAutomaticFraming(baseVideoItem.id,baseVideoItem.automatic_framing?.enabled===false,targetVideoTime)}>
                 Auto Reframe: {baseVideoItem.automatic_framing?.enabled===false?'OFF':'ON'}
               </button>
-              <span className="text-[9px] text-neutral-500">This scene{baseVideoItem.crop || activePanels || baseVideoItem.tracker?.enabled || baseVideoItem.framing_window || (baseVideoItem as any).crop_config?.layout_mode_source==='user' ? ' · Manual framing takes priority' : ''}</span>
+              <span className="text-[9px] text-neutral-500">This video item{baseVideoItem.crop || activePanels || baseVideoItem.tracker?.enabled || baseVideoItem.framing_window || (baseVideoItem as any).crop_config?.layout_mode_source==='user' ? ' · Manual framing takes priority' : ''}</span>
               <button type="button" data-testid="auto-reframe-all" className="px-2 py-1 rounded hover:bg-white/10 text-[10px] text-neutral-400"
                 title="Apply this Auto Reframe setting to all video scenes. Manual edits stay unchanged."
                 onClick={()=>onSetAutomaticFraming(null,baseVideoItem.automatic_framing?.enabled!==false,targetVideoTime)}>Apply to whole clip</button>
             </div>
           )}
+          {automaticLayoutLabel?.includes('Fit') && <span className="text-[10px] text-amber-300" title="Fit uses a 4:3 sharp band. Side content may be cropped. Review before sharing.">4:3 Fit · check sides</span>}
           {/* 2. Layout: Fill / Fit / Blur - one toggle cycling the three fill modes */}
           {onUpdateCropMode && (
             <>
@@ -1302,13 +1309,13 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 onUpdateCropMode(nextMode);
               }}
               className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg hover:bg-white/[0.08] text-neutral-300 hover:text-white transition font-medium"
-              title="Layout Mode (Click to cycle Fill / Fit / Blur background)"
+              title="Choose Auto analysis or a fixed layout for this video item"
             >
               <Maximize2 className="w-3.5 h-3.5" />
-              <span>{automaticLayoutLabel ? baseVideoItem?.automatic_framing?.enabled===false ? 'Held layout: ' : 'Auto framing: ' : 'Layout: '}{automaticLayoutLabel ? automaticLayoutLabel.replace('Auto ', '') : baseVideoItem?.framing_window ? 'Context window' : activePanels ? PANEL_LABELS[activePanels.layout] : primaryLayoutMode === 'split' ? 'Split' : primaryLayoutMode === 'blur' ? 'Blur' : primaryLayoutMode === 'screencast' ? 'Screencast' : (primaryVideoCropMode === 'fit' || (primaryVideoCropMode === 'blur' && (baseVideoItem as any)?.crop?.choice === 'fit')) ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
+              <span>{automaticLayoutLabel ? baseVideoItem?.automatic_framing?.enabled===false ? 'Held layout: ' : 'Layout Auto: ' : 'Layout: '}{automaticLayoutLabel ? automaticLayoutLabel.replace('Auto ', '') : baseVideoItem?.framing_window ? 'Context window' : activePanels ? PANEL_LABELS[activePanels.layout] : primaryLayoutMode === 'split' ? 'Split' : primaryLayoutMode === 'blur' ? 'Blur' : primaryLayoutMode === 'screencast' ? 'Screencast' : (primaryVideoCropMode === 'fit' || (primaryVideoCropMode === 'blur' && (baseVideoItem as any)?.crop?.choice === 'fit')) ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
             </button>
             {layoutAnchor && onPickSceneLayout && baseVideoItem && (
-              <SceneLayoutMenu anchor={layoutAnchor} current={readItemLayout(baseVideoItem)} onPick={(l) => onPickSceneLayout(baseVideoItem.id, l)} onClose={() => setLayoutAnchor(null)} />
+              <SceneLayoutMenu autoAvailable scopeTitle={shotComposition?.length ? "Layout for this scene only" : "Layout for this video item"} onPickWholeClip={onPickWholeClipLayout} anchor={layoutAnchor} current={activeAutomaticShot ? 'auto' : readItemLayout(baseVideoItem)} onPick={(l) => onPickSceneLayout(baseVideoItem.id, l)} onClose={() => setLayoutAnchor(null)} />
             )}
             </>
           )}
@@ -1348,7 +1355,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                   <CropBoxControl
                     key={`${baseVideoItem.id}-${activePanels.layout}-${i}`}
                     inlineTarget={stageViewportRef.current}
-                    label={activePanels.slots[i].set ? `Panel ${i + 1}` : `Panel ${i + 1} (set view)`}
+                    label={['watch_party','streaming'].includes(activePanels.layout) ? `${i===0?'Facecam (top)':'Stream / Display (bottom)'}${activePanels.slots[i].set ? '' : ' - set view'}` : activePanels.slots[i].set ? `Panel ${i + 1}` : `Panel ${i + 1} (set view)`}
                     videoSrc={cleanSourceUrl || activeVideoSrc || null}
                     sourceTime={targetVideoTime}
                     srcW={videoDims.w}
@@ -1435,6 +1442,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
         >
         <div
           ref={canvasContainerRef}
+          data-testid="preview-layout-canvas"
+          onContextMenu={e=>{if(!onPickSceneLayout||!baseVideoItem||baseVideoItem.locked)return;e.preventDefault();e.stopPropagation();setLayoutAnchor(new DOMRect(e.clientX,e.clientY,1,1));}}
           style={{
             width: canvasDims.width,
             height: canvasDims.height,

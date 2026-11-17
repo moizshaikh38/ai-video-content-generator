@@ -20,3 +20,18 @@ required before considering release.
 Measured person boxes have known misses and false positives. Only repeated,
 face-associated, non-ambiguous boxes may inform the candidate composition. A body
 box does not prove an active speaker or preserve occluded or source-cut-off limbs.
+
+## Experimental object constraints
+
+`SMART_REFRAME_OBJECT_CONTEXT=1` retains non-person boxes from this same model,
+without another inference or a new model download. Only confidence >=0.7 boxes
+are recorded; the composition planner additionally needs at least six samples,
+the same class present in at least half the samples (minimum three), valid
+coordinates and non-tiny area. Class IDs are not exposed as semantic labels.
+These regions can only constrain/widen a crop, never grant an unknown scene
+permission to use Fill or establish that an object is narratively important.
+
+A bounded 40.309s Beast test produced only two non-person boxes across 173
+samples and zero persistent object constraints. This model is not qualified as
+a general scene-understanding model. The flag remains opt-in; no default
+production behavior, deployment model requirement or licensing claim changed.

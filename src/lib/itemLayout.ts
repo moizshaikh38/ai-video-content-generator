@@ -1,8 +1,9 @@
+import {resolveSceneLayoutItem} from '../../server/src/shared/sceneLayoutOverrides';
 import type { EditorProject, EditorTrackItem } from '../types';
 
 import { normalizePanels, PANEL_LAYOUTS, seedPanelsFromSubject, subjectCenterInWindow, type PanelLayout } from '../../server/src/shared/panelLayouts';
 
-export type SceneLayout = 'fill' | 'fit' | 'blur' | 'split' | PanelLayout;
+export type SceneLayout = 'auto' | 'fill' | 'fit' | 'blur' | 'split' | PanelLayout;
 
 /**
  * ONE rule for every "Fit" entry point: Fit means blurred backdrop (no black bars) unless the user
@@ -19,6 +20,7 @@ export function fitBandFields(canvas: { fit_band?: '4:3' | 'full' } | undefined 
 
 /** Layout currently persisted on a video item (what the export compiler will use). */
 export function readItemLayout(item: EditorTrackItem): SceneLayout | 'context_window' {
+  if ((item as any).crop_config?.layout_mode_source === 'auto' && !item.crop && !(item as any).panels && !item.framing_window) return 'auto';
   if (item.framing_window !== undefined) return 'context_window';
   const pl = (item as any).panels?.layout as PanelLayout | undefined;
   if (pl && PANEL_LAYOUTS.includes(pl)) return pl;
@@ -47,15 +49,22 @@ export function applyItemLayout(
   return {
     ...project,
     tracks: project.tracks.map((t) => {
-      if (t.type !== 'VIDEO' || !t.items.some((i) => i.id === itemId)) return t;
+      if (t.locked || t.type !== 'VIDEO' || !t.items.some((i) => i.id === itemId)) return t;
       return {
         ...t,
         items: t.items.map((i) => {
-          if (i.id !== itemId) return i;
+          if (i.locked || i.id !== itemId) return i;
+          if(layout==='auto'){
+            const next:any={...i,crop_config:{...((i as any).crop_config||{}),layout_mode_source:'auto'}};
+            delete next.crop;delete next.panels;delete next.framing_window;delete next.layout_mode;delete next.scene_layout_overrides;
+            delete next.crop_config.layout_mode;delete next.crop_config.split;delete next.crop_config.screencast;
+            // Manual object tracking and camera-motion hold are independent settings.
+            return next as EditorTrackItem;
+          }
           const base: any = { ...i, crop_config: { ...((i as any).crop_config || {}), layout_mode: layout === 'split' ? 'split' : 'track', layout_mode_source: 'user' } };
           base.layout_mode = layout === 'split' ? 'split' : 'track';
           // A layout pick replaces an accepted auto-plan context window (never both).
-          delete base.framing_window;
+          delete base.framing_window;delete base.scene_layout_overrides;
           if ((PANEL_LAYOUTS as string[]).includes(layout)) {
             const prev = (i as any).panels?.layout === layout ? (i as any).panels : undefined;
             const seeded = prev?.slots ?? seedPanelsFromSubject(layout as PanelLayout, undefined, subjectCenterInWindow(subjectKeyframes, i.source_start || 0, i.source_end ?? ((i.source_start || 0) + (i.timeline_end - i.timeline_start))));
@@ -99,4 +108,26 @@ export function applyFramingStrategy(project: EditorProject, mode: 'center'|'fit
     }
     return next;
   })})};
+}
+
+/** A source-clock override on one analysis scene. The timeline item is not cut.
+ * Base manual crops/transforms/tracker and every other scene remain untouched. */
+export function applySceneLayout(project:EditorProject,itemId:string,start:number,end:number,layout:SceneLayout,subjectKeyframes?:Array<{time:number;centerX:number;centerY?:number}>|null):EditorProject{
+ if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start)return project;
+ const t=project.tracks.find(t=>t.type==='VIDEO'&&t.items.some(i=>i.id===itemId));const item=t?.items.find(i=>i.id===itemId);
+ if(!t||!item||t!==project.tracks.find(t=>t.type==='VIDEO'&&!t.hidden)||t.locked||item.locked||item.is_freeze||item.is_title_card)return project;
+ const a=Math.max(start,item.source_start),b=Math.min(end,item.source_end);if(b<=a)return project;
+ const effective={...resolveSceneLayoutItem(item,(a+b)/2),source_start:a,source_end:b};
+ const scoped={...project,tracks:project.tracks.map(q=>q.id!==t.id?q:{...q,items:q.items.map(i=>i.id!==itemId?i:effective)})};
+ const changed=applyItemLayout(scoped,itemId,layout,subjectKeyframes).tracks.find(q=>q.id===t.id)?.items.find(i=>i.id===itemId) as any;
+ const patch:any={};for(const k of ['crop','panels','layout_mode','crop_config'])if(changed[k]!==undefined)patch[k]=changed[k];
+ const prior=((item as any).scene_layout_overrides||[]).flatMap((o:any)=>o.end<=a||o.start>=b?[o]:[...(o.start<a?[{...o,end:a}]:[]),...(o.end>b?[{...o,start:b}]:[])]);
+ const overrides=[...prior,{start:a,end:b,layout,patch}].sort((x,y)=>x.start-y.start);
+ return {...project,tracks:project.tracks.map(q=>q.id!==t.id?q:{...q,items:q.items.map(i=>i.id!==itemId?i:{...i,scene_layout_overrides:overrides})})} as EditorProject;
+}
+/** Explicit whole-clip action replaces layout overrides on its primary video track. */
+export function applyWholeClipLayout(project:EditorProject,layout:SceneLayout,subjectKeyframes?:Array<{time:number;centerX:number;centerY?:number}>|null):EditorProject{
+ let next=project;const track=project.tracks.find(t=>t.type==='VIDEO');if(!track||track.locked)return project;
+ for(const i of track.items)if(!i.locked){next=applyItemLayout(next,i.id,layout,subjectKeyframes);next={...next,tracks:next.tracks.map(t=>t.id!==track.id?t:{...t,items:t.items.map(q=>{if(q.id!==i.id)return q;const n:any={...q};delete n.scene_layout_overrides;return n})})};}
+ return next;
 }

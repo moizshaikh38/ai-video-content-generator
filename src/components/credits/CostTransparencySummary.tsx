@@ -17,6 +17,7 @@ interface CostTransparencySummaryProps {
   isLoading?: boolean;
   operationLabel?: string;
   className?: string;
+  compact?: boolean;
 }
 
 export const CostTransparencySummary: React.FC<CostTransparencySummaryProps> = ({
@@ -27,6 +28,7 @@ export const CostTransparencySummary: React.FC<CostTransparencySummaryProps> = (
   isLoading = false,
   operationLabel = 'Video Processing',
   className = '',
+  compact = false,
 }) => {
   const navigate = useNavigate();
 
@@ -41,8 +43,16 @@ export const CostTransparencySummary: React.FC<CostTransparencySummaryProps> = (
 
   if (!estimate && !wallet) return null;
 
+  if (compact) {
+    if (!estimate) return <div className="p-3 rounded-xl bg-white/[0.03] text-xs text-amber-200">Credit estimate unavailable. No amount has been confirmed.</div>;
+    return <details className={`rounded-xl bg-white/[0.03] border border-white/10 text-xs text-zinc-300 ${className}`}>
+      <summary className="p-3 cursor-pointer">Estimated: {estimate.estimated_credits} credits · Available: {wallet?.is_unlimited ? 'Unlimited' : estimate.available_credits}{!estimate.has_sufficient_credits ? ' · Check your balance' : ''} <span className="text-violet-300">Details</span></summary>
+      <CostTransparencySummary estimate={estimate} wallet={wallet} durationSeconds={durationSeconds} isReusedTranscript={isReusedTranscript} operationLabel={operationLabel}/>
+    </details>;
+  }
+
   const estimatedCredits = estimate?.estimated_credits ?? (isReusedTranscript ? 0 : Math.max(1, Math.ceil(durationSeconds / 15)));
-  const availableCredits = wallet?.available_credits ?? 0;
+  const availableCredits = wallet?.available_credits ?? estimate?.available_credits ?? 0;
   const isUnlimited = wallet?.is_unlimited ?? false;
   const hasSufficientCredits = isUnlimited || availableCredits >= estimatedCredits;
   const remainingAfter = isUnlimited ? '∞' : Math.max(0, availableCredits - estimatedCredits);

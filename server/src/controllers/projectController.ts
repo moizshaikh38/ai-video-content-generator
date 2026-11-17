@@ -1,3 +1,4 @@
+import {withNewProjectFraming} from '../shared/newProjectFraming.js';
 import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
 import { Response } from 'express';
@@ -300,9 +301,7 @@ export const createProject = async (req: AuthenticatedRequest, res: Response): P
 
   const rawPreferences = req.body?.clip_preferences || req.body?.clipPreferences;
   let normalizedPreferences: ClipPreferences | undefined = undefined;
-  if (rawPreferences || notes) {
-    normalizedPreferences = GenreIntelligenceService.normalizePreferences(rawPreferences, notes);
-  }
+  normalizedPreferences = GenreIntelligenceService.normalizePreferences(withNewProjectFraming(rawPreferences||{}), notes);
 
   const internalProjectId = id || crypto.randomUUID();
   const createdAt = new Date().toISOString();
@@ -444,7 +443,7 @@ export const ingestProjectUrl = async (req: AuthenticatedRequest, res: Response)
     });
 
     if (rawPreferences) {
-      const normalized = GenreIntelligenceService.normalizePreferences(rawPreferences, notes);
+      const normalized = GenreIntelligenceService.normalizePreferences(withNewProjectFraming(rawPreferences), notes);
       await dataRepository
         .from('projects')
         .update({ clip_preferences: normalized })

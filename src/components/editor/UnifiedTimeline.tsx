@@ -1,3 +1,4 @@
+import {type AutomaticLayoutRange} from '../../lib/automaticLayoutRanges';
 import {type ContentFramingDecision} from '../../../server/src/shared/contentFramingDecision';
 import React from 'react';
 import {
@@ -8,6 +9,7 @@ import { UpdateProjectOptions } from '../../hooks/useEditorProject';
 import { Timeline } from './Timeline';
 
 interface UnifiedTimelineProps {
+  automaticSceneRanges?: AutomaticLayoutRange[];
   contentFramingDecision?: ContentFramingDecision | null;
   subjectKeyframes?: Array<{ time: number; centerX: number; centerY?: number }> | null;
   project: EditorProject;
@@ -39,6 +41,7 @@ interface UnifiedTimelineProps {
 export const UnifiedTimeline: React.FC<UnifiedTimelineProps> = ({
   project,
   contentFramingDecision = null,
+  automaticSceneRanges = [],
   subjectKeyframes = null,
   clip,
   sourceVideoUrl,
@@ -99,6 +102,7 @@ export const UnifiedTimeline: React.FC<UnifiedTimelineProps> = ({
         /* Multi-Track Body with Unified Toolbar (single top border) */
         <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           <Timeline
+            automaticSceneRanges={automaticSceneRanges}
             contentFramingDecision={contentFramingDecision}
             subjectKeyframes={subjectKeyframes}
             project={project}

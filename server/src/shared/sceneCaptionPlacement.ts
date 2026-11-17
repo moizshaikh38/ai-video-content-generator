@@ -1,3 +1,4 @@
+import {expandSceneLayoutProject} from './sceneLayoutOverrides.js';
 import {normalizePanels} from './panelLayouts.js';
 export type CaptionSceneLayout = 'fill' | 'fit' | 'blur' | 'split' | 'panel_seam' | 'panel_gameplay';
 export interface CaptionPlacementContext {
@@ -15,7 +16,7 @@ export interface CaptionPlacementContext {
  * No new scene store: callers use post-edit timeline windows, not source time. */
 export function captionSceneLayout(item: any, fallback = 'fill'): CaptionSceneLayout {
   const panels=normalizePanels(item?.panels);
-  if (panels) return panels.layout === 'gameplay' ? 'panel_gameplay' : 'panel_seam';
+  if (panels) return ['gameplay','watch_party','streaming'].includes(panels.layout) ? 'panel_gameplay' : 'panel_seam';
   if (item?.crop?.mode === 'fit' || item?.crop?.mode === 'blur') return item.crop.mode;
   const layout = item?.crop_config?.layout_mode || item?.layout_mode;
   if (layout === 'split') return 'split';
@@ -52,7 +53,7 @@ export function autoCaptionAnchor(layout: CaptionSceneLayout, context: CaptionPl
  * not retimed. A word spanning a cut remains visible on both sides of that cut.
  * Output-only auto_position never becomes a persisted user override. */
 export function applySceneCaptionPlacement<T extends {start:number;end:number;text?:string;[key:string]:any}>(cues: T[], context: CaptionPlacementContext): T[] {
-  const track = context.project?.tracks?.find((t:any) => t.type === 'VIDEO' && !t.hidden);
+  const track = (context.project?.tracks ? expandSceneLayoutProject(context.project) : context.project)?.tracks?.find((t:any) => t.type === 'VIDEO' && !t.hidden);
   const scenes = (track?.items || []).filter((i:any) => !i.hidden && !i.is_title_card && i.timeline_end > i.timeline_start)
     .slice().sort((a:any,b:any) => a.timeline_start - b.timeline_start);
   if (!scenes.length) return cues;

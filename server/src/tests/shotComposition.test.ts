@@ -10,7 +10,8 @@ const opts={rawSamples:samples,sceneCuts:[2,4],duration:6,sourceWidth:640,source
 test('composition evidence is partitioned at cuts, no global group leakage',()=>{
  const p=S.computeShotComposition(opts as any);assert.deepEqual(p.map(s=>s.kind),['group','fit','solo']);
  assert.deepEqual(p.map(s=>[s.start,s.end]),[[0,2],[2,4],[4,6]]);
- assert.equal(p[1].windowW,1);assert.equal(p[1].windowH,1);
+ assert.equal(p[1].windowW,.75);assert.equal(p[1].windowH,1);
+ assert.equal(p[1].contextStatus,'unresolved-review-required');assert.match(p[1].uncertainty!,/crops source context/);
  for(const s of p)for(const k of s.keyframes)assert.ok(k.time>=s.start&&k.time<s.end);
  assert.ok(p[2].windowW>=.18*3.5);assert.equal(p[2].keyframes[0].time,4);
 });
@@ -56,10 +57,12 @@ test('Quick and Pro slice graphs execute and preserve requested frame counts',()
  fs.writeFileSync('/tmp/pro-frames.txt',pro);assert.equal(pro.split('\n').filter(l=>/^0,/.test(l)).length,30);
 });
 
-test('all shots keep one crop size and foreground aspect, including full-fit fallback',()=>{
+test('clip scope keeps one user-selected4:3 Fit size and explicit crop warning, including unknown fallback',()=>{
  const p=S.computeShotComposition(opts as any);
  assert.ok(p.every(s=>s.windowW===p[0].windowW && s.windowH===p[0].windowH));
- assert.ok(p.every(s=>s.windowW===1 && s.windowH===1));
+ assert.ok(p.every(s=>s.windowW===.75 && s.windowH===1));
+ assert.ok(p.every(s=>s.contextStatus==='unresolved-review-required'));
+ assert.ok(p.every(s=>/crops source context/.test(s.uncertainty!)));
  for(const s of p) for(const k of s.keyframes){assert.equal(k.centerX,.5);assert.equal(k.centerY,.5);}
  const withoutFallback=S.computeShotComposition({...opts,rawSamples:samples.filter(s=>s.time<2||s.time>=4),sceneCuts:[2],duration:6} as any);
  assert.equal(new Set(withoutFallback.map(s=>s.windowW)).size,1);

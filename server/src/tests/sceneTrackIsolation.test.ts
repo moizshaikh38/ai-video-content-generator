@@ -1,0 +1,6 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {SmartReframeService as S} from '../services/smartReframeService.js';
+const face=(x=.5)=>({x:x-.05,y:.2,width:.1,height:.2,center_x:x,center_y:.3,confidence:.95});
+const frames=()=>Array.from({length:8},(_,i)=>({time:i*.25,faces:[face()]}));
+test('same-position faces before and after an edit are not asserted same track identity',()=>{const s=frames();S.associateTracks(s,.35,[1]);const a=s.slice(0,4).map(x=>x.faces[0].track_id),b=s.slice(4).map(x=>x.faces[0].track_id);assert.equal(new Set(a).size,1);assert.equal(new Set(b).size,1);assert.notEqual(a[0],b[0]);});
+test('continuous shot keeps tracking and IDs remain unique across several cuts',()=>{const continuous=frames();S.associateTracks(continuous);assert.equal(new Set(continuous.map(x=>x.faces[0].track_id)).size,1);const cut=frames();S.associateTracks(cut,.35,[1.5,.5,.5,NaN]);assert.equal(new Set(cut.map(x=>x.faces[0].track_id)).size,3);});
+test('cut between sampled frames clears old velocity before next observed face',()=>{const s=frames();S.associateTracks(s,.35,[.8]);assert.notEqual(s[3].faces[0].track_id,s[4].faces[0].track_id);assert.equal(s[4].faces[0].track_id,s[5].faces[0].track_id);});

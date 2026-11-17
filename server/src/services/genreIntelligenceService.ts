@@ -1,3 +1,5 @@
+import {normalizeAutomaticLayoutPolicy} from '../shared/automaticLayoutPolicy.js';
+import {normalizeFramingDefaults} from '../shared/newProjectFraming.js';
 import {normalizeSourceLanguage} from './transcription/transcriptQuality.js';
 import {
   ContentGenre,
@@ -193,7 +195,7 @@ export class GenreIntelligenceService {
       targetDuration: { min: 15, max: 45, optimal: 28 },
       recommendedLayoutMode: 'screencast',
       captionSafePlacement: 'bottom',
-      naturalLanguageKeywords: ['gaming', 'game', 'stream', 'clutch', 'fail', 'bgmi', 'minecraft', 'gta', 'valorant', 'kill', 'gameplay', 'streamer'],
+      naturalLanguageKeywords: ['gaming', 'game', 'clutch', 'fail', 'bgmi', 'minecraft', 'gta', 'valorant', 'kill', 'gameplay'],
       scoringWeights: {
         hook: 0.40,
         standalone: 0.15,
@@ -221,6 +223,30 @@ export class GenreIntelligenceService {
         'Fast-paced sequence: the stakes or challenge -> the sudden chaotic climax or clutch execution -> the unfiltered reaction and laugh.',
       editorialSafeguard:
         'Avoid selecting pure high noise without gameplay resolution or emotional payoff. Require both the action and the reaction.',
+    },
+
+    watch_party: {
+      genre: 'watch_party', displayName: 'Watch Party', description: 'Shared viewing and commentary on videos, matches, events or other recorded media.',
+      defaultGoal: 'shareable_moments', targetDuration: {min:20,max:60,optimal:40},
+      recommendedLayoutMode: 'blur', captionSafePlacement: 'bottom',
+      naturalLanguageKeywords: ['watch party', 'watchparty', 'watch along', 'watchalong', 'live reaction', 'reacting to'],
+      scoringWeights: {hook:.25,standalone:.30,insight:.10,audio:.15,visual:.20},
+      redundancyPenalty:.5,
+      reframeConfig: {maxVelocity:1,smoothingAlpha:.20,deadZone:.05,preferTwoShot:false},
+      producerDefaults: {allowInteriorPauseCuts:false,pauseThresholdSec:.75,captionStyle:'clean',punchInClimax:false,hookBannerEnabled:false},
+      selectionObjective: 'Select moments whose watched event and accompanying commentary form a complete, understandable beat.', narrativeArcPrompt: 'Keep the viewed setup or event -> commentary or response -> visible resolution together.', editorialSafeguard: 'Do not present commentary as original-event audio. Preserve the watched event, overlays and reaction context; do not assume facecam location or duplicate it.',
+    },
+
+    streaming: {
+      genre: 'streaming', displayName: 'Streaming', description: 'Live-stream highlights across chat, IRL, gaming, creative work and events.',
+      defaultGoal: 'shareable_moments', targetDuration: {min:20,max:60,optimal:40},
+      recommendedLayoutMode: 'blur', captionSafePlacement: 'bottom',
+      naturalLanguageKeywords: ['live stream', 'livestream', 'streaming', 'live chat', 'just chatting', 'irl stream'],
+      scoringWeights: {hook:.25,standalone:.30,insight:.10,audio:.15,visual:.20},
+      redundancyPenalty:.5,
+      reframeConfig: {maxVelocity:1,smoothingAlpha:.20,deadZone:.05,preferTwoShot:false},
+      producerDefaults: {allowInteriorPauseCuts:false,pauseThresholdSec:.75,captionStyle:'clean',punchInClimax:false,hookBannerEnabled:false},
+      selectionObjective: 'Select complete live moments with clear setup, interaction and payoff, not loudness alone.', narrativeArcPrompt: 'Retain the live setup -> meaningful interaction or event -> payoff and response.', editorialSafeguard: 'Do not assume every stream is gaming. Preserve relevant chat, screen, event and camera context; avoid invented audience reactions or unsupported screen/camera boundaries.',
     },
 
     sports: {
@@ -594,6 +620,8 @@ export class GenreIntelligenceService {
       'multiplayer', 'esports', 'quest', 'level up', 'npc', 'speedrun', 'nerf', 'buff', 'co-op',
       'headshot', 'discord', 'minecraft', 'fortnite', 'roblox', 'valorant',
     ],
+    watch_party: ['watch party', 'watchparty', 'watch along', 'watchalong', 'live reaction', 'reacting to'],
+    streaming: ['live stream', 'livestream', 'streaming', 'live chat', 'just chatting', 'irl stream'],
     sports: [
       'touchdown', 'goal', 'penalty', 'championship', 'quarterback', 'referee', 'halftime', 'match',
       'tournament', 'league', 'coach', 'stadium', 'offense', 'defense', 'striker', 'slam dunk',
@@ -649,6 +677,8 @@ export class GenreIntelligenceService {
       motivation: 0,
       business_finance: 0,
       gaming: 0,
+      watch_party: 0,
+      streaming: 0,
       sports: 0,
       news_politics: 0,
       comedy_entertainment: 0,
@@ -664,6 +694,8 @@ export class GenreIntelligenceService {
       motivation: [],
       business_finance: [],
       gaming: [],
+      watch_party: [],
+      streaming: [],
       sports: [],
       news_politics: [],
       comedy_entertainment: [],
@@ -877,6 +909,8 @@ export class GenreIntelligenceService {
         : parsedGoal || defaultProfile.defaultGoal;
 
     return {
+      layoutPolicy:normalizeAutomaticLayoutPolicy(input?.layoutPolicy),
+      framingDefaults: normalizeFramingDefaults(input?.framingDefaults),
       sourceLanguage: normalizeSourceLanguage(input?.sourceLanguage),
       genre: resolvedGenre,
       // Selection-mode default follows the UI: 'auto' when no genre was chosen

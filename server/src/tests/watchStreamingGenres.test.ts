@@ -1,0 +1,13 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';
+import {GenreIntelligenceService as G} from '../services/genreIntelligenceService.js';
+import {getDirectorClamps} from '../services/directorPlanBuilder.js';
+import {chooseContentFraming} from '../shared/contentFramingDecision.js';
+for(const genre of ['watch_party','streaming'] as const){
+ test(`${genre}: real normalization/profile/selection settings, no generic fallback`,()=>{const p=G.getGenreProfile(genre);assert.equal(p.genre,genre);assert.equal(G.normalizePreferences({genre,genreSelectionMode:'manual'}).genre,genre);assert.equal(p.producerDefaults.allowInteriorPauseCuts,false);assert.equal(p.recommendedLayoutMode,'blur');assert.ok(p.selectionObjective.length>50);assert.deepEqual(getDirectorClamps(genre),{minDurationSec:20,maxDurationSec:60});assert.ok(Math.abs(Object.values(p.scoringWeights).reduce((a,b)=>a+b,0)-1)<1e-9);});
+ test(`${genre}: genre alone cannot invent camera/content boundaries or split`,()=>{const d=chooseContentFraming({genre,measuredMode:'split',sampleCount:12,crowd:false,possibleEmbeddedCamera:true,hasAnchorableFace:true});assert.equal(d.policy,'screen_content');assert.equal(d.layoutMode,'blur');assert.ok(d.uncertainties.length);const user=chooseContentFraming({genre,measuredMode:'track',explicitMode:'screencast',sampleCount:12,crowd:false,possibleEmbeddedCamera:true,hasAnchorableFace:true});assert.equal(user.layoutMode,'screencast');});
+}
+import {ProEditorService} from '../services/proEditorService.js';
+import {PANEL_RECTS,panelPixelRects,unassignedPanelViews,buildPanelsFilter} from '../shared/panelLayouts.js';
+for(const genre of ['watch_party','streaming'] as const){
+ test(`${genre}: same Gaming rectangles, facecam top, unassigned views gated`,()=>{assert.deepEqual(PANEL_RECTS[genre],PANEL_RECTS.gameplay);assert.deepEqual(panelPixelRects(genre,720,1280),[{x:0,y:0,w:720,h:384},{x:0,y:384,w:720,h:896}]);const clip:any={id:'test',project_id:'p',user_id:'u',start_seconds:0,end_seconds:4,source_storage_path:'test.mp4',aspect_ratio:'9:16'};const p=(ProEditorService as any).buildInitialProject(clip,'u',null,null,{clip_id:'test'},{genre,genreSelectionMode:'manual'});const i=p.tracks.find((t:any)=>t.type==='VIDEO').items[0];assert.equal(i.panels.layout,genre);assert.equal(unassignedPanelViews(p).length,2);assert.ok(buildPanelsFilter(i.panels,720,1280).includes('scale=720:384'));const manual=(ProEditorService as any).buildInitialProject({...clip,crop_config:{mode:'manual',layout_mode_source:'user'}},'u',null,null,{clip_id:'test'},{genre,genreSelectionMode:'manual'});assert.equal(manual.tracks.find((t:any)=>t.type==='VIDEO').items[0].panels,undefined);});
+}

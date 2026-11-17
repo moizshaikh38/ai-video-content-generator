@@ -1,4 +1,4 @@
-import { applyItemLayout, readItemLayout, applyFramingStrategy } from '../../lib/itemLayout';
+import { applyItemLayout, applySceneLayout, applyWholeClipLayout, readItemLayout, applyFramingStrategy } from '../../lib/itemLayout';
 import { applyPlanSceneToProject, FRAMING_WINDOW_PREVIEW_PARITY, type PlanShot } from '../../../server/src/shared/framingWindow';
 import { SceneLayoutGrid } from './SceneLayoutMenu';
 import { captionLegacyColorDefaults } from '../../lib/captionPresets';
@@ -1663,7 +1663,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                     current={readItemLayout(sceneItem)}
                     onPick={(layout) => {
                       onCommitProject?.(project);
-                      onUpdateProject((prev) => applyItemLayout(prev, sceneItem.id, layout, smartReframe?.keyframes ?? null));
+                      onUpdateProject(prev=>{const offset=(Number(clip?.start_seconds)||0)+(speakerSplit?.analyzedTrimStart||0),time=sceneItem.source_start+(currentTime-sceneItem.timeline_start)*(sceneItem.speed?.speed||1);const shot=speakerSplit?.shotComposition?.find(s=>time>=s.start+offset&&time<s.end+offset);return shot?applySceneLayout(prev,sceneItem.id,shot.start+offset,shot.end+offset,layout,smartReframe?.keyframes??null):applyItemLayout(prev,sceneItem.id,layout,smartReframe?.keyframes??null)});
                     }}
                   />
                 </div>
@@ -1838,13 +1838,15 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             onUpdateItemCrop={(itemId, crop, options) => {
               const track = project.tracks.find((t) => t.items.some((i) => i.id === itemId));
               if (track && !track.locked && !track.items.find(i => i.id===itemId)?.locked) {
-                onUpdateTrackItem(track.id, itemId, { crop, framing_window: undefined }, options); // a manual crop replaces an accepted context window
+                const item=track.items.find(i=>i.id===itemId)!;const time=item.source_start+(currentTime-item.timeline_start)*(item.speed?.speed||1);const o=item.scene_layout_overrides?.find(o=>time>=o.start&&time<o.end);
+                if(o)onUpdateTrackItem(track.id,itemId,{scene_layout_overrides:item.scene_layout_overrides!.map(x=>x===o?{...x,patch:{...x.patch,crop}}:x)},options);else onUpdateTrackItem(track.id, itemId, { crop, framing_window: undefined }, options); // a manual crop replaces an accepted context window
               }
             }}
             onUpdateItemPanels={(itemId, panels, options) => {
               const track = project.tracks.find((t) => t.items.some((i) => i.id === itemId));
               if (track && !track.locked && !track.items.find(i => i.id === itemId)?.locked) {
-                onUpdateTrackItem(track.id, itemId, { panels, framing_window: undefined }, options);
+                const item=track.items.find(i=>i.id===itemId)!;const time=item.source_start+(currentTime-item.timeline_start)*(item.speed?.speed||1);const o=item.scene_layout_overrides?.find(o=>time>=o.start&&time<o.end);
+                if(o)onUpdateTrackItem(track.id,itemId,{scene_layout_overrides:item.scene_layout_overrides!.map(x=>x===o?{...x,patch:{...x.patch,panels}}:x)},options);else onUpdateTrackItem(track.id, itemId, { panels, framing_window: undefined }, options);
               }
             }}
             smartReframe={smartReframe}
@@ -1877,9 +1879,15 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             onUpdateCanvas={(patch) => {
               onUpdateProject((prev) => ({ ...prev, canvas: { ...prev.canvas, ...patch } }));
             }}
+            onPickWholeClipLayout={layout=>{onCommitProject?.(project);onUpdateProject(prev=>applyWholeClipLayout(prev,layout,smartReframe?.keyframes??null));}}
             onPickSceneLayout={(itemId, layout) => {
               onCommitProject?.(project);
-              onUpdateProject((prev) => applyItemLayout(prev, itemId, layout, smartReframe?.keyframes ?? null));
+              onUpdateProject((prev) => {
+                const item=prev.tracks.flatMap(t=>t.type==='VIDEO'?t.items:[]).find(i=>i.id===itemId);if(!item)return prev;
+                const offset=(Number(clip?.start_seconds)||0)+(speakerSplit?.analyzedTrimStart||0),sourceTime=item.source_start+(currentTime-item.timeline_start)*(item.speed?.speed||1);
+                const shot=speakerSplit?.shotComposition?.find(s=>sourceTime>=s.start+offset&&sourceTime<s.end+offset);
+                return shot ? applySceneLayout(prev,itemId,shot.start+offset,shot.end+offset,layout,smartReframe?.keyframes??null) : applyItemLayout(prev,itemId,layout,smartReframe?.keyframes??null);
+              });
             }}
             onUpdateCropMode={(mode) => {
               onUpdateProject(prev => applyFramingStrategy(prev, mode));
@@ -2123,6 +2131,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
       {/* 3. MULTI-TRACK UNIFIED TIMELINE */}
       <UnifiedTimeline
+        automaticSceneRanges={(speakerSplit?.shotComposition || []).map(s=>({start:s.start+(Number(clip?.start_seconds)||0)+(speakerSplit?.analyzedTrimStart||0),end:s.end+(Number(clip?.start_seconds)||0)+(speakerSplit?.analyzedTrimStart||0),label:s.split?'Auto Split':Math.abs(s.windowW*(speakerSplit?.sourceWidth||1)/(s.windowH*(speakerSplit?.sourceHeight||1))-9/16)<.01?'Auto Fill':'Auto Fit',review:Boolean((s as any).contextStatus?.startsWith('unresolved')),reason:(s as any).uncertainty}))}
         contentFramingDecision={speakerSplit?.contentFramingDecision ?? null}
         subjectKeyframes={smartReframe?.keyframes ?? null}
         height={timelineHeight}

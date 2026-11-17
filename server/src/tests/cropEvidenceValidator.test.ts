@@ -1,0 +1,14 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {assessCrop,cropAt,type CropTrial} from '../../scripts/local-qualification/crop-evidence-validator.js';
+const full={x:0,y:0,width:1,height:1};
+const trial=():CropTrial=>({start:0,end:1,maxGap:.5,knots:[{time:0,rect:full},{time:1,rect:full}],witnesses:[0,.5,1].map(time=>({time,regions:[{id:'subject',rect:{x:.2,y:.1,width:.2,height:.7}}]}))});
+test('full-source passing geometry remains explicitly sampled-only',()=>{assert.equal(assessCrop(trial()).verdict,'sampled-geometry-only');});
+test('small overlay loss is not hidden by overall image coverage',()=>{const t=trial();t.witnesses[1].regions.push({id:'clock',rect:{x:.01,y:.01,width:.03,height:.02}});t.knots.forEach(k=>k.rect={x:.1,y:0,width:.9,height:1});const r=assessCrop(t);assert.equal(r.verdict,'rejected');assert.equal(r.violations[0].id,'clock');assert.equal(r.violations[0].coverage,0);});
+test('one good frame cannot approve a whole shot',()=>{const t=trial();t.witnesses=[t.witnesses[0]];assert.ok(assessCrop(t).reasons.includes('shot boundary evidence missing'));});
+test('large interior temporal gap is rejected',()=>{const t=trial();t.witnesses=[t.witnesses[0],t.witnesses[2]];assert.ok(assessCrop(t).reasons.includes('temporal evidence gap'));});
+test('path interpolation is evaluated at witness time, not just crop knots',()=>{const t=trial();t.knots=[{time:0,rect:{x:0,y:0,width:.5,height:1}},{time:1,rect:{x:.5,y:0,width:.5,height:1}}];const r=assessCrop(t);assert.ok(r.violations.some(v=>v.time===.5));assert.deepEqual(cropAt(t.knots,.5),{x:.25,y:0,width:.5,height:1});});
+test('nonfinite and out-of-source boxes fail closed',()=>{for(const x of [NaN,Infinity,-.1,1]){const t=trial();t.witnesses[0].regions[0].rect.x=x;assert.equal(assessCrop(t).verdict,'invalid');}});
+test('unordered duplicate times and empty witnesses are invalid',()=>{const t=trial();t.witnesses[1].time=0;assert.equal(assessCrop(t).verdict,'invalid');t.witnesses=[];assert.equal(assessCrop(t).verdict,'invalid');});
+test('shot extrapolation is not accepted',()=>{const t=trial();t.knots[0].time=.2;assert.ok(assessCrop(t).reasons.includes('crop does not span shot'));});
+test('moving visible region outside otherwise-good crop is rejected',()=>{const t=trial();t.knots.forEach(k=>k.rect={x:0,y:0,width:.75,height:1});t.witnesses[2].regions.push({id:'right-craft',rect:{x:.81,y:.4,width:.1,height:.15}});assert.equal(assessCrop(t).violations[0].id,'right-craft');});

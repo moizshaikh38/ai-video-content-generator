@@ -555,3 +555,9 @@ select { padding-right: 1.75rem; }
   content-visibility: auto;
   contain-intrinsic-size: auto 320px;
 }
+
+/* Configure keeps visual grouping at panel level, not a box around every field. */
+.compact-clip-settings > .p-3 { padding:0; background:transparent; border-radius:0; }
+.compact-clip-settings .settings-help summary { color:var(--vc-text-muted); }
+.compact-clip-settings .settings-help[open] { grid-column:span 1; }
+.clean-configure-panel .compact-clip-settings > .border { border-color:rgba(255,255,255,.07); }

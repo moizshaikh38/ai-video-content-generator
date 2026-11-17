@@ -27,5 +27,7 @@ test('stationary complete body path stays locked, without manufactured camera mo
 test('shot-wide fixed dimensions survive a later unresolved shot',()=>{
  const samples=[...e.samples,...e.samples.slice(0,8).map((s:any)=>({...s,time:s.time+12,faces:[],persons:[]}))];
  const p=S.computeShotComposition({rawSamples:samples,sceneCuts:[12],duration:14,sourceWidth:854,sourceHeight:480});
- assert.ok(p.every(s=>s.windowW===1&&s.windowH===1));
+ assert.ok(p.every(s=>s.windowW===(4/3)*480/854&&s.windowH===1));
+ assert.ok(p.every(s=>s.contextStatus==='unresolved-review-required'));
+ assert.equal(new Set(p.map(s=>s.windowW)).size,1);
 });

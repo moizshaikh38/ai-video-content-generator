@@ -1,3 +1,5 @@
+import {presentFit43,applyAutomaticLayoutPolicy,type AutomaticLayoutPolicy} from '../shared/automaticLayoutPolicy.js';
+import {persistentObjectRegions} from '../shared/objectContext.js';
 import { canvasDims } from '../shared/renderResolution.js';
 import {associatedBodyEnvelope, anchoredSingleBodyPath} from '../shared/bodyContext.js';
 import {chooseContentFraming, type ContentFramingDecision} from '../shared/contentFramingDecision.js';
@@ -143,10 +145,15 @@ export class SmartReframeService {
    */
   public static associateTracks(
     samples: ReframeSample[],
-    maxDistanceThreshold = 0.35
+    maxDistanceThreshold = 0.35,
+    /** Clip-relative measured cuts. Geometric proximity cannot prove the same
+     * person across an edit; never carry velocity/track identity over one. */
+    sceneCuts: number[] = []
   ): { tracks: Map<string, NormalizedFaceDetection[]>; faceCount: number } {
     const tracks = new Map<string, NormalizedFaceDetection[]>();
     let nextTrackId = 1;
+    const cuts=[...new Set(sceneCuts.filter(Number.isFinite))].sort((a,b)=>a-b);
+    let nextCut=0;
 
     // Map of trackId -> { lastDetection, lastTime, vx, vy }
     const activeTracks = new Map<string, {
@@ -158,6 +165,7 @@ export class SmartReframeService {
 
     for (const sample of samples) {
       const { time, faces } = sample;
+      while(nextCut<cuts.length && cuts[nextCut]<=time){activeTracks.clear();nextCut++;}
       const validFaces: NormalizedFaceDetection[] = [];
 
       for (const raw of faces) {
@@ -1006,7 +1014,7 @@ export class SmartReframeService {
       .sort((a, b) => a.time - b.time);
 
     if (validKfs.length === 0) {
-      return this.buildStaticScaleCrop(aspectRatio, 0.5, 0.38);
+      return this.buildStaticScaleCrop(aspectRatio, 0.5, 0.38, canvasScale);
     }
 
     // If all keyframes are virtually identical (< 0.015), use static crop
@@ -1014,7 +1022,7 @@ export class SmartReframeService {
     const firstY = validKfs[0].centerY;
     const isStatic = validKfs.every((k) => Math.abs(k.centerX - firstX) < 0.015 && Math.abs(k.centerY - firstY) < 0.02);
     if (isStatic || validKfs.length === 1) {
-      return this.buildStaticScaleCrop(aspectRatio, firstX, firstY);
+      return this.buildStaticScaleCrop(aspectRatio, firstX, firstY, canvasScale);
     }
 
     // 1. Collinear keyframe pruning: remove redundant points on flat/linear segments
@@ -1110,7 +1118,7 @@ export class SmartReframeService {
     const { width: cw, height: ch } = canvasDims(aspectRatio, canvasScale);
     const base = `scale=${cw}:${ch}:force_original_aspect_ratio=increase,crop=${cw}:${ch}`;
     if (clampedFx === 0.5 && clampedFy === 0.5) return base;
-    return `${base}:(in_w-out_w)*${clampedFx}:(in_h-out_h)*${clampedFy}`;
+    return `${base}:max(0\\,min(in_w-out_w\\,in_w*${clampedFx}-out_w/2)):(in_h-out_h)*${clampedFy}`;
   }
 
   /**
@@ -1429,6 +1437,7 @@ export class SmartReframeService {
   /** Candidate shot-local composition. Times are always clip-relative; slices
    * intersect/rebase this same plan instead of recomputing different evidence. */
   public static computeShotComposition(options: {
+    layoutPolicy?:AutomaticLayoutPolicy;
     rawSamples?: ReframeSample[] | null; sceneCuts?: number[]; duration: number;
     sourceWidth: number; sourceHeight: number;
     /** Review-only opt-in. No production caller selects this policy. */
@@ -1558,8 +1567,9 @@ export class SmartReframeService {
     // Explicit measured content constrains the same single view as subjects.
     // Missing regions are not evidence that no important text/object exists.
     const contentConstrainedShots = new Set<typeof shots[number]>();
+    const objectRegions = new Map(shots.map(shot=>[shot,persistentObjectRegions(rawSamples.filter(s=>s.time>=shot.start&&s.time<shot.end)).map(r=>({...r,start:shot.start,end:shot.end}))]));
     for (const shot of shots) {
-      const regions = (options.protectedContentRegions || []).filter(r =>
+      const regions = [...(options.protectedContentRegions || []),...(objectRegions.get(shot)||[])].filter(r =>
         [r.start,r.end,r.x,r.y,r.width,r.height,r.confidence].every(Number.isFinite) &&
         r.end > r.start && r.end > shot.start && r.start < shot.end &&
         r.x >= 0 && r.y >= 0 && r.width > 0 && r.height > 0 &&
@@ -1574,11 +1584,11 @@ export class SmartReframeService {
       shot.keyframes=[{time:shot.start,centerX:(left+right)/2,centerY:(top+bottom)/2}];
     }
     const presentationShots = shots.map(shot => {
-      if (options.automaticFitAspect !== '4:3' || shot.split) return shot;
+      if (options.automaticFitAspect !== '4:3' || shot.split || shot.contextStatus==='unresolved-preserved' || shot.contextStatus==='crowd-preserved') return shot;
       const maxWidth = shot.windowH * (4/3) * sourceHeight/sourceWidth;
       if (shot.windowW <= maxWidth) return shot;
       const width = Math.min(1,maxWidth);
-      const regions=(options.protectedContentRegions||[]).filter(r=>r.confidence>=.7 && r.start<shot.end && r.end>shot.start &&
+      const regions=[...(options.protectedContentRegions||[]),...(objectRegions.get(shot)||[])].filter(r=>r.confidence>=.7 && r.start<shot.end && r.end>shot.start &&
         [r.x,r.y,r.width,r.height].every(Number.isFinite) && r.x>=0 && r.y>=0 && r.width>0 && r.height>0 && r.x+r.width<=1.001 && r.y+r.height<=1.001);
       const samples=rawSamples.filter(s=>s.time>=shot.start&&s.time<shot.end);
       const faces=samples.flatMap(s=>s.faces.filter(f=>f.confidence>=.8));
@@ -1589,6 +1599,12 @@ export class SmartReframeService {
       const minimumCenter=rights.length?Math.max(width/2,...rights.map(x=>x-width/2)):width/2;
       const maximumCenter=lefts.length?Math.min(1-width/2,...lefts.map(x=>x+width/2)):1-width/2;
       const conflict=minimumCenter>maximumCenter;
+      // A preferred presentation ratio cannot overrule measured content.
+      // Preserve the full source when no 4:3 window can contain it together.
+      if(conflict)return {...shot,kind:'fit' as const,windowW:1,windowH:1,
+        contextStatus:'unresolved-review-required' as const,
+        uncertainty:'Safe full-source Fit: preferred 4:3 would cut measured subjects or side content. Review the scene before sharing.',
+        keyframes:[{time:shot.start,centerX:.5,centerY:.5}]};
       return {...shot, windowW:width, contextStatus:'unresolved-review-required' as const,
         uncertainty:conflict
           ? 'Preferred 4:3 automatic Fit cannot include all measured side text/subjects together. Review this context conflict before sharing.'
@@ -1597,7 +1613,7 @@ export class SmartReframeService {
           ? Math.max(width/2,Math.min(1-width/2,k.centerX))
           : Math.max(minimumCenter,Math.min(maximumCenter,k.centerX))}))};
     });
-    if (options.windowScope === 'shot') return presentationShots.map(shot => {
+    if (options.windowScope === 'shot') return presentFit43(applyAutomaticLayoutPolicy(presentationShots.map(shot => {
       // Automatic Fill is a portrait-shaped window, not a synonym for zoom.
       // Only expand a reliable single-person/body window to portrait. Never
       // trim its measured extent just because one face is visible. Existing
@@ -1613,7 +1629,7 @@ export class SmartReframeService {
       return {...shot, windowW:width, windowH:height, keyframes:shot.keyframes.map(k => ({...k,
         centerX:Math.max(width/2,Math.min(1-width/2,k.centerX)),
         centerY:Math.max(height/2,Math.min(1-height/2,k.centerY))}))};
-    });
+    }),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight);
     // A source cut may change the subject, not the presentation's crop size.
     // Use the widest required context in both axes for the ENTIRE analyzed
     // clip, including edited slices. A full-source fallback deliberately makes
@@ -1627,13 +1643,13 @@ export class SmartReframeService {
     const sizedFrom = constraints.length ? constraints : shots;
     const windowW = Math.max(...sizedFrom.map(s=>s.windowW));
     const windowH = Math.max(...sizedFrom.map(s=>s.windowH));
-    return shots.map(s=>({...s,
+    return presentFit43(applyAutomaticLayoutPolicy(shots.map(s=>({...s,
       contextStatus: s.contextStatus === 'unresolved-preserved' && reviewCandidate && (windowW < 1 || windowH < 1)
         ? 'unresolved-review-required' as const : s.contextStatus,
       windowW,windowH,keyframes:s.keyframes.map(k=>({...k,
       centerX:Math.max(windowW/2,Math.min(1-windowW/2,k.centerX)),
       centerY:Math.max(windowH/2,Math.min(1-windowH/2,k.centerY)),
-    }))}));
+    }))})),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight);
   }
 
   public static buildShotCompositionFilter(options: {
@@ -2841,7 +2857,7 @@ export class SmartReframeService {
       // track (geometric facecam signature) is a user-correctable suggestion:
       // exclude it from dominant-subject selection for screencast layouts so
       // the tracked path follows content, and persist its box in metadata.
-      const { tracks, faceCount } = this.associateTracks(cvResult.samples);
+      const { tracks, faceCount } = this.associateTracks(cvResult.samples,0.35,clipSceneCuts);
       const facecamSuggestion = this.findStaticFacecamTrack(cvResult.samples);
       const wantsScreencast =
         (clip.crop_config?.layout_mode ?? genreReframe.preferredLayoutMode) === 'screencast';

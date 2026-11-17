@@ -1,3 +1,4 @@
+import {withNewProjectFraming} from '../shared/newProjectFraming.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -1006,7 +1007,7 @@ export class UrlIngestionService {
       }
 
       // 6. Normalize clip preferences and attach auto-genre suggestions
-      let normalizedPrefs = GenreIntelligenceService.normalizePreferences(clipPreferences, notes);
+      let normalizedPrefs = GenreIntelligenceService.normalizePreferences(withNewProjectFraming(clipPreferences||{}), notes);
       // Auto-apply the YouTube-metadata genre suggestion only when the creator did
       // not explicitly choose a genre (missing or the general baseline) — an
       // explicit selection always wins, matching analyze-clips semantics.

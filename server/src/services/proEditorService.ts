@@ -1,4 +1,6 @@
-import {freezeAutomaticPlan} from '../shared/automaticFraming.js';
+import {legacyFit43Plan,legacyPolicyFallback} from '../shared/automaticLayoutPolicy.js';
+import {expandSceneLayoutProject,validateSceneLayoutOverrides} from '../shared/sceneLayoutOverrides.js';
+import {freezeAutomaticPlan,freezeAutomaticKeyframes} from '../shared/automaticFraming.js';
 import { validateFramingWindow, FramingWindowError, FRAMING_WINDOW_ERROR_CODE } from '../shared/framingWindow.js';
 import { assertPanelViewsAssigned } from '../shared/panelLayouts.js';
 import { canvasDims } from '../shared/renderResolution.js';
@@ -331,6 +333,7 @@ export class ProEditorService {
           if (item.transition_out && !EDITOR_TRANSITION_TYPES.includes(item.transition_out.type)) {
             throw new AppError(`Invalid transition type: ${item.transition_out.type}`, 400, 'INVALID_TRANSITION');
           }
+          try{validateSceneLayoutOverrides(item)}catch(e){throw new AppError(String((e as Error).message),400,'INVALID_SCENE_LAYOUT')}
           ProEditorService.assertItemFramingWindow(item, dto.canvas?.aspect_ratio ?? current.canvas?.aspect_ratio ?? '9:16');
           // Source paths become server-side fetches and FFmpeg inputs — validate strictly.
           if (item.source_path !== undefined && item.source_path !== null) {
@@ -842,7 +845,7 @@ export class ProEditorService {
     if (panelCfg) {
       const dims = canvasDims(ratio, cs);
       const bd = {w:dims.width,h:dims.height};
-      const tag = ('vcp' + String(item.id || 'x')).replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || 'vcp';
+      const tag = 'vcp'+crypto.createHash('sha256').update(String(item.id||'x')).digest('hex').slice(0,12);
       return buildPanelsFilter(panelCfg, bd.w, bd.h, tag);
     }
 
@@ -861,7 +864,7 @@ export class ProEditorService {
       if ((item.crop.mode === 'fit' || item.crop.mode === 'blur') && customBackdrop) {
         const spec: CanvasBackdropSpec = { kind: item.crop.mode === 'blur' ? 'blur' : 'color', color: canvas?.background_color, spacingPct, cornerRadius,
           ...(band ? { bandAspect: FIT_BAND_ASPECT, focusX: clampFocus(item.crop.focusX), focusY: clampFocus(item.crop.focusY) } : {}) };
-        const tag = ('vcd' + String(item.id || 'x')).replace(/[^a-zA-Z0-9]/g, '').slice(0, 16) || 'vcd';
+        const tag = 'vcd'+crypto.createHash('sha256').update(String(item.id||'x')).digest('hex').slice(0,12);
         return buildBackdropFitChain(ratio, zoom, spec, tag, cs);
       }
       if (item.crop.mode === 'fit') return buildFitFilter(ratio, zoom, clampFocus(item.crop.focusX), clampFocus(item.crop.focusY), cs);
@@ -869,7 +872,7 @@ export class ProEditorService {
       if (item.crop.mode === 'blur') {
         // Chain-safe fragment: consumes the trimmed slice stream via split and
         // ends unlabeled, so the caller's comma chain keeps working.
-        const tag = ('vc' + String(item.id || 'x')).replace(/[^a-zA-Z0-9]/g, '').slice(0, 16) || 'vcb';
+        const tag = 'vcb'+crypto.createHash('sha256').update(String(item.id||'x')).digest('hex').slice(0,12);
         return buildBlurFitChain(ratio, zoom, tag, cs);
       }
       return buildCropFilter(ratio, { focusX: clampFocus(item.crop.focusX), focusY: clampFocus(item.crop.focusY), scale: zoom }, cs);
@@ -927,6 +930,10 @@ export class ProEditorService {
       // "Too many inputs specified for the split filter" (editor split exports
       // failed permanently until this).
       const layoutTag = 'vc' + crypto.createHash('sha256').update(String(item.id || 'x')).digest('hex').slice(0, 16);
+      const legacyFit=!userItemLayout?legacyFit43Plan(track,Number(track.metadata?.clip_duration)||sliceDuration,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)):undefined;
+      if(legacyFit&&ratio==='9:16')return SmartReframeService.buildShotCompositionFilter({plan:freezeAutomaticPlan(legacyFit,item.automatic_framing,reframe?.clipStartSec||0),start:sliceWindowStartClipRel,duration:sliceDuration,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,tag:layoutTag,canvasScale:cs});
+      const legacyFallback=!userItemLayout ? legacyPolicyFallback(item.crop_config?.layoutPolicy||reframe?.cropConfig?.layoutPolicy,track,Number(track.metadata?.clip_duration)||sliceDuration) : undefined;
+      if(legacyFallback&&ratio==='9:16')return buildBackdropFitChain(ratio,1,{kind:'blur',bandAspect:4/3},layoutTag,cs);
       if (effLayout === 'blur') {
         return SmartReframeService.buildBlurBackgroundFilter({ canvasWidth: canvasDims(ratio, cs).width, canvasHeight: canvasDims(ratio, cs).height, tag: layoutTag });
 
@@ -967,7 +974,7 @@ export class ProEditorService {
       }
 
       if (ratio === '9:16' && track.metadata?.shot_composition_candidate === true) {
-        const plan = SmartReframeService.computeShotComposition({allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:(track as any).raw_samples,sceneCuts:track.metadata.scene_cuts,
+        const plan = SmartReframeService.computeShotComposition({layoutPolicy:item.crop_config?.layoutPolicy||reframe?.cropConfig?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:(track as any).raw_samples,sceneCuts:track.metadata.scene_cuts,
           duration:Number(track.metadata.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
         if (plan.length) return SmartReframeService.buildShotCompositionFilter({plan:freezeAutomaticPlan(plan,item.automatic_framing,reframe?.clipStartSec||0),start:sliceWindowStartClipRel,duration:sliceDuration,
           sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,tag:layoutTag,canvasScale:cs});
@@ -981,7 +988,7 @@ export class ProEditorService {
       });
       if (groupFrame && ratio === '9:16') {
         return SmartReframeService.buildGroupFitFilter({
-          keyframes: groupFrame.keyframes,
+          keyframes: freezeAutomaticKeyframes(groupFrame.keyframes,item.automatic_framing,reframe?.clipStartSec||0),
           windowW: groupFrame.windowW,
           windowH: groupFrame.windowH,
           sourceWidth: track.source_width || 1920,
@@ -1008,7 +1015,7 @@ export class ProEditorService {
       // extend boundary keyframes so the expression covers the full slice window.
       // Boundary extensions are skipped when an in-window keyframe already sits at
       // the edge — duplicate times would zero-divide the slope pruning downstream.
-      const kfs = track.smoothed_keyframes;
+      const kfs = freezeAutomaticKeyframes(track.smoothed_keyframes,item.automatic_framing,reframe?.clipStartSec||0);
       const windowEnd = sliceWindowStartClipRel + sliceDuration;
       const EPS = 1e-6;
       const rebased: ReframeKeyframe[] = [];
@@ -1031,9 +1038,6 @@ export class ProEditorService {
       if (rebased.length === 0) {
         return buildCropFilter(ratio, { focusX: 0.5, focusY: 0.5 }, cs);
       }
-      if (rebased.length === 1) {
-        return buildCropFilter(ratio, { focusX: rebased[0].centerX, focusY: rebased[0].centerY }, cs);
-      }
       return SmartReframeService.buildLayoutCropFilter({
         layoutMode: 'track',
         aspectRatio: ratio,
@@ -1045,6 +1049,7 @@ export class ProEditorService {
       });
     }
 
+    if((item as any).crop_config?.layout_mode_source==='auto')return buildBackdropFitChain(ratio,1,{kind:'blur',bandAspect:4/3},'safe'+crypto.createHash('sha256').update(String(item.id||'x')).digest('hex').slice(0,12),cs);
     return buildCropFilter(ratio, { focusX: 0.5, focusY: 0.5 }, cs);
   }
 
@@ -1122,7 +1127,7 @@ export class ProEditorService {
     const scaleKeyframes = (item.keyframes || []).filter((k) => k.property === 'scale');
     if (scaleKeyframes.length > 0) {
       const kf = scaleKeyframes[0];
-      const kfStart = Math.max(0, kf.time);
+      const kfStart = Math.max(0, kf.time)-Number((item as any)._render_style_source_offset||0);
       const kfDur = 2.5;
       const scaleVal = Math.max(1.02, Math.min(2, kf.value || 1.06));
       const kfEnd = kfStart + kfDur;
@@ -1208,6 +1213,7 @@ export class ProEditorService {
     reframe?: ProReframeContext,
     loudnorm?: LoudnormCompileMode
   ): CompiledRenderGraph {
+    project=expandSceneLayoutProject(project);
     for (const t of project.tracks) for (const i of t.items) {
       if (i.framing_window !== undefined) ProEditorService.buildFramingWindowFilter(i, reframe, i.timeline_end-i.timeline_start, project.canvas);
     }
@@ -1336,9 +1342,9 @@ export class ProEditorService {
           audioOnlyChains.push(freezeAChain);
           sliceDurations.push(timelineDur + gap);
         } else {
-          const startStr = (item.source_start || 0).toFixed(2);
+          const startStr = (item.source_start || 0).toFixed(6);
           const srcEnd = item.source_end !== undefined ? item.source_end : (item.source_start || 0) + timelineDur * speed;
-          const endStr = srcEnd.toFixed(2);
+          const endStr = srcEnd.toFixed(6);
           const sourceWindowSec = Math.max(0.1, srcEnd - (item.source_start || 0));
           const sliceDur = sourceWindowSec / speed;
           // Keyframes are clip-relative; slices trim straight from the source file, so
@@ -2265,7 +2271,7 @@ export class ProEditorService {
     producerPlan: ProducerEditPlan | null,
     transcript: any,
     dto: CreateEditorProjectDTO,
-    projectPreferences?: { genre?: string; genreSelectionMode?: string } | null
+    projectPreferences?: { genre?: string; genreSelectionMode?: string;layoutPolicy?:import('../shared/automaticLayoutPolicy.js').AutomaticLayoutPolicy;framingDefaults?:{version:1;layout:'auto';autoReframe:boolean} } | null
   ): EditorProject {
     const rawDuration = clip.end_seconds - clip.start_seconds;
     const aspectRatio = dto.aspect_ratio || clip.aspect_ratio || '9:16';
@@ -2288,7 +2294,11 @@ export class ProEditorService {
     // leaves item.crop undefined so the smart-reframe track (or center fallback)
     // applies exactly as the Quick Clip path decides. Without this mirror the pro
     // path fill-cropped every clip, silently overriding fit letterboxing.
-    const clipCrop = (clip as any).crop_config;
+    const explicitCrop=(clip as any).crop_config;
+    const prefDefault=projectPreferences?.layoutPolicy?.defaultLayout;
+    const storedClipCrop = explicitCrop?.layout_mode_source!=='user'&&prefDefault&&prefDefault!=='auto'?{...explicitCrop,mode:prefDefault==='fit'?'fit_blur':'manual',layout_mode:'track',layout_mode_source:'user',layoutPolicy:projectPreferences?.layoutPolicy}:explicitCrop;
+    const newAutomaticDefault=projectPreferences?.framingDefaults?.version===1&&projectPreferences.framingDefaults.layout==='auto'&&!producerPlan&&storedClipCrop?.layout_mode_source!=='user'&&!['manual','custom','fit','fit_blur'].includes(storedClipCrop?.mode);
+    const clipCrop = newAutomaticDefault?{...storedClipCrop,mode:'smart',layout_mode:'track',layout_mode_source:'auto',layoutPolicy:projectPreferences?.layoutPolicy||storedClipCrop?.layoutPolicy}:storedClipCrop;
     const seededCrop: { mode: 'fill' | 'fit' | 'blur' | 'custom'; band?: '4:3'; focusX: number; focusY: number } | undefined =
       clipCrop?.mode === 'fit_blur'
         ? { mode: 'blur', band: '4:3', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
@@ -2321,7 +2331,8 @@ export class ProEditorService {
           rotation: 0,
           opacity: 1.0,
         },
-        crop: seededCrop ? { ...seededCrop } : undefined,
+        ...(newAutomaticDefault?{automatic_framing:{enabled:projectPreferences?.framingDefaults?.autoReframe!==false,...(projectPreferences?.framingDefaults?.autoReframe===false?{freeze_source_time:clip.start_seconds+trimStart}:{})}}:{}),
+      crop: seededCrop ? { ...seededCrop } : undefined,
         layout_mode: clipCrop?.layout_mode || 'track',
         crop_config: clipCrop ? structuredClone(clipCrop) : undefined,
         speed: { speed: 1.0, pitch_preserved: true },
@@ -2359,6 +2370,7 @@ export class ProEditorService {
         rotation: 0,
         opacity: 1.0,
       },
+      ...(newAutomaticDefault?{automatic_framing:{enabled:projectPreferences?.framingDefaults?.autoReframe!==false,...(projectPreferences?.framingDefaults?.autoReframe===false?{freeze_source_time:clip.start_seconds+trimStart}:{})}}:{}),
       crop: seededCrop ? { ...seededCrop } : undefined,
         layout_mode: clipCrop?.layout_mode || 'track',
         crop_config: clipCrop ? structuredClone(clipCrop) : undefined,
@@ -2382,14 +2394,15 @@ export class ProEditorService {
     // A user-selected Gaming genre chooses the Gameplay TEMPLATE for a NEW editor.
     // It does not detect gameplay/facecam roles. Unassigned panels visibly require
     // review and remain export-gated. Existing editors return before this builder.
-    const gamingTemplateDefault = isVertical && projectPreferences?.genre === 'gaming' &&
-      (projectPreferences.genreSelectionMode === 'manual' || projectPreferences.genreSelectionMode === 'suggested') &&
+    const gamingTemplateDefault = !projectPreferences?.framingDefaults && isVertical && ['gaming','watch_party','streaming'].includes(projectPreferences?.genre || '') &&
+      (projectPreferences?.genreSelectionMode === 'manual' || projectPreferences?.genreSelectionMode === 'suggested') &&
       clipCrop?.layout_mode_source !== 'user' && !['manual', 'custom'].includes(clipCrop?.mode) &&
       (!clipCrop?.layout_mode || clipCrop.layout_mode_source === 'genre_recommendation' || clipCrop.layout_mode === 'track') &&
       !producerPlan;
     if (gamingTemplateDefault) {
       for (const item of videoItems) {
-        item.panels = { layout: 'gameplay', slots: defaultPanelSlots('gameplay') };
+        const layout = projectPreferences?.genre === 'watch_party' ? 'watch_party' : projectPreferences?.genre === 'streaming' ? 'streaming' : 'gameplay';
+        item.panels = { layout, slots: defaultPanelSlots(layout) };
         delete item.crop;
         item.layout_mode = 'track';
         item.crop_config = { ...item.crop_config, layout_mode: 'track', layout_mode_source: 'genre_recommendation' };

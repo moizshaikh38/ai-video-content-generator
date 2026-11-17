@@ -19,7 +19,7 @@ class PersonRegions:
             raise ValueError('Person-region model checksum mismatch; use documented OpenCV Zoo NanoDet model')
         self.model = NanoDet(model_path, prob_threshold=.4)
 
-    def infer(self, frame):
+    def infer_with_context(self, frame):
         h, w = frame.shape[:2]
         ratio = min(416 / w, 416 / h)
         nw, nh = max(1, int(w * ratio)), max(1, int(h * ratio))
@@ -28,14 +28,20 @@ class PersonRegions:
         rgb = cv2.resize(rgb, (nw, nh), interpolation=cv2.INTER_AREA)
         padded = cv2.copyMakeBorder(rgb, top, 416-nh-top, left, 416-nw-left, cv2.BORDER_CONSTANT, value=0)
         result = []
+        objects = []
         for p in self.model.infer(padded):
-            if int(p[-1]) != 0:  # COCO person only; no claim about other content.
-                continue
             x0, y0 = max(0., (p[0]-left)/nw), max(0., (p[1]-top)/nh)
             x1, y1 = min(1., (p[2]-left)/nw), min(1., (p[3]-top)/nh)
             if x1 <= x0 or y1 <= y0:
                 continue
-            result.append({'x':round(float(x0),4), 'y':round(float(y0),4),
+            region = {'x':round(float(x0),4), 'y':round(float(y0),4),
                            'width':round(float(x1-x0),4), 'height':round(float(y1-y0),4),
-                           'confidence':round(float(p[-2]),4)})
-        return result
+                           'confidence':round(float(p[-2]),4)}
+            if int(p[-1]) == 0:
+                result.append(region)
+            elif float(p[-2]) >= .7:
+                objects.append({**region, 'class_id':int(p[-1])})
+        return result, objects
+
+    def infer(self, frame):
+        return self.infer_with_context(frame)[0]

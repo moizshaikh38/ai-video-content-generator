@@ -1,4 +1,8 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {freezeAutomaticPlan} from '../shared/automaticFraming.js';
+import {test} from 'node:test';import assert from 'node:assert/strict';import {freezeAutomaticPlan,freezeAutomaticKeyframes} from '../shared/automaticFraming.js';
 const plan=[{start:0,end:12,windowW:.25,windowH:.8,keyframes:[{time:0,centerX:.3,centerY:.4},{time:12,centerX:.7,centerY:.6}]},{start:12,end:24,windowW:.7,windowH:1,keyframes:[{time:12,centerX:.4,centerY:.5},{time:24,centerX:.6,centerY:.5}]},{start:24,end:36,split:{dividerX:.5},keyframes:[{time:24,centerX:.5,centerY:.5}]}];
 test('default/ON preserves original plan identity',()=>{assert.equal(freezeAutomaticPlan(plan,undefined,0),plan);assert.equal(freezeAutomaticPlan(plan,{enabled:true},0),plan)});
 test('OFF freezes at source clock and never flattens shot layout/dimensions',()=>{const p=freezeAutomaticPlan(plan,{enabled:false,freeze_source_time:16},10);assert.deepEqual(p[0].keyframes,[{time:0,centerX:.5,centerY:.5}]);assert.equal(p[0].windowW,.25);assert.equal(p[1].windowW,.7);assert.deepEqual(p[2].split,{dividerX:.5});assert.equal(plan[0].keyframes.length,2)});
+
+test('legacy OFF uses interpolated source-clock hold; ON leaves path unchanged',()=>{const k=[{time:0,centerX:.2,centerY:.4},{time:12,centerX:.8,centerY:.6}];assert.equal(freezeAutomaticKeyframes(k,{enabled:true},10),k);assert.deepEqual(freezeAutomaticKeyframes(k,{enabled:false,freeze_source_time:16},10),[{time:0,centerX:.5,centerY:.5}]);assert.equal(k.length,2)});
+
+test('static smart crop keeps requested canvas scale and shares dynamic center-X convention',async()=>{const {SmartReframeService:S}=await import('../services/smartReframeService.js');const graph=S.buildSmartCropFilter([{time:0,centerX:.35,centerY:.4}],'9:16',854,480,12,2/3);assert.match(graph,/scale=720:1280/);assert.match(graph,/in_w\*0.35-out_w\/2/);assert.ok(!graph.includes('1080:1920'))});

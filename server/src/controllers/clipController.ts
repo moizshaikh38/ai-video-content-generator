@@ -1,3 +1,6 @@
+import {storedScenePlanWindow} from '../shared/storedScenePlanWindow.js';
+import {legacyFit43Plan,legacyPolicyFallback} from '../shared/automaticLayoutPolicy.js';
+import {expandSceneLayoutProject} from '../shared/sceneLayoutOverrides.js';
 import { assertPanelViewsAssigned } from '../shared/panelLayouts.js';
 import { parseRenderResolutionStrict } from '../shared/renderResolution.js';
 import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
@@ -565,7 +568,7 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
     const { data: panelProject, error: panelReadError } = await dataRepository.from('editor_projects')
       .select('tracks').eq('clip_id', clipId).eq('user_id', userId).maybeSingle();
     if (panelReadError) throw panelReadError;
-    if (panelProject) assertPanelViewsAssigned(panelProject);
+    if (panelProject) assertPanelViewsAssigned(expandSceneLayoutProject(panelProject));
 
     if (isClipRenderActive(clipId)) {
       res.status(409).json({
@@ -1323,6 +1326,9 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
+    const {data:policyClip}=await dataRepository.from('clips').select('*').eq('id',clipId).eq('user_id',userId).maybeSingle();
+    const {data:policyProject}=await dataRepository.from('editor_projects').select('tracks').eq('clip_id',clipId).eq('user_id',userId).maybeSingle();
+    const retainedPlan=policyClip?.crop_config?.mode==='smart'&&policyProject?storedScenePlanWindow(policyProject,policyClip,track):null;
     // Return safe data without exposing server paths
     res.status(200).json({
       status: track.status,
@@ -1335,7 +1341,7 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       analyzedTrimStart: track.analyzed_trim_start,
       analyzedTrimEnd: track.analyzed_trim_end,
       analyzedAspectRatio: track.analyzed_aspect_ratio,
-      isStale: Boolean(track.isStale),
+      isStale: retainedPlan ? false : Boolean(track.isStale),
       // Measured two-speaker anchor positions (when analysis found credible
       // geometry); the Framing panel seeds the split layout's speaker windows
       // from these. Null = no credible measurement, use defaults.
@@ -1361,9 +1367,9 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       lowConfidenceTrack: SmartReframeService.isLowConfidenceTrack(track),
       sourceWidth: track.source_width || null,
       sourceHeight: track.source_height || null,
-      shotComposition: track.metadata?.shot_composition_candidate === true
-        ? SmartReframeService.computeShotComposition({allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
-          duration:Number(track.metadata.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}) : null,
+      shotComposition: legacyFit43Plan(track,Number(track.metadata?.clip_duration)||1,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)) || legacyPolicyFallback(policyClip?.crop_config?.layoutPolicy,track,Number(track.metadata?.clip_duration)||track.smoothed_keyframes?.at(-1)?.time||1) || (track.metadata?.shot_composition_candidate === true
+        ? SmartReframeService.computeShotComposition({layoutPolicy:policyClip?.crop_config?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
+          duration:Number(track.metadata.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}) : null),
       groupFrame: (() => {
         const g = SmartReframeService.computeGroupFrameGeometry({
           rawSamples: track.raw_samples,

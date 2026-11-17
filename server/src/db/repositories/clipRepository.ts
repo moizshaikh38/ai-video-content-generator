@@ -27,10 +27,11 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
       }
       const now = new Date();
       const candidateMeta = (candidate as any)?.metadata || {};
-      const layoutMode = candidateMeta.layout_mode || 'track';
+      const automaticDefault=project.clip_preferences?.framingDefaults?.version===1&&project.clip_preferences.framingDefaults.layout==='auto'&&String(cropMode)==='smart';
+      const layoutMode = automaticDefault?'track':candidateMeta.layout_mode || 'track';
       // Candidates analyzed before provenance tracking carry no marker; treat
       // them as 'legacy_unknown' so their layout keeps historical precedence.
-      const layoutModeSource = candidateMeta.layout_mode_source || 'legacy_unknown';
+      const layoutModeSource = automaticDefault?'auto':candidateMeta.layout_mode_source || 'legacy_unknown';
       const captionPos = candidateMeta.caption_position || (layoutMode === 'split' ? 'center' : 'bottom');
       const coldOpen = (candidate as any)?.cold_open || candidateMeta.cold_open || null;
       const clip = {
@@ -38,7 +39,8 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
         start_seconds: start, end_seconds: end, duration_seconds: end - start,
         aspect_ratio: aspectRatio, crop_mode: cropMode, render_status: 'queued',
         crop_config: {
-          mode: cropMode,
+          mode: project.clip_preferences?.layoutPolicy?.defaultLayout==='fit'?'fit_blur':project.clip_preferences?.layoutPolicy?.defaultLayout==='fill'?'manual':cropMode,
+          layoutPolicy:project.clip_preferences?.layoutPolicy,
           layout_mode: layoutMode,
           layout_mode_source: layoutModeSource,
         },

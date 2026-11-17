@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Sparkles,
+  Languages,
   Sliders,
   Clock,
   Crop,
@@ -8,7 +9,6 @@ import {
   ChevronDown,
   ChevronUp,
   RotateCcw,
-  ShieldCheck,
   Tag,
   FileText,
   Mic,
@@ -104,6 +104,18 @@ export const GENRE_OPTIONS: Array<{
     sweetSpot: '15–45s',
   },
   {
+    id: 'watch_party', label: 'Watch Party', icon: Clapperboard,
+    badge: 'Shared Context', defaultGoal: 'shareable_moments',
+    safeguardBadge: 'Keeps the watched event and commentary in context. Auto layout starts safely. Optional facecam-top template uses the Gaming ratio; set both views in the editor. Automatic region detection is not verified.',
+    sweetSpot: '20–60s',
+  },
+  {
+    id: 'streaming', label: 'Streaming', icon: Mic,
+    badge: 'Live Moments', defaultGoal: 'shareable_moments',
+    safeguardBadge: 'Preserves live-stream setup and payoff across gaming, chat, IRL and events. Auto layout starts safely. Optional facecam-top template uses the Gaming ratio; set both views in the editor. Automatic region detection is not verified.',
+    sweetSpot: '20–60s',
+  },
+  {
     id: 'sports',
     label: 'Sports',
     icon: Trophy,
@@ -165,11 +177,11 @@ export const GOAL_OPTIONS: Array<{
   desc: string;
   icon: LucideIcon;
 }> = [
-  { id: 'shareable_moments', label: 'Shareable Moments', desc: 'Viral hooks & punchy takeaways designed for sharing', icon: TrendingUp },
-  { id: 'teach_one_idea', label: 'Teach One Idea', desc: 'Isolates one atomic concept with clear explanation', icon: Lightbulb },
-  { id: 'quotes_soundbites', label: 'Quotes & Soundbites', desc: 'Memorable conviction, concise punchy wisdom (15–35s)', icon: Quote },
-  { id: 'mini_story', label: 'Mini Story', desc: 'Full 3-act narrative arc (hook → escalation → reveal)', icon: BookOpen },
-  { id: 'custom_instructions', label: 'Custom Focus', desc: 'Prioritizes clips strictly adhering to your custom prompt', icon: Target },
+  { id: 'shareable_moments', label: 'Shareable Moments', desc: 'Look for strong openings and useful takeaways', icon: TrendingUp },
+  { id: 'teach_one_idea', label: 'Teach One Idea', desc: 'Look for one idea with a clear explanation', icon: Lightbulb },
+  { id: 'quotes_soundbites', label: 'Quotes & Soundbites', desc: 'Look for concise quotes and memorable opinions', icon: Quote },
+  { id: 'mini_story', label: 'Mini Story', desc: 'Look for a connected setup, development and payoff', icon: BookOpen },
+  { id: 'custom_instructions', label: 'Custom Focus', desc: 'Use your focus instructions to guide suggestions', icon: Target },
 ];
 
 export const DURATION_OPTIONS = [
@@ -187,6 +199,7 @@ export const ASPECT_RATIO_OPTIONS = [
 
 export function getDefaultClipPreferences(): ClipPreferences {
   return {
+    framingDefaults:{version:1,layout:'auto',autoReframe:true},
     genre: 'general',
     genreSelectionMode: 'auto',
     contentGoal: 'shareable_moments',
@@ -245,7 +258,7 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
   const [keywordInput, setKeywordInput] = useState(
     Array.isArray(preferences.topicKeywords) ? preferences.topicKeywords.join(', ') : ''
   );
-  const [userManuallySetGoal, setUserManuallySetGoal] = useState(false);
+  const [userManuallySetGoal, setUserManuallySetGoal] = useState(Boolean(preferences.contentGoal));
 
   // Sync keyword input if topicKeywords changes externally
   useEffect(() => {
@@ -337,146 +350,61 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
   };
 
   return (
-    <div className={`${compact ? 'space-y-2.5' : 'space-y-4'} ${className}`}>
-      <div className="p-4 rounded-2xl bg-white/[0.02] space-y-2">
-        <label htmlFor="source-speech-language" className="text-[13px] font-semibold text-vc-text-primary">Spoken language</label>
+    <div className={`${compact ? 'compact-clip-settings grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-x-4 gap-y-5 items-start' : 'space-y-4'} ${className}`}>
+      <div className="p-3 rounded-2xl bg-white/[0.02] space-y-2">
+        <label htmlFor="source-speech-language" className="text-[13px] font-semibold text-vc-text-primary flex items-center gap-2"><Languages className="size-4 text-violet-300" aria-hidden="true"/>Spoken language</label>
         <select id="source-speech-language" aria-label="Spoken source language" disabled={disabled}
           value={preferences.sourceLanguage || 'auto'}
-          onChange={(e) => { const updated={...preferences,sourceLanguage:e.target.value==='auto'?undefined:e.target.value}; onChange(updated);saveClipPreferencesToStorage(updated); }}
-          className="w-full rounded-lg bg-zinc-900 text-white border border-white/10 p-2 text-sm">
+          onChange={(e) => { const updated={...preferences,sourceLanguage:e.target.value}; onChange(updated);saveClipPreferencesToStorage(updated); }}
+          className="w-full rounded-full bg-zinc-900 text-white border border-white/10 px-4 py-2.5 text-sm">
           <option value="auto">Auto-detect / multilingual</option>
           <option value="en">English</option><option value="hi">Hindi</option><option value="es">Spanish</option>
           <option value="ur">Urdu</option><option value="ar">Arabic</option><option value="fr">French</option>
           <option value="de">German</option><option value="pt">Portuguese</option><option value="ja">Japanese</option><option value="ko">Korean</option>
         </select>
-        <p className="text-xs text-vc-text-secondary">Choose the language actually spoken, not a translation. For mixed-language speech, keep auto-detect. Automatic captions can still need audio review.</p>
+        {compact ? <details className="settings-help text-[11px] text-vc-text-secondary"><summary className="cursor-pointer">Language help</summary><p className="mt-2">Spoken source, not translation. Use auto-detect for mixed speech; review captions against the audio.</p></details> : <p className="text-xs text-vc-text-secondary lg:line-clamp-2">Spoken source, not translation. For mixed speech, use auto-detect. Review captions against the audio.</p>}
       </div>
       {/* ── 1. Content Genre Selection ── */}
-      <div className="p-4 rounded-2xl bg-white/[0.02] space-y-3">
+      <div className="p-3 rounded-2xl bg-white/[0.02] space-y-3">
         <div className="flex items-center justify-between gap-2">
           <label className="text-[13px] font-semibold text-vc-text-primary flex items-center gap-1.5">
-            <Sparkles className="size-3.5 text-violet-300" />
-            <span>Content Genre & Narrative Rubric</span>
+            <Clapperboard className="size-4 text-violet-300" aria-hidden="true"/>
+            <span>Content genre</span>
           </label>
-          <span className="inline-flex items-center gap-1 text-[10px] text-vc-text-secondary font-mono">
-            {activeGenreOption.id === 'auto' ? (
-              <>
-                <Sparkles className="size-3 text-zinc-200" />
-                Auto-Detect
-              </>
-            ) : (
-              activeGenreOption.label
-            )}
-          </span>
+
         </div>
 
-        {/* Genre Pills Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-          {GENRE_OPTIONS.map((g) => {
-            const isSelected =
-              g.id === 'auto'
-                ? preferences.genreSelectionMode === 'auto'
-                : preferences.genreSelectionMode === 'manual' && preferences.genre === g.id;
-
-            return (
-              <button
-                key={g.id}
-                type="button"
-                disabled={disabled}
-                onClick={() => handleGenreSelect(g.id)}
-                className={`relative p-2.5 rounded-xl text-left transition-all cursor-pointer flex flex-col justify-between ${
-                  isSelected
-                    ? 'bg-violet-500/15 text-white ring-1 ring-violet-400/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_20px_-10px_rgba(124,58,237,0.7)]'
-                    : 'bg-white/[0.04] text-vc-text-secondary hover:bg-white/[0.07] hover:text-white'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-1">
-                    <g.icon className="size-4 text-violet-300" aria-hidden="true" />
-                    <span className="text-[10px] font-medium px-1.5 py-px rounded-full bg-white/[0.06] text-zinc-400">
-                      {g.badge}
-                    </span>
-                  </div>
-                  <div className="font-semibold text-[13px] text-vc-text-primary mt-2 leading-snug">
-                    {g.label}
-                  </div>
-                  {g.layoutBadge && (
-                    <div className="text-[10px] text-violet-300/80 font-mono mt-0.5">
-                      {g.layoutBadge}
-                    </div>
-                  )}
-                </div>
-                <div className="text-[11px] text-vc-text-muted tabular-nums mt-1">
-                  {g.sweetSpot}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Active Genre Safeguard Badge */}
-        <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white/[0.06] text-[11px] text-zinc-200">
-          <ShieldCheck className="size-3.5 text-zinc-200 shrink-0" />
-          <span className="font-medium">
-            <strong className="text-zinc-200 font-semibold">Active Safeguard: </strong>
-            {activeGenreOption.safeguardBadge}
-          </span>
-        </div>
+        <select aria-label="Content genre" disabled={disabled} value={preferences.genreSelectionMode==='auto'?'auto':preferences.genre}
+          onChange={e=>handleGenreSelect(e.target.value as ContentGenre|'auto')}
+          className="w-full rounded-full bg-zinc-900 border border-white/10 px-4 py-3 text-sm text-white">
+          {GENRE_OPTIONS.map(g=><option key={g.id} value={g.id}>{g.label}</option>)}
+        </select>
+        {compact ? <details className="settings-help text-[11px] text-vc-text-secondary"><summary className="cursor-pointer">About this genre</summary>        <p className={`text-[11px] leading-relaxed text-vc-text-secondary ${['watch_party','streaming'].includes(activeGenreOption.id) ? '' : 'lg:line-clamp-2'}`}>{activeGenreOption.id==='auto'?'Suggests a content genre from the recording. Review the result before sharing.':(['watch_party','streaming'].includes(activeGenreOption.id) ? activeGenreOption.safeguardBadge : `Guides ${activeGenreOption.label.toLowerCase()} clip suggestions. Review context and framing before sharing.`)}</p></details> : <p className={`text-[11px] leading-relaxed text-vc-text-secondary ${['watch_party','streaming'].includes(activeGenreOption.id) ? '' : 'lg:line-clamp-2'}`}>{activeGenreOption.id==='auto'?'Suggests a content genre from the recording. Review the result before sharing.':(['watch_party','streaming'].includes(activeGenreOption.id) ? activeGenreOption.safeguardBadge : `Guides ${activeGenreOption.label.toLowerCase()} clip suggestions. Review context and framing before sharing.`)}</p>}
       </div>
-
-      {/* ── 2. Content Goal Selector ── */}
-      <div className="p-4 rounded-2xl bg-white/[0.02] space-y-3">
-        <div className="flex items-center justify-between">
-          <label className="text-[13px] font-semibold text-vc-text-primary flex items-center gap-1.5">
-            <Target className="size-3.5 text-violet-500" />
-            <span>Content Goal</span>
-          </label>
-          <span className="text-[10px] text-vc-text-secondary">Clip selection objective</span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-          {GOAL_OPTIONS.map((goal) => {
-            const isSelected = preferences.contentGoal === goal.id;
-            return (
-              <button
-                key={goal.id}
-                type="button"
-                disabled={disabled}
-                onClick={() => handleGoalSelect(goal.id)}
-                className={`p-3 rounded-xl text-left transition-all cursor-pointer flex flex-col justify-between ${
-                  isSelected
-                    ? 'bg-violet-500/15 text-white ring-1 ring-violet-400/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_20px_-10px_rgba(124,58,237,0.7)]'
-                    : 'bg-white/[0.04] text-vc-text-secondary hover:bg-white/[0.07] hover:text-white'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-vc-text-primary">
-                    <goal.icon className="size-3.5 shrink-0 text-violet-300" aria-hidden="true" />
-                    <span>{goal.label}</span>
-                  </div>
-                  <p className="text-[10px] text-vc-text-secondary mt-1 leading-tight line-clamp-2">
-                    {goal.desc}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+      <div className="p-3 rounded-2xl bg-white/[0.02] space-y-2">
+        <label htmlFor="content-goal" className="text-[13px] font-semibold text-vc-text-primary flex items-center gap-2"><Target className="size-4 text-violet-300" aria-hidden="true"/>Content goal</label>
+        <select id="content-goal" disabled={disabled} value={preferences.contentGoal} onChange={e=>handleGoalSelect(e.target.value as ContentGoal)}
+          className="w-full rounded-full bg-zinc-900 border border-white/10 px-4 py-3 text-sm text-white">
+          {GOAL_OPTIONS.map(g=><option key={g.id} value={g.id}>{g.label}</option>)}
+        </select>
+        {compact ? <details className="settings-help text-[11px] text-vc-text-secondary"><summary className="cursor-pointer">About this goal</summary>        <p className="text-[11px] text-vc-text-secondary lg:line-clamp-2">{GOAL_OPTIONS.find(g=>g.id===preferences.contentGoal)?.desc}</p></details> : <p className="text-[11px] text-vc-text-secondary lg:line-clamp-2">{GOAL_OPTIONS.find(g=>g.id===preferences.contentGoal)?.desc}</p>}
       </div>
 
       {/* ── 3. Duration & Aspect Ratio ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className={compact ? "contents" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
         {/* Preferred Clip Length */}
-        <div className="p-4 rounded-2xl bg-white/[0.02] space-y-3">
+        <div className="p-3 rounded-2xl bg-white/[0.02] space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-[13px] font-semibold text-vc-text-primary flex items-center gap-1.5">
-              <Clock className="size-3.5 text-zinc-200" />
+              <Clock className="size-4 text-violet-300" />
               <span>Preferred Clip Length</span>
             </label>
-            <span className="text-[10px] text-vc-text-secondary">Hook to resolution</span>
+
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {compact ? <select aria-label="Preferred clip length" value={preferences.preferredDurations} disabled={disabled} onChange={e=>handleDurationSelect(e.target.value as ClipPreferences['preferredDurations'])} className="w-full rounded-full bg-zinc-900 text-white border border-white/10 px-4 py-3 text-sm">
+            {DURATION_OPTIONS.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}
+          </select> :           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {DURATION_OPTIONS.map((item) => {
               const isSelected = preferences.preferredDurations === item.id;
               return (
@@ -491,25 +419,27 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
                       : 'bg-white/[0.04] text-vc-text-secondary hover:bg-white/[0.07] hover:text-white'
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  <div className="font-semibold text-xs text-vc-text-primary">{item.label}</div>
-                  <div className="text-[10px] text-vc-text-secondary mt-0.5">{item.sub}</div>
+                  <div className="font-semibold text-xs text-vc-text-primary">{compact ? item.id==='auto'?'Auto':item.id : item.label}</div>
+                  {!compact && <div className="text-[10px] text-vc-text-secondary mt-0.5">{item.sub}</div>}
                 </button>
               );
             })}
-          </div>
+          </div>}
         </div>
 
         {/* Output Aspect Ratio */}
-        <div className="p-4 rounded-2xl bg-white/[0.02] space-y-3">
+        <div className="p-3 rounded-2xl bg-white/[0.02] space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-[13px] font-semibold text-vc-text-primary flex items-center gap-1.5">
-              <Crop className="size-3.5 text-violet-300" />
+              <Crop className="size-4 text-violet-300" />
               <span>Output Aspect Ratio</span>
             </label>
-            <span className="text-[10px] text-vc-text-secondary">Smart Reframe target</span>
+
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          {compact ? <select aria-label="Output aspect ratio" value={preferences.aspectRatio} disabled={disabled} onChange={e=>handleAspectRatioSelect(e.target.value as ClipAspectRatio)} className="w-full rounded-full bg-zinc-900 text-white border border-white/10 px-4 py-3 text-sm">
+            {ASPECT_RATIO_OPTIONS.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}
+          </select> :           <div className="grid grid-cols-3 gap-2">
             {ASPECT_RATIO_OPTIONS.map((item) => {
               const isSelected = preferences.aspectRatio === item.id;
               return (
@@ -529,36 +459,44 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
                       Best
                     </span>
                   )}
-                  <div className="font-semibold text-xs text-vc-text-primary">{item.label}</div>
-                  <div className="text-[10px] text-vc-text-secondary leading-tight mt-0.5">{item.sub}</div>
+                  <div className="font-semibold text-xs text-vc-text-primary">{compact ? item.id : item.label}</div>
+                  {!compact && <div className="text-[10px] text-vc-text-secondary leading-tight mt-0.5">{item.sub}</div>}
                 </button>
               );
             })}
-          </div>
+          </div>}
         </div>
       </div>
 
       {/* ── 4. Collapsible Advanced / Focus Instructions ── */}
-      <div className="border border-white/[0.08] rounded-2xl overflow-hidden bg-white/[0.01]">
+      <div className={`border border-white/[0.08] rounded-2xl overflow-hidden bg-white/[0.01] ${compact?"sm:col-span-2 lg:col-span-5":""}`}>
         <button
           type="button"
           onClick={() => setShowAdvanced(!showAdvanced)}
+          aria-expanded={showAdvanced}
+          aria-controls="clip-advanced-settings"
           className="w-full p-3.5 flex items-center justify-between text-xs font-medium text-violet-300 hover:text-white transition-colors cursor-pointer"
         >
           <span className="flex items-center gap-2">
-            <Sliders className="size-3.5 text-zinc-200" />
-            <span>Advanced / Focus Instructions (Topic Keywords & Prompt)</span>
+            <Sliders className="size-4 text-violet-300" />
+            <span>Advanced / Focus instructions</span>
           </span>
           {showAdvanced ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
         </button>
 
         {showAdvanced && (
-          <div className="p-4 pt-1 space-y-4 border-t border-white/[0.06]">
+          <div id="clip-advanced-settings" className="p-4 pt-1 space-y-4 border-t border-white/[0.06]">
+      <details className="p-3 rounded-2xl bg-white/[0.02] text-xs text-vc-text-secondary" data-testid="layout-policy-settings"><summary className="cursor-pointer">Layout settings</summary>
+        <label className="block mt-3">Starting layout<select aria-label="Starting layout" value={preferences.layoutPolicy?.defaultLayout||'auto'} disabled={disabled} className="w-full rounded-full bg-zinc-900 border border-white/10 px-4 py-3 mt-1" onChange={e=>onChange({...preferences,layoutPolicy:{allowed:['fit','fill','split'],...preferences.layoutPolicy,defaultLayout:e.target.value as 'auto'|'fit'|'fill'}})}><option value="auto">Auto (recommended)</option><option value="fit">Fit</option><option value="fill">Fill</option></select></label>
+        <div className="mt-3">Allowed automatic layouts</div><div className="flex gap-3 mt-2">{(['fit','fill','split'] as const).map(id=>{const allowed=preferences.layoutPolicy?.allowed||['fit','fill','split'];return <label key={id} className="flex gap-1 items-center"><input type="checkbox" aria-label={`Allow automatic ${id}`} disabled={disabled||(allowed.length===1&&allowed.includes(id))} checked={allowed.includes(id)} onChange={e=>onChange({...preferences,layoutPolicy:{defaultLayout:'auto',...preferences.layoutPolicy,allowed:e.target.checked?[...allowed,id]:allowed.filter(x=>x!==id)}})}/>{id[0].toUpperCase()+id.slice(1)}</label>})}</div>
+        <p className="mt-2 text-[10px]">Three, Four and ScreenShare are manual only. Fit uses a 4:3 sharp band and can crop side content. If no allowed measured layout works, Fit + Review is used. Manual editor choices keep priority.</p>
+      </details>
+      <div data-testid="new-project-framing-default" className="px-3 text-[11px] text-vc-text-secondary">Layout: {preferences.layoutPolicy?.defaultLayout||'auto'} · Auto Reframe: {preferences.framingDefaults?.autoReframe===false?'OFF':'ON'}<br/>Manual layouts and saved editor choices keep priority.</div>
             {/* Topic Keywords Input */}
             <div className="space-y-1.5">
               <label htmlFor="clip-topic-keywords" className="text-[13px] font-semibold text-vc-text-primary flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
-                  <Tag className="size-3.5 text-zinc-200" />
+                  <Tag className="size-4 text-violet-300" />
                   <span>Topic Keywords (Comma-separated)</span>
                 </span>
                 <span className="text-[10px] text-vc-text-secondary">e.g. AI agents, pricing, revenue model</span>

@@ -1,3 +1,6 @@
+import {resolveSceneLayoutItem} from '../../../server/src/shared/sceneLayoutOverrides';
+import {SceneLayoutMenu} from './SceneLayoutMenu';
+import {automaticLayoutRanges,type AutomaticLayoutRange} from '../../lib/automaticLayoutRanges';
 import {effectiveContentLayout, type ContentFramingDecision} from '../../../server/src/shared/contentFramingDecision';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
@@ -37,7 +40,7 @@ import { UpdateProjectOptions } from '../../hooks/useEditorProject';
 import { WaveformClip } from './WaveformClip';
 import { FilmstripClip } from './FilmstripClip';
 import { SceneLayoutBadge } from './SceneLayoutBadge';
-import { applyItemLayout, readItemLayout } from '../../lib/itemLayout';
+import { applyItemLayout, applySceneLayout, applyWholeClipLayout, readItemLayout } from '../../lib/itemLayout';
 import {
   collectSnapPoints,
   rulerXToTime,
@@ -46,6 +49,7 @@ import {
 import { computeSceneReorder, isReorderBlocked } from '../../utils/timelineReorder';
 
 interface TimelineProps {
+  automaticSceneRanges?: AutomaticLayoutRange[];
   contentFramingDecision?: ContentFramingDecision | null;
   /** Clip subject track (smart reframe keyframes, source seconds) used to seed ScreenShare/Gameplay panel framing. */
   subjectKeyframes?: Array<{ time: number; centerX: number; centerY?: number }> | null;
@@ -80,6 +84,7 @@ interface TimelineProps {
 export const Timeline: React.FC<TimelineProps> = ({
   project,
   contentFramingDecision = null,
+  automaticSceneRanges = [],
   subjectKeyframes = null,
   clip,
   sourceVideoUrl,
@@ -102,6 +107,7 @@ export const Timeline: React.FC<TimelineProps> = ({
   isCollapsed = false,
   onToggleCollapse,
 }) => {
+  const [sceneMenu,setSceneMenu]=useState<{itemId:string;start:number;end:number;anchor:DOMRect}|null>(null);
   // Zoom: pixels per second (min 20px, max 240px)
   const [pixelsPerSec, setPixelsPerSec] = useState<number>(60);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -908,6 +914,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                       isPrimaryClipItem(item) &&
                       item.source_end > item.source_start;
                     const showFilmstrip = track.type === 'VIDEO' && isClipSource;
+                    const autoRanges = showFilmstrip && track.id===project.tracks.find(t=>t.type==='VIDEO'&&!t.hidden)?.id ? automaticLayoutRanges(item,automaticSceneRanges,project.canvas.aspect_ratio) : [];
                     const showAudioWave = track.type === 'AUDIO' && isClipSource && !item.muted;
                     // Uploaded music / SFX clips: draw their own cached asset waveform.
                     const showAssetWave =
@@ -970,11 +977,20 @@ export const Timeline: React.FC<TimelineProps> = ({
                           />
                         )}
 
-                        {/* Describe the persisted item framing, not a hardcoded Fill label. */}
-                        {showFilmstrip && track.type === 'VIDEO' && (
+                        {autoRanges.map((range,n)=>(
+                          <div key={n} data-testid="automatic-scene-range" title={`${range.label}${range.review ? ' - review side context' : ''}: ${range.start.toFixed(2)}-${range.end.toFixed(2)}s (analysis scene, not an edit boundary)`}
+                            className={`absolute top-0 bottom-0 border-l border-white/60 pointer-events-none ${playhead>=range.start&&playhead<range.end ? 'bg-violet-500/15' : ''}`}
+                            style={{left:`${(range.start-item.timeline_start)*pixelsPerSec}px`,width:`${(range.end-range.start)*pixelsPerSec}px`}}>
+                            <button type="button" data-testid="scene-layout-range-button" title={`Change this scene only: ${range.start.toFixed(2)}-${range.end.toFixed(2)}s`} disabled={Boolean(track.locked||item.locked)} onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPlayheadChange(range.start);setSceneMenu({itemId:item.id,start:range.sourceStart!,end:range.sourceEnd!,anchor:e.currentTarget.getBoundingClientRect()})}} className="absolute bottom-1 left-1 right-1 truncate pointer-events-auto cursor-pointer rounded bg-black/80 px-1.5 py-0.5 text-[10px] font-medium text-white">{range.label}{range.review ? ' · Review' : ''} ▾</button>
+                          </div>
+                        ))}
+                        {/* Item-level override menu stays separate from automatic range indicators. */}
+                        {showFilmstrip && track.type === 'VIDEO' && autoRanges.length===0 && (
                           <SceneLayoutBadge
-                            label={item.framing_window !== undefined ? 'Context window' : (item as any).panels ? ({ three: 'Three', four: 'Four', screenshare: 'ScreenShare', gameplay: 'Gameplay', split2: 'Split' } as any)[(item as any).panels.layout] : effectiveContentLayout(item,contentFramingDecision) === 'split' ? 'Split' : effectiveContentLayout(item,contentFramingDecision) === 'screencast' ? 'Screen + Cam' : effectiveContentLayout(item,contentFramingDecision) === 'blur' ? 'Blur' : item.crop && readItemLayout(item) === 'fit' ? 'Fit' : item.crop?.mode === 'blur' ? 'Blur' : 'Fill'}
-                            current={readItemLayout(item)}
+                            autoAvailable={true}
+                            title={autoRanges.length ? 'Override layout for this entire video item' : undefined}
+                            label={autoRanges.length ? 'Auto scenes' : readItemLayout(item)==='auto' ? 'Auto Fit · Review' : item.framing_window !== undefined ? 'Context window' : (item as any).panels ? ({ three: 'Three', four: 'Four', screenshare: 'ScreenShare', gameplay: 'Gameplay', watch_party:'Watch Party', streaming:'Streaming', game_screen_first:'Game screen first', split2: 'Split' } as any)[(item as any).panels.layout] : effectiveContentLayout(item,contentFramingDecision) === 'split' ? 'Split' : effectiveContentLayout(item,contentFramingDecision) === 'screencast' ? 'Screen + Cam' : effectiveContentLayout(item,contentFramingDecision) === 'blur' ? 'Blur' : item.crop && readItemLayout(item) === 'fit' ? 'Fit' : item.crop?.mode === 'blur' ? 'Blur' : 'Fill'}
+                            current={autoRanges.length ? 'auto' : readItemLayout(item)}
                             onPick={(layout) => {
                               onCommitProject?.(project);
                               onUpdateProject(applyItemLayout(project, item.id, layout, subjectKeyframes), { recordHistory: true, markAsDirty: true });
@@ -1148,6 +1164,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           </div>
         </div>
       </div>
+      {sceneMenu && <SceneLayoutMenu autoAvailable scopeTitle="Layout for this scene only" anchor={sceneMenu.anchor} current={readItemLayout(resolveSceneLayoutItem(project.tracks.flatMap(t=>t.items).find(i=>i.id===sceneMenu.itemId)!, (sceneMenu.start+sceneMenu.end)/2))} onClose={()=>setSceneMenu(null)} onPick={layout=>{onCommitProject?.(project);onUpdateProject(applySceneLayout(project,sceneMenu.itemId,sceneMenu.start,sceneMenu.end,layout,subjectKeyframes),{recordHistory:true,markAsDirty:true})}} onPickWholeClip={layout=>{onCommitProject?.(project);onUpdateProject(applyWholeClipLayout(project,layout,subjectKeyframes),{recordHistory:true,markAsDirty:true})}}/>}
     </div>
   );
 };

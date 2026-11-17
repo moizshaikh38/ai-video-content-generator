@@ -17,6 +17,7 @@ import subprocess
 import re
 import cv2
 import numpy as np
+from detector_geometry import visible_detector_rect
 
 
 def discover_dense_scene_cuts(video_path, start_sec, duration_sec, source_fps):
@@ -352,7 +353,13 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
             _, yn_faces = yunet_detector.detect(frame)
             if yn_faces is not None:
                 for yf in yn_faces:
-                    yx, yy, yw, yh = int(yf[0]), int(yf[1]), int(yf[2]), int(yf[3])
+                    # YuNet can predict a real edge face slightly outside the
+                    # image. Clip its visible geometry here; leave the API's
+                    # strict out-of-bounds rejection unchanged.
+                    rect = visible_detector_rect(yf[:4], source_width, source_height)
+                    if rect is None:
+                        continue
+                    yx, yy, yw, yh = rect
                     if yw >= yunet_min_px and yh >= yunet_min_px:
                         raw_candidates.append({
                             "rect": (yx, yy, yw, yh),
@@ -473,7 +480,10 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
 
         sample = {"time": time_sec, "faces": face_list}
         if person_detector is not None:
-            sample["persons"] = person_detector.infer(frame)
+            if os.environ.get('SMART_REFRAME_OBJECT_CONTEXT') == '1':
+                sample["persons"], sample["objects"] = person_detector.infer_with_context(frame)
+            else:
+                sample["persons"] = person_detector.infer(frame)
         samples.append(sample)
 
         prev_gray = gray

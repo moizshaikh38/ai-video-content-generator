@@ -1,3 +1,4 @@
+import { GenerationCaptionPreset } from '../clips/GenerationCaptionPreset';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BTN_PILL_BRAND, BTN_PILL_PRIMARY } from '../../lib/buttonStyles';
@@ -19,15 +20,12 @@ import {
   Share2,
   Square,
   Volume2,
-  Globe,
   Loader2,
   RotateCcw,
   CheckSquare,
   Search,
   Coins,
 } from 'lucide-react';
-import hookThumbnail from '../../assets/creators/creator-1.jpg';
-import momentThumbnail from '../../assets/creators/creator-2.jpg';
 import { backendRequest } from '../../services/backendClient';
 import { projectService } from '../../services/projectService';
 import { uploadVideoFile, validateVideoFile } from '../../services/storageService';
@@ -156,7 +154,9 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     () => (loadSavedClipPreferences().preferredDurations as DurationPref) || 'auto'
   );
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
-  const [captionLang, setCaptionLang] = useState<CaptionLang>('auto');
+  const captionLang = clipPreferences.sourceLanguage || 'auto';
+  const setCaptionLang = (value:string) => setClipPreferences(prev => {const next={...prev,sourceLanguage:value};saveClipPreferencesToStorage(next);return next;});
+  const [estimateRetry, setEstimateRetry] = useState(0);
   const [clipCount, setClipCount] = useState<ClipCountPref>('auto');
   const [customInstructions, setCustomInstructions] = useState(
     () => loadSavedClipPreferences().customInstructions || ''
@@ -218,21 +218,23 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     };
   }, [user]);
 
-  // Recalculate credit estimate whenever selected source changes
+  // A late estimate for a replaced source must never unlock the new source.
   useEffect(() => {
+    let cancelled = false;
+    setCreditEstimate(null);
     if (!selectedSource || !user) {
-      setCreditEstimate(null);
+      setIsCreditEstimateLoading(false);
       return;
     }
     const duration = selectedSource.duration && selectedSource.duration > 0 ? selectedSource.duration : 60;
     const isReused = selectedSource.type === 'project' && (activeProjectStatus === 'transcribed' || activeProjectStatus === 'completed');
-
     setIsCreditEstimateLoading(true);
     CreditService.estimateOperation('core_video_processing', duration, isReused)
-      .then((est) => setCreditEstimate(est))
+      .then(est => { if (!cancelled) setCreditEstimate(est); })
       .catch(() => undefined)
-      .finally(() => setIsCreditEstimateLoading(false));
-  }, [selectedSource, user, activeProjectStatus]);
+      .finally(() => { if (!cancelled) setIsCreditEstimateLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedSource, user, activeProjectStatus, estimateRetry]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -250,12 +252,15 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         if (saved.aspectRatio) setAspectRatio(saved.aspectRatio);
         if (saved.durationPref) setDurationPref(saved.durationPref);
         if (saved.captionsEnabled !== undefined) setCaptionsEnabled(saved.captionsEnabled);
-        if (saved.captionLang) setCaptionLang(saved.captionLang);
+        if (saved.captionLang && !loadSavedClipPreferences().sourceLanguage) setCaptionLang(saved.captionLang);
         if (saved.customInstructions) setCustomInstructions(saved.customInstructions);
 
         // Fetch project and restore state
         projectService.fetchProject(saved.projectId).then((proj) => {
           if (!proj) return;
+          if (proj.clip_preferences) handlePreferencesChange(proj.clip_preferences);
+          const captionMode = proj.notes?.match(/\[Captions:\s*([^\]]+)\]/i)?.[1]?.trim();
+          if (captionMode) setCaptionsEnabled(captionMode !== 'off');
           const status = proj.video_status || proj.status;
           setSelectedSource({
             type: 'project',
@@ -589,9 +594,13 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     setErrorMessage(null);
     setActiveProjectId(proj.id);
 
+    if (proj.clip_preferences) handlePreferencesChange(proj.clip_preferences);
+
     // If previous job has an audio language configured in its notes, restore it
     const notesText = (proj.notes || (proj as any).description || '') as string;
-    if (notesText) {
+    const savedCaptionMode = notesText.match(/\[Captions:\s*([^\]]+)\]/i)?.[1]?.trim();
+    if (savedCaptionMode) setCaptionsEnabled(savedCaptionMode !== 'off');
+    if (notesText && !proj.clip_preferences?.sourceLanguage) {
       const match = notesText.match(/\[Captions:\s*([^\]]+)\]/i);
       if (match && match[1]) {
         const lang = match[1].trim();
@@ -647,7 +656,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   // -------------------------------------------------------------
 
   const handleGenerateClips = async () => {
-    if (isSubmitting || !selectedSource) return;
+    if (isSubmitting || !selectedSource || isCreditEstimateLoading || !creditEstimate?.has_sufficient_credits) return;
 
     if (!user) {
       setErrorMessage('Please sign in to generate clips with AI.');
@@ -759,6 +768,8 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       else if (selectedSource.type === 'project' && projectId) {
         setWorkflowState('processing');
         const proj = await projectService.fetchProject(projectId);
+        const notes = (proj?.notes || '').replace(/\[Captions:\s*[^\]]+\]/gi, '').trim();
+        await projectService.updateProjectAsync(projectId, {clip_preferences:clipPreferences, notes:`${notes} [Captions: ${captionsEnabled ? captionLang : 'off'}]`});
         const currentStatus = proj?.video_status || proj?.status || 'idle';
 
         if (['completed', 'transcribed'].includes(currentStatus)) {
@@ -856,7 +867,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     // If candidate, render it first then navigate to editor
     try {
       setExportStatusMessage('Opening editor for clip...');
-      const res = await clipRenderService.createClipFromCandidate(activeProjectId, clipId, aspectRatio);
+      const res = await clipRenderService.createClipFromCandidate(activeProjectId, clipId, aspectRatio, 'smart', {caption_enabled:captionsEnabled,caption_style:clipPreferences.captionStyle,caption_config:clipPreferences.captionStyle?{presetId:clipPreferences.captionStyle}:undefined});
       navigate(`/clips/${res.clip.id}/edit`);
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to prepare clip for editor.');
@@ -876,7 +887,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
       if (isCandidate) {
         // Render clip first
-        const createRes = await clipRenderService.createClipFromCandidate(activeProjectId, clipId, aspectRatio);
+        const createRes = await clipRenderService.createClipFromCandidate(activeProjectId, clipId, aspectRatio, 'smart', {caption_enabled:captionsEnabled,caption_style:clipPreferences.captionStyle,caption_config:clipPreferences.captionStyle?{presetId:clipPreferences.captionStyle}:undefined});
         targetClipId = createRes.clip.id;
       }
 
@@ -967,7 +978,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       {workflowState === 'no_source' && (
         <section
           aria-label="Create clips"
-          className="vireo-dash-glass vireo-dash-hero p-6 sm:p-8 lg:p-10 xl:p-12 2xl:py-14 text-center rounded-[28px] shadow-[0_24px_70px_rgba(0,0,0,0.6)] relative transition-all duration-300 flex flex-col justify-between lg:min-h-[clamp(520px,calc(100vh-170px),740px)]"
+          className="vireo-dash-glass p-6 sm:p-8 lg:p-10 xl:p-12 2xl:py-14 text-center rounded-[28px] shadow-[0_24px_70px_rgba(0,0,0,0.6)] relative transition-all duration-300 flex flex-col justify-between lg:min-h-[clamp(520px,calc(100vh-170px),740px)]"
           onDragOver={(e) => {
             e.preventDefault();
             setIsDragOver(true);
@@ -980,58 +991,6 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             if (dropped) handlePickFile(dropped);
           }}
         >
-          {/* Left Floating Card — "Your hook" (Real Creator Video Visual) */}
-          <div
-            className="hidden xl:flex vireo-clipcard-left group select-none animate-float-1 pointer-events-none"
-            style={{ '--base-rot': '-7deg' } as React.CSSProperties}
-            aria-label="Your hook preview"
-          >
-            <img
-              src={hookThumbnail}
-              alt="Podcast creator speaking - Your hook moment"
-              className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
-              loading="eager"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.06] via-transparent to-transparent pointer-events-none" />
-            <div className="relative z-10 self-start flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-mono text-white/90 shadow-sm">
-              <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
-              <span>0:18</span>
-            </div>
-            <div className="relative z-10 self-start">
-              <span className="font-['Sora',sans-serif] text-[11px] font-bold text-white bg-vc-canvas/85 backdrop-blur-md px-2.5 py-1.5 rounded-lg shadow-md flex items-center gap-1.5">
-                <span>Your</span>
-                <b className="text-zinc-200 font-extrabold tracking-wide">hook</b>
-              </span>
-            </div>
-          </div>
-
-          {/* Right Floating Card — "Best moment" (Real Creator Video Visual) */}
-          <div
-            className="hidden xl:flex vireo-clipcard-right group select-none animate-float-2 pointer-events-none"
-            style={{ '--base-rot': '7deg' } as React.CSSProperties}
-            aria-label="Best moment preview"
-          >
-            <img
-              src={momentThumbnail}
-              alt="Podcast speaker reaction - Best moment"
-              className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
-              loading="eager"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.06] via-transparent to-transparent pointer-events-none" />
-            <div className="relative z-10 self-end flex items-center gap-1 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-mono text-violet-200 shadow-sm">
-              <Sparkles className="size-3 text-zinc-200" />
-              <span>Viral 98</span>
-            </div>
-            <div className="relative z-10 self-end">
-              <span className="font-['Sora',sans-serif] text-[11px] font-bold text-white bg-vc-canvas/85 backdrop-blur-md px-2.5 py-1.5 rounded-lg shadow-md flex items-center gap-1.5">
-                <span>Best</span>
-                <b className="text-violet-400 font-extrabold tracking-wide">moment</b>
-              </span>
-            </div>
-          </div>
-
           {/* Main Hero Header */}
           <div className="relative z-10 max-w-2xl mx-auto flex-1 flex flex-col justify-center">
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/[0.04] text-violet-300 text-xs font-semibold tracking-wide self-center">
@@ -1040,14 +999,14 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             </div>
 
             <h1 className="mt-4 sm:mt-5 text-3xl sm:text-4xl lg:text-[44px] font-extrabold tracking-tight font-['Sora',sans-serif] text-vc-text-primary leading-[1.14]">
-              Turn Your Videos Into{' '}
+              Find the moments in{' '}
               <span className="text-violet-300">
-                Great Clips
+                your recording
               </span>
             </h1>
 
             <p className="mt-3 sm:mt-3.5 text-sm sm:text-base text-vc-text-secondary leading-relaxed max-w-lg mx-auto">
-              Upload video files, paste a YouTube/Vimeo link, or select an existing project to extract viral shorts in one seamless workflow.
+              Add a recording, choose your preferences, then review the suggested clips.
             </p>
 
             {/* URL Validation error notice */}
@@ -1170,16 +1129,16 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       {workflowState === 'source_selected' && selectedSource && (
         <section
           aria-label="Clipping configuration"
-          className="vireo-dash-glass p-6 sm:p-8 rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.55)] relative space-y-6"
+          className="vireo-dash-glass p-4 sm:p-4 rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.55)] relative space-y-3 clean-configure-panel"
         >
           {/* Header Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-white/[0.08]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/[0.08]">
             <div className="flex items-center gap-3">
               <div className="size-10 rounded-xl bg-violet-500/20 border border-violet-500/40 flex items-center justify-center text-violet-300">
                 <Film className="size-5 text-violet-400" />
               </div>
               <div>
-                <span className="text-[11px] font-semibold tracking-wider text-violet-400 uppercase">Step 2 of 4</span>
+                <span className="text-[10px] font-semibold tracking-wider text-violet-400 uppercase">Step 2 of 4</span>
                 <h2 className="text-xl sm:text-2xl font-bold text-vc-text-primary font-['Sora',sans-serif]">
                   Configure Video Clipping
                 </h2>
@@ -1197,10 +1156,10 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           </div>
 
           {/* Selected Source Overview Card */}
-          <div className="p-4 rounded-2xl bg-vc-canvas/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="p-2 rounded-2xl bg-vc-canvas/80 flex flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-4 min-w-0">
               {/* Thumbnail or Video Preview Frame */}
-              <div className="relative size-20 sm:size-24 rounded-xl overflow-hidden bg-black/60 border border-white/15 shrink-0 flex items-center justify-center">
+              <div className="relative size-12 sm:size-12 rounded-xl overflow-hidden bg-black/60 border border-white/15 shrink-0 flex items-center justify-center">
                 {localVideoPreviewUrl ? (
                   <video
                     src={localVideoPreviewUrl}
@@ -1247,9 +1206,9 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             </div>
 
             {/* Source Status Badge */}
-            <div className="flex items-center gap-2 text-xs text-zinc-200 bg-white/[0.06] px-3 py-1.5 rounded-full shrink-0">
+            <div className="hidden sm:flex items-center gap-2 text-xs text-zinc-400 shrink-0">
               <Check className="size-3.5" />
-              <span>Source verified & ready</span>
+              <span>Source selected</span>
             </div>
           </div>
 
@@ -1258,25 +1217,31 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             preferences={clipPreferences}
             onChange={handlePreferencesChange}
             disabled={isSubmitting}
+            compact
           />
 
-          {/* Setting: Smart Captions, Language, & Target Count */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6 items-start border-t border-white/10 pt-3">
+          <GenerationCaptionPreset value={clipPreferences.captionStyle} disabled={isSubmitting || !captionsEnabled}
+            onChange={captionStyle => handlePreferencesChange({...clipPreferences,captionStyle})} />
+
+          {/* Setting: Smart Captions & Target Count */}
+          <div className="grid grid-cols-1 gap-3">
             {/* Smart Captions Toggle */}
-            <div className="p-4 rounded-xl bg-white/[0.02] flex items-center justify-between gap-4">
+            <div className="py-2 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="size-9 rounded-lg bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-300">
+                <div className="size-6 flex items-center justify-center text-violet-300">
                   <Volume2 className="size-4" />
                 </div>
                 <div>
                   <div className="text-xs font-semibold text-vc-text-primary">Generate Smart Captions</div>
-                  <div className="text-[11px] text-vc-text-secondary">Auto-synced word-level captions</div>
+                  <div className="text-[11px] text-vc-text-secondary">Captions from the transcript; review timing</div>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setCaptionsEnabled(!captionsEnabled)}
+                role="switch" aria-checked={captionsEnabled} aria-label="Generate captions"
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
                   captionsEnabled ? 'bg-violet-500' : 'bg-white/20'
                 }`}
@@ -1289,35 +1254,8 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               </button>
             </div>
 
-            {/* Language Selector */}
-            <div className="p-4 rounded-xl bg-white/[0.02] flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="size-9 rounded-lg bg-white/[0.08] border border-white/20 flex items-center justify-center text-zinc-200">
-                  <Globe className="size-4" />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-vc-text-primary">Audio Language</div>
-                  <div className="text-[11px] text-vc-text-secondary">Whisper multilingual transcription</div>
-                </div>
-              </div>
-
-              <select
-                value={captionLang}
-                onChange={(e) => setCaptionLang(e.target.value as CaptionLang)}
-                disabled={!captionsEnabled}
-                className="bg-vc-canvas border border-white/[0.14] text-xs text-vc-text-primary rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500 disabled:opacity-50 cursor-pointer"
-              >
-                <option value="auto">Auto-detect</option>
-                <option value="en">English (en)</option>
-                <option value="es">Spanish (es)</option>
-                <option value="fr">French (fr)</option>
-                <option value="de">German (de)</option>
-                <option value="hi">Hindi (hi)</option>
-              </select>
-            </div>
-
             {/* Target Clip Count */}
-            <div className="p-4 rounded-xl bg-white/[0.02] flex items-center justify-between gap-2">
+            <div className="py-2 flex items-center justify-between gap-2">
               <div>
                 <div className="text-xs font-semibold text-vc-text-primary">Target Clip Count</div>
                 <div className="text-[11px] text-vc-text-secondary">Max suggested moments</div>
@@ -1345,29 +1283,36 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             </div>
           </div>
 
+          </div>
+
           {/* Credit Pre-Flight Cost Transparency */}
-          {(selectedSource || creditEstimate) && (
+          {(creditEstimate || isCreditEstimateLoading) && (
             <CostTransparencySummary
+              compact
               estimate={creditEstimate}
               wallet={walletBalance}
               durationSeconds={selectedSource?.duration || 0}
               isReusedTranscript={Boolean(creditEstimate?.details?.is_reused_transcript)}
               isLoading={isCreditEstimateLoading}
               operationLabel="AI Video Clipping"
-              className="mt-2 mb-3"
+              className=""
             />
           )}
 
+          {!creditEstimate && !isCreditEstimateLoading && <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-400/20 p-3 text-xs text-amber-100">
+            <span>Credit estimate unavailable. Refresh it to confirm the cost before generating.</span>
+            <button type="button" className="rounded-full border border-amber-200/30 px-3 py-1.5" onClick={()=>setEstimateRetry(n=>n+1)}>Refresh estimate</button>
+          </div>}
           {/* Primary Action Button: Generate Clips */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-xs text-vc-text-secondary">
-              Ready to process. AI will transcribe audio, detect viral hooks, and auto-crop to {aspectRatio}.
+              Ready to process. We will transcribe the audio and suggest clips in {aspectRatio}. Review framing and context before exporting.
             </p>
 
             <button
               type="button"
               onClick={handleGenerateClips}
-              disabled={isSubmitting || Boolean(!walletBalance?.is_unlimited && walletBalance && creditEstimate && walletBalance.available_credits < creditEstimate.estimated_credits)}
+              disabled={isSubmitting || isCreditEstimateLoading || !creditEstimate?.has_sufficient_credits}
               className={`h-12 px-8 text-sm font-bold flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed w-full sm:w-auto ${BTN_PILL_BRAND}`}
             >
               {isSubmitting ? (

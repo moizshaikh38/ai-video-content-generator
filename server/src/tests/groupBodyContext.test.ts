@@ -1,13 +1,21 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
 import {SmartReframeService as S} from '../services/smartReframeService.js';
+import {associatedBodyEnvelope} from '../shared/bodyContext.js';
 const e=JSON.parse(fs.readFileSync(new URL('./fixtures/maganda-motion-detections.json',import.meta.url),'utf8'));
 const options={rawSamples:e.samples,sceneCuts:e.scene_cuts,duration:e.duration,sourceWidth:e.source_width,sourceHeight:e.source_height};
-test('small and occluded multi-person group bodies constrain the old92percent cap',()=>{
+test('small group body evidence covers the source, but explicit4:3 presentation warns about side loss',()=>{
  assert.equal(S.isCrowdScene(e.samples),false,'this is below the crowd-face-majority guard, not a crowd-rule test');
  const before=S.computeShotComposition({...options,rawSamples:e.samples.map((s:any)=>({...s,persons:[]}))});
  const after=S.computeShotComposition(options);
- assert.equal(before[0].kind,'group');assert.equal(before[0].windowW,.92);
- assert.equal(after[0].kind,'group');assert.equal(after[0].windowW,1);assert.equal(after[0].windowH,1);
+ // The measurement must not silently shrink merely to satisfy presentation.
+ const ids=[...new Set(e.samples.flatMap((s:any)=>s.faces.map((f:any)=>f.track_id)))] as string[];
+ const bodies=ids.map(id=>associatedBodyEnvelope(e.samples,[id])).filter(Boolean);
+ assert.ok(bodies.some(b=>b!.left===0));assert.ok(bodies.some(b=>b!.right===1));
+ for(const plan of [before,after]){
+  assert.equal(plan[0].kind,'group');assert.equal(plan[0].windowW,(4/3)*e.source_height/e.source_width);
+  assert.equal(plan[0].windowH,1);assert.equal(plan[0].contextStatus,'unresolved-review-required');
+  assert.match(plan[0].uncertainty!,/crops source context/);
+ }
 });
 test('missing and unsupported bodies preserve the existing group result',()=>{
  const none=e.samples.map((s:any)=>({...s,persons:[]}));

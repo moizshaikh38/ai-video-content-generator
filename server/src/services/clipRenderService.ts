@@ -1,3 +1,6 @@
+import {legacyFit43Plan,legacyPolicyFallback} from '../shared/automaticLayoutPolicy.js';
+import {storedScenePlanWindow} from '../shared/storedScenePlanWindow.js';
+import {expandSceneLayoutProject} from '../shared/sceneLayoutOverrides.js';
 import { resolveCaptionPreset } from '../shared/captionPresets.js';
 import { clampCaptionFontSize } from '../shared/captionPresets.js';
 import { assFontsDirArg } from './editorFontFiles.js';
@@ -930,6 +933,7 @@ export class ClipRenderService {
       let expectedDurationSec = durationSec;
       if (hasCustomProTracks && editorProject) {
         logger.info(`[ClipRender] Compiling and executing multi-track EditorProject graph for clip ${clipId}`);
+        editorProject=expandSceneLayoutProject(editorProject);
         await ProEditorService.preloadRemoteOverlayAssets(editorProject, tempDir);
         const videoTrackItems = editorProject.tracks
           ?.filter((t: any) => t.type === 'VIDEO' && !t.hidden)
@@ -954,6 +958,7 @@ export class ClipRenderService {
         // pass), then compiles with linear loudnorm when feasible, or a pre-rendered
         // dynamic-normalized dialogue WAV when peak/range-limited. Throws
         // LoudnormNormalizationError only for degenerate/silent measurements.
+        const storedPlan=clip.crop_config?.mode==='smart' ? storedScenePlanWindow(editorProject,clip,reframeDecision.track) : null;
         const graph = await ProEditorService.compileRenderGraphWithNormalization(
           editorProject,
           sourcePath,
@@ -962,13 +967,13 @@ export class ClipRenderService {
           {
             aspectRatio: clip.aspect_ratio as ClipAspectRatio,
             cropConfig: clip.crop_config || null,
-            clipStartSec: startSec,
+            clipStartSec: storedPlan?.sourceAnchor ?? startSec,
             decodedSource: srcDims,
             sourceHasAudio: srcDims?.hasAudio,
             sourceStoragePath: clip.source_storage_path,
-            mode: actualReframeMode,
+            mode: storedPlan ? 'smart' : actualReframeMode,
             layoutMode: reframeDecision.layoutMode,
-            track: reframeDecision.track,
+            track: storedPlan?.track ?? reframeDecision.track,
             canvasScale,
           },
           inputSeekArgs
@@ -1534,7 +1539,7 @@ export class ClipRenderService {
     layoutMode: ReframeLayoutMode | string;
     track: Awaited<ReturnType<typeof SmartReframeService.getReframeTrack>>;
   }> {
-    const centerCrop = () => buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 }, canvasScale);
+    const centerCrop = () => clip.crop_config?.layout_mode_source==='auto' ? buildBackdropFitChain(clip.aspect_ratio as ClipAspectRatio,1,{kind:'blur',bandAspect:4/3},'autosafe',canvasScale) : buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 }, canvasScale);
 
     if (clip.crop_config?.mode === 'manual') {
       return { cropFilter: buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config, canvasScale), mode: 'manual', layoutMode: 'manual', track: null };
@@ -1568,6 +1573,10 @@ export class ClipRenderService {
           return { cropFilter: centerCrop(), mode: 'fallback_center', metadata: { reason: 'stale_track', detected_face_count: track.detected_face_count || 0 }, layoutMode: 'track', track };
         }
 
+        const legacyFit=clip.crop_config?.layout_mode_source!=='user'?legacyFit43Plan(track,durationSec,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)):undefined;
+        if(legacyFit&&(clip.aspect_ratio||'9:16')==='9:16')return {cropFilter:SmartReframeService.buildShotCompositionFilter({plan:legacyFit,duration:durationSec,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,canvasScale}),mode:'smart',layoutMode:'track',metadata:{reason:'legacy_fit_43_review'},track};
+        const legacyFallback=clip.crop_config?.layout_mode_source!=='user'?legacyPolicyFallback(clip.crop_config?.layoutPolicy,track,durationSec):undefined;
+        if(legacyFallback)return {cropFilter:buildBackdropFitChain(clip.aspect_ratio as ClipAspectRatio,1,{kind:'blur',bandAspect:4/3},'legacyPolicy',canvasScale),mode:'smart',layoutMode:'blur',metadata:{reason:'layout_policy_review_fit'},track};
         if ((track.detected_face_count || 0) === 0 || !track.dominant_track_id) {
           // A genre-stamped layout recommendation is not authoritative; with no
           // detected subject the measured outcome is the modern blurred layout.
@@ -1603,7 +1612,7 @@ export class ClipRenderService {
               })
             : null;
         if (targetLayout === 'track' && (clip.aspect_ratio === '9:16' || !clip.aspect_ratio) && track.metadata?.shot_composition_candidate === true) {
-          const plan = SmartReframeService.computeShotComposition({allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
+          const plan = SmartReframeService.computeShotComposition({layoutPolicy:clip.crop_config?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,
             duration:durationSec,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
           if (plan.length) return {cropFilter:SmartReframeService.buildShotCompositionFilter({plan,duration:durationSec,
             sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,canvasScale}),mode:'smart',
@@ -2815,6 +2824,8 @@ export class ClipRenderService {
             hasCustomAudio ||
             hasCustomCrop ||
             hasFramingWindow ||
+            Boolean(i.scene_layout_overrides?.length) ||
+            i.crop_config?.layout_mode_source==='auto' ||
             hasModifiedTimelineStart ||
             hasModifiedSourceStart
           );
