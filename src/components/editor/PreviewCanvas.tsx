@@ -1,3 +1,4 @@
+import {previewBackdropBlurPx,PREVIEW_BACKDROP_COLOR_MATRIX} from '../../../server/src/shared/blurBackdropPreview';
 import {mirrorDecodedFrames} from '../../lib/decodedFrameMirror';
 import {trackerHandoffSpec,trackerHandoffRect} from '../../../server/src/shared/trackerHandoff';
 import {presentFit43} from '../../../server/src/shared/automaticLayoutPolicy';
@@ -464,6 +465,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const videoCropLocked = Boolean(baseVideoItem?.locked || project.tracks.some(t => t.locked && t.items.some(i => i.id === baseVideoItem?.id)));
   const activePanels = viewMode === 'export_review' && renderedPreviewUrl ? null : normalizePanels((baseVideoItem as any)?.panels);
 
+  const backdropColorFilterId = 'vireo-backdrop-'+React.useId().replace(/:/g,'');
   const backdropVideoRef = useRef<HTMLCanvasElement | null>(null);
   const splitBottomRef = useRef<HTMLCanvasElement | null>(null);
   const [videoDims, setVideoDims] = useState<{ w: number; h: number } | null>(null);
@@ -1474,6 +1476,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           onClick={() => onSelectItem(null)}
           className="relative overflow-hidden flex items-center justify-center"
         >
+          <svg aria-hidden style={{position:'absolute',width:0,height:0,pointerEvents:'none'}}>
+            <defs><filter id={backdropColorFilterId} colorInterpolationFilters="sRGB">
+              <feColorMatrix type="matrix" values={PREVIEW_BACKDROP_COLOR_MATRIX}/>
+            </filter></defs>
+          </svg>
           {/* HTML5 VIDEO BASE STREAM */}
           {(primaryVideoCropMode === 'blur' || primaryLayoutMode === 'blur' || Boolean(groupFitView) || lowConfidenceFallback) && activeVideoSrc ? (
             <canvas
@@ -1481,14 +1488,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               aria-hidden
               className="absolute inset-0 w-full h-full object-cover pointer-events-none"
               style={{
-                // Tuned against the export chain (boxblur=25:5, eq=brightness=-0.15:contrast=0.95):
-                // CSS brightness is multiplicative while ffmpeg's is subtractive, so a lower
-                // brightness plus a mild contrast lift approximates the export's dark-but-
-                // structured band. Quantified on the fixture: band mean luminance within ~15%
-                // of the export render; the band stays flatter (CSS blur flattens more at
-                // preview scale) - accepted difference, not exact identity.
-                filter: 'blur(40px) brightness(0.55) contrast(1.1)',
-                transform: 'scale(1.15)',
+                // Design-scale blur and additive color approximation. Export stays authoritative.
+                filter: `blur(${previewBackdropBlurPx(parseFloat(canvasDims.width))}px) url(#${backdropColorFilterId})`,
               }}
             />
           ) : null}
