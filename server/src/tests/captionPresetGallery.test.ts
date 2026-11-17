@@ -98,7 +98,7 @@ describe('Caption presets: configuration and stable IDs', () => {
       'editorial', 'bold_highlight', 'soft_backdrop', 'compact_creator', 'two_color_highlight',
       'vireo_oneword', 'vireo_pill', 'vireo_lime', 'vireo_hormozi', 'vireo_clean',
       'vireo_spring', 'vireo_neon', 'vireo_capsule', 'vireo_editorial', 'vireo_sweep',
-      'word_cut', 'soft_build', 'typewriter', 'soft_cut', 'retro_3d', 'crossline', 'with_backdrop', 'glide', 'chip_background',
+      'word_cut', 'soft_build', 'typewriter', 'soft_cut', 'retro_3d', 'crossline', 'with_backdrop', 'glide', 'chip_background', 'vireo_prism_stamp', 'vireo_echo_slide', 'vireo_comic_punch',
     ]);
   });
 

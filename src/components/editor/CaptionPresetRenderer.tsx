@@ -90,7 +90,8 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
       onClick={onClick}
     >
       <div
-        style={{position:'relative',display:'inline-block',...(style.backdropBand?{width:'100%'}:{})}}
+        data-caption-cue-motion={frame.stampMotion?frame.cueMotionKind:undefined}
+        style={{position:'relative',display:'inline-block',...(style.backdropBand?{width:'100%'}:{}),...(frame.stampMotion?{transform:`translateX(${('offsetX' in frame.stampMotion?frame.stampMotion.offsetX:0)*scale}px) rotate(${frame.stampMotion.rotation}deg) scale(${frame.stampMotion.scale})`,transformOrigin:frame.stampOrigin??'center bottom',opacity:frame.stampMotion.opacity,transition:'none'}:{})}}
         className={`relative inline-block transition-all ${
           isDragging
             ? 'cursor-grabbing opacity-90'
@@ -135,7 +136,7 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
                   <React.Fragment key={wi}>
                     {wi > 0 && ' '}
                     {style.caretColor || style.shadowLayers?.length ? <span style={{position:'relative',display:'inline-block',fontSize:css.line.fontSize}}>
-                      {style.shadowLayers?.map((layer,idx)=><span key={idx} data-caption-shadow-layer={idx} style={{...css.word(w) as React.CSSProperties,position:'absolute',left:(layer.x??0)*scale,top:layer.y*scale,color:layer.color,opacity:(w.opacity??1)*layer.opacity,WebkitTextStroke:'0 transparent',textShadow:'none'}}>{w.text}</span>)}
+                      {style.shadowLayers?.map((layer,idx)=><span key={idx} data-caption-shadow-layer={idx} style={{...css.word(w) as React.CSSProperties,position:'absolute',left:(layer.x??0)*scale,top:layer.y*scale,color:layer.color,opacity:(w.opacity??1)*layer.opacity*(frame.stampMotion&&'layerOpacity' in frame.stampMotion?frame.stampMotion.layerOpacity:1),WebkitTextStroke:'0 transparent',textShadow:'none'}}>{w.text}</span>)}
                       <span style={{...css.word(w) as React.CSSProperties,position:'relative'}}>{w.text}</span>
                       {w.caretActive && style.caretColor && frame.caret && <span data-caption-caret="true" style={{position:'absolute',pointerEvents:'none',left:(w.visibleCharacters ?? 0)*(style.fontSize*FONT_EM_PER_ASS_SIZE[style.fontFamily]*.6+style.letterSpacing)*scale,top:style.fontSize*.30*scale,width:frame.caret.width*scale,height:frame.caret.height*scale,backgroundColor:style.caretColor}}/>}
                     </span> : <span style={css.word(w) as React.CSSProperties}>{w.text}</span>}

@@ -295,9 +295,17 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
 
     min_size = (int(source_width * 0.04), int(source_height * 0.04))
 
+    # Qualification opt-in: same exact sample indices/pixels, fewer GOP seeks.
+    reader = None
+    if os.environ.get('SMART_REFRAME_SEQUENTIAL_DECODE') == '1':
+        from sparse_frame_reader import SparseFrameReader
+        reader = SparseFrameReader(cap)
     while len(samples) < max_samples and frame_index < end_frame:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
-        ret, frame = cap.read()
+        if reader is not None:
+            ret, frame = reader.read_at(frame_index)
+        else:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
+            ret, frame = cap.read()
         if not ret:
             break
 

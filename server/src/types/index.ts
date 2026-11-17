@@ -598,6 +598,9 @@ export type CaptionStyle =
   | 'with_backdrop'
   | 'glide'
   | 'chip_background'
+  | 'vireo_prism_stamp'
+  | 'vireo_echo_slide'
+  | 'vireo_comic_punch'
   | 'soft_cut'
   | 'soft_build'
   | 'typewriter'
@@ -701,6 +704,8 @@ export const SAFE_FONT_FAMILIES = [
   'Lemon',
   'Cal Sans',
   'Bungee',
+  'Bangers',
+  'Komika Axis',
   'Figtree',
   'JetBrains Mono',
   'League Spartan',
@@ -1840,6 +1845,11 @@ export interface EditorSubjectTracker {
   source_height: number;
   /** Tracked subject centre per sampled time (normalised 0-1). */
   keyframes: Array<{ time: number; centerX: number; centerY: number }>;
+  /** Measured source-clock range. No hold beyond these samples. */
+  tracked_from?: number;
+  tracked_to?: number;
+  lost_before?: number | null;
+  lost_after?: number | null;
 }
 
 export interface EditorCanvasConfig {

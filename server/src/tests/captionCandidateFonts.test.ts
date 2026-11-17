@@ -10,6 +10,7 @@ import {buildPresetAssScript,resolveCaptionPreset,FONT_EM_PER_ASS_SIZE} from '..
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 describe('Caption candidate bundled font selection',()=>{
   for(const [id,font,file,postscript] of [
+    ['vireo_comic_punch','Komika Axis','komika-axis/KOMIKAX_.ttf','KomikaAxis'],
     ['chip_background','Poppins','poppins/Poppins-Bold.ttf','Poppins-Bold'],
     ['glide','Montserrat','montserrat/Montserrat-ExtraBold.ttf','Montserrat-ExtraBold'],
     ['with_backdrop','Lemon','lemon/Lemon-Regular.ttf','Lemon-Regular'],

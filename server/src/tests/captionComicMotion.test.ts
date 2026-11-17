@@ -1,0 +1,3 @@
+import{test}from'node:test';import assert from'node:assert/strict';import{getCaptionComicMotion as motion}from'../shared/captionComicMotion';
+test('comic phrase overshoot is deterministic and follows observed envelope without copying vendor data',()=>{assert.equal(motion(0,1,0).scale,.84);assert.equal(motion(0,1,.06).scale,1.1);assert.equal(motion(0,1,.1).scale,1.06);assert.equal(motion(0,1,.16).scale,1);assert.deepEqual(motion(0,1,.06),motion(0,1,.06));assert.deepEqual(motion(.32,1.32,.38),motion(0,1,.06));});
+test('invalid/outside clocks and very short cues have bounded safe state',()=>{for(const args of[[NaN,1,.1],[0,0,0],[0,1,-1],[0,1,1]])assert.equal(motion(...args as[number,number,number]).opacity,0);assert.equal(motion(0,.05,.04).scale,1);});

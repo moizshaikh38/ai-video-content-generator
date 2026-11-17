@@ -1,3 +1,6 @@
+import {groupPortraitPresentation} from '../shared/groupPortraitPresentation.js';
+import {closeupPortraitPresentation} from '../shared/closeupPresentation.js';
+import {anchorFitToMeasuredFaces} from '../shared/fitSubjectAnchor.js';
 import {presentFit43,applyAutomaticLayoutPolicy,type AutomaticLayoutPolicy} from '../shared/automaticLayoutPolicy.js';
 import {persistentObjectRegions} from '../shared/objectContext.js';
 import { canvasDims } from '../shared/renderResolution.js';
@@ -1460,7 +1463,7 @@ export class SmartReframeService {
     const cuts = [...new Set((options.sceneCuts || []).filter(t => Number.isFinite(t) && t > 0 && t < duration))].sort((a,b)=>a-b);
     const bounds = [0, ...cuts, duration];
     const median = (v: number[]) => [...v].sort((a,b)=>a-b)[Math.floor(v.length/2)];
-    const shots = bounds.slice(0,-1).map((start,i) => {
+    const shots: ReturnType<typeof SmartReframeService.computeShotComposition> = bounds.slice(0,-1).map((start,i) => {
       const end = bounds[i+1];
       const samples = rawSamples.filter(s => s.time >= start && s.time < end);
       if (options.windowScope === 'shot' && options.allowConversationSplit && end-start>=1.5 && samples.length>=6 &&
@@ -1583,7 +1586,16 @@ export class SmartReframeService {
       shot.windowW=right-left; shot.windowH=bottom-top;
       shot.keyframes=[{time:shot.start,centerX:(left+right)/2,centerY:(top+bottom)/2}];
     }
-    const presentationShots = shots.map(shot => {
+    // Select an eligible close-up before converting wider Fit windows to4:3.
+    // Otherwise presentation adds review status first and accidentally prevents
+    // every downstream single-face portrait choice. General geometry, no cut IDs.
+    const presentationShots = shots.map(originalShot => {
+      const local=rawSamples.filter(s=>s.time>=originalShot.start&&s.time<originalShot.end);
+      const closeup=options.windowScope==='shot'&&!originalShot.split
+        ? closeupPortraitPresentation(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight,[...(options.protectedContentRegions||[]),...(objectRegions.get(originalShot)||[])]) : null;
+      const compactPair=options.windowScope==='shot'&&!originalShot.split
+        ? groupPortraitPresentation(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight,[...(options.protectedContentRegions||[]),...(objectRegions.get(originalShot)||[])]) : null;
+      const shot:ReturnType<typeof SmartReframeService.computeShotComposition>[number]=compactPair||closeup||originalShot;
       if (options.automaticFitAspect !== '4:3' || shot.split || shot.contextStatus==='unresolved-preserved' || shot.contextStatus==='crowd-preserved') return shot;
       const maxWidth = shot.windowH * (4/3) * sourceHeight/sourceWidth;
       if (shot.windowW <= maxWidth) return shot;
@@ -1613,7 +1625,7 @@ export class SmartReframeService {
           ? Math.max(width/2,Math.min(1-width/2,k.centerX))
           : Math.max(minimumCenter,Math.min(maximumCenter,k.centerX))}))};
     });
-    if (options.windowScope === 'shot') return presentFit43(applyAutomaticLayoutPolicy(presentationShots.map(shot => {
+    if (options.windowScope === 'shot') return anchorFitToMeasuredFaces(presentFit43(applyAutomaticLayoutPolicy(presentationShots.map(shot => {
       // Automatic Fill is a portrait-shaped window, not a synonym for zoom.
       // Only expand a reliable single-person/body window to portrait. Never
       // trim its measured extent just because one face is visible. Existing
@@ -1629,7 +1641,7 @@ export class SmartReframeService {
       return {...shot, windowW:width, windowH:height, keyframes:shot.keyframes.map(k => ({...k,
         centerX:Math.max(width/2,Math.min(1-width/2,k.centerX)),
         centerY:Math.max(height/2,Math.min(1-height/2,k.centerY))}))};
-    }),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight);
+    }),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight),options.automaticFitAspect==='4:3'?rawSamples:[],sourceWidth,sourceHeight);
     // A source cut may change the subject, not the presentation's crop size.
     // Use the widest required context in both axes for the ENTIRE analyzed
     // clip, including edited slices. A full-source fallback deliberately makes

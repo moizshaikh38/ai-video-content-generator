@@ -1,10 +1,11 @@
+import {trackerHandoffSpec,trackerHandoffRect} from '../../../server/src/shared/trackerHandoff';
 import {presentFit43} from '../../../server/src/shared/automaticLayoutPolicy';
 import {resolveSceneLayoutItem} from '../../../server/src/shared/sceneLayoutOverrides';
 import {freezeAutomaticPlan,freezeAutomaticKeyframes} from '../../../server/src/shared/automaticFraming';
 import { framingWindowRect, validateFramingWindow } from '../../../server/src/shared/framingWindow';
 import { SceneLayoutMenu } from './SceneLayoutMenu';
 import { readItemLayout, type SceneLayout } from '../../lib/itemLayout';
-import { applySceneCaptionPlacement } from '../../../server/src/shared/sceneCaptionPlacement';
+import { applySceneCaptionPlacement,captionCompositionWindows } from '../../../server/src/shared/sceneCaptionPlacement';
 import {effectiveContentLayout, type ContentFramingDecision} from '../../../server/src/shared/contentFramingDecision';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
@@ -562,10 +563,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const cues = useMemo(() => applySceneCaptionPlacement(rawCues, {
     project, sourceWidth: videoDims?.w, sourceHeight: videoDims?.h,
     fallbackLayout: primaryLayoutMode,
+    automaticWindows:captionCompositionWindows(project,shotComposition||[],compositionClipStart,videoDims?.w||0,videoDims?.h||0),
     fontSize: placementStyle?.fontSize ?? captionItem?.caption?.font_size,
     maxCharsPerLine: placementStyle?.maxCharsPerLine,
     maxLines: placementStyle?.maxLines ?? captionItem?.caption?.max_lines,
-  }), [rawCues, project, videoDims, primaryLayoutMode, captionItem, placementStyle?.fontSize, placementStyle?.maxLines, placementStyle?.maxCharsPerLine]);
+  }), [rawCues, project, videoDims, primaryLayoutMode, shotComposition, compositionClipStart, captionItem, placementStyle?.fontSize, placementStyle?.maxLines, placementStyle?.maxCharsPerLine]);
   const activeCue = cues.find(c => playhead >= c.start && playhead < c.end);
   const splitCaptionCueY = undefined;
   const effectiveCaptionCoords = {
@@ -677,7 +679,17 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       const shift = r.y * scale;
       return {left: `${-r.x*scale}px`, top: `${(bh-band)*.42-shift}px`, width: `${Math.round(videoDims.w*scale/2)*2}px`, height: `${eh}px`, clipPath: `inset(${shift}px 0 ${Math.max(0,eh-shift-band)}px 0)`};
     }
-    if ((activeVideoItems[0] as any)?.tracker?.enabled) return undefined;
+    if ((activeVideoItems[0] as any)?.tracker?.enabled) {
+      const item=activeVideoItems[0] as any;
+      // Chrome reports481display rows for this480-row source with non-square SAR.
+      // Geometry stays in analyzed source pixels; accept only this rounding-size delta.
+      const rawW=item.tracker.source_width,rawH=item.tracker.source_height;
+      const dimsMatch=videoDims&&videoDims.w===rawW&&Math.abs(videoDims.h-rawH)<=1;
+      const spec=dimsMatch&&project.canvas.aspect_ratio==='9:16'&&!item.scene_layout_overrides?.length?trackerHandoffSpec(item,effectiveShotComposition,rawW,rawH,compositionClipStart):null;
+      const r=spec&&trackerHandoffRect(spec,targetVideoTime);
+      if(r&&videoDims){const dims=getAspectRatioDimensions(),bw=parseFloat(dims.width)||360,scale=bw/r.w;return {left:`${-r.x*scale}px`,top:`${-r.y*scale}px`,width:`${rawW*scale}px`,height:`${rawH*scale}px`,clipPath:'inset(0px)'};}
+      return undefined;
+    }
     // Editor source timestamps are millisecond-rounded; analysis clip start
     // may retain sub-millisecond precision. Clamp only that rounding sliver.
     const relativeTime = targetVideoTime - compositionClipStart;

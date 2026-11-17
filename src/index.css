@@ -1,3 +1,5 @@
+@font-face { font-family: 'Komika Axis'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/komika-axis/KOMIKAX_.ttf') format('truetype'); }
+@font-face { font-family: 'Bangers'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/bangers/Bangers-Regular.ttf') format('truetype'); }
 @font-face { font-family: 'Poppins'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/poppins/Poppins-Bold.ttf') format('truetype'); }
 @font-face { font-family: 'Montserrat'; font-style: normal; font-weight: 800; font-display: swap; src: url('/fonts/montserrat/Montserrat-ExtraBold.ttf') format('truetype'); }
 @font-face { font-family: 'Lemon'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/lemon/Lemon-Regular.ttf') format('truetype'); }

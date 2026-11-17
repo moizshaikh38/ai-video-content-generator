@@ -108,7 +108,8 @@ export function applyPresetToEditorCaption(
     style: presetId,
     primary_color: p.colors.text,
     highlight_color: p.colors.active,
-    animation: prev?.animation,
+    // Choosing a self-animated preset must not inherit an incompatible old pop override.
+    animation: p.cueMotion ? 'none' : prev?.animation,
   };
 }
 

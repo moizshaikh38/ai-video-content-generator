@@ -1,3 +1,4 @@
+import {resolveTrackerEvidence,trackerEvidenceRange} from './trackerEvidence.js';
 import {normalizePanels} from './panelLayouts.js';
 export interface SceneLayoutOverride {start:number;end:number;layout:string;patch:{crop?:any;panels?:any;layout_mode?:string;crop_config?:any}}
 const keys=['crop','panels','layout_mode','crop_config'] as const;
@@ -20,18 +21,18 @@ export function validateSceneLayoutOverrides(item:any):void{
 }
 export function sceneOverrideAt(item:any,sourceTime:number):SceneLayoutOverride|undefined{return item?.scene_layout_overrides?.find((o:SceneLayoutOverride)=>sourceTime>=o.start&&sourceTime<o.end);}
 export function resolveSceneLayoutItem<T extends object>(item:T,sourceTime:number):T{
- const o=sceneOverrideAt(item,sourceTime);if(!o)return item;
+ const o=sceneOverrideAt(item,sourceTime);if(!o)return resolveTrackerEvidence(item,sourceTime);
  const next:any={...item};delete next.framing_window;
  for(const k of keys)delete next[k];
- Object.assign(next,o.patch);return next;
+ Object.assign(next,o.patch);return resolveTrackerEvidence(next,sourceTime);
 }
 /** Render-only slices: persisted timeline items/IDs stay intact. Exact source
  * clocks survive trims/speed; internal boundaries add no edit transitions. */
 export function expandSceneLayoutItem<T extends object>(item:T):T[]{
- const i=item as any;if(!i.scene_layout_overrides?.length)return [item];validateSceneLayoutOverrides(i);
+ const i=item as any;if(!i.scene_layout_overrides?.length&&!i.tracker?.enabled)return [item];validateSceneLayoutOverrides(i);
  if(i.is_freeze||i.is_title_card)throw Error('Scene layout overrides require normal video');
  const speed=i.speed?.speed||1;if(!(speed>0&&Number.isFinite(speed)))throw Error('Invalid scene speed');
- const start=i.source_start,end=i.source_end;if(![start,end,i.timeline_start,i.timeline_end].every(Number.isFinite)||end<=start)throw Error('Invalid scene item bounds');const cuts=[...new Set([start,end,...i.scene_layout_overrides.flatMap((o:SceneLayoutOverride)=>[o.start,o.end]).filter((t:number)=>t>start&&t<end)])].sort((a:any,b:any)=>a-b) as number[];
+ const start=i.source_start,end=i.source_end;if(![start,end,i.timeline_start,i.timeline_end].every(Number.isFinite)||end<=start)throw Error('Invalid scene item bounds');const measured=trackerEvidenceRange(i.tracker);const trackerCuts=measured?[measured.start,measured.end,...(Number.isFinite(i._tracker_handoff?.start)?[i._tracker_handoff.start]:[])]:[];const cuts=[...new Set([start,end,...trackerCuts.filter(t=>t>start&&t<end),...(i.scene_layout_overrides||[]).flatMap((o:SceneLayoutOverride)=>[o.start,o.end]).filter((t:number)=>t>start&&t<end)])].sort((a:any,b:any)=>a-b) as number[];
  return cuts.slice(0,-1).map((a,n)=>{const b=cuts[n+1],v:any={...resolveSceneLayoutItem(i,(a+b)/2),id:`${i.id}-scene-${n}`, _render_style_source_offset:a-start, source_start:a,source_end:b,timeline_start:i.timeline_start+(a-start)/speed,timeline_end:i.timeline_start+(b-start)/speed};delete v.scene_layout_overrides;if(n)delete v.transition_in;if(n<cuts.length-2)delete v.transition_out;return v as T});
 }
 export function expandSceneLayoutProject<T extends {tracks:any[]}>(project:T):T{return {...project,tracks:project.tracks.map(t=>t.type!=='VIDEO'?t:{...t,items:t.items.flatMap(expandSceneLayoutItem)})};}

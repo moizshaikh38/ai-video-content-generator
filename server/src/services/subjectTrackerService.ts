@@ -40,7 +40,9 @@ export function validateTrackRequest(body: any): SubjectTrackRequest {
   const startSec = Math.max(0, num(body?.startSec, 0));
   const endSec = num(body?.endSec, startSec + 120);
   if (endSec <= startSec) throw bad('endSec must be after startSec.');
-  return { refTime, box: { x, y, w, h }, startSec, endSec: Math.min(endSec, startSec + 180) };
+  const boundedEnd=Math.min(endSec,startSec+180);
+  if(refTime<startSec||refTime>=boundedEnd)throw bad('Move the playhead inside the selected scene or clip, then select the subject again.');
+  return { refTime, box: { x, y, w, h }, startSec, endSec: boundedEnd };
 }
 
 export class SubjectTrackerService {

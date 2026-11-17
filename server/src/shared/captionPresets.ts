@@ -1,3 +1,7 @@
+import {getCaptionComicMotion} from './captionComicMotion.js';
+import {getCaptionEchoMotion,type CaptionEchoMotion} from './captionEchoMotion.js';
+import {getCaptionStampMotion,type CaptionStampMotion} from './captionStampMotion.js';
+import { CAPTION_WIDTH_METRICS } from './captionWidthMetrics.js';
 import{isCaptionCaretVisible,getCaptionCaretBlinkBoundaries}from'./captionCaretBlink.js';
 import { POPPINS_BOLD_ADVANCES } from './captionPoppinsMetrics.js';
 import { getCaptionChipStates, type CaptionChipState } from './captionChipState.js';
@@ -54,6 +58,9 @@ export const CAPTION_PRESET_IDS = [
   'with_backdrop',
   'glide',
   'chip_background',
+  'vireo_prism_stamp',
+  'vireo_echo_slide',
+  'vireo_comic_punch',
 ] as const;
 
 export type CaptionPresetId = (typeof CAPTION_PRESET_IDS)[number];
@@ -95,6 +102,9 @@ export const PRESET_ONLY_CAPTION_STYLES = [
   'with_backdrop',
   'glide',
   'chip_background',
+  'vireo_prism_stamp',
+  'vireo_echo_slide',
+  'vireo_comic_punch',
 ] as const;
 
 /** Every value accepted for `caption_style`. */
@@ -138,7 +148,7 @@ export function resolveRenderPresetId(
 // ── Fonts ────────────────────────────────────────────────────────
 
 /** Fonts the export renderer allows (mirrors SAFE_FONT_FAMILIES in server types). */
-export const CAPTION_RENDER_FONTS = ['Poppins', 'Montserrat', 'Lemon', 'Cal Sans', 'Bungee', 'Figtree', 'JetBrains Mono', 'League Spartan', 'Inter', 'Arial', 'Arial Black', 'DejaVu Sans', 'Liberation Sans'] as const;
+export const CAPTION_RENDER_FONTS = ['Komika Axis','Bangers', 'Poppins', 'Montserrat', 'Lemon', 'Cal Sans', 'Bungee', 'Figtree', 'JetBrains Mono', 'League Spartan', 'Inter', 'Arial', 'Arial Black', 'DejaVu Sans', 'Liberation Sans'] as const;
 export type CaptionRenderFont = (typeof CAPTION_RENDER_FONTS)[number];
 export const CAPTION_FALLBACK_FONT: CaptionRenderFont = 'Arial';
 
@@ -147,7 +157,7 @@ export const CAPTION_FALLBACK_FONT: CaptionRenderFont = 'Arial';
  * through libass on the export host; the other CAPTION_RENDER_FONTS stay accepted for
  * API compatibility but may be substituted by the system font matcher.
  */
-export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Poppins', 'Montserrat', 'Lemon', 'Cal Sans', 'Arial', 'Arial Black', 'Inter', 'JetBrains Mono', 'League Spartan', 'Figtree', 'Bungee'];
+export const PRESET_FONT_CHOICES: readonly CaptionRenderFont[] = ['Komika Axis','Bangers', 'Poppins', 'Montserrat', 'Lemon', 'Cal Sans', 'Arial', 'Arial Black', 'Inter', 'JetBrains Mono', 'League Spartan', 'Figtree', 'Bungee'];
 
 /**
  * libass scales a font so that (ascent + descent) equals the ASS font size, while CSS
@@ -161,6 +171,8 @@ export const FONT_EM_PER_ASS_SIZE: Record<CaptionRenderFont, number> = {
   Lemon: 1000 / 1553,
   'Cal Sans': 1000 / 1362,
   Bungee: 1000 / 2574,
+  Bangers:1000/1757,
+  'Komika Axis':1000/1635,
   Figtree: 1000 / 1201,
   'JetBrains Mono': 0.638978,
   'League Spartan': 0.671141,
@@ -179,16 +191,18 @@ export const FONT_PREVIEW_BASELINE_SHIFT: Partial<Record<CaptionRenderFont, numb
   Lemon: 0,
   'Cal Sans': 0.086022, // 4px at540wide/ASS93, measured against libass pixels
   Bungee: 0,
+  Bangers:.12,
+  'Komika Axis':0,
   Figtree: 0.034091, // 1.5px correction at540px wide, qualified with actual renders
   Inter: 0.05,
   'JetBrains Mono': 0.014377,
   'League Spartan': 0.112416,
 };
 
-/** Exact bundled-family bounds. Bungee has large Windows metrics (1000/2574em per ASS unit).
+/** Exact bundled-family bounds. Bungee/Bangers/Komika Axis have qualified metric-specific ranges.
  * Keep unknown/unqualified families at the historical110 cap. Never derive this from raw size. */
 export function getCaptionFontSizeBounds(fontFamily: unknown): { min: number; max: number } {
-  return { min:32, max:fontFamily === 'Bungee' ? 284 : 110 };
+  return { min:32, max:fontFamily === 'Bungee' ? 284 : fontFamily === 'Bangers' || fontFamily === 'Komika Axis' ? 200 : 110 };
 }
 export function clampCaptionFontSize(value: number,fontFamily: unknown,fallback=64):number {
   const bounds=getCaptionFontSizeBounds(fontFamily);
@@ -202,6 +216,8 @@ export const FONT_CSS_STACK: Record<CaptionRenderFont, string> = {
   Lemon: "'Lemon', serif",
   'Cal Sans': "'Cal Sans', sans-serif",
   Bungee: "'Bungee', sans-serif",
+  Bangers: "'Bangers', sans-serif",
+  'Komika Axis': "'Komika Axis', sans-serif",
   Figtree: "'Figtree', sans-serif",
   'JetBrains Mono': "'JetBrains Mono', monospace",
   'League Spartan': "'League Spartan', sans-serif",
@@ -234,6 +250,7 @@ export type CaptionReveal = 'all' | 'build' | 'character';
 export interface CaptionShadowLayer { x?: number; y: number; opacity: number; color: string }
 
 export interface CaptionPresetDefinition {
+  cueMotion?: 'stamp'|'echo'|'comic';
   chips?: {rest:string;active:string;radius:number;paddingX:number;paddingY:number;gap:number};
   movingBox?: {color:string;radius:number;paddingX:number;paddingY:number};
   backdropBand?: { color:string; opacity:number; paddingY:number; insetX:number };
@@ -311,6 +328,35 @@ const NO_ENTRANCE = { type: 'none', durationMs: 0 } as const;
  * any third-party preset.
  */
 export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDefinition> = {
+  vireo_comic_punch: {
+    id:'vireo_comic_punch',label:'Vireo Comic Punch',qualification:'candidate',
+    description:'Comic phrase zoom with persistent numeric yellow and final-word green defaults; per-word colors remain editable.',sampleText:'Those 15 sea bombs',
+    font:{family:'Komika Axis',bold:false,size:125,uppercase:true,letterSpacing:0},
+    colors:{text:'#FFFFFF',active:'#20FF35',activeText:'#20FF35',outline:'#000000',shadow:'#FFFFFF',shadowOpacity:0},
+    outline:8,shadow:0,box:null,activeWordBox:null,
+    layout:{anchor:'bottom',marginV:306,marginH:90,maxWordsPerCue:3,maxLines:2,maxCharsPerLine:18},
+    highlight:'none',wordAnimation:NO_ANIMATION,entrance:NO_ENTRANCE,cueMotion:'comic',
+  },
+  vireo_echo_slide: {
+    id:'vireo_echo_slide',label:'Vireo Echo Slide',qualification:'candidate',
+    description:'Short phrases slide into place with blue echo trails that fade before resting.',sampleText:'Give every idea room',
+    font:{family:'Inter',bold:true,size:88,uppercase:false,letterSpacing:0},
+    colors:{text:'#FFFFFF',active:'#FFFFFF',activeText:'#FFFFFF',outline:'#000000',shadow:'#000000',shadowOpacity:0},
+    outline:0,shadow:0,box:null,activeWordBox:null,
+    shadowLayers:[{x:-24,y:0,opacity:.3,color:'#6D70FF'},{x:-12,y:0,opacity:.5,color:'#55B9FF'}],
+    layout:{anchor:'bottom',marginV:360,marginH:110,maxWordsPerCue:4,maxLines:2,maxCharsPerLine:22},
+    highlight:'none',wordAnimation:NO_ANIMATION,entrance:NO_ENTRANCE,cueMotion:'echo',
+  },
+  vireo_prism_stamp: {
+    id:'vireo_prism_stamp',label:'Vireo Prism Stamp',qualification:'candidate',
+    description:'A tilted word stamp settles into white type with cyan and coral offset layers.',sampleText:'Make every word count',
+    font:{family:'Montserrat',bold:true,size:96,uppercase:true,letterSpacing:0},
+    colors:{text:'#FFFFFF',active:'#FFFFFF',activeText:'#FFFFFF',outline:'#13131B',shadow:'#000000',shadowOpacity:0},
+    outline:1.5,shadow:0,box:null,activeWordBox:null,
+    shadowLayers:[{x:-3,y:2,opacity:1,color:'#26E6D5'},{x:3,y:4,opacity:1,color:'#FF5476'}],
+    layout:{anchor:'bottom',marginV:400,marginH:110,maxWordsPerCue:1,maxLines:1,maxCharsPerLine:18},
+    highlight:'none',wordAnimation:NO_ANIMATION,entrance:NO_ENTRANCE,cueMotion:'stamp',
+  },
   word_cut: {
     qualification: 'candidate',
     id: 'word_cut', label: 'Word Cut',
@@ -786,6 +832,9 @@ export const CAPTION_PRESETS: Record<RenderableCaptionPresetId, CaptionPresetDef
 
 export const CAPTION_PRESET_LABELS: Record<CaptionPresetId, string> = {
   none: 'No captions',
+  vireo_prism_stamp: CAPTION_PRESETS.vireo_prism_stamp.label,
+  vireo_echo_slide: CAPTION_PRESETS.vireo_echo_slide.label,
+  vireo_comic_punch: CAPTION_PRESETS.vireo_comic_punch.label,
   chip_background: CAPTION_PRESETS.chip_background.label,
   glide: CAPTION_PRESETS.glide.label,
   with_backdrop: CAPTION_PRESETS.with_backdrop.label,
@@ -868,6 +917,9 @@ export interface CaptionPresetOverrides {
 }
 
 export interface ResolvedCaptionStyle {
+  comicHalo?:boolean;
+  wordSpacing?:number;
+  cueMotion?: 'stamp'|'echo'|'comic';
   chips?: {rest:string;active:string;radius:number;paddingX:number;paddingY:number;gap:number};
   movingBox?: {color:string;radius:number;paddingX:number;paddingY:number};
   backdropBand?: { color:string; opacity:number; paddingY:number; insetX:number };
@@ -1176,6 +1228,9 @@ export function resolveCaptionPreset(
     shadowColor,
     shadowOpacity,
     shadowDepth,
+    cueMotion: p.cueMotion,
+    wordSpacing:p.cueMotion==='comic'?12:0,
+    comicHalo:p.cueMotion==='comic'&&!box&&o.shadowEnabled===undefined&&o.shadowDepth===undefined&&o.shadowOpacity===undefined&&o.shadowColor===undefined,
     // Explicit shadow/box controls replace the layered preset shadow.
     shadowLayers: box || o.shadowEnabled !== undefined || o.shadowDepth !== undefined || o.shadowOpacity !== undefined || o.shadowColor !== undefined ? undefined : p.shadowLayers,
     box,
@@ -1328,6 +1383,39 @@ export function enforceZeroOverlap<T extends PresetTimedCue>(cues: T[]): T[] {
   return sorted;
 }
 
+/** Estimated static line width in ASS units. Uses bundled-face advances with a
+ * reserve for kerning differences, stroke and browser rounding. This is not a
+ * shaping engine: a single oversized token is retained, never silently clipped. */
+export function estimateCaptionLineWidth(text: string, style: ResolvedCaptionStyle): number {
+  const metrics=CAPTION_WIDTH_METRICS[style.fontFamily] ?? CAPTION_WIDTH_METRICS.Arial;
+  const chars=Array.from(style.uppercase ? text.toUpperCase() : text);
+  const advance=chars.reduce((sum,c)=>sum+(metrics[c] ?? 1),0);
+  return advance*style.fontSize*FONT_EM_PER_ASS_SIZE[style.fontFamily]
+    + Math.max(0,chars.length-1)*style.letterSpacing + chars.filter(c=>c===' ').length*(style.wordSpacing??0);
+}
+
+function fitCaptionLines(words: string[], maxLines: number, maxChars: number,
+  width?: { measure: (text:string)=>number; available:number }): string | null {
+  const joined=words.join(' ');
+  const fits=(line:string)=>!width || width.measure(line)<=width.available;
+  if (joined.length<=maxChars && fits(joined)) return joined;
+  if (maxLines>1 && words.length>1) {
+    // Preserve historical line breaks whenever they already fit physically.
+    const historical=balanceLineSplit(words,maxChars);
+    const priorLines=historical.split('\\N');
+    if(priorLines.every(l=>l.length<=maxChars && fits(l))) return historical;
+    let best:string|null=null,score=Infinity;
+    for(let i=1;i<words.length;i++) {
+      const a=words.slice(0,i).join(' '),b=words.slice(i).join(' ');
+      if(a.length>maxChars || b.length>maxChars || !fits(a) || !fits(b)) continue;
+      const diff=width?Math.abs(width.measure(a)-width.measure(b)):Math.abs(a.length-b.length);
+      if(diff<score){best=a+'\\N'+b;score=diff;}
+    }
+    return best;
+  }
+  return null;
+}
+
 /**
  * Groups timed words into short caption cues. Breaks on: max words, pauses > pauseBreak,
  * trailing punctuation, character budget, or cue duration > 3.2s.
@@ -1337,7 +1425,8 @@ export function groupWordsIntoCues(
   maxWords = 4,
   maxLines = 2,
   maxCharsPerLine = 28,
-  pauseBreak = 0.45
+  pauseBreak = 0.45,
+  width?: { measure: (text:string)=>number; available:number }
 ): PresetTimedCue[] {
   if (!tokens || tokens.length === 0) return [];
 
@@ -1354,8 +1443,8 @@ export function groupWordsIntoCues(
     const end = Math.max(start + 0.05, currentWords[currentWords.length - 1].end);
     const rawText = currentWords.map((t) => t.text).join(' ');
 
-    let formattedText = rawText;
-    if (maxLines > 1 && rawText.length > maxCharsPerLine && currentWords.length >= 2) {
+    let formattedText = width ? (fitCaptionLines(currentWords.map(w=>w.text),maxLines,maxCharsPerLine,width) ?? rawText) : rawText;
+    if (!width && maxLines > 1 && rawText.length > maxCharsPerLine && currentWords.length >= 2) {
       formattedText = balanceLineSplit(currentWords.map((t) => t.text), maxCharsPerLine);
     }
 
@@ -1380,11 +1469,12 @@ export function groupWordsIntoCues(
     const wouldExceedWords = currentWords.length >= safeMaxWords;
     const currentText = currentWords.map((t) => t.text).join(' ');
     const wouldExceedChars = (currentText + ' ' + tok.text).length > totalMaxChars;
+    const wouldExceedWidth = !!width && !fitCaptionLines([...currentWords.map(w=>w.text),tok.text],maxLines,maxCharsPerLine,width);
     const wouldExceedDuration = currentWords.length > 0 && tok.end - currentWords[0].start > 3.2;
 
     if (
       currentWords.length > 0 &&
-      (hasPause || prevHasPunctuation || wouldExceedWords || wouldExceedChars || wouldExceedDuration)
+      (hasPause || prevHasPunctuation || wouldExceedWords || wouldExceedChars || wouldExceedDuration || wouldExceedWidth)
     ) {
       flush();
     }
@@ -1433,7 +1523,14 @@ export function regroupCuesForPreset(cues: PresetTimedCue[], style: ResolvedCapt
     }
     // An edited cue is a metadata/timeline boundary. Never merge across it:
     // manual positions, preset overrides and automatic scene anchors can differ.
-    const parts = groupWordsIntoCues(words,style.maxWordsPerCue,style.maxLines,style.maxCharsPerLine);
+    // Special kinetic geometry has its own measured layout. Ordinary phrase
+    // captions must fit physically, not merely satisfy a character count.
+    const width = style.chips || style.movingBox || style.rollingRows ? undefined : {
+      measure:(text:string)=>estimateCaptionLineWidth(text,style),
+      available:Math.max(1,(style.playResX-style.marginL-style.marginR
+        -2*(style.box?.padding ?? 0)-4*style.outlineWidth)*0.94),
+    };
+    const parts = groupWordsIntoCues(words,style.maxWordsPerCue,style.maxLines,style.maxCharsPerLine,0.45,width);
     for (let i=0;i<parts.length;i++) {
       const part=parts[i];
       const start=Math.max(cue.start,part.start);
@@ -1701,6 +1798,9 @@ export interface PreviewWord {
 export interface CaptionCaret { x: number; y: number; width: number; height: number; color: string; }
 
 export interface PreviewFrame {
+  stampMotion?:CaptionStampMotion|CaptionEchoMotion;
+  cueMotionKind?:'stamp'|'echo'|'comic';
+  stampOrigin?:string;
   chipLayout?:CaptionBoxLayout;
   chipStates?:CaptionChipState[];
   movingBoxLayout?:CaptionBoxLayout;
@@ -1738,13 +1838,16 @@ export function getPreviewFrame(cue: PresetTimedCue, time: number, style: Resolv
     lines.forEach((line, li) => {
       const parts = line.trim().split(/\s+/).filter(Boolean);
       parts.forEach((p, pi) =>
-        words.push({ text: p, highlighted: false, active: false, scale: 1, breakAfter: pi === parts.length - 1 && li < lines.length - 1 })
+        words.push({ text: p, customStyle:style.cueMotion==='comic'&&canUseCaptionCueMotion(cue,style)?{color:getComicTokenColor(p,pi,parts,style.textColor,style.activeColor)}:undefined, highlighted: false, active: false, scale: 1, breakAfter: pi === parts.length - 1 && li < lines.length - 1 })
       );
     });
     return {
       cueId: cue.id,
       words,
       opacity: entranceOpacity,
+      stampMotion: canUseCaptionCueMotion(cue,style)?getCaptionCueMotion(cue,style,time):undefined,
+      cueMotionKind:style.cueMotion,
+      stampOrigin: getCaptionCueMotionOrigin(cue,style).cssOrigin,
       wordTiming: false,
       positionX: cue.position_x,
       positionY: cue.position_y,
@@ -1763,6 +1866,9 @@ export function getPreviewFrame(cue: PresetTimedCue, time: number, style: Resolv
 
   return {
     cueId: cue.id,
+    stampMotion: canUseCaptionCueMotion(cue,style)?getCaptionCueMotion(cue,style,time):undefined,
+    cueMotionKind:style.cueMotion,
+    stampOrigin: getCaptionCueMotionOrigin(cue,style).cssOrigin,
     caret: getCaptionCaret(cue, time, style),
     words: validWords.map((w, i) => ({
       text: w.text,
@@ -1773,7 +1879,7 @@ export function getPreviewFrame(cue: PresetTimedCue, time: number, style: Resolv
       offsetY: canUseWordLift(validWords,style) ? getCaptionWordOffsetY(w,time,style) : 0,
       scale: states[i].active ? getActiveWordScaleAt(timing, elapsed) : 1,
       breakAfter: i === breakIdx,
-      customStyle: w.customStyle,
+      customStyle: style.cueMotion==='comic'?{...w.customStyle,color:w.customStyle?.color??getComicTokenColor(w.text,i,validWords.map(w=>w.text),style.textColor,style.activeColor)}:w.customStyle,
     })),
     opacity: (isFirstSlice ? entranceOpacity : 1)*exitOpacity,
     wordTiming: true,
@@ -1974,6 +2080,7 @@ export function getPreviewCss(style: ResolvedCaptionStyle, scale: number): Previ
     fontSize: px(fontSize),
     lineHeight: px(style.fontSize),
     letterSpacing: style.letterSpacing ? px(style.letterSpacing) : 'normal',
+    ...(style.wordSpacing?{wordSpacing:px(style.wordSpacing)}:{}),
     whiteSpace: 'pre-wrap',
     color: style.textColor,
   };
@@ -1991,6 +2098,7 @@ export function getPreviewCss(style: ResolvedCaptionStyle, scale: number): Previ
       opacity: w.opacity ?? 1,
       ...(w.visibleCharacters !== undefined ? { clipPath: `inset(-100% ${100 * (1 - w.visibleCharacters / Math.max(1, splitCaptionGraphemes(w.text).length))}% -100% -100%)` } : {}),
       textShadow: shadow,
+      ...(style.comicHalo?{filter:`drop-shadow(0 0 ${px(8)} rgba(255,255,255,.65))`}:{}),
     };
     if (!style.box) Object.assign(css, strokeFor(style.outlineColor, style.outlineWidth));
     if (w.active && style.activeWordBox) {
@@ -2002,7 +2110,7 @@ export function getPreviewCss(style: ResolvedCaptionStyle, scale: number): Previ
     css.display = 'inline-block';
     css.transform = `${w.offsetY ? `translateY(${px(w.offsetY)}) ` : ''}scale(${effectiveScale.toFixed(3)})`;
     css.transformOrigin = 'center bottom';
-    css.transition = style.reveal === 'all' ? 'transform 0.08s ease-out, color 0.1s ease' : 'none';
+    css.transition = style.cueMotion ? 'none' : style.reveal === 'all' ? 'transform 0.08s ease-out, color 0.1s ease' : 'none';
     if (cs?.uppercase) {
       css.textTransform = 'uppercase';
     }
@@ -2110,12 +2218,16 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
   const aspect = baseStyle.playResX === baseStyle.playResY ? '1:1' : baseStyle.playResX > baseStyle.playResY ? '16:9' : '9:16';
   const style = cue.presetOverride && isRenderablePresetId(cue.presetOverride)
     ? resolveCaptionPreset(cue.presetOverride, cue.styleOverrides, aspect) : baseStyle;
+  if(style.cueMotion==='comic'&&cue.words?.length){const texts=cue.words.map(w=>w.text);cue={...cue,words:cue.words.map((w,i)=>({...w,customStyle:{...w.customStyle,color:w.customStyle?.color??getComicTokenColor(w.text,i,texts,style.textColor,style.activeColor)}}))};}
+  if(canUseCaptionCueMotion(cue,style))return buildCaptionCueMotionEvents(cue,style,cue.presetOverride?`Style_${cue.presetOverride}`:fallbackStyleName);
   const chipLayout=getCaptionChipLayout(cue,style);
   if(chipLayout)return buildCaptionChipEvents(cue,style,chipLayout,cue.presetOverride?`Style_${cue.presetOverride}`:fallbackStyleName);
   const movingLayout=getCaptionMovingLayout(cue,style);
   if(movingLayout)return buildCaptionMovingEvents(cue,style,movingLayout,cue.presetOverride?`Style_${cue.presetOverride}`:fallbackStyleName);
   if(canUseCaptionRollingRows(cue,style))return buildCaptionRollingEvents(cue,style,cue.presetOverride?`Style_${cue.presetOverride}`:fallbackStyleName);
-  const events = buildPresetCueEventsBare(cue, baseStyle, fallbackStyleName);
+  const events = buildPresetCueEventsBare(cue, baseStyle, fallbackStyleName).map(event=>{
+    if(!style.wordSpacing)return event;const fields=event.split(',');return fields.slice(0,9).join(',')+','+fields.slice(9).join(',').split(/(\{[^}]*\})/g).map((part,i)=>i%2?part:part.replace(/ /g,getCaptionWordSpace(style))).join('');
+  });
   const band=style.backdropBand;
   const background=band?buildCaptionBackdropEvents(cue,style):[];
   if (!style.shadowLayers?.length) return [...background,...events];
@@ -2133,6 +2245,52 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
       return header + `{\\1c${hexToAssColor(l.color)}\\alpha&H${alpha}&\\bord0\\shad0}` + shifted;
     }), (header + text).replace('Dialogue: 0,','Dialogue: 1,')];
   })];
+}
+
+
+/** Simple transparent defaults, not inferred semantic/AI emphasis. Explicit colors win. */
+export function getComicTokenColor(text:string,index:number,words:string[],base='#FFFFFF',accent='#20FF35'):string {
+ if(/\d/.test(text))return '#F5FF00';
+ const picks=words.map((w,i)=>({w,i})).filter(({w})=>w.replace(/[^A-Za-z]/g,'').length>=4);const last=picks[picks.length-1]?.i;
+ return words.length>1&&index===last?accent:base;
+}
+function getCaptionWordSpace(style:ResolvedCaptionStyle):string{return style.wordSpacing?`{\\fsp${style.letterSpacing+style.wordSpacing}} {\\fsp${style.letterSpacing}}`:' ';}
+function getCaptionCueMotion(cue:PresetTimedCue,style:ResolvedCaptionStyle,time:number):CaptionStampMotion|CaptionEchoMotion {
+ if(style.cueMotion==='comic')return getCaptionComicMotion(cue.start,cue.end,time);
+ return style.cueMotion==='echo'?getCaptionEchoMotion(cue.start,cue.end,time):getCaptionStampMotion(cue.start,cue.end,time);
+}
+function canUseCaptionCueMotion(cue:PresetTimedCue,style:ResolvedCaptionStyle):boolean {
+ return !!style.cueMotion&&[2,5,8].includes(style.alignment)&&style.wordAnimation.type==='none'&&style.reveal==='all'&&!style.box&&!style.activeWordBox&&!getValidCueWords(cue).some(w=>w.customStyle&&(style.cueMotion!=='comic'||Object.keys(w.customStyle).some(k=>k!=='color')));
+}
+function getCaptionCueMotionOrigin(cue:PresetTimedCue,style:ResolvedCaptionStyle):{x:number;y:number;alignment:number;cssOrigin:string}{
+ const manual=cue.position_x!==undefined||cue.position_y!==undefined;
+ const alignment=manual?(cue.position_anchor==='center'?5:2):style.alignment;
+ const x=manual?Math.max(.08,Math.min(.92,cue.position_x??.5))*style.playResX:(style.marginL+style.playResX-style.marginR)/2;
+ const defaultY=style.alignment>=7?style.marginV:style.alignment>=4?style.playResY/2:style.playResY-style.marginV;
+ const y=manual?Math.max(.08,Math.min(.92,cue.position_y??defaultY/style.playResY))*style.playResY:defaultY;
+ return {x,y,alignment,cssOrigin:alignment>=7?'center top':alignment>=4?'center center':'center bottom'};
+}
+function buildCaptionCueMotionEvents(cue:PresetTimedCue,style:ResolvedCaptionStyle,styleName:string):string[]{
+ if(!Number.isFinite(cue.start)||!Number.isFinite(cue.end)||cue.end<=cue.start)return [];
+ const {x,y,alignment}=getCaptionCueMotionOrigin(cue,style);
+ const times=new Set([Number(cue.start.toFixed(2)),Number(cue.end.toFixed(2))]);
+ const step=style.cueMotion==='comic'?.01:.02,count=style.cueMotion==='comic'?16:style.cueMotion==='echo'?13:12;
+ for(let i=1;i<=count;i++){const t=Number((cue.start+i*step).toFixed(2));if(t<cue.end)times.add(t);}
+ const sorted=[...times].sort((a,b)=>a-b),out:string[]=[];
+ for(let i=0;i<sorted.length-1;i++){
+  const start=sorted[i],end=sorted[i+1];if(end<=start)continue;
+  const m=getCaptionCueMotion(cue,style,start);
+  const passes=[...(style.comicHalo?[{x:0,y:0,color:'#FFFFFF',opacity:.55,layer:-1}]:[]),...(style.shadowLayers??[]).map(l=>({x:l.x??0,y:l.y,color:l.color,opacity:l.opacity,layer:0})),{x:0,y:0,color:style.textColor,opacity:1,layer:1}];
+  for(const p of passes){
+   const layerOpacity=p.layer?1:('layerOpacity' in m?m.layerOpacity:1);
+   const offsetX='offsetX' in m?m.offsetX:0;
+   const alpha=Math.round((1-m.opacity*p.opacity*layerOpacity)*255).toString(16).padStart(2,'0').toUpperCase();
+   const tags=String.raw`{\an${alignment}\pos(${(x+offsetX+p.x*m.scale).toFixed(3)},${(y+p.y*m.scale).toFixed(3)})\org(${(x+offsetX).toFixed(3)},${y.toFixed(3)})\frz${-m.rotation}\fscx${m.scale*100}\fscy${m.scale*100}\alpha&H${alpha}&\c${hexToAssColor(p.color)}\bord${p.layer===-1?style.outlineWidth+3:p.layer?style.outlineWidth:0}\shad${p.layer?style.shadowDepth:0}${p.layer===-1?'\\blur8\\3c&HFFFFFF&':''}}`;
+   const ink=style.cueMotion==='comic'?getPreviewFrame(cue,start+.000001,style).words.map((w,i,ws)=>`${i?(ws[i-1].breakAfter?'\\N':getCaptionWordSpace(style)):''}${p.layer===1?`{\\c${hexToAssColor(w.customStyle?.color??style.textColor)}}`:''}${escapeAssText(w.text)}`).join(''):cue.text.split('\\N').map(escapeAssText).join('\\N');
+   out.push(`Dialogue: ${Math.max(0,p.layer)},${formatAssTimestamp(start)},${formatAssTimestamp(end)},${styleName},,0,0,0,,${tags}${ink}`);
+  }
+ }
+ return out;
 }
 
 function buildCaptionChipEvents(cue:PresetTimedCue,style:ResolvedCaptionStyle,layout:CaptionBoxLayout,styleName:string):string[]{

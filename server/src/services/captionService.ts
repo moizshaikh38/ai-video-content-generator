@@ -48,6 +48,7 @@ export interface GenerateCaptionsOptions {
   sourceWidth?: number;
   sourceHeight?: number;
   sceneLayoutFallback?: string;
+  automaticSceneWindows?: import('../shared/sceneCaptionPlacement.js').CaptionLayoutWindow[];
   /**
    * Optional two-speaker split context from the render pipeline (split layout
    * only): reframe keyframes (clip-relative) + the two speaker source-x zones.
@@ -1545,7 +1546,7 @@ export class CaptionService {
     if (editorProject) {
       cues = applySceneCaptionPlacement(cues, {
         project: editorProject, sourceWidth: options.sourceWidth, sourceHeight: options.sourceHeight,
-        fallbackLayout: options.sceneLayoutFallback,
+        fallbackLayout: options.sceneLayoutFallback, automaticWindows:options.automaticSceneWindows,
         fontSize: preset?.fontSize, maxLines: preset?.maxLines, maxCharsPerLine: preset?.maxCharsPerLine,
         explicitConfigPosition: hasExplicitConfigPosition || (clip.caption_position ?? 'bottom') !== 'bottom',
       });

@@ -1,3 +1,5 @@
+import {captionCompositionWindows,type CaptionLayoutWindow} from '../shared/sceneCaptionPlacement.js';
+import {trackerHandoffSpec,buildTrackerHandoffFilter} from '../shared/trackerHandoff.js';
 import {legacyFit43Plan,legacyPolicyFallback} from '../shared/automaticLayoutPolicy.js';
 import {expandSceneLayoutProject,validateSceneLayoutOverrides} from '../shared/sceneLayoutOverrides.js';
 import {freezeAutomaticPlan,freezeAutomaticKeyframes} from '../shared/automaticFraming.js';
@@ -883,6 +885,11 @@ export class ProEditorService {
     const tr = (item as any).tracker as import('../types/index.js').EditorSubjectTracker | undefined;
     const userLayout = (item as any).crop_config?.layout_mode_source === 'user' ? (item as any).layout_mode : undefined;
     const trWinStart = item.source_start || 0;
+    const handoff=(item as any)._tracker_handoff;
+    if(handoff&&tr?.enabled&&trWinStart>=handoff.start-1e-5){
+      const dims=canvasDims(ratio,cs),filter=buildTrackerHandoffFilter(handoff,trWinStart,sliceDuration,dims.width,dims.height);
+      if(filter)return filter;
+    }
     const trInWindow = tr?.enabled && Array.isArray(tr.keyframes) ? tr.keyframes.filter((k) => k.time >= trWinStart - 1 && k.time <= trWinStart + sliceDuration + 1) : [];
     if (tr?.enabled && trInWindow.length >= 1 && !userLayout?.match(/^(split|blur|screencast)$/)) {
       const winStart = trWinStart;
@@ -974,8 +981,7 @@ export class ProEditorService {
       }
 
       if (ratio === '9:16' && track.metadata?.shot_composition_candidate === true) {
-        const plan = SmartReframeService.computeShotComposition({layoutPolicy:item.crop_config?.layoutPolicy||reframe?.cropConfig?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:(track as any).raw_samples,sceneCuts:track.metadata.scene_cuts,
-          duration:Number(track.metadata.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
+        const plan = ProEditorService.resolveShotCompositionPlan(item,reframe!);
         if (plan.length) return SmartReframeService.buildShotCompositionFilter({plan:freezeAutomaticPlan(plan,item.automatic_framing,reframe?.clipStartSec||0),start:sliceWindowStartClipRel,duration:sliceDuration,
           sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,tag:layoutTag,canvasScale:cs});
       }
@@ -1205,6 +1211,40 @@ export class ProEditorService {
    * Compiles the entire multi-track EditorProject into a valid FFmpeg RenderGraph V2.
    * Enforces argument array execution with ZERO raw shell string interpolation.
    */
+  private static resolveShotCompositionPlan(item:EditorTrackItem,reframe:ProReframeContext){
+    const track=reframe.track!;
+    return SmartReframeService.computeShotComposition({layoutPolicy:item.crop_config?.layoutPolicy||reframe?.cropConfig?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:(track as any).raw_samples,sceneCuts:track.metadata.scene_cuts,
+          duration:Number(track.metadata.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
+  }
+
+  /** Bounded adaptive scene contract: same measured shot plan as picture export.
+   * Legacy fallback remains unchanged; no claim of a full legacy-layout rewrite. */
+  public static captionSceneWindows(project:EditorProject,reframe:ProReframeContext):CaptionLayoutWindow[]{
+    const track=reframe.track;
+    if(project.canvas.aspect_ratio!=='9:16'||reframe.mode!=='smart'||!track||track.isStale||!track.smoothed_keyframes?.length||track.metadata?.shot_composition_candidate!==true)return [];
+    const expanded=expandSceneLayoutProject(project);
+    const items=expanded.tracks.find(t=>t.type==='VIDEO'&&!t.hidden)?.items||[];
+    return items.flatMap(item=>{
+      const layout=item.crop_config?.layout_mode_source==='user'?item.layout_mode:reframe.layoutMode;
+      if(['blur','split','screencast'].includes(layout||''))return [];
+      const one={...expanded,tracks:[{type:'VIDEO',items:[item]}]};
+      return captionCompositionWindows(one,ProEditorService.resolveShotCompositionPlan(item,reframe),reframe.clipStartSec||0,track.source_width||1920,track.source_height||1080);
+    });
+  }
+
+  public static prepareTrackerHandoffs(project:EditorProject,reframe?:{track?:any;clipStartSec?:number;cropConfig?:any}):EditorProject{
+    if(project.canvas.aspect_ratio==='9:16'&&reframe?.track?.metadata?.shot_composition_candidate===true){
+      const track=reframe.track;
+      project={...project,tracks:project.tracks.map(t=>t.type!=='VIDEO'?t:{...t,items:t.items.map(item=>{
+        if((item as any)._tracker_handoff||!item.tracker?.enabled||item.scene_layout_overrides?.length)return item;
+        const plan=SmartReframeService.computeShotComposition({layoutPolicy:item.crop_config?.layoutPolicy||reframe.cropConfig?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate===true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect==='4:3'?'4:3':undefined,windowScope:track.metadata?.shot_composition_window_scope==='shot'?'shot':'clip',rawSamples:track.raw_samples,sceneCuts:track.metadata?.scene_cuts,duration:Number(track.metadata?.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
+        const spec=trackerHandoffSpec(item,plan,track.source_width||1920,track.source_height||1080,reframe.clipStartSec||0);
+        return spec?{...item,_tracker_handoff:spec}:item;
+      })})};
+    }
+    return project;
+  }
+
   public static compileRenderGraph(
     project: EditorProject,
     sourceVideoPath: string,
@@ -1213,6 +1253,12 @@ export class ProEditorService {
     reframe?: ProReframeContext,
     loudnorm?: LoudnormCompileMode
   ): CompiledRenderGraph {
+    // Validate conflicting saved framing channels before evidence resolution can
+    // remove an unsupported tracker from a render-only slice.
+    for (const t of project.tracks) for (const i of t.items) {
+      if (i.framing_window !== undefined) ProEditorService.buildFramingWindowFilter(i, reframe, i.timeline_end-i.timeline_start, project.canvas);
+    }
+    project=ProEditorService.prepareTrackerHandoffs(project,reframe);
     project=expandSceneLayoutProject(project);
     for (const t of project.tracks) for (const i of t.items) {
       if (i.framing_window !== undefined) ProEditorService.buildFramingWindowFilter(i, reframe, i.timeline_end-i.timeline_start, project.canvas);
@@ -1350,7 +1396,7 @@ export class ProEditorService {
           // Keyframes are clip-relative; slices trim straight from the source file, so
           // the slice-local window starts at source_start - clipStart.
           const windowStartClipRel = (item.source_start || 0) - (reframe?.clipStartSec ?? 0);
-          const sliceCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRel, reframe?.track?.metadata?.shot_composition_candidate === true ? sourceWindowSec : timelineDur, project.canvas);
+          const sliceCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRel, reframe?.track?.metadata?.shot_composition_candidate === true || item.tracker?.enabled ? sourceWindowSec : timelineDur, project.canvas);
           const styleFilters = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH, fps);
           const chain = [`trim=start=${startStr}:end=${endStr}`, 'setpts=PTS-STARTPTS'];
           if (sliceCrop) chain.push(sliceCrop);
@@ -1462,7 +1508,7 @@ export class ProEditorService {
       const single = allVideoItems[0];
       const candidateComposition = reframe?.track?.metadata?.shot_composition_candidate === true;
       const singleSourceStart = candidateComposition ? Math.max(0, (single?.source_start || 0) - (reframe?.clipStartSec ?? 0)) : 0;
-      const singleSourceDuration = (canvasDuration || 10) * (candidateComposition ? Math.min(4, Math.max(.25, single?.speed?.speed || 1)) : 1);
+      const singleSourceDuration = (canvasDuration || 10) * (candidateComposition || single?.tracker?.enabled ? Math.min(4, Math.max(.25, single?.speed?.speed || 1)) : 1);
       const singleCrop = single ? ProEditorService.buildSliceCropFilter(single, reframe, singleSourceStart, singleSourceDuration, project.canvas) : null;
       const styleFilters = single ? ProEditorService.buildItemStyleFilters(single, canvasW, canvasH, fps) : [];
       const singleSpeed = single ? Math.min(4, Math.max(0.25, single.speed?.speed || 1.0)) : 1.0;

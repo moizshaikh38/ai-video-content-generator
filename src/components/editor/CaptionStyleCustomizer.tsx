@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import {CaptionFontSizeInput} from './CaptionFontSizeInput';
 import {
   SunMedium,
   Sparkles,
@@ -15,7 +16,6 @@ import {
   CAPTION_RENDER_FONTS,
   captionWeightDisplay,
   getCaptionFontSizeBounds,
-  clampCaptionFontSize,
   ResolvedCaptionStyle,
 } from '../../lib/captionPresets';
 
@@ -244,16 +244,8 @@ export const CaptionStyleCustomizer: React.FC<CaptionStyleCustomizerProps> = ({
           <div className="col-span-4">
             <span className="text-[10px] text-vc-text-secondary font-medium block mb-1">Size</span>
             <div className="h-8 rounded-xl bg-vc-surface1 px-2 flex items-center justify-between text-xs font-mono tabular-nums text-white">
-              <input
-                type="number"
-                min={fontSizeBounds.min}
-                max={fontSizeBounds.max}
-                value={fontSize}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
-                  if (!isNaN(val)) onChange({ font_size: clampCaptionFontSize(val,fontFamily) });
-                }}
-                className="w-8 bg-transparent text-xs font-mono text-white text-center focus:outline-none"
+              <CaptionFontSizeInput value={fontSize} fontFamily={fontFamily} onCommit={next=>onChange({font_size:next})}
+                className="w-14 min-w-0 bg-transparent text-xs font-mono text-white text-center focus:outline-none"
               />
               <span className="text-[10px] text-vc-text-secondary select-none">px</span>
             </div>

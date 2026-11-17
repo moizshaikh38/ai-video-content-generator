@@ -25,7 +25,7 @@ export const CAPTION_PRESET_GROUPS: CaptionPresetGroup[] = [
     id: 'clean',
     label: 'Clean & Readable',
     hint: 'Understated styles that stay out of the way.',
-    presetIds: ['simple', 'vireo_clean', 'think_media', 'soft_backdrop', 'editorial', 'vireo_editorial'],
+    presetIds: ['simple', 'vireo_clean', 'vireo_echo_slide', 'think_media', 'soft_backdrop', 'editorial', 'vireo_editorial'],
   },
   {
     id: 'high_energy',
@@ -49,7 +49,7 @@ export const CAPTION_PRESET_GROUPS: CaptionPresetGroup[] = [
     id: 'neon',
     label: 'Neon & Color Pop',
     hint: 'Saturated accents for a louder look.',
-    presetIds: ['vireo_neon', 'vireo_lime'],
+    presetIds: ['vireo_neon', 'vireo_lime', 'vireo_comic_punch', 'vireo_prism_stamp'],
   },
 ];
 

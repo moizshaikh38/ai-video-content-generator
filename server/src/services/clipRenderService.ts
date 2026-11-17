@@ -819,6 +819,7 @@ export class ClipRenderService {
             sourceWidth: reframeDecision.track?.source_width ?? proBlurSourceWidth,
             sourceHeight: reframeDecision.track?.source_height ?? proBlurSourceHeight,
             sceneLayoutFallback: reframeDecision.layoutMode,
+            automaticSceneWindows: editorProject ? ProEditorService.captionSceneWindows(editorProject,{mode:reframeDecision.mode,layoutMode:reframeDecision.layoutMode,track:reframeDecision.track,clipStartSec:startSec,cropConfig:clip.crop_config,aspectRatio:clip.aspect_ratio}) : undefined,
             speakerSplit,
           });
 
@@ -933,6 +934,7 @@ export class ClipRenderService {
       let expectedDurationSec = durationSec;
       if (hasCustomProTracks && editorProject) {
         logger.info(`[ClipRender] Compiling and executing multi-track EditorProject graph for clip ${clipId}`);
+        editorProject=ProEditorService.prepareTrackerHandoffs(editorProject,{track:reframeDecision.track,clipStartSec:startSec,cropConfig:clip.crop_config});
         editorProject=expandSceneLayoutProject(editorProject);
         await ProEditorService.preloadRemoteOverlayAssets(editorProject, tempDir);
         const videoTrackItems = editorProject.tracks

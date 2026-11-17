@@ -3,6 +3,7 @@ import {normalizePanels} from './panelLayouts.js';
 export type CaptionSceneLayout = 'fill' | 'fit' | 'blur' | 'split' | 'panel_seam' | 'panel_gameplay';
 export interface CaptionPlacementContext {
   project: any;
+  automaticWindows?: CaptionLayoutWindow[];
   sourceWidth?: number;
   sourceHeight?: number;
   fallbackLayout?: string;
@@ -10,6 +11,26 @@ export interface CaptionPlacementContext {
   maxCharsPerLine?: number;
   maxLines?: number;
   explicitConfigPosition?: boolean;
+}
+
+export interface CaptionLayoutWindow {itemId:string;start:number;end:number;layout:CaptionSceneLayout}
+/** Derived only from the picture composition plan. No persisted layout writes.
+ * Plan clocks are clip-relative; item clocks include trim, speed and timeline edits. */
+export function captionCompositionWindows(project:any,plan:any[],clipStart:number,sourceW:number,sourceH:number):CaptionLayoutWindow[]{
+ if(project?.canvas?.aspect_ratio!=='9:16'||![clipStart,sourceW,sourceH].every(Number.isFinite)||sourceW<=0||sourceH<=0)return [];
+ const items=expandSceneLayoutProject(project).tracks?.find((t:any)=>t.type==='VIDEO'&&!t.hidden)?.items||[];
+ return items.flatMap((i:any)=>{
+  if(i.hidden||i.is_title_card||i.is_freeze||i.crop||i.panels||i.framing_window||i.tracker?.enabled||i.crop_config?.layout_mode_source==='user')return [];
+  const speed=i.speed?.speed??1;
+  if(![i.source_start,i.source_end,i.timeline_start,i.timeline_end,speed].every(Number.isFinite)||speed<=0)return [];
+  return plan.flatMap(s=>{
+   if(![s.start,s.end,s.windowW,s.windowH].every(Number.isFinite)||s.end<=s.start||s.windowW<=0||s.windowH<=0)return [];
+   const a=Math.max(i.source_start,s.start+clipStart),z=Math.min(i.source_end,s.end+clipStart);if(z<=a)return [];
+   const start=Math.max(i.timeline_start,i.timeline_start+(a-i.source_start)/speed),end=Math.min(i.timeline_end,i.timeline_start+(z-i.source_start)/speed);
+   const layout:CaptionSceneLayout=s.split?'split':Math.abs(s.windowW*sourceW/(s.windowH*sourceH)-9/16)<.01?'fill':'fit';
+   return end>start?[{itemId:i.id,start,end,layout}]:[];
+  });
+ });
 }
 
 /** Reads the same persisted VIDEO-item layout contract as the editor controls.
@@ -61,7 +82,8 @@ export function applySceneCaptionPlacement<T extends {start:number;end:number;te
   const result: T[] = [];
   for (const cue of cues) {
     if (cue.position_x !== undefined || cue.position_y !== undefined || context.explicitConfigPosition) {result.push(cue);continue;}
-    const boundaries = [cue.start, ...scenes.flatMap((s:any) => [s.timeline_start,s.timeline_end]).filter((t:number) => t > cue.start + 0.001 && t < cue.end - 0.001), cue.end];
+    const windows=context.automaticWindows||[];
+    const boundaries = [cue.start, ...[...scenes.flatMap((s:any) => [s.timeline_start,s.timeline_end]),...windows.flatMap(w=>[w.start,w.end])].filter((t:number) => t > cue.start + 0.001 && t < cue.end - 0.001), cue.end];
     const times = [...new Set<number>(boundaries)].sort((a,b)=>a-b);
     for (let n=0;n<times.length-1;n++) {
       const start=times[n],end=times[n+1];
@@ -71,8 +93,10 @@ export function applySceneCaptionPlacement<T extends {start:number;end:number;te
       const words=Array.isArray(cue.words) ? cue.words.filter((v:any)=>v.end>start&&v.start<end).map((v:any)=>({...v,start:Math.max(v.start,start),end:Math.min(v.end,end)})) : undefined;
       if (Array.isArray(cue.words) && cue.words.length && !words?.length) continue;
       const text=words?.length ? words.map((v:any)=>v.text??v.word??'').join(' ') : cue.text;
+      const window=windows.find(w=>w.itemId===scene.id&&start>=w.start-.001&&start<w.end-.001);
+      const layout=window?.layout??captionSceneLayout(scene,context.fallbackLayout);
       result.push({...cue,id:cue.id,start,end,...(words?{words}:{}),text,
-        position_y:autoCaptionAnchor(captionSceneLayout(scene,context.fallbackLayout),context,scene,text),position_anchor:captionSceneLayout(scene,context.fallbackLayout)==='fill'?'bottom':'center',auto_position:true});
+        position_y:autoCaptionAnchor(layout,context,scene,text),position_anchor:layout==='fill'?'bottom':'center',auto_position:true});
     }
   }
   return result;

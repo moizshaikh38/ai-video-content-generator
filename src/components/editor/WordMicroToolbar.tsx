@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Edit3,
   Palette,
@@ -99,7 +100,9 @@ export const WordMicroToolbar: React.FC<WordMicroToolbarProps> = ({
 
   const durationMs = Math.round((endSec - startSec) * 1000);
 
-  return (
+  // Viewport coordinates must not inherit the transcript panel transform.
+  // A body portal also prevents autoFocus from scrolling the editor sideways.
+  return createPortal(
     <div
       ref={popoverRef}
       style={{ top: `${topPos}px`, left: `${leftPos}px`, width: `${popoverWidth}px` }}
@@ -454,6 +457,7 @@ export const WordMicroToolbar: React.FC<WordMicroToolbarProps> = ({
           </button>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 };

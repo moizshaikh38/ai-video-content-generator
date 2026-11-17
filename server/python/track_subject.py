@@ -8,7 +8,7 @@ Times are source-file seconds. Tracks forward and backward from refTime. A scene
 (histogram jump) ends tracking in that direction: the subject is only followed inside
 its own scene, matching "each subject is only tracked in its scenes".
 Method: pyramidal Lucas-Kanade on features inside the box (median flow + scale from
-point-spread), re-seeded from the current box; stops when too few points survive.
+point-spread), preserving original interior features only; stops when support is lost.
 """
 import sys, json, os
 import cv2
@@ -29,7 +29,11 @@ def is_cut(a, b):
 def seed(gray, box):
     x, y, w, h = box
     mask = np.zeros_like(gray)
-    mask[int(max(0, y)):int(y + h), int(max(0, x)):int(x + w)] = 255
+    # A user's box includes padding. Background corners at its edge must not
+    # outvote a low-texture subject. Require features in the interior instead
+    # of widening the search to textured surroundings when support is weak.
+    inset_x, inset_y = w * 0.15, h * 0.15
+    mask[int(max(0, y + inset_y)):int(y + h - inset_y), int(max(0, x + inset_x)):int(x + w - inset_x)] = 255
     return cv2.goodFeaturesToTrack(gray, 60, 0.01, 4, mask=mask)
 
 
@@ -62,8 +66,6 @@ def run_direction(cap, fps, W, H, ref_t, box0, step, limit_t, sample_dt):
         if is_cut(ph, gh):
             lost = t
             break
-        if pts is None or len(pts) < 6:
-            pts = seed(prev, box)
         if pts is None or len(pts) < 4:
             lost = t
             break
@@ -90,11 +92,9 @@ def run_direction(cap, fps, W, H, ref_t, box0, step, limit_t, sample_dt):
                     "w": float(min(1, bw / W)), "h": float(min(1, bh / H)), "confidence": float(good.sum() / max(1, len(pts)))})
         pts = p1[:, None, :].astype(np.float32)
         prev, ph = g, gh
-        # re-seed periodically so the point set follows the box, not a shrinking cloud
-        if len(out) % 8 == 0:
-            ns = seed(g, box)
-            if ns is not None and len(ns) >= 6:
-                pts = ns
+        # Do not replenish identity evidence from the current box. Once the
+        # original subject features are lost, new corners may be background.
+        # Stop and let the existing layout resume instead of changing subject.
     return out, lost
 
 
@@ -110,9 +110,18 @@ def track(params):
     H = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     dur = (cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0) / fps
+    if not cap.isOpened() or W <= 0 or H <= 0 or dur <= 0:
+        cap.release()
+        raise ValueError("Video has no decodable frame range")
     start = max(0.0, float(params.get("startSec", 0.0)))
     end = float(params.get("endSec", dur)) or dur
     end = min(end, dur) if dur else end
+    if not np.isfinite([start,end,ref_t]).all() or end <= start or not start <= ref_t < end:
+        cap.release()
+        raise ValueError("Selected frame must be inside the decodable tracking range")
+    if frame_at(cap, fps, ref_t) is None:
+        cap.release()
+        raise ValueError("Selected frame could not be decoded")
     box0 = [float(b["x"]) * W, float(b["y"]) * H, max(8.0, float(b["w"]) * W), max(8.0, float(b["h"]) * H)]
     dt = 1.0 / sample_fps
     fwd, lost_f = run_direction(cap, fps, W, H, ref_t, box0, +1, end, dt)
