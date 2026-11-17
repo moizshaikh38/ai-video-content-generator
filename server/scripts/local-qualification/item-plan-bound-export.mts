@@ -1,18 +1,18 @@
 /** Real-source render plus archived-detection replay. Not fresh CV or quality acceptance. */
 import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';import assert from 'node:assert/strict';import {execFileSync} from 'node:child_process';
 import {ProEditorService as P} from '../../src/services/proEditorService.js';import {SmartReframeService as S} from '../../src/services/smartReframeService.js';import {resolveMeasuredItemPlan} from '../../src/services/itemShotPlanService.js';import {shotPlanOptions} from '../../src/shared/shotPlanOptions.js';
-const [out,analysisPath]=process.argv.slice(2);if(!out||fs.existsSync(out))throw Error('Supply new evidence directory');fs.mkdirSync(out,{recursive:true});
-const source='/downloads/recovered-source/walking-in-sands-12s.mp4',sourceSha256=crypto.createHash('sha256').update(fs.readFileSync(source)).digest('hex');
+const [out,analysisPath,sourceOverride]=process.argv.slice(2);if(!out||fs.existsSync(out))throw Error('Supply new evidence directory');fs.mkdirSync(out,{recursive:true});
+const source=sourceOverride||'/downloads/recovered-source/walking-in-sands-12s.mp4',sourceSha256=crypto.createHash('sha256').update(fs.readFileSync(source)).digest('hex');
 const evidence=JSON.parse(fs.readFileSync(analysisPath||new URL('../../src/tests/fixtures/walking-sands-detections.json',import.meta.url),'utf8'));
 const freshEvidence=analysisPath?JSON.parse(fs.readFileSync(path.join(path.dirname(analysisPath),'manifest.json'),'utf8')):null;
 if(freshEvidence){assert.equal(freshEvidence.sourceSha256,sourceSha256);assert.equal(freshEvidence.sourceUnchanged,true);assert.equal(freshEvidence.freshCvExecution,true);}
-const probe=JSON.parse(execFileSync('ffprobe',['-v','error','-show_streams','-show_format','-of','json',source],{encoding:'utf8'})),v=probe.streams.find((s:any)=>s.codec_type==='video');assert.equal(v.width,854);assert.equal(v.height,480);
-const asset=freshEvidence?'local-walking-fresh-cv':'local-walking-archived-replay',sourceStoragePath='qualification/walking-12s.mp4',start=2.7,duration=3;
+const probe=JSON.parse(execFileSync('ffprobe',['-v','error','-show_streams','-show_format','-of','json',source],{encoding:'utf8'})),v=probe.streams.find((s:any)=>s.codec_type==='video');assert(v.width>0&&v.height>0);
+const asset=sourceOverride?'local-second-source-fresh-cv':freshEvidence?'local-walking-fresh-cv':'local-walking-archived-replay',sourceStoragePath=sourceOverride?'qualification/second-source-12s.mp4':'qualification/walking-12s.mp4',start=2.7,duration=3;
 const track:any={clip_id:asset,status:'ready',analysis_version:1,analyzed_aspect_ratio:'9:16',source_width:v.width,source_height:v.height,raw_samples:evidence.samples,smoothed_keyframes:[{time:0,centerX:.5,centerY:.5}],metadata:{shot_composition_candidate:true,clip_duration:12,analyzed_source_start:0,analyzed_source_end:12,analyzed_source_sha256:sourceSha256,analyzed_source_path:sourceStoragePath}};
 const item:any={id:'bound-effective-walking-slice',source_asset_id:asset,source_path:sourceStoragePath,source_start:start,source_end:start+duration,timeline_start:0,timeline_end:duration};
-const ctx:any={mode:'smart',aspectRatio:'9:16',clipStartSec:0,layoutMode:'track',track,sourceSha256,sourceAssetId:asset,sourceStoragePath,decodedSource:{width:v.width,height:v.height},canvasScale:2/3};
+const ctx:any={mode:'smart',aspectRatio:'9:16',clipStartSec:0,layoutMode:'track',track,sourceSha256,sourceAssetId:asset,sourceStoragePath,decodedSource:{width:v.width,height:v.height},canvasScale:2/3,sourceHasAudio:probe.streams.some((s:any)=>s.codec_type==='audio')};
 const resolved=resolveMeasuredItemPlan(item,ctx,o=>S.computeShotComposition(o));assert.equal(resolved.status,'ready');
-const project:any={canvas:{width:1080,height:1920,aspect_ratio:'9:16',fps:30,duration},tracks:[{type:'VIDEO',name:'Archived measured-plan replay',items:[item]}]},before=JSON.stringify(project),output=path.join(out,'actual-bound-walking.mp4');
+const project:any={canvas:{width:1080,height:1920,aspect_ratio:'9:16',fps:30,duration},tracks:[{type:'VIDEO',name:freshEvidence?'Fresh measured-plan source slice':'Archived measured-plan replay',items:[item]}]},before=JSON.stringify(project),output=path.join(out,sourceOverride?'actual-bound-second-source.mp4':'actual-bound-walking.mp4');
 const graph=P.compileRenderGraph(project,source,output,out,ctx,'off');
 const previous=(P as any).resolveShotCompositionPlan;
 let oldGraph;try{(P as any).resolveShotCompositionPlan=(i:any,c:any)=>S.computeShotComposition(shotPlanOptions({track:c.track,candidate:i.crop_config?.automaticLayoutCandidate,layoutPolicy:i.crop_config?.layoutPolicy||c.cropConfig?.layoutPolicy,duration:Number(c.track.metadata.clip_duration)}));oldGraph=P.compileRenderGraph(project,source,output,out,ctx,'off');}finally{(P as any).resolveShotCompositionPlan=previous;}

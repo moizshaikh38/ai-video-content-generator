@@ -10,7 +10,7 @@ import {boundedPairComposition} from '../shared/boundedPairComposition.js';
 import {buildPanelsFilter,type ItemPanels} from '../shared/panelLayouts.js';
 import {groupPortraitPresentation} from '../shared/groupPortraitPresentation.js';
 import {closeupPortraitPresentation} from '../shared/closeupPresentation.js';
-import {anchorFitToMeasuredFaces} from '../shared/fitSubjectAnchor.js';
+import {anchorFitToMeasuredFaces,anchorClipFitToMeasuredFaces} from '../shared/fitSubjectAnchor.js';
 import {presentFit43,applyAutomaticLayoutPolicy,type AutomaticLayoutPolicy} from '../shared/automaticLayoutPolicy.js';
 import {persistentObjectRegions} from '../shared/objectContext.js';
 import { canvasDims } from '../shared/renderResolution.js';
@@ -1708,13 +1708,13 @@ export class SmartReframeService {
     const sizedFrom = constraints.length ? constraints : shots;
     const windowW = Math.max(...sizedFrom.map(s=>s.windowW));
     const windowH = Math.max(...sizedFrom.map(s=>s.windowH));
-    return preservePresentationRegions(presentFit43(applyAutomaticLayoutPolicy(shots.map(s=>({...s,
+    return preservePresentationRegions(anchorClipFitToMeasuredFaces(presentFit43(applyAutomaticLayoutPolicy(shots.map(s=>({...s,
       contextStatus: s.contextStatus === 'unresolved-preserved' && reviewCandidate && (windowW < 1 || windowH < 1)
         ? 'unresolved-review-required' as const : s.contextStatus,
       windowW,windowH,keyframes:s.keyframes.map(k=>({...k,
       centerX:Math.max(windowW/2,Math.min(1-windowW/2,k.centerX)),
       centerY:Math.max(windowH/2,Math.min(1-windowH/2,k.centerY)),
-    }))})),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight));
+    }))})),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight),rawSamples,sourceWidth,sourceHeight));
   }
 
   public static buildShotCompositionFilter(options: {
