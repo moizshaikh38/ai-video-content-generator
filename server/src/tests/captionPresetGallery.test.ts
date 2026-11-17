@@ -413,7 +413,7 @@ describe('Caption presets: preview ↔ export mapping', () => {
     assert.equal(getEditorCaptionPresetId({ style: 'clean' }), null);
     const fresh = applyPresetToEditorCaption({ cues: [], style: 'clean', position: 'center', primary_color: '#000000', highlight_color: '#000000', font_family: 'Impact' }, 'mozi');
     assert.equal(fresh.position, 'center', 'position preference preserved');
-    assert.equal(fresh.font_family, undefined, 'stale typography cleared');
+    assert.equal(fresh.font_family, 'Inter', 'explicit fresh Mozi selection replaces stale typography with the reviewed bundled face');
     assert.equal(fresh.highlight_color, CAPTION_PRESETS.mozi.colors.active);
   });
 });
