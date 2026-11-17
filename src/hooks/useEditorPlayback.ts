@@ -204,13 +204,14 @@ export function useEditorPlayback({
 
     const handleLoadedMetadata = () => { v.currentTime = toSource(timeRef.current); };
 
-    const handleTimeUpdate = () => {
+    const handleTimeUpdate = (frameTime?: number) => {
+      const mediaTime=typeof frameTime==='number'?frameTime:v.currentTime;
       const offset = sourceOffsetRef.current;
       if (!slicesRef.current.length && offset > 0 && v.currentTime < offset - 0.25) {
         v.currentTime = toSource(timeRef.current);
         return;
       }
-      const rawTimeline = sourceToTimelineTime(slicesRef.current, v.currentTime, timeRef.current, offset);
+      const rawTimeline = sourceToTimelineTime(slicesRef.current, mediaTime, timeRef.current, offset);
       const timelineTime = Math.max(0, Math.min(durationRef.current, Number(rawTimeline.toFixed(3))));
       if (mediaTimeAdvanced(lastMediaTime.current, v.currentTime, v.paused)) setIsMediaAdvancing(true);
       lastMediaTime.current = v.currentTime;
@@ -247,14 +248,25 @@ export function useEditorPlayback({
     const handlePause = () => { setIsMediaAdvancing(false);setIsPlaying(false); };
 
     v.addEventListener('loadedmetadata', handleLoadedMetadata);
-    v.addEventListener('timeupdate', handleTimeUpdate);
+    const timeupdate=()=>handleTimeUpdate();
+    let disposed=false,frame=0;
+    const hasFrameCallback=typeof v.requestVideoFrameCallback==='function';
+    const tick=(_now:number,meta?:VideoFrameCallbackMetadata)=>{
+      if(disposed)return;
+      if(!v.paused&&!v.seeking)handleTimeUpdate(meta?.mediaTime);
+      frame=hasFrameCallback?v.requestVideoFrameCallback(tick):requestAnimationFrame(tick);
+    };
+    frame=hasFrameCallback?v.requestVideoFrameCallback(tick):requestAnimationFrame(tick);
+    v.addEventListener('timeupdate', timeupdate);
     v.addEventListener('ended', handleEnded);
     v.addEventListener('play', handlePlay);
     v.addEventListener('pause', handlePause);
 
     return () => {
       v.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      v.removeEventListener('timeupdate', handleTimeUpdate);
+      disposed=true;
+      if(hasFrameCallback)v.cancelVideoFrameCallback(frame);else cancelAnimationFrame(frame);
+      v.removeEventListener('timeupdate', timeupdate);
       v.removeEventListener('ended', handleEnded);
       v.removeEventListener('play', handlePlay);
       v.removeEventListener('pause', handlePause);
