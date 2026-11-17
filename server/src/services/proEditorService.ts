@@ -2590,7 +2590,7 @@ export class ProEditorService {
     // Track 3: Caption Track
     const captionTrackId = crypto.randomUUID();
     const captionStyle = producerPlan?.operations.find((o) => o.type === 'CAPTION_STYLE')?.parameters.style ||
-      clip.caption_style || NEW_CAPTION_PRESET_ID;
+      CaptionService.resolveDefaultCaptionStyle(clip).captionStyle || NEW_CAPTION_PRESET_ID;
 
     let initialCues: any[] = [];
     if (transcript) {
