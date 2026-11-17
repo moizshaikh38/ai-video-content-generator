@@ -214,6 +214,156 @@
       ],
       "change": "Fresh selection/creation Inter Bold binding only; saved/manual unchanged",
       "remaining": "Heavy stroke/tight spacing, exact motion, unseen sources, reference fidelity"
+    },
+    {
+      "id": "vireo_oneword",
+      "before": "/downloads/vireo-catalogue-vireo_oneword-baseline-0507",
+      "after": "/downloads/vireo-catalogue-vireo_oneword-after-0514",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "beforeInspected": true,
+      "afterInspected": true,
+      "beforeFonts": [
+        "LiberationSans-Bold"
+      ],
+      "afterFonts": [
+        "Inter-Bold"
+      ],
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "motionQualified": false,
+      "referenceParityQualified": false,
+      "fullStyleQualityAccepted": false,
+      "change": "Fresh selection/creation Inter Bold binding only; saved/manual unchanged",
+      "remaining": "Active box geometry/rounding where used, exact motion, heavy stroke/tight spacing, unseen sources, reference fidelity"
+    },
+    {
+      "id": "vireo_pill",
+      "before": "/downloads/vireo-catalogue-vireo_pill-baseline-0507",
+      "after": "/downloads/vireo-catalogue-vireo_pill-after-0514",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "beforeInspected": true,
+      "afterInspected": true,
+      "beforeFonts": [
+        "LiberationSans-Bold"
+      ],
+      "afterFonts": [
+        "Inter-Bold"
+      ],
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "motionQualified": false,
+      "referenceParityQualified": false,
+      "fullStyleQualityAccepted": false,
+      "change": "Fresh selection/creation Inter Bold binding only; saved/manual unchanged",
+      "remaining": "Active box geometry/rounding where used, exact motion, heavy stroke/tight spacing, unseen sources, reference fidelity"
+    },
+    {
+      "id": "vireo_lime",
+      "before": "/downloads/vireo-catalogue-vireo_lime-baseline-0507",
+      "after": "/downloads/vireo-catalogue-vireo_lime-after-0514",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "beforeInspected": true,
+      "afterInspected": true,
+      "beforeFonts": [
+        "LiberationSans-Bold"
+      ],
+      "afterFonts": [
+        "Inter-Bold"
+      ],
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "motionQualified": false,
+      "referenceParityQualified": false,
+      "fullStyleQualityAccepted": false,
+      "change": "Fresh selection/creation Inter Bold binding only; saved/manual unchanged",
+      "remaining": "Active box geometry/rounding where used, exact motion, heavy stroke/tight spacing, unseen sources, reference fidelity"
+    },
+    {
+      "id": "vireo_hormozi",
+      "before": "/downloads/vireo-catalogue-vireo_hormozi-baseline-0507",
+      "after": "/downloads/vireo-catalogue-vireo_hormozi-after-0514",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "beforeInspected": true,
+      "afterInspected": true,
+      "beforeFonts": [
+        "LiberationSans-Bold"
+      ],
+      "afterFonts": [
+        "Inter-Bold"
+      ],
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "motionQualified": false,
+      "referenceParityQualified": false,
+      "fullStyleQualityAccepted": false,
+      "change": "Fresh selection/creation Inter Bold binding only; saved/manual unchanged",
+      "remaining": "Active box geometry/rounding where used, exact motion, heavy stroke/tight spacing, unseen sources, reference fidelity"
+    },
+    {
+      "id": "vireo_spring",
+      "before": "/downloads/vireo-catalogue-vireo_spring-baseline-0507",
+      "after": "/downloads/vireo-catalogue-vireo_spring-after-0514",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "beforeInspected": true,
+      "afterInspected": true,
+      "beforeFonts": [
+        "LiberationSans-Bold"
+      ],
+      "afterFonts": [
+        "Inter-Bold"
+      ],
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "motionQualified": false,
+      "referenceParityQualified": false,
+      "fullStyleQualityAccepted": false,
+      "change": "Fresh selection/creation Inter Bold binding only; saved/manual unchanged",
+      "remaining": "Active box geometry/rounding where used, exact motion, heavy stroke/tight spacing, unseen sources, reference fidelity"
+    },
+    {
+      "id": "vireo_neon",
+      "before": "/downloads/vireo-catalogue-vireo_neon-baseline-0507",
+      "after": "/downloads/vireo-catalogue-vireo_neon-after-0514",
+      "sampleTimes": [
+        0.267,
+        1.667,
+        19.1
+      ],
+      "beforeInspected": true,
+      "afterInspected": true,
+      "beforeFonts": [
+        "LiberationSans-Bold"
+      ],
+      "afterFonts": [
+        "Inter-Bold"
+      ],
+      "providerResponseUnchanged": true,
+      "manualIntervalAndCenter": true,
+      "motionQualified": false,
+      "referenceParityQualified": false,
+      "fullStyleQualityAccepted": false,
+      "change": "Fresh selection/creation Inter Bold binding only; saved/manual unchanged",
+      "remaining": "Active box geometry/rounding where used, exact motion, heavy stroke/tight spacing, unseen sources, reference fidelity"
     }
   ]
 }
