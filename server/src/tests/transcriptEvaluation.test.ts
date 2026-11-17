@@ -13,3 +13,15 @@ test('rejects absent identity, unknown tags, punctuation-only tokens and oversiz
 test('alignment preserves original words and reproducibly resolves repeated tokens',()=>{const x=fixture(),before=JSON.stringify(x);assert.deepEqual(alignEvaluationWords(words('a','a'),words('a')),alignEvaluationWords(words('a','a'),words('a')));evaluateTranscript(x);assert.equal(JSON.stringify(x),before);});
 
 test('numeric signs, decimals, percentages and currency do not vanish during normalization',()=>{for(const[a,b]of[['-1','1'],['.5','5'],['$50','50'],['50%','50'],['1,000','1000']])assert.notEqual(normalizeEvaluationWord(a),normalizeEvaluationWord(b));});
+
+// The actual saved provider response includes dialogue-marked word entries.
+// Strip exterior punctuation/space for lexical comparison, not internal words.
+test('dialogue-edge punctuation cannot leave an artificial leading space match error',()=>{
+ assert.equal(normalizeEvaluationWord(' - Okay.'),'okay');
+ assert.equal(normalizeEvaluationWord(' - And'),'and');
+ assert.equal(normalizeEvaluationWord('\" Hello \"'),'hello');
+ assert.equal(normalizeEvaluationWord('C-bombs'),'c-bombs');
+ // Numeric signs remain deliberately conservative, even with whitespace.
+ assert.notEqual(normalizeEvaluationWord(' - 15'),normalizeEvaluationWord('15'));
+ assert.notEqual(normalizeEvaluationWord('-15'),normalizeEvaluationWord('15'));
+});
