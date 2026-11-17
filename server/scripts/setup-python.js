@@ -76,6 +76,7 @@ async function downloadFile(url, destPath) {
 
 async function main() {
   console.log('[Setup Python] Checking YouTube ingestion dependencies (yt-dlp)...');
+  console.log('[Setup Python] YouTube extraction requires matching yt-dlp-ejs and a supported JS runtime. Node >=22 is explicitly enabled by ingestion. Latest yt-dlp requires Python >=3.11; version success alone is not source-ingestion proof.');
 
   // 1. Check if venv already has working yt-dlp
   if (fs.existsSync(venvPython)) {
@@ -111,7 +112,7 @@ async function main() {
       if (fs.existsSync(requirementsFile)) {
         run(`"${venvPip}" install -r "${requirementsFile}"`);
       } else {
-        run(`"${venvPip}" install yt-dlp`);
+        run(`"${venvPip}" install "yt-dlp[default]>=2026.10.21"`);
       }
 
       const ver = verifyYtDlp(venvPython, true);
@@ -123,7 +124,7 @@ async function main() {
 
     // 4. If venv pip failed, try direct pip with break-system-packages or user install
     console.log('[Setup Python] Trying system pip install for yt-dlp...');
-    run(`${sysPython} -m pip install yt-dlp --break-system-packages || ${sysPython} -m pip install yt-dlp --user || pip install yt-dlp || pip3 install yt-dlp`);
+    run(`${sysPython} -m pip install "yt-dlp[default]>=2026.10.21" --break-system-packages || ${sysPython} -m pip install "yt-dlp[default]>=2026.10.21" --user || pip install "yt-dlp[default]>=2026.10.21" || pip3 install "yt-dlp[default]>=2026.10.21"`);
     const sysVer = verifyYtDlp(sysPython, true);
     if (sysVer) {
       console.log(`[Setup Python] Successfully configured system Python with yt-dlp v${sysVer}`);

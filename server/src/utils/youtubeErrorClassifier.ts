@@ -448,17 +448,17 @@ function describe(
       };
     case 'bot_challenge':
       return {
-        message: 'YouTube is challenging our server as a suspected bot and refused to serve this video. Configure YOUTUBE_COOKIES on the server, or upload the file directly.',
+        message: 'YouTube refused this server import with a verification challenge. No video was imported. Upload a video file or a direct downloadable copy; repeated retries do not resolve this challenge.',
         statusCode: 429,
         code: 'YOUTUBE_BOT_CHALLENGE',
-        terminal: false,
+        terminal: true,
       };
     case 'rate_limited':
       return {
-        message: 'YouTube is rate-limiting our server right now. Wait a few minutes and try this import again.',
+        message: 'YouTube is rate-limiting this server import. This attempt has stopped without importing the video. Upload a video file or use a direct downloadable copy.',
         statusCode: 429,
         code: 'YOUTUBE_RATE_LIMITED',
-        terminal: false,
+        terminal: true,
       };
     case 'format_unavailable':
       return {

@@ -1,3 +1,4 @@
+import {supportedYouTubeJsArgs} from '../shared/youtubeRuntime.js';
 import {withNewProjectFraming} from '../shared/newProjectFraming.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -525,7 +526,8 @@ export class UrlIngestionService {
       '--no-playlist',
       '--socket-timeout', '30',
       '--retries', '3',
-      '--extractor-retries', '3',
+      '--extractor-retries', '0',
+      ...supportedYouTubeJsArgs(process.versions.node, process.execPath),
     ];
 
     if (extractorArgs) {
