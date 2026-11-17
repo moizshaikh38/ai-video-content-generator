@@ -1313,7 +1313,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             Auto candidate: {autoCandidateMixed?'MIXED · review':autoCandidateEnabled?'ON · review':'OFF'}
           </button>}
           {onSetAutoCandidate && baseVideoItem && <span data-testid="active-auto-candidate-state" className="text-[10px] text-neutral-400">This item: candidate {(baseVideoItem as any).crop_config?.automaticLayoutCandidate==='review-v1'?'ON':'OFF'}{baseVideoItem.locked?' · locked':''}</span>}
-          {automaticLayoutLabel?.includes('Fit') && <span className="text-[10px] text-amber-300" title="Fit uses a 4:3 sharp band. Side content may be cropped. Review before sharing.">4:3 Fit · check sides</span>}
+          {automaticLayoutLabel?.includes('Fit') && <span data-testid="automatic-fit-aspect" className="text-[10px] text-amber-300" title="Actual sharp-view aspect. A full-source context fallback is not 4:3. Side content outside a crop remains unverified; review before sharing.">{activeAutomaticShot?.presentationProtection?.preserveWindow&&videoDims&&Math.abs(activeAutomaticShot.windowW*videoDims.w/(activeAutomaticShot.windowH*videoDims.h)-4/3)>.02?'Full-source Fit · context conflict':'4:3 Fit · check sides'}</span>}
           {/* 2. Layout: Fill / Fit / Blur - one toggle cycling the three fill modes */}
           {onUpdateCropMode && (
             <>

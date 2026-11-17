@@ -1,3 +1,4 @@
+import {constrainedFit43} from '../shared/constrainedFit43.js';
 import {bodyOnlyPortraitProposal} from '../shared/bodyOnlyPortraitProposal.js';
 import {auditPairComposition} from '../shared/pairCompositionQuality.js';
 import {boundedPairComposition} from '../shared/boundedPairComposition.js';
@@ -1589,6 +1590,19 @@ export class SmartReframeService {
         // A split is not evidence that a context rectangle is legible in one
         // uninterrupted view. Fall back rather than distribute it across panels.
         const lost=!!shot.split||regions.some(r=>shot.keyframes.some(k=>r.x<k.centerX-shot.windowW/2-1e-6||r.x+r.width>k.centerX+shot.windowW/2+1e-6||r.y<k.centerY-shot.windowH/2-1e-6||r.y+r.height>k.centerY+shot.windowH/2+1e-6));
+        // An earlier crop missing a region is not proof that EVERY 4:3 crop
+        // misses it. Try the widest legal re-centered 4:3 view first, keeping
+        // every measured person/face, not only the selected primary anchors.
+        // A prior subject-conflict decision carries stronger evidence than
+        // this sparse box union. Do not overrule it with a context-only refit.
+        const subjectConflict = shot.presentationProtection?.reason === 'measured-subject-conflict'
+          || shot.presentationProtection?.reason === 'persistent-face-conflict';
+        const recover43 = options.automaticFitAspect === '4:3' && !shot.split && !subjectConflict
+          && (lost || shot.presentationProtection?.preserveWindow)
+          ? constrainedFit43(rawSamples.filter(s => s.time >= shot.start && s.time < shot.end),
+            regions, sourceWidth, sourceHeight, shot.keyframes[0]?.centerX)
+          : null;
+        if(recover43)return {...shot,kind:'fit' as const,windowW:recover43.windowW,windowH:recover43.windowH,presentationProtection:{preserveWindow:true as const,reason:'measured-context' as const},keyframes:[{time:shot.start,centerX:recover43.centerX,centerY:recover43.centerY}],contextStatus:'unresolved-review-required' as const,uncertainty:'Re-centered 4:3 Fit contains all sampled face/person boxes and supplied protected regions. Other side content and detector misses remain unverified; review before sharing.'};
         if(!lost)return shot;
         const next={...shot,presentationProtection:{preserveWindow:true as const,reason:'measured-context' as const},kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:shot.start,centerX:.5,centerY:.5}],contextStatus:'unresolved-review-required' as const,uncertainty:'Full-source Fit: preferred presentation would cut measured protected context. Other scene meaning remains unverified; review before sharing.'};
         delete next.split;return next;
