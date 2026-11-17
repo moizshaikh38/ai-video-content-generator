@@ -92,6 +92,26 @@ export function resolveGenreReframeOptions(
   };
 }
 
+/** Existing planner input contract. Extraction does not change evidence or policy. */
+export interface ShotCompositionOptions {
+    layoutPolicy?:AutomaticLayoutPolicy;
+    rawSamples?: ReframeSample[] | null; sceneCuts?: number[]; duration: number;
+    sourceWidth: number; sourceHeight: number;
+    /** Review-only opt-in. No production caller selects this policy. */
+    unresolvedContextPolicy?: 'preserve' | 'shared-subject-window' | 'balanced-inset-review';
+    /** Scene-adaptive opt-in. Unknown shots remain full source locally. */
+    windowScope?: 'clip' | 'shot';
+    /** Explicit presentation preference. Crop conflicts remain review-required. */
+    automaticFitAspect?: '4:3';
+    /** Developmental opt-in only. Not read from project/user settings. */
+    pairFocusReview?: boolean;
+    bodyOnlyPortraitReview?: boolean;
+    /** Requires independently declared podcast/interview context. */
+    allowConversationSplit?: boolean;
+    /** Optional measured regions, local qualification only. Not semantic proof. */
+    protectedContentRegions?: Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>;
+  }
+
 export class SmartReframeService {
   /**
    * Validates a single face detection record from CV output.
@@ -1447,28 +1467,15 @@ export class SmartReframeService {
 
   /** Candidate shot-local composition. Times are always clip-relative; slices
    * intersect/rebase this same plan instead of recomputing different evidence. */
-  public static computeShotComposition(options: {
-    layoutPolicy?:AutomaticLayoutPolicy;
-    rawSamples?: ReframeSample[] | null; sceneCuts?: number[]; duration: number;
-    sourceWidth: number; sourceHeight: number;
-    /** Review-only opt-in. No production caller selects this policy. */
-    unresolvedContextPolicy?: 'preserve' | 'shared-subject-window' | 'balanced-inset-review';
-    /** Scene-adaptive opt-in. Unknown shots remain full source locally. */
-    windowScope?: 'clip' | 'shot';
-    /** Explicit presentation preference. Crop conflicts remain review-required. */
-    automaticFitAspect?: '4:3';
-    /** Developmental opt-in only. Not read from project/user settings. */
-    pairFocusReview?: boolean;
-    bodyOnlyPortraitReview?: boolean;
-    /** Requires independently declared podcast/interview context. */
-    allowConversationSplit?: boolean;
-    /** Optional measured regions, local qualification only. Not semantic proof. */
-    protectedContentRegions?: Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>;
-  }): Array<{ start: number; end: number; kind: 'group' | 'solo' | 'fit'; windowW: number; windowH: number;
+  public static computeShotComposition(options: ShotCompositionOptions): Array<{ start: number; end: number; kind: 'group' | 'solo' | 'fit'; windowW: number; windowH: number;
     keyframes: Array<{ time: number; centerX: number; centerY: number }>;
     split?: {speaker1X:number;speaker2X:number;dividerX:number;focusPanels?:ItemPanels};
     contextStatus?: 'crowd-preserved'|'unresolved-preserved'|'unresolved-review-required';
     uncertainty?: string; presentationProtection?: import('../shared/automaticLayoutPolicy.js').PresentationProtection }> {
+    return this.computeShotCompositionLegacy(options);
+  }
+
+  private static computeShotCompositionLegacy(options: ShotCompositionOptions): ReturnType<typeof SmartReframeService.computeShotComposition> {
     const {rawSamples = [], duration, sourceWidth, sourceHeight} = options;
     if (!rawSamples?.length || !(duration > 0) || sourceWidth <= 0 || sourceHeight <= 0) return [];
     const cuts = [...new Set((options.sceneCuts || []).filter(t => Number.isFinite(t) && t > 0 && t < duration))].sort((a,b)=>a-b);
