@@ -834,6 +834,8 @@ export interface QuickClipMusicConfig {
 // ── Phase 13: Smart Auto-Reframe + Face Tracking ─────────────────
 
 export interface NormalizedFaceDetection {
+  /** Missing on legacy payloads; unknown identity, not a failed detection. */
+  face_evidence?: import('../shared/faceEvidence.js').FaceEvidence;
   x: number;
   y: number;
   width: number;

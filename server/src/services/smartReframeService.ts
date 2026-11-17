@@ -1,3 +1,4 @@
+import {normalizeFaceEvidence} from '../shared/faceEvidence.js';
 import {constrainedFit43} from '../shared/constrainedFit43.js';
 import {bodyOnlyPortraitProposal} from '../shared/bodyOnlyPortraitProposal.js';
 import {auditPairComposition} from '../shared/pairCompositionQuality.js';
@@ -107,6 +108,7 @@ export class SmartReframeService {
     const centerX = Number(raw.center_x ?? raw.centerX ?? (x + width / 2));
     const centerY = Number(raw.center_y ?? raw.centerY ?? (y + height / 2));
     const confidence = Number(raw.confidence ?? 0.85);
+    const faceEvidence = normalizeFaceEvidence(raw.face_evidence);
     const mouthScore = raw.mouth_score !== undefined && raw.mouth_score !== null ? Number(raw.mouth_score) : undefined;
 
     if (
@@ -142,6 +144,7 @@ export class SmartReframeService {
       confidence: Math.round(Math.min(1.0, Math.max(0.0, confidence)) * 100) / 100,
       track_id: raw.track_id ? String(raw.track_id) : undefined,
       area: Math.round(width * height * 10000) / 10000,
+      ...(faceEvidence ? {face_evidence: faceEvidence} : {}),
       mouth_score: mouthScore !== undefined && Number.isFinite(mouthScore) ? Math.min(1.0, Math.max(0.0, Math.round(mouthScore * 1000) / 1000)) : undefined,
     };
   }

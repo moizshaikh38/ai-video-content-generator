@@ -462,6 +462,7 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
         # 4. IoU Non-Maximum Suppression (0.35 IoU threshold)
         deduped = apply_nms(raw_candidates, iou_thresh=0.35)
 
+        from face_evidence import candidate_evidence
         # 5. Extract mouth_score and normalize
         face_list = []
         curr_face_boxes = []
@@ -502,7 +503,8 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
                 "center_y": norm_cy,
                 "area": area,
                 "confidence": item["confidence"],
-                "mouth_score": mouth_score
+                "mouth_score": mouth_score,
+                "face_evidence": item.get("face_evidence") or candidate_evidence("opencv-haar-cascade", item["rect"], source_width, source_height)
             })
             if os.environ.get('SMART_REFRAME_DUMP_MOUTH_COMPONENTS'):
                 face_list[-1]["mouth_temporal"] = mouth_temporal
