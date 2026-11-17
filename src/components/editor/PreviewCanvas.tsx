@@ -133,6 +133,7 @@ interface PreviewCanvasProps {
     sourceHeight: number;
   } | null;
   /** Server-side tracking floor: weak dominant track exports as blur, preview mirrors it. */
+  automaticPlanReviewRequired?:boolean;
   lowConfidenceTrack?: boolean;
   onUpdateCaptionPosition?: (
     pos: { x?: number; y?: number; cueId?: string; fontSize?: number } | number,
@@ -262,6 +263,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   autoCandidateMixed,
   onSetAutoCandidate,
   lowConfidenceTrack = false,
+  automaticPlanReviewRequired = false,
   onUpdateCaptionPosition,
 }) => {
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -480,8 +482,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     return (item as any)?.crop_mode === 'fit' ? 'fit' : 'fill';
   }, [baseVideoItem,shotComposition,smartReframe,groupReframe]);
 
-  const rawPlan=shotComposition?.length?shotComposition:((baseVideoItem as any)?.crop_config?.layout_mode_source==='auto'&&videoDims?[{start:0,end:Math.max(project.canvas.duration||1,1),kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}]}]:[]);
-  const effectiveShotComposition = freezeAutomaticPlan(presentFit43(rawPlan,videoDims?.w||1920,videoDims?.h||1080),baseVideoItem?.automatic_framing,compositionClipStart);
+  const rawPlan=automaticPlanReviewRequired?[{start:0,end:Math.max(project.canvas.duration||1,(baseVideoItem?.source_end||0)-compositionClipStart,1),kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}],contextStatus:'unresolved-review-required',uncertainty:'Source or scene configuration needs review.'}]:shotComposition?.length?shotComposition:((baseVideoItem as any)?.crop_config?.layout_mode_source==='auto'&&videoDims?[{start:0,end:Math.max(project.canvas.duration||1,1),kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}]}]:[]);
+  const effectiveShotComposition = freezeAutomaticPlan(automaticPlanReviewRequired?rawPlan:presentFit43(rawPlan,videoDims?.w||1920,videoDims?.h||1080),baseVideoItem?.automatic_framing,compositionClipStart);
   const shotSourceTime = (baseVideoItem?.source_start || 0) + (playhead-(baseVideoItem?.timeline_start||0)) * (baseVideoItem?.speed?.speed||1);
   const shotRelativeTime = Math.max(0,shotSourceTime-compositionClipStart);
   const activePlanShot = !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && !baseVideoItem?.framing_window && !activePanels && (baseVideoItem as any)?.crop_config?.layout_mode_source !== 'user'
@@ -489,8 +491,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // Framing layout pick (Framing panel): 'split' renders a two-speaker
   // top/bottom stack mirroring the export's buildSplitPodcastFilter.
   const primaryLayoutMode = useMemo(() => {
+    if(automaticPlanReviewRequired)return 'track';
     return activePlanShot?.split && !(viewMode === 'export_review' && renderedPreviewUrl) ? 'split' : effectiveContentLayout(baseVideoItem,contentFramingDecision);
-  }, [baseVideoItem,contentFramingDecision,activePlanShot,viewMode,renderedPreviewUrl]);
+  }, [baseVideoItem,contentFramingDecision,activePlanShot,viewMode,renderedPreviewUrl,automaticPlanReviewRequired]);
 
   const splitAnchors = useMemo(() => {
     const splitCfg = activePlanShot?.split || (baseVideoItem as any)?.crop_config?.split;
@@ -740,7 +743,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const autoShotTime = Math.max(0,targetVideoTime-compositionClipStart);
   const activeAutomaticShot = !activePanels && !baseVideoItem?.framing_window && !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && (primaryLayoutMode === 'track' || Boolean(activePlanShot?.split))
     ? effectiveShotComposition.find(s=>autoShotTime>=s.start&&autoShotTime<s.end) : undefined;
-  const automaticLayoutLabel = !baseVideoItem?.crop&&!activePanels&&(baseVideoItem as any)?.crop_config?.layout_mode_source==='auto'&&!shotComposition?.length&&!smartReframe?.keyframes?.length ? 'Auto Fit · Review' : activeAutomaticShot && videoDims
+  const automaticLayoutLabel = automaticPlanReviewRequired?'Auto Fit · Review':!baseVideoItem?.crop&&!activePanels&&(baseVideoItem as any)?.crop_config?.layout_mode_source==='auto'&&!shotComposition?.length&&!smartReframe?.keyframes?.length ? 'Auto Fit · Review' : activeAutomaticShot && videoDims
     ? activeAutomaticShot.split ? 'Auto Split' : Math.abs(activeAutomaticShot.windowW*videoDims.w/(activeAutomaticShot.windowH!*videoDims.h)-9/16)<.01 ? 'Auto Fill' : 'Auto Fit'
     : undefined;
 
@@ -1260,7 +1263,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       {/* OPUS-STYLE TOP PREVIEW TOOLBAR */}
       <div className="w-full shrink-0 flex flex-col items-center justify-center gap-1 pb-2 z-30 max-md:pr-9">
         <div className="md:hidden w-full flex items-center justify-between gap-2 glass-float px-2 py-1 rounded-xl text-xs" data-testid="mobile-framing-summary">
-          <span className="truncate min-w-0 text-neutral-300">{project.canvas.aspect_ratio || '9:16'} · {baseVideoItem?.framing_window ? 'Context window' : activePanels ? PANEL_LABELS[activePanels.layout] : primaryLayoutMode === 'split' ? 'Split' : primaryVideoCropMode === 'fit' ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
+          <span className="truncate min-w-0 text-neutral-300">{project.canvas.aspect_ratio || '9:16'} · {automaticPlanReviewRequired?'Auto Fit · Review':baseVideoItem?.framing_window ? 'Context window' : activePanels ? PANEL_LABELS[activePanels.layout] : primaryLayoutMode === 'split' ? 'Split' : primaryVideoCropMode === 'fit' ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill'}</span>
           <button
             type="button"
             data-testid="mobile-framing-toggle"
@@ -1315,7 +1318,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             Auto candidate: {autoCandidateMixed?'MIXED · review':autoCandidateEnabled?'ON · review':'OFF'}
           </button>}
           {onSetAutoCandidate && baseVideoItem && <span data-testid="active-auto-candidate-state" className="text-[10px] text-neutral-400">This item: candidate {(baseVideoItem as any).crop_config?.automaticLayoutCandidate==='review-v1'?'ON':'OFF'}{baseVideoItem.locked?' · locked':''}</span>}
-          {automaticLayoutLabel?.includes('Fit') && <span data-testid="automatic-fit-aspect" className="text-[10px] text-amber-300" title="Actual sharp-view aspect. A full-source context fallback is not 4:3. Side content outside a crop remains unverified; review before sharing.">{activeAutomaticShot?.presentationProtection?.preserveWindow&&videoDims&&Math.abs(activeAutomaticShot.windowW*videoDims.w/(activeAutomaticShot.windowH*videoDims.h)-4/3)>.02?'Full-source Fit · context conflict':'4:3 Fit · check sides'}</span>}
+          {automaticLayoutLabel?.includes('Fit') && <span data-testid="automatic-fit-aspect" className="text-[10px] text-amber-300" title="Actual sharp-view aspect. A full-source context fallback is not 4:3. Side content outside a crop remains unverified; review before sharing.">{automaticPlanReviewRequired?'Full-source Fit · Review':activeAutomaticShot?.presentationProtection?.preserveWindow&&videoDims&&Math.abs(activeAutomaticShot.windowW*videoDims.w/(activeAutomaticShot.windowH*videoDims.h)-4/3)>.02?'Full-source Fit · context conflict':'4:3 Fit · check sides'}</span>}
           {/* 2. Layout: Fill / Fit / Blur - one toggle cycling the three fill modes */}
           {onUpdateCropMode && (
             <>

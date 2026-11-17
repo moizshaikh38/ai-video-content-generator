@@ -1,3 +1,5 @@
+import {expandSceneLayoutItem} from '../../../server/src/shared/sceneLayoutOverrides';
+import {resolvePreviewItemPlan,type PreviewMeasuredPlanEnvelope} from '../../../server/src/shared/previewItemAutomaticPlan';
 import {normalizeEditorCanvasAspect} from '../../../server/src/shared/editorCanvasAspect';
 import {setProjectAutoCandidate,projectAutoCandidate,projectAutoCandidateState} from '../../../server/src/shared/automaticLayoutCandidate';
 import { applyItemLayout, applySceneLayout, applyWholeClipLayout, readItemLayout, applyFramingStrategy } from '../../lib/itemLayout';
@@ -229,16 +231,29 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   } | null>(null);
   const autoCandidateEnabled=projectAutoCandidate(project);
   const [stableShotComposition,setStableShotComposition]=useState<NonNullable<typeof speakerSplitData>['shotComposition']>(null);
-  const activeCandidateItem=project.tracks.find(t=>t.type==='VIDEO'&&!t.hidden)?.items.find(i=>!i.hidden&&currentTime>=i.timeline_start&&currentTime<i.timeline_end);
+  const [adaptivePlanExpected,setAdaptivePlanExpected]=useState(false);
+  const [candidatePlanEnvelope,setCandidatePlanEnvelope]=useState<PreviewMeasuredPlanEnvelope|null>(null);
+  const [stablePlanEnvelope,setStablePlanEnvelope]=useState<PreviewMeasuredPlanEnvelope|null>(null);
+  const activeCandidateBase=project.tracks.find(t=>t.type==='VIDEO'&&!t.hidden)?.items.find(i=>!i.hidden&&currentTime>=i.timeline_start&&(currentTime<i.timeline_end||(currentTime===project.canvas.duration&&currentTime===i.timeline_end)));
+  const activeCandidateSourceTime=activeCandidateBase?activeCandidateBase.source_start+(currentTime-activeCandidateBase.timeline_start)*(activeCandidateBase.speed?.speed||1):0;
+  const activeCandidateScenes=React.useMemo(()=>{try{return activeCandidateBase?expandSceneLayoutItem(activeCandidateBase):[];}catch{return[];}},[activeCandidateBase]);
+  const activeCandidateItem=activeCandidateScenes.find(i=>activeCandidateSourceTime>=i.source_start&&(activeCandidateSourceTime<i.source_end||(currentTime===project.canvas.duration&&activeCandidateSourceTime===i.source_end)));
   const activeCandidate=activeCandidateItem?.crop_config?.automaticLayoutCandidate==='review-v1';
-  const speakerSplit=speakerSplitData?{...speakerSplitData,shotComposition:activeCandidate?speakerSplitData.shotComposition:stableShotComposition}:null;
+  const activeEnvelope=activeCandidate?candidatePlanEnvelope:stablePlanEnvelope;
+  const previewItemPlan=adaptivePlanExpected&&activeCandidateBase?(activeCandidateItem?resolvePreviewItemPlan(activeCandidateItem,activeEnvelope,{sourceAssetId:clip.id,sourcePath:clip.source_storage_path,outputAspect:project.canvas.aspect_ratio,layoutPolicy:clip.crop_config?.layoutPolicy,sourceVersion:(clip as any).selection_source_receipt?.source_receipt?.sha256}):{status:'unavailable' as const,reason:'effective-scene-clock-invalid'}):null;
+  const automaticPlanReviewRequired=previewItemPlan?.status==='unavailable';
+  const selectedComposition=previewItemPlan?.status==='ready'?previewItemPlan.shots as NonNullable<typeof speakerSplitData>['shotComposition']:adaptivePlanExpected?null:activeCandidate?speakerSplitData?.shotComposition:stableShotComposition;
+  const speakerSplit=automaticPlanReviewRequired?null:speakerSplitData?{...speakerSplitData,shotComposition:selectedComposition}:null;
   useEffect(() => {
     let cancelled = false;
     setSpeakerSplit(null);
+    setAdaptivePlanExpected(false);setCandidatePlanEnvelope(null);setStablePlanEnvelope(null);
     if (!clip?.id) return;
     Promise.all([clipRenderService.getClipReframe(clip.id,true),clipRenderService.getClipReframe(clip.id,false)])
       .then(([r,stable]) => {
         if (cancelled) return;
+        setAdaptivePlanExpected(Boolean(r.adaptiveComposition||stable.adaptiveComposition));
+        setCandidatePlanEnvelope(r.measuredPlanEnvelope??null);setStablePlanEnvelope(stable.measuredPlanEnvelope??null);
         setStableShotComposition(stable.status==='ready'&&!stable.isStale?stable.shotComposition??null:null);
         if (r.status === 'ready' && !r.isStale && Array.isArray(r.smoothedKeyframes) && r.smoothedKeyframes.length > 0) {
           setSpeakerSplit({
@@ -1797,7 +1812,9 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* CENTER VIEWPORT (VIDEO PREVIEW + TRANSPORT) */}
         <div className="flex-1 flex flex-col min-w-0 bg-vc-surface1 overflow-hidden relative">
+          {automaticPlanReviewRequired&&viewMode==='edit'&&<div role="status" className="shrink-0 border-b border-amber-700/50 bg-amber-950/70 px-3 py-2 text-xs text-amber-100">Automatic framing needs review for this scene. Showing the full source, not an export-qualified layout. Your manual settings are unchanged.</div>}
           <PreviewCanvas
+            automaticPlanReviewRequired={automaticPlanReviewRequired}
             project={project}
             playhead={currentTime}
             isPlaying={isMediaAdvancing}
@@ -1813,7 +1830,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             autoCandidateMixed={projectAutoCandidateState(project)==='mixed'}
             onSetAutoCandidate={enabled=>{onCommitProject?.(project);onUpdateProject(prev=>setProjectAutoCandidate(prev,enabled));}}
             onSetAutomaticFraming={(itemId,enabled,sourceTime)=>onUpdateProject(prev=>({...prev,tracks:prev.tracks.map(t=>t.type!=='VIDEO'?t:{...t,items:t.items.map(i=>itemId&&i.id!==itemId?i:{...i,automatic_framing:{enabled,...(!enabled?{freeze_source_time:sourceTime}:{})}})})}))}
-            compositionClipStart={(Number(clip?.start_seconds) || 0) + (speakerSplit?.analyzedTrimStart || 0)}
+            compositionClipStart={previewItemPlan?.status==='ready'?previewItemPlan.identity.analysisSourceStart:(Number(clip?.start_seconds) || 0) + (speakerSplit?.analyzedTrimStart || 0)}
             lowConfidenceTrack={Boolean(speakerSplit?.lowConfidenceTrack)}
             watermarkRequired={watermarkRequired}
             onPlayheadChange={seek}
@@ -1862,7 +1879,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 if(o)onUpdateTrackItem(track.id,itemId,{scene_layout_overrides:item.scene_layout_overrides!.map(x=>x===o?{...x,patch:{...x.patch,panels}}:x)},options);else onUpdateTrackItem(track.id, itemId, { panels, framing_window: undefined }, options);
               }
             }}
-            smartReframe={smartReframe}
+            smartReframe={automaticPlanReviewRequired?null:smartReframe}
             showSafeGuides={showSafeGuides}
             onToggleSafeGuides={toggleSafeGuides}
             onChangeAspectRatio={(aspectRatio) => {

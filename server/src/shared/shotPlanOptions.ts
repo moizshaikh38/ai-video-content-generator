@@ -1,4 +1,4 @@
-import type{ShotCompositionOptions}from '../services/smartReframeService.js';
+import type{ShotCompositionOptions}from './shotCompositionTypes.js';
 import{candidateCompositionOptions}from './automaticLayoutCandidate.js';
 import type{AutomaticLayoutPolicy}from './automaticLayoutPolicy.js';
 /** Compatibility boundary: the caller still owns source range, freshness and

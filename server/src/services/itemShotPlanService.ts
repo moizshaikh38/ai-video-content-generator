@@ -1,6 +1,7 @@
+import {canonicalPlanValue,type PreviewMeasuredPlanEnvelope} from '../shared/previewItemAutomaticPlan.js';
 import crypto from 'node:crypto';
 import {shotPlanOptions} from '../shared/shotPlanOptions.js';
-import {resolveItemAutomaticPlan,MAX_ANALYSIS_DURATION_ROUNDING_SECONDS,type ItemAutomaticPlanResult,type AutomaticShotPlan} from '../shared/itemAutomaticPlan.js';
+import {resolveItemAutomaticPlan,MAX_ANALYSIS_DURATION_ROUNDING_SECONDS,validAutomaticPlanIdentity,validAutomaticShotPlan,type ItemAutomaticPlanResult,type AutomaticShotPlan} from '../shared/itemAutomaticPlan.js';
 import type {ShotCompositionOptions} from './smartReframeService.js';
 
 /** Render-only binding. The actual input digest comes from the caller's file
@@ -15,15 +16,10 @@ export interface MeasuredItemPlanContext {
   decodedSource?:{width:number;height:number}|null;
   cropConfig?:any;
 }
-function canonical(value:any):any {
-  if(Array.isArray(value))return value.map(canonical);
-  if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().filter(k=>value[k]!==undefined).map(k=>[k,canonical(value[k])]));
-  return value;
-}
 /** Includes every actual compute option, including measured samples/cuts and
  * current per-scene configuration. Key order alone cannot change identity. */
 export function measuredPlanConfigurationFingerprint(options:ShotCompositionOptions):string {
-  return crypto.createHash('sha256').update(JSON.stringify(canonical({resolver:'measured-item-plan-v1',options}))).digest('hex');
+  return crypto.createHash('sha256').update(JSON.stringify(canonicalPlanValue({resolver:'measured-item-plan-v1',options}))).digest('hex');
 }
 export function resolveMeasuredItemPlan(item:any,ctx:MeasuredItemPlanContext,compute:(options:ShotCompositionOptions)=>AutomaticShotPlan):ItemAutomaticPlanResult {
   if(item.crop||item.panels||item.framing_window||item.tracker?.enabled||item.crop_config?.layout_mode_source==='user')return {status:'bypassed',reason:'manual-framing-precedence'};
@@ -35,4 +31,15 @@ export function resolveMeasuredItemPlan(item:any,ctx:MeasuredItemPlanContext,com
   const options=shotPlanOptions({track:t,candidate:item.crop_config?.automaticLayoutCandidate,layoutPolicy:item.crop_config?.layoutPolicy||ctx.cropConfig?.layoutPolicy,duration:m.clip_duration});
   const identity={schemaVersion:1 as const,itemId:item.id,sourceAssetId:ctx.sourceAssetId,sourceVersion:ctx.sourceSha256,analysisVersion:t.analysis_version,sourceStart:item.source_start,sourceEnd:item.source_end,analysisSourceStart:m.analyzed_source_start,analysisSourceEnd:m.analyzed_source_end,analysisDuration:m.clip_duration,sourceWidth:t.source_width,sourceHeight:t.source_height,outputAspect:ctx.aspectRatio,configurationFingerprint:measuredPlanConfigurationFingerprint(options)};
   return resolveItemAutomaticPlan({item,identity,analysisFresh:true,options},compute);
+}
+
+/** Preview does not re-download/encode. Current object receipt verification
+ * binds the recorded decoded dimensions and analysis to unchanged bytes.
+ * This is explicitly different provenance from export's fresh file probe. */
+export function createPreviewMeasuredEnvelope(clip:any,track:any,options:ShotCompositionOptions,shots:AutomaticShotPlan,retainedWindowVerified=false):PreviewMeasuredPlanEnvelope|null {
+ const m=track?.metadata||{};
+ if(!clip||track?.status!=='ready'||track.sourceObjectVerified!==true||(track.isStale&&!retainedWindowVerified)||track.clip_id!==clip.id||m.analyzed_source_path!==clip.source_storage_path||!/^[a-f0-9]{64}$/.test(m.analyzed_source_sha256||''))return null;
+ const identity={schemaVersion:1 as const,itemId:clip.id,sourceAssetId:clip.id,sourceVersion:m.analyzed_source_sha256,analysisVersion:track.analysis_version,sourceStart:m.analyzed_source_start,sourceEnd:m.analyzed_source_end,analysisSourceStart:m.analyzed_source_start,analysisSourceEnd:m.analyzed_source_end,analysisDuration:m.clip_duration,sourceWidth:track.source_width,sourceHeight:track.source_height,outputAspect:clip.aspect_ratio||'9:16',configurationFingerprint:measuredPlanConfigurationFingerprint(options)};
+ if(track.analyzed_aspect_ratio!==identity.outputAspect||!validAutomaticPlanIdentity(identity)||options.duration!==identity.analysisDuration||options.sourceWidth!==identity.sourceWidth||options.sourceHeight!==identity.sourceHeight||!validAutomaticShotPlan(shots,options.duration))return null;
+ return {schemaVersion:1,sourceValidation:'object-receipt-verified',geometryEvidence:'recorded-decoded-geometry-bound-to-verified-source',identity,sourcePath:clip.source_storage_path,configurationKey:JSON.stringify(canonicalPlanValue({candidate:{...(options.pairFocusReview!==undefined?{pairFocusReview:options.pairFocusReview}:{}),...(options.bodyOnlyPortraitReview!==undefined?{bodyOnlyPortraitReview:options.bodyOnlyPortraitReview}:{})},layoutPolicy:options.layoutPolicy})),shots:structuredClone(shots)};
 }

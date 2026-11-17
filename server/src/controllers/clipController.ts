@@ -1,3 +1,4 @@
+import {createPreviewMeasuredEnvelope} from '../services/itemShotPlanService.js';
 import {newCaptionDefaults} from '../shared/newCaptionDefaults.js';
 import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 import {candidateCompositionOptions,projectAutoCandidate} from '../shared/automaticLayoutCandidate.js';
@@ -1345,9 +1346,14 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
     const {data:policyClip}=await dataRepository.from('clips').select('*').eq('id',clipId).eq('user_id',userId).maybeSingle();
     const {data:policyProject}=await dataRepository.from('editor_projects').select('tracks').eq('clip_id',clipId).eq('user_id',userId).maybeSingle();
     const retainedPlan=track.sourceObjectVerified!==false&&policyClip?.crop_config?.mode==='smart'&&policyProject?storedScenePlanWindow(policyProject,policyClip,track):null;
+    const measuredOptions=shotPlanOptions({track,candidate:req.query.layoutCandidate==='review-v1'?'review-v1':req.query.layoutCandidate==='off'?undefined:policyProject&&projectAutoCandidate(policyProject)?'review-v1':policyClip?.crop_config?.automaticLayoutCandidate,layoutPolicy:policyClip?.crop_config?.layoutPolicy,duration:Number(track.metadata?.clip_duration)});
+    const measuredComposition=track.metadata?.shot_composition_candidate===true?SmartReframeService.computeShotComposition(measuredOptions):null;
+    const measuredPlanEnvelope=measuredComposition?createPreviewMeasuredEnvelope(policyClip,track,measuredOptions,measuredComposition,Boolean(retainedPlan)):null;
     // Return safe data without exposing server paths
     res.status(200).json({
       status: track.status,
+      measuredPlanEnvelope,
+      adaptiveComposition: track.metadata?.shot_composition_candidate===true,
       detectedFaceCount: track.detected_face_count || 0,
       dominantTrackId: track.dominant_track_id,
       contentFramingDecision: track.metadata?.content_framing_decision ?? null,
@@ -1384,7 +1390,7 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       sourceWidth: track.source_width || null,
       sourceHeight: track.source_height || null,
       shotComposition: legacyFit43Plan(track,Number(track.metadata?.clip_duration)||1,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)) || legacyPolicyFallback(policyClip?.crop_config?.layoutPolicy,track,Number(track.metadata?.clip_duration)||track.smoothed_keyframes?.at(-1)?.time||1) || (track.metadata?.shot_composition_candidate === true
-        ? SmartReframeService.computeShotComposition(shotPlanOptions({track,candidate:req.query.layoutCandidate==='review-v1'?'review-v1':req.query.layoutCandidate==='off'?undefined:policyProject&&projectAutoCandidate(policyProject)?'review-v1':policyClip?.crop_config?.automaticLayoutCandidate,layoutPolicy:policyClip?.crop_config?.layoutPolicy,duration:Number(track.metadata.clip_duration)})) : null),
+        ? measuredComposition : null),
       groupFrame: (() => {
         const g = SmartReframeService.computeGroupFrameGeometry({
           rawSamples: track.raw_samples,

@@ -1,5 +1,5 @@
 import {normalizePanels}from './panelLayouts.js';
-import type{ShotCompositionOptions}from '../services/smartReframeService.js';
+import type{ShotCompositionOptions}from './shotCompositionTypes.js';
 export interface AutomaticPlanIdentity {
  schemaVersion:1;itemId:string;sourceAssetId:string;sourceVersion:string;analysisVersion:number;
  sourceStart:number;sourceEnd:number;analysisSourceStart:number;analysisSourceEnd:number;

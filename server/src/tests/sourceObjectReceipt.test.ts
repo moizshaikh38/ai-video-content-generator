@@ -28,10 +28,19 @@ test('download receipt binds actual hash to object validator and normal preview 
     assert.deepEqual(analyzed.metadata.analyzed_source_receipt,downloaded.sourceReceipt);
     assert.equal(analyzed.metadata.analyzed_source_sha256,downloaded.sha256);
    }finally{(SmartReframeService as any).runCvAnalyzer=originalCv;}
+   // Actual local database + object HEAD + normal controller, with explicitly
+   // synthetic analysis records. This is not a video/recognition qualification.
+   await db.collection('clips').updateOne({id},{$set:{crop_config:{mode:'smart',layout_mode:'track'}}});
+   await db.collection('reframe_tracks').updateMany({clip_id:id},{$set:{status:'ready',analysis_version:1,source_width:854,source_height:480,raw_samples:[{time:0,faces:[]}],smoothed_keyframes:[{time:0,centerX:.5,centerY:.5}],'metadata.shot_composition_candidate':true,'metadata.clip_duration':4}});
+   const {getClipReframe:normalPreview}=await import('../controllers/clipController.js');let boundResponse:any;
+   await normalPreview({user:{id:uid},params:{clipId:id},query:{layoutCandidate:'off'}} as any,{status(){return this;},json(value:any){boundResponse=value;return this;}} as any);
+   assert.equal(boundResponse.adaptiveComposition,true);assert.equal(boundResponse.measuredPlanEnvelope?.sourceValidation,'object-receipt-verified');assert.equal(boundResponse.measuredPlanEnvelope.identity.sourceVersion,downloaded.sha256);
+   const {resolvePreviewItemPlan}=await import('../shared/previewItemAutomaticPlan.js');
+   const accepted=resolvePreviewItemPlan({id:'contained-ui-item',source_start:1,source_end:3,source_asset_id:id,source_path:key},boundResponse.measuredPlanEnvelope,{sourceAssetId:id,sourcePath:key,outputAspect:'9:16',sourceVersion:downloaded.sha256});assert.equal(accepted.status,'ready');
    etag='"version-b"';const changed=await SmartReframeService.getReframeTrack(id,uid,undefined,true);assert.equal(changed?.isStale,true);assert.equal(changed?.sourceObjectVerified,false);
    const {getClipReframe}=await import('../controllers/clipController.js');let response:any;
    await getClipReframe({user:{id:uid},params:{clipId:id},query:{}} as any,{status(){return this;},json(value:any){response=value;return this;}} as any);
-   assert.equal(response.isStale,true);
+   assert.equal(response.isStale,true);assert.equal(response.measuredPlanEnvelope,null);
 
    etag='"version-a"';await db.collection('reframe_tracks').updateMany({clip_id:id},{$unset:{'metadata.analyzed_source_receipt':''}});
    assert.equal((await SmartReframeService.getReframeTrack(id,uid,undefined,true))?.isStale,true);
