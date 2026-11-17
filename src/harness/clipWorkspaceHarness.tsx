@@ -29,6 +29,10 @@ const mockCandidate: any = {
   updated_at: new Date().toISOString(),
 };
 
+if(new URLSearchParams(window.location.search).get('fallback')==='1'){
+ Object.assign(mockCandidate,{start_seconds:0,end_seconds:8,duration_seconds:8,category:'insight',title:'Short transcript span for review',hook:'',reason:'Available short transcript-span fallback because no clip proposals were returned. Story quality and ranking are unverified.',engagement_score:0,metadata:{ranking_status:'unranked',selection_origin:'short-source-fallback',narrative_evidence_status:'unreviewed',vireo_score:null,explanation:null}});
+}
+
 const mockTranscript: any = {
   id: 't-1',
   project_id: 'harness-project',

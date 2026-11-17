@@ -1,3 +1,4 @@
+import {candidateRankingDisplay} from '../../../server/src/shared/candidateRankingDisplay';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -672,8 +673,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                     const isSelected = candidate.id === activeCandidate?.id;
                     const isChosen = candidate.status === 'selected';
                     // Show the internal AI ranking only when one exists — never fabricate a score.
-                    const rawScore = candidate.metadata?.vireo_score ?? candidate.engagement_score;
-                    const score = typeof rawScore === 'number' ? rawScore : null;
+                    const score = candidateRankingDisplay(candidate);
                     const visualScore = candidate.metadata?.explanation?.visual_activity_score;
                     const wasSnapped = candidate.metadata?.was_snapped;
 
@@ -1033,8 +1033,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                           )}
                         </div>
                         {(() => {
-                          const raw = activeCandidate.metadata?.vireo_score ?? activeCandidate.engagement_score;
-                          const activeScore = typeof raw === 'number' ? raw : null;
+                          const activeScore = candidateRankingDisplay(activeCandidate);
                           return activeScore !== null ? (
                             <span
                               className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums ${
@@ -1217,8 +1216,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                 const progress = clip.latest_job?.progress ?? (isReady ? 100 : 0);
                 const stage = clip.latest_job?.stage || clip.render_status;
                 // Never fabricate a rank for clips whose candidate was not scored.
-                const rawScore = matchingCand?.metadata?.vireo_score ?? matchingCand?.engagement_score;
-                const score = typeof rawScore === 'number' ? rawScore : null;
+                const score = candidateRankingDisplay(matchingCand);
 
                 return (
                   <div

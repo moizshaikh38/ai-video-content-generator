@@ -1,3 +1,4 @@
+import {buildShortSourceSelectionFallback} from '../shared/selectionFallback.js';
 import { replaceSuggestedCandidates } from '../db/repositories/clipCandidateRepository.js';
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
@@ -633,6 +634,9 @@ export class ClipAnalysisService {
         throw transNotFound;
       }
 
+      if(transcript.quality_assessment?.status==='needs_review'){
+        const error:any=Error('Transcript needs source-audio review before clip selection.');error.code='TRANSCRIPT_REVIEW_REQUIRED';throw error;
+      }
       const rawSegments = transcript.segments;
       if (!Array.isArray(rawSegments) || rawSegments.length === 0) {
         const noSegments: any = new Error('Transcript contains no timestamped segments. Cannot find clips without segment boundaries.');
@@ -640,9 +644,12 @@ export class ClipAnalysisService {
         throw noSegments;
       }
 
+      if(rawSegments.some((s:any)=>!s||typeof s.start!=='number'||!Number.isFinite(s.start)||s.start<0||typeof s.end!=='number'||!Number.isFinite(s.end)||s.end<=s.start||typeof s.text!=='string')){
+        const error:any=Error('Transcript segment clocks are invalid or missing. Source-audio review is required.');error.code='CLIP_SEGMENTS_INVALID';throw error;
+      }
       const segments: TranscriptSegment[] = rawSegments.map((s: any) => ({
-        start: Number(s.start) || 0,
-        end: Number(s.end) || 0,
+        start: s.start,
+        end: s.end,
         text: String(s.text || ''),
       }));
 
@@ -951,28 +958,12 @@ export class ClipAnalysisService {
         aiCandidates = ClipAnalysisService.parseAIResponse(aiResponse);
       }
 
-      // 5. Fallback for very short videos if LLM produced 0 clips
-      if (aiCandidates.length === 0 && segments.length > 0) {
-        const seg = segments[0];
-        const segDur = seg.end - seg.start;
-        if (segDur >= 2.0) {
-          logger.info(`Creating fallback clip candidate for short video (duration: ${segDur.toFixed(2)}s)`);
-          aiCandidates = [
-            {
-              start_segment_index: 0,
-              end_segment_index: segments.length - 1,
-              title: project.title || 'Video Highlight',
-              hook: seg.text.slice(0, 50),
-              reason: 'Strongest standalone moment in the source clip.',
-              category: 'insight',
-              hook_score: 85,
-              standalone_score: 85,
-              insight_score: 85,
-              emotion_score: 80,
-              platform_score: 85,
-            },
-          ];
-        }
+      // An unranked transcript-span review fallback is allowed only for genuinely
+      // short sources. No invented model scores, strongest-moment claim or hook.
+      let usedShortSourceFallback=false;
+      if(aiCandidates.length===0){
+        const fallback=buildShortSourceSelectionFallback(segments,transcript.duration_seconds,project.title);
+        if(fallback){aiCandidates=[fallback];usedShortSourceFallback=true;}
       }
 
       if (aiCandidates.length === 0) {
@@ -1098,7 +1089,7 @@ export class ClipAnalysisService {
         let duration_seconds = Number((end_seconds - start_seconds).toFixed(3));
 
         // Use hybrid multimodal Vireo Score
-        const engagement_score = scored.vireo_score;
+        const engagement_score = usedShortSourceFallback ? 0 : scored.vireo_score; // legacy numeric sort sentinel, not a fallback quality score
 
         // Question auto-inclusion (advantage B4): when the clip answers a
         // question it doesn't include and the exchange fits the genre clamps,
@@ -1166,8 +1157,11 @@ export class ClipAnalysisService {
           engagement_score,
           cold_open,
           metadata: {
-            vireo_score: scored.vireo_score,
-            explanation: scored.explanation,
+            selection_origin: usedShortSourceFallback ? 'short-source-fallback' : 'provider-proposal',
+            narrative_evidence_status: 'unreviewed',
+            ranking_status: usedShortSourceFallback ? 'unranked' : 'heuristic',
+            vireo_score: usedShortSourceFallback ? null : scored.vireo_score,
+            explanation: usedShortSourceFallback ? null : scored.explanation,
             genre: genreProfile.genre,
             layout_mode: genreProfile.recommendedLayoutMode || 'track',
             // Provenance: this value is a genre-profile recommendation, not a

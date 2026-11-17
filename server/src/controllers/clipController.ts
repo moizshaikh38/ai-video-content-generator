@@ -131,6 +131,11 @@ export const analyzeProjectClips = async (req: AuthenticatedRequest, res: Respon
       return;
     }
 
+    if(err.code==='TRANSCRIPT_REVIEW_REQUIRED'||err.code==='CLIP_SEGMENTS_INVALID'){
+      res.status(409).json({status:'error',code:err.code,message:err.message});
+      return;
+    }
+
     if (err.code === 'CLIP_SEGMENTS_UNAVAILABLE') {
       res.status(400).json({
         status: 'error',

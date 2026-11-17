@@ -23,7 +23,7 @@ export const WhyThisClipSection: React.FC<WhyThisClipSectionProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
-  const explanation = candidate.metadata?.explanation as VireoClipScoreExplanation | undefined;
+  const explanation = candidate.metadata?.ranking_status==='unranked' ? undefined : candidate.metadata?.explanation as VireoClipScoreExplanation | undefined;
   const wasSnapped = Boolean(candidate.metadata?.was_snapped);
 
   // Genre badge resolution
