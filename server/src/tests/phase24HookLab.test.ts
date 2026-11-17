@@ -21,7 +21,9 @@ import {
   TranscriptSegment,
 } from '../types/index.js';
 
-const REAL_VIDEO_ASSET = path.resolve(
+// Explicit alternate media is reported by the qualification runner, never
+// silently substituted for the missing historical launch asset.
+const REAL_VIDEO_ASSET = process.env.VIREO_QUALIFICATION_MEDIA || path.resolve(
   process.cwd(),
   '../artifacts/vireo-launch/vireo-launch-preview-1080p.mp4'
 );
@@ -187,15 +189,11 @@ describe('Phase 24 — Vireo Hook Lab Test Suite', () => {
         ],
       });
 
-      // Create a content pack to test sync
-      const pack = await ContentPackService.generateContentPack({
-        projectId,
-        clipId,
-        userId,
-        platform: 'shorts',
-        mode: 'BALANCED',
-      });
-      contentPackId = pack.id;
+      // This suite tests Hook Lab import, not paid content-pack generation.
+      // Seed explicit synthetic upstream output; never call a provider in setup.
+      contentPackId=crypto.randomUUID();
+      await dataRepository.from('content_packs').insert({id:contentPackId,user_id:userId,project_id:projectId,clip_id:clipId,status:'GENERATED'});
+      await dataRepository.from('content_pack_items').insert({id:crypto.randomUUID(),content_pack_id:contentPackId,user_id:userId,type:'HOOK',text:realSegments[1].text,source_evidence:[{quote_snippet:realSegments[1].text,source_timestamps:[{start:3.2,end:8.5}],source_segment_ids:['synthetic-segment-1']}]});
     });
   });
 

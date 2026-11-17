@@ -32,7 +32,9 @@ const execFileAsync = promisify(execFile);
 const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
 
 // Real launch video test asset path
-const REAL_VIDEO_ASSET = path.resolve(
+// Explicit alternate media is reported by the qualification runner, never
+// silently substituted for the missing historical launch asset.
+const REAL_VIDEO_ASSET = process.env.VIREO_QUALIFICATION_MEDIA || path.resolve(
   process.cwd(),
   '../artifacts/vireo-launch/vireo-launch-preview-1080p.mp4'
 );
@@ -868,7 +870,12 @@ describe('Phase 20 — Vireo Audio + Voice Studio System Tests', () => {
           ],
         });
 
-        const graph = ProEditorService.compileRenderGraph(project, REAL_VIDEO_ASSET);
+        // Exercise the production normalization compiler, not the legacy
+        // synchronous one-pass graph whose buffering is already deprecated.
+        project.canvas.duration=2.5;
+        project.tracks[0].items[0].timeline_end=2.5;
+        project.tracks[0].items[0].source_end=2.5;
+        const graph = await ProEditorService.compileRenderGraphWithNormalization(project, REAL_VIDEO_ASSET, outputVideo, tmpDir);
 
         // Bound every input to the rendered window plus a small margin: without it,
         // one-pass loudnorm stalls the muxer until input EOF and the unbounded 1080p
@@ -915,6 +922,7 @@ describe('Phase 20 — Vireo Audio + Voice Studio System Tests', () => {
         const aStream = probeData.streams?.find((s: any) => s.codec_type === 'audio');
 
         assert.ok(vStream, 'Output video stream must exist');
+        if(process.env.VIREO_QUALIFICATION_OUTPUT){fs.copyFileSync(outputVideo,process.env.VIREO_QUALIFICATION_OUTPUT);fs.writeFileSync(process.env.VIREO_QUALIFICATION_OUTPUT+'.graph.json',JSON.stringify({graph,ffmpegArgs,probeData},null,2));}
         assert.ok(aStream, 'Output audio stream must exist');
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });

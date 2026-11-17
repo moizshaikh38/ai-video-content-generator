@@ -15,3 +15,15 @@ Findings:
 - Broader configured run before allowlist fix47passed2failed21cancelled. HookLab21cancellations are setup failure: content-pack generation attempts unavailable AI provider with no key. Must mock its external dependency explicitly before calling this reproducible.
 
 Evidence logs under /downloads/vireo-cleanclip-baseline. No all-green claim. No production, paid-provider, full4K or untouched output claim.
+
+## Reproducible integration lane, subsequent result
+
+The remaining audio failure was a stale test path: it called the legacy synchronous one-pass compiler, not compileRenderGraphWithNormalization used by the current render flow. Audio-only isolation reproduced an empty mixed WAV with legacy one-pass loudnorm, while removing that stage restored samples. The production measure/apply compiler already avoids the buffering path. The E2E test now explicitly renders a2.5s project through that compiler. No new product normalization code was changed to make this pass.
+
+HookLab setup now seeds an explicit synthetic upstream content pack/item for its import test instead of invoking live paid generation in before(). Its text/segments were already synthetic and remain so; this is not generation/transcript truth evidence.
+
+A repeatable explicit-media runner now records source SHA256, commit, timestamps, fresh isolated local DB name, selected test list, status and counts. Provider keys are blank and existing test mocks retain actual middleware. It refuses missing media or an existing result directory. Run from server: VIREO_QUALIFICATION_MEDIA=/path/to/explicit.mp4 VIREO_BASELINE_RESULTS=/path/to/new-results tsx scripts/local-qualification/cleanclip-baseline.mts. Requires existing local Mongo27019. No automatic production fallback.
+
+Fresh repeatable run:86tests passed,0failed,0cancelled,0skipped. Server typecheck passed. ffprobe confirms2.500s video and2.500s audio in bounded-normalized.mp4. Actual decoded video samples inspected: this is a portrait crop of the explicit alternate and no caption output. No clean-layout, listening-quality or editorial claim follows. Artifacts /downloads/vireo-cleanclip-baseline/repeatable-1 include tests.log,manifest.json,output and graph. Source normalization/ducking processing is tested, not independent listening quality or missing historical media.
+
+This closes the selected integration setup gate only. Earlier broader caption failures, production state, full source-to-download untouched evaluation, resource isolation/4K, corpus and blind editorial evaluation remain outstanding. The manifest commit names the preceding checkpoint because these test/runner edits were uncommitted during execution; this note and next commit preserve the tested edits.
