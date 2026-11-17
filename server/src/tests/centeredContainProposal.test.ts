@@ -1,0 +1,3 @@
+import{test}from'node:test';import assert from'node:assert/strict';import{centeredContainProposal as make}from'../shared/centeredContainProposal.js';
+test('centers changing heads without cropping the existing camera partition',()=>{const cs=[.1,.2,.3],p=make(1920,1080,720,640,0,.45,cs)!;assert.ok(p);for(let i=0;i<cs.length;i++){const r=p.placements[i];assert.ok(r.left>=0&&r.left+r.width<=720);assert.ok(Math.abs(r.left+cs[i]*1920*p.scale-360)<1e-6)}assert.equal(new Set(p.placements.map(v=>v.width)).size,1)});
+test('wrong region, missing or invalid evidence does not create source pixels',()=>{assert.equal(make(1920,1080,720,640,0,.45,[]),null);assert.equal(make(1920,1080,720,640,0,.45,[.5]),null);assert.equal(make(1920,1080,720,640,0,.45,[NaN]),null)});
