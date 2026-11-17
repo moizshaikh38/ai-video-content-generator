@@ -2543,6 +2543,9 @@ function buildPresetCueEventsBare(cue: PresetTimedCue, baseStyle: ResolvedCaptio
 
   const slices = getPresetCueSlices(cue, validWords, style);
   const breakIdx = getCueLineBreakIndex(cue, validWords.length);
+  // In BorderStyle 3 the outline channel is the line background, not glyph stroke.
+  // Inline word effects must restore that box, including after the active word.
+  const resetOutlineColour = hexToAssColor(style.box?.color ?? style.outlineColor);
   const events: string[] = [];
 
   slices.forEach((slice, sIdx) => {
@@ -2589,8 +2592,8 @@ function buildPresetCueEventsBare(cue: PresetTimedCue, baseStyle: ResolvedCaptio
           tags.push(`\\fscx${Math.round(100 * fontMult)}\\fscy${Math.round(100 * fontMult)}`);
         }
         const reset = style.activeWordBox
-          ? `{\\c${tokenTextColour}\\3c${hexToAssColor(style.outlineColor)}\\bord${style.outlineWidth}\\fscx100\\fscy100\\blur0}`
-          : `{\\c${tokenTextColour}\\3c${hexToAssColor(style.outlineColor)}\\bord${style.outlineWidth}\\fscx100\\fscy100\\blur0}`;
+          ? `{\\c${tokenTextColour}\\3c${resetOutlineColour}\\bord${style.outlineWidth}\\fscx100\\fscy100\\blur0}`
+          : `{\\c${tokenTextColour}\\3c${resetOutlineColour}\\bord${style.outlineWidth}\\fscx100\\fscy100\\blur0}`;
         piece = `{${tags.join('')}}${wordText}${reset}`;
       } else if (keywordHit) {
         // Static keyword highlight keeps its colour until the word becomes active.
@@ -2612,7 +2615,7 @@ function buildPresetCueEventsBare(cue: PresetTimedCue, baseStyle: ResolvedCaptio
           if (fontMult !== 1) preTags.push(`\\fscx${Math.round(100 * fontMult)}\\fscy${Math.round(100 * fontMult)}`);
           if (cs?.effect === 'pill') preTags.push(`\\3c${hexToAssColor(cs.pillColor || '#ED3A7C')}\\bord8`);
           if (cs?.effect === 'glow') preTags.push(`\\blur6\\3c${tokenTextColour}`);
-          piece = `{${preTags.join('')}}${wordText}{\\c${textColour}\\3c${hexToAssColor(style.outlineColor)}\\bord${style.outlineWidth}\\fscx100\\fscy100\\blur0}`;
+          piece = `{${preTags.join('')}}${wordText}{\\c${textColour}\\3c${resetOutlineColour}\\bord${style.outlineWidth}\\fscx100\\fscy100\\blur0}`;
         }
       }
       if (i > 0) out += i - 1 === breakIdx ? '\\N' : ' ';
