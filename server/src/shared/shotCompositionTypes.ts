@@ -23,4 +23,3 @@ export interface ShotCompositionOptions {
     /** Optional measured regions, local qualification only. Not semantic proof. */
     protectedContentRegions?: Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>;
   }
-

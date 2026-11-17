@@ -36,10 +36,12 @@ export function resolveMeasuredItemPlan(item:any,ctx:MeasuredItemPlanContext,com
 /** Preview does not re-download/encode. Current object receipt verification
  * binds the recorded decoded dimensions and analysis to unchanged bytes.
  * This is explicitly different provenance from export's fresh file probe. */
-export function createPreviewMeasuredEnvelope(clip:any,track:any,options:ShotCompositionOptions,shots:AutomaticShotPlan,retainedWindowVerified=false):PreviewMeasuredPlanEnvelope|null {
+export function createPreviewMeasuredEnvelope(clip:any,track:any,options:ShotCompositionOptions,compute:(options:ShotCompositionOptions)=>AutomaticShotPlan,retainedWindowVerified=false):PreviewMeasuredPlanEnvelope|null {
  const m=track?.metadata||{};
  if(!clip||track?.status!=='ready'||track.sourceObjectVerified!==true||(track.isStale&&!retainedWindowVerified)||track.clip_id!==clip.id||m.analyzed_source_path!==clip.source_storage_path||!/^[a-f0-9]{64}$/.test(m.analyzed_source_sha256||''))return null;
  const identity={schemaVersion:1 as const,itemId:clip.id,sourceAssetId:clip.id,sourceVersion:m.analyzed_source_sha256,analysisVersion:track.analysis_version,sourceStart:m.analyzed_source_start,sourceEnd:m.analyzed_source_end,analysisSourceStart:m.analyzed_source_start,analysisSourceEnd:m.analyzed_source_end,analysisDuration:m.clip_duration,sourceWidth:track.source_width,sourceHeight:track.source_height,outputAspect:clip.aspect_ratio||'9:16',configurationFingerprint:measuredPlanConfigurationFingerprint(options)};
- if(track.analyzed_aspect_ratio!==identity.outputAspect||!validAutomaticPlanIdentity(identity)||options.duration!==identity.analysisDuration||options.sourceWidth!==identity.sourceWidth||options.sourceHeight!==identity.sourceHeight||!validAutomaticShotPlan(shots,options.duration))return null;
+ if(track.analyzed_aspect_ratio!==identity.outputAspect||!validAutomaticPlanIdentity(identity)||options.duration!==identity.analysisDuration||options.sourceWidth!==identity.sourceWidth||options.sourceHeight!==identity.sourceHeight)return null;
+ const shots=compute(options);
+ if(measuredPlanConfigurationFingerprint(options)!==identity.configurationFingerprint||!validAutomaticShotPlan(shots,options.duration))return null;
  return {schemaVersion:1,sourceValidation:'object-receipt-verified',geometryEvidence:'recorded-decoded-geometry-bound-to-verified-source',identity,sourcePath:clip.source_storage_path,configurationKey:JSON.stringify(canonicalPlanValue({candidate:{...(options.pairFocusReview!==undefined?{pairFocusReview:options.pairFocusReview}:{}),...(options.bodyOnlyPortraitReview!==undefined?{bodyOnlyPortraitReview:options.bodyOnlyPortraitReview}:{})},layoutPolicy:options.layoutPolicy})),shots:structuredClone(shots)};
 }

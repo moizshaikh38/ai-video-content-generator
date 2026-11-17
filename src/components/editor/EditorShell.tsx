@@ -242,6 +242,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   const activeEnvelope=activeCandidate?candidatePlanEnvelope:stablePlanEnvelope;
   const previewItemPlan=adaptivePlanExpected&&activeCandidateBase?(activeCandidateItem?resolvePreviewItemPlan(activeCandidateItem,activeEnvelope,{sourceAssetId:clip.id,sourcePath:clip.source_storage_path,outputAspect:project.canvas.aspect_ratio,layoutPolicy:clip.crop_config?.layoutPolicy,sourceVersion:(clip as any).selection_source_receipt?.source_receipt?.sha256}):{status:'unavailable' as const,reason:'effective-scene-clock-invalid'}):null;
   const automaticPlanReviewRequired=previewItemPlan?.status==='unavailable';
+  const compositionSourceStart=previewItemPlan?.status==='ready'?previewItemPlan.identity.analysisSourceStart:(Number(clip?.start_seconds)||0)+(speakerSplitData?.analyzedTrimStart||0);
   const selectedComposition=previewItemPlan?.status==='ready'?previewItemPlan.shots as NonNullable<typeof speakerSplitData>['shotComposition']:adaptivePlanExpected?null:activeCandidate?speakerSplitData?.shotComposition:stableShotComposition;
   const speakerSplit=automaticPlanReviewRequired?null:speakerSplitData?{...speakerSplitData,shotComposition:selectedComposition}:null;
   useEffect(() => {
@@ -1688,7 +1689,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                     current={readItemLayout(sceneItem)}
                     onPick={(layout) => {
                       onCommitProject?.(project);
-                      onUpdateProject(prev=>{const offset=(Number(clip?.start_seconds)||0)+(speakerSplit?.analyzedTrimStart||0),time=sceneItem.source_start+(currentTime-sceneItem.timeline_start)*(sceneItem.speed?.speed||1);const shot=speakerSplit?.shotComposition?.find(s=>time>=s.start+offset&&time<s.end+offset);return shot?applySceneLayout(prev,sceneItem.id,shot.start+offset,shot.end+offset,layout,smartReframe?.keyframes??null):applyItemLayout(prev,sceneItem.id,layout,smartReframe?.keyframes??null)});
+                      onUpdateProject(prev=>{const offset=compositionSourceStart,time=sceneItem.source_start+(currentTime-sceneItem.timeline_start)*(sceneItem.speed?.speed||1);const shot=speakerSplit?.shotComposition?.find(s=>time>=s.start+offset&&time<s.end+offset);return shot?applySceneLayout(prev,sceneItem.id,shot.start+offset,shot.end+offset,layout,smartReframe?.keyframes??null):applyItemLayout(prev,sceneItem.id,layout,smartReframe?.keyframes??null)});
                     }}
                   />
                 </div>
@@ -1700,7 +1701,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 if (!sp?.shotComposition?.length || !sp.sourceWidth || !sp.sourceHeight) return null;
                 const trim = Number(clip?.trim_start_offset) || 0;
                 const ctx = {
-                  clipStartSec: (Number(clip?.start_seconds) || 0) + trim, analyzedTrimStart: sp.analyzedTrimStart || 0, currentTrimStart: trim,
+                  clipStartSec: compositionSourceStart, analyzedTrimStart: sp.analyzedTrimStart || 0, currentTrimStart: trim,
                   sourcePath: sp.analyzedSourcePath,
                   planVersion: `shot-composition-v1:a${sp.analysisVersion ?? 0}`, sourceWidth: sp.sourceWidth, sourceHeight: sp.sourceHeight,
                 };
@@ -1830,7 +1831,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             autoCandidateMixed={projectAutoCandidateState(project)==='mixed'}
             onSetAutoCandidate={enabled=>{onCommitProject?.(project);onUpdateProject(prev=>setProjectAutoCandidate(prev,enabled));}}
             onSetAutomaticFraming={(itemId,enabled,sourceTime)=>onUpdateProject(prev=>({...prev,tracks:prev.tracks.map(t=>t.type!=='VIDEO'?t:{...t,items:t.items.map(i=>itemId&&i.id!==itemId?i:{...i,automatic_framing:{enabled,...(!enabled?{freeze_source_time:sourceTime}:{})}})})}))}
-            compositionClipStart={previewItemPlan?.status==='ready'?previewItemPlan.identity.analysisSourceStart:(Number(clip?.start_seconds) || 0) + (speakerSplit?.analyzedTrimStart || 0)}
+            compositionClipStart={compositionSourceStart}
             lowConfidenceTrack={Boolean(speakerSplit?.lowConfidenceTrack)}
             watermarkRequired={watermarkRequired}
             onPlayheadChange={seek}
@@ -1914,7 +1915,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               onCommitProject?.(project);
               onUpdateProject((prev) => {
                 const item=prev.tracks.flatMap(t=>t.type==='VIDEO'?t.items:[]).find(i=>i.id===itemId);if(!item)return prev;
-                const offset=(Number(clip?.start_seconds)||0)+(speakerSplit?.analyzedTrimStart||0),sourceTime=item.source_start+(currentTime-item.timeline_start)*(item.speed?.speed||1);
+                const offset=compositionSourceStart,sourceTime=item.source_start+(currentTime-item.timeline_start)*(item.speed?.speed||1);
                 const shot=speakerSplit?.shotComposition?.find(s=>sourceTime>=s.start+offset&&sourceTime<s.end+offset);
                 return shot ? applySceneLayout(prev,itemId,shot.start+offset,shot.end+offset,layout,smartReframe?.keyframes??null) : applyItemLayout(prev,itemId,layout,smartReframe?.keyframes??null);
               });
@@ -2161,7 +2162,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
       {/* 3. MULTI-TRACK UNIFIED TIMELINE */}
       <UnifiedTimeline
-        automaticSceneRanges={(speakerSplit?.shotComposition || []).map(s=>({start:s.start+(Number(clip?.start_seconds)||0)+(speakerSplit?.analyzedTrimStart||0),end:s.end+(Number(clip?.start_seconds)||0)+(speakerSplit?.analyzedTrimStart||0),label:s.split?'Auto Split':Math.abs(s.windowW*(speakerSplit?.sourceWidth||1)/(s.windowH*(speakerSplit?.sourceHeight||1))-9/16)<.01?'Auto Fill':'Auto Fit',review:Boolean((s as any).contextStatus?.startsWith('unresolved')),reason:(s as any).uncertainty}))}
+        automaticSceneRanges={(speakerSplit?.shotComposition || []).map(s=>({start:s.start+compositionSourceStart,end:s.end+compositionSourceStart,label:s.split?'Auto Split':Math.abs(s.windowW*(speakerSplit?.sourceWidth||1)/(s.windowH*(speakerSplit?.sourceHeight||1))-9/16)<.01?'Auto Fill':'Auto Fit',review:Boolean((s as any).contextStatus?.startsWith('unresolved')),reason:(s as any).uncertainty}))}
         contentFramingDecision={speakerSplit?.contentFramingDecision ?? null}
         subjectKeyframes={smartReframe?.keyframes ?? null}
         height={timelineHeight}
