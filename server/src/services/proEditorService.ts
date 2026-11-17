@@ -1,3 +1,4 @@
+import {candidateCompositionOptions} from '../shared/automaticLayoutCandidate.js';
 import {captionCompositionWindows,type CaptionLayoutWindow} from '../shared/sceneCaptionPlacement.js';
 import {trackerHandoffSpec,buildTrackerHandoffFilter} from '../shared/trackerHandoff.js';
 import {legacyFit43Plan,legacyPolicyFallback} from '../shared/automaticLayoutPolicy.js';
@@ -335,6 +336,7 @@ export class ProEditorService {
           if (item.transition_out && !EDITOR_TRANSITION_TYPES.includes(item.transition_out.type)) {
             throw new AppError(`Invalid transition type: ${item.transition_out.type}`, 400, 'INVALID_TRANSITION');
           }
+          if(item.crop_config?.automaticLayoutCandidate!==undefined&&item.crop_config.automaticLayoutCandidate!=='review-v1')throw new AppError('Invalid Auto Layout candidate',400,'INVALID_AUTO_LAYOUT_CANDIDATE');
           try{validateSceneLayoutOverrides(item)}catch(e){throw new AppError(String((e as Error).message),400,'INVALID_SCENE_LAYOUT')}
           ProEditorService.assertItemFramingWindow(item, dto.canvas?.aspect_ratio ?? current.canvas?.aspect_ratio ?? '9:16');
           // Source paths become server-side fetches and FFmpeg inputs — validate strictly.
@@ -1213,7 +1215,7 @@ export class ProEditorService {
    */
   private static resolveShotCompositionPlan(item:EditorTrackItem,reframe:ProReframeContext){
     const track=reframe.track!;
-    return SmartReframeService.computeShotComposition({layoutPolicy:item.crop_config?.layoutPolicy||reframe?.cropConfig?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:(track as any).raw_samples,sceneCuts:track.metadata.scene_cuts,
+    return SmartReframeService.computeShotComposition({...candidateCompositionOptions(item.crop_config?.automaticLayoutCandidate),layoutPolicy:item.crop_config?.layoutPolicy||reframe?.cropConfig?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate === true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect === '4:3' ? '4:3' : undefined,windowScope:track.metadata?.shot_composition_window_scope === 'shot' ? 'shot' : 'clip',rawSamples:(track as any).raw_samples,sceneCuts:track.metadata.scene_cuts,
           duration:Number(track.metadata.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
   }
 
@@ -1237,7 +1239,7 @@ export class ProEditorService {
       const track=reframe.track;
       project={...project,tracks:project.tracks.map(t=>t.type!=='VIDEO'?t:{...t,items:t.items.map(item=>{
         if((item as any)._tracker_handoff||!item.tracker?.enabled||item.scene_layout_overrides?.length)return item;
-        const plan=SmartReframeService.computeShotComposition({layoutPolicy:item.crop_config?.layoutPolicy||reframe.cropConfig?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate===true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect==='4:3'?'4:3':undefined,windowScope:track.metadata?.shot_composition_window_scope==='shot'?'shot':'clip',rawSamples:track.raw_samples,sceneCuts:track.metadata?.scene_cuts,duration:Number(track.metadata?.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
+        const plan=SmartReframeService.computeShotComposition({...candidateCompositionOptions(item.crop_config?.automaticLayoutCandidate),layoutPolicy:item.crop_config?.layoutPolicy||reframe.cropConfig?.layoutPolicy,allowConversationSplit:track.metadata?.conversation_split_candidate===true,protectedContentRegions:track.metadata?.protected_content_regions,automaticFitAspect:track.metadata?.automatic_fit_aspect==='4:3'?'4:3':undefined,windowScope:track.metadata?.shot_composition_window_scope==='shot'?'shot':'clip',rawSamples:track.raw_samples,sceneCuts:track.metadata?.scene_cuts,duration:Number(track.metadata?.clip_duration),sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080});
         const spec=trackerHandoffSpec(item,plan,track.source_width||1920,track.source_height||1080,reframe.clipStartSec||0);
         return spec?{...item,_tracker_handoff:spec}:item;
       })})};

@@ -245,7 +245,7 @@ class ClipRenderService {
     return backendRequest(`/clips/${clipId}/track-subject`, { method: 'POST', body: JSON.stringify(body) });
   }
 
-  async getClipReframe(clipId: string): Promise<{
+  async getClipReframe(clipId: string,candidate?:boolean): Promise<{
     contentFramingDecision?: import('../../server/src/shared/contentFramingDecision').ContentFramingDecision | null;
     status: 'pending' | 'analyzing' | 'ready' | 'failed';
     analyzedSourcePath?: string | null;
@@ -285,7 +285,7 @@ class ClipRenderService {
      * export degrades to the blurred layout and the preview must mirror it. */
     lowConfidenceTrack?: boolean;
   }> {
-    return backendRequest(`/clips/${clipId}/reframe`);
+    return backendRequest(`/clips/${clipId}/reframe${candidate===undefined?'':`?layoutCandidate=${candidate?'review-v1':'off'}`}`);
   }
 }
 

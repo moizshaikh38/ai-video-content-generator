@@ -421,6 +421,7 @@ export type CropMode = 'center' | 'manual' | 'smart' | 'fit' | 'fit_blur';
 export type ReframeLayoutMode = 'track' | 'split' | 'screencast' | 'blur';
 
 export interface CropConfig {
+  automaticLayoutCandidate?: 'review-v1';
   layoutPolicy?: {defaultLayout:'auto'|'fit'|'fill';allowed:Array<'fit'|'fill'|'split'>};
   mode?: CropMode;
   layout_mode?: ReframeLayoutMode;

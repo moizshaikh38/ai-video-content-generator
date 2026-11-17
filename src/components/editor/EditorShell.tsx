@@ -1,3 +1,4 @@
+import {setProjectAutoCandidate,projectAutoCandidate} from '../../../server/src/shared/automaticLayoutCandidate';
 import { applyItemLayout, applySceneLayout, applyWholeClipLayout, readItemLayout, applyFramingStrategy } from '../../lib/itemLayout';
 import { applyPlanSceneToProject, FRAMING_WINDOW_PREVIEW_PARITY, type PlanShot } from '../../../server/src/shared/framingWindow';
 import { SceneLayoutGrid } from './SceneLayoutMenu';
@@ -222,12 +223,13 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     sourceHeight?: number | null;
     analysisVersion?: number | null;
   } | null>(null);
+  const autoCandidateEnabled=projectAutoCandidate(project);
   useEffect(() => {
     let cancelled = false;
     setSpeakerSplit(null);
     if (!clip?.id) return;
     clipRenderService
-      .getClipReframe(clip.id)
+      .getClipReframe(clip.id,autoCandidateEnabled)
       .then((r) => {
         if (cancelled) return;
         if (r.status === 'ready' && !r.isStale && Array.isArray(r.smoothedKeyframes) && r.smoothedKeyframes.length > 0) {
@@ -254,7 +256,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [clip?.id]);
+  }, [clip?.id,autoCandidateEnabled]);
   // Non-destructive reason when an action is refused (e.g. locked followers).
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
@@ -1799,6 +1801,8 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             groupReframe={speakerSplit?.groupFrame ?? null}
             contentFramingDecision={speakerSplit?.contentFramingDecision ?? null}
             shotComposition={speakerSplit?.shotComposition ?? null}
+            autoCandidateEnabled={autoCandidateEnabled}
+            onSetAutoCandidate={enabled=>{onCommitProject?.(project);onUpdateProject(prev=>setProjectAutoCandidate(prev,enabled));}}
             onSetAutomaticFraming={(itemId,enabled,sourceTime)=>onUpdateProject(prev=>({...prev,tracks:prev.tracks.map(t=>t.type!=='VIDEO'?t:{...t,items:t.items.map(i=>itemId&&i.id!==itemId?i:{...i,automatic_framing:{enabled,...(!enabled?{freeze_source_time:sourceTime}:{})}})})}))}
             compositionClipStart={(Number(clip?.start_seconds) || 0) + (speakerSplit?.analyzedTrimStart || 0)}
             lowConfidenceTrack={Boolean(speakerSplit?.lowConfidenceTrack)}
