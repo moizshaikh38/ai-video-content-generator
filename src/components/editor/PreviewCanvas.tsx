@@ -116,7 +116,7 @@ interface PreviewCanvasProps {
   /** Server-computed group framing for multi-person single-view (same helper
    * the export's buildGroupFitFilter uses): blur backdrop + the group window
    * fitted to canvas width at 42% height. Null = tight tracking preview. */
-    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';split?:{speaker1X:number;speaker2X:number;dividerX:number;focusPanels?:import('../../../server/src/shared/panelLayouts').ItemPanels};contextStatus?:string;uncertainty?:string;windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
+    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';split?:{speaker1X:number;speaker2X:number;dividerX:number;focusPanels?:import('../../../server/src/shared/panelLayouts').ItemPanels};contextStatus?:string;uncertainty?:string;presentationProtection?:import('../../../server/src/shared/automaticLayoutPolicy').PresentationProtection;windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
   compositionClipStart?: number;
   onSetAutomaticFraming?: (itemId:string|null,enabled:boolean,sourceTime:number)=>void;
   groupReframe?: {

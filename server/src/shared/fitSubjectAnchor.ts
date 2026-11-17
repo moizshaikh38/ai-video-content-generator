@@ -16,7 +16,7 @@ export function anchorFitToMeasuredFaces<T extends {start:number;end:number;wind
    // Developmental review option only. Do not silently choose which of two
    // persistently measured faces to cut when a 4:3 window is infeasible.
    if(!preserveRepeatedFaceConflict||new Set(faces.map(f=>f.track_id)).size!==2)return shot;
-   return {...shot,windowW:1,windowH:1,contextStatus:'unresolved-review-required',uncertainty:'Full-source Fit: two persistent measured faces cannot fit the preferred 4:3 window together. Bodies, objects and scene meaning remain unverified.',keyframes:[{time:shot.start,centerX:.5,centerY:.5}]};
+   return {...shot,presentationProtection:{preserveWindow:true as const,reason:'persistent-face-conflict' as const},windowW:1,windowH:1,contextStatus:'unresolved-review-required',uncertainty:'Full-source Fit: two persistent measured faces cannot fit the preferred 4:3 window together. Bodies, objects and scene meaning remain unverified.',keyframes:[{time:shot.start,centerX:.5,centerY:.5}]};
   }
   const old=shot.keyframes[0].centerX,cx=Math.max(low,Math.min(high,old));
   if(!Number.isFinite(old)||Math.abs(cx-old)<1e-7)return shot;

@@ -1,3 +1,4 @@
+export interface PresentationProtection {preserveWindow:true;reason:'measured-context'|'measured-subject-conflict'|'persistent-face-conflict'}
 export interface AutomaticLayoutPolicy {defaultLayout:'auto'|'fit'|'fill';allowed: Array<'fit'|'fill'|'split'>}
 export function normalizeAutomaticLayoutPolicy(v:any):AutomaticLayoutPolicy|undefined{
  if(v===undefined)return undefined;
@@ -6,7 +7,7 @@ export function normalizeAutomaticLayoutPolicy(v:any):AutomaticLayoutPolicy|unde
 }
 /** Allowed choices narrow measured geometry, never justify cropping uncertain
  * content. Review Fit may override the list and must remain marked for Review. */
-export function applyAutomaticLayoutPolicy<T extends {start:number;windowW:number;windowH:number;keyframes:any[];split?:any;contextStatus?:string;uncertainty?:string}>(shots:T[],policy:AutomaticLayoutPolicy|undefined,w:number,h:number):T[]{
+export function applyAutomaticLayoutPolicy<T extends {start:number;windowW:number;windowH:number;keyframes:any[];split?:any;contextStatus?:string;uncertainty?:string;presentationProtection?:PresentationProtection}>(shots:T[],policy:AutomaticLayoutPolicy|undefined,w:number,h:number):T[]{
  if(!policy)return shots;
  return shots.map(s=>{const kind=s.split?'split':Math.abs(s.windowW*w/(s.windowH*h)-9/16)<.01?'fill':'fit';if(policy.allowed.includes(kind))return s;
  const next:any={...s,kind:'fit',windowW:1,windowH:1,keyframes:[{time:s.start,centerX:.5,centerY:.5}]};delete next.split;
@@ -23,8 +24,8 @@ export function legacyPolicyFallback(policy:AutomaticLayoutPolicy|undefined,trac
 }
 /** User-selected presentation default: Auto still chooses the layout; every
  * non-portrait Fit sharp band is 4:3. Side-loss is disclosed, never called safe. */
-export function presentFit43<T extends {start:number;windowW:number;windowH:number;keyframes:any[];split?:any;contextStatus?:string;uncertainty?:string}>(shots:T[],w:number,h:number):T[]{return shots.map(s=>{
- if(s.split||Math.abs(s.windowW*w/(s.windowH*h)-9/16)<.01)return s;
+export function presentFit43<T extends {start:number;windowW:number;windowH:number;keyframes:any[];split?:any;contextStatus?:string;uncertainty?:string;presentationProtection?:PresentationProtection}>(shots:T[],w:number,h:number):T[]{return shots.map(s=>{
+ if(s.presentationProtection?.preserveWindow||s.split||Math.abs(s.windowW*w/(s.windowH*h)-9/16)<.01)return s;
  const target=4/3,old=s.windowW*w/(s.windowH*h);if(Math.abs(old-target)<.005)return s;
  // Expand the short dimension first. Shrinking a measured tall body into
  //4:3 discards head/feet even when the source has ample horizontal context.

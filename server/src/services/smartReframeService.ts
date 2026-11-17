@@ -1464,7 +1464,7 @@ export class SmartReframeService {
     keyframes: Array<{ time: number; centerX: number; centerY: number }>;
     split?: {speaker1X:number;speaker2X:number;dividerX:number;focusPanels?:ItemPanels};
     contextStatus?: 'crowd-preserved'|'unresolved-preserved'|'unresolved-review-required';
-    uncertainty?: string }> {
+    uncertainty?: string; presentationProtection?: import('../shared/automaticLayoutPolicy.js').PresentationProtection }> {
     const {rawSamples = [], duration, sourceWidth, sourceHeight} = options;
     if (!rawSamples?.length || !(duration > 0) || sourceWidth <= 0 || sourceHeight <= 0) return [];
     const cuts = [...new Set((options.sceneCuts || []).filter(t => Number.isFinite(t) && t > 0 && t < duration))].sort((a,b)=>a-b);
@@ -1590,13 +1590,13 @@ export class SmartReframeService {
         // uninterrupted view. Fall back rather than distribute it across panels.
         const lost=!!shot.split||regions.some(r=>shot.keyframes.some(k=>r.x<k.centerX-shot.windowW/2-1e-6||r.x+r.width>k.centerX+shot.windowW/2+1e-6||r.y<k.centerY-shot.windowH/2-1e-6||r.y+r.height>k.centerY+shot.windowH/2+1e-6));
         if(!lost)return shot;
-        const next={...shot,kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:shot.start,centerX:.5,centerY:.5}],contextStatus:'unresolved-review-required' as const,uncertainty:'Full-source Fit: preferred presentation would cut measured protected context. Other scene meaning remains unverified; review before sharing.'};
+        const next={...shot,presentationProtection:{preserveWindow:true as const,reason:'measured-context' as const},kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:shot.start,centerX:.5,centerY:.5}],contextStatus:'unresolved-review-required' as const,uncertainty:'Full-source Fit: preferred presentation would cut measured protected context. Other scene meaning remains unverified; review before sharing.'};
         delete next.split;return next;
       });
       if(options.windowScope==='shot'||!constrained.some((v,i)=>v!==plan[i]))return constrained;
       // Clip-scope means one window size, even when a late protected region
       // is the reason the presentation must retain the full source.
-      return constrained.map(shot=>{const next={...shot,kind:'fit' as const,windowW:1,windowH:1,keyframes:shot.keyframes.map(k=>({...k,centerX:.5,centerY:.5}))};delete next.split;return next;});
+      return constrained.map(shot=>{const next={...shot,presentationProtection:{preserveWindow:true as const,reason:'measured-context' as const},kind:'fit' as const,windowW:1,windowH:1,keyframes:shot.keyframes.map(k=>({...k,centerX:.5,centerY:.5}))};delete next.split;return next;});
     };
     for (const shot of shots) {
       const regions = [...(options.protectedContentRegions || []),...(objectRegions.get(shot)||[])].filter(r =>
@@ -1649,7 +1649,7 @@ export class SmartReframeService {
       const conflict=minimumCenter>maximumCenter;
       // A preferred presentation ratio cannot overrule measured content.
       // Preserve the full source when no 4:3 window can contain it together.
-      if(conflict)return {...shot,kind:'fit' as const,windowW:1,windowH:1,
+      if(conflict)return {...shot,presentationProtection:{preserveWindow:true as const,reason:'measured-subject-conflict' as const},kind:'fit' as const,windowW:1,windowH:1,
         contextStatus:'unresolved-review-required' as const,
         uncertainty:'Safe full-source Fit: preferred 4:3 would cut measured subjects or side content. Review the scene before sharing.',
         keyframes:[{time:shot.start,centerX:.5,centerY:.5}]};
