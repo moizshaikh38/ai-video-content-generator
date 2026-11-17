@@ -1578,6 +1578,26 @@ export class SmartReframeService {
     // Missing regions are not evidence that no important text/object exists.
     const contentConstrainedShots = new Set<typeof shots[number]>();
     const objectRegions = new Map(shots.map(shot=>[shot,persistentObjectRegions(rawSamples.filter(s=>s.time>=shot.start&&s.time<shot.end)).map(r=>({...r,start:shot.start,end:shot.end}))]));
+    // Presentation conversions and policy fallbacks run after measured-context
+    // expansion. Recheck at the FINAL boundary so a later 4:3 bridge cannot
+    // silently discard an explicit or persistent measured constraint.
+    const preservePresentationRegions = (plan: ReturnType<typeof SmartReframeService.computeShotComposition>) => {
+      const constrained=plan.map(shot=>{
+        const regions=[...(options.protectedContentRegions||[]),...shots.flatMap(original=>original.start<shot.end&&original.end>shot.start?objectRegions.get(original)||[]:[])].filter(r=>
+          [r.start,r.end,r.x,r.y,r.width,r.height,r.confidence].every(Number.isFinite)&&r.end>r.start&&r.start<shot.end&&r.end>shot.start&&r.confidence>=.7&&r.x>=0&&r.y>=0&&r.width>0&&r.height>0&&r.x+r.width<=1.001&&r.y+r.height<=1.001);
+        if(!regions.length)return shot;
+        // A split is not evidence that a context rectangle is legible in one
+        // uninterrupted view. Fall back rather than distribute it across panels.
+        const lost=!!shot.split||regions.some(r=>shot.keyframes.some(k=>r.x<k.centerX-shot.windowW/2-1e-6||r.x+r.width>k.centerX+shot.windowW/2+1e-6||r.y<k.centerY-shot.windowH/2-1e-6||r.y+r.height>k.centerY+shot.windowH/2+1e-6));
+        if(!lost)return shot;
+        const next={...shot,kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:shot.start,centerX:.5,centerY:.5}],contextStatus:'unresolved-review-required' as const,uncertainty:'Full-source Fit: preferred presentation would cut measured protected context. Other scene meaning remains unverified; review before sharing.'};
+        delete next.split;return next;
+      });
+      if(options.windowScope==='shot'||!constrained.some((v,i)=>v!==plan[i]))return constrained;
+      // Clip-scope means one window size, even when a late protected region
+      // is the reason the presentation must retain the full source.
+      return constrained.map(shot=>{const next={...shot,kind:'fit' as const,windowW:1,windowH:1,keyframes:shot.keyframes.map(k=>({...k,centerX:.5,centerY:.5}))};delete next.split;return next;});
+    };
     for (const shot of shots) {
       const regions = [...(options.protectedContentRegions || []),...(objectRegions.get(shot)||[])].filter(r =>
         [r.start,r.end,r.x,r.y,r.width,r.height,r.confidence].every(Number.isFinite) &&
@@ -1641,7 +1661,7 @@ export class SmartReframeService {
           ? Math.max(width/2,Math.min(1-width/2,k.centerX))
           : Math.max(minimumCenter,Math.min(maximumCenter,k.centerX))}))};
     });
-    if (options.windowScope === 'shot') return anchorFitToMeasuredFaces(presentFit43(applyAutomaticLayoutPolicy(presentationShots.map(shot => {
+    if (options.windowScope === 'shot') return preservePresentationRegions(anchorFitToMeasuredFaces(presentFit43(applyAutomaticLayoutPolicy(presentationShots.map(shot => {
       // Automatic Fill is a portrait-shaped window, not a synonym for zoom.
       // Only expand a reliable single-person/body window to portrait. Never
       // trim its measured extent just because one face is visible. Existing
@@ -1657,7 +1677,7 @@ export class SmartReframeService {
       return {...shot, windowW:width, windowH:height, keyframes:shot.keyframes.map(k => ({...k,
         centerX:Math.max(width/2,Math.min(1-width/2,k.centerX)),
         centerY:Math.max(height/2,Math.min(1-height/2,k.centerY))}))};
-    }),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight),options.automaticFitAspect==='4:3'?rawSamples:[],sourceWidth,sourceHeight);
+    }),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight),options.automaticFitAspect==='4:3'?rawSamples:[],sourceWidth,sourceHeight));
     // A source cut may change the subject, not the presentation's crop size.
     // Use the widest required context in both axes for the ENTIRE analyzed
     // clip, including edited slices. A full-source fallback deliberately makes
@@ -1671,13 +1691,13 @@ export class SmartReframeService {
     const sizedFrom = constraints.length ? constraints : shots;
     const windowW = Math.max(...sizedFrom.map(s=>s.windowW));
     const windowH = Math.max(...sizedFrom.map(s=>s.windowH));
-    return presentFit43(applyAutomaticLayoutPolicy(shots.map(s=>({...s,
+    return preservePresentationRegions(presentFit43(applyAutomaticLayoutPolicy(shots.map(s=>({...s,
       contextStatus: s.contextStatus === 'unresolved-preserved' && reviewCandidate && (windowW < 1 || windowH < 1)
         ? 'unresolved-review-required' as const : s.contextStatus,
       windowW,windowH,keyframes:s.keyframes.map(k=>({...k,
       centerX:Math.max(windowW/2,Math.min(1-windowW/2,k.centerX)),
       centerY:Math.max(windowH/2,Math.min(1-windowH/2,k.centerY)),
-    }))})),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight);
+    }))})),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight));
   }
 
   public static buildShotCompositionFilter(options: {

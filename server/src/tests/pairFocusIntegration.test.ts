@@ -20,3 +20,15 @@ test('off-center edge-limited pair focus falls back without forcing all bodies i
  const o=opts();o.rawSamples=o.rawSamples.map(s=>({...s,faces:s.faces.map((f,i)=>i?f:{...f,x:.005,center_x:.03})}));
  const base=S.computeShotComposition(o),review=S.computeShotComposition({...o,pairFocusReview:true});assert.ok(!review[0].split?.focusPanels);assert.deepEqual(review,base);
 });
+
+test('final presentation cannot discard explicit context after focus or policy fallback',()=>{
+ const region={start:0,end:2,x:0,y:.8,width:.15,height:.15,confidence:.95};
+ for(const policy of[undefined,{defaultLayout:'auto' as const,allowed:['fit' as const]}]){
+  const p=S.computeShotComposition({...opts(),pairFocusReview:true,protectedContentRegions:[region],layoutPolicy:policy})[0];
+  assert.ok(!p.split);const k=p.keyframes[0];assert.ok(k.centerX-p.windowW/2<=region.x);assert.ok(k.centerY+p.windowH/2>=region.y+region.height);assert.match(p.uncertainty!,/protected context/);
+ }
+});
+test('weak or out-of-shot context does not change accepted focus geometry',()=>{
+ const base=S.computeShotComposition({...opts(),pairFocusReview:true});
+ for(const region of[{start:0,end:2,x:0,y:.8,width:.15,height:.15,confidence:.5},{start:3,end:4,x:0,y:.8,width:.15,height:.15,confidence:.95}])assert.deepEqual(S.computeShotComposition({...opts(),pairFocusReview:true,protectedContentRegions:[region]}),base);
+});
