@@ -15,3 +15,8 @@ test('allowed policy still rejects Split and absentpaired evidence abstains',()=
  const p=S.computeShotComposition({...opts(),pairFocusReview:true,layoutPolicy:{defaultLayout:'auto',allowed:['fit']}});assert.ok(!p[0].split);
  const single=samples().map(s=>({...s,faces:s.faces.slice(0,1)}));const q=S.computeShotComposition({...opts(),rawSamples:single,pairFocusReview:true});assert.ok(!q[0].split?.focusPanels);
 });
+
+test('off-center edge-limited pair focus falls back without forcing all bodies into union',()=>{
+ const o=opts();o.rawSamples=o.rawSamples.map(s=>({...s,faces:s.faces.map((f,i)=>i?f:{...f,x:.005,center_x:.03})}));
+ const base=S.computeShotComposition(o),review=S.computeShotComposition({...o,pairFocusReview:true});assert.ok(!review[0].split?.focusPanels);assert.deepEqual(review,base);
+});
