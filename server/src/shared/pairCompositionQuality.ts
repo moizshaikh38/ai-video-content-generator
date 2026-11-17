@@ -25,7 +25,7 @@ export function auditPairComposition(panels:ItemPanels,samples:ReframeSample[],s
     if(other.center_x<body.x||other.center_x>body.x+body.width||other.center_y<body.y||other.center_y>body.y+body.height*.65)continue;
     const vertical=Math.max(0,Math.min(y+h,body.y+body.height)-Math.max(y,body.y));
     const horizontal=Math.max(0,Math.min(x+w,body.x+body.width)-Math.max(x,body.x));
-    if(vertical>h*.1&&horizontal>0&&horizontal/body.width<.25)otherPersonFragment=true;
+    if(vertical>h*.1&&horizontal>0&&horizontal/body.width<.95)otherPersonFragment=true;
    }
   }
   const flags:PairCompositionPanelAudit['flags']=[];const lo=centers.length?Math.min(...centers):0,hi=centers.length?Math.max(...centers):0,headroom=headrooms.length?Math.min(...headrooms):0,shoulder=coverage.length?Math.min(...coverage):0;

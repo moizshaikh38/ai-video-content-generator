@@ -1,0 +1,5 @@
+import{test}from'node:test';import assert from'node:assert/strict';import{boundedPairComposition as search}from'../shared/boundedPairComposition.js';import{pairFocusPresentation as base}from'../shared/pairFocusPresentation.js';
+const samples=()=>Array.from({length:8},(_,i)=>({time:i*.25,faces:[.3,.65].map((x,j)=>({x,y:.2,width:.05,height:.1,center_x:x+.025,center_y:.25,confidence:.95,track_id:String(j)}))}));
+test('clean original proposal stays exactly unchanged',()=>{const s=samples(),p=search(s,0,2,1920,1080);assert.ok(p);assert.equal(p.changed,false);assert.deepEqual(p.panels,base(s,0,2,1920,1080)!.panels)});
+test('missing pair or changed track remains abstention, no interpolation',()=>{for(const alter of[(s:any[])=>s[0].faces=[],(s:any[])=>s[3].faces[0].track_id='changed']){const s=samples();alter(s);assert.equal(search(s,0,2,1920,1080),null)}});
+test('blocking every candidate with competing body does not weaken veto',()=>{const s=samples().map(q=>({...q,persons:[{x:0,y:0,width:1,height:1,confidence:.95}]}));assert.equal(search(s,0,2,1920,1080),null)});

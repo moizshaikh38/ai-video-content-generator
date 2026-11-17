@@ -1,6 +1,6 @@
 import {bodyOnlyPortraitProposal} from '../shared/bodyOnlyPortraitProposal.js';
 import {auditPairComposition} from '../shared/pairCompositionQuality.js';
-import {pairFocusPresentation} from '../shared/pairFocusPresentation.js';
+import {boundedPairComposition} from '../shared/boundedPairComposition.js';
 import {buildPanelsFilter,type ItemPanels} from '../shared/panelLayouts.js';
 import {groupPortraitPresentation} from '../shared/groupPortraitPresentation.js';
 import {closeupPortraitPresentation} from '../shared/closeupPresentation.js';
@@ -1623,13 +1623,13 @@ export class SmartReframeService {
       const compactPair=options.windowScope==='shot'&&!originalShot.split
         ? groupPortraitPresentation(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight,[...(options.protectedContentRegions||[]),...(objectRegions.get(originalShot)||[])]) : null;
       const pairFocus=options.pairFocusReview&&options.windowScope==='shot'
-        ? pairFocusPresentation(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight) : null;
+        ? boundedPairComposition(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight) : null;
       const focusWarnings=pairFocus?auditPairComposition(pairFocus.panels,local,sourceWidth,sourceHeight):[];
       const focusEligible=pairFocus&&focusWarnings.every(p=>p.samples>0&&!p.flags.some(f=>f==='off-center-face'||f==='tight-headroom'||f==='other-face-fragment'||f==='other-person-fragment'||f==='shoulder-intent-cropped'));
       const focusShot=focusEligible ? {...originalShot,kind:'group' as const,windowW:1,windowH:1,
         keyframes:[{time:originalShot.start,centerX:.5,centerY:.5}],
         split:{speaker1X:.25,speaker2X:.75,dividerX:.5,focusPanels:pairFocus.panels},
-        contextStatus:'unresolved-review-required' as const,uncertainty:pairFocus.reason} : null;
+        contextStatus:'unresolved-review-required' as const,uncertainty:'Two persistent measured faces with bounded head/shoulder views. '+(pairFocus.changed?'Geometry adjusted to avoid measured competing-person fragments. ':'')+'Hands, side objects, screen content, speaker dominance and scene meaning remain unverified.'} : null;
       const bodyOnly=options.bodyOnlyPortraitReview&&options.windowScope==='shot'&&!originalShot.split?bodyOnlyPortraitProposal(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight,[...(options.protectedContentRegions||[]),...(objectRegions.get(originalShot)||[])]):null;
       const shot:ReturnType<typeof SmartReframeService.computeShotComposition>[number]=focusShot||compactPair||closeup||bodyOnly||originalShot;
       if (options.automaticFitAspect !== '4:3' || shot.split || shot.contextStatus==='unresolved-preserved' || shot.contextStatus==='crowd-preserved') return shot;
