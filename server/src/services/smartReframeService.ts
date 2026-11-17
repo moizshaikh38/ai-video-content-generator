@@ -1,3 +1,4 @@
+import {bodyOnlyPortraitProposal} from '../shared/bodyOnlyPortraitProposal.js';
 import {auditPairComposition} from '../shared/pairCompositionQuality.js';
 import {pairFocusPresentation} from '../shared/pairFocusPresentation.js';
 import {buildPanelsFilter,type ItemPanels} from '../shared/panelLayouts.js';
@@ -1454,6 +1455,7 @@ export class SmartReframeService {
     automaticFitAspect?: '4:3';
     /** Developmental opt-in only. Not read from project/user settings. */
     pairFocusReview?: boolean;
+    bodyOnlyPortraitReview?: boolean;
     /** Requires independently declared podcast/interview context. */
     allowConversationSplit?: boolean;
     /** Optional measured regions, local qualification only. Not semantic proof. */
@@ -1608,7 +1610,8 @@ export class SmartReframeService {
         keyframes:[{time:originalShot.start,centerX:.5,centerY:.5}],
         split:{speaker1X:.25,speaker2X:.75,dividerX:.5,focusPanels:pairFocus.panels},
         contextStatus:'unresolved-review-required' as const,uncertainty:pairFocus.reason} : null;
-      const shot:ReturnType<typeof SmartReframeService.computeShotComposition>[number]=focusShot||compactPair||closeup||originalShot;
+      const bodyOnly=options.bodyOnlyPortraitReview&&options.windowScope==='shot'&&!originalShot.split?bodyOnlyPortraitProposal(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight,[...(options.protectedContentRegions||[]),...(objectRegions.get(originalShot)||[])]):null;
+      const shot:ReturnType<typeof SmartReframeService.computeShotComposition>[number]=focusShot||compactPair||closeup||bodyOnly||originalShot;
       if (options.automaticFitAspect !== '4:3' || shot.split || shot.contextStatus==='unresolved-preserved' || shot.contextStatus==='crowd-preserved') return shot;
       const maxWidth = shot.windowH * (4/3) * sourceHeight/sourceWidth;
       if (shot.windowW <= maxWidth) return shot;
