@@ -1,3 +1,4 @@
+import {mirrorDecodedFrames} from '../../lib/decodedFrameMirror';
 import {trackerHandoffSpec,trackerHandoffRect} from '../../../server/src/shared/trackerHandoff';
 import {presentFit43} from '../../../server/src/shared/automaticLayoutPolicy';
 import {resolveSceneLayoutItem} from '../../../server/src/shared/sceneLayoutOverrides';
@@ -457,8 +458,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const videoCropLocked = Boolean(baseVideoItem?.locked || project.tracks.some(t => t.locked && t.items.some(i => i.id === baseVideoItem?.id)));
   const activePanels = viewMode === 'export_review' && renderedPreviewUrl ? null : normalizePanels((baseVideoItem as any)?.panels);
 
-  const backdropVideoRef = useRef<HTMLVideoElement | null>(null);
-  const splitBottomRef = useRef<HTMLVideoElement | null>(null);
+  const backdropVideoRef = useRef<HTMLCanvasElement | null>(null);
+  const splitBottomRef = useRef<HTMLCanvasElement | null>(null);
   const [videoDims, setVideoDims] = useState<{ w: number; h: number } | null>(null);
 
   const primaryVideoCropMode = useMemo(() => {
@@ -749,33 +750,17 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    if (Math.abs(v.currentTime - targetVideoTime) > 0.15) {
+    if (v.paused && Math.abs(v.currentTime - targetVideoTime) > 0.15) {
       v.currentTime = targetVideoTime;
     }
   }, [targetVideoTime, videoRef]);
 
-  // Auxiliary views share the primary media clock, not React render cadence.
-  // A 300ms tolerance left split speakers visibly out of sync during playback.
+  // All auxiliary views display the primary decoder's frame. Separate media
+  // elements required repeated seeking and drifted on long-GOP sources.
   useEffect(() => {
-    let frame = 0;
-    let disposed = false;
-    const sync = () => {
-      if (disposed) return;
-      const primary = videoRef.current;
-      if (primary) for (const ref of [splitBottomRef, backdropVideoRef]) {
-        const aux = ref.current;
-        if (!aux || aux.readyState < 1) continue;
-        const drift = Math.abs(aux.currentTime - primary.currentTime);
-        if (!aux.seeking && drift > (primary.paused ? 1 / 60 : 0.06)) aux.currentTime = primary.currentTime;
-        if (aux.playbackRate !== primary.playbackRate) aux.playbackRate = primary.playbackRate;
-        if (primary.paused || primary.ended) { if (!aux.paused) aux.pause(); }
-        else if (aux.paused && !primary.seeking) aux.play().catch(() => {});
-      }
-      frame = requestAnimationFrame(sync);
-    };
-    sync();
-    return () => { disposed = true; cancelAnimationFrame(frame); };
-  }, [videoRef, activeVideoSrc, primaryLayoutMode]);
+    const primary=videoRef.current;if(!primary)return;
+    return mirrorDecodedFrames(primary,()=>[splitBottomRef.current,backdropVideoRef.current]);
+  }, [videoRef,activeVideoSrc,primaryLayoutMode,Boolean(groupFitView),lowConfidenceFallback]);
 
   // Handle direct item manipulation dragging
   useEffect(() => {
@@ -1479,12 +1464,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
         >
           {/* HTML5 VIDEO BASE STREAM */}
           {(primaryVideoCropMode === 'blur' || primaryLayoutMode === 'blur' || Boolean(groupFitView) || lowConfidenceFallback) && activeVideoSrc ? (
-            <video
+            <canvas
               ref={backdropVideoRef}
-              onLoadedMetadata={e => { e.currentTarget.currentTime = targetVideoTime; }}
-              src={activeVideoSrc}
-              muted
-              playsInline
               aria-hidden
               className="absolute inset-0 w-full h-full object-cover pointer-events-none"
               style={{
@@ -1629,12 +1610,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             vstack: top = speaker1, bottom = speaker2). Synced to the main video
             via the primary media clock; same look chain + transform. */}
         {primaryLayoutMode === 'split' && activeVideoSrc ? (
-          <video
+          <canvas
             ref={splitBottomRef}
-                onLoadedMetadata={e => { e.currentTarget.currentTime = targetVideoTime; }}
-            src={activeVideoSrc}
-            playsInline
-            muted
             aria-hidden
             className={splitView2 ? 'absolute left-0 pointer-events-none select-none' : 'w-full h-1/2 absolute bottom-0 left-0 pointer-events-none select-none'}
             style={{
