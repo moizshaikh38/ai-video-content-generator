@@ -2652,6 +2652,7 @@ export class SmartReframeService {
     scene_cuts?: number[];
     protected_content_regions?: Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>;
     person_detector?: string | null;
+    face_resolution_passes?:number[][]|null;
     source_text_detector?:string|null;
     source_text_coverage?: {status:string;detectors:string[];sample_count:number;max_unsampled_gap_seconds:number;region_count:number;absence_means:string;limitations:string[]};
     scene_cut_evidence?: Array<{ time: number; coarse_time: number; refined: boolean; uncertainty_seconds?: number; correlation?: number }>;
@@ -2991,6 +2992,7 @@ export class SmartReframeService {
           scene_cuts: clipSceneCuts,
           scene_cut_evidence: cvResult.scene_cut_evidence || [],
           person_detector: cvResult.person_detector ?? null,
+          face_resolution_passes: cvResult.face_resolution_passes ?? null,
           source_text_detector: cvResult.source_text_detector ?? null,
           source_text_coverage: cvResult.source_text_coverage ?? null,
           protected_content_regions: cvResult.protected_content_regions || [],

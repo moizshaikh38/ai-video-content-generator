@@ -394,26 +394,8 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
         # 2. Face detection: YuNet DNN when enabled, else Haar cascades
         raw_candidates = []
         if yunet_detector is not None:
-            # YuNet reliably detects far smaller faces than Haar; Haar's 4%-of-frame
-            # min_size would drop legitimate small faces (e.g. two-shots). Use a
-            # fixed pixel floor to suppress detection noise only.
-            yunet_min_px = 16
-            _, yn_faces = yunet_detector.detect(frame)
-            if yn_faces is not None:
-                for yf in yn_faces:
-                    # YuNet can predict a real edge face slightly outside the
-                    # image. Clip its visible geometry here; leave the API's
-                    # strict out-of-bounds rejection unchanged.
-                    rect = visible_detector_rect(yf[:4], source_width, source_height)
-                    if rect is None:
-                        continue
-                    yx, yy, yw, yh = rect
-                    if yw >= yunet_min_px and yh >= yunet_min_px:
-                        raw_candidates.append({
-                            "rect": (yx, yy, yw, yh),
-                            "confidence": round(min(0.98, max(0.5, float(yf[-1]))), 2),
-                            "is_frontal": True
-                        })
+            from yunet_pyramid import detect_candidates
+            raw_candidates.extend(detect_candidates(yunet_detector,frame,os.environ.get('SMART_REFRAME_YUNET_PYRAMID','')=='1'))
         else:
             # Multi-Cascade detection: Frontal face
             try:
@@ -571,6 +553,7 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
         text_coverage["geometry_execution"]={k:v for k,v in geometry_result.items()if k!="samples"}
     return {
         "source_text_coverage": text_coverage,
+        "face_resolution_passes": __import__('yunet_pyramid').inference_sizes(source_width,source_height,os.environ.get('SMART_REFRAME_YUNET_PYRAMID','')=='1') if yunet_detector else None,
         **({"person_detector": "nanodet-2022nov-sha256-" + __import__("person_regions").MODEL_SHA256} if person_detector else {}),
         "protected_content_regions": protected_content_regions,
         "source_text_detector": "tesseract-local-lines-and-persistent-words-review-v2" if os.environ.get("SMART_REFRAME_SOURCE_TEXT_OCR", "") == "1" else None,
