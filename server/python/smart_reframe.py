@@ -254,6 +254,21 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
     else:
         frame_interval = requested_interval
 
+    # Separate model lifetime: finish the bounded text pass before allocating
+    # face/person nets. This avoids retaining both activation pools together.
+    geometry_result = None
+    geometry_model = os.environ.get('SMART_REFRAME_TEXT_GEOMETRY_MODEL','')
+    if geometry_model:
+        from source_text_geometry import collect_isolated
+        indices=[];last=-1.0
+        for index in list(range(start_frame,end_frame,frame_interval))[:max_samples]:
+            time=sample_relative_time(index,source_fps,start_sec)
+            if time-last>=.49:indices.append(index);last=time
+        cap.release()
+        geometry_result=collect_isolated(video_path,geometry_model,indices,source_fps,start_sec,effective_duration)
+        cap=cv2.VideoCapture(video_path)
+        if not cap.isOpened():raise RuntimeError('Cannot reopen source after text pass')
+
     frontal_cascade, profile_cascade = load_cascades()
 
     # Optional YuNet DNN detector (env-gated): real detection scores, no new service.
@@ -284,11 +299,19 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
         from person_regions import PersonRegions
         person_detector = PersonRegions(person_model)
 
+    ocr_sample_times = []
+
     samples = []
     protected_content_regions = []
     last_text_sample = -1.0
     last_general_text_sample = -1.0
     word_region_samples = []
+    text_geometry_sample_times = []
+    if geometry_result:
+        for sample in geometry_result["samples"]:
+            text_geometry_sample_times.append(sample["time"])
+            for region in sample["regions"]:
+                protected_content_regions.append({**region,"start":max(0,sample["time"]-.3),"end":min(effective_duration,sample["time"]+.8)})
     scene_cuts = []
     frame_index = start_frame
     # max_samples enforced via parameter and uniform interval decimation
@@ -331,6 +354,7 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
                 if region['kind']!='ocr-word-candidate':
                     protected_content_regions.append({**region,'start':max(0,time_sec-.3),'end':min(effective_duration,time_sec+.8)})
             last_general_text_sample=time_sec
+            ocr_sample_times.append(time_sec)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # 1. Fast scene cut detection via normalized histogram correlation
@@ -540,7 +564,13 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
             cut_evidence = [{"time": t, "coarse_time": t, "refined": False} for t in scene_cuts]
         scene_cuts = sorted(set(e["time"] for e in cut_evidence if e["time"] > 0))
 
+    from source_text_geometry import coverage_record
+    text_detectors = (['tesseract-review-v2'] if ocr_sample_times else []) + (['db-ic15-resnet18-sha1-'+__import__('source_text_geometry').MODEL_SHA1] if geometry_model else [])
+    text_coverage = coverage_record(ocr_sample_times+text_geometry_sample_times,effective_duration,len([r for r in protected_content_regions if r.get('kind')!='numeric-clock-overlay']),text_detectors)
+    if geometry_result:
+        text_coverage["geometry_execution"]={k:v for k,v in geometry_result.items()if k!="samples"}
     return {
+        "source_text_coverage": text_coverage,
         **({"person_detector": "nanodet-2022nov-sha256-" + __import__("person_regions").MODEL_SHA256} if person_detector else {}),
         "protected_content_regions": protected_content_regions,
         "source_text_detector": "tesseract-local-lines-and-persistent-words-review-v2" if os.environ.get("SMART_REFRAME_SOURCE_TEXT_OCR", "") == "1" else None,
