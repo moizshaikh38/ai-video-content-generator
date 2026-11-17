@@ -126,6 +126,17 @@ describe('Hook regeneration route (HTTP + Mongo, mocked provider)', () => {
     }finally{await db.collection('clips').updateOne({id:clipId},{$set:{end_seconds:70,trim_start_offset:0,trim_end_offset:0}});}
   });
 
+  it('review-flagged transcript cannot bypass source quality through hook regeneration',async()=>{
+    const db=await getMongoDb();
+    await db.collection('transcripts').updateOne({project_id:projectId},{$set:{quality_assessment:{version:1,status:'needs_review'}}});
+    let calls=0;
+    (defaultAiProvider as any).generateJsonCompletion=async()=>{calls++;return{hook:'Should not happen'};};
+    try{
+      const res=await fetch(`${baseUrl}/api/clips/${clipId}/hook/regenerate`,{method:'POST',headers:{Authorization:`Bearer ${TOKEN}`}});
+      assert.equal(res.status,409);assert.equal((await res.json() as any).code,'TRANSCRIPT_REVIEW_REQUIRED');assert.equal(calls,0);
+    }finally{await db.collection('transcripts').updateOne({project_id:projectId},{$unset:{quality_assessment:''}});}
+  });
+
   it('fails closed with 503 HOOK_PROVIDER_UNAVAILABLE when no provider is available', async () => {
     // Remove the instance-level mock so the real provider path (and its key
     // availability check) is exercised.

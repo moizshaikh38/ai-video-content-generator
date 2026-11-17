@@ -44,6 +44,16 @@ export class HookRegenerationService {
       throw new AppError('No transcript is available for this clip yet.', 409, 'HOOK_NO_TRANSCRIPT');
     }
 
+    // A transcript already flagged for review must not become trusted hook input
+    // through a different endpoint. Missing/legacy diagnostics stay unverified.
+    if (transcript.quality_assessment?.status === 'needs_review') {
+      throw new AppError(
+        'Transcript needs audio review before generating a hook. Check the flagged spans and source language.',
+        409,
+        'TRANSCRIPT_REVIEW_REQUIRED'
+      );
+    }
+
     const sourceEvidence=collectHookOpeningEvidence(clip,transcript);
     if (!sourceEvidence) {
       throw new AppError(
