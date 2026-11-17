@@ -1,3 +1,4 @@
+import {freshEditorCaptionAppearance} from '../shared/freshEditorCaptionAppearance.js';
 import {NEW_CAPTION_PRESET_ID} from '../shared/captionPresets.js';
 import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 import {validateAutomaticLayoutCropConfig} from '../shared/automaticLayoutValidation.js';
@@ -2660,10 +2661,9 @@ export class ProEditorService {
             cues_covered_end: finalDuration,
             style: captionStyle,
             position: clip.caption_position || 'bottom',
-            highlight_color: producerPlan?.operations.find((o) => o.type === 'CAPTION_EMPHASIS' && o.enabled)?.parameters.highlight_color || '#FACC15',
-            primary_color: '#FFFFFF',
-            animation: 'highlight',
-            ...(captionStyle===NEW_CAPTION_PRESET_ID ? {font_family:'Bangers',font_size:136,highlight_color:'#20FF35',animation:'none',box_enabled:false} : {}),
+            ...freshEditorCaptionAppearance(captionStyle, clip.caption_config, aspectRatio),
+            ...(producerPlan?.operations.find((o) => o.type === 'CAPTION_EMPHASIS' && o.enabled)?.parameters.highlight_color ? {highlight_color: producerPlan.operations.find((o) => o.type === 'CAPTION_EMPHASIS' && o.enabled)!.parameters.highlight_color} : {}),
+            ...(captionStyle===NEW_CAPTION_PRESET_ID ? {font_family:'Bangers',font_size:136,animation:'none',box_enabled:false} : {}),
           },
           effects: [],
           keyframes: [],
