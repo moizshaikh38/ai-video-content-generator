@@ -1,3 +1,4 @@
+import {reviewMeasuredSplitSeams} from '../shared/measuredSplitSeamReview.js';
 import {buildSharedViewReviewPlan} from '../shared/sharedViewReview.js';
 import {normalizeFaceEvidence} from '../shared/faceEvidence.js';
 import {constrainedFit43} from '../shared/constrainedFit43.js';
@@ -108,6 +109,8 @@ export interface ShotCompositionOptions {
     pairFocusReview?: boolean;
     /** Review-only. Requires independently supplied hand observations. */
     sharedViewReview?: boolean;
+    /** Internal positive-hand-evidence seam veto. Off by default, not a setting. */
+    splitHandSafetyReview?: boolean;
     bodyOnlyPortraitReview?: boolean;
     /** Requires independently declared podcast/interview context. */
     allowConversationSplit?: boolean;
@@ -1475,7 +1478,9 @@ export class SmartReframeService {
     split?: {speaker1X:number;speaker2X:number;dividerX:number;focusPanels?:ItemPanels};
     contextStatus?: 'crowd-preserved'|'unresolved-preserved'|'unresolved-review-required';
     uncertainty?: string; presentationProtection?: import('../shared/automaticLayoutPolicy.js').PresentationProtection }> {
-    return this.computeShotCompositionLegacy(options);
+    const plan=this.computeShotCompositionLegacy(options);
+    return options.splitHandSafetyReview&&(!options.layoutPolicy||options.layoutPolicy.allowed.includes('fit'))
+      ? reviewMeasuredSplitSeams(plan,options.rawSamples||[]).shots : plan;
   }
 
   private static computeShotCompositionLegacy(options: ShotCompositionOptions): ReturnType<typeof SmartReframeService.computeShotComposition> {
