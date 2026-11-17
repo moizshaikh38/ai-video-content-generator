@@ -63,6 +63,7 @@ interface EditorShellProps {
   canUndo: boolean;
   canRedo: boolean;
   saveStatus: 'saved' | 'saving' | 'dirty' | 'error';
+  persistedReframeSourceKey?: string | null;
   saveError: string | null;
   onSaveNow: () => void | Promise<boolean>;
   onUndo: () => void;
@@ -93,6 +94,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   canUndo,
   canRedo,
   saveStatus,
+  persistedReframeSourceKey,
   saveError,
   onSaveNow,
   onUndo,
@@ -261,7 +263,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [clip?.id]);
+  }, [clip?.id, persistedReframeSourceKey]);
   // Non-destructive reason when an action is refused (e.g. locked followers).
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
@@ -609,7 +611,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
   // Smart-reframe track for the base-video preview pan. The export reads the
   // same track (clip.crop_config.mode === 'smart' -> ReframeTrackRecord); the
-  // preview mirrors its crop window via PreviewCanvas. Fetched once per clip.
+  // preview mirrors its crop window via PreviewCanvas. Fetched again after a successfully persisted framing-source change.
   const [smartReframe, setSmartReframe] = useState<{
     keyframes: Array<{ time: number; centerX: number; centerY?: number }>;
     clipStartSec?: number;
@@ -642,7 +644,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [clip?.id, (clip?.crop_config as { mode?: string } | null | undefined)?.mode]);
+  }, [clip?.id, (clip?.crop_config as { mode?: string } | null | undefined)?.mode, persistedReframeSourceKey]);
 
   // Split speaker-anchor seeding, shared by the panel's Split button and the
   // Podcast Split output template: fetch measured analysis anchors (GET

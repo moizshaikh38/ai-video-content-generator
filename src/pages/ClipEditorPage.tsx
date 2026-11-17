@@ -20,6 +20,7 @@ export const ClipEditorPage: React.FC = () => {
     canUndo,
     canRedo,
     saveStatus,
+    persistedReframeSourceKey,
     saveError,
     saveNow,
     undo,
@@ -111,6 +112,7 @@ export const ClipEditorPage: React.FC = () => {
       canUndo={canUndo}
       canRedo={canRedo}
       saveStatus={saveStatus}
+      persistedReframeSourceKey={persistedReframeSourceKey}
       saveError={saveError}
       onSaveNow={saveNow}
       onUndo={undo}

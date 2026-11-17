@@ -1,3 +1,4 @@
+import { editorReframeSourceKey } from '../../server/src/shared/editorReframeSourceKey';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   EditorProject,
@@ -41,6 +42,7 @@ export interface UseEditorProjectReturn {
   canRedo: boolean;
   saveStatus: 'saved' | 'saving' | 'dirty' | 'error';
   lastSavedAt: Date | null;
+  persistedReframeSourceKey: string | null;
   saveError: string | null;
   saveNow: () => Promise<boolean>;
   undo: () => void;
@@ -143,9 +145,17 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
   const { canUndo, canRedo, pushHistory, undo: historyUndo, redo: historyRedo, resetHistory } =
     useEditorHistory(project);
 
+  const [persistedReframeSourceKey, setPersistedReframeSourceKey] = useState<string | null>(null);
+  // A generic Saved transition can describe an older in-flight payload while
+  // the editor already contains a newer edit. Invalidate from these exact
+  // server responses, after BOTH project and clip synchronization succeeded.
+  const handleSavedReframeSource = useCallback((savedProject: EditorProject, savedClip?: RenderedClip) => {
+    if (savedClip) setPersistedReframeSourceKey(editorReframeSourceKey(savedClip, savedProject));
+  }, []);
   const { saveStatus, lastSavedAt, saveError, saveNow, markDirty } = useEditorAutosave(
     project,
-    clip
+    clip,
+    { onSaved: handleSavedReframeSource }
   );
 
   const loadData = useCallback(async (options?: { silent?: boolean }) => {
@@ -273,6 +283,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
           }
         }
         setProject(proj);
+        setPersistedReframeSourceKey(editorReframeSourceKey(c, proj));
         resetHistory(proj);
       }
     } catch (err: any) {
@@ -868,6 +879,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
     canRedo,
     saveStatus,
     lastSavedAt,
+    persistedReframeSourceKey,
     saveError,
     saveNow,
     undo,
