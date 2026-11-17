@@ -1,3 +1,4 @@
+import {unverifiedMultimodalSignals} from '../shared/multimodalSignalEvidence.js';
 import { Response } from 'express';
 import { AuthenticatedRequest, AppError, isValidUUID } from '../types/index.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
@@ -61,7 +62,9 @@ export async function findProjectMoments(req: AuthenticatedRequest, res: Respons
 
     const duration = Number(transcript.duration_seconds || 60);
 
+    const notRun=unverifiedMultimodalSignals();for(const key of Object.keys(notRun) as Array<keyof typeof notRun>)notRun[key]={status:'not-run',method:'transcript-only-fallback'};
     const fallbackTimeline = MultimodalTimelineService.fuseTimeline({
+      signalEvidence:notRun,
       projectId,
       durationSeconds: duration,
       segments,

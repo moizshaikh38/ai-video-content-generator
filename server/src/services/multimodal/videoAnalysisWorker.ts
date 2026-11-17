@@ -1,3 +1,4 @@
+import type {SignalExecutionReceipt} from '../../shared/multimodalSignalEvidence.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -177,12 +178,13 @@ export class VideoAnalysisWorker {
 
       // Step 1: Detect Visual Scene Cuts (20%)
       await this.updateJobStage(job.id, 'extracting_scenes', 20);
-      const sceneCuts = await VideoSceneService.detectSceneCuts(videoPath, 0.25);
+      const sceneEvidence:{receipt?:SignalExecutionReceipt}={},silenceEvidence:{receipt?:SignalExecutionReceipt}={};
+      const sceneCuts = await VideoSceneService.detectSceneCuts(videoPath, 0.25,undefined,sceneEvidence);
 
       // Step 2: Extract Audio Silence & Loudness (40%)
       await this.updateJobStage(job.id, 'analyzing_audio', 40);
       const [silenceIntervals, volumeStats] = await Promise.all([
-        AudioFeatureService.detectSilenceIntervals(videoPath, -30, 0.3),
+        AudioFeatureService.detectSilenceIntervals(videoPath, -30, 0.3,60000,silenceEvidence),
         AudioFeatureService.detectAudioVolume(videoPath),
       ]);
 
@@ -212,6 +214,7 @@ export class VideoAnalysisWorker {
       // Step 6: Fuse Multimodal Timeline (100%)
       await this.updateJobStage(job.id, 'fusing_timeline', 95);
       const fusedTimeline = MultimodalTimelineService.fuseTimeline({
+        signalEvidence:{sceneCuts:sceneEvidence.receipt||{status:'legacy-unverified',method:'unknown'},silence:silenceEvidence.receipt||{status:'legacy-unverified',method:'unknown'},audioVolume:volumeStats.evidence||{status:'legacy-unverified',method:'unknown'},faces:faceResult.evidence||{status:'legacy-unverified',method:'unknown'}},
         projectId: job.project_id,
         durationSeconds,
         segments,

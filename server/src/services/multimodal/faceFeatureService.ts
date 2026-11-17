@@ -1,9 +1,11 @@
+import type {SignalExecutionReceipt} from '../../shared/multimodalSignalEvidence.js';
 import fs from 'node:fs';
 import { logger } from '../../utils/logger.js';
 import { FacePresenceInterval } from '../../types/index.js';
 import { SmartReframeService } from '../smartReframeService.js';
 
 export interface FaceAnalysisResult {
+  evidence?:SignalExecutionReceipt;
   face_presence_ratio: number; // 0.0 to 1.0 (fraction of sampled frames with >= 1 face)
   intervals: FacePresenceInterval[];
   sample_count: number;
@@ -42,6 +44,7 @@ export class FaceFeatureService {
       const samples = cvResult.samples || [];
       if (samples.length === 0) {
         return {
+          evidence:{status:'unavailable',method:'sampled-cv-face-presence',scope:'sampled-source'},
           face_presence_ratio: 0,
           intervals: [],
           sample_count: 0,
@@ -101,6 +104,7 @@ export class FaceFeatureService {
       const presenceRatio = Math.round((faceSampleCount / samples.length) * 1000) / 1000;
 
       return {
+        evidence:{status:'completed',method:'sampled-cv-face-presence',scope:'sampled-source'},
         face_presence_ratio: presenceRatio,
         intervals,
         sample_count: samples.length,
@@ -108,6 +112,7 @@ export class FaceFeatureService {
     } catch (err: any) {
       logger.warn(`[FaceFeatureService] Face detection notice: ${err.message}`);
       return {
+        evidence:{status:'unavailable',method:'sampled-cv-face-presence',scope:'sampled-source'},
         face_presence_ratio: 0,
         intervals: [],
         sample_count: 0,

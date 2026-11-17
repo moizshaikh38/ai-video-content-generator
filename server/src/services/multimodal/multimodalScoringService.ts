@@ -1,3 +1,4 @@
+import {unverifiedMultimodalSignals} from '../../shared/multimodalSignalEvidence.js';
 import {
   MultimodalTimeline,
   VireoClipScoreExplanation,
@@ -287,6 +288,7 @@ export class MultimodalScoringService {
     // 5. Generate Transparent Explainability Reasons
     const reasons: string[] = [];
 
+    const executionEvidence=timeline?.signal_evidence||unverifiedMultimodalSignals();
     // Genre-specific reason
     reasons.push(`Targeted for ${genreProfile.displayName}: ${genreProfile.selectionObjective}`);
 
@@ -306,16 +308,14 @@ export class MultimodalScoringService {
       reasons.push(`Curated for ${formattedGoal} narrative objective`);
     }
 
-    if (hasFaceInHook) {
-      reasons.push('High-engagement face presence detected in the opening 3 seconds for strong viewer hook');
+    if (hasFaceInHook && executionEvidence.faces.status==='completed') {
+      reasons.push('Sampled face detections overlap the opening window; this does not measure hook quality.');
     }
-    if (hasCleanSilenceEnd) {
-      reasons.push('Clean ending on a natural conversational pause with zero mid-sentence truncation');
+    if (hasCleanSilenceEnd && executionEvidence.silence.status==='completed') {
+      reasons.push('The ending is near a detected silence interval; sentence completeness still needs review.');
     }
-    if (visual_activity_score >= 70) {
-      reasons.push(`Dynamic visual pacing (${visual_activity_score}/100 activity) keeps short-form attention`);
-    } else {
-      reasons.push('Steady single-shot framing ideal for focused direct-to-camera delivery');
+    if(executionEvidence.sceneCuts.status==='completed'){
+      reasons.push(`Scene-cut-derived activity heuristic: ${visual_activity_score}/100. This is not a viewer-attention measurement.`);
     }
     if (duration_seconds >= targetMin && duration_seconds <= targetMax) {
       reasons.push(
@@ -325,8 +325,8 @@ export class MultimodalScoringService {
     if (hasOcrText) {
       reasons.push('On-screen graphic text reinforces topic retention');
     }
-    if (audio_energy_score >= 75) {
-      reasons.push(`Strong vocal presence and speech clarity (${audio_energy_score}/100 audio energy)`);
+    if (audio_energy_score >= 75 && executionEvidence.audioVolume.status==='completed') {
+      reasons.push(`Whole-source audio-volume-derived heuristic: ${audio_energy_score}/100. Speech clarity and candidate-local loudness are not measured here.`);
     }
 
     // 6. Platform Suitability Breakdown
@@ -373,6 +373,7 @@ export class MultimodalScoringService {
     };
 
     const explanation: VireoClipScoreExplanation = {
+      signal_evidence:structuredClone(timeline?.signal_evidence||unverifiedMultimodalSignals()),
       overall_score,
       hook_score,
       standalone_score,
@@ -383,6 +384,9 @@ export class MultimodalScoringService {
       reasons,
       platform_suitability,
     };
+
+    reasons.push('Signal execution receipts describe extraction status only; source freshness, story completeness and listening quality are not verified.');
+    if(!timeline||Object.values(timeline.signal_evidence||unverifiedMultimodalSignals()).some(receipt=>receipt.status!=='completed'))reasons.push('Some visual/audio inputs are missing, partial or unverified; this legacy score may include numeric defaults.');
 
     // Transparency: record which LLM dimensions were missing so weight
     // redistribution is auditable from the stored explanation alone.

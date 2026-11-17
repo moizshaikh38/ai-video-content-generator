@@ -1509,6 +1509,7 @@ export interface MultimodalTimelineSegment {
 }
 
 export interface MultimodalTimeline {
+  signal_evidence?:import('../shared/multimodalSignalEvidence.js').MultimodalSignalEvidence;
   project_id: string;
   duration_seconds: number;
   scene_cuts: VideoSceneCut[];
@@ -1533,6 +1534,7 @@ export interface PlatformFitDetail {
 }
 
 export interface VireoClipScoreExplanation {
+  signal_evidence?:import('../shared/multimodalSignalEvidence.js').MultimodalSignalEvidence;
   overall_score: number; // 0–100
   // LLM-derived dimensions: null when the model did not return a subscore
   // (weight is redistributed across the scored dimensions — no fabricated defaults).

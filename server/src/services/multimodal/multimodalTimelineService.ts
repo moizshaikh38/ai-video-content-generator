@@ -1,3 +1,4 @@
+import {unverifiedMultimodalSignals,type MultimodalSignalEvidence} from '../../shared/multimodalSignalEvidence.js';
 import crypto from 'node:crypto';
 import { dataRepository, ownerContext } from '../../db/repositories/dataRepository.js';
 import { logger } from '../../utils/logger.js';
@@ -15,6 +16,7 @@ import { VideoSceneService } from './videoSceneService.js';
 import { FaceFeatureService } from './faceFeatureService.js';
 
 export interface FuseTimelineOptions {
+  signalEvidence?:MultimodalSignalEvidence;
   projectId: string;
   durationSeconds: number;
   segments: TranscriptSegment[];
@@ -114,6 +116,7 @@ export class MultimodalTimelineService {
       segments.length > 0 ? Math.round(totalVisualActivity / segments.length) : 50;
 
     return {
+      signal_evidence:structuredClone(options.signalEvidence||unverifiedMultimodalSignals()),
       project_id: projectId,
       duration_seconds: durationSeconds,
       scene_cuts: sceneCuts,
