@@ -1,3 +1,4 @@
+import {buildSharedViewReviewPlan} from '../shared/sharedViewReview.js';
 import {normalizeFaceEvidence} from '../shared/faceEvidence.js';
 import {constrainedFit43} from '../shared/constrainedFit43.js';
 import {bodyOnlyPortraitProposal} from '../shared/bodyOnlyPortraitProposal.js';
@@ -105,6 +106,8 @@ export interface ShotCompositionOptions {
     automaticFitAspect?: '4:3';
     /** Developmental opt-in only. Not read from project/user settings. */
     pairFocusReview?: boolean;
+    /** Review-only. Requires independently supplied hand observations. */
+    sharedViewReview?: boolean;
     bodyOnlyPortraitReview?: boolean;
     /** Requires independently declared podcast/interview context. */
     allowConversationSplit?: boolean;
@@ -1476,6 +1479,10 @@ export class SmartReframeService {
   }
 
   private static computeShotCompositionLegacy(options: ShotCompositionOptions): ReturnType<typeof SmartReframeService.computeShotComposition> {
+    if(options.sharedViewReview && options.windowScope==='shot' && options.automaticFitAspect==='4:3' && (!options.layoutPolicy||options.layoutPolicy.allowed.includes('fit'))){
+      const baseline=this.computeShotComposition({...options,sharedViewReview:false});
+      return buildSharedViewReviewPlan(baseline,{samples:options.rawSamples||[],sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,protectedRegions:options.protectedContentRegions||[]}).shots as ReturnType<typeof SmartReframeService.computeShotComposition>;
+    }
     const {rawSamples = [], duration, sourceWidth, sourceHeight} = options;
     if (!rawSamples?.length || !(duration > 0) || sourceWidth <= 0 || sourceHeight <= 0) return [];
     const cuts = [...new Set((options.sceneCuts || []).filter(t => Number.isFinite(t) && t > 0 && t < duration))].sort((a,b)=>a-b);
