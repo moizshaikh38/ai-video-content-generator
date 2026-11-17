@@ -21,3 +21,13 @@ Inspected 0/4-second preview/export pairs. First-shot framing broadly agrees and
 ## Checks and limits
 
 62/62 focused routing/shot/legacy/manual/fit/preview/item-consumer tests pass. Frontend and server TypeScript checks pass. This is not whole-repository or editorial quality approval. Independent transcript reference, human listening review, diverse no-rescue holdouts, legacy recovery and 4K qualification remain open. No further 4K attempt was made.
+
+## Additional no-rescue source reruns
+
+The machine-readable local output matrix is adaptive-local-output-matrix-20261118.json. These are previously seen development source families, not unseen holdouts. No adjustments were made after seeing their rerun results.
+
+Walking fresh normal analysis at /downloads/vireo-normal-adaptive-walking-cv-0449: source SHA256 5ede85ca40525e7c5986cc409783fed564abd454a64d1512ff8b8559be124fc5, 45 samples, zero face tracks, shot scope. Full 12.007-second direct output at /downloads/vireo-adaptive-walking-candidate-full-0449 is centered 4:3 Fit. Subject stays visible in eight decoded samples, but small framing and no subject follow do not meet the Auto editing goal.
+
+Studio fresh normal analysis at /downloads/vireo-normal-adaptive-studio-cv-0450: source SHA256 31da7815ea879e8d9575720507e384cdea33d63ee43685dace712593d79f99db, 50 samples, one associated face track (.685), shot scope. Full 12-second output at /downloads/vireo-adaptive-studio-candidate-full-0450 falls back to review-marked full-source Fit due to measured side-subject/context conflict. Eight decoded samples keep main face visible but include the partial foreground head and small main subject. This is an explicit quality limit, not good Auto editing. No policy was weakened to optimize either source.
+
+A separate combined rerun with adaptive-scene opt-in off passed at /downloads/vireo-combined-default-route-regression-0451. It still explicitly enables shot composition, as earlier combined harnesses did; this is not an unmodified-production-default test. Existing local identity/entitlements/storage doubles and manual interval/captions-off boundaries apply.

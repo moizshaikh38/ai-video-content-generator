@@ -1,0 +1,172 @@
+{
+  "scope": "Local qualification, explicit review-v1, no provider calls or defaults activation. Previously seen source families, not unseen holdouts. Decoded sample inspection is not full motion or audio review.",
+  "runs": [
+    {
+      "name": "pair",
+      "source": "/downloads/recovered-source/cottonbro-two-person-12s.mp4",
+      "sha256": "c486f16a5f8c36bb1152fdfa8e826dce216e34dc85c34e2d7bd3bd14a88e7fd9",
+      "sourceUnchanged": true,
+      "freshNormalAnalyzer": true,
+      "windowScope": "shot",
+      "samples": 50,
+      "cvEvidence": "/downloads/vireo-normal-adaptive-pair-cv-0444",
+      "outputEvidence": "/downloads/vireo-adaptive-pair-candidate-full-0448",
+      "shots": [
+        {
+          "start": 0,
+          "end": 12,
+          "kind": "group",
+          "windowW": 1,
+          "windowH": 1,
+          "keyframes": [
+            {
+              "time": 0,
+              "centerX": 0.5,
+              "centerY": 0.5
+            }
+          ],
+          "split": {
+            "speaker1X": 0.25,
+            "speaker2X": 0.75,
+            "dividerX": 0.5,
+            "focusPanels": {
+              "layout": "split2",
+              "slots": [
+                {
+                  "sourceRect": {
+                    "x": 0,
+                    "y": 0.06059000000000002,
+                    "w": 0.4180890659340659,
+                    "h": 0.7045575
+                  },
+                  "focusX": 0.5,
+                  "focusY": 0.5,
+                  "scale": 1,
+                  "set": true
+                },
+                {
+                  "sourceRect": {
+                    "x": 0.4587775824175825,
+                    "y": 0.08793999999999999,
+                    "w": 0.5412224175824175,
+                    "h": 0.91206
+                  },
+                  "focusX": 0.5,
+                  "focusY": 0.5,
+                  "scale": 1,
+                  "set": true
+                }
+              ]
+            }
+          },
+          "contextStatus": "unresolved-review-required",
+          "uncertainty": "Two persistent measured faces with bounded head/shoulder views. Geometry adjusted to avoid measured competing-person fragments. Hands, side objects, screen content, speaker dominance and scene meaning remain unverified."
+        }
+      ],
+      "frames": "360",
+      "inspectedSampleTimes": [
+        0,
+        1.5,
+        3,
+        4.5,
+        6,
+        7.5,
+        9,
+        11.9
+      ],
+      "visualReview": "Both faces visible in eight sampled frames; top face near left border at six seconds, unequal panel scale. Split desirability unqualified.",
+      "unseenHoldout": false,
+      "automaticEditorialQualityAccepted": false
+    },
+    {
+      "name": "walking",
+      "source": "/downloads/recovered-source/walking-in-sands-12s.mp4",
+      "sha256": "5ede85ca40525e7c5986cc409783fed564abd454a64d1512ff8b8559be124fc5",
+      "sourceUnchanged": true,
+      "freshNormalAnalyzer": true,
+      "windowScope": "shot",
+      "samples": 45,
+      "cvEvidence": "/downloads/vireo-normal-adaptive-walking-cv-0449",
+      "outputEvidence": "/downloads/vireo-adaptive-walking-candidate-full-0449",
+      "shots": [
+        {
+          "start": 0,
+          "end": 12.007,
+          "kind": "fit",
+          "contextStatus": "unresolved-review-required",
+          "uncertainty": "4:3 Fit crops source context. Review side content and framing before sharing.",
+          "windowW": 0.7494145199063232,
+          "windowH": 1,
+          "keyframes": [
+            {
+              "time": 0,
+              "centerX": 0.5,
+              "centerY": 0.5
+            }
+          ]
+        }
+      ],
+      "frames": "360",
+      "inspectedSampleTimes": [
+        0,
+        1.5,
+        3,
+        4.5,
+        6,
+        7.5,
+        9,
+        11.9
+      ],
+      "visualReview": "Subject visible in eight sampled frames; zero face tracks; small centered Fit is not subject-follow success.",
+      "unseenHoldout": false,
+      "automaticEditorialQualityAccepted": false
+    },
+    {
+      "name": "studio",
+      "source": "/downloads/recovered-source/cottonbro-studio-12s.mp4",
+      "sha256": "31da7815ea879e8d9575720507e384cdea33d63ee43685dace712593d79f99db",
+      "sourceUnchanged": true,
+      "freshNormalAnalyzer": true,
+      "windowScope": "shot",
+      "samples": 50,
+      "cvEvidence": "/downloads/vireo-normal-adaptive-studio-cv-0450",
+      "outputEvidence": "/downloads/vireo-adaptive-studio-candidate-full-0450",
+      "shots": [
+        {
+          "start": 0,
+          "end": 12,
+          "kind": "fit",
+          "windowW": 1,
+          "windowH": 1,
+          "keyframes": [
+            {
+              "time": 0,
+              "centerX": 0.5,
+              "centerY": 0.5
+            }
+          ],
+          "presentationProtection": {
+            "preserveWindow": true,
+            "reason": "measured-subject-conflict"
+          },
+          "contextStatus": "unresolved-review-required",
+          "uncertainty": "Safe full-source Fit: preferred 4:3 would cut measured subjects or side content. Review the scene before sharing."
+        }
+      ],
+      "frames": "360",
+      "inspectedSampleTimes": [
+        0,
+        1.5,
+        3,
+        4.5,
+        6,
+        7.5,
+        9,
+        11.9
+      ],
+      "visualReview": "Main face visible in eight sampled frames; partial foreground head remains, main subject small. Not good Auto editing.",
+      "unseenHoldout": false,
+      "automaticEditorialQualityAccepted": false
+    }
+  ]
+}
