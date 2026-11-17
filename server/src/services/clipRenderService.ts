@@ -1,3 +1,4 @@
+import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
 import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 import {candidateCompositionOptions} from '../shared/automaticLayoutCandidate.js';
 import {legacyFit43Plan,legacyPolicyFallback} from '../shared/automaticLayoutPolicy.js';
@@ -448,12 +449,13 @@ export class ClipRenderService {
   public static async ensureSourceVideo(
     sourceStoragePath: string | null | undefined,
     targetLocalPath: string,
-    options: { timeoutMs?: number; projectId?: string; clipId?: string } = {}
+    options: { timeoutMs?: number; projectId?: string; clipId?: string; snapshotOut?:{receipt?:SourceObjectReceipt} } = {}
   ): Promise<'local_fallback' | 'cache_hit' | 'downloaded'> {
     if (!sourceStoragePath) {
       throw new AppError('Source storage path is missing for clip.', 400, 'SOURCE_PATH_MISSING');
     }
 
+    if(options.snapshotOut)delete options.snapshotOut.receipt;
     // 1. Local filesystem fallback check
     const candidatePaths = [
       sourceStoragePath,
@@ -483,15 +485,19 @@ export class ClipRenderService {
     // A path identifies an object location, not immutable source bytes. Recheck
     // its validator before reusing disk cache; unversioned objects are fetched.
     const snapshot = await headObject('source',sourceStoragePath);
-    const validator = snapshot.versionId || (snapshot.etag && !snapshot.etag.startsWith('W/') ? snapshot.etag : undefined);
+    const validator = snapshot.etag && !snapshot.etag.startsWith('W/') ? snapshot.etag : undefined;
     const hash = crypto.createHash('sha256').update(JSON.stringify([sourceStoragePath,validator || crypto.randomUUID(),snapshot.size])).digest('hex');
     const cachedFile = path.join(cacheDir, `${hash}.mp4`);
 
     try {
       if (validator && fs.existsSync(cachedFile) && fs.statSync(cachedFile).size === snapshot.size && snapshot.size > 0) {
-        logger.info(`[ClipRender] Reused cached source video: ${cachedFile}`);
-        ClipRenderService.placeSourceFile(cachedFile, targetLocalPath);
-        return 'cache_hit';
+        const receipt=JSON.parse(fs.readFileSync(cachedFile+'.receipt.json','utf8'));
+        if(sourceObjectReceiptMatches(receipt,sourceStoragePath,snapshot,await computeFileStreamSha256(cachedFile))){
+          logger.info(`[ClipRender] Reused cached source video: ${cachedFile}`);
+          ClipRenderService.placeSourceFile(cachedFile, targetLocalPath);
+          if(options.snapshotOut)options.snapshotOut.receipt=receipt;
+          return 'cache_hit';
+        }
       }
     } catch {}
 
@@ -500,7 +506,7 @@ export class ClipRenderService {
     const stagingFile = path.join(cacheDir, `${hash}.tmp.${crypto.randomUUID()}`);
 
     try {
-      await downloadObjectToFile('source', sourceStoragePath, stagingFile, { timeoutMs: downloadTimeout });
+      const downloaded=await downloadObjectToFile('source', sourceStoragePath, stagingFile, { timeoutMs: downloadTimeout,requireSnapshotReceipt:true });
       const after = await headObject('source',sourceStoragePath);
       if (after.size !== snapshot.size || after.etag !== snapshot.etag || after.versionId !== snapshot.versionId) {
         throw new AppError('Source object changed while preparing the render. Retry with the current source.',409,'SOURCE_VERSION_CHANGED');
@@ -524,6 +530,12 @@ export class ClipRenderService {
         try { fs.unlinkSync(stagingFile); } catch {}
       }
 
+      if(downloaded.sourceReceipt&&sourceObjectReceiptMatches(downloaded.sourceReceipt,sourceStoragePath,snapshot)){
+        const receiptStage=cachedFile+'.receipt.'+crypto.randomUUID()+'.tmp';
+        fs.writeFileSync(receiptStage,JSON.stringify(downloaded.sourceReceipt));
+        fs.renameSync(receiptStage,cachedFile+'.receipt.json');
+        if(options.snapshotOut)options.snapshotOut.receipt=downloaded.sourceReceipt;
+      }
       ClipRenderService.placeSourceFile(cachedFile, targetLocalPath);
       logger.info(`[ClipRender] Downloaded and cached source video to ${cachedFile}`);
       return 'downloaded';
@@ -677,7 +689,9 @@ export class ClipRenderService {
         sourcePath: clip.source_storage_path,
       });
 
+      const sourceSnapshot:{receipt?:SourceObjectReceipt}={};
       await ClipRenderService.ensureSourceVideo(clip.source_storage_path, sourcePath, {
+        snapshotOut:sourceSnapshot,
         timeoutMs,
         projectId: clip.project_id,
         clipId,
@@ -696,7 +710,7 @@ export class ClipRenderService {
 
       // Speaker-following guarantee: generate the smart-reframe track on demand
       // so active-speaker framing works out of the box.
-      await ClipRenderService.ensureReframeTrackAtRender(clip, sourcePath, jobId, sourceSha256);
+      await ClipRenderService.ensureReframeTrackAtRender(clip, sourcePath, jobId, sourceSha256, sourceSnapshot.receipt);
 
       // Shared reframing decision (Quick path filter + Pro per-slice context).
       // Export resolution: requested tier from the clip (set by the export
@@ -1438,7 +1452,8 @@ export class ClipRenderService {
     clip: ClipRecord,
     localSourcePath: string,
     jobId?: string,
-    expectedSourceSha256?: string
+    expectedSourceSha256?: string,
+    sourceReceipt?:SourceObjectReceipt
   ): Promise<void> {
     if (!config.smartReframeEnabled || !config.reframeAutoGenerate) return;
     if (clip.crop_config?.mode !== 'smart') return;
@@ -1456,7 +1471,7 @@ export class ClipRenderService {
       if (jobId) {
         await ClipRenderService.updateJobStage(jobId, clip.id, 'analyzing_speakers', 8, 'rendering');
       }
-      await SmartReframeService.analyzeClipFraming(clip.id, clip.user_id, { localSourcePath });
+      await SmartReframeService.analyzeClipFraming(clip.id, clip.user_id, { localSourcePath,sourceReceipt });
     } catch (err: any) {
       logger.warn(`[ClipRender] Auto reframe analysis failed for clip ${clip.id}: ${err?.message || err}. Falling back to center crop.`);
     }

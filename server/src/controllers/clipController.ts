@@ -1313,7 +1313,7 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
   }
 
   try {
-    const track = await SmartReframeService.getReframeTrack(clipId, userId);
+    const track = await SmartReframeService.getReframeTrack(clipId, userId, undefined, true);
 
     if (!track) {
       // If no track yet, check if currently analyzing
@@ -1333,7 +1333,7 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
 
     const {data:policyClip}=await dataRepository.from('clips').select('*').eq('id',clipId).eq('user_id',userId).maybeSingle();
     const {data:policyProject}=await dataRepository.from('editor_projects').select('tracks').eq('clip_id',clipId).eq('user_id',userId).maybeSingle();
-    const retainedPlan=policyClip?.crop_config?.mode==='smart'&&policyProject?storedScenePlanWindow(policyProject,policyClip,track):null;
+    const retainedPlan=track.sourceObjectVerified!==false&&policyClip?.crop_config?.mode==='smart'&&policyProject?storedScenePlanWindow(policyProject,policyClip,track):null;
     // Return safe data without exposing server paths
     res.status(200).json({
       status: track.status,

@@ -1,3 +1,4 @@
+import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
 import {reframeTrackFreshness} from '../shared/reframeTrackFreshness.js';
 import {reviewMeasuredSplitSeams} from '../shared/measuredSplitSeamReview.js';
 import {buildSharedViewReviewPlan} from '../shared/sharedViewReview.js';
@@ -32,7 +33,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { execFile, ChildProcess } from 'node:child_process';
 import { promisify } from 'node:util';
-import { downloadObjectToFile, computeFileStreamSha256 } from './objectStorageService.js';
+import { downloadObjectToFile, computeFileStreamSha256, headObject } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
 import { applyWordEnergyFusion } from '../utils/wordEnergyFusion.js';
 import { GenreIntelligenceService } from './genreIntelligenceService.js';
@@ -2796,7 +2797,7 @@ export class SmartReframeService {
   public static async analyzeClipFraming(
     clipId: string,
     userId: string,
-    options: SmartReframeOptions & { localSourcePath?: string } = {}
+    options: SmartReframeOptions & { localSourcePath?: string;sourceReceipt?:SourceObjectReceipt } = {}
   ): Promise<ReframeTrackRecord> {
     if (!isMongoConfigured) {
       const err = new Error('Database service is not configured.');
@@ -2868,11 +2869,14 @@ export class SmartReframeService {
 
       // 3. Download source video to temp location
       logger.info(`[SmartReframe] Downloading source video from Storage for clip ${clipId}: ${clip.source_storage_path}`);
+      let sourceReceipt:SourceObjectReceipt|undefined;
       if (!options.localSourcePath || !fs.existsSync(options.localSourcePath)) {
-        await downloadObjectToFile('source', clip.source_storage_path, localSourcePath);
+        const downloaded=await downloadObjectToFile('source', clip.source_storage_path, localSourcePath,{requireSnapshotReceipt:true});
+        sourceReceipt=downloaded.sourceReceipt;
       }
 
       const analyzedSourceSha256 = await computeFileStreamSha256(localSourcePath);
+      if(options.localSourcePath&&options.sourceReceipt&&sourceObjectReceiptMatches(options.sourceReceipt,clip.source_storage_path,{size:fs.statSync(localSourcePath).size,etag:options.sourceReceipt.etag},analyzedSourceSha256))sourceReceipt=options.sourceReceipt;
 
       // 4. Determine effective clip boundaries
       const trimStart = Number(clip.trim_start_offset || 0);
@@ -3033,6 +3037,7 @@ export class SmartReframeService {
           automatic_fit_aspect: adaptiveScenes && process.env.SMART_REFRAME_AUTOMATIC_FIT_4_3 === '1' ? '4:3' : null,
           analyzed_source_path: clip.source_storage_path,
           analyzed_source_sha256: analyzedSourceSha256,
+          analyzed_source_receipt: sourceReceipt,
           analyzed_source_start: startSec,
           analyzed_source_end: endSec,
           clip_duration: durationSec,
@@ -3093,8 +3098,9 @@ export class SmartReframeService {
   public static async getReframeTrack(
     clipId: string,
     userId: string,
-    expectedSourceSha256?: string
-  ): Promise<(ReframeTrackRecord & { isStale?: boolean }) | null> {
+    expectedSourceSha256?: string,
+    verifyObjectReceipt = false
+  ): Promise<(ReframeTrackRecord & { isStale?: boolean; sourceObjectVerified?:boolean }) | null> {
     if (!isMongoConfigured) return null;
 
     // Fetch clip to verify ownership and current trim/aspect ratio
@@ -3120,10 +3126,19 @@ export class SmartReframeService {
       return null;
     }
 
-    const {isStale} = reframeTrackFreshness(clip,track,expectedSourceSha256);
-
+    let {isStale} = reframeTrackFreshness(clip,track,expectedSourceSha256);
+    let sourceObjectVerified:boolean|undefined;
+    if(verifyObjectReceipt){
+      sourceObjectVerified=false;
+      const receipt=track.metadata?.analyzed_source_receipt;
+      if(receipt && clip.source_storage_path){
+        try{sourceObjectVerified=sourceObjectReceiptMatches(receipt,clip.source_storage_path,await headObject('source',clip.source_storage_path),track.metadata?.analyzed_source_sha256);}catch{}
+      }
+      if(!sourceObjectVerified)isStale=true;
+    }
     return {
       ...track,
+      sourceObjectVerified,
       isStale,
     };
   }
