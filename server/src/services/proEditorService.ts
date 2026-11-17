@@ -1264,6 +1264,11 @@ export class ProEditorService {
     reframe?: ProReframeContext,
     loudnorm?: LoudnormCompileMode
   ): CompiledRenderGraph {
+    // Render-only normalization: base crops already use canonical aspect design
+    // dimensions. Transitions/overlays must use the same canvas, not stale saved
+    // pixel sizes. The requested export tier remains reframe.canvasScale.
+    project={...project,canvas:normalizeEditorCanvasAspect(project.canvas)};
+    reframe={mode:'fallback_center',layoutMode:'track',track:null,cropConfig:null,clipStartSec:0,...reframe,aspectRatio:(project.canvas.aspect_ratio||reframe?.aspectRatio||'9:16') as ClipAspectRatio};
     // Validate conflicting saved framing channels before evidence resolution can
     // remove an unsupported tracker from a render-only slice.
     for (const t of project.tracks) for (const i of t.items) {
