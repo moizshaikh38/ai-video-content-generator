@@ -28,3 +28,13 @@ Fresh analyses cover seconds 24-36 and 48-60 of the existing original two-person
 - The 48-60 export's inspected frames show centered head/shoulder views. Lack of a noticed fragment in those frames does not establish absence over the whole video or fix the known diagnostic coverage gap.
 
 Expanded current Auto regression check: 94 tests pass across 17 selected framing/interpolation/quality suites. This remains a targeted selection, not a complete suite or current-main integration result. No product code or thresholds were changed after these held-out findings.
+
+## Owner visual feedback
+
+The user's authenticated WhatsApp reply at 17:49:16 IST on November 17, 2026 accepts the delivered pair24-36 experimental sample. Source message ID: wamid.HBgMOTE3MjE5MzExODY2FQIAEhgUM0EwOUYyM0JDNDlDRTJBN0NBQzYA. The parent supplied the original reply and preceding delivery context. Preserve this centered, locked head/shoulder framing as a preferred direction. This is sample-level visual acceptance, not whole-Auto qualification, a demand to preserve every hand, production activation, push, main merge or deploy permission. The disconnected-limb diagnostic limitation above remains a technical fact, not a reason to overrule the user's visual preference.
+
+## Resource inspection, no new render execution
+
+Read-only construction of the previously saved stalled 12-second multi-panel Prism project confirms six two-second video items, each repeating source seconds 0-2, with a shared-source trim/concat graph. Audio normalization is disabled on every video item. The reconstructed graph without subtitles has 15 filter chains and 5305 filter characters, at 720x1280 output. This rules out enabled dialogue loudnorm in this saved fixture; it does not identify the cause of the stalled render.
+
+Retained successful Comic multi-panel logs and successful two-second Prism logs do not isolate whether the earlier stall came from caption event load, graph synchronization/buffering, or whole-environment contention. Current aggregate cgroup OOM counters have no per-job attribution, so they cannot prove which historical job was killed. No new render, full 4K attempt, process termination, resource-limit change or performance fix was made during this read-only check. 4K remains unverified and the stop remains in force.
