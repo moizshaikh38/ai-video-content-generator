@@ -1311,6 +1311,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 return (
                   <CropBoxControl
                     key={`${baseVideoItem.id}-${activePanels.layout}-${i}`}
+                    inlineTarget={stageViewportRef.current}
                     label={activePanels.slots[i].set ? `Panel ${i + 1}` : `Panel ${i + 1} (set view)`}
                     videoSrc={cleanSourceUrl || activeVideoSrc || null}
                     sourceTime={targetVideoTime}
