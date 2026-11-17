@@ -153,3 +153,7 @@ fixture. Do not call the two exports picture-identical or Auto-qualified. It is
 also an upscaled 854x480 source, not native 720p detail. The first harness attempt
 observed clip ready before job completion; the harness was corrected to wait for
 both states and the fresh run passed. This was not a 4K attempt or a release.
+
+Normalization is explicitly excluded from staging eligibility (including linear
+and skipped-silent tagged results) until separately qualified. A graph containing
+an active loudnorm filter is also refused, including legacy one-pass graphs.

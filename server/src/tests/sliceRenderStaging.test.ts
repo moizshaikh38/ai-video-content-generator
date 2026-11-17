@@ -7,6 +7,7 @@ test('staging is opt-in and rejects unsupported graph shapes without mutation',(
  const g=P.compileRenderGraph(fixture(),'/tmp/not-read.mp4',undefined,undefined,context,'off'),before=JSON.stringify(g);assert.ok(g.sliceStaging);assert.ok(buildSliceRenderStaging(g,['/tmp/a.nut','/tmp/b.nut']));assert.equal(JSON.stringify(g),before);
  for(const paths of [[],['/tmp/a.nut','/tmp/a.nut'],['/tmp/a.mp4','/tmp/b.nut']])assert.equal(buildSliceRenderStaging(g,paths),null);
  assert.equal(buildSliceRenderStaging({...g,inputArgs:['-i','a','-i','music']},['a.nut','b.nut']),null);
+ assert.equal(buildSliceRenderStaging({...g,normalizationMode:'linear'},['a.nut','b.nut']),null);
  const changed=structuredClone(g);changed.filterComplex.push('[0:a]anull[untracked]');assert.equal(buildSliceRenderStaging(changed,['a.nut','b.nut']),null);
  const silent=P.compileRenderGraph(fixture(),'/tmp/not-read.mp4',undefined,undefined,{...context,sourceHasAudio:false},'off');assert.equal(silent.sliceStaging,undefined);
  const transition=fixture();transition.tracks[0].items[1].transition_in={type:'fade',duration:.1};const t=P.compileRenderGraph(transition,'/tmp/not-read.mp4',undefined,undefined,context,'off');assert.equal(t.sliceStaging,undefined);

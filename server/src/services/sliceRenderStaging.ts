@@ -12,7 +12,7 @@ export interface SliceRenderStagingPlan {
  */
 export function buildSliceRenderStaging(graph:CompiledRenderGraph,paths:string[]):SliceRenderStagingPlan|null {
  const staging=graph.sliceStaging;
- if(!staging||graph.inputArgs.length!==2||graph.inputArgs[0]!=='-i'||staging.stages.length<2||staging.stages.length>12||paths.length!==staging.stages.length||new Set(paths).size!==paths.length||paths.some(p=>!p.endsWith('.nut'))||graph.measurement)return null;
+ if(!staging||graph.inputArgs.length!==2||graph.inputArgs[0]!=='-i'||staging.stages.length<2||staging.stages.length>12||paths.length!==staging.stages.length||new Set(paths).size!==paths.length||paths.some(p=>!p.endsWith('.nut'))||graph.measurement||graph.normalizationMode!==undefined||graph.filterComplex.some(chain=>chain.includes('loudnorm=')))return null;
  if(paths.includes(graph.inputArgs[1])||staging.stages.some((s,i)=>s.videoMap!==`[v_slice_${i}]`||s.audioMap!==`[a_slice_${i}]`)||JSON.stringify([...staging.stages.flatMap(s=>s.filterComplex),...staging.tailFilterComplex])!==JSON.stringify(graph.filterComplex)||staging.tailFilterComplex.some(chain=>/\[\d+:(?:a|v)\]/.test(chain)))return null;
  const expectedConcat=staging.stages.map(s=>s.videoMap+s.audioMap).join('')+`concat=n=${staging.stages.length}:v=1:a=1[base_v][base_a]`;
  if(staging.tailFilterComplex[0]!==expectedConcat)return null;
