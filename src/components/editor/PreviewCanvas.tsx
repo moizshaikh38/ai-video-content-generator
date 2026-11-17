@@ -120,6 +120,7 @@ interface PreviewCanvasProps {
     shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';split?:{speaker1X:number;speaker2X:number;dividerX:number;focusPanels?:import('../../../server/src/shared/panelLayouts').ItemPanels};contextStatus?:string;uncertainty?:string;presentationProtection?:import('../../../server/src/shared/automaticLayoutPolicy').PresentationProtection;windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
   compositionClipStart?: number;
   autoCandidateEnabled?:boolean;
+  autoCandidateMixed?:boolean;
   onSetAutoCandidate?:(enabled:boolean)=>void;
   onSetAutomaticFraming?: (itemId:string|null,enabled:boolean,sourceTime:number)=>void;
   groupReframe?: {
@@ -257,6 +258,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   compositionClipStart = 0,
   onSetAutomaticFraming,
   autoCandidateEnabled,
+  autoCandidateMixed,
   onSetAutoCandidate,
   lowConfidenceTrack = false,
   onUpdateCaptionPosition,
@@ -1305,11 +1307,12 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 onClick={()=>onSetAutomaticFraming(null,baseVideoItem.automatic_framing?.enabled!==false,targetVideoTime)}>Apply to whole clip</button>
             </div>
           )}
-          {onSetAutoCandidate && <button type="button" data-testid="auto-layout-candidate-toggle" aria-pressed={Boolean(autoCandidateEnabled)} onClick={()=>onSetAutoCandidate(!autoCandidateEnabled)}
+          {onSetAutoCandidate && <button type="button" data-testid="auto-layout-candidate-toggle" aria-pressed={autoCandidateMixed?'mixed':Boolean(autoCandidateEnabled)} onClick={()=>onSetAutoCandidate(!autoCandidateEnabled)}
             className="px-2 py-1 rounded-lg text-amber-200 hover:bg-white/10"
-            title="Review candidate for this clip. Tries measured head/shoulder Split and body-only framing. Manual edits and locked items keep priority. Text protection requires available analysis evidence; review before sharing.">
-            Auto candidate: {autoCandidateEnabled?'ON · review':'OFF'}
+            title="Apply review candidate to editable video items in this clip. Mixed means some items remain OFF; locked items are unchanged. Tries measured head/shoulder Split and body-only framing. Manual edits and locked items keep priority. Text protection requires available analysis evidence; review before sharing.">
+            Auto candidate: {autoCandidateMixed?'MIXED · review':autoCandidateEnabled?'ON · review':'OFF'}
           </button>}
+          {onSetAutoCandidate && baseVideoItem && <span data-testid="active-auto-candidate-state" className="text-[10px] text-neutral-400">This item: candidate {(baseVideoItem as any).crop_config?.automaticLayoutCandidate==='review-v1'?'ON':'OFF'}{baseVideoItem.locked?' · locked':''}</span>}
           {automaticLayoutLabel?.includes('Fit') && <span className="text-[10px] text-amber-300" title="Fit uses a 4:3 sharp band. Side content may be cropped. Review before sharing.">4:3 Fit · check sides</span>}
           {/* 2. Layout: Fill / Fit / Blur - one toggle cycling the three fill modes */}
           {onUpdateCropMode && (

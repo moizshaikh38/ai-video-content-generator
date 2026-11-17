@@ -10,3 +10,10 @@ export function setProjectAutoCandidate<T extends {tracks:any[]}>(project:T,enab
 export function projectAutoCandidate(project:{tracks:any[]}):boolean{
  return project.tracks.some(t=>t.type==='VIDEO'&&!t.hidden&&t.items.some((i:any)=>i.crop_config?.automaticLayoutCandidate===AUTO_LAYOUT_CANDIDATE));
 }
+
+/** Includes locked items: mixed must not imply that every item was enabled. */
+export function projectAutoCandidateState(project:{tracks:any[]}):'off'|'on'|'mixed'{
+ const items=project.tracks.filter(t=>t.type==='VIDEO'&&!t.hidden).flatMap(t=>t.items.filter((i:any)=>!i.hidden));
+ const count=items.filter((i:any)=>i.crop_config?.automaticLayoutCandidate===AUTO_LAYOUT_CANDIDATE).length;
+ return count===0?'off':count===items.length?'on':'mixed';
+}
