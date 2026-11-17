@@ -1,3 +1,4 @@
+import {resolveMeasuredItemPlan} from './itemShotPlanService.js';
 import {freshEditorCaptionAppearance} from '../shared/freshEditorCaptionAppearance.js';
 import {NEW_CAPTION_PRESET_ID} from '../shared/captionPresets.js';
 import {shotPlanOptions} from '../shared/shotPlanOptions.js';
@@ -147,6 +148,9 @@ export interface ProReframeContext {
   /** ACTUAL decoded source size from ffprobe at render. Required for any framing_window. */
   decodedSource?: { width: number; height: number } | null;
   sourceStoragePath?: string | null;
+  /** Independently measured actual render-input bytes and clip asset identity. */
+  sourceSha256?: string;
+  sourceAssetId?: string;
   /** Decoded source probe, not guessed from editor audio settings. */
   sourceHasAudio?: boolean;
 }
@@ -1224,8 +1228,10 @@ export class ProEditorService {
    * Enforces argument array execution with ZERO raw shell string interpolation.
    */
   private static resolveShotCompositionPlan(item:EditorTrackItem,reframe:ProReframeContext){
-    const track=reframe.track!;
-    return SmartReframeService.computeShotComposition(shotPlanOptions({track,candidate:item.crop_config?.automaticLayoutCandidate,layoutPolicy:item.crop_config?.layoutPolicy||reframe?.cropConfig?.layoutPolicy,duration:Number(track.metadata.clip_duration)}));
+    const result=resolveMeasuredItemPlan(item,reframe,options=>SmartReframeService.computeShotComposition(options));
+    if(result.status==='bypassed')return [];
+    if(result.status!=='ready')throw new AppError(`Automatic framing needs source review: ${result.reason}`,409,'AUTOMATIC_PLAN_REVIEW_REQUIRED');
+    return result.shots as ReturnType<typeof SmartReframeService.computeShotComposition>;
   }
 
   /** Bounded adaptive scene contract: same measured shot plan as picture export.

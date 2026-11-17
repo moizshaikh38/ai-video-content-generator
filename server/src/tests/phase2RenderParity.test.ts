@@ -255,7 +255,7 @@ describe('Phase 2 — service wiring guards', () => {
 
   it('both render paths share one reframing decision', () => {
     // Current worker also carries the verified downloaded source digest.
-    assert.match(renderSource, /resolveReframeDecision\(clip, durationSec, canvasScale, sourceSha256\)/);
+    assert.match(renderSource, /resolveReframeDecision\(clip, durationSec, canvasScale, sourceSha256, srcDims\)/);
     assert.match(renderSource, /clipStartSec:\s*storedPlan\?\.sourceAnchor \?\? startSec/);
   });
 

@@ -1,3 +1,4 @@
+import {syntheticMeasuredContext} from './fixtures/syntheticMeasuredContext.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
@@ -23,7 +24,7 @@ test('stable larger speaker wins over longer-lived tiny artifact',()=>{
 });
 test('single Pro candidate uses item window minus analysis source origin',()=>{
  const track={smoothed_keyframes:[{time:0,centerX:.5}],source_width:640,source_height:360,raw_samples:samples,metadata:{shot_composition_candidate:true,scene_cuts:[2,4],clip_duration:6}};
- const reframe={mode:'smart',aspectRatio:'9:16',clipStartSec:10,layoutMode:'track',track};
+ const reframe=syntheticMeasuredContext({mode:'smart',aspectRatio:'9:16',clipStartSec:10,layoutMode:'track',track});
  const item={id:'nonzero-source',source_start:11.5,source_end:14.5};
  const f=(ProEditorService as any).buildSliceCropFilter(item,reframe,1.5,3);
  assert.ok(f.includes('trim=start=0.000000:duration=0.500000'));
@@ -51,7 +52,7 @@ test('Quick and Pro slice graphs execute and preserve requested frame counts',()
  const project={canvas:{width:1080,height:1920,aspect_ratio:'9:16',fps:10,duration:3},tracks:[{type:'VIDEO',name:'main',items:[{id:'shot-slice',timeline_start:0,timeline_end:3,source_start:11.5,source_end:14.5}]}]} as any;
  project.tracks[0].items[0].source_start=1.5;project.tracks[0].items[0].source_end=4.5;
  const reframe={mode:'smart',aspectRatio:'9:16',clipStartSec:0,layoutMode:'track',track:{smoothed_keyframes:[{time:0,centerX:.5,centerY:.5}],source_width:640,source_height:360,raw_samples:samples,metadata:{shot_composition_candidate:true,scene_cuts:[2,4],clip_duration:6}}} as any;
- const graph=ProEditorService.compileRenderGraph(project,source,path.join(dir,'out.mp4'),dir,reframe,'off');
+ const graph=ProEditorService.compileRenderGraph(project,source,path.join(dir,'out.mp4'),dir,syntheticMeasuredContext(reframe,source),'off');
  fs.writeFileSync('/tmp/pro-shot-graph.json',JSON.stringify(graph));
  const pro=execFileSync(ffmpeg,['-v','error','-filter_complex_threads','1','-ss','1.5',...graph.inputArgs,'-filter_complex',graph.filterComplex.join(';'),'-map',graph.videoMap,'-map',graph.audioMap,'-t','3','-f','framemd5','-'],{timeout:30000}).toString();
  fs.writeFileSync('/tmp/pro-frames.txt',pro);assert.equal(pro.split('\n').filter(l=>/^0,/.test(l)).length,30);
