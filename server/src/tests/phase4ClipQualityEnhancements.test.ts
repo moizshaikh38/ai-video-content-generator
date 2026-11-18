@@ -311,13 +311,16 @@ describe('Phase 4 — Clip Quality & Captioning Enhancements', () => {
   // 8. ClipPromptService: Inline Annotations & Chunking Offset
   // ─────────────────────────────────────────────────────────────
   describe('Prompt Generation & Multimodal Annotations', () => {
-    it('enriches indexed transcript with inline [SCENE_CUT], [HIGH_ACTIVITY], and [OCR]', () => {
+    it('enriches indexed transcript with inline [SCENE_CUT], [HIGH_CUT_ACTIVITY], and [OCR]', () => {
       const segments = [
         { id: 0, start: 1.0, end: 5.0, text: 'Look at this dashboard.' },
       ];
 
       const timeline: any = {
         project_id: 'test',
+        signal_evidence:{sceneCuts:{status:'completed',method:'fixture',scope:'whole-source'}},
+        segments:[{start:1,end:5,visual_activity_score:85}],
+        summary_metadata:{ocr_status:'detected'},
         duration_seconds: 10,
         scene_cuts: [{ timestamp: 2.5, score: 0.9 }],
         keyframes: [
@@ -337,7 +340,7 @@ describe('Phase 4 — Clip Quality & Captioning Enhancements', () => {
 
       const formatted = ClipPromptService.formatIndexedTranscript(segments, timeline);
       assert.ok(formatted.includes('[SCENE_CUT]'), 'Must include scene cut tag');
-      assert.ok(formatted.includes('[HIGH_ACTIVITY]'), 'Must include high visual activity tag');
+      assert.ok(formatted.includes('[HIGH_CUT_ACTIVITY]'), 'Must include high visual activity tag');
       assert.ok(formatted.includes('[OCR: "REVENUE GROWTH"]'), 'Must include OCR text');
     });
 

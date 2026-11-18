@@ -409,11 +409,12 @@ describe('Phase A & C — Genre Intelligence & Scoring Verification', () => {
 
       const timeline: MultimodalTimeline = {
         project_id: 'test_markers',
+        signal_evidence:{sceneCuts:{status:'completed',method:'fixture',scope:'whole-source'},silence:{status:'not-run',method:'fixture'},faces:{status:'not-run',method:'fixture'},audioVolume:{status:'not-run',method:'fixture'}},
         duration_seconds: 60,
         scene_cuts: [{ timestamp: 5.2, score: 0.9 }],
         silence_intervals: [],
         face_intervals: [],
-        segments: [],
+        segments: [{start:0,end:15,visual_activity_score:85} as any],
         keyframes: [
           {
             timestamp: 6.0,
@@ -427,7 +428,7 @@ describe('Phase A & C — Genre Intelligence & Scoring Verification', () => {
           average_visual_activity: 85,
           silence_ratio: 0,
           face_presence_ratio: 1,
-          ocr_status: 'completed',
+          ocr_status: 'detected',
         },
       };
 
@@ -438,7 +439,7 @@ describe('Phase A & C — Genre Intelligence & Scoring Verification', () => {
         'Transcript should include inline scene cut marker'
       );
       assert.ok(
-        formatted.includes('[HIGH_VISUAL]'),
+        formatted.includes('[HIGH_CUT_ACTIVITY]'),
         'Transcript should include visual activity marker'
       );
       assert.ok(
