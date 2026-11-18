@@ -36,7 +36,7 @@ export function normalizeProviderTiming(result: any): {
     }
     const text = typeof (word.word ?? word.text) === 'string' ? (word.word ?? word.text).trim() : '';
     const confidence = word.probability ?? word.confidence;
-    const speakerId = word.speaker_id ?? word.speakerId;
+    const speakerId = word.speaker_label ?? word.speaker_id ?? word.speakerId ?? (Number.isInteger(word.speaker) ? `speaker_${word.speaker}` : undefined);
     const annotation = /^\[[^\]]+\]$/.test(text);
     if (text) words.push({word: text, start: word.start, end: word.end,
       ...(typeof confidence === 'number' && Number.isFinite(confidence) && confidence >= 0 && confidence <= 1 ? {confidence} : {}),

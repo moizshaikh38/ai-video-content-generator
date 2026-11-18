@@ -28,6 +28,8 @@ export interface NormalizedTranscriptionResult {
 }
 
 export interface TranscriptionOptions {
+  /** Explicit opt-in only; service may bill extra. Anonymous labels do not identify people. */
+  diarize?: boolean;
   prompt?: string;
   language?: string;
 }

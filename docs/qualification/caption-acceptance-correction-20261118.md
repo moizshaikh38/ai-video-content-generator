@@ -15,10 +15,16 @@ The earlier ordered-segment fallback preserved text order but did not establish 
 
 ## Checks
 
-48 focused tests passed across timestamp recovery evidence, ordered caption guards, provider timing, output validation, source receipts, transcript quality and processing speed. Server TypeScript passed. These checks use pure fixtures and scoped local DB/HTTP lineage checks, not live media or paid calls. No all-suite or production readiness claim.
+49 focused tests passed across timestamp recovery evidence, ordered caption guards, provider timing, output validation, source receipts, transcript quality and processing speed. Server TypeScript passed. These checks use pure fixtures and scoped local DB/HTTP lineage checks, not live media or paid calls. No all-suite or production readiness claim.
 
 Separate source-bound recovery diagnostics found conflicting text across recognizers in overlapping streamer/game audio. No candidate was automatically installed or rendered. Complete text and synchronization remain unresolved. There is no native independent listening verification here. Model agreement or readable screenshots do not substitute for audio acceptance.
 
 ## Next acceptance work
 
 The requested corrected single-word clip remains incomplete. Speaker-aware recognition needs actual speaker metadata and a grounded primary-speaker policy, not inferred identities or silent omission of uncertain game dialogue. A production automatic pipeline still needs real source acquisition, moment selection, adaptive framing, word-level captions, export and save/reopen qualification across different sources. Review-required guards prevent unsafe success, but do not themselves fulfill that outcome.
+
+## Verified optional diarization route
+
+OpenRouter documents multipart diarize=true with verbose_json and anonymous word speaker/speaker_label fields. Scribe v2 supports it. The adapter now exposes an explicit Scribe-only opt-in, default off, and preserves actual returned labels. Mocked request tests only, no diarization request was executed. The API warns that providers may charge extra; an exact current diarization surcharge is not verified. Speaker labels do not identify the streamer, and requesting them does not authorize removing other speech.
+
+Sources checked: https://openrouter.ai/docs/api/api-reference/stt/create-transcription and https://openrouter.ai/blog/announcements/elevenlabs-on-openrouter/

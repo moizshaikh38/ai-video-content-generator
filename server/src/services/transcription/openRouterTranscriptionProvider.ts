@@ -58,6 +58,10 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
     formData.append('timestamp_granularities[]', 'word');
     formData.append('timestamp_granularities[]', 'segment');
     formData.append('temperature', '0');
+    if (options?.diarize) {
+      if (this.model !== 'elevenlabs/scribe-v2') throw new Error('Diarization is not supported by this adapter model.');
+      formData.append('diarize', 'true');
+    }
     if (options?.prompt) {
       formData.append('prompt', options.prompt);
     }
