@@ -1808,12 +1808,13 @@ export class SmartReframeService {
         sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}_split`})
         : this.buildGroupFitFilter({keyframes:kfs,windowW:s.windowW,windowH:s.windowH,sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}`,canvasWidth:canvasDims('9:16',options.canvasScale??1).width,canvasHeight:canvasDims('9:16',options.canvasScale??1).height});
       const frames = Math.max(1, Math.round((b-start)*30)-Math.round((a-start)*30));
-      graph+=`[${labels[i]}]trim=start=${st.toFixed(6)}:duration=${(b-a).toFixed(6)},setpts=PTS-STARTPTS,${f},fps=30,tpad=stop_mode=clone:stop_duration=0.1,trim=end_frame=${frames},setpts=N/(30*TB),setsar=1[${tag}_part${i}];`;
+      graph+=`[${labels[i]}]trim=start=${st.toFixed(6)}:duration=${(b-a).toFixed(6)},setpts=PTS-STARTPTS,${f},fps=30:eof_action=pass,tpad=stop_mode=clone:stop_duration=0.1,trim=end_frame=${frames},setpts=N/(30*TB),setsar=1[${tag}_part${i}];`;
     });
-    // concat's last frame has no following PTS to carry its duration. Keep
-    // one bounded tail hold so a downstream fps filter cannot discard it;
-    // trim restores the exact requested source-time window.
-    graph+=shots.map((_,i)=>`[${tag}_part${i}]`).join('')+`concat=n=${shots.length}:v=1:a=0,fps=30,tpad=stop_mode=clone:stop_duration=0.1,trim=end_frame=${Math.max(1,Math.round(options.duration*30))},setpts=N/(30*TB)`;
+    // Each shot is already frame-counted at 30fps. Rebase concat's microsecond
+    // timestamps onto exact frame ticks before the final fps stage, and pass
+    // EOF frames so brief tails do not clone the penultimate source frame.
+    // A bounded hold plus trim preserves the requested total frame count.
+    graph+=shots.map((_,i)=>`[${tag}_part${i}]`).join('')+`concat=n=${shots.length}:v=1:a=0,settb=1/30,setpts=N,fps=30:eof_action=pass,tpad=stop_mode=clone:stop_duration=0.1,trim=end_frame=${Math.max(1,Math.round(options.duration*30))},setpts=N/(30*TB)`;
     return options.tag?graph:`[0:v]${graph}[out]`;
   }
 
