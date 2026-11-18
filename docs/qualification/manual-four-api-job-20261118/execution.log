@@ -1,0 +1,29 @@
+[INFO] [2026-11-18T12:58:43.527Z] (user=05b2d262-c856-4722-b996-0b085601ba9a project=50f77d13-13e5-4cd0-b382-666aa55cb7e5) Starting video processing for project 50f77d13-13e5-4cd0-b382-666aa55cb7e5
+[INFO] [2026-11-18T12:58:43.558Z] [ClipRender] Downloaded and cached source video to /tmp/vireo-source-cache/db9ecbef3e60afe26761ada78fc4f900212d547bc9087f2e104cda2d83984d17.mp4
+[INFO] [2026-11-18T12:58:43.558Z] Source video resolved for project 50f77d13-13e5-4cd0-b382-666aa55cb7e5 via downloaded: /tmp/vireo-source-54ef730e-a488-4113-b724-670610cccb8f.mp4
+[INFO] [2026-11-18T12:58:43.568Z] Extracting audio with FFmpeg: /tmp/vireo-source-54ef730e-a488-4113-b724-670610cccb8f.mp4 -> /tmp/vireo_out_1795006723562_aymkr0f.mp3
+[INFO] [2026-11-18T12:58:43.643Z] FFmpeg process started (64k): ffmpeg -i /tmp/vireo-source-54ef730e-a488-4113-b724-670610cccb8f.mp4 -y -acodec libmp3lame -b:a 64k -ac 1 -ar 16000 -filter:a aresample=async=1:first_pts=0 -vn -avoid_negative_ts make_zero -f mp3 /tmp/vireo_out_1795006723562_aymkr0f.mp3
+[INFO] [2026-11-18T12:58:43.674Z] Source A/V start times: video=0s audio=0s container=0s av_start_offset=0s
+[INFO] [2026-11-18T12:58:43.718Z] FFmpeg processing finished successfully at 64k.
+[INFO] [2026-11-18T12:58:43.719Z] Audio extracted: 0.11 MB (reduced from 1.41 MB video)
+[INFO] [2026-11-18T12:58:43.723Z] (project=50f77d13-13e5-4cd0-b382-666aa55cb7e5) Using transcription provider: openrouter
+[INFO] [2026-11-18T12:58:43.731Z] [OpenRouter] Submitting 50f77d13-13e5-4cd0-b382-666aa55cb7e5.mp3 (0.11 MB) to OpenRouter Speech-to-Text (openai/whisper-large-v3-turbo)...
+[INFO] [2026-11-18T12:58:45.160Z] [OpenRouter] Successfully transcribed audio: 2 segments, 45 words, duration: 14.016s, language: en
+[INFO] [2026-11-18T12:58:45.167Z] (project=50f77d13-13e5-4cd0-b382-666aa55cb7e5) Storing transcript for project 50f77d13-13e5-4cd0-b382-666aa55cb7e5 into 'transcripts' table...
+[INFO] [2026-11-18T12:58:45.180Z] (project=50f77d13-13e5-4cd0-b382-666aa55cb7e5) Project 50f77d13-13e5-4cd0-b382-666aa55cb7e5 successfully transcribed via openrouter!
+[INFO] [2026-11-18T12:58:45.195Z] [SmartReframe] Downloading source video from Storage for clip bdff724c-6935-4e8b-bd46-f26ab2528ac3: fixtures/50f77d13-13e5-4cd0-b382-666aa55cb7e5/source.mp4
+[INFO] [2026-11-18T12:58:45.199Z] [SmartReframe] Starting CV face analysis for clip bdff724c-6935-4e8b-bd46-f26ab2528ac3: start=0s, dur=14.014s
+[INFO] [2026-11-18T12:58:50.568Z] [SmartReframe] Analysis complete for clip bdff724c-6935-4e8b-bd46-f26ab2528ac3: detected 4 tracks, dominant: subject_4 (score: 0.662), layout: track
+[INFO] [2026-11-18T12:58:50.632Z] [ProEditor] Initialized EditorProject 4ef995e9-a4a6-4506-a68a-bb1f091bdd6f for clip bdff724c-6935-4e8b-bd46-f26ab2528ac3
+ACTUAL_BRANCH_CONTROLS_CAPTURED 3
+[INFO] [2026-11-18T12:59:04.800Z] [ClipRender] Downloading source video from Storage: fixtures/50f77d13-13e5-4cd0-b382-666aa55cb7e5/source.mp4
+[INFO] [2026-11-18T12:59:04.806Z] [ClipRender] Reused cached source video: /tmp/vireo-source-cache/db9ecbef3e60afe26761ada78fc4f900212d547bc9087f2e104cda2d83984d17.mp4
+[INFO] [2026-11-18T12:59:04.884Z] [ClipRender] Resolution for clip bdff724c-6935-4e8b-bd46-f26ab2528ac3: requested=720p effective=720p canvas=720x1280 source=426x240 WARNING: Source is 426x240. This 720p (720x1280) export is interpolated about 5.33x from the source crop, so it has the requested size but not native detail.
+[INFO] [2026-11-18T12:59:04.902Z] [ClipRender] Preparing FFmpeg for clip bdff724c-6935-4e8b-bd46-f26ab2528ac3: start=0s, dur=14.014s, filters=1
+[INFO] [2026-11-18T12:59:04.903Z] [ClipRender] Compiling and executing multi-track EditorProject graph for clip bdff724c-6935-4e8b-bd46-f26ab2528ac3
+[WARN] [2026-11-18T12:59:05.346Z] [ProEditorService] Linear loudnorm infeasible (linear gain of 10.40dB would push true peak to 0.20dBTP, above the -2dBTP ceiling); using pre-rendered dynamic normalization (legacy one-pass on a bounded audio-only program).
+[INFO] [2026-11-18T12:59:07.480Z] [ClipRender] Uploading rendered MP4 v1 (4.06 MB) to path: users/05b2d262-c856-4722-b996-0b085601ba9a/projects/50f77d13-13e5-4cd0-b382-666aa55cb7e5/clips/bdff724c-6935-4e8b-bd46-f26ab2528ac3/v1/render.mp4
+[INFO] [2026-11-18T12:59:07.602Z] [ClipRender] Successfully rendered and published clip bdff724c-6935-4e8b-bd46-f26ab2528ac3 to users/05b2d262-c856-4722-b996-0b085601ba9a/projects/50f77d13-13e5-4cd0-b382-666aa55cb7e5/clips/bdff724c-6935-4e8b-bd46-f26ab2528ac3/v1/render.mp4
+ACTUAL_HTTP_RENDER_JOB_STORAGE_PASS
+VISUAL_SOURCE_PREVIEW_DIRECT_EXPORT_PASS
+PAID_LEDGER {"cost":0.00004667328,"cumulative":0.07046044456999781,"calls":1}
