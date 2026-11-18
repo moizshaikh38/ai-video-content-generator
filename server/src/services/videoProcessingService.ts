@@ -79,7 +79,7 @@ export async function processProjectVideo(
     logger.info(`Starting video processing for project ${projectId}`, { projectId, userId });
     await dataRepository
       .from('projects')
-      .update({ video_status: 'processing' })
+      .update({ video_status: 'processing', error_code: null, error_message: null })
       .eq('id', projectId)
       .eq('user_id', userId);
 
@@ -500,6 +500,7 @@ export async function processProjectVideo(
         .update({
           video_status: 'failed',
           error_message: message || 'Video processing failed.',
+          error_code: ['TRANSCRIPT_REVIEW_REQUIRED','TRANSCRIPT_SOURCE_REVIEW_REQUIRED'].includes((err as any)?.code) ? (err as any).code : null,
           ...(['TRANSCRIPT_REVIEW_REQUIRED','TRANSCRIPT_SOURCE_REVIEW_REQUIRED'].includes((err as any)?.code) ? {transcript_quality_status:'needs_review'} : {}),
         })
         .eq('id', projectId)

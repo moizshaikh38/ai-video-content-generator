@@ -1,3 +1,4 @@
+import {syntheticMeasuredContext} from './fixtures/syntheticMeasuredContext.js';
 import {test} from 'node:test';import assert from 'node:assert/strict';
 import {applyPlanSceneToProject} from '../shared/framingWindow.js';
 import {SmartReframeService as S} from '../services/smartReframeService.js';
@@ -51,7 +52,7 @@ test('real FFmpeg executes sliced solo/fit/split plan with exact frame count',as
  const quick=execFileSync(ffmpeg as string,['-v','error','-filter_complex_threads','1','-f','lavfi','-i','testsrc2=s=910x480:r=30:d=8','-filter_complex',graph,'-map','[out]','-f','framemd5','-'],{timeout:30000}).toString();
  assert.equal(quick.split('\n').filter(l=>/^0,/.test(l)).length,240);
  const track={smoothed_keyframes:[{time:0,centerX:.5}],source_width:910,source_height:480,raw_samples:raw,metadata:{clip_duration:12,scene_cuts:[4,8],shot_composition_candidate:true,shot_composition_window_scope:'shot',conversation_split_candidate:true,automatic_fit_aspect:'4:3'}};
- const reframe={mode:'smart',aspectRatio:'9:16',clipStartSec:0,layoutMode:'track',track};
+ const reframe=syntheticMeasuredContext({mode:'smart',aspectRatio:'9:16',clipStartSec:0,layoutMode:'track',track});
  const pro=(ProEditorService as any).buildSliceCropFilter({id:'mixed-slice',source_start:3,source_end:11},reframe,3,8);
  assert.ok(pro.includes('vstack'));
  const frames=execFileSync(ffmpeg as string,['-v','error','-filter_complex_threads','1','-f','lavfi','-i','testsrc2=s=910x480:r=30:d=8','-filter_complex','[0:v]'+pro+'[check]','-map','[check]','-f','framemd5','-'],{timeout:30000}).toString();

@@ -1,9 +1,12 @@
+import {createPreviewMeasuredEnvelope} from '../services/itemShotPlanService.js';
 import {newCaptionDefaults} from '../shared/newCaptionDefaults.js';
 import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 import {candidateCompositionOptions,projectAutoCandidate} from '../shared/automaticLayoutCandidate.js';
 import {storedScenePlanWindow} from '../shared/storedScenePlanWindow.js';
 import {legacyFit43Plan,legacyPolicyFallback} from '../shared/automaticLayoutPolicy.js';
 import {expandSceneLayoutProject} from '../shared/sceneLayoutOverrides.js';
+import {assertSelectionSourceCurrent} from '../services/selectionSourceGuardService.js';
+
 import { assertPanelViewsAssigned } from '../shared/panelLayouts.js';
 import { parseRenderResolutionStrict } from '../shared/renderResolution.js';
 import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
@@ -131,7 +134,7 @@ export const analyzeProjectClips = async (req: AuthenticatedRequest, res: Respon
       return;
     }
 
-    if(err.code==='TRANSCRIPT_REVIEW_REQUIRED'||err.code==='CLIP_SEGMENTS_INVALID'){
+    if(err.code==='TRANSCRIPT_REVIEW_REQUIRED'||err.code==='TRANSCRIPT_SOURCE_REVIEW_REQUIRED'||err.code==='CLIP_SEGMENTS_INVALID'){
       res.status(409).json({status:'error',code:err.code,message:err.message});
       return;
     }
@@ -392,7 +395,7 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
 
     const hasSmartReframe = EntitlementService.isFeatureAllowed(entitlements, 'smartReframe');
     const effectiveCropMode = cropMode === 'smart' && !hasSmartReframe ? 'fit' : cropMode;
-    const initialCaption = newCaptionDefaults(caption_style,caption_config);
+    const initialCaption = newCaptionDefaults(caption_style,caption_config,{freshSelection:true});
     const effectiveCaptionStyle = EntitlementService.isPresetAllowed(entitlements,initialCaption.captionStyle)
       ? initialCaption.captionStyle : 'simple';
     const effectiveCaptionConfig = effectiveCaptionStyle===initialCaption.captionStyle
@@ -418,7 +421,7 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
     const status =
       code === 'PROJECT_NOT_FOUND' || code === 'CANDIDATE_NOT_FOUND'
         ? 404
-        : code === 'RENDER_ALREADY_ACTIVE'
+        : code === 'RENDER_ALREADY_ACTIVE' || code === 'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'
         ? 409
         : code === 'INVALID_TIMESTAMPS' || code === 'INVALID_UUID' || code === 'SOURCE_VIDEO_NOT_FOUND'
         ? 400
@@ -573,6 +576,7 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
     }
 
     const clip = await ClipRenderService.getClip(clipId, userId);
+    await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
     // Gate the actual Studio/Quick render entry point before queuing. This check
     // deliberately fails closed on repository errors, not a swallowed snapshot read.
     const { data: panelProject, error: panelReadError } = await dataRepository.from('editor_projects')
@@ -757,7 +761,7 @@ export const getClipPreviewUrl = async (req: AuthenticatedRequest, res: Response
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';
     const status =
-      code === 'CLIP_NOT_FOUND' ? 404 : code === 'CLIP_NOT_READY' ? 400 : code === 'WATERMARK_REQUIRED_RERENDER' ? 403 : 500;
+      err.statusCode || (code === 'CLIP_NOT_FOUND' ? 404 : code === 'CLIP_NOT_READY' ? 400 : code === 'WATERMARK_REQUIRED_RERENDER' ? 403 : 500);
     res.status(status).json({
       status: 'error',
       code,
@@ -793,7 +797,7 @@ export const getClipDownloadUrl = async (req: AuthenticatedRequest, res: Respons
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';
     const status =
-      code === 'CLIP_NOT_FOUND' ? 404 : code === 'CLIP_NOT_READY' ? 400 : code === 'WATERMARK_REQUIRED_RERENDER' ? 403 : 500;
+      err.statusCode || (code === 'CLIP_NOT_FOUND' ? 404 : code === 'CLIP_NOT_READY' ? 400 : code === 'WATERMARK_REQUIRED_RERENDER' ? 403 : 500);
     res.status(status).json({
       status: 'error',
       code,
@@ -1152,12 +1156,14 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
                 .eq('user_id', userId)
                 .maybeSingle();
               if (transcript) {
+                await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
                 const fresh = CaptionService.extractCuesForClipSettings(transcript, clip, undefined, { preserveCase: true });
                 const merged = mergeExtendedCues(cuesOut, fresh.cues as any, coveredEnd);
                 if (merged.appended > 0) cuesOut = merged.cues as any;
               }
             }
-          } catch {
+          } catch (error:any) {
+            if (error?.code === 'TRANSCRIPT_SOURCE_REVIEW_REQUIRED' || error?.code === 'TRANSCRIPT_REVIEW_REQUIRED') throw error;
             // Fall through with the saved cues.
           }
         }
@@ -1187,6 +1193,7 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
       return;
     }
 
+    await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
     // Same extraction the export uses, so preview cues match the burned-in captions.
     const { timingMode, cues } = CaptionService.extractCuesForClipSettings(transcript, clip, undefined, { preserveCase: true });
 
@@ -1197,7 +1204,7 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
     });
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';
-    const status = (code === 'CLIP_NOT_FOUND' || code === 'NOT_FOUND' || err.status === 404) ? 404 : 500;
+    const status = err.statusCode || ((code === 'CLIP_NOT_FOUND' || code === 'NOT_FOUND' || err.status === 404) ? 404 : 500);
     res.status(status).json({
       status: 'error',
       code,
@@ -1339,9 +1346,14 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
     const {data:policyClip}=await dataRepository.from('clips').select('*').eq('id',clipId).eq('user_id',userId).maybeSingle();
     const {data:policyProject}=await dataRepository.from('editor_projects').select('tracks').eq('clip_id',clipId).eq('user_id',userId).maybeSingle();
     const retainedPlan=track.sourceObjectVerified!==false&&policyClip?.crop_config?.mode==='smart'&&policyProject?storedScenePlanWindow(policyProject,policyClip,track):null;
+    const measuredOptions=shotPlanOptions({track,candidate:req.query.layoutCandidate==='review-v1'?'review-v1':req.query.layoutCandidate==='off'?undefined:policyProject&&projectAutoCandidate(policyProject)?'review-v1':policyClip?.crop_config?.automaticLayoutCandidate,layoutPolicy:policyClip?.crop_config?.layoutPolicy,duration:Number(track.metadata?.clip_duration)});
+    const measuredPlanEnvelope=track.metadata?.shot_composition_candidate===true?createPreviewMeasuredEnvelope(policyClip,track,measuredOptions,options=>SmartReframeService.computeShotComposition(options),Boolean(retainedPlan)):null;
+    const measuredComposition=track.metadata?.shot_composition_candidate===true?(measuredPlanEnvelope?.shots||SmartReframeService.computeShotComposition(measuredOptions)):null;
     // Return safe data without exposing server paths
     res.status(200).json({
       status: track.status,
+      measuredPlanEnvelope,
+      adaptiveComposition: track.metadata?.shot_composition_candidate===true,
       detectedFaceCount: track.detected_face_count || 0,
       dominantTrackId: track.dominant_track_id,
       contentFramingDecision: track.metadata?.content_framing_decision ?? null,
@@ -1378,7 +1390,7 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       sourceWidth: track.source_width || null,
       sourceHeight: track.source_height || null,
       shotComposition: legacyFit43Plan(track,Number(track.metadata?.clip_duration)||1,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)) || legacyPolicyFallback(policyClip?.crop_config?.layoutPolicy,track,Number(track.metadata?.clip_duration)||track.smoothed_keyframes?.at(-1)?.time||1) || (track.metadata?.shot_composition_candidate === true
-        ? SmartReframeService.computeShotComposition(shotPlanOptions({track,candidate:req.query.layoutCandidate==='review-v1'?'review-v1':req.query.layoutCandidate==='off'?undefined:policyProject&&projectAutoCandidate(policyProject)?'review-v1':policyClip?.crop_config?.automaticLayoutCandidate,layoutPolicy:policyClip?.crop_config?.layoutPolicy,duration:Number(track.metadata.clip_duration)})) : null),
+        ? measuredComposition : null),
       groupFrame: (() => {
         const g = SmartReframeService.computeGroupFrameGeometry({
           rawSamples: track.raw_samples,

@@ -1,3 +1,4 @@
+import {assertSelectionSourceCurrent} from '../services/selectionSourceGuardService.js';
 import {expandSceneLayoutProject} from '../shared/sceneLayoutOverrides.js';
 import { assertPanelViewsAssigned } from '../shared/panelLayouts.js';
 import { parseRenderResolutionStrict } from '../shared/renderResolution.js';
@@ -355,10 +356,13 @@ export const renderEditorProject = async (
     // Fetch next render version
     const { data: clip } = await dataRepository
       .from('clips')
-      .select('render_version')
+      .select('render_version, project_id, source_storage_path, selection_source_receipt')
       .eq('id', project.clip_id)
       .eq('user_id', userId)
       .maybeSingle();
+
+    if (!clip) throw Object.assign(new Error('Clip not found.'),{statusCode:404,code:'CLIP_NOT_FOUND'});
+    await assertSelectionSourceCurrent(userId,clip.project_id,clip.selection_source_receipt,clip.source_storage_path);
 
     let requestedResolution: string | null = null;
     const bodyResolution = req.body?.render_resolution ?? req.body?.resolution;

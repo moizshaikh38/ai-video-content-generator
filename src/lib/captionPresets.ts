@@ -1,3 +1,4 @@
+import {freshPresetTypography} from '../../server/src/shared/freshPresetTypography';
 /**
  * Frontend entry point for the caption preset system. The definitions live in
  * server/src/shared/captionPresets.ts so the gallery, the editor preview and the
@@ -101,6 +102,7 @@ export function applyPresetToEditorCaption(
   presetId: RenderableCaptionPresetId
 ): EditorCaptionItem {
   const p = CAPTION_PRESETS[presetId];
+  const freshFont=freshPresetTypography(presetId);
   return {
     cues: prev?.cues || [],
     position: prev?.position || 'bottom',
@@ -109,6 +111,7 @@ export function applyPresetToEditorCaption(
     ...(prev && 'position_explicit' in prev ? {position_explicit:(prev as any).position_explicit} : {}),
     emphasis_words: prev?.emphasis_words,
     style: presetId,
+    ...(freshFont?{font_family:freshFont.fontFamily,font_weight:freshFont.bold?'bold' as const:'regular' as const}:{}),
     primary_color: p.colors.text,
     highlight_color: p.colors.active,
     // A different preset starts its own motion defaults, just as font/size reset.

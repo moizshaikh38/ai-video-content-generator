@@ -23,10 +23,13 @@ describe('Phase A & C — Genre Intelligence & Scoring Verification', () => {
     'motivation',
     'business_finance',
     'gaming',
+    'watch_party',
+    'streaming',
     'sports',
     'news_politics',
     'comedy_entertainment',
     'storytelling',
+    'documentary',
     'product_marketing',
     'general',
   ];
@@ -35,9 +38,9 @@ describe('Phase A & C — Genre Intelligence & Scoring Verification', () => {
   // 1. Registry Integrity & Scoring Weights Sum to 1.0
   // ─────────────────────────────────────────────────────────────
   describe('1. Genre Registry & Safeguards', () => {
-    it('defines all 12 canonical genres with valid configuration', () => {
+    it('defines the exact current canonical genre set with valid configuration', () => {
       const registered = Object.keys(GenreIntelligenceService.GENRE_PROFILES) as ContentGenre[];
-      assert.equal(registered.length, 12, 'Should define exactly 12 canonical genres');
+      assert.deepEqual([...registered].sort(), [...EXPECTED_GENRES].sort(), 'Canonical genre additions/removals need deliberate fixture review');
 
       for (const g of EXPECTED_GENRES) {
         const profile = GenreIntelligenceService.GENRE_PROFILES[g];

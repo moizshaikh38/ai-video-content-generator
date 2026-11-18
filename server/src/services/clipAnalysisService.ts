@@ -1,3 +1,7 @@
+import {AppError} from '../types/index.js';
+import {transcriptContentIdentity} from '../shared/transcriptSourceBinding.js';
+import {assertTranscriptReusable} from './transcriptSourceBindingService.js';
+import {selectionSourceReceipt} from '../shared/selectionSourceReceipt.js';
 import {buildShortSourceSelectionFallback} from '../shared/selectionFallback.js';
 import { replaceSuggestedCandidates } from '../db/repositories/clipCandidateRepository.js';
 import { isMongoConfigured } from '../db/mongoClient.js';
@@ -603,7 +607,7 @@ export class ClipAnalysisService {
         // 1. Verify project exists and belongs to user
       const { data: project, error: projErr } = await dataRepository
         .from('projects')
-        .select('id, user_id, title, notes, clip_preferences')
+        .select('id, user_id, title, notes, clip_preferences, source_url')
         .eq('id', projectId)
         .eq('user_id', userId)
         .maybeSingle();
@@ -634,9 +638,8 @@ export class ClipAnalysisService {
         throw transNotFound;
       }
 
-      if(transcript.quality_assessment?.status==='needs_review'){
-        const error:any=Error('Transcript needs source-audio review before clip selection.');error.code='TRANSCRIPT_REVIEW_REQUIRED';throw error;
-      }
+      await assertTranscriptReusable(transcript, project.source_url || '');
+      const selectionReceipt = selectionSourceReceipt(transcript, project.source_url || '');
       const rawSegments = transcript.segments;
       if (!Array.isArray(rawSegments) || rawSegments.length === 0) {
         const noSegments: any = new Error('Transcript contains no timestamped segments. Cannot find clips without segment boundaries.');
@@ -1277,6 +1280,13 @@ export class ClipAnalysisService {
         logger.info(`[DirectorPlan] Moment structuring unavailable for ${projectId}: ${dirErr?.message || dirErr}`);
       }
 
+      // A source/transcript may change during analysis. Never promote stale decisions.
+      const {data: latestProject} = await dataRepository.from('projects').select('source_url').eq('id',projectId).eq('user_id',userId).maybeSingle();
+      const {data: latestTranscript} = await dataRepository.from('transcripts').select('*').eq('project_id',projectId).eq('user_id',userId).maybeSingle();
+      if (!latestTranscript || latestProject?.source_url !== project.source_url || transcriptContentIdentity(latestTranscript) !== selectionReceipt.transcript_content_sha256) {
+        throw new AppError('Source or transcript changed during selection. Review before running analysis again.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+      }
+      await assertTranscriptReusable(latestTranscript, latestProject.source_url);
       // 9. Replace suggestions in one Mongo transaction, preserving selected clips.
       const allProjectCandidates = await replaceSuggestedCandidates(userId, projectId,
         topCandidates.map((candidate) => ({
@@ -1294,8 +1304,8 @@ export class ClipAnalysisService {
           engagement_score: candidate.engagement_score,
           cold_open: candidate.cold_open,
           director_plan: directorPlans[`${candidate.start_seconds}`] || null,
-          metadata: candidate.metadata || {},
-        })));
+          metadata: {...(candidate.metadata || {}), selection_source_receipt: selectionReceipt},
+        })), selectionReceipt);
       return allProjectCandidates as unknown as ClipCandidate[];
     } finally {
       activeClipAnalysisSet.delete(projectId);

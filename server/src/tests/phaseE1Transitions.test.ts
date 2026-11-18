@@ -60,7 +60,8 @@ const makeProject = (items: EditorTrackItem[], duration: number): EditorProject 
 const render = async (project: EditorProject, sourcePath: string, name: string, expectedDuration: number): Promise<{ file: string; duration: number }> => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'e1-transitions-'));
   const out = path.join(tmpDir, name);
-  const graph = ProEditorService.compileRenderGraph(project, sourcePath, out, tmpDir);
+  // Explicit small output scale, rather than treating stored design pixels as a tier.
+  const graph = ProEditorService.compileRenderGraph(project, sourcePath, out, tmpDir, {canvasScale:320/1080} as any);
   const args = [
     '-y',
     ...graph.inputArgs,
@@ -321,12 +322,15 @@ describe('E1 — real FFmpeg renders (executability)', () => {
 
 
 describe('zoom_lite canvas geometry regression',()=>{
- it('zoom_lite follows requested portrait, square and landscape canvas dimensions',()=>{
-  for(const [width,height]of [[720,1280],[2160,3840],[720,720],[1280,720]]){
+ it('all transition pieces share canonical aspect dimensions and explicit output scale without mutating saved geometry',()=>{
+  for(const [aspect,scale,width,height]of [['9:16',2/3,720,1280],['9:16',2,2160,3840],['1:1',2/3,720,720],['16:9',2/3,1280,720]]as const){
    const project=makeProject([makeItem({id:'z1',timeline_start:0,timeline_end:2,source_start:0,source_end:2}),makeItem({id:'z2',timeline_start:2,timeline_end:4,source_start:2,source_end:4,transition_in:{type:'zoom_lite',duration:.3}as any})],4);
-   project.canvas.width=width;project.canvas.height=height;
-   const text=ProEditorService.compileRenderGraph(project,'/tmp/s.mp4').filterComplex.join(';');
-   assert.ok(text.includes(`:d=1:s=${width}x${height}:fps=`));assert.doesNotMatch(text,/:s=1080x1920/);
+   project.canvas.width=333;project.canvas.height=555;project.canvas.aspect_ratio=aspect;
+   const before=JSON.stringify(project);
+   const text=ProEditorService.compileRenderGraph(project,'/tmp/s.mp4','/tmp/z.mp4',os.tmpdir(),{canvasScale:scale}as any).filterComplex.join(';');
+   assert.ok(text.includes(`:d=1:s=${width}x${height}:fps=`));
+   assert.ok(text.includes(`crop=${width}:${height}`));
+   assert.equal(JSON.stringify(project),before,'render must not persist/mutate legacy geometry');
   }
  });
 });

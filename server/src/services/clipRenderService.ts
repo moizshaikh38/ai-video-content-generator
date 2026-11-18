@@ -1,5 +1,9 @@
+import {resolveMeasuredItemPlan} from './itemShotPlanService.js';
 import {prepareSliceRender} from './sliceRenderPreparation.js';
 import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
+import {reviewEncodedAudio} from './encodedAudioReviewService.js';
+import {assertSelectionSourceCurrent} from './selectionSourceGuardService.js';
+
 import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 import {candidateCompositionOptions} from '../shared/automaticLayoutCandidate.js';
 import {legacyFit43Plan,legacyPolicyFallback} from '../shared/automaticLayoutPolicy.js';
@@ -417,6 +421,8 @@ export class ClipRenderService {
 
     const validRatios: ClipAspectRatio[] = ['9:16', '1:1', '16:9'];
     const validAspectRatio = validRatios.includes(aspectRatio) ? aspectRatio : '9:16';
+    const {data:candidateForSource} = await dataRepository.from('clip_candidates').select('metadata').eq('id',candidateId).eq('project_id',projectId).eq('user_id',userId).maybeSingle();
+    await assertSelectionSourceCurrent(userId,projectId,candidateForSource?.metadata?.selection_source_receipt);
     const { clip, renderJob } = await createClipWithJob(projectId, candidateId, userId, validAspectRatio, cropMode, options);
 
     // 6. Launch in-process background rendering (deferred to the sweep when at cap)
@@ -674,6 +680,7 @@ export class ClipRenderService {
     const tempDir = path.join(os.tmpdir(), `vireo-render-${clipId}-${uniqueTag}`);
 
     try {
+      await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
       fs.mkdirSync(tempDir, { recursive: true });
 
       // Update stage: downloading (5%)
@@ -699,6 +706,9 @@ export class ClipRenderService {
       });
 
       const sourceSha256 = await computeFileStreamSha256(sourcePath);
+      if (sourceSha256 !== (clip as any).selection_source_receipt?.source_receipt?.sha256) {
+        throw new AppError('Downloaded source bytes do not match the source used for selection. Export stopped.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+      }
 
       // 2. FFmpeg cut, manual framing, ASS subtitles, text overlay, and MP4 encode
       await ClipRenderService.updateJobStage(jobId, clipId, 'cutting', 10, 'rendering', workerId);
@@ -731,7 +741,7 @@ export class ClipRenderService {
         `canvas=${outputCanvas.width}x${outputCanvas.height} source=${srcDims ? `${srcDims.width}x${srcDims.height}` : 'unknown'}` +
         (resolution.warning ? ` WARNING: ${resolution.warning}` : '')
       );
-      const reframeDecision = await ClipRenderService.resolveReframeDecision(clip, durationSec, canvasScale, sourceSha256);
+      const reframeDecision = await ClipRenderService.resolveReframeDecision(clip, durationSec, canvasScale, sourceSha256, srcDims);
       const cropFilter = reframeDecision.cropFilter;
       const actualReframeMode = reframeDecision.mode;
       const reframeMetadata = reframeDecision.metadata;
@@ -852,7 +862,7 @@ export class ClipRenderService {
             sourceWidth: reframeDecision.track?.source_width ?? proBlurSourceWidth,
             sourceHeight: reframeDecision.track?.source_height ?? proBlurSourceHeight,
             sceneLayoutFallback: reframeDecision.layoutMode,
-            automaticSceneWindows: editorProject ? ProEditorService.captionSceneWindows(editorProject,{mode:reframeDecision.mode,layoutMode:reframeDecision.layoutMode,track:reframeDecision.track,clipStartSec:startSec,cropConfig:clip.crop_config,aspectRatio:clip.aspect_ratio}) : undefined,
+            automaticSceneWindows: editorProject ? ProEditorService.captionSceneWindows(editorProject,{mode:reframeDecision.mode,layoutMode:reframeDecision.layoutMode,track:reframeDecision.track,clipStartSec:startSec,cropConfig:clip.crop_config,aspectRatio:clip.aspect_ratio,sourceSha256,sourceAssetId:clip.id,sourceStoragePath:clip.source_storage_path,decodedSource:srcDims}) : undefined,
             speakerSplit,
           });
 
@@ -862,7 +872,7 @@ export class ClipRenderService {
             logger.info(`[ClipRender] Burning ${captionResult.cues.length} caption cues using style "${clip.caption_style || 'clean'}"`);
           }
         } catch (capErr: any) {
-          if (capErr?.code === 'TRANSCRIPT_REVIEW_REQUIRED') throw capErr;
+          if (['TRANSCRIPT_REVIEW_REQUIRED','TRANSCRIPT_SOURCE_REVIEW_REQUIRED'].includes(capErr?.code)) throw capErr;
           logger.warn(`Failed to generate ASS subtitles for clip ${clipId}: ${capErr.message}. Rendering without subtitles.`);
         }
       }
@@ -1006,6 +1016,8 @@ export class ClipRenderService {
             decodedSource: srcDims,
             sourceHasAudio: srcDims?.hasAudio,
             sourceStoragePath: clip.source_storage_path,
+            sourceSha256,
+            sourceAssetId: clip.id,
             mode: storedPlan ? 'smart' : actualReframeMode,
             layoutMode: reframeDecision.layoutMode,
             track: storedPlan?.track ?? reframeDecision.track,
@@ -1236,6 +1248,8 @@ export class ClipRenderService {
         expectDimensions: expectedCanvas,
       });
 
+      const encodedAudioReview = await reviewEncodedAudio(outputPath,Boolean(clip.muted),timeoutMs);
+      await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
       // 3. Upload rendered MP4 to storage with revision versioning
       await ClipRenderService.updateJobStage(jobId, clipId, 'uploading', 90, 'uploading', workerId);
 
@@ -1248,6 +1262,7 @@ export class ClipRenderService {
       );
       await uploadFile('clips', outputStoragePath, outputPath, renderedSize, 'video/mp4');
       const finalStoragePath = outputStoragePath;
+      await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
 
       // Output verification guard: ensure deliverable exists before marking ready
       JobReliabilityService.verifyRequiredOutputs('clip_render', { output_storage_path: finalStoragePath });
@@ -1257,6 +1272,7 @@ export class ClipRenderService {
         .from('clips')
         .update({
           render_status: 'ready',
+          encoded_audio_review: encodedAudioReview,
           output_storage_path: finalStoragePath,
           output_object_key: finalStoragePath,
           reframe_mode: actualReframeMode,
@@ -1581,7 +1597,8 @@ export class ClipRenderService {
     clip: ClipRecord,
     durationSec: number,
     canvasScale = 1,
-    expectedSourceSha256?: string
+    expectedSourceSha256?: string,
+    decodedSource?: {width:number;height:number}|null
   ): Promise<{
     cropFilter: string;
     mode: 'smart' | 'fallback_center' | 'manual';
@@ -1661,11 +1678,16 @@ export class ClipRenderService {
                 speaker2X: clip.crop_config?.split?.speaker2X,
               })
             : null;
-        if (targetLayout === 'track' && (clip.aspect_ratio === '9:16' || !clip.aspect_ratio) && track.metadata?.shot_composition_candidate === true) {
-          const plan = SmartReframeService.computeShotComposition(shotPlanOptions({track,candidate:clip.crop_config?.automaticLayoutCandidate,layoutPolicy:clip.crop_config?.layoutPolicy,duration:durationSec}));
+        if (clip.crop_config?.layout_mode_source!=='user' && targetLayout === 'track' && (clip.aspect_ratio === '9:16' || !clip.aspect_ratio) && track.metadata?.shot_composition_candidate === true) {
+          const sourceStart=clip.start_seconds+(clip.trim_start_offset||0);
+          const resolution=resolveMeasuredItemPlan({id:clip.id,source_asset_id:clip.id,source_path:clip.source_storage_path,source_start:sourceStart,source_end:clip.end_seconds-(clip.trim_end_offset||0),crop_config:clip.crop_config},
+            {track,sourceSha256:expectedSourceSha256,sourceStoragePath:clip.source_storage_path,sourceAssetId:clip.id,clipStartSec:sourceStart,aspectRatio:clip.aspect_ratio||'9:16',decodedSource,cropConfig:clip.crop_config},
+            options=>SmartReframeService.computeShotComposition(options));
+          if(resolution.status!=='ready')throw new AppError(`Automatic framing needs source review: ${resolution.reason}`,409,'AUTOMATIC_PLAN_REVIEW_REQUIRED');
+          const plan=resolution.shots as ReturnType<typeof SmartReframeService.computeShotComposition>;
           if (plan.length) return {cropFilter:SmartReframeService.buildShotCompositionFilter({plan,duration:durationSec,
             sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,canvasScale}),mode:'smart',
-            metadata:{layout_mode:'track',shot_composition_candidate:true},layoutMode:'track',track};
+            metadata:{layout_mode:'track',shot_composition_candidate:true,automatic_plan_identity:resolution.identity},layoutMode:'track',track};
         }
         // Multi-person single-view: keep the whole group visible (blur-fill
         // fit) instead of tight tracking that crops people at the edges.
@@ -1753,6 +1775,7 @@ export class ClipRenderService {
       logger.warn(`[ClipRender] No ready smart reframe track found for clip ${clip.id}. Falling back to center crop.`);
       return { cropFilter: centerCrop(), mode: 'fallback_center', metadata: { reason: 'no_ready_track' }, layoutMode: clip.crop_config?.layout_mode || 'track', track };
     } catch (reframeErr: any) {
+      if(reframeErr?.code==='AUTOMATIC_PLAN_REVIEW_REQUIRED')throw reframeErr;
       logger.warn(`[ClipRender] Smart reframe resolution error for clip ${clip.id}: ${reframeErr.message}. Falling back to center crop.`);
       return { cropFilter: centerCrop(), mode: 'fallback_center', metadata: { reason: 'error', error: reframeErr.message }, layoutMode: clip.crop_config?.layout_mode || 'track', track: null };
     }
@@ -2096,6 +2119,7 @@ export class ClipRenderService {
    */
   public static async getSignedPreviewUrl(clipId: string, userId: string): Promise<SignedUrlResult> {
     const clip = await ClipRenderService.getClip(clipId, userId);
+    await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
 
     if (clip.render_status !== 'ready' || !clip.output_storage_path) {
       const err = new Error('Clip is not ready for preview.');
@@ -2120,6 +2144,7 @@ export class ClipRenderService {
    */
   public static async getSignedDownloadUrl(clipId: string, userId: string): Promise<SignedUrlResult> {
     const clip = await ClipRenderService.getClip(clipId, userId);
+    await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
 
     if (clip.render_status !== 'ready' || !clip.output_storage_path) {
       const err = new Error('Clip is not ready for download.');

@@ -60,6 +60,7 @@ export interface ContentOutput {
 }
 
 export interface Project {
+  error_code?: string | null;
   transcript_quality_status?: 'unverified' | 'needs_review' | null;
   retention_policy?: import('../../server/src/shared/projectRetention').ProjectRetentionPolicy | null;
   id: string;
@@ -317,6 +318,7 @@ export interface RenderJob {
 }
 
 export interface RenderedClip {
+  encoded_audio_review?: import('../../server/src/shared/encodedAudioReview').EncodedAudioReview | null;
   id: string;
   project_id: string;
   candidate_id?: string | null;

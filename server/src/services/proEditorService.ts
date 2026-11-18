@@ -1,3 +1,5 @@
+import {resolveMeasuredItemPlan} from './itemShotPlanService.js';
+import {freshEditorCaptionAppearance} from '../shared/freshEditorCaptionAppearance.js';
 import {NEW_CAPTION_PRESET_ID} from '../shared/captionPresets.js';
 import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 import {validateAutomaticLayoutCropConfig} from '../shared/automaticLayoutValidation.js';
@@ -65,6 +67,7 @@ import {
   ReframeTrackRecord,
 } from '../types/index.js';
 import { downloadObjectToFile, uploadFile, signObjectGet } from './objectStorageService.js';
+import {assertSelectionSourceCurrent} from './selectionSourceGuardService.js';
 import { CaptionService } from './captionService.js';
 import { isKnownCaptionStyle } from '../shared/captionPresets.js';
 import { buildCropFilter, buildFitFilter, buildBlurFitChain, buildBackdropFitChain, type CanvasBackdropSpec } from './clipRenderService.js';
@@ -145,6 +148,9 @@ export interface ProReframeContext {
   /** ACTUAL decoded source size from ffprobe at render. Required for any framing_window. */
   decodedSource?: { width: number; height: number } | null;
   sourceStoragePath?: string | null;
+  /** Independently measured actual render-input bytes and clip asset identity. */
+  sourceSha256?: string;
+  sourceAssetId?: string;
   /** Decoded source probe, not guessed from editor audio settings. */
   sourceHasAudio?: boolean;
 }
@@ -220,7 +226,9 @@ export class ProEditorService {
       .from('transcripts')
       .select('*')
       .eq('project_id', clip.project_id)
+      .eq('user_id', userId)
       .maybeSingle();
+    if (transcript) await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
 
     // 5. Build initial multi-track structure
     const { data: sourceProject } = await dataRepository.from('projects').select('clip_preferences').eq('id', clip.project_id).eq('user_id', userId).maybeSingle();
@@ -1220,8 +1228,10 @@ export class ProEditorService {
    * Enforces argument array execution with ZERO raw shell string interpolation.
    */
   private static resolveShotCompositionPlan(item:EditorTrackItem,reframe:ProReframeContext){
-    const track=reframe.track!;
-    return SmartReframeService.computeShotComposition(shotPlanOptions({track,candidate:item.crop_config?.automaticLayoutCandidate,layoutPolicy:item.crop_config?.layoutPolicy||reframe?.cropConfig?.layoutPolicy,duration:Number(track.metadata.clip_duration)}));
+    const result=resolveMeasuredItemPlan(item,reframe,options=>SmartReframeService.computeShotComposition(options));
+    if(result.status==='bypassed')return [];
+    if(result.status!=='ready')throw new AppError(`Automatic framing needs source review: ${result.reason}`,409,'AUTOMATIC_PLAN_REVIEW_REQUIRED');
+    return result.shots as ReturnType<typeof SmartReframeService.computeShotComposition>;
   }
 
   /** Bounded adaptive scene contract: same measured shot plan as picture export.
@@ -1260,6 +1270,11 @@ export class ProEditorService {
     reframe?: ProReframeContext,
     loudnorm?: LoudnormCompileMode
   ): CompiledRenderGraph {
+    // Render-only normalization: base crops already use canonical aspect design
+    // dimensions. Transitions/overlays must use the same canvas, not stale saved
+    // pixel sizes. The requested export tier remains reframe.canvasScale.
+    project={...project,canvas:normalizeEditorCanvasAspect(project.canvas)};
+    reframe={mode:'fallback_center',layoutMode:'track',track:null,cropConfig:null,clipStartSec:0,...reframe,aspectRatio:(project.canvas.aspect_ratio||reframe?.aspectRatio||'9:16') as ClipAspectRatio};
     // Validate conflicting saved framing channels before evidence resolution can
     // remove an unsupported tracker from a render-only slice.
     for (const t of project.tracks) for (const i of t.items) {
@@ -2657,10 +2672,8 @@ export class ProEditorService {
             cues_covered_end: finalDuration,
             style: captionStyle,
             position: clip.caption_position || 'bottom',
-            highlight_color: producerPlan?.operations.find((o) => o.type === 'CAPTION_EMPHASIS' && o.enabled)?.parameters.highlight_color || '#FACC15',
-            primary_color: '#FFFFFF',
-            animation: 'highlight',
-            ...(captionStyle===NEW_CAPTION_PRESET_ID ? {font_family:'Bangers',font_size:136,highlight_color:'#20FF35',animation:'none',box_enabled:false} : {}),
+            ...freshEditorCaptionAppearance(captionStyle, clip.caption_config, aspectRatio),
+            ...(producerPlan?.operations.find((o) => o.type === 'CAPTION_EMPHASIS' && o.enabled)?.parameters.highlight_color ? {highlight_color: producerPlan.operations.find((o) => o.type === 'CAPTION_EMPHASIS' && o.enabled)!.parameters.highlight_color} : {}),
           },
           effects: [],
           keyframes: [],

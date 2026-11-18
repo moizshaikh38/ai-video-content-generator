@@ -1,3 +1,4 @@
+import {selectionSourceReceiptMatches} from '../../shared/selectionSourceReceipt.js';
 import {newCaptionDefaults} from '../../shared/newCaptionDefaults.js';
 import crypto from 'node:crypto';
 import { getMongoClient, getMongoDb } from '../mongoClient.js';
@@ -21,6 +22,10 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
         id: candidateId, project_id: projectId, user_id: userId,
       }, { session });
       if (!candidate) throw new AppError('Clip candidate not found.', 404, 'CANDIDATE_NOT_FOUND');
+      const transcript = await db.collection('transcripts').findOne({project_id:projectId,user_id:userId},{session});
+      if (!transcript || !selectionSourceReceiptMatches(candidate.metadata?.selection_source_receipt,transcript,project.source_url)) {
+        throw new AppError('Candidate source or transcript is stale or unverified. Review before creating a clip.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+      }
       const start = Number(candidate.start_seconds);
       const end = Number(candidate.end_seconds);
       if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) {
@@ -48,12 +53,13 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
         caption_position: captionPos,
         caption_enabled: options?.caption_enabled !== undefined ? Boolean(options.caption_enabled) : true,
         // New captions use the house style. Explicit choices/config are preserved.
-        caption_style: newCaptionDefaults(options?.caption_style,options?.caption_config).captionStyle,
-        caption_config: newCaptionDefaults(options?.caption_style,options?.caption_config).captionConfig,
+        caption_style: newCaptionDefaults(options?.caption_style,options?.caption_config,{freshSelection:true}).captionStyle,
+        caption_config: newCaptionDefaults(options?.caption_style,options?.caption_config,{freshSelection:true}).captionConfig,
         // Carried for the automatic render headline (Opus-parity): burned at
         // render time unless an explicit overlay config opts out.
         title: (candidate as any)?.title || null,
         cold_open: coldOpen,
+        selection_source_receipt: candidateMeta.selection_source_receipt,
         source_storage_path: project.source_url, source_object_key: project.source_url,
         output_object_key: null, render_version: 1, editor_version: 1,
         created_at: now, updated_at: now,

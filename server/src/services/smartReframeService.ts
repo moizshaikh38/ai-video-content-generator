@@ -1,3 +1,5 @@
+import {movingBodyPortraitProposal} from '../shared/movingBodyPortraitProposal.js';
+import {adaptiveSceneEligible} from '../shared/adaptiveSceneEligibility.js';
 import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
 import {reframeTrackFreshness} from '../shared/reframeTrackFreshness.js';
 import {reviewMeasuredSplitSeams} from '../shared/measuredSplitSeamReview.js';
@@ -10,7 +12,7 @@ import {boundedPairComposition} from '../shared/boundedPairComposition.js';
 import {buildPanelsFilter,type ItemPanels} from '../shared/panelLayouts.js';
 import {groupPortraitPresentation} from '../shared/groupPortraitPresentation.js';
 import {closeupPortraitPresentation} from '../shared/closeupPresentation.js';
-import {anchorFitToMeasuredFaces} from '../shared/fitSubjectAnchor.js';
+import {anchorFitToMeasuredFaces,anchorClipFitToMeasuredFaces} from '../shared/fitSubjectAnchor.js';
 import {presentFit43,applyAutomaticLayoutPolicy,type AutomaticLayoutPolicy} from '../shared/automaticLayoutPolicy.js';
 import {persistentObjectRegions} from '../shared/objectContext.js';
 import { canvasDims } from '../shared/renderResolution.js';
@@ -96,29 +98,8 @@ export function resolveGenreReframeOptions(
   };
 }
 
-/** Existing planner input contract. Extraction does not change evidence or policy. */
-export interface ShotCompositionOptions {
-    layoutPolicy?:AutomaticLayoutPolicy;
-    rawSamples?: ReframeSample[] | null; sceneCuts?: number[]; duration: number;
-    sourceWidth: number; sourceHeight: number;
-    /** Review-only opt-in. No production caller selects this policy. */
-    unresolvedContextPolicy?: 'preserve' | 'shared-subject-window' | 'balanced-inset-review';
-    /** Scene-adaptive opt-in. Unknown shots remain full source locally. */
-    windowScope?: 'clip' | 'shot';
-    /** Explicit presentation preference. Crop conflicts remain review-required. */
-    automaticFitAspect?: '4:3';
-    /** Developmental opt-in only. Not read from project/user settings. */
-    pairFocusReview?: boolean;
-    /** Review-only. Requires independently supplied hand observations. */
-    sharedViewReview?: boolean;
-    /** Internal positive-hand-evidence seam veto. Off by default, not a setting. */
-    splitHandSafetyReview?: boolean;
-    bodyOnlyPortraitReview?: boolean;
-    /** Requires independently declared podcast/interview context. */
-    allowConversationSplit?: boolean;
-    /** Optional measured regions, local qualification only. Not semantic proof. */
-    protectedContentRegions?: Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>;
-  }
+export type {ShotCompositionOptions} from '../shared/shotCompositionTypes.js';
+import type {ShotCompositionOptions} from '../shared/shotCompositionTypes.js';
 
 export class SmartReframeService {
   /**
@@ -1669,7 +1650,8 @@ export class SmartReframeService {
         split:{speaker1X:.25,speaker2X:.75,dividerX:.5,focusPanels:pairFocus.panels},
         contextStatus:'unresolved-review-required' as const,uncertainty:'Two persistent measured faces with bounded head/shoulder views. '+(pairFocus.changed?'Geometry adjusted to avoid measured competing-person fragments. ':'')+'Hands, side objects, screen content, speaker dominance and scene meaning remain unverified.'} : null;
       const bodyOnly=options.bodyOnlyPortraitReview&&options.windowScope==='shot'&&!originalShot.split?bodyOnlyPortraitProposal(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight,[...(options.protectedContentRegions||[]),...(objectRegions.get(originalShot)||[])]):null;
-      const shot:ReturnType<typeof SmartReframeService.computeShotComposition>[number]=focusShot||compactPair||closeup||bodyOnly||originalShot;
+      const movingBody=options.bodyOnlyPortraitReview&&options.windowScope==='shot'&&!originalShot.split&&!bodyOnly?movingBodyPortraitProposal(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight,[...(options.protectedContentRegions||[]),...(objectRegions.get(originalShot)||[])]):null;
+      const shot:ReturnType<typeof SmartReframeService.computeShotComposition>[number]=focusShot||compactPair||closeup||bodyOnly||movingBody||originalShot;
       if (options.automaticFitAspect !== '4:3' || shot.split || shot.contextStatus==='unresolved-preserved' || shot.contextStatus==='crowd-preserved') return shot;
       const maxWidth = shot.windowH * (4/3) * sourceHeight/sourceWidth;
       if (shot.windowW <= maxWidth) return shot;
@@ -1729,13 +1711,13 @@ export class SmartReframeService {
     const sizedFrom = constraints.length ? constraints : shots;
     const windowW = Math.max(...sizedFrom.map(s=>s.windowW));
     const windowH = Math.max(...sizedFrom.map(s=>s.windowH));
-    return preservePresentationRegions(presentFit43(applyAutomaticLayoutPolicy(shots.map(s=>({...s,
+    return preservePresentationRegions(anchorClipFitToMeasuredFaces(presentFit43(applyAutomaticLayoutPolicy(shots.map(s=>({...s,
       contextStatus: s.contextStatus === 'unresolved-preserved' && reviewCandidate && (windowW < 1 || windowH < 1)
         ? 'unresolved-review-required' as const : s.contextStatus,
       windowW,windowH,keyframes:s.keyframes.map(k=>({...k,
       centerX:Math.max(windowW/2,Math.min(1-windowW/2,k.centerX)),
       centerY:Math.max(windowH/2,Math.min(1-windowH/2,k.centerY)),
-    }))})),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight));
+    }))})),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight),rawSamples,sourceWidth,sourceHeight));
   }
 
   public static buildShotCompositionFilter(options: {
@@ -2979,7 +2961,7 @@ export class SmartReframeService {
             explicitMode:clip.crop_config?.layout_mode && (clip.crop_config as any).layout_mode_source !== 'genre_recommendation' ? clip.crop_config.layout_mode : undefined})
         : null;
       const {speaker1X,speaker2X} = resolvedLayout;
-      const adaptiveScenes = process.env.SMART_REFRAME_ADAPTIVE_SCENES === '1' && clip.aspect_ratio === '9:16' && !(clip.crop_config?.layout_mode && (clip.crop_config as any).layout_mode_source !== 'genre_recommendation');
+      const adaptiveScenes = adaptiveSceneEligible(clip,process.env.SMART_REFRAME_ADAPTIVE_SCENES === '1');
       const layoutMode = adaptiveScenes ? 'track' : contentDecision?.layoutMode ?? resolvedLayout.layoutMode;
 
       logger.info(

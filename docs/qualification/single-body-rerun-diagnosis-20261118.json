@@ -1,0 +1,34 @@
+{
+  "claimBoundary": "Detector measurements, not independently scored person truth or between-sample safety. No policy/threshold change.",
+  "sources": {
+    "walking": {
+      "provenance": "/downloads/vireo-normal-adaptive-walking-cv-0449",
+      "samples": 45,
+      "bodyCountHistogram": {
+        "1": 45
+      },
+      "minimumBodyHeight": 0.446,
+      "maximumBodyHeight": 0.7427,
+      "minimumBodyConfidence": 0.4272,
+      "maximumSampleGap": 0.2666670000000001,
+      "lateralEnvelope": [
+        0.2165,
+        0.6099
+      ],
+      "maximumSampledCenterSpeed": 0.15543730570336803
+    },
+    "studio": {
+      "provenance": "/downloads/vireo-normal-adaptive-studio-cv-0450",
+      "samples": 50,
+      "bodyCountHistogram": {
+        "1": 16,
+        "2": 33,
+        "3": 1
+      },
+      "minimumBodyHeight": 0.4847,
+      "maximumBodyHeight": 1,
+      "minimumBodyConfidence": 0.4057,
+      "maximumSampleGap": 0.2400000000000002
+    }
+  }
+}

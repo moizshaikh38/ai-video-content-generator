@@ -1,0 +1,11 @@
+# Single-body rerun diagnosis and next bounded experiment
+
+Current code remains unchanged. No new strategy activated, no default or saved/manual setting rewritten.
+
+Walking is not a face-detector success and does not become one because its render is valid. Fresh normal analysis detects one person at every one of 45 samples. Body heights .446-.7427 never meet the existing body-only review proposal's .8 threshold. The horizontal envelope across the full motion is .2165-.6099, wider than one 9:16 full-source-height window (.31616 of source width). Therefore lowering the height threshold alone would still fail the existing static proposal. Max sampled center speed is .15544 source-width/second. One person's confidence dips to .4272, so do not describe this as high-confidence continuous tracking or verified identity. No boxes independently annotated.
+
+Studio is a different failure: multiple measured person boxes in 34/50 samples, including the foreground partial person. Single-body eligibility must abstain there; fixing walking is not permission to discard the studio foreground or override measured context.
+
+A possible next reversible experiment is a separate review-only full-source-height moving body proposal, with sampled lateral containment, strict single-person evidence, full clock/coverage checks, bounded motion and independent region protection. Unknown bodies, between-sample movement, identities and side content remain explicit review gaps. It must not infer speaker identity, activate by default, replace explicit/manual framing, or silently relax the current static helper's meaning. First write general negative/positive tests including multi-person, weak/missing/irregular samples, wrong geometry, side content, fast motion and saved/manual precedence; then actual full-duration render and decoded pixel inspection. The numerical measurements above are diagnosis, not universal thresholds to fit the walking clip.
+
+Caption catalogue work is an alternative next current-roadmap lane. Existing inventory and shot-evidence files were pre-existing untracked work and remain untouched. Do not mistake reference-only names for implemented parity or report a gallery screenshot as integrated actual-output approval.

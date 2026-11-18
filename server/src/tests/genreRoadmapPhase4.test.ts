@@ -158,7 +158,7 @@ describe('Genre Phase 6-lite — boundary property checks (wired through scoring
     // standalone absent it must NOT silently fabricate one.
     assert.equal(result.explanation.standalone_score, null);
     assert.ok(!result.explanation.reasons.some((r) => /answers a question/.test(r)));
-    assert.ok(result.explanation.reasons.some((r) => /standalone subscore/.test(r)));
+    assert.ok(result.explanation.reasons.some((r) => /Provider subscore missing: standalone/.test(r)));
   });
 
   it('production analysis wires diversity selection and context passing', () => {

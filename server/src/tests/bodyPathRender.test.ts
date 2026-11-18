@@ -1,3 +1,4 @@
+import {syntheticMeasuredContext} from './fixtures/syntheticMeasuredContext.js';
 import {test} from 'node:test';import assert from 'node:assert/strict';
 import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {execFileSync} from 'node:child_process';import ffmpegStatic from 'ffmpeg-static';
 import {SmartReframeService as S} from '../services/smartReframeService.js';import {ProEditorService as P} from '../services/proEditorService.js';
@@ -15,7 +16,7 @@ test('moving body plan Quick/Pro fractional slice uses same source interval and 
   const quick=S.buildShotCompositionFilter({plan,start,duration,sourceWidth:854,sourceHeight:480});
   const track={raw_samples:evidence.samples,smoothed_keyframes:[{time:0,centerX:.5,centerY:.5}],source_width:854,source_height:480,metadata:{shot_composition_candidate:true,clip_duration:12}};
   const project={canvas:{width:1080,height:1920,aspect_ratio:'9:16',fps:30,duration},tracks:[{type:'VIDEO',name:'Main Video',items:[{id:'moving-slice',timeline_start:0,timeline_end:duration,source_start:start,source_end:start+duration}]}]};
-  const graph=P.compileRenderGraph(project as any,source,path.join(dir,'out.mp4'),dir,{mode:'smart',aspectRatio:'9:16',clipStartSec:0,layoutMode:'track',track} as any,'off');
+  const graph=P.compileRenderGraph(project as any,source,path.join(dir,'out.mp4'),dir,syntheticMeasuredContext({mode:'smart',aspectRatio:'9:16',clipStartSec:0,layoutMode:'track',track},source),'off');
   const common=['-v','error','-threads','2','-filter_complex_threads','1','-ss',String(start)];
   const rows=(args:string[])=>execFileSync(ffmpeg,args,{timeout:60000}).toString().split('\n').filter(l=>/^0,/.test(l));
   const a=rows([...common,'-i',source,'-filter_complex',quick,'-map','[out]','-t',String(duration),'-f','framemd5','-']);

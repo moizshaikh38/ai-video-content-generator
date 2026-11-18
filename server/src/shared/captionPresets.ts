@@ -2505,10 +2505,16 @@ function buildPresetCueEventsBare(cue: PresetTimedCue, baseStyle: ResolvedCaptio
         const state = getWordRevealState(w, start + 0.000001, style.reveal);
         const chars = splitCaptionGraphemes(w.text);
         const shown = state.visibleCharacters ?? chars.length;
-        const alpha = Math.round((1 - state.opacity*getCaptionExitOpacity(cue,start,style)) * 255).toString(16).padStart(2, '0').toUpperCase();
+        const opacity = state.opacity * getCaptionExitOpacity(cue, start, style);
+        const alphaFor = (amount: number) => Math.round((1 - amount) * 255).toString(16).padStart(2, '0').toUpperCase();
+        // A global ASS alpha overrides BackColour/OutlineColour alpha too. Keep
+        // reveal opacity multiplied by each channel's own opacity, as in CSS.
+        const alpha = alphaFor(opacity);
+        const outlineAlpha = alphaFor(opacity * (style.box?.opacity ?? 1));
+        const shadowAlpha = alphaFor(opacity * style.shadowOpacity);
         const color = hexToAssColor(w.customStyle?.color || style.textColor);
         const mult = Math.max(0.25, Math.min(3, w.customStyle?.fontSizeMultiplier ?? 1));
-        text += `{\\c${color}\\fscx${Math.round(mult * 100)}\\fscy${Math.round(mult * 100)}\\alpha&H${alpha}&}${escapeAssText(chars.slice(0, shown).join(''))}`;
+        text += `{\\c${color}\\fscx${Math.round(mult * 100)}\\fscy${Math.round(mult * 100)}\\1a&H${alpha}&\\2a&H${alpha}&\\3a&H${outlineAlpha}&\\4a&H${shadowAlpha}&}${escapeAssText(chars.slice(0, shown).join(''))}`;
         text += `{\\alpha&HFF&}${escapeAssText(chars.slice(shown).join(''))}{\\alpha&H00&}`;
       });
       const caret = getCaptionCaret(cue, start + 0.000001, style);
@@ -2543,6 +2549,9 @@ function buildPresetCueEventsBare(cue: PresetTimedCue, baseStyle: ResolvedCaptio
 
   const slices = getPresetCueSlices(cue, validWords, style);
   const breakIdx = getCueLineBreakIndex(cue, validWords.length);
+  // In BorderStyle 3 the outline channel is the line background, not glyph stroke.
+  // Inline word effects must restore that box, including after the active word.
+  const resetOutlineColour = hexToAssColor(style.box?.color ?? style.outlineColor);
   const events: string[] = [];
 
   slices.forEach((slice, sIdx) => {
@@ -2589,8 +2598,8 @@ function buildPresetCueEventsBare(cue: PresetTimedCue, baseStyle: ResolvedCaptio
           tags.push(`\\fscx${Math.round(100 * fontMult)}\\fscy${Math.round(100 * fontMult)}`);
         }
         const reset = style.activeWordBox
-          ? `{\\c${tokenTextColour}\\3c${hexToAssColor(style.outlineColor)}\\bord${style.outlineWidth}\\fscx100\\fscy100\\blur0}`
-          : `{\\c${tokenTextColour}\\3c${hexToAssColor(style.outlineColor)}\\bord${style.outlineWidth}\\fscx100\\fscy100\\blur0}`;
+          ? `{\\c${tokenTextColour}\\3c${resetOutlineColour}\\bord${style.outlineWidth}\\fscx100\\fscy100\\blur0}`
+          : `{\\c${tokenTextColour}\\3c${resetOutlineColour}\\bord${style.outlineWidth}\\fscx100\\fscy100\\blur0}`;
         piece = `{${tags.join('')}}${wordText}${reset}`;
       } else if (keywordHit) {
         // Static keyword highlight keeps its colour until the word becomes active.
@@ -2612,7 +2621,7 @@ function buildPresetCueEventsBare(cue: PresetTimedCue, baseStyle: ResolvedCaptio
           if (fontMult !== 1) preTags.push(`\\fscx${Math.round(100 * fontMult)}\\fscy${Math.round(100 * fontMult)}`);
           if (cs?.effect === 'pill') preTags.push(`\\3c${hexToAssColor(cs.pillColor || '#ED3A7C')}\\bord8`);
           if (cs?.effect === 'glow') preTags.push(`\\blur6\\3c${tokenTextColour}`);
-          piece = `{${preTags.join('')}}${wordText}{\\c${textColour}\\3c${hexToAssColor(style.outlineColor)}\\bord${style.outlineWidth}\\fscx100\\fscy100\\blur0}`;
+          piece = `{${preTags.join('')}}${wordText}{\\c${textColour}\\3c${resetOutlineColour}\\bord${style.outlineWidth}\\fscx100\\fscy100\\blur0}`;
         }
       }
       if (i > 0) out += i - 1 === breakIdx ? '\\N' : ' ';

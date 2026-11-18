@@ -246,6 +246,8 @@ class ClipRenderService {
   }
 
   async getClipReframe(clipId: string,candidate?:boolean): Promise<{
+    adaptiveComposition?:boolean;
+    measuredPlanEnvelope?:import('../../server/src/shared/previewItemAutomaticPlan').PreviewMeasuredPlanEnvelope|null;
     contentFramingDecision?: import('../../server/src/shared/contentFramingDecision').ContentFramingDecision | null;
     status: 'pending' | 'analyzing' | 'ready' | 'failed';
     analyzedSourcePath?: string | null;

@@ -19,12 +19,9 @@ const educationProfile = (): GenreProfileConfig =>
 
 describe('Genre Phase 1 — missing LLM subscores renormalize instead of fabricating', () => {
   it('drops and redistributes the weight of an unreturned insight subscore', () => {
-    // Education weights: hook .20, standalone .35, insight .30, audio .05, visual .10.
-    // Inputs: hook 90, standalone 90, insight omitted, no timeline (visual 60, audio 70).
-    // Signal adjustments: hook text ≥10 chars → hook 94; 30s below the 35s genre min → standalone 82.
-    // Renormalized: (0.2*94 + 0.35*82 + 0.1*60 + 0.05*70) / 0.70 = 57/0.7 = 81.43
-    // platform_fit (30s < 35s min but ≤ 60s) = 85 → overall = 81.43*0.9 + 85*0.1 = 81.79 → 82.
-    // The old fabricated-70 insight would have scored 79.
+    // No timeline means visual/audio are unmeasured and excluded, not fake 60/70.
+    // Hook 94 and standalone 82 retain .20/.35 weights; insight absent.
+    // ((.20*94 + .35*82)/.55)*.9 +85*.1 =86.227... ->86.
     const result = MultimodalScoringService.scoreCandidate({
       start_seconds: 0,
       end_seconds: 30,
@@ -36,10 +33,12 @@ describe('Genre Phase 1 — missing LLM subscores renormalize instead of fabrica
       baseInsightScore: null,
     });
 
-    assert.equal(result.vireo_score, 82);
+    assert.equal(result.vireo_score, 86);
+    assert.equal(result.explanation.visual_activity_score, null);
+    assert.equal(result.explanation.audio_energy_score, null);
     assert.equal(result.explanation.insight_score, null);
     assert.ok(
-      result.explanation.reasons.some((r) => /insight subscore/.test(r)),
+      result.explanation.reasons.some((r) => /Provider subscore missing: insight/.test(r)),
       'explanation must disclose the redistribution'
     );
   });
@@ -55,9 +54,11 @@ describe('Genre Phase 1 — missing LLM subscores renormalize instead of fabrica
       baseStandaloneScore: 90,
       baseInsightScore: 90,
     });
-    // Manual: hook 94 (+4 text), standalone 82 (−8 duration), insight 90, visual 60, audio 70
-    // → (0.2*94 + 0.35*82 + 0.3*90 + 0.1*60 + 0.05*70)/1.0 = 84 → 84*0.9 + 85*0.1 = 84.1 → 84
-    assert.equal(withAll.vireo_score, 84);
+    // All provider subscores exist, but visual/audio still do not. Their .15
+    // weight is omitted: ((.2*94+.35*82+.3*90)/.85)*.9+85*.1=87.382... ->87.
+    assert.equal(withAll.vireo_score, 87);
+    assert.equal(withAll.explanation.visual_activity_score, null);
+    assert.equal(withAll.explanation.audio_energy_score, null);
     assert.equal(withAll.explanation.insight_score, 90);
     assert.ok(!withAll.explanation.reasons.some((r) => /redistributed/.test(r)));
   });
