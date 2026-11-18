@@ -1,0 +1,3 @@
+import fs from 'node:fs';import {SmartReframeService as S} from '../../src/services/smartReframeService.js';
+const r=JSON.parse(fs.readFileSync('/tmp/vireo-local-restore/walking-full-auto-analysis.json','utf8'));
+const plan=S.computeShotComposition({rawSamples:r.raw_samples,sceneCuts:r.metadata.scene_cuts,duration:r.metadata.clip_duration,sourceWidth:r.source_width,sourceHeight:r.source_height,windowScope:'shot',automaticFitAspect:'4:3'});fs.writeFileSync('/downloads/walking-autolayout-plan.json',JSON.stringify(plan,null,2));console.log(plan.map(s=>({start:s.start,end:s.end,kind:s.kind,windowW:s.windowW,windowH:s.windowH,aspect:s.windowW*r.source_width/(s.windowH*r.source_height),contextStatus:s.contextStatus,path:s.keyframes.length})));

@@ -1,0 +1,3 @@
+import{SmartReframeService as S}from'../../src/services/smartReframeService.js';
+const raw=Array.from({length:16},(_,i)=>({time:i/4,faces:[{track_id:'one',x:.475,y:.29,width:.05,height:.1,center_x:.5,center_y:.34,confidence:.95}],persons:[{x:.45,y:.28,width:.1,height:.65,confidence:.95}],objects:[{class_id:8,x:.05,y:.55,width:.18,height:.2,confidence:.9}]}));
+console.log(JSON.stringify(S.computeShotComposition({duration:4,sourceWidth:854,sourceHeight:480,windowScope:'shot',automaticFitAspect:'4:3',rawSamples:raw}),null,2));

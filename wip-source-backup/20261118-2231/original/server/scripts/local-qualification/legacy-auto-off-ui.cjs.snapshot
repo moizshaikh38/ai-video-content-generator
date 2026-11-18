@@ -1,0 +1,46 @@
+// LOCAL ONLY: real Studio panel inline crop, desktop/touch apply/cancel, save/reload and bounded720p API.
+const fs=require('fs'),cp=require('child_process'),assert=require('assert/strict'),puppeteer=require('/tmp/vireo-local-restore/ui-driver/node_modules/puppeteer-core');
+const procs=[];let browser;let restore;
+(async()=>{
+ const fixture='/tmp/vireo-local-restore/walking-full-auto-fixture.json';const f=JSON.parse(fs.readFileSync(fixture));
+ const {MongoClient}=require('/home/sandbox/avcg/server/node_modules/mongodb');const c=await MongoClient.connect('mongodb://127.0.0.1:27019');const db=c.db('vireo_recovery_qualification');const before=await db.collection('reframe_tracks').findOne({clip_id:f.clip_id});const editorBefore=await db.collection('editor_projects').findOne({id:f.editor_id});restore=async()=>{await db.collection('reframe_tracks').replaceOne({_id:before._id},before);await db.collection('editor_projects').replaceOne({_id:editorBefore._id},editorBefore);await c.close()};await db.collection('reframe_tracks').updateOne({_id:before._id},{$set:{raw_samples:[],metadata:{...before.metadata,shot_composition_candidate:false,dominant_score:1},layout_mode:'track'}});
+
+ for(const [bin,args,cwd,env,log] of [
+  ['/home/sandbox/avcg/server/node_modules/.bin/tsx',['scripts/local-qualification/render-recovered.mts'],'/home/sandbox/avcg/server',{KEEP_LOCAL_SERVER:'1',QUALIFICATION_FIXTURE:fixture,QUALIFICATION_SOURCE:'/downloads/recovered-source/walking-in-sands-12s.mp4'},'/tmp/mobile-api.log'],
+  ['/home/sandbox/avcg/node_modules/.bin/vite',['--host','127.0.0.1','--port','5199'],'/home/sandbox/avcg',{VITE_API_URL:'http://127.0.0.1:5581/api'},'/tmp/mobile-vite.log']]){
+  const p=cp.spawn(bin,args,{cwd,env:{...process.env,...env},detached:true,stdio:['ignore',fs.openSync(log,'w'),fs.openSync(log,'a')]});procs.push(p);
+ }
+ for(let n=0;n<300;n++){try{if(fs.readFileSync('/tmp/mobile-api.log','utf8').includes('LOCAL_UI_SERVER_READY')&&(await fetch('http://127.0.0.1:5199/harness-studio-e2e.html')).ok)break}catch{}await new Promise(r=>setTimeout(r,100))}
+ browser=await puppeteer.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage'],defaultViewport:{width:390,height:844,isMobile:true,hasTouch:true}});
+ const page=await browser.newPage(),errors=[],writes=[],metrics=[];
+ page.on('response',res=>{if(res.request().method()==='PATCH'&&res.url().includes('/api/')){assert.equal(res.status(),200)}});page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().includes('/api/')&&['PATCH','DELETE'].includes(r.method()))writes.push(r.url())});
+ await page.goto('http://127.0.0.1:5199/harness-studio-e2e.html?clip='+f.clip_id,{waitUntil:'domcontentloaded'});
+ const clickText=async(text)=>{if(text.startsWith('Panel ')||text==='Crop')await openTools();await page.waitForFunction(text=>[...document.querySelectorAll('button')].some(b=>b.textContent.trim()===text),{},text);await page.evaluate(text=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===text).click(),text)};
+ const slots=async()=>{const st=await(await fetch('http://127.0.0.1:5581/api/editor-projects/'+f.editor_id,{headers:{authorization:'Bearer e2e-studio-token'}})).json();return (st.data||st.project||st).tracks.find(t=>t.type==='VIDEO').items[0].panels.slots};
+ const save=async()=>{const expected=writes.length+2;await clickText('Save');for(let i=0;i<100&&writes.length<expected;i++)await new Promise(r=>setTimeout(r,100));assert.equal(writes.length,expected);await new Promise(r=>setTimeout(r,200))};
+ const openTools=async()=>{const t=await page.$('[data-testid="mobile-framing-toggle"]');if(t&&await t.evaluate(e=>getComputedStyle(e.parentElement).display!=='none'&&e.getAttribute('aria-expanded')==='false'))await t.click()};
+ const pick=async label=>{await openTools();await page.click('[data-testid="toolbar-layout"]');await page.waitForSelector('[role="menu"]',{visible:true});await page.evaluate(label=>[...document.querySelectorAll('[role="menuitemradio"]')].find(b=>b.textContent.trim()===label).click(),label);await save()};
+
+ await page.setViewport({width:1440,height:1000,isMobile:false,hasTouch:false});await page.waitForSelector('[data-testid="toolbar-layout"]');
+
+
+
+ await page.waitForSelector('[data-testid="auto-reframe-toggle"]');
+ if((await page.$eval('[data-testid="auto-reframe-toggle"]',e=>e.textContent)).includes('OFF')){await page.click('[data-testid="auto-reframe-toggle"]');await save();await page.reload({waitUntil:'domcontentloaded'});await page.waitForSelector('[data-testid="auto-reframe-toggle"]');}
+ assert.match(await page.$eval('[data-testid="auto-reframe-toggle"]',e=>e.textContent),/ON/);
+ for(let i=0;i<40;i++)await page.keyboard.press('j');for(let i=0;i<6;i++)await page.keyboard.press('l');
+ await page.waitForFunction(()=>[...document.querySelectorAll('video')].filter(v=>v.videoWidth>0).every(v=>v.readyState>=2&&!v.seeking));
+ await page.click('[data-testid="auto-reframe-toggle"]');await save();await page.reload({waitUntil:'domcontentloaded'});await page.waitForSelector('[data-testid="auto-reframe-toggle"]');assert.match(await page.$eval('[data-testid="auto-reframe-toggle"]',e=>e.textContent),/OFF/);
+ for(let i=0;i<40;i++)await page.keyboard.press('j');
+ const positions=[];
+ for(const target of [0,6,10]){
+ if(target>0)for(let i=0;i<(target-(global.lastTarget||0));i++)await page.keyboard.press('l');global.lastTarget=target;
+ await page.waitForFunction(()=>[...document.querySelectorAll('video')].some(v=>v.videoWidth>0)&&[...document.querySelectorAll('video')].filter(v=>v.videoWidth>0).every(v=>v.readyState>=2&&!v.seeking));await new Promise(r=>setTimeout(r,300));
+ positions.push(await page.$$eval('video',vs=>vs.filter(v=>v.videoWidth>0).map(v=>({objectPosition:v.style.objectPosition,left:v.style.left,top:v.style.top,width:v.style.width,height:v.style.height}))));
+ await page.screenshot({path:'/downloads/legacy-auto-off-'+target+'s.png'});
+ }
+ assert.deepEqual(positions[0],positions[1]);assert.deepEqual(positions[1],positions[2]);console.log('MATCHED_OFF_FROZEN_PREVIEW',positions);
+ await page.setViewport({width:390,height:844,isMobile:true,hasTouch:true});await new Promise(r=>setTimeout(r,300));await openTools();await page.screenshot({path:'/downloads/legacy-auto-off-mobile.png'});await page.setViewport({width:1440,height:1000,isMobile:false,hasTouch:false});
+ const res=await fetch('http://127.0.0.1:5581/api/editor-projects/'+f.editor_id+'/render',{method:'POST',headers:{authorization:'Bearer e2e-studio-token','content-type':'application/json'},body:JSON.stringify({resolution:'720p'})});assert.equal(res.status,202);let state;for(let i=0;i<160;i++){await new Promise(r=>setTimeout(r,250));state=await(await fetch('http://127.0.0.1:5581/__qualification/status')).json();if(['completed','failed'].includes(state.job?.status))break;}assert.equal(state.job.status,'completed');fs.copyFileSync('/tmp/vireo-local-restore/objects/local-clips/'+state.clip.output_storage_path,'/downloads/walking-legacy-auto-off-12s.mp4');console.log('REENABLED_EXPORT_COMPLETED',state.clip.output_storage_path,errors);
+
+})().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{if(restore)await restore();if(browser)await browser.close();for(const p of procs){try{process.kill(-p.pid,'SIGTERM')}catch{}}});

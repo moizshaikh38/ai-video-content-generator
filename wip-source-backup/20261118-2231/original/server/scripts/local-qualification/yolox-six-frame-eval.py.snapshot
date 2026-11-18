@@ -1,0 +1,28 @@
+import os,time,json,ast,threading,resource,sys
+os.environ['OPENBLAS_NUM_THREADS']='1';os.environ['OMP_NUM_THREADS']='2'
+import cv2 as cv,numpy as np
+from yolox import YoloX
+cv.setNumThreads(2)
+started=time.monotonic()
+def watchdog():
+ while True:
+  if time.monotonic()-started>90 or resource.getrusage(resource.RUSAGE_SELF).ru_maxrss>768*1024:
+   print('RESOURCE_STOP',flush=True);os._exit(3)
+  time.sleep(.1)
+threading.Thread(target=watchdog,daemon=True).start()
+classes=next(ast.literal_eval(n.value) for n in ast.parse(open('/tmp/vireo-yolox-eval/demo.py').read()).body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='classes' for t in n.targets))
+notes={0:'Main person plus nearby boat/deck context. A detected person alone does not establish that sides are expendable.',4:'Large boat fills most of source; foreground blur at right. Preserve vessel, no person-centric crop.',10:'Boat/dock, tall crane and visible clock overlay. Crane context may not be among supported detector classes.',20:'Person, broad boat foreground and top-left clock. Person-only crop risks removing the story object and overlay.',30:'Vessel and hoist/container scene plus top-left clock. Detecting boat is insufficient to prove crane/container preservation.',39:'Person plus boat foreground/rail and top-left clock. Review actual frame before judging any crop.'}
+json.dump({'provenance':'Assistant visual inspection of fixed original frames before candidate inference, not machine-generated labels or verified semantic ground truth.','notes':notes},open('/downloads/vireo-autolayout-eval/expected-context-notes.json','w'),indent=2)
+model=YoloX('/tmp/vireo-yolox-eval/model.onnx')
+rows=[]
+for t in [0,4,10,20,30,39]:
+ im=cv.imread(f'/downloads/vireo-autolayout-eval/beast-original-{t}s.png');h,w=im.shape[:2];ratio=min(640/h,640/w);res=cv.resize(cv.cvtColor(im,cv.COLOR_BGR2RGB),(int(w*ratio),int(h*ratio))).astype(np.float32);padded=np.ones((640,640,3),np.float32)*114;padded[:res.shape[0],:res.shape[1]]=res
+ begin=time.monotonic();pred=model.infer(padded);ms=(time.monotonic()-begin)*1000;boxes=[]
+ for x,y,bw,bh,score,cid in pred:
+  x=max(0,float(x)/ratio);y=max(0,float(y)/ratio);bw=min(w-x,float(bw)/ratio);bh=min(h-y,float(bh)/ratio);cid=int(cid)
+  if bw<=0 or bh<=0:continue
+  boxes.append(dict(label=classes[cid],class_id=cid,confidence=round(float(score),3),x=round(x/w,4),y=round(y/h,4),width=round(bw/w,4),height=round(bh/h,4)))
+  cv.rectangle(im,(int(x),int(y)),(int(x+bw),int(y+bh)),(0,255,100),2);cv.putText(im,f'{classes[cid]} {score:.2f}',(int(x),max(16,int(y)-4)),cv.FONT_HERSHEY_SIMPLEX,.55,(0,255,100),2)
+ cv.imwrite(f'/downloads/vireo-autolayout-eval/yolox-{t}s.png',im)
+ row=dict(clip_time=t,inference_ms=round(ms,1),peak_rss_mb=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024,1),boxes=boxes);rows.append(row);print(json.dumps(row),flush=True)
+json.dump({'model_sha256':'c5c2d13e59ae883e6af3b45daea64af4833a4951c92d116ec270d9ddbe998063','cv_version':cv.__version__,'threads':2,'confidence_threshold':.35,'scope':'Six fixed original frames only. No Vireo planner integration or model-default change.','rows':rows,'elapsed_seconds':round(time.monotonic()-started,2)},open('/downloads/vireo-autolayout-eval/yolox-results.json','w'),indent=2)

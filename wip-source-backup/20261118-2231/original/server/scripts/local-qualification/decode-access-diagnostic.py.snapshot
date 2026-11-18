@@ -1,0 +1,19 @@
+"""Local read-only sparse-frame decode diagnostic. No detector/runtime change."""
+import cv2,time,json,hashlib
+cv2.setNumThreads(1)
+path='/downloads/recovered-source/beast-yacht-120-210.mp4';c=cv2.VideoCapture(path);fps=c.get(cv2.CAP_PROP_FPS);total=c.get(cv2.CAP_PROP_FRAME_COUNT);c.release();step=max(1,round(fps/4));indices=list(range(round(10*fps),min(round(40*fps),round(total)),step));results=[]
+for mode in ['seek-each','sequential-grab']:
+ c=cv2.VideoCapture(path);start=time.monotonic();rows=[];next_index=0
+ if mode=='sequential-grab':c.set(cv2.CAP_PROP_POS_FRAMES,indices[0]);next_index=indices[0]
+ for n in indices:
+  if mode=='seek-each':c.set(cv2.CAP_PROP_POS_FRAMES,n);ok,f=c.read()
+  else:
+   ok=True
+   while next_index<=n:
+    ok=c.grab();next_index+=1
+    if not ok:break
+   ok,f=c.retrieve()if ok else(False,None)
+  if not ok:break
+  rows.append(dict(index=n,sha256=hashlib.sha256(f.tobytes()).hexdigest()))
+ c.release();results.append(dict(mode=mode,elapsed=time.monotonic()-start,rows=rows));print(mode,results[-1]['elapsed'],len(rows),flush=True)
+out=dict(scope='Existing contaminated Beast source, decode-only30s10-40 window, no detections/semantic fitting, no runtime change; not full4K or API benchmark',source=path,fps=fps,sample_step=step,results=results,all_sample_pixels_identical=results[0]['rows']==results[1]['rows']);json.dump(out,open('/downloads/decode-access-diagnostic.json','w'),indent=2);print('identical',out['all_sample_pixels_identical'])

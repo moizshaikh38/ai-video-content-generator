@@ -1,0 +1,10 @@
+import fs from 'node:fs';import{execFileSync}from'node:child_process';import ffmpeg from'ffmpeg-static';import{SmartReframeService as S}from'../../src/services/smartReframeService.js';
+const [config,prefix]=process.argv.slice(2),c=JSON.parse(fs.readFileSync(config,'utf8')),t=JSON.parse(fs.readFileSync(prefix+'-analysis.json','utf8')),m=t.metadata||{};
+if(t.status!=='completed'&&t.status!=='ready')throw Error('Analysis status not completed/ready: '+t.status);
+if(m.shot_composition_candidate!==true)throw Error('No automatic shot composition candidate, do not invent fallback');
+const plan=S.computeShotComposition({rawSamples:t.raw_samples,sceneCuts:m.scene_cuts,duration:Number(m.clip_duration),sourceWidth:t.source_width,sourceHeight:t.source_height,windowScope:m.shot_composition_window_scope==='shot'?'shot':'clip',automaticFitAspect:m.automatic_fit_aspect==='4:3'?'4:3':undefined,allowConversationSplit:m.conversation_split_candidate===true,protectedContentRegions:m.protected_content_regions});
+if(!plan.length)throw Error('Empty shared shot plan');
+const filter=S.buildShotCompositionFilter({plan,duration:c.duration,sourceWidth:t.source_width,sourceHeight:t.source_height,canvasScale:2/3});
+fs.writeFileSync(prefix+'-plan.json',JSON.stringify(plan,null,2));fs.writeFileSync(prefix+'-filter.txt',filter);
+const args=['-y','-v','error','-filter_complex_threads','1','-threads','1','-ss',String(c.start),'-i',c.source,'-t',String(c.duration),'-filter_complex',filter,'-map','[out]','-an','-r','24','-c:v','libx264','-threads','1','-preset','ultrafast','-crf','22',prefix+'-720p.mp4'];
+fs.writeFileSync(prefix+'-render-command.json',JSON.stringify({binary:ffmpeg,args},null,2));const start=Date.now();execFileSync(ffmpeg!,args,{timeout:180000});fs.writeFileSync(prefix+'-render-timing.json',JSON.stringify({elapsed_ms:Date.now()-start}));

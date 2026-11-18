@@ -1,0 +1,14 @@
+import cv2,json,sys
+path=sys.argv[1];cap=cv2.VideoCapture(path);w=cap.get(cv2.CAP_PROP_FRAME_WIDTH);h=cap.get(cv2.CAP_PROP_FRAME_HEIGHT);fps=cap.get(cv2.CAP_PROP_FPS);count=0;union=None;minarea=1;out=[]
+while True:
+ ok,f=cap.read()
+ if not ok:break
+ g=cv2.cvtColor(f,cv2.COLOR_BGR2GRAY);mask=(g>24).astype('uint8');n,labels,stats,cents=cv2.connectedComponentsWithStats(mask,8)
+ boxes=[(int(x),int(y),int(x+bw),int(y+bh))for x,y,bw,bh,a in stats[1:]if a>=4]
+ if boxes:
+  b=[min(x[0]for x in boxes),min(x[1]for x in boxes),max(x[2]for x in boxes),max(x[3]for x in boxes)]
+  if union is None:union=b
+  else:union=[min(union[0],b[0]),min(union[1],b[1]),max(union[2],b[2]),max(union[3],b[3])]
+  out.append({'frame':count,'time':count/fps,'bounds':b})
+ count+=1
+r={'source':path,'dimensions':[w,h],'frames':count,'threshold':24,'minComponentPixels':4,'union':union,'bounds':out,'notSemanticSafety':True};json.dump(r,open(sys.argv[2],'w'),indent=2);print({k:v for k,v in r.items()if k!='bounds'})

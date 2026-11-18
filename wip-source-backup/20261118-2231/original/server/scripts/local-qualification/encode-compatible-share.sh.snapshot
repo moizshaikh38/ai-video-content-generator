@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Evidence-backed delivery profile: no coded crop offsets, exact9:16.
+# The original406x720 derivative showed a green right edge on user's player.
+# User confirmed this432x768Baseline profile removed it on17Nov2026.
+set -euo pipefail
+if [ "$#" -ne 2 ]; then printf 'usage: %s INPUT OUTPUT\n' "$0" >&2; exit 2; fi
+ffmpeg -hide_banner -loglevel error -i "$1" -vf 'scale=432:768:flags=lanczos,setsar=1,format=yuv420p' -r 30 -c:v libx264 -threads 1 -profile:v baseline -level:v 3.0 -bf 0 -preset fast -crf 23 -c:a aac -b:a 96k -movflags +faststart "$2" -y
+headers=$(ffmpeg -hide_banner -loglevel info -i "$2" -map 0:v:0 -c copy -bsf:v trace_headers -frames:v 1 -f null - 2>&1)
+printf '%s\n' "$headers" | grep -E 'frame_cropping_flag.*= 0' || { printf 'Unexpected coded-frame crop in compatibility output\n' >&2; exit 1; }

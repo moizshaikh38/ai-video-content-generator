@@ -1,0 +1,17 @@
+"""Generate ASCII hmtx advances from bundled fonts and export-host fallbacks.
+Run locally with fontTools; output is pure data shared by Node and browser.
+"""
+from fontTools.ttLib import TTFont
+from pathlib import Path
+import json
+root=Path(__file__).resolve().parents[3]
+paths={'Poppins':'poppins/Poppins-Bold.ttf','Montserrat':'montserrat/Montserrat-ExtraBold.ttf','Lemon':'lemon/Lemon-Regular.ttf','Cal Sans':'cal-sans/CalSans-Regular.ttf','Bungee':'bungee/Bungee-Regular.ttf','Figtree':'figtree/Figtree-SemiBold.ttf','Inter':'inter/Inter-Bold.ttf','JetBrains Mono':'jetbrains-mono/JetBrainsMono-Bold.ttf','League Spartan':'league-spartan/LeagueSpartan-Regular.ttf'}
+paths={k:root/'server/assets/fonts'/v for k,v in paths.items()}
+paths.update({'Arial':Path('/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf'),'Arial Black':Path('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'),'DejaVu Sans':Path('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'),'Liberation Sans':Path('/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf')})
+data={}
+for name,path in paths.items():
+ f=TTFont(path); cmap=f.getBestCmap(); upm=f['head'].unitsPerEm
+ data[name]={chr(n):round(f['hmtx'][cmap[n]][0]/upm,5) for n in range(32,127) if n in cmap}
+out=root/'server/src/shared/captionWidthMetrics.ts'
+out.write_text('/** Generated normalized ASCII hmtx advances. See generate-caption-width-metrics.py.\n * Non-ASCII uses a conservative 1em estimate, not a shaping engine. */\nexport const CAPTION_WIDTH_METRICS: Readonly<Record<string, Readonly<Record<string,number>>>> = '+json.dumps(data,separators=(',',':'))+';\n')
+print(out)

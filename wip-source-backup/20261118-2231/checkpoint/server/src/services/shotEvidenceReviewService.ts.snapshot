@@ -1,0 +1,58 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+const execFileAsync=promisify(execFile);
+export interface EvidenceFrame {id:string;time:number;sha256:string;path:string;width:number;height:number}
+export interface EvidenceShot {id:string;start:number;end:number;frames:EvidenceFrame[]}
+export interface EvidencePackage {version:'source-shot-evidence-v1';sourceSHA256:string;shots:EvidenceShot[];audioSupplied:false;transcriptSupplied:false;continuousCoverage:false}
+export interface Observation {frameId:string;box:{x:number;y:number;width:number;height:number};visibleFact:string}
+export interface EntityFinding {id:string;kind:'person'|'reflection'|'action-object'|'text'|'screen'|'unknown';importance:'required'|'optional'|'unknown';observations:Observation[];uncertainty:string[]}
+export interface ProviderShotEvidence {shotId:string;entities:EntityFinding[];unknowns:string[]}
+export interface ReviewedShotEvidence {shotId:string;entities:(EntityFinding&{protection:'preserve';importanceAuthority:'model-assessment-only'})[];unknowns:string[];automaticApply:false;continuousCoverage:false}
+const hash=(b:Buffer)=>crypto.createHash('sha256').update(b).digest('hex');
+const cleanString=(v:unknown,max=600):v is string=>typeof v==='string'&&v.length>0&&v.length<=max;
+const boxValid=(b:Observation['box'])=>b&&[b.x,b.y,b.width,b.height].every(Number.isFinite)&&b.x>=0&&b.y>=0&&b.width>0&&b.height>0&&b.x+b.width<=1&&b.y+b.height<=1;
+/** Source evidence boundary only. No provider client, network call or planner mutation.
+ * Model optionality is retained for review, never translated into crop permission. */
+export class ShotEvidenceReviewService {
+ static async prepare(sourcePath:string,shots:{id:string;start:number;end:number}[],outputDir:string,ffmpegPath:string):Promise<EvidencePackage>{
+  if(shots.length<1||shots.length>2||new Set(shots.map(s=>s.id)).size!==shots.length)throw Error('Expected one or two distinct shots');
+  for(const s of shots)if(!/^[a-z0-9-]{1,40}$/.test(s.id)||![s.start,s.end].every(Number.isFinite)||s.start<0||s.end<=s.start||s.end-s.start>4)throw Error('Invalid bounded shot');
+  const sourceSHA256=hash(await fs.readFile(sourcePath));await fs.mkdir(outputDir,{recursive:true});
+  const prepared:EvidenceShot[]=[];
+  for(const s of shots){const frames:EvidenceFrame[]=[];
+   for(const [i,fraction]of[.05,.2,.35,.5,.65,.8,.95].entries()){
+    const time=Number((s.start+(s.end-s.start)*fraction).toFixed(6));const id=`${s.id}-f${i}`;const framePath=path.join(outputDir,`${id}.jpg`);
+    await execFileAsync(ffmpegPath,['-nostdin','-v','error','-threads','2','-ss',String(time),'-i',sourcePath,'-frames:v','1','-vf','scale=854:480:force_original_aspect_ratio=decrease,pad=854:480:(ow-iw)/2:(oh-ih)/2','-q:v','3','-y',framePath],{timeout:15000,maxBuffer:32768});
+    frames.push({id,time,sha256:hash(await fs.readFile(framePath)),path:framePath,width:854,height:480});
+   }prepared.push({...s,frames});
+  }
+  const result:EvidencePackage={version:'source-shot-evidence-v1',sourceSHA256,shots:prepared,audioSupplied:false,transcriptSupplied:false,continuousCoverage:false};
+  await fs.writeFile(path.join(outputDir,'source-evidence-manifest.json'),JSON.stringify(result,null,2));return result;
+ }
+ static async verify(pkg:EvidencePackage):Promise<void>{
+  for(const shot of pkg.shots)for(const f of shot.frames)if(hash(await fs.readFile(f.path))!==f.sha256)throw Error(`Evidence bytes changed: ${f.id}`);
+ }
+ static validate(pkg:EvidencePackage,input:unknown):ReviewedShotEvidence[]{
+  if(!input||typeof input!=='object'||!Array.isArray((input as {shots?:unknown}).shots))throw Error('Missing shot evidence');
+  const rows=(input as {shots:ProviderShotEvidence[]}).shots;if(rows.length!==pkg.shots.length)throw Error('Shot coverage mismatch');
+  const seen=new Set<string>();return rows.map(row=>{
+   const shot=pkg.shots.find(s=>s.id===row.shotId);if(!shot||seen.has(row.shotId))throw Error('Unknown or duplicate shot');seen.add(row.shotId);
+   if(!Array.isArray(row.entities)||row.entities.length>16||!Array.isArray(row.unknowns)||row.unknowns.length>12||!row.unknowns.every(s=>cleanString(s)))throw Error('Invalid bounded evidence');
+   const ids=new Set<string>();const entities=row.entities.map(e=>{
+    if(!cleanString(e.id,80)||ids.has(e.id)||!['person','reflection','action-object','text','screen','unknown'].includes(e.kind)||!['required','optional','unknown'].includes(e.importance))throw Error('Invalid entity');ids.add(e.id);
+    if(!Array.isArray(e.observations)||e.observations.length<1||e.observations.length>7||!Array.isArray(e.uncertainty)||e.uncertainty.length>8||!e.uncertainty.every(s=>cleanString(s)))throw Error('Invalid observations');
+    const observed=new Set<string>();for(const o of e.observations){if(!shot.frames.some(f=>f.id===o.frameId)||observed.has(o.frameId)||!boxValid(o.box)||!cleanString(o.visibleFact))throw Error('Ungrounded observation');observed.add(o.frameId)}
+    return {...e,observations:e.observations.map(o=>({...o,box:{...o.box}})),uncertainty:[...e.uncertainty],protection:'preserve' as const,importanceAuthority:'model-assessment-only' as const};
+   });return {shotId:row.shotId,entities,unknowns:[...row.unknowns,'Sampled source stills cannot prove speaker identity, unseen action or continuous crop safety.'],automaticApply:false as const,continuousCoverage:false as const};
+  });
+ }
+ /** Intersection checks only add review blockers. Existing measured constraints
+  * must be checked independently and cannot be removed by semantic findings. */
+ static reviewCrop(row:ReviewedShotEvidence,crop:Observation['box']){
+  if(!boxValid(crop))throw Error('Invalid crop');const losses=row.entities.flatMap(e=>e.observations.filter(o=>o.box.x<crop.x||o.box.y<crop.y||o.box.x+o.box.width>crop.x+crop.width||o.box.y+o.box.height>crop.y+crop.height).map(o=>({entityId:e.id,frameId:o.frameId,modelImportance:e.importance,permissionToDrop:false as const})));
+  return{losses,automaticApply:false as const,status:losses.length?'blocked-visible-loss' as const:'review-only-no-continuous-clearance' as const};
+ }
+}

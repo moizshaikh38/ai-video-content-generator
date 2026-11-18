@@ -1,0 +1,7 @@
+import fs from'node:fs';import{SmartReframeService as S}from'../../src/services/smartReframeService.js';
+const files=['/downloads/vireo-shortauto-walk-job-0845/fresh-normal-track.json','/downloads/vireo-freeze-mixed-job-0907/fresh-normal-track.json','/downloads/vireo-auto-speed-fixed-job-0938/fresh-normal-track.json'];const out=[];
+for(const file of files){const t=JSON.parse(fs.readFileSync(file,'utf8'));const p=S.explicitAutoLayoutPlan(t,{layout_mode_source:'auto'},t.metadata.clip_duration)||[];
+for(const shot of p.filter(s=>s.kind==='solo')){const k=[...shot.keyframes,{...shot.keyframes.at(-1)!,time:shot.end}],sampled=k.length>40?Array.from({length:40},(_,i)=>k[Math.round(i*(k.length-1)/39)]):k;let max=0;const failures=[];
+for(const row of t.raw_samples.filter((s:any)=>s.time>=shot.start&&s.time<shot.end)){let n=0;while(n+1<sampled.length&&sampled[n+1].time<row.time)n++;const a=sampled[n],b=sampled[Math.min(n+1,sampled.length-1)],f=b.time>a.time?(row.time-a.time)/(b.time-a.time):0,c=a.centerX+(b.centerX-a.centerX)*f;const full=k.find(v=>v.time===row.time);max=Math.max(max,Math.abs(c-(full?.centerX??c)));const body=row.persons?.[0];if(body&&(c-shot.windowW/2>body.x-.02+1e-6||c+shot.windowW/2<body.x+body.width+.02-1e-6))failures.push({time:row.time,c,full:full?.centerX,body});}
+out.push({file,start:shot.start,end:shot.end,keys:k.length,maxDelta:max,marginFailures:failures});}}
+fs.writeFileSync('/downloads/vireo-body-render-path-audit-1028.json',JSON.stringify(out,null,2));console.log(JSON.stringify(out,null,2));

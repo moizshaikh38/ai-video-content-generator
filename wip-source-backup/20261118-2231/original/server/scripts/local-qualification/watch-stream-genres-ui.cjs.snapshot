@@ -1,0 +1,38 @@
+// LOCAL ONLY: real Studio panel inline crop, desktop/touch apply/cancel, save/reload and bounded720p API.
+const fs=require('fs'),cp=require('child_process'),assert=require('assert/strict'),puppeteer=require('/tmp/vireo-local-restore/ui-driver/node_modules/puppeteer-core');
+const procs=[];let browser;let restore;
+(async()=>{
+ const fixture='/tmp/vireo-local-restore/walking-full-auto-fixture.json';const f=JSON.parse(fs.readFileSync(fixture));const {MongoClient}=require('/home/sandbox/avcg/server/node_modules/mongodb');const mc=await MongoClient.connect('mongodb://127.0.0.1:27019');const coll=mc.db('vireo_recovery_qualification').collection('projects');const prior=await coll.findOne({id:f.project_id});restore=async()=>{await coll.replaceOne({id:f.project_id},prior);await mc.close()};
+ for(const [bin,args,cwd,env,log] of [
+  ['/home/sandbox/avcg/server/node_modules/.bin/tsx',['scripts/local-qualification/home-api-server.mts'],'/home/sandbox/avcg/server',{KEEP_LOCAL_SERVER:'1',QUALIFICATION_FUNDED:'1',QUALIFICATION_FIXTURE:fixture,QUALIFICATION_SOURCE:'/downloads/recovered-source/walking-in-sands-12s.mp4'},'/tmp/mobile-api.log'],
+  ['/home/sandbox/avcg/node_modules/.bin/vite',['--host','127.0.0.1','--port','5199'],'/home/sandbox/avcg',{VITE_API_URL:'http://127.0.0.1:5581/api'},'/tmp/mobile-vite.log']]){
+  const p=cp.spawn(bin,args,{cwd,env:{...process.env,...env},detached:true,stdio:['ignore',fs.openSync(log,'w'),fs.openSync(log,'a')]});procs.push(p);
+ }
+ for(let n=0;n<300;n++){try{if(fs.readFileSync('/tmp/mobile-api.log','utf8').includes('LOCAL_UI_SERVER_READY')&&(await fetch('http://127.0.0.1:5199/harness-studio-e2e.html')).ok)break}catch{}await new Promise(r=>setTimeout(r,100))}
+ browser=await puppeteer.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage'],defaultViewport:{width:390,height:844,isMobile:false,hasTouch:false}});
+ const page=await browser.newPage(),errors=[],writes=[],metrics=[];
+ page.on('response',res=>{if(res.request().method()==='PATCH'&&res.url().includes('/api/')){assert.equal(res.status(),200)}});page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().includes('/api/')&&['PATCH','DELETE'].includes(r.method()))writes.push(r.url())});
+
+
+ await page.setRequestInterception(true);page.on('request',req=>{if(['POST','PATCH','DELETE','PUT'].includes(req.method()))req.abort();else req.continue()});
+ await page.evaluateOnNewDocument(()=>localStorage.setItem('vireo_demo_user',JSON.stringify({id:'11111111-1111-4111-8111-111111111111',email:'e2e@vireoclip.test'})));
+ await page.goto('http://127.0.0.1:5199/harness-home-audit.html?shell=1',{waitUntil:'networkidle0'});
+ await page.setViewport({width:1440,height:900,isMobile:false,hasTouch:false});await page.waitForSelector('input[type="file"]');
+ await page.screenshot({path:'/downloads/vireo-fullshell-home-desktop.png',fullPage:false});
+ await page.setViewport({width:390,height:844,isMobile:false,hasTouch:false});await page.waitForFunction(()=>document.querySelector('[aria-label="Main sidebar navigation"]').getBoundingClientRect().right<=1);await page.screenshot({path:'/downloads/vireo-fullshell-home-mobile.png',fullPage:false});await page.setViewport({width:1440,height:900,isMobile:false,hasTouch:false});
+ const input=await page.$('input[type="file"]');await input.uploadFile('/downloads/recovered-source/walking-in-sands-12s.mp4');
+ await page.waitForFunction(()=>document.body.innerText.includes('Configure Video Clipping'));await new Promise(r=>setTimeout(r,1200));
+ console.log('LIVE_CONFIGURE_GENRES',await page.$$eval('[aria-label="Content genre"] option',es=>es.map(e=>({value:e.value,label:e.textContent}))));
+ for(const genre of ['watch_party','streaming']){
+ await page.select('[aria-label="Content genre"]',genre);await new Promise(r=>setTimeout(r,200));
+ assert.equal(await page.$eval('[aria-label="Content genre"]',e=>e.value),genre);
+ const prefs=await page.evaluate(()=>JSON.parse(localStorage.getItem('vireo_last_clip_preferences_v1')));assert.equal(prefs.genre,genre);
+ await page.evaluate(()=>{const el=[...document.querySelectorAll('details')].find(d=>d.querySelector('summary')?.textContent==='About this genre');if(el)el.open=true});
+ await page.screenshot({path:'/downloads/genre-'+genre+'-configure.png',fullPage:false});
+ if(genre==='streaming'){await page.setViewport({width:390,height:844,isMobile:false,hasTouch:false});await new Promise(r=>setTimeout(r,200));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'/downloads/genre-streaming-mobile.png',fullPage:false});await page.setViewport({width:1440,height:900,isMobile:false,hasTouch:false});}
+ await page.reload({waitUntil:'networkidle0'});await page.waitForSelector('input[type="file"]');await (await page.$('input[type="file"]')).uploadFile('/downloads/recovered-source/walking-in-sands-12s.mp4');await page.waitForSelector('[aria-label="Content genre"]');assert.equal(await page.$eval('[aria-label="Content genre"]',e=>e.value),genre);
+ console.log('GENRE_SELECT_RELOAD_PERSIST',genre);
+ const patch=await fetch('http://127.0.0.1:5581/api/projects/'+f.project_id,{method:'PATCH',headers:{authorization:'Bearer e2e-studio-token','content-type':'application/json'},body:JSON.stringify({clip_preferences:{genre,genreSelectionMode:'manual'}})});assert.equal(patch.status,200);const saved=await patch.json();assert.equal(saved.project.clip_preferences.genre,genre);const got=await(await fetch('http://127.0.0.1:5581/api/projects/'+f.project_id,{headers:{authorization:'Bearer e2e-studio-token'}})).json();console.log('PROJECT_API_GENRE_SAVED',genre,JSON.stringify(got).includes(genre));assert.ok(JSON.stringify(got).includes(genre));
+ }
+
+})().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{if(browser)await browser.close();for(const p of procs){try{process.kill(-p.pid,'SIGTERM')}catch{}}if(restore)await restore()});

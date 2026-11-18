@@ -1,0 +1,16 @@
+"""Existing-source equivalence only, no frozen benchmark rerun."""
+import sys,os,importlib.util,json,time,cv2
+sys.path.insert(0,os.path.abspath('python'));cv2.setNumThreads(1)
+os.environ.update(SMART_REFRAME_YUNET_MODEL='/tmp/vireo-local-restore/models/yunet.onnx',SMART_REFRAME_YUNET_THRESHOLD='.85',SMART_REFRAME_PERSON_MODEL='/tmp/vireo-local-restore/models/nanodet.onnx',SMART_REFRAME_HSV_CUTS='1',SMART_REFRAME_REFINE_CUTS='1',SMART_REFRAME_DENSE_CUTS='1',SMART_REFRAME_SOURCE_CLOCK_TEXT='1')
+mods=[]
+for name,path in [('before','/downloads/smart-reframe-before-sequential.py'),('after','python/smart_reframe.py')]:
+ spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);mods.append(m)
+results=[]
+for label,file in [('walking','/downloads/recovered-source/walking-in-sands-12s.mp4'),('studio','/downloads/recovered-source/cottonbro-studio-12s.mp4')]:
+ records=[];times=[]
+ for n,m in enumerate(mods):
+  os.environ['SMART_REFRAME_SEQUENTIAL_DECODE']=str(n);start=time.monotonic();records.append(m.analyze_video(file,4,0,12,600));times.append(time.monotonic()-start)
+ eq=records[0]==records[1];row=dict(source=label,elapsed=times,identical=eq,samples=[r['sample_count']for r in records],scope='Raw detector/cut/geometry/metadata equivalence on known regression, not editorial or general speed benchmark');results.append(row);print(json.dumps(row),flush=True)
+ json.dump(records,open('/downloads/sequential-'+label+'-whole-records.json','w'),indent=2)
+ json.dump(results,open('/downloads/sequential-whole-analysis-results.json','w'),indent=2)
+ if not eq:raise RuntimeError('Analysis differs, do not enable')

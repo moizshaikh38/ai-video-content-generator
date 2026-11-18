@@ -1,0 +1,21 @@
+"""Offline deterministic motion controls, not source-specific tracker tuning."""
+import importlib.util, json, os
+import cv2,numpy as np
+spec=importlib.util.spec_from_file_location('tracker','python/track_subject.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+rng=np.random.default_rng(914);W,H,FPS,N=400,240,24,144
+bg=rng.integers(30,150,(H,W,3),dtype=np.uint8);obj=rng.integers(150,255,(80,44,3),dtype=np.uint8)
+os.makedirs('/downloads/tracker-motion-controls',exist_ok=True);results=[]
+for kind in ['moving-subject','camera-pan','occlusion','padded-box','padded-pan','padded-lowtexture']:
+ path='/downloads/tracker-motion-controls/'+kind+'.avi';v=cv2.VideoWriter(path,cv2.VideoWriter_fourcc(*'MJPG'),FPS,(W,H));truth=[]
+ for n in range(N):
+  x=80+n*.9;y=95
+  img=np.roll(bg,-int(n*.4),axis=1).copy()if kind in ['camera-pan','padded-pan']else bg.copy()
+  if kind in ['camera-pan','padded-pan']:x=100+n*.35
+  if kind!='occlusion'or n<60:img[y:y+80,int(x):int(x)+44]=(np.full_like(obj,210)if kind=='padded-lowtexture'else obj)
+  truth.append(((int(x)+22)/W,(y+40)/H));v.write(img)
+ v.release()
+ out=m.track(dict(videoPath=path,refTime=0,box=dict(x=((100 if kind in ['camera-pan','padded-pan']else 80)-(20 if kind.startswith('padded')else 0))/W,y=(95-(15 if kind.startswith('padded')else 0))/H,w=(84 if kind.startswith('padded')else 44)/W,h=(110 if kind.startswith('padded')else 80)/H),startSec=0,endSec=N/FPS))
+ errors=[abs(k['centerX']-truth[min(N-1,round(k['time']*FPS))][0])for k in out['keyframes']if kind!='occlusion'or k['time']<2.5]
+ results.append(dict(case=kind,tracked_to=out['tracked_to'],lost_after=out['lost_after'],keys=len(out['keyframes']),max_center_error_x=max(errors),scope='Synthetic controls. Frozen inset15percent plus original-feature-only candidate; no per-source tuning.',track=out))
+json.dump(results,open('/downloads/tracker-motion-controls/results.json','w'),indent=2)
+print(json.dumps([{k:v for k,v in r.items()if k!='track'}for r in results],indent=2))

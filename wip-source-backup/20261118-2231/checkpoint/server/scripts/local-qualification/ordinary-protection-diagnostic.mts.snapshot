@@ -1,0 +1,2 @@
+import{SmartReframeService as S}from'../../src/services/smartReframeService.js';
+const raw=Array.from({length:32},(_,i)=>({time:i*.25,faces:[],persons:[]}));const t:any={status:'ready',source_width:1920,source_height:1080,metadata:{analyzed_source_sha256:'a'.repeat(64),scene_cuts:[4],protected_content_regions:[{start:0,end:4,x:0,y:.8,width:1,height:.1,confidence:.95}]},raw_samples:raw};console.log(JSON.stringify(S.explicitAutoLayoutPlan(t,{layout_mode_source:'auto'},8),null,2));

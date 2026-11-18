@@ -1,0 +1,11 @@
+import fs from'node:fs';import os from'node:os';import path from'node:path';import{execFileSync}from'node:child_process';import{SmartReframeService as S}from'../../src/services/smartReframeService.js';import ffmpeg from'ffmpeg-static';
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),'vireo-cadence-'));const rows=[];
+for(const[num,den]of[[24,1],[25,1],[30000,1001],[30,1],[60,1]]){
+ const count=24,dt=den/num,duration=count*dt,cuts=[2*dt,12*dt,22*dt],levels=[35,100,170,230];
+ const raw=path.join(dir,num+'.rgb'),input=path.join(dir,num+'.mp4');fs.writeFileSync(raw,Buffer.concat(Array.from({length:count},(_,i)=>Buffer.alloc(64*36*3,levels[i<2?0:i<12?1:i<22?2:3]))));
+ execFileSync(ffmpeg!,['-v','error','-y','-f','rawvideo','-pixel_format','rgb24','-video_size','64x36','-framerate',num+'/'+den,'-i',raw,'-c:v','libx264','-threads','1','-crf','0','-pix_fmt','yuv444p',input]);
+ const bounds=[0,...cuts,duration];const plan=bounds.slice(0,-1).map((start,i)=>({start,end:bounds[i+1],kind:'fit',windowW:.75,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]}))as any;
+ const f=S.buildShotCompositionFilter({plan,duration,sourceWidth:64,sourceHeight:36,canvasScale:.1});const b=execFileSync(ffmpeg!,['-v','error','-filter_complex_threads','1','-i',input,'-filter_complex',f+';[out]fps=30,scale=8:8,format=rgb24[check]','-map','[check]','-f','rawvideo','-threads','1','-']);
+ const means=Array.from({length:b.length/192},(_,i)=>Math.round(b.subarray(i*192,(i+1)*192).reduce((s,v)=>s+v,0)/192));rows.push({fps:num/den,duration,cuts,expected:Math.round(duration*30),actual:means.length,means});
+}
+fs.writeFileSync('/downloads/vireo-temporal-cadence-matrix-0931.json',JSON.stringify(rows,null,2));console.log(JSON.stringify(rows,null,2));

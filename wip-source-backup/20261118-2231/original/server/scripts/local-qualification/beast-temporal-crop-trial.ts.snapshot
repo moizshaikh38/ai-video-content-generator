@@ -1,0 +1,18 @@
+import {writeFileSync} from 'node:fs';
+import {assessCrop,type Witness} from './crop-evidence-validator.js';
+// Manual pixel annotations on five new original frames. These are visible
+// regions worth checking, NOT exhaustive semantic truth or model detections.
+const r=(id:string,x:number,y:number,width:number,height:number)=>({id,rect:{x,y,width,height}});
+const clock=r('visible-timestamp',.01,.015,.235,.12);
+const witnesses:Witness[]=[
+ {time:28.2,regions:[clock,r('main-vessel',.28,.36,.41,.35),r('stacked-containers-and-hoist',.19,.10,.4,.47),r('right-small-craft-and-person',.77,.43,.14,.17)]},
+ {time:28.7,regions:[clock,r('main-vessel',.25,.34,.45,.38),r('stacked-containers-and-hoist',.18,.09,.4,.47),r('right-small-craft',.70,.53,.10,.07),r('right-standing-person',.92,.42,.025,.11)]},
+ {time:29.2,regions:[clock,r('main-vessel',.23,.36,.48,.4),r('stacked-containers-and-hoist',.12,.03,.45,.51),r('yellow-moving-vehicle',.56,.10,.32,.23)]},
+ {time:29.7,regions:[clock,r('main-vessel',.21,.34,.54,.41),r('stacked-containers-and-hoist',.08,.02,.54,.48)]},
+ {time:30.3,regions:[clock,r('main-vessel',.14,.32,.64,.43),r('stacked-containers-and-hoist',.05,.02,.58,.5),r('right-standing-person',.95,.17,.045,.15)]},
+];
+const candidates={fullSource:{x:0,y:0,width:1,height:1},leftFourThree:{x:0,y:0,width:.75,height:1},centerPortrait:{x:.341796875,y:0,width:.31640625,height:1}};
+const results=Object.fromEntries(Object.entries(candidates).map(([name,rect])=>[name,assessCrop({start:28.0622,end:30.5313,maxGap:.5,knots:[{time:28.0622,rect},{time:30.5313,rect}],witnesses})]));
+const record={provenance:'Manual diagnostic regions from inspected original pixels, not automatic labels or comprehensive semantic truth',source:'/downloads/recovered-source/beast-yacht-120-210.mp4',sourceOffset:49.715,shot:[28.0622,30.5313],warning:'Five samples cannot establish continuous safety; maxGap rule also rejects the final .6s sample gap. No candidate applied to product.',witnesses,candidates,results};
+writeFileSync('/downloads/vireo-autolayout-eval/temporal-crop-results.json',JSON.stringify(record,null,2));
+console.log(JSON.stringify(results,null,2));

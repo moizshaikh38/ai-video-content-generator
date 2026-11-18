@@ -1,0 +1,2 @@
+import fs from'node:fs';import {SmartReframeService as S}from'../../src/services/smartReframeService.js';
+for(const name of ['walk-job-0845','pair-job-0844','yacht-job-0851']){const t=JSON.parse(fs.readFileSync('/downloads/vireo-shortauto-'+name+'/fresh-normal-track.json','utf8'));console.log(name,JSON.stringify(S.explicitAutoLayoutPlan(t,{layout_mode_source:'auto'},t.metadata.clip_duration)));}

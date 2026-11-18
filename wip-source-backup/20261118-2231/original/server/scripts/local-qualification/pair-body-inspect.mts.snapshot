@@ -1,0 +1,3 @@
+import fs from 'node:fs';import {associatedBodyEnvelope} from '../../src/shared/bodyContext.js';
+const r=JSON.parse(fs.readFileSync('/tmp/vireo-local-restore/pair-full-auto-analysis.json','utf8'));
+console.log(associatedBodyEnvelope(r.raw_samples,['subject_2']),associatedBodyEnvelope(r.raw_samples,['subject_1']));

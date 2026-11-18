@@ -1,0 +1,12 @@
+import cv2,json
+p='/downloads/recovered-source/erica-standing-new-12s-1150.mp4';cap=cv2.VideoCapture(p);cuts=[0,8.174833,11.553208,12.012];thresholds=[0,1,2,4,8,16,24];bounds={str(t):[None,None,None]for t in thresholds};n=0;fps=cap.get(cv2.CAP_PROP_FPS)
+while True:
+ ok,f=cap.read()
+ if not ok:break
+ g=cv2.cvtColor(f,cv2.COLOR_BGR2GRAY);time=n/fps;shot=next((i for i in range(3)if cuts[i]<=time<cuts[i+1]),2)
+ for t in thresholds:
+  ys,xs=(g>t).nonzero()
+  if len(xs):
+   b=[int(xs.min()),int(ys.min()),int(xs.max()+1),int(ys.max()+1)];a=bounds[str(t)][shot];bounds[str(t)][shot]=b if a is None else[min(a[0],b[0]),min(a[1],b[1]),max(a[2],b[2]),max(a[3],b[3])]
+ n+=1
+out={'source':p,'frames':n,'cuts':cuts,'thresholdBounds':bounds,'automaticallySafe':False};json.dump(out,open('/downloads/vireo-black-space-sensitivity-1215.json','w'),indent=2);print(json.dumps(out,indent=2))

@@ -1,0 +1,46 @@
+// LOCAL ONLY: real Studio panel inline crop, desktop/touch apply/cancel, save/reload and bounded720p API.
+const fs=require('fs'),cp=require('child_process'),assert=require('assert/strict'),puppeteer=require('/tmp/vireo-local-restore/ui-driver/node_modules/puppeteer-core');
+const procs=[];let browser;
+(async()=>{
+ const fixture='/tmp/vireo-local-restore/walking-full-auto-fixture.json';const f=JSON.parse(fs.readFileSync(fixture));
+ for(const [bin,args,cwd,env,log] of [
+  ['/home/sandbox/avcg/server/node_modules/.bin/tsx',['scripts/local-qualification/four-state-local-server.mts'],'/home/sandbox/avcg/server',{PYTHON_PATH:'/tmp/vireo-local-restore/cv-env/bin/python',KEEP_LOCAL_SERVER:'1',QUALIFICATION_FIXTURE:fixture,QUALIFICATION_SOURCE:'/downloads/recovered-source/walking-in-sands-12s.mp4'},'/tmp/mobile-api.log'],
+  ['/home/sandbox/avcg/node_modules/.bin/vite',['--host','127.0.0.1','--port','5199'],'/home/sandbox/avcg',{VITE_API_URL:'http://127.0.0.1:5581/api'},'/tmp/mobile-vite.log']]){
+  const p=cp.spawn(bin,args,{cwd,env:{...process.env,...env},detached:true,stdio:['ignore',fs.openSync(log,'w'),fs.openSync(log,'a')]});procs.push(p);
+ }
+ for(let n=0;n<300;n++){try{if(fs.readFileSync('/tmp/mobile-api.log','utf8').includes('LOCAL_UI_SERVER_READY')&&(await fetch('http://127.0.0.1:5199/harness-studio-e2e.html')).ok)break}catch{}await new Promise(r=>setTimeout(r,100))}
+ browser=await puppeteer.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage'],defaultViewport:{width:390,height:844,isMobile:true,hasTouch:true}});
+ const page=await browser.newPage(),errors=[],writes=[],metrics=[];
+ page.on('response',res=>{if(res.request().method()==='PATCH'&&res.url().includes('/api/')){assert.equal(res.status(),200)}});page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().includes('/api/')&&['PATCH','DELETE'].includes(r.method()))writes.push(r.url())});
+ await page.goto('http://127.0.0.1:5199/harness-studio-e2e.html?clip='+f.clip_id,{waitUntil:'domcontentloaded'});
+ const clickText=async(text)=>{if(text.startsWith('Panel ')||text==='Crop')await openTools();await page.waitForFunction(text=>[...document.querySelectorAll('button')].some(b=>b.textContent.trim()===text),{},text);await page.evaluate(text=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===text).click(),text)};
+ const slots=async()=>{const st=await(await fetch('http://127.0.0.1:5581/api/editor-projects/'+f.editor_id,{headers:{authorization:'Bearer e2e-studio-token'}})).json();return (st.data||st.project||st).tracks.find(t=>t.type==='VIDEO').items[0].panels.slots};
+ const save=async()=>{const expected=writes.length+2;await clickText('Save');for(let i=0;i<100&&writes.length<expected;i++)await new Promise(r=>setTimeout(r,100));assert.equal(writes.length,expected);await new Promise(r=>setTimeout(r,200))};
+ const openTools=async()=>{const t=await page.$('[data-testid="mobile-framing-toggle"]');if(t&&await t.evaluate(e=>getComputedStyle(e.parentElement).display!=='none'&&e.getAttribute('aria-expanded')==='false'))await t.click()};
+ const pick=async label=>{await openTools();await page.click('[data-testid="toolbar-layout"]');await page.waitForSelector('[role="menu"]',{visible:true});await page.evaluate(label=>[...document.querySelectorAll('[role="menuitemradio"]')].find(b=>b.textContent.trim()===label).click(),label);await save()};
+
+ await page.setViewport({width:1440,height:1000,isMobile:false,hasTouch:false});await page.waitForSelector('[data-testid="toolbar-layout"]');
+
+
+
+
+ await page.waitForSelector('[data-testid="auto-reframe-toggle"]');
+ const read=async()=>{const q=await(await fetch('http://127.0.0.1:5581/api/editor-projects/'+f.editor_id,{headers:{authorization:'Bearer e2e-studio-token'}})).json();return(q.data||q).tracks.find(t=>t.type==='VIDEO').items[0]};
+ const auto=async enabled=>{const on=(await page.$eval('[data-testid="auto-reframe-toggle"]',e=>e.textContent)).includes('ON');if(on!==enabled)await page.click('[data-testid="auto-reframe-toggle"]')};
+ const off=async()=>{if(!(await read()).tracker?.enabled)return;await clickText('Object tracker: ON');await clickText('Turn off object tracker - whole clip')};
+ const results=[];if((await read()).tracker?.enabled){await off();await save();}
+ for(const [name,enabled,tracked]of[['manual-bounded-off',false,true],['manual-bounded-on',true,true]]){
+  if(!tracked){await off();await auto(enabled)}else{
+   await auto(enabled);
+   if(!(await read()).tracker?.enabled){for(let i=0;i<40;i++)await page.keyboard.press('j');await clickText('Object tracker: OFF');await clickText('Select object / subject');await page.waitForFunction(()=>[...document.querySelectorAll('h3')].some(x=>x.textContent==='Select object / subject'));
+    const v=await page.evaluateHandle(()=>[...document.querySelectorAll('h3')].find(x=>x.textContent==='Select object / subject').parentElement.parentElement.querySelector('video'));await page.waitForFunction(()=>{const v=document.querySelector('[role=dialog] video');return v&&v.readyState>=2&&!v.seeking&&v.videoWidth>0});await new Promise(r=>setTimeout(r,500));const r=await v.boundingBox();assert.ok(r);await page.mouse.move(r.x+r.width*.44,r.y+r.height*.20);await page.mouse.down();await page.mouse.move(r.x+r.width*.62,r.y+r.height*.98,{steps:10});await page.mouse.up();await page.screenshot({path:'/downloads/four-state-coordinate-box.png'});console.log('SELECTED_UI',await page.$eval('[role=dialog] video',v=>({time:v.currentTime,w:v.videoWidth,h:v.videoHeight})));assert.equal(await page.$eval('[role=dialog] button:last-child',e=>e.disabled),false);await clickText('Apply');
+    await page.waitForFunction(()=>!document.querySelector('[role=dialog]'),{timeout:30000}).catch(async e=>{await page.screenshot({path:'/downloads/four-state-tracker-error.png'});throw e});
+   }
+  }
+  await save();await page.reload({waitUntil:'domcontentloaded'});await page.waitForSelector('[data-testid="auto-reframe-toggle"]');const item=await read();console.log('SAVED_BOX',item.tracker?.box,item.tracker?.ref_time,item.tracker?.tracked_from,item.tracker?.tracked_to,item.tracker?.lost_after);assert.ok(Number.isFinite(item.tracker.tracked_to));assert.ok(item.tracker.lost_after!=null);await page.screenshot({path:'/downloads/tracker-partial-'+name+'.png'});assert.equal(item.automatic_framing?.enabled!==false,enabled);assert.equal(!!item.tracker?.enabled,tracked);
+  const pos=[];for(let i=0;i<40;i++)await page.keyboard.press('j');
+  for(const sec of[0,6,10]){if(sec)for(let i=0;i<(sec==6?6:4);i++)await page.keyboard.press('l');await page.waitForFunction(()=>[...document.querySelectorAll('video')].some(v=>v.videoWidth>0)&&[...document.querySelectorAll('video')].filter(v=>v.videoWidth>0).every(v=>v.readyState>=2&&!v.seeking));await new Promise(r=>setTimeout(r,250));pos.push(await page.$$eval('video',vs=>vs.filter(v=>v.videoWidth>0).map(v=>({time:v.currentTime,objectPosition:v.style.objectPosition,objectFit:v.style.objectFit,left:v.style.left,top:v.style.top,width:v.style.width,height:v.style.height}))));await page.screenshot({path:'/downloads/four-state-'+name+'-'+sec+'.png'})}
+  const res=await fetch('http://127.0.0.1:5581/api/editor-projects/'+f.editor_id+'/render',{method:'POST',headers:{authorization:'Bearer e2e-studio-token','content-type':'application/json'},body:JSON.stringify({resolution:'720p'})});assert.equal(res.status,202);let state;for(let i=0;i<240;i++){await new Promise(r=>setTimeout(r,250));state=await(await fetch('http://127.0.0.1:5581/__qualification/status')).json();if(['completed','failed'].includes(state.job?.status))break}assert.equal(state.job.status,'completed');fs.copyFileSync('/tmp/vireo-local-restore/objects/local-clips/'+state.clip.output_storage_path,'/downloads/four-state-'+name+'.mp4');results.push({name,enabled,tracked,item,positions:pos,job:state.job});fs.writeFileSync('/downloads/four-state-bounded-results.json',JSON.stringify({results,errors},null,2));console.log('STATE_COMPLETE',name,pos);
+ }
+
+})().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{if(browser)await browser.close();for(const p of procs){try{process.kill(-p.pid,'SIGTERM')}catch{}}});

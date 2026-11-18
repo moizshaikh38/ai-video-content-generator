@@ -1,0 +1,36 @@
+// LOCAL ONLY: real Studio panel inline crop, desktop/touch apply/cancel, save/reload and bounded720p API.
+const fs=require('fs'),cp=require('child_process'),assert=require('assert/strict'),puppeteer=require('/tmp/vireo-local-restore/ui-driver/node_modules/puppeteer-core');
+const procs=[];let browser;
+(async()=>{
+ const fixture='/tmp/vireo-local-restore/beast-full-auto-fixture.json';const f=JSON.parse(fs.readFileSync(fixture));
+ for(const [bin,args,cwd,env,log] of [
+  ['/home/sandbox/avcg/server/node_modules/.bin/tsx',['scripts/local-qualification/render-recovered.mts'],'/home/sandbox/avcg/server',{KEEP_LOCAL_SERVER:'1',QUALIFICATION_FIXTURE:fixture,QUALIFICATION_SOURCE:'/downloads/recovered-source/beast-yacht-120-210.mp4'},'/tmp/mobile-api.log'],
+  ['/home/sandbox/avcg/node_modules/.bin/vite',['--host','127.0.0.1','--port','5199'],'/home/sandbox/avcg',{VITE_API_URL:'http://127.0.0.1:5581/api'},'/tmp/mobile-vite.log']]){
+  const p=cp.spawn(bin,args,{cwd,env:{...process.env,...env},detached:true,stdio:['ignore',fs.openSync(log,'w'),fs.openSync(log,'a')]});procs.push(p);
+ }
+ for(let n=0;n<300;n++){try{if(fs.readFileSync('/tmp/mobile-api.log','utf8').includes('LOCAL_UI_SERVER_READY')&&(await fetch('http://127.0.0.1:5199/harness-studio-e2e.html')).ok)break}catch{}await new Promise(r=>setTimeout(r,100))}
+ browser=await puppeteer.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage'],defaultViewport:{width:390,height:844,isMobile:true,hasTouch:true}});
+ const page=await browser.newPage(),errors=[],writes=[],metrics=[];
+ page.on('response',res=>{if(res.request().method()==='PATCH'&&res.url().includes('/api/')){assert.equal(res.status(),200)}});page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().includes('/api/')&&['PATCH','DELETE'].includes(r.method()))writes.push(r.url())});
+ await page.goto('http://127.0.0.1:5199/harness-studio-e2e.html?clip='+f.clip_id,{waitUntil:'domcontentloaded'});
+ const clickText=async(text)=>{if(text.startsWith('Panel ')||text==='Crop')await openTools();await page.waitForFunction(text=>[...document.querySelectorAll('button')].some(b=>b.textContent.trim()===text),{},text);await page.evaluate(text=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===text).click(),text)};
+ const slots=async()=>{const st=await(await fetch('http://127.0.0.1:5581/api/editor-projects/'+f.editor_id,{headers:{authorization:'Bearer e2e-studio-token'}})).json();return (st.data||st.project||st).tracks.find(t=>t.type==='VIDEO').items[0].panels.slots};
+ const save=async()=>{const expected=writes.length+2;await clickText('Save');for(let i=0;i<100&&writes.length<expected;i++)await new Promise(r=>setTimeout(r,100));assert.equal(writes.length,expected);await new Promise(r=>setTimeout(r,200))};
+ const openTools=async()=>{const t=await page.$('[data-testid="mobile-framing-toggle"]');if(t&&await t.evaluate(e=>getComputedStyle(e.parentElement).display!=='none'&&e.getAttribute('aria-expanded')==='false'))await t.click()};
+ const pick=async label=>{await openTools();await page.click('[data-testid="toolbar-layout"]');await page.waitForSelector('[role="menu"]',{visible:true});await page.evaluate(label=>[...document.querySelectorAll('[role="menuitemradio"]')].find(b=>b.textContent.trim()===label).click(),label);await save()};
+
+ await page.setViewport({width:1440,height:1000,isMobile:false,hasTouch:false});await page.waitForSelector('[data-testid="toolbar-layout"]');
+ await page.click('[aria-label="Fit to Timeline"]');
+ for(let i=0;i<40;i++)await page.keyboard.press('j');
+ for(const target of [0,4,10,20,30,39]){
+ await page.keyboard.press('Home'); // direct seek via scrubber follows below
+ const scrub=await page.$('[aria-label="Playhead scrubber"]');if(scrub){const b=await scrub.boundingBox();}
+ const now=await page.evaluate(()=>{const t=[...document.querySelectorAll('button[aria-label="Play"]')][0]?.parentElement?.innerText;return t});
+ if(target>0){for(let i=0;i<(target-(global.lastTarget||0));i++)await page.keyboard.press('l');}global.lastTarget=target;
+ await page.waitForFunction(()=>[...document.querySelectorAll('video')].some(v=>v.videoWidth>0)&&[...document.querySelectorAll('video')].filter(v=>v.videoWidth>0).every(v=>v.readyState>=2&&!v.seeking));await new Promise(r=>setTimeout(r,150));
+ await page.screenshot({path:'/downloads/beast-autolayout-safe-'+target+'s.png'});console.log(target,now,await page.$$eval('video',vs=>vs.map(v=>({time:v.currentTime,paused:v.paused,rect:v.getBoundingClientRect().toJSON(),clip:v.style.clipPath}))));
+ }
+
+console.log('TIMELINE_LABELS',await page.$$eval('[title]',es=>es.filter(e=>(e.getAttribute('title')||'').match(/layout|framing/i)).map(e=>({text:e.textContent,title:e.title}))));
+ const res=await fetch('http://127.0.0.1:5581/api/editor-projects/'+f.editor_id+'/render',{method:'POST',headers:{authorization:'Bearer e2e-studio-token','content-type':'application/json'},body:JSON.stringify({resolution:'720p'})});assert.equal(res.status,202);let state;for(let i=0;i<240;i++){await new Promise(r=>setTimeout(r,250));state=await(await fetch('http://127.0.0.1:5581/__qualification/status')).json();if(['completed','failed'].includes(state.job?.status))break;}assert.equal(state.job.status,'completed',JSON.stringify(state.job));fs.copyFileSync('/tmp/vireo-local-restore/objects/local-clips/'+state.clip.output_storage_path,'/downloads/beast-autolayout-safe-40s.mp4');console.log('AUTO_LAYOUT_ACTUAL_RENDER_PASS');
+})().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{if(browser)await browser.close();for(const p of procs){try{process.kill(-p.pid,'SIGTERM')}catch{}}});

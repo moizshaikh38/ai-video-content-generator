@@ -1,0 +1,3 @@
+import fs from 'node:fs';import {SmartReframeService as S} from '../../src/services/smartReframeService.js';
+const r=JSON.parse(fs.readFileSync('/tmp/vireo-local-restore/beast-evidence-v2-analysis.json','utf8'));
+const p=S.computeShotComposition({rawSamples:r.raw_samples,sceneCuts:r.metadata.scene_cuts,duration:r.metadata.clip_duration,sourceWidth:r.source_width,sourceHeight:r.source_height,windowScope:'shot',automaticFitAspect:'4:3',protectedContentRegions:r.metadata.protected_content_regions});fs.writeFileSync('/downloads/beast-evidence-v2-plan.json',JSON.stringify(p,null,2));console.log(p.map(s=>({start:s.start,end:s.end,kind:s.kind,w:s.windowW,h:s.windowH,status:s.contextStatus})));

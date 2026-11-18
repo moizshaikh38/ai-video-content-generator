@@ -1,0 +1,1310 @@
+{
+  "purpose": "Non-active source snapshots. Not product integration or release qualification.",
+  "copied": [
+    {
+      "checkout": "original",
+      "path": "server/python/smart_reframe.py",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/python/smart_reframe.py.snapshot",
+      "sha256": "6e82efeb3dd741cfed5abc99589f3fffebc99526b543ae388b78d769c61b2401",
+      "bytes": 25753
+    },
+    {
+      "checkout": "original",
+      "path": "server/src/services/proEditorService.ts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/src/services/proEditorService.ts.snapshot",
+      "sha256": "fd29bd1cc1311ec901033f930642cf611c91239af55b5c899da3cb0f1232b679",
+      "bytes": 125582
+    },
+    {
+      "checkout": "original",
+      "path": "server/src/shared/captionPresets.ts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/src/shared/captionPresets.ts.snapshot",
+      "sha256": "e237354d44c933435db568fbe4f97fbbf6eb7ed56700522576f783e162c3de77",
+      "bytes": 122687
+    },
+    {
+      "checkout": "original",
+      "path": "server/src/shared/sceneLayoutOverrides.ts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/src/shared/sceneLayoutOverrides.ts.snapshot",
+      "sha256": "9eb268895b4ff026e465aef5c2357af07839c316b3fb2c415bdf21d327a9dd86",
+      "bytes": 4094
+    },
+    {
+      "checkout": "original",
+      "path": "server/src/types/index.ts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/src/types/index.ts.snapshot",
+      "sha256": "753aec26600a251cc2754155d5bafc2f0f795b1142be79eddabcac670f2ccd5e",
+      "bytes": 121849
+    },
+    {
+      "checkout": "original",
+      "path": "src/types/index.ts",
+      "snapshot": "wip-source-backup/20261118-2231/original/src/types/index.ts.snapshot",
+      "sha256": "39bf28029ac2ddf2cc0cebdcab13f2a8a32076717a91c03cdcb3d80834cebe01",
+      "bytes": 91930
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/auto-layout-beast-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/auto-layout-beast-ui.cjs.snapshot",
+      "sha256": "169ebddee3cc6fc4758bd28dc79c23161a5e97f04d7fcffe062059697f03c423",
+      "bytes": 5687
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/auto-layout-mixed-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/auto-layout-mixed-ui.cjs.snapshot",
+      "sha256": "c9e040669301eb7922e1b2338d5490c65b2f3287cfcb730b4d473fee9dfa3035",
+      "bytes": 6789
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/auto-layout-natural-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/auto-layout-natural-ui.cjs.snapshot",
+      "sha256": "3ae4e4c5ddd65e82101ae8fbdd2266222f34e6b64dd5d5654ec40e178dfa6f16",
+      "bytes": 7437
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/auto-matched-off-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/auto-matched-off-ui.cjs.snapshot",
+      "sha256": "9b695314cfa311a00bacf110b82652110a8296b212b715155ec98a6dc74ee356",
+      "bytes": 6542
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/auto-multi-scope-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/auto-multi-scope-ui.cjs.snapshot",
+      "sha256": "ce8d753cb4b9029a8ddbce249e748ff12bd1ddb39abd2bff257a54900ed5bea8",
+      "bytes": 7821
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/auto-toggle-capture-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/auto-toggle-capture-ui.cjs.snapshot",
+      "sha256": "1bdd366e7f31a9850324aaa70e4e4c7bbcdacaec8b088da8bd38fbaa7f9f53db",
+      "bytes": 4590
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/auto-toggle-on-motion-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/auto-toggle-on-motion-ui.cjs.snapshot",
+      "sha256": "2f1a4a9d4ce6d14f654da6c600709302c5161e65a859a0b0959d706bac5250ac",
+      "bytes": 6259
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/auto-toggle-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/auto-toggle-ui.cjs.snapshot",
+      "sha256": "0fde6bba50c4670585b9ccba098e4e7c1a2c22775fc9610021776349f11dc3a1",
+      "bytes": 6766
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/automatic-off-location-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/automatic-off-location-ui.cjs.snapshot",
+      "sha256": "8881ec1d7022a1e78c96e41deefb28110b25d614fc8bc0f85ff5ba02b78044cb",
+      "bytes": 4251
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/automatic-off-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/automatic-off-ui.cjs.snapshot",
+      "sha256": "80ea7474bb3ce67811bf3c0d059889c9ce9ffa0b522b62963500ce2a728718ca",
+      "bytes": 5831
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/balanced-inset-review.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/balanced-inset-review.mts.snapshot",
+      "sha256": "058951e239e39d72b1c4e681c80af1ea20ffc15bdaa2b1bfd9b1db670f1ae365",
+      "bytes": 1707
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/beast-border-plan.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/beast-border-plan.mts.snapshot",
+      "sha256": "1f1ab721a1b175efa4d09832ea15bb2ad639e48669d37cc5e440a1aa4dbfb353",
+      "bytes": 1055
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/beast-current-plan-inspect.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/beast-current-plan-inspect.mts.snapshot",
+      "sha256": "b483e756fe969203fa8c8f77fa24724f464a5a5fc68c0f8fd3b7e9e121134d54",
+      "bytes": 690
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/beast-decision-trace.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/beast-decision-trace.mts.snapshot",
+      "sha256": "523db83ad21640b9e1448184e14616eb495999b1ccc5c601170035c95c373adc",
+      "bytes": 1851
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/beast-evidence-v2-plan.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/beast-evidence-v2-plan.mts.snapshot",
+      "sha256": "b05bfe5d20acc5bf7ed2ade0a481bc980227b843d52395915df7776734fb1393",
+      "bytes": 696
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/beast-evidence-v2.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/beast-evidence-v2.mts.snapshot",
+      "sha256": "02b1c7ba788a26725eed0ded846adaf05954b93d95acf1d457a192e61268e0e0",
+      "bytes": 3178
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/beast-full-auto-framing.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/beast-full-auto-framing.mts.snapshot",
+      "sha256": "0580f234d1b04d1baf9e6298b9a4660df9284c32711f876b0077cbcae14a3ac5",
+      "bytes": 3176
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/beast-object-context.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/beast-object-context.mts.snapshot",
+      "sha256": "94e65211e3308a16244534e4bca0490c67e82b7f2db27e433fe513eb2dc3ab0c",
+      "bytes": 3218
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/beast-shot-ablation.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/beast-shot-ablation.mts.snapshot",
+      "sha256": "18ea8efeaec4b7367a1601855a12c626705649ab12933bfde908b7975eb7152e",
+      "bytes": 1057
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/beast-temporal-crop-trial.ts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/beast-temporal-crop-trial.ts.snapshot",
+      "sha256": "f888e6f9139c4c817088aef0a9f1345b07b5789743569a4671ad471072d02285",
+      "bytes": 2152
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/check-genre-current-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/check-genre-current-ui.cjs.snapshot",
+      "sha256": "13ffea925b7e3473d7562a3befad898f18e8c8e4f7dcb24056ffd3ecd42b10c3",
+      "bytes": 3614
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/closeup-candidate-render.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/closeup-candidate-render.mts.snapshot",
+      "sha256": "cd89729dbdf0855d2180375b28358efb4fa437defce7871fb69def7fbc112aca",
+      "bytes": 1927
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/crop-transport-trace-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/crop-transport-trace-ui.cjs.snapshot",
+      "sha256": "35e04189b9940edd9cd0bb9b04c7952f978d0a81c3d79dbcb25e8eda55d7bf0f",
+      "bytes": 6633
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/decode-access-diagnostic.py",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/decode-access-diagnostic.py.snapshot",
+      "sha256": "b03e14cd3c9096e9d7e54062c8168322e42bc0edc816c0646c4504db1c0fbba0",
+      "bytes": 1482
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/encode-compatible-share.sh",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/encode-compatible-share.sh.snapshot",
+      "sha256": "76aba2c0257dbc9f1da10a5d5a12c0dadf1012b9114845605492e6456667f9c4",
+      "bytes": 838
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/fit-fill-split-export-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/fit-fill-split-export-ui.cjs.snapshot",
+      "sha256": "52589243b3308a2bee9360614f1db4c0d9bcf478299ffa6c35f4bf025ff61a65",
+      "bytes": 5162
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/fit43-expand-render.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/fit43-expand-render.mts.snapshot",
+      "sha256": "7814eabb933a6489c8c66a49c40975189dc5f9d4b2193ef8242d4f41acb6f505",
+      "bytes": 1559
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/fit43-natural-ablation.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/fit43-natural-ablation.mts.snapshot",
+      "sha256": "388c802257779ae0cbf0b90716e3fb0a9d4b46238e7eb65b03c843c33d51915c",
+      "bytes": 1242
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/fit43-natural-render.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/fit43-natural-render.mts.snapshot",
+      "sha256": "50a8f9a1a62ba91f55fea24ddd926d566032e4edf0c704451fac9a6c03ec49c3",
+      "bytes": 841
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/four-state-bounded-manual-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/four-state-bounded-manual-ui.cjs.snapshot",
+      "sha256": "863b3f229f180663ed96b34e16f63eee3067d5fabafee60759bdfe70247cc422",
+      "bytes": 8217
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/four-state-coordinate-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/four-state-coordinate-ui.cjs.snapshot",
+      "sha256": "9e1c085fd4f05118ec0b02d50c38e2d4028ef9ef377a9994d25a4629b20f884d",
+      "bytes": 7818
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/four-state-local-server.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/four-state-local-server.mts.snapshot",
+      "sha256": "944a858160dbdf109e50c5c285d2f73391e3dff5355b39342762c1e531f03f3e",
+      "bytes": 14440
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/four-state-manual-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/four-state-manual-ui.cjs.snapshot",
+      "sha256": "fd3701bb8fe92199ceb6261a93ca4bca536d92dd84053e763d176cd0601f470c",
+      "bytes": 7704
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/four-state-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/four-state-ui.cjs.snapshot",
+      "sha256": "7c17d516ea3f236e4c3c9e95d079b9e66811a3fd25e72d7bd3b271f6cc531d27",
+      "bytes": 7493
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/frozen-benchmark-render.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/frozen-benchmark-render.mts.snapshot",
+      "sha256": "9f15049ead39c4292dd6f2b138c0e29de91ae61c08aec248c20223707920670c",
+      "bytes": 1847
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/full-auto-plan-inspect.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/full-auto-plan-inspect.mts.snapshot",
+      "sha256": "ff5051c9ce8d08d602e043e3fd47f31b95fbe147479aabd0cf947a634981b5a7",
+      "bytes": 600
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/full-auto-preview-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/full-auto-preview-ui.cjs.snapshot",
+      "sha256": "c9875fa98ba30405bf4fc3f32a40ca2ceaf537e9d81bd02736be90298b3a98d2",
+      "bytes": 4711
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/gaming-integrated-check.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/gaming-integrated-check.cjs.snapshot",
+      "sha256": "5d42c14512f0abfa03b48d5be1d3be60324e6ea66570fb5cf7ecff028a183878",
+      "bytes": 3264
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/generate-caption-width-metrics.py",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/generate-caption-width-metrics.py.snapshot",
+      "sha256": "e7fc598ac00c67cd489fe48827de3dd72a84564454498b794efe0ec25589dcba",
+      "bytes": 1642
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/layout-policy-configure-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/layout-policy-configure-ui.cjs.snapshot",
+      "sha256": "49058f780dd0219cd1a60d1a0bcffcae01aab9b185b4fc9c44fdc8ed6679aa9a",
+      "bytes": 7542
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/layout-policy-render-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/layout-policy-render-ui.cjs.snapshot",
+      "sha256": "0fd6f94a0bf7dd690b5968eed89dad9979da17821d31d3ef9c42dfb7f8343893",
+      "bytes": 6144
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/legacy-auto-off-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/legacy-auto-off-ui.cjs.snapshot",
+      "sha256": "d981fe3d49776ec0cd99958e98988f65dd93dc8b182fed12f3c69ca177a70c64",
+      "bytes": 7354
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/legacy-auto-on-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/legacy-auto-on-ui.cjs.snapshot",
+      "sha256": "a8bc4c40c547dea6dbd9e60cda519acdaff176b6b8d7efebb8e5e12636623400",
+      "bytes": 7076
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/legacy-group-fit43-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/legacy-group-fit43-ui.cjs.snapshot",
+      "sha256": "befbc0c5bbffa4523a7bef0969b8df3563427c62c3c918cfe87b0f9d63324b3c",
+      "bytes": 6533
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/legacy-layout-policy-render-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/legacy-layout-policy-render-ui.cjs.snapshot",
+      "sha256": "35aaf333030b142ae6da54989cb63cf2bffe89facc1c41450687671188eafd37",
+      "bytes": 6494
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/measure-auto-trajectory.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/measure-auto-trajectory.mts.snapshot",
+      "sha256": "aa4715c361e0bda282436a544f6f9db65994445acb36f841dc71211667cbc5df",
+      "bytes": 893
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/mil-offline-comparison.py",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/mil-offline-comparison.py.snapshot",
+      "sha256": "3c3077086e2bccce5967f50d08d93acd5669b68b3661d57df77eaf23cbb82277",
+      "bytes": 1559
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/mixed-auto-preview-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/mixed-auto-preview-ui.cjs.snapshot",
+      "sha256": "4ca9a680c8811155e655475cfa96e8780f5347481f1dde15c7bcd56cc88b31b7",
+      "bytes": 5458
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/mixed-auto-toggle-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/mixed-auto-toggle-ui.cjs.snapshot",
+      "sha256": "6feeae793c7d7e3d7a23d456750b3856ad83bb31ff1b29fbb59df05ba235544f",
+      "bytes": 6723
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/mixed-full-auto-framing.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/mixed-full-auto-framing.mts.snapshot",
+      "sha256": "f1e7b98eb196e4ff6c4a52668f44ca9f3b102dbd3d5735ad169cda78588bf9f9",
+      "bytes": 3221
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/mixed-plan-inspect.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/mixed-plan-inspect.mts.snapshot",
+      "sha256": "2e51995554d0033fe9b41f6b2968a261afd36e3dcba2f86f0cd436f5b713a0d1",
+      "bytes": 659
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/mixed-timeline-check-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/mixed-timeline-check-ui.cjs.snapshot",
+      "sha256": "bf45c1251641fe24c47b2411a281b5ab4160ed38d6c06e35d6b1fc5eff8ae00f",
+      "bytes": 5036
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/new-project-framing-api.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/new-project-framing-api.cjs.snapshot",
+      "sha256": "8408175f88f4a57bd2a3d0f36c6f72130d6867808a025ace5df2b425916e96a7",
+      "bytes": 9247
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/object-context-inspect.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/object-context-inspect.mts.snapshot",
+      "sha256": "1b71b3cfb84bf4835066f323e664e9ebd45c76f2eb7a93582be940ea610cb30d",
+      "bytes": 1184
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/pair-auto-preview-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/pair-auto-preview-ui.cjs.snapshot",
+      "sha256": "1ac4035bf0c0e14355d7197ccf7d3d72270c7029d78ddb2a05346e26829da6d2",
+      "bytes": 5453
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/pair-body-inspect.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/pair-body-inspect.mts.snapshot",
+      "sha256": "33ec4e2047f86c729c67b7721e539e69533dce4f1699ebe68902efc9d9ebb76e",
+      "bytes": 316
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/pair-full-auto-framing.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/pair-full-auto-framing.mts.snapshot",
+      "sha256": "d244a2df2aba8b0625173c62eabb5e242de9999f3afef31d3d6106182bd2e6a3",
+      "bytes": 3210
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/pair-manual-overrides-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/pair-manual-overrides-ui.cjs.snapshot",
+      "sha256": "7be6a5916a55343d31b523e223517242b09546d7f4a24064fc07d289f67c244d",
+      "bytes": 5186
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/pair-plan-inspect.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/pair-plan-inspect.mts.snapshot",
+      "sha256": "f550a1c3ef85e7e6f1589a95762592d334ff23bd20904d01abc8935eba585661",
+      "bytes": 657
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/ranking-result-check.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/ranking-result-check.mts.snapshot",
+      "sha256": "983c3b362151a73c520ff983af35b07b1e2938b0fd95d4f2fe1e9d420981d7ca",
+      "bytes": 1351
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/read-erica-status.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/read-erica-status.mts.snapshot",
+      "sha256": "b6379a2068430d2086ced18b9e3b005ae4673eedbc4dd0f7e02780e4c94b5646",
+      "bytes": 951
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/reenable-smart-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/reenable-smart-ui.cjs.snapshot",
+      "sha256": "dff2a174ea3c6386d8f286534d89be623de825dc6840bd7d4977124d50654606",
+      "bytes": 5914
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/scene-overrides-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/scene-overrides-ui.cjs.snapshot",
+      "sha256": "ecb3689c464d2287f5afeab56acfa94d30902de9d0a757c27957a05be2456583",
+      "bytes": 12050
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/scene-panel-crop-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/scene-panel-crop-ui.cjs.snapshot",
+      "sha256": "c84a8070603bb35d2659cbbf28a8c46eea1255a575150fbfbe656c1f51c7f6db",
+      "bytes": 7081
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/sequential-whole-analysis-check.py",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/sequential-whole-analysis-check.py.snapshot",
+      "sha256": "ecb771a2b5dd4683b138f30c6f0965ba7855321ee506f8194a005fa92a4759fd",
+      "bytes": 1678
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/set-preferred-auto-fit.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/set-preferred-auto-fit.mts.snapshot",
+      "sha256": "ba042aa01cfd5080928f4e4266ede85951e0220e78552cf3a74690cc2070ff34",
+      "bytes": 938
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/studio-auto-preview-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/studio-auto-preview-ui.cjs.snapshot",
+      "sha256": "9be17aa0fa84e4fa7cdaf7f55c023104c1687896e20671a16b7c7e5f519947e5",
+      "bytes": 4710
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/studio-full-auto-framing.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/studio-full-auto-framing.mts.snapshot",
+      "sha256": "c32264f83cd95bd9d80d4591ef8f0414aa0c1d93c2e37e52c5a62ad08233ac29",
+      "bytes": 3150
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/studio-render-diagnose.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/studio-render-diagnose.mts.snapshot",
+      "sha256": "da283af0933c7f29048dc4d159eb0ade0bfe0ce541f90461f27cc95eb80fa410",
+      "bytes": 1311
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/timeline-layout-scope-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/timeline-layout-scope-ui.cjs.snapshot",
+      "sha256": "c3f90a4d46b69e60aef1f6dcab5a617b6c4ce44d1cba7bc11af924c08200583d",
+      "bytes": 7123
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/tracker-bounded-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/tracker-bounded-ui.cjs.snapshot",
+      "sha256": "578d0615314d61abd4c86226f07974b96c2ea97dea194b9357df56563b0b4f81",
+      "bytes": 5330
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/tracker-clarity-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/tracker-clarity-ui.cjs.snapshot",
+      "sha256": "a38a3039f728ace37b7679c7720a567da80b7a95f9308feab56fcf4c6585b538",
+      "bytes": 4621
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/tracker-endpoint-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/tracker-endpoint-ui.cjs.snapshot",
+      "sha256": "d645ccba8c07c0c10de4f15037b51a8e19be996e4090bdb3ae1558f2a8fc2f30",
+      "bytes": 5211
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/tracker-interior-natural-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/tracker-interior-natural-ui.cjs.snapshot",
+      "sha256": "b8899dc2eeb4c14bf31b27eb448df731298ca04c9f2e5184d3ed2600b1e0f124",
+      "bytes": 8180
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/tracker-motion-controls.py",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/tracker-motion-controls.py.snapshot",
+      "sha256": "0e134460cd3dda796f8819aafb3638ea89e61162315358b4a851cf25a53a4ba6",
+      "bytes": 2007
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/tracker-snapshot-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/tracker-snapshot-ui.cjs.snapshot",
+      "sha256": "a8414a0b04ed044227df2ba60ffa03fdea3a7401e3c4ffbb088030184dd07ee0",
+      "bytes": 5451
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/tracker-speed-render.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/tracker-speed-render.mts.snapshot",
+      "sha256": "b7869f4769e979aebfc0a338e99dcd09c4ed13646202770450a15e3abf3dedac",
+      "bytes": 2521
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/tracker-speed2-studio-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/tracker-speed2-studio-ui.cjs.snapshot",
+      "sha256": "e9e51050f5b5ca957c598e1cf1a403b59a24f3dd0cbef5639a8f07555530a6ce",
+      "bytes": 5734
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/tracker-studio-natural-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/tracker-studio-natural-ui.cjs.snapshot",
+      "sha256": "78cbb1a8367a73dbcc2e7ccc067f7da40f203d033fe0421190009f5173c2a734",
+      "bytes": 8145
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/walking-auto-preview-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/walking-auto-preview-ui.cjs.snapshot",
+      "sha256": "dce7c6eb1e554f03e88f873405fa23e11fb5ce9078f2284282415eb6c21dd640",
+      "bytes": 4711
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/walking-current-plan-inspect.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/walking-current-plan-inspect.mts.snapshot",
+      "sha256": "f052a95e996a4616cb1ce861758710c889c70cdf10fd77f1c5e0e7a1ecd3b861",
+      "bytes": 748
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/walking-full-auto-framing.mts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/walking-full-auto-framing.mts.snapshot",
+      "sha256": "a491fdb66ce270a1d4904bbbe986bd4b20e41e7c4d91cc737a2c3bc710950255",
+      "bytes": 3153
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/watch-stream-genres-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/watch-stream-genres-ui.cjs.snapshot",
+      "sha256": "20902561ba59a42b45a96a71c735dac11bf10266843743aa5f4a1e6ec4f80d53",
+      "bytes": 5981
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/watch-stream-layout-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/watch-stream-layout-ui.cjs.snapshot",
+      "sha256": "0f5242ee467eb920fbb5168071968dbb658a734df82aff65b396c2076fb956ca",
+      "bytes": 7426
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/yolox-six-frame-eval.py",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/scripts/local-qualification/yolox-six-frame-eval.py.snapshot",
+      "sha256": "fe6ac43c56506641ecb3200a547b6c4ff12cc1261ea90d8469ffae495700a10c",
+      "bytes": 3275
+    },
+    {
+      "checkout": "original",
+      "path": "server/src/shared/captionWidthMetrics.ts",
+      "snapshot": "wip-source-backup/20261118-2231/original/server/src/shared/captionWidthMetrics.ts.snapshot",
+      "sha256": "0ee7da41d06f4f18ef35589b049972db8927c8d215d4dd60fb477308438bc583",
+      "bytes": 13470
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/active-content-audit.py",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/active-content-audit.py.snapshot",
+      "sha256": "7fc94c4d53dd47d3fbe3b23adb071d45836c5d89feefa4c608e3bd0b2f613625",
+      "bytes": 990
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/auto-speed-diagnostic.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/auto-speed-diagnostic.mts.snapshot",
+      "sha256": "351e6679bdb8f05ff17979e12921b3f0f6f1c851d2077a167886647eecc41d4d",
+      "bytes": 1178
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/black-space-sensitivity.py",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/black-space-sensitivity.py.snapshot",
+      "sha256": "9eabbfeb570ad6e13ebe87ddc2d6e39c164c0f6ac7e5fa3a1bb8195d80da05a7",
+      "bytes": 878
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/blur-qualification-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/blur-qualification-ui.cjs.snapshot",
+      "sha256": "5ca54e8886bf7e2fe0d8e42f0c3c81f76d6d1a17b739d78025ba55576099f0c0",
+      "bytes": 4654
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/blur-qualification.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/blur-qualification.mts.snapshot",
+      "sha256": "a053cfdbf0846627ae1555e067addc050724b76f7113e0a7945d8625a3dd619f",
+      "bytes": 11086
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/body-bounded-audit.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/body-bounded-audit.mts.snapshot",
+      "sha256": "cb1af5b1596afdea29284ef51179c6003b6526ce038bc387c5fd5227e1143785",
+      "bytes": 588
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/body-miss-diagnostic.py",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/body-miss-diagnostic.py.snapshot",
+      "sha256": "75dd4c63a97339d0e050fe85add41752dadd0416c179cfe8c6390816d220c87c",
+      "bytes": 810
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/body-render-path-audit.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/body-render-path-audit.mts.snapshot",
+      "sha256": "6a11a77778462af922887a40f13cd20436c1a99fa9340d5114b828e3e4b92b79",
+      "bytes": 1538
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/bounded-body-comparison.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/bounded-body-comparison.mts.snapshot",
+      "sha256": "9ed0c36cbb15ac462eff3275e3c62f8e2630c0eccef77ec97553ccff48e12e48",
+      "bytes": 1859
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/brief-tail-causal.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/brief-tail-causal.mts.snapshot",
+      "sha256": "f6c7bacc85ef249d7e29c1014070f3863fc72675a6d182997b02e946164ebc04",
+      "bytes": 1067
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/check-shotbody.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/check-shotbody.mts.snapshot",
+      "sha256": "ef68d0a80bf28382746e31a1638c04afd1283f895da61ee0dfb06d5da99c7567",
+      "bytes": 666
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/clean-window-transcript-once.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/clean-window-transcript-once.mts.snapshot",
+      "sha256": "ef3026ebf4c1d50e4f1d4f224dd71d505b82f7d3788469790d9cd3e6d93817a2",
+      "bytes": 4777
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/cleanup-interrupted-speed.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/cleanup-interrupted-speed.mts.snapshot",
+      "sha256": "b43cecb0a8768f04b6602569164e221be0f9192480fe8582b443c743768f95a6",
+      "bytes": 797
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/comparison-controls-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/comparison-controls-ui.cjs.snapshot",
+      "sha256": "93f687264401fe7e5d15a30858bc38d277be68496a907a924a45dbc5a6fdf94c",
+      "bytes": 4635
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/comparison-controls.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/comparison-controls.mts.snapshot",
+      "sha256": "4d9261ef852ab1043bdd76fe8b9beb7a08ede7d6110f2c412c73bee9a7cb8521",
+      "bytes": 10971
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/comparison-framing.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/comparison-framing.mts.snapshot",
+      "sha256": "74a13c1f5492cb00171a9f33d5415ed82d62676d2147e2ac7a2c3ef4b84b6343",
+      "bytes": 9851
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/comparison-genre-read.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/comparison-genre-read.mts.snapshot",
+      "sha256": "e8d8067bb6fd3983dd7a0ced52f124c96bc7fd1812be075aa34bb3030c97a0f4",
+      "bytes": 800
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/comparison-layout-saved-jobs.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/comparison-layout-saved-jobs.mts.snapshot",
+      "sha256": "2beddfd95eeab3b50d8364dc6e73ed69808dc510d506f201c16b908455da1fbb",
+      "bytes": 11463
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/comparison-layout-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/comparison-layout-ui.cjs.snapshot",
+      "sha256": "859305f642629219a9e9669d73856224c48dd687ab9988abe414606b293cf660",
+      "bytes": 4053
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/comparison-layout.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/comparison-layout.mts.snapshot",
+      "sha256": "f981fef58bc3ac3b123581b9dcfa7fb0a0d49f0dfcd25a48237c958032f90cf7",
+      "bytes": 11085
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/comparison-saved-jobs.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/comparison-saved-jobs.mts.snapshot",
+      "sha256": "b8871d61a83660fb6f49b3d8596fd8e728742e69cf66a2d4d4ab466c156763b6",
+      "bytes": 11474
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/deep-transcript-once.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/deep-transcript-once.mts.snapshot",
+      "sha256": "ff77284fa834c973039a4f17c31745b53c60185bb2f23a5945ebc90cea424421",
+      "bytes": 4632
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/dense-cut-corpus.py",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/dense-cut-corpus.py.snapshot",
+      "sha256": "36fc2649f0cdadc7d358690eadc8cf63cf666fafb539b8b63b898d99464d0c62",
+      "bytes": 694
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/earlycut-saved-job.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/earlycut-saved-job.mts.snapshot",
+      "sha256": "45565f749c10dec7f3aa69f86e6d553389ef51cabe029950cbe42bcc983e0749",
+      "bytes": 11421
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/freeze-controls-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/freeze-controls-ui.cjs.snapshot",
+      "sha256": "a93e9e9dadc3497c906189f945b7de94f9c27c78afa3c526a1969a059e5b65ad",
+      "bytes": 4898
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/freeze-holdout.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/freeze-holdout.mts.snapshot",
+      "sha256": "b094b675d41178f82279765b95ad7e59c138aa83071ac65842d24d6ae78da200",
+      "bytes": 11146
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/freeze-mixed-controls-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/freeze-mixed-controls-ui.cjs.snapshot",
+      "sha256": "cc602987507a52455484aead3cf9b2fa29c15b80ca349b489761b1134d0dbf52",
+      "bytes": 5053
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/freeze-mixed-holdout.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/freeze-mixed-holdout.mts.snapshot",
+      "sha256": "dd441784581814841c8fd2fdfbea3cd2066fca497cefb7ca27ed4eb2488348e1",
+      "bytes": 11152
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/freeze-plan-diagnostic.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/freeze-plan-diagnostic.mts.snapshot",
+      "sha256": "e4e4546a56a011af1cf0dd541d772a87e7619d6df4228785583e50f3eafe002a",
+      "bytes": 399
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/freeze-saved-jobs.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/freeze-saved-jobs.mts.snapshot",
+      "sha256": "bb7b9942d678f51a61386c5f5012b1cd113e28d38d8e9692246e65283e4c56a0",
+      "bytes": 11434
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/fullheight-fit-compare.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/fullheight-fit-compare.mts.snapshot",
+      "sha256": "a5ffca1b69e31c49ec94989bb3b5e441f939cd76017cf5137cef419c055abaf9",
+      "bytes": 1040
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/fullheight-fit-export.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/fullheight-fit-export.mts.snapshot",
+      "sha256": "f6d899a9509a41436f5556ed23cf3bd5cf1fe00a67a3261c0e7e75c80e5bc5b4",
+      "bytes": 2055
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/manual-scope-preview.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/manual-scope-preview.mts.snapshot",
+      "sha256": "6b3aca5bafb662e2dceac78878d78d94f869eb40e05613c6d16ac225eb442451",
+      "bytes": 8991
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/manual-scope-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/manual-scope-ui.cjs.snapshot",
+      "sha256": "43e6ed78d2d733aec97b24e0149345ed302d9bed783f2ccd91b32b84a588c170",
+      "bytes": 4450
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/manual-whole-preview.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/manual-whole-preview.mts.snapshot",
+      "sha256": "228f604ad25df2ab1b6a31b2f601dbde8658540a4851bc0739da7bdcc172a255",
+      "bytes": 8991
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/manual-whole-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/manual-whole-ui.cjs.snapshot",
+      "sha256": "2432f4f20a8b0739d8ad606846f208408da9e672fe5080e34884ab96b32a2aee",
+      "bytes": 4126
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/montage-content-proposal.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/montage-content-proposal.mts.snapshot",
+      "sha256": "e411b9fc5fc3faffbc0456e7f2e85b8c6120a4aad062c735a88025006d7e2f9f",
+      "bytes": 1621
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/montage-exactblack-proposal.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/montage-exactblack-proposal.mts.snapshot",
+      "sha256": "64e8552327eb044009b510e01c1a962b455530ba3531079f132c1d4143df0816",
+      "bytes": 1691
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/object-context-diagnostic.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/object-context-diagnostic.mts.snapshot",
+      "sha256": "a98729940107962c7ca6c3a373cb04d639f99149682b1e920a549b997a19f100",
+      "bytes": 530
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/offcenter-fit-plan.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/offcenter-fit-plan.mts.snapshot",
+      "sha256": "5409702286e39c4707b4ecf036fe974876e641a643894410fc1796e9ea029b2f",
+      "bytes": 603
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/ordinary-auto-caption-audit.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/ordinary-auto-caption-audit.mts.snapshot",
+      "sha256": "8445ebe423b024672e717c11c562079f81703bb6c8986503f0882a3aa894191e",
+      "bytes": 1099
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/ordinary-auto-caption-job.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/ordinary-auto-caption-job.mts.snapshot",
+      "sha256": "98f10b68e55fccfac92249180dcf3efe7726392b3ca01cbc030b82e86b4ae0ef",
+      "bytes": 12232
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/ordinary-auto-caption-manual-job.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/ordinary-auto-caption-manual-job.mts.snapshot",
+      "sha256": "bc519eedd952038b54b6a97e5f5b4f3524da678c9e3751601b4f5d215f776520",
+      "bytes": 12502
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/ordinary-auto-caption-preview.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/ordinary-auto-caption-preview.mts.snapshot",
+      "sha256": "e272701b67d8536e083ecc29035d5001dce9486804b047fed14075c0e19e81df",
+      "bytes": 11865
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/ordinary-auto-caption-speed-job.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/ordinary-auto-caption-speed-job.mts.snapshot",
+      "sha256": "c02b6d5806b0b0ca7e4dc9fb705ac0c68b982037f10afd381e190b708c885adb",
+      "bytes": 12477
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/ordinary-auto-caption-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/ordinary-auto-caption-ui.cjs.snapshot",
+      "sha256": "05f8d77a89ccc09afcc7b558f633572758140957b03d025afd9128d916630c32",
+      "bytes": 4908
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/ordinary-fit-loss-audit.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/ordinary-fit-loss-audit.mts.snapshot",
+      "sha256": "cbeabee924364910d2c3a018989dd3691fde910ae4a4ffddda4bb74d2156ff5e",
+      "bytes": 1470
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/ordinary-protection-diagnostic.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/ordinary-protection-diagnostic.mts.snapshot",
+      "sha256": "22bc4846ee0fa5ed2b80c81b205b6036e20a77f1a05685722c639a222c527fde",
+      "bytes": 484
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/panel-contain-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/panel-contain-ui.cjs.snapshot",
+      "sha256": "a304346205fd10d72bc4efecb6cef96aad82241844bcc5349df0ac4f19563a13",
+      "bytes": 5825
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/panel-contain.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/panel-contain.mts.snapshot",
+      "sha256": "6a16ac0ee8815902fd00666c07c5bdb2ad841a8e5a18cc21884dc69862622d38",
+      "bytes": 11081
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/panel-layout-saved-jobs.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/panel-layout-saved-jobs.mts.snapshot",
+      "sha256": "05a28da8ec45aa20a9810577e8c13646250ffea71efff6b41628f2ab139084c0",
+      "bytes": 11450
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/panel-layout-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/panel-layout-ui.cjs.snapshot",
+      "sha256": "0bfe1a2cce4f29c8525c041f1ad63d40b365f0c7c432ddb5319bf62329362f7b",
+      "bytes": 5135
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/panel-layout.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/panel-layout.mts.snapshot",
+      "sha256": "5b602694b476acb3d689f31f355af846b6134afc93fd132877dc6a7e3df3e16a",
+      "bytes": 11080
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/screen-fit-regions-job.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/screen-fit-regions-job.mts.snapshot",
+      "sha256": "4d7ff11d706a243b280fb709accb225e4918b0c8fc4579b666ca61ac2a3cfd42",
+      "bytes": 11433
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/screen-fit-regions-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/screen-fit-regions-ui.cjs.snapshot",
+      "sha256": "698ed2bf47ed2c962e7940a0176c00e52b4ff2b24cbfa6dba6480e58015c57e8",
+      "bytes": 5144
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/screen-fit-regions.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/screen-fit-regions.mts.snapshot",
+      "sha256": "a30927c6f9e1c884e5d2981ecb9feac737479f220002b706c75ed62236a1ecdc",
+      "bytes": 11086
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/screen-fullframe-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/screen-fullframe-ui.cjs.snapshot",
+      "sha256": "4ff02f3330a005a2274088da87c15848420fc5690711ee74bd5e41cd1b54ea6d",
+      "bytes": 4813
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/screen-fullframe.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/screen-fullframe.mts.snapshot",
+      "sha256": "7623f5332a23a77589b9ee1842ff5a051389617df6f64546212124a290f2c5b3",
+      "bytes": 11084
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/shared-fallback-audit.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/shared-fallback-audit.mts.snapshot",
+      "sha256": "a9c9389de115db99c64ce8812791b6153f415838e8805373cb352e32542c70ca",
+      "bytes": 1820
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/shared-fallback-perturbation.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/shared-fallback-perturbation.mts.snapshot",
+      "sha256": "d4202efcada87476cf13894d8a8dd2b0c1b49df7a395373500e4657c8b71882c",
+      "bytes": 1180
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/shortauto-holdout.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/shortauto-holdout.mts.snapshot",
+      "sha256": "d98d231d20ddcb0a7b2a14a2e116cdfc419a8704454c4339072296444f708a8d",
+      "bytes": 11120
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/shortauto-mixed-regression.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/shortauto-mixed-regression.mts.snapshot",
+      "sha256": "f01d70734652aa1eaaef8f52ab732dbcb724bfd788c8cbf0bd3534936ca00d59",
+      "bytes": 1749
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/slow-trim-saved-job.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/slow-trim-saved-job.mts.snapshot",
+      "sha256": "dcec14020cd6c21f80b2fac40e2772a3aab621779acf8bcfb7b3efe22cba76e9",
+      "bytes": 11627
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/speed-trim-saved-job.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/speed-trim-saved-job.mts.snapshot",
+      "sha256": "a1643297b71c02f19fdba17f27d3ed1023708d7948b1a4173cf0ec5ba1b5446f",
+      "bytes": 11623
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/temporal-cadence-matrix.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/temporal-cadence-matrix.mts.snapshot",
+      "sha256": "4fc6be29c0f270c0ffdc59d4756bf012177f86b20273efac58048920fe515273",
+      "bytes": 1739
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/text-evidence-auto-job.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/text-evidence-auto-job.mts.snapshot",
+      "sha256": "45565f749c10dec7f3aa69f86e6d553389ef51cabe029950cbe42bcc983e0749",
+      "bytes": 11421
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/timed-layout-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/timed-layout-ui.cjs.snapshot",
+      "sha256": "591507420e45be0ac2fb3e9e1a71696c7f1623459f33bf31ce6981130b8158e2",
+      "bytes": 4715
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/timed-layout.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/timed-layout.mts.snapshot",
+      "sha256": "3f4d4e66775849dc5ec1b49da1aba21c9a339b99aeafd6405626afe3aa246db8",
+      "bytes": 11080
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/trim-speed-preview.mts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/trim-speed-preview.mts.snapshot",
+      "sha256": "f503145ea0dcd0ab79215c2363bcb89e4d999d4ef9f7d903776d0eff441cd545",
+      "bytes": 8989
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/trim-speed-ui.cjs",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/scripts/local-qualification/trim-speed-ui.cjs.snapshot",
+      "sha256": "f46484fe8e4472d8e56adea9cc29449752cfa8cfa8b23b0bb069934bf12a078c",
+      "bytes": 3925
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/src/services/shotEvidenceReviewService.ts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/src/services/shotEvidenceReviewService.ts.snapshot",
+      "sha256": "7c471c6d60ecc39d184719635f6db6fdc38e769fab69030025a6b90d4f88a03c",
+      "bytes": 6217
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/src/tests/shotEvidenceReview.test.ts",
+      "snapshot": "wip-source-backup/20261118-2231/checkpoint/server/src/tests/shotEvidenceReview.test.ts.snapshot",
+      "sha256": "01b62091366dff4283c99b187240efedc4231f8e8d69468f8be2c38760eca19a",
+      "bytes": 2112
+    }
+  ],
+  "already_current": [
+    {
+      "checkout": "original",
+      "path": "server/python/track_subject.py"
+    },
+    {
+      "checkout": "original",
+      "path": "server/src/services/subjectTrackerService.ts"
+    },
+    {
+      "checkout": "original",
+      "path": "src/components/editor/TrackerControl.tsx"
+    },
+    {
+      "checkout": "original",
+      "path": "src/components/editor/WordMicroToolbar.tsx"
+    },
+    {
+      "checkout": "original",
+      "path": "server/python/sparse_frame_reader.py"
+    },
+    {
+      "checkout": "original",
+      "path": "server/python/test_sparse_frame_reader.py"
+    },
+    {
+      "checkout": "original",
+      "path": "server/python/test_track_subject.py"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/frozen-benchmark-analyze.mts"
+    },
+    {
+      "checkout": "original",
+      "path": "server/src/shared/trackerEvidence.ts"
+    },
+    {
+      "checkout": "original",
+      "path": "server/src/tests/captionPhysicalWidth.test.ts"
+    },
+    {
+      "checkout": "original",
+      "path": "server/src/tests/trackerEvidence.test.ts"
+    },
+    {
+      "checkout": "original",
+      "path": "src/harness/homeAuditHarness.tsx"
+    }
+  ],
+  "held": [
+    {
+      "checkout": "original",
+      "path": "server/scripts/bounded-core-qualification.md",
+      "reason": "Non-source local notes or inventory, excluded from source backup"
+    },
+    {
+      "checkout": "original",
+      "path": "harness-home-audit.html",
+      "reason": "Website-preview-associated source held for prior preview approval restriction"
+    },
+    {
+      "checkout": "original",
+      "path": "scripts/preview-site-pages.cjs",
+      "reason": "Website-preview-associated source held for prior preview approval restriction"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/auto-benchmark-brief.md",
+      "reason": "Non-source local notes or inventory, excluded from source backup"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/auto-layout-current-status.md",
+      "reason": "Non-source local notes or inventory, excluded from source backup"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/candidate-ranking-eval-plan.md",
+      "reason": "Non-source local notes or inventory, excluded from source backup"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/crop-transport-evidence.md",
+      "reason": "Non-source local notes or inventory, excluded from source backup"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/frozen-benchmark-runbook.md",
+      "reason": "Non-source local notes or inventory, excluded from source backup"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/home-api-server.mts",
+      "reason": "Website-preview-associated source held for prior preview approval restriction"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/home-audit-capture-ui.cjs",
+      "reason": "Website-preview-associated source held for prior preview approval restriction"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/home-caption-render-proof.mts",
+      "reason": "Website-preview-associated source held for prior preview approval restriction"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/home-compact-capture-ui.cjs",
+      "reason": "Website-preview-associated source held for prior preview approval restriction"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/home-fullshell-capture-ui.cjs",
+      "reason": "Website-preview-associated source held for prior preview approval restriction"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/home-rounded-capture-ui.cjs",
+      "reason": "Website-preview-associated source held for prior preview approval restriction"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/home-update-capture-ui.cjs",
+      "reason": "Website-preview-associated source held for prior preview approval restriction"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/openrouter-holdout-semantic.py",
+      "reason": "Private local credential/context dependency, excluded for review"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/openrouter-six-frame-semantic.py",
+      "reason": "Private local credential/context dependency, excluded for review"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/source-manifest.json",
+      "reason": "Non-source local notes or inventory, excluded from source backup"
+    },
+    {
+      "checkout": "original",
+      "path": "server/scripts/local-qualification/whole-clip-qualification.md",
+      "reason": "Non-source local notes or inventory, excluded from source backup"
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "docs/qualification/caption-catalogue-inventory.json",
+      "reason": "Non-source local notes or inventory, excluded from source backup"
+    },
+    {
+      "checkout": "checkpoint",
+      "path": "server/scripts/local-qualification/deep-genre-selection.mts",
+      "reason": "Private local credential/context dependency, excluded for review"
+    }
+  ]
+}

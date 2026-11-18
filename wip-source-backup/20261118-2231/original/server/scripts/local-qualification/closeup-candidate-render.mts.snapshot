@@ -1,0 +1,9 @@
+/** OFFLINE review candidate only. No automatic runtime caller. */
+import fs from 'node:fs';import {execFileSync} from 'node:child_process';import ffmpeg from 'ffmpeg-static';import {SmartReframeService as S} from '../../src/services/smartReframeService.js';
+const t=JSON.parse(fs.readFileSync('/tmp/vireo-local-restore/studio-full-auto-analysis.json','utf8')),m=t.metadata;
+const faces=t.raw_samples.flatMap((s:any)=>s.faces);const w=(9/16)*t.source_height/t.source_width;
+const left=Math.min(...faces.map((f:any)=>f.x)),right=Math.max(...faces.map((f:any)=>f.x+f.width));const cx=Math.max(w/2,Math.min(1-w/2,(left+right)/2));
+const hypothesis=[{start:0,end:12,kind:'solo',windowW:w,windowH:1,keyframes:[{time:0,centerX:cx,centerY:.5}],contextStatus:'unresolved-review-required',uncertainty:'OFFLINE close-up candidate. Faces do not prove microphone, hands or entering person context retained.'}];
+const current=S.computeShotComposition({rawSamples:t.raw_samples,sceneCuts:m.scene_cuts,duration:m.clip_duration,sourceWidth:t.source_width,sourceHeight:t.source_height,windowScope:'shot',automaticFitAspect:'4:3',protectedContentRegions:m.protected_content_regions});
+fs.writeFileSync('/downloads/vireo-autolayout-eval/studio-closeup-candidate.json',JSON.stringify({scope:'Offline review hypothesis only, no product behavior changed',current,hypothesis,facesOnlyEnvelope:{left,right}},null,2));
+for(const [tag,plan] of [['current',current],['hypothesis',hypothesis]] as const){const f=S.buildShotCompositionFilter({plan:plan as any,duration:12,sourceWidth:910,sourceHeight:480,canvasScale:2/3});execFileSync(ffmpeg!,['-y','-v','error','-threads','1','-filter_complex_threads','1','-i','/downloads/recovered-source/cottonbro-studio-12s.mp4','-filter_complex',f,'-map','[out]','-an','-c:v','libx264','-threads','1','-preset','ultrafast','-crf','22',`/downloads/vireo-autolayout-eval/studio-closeup-${tag}.mp4`],{timeout:40000});}

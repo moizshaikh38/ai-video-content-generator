@@ -1,0 +1,38 @@
+// LOCAL ONLY: real Studio panel inline crop, desktop/touch apply/cancel, save/reload and bounded720p API.
+const fs=require('fs'),cp=require('child_process'),assert=require('assert/strict'),puppeteer=require('/tmp/vireo-local-restore/ui-driver/node_modules/puppeteer-core');
+const procs=[];let browser;let restore;
+(async()=>{
+ const fixture='/tmp/vireo-local-restore/mixed-full-auto-fixture.json';const f=JSON.parse(fs.readFileSync(fixture));
+ const {MongoClient}=require('/home/sandbox/avcg/server/node_modules/mongodb');const mc=await MongoClient.connect('mongodb://127.0.0.1:27019');const db=mc.db('vireo_recovery_qualification'),coll=db.collection('editor_projects'),clips=db.collection('clips');const original=await coll.findOne({id:f.editor_id}),oldClip=await clips.findOne({id:f.clip_id});restore=async()=>{await coll.replaceOne({id:f.editor_id},original);await clips.replaceOne({id:f.clip_id},oldClip);await mc.close()};
+ fs.writeFileSync('/tmp/watch-stream-fixture-backup.json',JSON.stringify({original,oldClip}));
+ const edit=structuredClone(original);delete edit._id;fs.rmSync('/tmp/vireo-source-cache/3271c21a7e774b27e0e482d9ffb2fb30a619563a288193e33f1445aede7b07bb.mp4',{force:true});for(const t of edit.tracks){if(t.type==='VIDEO'){t.items=[t.items[0]];const i=t.items[0];Object.assign(i,{timeline_start:0,timeline_end:4,source_start:0,source_end:4,layout_mode:'track',crop_config:{layout_mode:'track',layout_mode_source:'user'}});delete i.crop;delete i.framing_window;delete i.panels;}else{t.hidden=true;for(const i of t.items)i.timeline_end=4;}}edit.canvas.duration=4;edit.playhead=1;await coll.replaceOne({id:f.editor_id},edit);await clips.updateOne({id:f.clip_id},{$set:{start_seconds:0,end_seconds:4,duration_seconds:4,caption_enabled:false}});
+
+ for(const [bin,args,cwd,env,log] of [
+  ['/home/sandbox/avcg/server/node_modules/.bin/tsx',['scripts/local-qualification/render-recovered.mts'],'/home/sandbox/avcg/server',{KEEP_LOCAL_SERVER:'1',QUALIFICATION_FIXTURE:fixture,QUALIFICATION_SOURCE:'/downloads/vireo-autolayout-eval/manual-reactor-display-source.mp4'},'/tmp/mobile-api.log'],
+  ['/home/sandbox/avcg/node_modules/.bin/vite',['--host','127.0.0.1','--port','5199'],'/home/sandbox/avcg',{VITE_API_URL:'http://127.0.0.1:5581/api'},'/tmp/mobile-vite.log']]){
+  const p=cp.spawn(bin,args,{cwd,env:{...process.env,...env},detached:true,stdio:['ignore',fs.openSync(log,'w'),fs.openSync(log,'a')]});procs.push(p);
+ }
+ for(let n=0;n<300;n++){try{if(fs.readFileSync('/tmp/mobile-api.log','utf8').includes('LOCAL_UI_SERVER_READY')&&(await fetch('http://127.0.0.1:5199/harness-studio-e2e.html')).ok)break}catch{}await new Promise(r=>setTimeout(r,100))}
+ browser=await puppeteer.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage'],defaultViewport:{width:390,height:844,isMobile:true,hasTouch:true}});
+ const page=await browser.newPage(),errors=[],writes=[],metrics=[];
+ page.on('response',res=>{if(res.request().method()==='PATCH'&&res.url().includes('/api/')){assert.equal(res.status(),200)}});page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().includes('/api/')&&['PATCH','DELETE'].includes(r.method()))writes.push(r.url())});
+ await page.goto('http://127.0.0.1:5199/harness-studio-e2e.html?clip='+f.clip_id,{waitUntil:'domcontentloaded'});
+ const clickText=async(text)=>{if(text.startsWith('Panel ')||text==='Crop')await openTools();await page.waitForFunction(text=>[...document.querySelectorAll('button')].some(b=>b.textContent.trim()===text),{},text);await page.evaluate(text=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===text).click(),text)};
+ const slots=async()=>{const st=await(await fetch('http://127.0.0.1:5581/api/editor-projects/'+f.editor_id,{headers:{authorization:'Bearer e2e-studio-token'}})).json();return (st.data||st.project||st).tracks.find(t=>t.type==='VIDEO').items[0].panels.slots};
+ const save=async()=>{const expected=writes.length+2;await clickText('Save');for(let i=0;i<100&&writes.length<expected;i++)await new Promise(r=>setTimeout(r,100));assert.equal(writes.length,expected);await new Promise(r=>setTimeout(r,200))};
+ const openTools=async()=>{const t=await page.$('[data-testid="mobile-framing-toggle"]');if(t&&await t.evaluate(e=>getComputedStyle(e.parentElement).display!=='none'&&e.getAttribute('aria-expanded')==='false'))await t.click()};
+ const pick=async label=>{await openTools();await page.click('[data-testid="toolbar-layout"]');await page.waitForSelector('[role="menu"]',{visible:true});await page.evaluate(label=>[...document.querySelectorAll('[role="menuitemradio"]')].find(b=>b.textContent.trim()===label).click(),label);await save()};
+
+ await page.setViewport({width:1440,height:1000,isMobile:false,hasTouch:false});await page.waitForSelector('[data-testid="toolbar-layout"]');
+ await page.click('[aria-label="Fit to Timeline"]');
+ const read=async()=>{const q=await(await fetch('http://127.0.0.1:5581/api/editor-projects/'+f.editor_id,{headers:{authorization:'Bearer e2e-studio-token'}})).json();return q.data};
+ for(const [label,layout] of [['Watch Party','watch_party'],['Streaming','streaming']]){
+ await pick(label);let q=await read();assert.equal(q.tracks.find(t=>t.type==='VIDEO').items[0].panels.layout,layout);
+ const vi=q.tracks.find(t=>t.type==='VIDEO').items[0];vi.panels.slots=[{focusX:.5,focusY:.5,scale:1,sourceRect:{x:0,y:0,w:.3,h:.2847222222},set:true},{focusX:.5,focusY:.5,scale:1,sourceRect:{x:.3,y:0,w:.7,h:1},set:true}];
+ const patch=await fetch('http://127.0.0.1:5581/api/editor-projects/'+f.editor_id,{method:'PATCH',headers:{authorization:'Bearer e2e-studio-token','content-type':'application/json'},body:JSON.stringify({tracks:q.tracks})});assert.equal(patch.status,200);
+ await page.reload({waitUntil:'domcontentloaded'});await page.waitForSelector('[data-testid="toolbar-layout"]');await page.waitForFunction(()=>[...document.querySelectorAll('video')].filter(v=>v.videoWidth>0).length>=2&&[...document.querySelectorAll('video')].filter(v=>v.videoWidth>0).every(v=>v.readyState>=2&&!v.seeking));await new Promise(r=>setTimeout(r,400));
+ const re=await read();assert.deepEqual(re.tracks.find(t=>t.type==='VIDEO').items[0].panels,vi.panels);await page.screenshot({path:'/downloads/'+layout+'-manual-layout-preview.png'});
+ assert.ok(await page.evaluate(()=>document.body.innerText.includes('Facecam (top)')&&document.body.innerText.includes('Stream / Display (bottom)')));
+ const res=await fetch('http://127.0.0.1:5581/api/editor-projects/'+f.editor_id+'/render',{method:'POST',headers:{authorization:'Bearer e2e-studio-token','content-type':'application/json'},body:JSON.stringify({resolution:'720p'})});assert.equal(res.status,202,await res.text());let st;for(let i=0;i<180;i++){await new Promise(r=>setTimeout(r,250));st=await(await fetch('http://127.0.0.1:5581/__qualification/status')).json();if(['completed','failed'].includes(st.job?.status))break;}assert.equal(st.job.status,'completed',JSON.stringify(st.job));fs.copyFileSync('/tmp/vireo-local-restore/objects/local-clips/'+st.clip.output_storage_path,'/downloads/'+layout+'-manual-layout-4s.mp4');console.log('MANUAL_TEMPLATE_SAVE_RELOAD_ACTUAL_RENDER',label);
+ }
+})().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{if(browser)await browser.close();for(const p of procs){try{process.kill(-p.pid,'SIGTERM')}catch{}}if(restore)await restore()});

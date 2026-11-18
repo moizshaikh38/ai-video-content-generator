@@ -1,0 +1,24 @@
+/** One real bounded adapter call. No automatic retry. Does not claim accuracy. */
+import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';import assert from 'node:assert/strict';import {execFileSync} from 'node:child_process';
+const out=process.argv[2];if(fs.existsSync(path.join(out,'attempt.json')))throw Error('Attempt already recorded. Refusing another paid call.');fs.mkdirSync(out,{recursive:true});
+const secret=process.env.VIREO_QUALIFICATION_KEY_FILE; if(!secret)throw Error('Explicit private credential file required.');
+try {
+const apiKey=fs.readFileSync(secret,'utf8').trim();Object.assign(process.env,{NODE_ENV:'test',OPENROUTER_API_KEY:apiKey,GROQ_API_KEY:'',SUPABASE_URL:'http://127.0.0.1:5998',SUPABASE_SECRET_KEY:'isolated-fixture'});
+const source=process.argv[3],audio=path.join(out,'prepared-audio.wav');const sourceHash=crypto.createHash('sha256').update(fs.readFileSync(source)).digest('hex');
+execFileSync('ffmpeg',['-v','error','-y','-i',source,'-vn','-ac','1','-ar','16000','-c:a','pcm_s16le',audio]);
+const probe=JSON.parse(execFileSync('ffprobe',['-v','error','-show_format','-of','json',audio],{encoding:'utf8'}));const duration=Number(probe.format.duration);assert(duration>0&&duration<155);const audioBytes=fs.readFileSync(audio);
+const realFetch=globalThis.fetch;
+async function usage(){const r=await realFetch('https://openrouter.ai/api/v1/key',{headers:{Authorization:'Bearer '+apiKey}});assert(r.ok);const d=(await r.json() as any).data;return {usage:d.usage,usage_monthly:d.usage_monthly,byok_usage:d.byok_usage};}
+const before=await usage();assert(Number(before.usage_monthly)<=.0568,'Unexpected usage changed; recheck budget');
+const catalog=await realFetch('https://openrouter.ai/api/v1/models?output_modalities=transcription',{headers:{Authorization:'Bearer '+apiKey}});assert(catalog.ok);const model=(await catalog.json() as any).data.find((m:any)=>m.id==='openai/whisper-large-v3-turbo');assert(model);fs.writeFileSync(path.join(out,'model-live.json'),JSON.stringify(model,null,2));
+const attempt={source,sourceHash,audioSha256:crypto.createHash('sha256').update(audioBytes).digest('hex'),audioBytes:audioBytes.length,duration,model:model.id,oneCallOnly:true,maxBudgetUsd:.001,priorConservativeCumulative:Number(process.env.VIREO_PRIOR_COST),before,startedAt:new Date().toISOString(),reference:'not yet independently reviewed'};fs.writeFileSync(path.join(out,'attempt.json'),JSON.stringify(attempt,null,2));
+let calls=0;
+globalThis.fetch=async(input:any,init?:any)=>{if(String(input)==='https://openrouter.ai/api/v1/audio/transcriptions'){
+ assert.equal(++calls,1);const response=await realFetch(input,init);const body=await response.clone().text();fs.writeFileSync(path.join(out,'raw-response.json'),body);fs.writeFileSync(path.join(out,'response-metadata.json'),JSON.stringify({status:response.status,generationId:response.headers.get('x-generation-id'),date:response.headers.get('date')},null,2));return response;
+}throw Error('Unexpected provider endpoint. No network fallback permitted.');};
+const {config}=await import('../../src/config/index.js');config.openrouterApiKey=apiKey;const {OpenRouterTranscriptionProvider}=await import('../../src/services/transcription/openRouterTranscriptionProvider.js');
+let result:any,error:any;try{result=await new OpenRouterTranscriptionProvider().transcribeAudio(audioBytes,'source-audio.wav','audio/wav');fs.writeFileSync(path.join(out,'normalized.json'),JSON.stringify(result,null,2));}catch(e:any){error={code:e.code,name:e.name,message:e.message};fs.writeFileSync(path.join(out,'error.json'),JSON.stringify(error,null,2));}
+const after=await usage();const raw=JSON.parse(fs.readFileSync(path.join(out,'raw-response.json'),'utf8'));const reportedCost=raw?.usage?.cost;const delta=Math.max(0,Number(after.usage)-Number(before.usage));const conservativeCost=Math.max(delta,Number(reportedCost)||0);const cumulative=Number(process.env.VIREO_PRIOR_COST)+conservativeCost;
+fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({calls,ok:!!result,error,rawUsage:raw?.usage||null,before,after,conservativeCost,cumulative,remaining:.20-cumulative,sourceHash,audioSha256:attempt.audioSha256,words:result?.words?.length,segments:result?.segments?.length,language:result?.language,timingIssues:result?.timingIssues,accuracyQualified:false},null,2));
+console.log(JSON.stringify({calls,ok:!!result,error,reportedCost,delta,conservativeCost,cumulative,remaining:.20-cumulative,words:result?.words?.length,segments:result?.segments?.length}));
+}finally{/* retained for second bounded call; caller deletes private file */}

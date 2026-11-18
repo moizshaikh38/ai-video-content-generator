@@ -1,0 +1,14 @@
+/** Local computed candidate only. No production default change, DB mutation or paid call. */
+import fs from 'node:fs';import cp from 'node:child_process';
+import {SmartReframeService as S} from '../../src/services/smartReframeService.js';
+const record=JSON.parse(fs.readFileSync('/tmp/vireo-local-restore/beast-aligned-analysis.json','utf8'));
+const source='/downloads/recovered-source/beast-yacht-120-210.mp4',duration=4,start=49.7155;
+const dims=JSON.parse(cp.execFileSync('ffprobe',['-v','error','-select_streams','v:0','-show_entries','stream=width,height','-of','json',source],{encoding:'utf8'})).streams[0];
+const options={rawSamples:record.raw_samples,sceneCuts:record.metadata.scene_cuts,duration,sourceWidth:dims.width,sourceHeight:dims.height};
+const before=S.computeShotComposition(options),after=S.computeShotComposition({...options,unresolvedContextPolicy:'balanced-inset-review'});
+fs.writeFileSync('/downloads/balanced-inset-candidate-plan.json',JSON.stringify({sourceInterval:{start,end:start+duration},dims,before,after},null,2));
+for(const [label,plan] of [['before',before],['candidate',after]] as const){
+ const filter=S.buildShotCompositionFilter({plan,duration,sourceWidth:dims.width,sourceHeight:dims.height,tag:'candidate',canvasScale:2/3});
+ cp.execFileSync('ffmpeg',['-hide_banner','-loglevel','error','-filter_complex_threads','1','-ss',String(start),'-i',source,'-t',String(duration),'-filter_complex',`[0:v]${filter}[out]`,'-map','[out]','-map','0:a?','-c:v','libx264','-threads','1','-preset','ultrafast','-crf','20','-c:a','aac','-movflags','+faststart','-y',`/downloads/vireo-balanced-${label}.mp4`],{stdio:'inherit'});
+}
+console.log(JSON.stringify({before,after},null,2));

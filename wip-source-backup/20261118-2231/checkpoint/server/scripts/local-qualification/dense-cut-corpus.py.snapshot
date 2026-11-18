@@ -1,0 +1,8 @@
+import sys,json,cv2,time
+sys.path.insert(0,'python');from smart_reframe import discover_dense_scene_cuts
+rows=json.load(open('/downloads/vireo-cut-corpus-0840.json'));out=[]
+for row in rows:
+ cap=cv2.VideoCapture(row['source']);fps=cap.get(cv2.CAP_PROP_FPS);cap.release();start=time.monotonic()
+ try:r=discover_dense_scene_cuts(row['source'],0,row['duration'],fps);row.update(denseCuts=r,seconds=round(time.monotonic()-start,3));print(row['track'],row['oldCuts'],[a['time']for a in r],row['seconds'],flush=True)
+ except Exception as e:row['error']=str(e);print(type(e).__name__,str(e),flush=True)
+ out.append(row);json.dump(out,open('/downloads/vireo-dense-cut-corpus-0840.json','w'),indent=2)

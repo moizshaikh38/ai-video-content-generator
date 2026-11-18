@@ -1,0 +1,16 @@
+"""OFFLINE installed OpenCV MIL comparison, no runtime integration/confidence claim."""
+import cv2,json,time
+cv2.setNumThreads(1)
+root='/downloads/tracker-motion-controls/'
+results=[]
+for name,file,box,end in [('textured',root+'moving-subject.avi',(80,95,44,80),6),('lowtexture',root+'padded-lowtexture.avi',(60,80,84,110),6),('occlusion',root+'occlusion.avi',(80,95,44,80),6),('wrong-subject',root+'wrong-subject.avi',(80,95,44,80),6)]:
+ cap=cv2.VideoCapture(file);ok,frame=cap.read();t=cv2.TrackerMIL_create();t.init(frame,box);samples=[];began=time.monotonic()
+ for n in range(1,int(end*8)):
+  sec=n/8;cap.set(cv2.CAP_PROP_POS_MSEC,sec*1000);ok,frame=cap.read()
+  if not ok:break
+  tracked,b=t.update(frame);truth=(80+int(round(sec*24))*.9+22)/400
+  samples.append(dict(time=sec,success=bool(tracked),box=list(b),true_centerX=truth if name not in ['occlusion','wrong-subject']or sec<2.5 else None,identity_present=name not in ['occlusion','wrong-subject']or sec<2.5))
+  if time.monotonic()-began>20:break
+ cap.release();visible=[abs((s['box'][0]+s['box'][2]/2)/400-s['true_centerX'])for s in samples if s['true_centerX']is not None];false_alive=sum(s['success']and not s['identity_present']for s in samples)
+ r=dict(name=name,elapsed=time.monotonic()-began,samples=samples,max_error=max(visible),false_alive= false_alive,limitation='success flag is NOT identity confidence; offline only');results.append(r);print(json.dumps({k:v for k,v in r.items()if k!='samples'}),flush=True)
+ json.dump(results,open('/downloads/mil-offline-results.json','w'),indent=2)
