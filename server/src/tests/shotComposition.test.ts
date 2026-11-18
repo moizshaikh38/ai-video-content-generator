@@ -79,3 +79,15 @@ test('candidate Pro blur preserves 24-to-30fps last frame without shot concat',(
  const frames=execFileSync(ffmpeg,['-v','error','-filter_complex_threads','1',...graph.inputArgs,'-filter_complex',graph.filterComplex.join(';'),'-map',graph.videoMap,'-map',graph.audioMap,'-t','8','-f','framemd5','-'],{timeout:30000}).toString();
  assert.equal(frames.split('\n').filter(l=>/^0,/.test(l)).length,240);
 });
+
+test('brief fractional-rate final shot keeps its last distinct frame, not a cloned penultimate frame',()=>{
+ const raw=path.join(dir,'brief-tail.rgb'),input=path.join(dir,'brief-tail.mp4');const frameBytes=64*36*3;
+ fs.writeFileSync(raw,Buffer.concat(Array.from({length:12},(_,i)=>Buffer.alloc(frameBytes,i===10?220:i===11?30:100))));
+ execFileSync(ffmpeg,['-v','error','-y','-f','rawvideo','-pixel_format','rgb24','-video_size','64x36','-framerate','30000/1001','-i',raw,'-c:v','libx264','-threads','1','-crf','0','-pix_fmt','yuv444p',input]);
+ const duration=12*1001/30000,cut=.333666;
+ const plan=[{start:0,end:cut,kind:'fit',windowW:.75,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}]},{start:cut,end:duration,kind:'fit',windowW:.75,windowH:1,keyframes:[{time:cut,centerX:.5,centerY:.5}]}] as any;
+ const graph=S.buildShotCompositionFilter({plan,duration,sourceWidth:64,sourceHeight:36,canvasScale:.1});
+ const pixels=execFileSync(ffmpeg,['-v','error','-filter_complex_threads','1','-i',input,'-filter_complex',graph+';[out]fps=30,scale=8:8,format=rgb24[check]','-map','[check]','-f','rawvideo','-threads','1','-'],{timeout:30000});
+ assert.equal(pixels.length,12*8*8*3);const mean=(n:number)=>{const b=pixels.subarray(n*192,(n+1)*192);return b.reduce((a,v)=>a+v,0)/b.length;};
+ assert.ok(mean(10)>150,'penultimate source frame remains bright');assert.ok(mean(11)<100,'last source frame remains dark instead of cloning the bright frame');
+});
