@@ -1,0 +1,151 @@
+TAP version 13
+# Subtest: cropBox
+    # Subtest: round-trips crop <-> box for several sources
+    ok 1 - round-trips crop <-> box for several sources
+      ---
+      duration_ms: 0.739019
+      type: 'test'
+      ...
+    # Subtest: anchor near bottom-right edge stays inside the frame (reported bug)
+    ok 2 - anchor near bottom-right edge stays inside the frame (reported bug)
+      ---
+      duration_ms: 0.191884
+      type: 'test'
+      ...
+    # Subtest: visible box equals applied box for random drags incl. crossing the anchor
+    ok 3 - visible box equals applied box for random drags incl. crossing the anchor
+      ---
+      duration_ms: 7.88442
+      type: 'test'
+      ...
+    # Subtest: crossing the anchor flips to the other side
+    ok 4 - crossing the anchor flips to the other side
+      ---
+      duration_ms: 0.137585
+      type: 'test'
+      ...
+    # Subtest: move clamps inside
+    ok 5 - move clamps inside
+      ---
+      duration_ms: 0.097344
+      type: 'test'
+      ...
+    1..5
+ok 1 - cropBox
+  ---
+  duration_ms: 9.751166
+  type: 'suite'
+  ...
+# Subtest: Fit default
+    # Subtest: fit -> blur by default, explicit colour (incl. black) keeps plain fit
+    ok 1 - fit -> blur by default, explicit colour (incl. black) keeps plain fit
+      ---
+      duration_ms: 0.431663
+      type: 'test'
+      ...
+    1..1
+ok 2 - Fit default
+  ---
+  duration_ms: 0.499851
+  type: 'suite'
+  ...
+# Subtest: Fit band
+    # Subtest: chain crops source to 4:3 and places an 810px band on a 1080x1920 canvas
+    ok 1 - chain crops source to 4:3 and places an 810px band on a 1080x1920 canvas
+      ---
+      duration_ms: 0.350095
+      type: 'test'
+      ...
+    # Subtest: legacy items without band stay full frame; canvas choice overrides; only 9:16 applies
+    ok 2 - legacy items without band stay full frame; canvas choice overrides; only 9:16 applies
+      ---
+      duration_ms: 0.111365
+      type: 'test'
+      ...
+    1..2
+ok 3 - Fit band
+  ---
+  duration_ms: 0.622754
+  type: 'suite'
+  ...
+# Subtest: panel rects: measured Opus 9:16 geometry, tile the canvas exactly (no gaps/overlaps), 4K scales
+ok 4 - panel rects: measured Opus 9:16 geometry, tile the canvas exactly (no gaps/overlaps), 4K scales
+  ---
+  duration_ms: 0.947892
+  type: 'test'
+  ...
+# Subtest: panel filter: independent per-panel crops, chain-safe, normalises bad input
+ok 5 - panel filter: independent per-panel crops, chain-safe, normalises bad input
+  ---
+  duration_ms: 0.718717
+  type: 'test'
+  ...
+# Subtest: applyItemLayout: panel layouts set item.panels, clear crop; switching back clears panels
+ok 6 - applyItemLayout: panel layouts set item.panels, clear crop; switching back clears panels
+  ---
+  duration_ms: 0.39298
+  type: 'test'
+  ...
+# Subtest: actual pro slice compiler passes requested resolution into panel geometry
+ok 7 - actual pro slice compiler passes requested resolution into panel geometry
+  ---
+  duration_ms: 0.578447
+  type: 'test'
+  ...
+# Subtest: panel slots: defaults are unassigned; set flag survives normalisation
+ok 8 - panel slots: defaults are unassigned; set flag survives normalisation
+  ---
+  duration_ms: 0.121675
+  type: 'test'
+  ...
+# Subtest: unassigned panel export gate covers every visible scene and rejects before compile
+ok 9 - unassigned panel export gate covers every visible scene and rejects before compile
+  ---
+  duration_ms: 1.696205
+  type: 'test'
+  ...
+# Subtest: subject seed is a suggestion only: never marks slots set
+ok 10 - subject seed is a suggestion only: never marks slots set
+  ---
+  duration_ms: 0.147604
+  type: 'test'
+  ...
+# Subtest: subjectCenterInWindow takes median in window, null when empty
+ok 11 - subjectCenterInWindow takes median in window, null when empty
+  ---
+  duration_ms: 0.106782
+  type: 'test'
+  ...
+# Subtest: panel assignment flags require exact boolean true, not truthy strings
+ok 12 - panel assignment flags require exact boolean true, not truthy strings
+  ---
+  duration_ms: 0.07016
+  type: 'test'
+  ...
+# Subtest: Fit selection survives read-back: Fit stored as blurred backdrop still reads Fit; Blur reads Blur
+ok 13 - Fit selection survives read-back: Fit stored as blurred backdrop still reads Fit; Blur reads Blur
+  ---
+  duration_ms: 0.096744
+  type: 'test'
+  ...
+# Subtest: manual Split without a track builds two stacked speaker-anchored halves that ffmpeg accepts
+ok 14 - manual Split without a track builds two stacked speaker-anchored halves that ffmpeg accepts
+  ---
+  duration_ms: 41.907038
+  type: 'test'
+  ...
+# Subtest: manual Split compiler honors output scale, independent anchor fallbacks and title cards without a track
+ok 15 - manual Split compiler honors output scale, independent anchor fallbacks and title cards without a track
+  ---
+  duration_ms: 0.320934
+  type: 'test'
+  ...
+1..15
+# tests 20
+# suites 3
+# pass 20
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 770.627485

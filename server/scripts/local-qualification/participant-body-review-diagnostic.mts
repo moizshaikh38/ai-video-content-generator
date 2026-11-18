@@ -1,0 +1,6 @@
+/** Offline diagnosis only. Face-only comparison is not a valid product plan. */
+import fs from'node:fs';import{assignParticipantPanels}from'../../src/shared/participantPanels.js';import{associatedBodyEnvelope}from'../../src/shared/bodyContext.js';
+const dir=process.argv[2],t=JSON.parse(fs.readFileSync(dir+'/fresh-normal-track.json','utf8')),samples=t.raw_samples,ids=[...new Set(samples.flatMap((s:any)=>s.faces.map((f:any)=>f.track_id)))];
+const options={allowFaceWindowReview:true,aspectMatchedFaceReview:true};
+const result={diagnosticOnly:true,strict:assignParticipantPanels(samples,t.source_width,t.source_height),review:assignParticipantPanels(samples,t.source_width,t.source_height,options),bodyEnvelopes:ids.map(id=>({id,envelope:associatedBodyEnvelope(samples,[String(id)])})),faceOnlyPlainCounterfactual:assignParticipantPanels(samples.map((s:any)=>({...s,persons:[]})),t.source_width,t.source_height,{allowFaceWindowReview:true}),faceOnlyCounterfactual:assignParticipantPanels(samples.map((s:any)=>({...s,persons:[]})),t.source_width,t.source_height,options)};
+fs.writeFileSync(dir+'/body-review-diagnostic.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));

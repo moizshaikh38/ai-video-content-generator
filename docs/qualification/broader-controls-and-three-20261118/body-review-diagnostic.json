@@ -1,0 +1,89 @@
+{
+  "diagnosticOnly": true,
+  "strict": null,
+  "review": null,
+  "bodyEnvelopes": [
+    {
+      "id": "subject_1",
+      "envelope": {
+        "left": 0.14135999999999999,
+        "right": 0.41653500000000004,
+        "top": 0.1673,
+        "bottom": 0.46040000000000003
+      }
+    },
+    {
+      "id": "subject_2",
+      "envelope": {
+        "left": 0.624817,
+        "right": 0.9362830000000001,
+        "top": 0.17650000000000002,
+        "bottom": 0.4479
+      }
+    },
+    {
+      "id": "subject_3",
+      "envelope": {
+        "left": 0.363845,
+        "right": 0.6863360000000001,
+        "top": 0.163,
+        "bottom": 0.4506
+      }
+    }
+  ],
+  "faceOnlyPlainCounterfactual": {
+    "panels": {
+      "layout": "three",
+      "slots": [
+        {
+          "focusX": 0.5,
+          "focusY": 0.5,
+          "scale": 1,
+          "fit": "contain",
+          "set": true,
+          "sourceRect": {
+            "x": 0.19712,
+            "y": 0.19125999999999999,
+            "w": 0.16405999999999996,
+            "h": 0.23295999999999994
+          }
+        },
+        {
+          "focusX": 0.5,
+          "focusY": 0.5,
+          "scale": 1,
+          "fit": "contain",
+          "set": true,
+          "sourceRect": {
+            "x": 0.4445,
+            "y": 0.16665999999999997,
+            "w": 0.15990000000000004,
+            "h": 0.29796000000000006
+          }
+        },
+        {
+          "focusX": 0.5,
+          "focusY": 0.5,
+          "scale": 1,
+          "fit": "contain",
+          "set": true,
+          "sourceRect": {
+            "x": 0.67892,
+            "y": 0.1858,
+            "w": 0.19265999999999994,
+            "h": 0.2548
+          }
+        }
+      ]
+    },
+    "trackIds": [
+      "subject_1",
+      "subject_3",
+      "subject_2"
+    ],
+    "sampleCount": 60,
+    "coobservedSamples": 60,
+    "evidence": "face-window-review"
+  },
+  "faceOnlyCounterfactual": null
+}

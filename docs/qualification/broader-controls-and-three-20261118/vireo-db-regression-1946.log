@@ -1,0 +1,146 @@
+TAP version 13
+# Subtest: VireoClip — Critical Caption Accuracy Investigation & Fix Verification Suite
+    # Subtest: 1. Endpoint Parity: getClipCaptions respects EditorProject canonical cues
+        # Subtest: returns custom edited cues from editor_projects so editor preview matches export
+        ok 1 - returns custom edited cues from editor_projects so editor preview matches export
+          ---
+          duration_ms: 72.312688
+          type: 'test'
+          ...
+        # Subtest: covered empty saved edits do not resurrect transcript captions in preview or export
+        not ok 2 - covered empty saved edits do not resurrect transcript captions in preview or export
+          ---
+          duration_ms: 19.267241
+          type: 'test'
+          location: '/tmp/vireo-durable-checkpoint/server/src/tests/captionAccuracyInvestigationAndFix.test.ts:147:5'
+          failureType: 'testCodeFailure'
+          error: 'This clip decision cannot be verified against the current source and transcript. Review it before running selection or export again.'
+          code: 'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'
+          name: 'AppError'
+          stack: |-
+            <anonymous> (/tmp/vireo-durable-checkpoint/server/src/services/selectionSourceGuardService.ts:14:13)
+            process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+            async runGeneration (/tmp/vireo-durable-checkpoint/server/src/services/captionService.ts:1425:7)
+            async <anonymous> (/tmp/vireo-durable-checkpoint/server/src/tests/captionAccuracyInvestigationAndFix.test.ts:159:27)
+            async TestContext.<anonymous> (/tmp/vireo-durable-checkpoint/server/src/tests/captionAccuracyInvestigationAndFix.test.ts:148:7)
+            async Test.run (node:internal/test_runner/test:1054:7)
+            async Suite.processPendingSubtests (node:internal/test_runner/test:744:7)
+          ...
+        # Subtest: falls back to raw transcript extraction when no custom editor_projects cues exist
+        not ok 3 - falls back to raw transcript extraction when no custom editor_projects cues exist
+          ---
+          duration_ms: 24.081894
+          type: 'test'
+          location: '/tmp/vireo-durable-checkpoint/server/src/tests/captionAccuracyInvestigationAndFix.test.ts:165:5'
+          failureType: 'testCodeFailure'
+          error: |-
+            Expected values to be strictly equal:
+            
+            409 !== 200
+            
+          code: 'ERR_ASSERTION'
+          name: 'AssertionError'
+          expected: 200
+          actual: 409
+          operator: 'strictEqual'
+          stack: |-
+            <anonymous> (/tmp/vireo-durable-checkpoint/server/src/tests/captionAccuracyInvestigationAndFix.test.ts:186:16)
+            process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+            async TestContext.<anonymous> (/tmp/vireo-durable-checkpoint/server/src/tests/captionAccuracyInvestigationAndFix.test.ts:167:7)
+            async Test.run (node:internal/test_runner/test:1054:7)
+            async Suite.processPendingSubtests (node:internal/test_runner/test:744:7)
+          ...
+        1..3
+    not ok 1 - 1. Endpoint Parity: getClipCaptions respects EditorProject canonical cues
+      ---
+      duration_ms: 116.548261
+      type: 'suite'
+      location: '/tmp/vireo-durable-checkpoint/server/src/tests/captionAccuracyInvestigationAndFix.test.ts:54:3'
+      failureType: 'subtestsFailed'
+      error: '2 subtests failed'
+      code: 'ERR_TEST_FAILURE'
+      stack: |-
+        async Promise.all (index 0)
+      ...
+    # Subtest: 2. Isolation: Different clips cannot reuse each other transcripts or cues
+        # Subtest: returns 404 for clip from different user due to strict ownerContext isolation
+        ok 1 - returns 404 for clip from different user due to strict ownerContext isolation
+          ---
+          duration_ms: 2.054594
+          type: 'test'
+          ...
+        1..1
+    ok 2 - 2. Isolation: Different clips cannot reuse each other transcripts or cues
+      ---
+      duration_ms: 2.300665
+      type: 'suite'
+      ...
+    # Subtest: 3. Clip-Relative Timing: Source-time vs Clip-relative Offset Mathematics
+        # Subtest: accurately offsets word timestamps when clip starts at non-zero source offset
+        ok 1 - accurately offsets word timestamps when clip starts at non-zero source offset
+          ---
+          duration_ms: 1.025561
+          type: 'test'
+          ...
+        # Subtest: accurately incorporates trim_start_offset and trim_end_offset
+        ok 2 - accurately incorporates trim_start_offset and trim_end_offset
+          ---
+          duration_ms: 0.210773
+          type: 'test'
+          ...
+        1..2
+    ok 3 - 3. Clip-Relative Timing: Source-time vs Clip-relative Offset Mathematics
+      ---
+      duration_ms: 1.498166
+      type: 'suite'
+      ...
+    # Subtest: 4. ASS Subtitle Timestamp Formatting and Monotonicity
+        # Subtest: formats centisecond timestamps correctly for ASS export
+        ok 1 - formats centisecond timestamps correctly for ASS export
+          ---
+          duration_ms: 0.144001
+          type: 'test'
+          ...
+        # Subtest: generates non-overlapping dialogue events in ASS script for segment cues
+        ok 2 - generates non-overlapping dialogue events in ASS script for segment cues
+          ---
+          duration_ms: 0.834586
+          type: 'test'
+          ...
+        # Subtest: generates accurate word-timed events for kinetic cues
+        ok 3 - generates accurate word-timed events for kinetic cues
+          ---
+          duration_ms: 0.568416
+          type: 'test'
+          ...
+        1..3
+    ok 4 - 4. ASS Subtitle Timestamp Formatting and Monotonicity
+      ---
+      duration_ms: 1.82332
+      type: 'suite'
+      ...
+    1..4
+not ok 1 - VireoClip — Critical Caption Accuracy Investigation & Fix Verification Suite
+  ---
+  duration_ms: 124.470308
+  type: 'suite'
+  location: '/tmp/vireo-durable-checkpoint/server/src/tests/captionAccuracyInvestigationAndFix.test.ts:49:1'
+  failureType: 'subtestsFailed'
+  error: '1 subtest failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: normal reframe fetch rejects replaced or shifted source even when trim offsets match
+ok 2 - normal reframe fetch rejects replaced or shifted source even when trim offsets match
+  ---
+  duration_ms: 102.714818
+  type: 'test'
+  ...
+1..2
+# tests 10
+# suites 5
+# pass 8
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1168.177797
