@@ -1,3 +1,4 @@
+import {needsAutomaticFitFallback} from '../../../server/src/shared/automaticPreviewFallback';
 import {previewBackdropBlurPx,PREVIEW_BACKDROP_COLOR_MATRIX} from '../../../server/src/shared/blurBackdropPreview';
 import {mirrorDecodedFrames} from '../../lib/decodedFrameMirror';
 import {trackerHandoffSpec,trackerHandoffRect} from '../../../server/src/shared/trackerHandoff';
@@ -482,7 +483,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     return (item as any)?.crop_mode === 'fit' ? 'fit' : 'fill';
   }, [baseVideoItem,shotComposition,smartReframe,groupReframe]);
 
-  const rawPlan=automaticPlanReviewRequired?[{start:0,end:Math.max(project.canvas.duration||1,(baseVideoItem?.source_end||0)-compositionClipStart,1),kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}],contextStatus:'unresolved-review-required',uncertainty:'Source or scene configuration needs review.'}]:shotComposition?.length?shotComposition:((baseVideoItem as any)?.crop_config?.layout_mode_source==='auto'&&videoDims?[{start:0,end:Math.max(project.canvas.duration||1,1),kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}]}]:[]);
+  const missingAutomaticCamera=needsAutomaticFitFallback((baseVideoItem as any)?.crop_config?.layout_mode_source==='auto',shotComposition,smartReframe?.keyframes,groupReframe?.keyframes);
+  const rawPlan=automaticPlanReviewRequired?[{start:0,end:Math.max(project.canvas.duration||1,(baseVideoItem?.source_end||0)-compositionClipStart,1),kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}],contextStatus:'unresolved-review-required',uncertainty:'Source or scene configuration needs review.'}]:shotComposition?.length?shotComposition:(missingAutomaticCamera&&videoDims?[{start:0,end:Math.max(project.canvas.duration||1,1),kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}]}]:[]);
   const effectiveShotComposition = freezeAutomaticPlan(automaticPlanReviewRequired?rawPlan:presentFit43(rawPlan,videoDims?.w||1920,videoDims?.h||1080),baseVideoItem?.automatic_framing,compositionClipStart);
   const shotSourceTime = (baseVideoItem?.source_start || 0) + (playhead-(baseVideoItem?.timeline_start||0)) * (baseVideoItem?.speed?.speed||1);
   const shotRelativeTime = Math.max(0,shotSourceTime-compositionClipStart);
@@ -743,7 +745,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const autoShotTime = Math.max(0,targetVideoTime-compositionClipStart);
   const activeAutomaticShot = !activePanels && !baseVideoItem?.framing_window && !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && (primaryLayoutMode === 'track' || Boolean(activePlanShot?.split))
     ? effectiveShotComposition.find(s=>autoShotTime>=s.start&&autoShotTime<s.end) : undefined;
-  const automaticLayoutLabel = automaticPlanReviewRequired?'Auto Fit · Review':!baseVideoItem?.crop&&!activePanels&&(baseVideoItem as any)?.crop_config?.layout_mode_source==='auto'&&!shotComposition?.length&&!smartReframe?.keyframes?.length ? 'Auto Fit · Review' : activeAutomaticShot && videoDims
+  const automaticLayoutLabel = automaticPlanReviewRequired?'Auto Fit · Review':!baseVideoItem?.crop&&!activePanels&&missingAutomaticCamera ? 'Auto Fit · Review' : activeAutomaticShot && videoDims
     ? activeAutomaticShot.split ? 'Auto Split' : Math.abs(activeAutomaticShot.windowW*videoDims.w/(activeAutomaticShot.windowH!*videoDims.h)-9/16)<.01 ? 'Auto Fill' : 'Auto Fit'
     : undefined;
 
