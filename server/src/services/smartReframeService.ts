@@ -1456,7 +1456,7 @@ export class SmartReframeService {
        !(duration>0)||!track.raw_samples?.length||
        (cropConfig.layoutPolicy&&!cropConfig.layoutPolicy.allowed.includes('split'))||
        ['screen_content','action_context','scene_context'].includes(track.metadata?.content_framing_decision?.policy)||
-       track.metadata?.facecam_box||track.metadata?.facecam_track_id)return undefined;
+       track.metadata?.content_framing_decision?.evidence?.possibleEmbeddedCamera===true)return undefined;
     const plan=this.computeShotComposition({rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,duration,
       sourceWidth:track.source_width,sourceHeight:track.source_height,windowScope:'shot',allowConversationSplit:true,
       protectedContentRegions:track.metadata.protected_content_regions,splitHandSafetyReview:true});
