@@ -121,10 +121,10 @@ export const LivePreviewPanel: React.FC<LivePreviewPanelProps> = ({
       <div className="flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-bold text-white font-['Sora',sans-serif]">
           <Smartphone className="size-4 text-violet-400" aria-hidden="true" />
-          Live output preview
+          Layout illustration
         </h3>
         <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
-          updates as you tune
+          not source analysis
         </span>
       </div>
 
@@ -150,7 +150,7 @@ export const LivePreviewPanel: React.FC<LivePreviewPanelProps> = ({
           {/* ── Genre-specific reframe simulation (overlays the content) ── */}
 
           {/* 1. Podcast — split dual-stack: two speaker boxes */}
-          {layoutMode === 'split' && (
+          {frame.height>200 && layoutMode === 'split' && (
             <div className="absolute inset-x-3 top-4 bottom-14 flex flex-col gap-1.5 pointer-events-none">
               <div className="flex-1 rounded-xl border-2 border-cyan-400/70 bg-black/20 flex items-center justify-center relative">
                 <Users className="size-6 text-cyan-300/80" aria-hidden="true" />
@@ -164,40 +164,39 @@ export const LivePreviewPanel: React.FC<LivePreviewPanelProps> = ({
           )}
 
           {/* 2. Screencast — 60/40 split: gameplay/screen top, face cam bottom */}
-          {layoutMode === 'screencast' && (
+          {frame.height>200 && layoutMode === 'screencast' && (
             <div className="absolute inset-x-0 top-0 bottom-0 pointer-events-none flex flex-col">
               <div className="flex-[3] relative overflow-hidden flex items-center justify-center">
                 <MonitorPlay className="size-7 text-white/60" aria-hidden="true" />
-                <span className="absolute top-2 left-2 text-[7px] font-bold text-white/60 uppercase tracking-wider bg-black/40 px-1 rounded">Gameplay / Screen</span>
+                <span className="absolute top-4 left-2 text-[7px] font-bold text-white/60 uppercase tracking-wider bg-black/40 px-1 rounded">Gameplay / Screen</span>
               </div>
               <div className="h-px bg-white/20" />
               <div className="flex-[2] relative bg-black/50 flex items-center justify-center">
                 <Camera className="size-5 text-white/50" aria-hidden="true" />
-                <span className="absolute top-1 left-2 text-[7px] font-bold text-white/50 uppercase tracking-wider">Face Cam</span>
+                <span className="absolute bottom-3 left-2 text-[7px] font-bold text-white/50 uppercase tracking-wider">Face Cam</span>
               </div>
             </div>
           )}
 
-          {layoutMode === 'gameplay' && (
+          {frame.height>200 && layoutMode === 'gameplay' && (
             <div className="absolute inset-0 pointer-events-none flex flex-col">
               <div className="h-[30%] border-b border-white/30 bg-black/20 flex items-center justify-center text-[8px] text-white">Panel 1 - review view</div>
               <div className="flex-1 bg-black/40 flex items-center justify-center text-[8px] text-white">Panel 2 - review view</div>
-              <span className="absolute top-[33%] inset-x-2 text-center text-[8px] text-white bg-black/60 rounded p-1">Gameplay template. Set each view in the editor.</span>
             </div>
           )}
 
           {/* 3. Blur — blurred bg with sharp center face */}
-          {layoutMode === 'blur' && (
+          {frame.height>200 && layoutMode === 'blur' && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center backdrop-blur-[2px] bg-black/10">
               <div className="size-14 rounded-full border-2 border-white/50 bg-white/10 backdrop-blur-none flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.2)]">
                 <Camera className="size-6 text-white/70" aria-hidden="true" />
               </div>
-              <span className="absolute bottom-14 left-1/2 -translate-x-1/2 text-[7px] font-bold text-white/50 uppercase tracking-wider">Subject tracked · bg blurred</span>
+              <span className="absolute top-10 left-1/2 -translate-x-1/2 text-[7px] font-bold text-white/50 uppercase tracking-wider">Blurred background example</span>
             </div>
           )}
 
           {/* 4. Face track — animated face indicator moving between positions */}
-          {layoutMode === 'face_track' && (
+          {frame.height>200 && layoutMode === 'face_track' && (
             <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
               <div
                 className="absolute size-10 rounded-full border-2 border-cyan-400/70 bg-cyan-400/10 flex items-center justify-center transition-all duration-[2800ms] ease-in-out"
@@ -208,12 +207,12 @@ export const LivePreviewPanel: React.FC<LivePreviewPanelProps> = ({
               >
                 <Camera className="size-4 text-cyan-300/80" aria-hidden="true" />
               </div>
-              <span className="absolute bottom-12 left-2 text-[7px] font-bold text-cyan-400/60 uppercase tracking-wider">Face tracking active</span>
+              <span className="absolute top-10 left-2 text-[7px] font-bold text-cyan-400/60 uppercase tracking-wider">Face tracking example</span>
             </div>
           )}
 
           {/* 5. Center — neutral face glyph (no layout data) */}
-          {layoutMode === 'center' && (
+          {frame.height>200 && layoutMode === 'center' && (
             <div className="absolute inset-0 flex items-center justify-center pb-14 pointer-events-none">
               <div className="size-12 rounded-full border-2 border-white/25 bg-white/[0.06] backdrop-blur-sm" />
             </div>
@@ -225,8 +224,8 @@ export const LivePreviewPanel: React.FC<LivePreviewPanelProps> = ({
           </div>
 
           {/* Kinetic captions */}
-          <div className="absolute inset-x-2.5 bottom-8 text-center z-10">
-            <p className="text-[13px] leading-snug font-extrabold tracking-tight text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.65)]">
+          <div data-testid="sample-caption" className="absolute inset-x-2.5 text-center z-10" style={{top:frame.height<=200?'50%':layoutMode==='gameplay'?'30%':layoutMode==='split'?'50%':'62%',transform:'translateY(-50%)'}}>
+            <p className="text-[13px] leading-[1.25] font-extrabold tracking-tight text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.65)]">
               {words.map((word, i) => (
                 <span
                   key={`${cycle}-${i}`}
@@ -244,9 +243,9 @@ export const LivePreviewPanel: React.FC<LivePreviewPanelProps> = ({
           </div>
 
           {/* Hook badge */}
-          <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-200 backdrop-blur-sm z-10">
+          <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 inline-flex items-center whitespace-nowrap gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-200 backdrop-blur-sm z-10">
             <Zap className="size-2.5" aria-hidden="true" />
-            Hook · first 3s
+            Sample only
           </div>
         </div>
       </div>
