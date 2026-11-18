@@ -1447,21 +1447,38 @@ export class SmartReframeService {
    * track is confidently wrong more often than right; both render paths and
    * the preview degrade to the blurred layout instead. Conservative, based on
    * observed clips (bad: 0.241; good: 0.452, 0.582). */
-  /** Explicit Auto choices may use existing measured two-person geometry even
+  /** Explicit Auto choices may use existing measured pair/body geometry even
    * when experimental composition is off. Never upgrade legacy/user ownership,
    * stale/unbound evidence, or partially eligible clips by inference. */
-  public static explicitAutoSplitPlan(track:any,cropConfig:any,duration:number):ReturnType<typeof SmartReframeService.computeShotComposition>|undefined {
+  public static explicitAutoLayoutPlan(track:any,cropConfig:any,duration:number):ReturnType<typeof SmartReframeService.computeShotComposition>|undefined {
     if(cropConfig?.layout_mode_source!=='auto'||track?.status!=='ready'||track.isStale||track.sourceObjectVerified===false||
        track.metadata?.shot_composition_candidate===true||!track.metadata?.analyzed_source_sha256||
        !(duration>0)||!track.raw_samples?.length||
-       (cropConfig.layoutPolicy&&!cropConfig.layoutPolicy.allowed.includes('split'))||
+       (cropConfig.layoutPolicy&&!cropConfig.layoutPolicy.allowed.some((x:string)=>x==='split'||x==='fill'))||
        ['screen_content','action_context','scene_context'].includes(track.metadata?.content_framing_decision?.policy)||
        track.metadata?.content_framing_decision?.evidence?.possibleEmbeddedCamera===true)return undefined;
     const plan=this.computeShotComposition({rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,duration,
       sourceWidth:track.source_width,sourceHeight:track.source_height,windowScope:'shot',allowConversationSplit:true,
       protectedContentRegions:track.metadata.protected_content_regions,splitHandSafetyReview:true});
-    // No new Fill/Fit policy or mixed-scene smoothing is introduced here.
-    return plan.length&&plan.every(s=>s.split)?plan:undefined;
+    // A clip-wide face center cannot represent unrelated shots. On measured
+    // cuts, use review Fit locally unless that individual shot has the already
+    // eligible split geometry. Never carry a confident crop across a cut.
+    if((track.metadata.scene_cuts||[]).length&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('fit'))){
+      return presentFit43(plan.map(s=>s.split&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('split'))?s:{
+        start:s.start,end:s.end,kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:s.start,centerX:.5,centerY:.5}],
+        contextStatus:'unresolved-review-required' as const,uncertainty:'Scene-local Fit: unrelated shots cannot share one face crop. Review side context before sharing.'
+      }),track.source_width,track.source_height);
+    }
+    if(plan.length&&plan.every(s=>s.split)&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('split')))return plan;
+    // A face-less moving body is a different evidence class from a talking
+    // head. Use only complete sampled single-body tracks, full source height,
+    // no scene cuts and the existing protected-region constraints. No zoom.
+    if((!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('fill'))&&
+       !(track.metadata.scene_cuts||[]).length&&track.raw_samples.every((s:any)=>s.faces?.length===0)){
+      const body=movingBodyPortraitProposal(track.raw_samples,0,duration,track.source_width,track.source_height,track.metadata.protected_content_regions||[]);
+      if(body)return [body];
+    }
+    return undefined;
   }
 
   public static readonly TRACK_CONFIDENCE_FLOOR = 0.3;

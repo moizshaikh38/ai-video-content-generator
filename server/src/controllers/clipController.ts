@@ -1351,7 +1351,7 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
     const measuredComposition=track.metadata?.shot_composition_candidate===true?(measuredPlanEnvelope?.shots||SmartReframeService.computeShotComposition(measuredOptions)):null;
     const explicitAutoConfig=policyClip?.crop_config?.layout_mode_source==='auto'?policyClip.crop_config:
       policyProject?.tracks?.flatMap((t:any)=>t.type==='VIDEO'?t.items:[]).some((i:any)=>i.crop_config?.layout_mode_source==='auto'||i.scene_layout_overrides?.some((o:any)=>o.layout==='auto'))?{...policyClip?.crop_config,layout_mode_source:'auto'}:undefined;
-    const explicitAutoPlan=SmartReframeService.explicitAutoSplitPlan(track,explicitAutoConfig,Number(track.metadata?.clip_duration)||1);
+    const explicitAutoPlan=SmartReframeService.explicitAutoLayoutPlan(track,explicitAutoConfig,Number(track.metadata?.clip_duration)||1);
     // Return safe data without exposing server paths
     res.status(200).json({
       status: track.status,
