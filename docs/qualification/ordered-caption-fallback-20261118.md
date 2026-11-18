@@ -1,4 +1,6 @@
-# Faithful caption fallback for unreliable word clocks
+# Earlier caption fallback, superseded after failed audio acceptance
+
+See caption-acceptance-correction-20261118.md. Ordered segments did not establish synchronization; the bypass described below has been removed. Historical test results below are not current acceptance.
 
 18 Nov 2026. Local source only, no deployment.
 

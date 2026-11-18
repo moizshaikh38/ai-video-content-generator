@@ -35,8 +35,13 @@ export function normalizeProviderTiming(result: any): {
       return;
     }
     const text = typeof (word.word ?? word.text) === 'string' ? (word.word ?? word.text).trim() : '';
+    const confidence = word.probability ?? word.confidence;
+    const speakerId = word.speaker_id ?? word.speakerId;
+    const annotation = /^\[[^\]]+\]$/.test(text);
     if (text) words.push({word: text, start: word.start, end: word.end,
-      ...(typeof word.probability === 'number' && Number.isFinite(word.probability) && word.probability >= 0 && word.probability <= 1 ? {confidence: word.probability} : {})});
+      ...(typeof confidence === 'number' && Number.isFinite(confidence) && confidence >= 0 && confidence <= 1 ? {confidence} : {}),
+      ...(typeof speakerId === 'string' && speakerId.length<=128 ? {speakerId} : {}),
+      ...(word.type==='audio_event'||annotation ? {kind: /censor|redact/i.test(text)?'redaction' as const:'audio_event' as const} : {})});
   });
   // Keep clocks and text unchanged, but do not label cross-word overlap/order as reliable.
   if (words.length && !reliableOrderedClocks(words)) timingIssues.push({kind:'word',index:0,reason:'unordered-or-overlapping-provider-clock'});

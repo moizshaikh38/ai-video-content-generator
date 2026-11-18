@@ -90,11 +90,27 @@ function clippedSegmentText(segText: string, segWords: NormalizedTranscriptWord[
   return kept.map((w) => w.word).join(' ');
 }
 
+/** Reject a seam when ownership would discard words with no corresponding owned
+ * recognition in a neighbouring window. Overlap does not authorize text loss. */
+export function assertChunkSeamCoverage(parts: Array<{plan:AudioChunkPlan;result:NormalizedTranscriptionResult}>):void {
+ const ordered=[...parts].sort((a,b)=>a.plan.index-b.plan.index);
+ const timed=ordered.flatMap(({plan,result},index)=>(result.words||[]).map(w=>({
+  word:normalizeWord(w.word),start:w.start+plan.startSec,end:w.end+plan.startSec,
+  part:index,owned:owns(plan,(w.start+w.end)/2+plan.startSec,index===ordered.length-1)
+ })));
+ for(const w of timed) {
+  if(w.owned||!w.word)continue;
+  const match=timed.some(other=>other.owned&&other.part!==w.part&&other.word===w.word&&Math.abs(other.start-w.start)<=.75);
+  if(!match)throw Object.assign(new Error('Overlapping transcript windows disagree at a seam. Audio review is required; no boundary word was silently discarded.'),{code:'TRANSCRIPTION_SEAM_REVIEW_REQUIRED'});
+ }
+}
+
 /** Stitches per-window results into one transcript on the source clock (pure; unit-tested). */
 export function mergeChunkTranscripts(
   parts: Array<{ plan: AudioChunkPlan; result: NormalizedTranscriptionResult }>,
   totalSec: number
 ): NormalizedTranscriptionResult {
+  assertChunkSeamCoverage(parts);
   const ordered = [...parts].sort((a, b) => a.plan.index - b.plan.index);
   const words: NormalizedTranscriptWord[] = [];
   const segments: NormalizedTranscriptSegment[] = [];
@@ -106,6 +122,8 @@ export function mergeChunkTranscripts(
     const chunkWords = (result.words || []).map((w) => ({
       word: w.word,
       ...(w.confidence !== undefined ? {confidence:w.confidence} : {}),
+      ...(w.speakerId !== undefined ? {speakerId:w.speakerId} : {}),
+      ...(w.kind !== undefined ? {kind:w.kind} : {}),
       start: round3(w.start + offset),
       end: round3(w.end + offset),
     }));
@@ -266,7 +284,7 @@ export async function transcribeAudioFast(
     }
     return merged;
   } catch (err) {
-    if (!fitsOneRequest) throw err;
+    if (!fitsOneRequest || (err as any)?.code === 'TRANSCRIPTION_SEAM_REVIEW_REQUIRED') throw err;
     const msg = err instanceof Error ? err.message : String(err);
     logger.warn(`[Transcription] Parallel windows failed (${msg}); retrying as a single request.`);
     return provider.transcribeAudio(audio.audioBuffer, fileName, 'audio/mp3', options);

@@ -43,12 +43,12 @@ test('actual selection/creation/render consumers reject stale decisions without 
  await db.collection('transcripts').insertOne({...t,id:crypto.randomUUID(),project_id:project,user_id:user});
  await db.collection('clip_candidates').insertOne({id:candidate,project_id:project,user_id:user,start_seconds:0,end_seconds:2,status:'suggested',metadata:{selection_source_receipt:receipt}});
  await assertSelectionSourceCurrent(user,project,receipt,key);assert(heads>0);
- // Timing fallback does not waive source lineage, default reuse or other quality flags.
+ // Ordered segments cannot waive a known unreliable word-clock issue.
  const quality={version:1,status:'needs_review',issues:[{code:'unreliable_word_timing',detail:'Synthetic overlapping provider clocks'}]};
  const reviewed={...t,source_binding:{...t.source_binding},quality_assessment:quality};
  reviewed.source_binding.transcript_content_sha256=transcriptContentIdentity(reviewed);
  await db.collection('transcripts').updateOne({project_id:project},{$set:{quality_assessment:quality,source_binding:reviewed.source_binding}});
- await assertSelectionSourceCurrent(user,project,selectionSourceReceipt(reviewed,key),key);
+ await assert.rejects(assertSelectionSourceCurrent(user,project,selectionSourceReceipt(reviewed,key),key),{code:'TRANSCRIPT_REVIEW_REQUIRED'});
  const {assertTranscriptReusable}=await import('../services/transcriptSourceBindingService.js');
  await assert.rejects(assertTranscriptReusable(reviewed,key),{code:'TRANSCRIPT_REVIEW_REQUIRED'});
  const languageCase={...reviewed,source_binding:{...reviewed.source_binding},quality_assessment:{...quality,issues:[{code:'language_mismatch',detail:'Synthetic language issue'}]}};

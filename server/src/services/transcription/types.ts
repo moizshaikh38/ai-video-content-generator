@@ -3,6 +3,8 @@ export interface NormalizedTranscriptWord {
   start: number;
   end: number;
   confidence?: number;
+  speakerId?: string;
+  kind?: 'word' | 'audio_event' | 'redaction';
 }
 
 export interface NormalizedTranscriptSegment {

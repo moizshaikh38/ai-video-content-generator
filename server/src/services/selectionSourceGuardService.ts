@@ -15,6 +15,6 @@ export async function assertSelectionSourceCurrent(userId:string, projectId:stri
     }
     // Existing selected clips may render genuine segment captions when only word clocks are unreliable.
     // General reuse/automatic clip analysis still calls the strict default directly.
-    await assertTranscriptReusable(transcript,project.source_url,{allowOrderedSegmentFallback:true});
+    await assertTranscriptReusable(transcript,project.source_url);
   });
 }

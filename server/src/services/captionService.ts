@@ -528,8 +528,8 @@ export class CaptionService {
 
     // 2. SEGMENT-LEVEL FALLBACK MODE (Never manufacture fake word timestamps)
     const rawSegments = Array.isArray(transcript.segments) ? transcript.segments : [];
-    if (rawWords.length > 0 && !wordClocksReliable && !reliableOrderedClocks(rawSegments)) {
-      throw Object.assign(new Error('Caption timing needs review: word order is unreliable and no ordered segment fallback is available.'), { code: 'CAPTION_TIMING_REVIEW_REQUIRED' });
+    if (rawWords.length > 0 && !wordClocksReliable) {
+      throw Object.assign(new Error('Caption timing needs audio alignment: unreliable word clocks cannot be replaced by unverified segment clocks.'), { code: 'CAPTION_TIMING_REVIEW_REQUIRED' });
     }
     const cues: TimedCaptionCue[] = [];
 
@@ -1425,7 +1425,7 @@ export class CaptionService {
       .maybeSingle();
 
     if (transcript) {
-      assertTranscriptUsable(transcript,{allowOrderedSegmentFallback:true});
+      assertTranscriptUsable(transcript);
       await assertSelectionSourceCurrent(clip.user_id,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
     }
 
