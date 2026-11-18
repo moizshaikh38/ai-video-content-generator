@@ -1,0 +1,563 @@
+{
+  "states": [
+    {
+      "name": "layout-auto",
+      "project": {
+        "id": "7b7aacfe-7800-4cf5-80f9-ef86d3db6298",
+        "user_id": "524c0902-af8e-4709-ba5c-972a7446d8ba",
+        "project_id": "328b5221-c8d9-4001-8100-aebb4de4f92f",
+        "clip_id": "bcf5e2eb-8049-4924-9510-7e2c214ad031",
+        "version": 1,
+        "status": "draft",
+        "title": "Editor: Untitled Clip",
+        "canvas": {
+          "width": 1080,
+          "height": 1920,
+          "aspect_ratio": "9:16",
+          "fps": 30,
+          "duration": 14.014,
+          "background_color": "#000000",
+          "background_mode": "color"
+        },
+        "tracks": [
+          {
+            "id": "50305e8e-e5cc-4211-95fb-770969465e92",
+            "type": "VIDEO",
+            "name": "Main Video",
+            "locked": false,
+            "muted": false,
+            "hidden": false,
+            "height": 64,
+            "items": [
+              {
+                "id": "c3949c0c-a0ea-4c08-baf1-b5b962cd0ef0",
+                "track_id": "50305e8e-e5cc-4211-95fb-770969465e92",
+                "type": "VIDEO",
+                "source_asset_id": "bcf5e2eb-8049-4924-9510-7e2c214ad031",
+                "source_path": "fixtures/328b5221-c8d9-4001-8100-aebb4de4f92f/source.mp4",
+                "timeline_start": 0,
+                "timeline_end": 14.014,
+                "source_start": 0,
+                "source_end": 14.014,
+                "transform": {
+                  "position_x": 0,
+                  "position_y": 0,
+                  "scale": 1,
+                  "rotation": 0,
+                  "opacity": 1
+                },
+                "layout_mode": "track",
+                "crop_config": {
+                  "mode": "smart",
+                  "layout_mode": "track",
+                  "layout_mode_source": "auto",
+                  "layoutPolicy": null
+                },
+                "speed": {
+                  "speed": 1,
+                  "pitch_preserved": true
+                },
+                "audio": {
+                  "volume": 1,
+                  "fade_in": 0.15,
+                  "fade_out": 0.25,
+                  "normalized": true,
+                  "target_lufs": -16
+                },
+                "effects": [],
+                "keyframes": [],
+                "locked": false,
+                "muted": false,
+                "hidden": false,
+                "z_index": 0,
+                "scene_layout_overrides": [
+                  {
+                    "start": 0,
+                    "end": 14.014,
+                    "layout": "auto",
+                    "patch": {
+                      "crop_config": {
+                        "mode": "smart",
+                        "layout_mode_source": "auto",
+                        "layoutPolicy": null
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a5967e94-507c-42cf-8ccc-494c57d92cb6",
+            "type": "TEXT",
+            "name": "Text & Titles",
+            "locked": false,
+            "muted": false,
+            "hidden": false,
+            "height": 48,
+            "items": []
+          },
+          {
+            "id": "6269273e-c333-4f2d-9e46-995353731162",
+            "type": "CAPTION",
+            "name": "Subtitles",
+            "locked": false,
+            "muted": false,
+            "hidden": true,
+            "height": 48,
+            "items": [
+              {
+                "id": "c766a350-3956-4d97-94af-df24fbde5dcd",
+                "track_id": "6269273e-c333-4f2d-9e46-995353731162",
+                "type": "CAPTION",
+                "timeline_start": 0,
+                "timeline_end": 14.014,
+                "source_start": 0,
+                "source_end": 14.014,
+                "transform": {
+                  "position_x": 0,
+                  "position_y": 500,
+                  "scale": 1,
+                  "rotation": 0,
+                  "opacity": 1
+                },
+                "speed": {
+                  "speed": 1,
+                  "pitch_preserved": true
+                },
+                "caption": {
+                  "cues": [],
+                  "cues_covered_end": 14.014,
+                  "style": "vireo_comic_default",
+                  "position": "bottom",
+                  "primary_color": "#FFFFFF",
+                  "highlight_color": "#20FF35",
+                  "animation": "none"
+                },
+                "effects": [],
+                "keyframes": [],
+                "locked": false,
+                "muted": true,
+                "hidden": false,
+                "z_index": 20
+              }
+            ]
+          }
+        ],
+        "playhead": 0,
+        "settings": {
+          "snapping": true,
+          "safe_guides": true,
+          "snap_tolerance_sec": 0.15,
+          "show_safe_zones": true
+        },
+        "producer_plan_id": null,
+        "output_storage_path": null,
+        "preview_video_url": null,
+        "created_at": "2026-11-18T12:52:50.807Z",
+        "updated_at": "2026-11-18T12:52:50.807Z"
+      },
+      "text": "Project\nEditor: Untitled Clip\nSaved\nLive Edit\nRender Review\n⌘K\nAuto Res\n720p HD\n540p\n360p Fast\nExport\nCaptions\nLibrary\nElements\nBrand\nB-Roll\nMotion\nFraming\nRatio\nText\nAudio\nTranslate\nAI Copilot\nAI Tools\nCaption Studio\nSpatial Typography & Styling\nCaptions Off\nStyles\nTypography\nEffects\n\nCaptions are off for this clip\n\nTurn them on with a starter preset, then style them here.\n\nEnable Simple preset\nReview side context\n9:16\nAuto Reframe: ON\nThis video item\nApply to whole clip\nAuto candidate: OFF\nThis item: candidate OFF\nLayout Auto: Four\nBackground\nObject tracker: OFF\nSafe Zones: ON\nPLATFORM HEADER SAFE ZONE\nACTION BUTTONS & TITLE DANGER ZONE\nSpeech cleanup\n\nNo captions in this view\n\nThis clip has no caption cues to show.\n\nHide timeline\n00:00.00/00:14.01\n0\n2\n4\n6\n8\n10\n12\n14\nMain Video\nAuto Split ▾\nDialogue Audio\nText & Titles\nAdd Text / Title\nSubtitles\nNo captions"
+    },
+    {
+      "name": "layout-three",
+      "project": {
+        "id": "7b7aacfe-7800-4cf5-80f9-ef86d3db6298",
+        "user_id": "524c0902-af8e-4709-ba5c-972a7446d8ba",
+        "project_id": "328b5221-c8d9-4001-8100-aebb4de4f92f",
+        "clip_id": "bcf5e2eb-8049-4924-9510-7e2c214ad031",
+        "version": 1,
+        "status": "draft",
+        "title": "Editor: Untitled Clip",
+        "canvas": {
+          "width": 1080,
+          "height": 1920,
+          "aspect_ratio": "9:16",
+          "fps": 30,
+          "duration": 14.014,
+          "background_color": "#000000",
+          "background_mode": "color"
+        },
+        "tracks": [
+          {
+            "id": "50305e8e-e5cc-4211-95fb-770969465e92",
+            "type": "VIDEO",
+            "name": "Main Video",
+            "locked": false,
+            "muted": false,
+            "hidden": false,
+            "height": 64,
+            "items": [
+              {
+                "id": "c3949c0c-a0ea-4c08-baf1-b5b962cd0ef0",
+                "track_id": "50305e8e-e5cc-4211-95fb-770969465e92",
+                "type": "VIDEO",
+                "source_asset_id": "bcf5e2eb-8049-4924-9510-7e2c214ad031",
+                "source_path": "fixtures/328b5221-c8d9-4001-8100-aebb4de4f92f/source.mp4",
+                "timeline_start": 0,
+                "timeline_end": 14.014,
+                "source_start": 0,
+                "source_end": 14.014,
+                "transform": {
+                  "position_x": 0,
+                  "position_y": 0,
+                  "scale": 1,
+                  "rotation": 0,
+                  "opacity": 1
+                },
+                "layout_mode": "track",
+                "crop_config": {
+                  "mode": "smart",
+                  "layout_mode": "track",
+                  "layout_mode_source": "auto",
+                  "layoutPolicy": null
+                },
+                "speed": {
+                  "speed": 1,
+                  "pitch_preserved": true
+                },
+                "audio": {
+                  "volume": 1,
+                  "fade_in": 0.15,
+                  "fade_out": 0.25,
+                  "normalized": true,
+                  "target_lufs": -16
+                },
+                "effects": [],
+                "keyframes": [],
+                "locked": false,
+                "muted": false,
+                "hidden": false,
+                "z_index": 0,
+                "scene_layout_overrides": [
+                  {
+                    "start": 0,
+                    "end": 14.014,
+                    "layout": "three",
+                    "patch": {
+                      "panels": {
+                        "layout": "three",
+                        "slots": [
+                          {
+                            "focusX": 0.5,
+                            "focusY": 0.5,
+                            "scale": 1
+                          },
+                          {
+                            "focusX": 0.25,
+                            "focusY": 0.5,
+                            "scale": 1.6
+                          },
+                          {
+                            "focusX": 0.75,
+                            "focusY": 0.5,
+                            "scale": 1.6
+                          }
+                        ]
+                      },
+                      "layout_mode": "track",
+                      "crop_config": {
+                        "mode": "smart",
+                        "layout_mode_source": "user",
+                        "layoutPolicy": null,
+                        "layout_mode": "track"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a5967e94-507c-42cf-8ccc-494c57d92cb6",
+            "type": "TEXT",
+            "name": "Text & Titles",
+            "locked": false,
+            "muted": false,
+            "hidden": false,
+            "height": 48,
+            "items": []
+          },
+          {
+            "id": "6269273e-c333-4f2d-9e46-995353731162",
+            "type": "CAPTION",
+            "name": "Subtitles",
+            "locked": false,
+            "muted": false,
+            "hidden": true,
+            "height": 48,
+            "items": [
+              {
+                "id": "c766a350-3956-4d97-94af-df24fbde5dcd",
+                "track_id": "6269273e-c333-4f2d-9e46-995353731162",
+                "type": "CAPTION",
+                "timeline_start": 0,
+                "timeline_end": 14.014,
+                "source_start": 0,
+                "source_end": 14.014,
+                "transform": {
+                  "position_x": 0,
+                  "position_y": 500,
+                  "scale": 1,
+                  "rotation": 0,
+                  "opacity": 1
+                },
+                "speed": {
+                  "speed": 1,
+                  "pitch_preserved": true
+                },
+                "caption": {
+                  "cues": [],
+                  "cues_covered_end": 14.014,
+                  "style": "vireo_comic_default",
+                  "position": "bottom",
+                  "primary_color": "#FFFFFF",
+                  "highlight_color": "#20FF35",
+                  "animation": "none"
+                },
+                "effects": [],
+                "keyframes": [],
+                "locked": false,
+                "muted": true,
+                "hidden": false,
+                "z_index": 20
+              }
+            ]
+          }
+        ],
+        "playhead": 0,
+        "settings": {
+          "snapping": true,
+          "safe_guides": true,
+          "snap_tolerance_sec": 0.15,
+          "show_safe_zones": true
+        },
+        "producer_plan_id": null,
+        "output_storage_path": null,
+        "preview_video_url": null,
+        "created_at": "2026-11-18T12:52:50.807Z",
+        "updated_at": "2026-11-18T12:52:50.807Z"
+      },
+      "text": "Project\nEditor: Untitled Clip\nSaved\nLive Edit\nRender Review\n⌘K\nAuto Res\n720p HD\n540p\n360p Fast\nExport\nCaptions\nLibrary\nElements\nBrand\nB-Roll\nMotion\nFraming\nRatio\nText\nAudio\nTranslate\nAI Copilot\nAI Tools\nCaption Studio\nSpatial Typography & Styling\nCaptions Off\nStyles\nTypography\nEffects\n\nCaptions are off for this clip\n\nTurn them on with a starter preset, then style them here.\n\nEnable Simple preset\n9:16\nAuto Reframe: ON\nThis video item · Manual framing takes priority\nApply to whole clip\nAuto candidate: OFF\nThis item: candidate OFF\nLayout: Three\nBackground\nPanel 1 (set view)\nPanel 2 (set view)\nPanel 3 (set view)\nObject tracker: OFF\nSafe Zones: ON\nUnassigned view\nUnassigned view\nUnassigned view\nPLATFORM HEADER SAFE ZONE\nACTION BUTTONS & TITLE DANGER ZONE\nSpeech cleanup\n\nNo captions in this view\n\nThis clip has no caption cues to show.\n\nHide timeline\n00:00.00/00:14.01\n0\n2\n4\n6\n8\n10\n12\n14\nMain Video\nAuto Fit · Review ▾\nDialogue Audio\nText & Titles\nAdd Text / Title\nSubtitles\nNo captions"
+    },
+    {
+      "name": "layout-four",
+      "project": {
+        "id": "7b7aacfe-7800-4cf5-80f9-ef86d3db6298",
+        "user_id": "524c0902-af8e-4709-ba5c-972a7446d8ba",
+        "project_id": "328b5221-c8d9-4001-8100-aebb4de4f92f",
+        "clip_id": "bcf5e2eb-8049-4924-9510-7e2c214ad031",
+        "version": 1,
+        "status": "draft",
+        "title": "Editor: Untitled Clip",
+        "canvas": {
+          "width": 1080,
+          "height": 1920,
+          "aspect_ratio": "9:16",
+          "fps": 30,
+          "duration": 14.014,
+          "background_color": "#000000",
+          "background_mode": "color"
+        },
+        "tracks": [
+          {
+            "id": "50305e8e-e5cc-4211-95fb-770969465e92",
+            "type": "VIDEO",
+            "name": "Main Video",
+            "locked": false,
+            "muted": false,
+            "hidden": false,
+            "height": 64,
+            "items": [
+              {
+                "id": "c3949c0c-a0ea-4c08-baf1-b5b962cd0ef0",
+                "track_id": "50305e8e-e5cc-4211-95fb-770969465e92",
+                "type": "VIDEO",
+                "source_asset_id": "bcf5e2eb-8049-4924-9510-7e2c214ad031",
+                "source_path": "fixtures/328b5221-c8d9-4001-8100-aebb4de4f92f/source.mp4",
+                "timeline_start": 0,
+                "timeline_end": 14.014,
+                "source_start": 0,
+                "source_end": 14.014,
+                "transform": {
+                  "position_x": 0,
+                  "position_y": 0,
+                  "scale": 1,
+                  "rotation": 0,
+                  "opacity": 1
+                },
+                "layout_mode": "track",
+                "crop_config": {
+                  "mode": "smart",
+                  "layout_mode": "track",
+                  "layout_mode_source": "user",
+                  "layoutPolicy": null
+                },
+                "speed": {
+                  "speed": 1,
+                  "pitch_preserved": true
+                },
+                "audio": {
+                  "volume": 1,
+                  "fade_in": 0.15,
+                  "fade_out": 0.25,
+                  "normalized": true,
+                  "target_lufs": -16
+                },
+                "effects": [],
+                "keyframes": [],
+                "locked": false,
+                "muted": false,
+                "hidden": false,
+                "z_index": 0,
+                "panels": {
+                  "layout": "four",
+                  "slots": [
+                    {
+                      "fit": "contain",
+                      "focusX": 0.5,
+                      "focusY": 0.5,
+                      "scale": 1,
+                      "sourceRect": {
+                        "x": 0.15844000000000003,
+                        "y": 0.11068622222222224,
+                        "w": 0.09621999999999997,
+                        "h": 0.30362755555555543
+                      },
+                      "set": true
+                    },
+                    {
+                      "fit": "contain",
+                      "focusX": 0.5,
+                      "focusY": 0.5,
+                      "scale": 1,
+                      "sourceRect": {
+                        "x": 0.391705,
+                        "y": 0.20419999999999996,
+                        "w": 0.07348999999999994,
+                        "h": 0.23190177777777762
+                      },
+                      "set": true
+                    },
+                    {
+                      "fit": "contain",
+                      "focusX": 0.5,
+                      "focusY": 0.5,
+                      "scale": 1,
+                      "sourceRect": {
+                        "x": 0.5603600000000001,
+                        "y": 0.18581999999999999,
+                        "w": 0.08587999999999985,
+                        "h": 0.2709991111111106
+                      },
+                      "set": true
+                    },
+                    {
+                      "fit": "contain",
+                      "focusX": 0.5,
+                      "focusY": 0.5,
+                      "scale": 1,
+                      "sourceRect": {
+                        "x": 0.74675,
+                        "y": 0.21575999999999998,
+                        "w": 0.07929999999999993,
+                        "h": 0.2502355555555553
+                      },
+                      "set": true
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "a5967e94-507c-42cf-8ccc-494c57d92cb6",
+            "type": "TEXT",
+            "name": "Text & Titles",
+            "locked": false,
+            "muted": false,
+            "hidden": false,
+            "height": 48,
+            "items": []
+          },
+          {
+            "id": "6269273e-c333-4f2d-9e46-995353731162",
+            "type": "CAPTION",
+            "name": "Subtitles",
+            "locked": false,
+            "muted": false,
+            "hidden": true,
+            "height": 48,
+            "items": [
+              {
+                "id": "c766a350-3956-4d97-94af-df24fbde5dcd",
+                "track_id": "6269273e-c333-4f2d-9e46-995353731162",
+                "type": "CAPTION",
+                "timeline_start": 0,
+                "timeline_end": 14.014,
+                "source_start": 0,
+                "source_end": 14.014,
+                "transform": {
+                  "position_x": 0,
+                  "position_y": 500,
+                  "scale": 1,
+                  "rotation": 0,
+                  "opacity": 1
+                },
+                "speed": {
+                  "speed": 1,
+                  "pitch_preserved": true
+                },
+                "caption": {
+                  "cues": [],
+                  "cues_covered_end": 14.014,
+                  "style": "vireo_comic_default",
+                  "position": "bottom",
+                  "primary_color": "#FFFFFF",
+                  "highlight_color": "#20FF35",
+                  "animation": "none"
+                },
+                "effects": [],
+                "keyframes": [],
+                "locked": false,
+                "muted": true,
+                "hidden": false,
+                "z_index": 20
+              }
+            ]
+          }
+        ],
+        "playhead": 0,
+        "settings": {
+          "snapping": true,
+          "safe_guides": true,
+          "snap_tolerance_sec": 0.15,
+          "show_safe_zones": true
+        },
+        "producer_plan_id": null,
+        "output_storage_path": null,
+        "preview_video_url": null,
+        "created_at": "2026-11-18T12:52:50.807Z",
+        "updated_at": "2026-11-18T12:52:50.807Z"
+      },
+      "text": "Project\nEditor: Untitled Clip\nSaved\nLive Edit\nRender Review\n⌘K\nAuto Res\n720p HD\n540p\n360p Fast\nExport\nCaptions\nLibrary\nElements\nBrand\nB-Roll\nMotion\nFraming\nRatio\nText\nAudio\nTranslate\nAI Copilot\nAI Tools\nCaption Studio\nSpatial Typography & Styling\nCaptions Off\nStyles\nTypography\nEffects\n\nCaptions are off for this clip\n\nTurn them on with a starter preset, then style them here.\n\nEnable Simple preset\n9:16\nAuto Reframe: ON\nThis video item · Manual framing takes priority\nApply to whole clip\nAuto candidate: OFF\nThis item: candidate OFF\nLayout: Four\nBackground\nPanel 1\nPanel 2\nPanel 3\nPanel 4\nObject tracker: OFF\nSafe Zones: ON\nPLATFORM HEADER SAFE ZONE\nACTION BUTTONS & TITLE DANGER ZONE\nSpeech cleanup\n\nNo captions in this view\n\nThis clip has no caption cues to show.\n\nHide timeline\n00:00.00/00:14.01\n0\n2\n4\n6\n8\n10\n12\n14\nMain Video\nFour ▾\nDialogue Audio\nText & Titles\nAdd Text / Title\nSubtitles\nNo captions"
+    }
+  ],
+  "calls": [
+    {
+      "url": "http://127.0.0.1:5588/qualification/reframe?layoutCandidate=review-v1",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5588/qualification/reframe?layoutCandidate=off",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5588/qualification/reframe?layoutCandidate=off",
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "actualUIControls": true,
+  "externalRequestsForbidden": true
+}

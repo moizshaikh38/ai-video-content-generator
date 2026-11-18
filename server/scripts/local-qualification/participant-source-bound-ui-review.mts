@@ -19,7 +19,7 @@ const probeSource=JSON.parse(execFileSync('ffprobe',['-v','error','-show_streams
 assert(duration>=6&&duration<=30);
 const {downloadObjectToFile}=await import('../../src/services/objectStorageService.js');
 const downloadReceipt=await downloadObjectToFile('source',key,path.join(out,'verified-source.mp4'),{requireSnapshotReceipt:true});assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(out,'verified-source.mp4'))).digest('hex'),sha);
-const localClip={id:crypto.randomUUID(),user_id:user,project_id:project,source_storage_path:key,start_seconds:0,end_seconds:duration,aspect_ratio:'9:16',caption_enabled:false,render_resolution:'720p',volume:1,crop_config:{mode:'smart',layout_mode:'track',layout_mode_source:'auto'}};
+const localClip={id:crypto.randomUUID(),user_id:user,project_id:project,source_storage_path:key,start_seconds:0,end_seconds:duration,aspect_ratio:'9:16',caption_enabled:false,render_resolution:'720p',volume:1,crop_config:{mode:'smart',layout_mode:'track',layout_mode_source:'auto',...(process.env.VIREO_FIXTURE_NULL_POLICY==='1'?{layoutPolicy:null}:{})}};
 await db.collection('projects').insertOne({id:project,user_id:user,title:'Manual visual-source fixture, no transcript',source_url:key,...(process.env.VIREO_PARTICIPANT_ASPECT_REVIEW==='1'?{clip_preferences:{genre:'podcast_interview'}}:{})});await db.collection('clips').insertOne(localClip);
 const created={clip:localClip};
 activeClipId=created.clip.id;

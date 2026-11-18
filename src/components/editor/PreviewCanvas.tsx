@@ -1310,7 +1310,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 onClick={()=>onSetAutomaticFraming(baseVideoItem.id,baseVideoItem.automatic_framing?.enabled===false,targetVideoTime)}>
                 Auto Reframe: {baseVideoItem.automatic_framing?.enabled===false?'OFF':'ON'}
               </button>
-              <span className="text-[9px] text-neutral-500">This video item{baseVideoItem.crop || activePanels || baseVideoItem.tracker?.enabled || baseVideoItem.framing_window || (baseVideoItem as any).crop_config?.layout_mode_source==='user' ? ' · Manual framing takes priority' : ''}</span>
+              <span className="text-[9px] text-neutral-500">This video item{baseVideoItem.crop || manualPanels || baseVideoItem.tracker?.enabled || baseVideoItem.framing_window || (baseVideoItem as any).crop_config?.layout_mode_source==='user' ? ' · Manual framing takes priority' : ''}</span>
               <button type="button" data-testid="auto-reframe-all" className="px-2 py-1 rounded hover:bg-white/10 text-[10px] text-neutral-400"
                 title="Apply this Auto Reframe setting to all video scenes. Manual edits stay unchanged."
                 onClick={()=>onSetAutomaticFraming(null,baseVideoItem.automatic_framing?.enabled!==false,targetVideoTime)}>Apply to whole clip</button>

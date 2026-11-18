@@ -6,7 +6,7 @@ export function canonicalPlanValue(value:any):any {
  return value;
 }
 export function itemPlanConfigurationKey(candidate:unknown,layoutPolicy:unknown):string {
- return JSON.stringify(canonicalPlanValue({candidate:candidateCompositionOptions(candidate),layoutPolicy}));
+ return JSON.stringify(canonicalPlanValue({candidate:candidateCompositionOptions(candidate),layoutPolicy:layoutPolicy??undefined}));
 }
 export interface PreviewMeasuredPlanEnvelope {
  schemaVersion:1;
