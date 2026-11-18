@@ -1,4 +1,4 @@
-import{test}from'node:test';import assert from'node:assert/strict';import{usesAutomaticSourceClock,automaticSourceWindow}from'../shared/automaticSourceClock.js';import{ProEditorService as P}from'../services/proEditorService.js';import{syntheticMeasuredContext}from'./fixtures/syntheticMeasuredContext.js';
+import{test}from'node:test';import assert from'node:assert/strict';import{usesAutomaticSourceClock,automaticSourceWindow,singleItemSourceWindow}from'../shared/automaticSourceClock.js';import{ProEditorService as P}from'../services/proEditorService.js';import{syntheticMeasuredContext}from'./fixtures/syntheticMeasuredContext.js';
 const face=(track_id:string,x:number)=>({track_id,x:x-.05,y:.2,width:.1,height:.15,center_x:x,center_y:.275,confidence:.95});
 function fixture(){
  const track:any={source_width:1920,source_height:1080,smoothed_keyframes:[{time:0,centerX:.5,centerY:.5}],metadata:{clip_duration:4,scene_cuts:[2],protected_content_regions:[]},raw_samples:Array.from({length:16},(_,i)=>({time:i*.25,faces:i<8?[]:[face('a',.2),face('b',.8)],persons:i<8?[{x:.3,y:.2,width:.12,height:.6,confidence:.95}]:[{x:.02,y:.14,width:.31,height:.84,confidence:.95},{x:.67,y:.14,width:.31,height:.84,confidence:.95}]}))};
@@ -26,4 +26,12 @@ test('scene-local manual Fit wins only inside its source interval after2x trim',
  const f=P.compileRenderGraph(next,'synthetic.mp4','/tmp/out.mp4','/tmp',reframe,'off').filterComplex.join(';');
  assert.ok(f.includes('trim=start=11.000000:end=12.000000'));assert.ok(f.includes('trim=start=12.000000:end=12.500000'));assert.ok(f.includes('trim=start=12.500000:end=13.000000'));
  assert.equal(next.tracks[0].items.length,1,'render expansion must not split the saved edit');
+});
+
+test('single normal item input content ignores layout ownership, freeze/title remain separate',()=>{
+ for(const config of [undefined,{layout_mode_source:'auto'},{layout_mode_source:'user'},{layout_mode_source:'genre_recommendation'}])for(const layout of ['fit','fill','split','screenshare','gameplay']){
+  const i:any={source_start:6,source_end:18,speed:{speed:2},crop_config:config,layout_mode:layout};assert.deepEqual(singleItemSourceWindow(i,0,6),{sourceStart:6,sourceDuration:12,outputDuration:6});
+  assert.deepEqual(singleItemSourceWindow({...i,speed:{speed:.5}},0,24),{sourceStart:6,sourceDuration:12,outputDuration:24});
+ }
+ assert.equal(singleItemSourceWindow(undefined,0,6),undefined);for(const flag of ['is_freeze','is_title_card'])assert.equal(singleItemSourceWindow({source_start:6,source_end:18,[flag]:true},0,6),undefined);
 });

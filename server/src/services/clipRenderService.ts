@@ -1,4 +1,4 @@
-import {usesAutomaticSourceClock,automaticSourceWindow} from '../shared/automaticSourceClock.js';
+import {singleItemSourceWindow} from '../shared/automaticSourceClock.js';
 import {resolveMeasuredItemPlan} from './itemShotPlanService.js';
 import {prepareSliceRender} from './sliceRenderPreparation.js';
 import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
@@ -987,14 +987,12 @@ export class ClipRenderService {
         const isMultiSlice = videoTrackItems.length > 1;
         // Single-slice renders seek the input; the loudnorm measurement pass must
         // apply the same seek so it measures the exact audio window being rendered.
-        // Ordinary Auto and candidate plans use source-relative item windows. A single
-        // trimmed item must seek to its own source_start, just as multi-slice
-        // trim filters do, not silently keep the clip's old opening.
-        const candidateSingle = (videoTrackItems.some((i:any)=>usesAutomaticSourceClock(i,reframeDecision.track?.metadata?.shot_composition_candidate === true)||i.framing_window !== undefined)) && !isMultiSlice
+        // A layout choice must never change the selected source interval.
+        // Manual Fit/Fill/Split/panels use the same input content as Auto.
+        const singleItem = !isMultiSlice
           ? editorProject.tracks.find((t: {type:string;hidden?:boolean}) => t.type === 'VIDEO' && !t.hidden)?.items.find((i: {hidden?:boolean}) => !i.hidden)
           : undefined;
-        const sourceClockWindow = candidateSingle && !(candidateSingle as any).is_freeze
-          ? automaticSourceWindow(candidateSingle,startSec,Number(editorProject.canvas.duration||durationSec)) : undefined;
+        const sourceClockWindow = singleItemSourceWindow(singleItem,startSec,Number(editorProject.canvas.duration||durationSec));
         const candidateSourceStart = sourceClockWindow?.sourceStart ?? startSec;
         const candidateSourceDuration = sourceClockWindow?.sourceDuration ?? durationSec;
         const inputSeekArgs = !isMultiSlice
