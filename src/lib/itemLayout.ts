@@ -93,7 +93,10 @@ export function applyItemLayout(
 export function applyFramingStrategy(project: EditorProject, mode: 'center'|'fit'|'blur'|'smart'): EditorProject {
   return {...project,tracks:project.tracks.map(t=>t.type!=='VIDEO'?t:{...t,items:t.items.map(i=>{
     const next:any={...i,crop_mode:mode==='blur'?'fit':mode};
-    delete next.panels;delete next.framing_window;
+    // Clip-wide framing replaces scene layout choices too. Retaining an Auto
+    // scene patch makes preview fall back to legacy crop_mode while export
+    // expands the patch and silently discards this new crop.
+    delete next.panels;delete next.framing_window;delete next.scene_layout_overrides;
     if(mode==='smart'){
       delete next.crop;delete next.tracker;delete next.layout_mode;
       const cfg={...next.crop_config};

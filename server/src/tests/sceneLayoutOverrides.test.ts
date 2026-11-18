@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {applySceneLayout,applyWholeClipLayout} from '../../../src/lib/itemLayout.js';
+import {applySceneLayout,applyWholeClipLayout,applyFramingStrategy} from '../../../src/lib/itemLayout.js';
 import {expandSceneLayoutProject,resolveSceneLayoutItem,validateSceneLayoutOverrides} from '../shared/sceneLayoutOverrides.js';
 const make=():any=>({canvas:{aspect_ratio:'9:16',width:1080,height:1920,duration:12},tracks:[{id:'v',type:'VIDEO',items:[{id:'item',source_start:40,source_end:64,timeline_start:0,timeline_end:12,speed:{speed:2},crop_config:{layout_mode_source:'auto'},transform:{scale:1.3},tracker:{enabled:false}}]}]});
 const item=(p:any)=>p.tracks[0].items[0];
@@ -12,3 +12,24 @@ test('malformed/overlapping ranges fail before render',()=>{for(const overrides 
 test('caption anchors follow effective scene windows without cutting persisted cues/items',async()=>{const {applySceneCaptionPlacement}=await import('../shared/sceneCaptionPlacement.js');const p=applySceneLayout(make(),'item',48,56,'split');const r=applySceneCaptionPlacement([{start:2,end:10,text:'Hello'}],{project:p});assert.equal(r.length,3);assert.equal(r[1].start,4);assert.equal(r[1].end,8);assert.equal(r[1].position_y,.5);assert.equal(p.tracks[0].items.length,1);});
 test('scene crop edits seed from existing scene override without changing another scene',()=>{let p=applySceneLayout(make(),'item',48,56,'fill');item(p).scene_layout_overrides[0].patch.crop.focusX=.22;p=applySceneLayout(p,'item',48,56,'fit');assert.equal(item(p).scene_layout_overrides[0].patch.crop.focusX,.22);});
 test('trim reuses only measured candidate windows on the same source/aspect',async()=>{const {storedScenePlanWindow}=await import('../shared/storedScenePlanWindow.js');const p=make(),clip={start_seconds:0,aspect_ratio:'9:16',source_storage_path:'same'},track={status:'ready',isStale:true,analyzed_aspect_ratio:'9:16',analyzed_trim_start:0,raw_samples:[{}],smoothed_keyframes:[{}],metadata:{shot_composition_candidate:true,analyzed_source_path:'same',clip_duration:70}};assert.equal(storedScenePlanWindow(p,clip,track)?.track.isStale,false);assert.equal(track.isStale,true);assert.equal(storedScenePlanWindow(p,{...clip,source_storage_path:'other'},track),null);assert.equal(storedScenePlanWindow(p,{...clip,aspect_ratio:'1:1'},track),null);assert.equal(storedScenePlanWindow(p,clip,{...track,metadata:{...track.metadata,clip_duration:50}}),null);});
+
+for (const mode of ['fit','blur','center','smart'] as const) {
+ test('clip-wide '+mode+' replaces scene Auto overrides consistently in preview/render',()=>{
+  let p=applySceneLayout(make(),'item',40,64,'auto');
+  p={...p,canvas:{...p.canvas,background_user_choice:'color'}};
+  const before=structuredClone(p),q=applyFramingStrategy(p,mode),i=item(q);
+  assert.equal(i.scene_layout_overrides,undefined);
+  const preview=resolveSceneLayoutItem(i,50),exportItem=expandSceneLayoutProject(q).tracks[0].items[0];
+  assert.deepEqual(preview.crop,exportItem.crop);
+  assert.equal(preview.crop?.mode,mode==='smart'?undefined:mode==='center'?'fill':mode);
+  assert.deepEqual(i.transform,item(before).transform);assert.deepEqual(p,before);
+ });
+}
+test('Color then Blur keeps the later explicit choice in expanded scene export',()=>{
+ const p=applySceneLayout(make(),'item',40,64,'auto');
+ const color=applyFramingStrategy({...p,canvas:{...p.canvas,background_user_choice:'color'}},'fit');
+ const blur=applyFramingStrategy({...color,canvas:{...color.canvas,background_user_choice:'blur'}},'blur');
+ assert.equal(expandSceneLayoutProject(color).tracks[0].items[0].crop.mode,'fit');
+ assert.equal(expandSceneLayoutProject(blur).tracks[0].items[0].crop.mode,'blur');
+ assert.equal(blur.canvas.background_user_choice,'blur');
+});
