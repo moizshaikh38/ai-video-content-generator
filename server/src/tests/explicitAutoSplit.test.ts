@@ -57,3 +57,10 @@ test('ordinary body proposal cannot discard independently repeated side objects'
  // A one-frame object observation is not a persistent constraint or absence proof.
  const sparse:any=moving();sparse.raw_samples[0].objects=[side];assert.equal(S.explicitAutoLayoutPlan(sparse,auto,10)?.[0].kind,'solo');
 });
+
+test('ordinary cut fallback preserves measured-context Fit without spreading it into other shots',()=>{
+ const t:any=moving();t.metadata.scene_cuts=[5];t.metadata.protected_content_regions=[{start:0,end:5,x:0,y:.8,width:1,height:.1,confidence:.95}];
+ const p=S.explicitAutoLayoutPlan(t,auto,10)!;assert.equal(p[0].kind,'fit');assert.equal(p[0].windowW,1);assert.equal(p[0].windowH,1);assert.equal(p[0].presentationProtection?.preserveWindow,true);assert.equal(p[1].kind,'solo');
+ const objects:any=moving();objects.metadata.scene_cuts=[5];objects.raw_samples.slice(0,20).forEach((s:any)=>{s.persons=[];s.objects=[{class_id:8,x:0,y:.3,width:1,height:.3,confidence:.95}]});
+ const q=S.explicitAutoLayoutPlan(objects,auto,10)!;assert.equal(q[0].windowW,1);assert.equal(q[0].presentationProtection?.preserveWindow,true);assert.equal(q[1].kind,'solo');
+});
