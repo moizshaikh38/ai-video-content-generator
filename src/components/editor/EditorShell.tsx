@@ -1815,7 +1815,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         )}
 
         {/* CENTER VIEWPORT (VIDEO PREVIEW + TRANSPORT) */}
-        <div className="flex-1 flex flex-col min-w-0 bg-vc-surface1 overflow-hidden relative">
+        <div data-testid="editor-preview-workspace" className={`flex-1 flex flex-col min-w-0 min-h-0 bg-vc-surface1 overflow-hidden relative ${(!transcriptCollapsed || showLeftDrawer || (showRightInspector && !inspectorCollapsed)) ? 'max-md:h-[66%]' : ''}`}>
           {automaticPlanReviewRequired&&viewMode==='edit'&&<div role="status" className="shrink-0 border-b border-amber-700/50 bg-amber-950/70 px-3 py-2 text-xs text-amber-100">Automatic framing needs review for this scene. Showing the full source, not an export-qualified layout. Your manual settings are unchanged.</div>}
           <PreviewCanvas
             automaticPlanReviewRequired={automaticPlanReviewRequired}

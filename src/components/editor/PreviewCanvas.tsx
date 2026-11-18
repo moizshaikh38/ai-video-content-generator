@@ -1258,7 +1258,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           onSelectItem(null);
         }
       }}
-      className="flex-1 bg-vc-surface1 flex flex-col items-center p-3 overflow-hidden relative select-none"
+      className="flex-1 min-h-0 bg-vc-surface1 flex flex-col items-center p-3 overflow-hidden relative select-none"
     >
       {/* OPUS-STYLE TOP PREVIEW TOOLBAR */}
       <div className="w-full shrink-0 flex flex-col items-center justify-center gap-1 pb-2 z-30 max-md:pr-9">
