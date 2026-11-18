@@ -953,7 +953,7 @@ export class ProEditorService {
       // "Too many inputs specified for the split filter" (editor split exports
       // failed permanently until this).
       const layoutTag = 'vc' + crypto.createHash('sha256').update(String(item.id || 'x')).digest('hex').slice(0, 16);
-      const explicitAuto=SmartReframeService.explicitAutoSplitPlan(track,itemCfg,Number(track.metadata?.clip_duration)||sliceDuration);
+      const explicitAuto=SmartReframeService.explicitAutoLayoutPlan(track,itemCfg,Number(track.metadata?.clip_duration)||sliceDuration);
       const legacyFit=explicitAuto||(!userItemLayout?legacyFit43Plan(track,Number(track.metadata?.clip_duration)||sliceDuration,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)):undefined);
       if(legacyFit&&ratio==='9:16')return SmartReframeService.buildShotCompositionFilter({plan:freezeAutomaticPlan(legacyFit,item.automatic_framing,reframe?.clipStartSec||0),start:sliceWindowStartClipRel,duration:sliceDuration,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,tag:layoutTag,canvasScale:cs});
       const legacyFallback=!userItemLayout ? legacyPolicyFallback(item.crop_config?.layoutPolicy||reframe?.cropConfig?.layoutPolicy,track,Number(track.metadata?.clip_duration)||sliceDuration) : undefined;

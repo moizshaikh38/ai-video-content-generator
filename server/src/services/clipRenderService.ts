@@ -1640,7 +1640,7 @@ export class ClipRenderService {
           return { cropFilter: centerCrop(), mode: 'fallback_center', metadata: { reason: 'stale_track', detected_face_count: track.detected_face_count || 0 }, layoutMode: 'track', track };
         }
 
-        const explicitAuto=SmartReframeService.explicitAutoSplitPlan(track,clip.crop_config,durationSec);
+        const explicitAuto=SmartReframeService.explicitAutoLayoutPlan(track,clip.crop_config,durationSec);
         const legacyFit=explicitAuto||(clip.crop_config?.layout_mode_source!=='user'?legacyFit43Plan(track,durationSec,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)):undefined);
         if(legacyFit&&(clip.aspect_ratio||'9:16')==='9:16')return {cropFilter:SmartReframeService.buildShotCompositionFilter({plan:legacyFit,duration:durationSec,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,canvasScale}),mode:'smart',layoutMode:'track',metadata:{reason:'legacy_fit_43_review'},track};
         const legacyFallback=clip.crop_config?.layout_mode_source!=='user'?legacyPolicyFallback(clip.crop_config?.layoutPolicy,track,durationSec):undefined;
