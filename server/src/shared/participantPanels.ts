@@ -9,7 +9,7 @@ const med=(v:number[])=>[...v].sort((a,b)=>a-b)[Math.floor(v.length/2)];
  * back-facing, crossed or unstable tracks leave the scene in its shared view.
  * Whole measured person envelopes are contained, never duplicated as defaults.
  */
-export function assignParticipantPanels(samples:ReframeSample[],sourceWidth:number,sourceHeight:number,options:{allowFaceWindowReview?:boolean}={}):ParticipantPanelAssignment|null {
+export function assignParticipantPanels(samples:ReframeSample[],sourceWidth:number,sourceHeight:number,options:{allowFaceWindowReview?:boolean;aspectMatchedFaceReview?:boolean}={}):ParticipantPanelAssignment|null {
  if(samples.length<6||!(sourceWidth>0&&sourceHeight>0))return null;
  const valid=(f:ReframeSample['faces'][number])=>!!f.track_id&&[f.x,f.y,f.width,f.height,f.center_x,f.center_y,f.confidence].every(Number.isFinite)&&f.confidence>=.7&&f.width*f.height>=.002&&f.x>=0&&f.y>=0&&f.x+f.width<=1.001&&f.y+f.height<=1.001;
  // Do not filter a weak extra detection into an apparently complete panel set.
@@ -47,6 +47,20 @@ export function assignParticipantPanels(samples:ReframeSample[],sourceWidth:numb
   if(owners.some(o=>o.length!==1)||new Set(owners.flat()).size!==ids.length)return null;
  }
  const layout=ids.length===3?'three':'four';
+ // An additional offline-only hypothesis: crop padding, not a measured face,
+ // to match the destination aspect. Never crop body-backed ordinary panels.
+ if(!bodyComplete&&options.aspectMatchedFaceReview){
+  const matched=envelopes.map((e,i)=>{
+   const b=e!,fs=samples.flatMap(s=>s.faces.filter(f=>f.track_id===ids[i]));
+   const need={left:Math.min(...fs.map(f=>f.x-f.width*.15)),right:Math.max(...fs.map(f=>f.x+f.width*1.15)),top:Math.min(...fs.map(f=>f.y-f.height*.15)),bottom:Math.max(...fs.map(f=>f.y+f.height*1.15))};
+   const target=PANEL_RECTS[layout][i],ratio=target.w*9/(target.h*16)*sourceHeight/sourceWidth;
+   const w=Math.max(need.right-need.left,(need.bottom-need.top)*ratio),h=w/ratio;
+   if(w<need.right-need.left||h<need.bottom-need.top)return null;
+   const loX=Math.max(b.left,need.right-w),hiX=Math.min(b.right-w,need.left),loY=Math.max(b.top,need.bottom-h),hiY=Math.min(b.bottom-h,need.top);if(loX>hiX||loY>hiY)return null;
+   const cx=(need.left+need.right)/2,cy=(need.top+need.bottom)/2,left=Math.max(loX,Math.min(hiX,cx-w/2)),top=Math.max(loY,Math.min(hiY,cy-h/2));return {left,right:left+w,top,bottom:top+h};
+  });
+  if(matched.some(x=>!x))return null;envelopes=matched;
+ }
  const slots=envelopes.map((e,i)=>{
   const b=e!;return {focusX:.5,focusY:.5,scale:1,fit:'contain' as const,set:true,
    sourceRect:{x:b.left,y:b.top,w:b.right-b.left,h:b.bottom-b.top}};

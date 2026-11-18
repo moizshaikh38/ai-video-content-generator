@@ -1,0 +1,18 @@
+[
+  {
+    "start": 0,
+    "end": 14.014,
+    "kind": "group",
+    "windowW": 0.75,
+    "windowH": 1,
+    "keyframes": [
+      {
+        "time": 0,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      }
+    ],
+    "contextStatus": "unresolved-review-required",
+    "uncertainty": "4:3 Fit crops source context. Review side content and framing before sharing."
+  }
+]

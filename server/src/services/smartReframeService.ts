@@ -1554,7 +1554,7 @@ export class SmartReframeService {
       if(shot.split||shot.presentationProtection?.preserveWindow)return shot;
       const local=(options.rawSamples||[]).filter(s=>s.time>=shot.start&&s.time<shot.end);
       if(shot.end-shot.start<1.5||persistentObjectRegions(local).length||(options.protectedContentRegions||[]).some(r=>r.confidence>=.7&&r.start<shot.end&&r.end>shot.start))return shot;
-      const assigned=assignParticipantPanels(local,options.sourceWidth,options.sourceHeight,{allowFaceWindowReview:options.participantFaceWindowReview});
+      const assigned=assignParticipantPanels(local,options.sourceWidth,options.sourceHeight,{allowFaceWindowReview:options.participantFaceWindowReview,aspectMatchedFaceReview:options.participantAspectMatchedFaceReview});
       if(!assigned)return shot;
       return {...shot,kind:'group' as const,windowW:1,windowH:1,keyframes:[{time:shot.start,centerX:.5,centerY:.5}],
         split:{speaker1X:.25,speaker2X:.75,dividerX:.5,focusPanels:assigned.panels},
