@@ -1,3 +1,4 @@
+import {visibleEditorAssetItems} from '../shared/visibleEditorAssets.js';
 import {primaryVisibleVideoItems} from '../shared/primaryVideoItems.js';
 import {usesAutomaticSourceClock,automaticSourceWindow} from '../shared/automaticSourceClock.js';
 import {resolveMeasuredItemPlan} from './itemShotPlanService.js';
@@ -772,37 +773,35 @@ export class ProEditorService {
     project: EditorProject,
     tmpDir: string
   ): Promise<EditorProject> {
-    for (const track of project.tracks) {
-      for (const item of track.items) {
-        const rawPath = item.source_path;
-        if (!rawPath) continue;
+    for (const item of visibleEditorAssetItems(project)) {
+      const rawPath = item.source_path;
+      if (!rawPath) continue;
 
-        // Defense in depth: items persisted before source-path validation existed
-        // must not be fetched server-side. Disallowed sources are skipped.
-        if (!isAllowedEditorSourcePath(project.user_id, rawPath)) {
-          logger.warn(`[ProEditor] Skipping disallowed overlay asset for item ${item.id} during preload`);
-          continue;
-        }
+      // Defense in depth: items persisted before source-path validation existed
+      // must not be fetched server-side. Disallowed sources are skipped.
+      if (!isAllowedEditorSourcePath(project.user_id, rawPath)) {
+        logger.warn(`[ProEditor] Skipping disallowed overlay asset for item ${item.id} during preload`);
+        continue;
+      }
 
-        if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) {
-          try {
-            const ext = overlayAssetExtension(rawPath);
-            const localCachePath = path.join(tmpDir, `overlay_${item.id}${ext}`);
-            if (!fs.existsSync(localCachePath)) {
-              // Redirects are not followed: an allowlisted host must not be able
-              // to bounce the server-side fetch onto an internal address.
-              const res = await fetch(rawPath, { headers: { 'User-Agent': 'VireoClip/1.0' }, redirect: 'manual' });
-              if (res.ok) {
-                const buf = Buffer.from(await res.arrayBuffer());
-                fs.writeFileSync(localCachePath, buf);
-                item.source_path = localCachePath;
-              }
-            } else {
+      if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) {
+        try {
+          const ext = overlayAssetExtension(rawPath);
+          const localCachePath = path.join(tmpDir, `overlay_${item.id}${ext}`);
+          if (!fs.existsSync(localCachePath)) {
+            // Redirects are not followed: an allowlisted host must not be able
+            // to bounce the server-side fetch onto an internal address.
+            const res = await fetch(rawPath, { headers: { 'User-Agent': 'VireoClip/1.0' }, redirect: 'manual' });
+            if (res.ok) {
+              const buf = Buffer.from(await res.arrayBuffer());
+              fs.writeFileSync(localCachePath, buf);
               item.source_path = localCachePath;
             }
-          } catch (e) {
-            logger.warn(`Failed to preload remote overlay asset: ${e}`);
+          } else {
+            item.source_path = localCachePath;
           }
+        } catch (e) {
+          logger.warn(`Failed to preload remote overlay asset: ${e}`);
         }
       }
     }
