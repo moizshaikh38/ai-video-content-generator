@@ -50,3 +50,11 @@ Independent sync alternatives do not remove this gate: Oxford's original SyncNet
 - Runtime wheel metadata: https://download-r2.pytorch.org/whl/cpu/torch-2.5.1%2Bcpu-cp310-cp310-linux_x86_64.whl
 
 No model binary, source video or third-party source is included in the product commit. The separate parent handoff contains retained controls, pinned research models and their license notices for isolated reproduction only.
+
+## Follow-through from isolated validation,16:44
+
+Official pinned checkpoint verified at3,426,337bytes/Git blob04d79d90609d9168aa5ee1f8ca3f810dbdb734bc; weights-only strict load matched164model keys and2lossAV keys,unused2lossV keys excluded. Independent reference run with torch2.5.1+cpu andORT1.23.2 found final-score max absolute error2.62261e-6 and identical decision signs over randomT10/25/40 plus real controls. Two end-padded positive offsets fromsubject_5are excluded from like-for-like real-audio claims, leaving19bounded real controls. On tested tensors, ONNX conversion does not explain failures. This is scoped numerical parity, not model quality.
+
+Interpolation/median13crop smoothing and untuned diagnostic scales do not establish correct wrong-speech rejection. Official duration ensemble was then assessed on retained12s continuous single-face footage: every-frame YuNet detections plus official-style tracking/crop and a weighted duration diagnostic, NOT S3FD. Reported aggregate correct1.785/100%positive,wrong1.974/100%,silence.427/65.7%. Mouth visible in inspected strip. Source-framework and short-track explanations do not establish a fix. This one-clip diagnostic is not universalASD failure, matched-detector validation or a quality pass. See numeric parity/crop/duration evidence files. Review caught that official durationSet is a Python set, collapsing duplicate1/2/3values, whereas the supplied diagnostic script used a repeated list. Requested six-unique-duration rerun; exact official ensemble equivalence not yet established. The script also corrects the official seconds-vs-frames length calculation and records that difference.
+
+S3FD provenance/rights remain unresolved. No S3FD checkpoint was downloaded by validation and no matched-detector claim is made. Checkpoint/data terms remain an independent product gate. No product model added.
