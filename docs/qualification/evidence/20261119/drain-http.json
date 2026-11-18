@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "actualLoopbackHttp": true,
+  "realWorkAdmissionAndShutdown": true,
+  "acceptedStatus": 202,
+  "drainingStatus": 503,
+  "drainingCode": "SERVER_DRAINING",
+  "connectionCloseHeader": true,
+  "backgroundRetainedAfter202": true,
+  "databaseCloseCalls": 1,
+  "events": [
+    "background-started",
+    "pollers-stopped",
+    "http-closing",
+    "http-closed",
+    "background-cleaned",
+    "database-close-double"
+  ],
+  "databaseCloseIsDouble": true,
+  "processRestartQualified": false,
+  "distributedLeasesQualified": false,
+  "noProductionMutation": true,
+  "noExternalNetwork": true
+}

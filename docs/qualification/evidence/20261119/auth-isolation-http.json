@@ -1,0 +1,118 @@
+{
+  "status": "passed",
+  "concurrentRequests": 20,
+  "distinctOwners": 2,
+  "rows": [
+    {
+      "case": "alpha",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "beta",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "alpha",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "beta",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "alpha",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "beta",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "alpha",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "beta",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "alpha",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "beta",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "alpha",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "beta",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "alpha",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "beta",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "alpha",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "beta",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "alpha",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "beta",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "alpha",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    },
+    {
+      "case": "beta",
+      "status": 200,
+      "contextRetainedAcrossAwait": true
+    }
+  ],
+  "authServiceRequests": 21,
+  "outageStatus": 401,
+  "outageCode": "AUTH_INVALID",
+  "outageReachedDownstream": false,
+  "callerOwnerContextUndefined": true,
+  "realAuthMiddleware": true,
+  "realSupabaseSdkHttp": true,
+  "localAuthServiceDouble": true,
+  "noDatabaseMutation": true,
+  "noExternalNetwork": true,
+  "hostedJwtCryptographyQualified": false
+}
