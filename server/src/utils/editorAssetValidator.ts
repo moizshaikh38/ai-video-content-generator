@@ -43,6 +43,10 @@ export function isAllowedEditorSourcePath(userId: string, value: unknown): boole
   if (typeof value !== 'string') return false;
   const v = value.trim();
   if (!v) return true;
+  // Check before the user-scoped storage prefix: an apparent own-user key
+  // must not bypass traversal/protocol guards. Backslashes and controls are
+  // ambiguous across filesystem, URL and FFmpeg input handling.
+  if (/[\u0000-\u001f\u007f\\]/.test(v)) return false;
 
   // Remote assets: HTTPS on an allowlisted host only.
   if (/^https?:\/\//i.test(v)) {
@@ -58,13 +62,14 @@ export function isAllowedEditorSourcePath(userId: string, value: unknown): boole
     return getEditorAssetHostAllowlist().has(host);
   }
 
+  // Non-HTTP URI schemes must never fall through as local filenames.
+  if (v.includes(':')) return false;
+  if (v.includes('..') || /%(?:2e|2f|5c)/i.test(v)) return false;
+
   // Storage keys are user-scoped; another user's key is never legal.
   if (v.startsWith('users/')) {
     return v.startsWith(`users/${userId}/`);
   }
-
-  // Path traversal is never acceptable.
-  if (v.includes('..')) return false;
 
   // Absolute paths: only the server-managed temp area (overlay cache).
   if (path.isAbsolute(v)) {

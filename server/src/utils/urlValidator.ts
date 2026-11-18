@@ -25,6 +25,24 @@ export interface ValidatedUrlResult {
   youtubeVideoId?: string;
 }
 
+function ipv6Words(address: string): number[] | null {
+  let value = address.split('%')[0];
+  // net.isIPv6 has already validated the syntax. Expand a dotted IPv4 tail
+  // into two words before expanding ::, so both mapped spellings agree.
+  if (value.includes('.')) {
+    const boundary = value.lastIndexOf(':');
+    const bytes = value.slice(boundary + 1).split('.').map(Number);
+    value = value.slice(0, boundary + 1)
+      + ((bytes[0] << 8) | bytes[1]).toString(16) + ':'
+      + ((bytes[2] << 8) | bytes[3]).toString(16);
+  }
+  const halves = value.split('::');
+  const left = halves[0] ? halves[0].split(':') : [];
+  const right = halves.length > 1 && halves[1] ? halves[1].split(':') : [];
+  const words = halves.length === 1 ? left : [...left, ...Array(8 - left.length - right.length).fill('0'), ...right];
+  return words.length === 8 ? words.map(word => parseInt(word, 16)) : null;
+}
+
 export class UrlValidator {
   /**
    * Checks if an IP address string belongs to private, loopback, link-local, or special reserved ranges.
@@ -96,12 +114,14 @@ export class UrlValidator {
         return true;
       }
 
-      // IPv4-mapped IPv6 (::ffff:127.0.0.1, etc.)
-      if (lower.includes('::ffff:')) {
-        const ipv4Part = lower.split('::ffff:')[1];
-        if (ipv4Part && net.isIPv4(ipv4Part)) {
-          return this.isPrivateIp(ipv4Part);
-        }
+      // Normalize IPv6 before inspecting mapped IPv4. Mapped addresses may use
+      // dotted decimal, hexadecimal hextets or a fully expanded prefix. Testing
+      // only the literal `::ffff:` spelling misses equivalent private targets.
+      const words = ipv6Words(lower);
+      if (words && words.slice(0, 5).every(word => word === 0) && words[5] === 0xffff) {
+        return this.isPrivateIp([
+          words[6] >>> 8, words[6] & 255, words[7] >>> 8, words[7] & 255,
+        ].join('.'));
       }
 
       return false;
