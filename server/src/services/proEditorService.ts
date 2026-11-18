@@ -1,3 +1,4 @@
+import {primaryVisibleVideoItems} from '../shared/primaryVideoItems.js';
 import {usesAutomaticSourceClock,automaticSourceWindow} from '../shared/automaticSourceClock.js';
 import {resolveMeasuredItemPlan} from './itemShotPlanService.js';
 import {freshEditorCaptionAppearance} from '../shared/freshEditorCaptionAppearance.js';
@@ -1335,11 +1336,7 @@ export class ProEditorService {
     // window from input 0 (the primary source) instead of their own source_path
     // and shifted/corrupted the base timeline (found during the two-pass loudnorm
     // work, Nov 2026).
-    const allVideoItems: EditorTrackItem[] = [];
-    if (videoTracks[0]) {
-      allVideoItems.push(...videoTracks[0].items.filter((i) => !i.hidden));
-    }
-    allVideoItems.sort((a, b) => a.timeline_start - b.timeline_start);
+    const allVideoItems = primaryVisibleVideoItems(project);
 
     // Build base video stream
     let videoStreamLabel = '[0:v]';

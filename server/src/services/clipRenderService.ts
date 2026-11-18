@@ -1,4 +1,5 @@
 import {quickCaptionWindows} from '../shared/sceneCaptionPlacement.js';
+import {primaryVisibleVideoItems} from '../shared/primaryVideoItems.js';
 import {singleItemSourceWindow} from '../shared/automaticSourceClock.js';
 import {resolveMeasuredItemPlan} from './itemShotPlanService.js';
 import {prepareSliceRender} from './sliceRenderPreparation.js';
@@ -30,6 +31,7 @@ import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 import {
   ClipRecord,
+  EditorTrackItem,
   RenderJobRecord,
   ClipAspectRatio,
   ClipCropMode,
@@ -982,17 +984,13 @@ export class ClipRenderService {
         editorProject=ProEditorService.prepareTrackerHandoffs(editorProject,{track:reframeDecision.track,clipStartSec:startSec,cropConfig:clip.crop_config});
         editorProject=expandSceneLayoutProject(editorProject);
         await ProEditorService.preloadRemoteOverlayAssets(editorProject, tempDir);
-        const videoTrackItems = editorProject.tracks
-          ?.filter((t: any) => t.type === 'VIDEO' && !t.hidden)
-          ?.flatMap((t: any) => t.items || []) || [];
+        const videoTrackItems = primaryVisibleVideoItems<EditorTrackItem>(editorProject);
         const isMultiSlice = videoTrackItems.length > 1;
         // Single-slice renders seek the input; the loudnorm measurement pass must
         // apply the same seek so it measures the exact audio window being rendered.
         // A layout choice must never change the selected source interval.
         // Manual Fit/Fill/Split/panels use the same input content as Auto.
-        const singleItem = !isMultiSlice
-          ? editorProject.tracks.find((t: {type:string;hidden?:boolean}) => t.type === 'VIDEO' && !t.hidden)?.items.find((i: {hidden?:boolean}) => !i.hidden)
-          : undefined;
+        const singleItem = !isMultiSlice ? videoTrackItems[0] : undefined;
         const sourceClockWindow = singleItemSourceWindow(singleItem,startSec,Number(editorProject.canvas.duration||durationSec));
         const candidateSourceStart = sourceClockWindow?.sourceStart ?? startSec;
         const candidateSourceDuration = sourceClockWindow?.sourceDuration ?? durationSec;
