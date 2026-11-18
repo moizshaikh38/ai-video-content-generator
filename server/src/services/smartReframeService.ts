@@ -1718,6 +1718,16 @@ export class SmartReframeService {
       const conflict=minimumCenter>maximumCenter;
       // A preferred presentation ratio cannot overrule measured content.
       // Preserve the full source when no 4:3 window can contain it together.
+      // Failure at a shallow crop height is not failure of every 4:3 view.
+      // Expand to full source height and re-center before a source-aspect strip.
+      // All sampled people, faces, explicit/object regions and the established
+      // padded body envelope still constrain this recovery.
+      const recovered=conflict?constrainedFit43(samples,[...regions,...(body?[{x:body.left,y:body.top,width:body.right-body.left,height:body.bottom-body.top,confidence:1}]:[])],sourceWidth,sourceHeight,shot.keyframes[0]?.centerX):null;
+      if(recovered)return {...shot,kind:'fit' as const,windowW:recovered.windowW,windowH:recovered.windowH,
+        presentationProtection:{preserveWindow:true as const,reason:'measured-context' as const},
+        contextStatus:'unresolved-review-required' as const,
+        uncertainty:'Expanded full-height 4:3 Fit contains sampled face/person boxes and supplied context regions. Unseen side content and between-sample motion remain unverified.',
+        keyframes:[{time:shot.start,centerX:recovered.centerX,centerY:recovered.centerY}]};
       if(conflict)return {...shot,presentationProtection:{preserveWindow:true as const,reason:'measured-subject-conflict' as const},kind:'fit' as const,windowW:1,windowH:1,
         contextStatus:'unresolved-review-required' as const,
         uncertainty:'Safe full-source Fit: preferred 4:3 would cut measured subjects or side content. Review the scene before sharing.',
