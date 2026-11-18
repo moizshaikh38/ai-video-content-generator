@@ -18,7 +18,8 @@ interface Props {
 /**
  * Preview of a multi-panel scene. Each panel is a clipped <video> placed with the same math the export
  * uses (cover window of the panel aspect, divided by zoom, offset by focus*(source-window)), so the
- * preview and buildPanelsFilter show the same crop. Pixel rects tile the canvas without gaps.
+ * preview and buildPanelsFilter show the same crop. Contain keeps the chosen region whole and clips
+ * neighboring source content before centering it with black bars. Pixel rects tile the canvas.
  */
 export const PanelsPreview: React.FC<Props> = ({ src, panels, canvasW, canvasH, srcW, srcH, time, playing, filter }) => {
   const cfg = normalizePanels(panels)!;
@@ -46,7 +47,8 @@ export const PanelsPreview: React.FC<Props> = ({ src, panels, canvasW, canvasH, 
         const pw = right - left, ph = bottom - top;
         const s = cfg.slots[i];
         const sourceWindow = panelSourceWindow(s, srcW, srcH, pw / ph);
-        const k = pw / sourceWindow.w;
+        const k = s.fit === 'contain' ? Math.min(pw / sourceWindow.w, ph / sourceWindow.h) : pw / sourceWindow.w;
+        const ox = (pw - sourceWindow.w * k) / 2, oy = (ph - sourceWindow.h * k) / 2;
         const w = srcW * k, h = srcH * k;
         return (
           <div key={i} data-testid={`panel-${i}`} className="absolute overflow-hidden bg-black" style={{ left, top, width: pw, height: ph }}>
@@ -57,7 +59,8 @@ export const PanelsPreview: React.FC<Props> = ({ src, panels, canvasW, canvasH, 
               playsInline
               preload="auto"
               onLoadedMetadata={(e) => { e.currentTarget.currentTime = time; }}
-              style={{ position: 'absolute', maxWidth: 'none', width: w, height: h, left: -sourceWindow.x * k, top: -sourceWindow.y * k, filter }}
+              style={{ position: 'absolute', maxWidth: 'none', width: w, height: h, left: ox-sourceWindow.x * k, top: oy-sourceWindow.y * k,
+                clipPath: s.fit === 'contain' ? `inset(${sourceWindow.y/srcH*100}% ${(srcW-sourceWindow.x-sourceWindow.w)/srcW*100}% ${(srcH-sourceWindow.y-sourceWindow.h)/srcH*100}% ${sourceWindow.x/srcW*100}%)` : undefined, filter }}
             />
             {!s.set && (
               <span data-testid={`panel-unset-${i}`} className="absolute left-1 top-1 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-white/80">Unassigned view</span>

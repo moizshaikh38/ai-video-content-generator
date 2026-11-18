@@ -10,7 +10,7 @@ export const PANEL_LAYOUTS: PanelLayout[] = ['three', 'four', 'screenshare', 'ga
 
 export interface PanelRect { x: number; y: number; w: number; h: number }
 /** `set: true` only after the user chose this panel's view (crop box) or a detector assigned it. Defaults are unassigned placeholders. */
-export interface PanelSlot { focusX: number; focusY: number; scale: number; /** Restrict this view to a measured source rectangle before cover/zoom. Normalized source coordinates. */ sourceRect?: PanelRect; set?: boolean; /** 'track' = framed on the clip's subject track (a design choice, not Opus's rule). */ auto?: 'track' }
+export interface PanelSlot { /** Show the entire chosen region with black bars, ignoring cover zoom/focus. Manual opt-in only. */ fit?: 'contain'; focusX: number; focusY: number; scale: number; /** Restrict this view to a measured source rectangle before cover/zoom. Normalized source coordinates. */ sourceRect?: PanelRect; set?: boolean; /** 'track' = framed on the clip's subject track (a design choice, not Opus's rule). */ auto?: 'track' }
 export interface ItemPanels { layout: PanelLayout; slots: PanelSlot[] }
 
 const R = (x: number, y: number, w: number, h: number): PanelRect => ({ x, y, w, h });
@@ -53,7 +53,7 @@ export function normalizeSourceRect(r: unknown): PanelRect | null {
   return {x,y,w:Math.min(w,1-x),h:Math.min(h,1-y)};
 }
 
-/** Source-pixel cover window, shared with the live preview. Focus is relative to sourceRect when present. */
+/** Source pixels shown by this panel: a cover window, or the entire region in contain mode. */
 export function panelSourceWindow(slot: PanelSlot, sourceW: number, sourceH: number, targetAspect: number): PanelRect {
   const r = normalizeSourceRect(slot.sourceRect) || {x:0,y:0,w:1,h:1};
   const ev=(v:number)=>Math.round(v/2)*2;
@@ -61,6 +61,7 @@ export function panelSourceWindow(slot: PanelSlot, sourceW: number, sourceH: num
   const rh=slot.sourceRect ? Math.min(sourceH,Math.max(2,ev(sourceH*r.h))) : sourceH;
   const rx=slot.sourceRect ? Math.min(sourceW-rw,Math.max(0,ev(sourceW*r.x))) : 0;
   const ry=slot.sourceRect ? Math.min(sourceH-rh,Math.max(0,ev(sourceH*r.y))) : 0;
+  if (slot.fit === 'contain') return {x:rx,y:ry,w:rw,h:rh};
   const w=Math.min(rw,rh*targetAspect)/slot.scale, h=Math.min(rh,rw/targetAspect)/slot.scale;
   return {x:rx+(rw-w)*slot.focusX,y:ry+(rh-h)*slot.focusY,w,h};
 }
@@ -73,6 +74,7 @@ export function normalizePanels(p: Partial<ItemPanels> | undefined | null): Item
   return {
     layout: p.layout,
     slots: rects.map((_, i) => ({
+      ...(p.slots?.[i]?.fit === 'contain' ? { fit: 'contain' as const } : {}),
       focusX: clamp(p.slots?.[i]?.focusX, 0, 1, def[i].focusX),
       focusY: clamp(p.slots?.[i]?.focusY, 0, 1, def[i].focusY),
       scale: clamp(p.slots?.[i]?.scale, 1, 4, def[i].scale),
@@ -96,7 +98,7 @@ export function panelPixelRects(layout: PanelLayout, canvasW: number, canvasH: n
 
 /**
  * Chain-safe ffmpeg fragment (consumes the slice stream, ends unlabeled): split into N copies, each
- * cover-cropped to its panel aspect with its own focus/zoom, scaled to its pixel rect, stacked.
+ * cover-cropped with focus/zoom, or contained whole with black bars, then stacked.
  */
 export function buildPanelsFilter(panelsIn: ItemPanels, canvasW: number, canvasH: number, tag = 'vcp'): string {
   const panels = normalizePanels(panelsIn)!;
@@ -108,7 +110,7 @@ export function buildPanelsFilter(panelsIn: ItemPanels, canvasW: number, canvasH
     const a = (r.w / r.h).toFixed(5);
     const s = panels.slots[i];
     parts.push(
-      `[${tag}_i${i}]${s.sourceRect ? `crop=w='min(iw,max(2,round(iw*${s.sourceRect.w.toFixed(8)}/2)*2))':h='min(ih,max(2,round(ih*${s.sourceRect.h.toFixed(8)}/2)*2))':x='min(iw-ow,max(0,round(iw*${s.sourceRect.x.toFixed(8)}/2)*2))':y='min(ih-oh,max(0,round(ih*${s.sourceRect.y.toFixed(8)}/2)*2))',` : ''}crop=w='min(iw,ih*${a})/${s.scale.toFixed(4)}':h='min(ih,iw/${a})/${s.scale.toFixed(4)}':x='(iw-ow)*${s.focusX.toFixed(4)}':y='(ih-oh)*${s.focusY.toFixed(4)}',scale=${r.w}:${r.h},setsar=1[${tag}_p${i}]`
+      `[${tag}_i${i}]${s.sourceRect ? `crop=w='min(iw,max(2,round(iw*${s.sourceRect.w.toFixed(8)}/2)*2))':h='min(ih,max(2,round(ih*${s.sourceRect.h.toFixed(8)}/2)*2))':x='min(iw-ow,max(0,round(iw*${s.sourceRect.x.toFixed(8)}/2)*2))':y='min(ih-oh,max(0,round(ih*${s.sourceRect.y.toFixed(8)}/2)*2))',` : ''}${s.fit === 'contain' ? `scale=${r.w}:${r.h}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=${r.w}:${r.h}:(ow-iw)/2:(oh-ih)/2:color=black` : `crop=w='min(iw,ih*${a})/${s.scale.toFixed(4)}':h='min(ih,iw/${a})/${s.scale.toFixed(4)}':x='(iw-ow)*${s.focusX.toFixed(4)}':y='(ih-oh)*${s.focusY.toFixed(4)}',scale=${r.w}:${r.h}`},setsar=1[${tag}_p${i}]`
     );
   });
   const p = (i: number) => `[${tag}_p${i}]`;

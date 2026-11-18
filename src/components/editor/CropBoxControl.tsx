@@ -1,7 +1,9 @@
 import { createPortal } from 'react-dom';
 import React, { useEffect, useRef, useState } from 'react';
 import { Crop, X } from 'lucide-react';
-import { boxFromCrop, cropFromBox, moveBox, resizeBox, type CropBox, type CropState } from '../../lib/cropBox';
+import type { PanelRect } from '../../../server/src/shared/panelLayouts';
+type EditableCrop = CropState & { fit?: 'contain'; sourceRect?: PanelRect };
+import { boxFromCrop, cropFromBox, moveBox, resizeBox, resizeRegionBox, type CropBox, type CropState } from '../../lib/cropBox';
 
 interface Props {
   videoSrc: string | null;
@@ -10,22 +12,26 @@ interface Props {
   srcH: number;
   /** Output canvas aspect (width / height). */
   canvasAspect: number;
-  current: CropState;
+  current: EditableCrop;
+  /** Panel-only: choose a free-aspect source region and retain it whole. */
+  allowRegionFit?: boolean;
   /** False when the scene is Fit/Blur/Split: crop box only applies to Fill. */
   enabled: boolean;
   /** Toolbar label (default 'Crop'); used per panel in multi-panel scenes. */
   label?: string;
   disabledReason?: string;
   notice?: string;
-  onApply: (crop: CropState) => void;
+  onApply: (crop: EditableCrop) => void;
   /** Render directly inside the editor canvas, rather than a modal. */
   inlineTarget?: HTMLElement | null;
   onOpen?: () => void;
 }
 
 /** Preview-top "Crop": drag the box to move it, drag a corner to resize (zoom). Aspect is locked to the canvas. */
-export const CropBoxControl: React.FC<Props> = ({ label, videoSrc, sourceTime, srcW, srcH, canvasAspect, current, enabled, onApply, inlineTarget, onOpen, disabledReason, notice }) => {
+export const CropBoxControl: React.FC<Props> = ({ label, videoSrc, sourceTime, srcW, srcH, canvasAspect, current, enabled, onApply, inlineTarget, onOpen, disabledReason, notice, allowRegionFit }) => {
   const [open, setOpen] = useState(false);
+  const [fit, setFit] = useState(false);
+  const regionBox = (): CropBox => current.sourceRect ? {left:current.sourceRect.x,top:current.sourceRect.y,w:current.sourceRect.w,h:current.sourceRect.h} : {left:0,top:0,w:1,h:1};
   const [box, setBox] = useState<CropBox>(() => boxFromCrop(srcW || 16, srcH || 9, canvasAspect, current));
   const stage = useRef<HTMLDivElement>(null);
   const drag = useRef<null | { kind: 'move'; last: { x: number; y: number } } | { kind: 'corner'; anchor: { x: number; y: number } }>(null);
@@ -39,22 +45,26 @@ export const CropBoxControl: React.FC<Props> = ({ label, videoSrc, sourceTime, s
   ];
   return (
     <div>
-      <button type="button" disabled={!enabled} onClick={(e) => { e.stopPropagation(); onOpen?.(); setBox(boxFromCrop(sw, sh, canvasAspect, current)); setOpen(true); }}
+      <button type="button" disabled={!enabled} onClick={(e) => { e.stopPropagation(); onOpen?.(); setFit(!!allowRegionFit && current.fit === 'contain'); setBox(allowRegionFit && current.fit === 'contain' ? regionBox() : boxFromCrop(sw, sh, canvasAspect, current)); setOpen(true); }}
         className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg hover:bg-white/[0.08] text-neutral-300 hover:text-white transition font-medium disabled:opacity-40"
-        title={enabled ? 'Crop: drag the box, resize from a corner' : (disabledReason || 'Crop applies to Fill scenes. Set this scene to Fill first.')}>
+        title={enabled ? (allowRegionFit ? 'Choose a panel crop or fit a whole source region' : 'Crop: drag the box, resize from a corner') : (disabledReason || 'Crop applies to Fill scenes. Set this scene to Fill first.')}>
         <Crop className="w-3.5 h-3.5" /><span>{label ?? 'Crop'}</span>
       </button>
       {open && createPortal(
         <div onPointerDown={e => e.stopPropagation()} data-testid={inlineTarget ? "inline-preview-crop" : "crop-dialog"} className={inlineTarget ? "absolute inset-0 z-[80] bg-black flex items-center justify-center" : "fixed inset-0 z-[100] bg-black/60 flex items-center justify-center"} onClick={() => setOpen(false)}>
           <div className={inlineTarget ? "bg-black p-3 w-full max-w-[560px] max-h-full overflow-y-auto text-neutral-200" : "bg-vc-surface1 border border-white/10 rounded-2xl p-5 w-[560px] max-w-[92vw] text-neutral-200"} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1"><h3 className="text-sm font-semibold text-white">{label ?? 'Crop'}</h3><button type="button" onClick={(e) => { e.stopPropagation(); setOpen(false); }} aria-label="Close"><X className="w-4 h-4" /></button></div>
-            <p className="text-[11px] text-neutral-400 mb-3">Drag the box to move it. Drag a corner to resize (zoom 1x-4x). The box keeps the canvas shape.</p>
+            <p className="text-[11px] text-neutral-400 mb-3">{fit ? 'Choose the source region to keep whole. Drag to move; resize any corner. Black bars fill unused panel space.' : 'Drag the box to move it. Drag a corner to resize (zoom 1x-4x). The box keeps the canvas shape.'}</p>
+            {allowRegionFit && <div className="flex gap-2 mb-3 text-[11px]" role="group" aria-label="Panel scaling">
+              <button type="button" aria-pressed={!fit} className={`px-2 py-1 rounded ${!fit ? 'bg-white text-black' : 'bg-white/10'}`} onClick={() => {setFit(false);setBox(boxFromCrop(sw,sh,canvasAspect,current));}}>Fill panel</button>
+              <button type="button" aria-pressed={fit} className={`px-2 py-1 rounded ${fit ? 'bg-white text-black' : 'bg-white/10'}`} onClick={() => {setFit(true);setBox(regionBox());}}>Fit selected region</button>
+            </div>}
             {notice && <p className="text-[11px] text-amber-300 mb-2">{notice}</p>}
             <div ref={stage} data-testid="crop-stage" className="relative bg-black rounded-lg overflow-hidden select-none touch-none" style={{ aspectRatio: `${sw}/${sh}`, maxHeight: '58vh', maxWidth: '100%', margin: '0 auto' }}
               onPointerMove={(e) => {
                 const d = drag.current; if (!d) return; const p = pt(e);
                 if (d.kind === 'move') { setBox((b) => moveBox(b, p.x - d.last.x, p.y - d.last.y)); d.last = p; }
-                else setBox(resizeBox(sw, sh, canvasAspect, d.anchor, p));
+                else if (fit) setBox(resizeRegionBox(d.anchor,p)); else setBox(resizeBox(sw, sh, canvasAspect, d.anchor, p));
               }}
               onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }}>
               {videoSrc && <video src={videoSrc} muted playsInline preload="auto" className="absolute inset-0 w-full h-full pointer-events-none" onLoadedMetadata={(e) => { e.currentTarget.currentTime = sourceTime; }} />}
@@ -70,10 +80,10 @@ export const CropBoxControl: React.FC<Props> = ({ label, videoSrc, sourceTime, s
               </div>
             </div>
             <div className="flex items-center justify-between mt-3 text-[11px]">
-              <span className="text-neutral-400">Zoom {(cropFromBox(sw, sh, canvasAspect, box).scale).toFixed(2)}x</span>
+              <span className="text-neutral-400">{fit ? 'Whole selected region' : `Zoom ${cropFromBox(sw, sh, canvasAspect, box).scale.toFixed(2)}x`}</span>
               <div className="flex gap-2">
-                <button type="button" className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15" onClick={() => setBox(boxFromCrop(sw, sh, canvasAspect, { focusX: 0.5, focusY: 0.5, scale: 1 }))}>Reset</button>
-                <button type="button" className="px-3 py-1.5 rounded-lg bg-white text-black font-medium" onClick={(e) => { e.stopPropagation(); onApply(cropFromBox(sw, sh, canvasAspect, box)); setOpen(false); }}>Apply</button>
+                <button type="button" className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15" onClick={() => setBox(fit ? {left:0,top:0,w:1,h:1} : boxFromCrop(sw, sh, canvasAspect, { focusX: 0.5, focusY: 0.5, scale: 1 }))}>Reset</button>
+                <button type="button" className="px-3 py-1.5 rounded-lg bg-white text-black font-medium" onClick={(e) => { e.stopPropagation(); onApply(fit ? {focusX:.5,focusY:.5,scale:1,fit:'contain',sourceRect:{x:box.left,y:box.top,w:box.w,h:box.h}} : cropFromBox(sw, sh, canvasAspect, box)); setOpen(false); }}>Apply</button>
               </div>
             </div>
           </div>
