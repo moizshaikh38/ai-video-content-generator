@@ -37,7 +37,10 @@ def source_text_regions(frame,include_word_candidates=False):
   ih,iw=image.shape[:2]
   with tempfile.TemporaryDirectory() as d:
    path=os.path.join(d,'frame.png');cv2.imwrite(path,image)
-   p=subprocess.run(['tesseract',path,'stdout','--psm','11','tsv'],capture_output=True,text=True,timeout=5,check=True)
+   # One OCR child at a time, one OpenMP thread in each child. Large default
+   # thread pools cost CPU/memory on concurrent render hosts; this is a
+   # resource bound, not a change to recognition or sampling thresholds.
+   p=subprocess.run(['tesseract',path,'stdout','--psm','11','tsv'],capture_output=True,text=True,timeout=5,check=True,env={**os.environ,'OMP_THREAD_LIMIT':'1'})
   for r in regions_from_tsv(p.stdout,iw,ih,include_word_candidates):
    x=r['x']*iw/scale;y=r['y']*ih/scale+offset;rw=r['width']*iw/scale;rh=r['height']*ih/scale
    r.update(x=x/w,y=y/h,width=rw/w,height=rh/h)
