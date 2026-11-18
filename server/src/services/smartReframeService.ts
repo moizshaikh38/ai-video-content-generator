@@ -1496,6 +1496,19 @@ export class SmartReframeService {
         'presentationProtection' in shot && shot.presentationProtection?.preserveWindow ? shot :
           anchorFitToMeasuredFaces([shot],track.raw_samples,track.source_width,track.source_height,true)[0]);
     }
+    // Measured context is a constraint on ordinary Auto too, not only on
+    // experimental composition. Do not discard the planner's protected Fit
+    // and fall back to a generic 4:3 view that cuts that same region again.
+    // This consumes supplied/source-bound measurements; absence is unknown.
+    if ((track.metadata.protected_content_regions || []).some((r:any) =>
+        [r.start,r.end,r.x,r.y,r.width,r.height,r.confidence].every(Number.isFinite) &&
+        r.start < duration && r.end > 0 && r.end > r.start && r.confidence >= .7 &&
+        r.x >= 0 && r.y >= 0 && r.width > 0 && r.height > 0 &&
+        r.x+r.width <= 1.001 && r.y+r.height <= 1.001) &&
+        plan.length && plan.every(s => s.kind === 'fit' &&
+        s.presentationProtection?.preserveWindow === true &&
+        s.presentationProtection.reason === 'measured-context') &&
+        (!cropConfig.layoutPolicy || cropConfig.layoutPolicy.allowed.includes('fit'))) return plan;
     if(plan.length&&plan.every(s=>s.split)&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('split')))return plan;
     // A face-less moving body is a different evidence class from a talking
     // head. Use only complete sampled single-body tracks, full source height,
