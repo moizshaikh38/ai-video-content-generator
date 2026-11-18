@@ -26,7 +26,7 @@ for (const ip of ['::ffff:8.8.8.8', '::ffff:808:808', '0:0:0:0:0:ffff:808:808', 
   });
 }
 test('native IPv6 private and loopback protections remain', () => {
-  for (const ip of ['::1', '0:0:0:0:0:0:0:1', '::', 'fe80::1', 'fc00::1', 'fd00::1']) {
+  for (const ip of ['::1', '0:0:0:0:0:0:0:1', '0000:0000:0000:0000:0000:0000:0000:0001', '::', '0000:0000:0000:0000:0000:0000:0000:0000', 'fe80::1', 'fc00::1', 'fd00::1']) {
     assert.equal(UrlValidator.isPrivateIp(ip), true, ip);
   }
 });

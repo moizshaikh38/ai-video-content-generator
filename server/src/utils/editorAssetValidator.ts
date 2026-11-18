@@ -100,6 +100,22 @@ export async function validateEditorSourcePath(userId: string, value: unknown): 
   }
 }
 
+export function isAllowedClientEditorSourcePath(userId: string, value: unknown): boolean {
+  if (!isAllowedEditorSourcePath(userId, value)) return false;
+  if (value == null || (typeof value === 'string' && !value.trim())) return true;
+  const v = (value as string).trim();
+  // Client requests carry storage references or remote CDN assets, never a
+  // server filesystem capability. Generated local assets use the internal path.
+  return v.startsWith(`users/${userId}/`) || /^https:\/\//i.test(v);
+}
+
+export async function validateClientEditorSourcePath(userId: string, value: unknown): Promise<void> {
+  if (!isAllowedClientEditorSourcePath(userId, value)) {
+    throw new AppError('Editor item source must be an owned storage key or approved HTTPS asset.', 400, 'EDITOR_SOURCE_NOT_ALLOWED');
+  }
+  await validateEditorSourcePath(userId, value);
+}
+
 /**
  * Extension for overlay assets, replacing substring sniffing (`includes('.gif')`)
  * which mis-classified paths like `/my.gif.folder/file` or query strings.

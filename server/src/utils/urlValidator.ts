@@ -118,6 +118,7 @@ export class UrlValidator {
       // dotted decimal, hexadecimal hextets or a fully expanded prefix. Testing
       // only the literal `::ffff:` spelling misses equivalent private targets.
       const words = ipv6Words(lower);
+      if (words && words.slice(0, 7).every(word => word === 0) && words[7] <= 1) return true;
       if (words && words.slice(0, 5).every(word => word === 0) && words[5] === 0xffff) {
         return this.isPrivateIp([
           words[6] >>> 8, words[6] & 255, words[7] >>> 8, words[7] & 255,

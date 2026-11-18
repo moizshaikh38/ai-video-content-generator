@@ -87,7 +87,7 @@ import { AudioDuckingService } from './audioDuckingService.js';
 import { SoundDesignService } from './soundDesignService.js';
 import { SmartReframeService } from './smartReframeService.js';
 import { partitionCaptionCues, shiftCaptionItemsForRippleDelete, cloneCaptionCuesForDuplicate } from '../utils/editorRippleCut.js';
-import { validateEditorSourcePath, isAllowedEditorSourcePath, overlayAssetExtension } from '../utils/editorAssetValidator.js';
+import { validateClientEditorSourcePath, validateEditorSourcePath, isAllowedEditorSourcePath, overlayAssetExtension } from '../utils/editorAssetValidator.js';
 import { roundedCardPng } from '../utils/roundedCardPng.js';
 import { getDrawtextFfmpeg } from '../utils/drawtextFfmpeg.js';
 import { resolveXfadeName, getTransitionPreset, clampTransitionDuration } from '../shared/transitionPresets.js';
@@ -307,7 +307,7 @@ export class ProEditorService {
     projectId: string,
     userId: string,
     dto: UpdateEditorProjectDTO,
-    options:{clipSyncRequired?:boolean}={}
+    options:{clipSyncRequired?:boolean;clientSupplied?:boolean}={}
   ): Promise<EditorProject> {
     if (!isValidUUID(projectId)) {
       throw new AppError('Invalid editor project ID.', 400, 'INVALID_UUID');
@@ -354,7 +354,8 @@ export class ProEditorService {
           ProEditorService.assertItemFramingWindow(item, dto.canvas?.aspect_ratio ?? current.canvas?.aspect_ratio ?? '9:16');
           // Source paths become server-side fetches and FFmpeg inputs — validate strictly.
           if (item.source_path !== undefined && item.source_path !== null) {
-            await validateEditorSourcePath(userId, item.source_path);
+            if (options.clientSupplied) await validateClientEditorSourcePath(userId, item.source_path);
+            else await validateEditorSourcePath(userId, item.source_path);
           }
         }
       }

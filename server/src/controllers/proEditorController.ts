@@ -103,7 +103,7 @@ export const updateEditorProject = async (
   }
 
   try {
-    const updated = await ProEditorService.updateEditorProject(projectId, userId, req.body || {});
+    const updated = await ProEditorService.updateEditorProject(projectId, userId, req.body || {}, {clientSupplied:true});
     res.status(200).json({ status: 'ok', data: updated });
   } catch (err: any) {
     const statusCode = err.statusCode || 500;
