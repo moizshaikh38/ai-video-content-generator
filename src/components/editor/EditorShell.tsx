@@ -633,6 +633,9 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     keyframes: Array<{ time: number; centerX: number; centerY?: number }>;
     clipStartSec?: number;
   } | null>(null);
+  // Layout helpers consume source-clock windows; fetched tracks are clip-relative.
+  const layoutSubjectKeyframes=React.useMemo(()=>smartReframe?.keyframes.map(k=>({...k,time:k.time+(smartReframe.clipStartSec||0)}))??null,[smartReframe]);
+  const layoutSubjectSourceSize=speakerSplitData?.sourceWidth&&speakerSplitData?.sourceHeight?{width:speakerSplitData.sourceWidth,height:speakerSplitData.sourceHeight}:undefined;
   useEffect(() => {
     const clipId = clip?.id;
     const mode = (clip?.crop_config as { mode?: string } | null | undefined)?.mode;
@@ -1689,7 +1692,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                     current={readItemLayout(sceneItem)}
                     onPick={(layout) => {
                       onCommitProject?.(project);
-                      onUpdateProject(prev=>{const offset=compositionSourceStart,time=sceneItem.source_start+(currentTime-sceneItem.timeline_start)*(sceneItem.speed?.speed||1);const shot=speakerSplit?.shotComposition?.find(s=>time>=s.start+offset&&time<s.end+offset);return shot?applySceneLayout(prev,sceneItem.id,shot.start+offset,shot.end+offset,layout,smartReframe?.keyframes??null):applyItemLayout(prev,sceneItem.id,layout,smartReframe?.keyframes??null)});
+                      onUpdateProject(prev=>{const offset=compositionSourceStart,time=sceneItem.source_start+(currentTime-sceneItem.timeline_start)*(sceneItem.speed?.speed||1);const shot=speakerSplit?.shotComposition?.find(s=>time>=s.start+offset&&time<s.end+offset);return shot?applySceneLayout(prev,sceneItem.id,shot.start+offset,shot.end+offset,layout,layoutSubjectKeyframes,layoutSubjectSourceSize):applyItemLayout(prev,sceneItem.id,layout,layoutSubjectKeyframes,layoutSubjectSourceSize)});
                     }}
                   />
                 </div>
@@ -1910,14 +1913,14 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             onUpdateCanvas={(patch) => {
               onUpdateProject((prev) => ({ ...prev, canvas: { ...prev.canvas, ...patch } }));
             }}
-            onPickWholeClipLayout={layout=>{onCommitProject?.(project);onUpdateProject(prev=>applyWholeClipLayout(prev,layout,smartReframe?.keyframes??null));}}
+            onPickWholeClipLayout={layout=>{onCommitProject?.(project);onUpdateProject(prev=>applyWholeClipLayout(prev,layout,layoutSubjectKeyframes,layoutSubjectSourceSize));}}
             onPickSceneLayout={(itemId, layout) => {
               onCommitProject?.(project);
               onUpdateProject((prev) => {
                 const item=prev.tracks.flatMap(t=>t.type==='VIDEO'?t.items:[]).find(i=>i.id===itemId);if(!item)return prev;
                 const offset=compositionSourceStart,sourceTime=item.source_start+(currentTime-item.timeline_start)*(item.speed?.speed||1);
                 const shot=speakerSplit?.shotComposition?.find(s=>sourceTime>=s.start+offset&&sourceTime<s.end+offset);
-                return shot ? applySceneLayout(prev,itemId,shot.start+offset,shot.end+offset,layout,smartReframe?.keyframes??null) : applyItemLayout(prev,itemId,layout,smartReframe?.keyframes??null);
+                return shot ? applySceneLayout(prev,itemId,shot.start+offset,shot.end+offset,layout,layoutSubjectKeyframes,layoutSubjectSourceSize) : applyItemLayout(prev,itemId,layout,layoutSubjectKeyframes,layoutSubjectSourceSize);
               });
             }}
             onUpdateCropMode={(mode) => {

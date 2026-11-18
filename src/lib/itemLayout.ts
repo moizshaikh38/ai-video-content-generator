@@ -1,3 +1,4 @@
+import {coverWindow} from './cropBox';
 import {resolveSceneLayoutItem} from '../../server/src/shared/sceneLayoutOverrides';
 import type { EditorProject, EditorTrackItem } from '../types';
 
@@ -43,8 +44,9 @@ export function applyItemLayout(
   project: EditorProject,
   itemId: string,
   layout: SceneLayout,
-  /** Optional clip subject track (smart reframe) used to seed ScreenShare/Gameplay framing. */
-  subjectKeyframes?: Array<{ time: number; centerX: number; centerY?: number }> | null
+  /** Source-clock subject track, used only to seed a new crop/panel view. */
+  subjectKeyframes?: Array<{ time: number; centerX: number; centerY?: number }> | null,
+  sourceSize?: {width:number;height:number}
 ): EditorProject {
   return {
     ...project,
@@ -77,7 +79,15 @@ export function applyItemLayout(
             const mode = layout === 'fit' ? resolveFitMode(project.canvas) : layout;
             base.crop = { mode, choice: layout, ...(mode === 'fit' || mode === 'blur' ? fitBandFields(project.canvas) : {}), focusX: i.crop?.focusX ?? 0.5, focusY: i.crop?.focusY ?? 0.5, scale: i.crop?.scale ?? 1 };
           } else if (layout === 'fill') {
-            base.crop = { mode: 'fill', focusX: i.crop?.focusX ?? 0.5, focusY: i.crop?.focusY ?? 0.5, scale: i.crop?.scale ?? 1 };
+            // A new Fill should frame the measured subject, not blindly crop
+            // the middle between people. Existing manual focus always wins.
+            // Crop focus is CSS object-position, NOT source center: convert
+            // using the exact cover-window size shared by Crop dialog/export.
+            const subject=sourceSize&&sourceSize.width>0&&sourceSize.height>0?subjectCenterInWindow(subjectKeyframes,i.source_start||0,i.source_end??i.source_start+(i.timeline_end-i.timeline_start)):null;
+            const aspect=project.canvas.width&&project.canvas.height?project.canvas.width/project.canvas.height:project.canvas.aspect_ratio==='16:9'?16/9:project.canvas.aspect_ratio==='1:1'?1:9/16;
+            const window=subject&&sourceSize?coverWindow(sourceSize.width,sourceSize.height,aspect):null;
+            const scale=i.crop?.scale??1,focus=(center:number|undefined,size:number|undefined)=>center===undefined||size===undefined||1-size/scale<1e-6?.5:Math.max(0,Math.min(1,(center-size/scale/2)/(1-size/scale)));
+            base.crop = { mode: 'fill', focusX: i.crop?.focusX ?? focus(subject?.centerX,window?.w), focusY: i.crop?.focusY ?? focus(subject?.centerY,window?.h), scale };
           } else {
             delete base.crop;
           }
@@ -115,22 +125,22 @@ export function applyFramingStrategy(project: EditorProject, mode: 'center'|'fit
 
 /** A source-clock override on one analysis scene. The timeline item is not cut.
  * Base manual crops/transforms/tracker and every other scene remain untouched. */
-export function applySceneLayout(project:EditorProject,itemId:string,start:number,end:number,layout:SceneLayout,subjectKeyframes?:Array<{time:number;centerX:number;centerY?:number}>|null):EditorProject{
+export function applySceneLayout(project:EditorProject,itemId:string,start:number,end:number,layout:SceneLayout,subjectKeyframes?:Array<{time:number;centerX:number;centerY?:number}>|null,sourceSize?:{width:number;height:number}):EditorProject{
  if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start)return project;
  const t=project.tracks.find(t=>t.type==='VIDEO'&&t.items.some(i=>i.id===itemId));const item=t?.items.find(i=>i.id===itemId);
  if(!t||!item||t!==project.tracks.find(t=>t.type==='VIDEO'&&!t.hidden)||t.locked||item.locked||item.is_freeze||item.is_title_card)return project;
  const a=Math.max(start,item.source_start),b=Math.min(end,item.source_end);if(b<=a)return project;
  const effective={...resolveSceneLayoutItem(item,(a+b)/2),source_start:a,source_end:b};
  const scoped={...project,tracks:project.tracks.map(q=>q.id!==t.id?q:{...q,items:q.items.map(i=>i.id!==itemId?i:effective)})};
- const changed=applyItemLayout(scoped,itemId,layout,subjectKeyframes).tracks.find(q=>q.id===t.id)?.items.find(i=>i.id===itemId) as any;
+ const changed=applyItemLayout(scoped,itemId,layout,subjectKeyframes,sourceSize).tracks.find(q=>q.id===t.id)?.items.find(i=>i.id===itemId) as any;
  const patch:any={};for(const k of ['crop','panels','layout_mode','crop_config'])if(changed[k]!==undefined)patch[k]=changed[k];
  const prior=((item as any).scene_layout_overrides||[]).flatMap((o:any)=>o.end<=a||o.start>=b?[o]:[...(o.start<a?[{...o,end:a}]:[]),...(o.end>b?[{...o,start:b}]:[])]);
  const overrides=[...prior,{start:a,end:b,layout,patch}].sort((x,y)=>x.start-y.start);
  return {...project,tracks:project.tracks.map(q=>q.id!==t.id?q:{...q,items:q.items.map(i=>i.id!==itemId?i:{...i,scene_layout_overrides:overrides})})} as EditorProject;
 }
 /** Explicit whole-clip action replaces layout overrides on its primary video track. */
-export function applyWholeClipLayout(project:EditorProject,layout:SceneLayout,subjectKeyframes?:Array<{time:number;centerX:number;centerY?:number}>|null):EditorProject{
+export function applyWholeClipLayout(project:EditorProject,layout:SceneLayout,subjectKeyframes?:Array<{time:number;centerX:number;centerY?:number}>|null,sourceSize?:{width:number;height:number}):EditorProject{
  let next=project;const track=project.tracks.find(t=>t.type==='VIDEO');if(!track||track.locked)return project;
- for(const i of track.items)if(!i.locked){next=applyItemLayout(next,i.id,layout,subjectKeyframes);next={...next,tracks:next.tracks.map(t=>t.id!==track.id?t:{...t,items:t.items.map(q=>{if(q.id!==i.id)return q;const n:any={...q};delete n.scene_layout_overrides;return n})})};}
+ for(const i of track.items)if(!i.locked){next=applyItemLayout(next,i.id,layout,subjectKeyframes,sourceSize);next={...next,tracks:next.tracks.map(t=>t.id!==track.id?t:{...t,items:t.items.map(q=>{if(q.id!==i.id)return q;const n:any={...q};delete n.scene_layout_overrides;return n})})};}
  return next;
 }
