@@ -20,6 +20,10 @@ export interface ShotCompositionOptions {
     bodyOnlyPortraitReview?: boolean;
     /** Requires independently declared podcast/interview context. */
     allowConversationSplit?: boolean;
+    /** Offline participant assignment qualification. Not enabled by production callers. */
+    participantPanelsReview?: boolean;
+    /** Offline face-window-only panel qualification. Never read from user settings. */
+    participantFaceWindowReview?: boolean;
     /** Optional measured regions, local qualification only. Not semantic proof. */
     protectedContentRegions?: Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>;
   }

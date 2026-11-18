@@ -1,0 +1,35 @@
+{
+  "code": "TRANSCRIPT_REVIEW_REQUIRED",
+  "message": "Transcript needs audio review before automatic captions can be exported. Check the flagged speech spans and source language; no words were silently replaced.",
+  "providerCalls": 0,
+  "preferences": {
+    "genre": "general",
+    "genreSelectionMode": "auto",
+    "preferredDurations": "15-30",
+    "framingDefaults": {
+      "version": 1,
+      "layout": "auto"
+    }
+  },
+  "quality": {
+    "version": 1,
+    "status": "needs_review",
+    "diagnostics": "present",
+    "issues": [
+      {
+        "code": "invalid_timing",
+        "detail": "Provider word 2 has missing or invalid timing. No replacement timestamp was invented."
+      },
+      {
+        "code": "invalid_timing",
+        "detail": "Provider word 3 has missing or invalid timing. No replacement timestamp was invented."
+      }
+    ],
+    "provider": "openrouter",
+    "model": "openai/whisper-large-v3-turbo",
+    "detected_language": "da"
+  },
+  "source": "/downloads/recovered-source/gta5-facecam-rp-12s.mp4",
+  "sourceSha256": "feb7a2a42019938b8140ffb6caee4f187948a4ad4cc0f1632093edc7d3e48473",
+  "automaticGenreUnreached": true
+}

@@ -1,0 +1,39 @@
+{
+  "calls": 1,
+  "ok": true,
+  "rawUsage": {
+    "seconds": 12.015,
+    "cost": 0.00004000995
+  },
+  "before": {
+    "usage": 0.294333791,
+    "usage_monthly": 0.058256714,
+    "byok_usage": 0
+  },
+  "after": {
+    "usage": 0.294333791,
+    "usage_monthly": 0.058256714,
+    "byok_usage": 0
+  },
+  "conservativeCost": 0.00004000995,
+  "cumulative": 0.05829672800666541,
+  "remaining": 0.1417032719933346,
+  "sourceHash": "feb7a2a42019938b8140ffb6caee4f187948a4ad4cc0f1632093edc7d3e48473",
+  "audioSha256": "e3c6cefa8cbaea3bde7502b3bd46024260a32207a4576e3cab1832dc4cd91ef1",
+  "words": 29,
+  "segments": 6,
+  "language": "da",
+  "timingIssues": [
+    {
+      "kind": "word",
+      "index": 2,
+      "reason": "invalid-or-missing-provider-clock"
+    },
+    {
+      "kind": "word",
+      "index": 3,
+      "reason": "invalid-or-missing-provider-clock"
+    }
+  ],
+  "accuracyQualified": false
+}

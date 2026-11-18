@@ -1,3 +1,4 @@
+import {assignParticipantPanels} from '../shared/participantPanels.js';
 import {shortAutoTextDiscovery} from '../shared/shortAutoTextDiscovery.js';
 import {shortAutoCutDiscovery,mergeDetectedSceneCuts} from '../shared/shortAutoCutDiscovery.js';
 import {movingBodyPortraitProposal} from '../shared/movingBodyPortraitProposal.js';
@@ -1536,7 +1537,18 @@ export class SmartReframeService {
     split?: {speaker1X:number;speaker2X:number;dividerX:number;focusPanels?:ItemPanels};
     contextStatus?: 'crowd-preserved'|'unresolved-preserved'|'unresolved-review-required';
     uncertainty?: string; presentationProtection?: import('../shared/automaticLayoutPolicy.js').PresentationProtection }> {
-    const plan=this.computeShotCompositionLegacy(options);
+    const base=this.computeShotCompositionLegacy(options);
+    const plan=options.participantPanelsReview&&options.allowConversationSplit&&options.windowScope==='shot'&&(!options.layoutPolicy||options.layoutPolicy.allowed.includes('split')) ? base.map(shot=>{
+      if(shot.split||shot.presentationProtection?.preserveWindow)return shot;
+      const local=(options.rawSamples||[]).filter(s=>s.time>=shot.start&&s.time<shot.end);
+      if(shot.end-shot.start<1.5||persistentObjectRegions(local).length||(options.protectedContentRegions||[]).some(r=>r.confidence>=.7&&r.start<shot.end&&r.end>shot.start))return shot;
+      const assigned=assignParticipantPanels(local,options.sourceWidth,options.sourceHeight,{allowFaceWindowReview:options.participantFaceWindowReview});
+      if(!assigned)return shot;
+      return {...shot,kind:'group' as const,windowW:1,windowH:1,keyframes:[{time:shot.start,centerX:.5,centerY:.5}],
+        split:{speaker1X:.25,speaker2X:.75,dividerX:.5,focusPanels:assigned.panels},
+        contextStatus:assigned.evidence==='face-window-review'?'unresolved-review-required' as const:undefined,
+        uncertainty:assigned.evidence==='face-window-review'?'Offline face-window panel proposal: distinct visible tracks, not full-body, camera-boundary or active-speaker proof. Review before sharing.':undefined};
+    }):base;
     return options.splitHandSafetyReview&&(!options.layoutPolicy||options.layoutPolicy.allowed.includes('fit'))
       ? reviewMeasuredSplitSeams(plan,options.rawSamples||[]).shots : plan;
   }

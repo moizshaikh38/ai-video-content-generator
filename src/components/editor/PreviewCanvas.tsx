@@ -466,7 +466,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const baseVideoItem: EditorTrackItem | undefined = activeVideoItems[0] ?? project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
   // The rendered export preview already contains the panels; only compose them live from the clean source.
   const videoCropLocked = Boolean(baseVideoItem?.locked || project.tracks.some(t => t.locked && t.items.some(i => i.id === baseVideoItem?.id)));
-  const activePanels = viewMode === 'export_review' && renderedPreviewUrl ? null : normalizePanels((baseVideoItem as any)?.panels);
+  const manualPanels = viewMode === 'export_review' && renderedPreviewUrl ? null : normalizePanels((baseVideoItem as any)?.panels);
 
   const backdropColorFilterId = 'vireo-backdrop-'+React.useId().replace(/:/g,'');
   const backdropVideoRef = useRef<HTMLCanvasElement | null>(null);
@@ -488,8 +488,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const effectiveShotComposition = freezeAutomaticPlan(automaticPlanReviewRequired?rawPlan:presentFit43(rawPlan,videoDims?.w||1920,videoDims?.h||1080),baseVideoItem?.automatic_framing,compositionClipStart);
   const shotSourceTime = (baseVideoItem?.source_start || 0) + (playhead-(baseVideoItem?.timeline_start||0)) * (baseVideoItem?.speed?.speed||1);
   const shotRelativeTime = Math.max(0,shotSourceTime-compositionClipStart);
-  const activePlanShot = !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && !baseVideoItem?.framing_window && !activePanels && (baseVideoItem as any)?.crop_config?.layout_mode_source !== 'user'
+  const activePlanShot = !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && !baseVideoItem?.framing_window && !manualPanels && (baseVideoItem as any)?.crop_config?.layout_mode_source !== 'user'
     ? effectiveShotComposition.find(s=>shotRelativeTime>=s.start&&shotRelativeTime<s.end) : undefined;
+  const automaticMultiPanels = activePlanShot?.split?.focusPanels && ['three','four'].includes(activePlanShot.split.focusPanels.layout) ? activePlanShot.split.focusPanels : null;
+  const activePanels = manualPanels || (viewMode === 'export_review' && renderedPreviewUrl ? null : automaticMultiPanels);
   // Framing layout pick (Framing panel): 'split' renders a two-speaker
   // top/bottom stack mirroring the export's buildSplitPodcastFilter.
   const primaryLayoutMode = useMemo(() => {
@@ -743,10 +745,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   })();
 
   const autoShotTime = Math.max(0,targetVideoTime-compositionClipStart);
-  const activeAutomaticShot = !activePanels && !baseVideoItem?.framing_window && !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && (primaryLayoutMode === 'track' || Boolean(activePlanShot?.split))
+  const activeAutomaticShot = !manualPanels && !baseVideoItem?.framing_window && !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && (primaryLayoutMode === 'track' || Boolean(activePlanShot?.split))
     ? effectiveShotComposition.find(s=>autoShotTime>=s.start&&autoShotTime<s.end) : undefined;
   const automaticLayoutLabel = automaticPlanReviewRequired?'Auto Fit · Review':!baseVideoItem?.crop&&!activePanels&&missingAutomaticCamera ? 'Auto Fit · Review' : activeAutomaticShot && videoDims
-    ? activeAutomaticShot.split ? 'Auto Split' : Math.abs(activeAutomaticShot.windowW*videoDims.w/(activeAutomaticShot.windowH!*videoDims.h)-9/16)<.01 ? 'Auto Fill' : 'Auto Fit'
+    ? automaticMultiPanels ? `Auto ${PANEL_LABELS[automaticMultiPanels.layout]}` : activeAutomaticShot.split ? 'Auto Split' : Math.abs(activeAutomaticShot.windowW*videoDims.w/(activeAutomaticShot.windowH!*videoDims.h)-9/16)<.01 ? 'Auto Fill' : 'Auto Fit'
     : undefined;
 
   // Tracking-floor fallback (mirrors the export paths): a weak dominant track
@@ -1373,7 +1375,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 ]}, {recordHistory:true,markAsDirty:true});
               }}>Edit Split views</button>
           )}
-          {onUpdateItemPanels && activePanels && videoDims && videoDims.w > 0 && baseVideoItem && (
+          {onUpdateItemPanels && manualPanels && activePanels && videoDims && videoDims.w > 0 && baseVideoItem && (
             <>
               {PANEL_RECTS[activePanels.layout].map((r, i) => {
                 const cw = parseFloat(canvasDims.width), ch = parseFloat(canvasDims.height);

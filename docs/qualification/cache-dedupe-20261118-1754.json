@@ -1,0 +1,1412 @@
+[
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/be27df2d-ddc6-43fa-9813-458f5e420f89/projects/3b81c8a9-c818-4cbb-bd10-22215ca0bca2/clips/635d4260-cc86-47f8-bfe6-e64076066e5e/v2/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/wiki90-clock-fixed-export.mp4",
+    "bytes": 6398241,
+    "sha256": "721f81b87594c41a535286bc5b47a6840b32d78600b9a3fddcba9b9b0d30d14e"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/91348099-2c87-4ebc-92fb-45766bf676bb/projects/4be2df70-383e-4d40-ab24-90cb963648f7/clips/800a300e-b8da-441d-9453-6ad99e89b867/v16/render.mp4",
+    "retained": "/downloads/comic-palettes-qualified/compact_creator/actual-api.mp4",
+    "bytes": 18159687,
+    "sha256": "67404fffb9fc8b4f014f8e3234010f0d3cd378076659298fe600050e33c7257d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/91348099-2c87-4ebc-92fb-45766bf676bb/projects/4be2df70-383e-4d40-ab24-90cb963648f7/clips/7f093f67-791e-4f9f-8dbf-7e9f4c6055f0/v16/render.mp4",
+    "retained": "/downloads/comic-palettes-qualified/vireo_comic_violet_white/actual-api.mp4",
+    "bytes": 18800618,
+    "sha256": "e32a6ee7e43af2471cfbcbc4200ada7984896fecc58550328a6ec4b837c135a9"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/91348099-2c87-4ebc-92fb-45766bf676bb/projects/4be2df70-383e-4d40-ab24-90cb963648f7/clips/3ab5fbdd-7460-4467-94e6-b4413c999aea/v17/render.mp4",
+    "retained": "/downloads/reframe-stale-studio/actual-api.mp4",
+    "bytes": 2913815,
+    "sha256": "c91e7e756b0c15cf4b25ab0b2ec2249475a83a92cfdab4751eaec81d9fe38a24"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/91348099-2c87-4ebc-92fb-45766bf676bb/projects/4be2df70-383e-4d40-ab24-90cb963648f7/clips/a7d7e52f-95de-47ed-bc03-478fbddb3dc9/v16/render.mp4",
+    "retained": "/downloads/comic-palettes-qualified/compact_creator/actual-api.mp4",
+    "bytes": 18159687,
+    "sha256": "67404fffb9fc8b4f014f8e3234010f0d3cd378076659298fe600050e33c7257d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/91348099-2c87-4ebc-92fb-45766bf676bb/projects/4be2df70-383e-4d40-ab24-90cb963648f7/clips/7606cb26-ec66-442a-839c-26736486da89/v16/render.mp4",
+    "retained": "/downloads/compact-creator-qualified/Compact-Creator-actual-api.mp4",
+    "bytes": 18254053,
+    "sha256": "7ec85ea629a6eea9d3939c795d18f139dcd63a043badd841fa313b2ca4ecc5a9"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/91348099-2c87-4ebc-92fb-45766bf676bb/projects/4be2df70-383e-4d40-ab24-90cb963648f7/clips/316fb584-d32b-41f2-adbd-2ef02af02a5c/v17/render.mp4",
+    "retained": "/downloads/reframe-stale-studio/actual-api.mp4",
+    "bytes": 2913815,
+    "sha256": "c91e7e756b0c15cf4b25ab0b2ec2249475a83a92cfdab4751eaec81d9fe38a24"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/91348099-2c87-4ebc-92fb-45766bf676bb/projects/4be2df70-383e-4d40-ab24-90cb963648f7/clips/e55cdf48-dfac-4da2-9739-9809fd3ea715/v17/render.mp4",
+    "retained": "/downloads/reframe-stale-studio/actual-api.mp4",
+    "bytes": 2913815,
+    "sha256": "c91e7e756b0c15cf4b25ab0b2ec2249475a83a92cfdab4751eaec81d9fe38a24"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/91348099-2c87-4ebc-92fb-45766bf676bb/projects/4be2df70-383e-4d40-ab24-90cb963648f7/clips/27bc31c0-3a8f-4571-a135-011e1ee851fb/v17/render.mp4",
+    "retained": "/downloads/main-slice-caption-empty/actual-api.mp4",
+    "bytes": 4372449,
+    "sha256": "8675df007aee38d43bd9b9a84cb4a41ec359fab62567f6395f7bb76b108be55f"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/91348099-2c87-4ebc-92fb-45766bf676bb/projects/4be2df70-383e-4d40-ab24-90cb963648f7/clips/2cb1a0aa-0b66-4246-b0da-d5ba3ac9046b/v16/render.mp4",
+    "retained": "/downloads/comic-palettes-qualified/vireo_comic_red_green/actual-api.mp4",
+    "bytes": 18896461,
+    "sha256": "5cd84a04e693de0d399f7414f85da564cf25825a566ebafa833505525d240a63"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/91348099-2c87-4ebc-92fb-45766bf676bb/projects/4be2df70-383e-4d40-ab24-90cb963648f7/clips/4c8c3eb4-47bf-4e43-af0f-74300410e91a/v15/render.mp4",
+    "retained": "/downloads/comic-default-final/Comic-Punch-actual-api-lower.mp4",
+    "bytes": 16127459,
+    "sha256": "0909853df3ad2df05d85ccb9673b79c2ee78e97058ec7fde09fe08372699d0c4"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/91348099-2c87-4ebc-92fb-45766bf676bb/projects/4be2df70-383e-4d40-ab24-90cb963648f7/clips/4c8c3eb4-47bf-4e43-af0f-74300410e91a/v14/render.mp4",
+    "retained": "/downloads/comic-default-final/Comic-Punch-actual-api.mp4",
+    "bytes": 16046912,
+    "sha256": "b82c1da8ab049badd919f7d85942c8f0dc811c5259d8c902c70ecab79e475efd"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/91348099-2c87-4ebc-92fb-45766bf676bb/projects/4be2df70-383e-4d40-ab24-90cb963648f7/clips/4c8c3eb4-47bf-4e43-af0f-74300410e91a/v13/render.mp4",
+    "retained": "/downloads/rank1-comic-default/vireo-auto-captions-hook-sound.mp4",
+    "bytes": 18577799,
+    "sha256": "6ec0c072fb4af949cf871908154babebfe0e2c73603d068c7e03f7757a7014f8"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/e13c2e67-711a-4156-ae92-1c2a635fda24/projects/633951ea-8c82-4db1-863b-c6f22fb28983/clips/0d5aa284-ec15-4c42-b6cb-3e04e542a271/v2/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/dust225-ocr-heldout-export.mp4",
+    "bytes": 3816860,
+    "sha256": "c3f077ec3abbb5d05848e29b0b0f9a84fceed5570ebc848e2daec099d1c8b254"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/c3f2fb71-042a-4fa6-95dd-db68773be033/projects/cf450042-2bcd-403c-9572-1c4dc03e27ab/clips/79a77ec7-3eaf-43ba-ba21-1043882920fd/v2/render.mp4",
+    "retained": "/downloads/pair-holdout48-product/actual-export.mp4",
+    "bytes": 5088918,
+    "sha256": "69285a5de54a36de0ec328c4f21737eb43d72502405f96242f0f5920434f9d74"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/3a95089f-b99f-4e61-a826-155b4e2e0539/projects/91ab7efe-965b-4d8d-bd7e-444384fc48c1/clips/2eb3d050-7874-4758-b4b1-97fdb8475de1/v2/render.mp4",
+    "retained": "/downloads/hand-controlled-walking-0/actual-candidate-export.mp4",
+    "bytes": 7182860,
+    "sha256": "e015777bc9e253f54e038a32fdbaf2ad3bacadbd1ca9775fc00c5f18c324ba66"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/aad3f2ed-c8ac-4790-924c-ddb10796d39c/projects/ed8d09fe-501b-416d-8af6-3d0a689a229c/clips/22363a57-a8b2-44ca-9b6b-fa5e150badb2/v4/render.mp4",
+    "retained": "/downloads/c3-independent-firstpass/ui-30/actual-candidate-export.mp4",
+    "bytes": 3605050,
+    "sha256": "26a62ea52a24d2af5d37045b338693df35e282841912dc658ceb24f5d989fed3"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/aad3f2ed-c8ac-4790-924c-ddb10796d39c/projects/ed8d09fe-501b-416d-8af6-3d0a689a229c/clips/22363a57-a8b2-44ca-9b6b-fa5e150badb2/v3/render.mp4",
+    "retained": "/downloads/c3-independent-firstpass/frozen-ui-30/actual-candidate-export.mp4",
+    "bytes": 4470738,
+    "sha256": "10b604f6e370d9258706dc637773928ca401d4cdfd18a751e425971315ba2110"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/aad3f2ed-c8ac-4790-924c-ddb10796d39c/projects/ed8d09fe-501b-416d-8af6-3d0a689a229c/clips/22363a57-a8b2-44ca-9b6b-fa5e150badb2/v2/render.mp4",
+    "retained": "/downloads/c3-independent-firstpass/frozen-ui-30/actual-candidate-export.mp4",
+    "bytes": 4470738,
+    "sha256": "10b604f6e370d9258706dc637773928ca401d4cdfd18a751e425971315ba2110"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/febb58c8-fce9-4df8-8aa3-9ad0c061a6fc/projects/59de4b4c-fa6e-4179-b528-af7bb36733b8/clips/4b2e72c2-fc30-490e-8ecd-4a97d3087760/v2/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/dust90-ocr-integrated-export.mp4",
+    "bytes": 3556571,
+    "sha256": "4b56aee5449c0e9e420f9c2c176fe1a4762d955fd0bc5bf36b752352dd3bbb21"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/29a0bc1d-0da8-4261-8fbe-0e746ff2aa3d/projects/1cd87276-5c9d-4222-a07c-3a44bd4a5d31/clips/969657b9-5cc9-41a1-8be7-7bc6a29b7740/v2/render.mp4",
+    "retained": "/downloads/hand-aware-walking-regression/actual-candidate-export.mp4",
+    "bytes": 6193853,
+    "sha256": "1d0473dac91dc58146a3cc89d63a226278e3d324e68c3d28118d68dddf06a33d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/743ef6bf-a512-49d4-8914-ef31bd563f02/projects/5c945feb-0fcc-4642-a01f-30bfc70a3b40/clips/38ab137e-9c07-4f10-a5b1-1416e30ed614/v6/render.mp4",
+    "retained": "/downloads/tracker-studio-speed2-6s.mp4",
+    "bytes": 1784440,
+    "sha256": "947bfa9655402805474c4d29430f590f3e581ac7b2c81920f70e094870397d44"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/743ef6bf-a512-49d4-8914-ef31bd563f02/projects/5c945feb-0fcc-4642-a01f-30bfc70a3b40/clips/38ab137e-9c07-4f10-a5b1-1416e30ed614/v8/render.mp4",
+    "retained": "/downloads/full-rank1-actual-product.mp4",
+    "bytes": 19280696,
+    "sha256": "6ad4ffb05ab2ef9da1f6c194009fbd3423d1af6c6ccef5b93a986b8cdcddb240"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/743ef6bf-a512-49d4-8914-ef31bd563f02/projects/5c945feb-0fcc-4642-a01f-30bfc70a3b40/clips/38ab137e-9c07-4f10-a5b1-1416e30ed614/v4/render.mp4",
+    "retained": "/downloads/studio-auto-12s.mp4",
+    "bytes": 3186187,
+    "sha256": "20fad3b6273905e18f7da97369cc37779b44b842e2ad50261e69b97bb96a8478"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/743ef6bf-a512-49d4-8914-ef31bd563f02/projects/5c945feb-0fcc-4642-a01f-30bfc70a3b40/clips/38ab137e-9c07-4f10-a5b1-1416e30ed614/v5/render.mp4",
+    "retained": "/downloads/four-state-studio-subject-on.mp4",
+    "bytes": 3166539,
+    "sha256": "67706155f96a370e58c25de45b6a53bd0d92bee791003aa6d0c25045c519c31f"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/743ef6bf-a512-49d4-8914-ef31bd563f02/projects/5c945feb-0fcc-4642-a01f-30bfc70a3b40/clips/38ab137e-9c07-4f10-a5b1-1416e30ed614/v7/render.mp4",
+    "retained": "/downloads/comic-default-studio-qualified/prism-project-export.mp4",
+    "bytes": 1060028,
+    "sha256": "b7025c90f544e6350f339078e50de0c1fa77613f99d31f84913d75dd33d205e8"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/3c05275a-f81c-470a-b16e-3790ff5add54/projects/f13d29a2-73c7-4ac7-a8dd-39a02827b638/clips/6812da66-d452-4fbc-812e-f9131e1eb602/v2/render.mp4",
+    "retained": "/downloads/hand-controlled-studio-1/actual-candidate-export.mp4",
+    "bytes": 4125789,
+    "sha256": "b634fdc6c139f6e58e0893544d79983e677ac9626ba6405dcb59d6bacfcf084f"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/fe7ec7ae-dbbf-4ee3-9f4b-84cbe4df92fa/projects/5f567224-1b94-4551-b49b-c5f236fb3736/clips/1a895784-30e4-451c-be25-63d5a2e5964a/v2/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/studio48-fallback-export.mp4",
+    "bytes": 4008938,
+    "sha256": "60c9e90279a404fca3255fa3ed15147441c03458654fc316beeea2132935aa4b"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/f005e74c-31a3-423e-a78a-59f88467ad6a/projects/86506a23-a713-4f17-a6eb-b4756a88ac31/clips/3cf85d00-a6b3-45b5-aafd-4b2f221d0c42/v3/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/wiki90-bounded-export.mp4",
+    "bytes": 6394121,
+    "sha256": "6ff46c2526f1fa4f93f5d81f7852ef43711a1f8a61cacedd5243aece8bdfc208"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/f005e74c-31a3-423e-a78a-59f88467ad6a/projects/86506a23-a713-4f17-a6eb-b4756a88ac31/clips/3cf85d00-a6b3-45b5-aafd-4b2f221d0c42/v2/render.mp4",
+    "retained": "/downloads/wiki-independent-firstpass/render-90/actual-export.mp4",
+    "bytes": 5552287,
+    "sha256": "a6e143363830110b5bac5969587a318c387ad190ee8a493b43883442b5138a78"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/5691f7aa-d318-4092-b362-86003b172094/projects/05fa7a5e-c2ad-41ac-99a4-81a6abd6cac3/clips/a7dcbc0c-072f-47cf-81ed-cd755ba8815b/v2/render.mp4",
+    "retained": "/downloads/layout-assembled/actual-candidate-export.mp4",
+    "bytes": 15172149,
+    "sha256": "b7afe93c2c66693bb21dce624a15dbc34dcf74a3c59f3e448a234c45c0890763"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/16a0069f-59e4-4857-90b5-4a98d44d8bbc/projects/baad7a0f-15c0-4d24-a858-58ec495cbf6b/clips/92e15efc-df9b-435b-81cf-7eda97bb0001/v3/render.mp4",
+    "retained": "/downloads/wiki-independent-firstpass/regression-render-0/actual-export.mp4",
+    "bytes": 5572353,
+    "sha256": "ffddc52969445d8bb77f077fc9b8f67b5aa9b9da83c1e53704f90fe3201a2a08"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/16a0069f-59e4-4857-90b5-4a98d44d8bbc/projects/baad7a0f-15c0-4d24-a858-58ec495cbf6b/clips/92e15efc-df9b-435b-81cf-7eda97bb0001/v2/render.mp4",
+    "retained": "/downloads/wiki-independent-firstpass/render-0/actual-export.mp4",
+    "bytes": 5971973,
+    "sha256": "517c6617f4eac6f8527fe5644f067b3728b1a54eae524ded274321c9be41a2c1"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/8310a0f0-1eac-41d3-93ad-efd74c35b285/projects/fe56eabd-3935-4448-9936-70e2ec799a6c/clips/71e48351-6bf2-427c-bffc-b3373dd6a61c/v13/render.mp4",
+    "retained": "/downloads/rank1-complete-night/vireo-auto-captions-hook-sound.mp4",
+    "bytes": 17716883,
+    "sha256": "db25c07eec234bea684fce39adfa906b2c3e182d0cd700722a8788b7c455629b"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/4adc7153-1928-4f6f-8e7e-87db5a41df10/projects/53c19b9d-fabb-4588-8bbd-22f858fb0c34/clips/cf013c13-6294-4501-a138-e22b2fc7ad59/v18/render.mp4",
+    "retained": "/downloads/recovered-api-720p.mp4",
+    "bytes": 5656998,
+    "sha256": "7c85d8943b8588c6b489a791d768d2941d37daf409f673eb01a53d33338ba906"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/e242a53f-abe8-4ab7-9abb-fdf17e1f7333/projects/176bf7a6-ad9c-4966-ae09-78d34f26b2a5/clips/47d78e06-d267-4ea5-8a9a-68f5d9784aac/v6/render.mp4",
+    "retained": "/downloads/fresh-fit-api-720p.mp4",
+    "bytes": 2245160,
+    "sha256": "23536164e15359f906c4ea87ff2d243abc2c6993f2f23051a6b3e2c06dee2154"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/e242a53f-abe8-4ab7-9abb-fdf17e1f7333/projects/176bf7a6-ad9c-4966-ae09-78d34f26b2a5/clips/47d78e06-d267-4ea5-8a9a-68f5d9784aac/v8/render.mp4",
+    "retained": "/downloads/fresh-split-api-720p.mp4",
+    "bytes": 3210301,
+    "sha256": "95eecd1bf0f3afce1afc5f9947f848e3ea35ce966de19254b99ac4c594024e2a"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/e242a53f-abe8-4ab7-9abb-fdf17e1f7333/projects/176bf7a6-ad9c-4966-ae09-78d34f26b2a5/clips/47d78e06-d267-4ea5-8a9a-68f5d9784aac/v9/render.mp4",
+    "retained": "/downloads/fresh-fit-api-720p.mp4",
+    "bytes": 2245160,
+    "sha256": "23536164e15359f906c4ea87ff2d243abc2c6993f2f23051a6b3e2c06dee2154"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/e242a53f-abe8-4ab7-9abb-fdf17e1f7333/projects/176bf7a6-ad9c-4966-ae09-78d34f26b2a5/clips/47d78e06-d267-4ea5-8a9a-68f5d9784aac/v11/render.mp4",
+    "retained": "/downloads/fresh-split-api-720p.mp4",
+    "bytes": 3210301,
+    "sha256": "95eecd1bf0f3afce1afc5f9947f848e3ea35ce966de19254b99ac4c594024e2a"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/e242a53f-abe8-4ab7-9abb-fdf17e1f7333/projects/176bf7a6-ad9c-4966-ae09-78d34f26b2a5/clips/47d78e06-d267-4ea5-8a9a-68f5d9784aac/v4/render.mp4",
+    "retained": "/downloads/panel-inline-after-720p.mp4",
+    "bytes": 2833377,
+    "sha256": "2a079bcce62f2249409589fdeef9d89c27ab1fbc233883086e5af5dcf68661e2"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/e242a53f-abe8-4ab7-9abb-fdf17e1f7333/projects/176bf7a6-ad9c-4966-ae09-78d34f26b2a5/clips/47d78e06-d267-4ea5-8a9a-68f5d9784aac/v5/render.mp4",
+    "retained": "/downloads/panel-inline-after-720p.mp4",
+    "bytes": 2833377,
+    "sha256": "2a079bcce62f2249409589fdeef9d89c27ab1fbc233883086e5af5dcf68661e2"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/e242a53f-abe8-4ab7-9abb-fdf17e1f7333/projects/176bf7a6-ad9c-4966-ae09-78d34f26b2a5/clips/47d78e06-d267-4ea5-8a9a-68f5d9784aac/v3/render.mp4",
+    "retained": "/downloads/fresh-fit-api-720p.mp4",
+    "bytes": 2245160,
+    "sha256": "23536164e15359f906c4ea87ff2d243abc2c6993f2f23051a6b3e2c06dee2154"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/e242a53f-abe8-4ab7-9abb-fdf17e1f7333/projects/176bf7a6-ad9c-4966-ae09-78d34f26b2a5/clips/47d78e06-d267-4ea5-8a9a-68f5d9784aac/v2/render.mp4",
+    "retained": "/downloads/vireo-beast-recovered-api-before.mp4",
+    "bytes": 2202443,
+    "sha256": "cf8dcada6968356bfe9dfc6c680ca1e985d3ffb81df7af2b30bc9f7d81d66f7d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/e242a53f-abe8-4ab7-9abb-fdf17e1f7333/projects/176bf7a6-ad9c-4966-ae09-78d34f26b2a5/clips/47d78e06-d267-4ea5-8a9a-68f5d9784aac/v10/render.mp4",
+    "retained": "/downloads/fresh-fill-api-720p.mp4",
+    "bytes": 2285230,
+    "sha256": "14876351fad2d11c7508ad794db6d6a94e50fcaf67882c3d7758d7f218c49fde"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/d87d6d7e-20eb-49cb-a02b-28e90d14603f/projects/c7d28943-d5a2-4827-be09-fb5fd8c201d8/clips/d390ac05-27b6-4175-be5c-7f970fe328fa/v2/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/freedom0-db-isolated-export.mp4",
+    "bytes": 4597839,
+    "sha256": "781bc4e10e5b829e2e8c32378b7ae6d6aa8279f27dd3c835ba6353bcda0d88e0"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/95c5ba70-4ddd-468f-8f12-231e81f25399/projects/69e3e8c9-e05e-489c-95e5-d371fec565ee/clips/c1296442-61d3-4cd4-a502-6e4c76bf1144/v2/render.mp4",
+    "retained": "/downloads/closeup-body-regression-pair/actual-candidate-export.mp4",
+    "bytes": 5371485,
+    "sha256": "bef7d47f4b60a82da29c45a07f166376fa8b6f2542f9452e646db838cfe4d920"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/777ee71e-c3e4-4754-8c21-7e9d63b38741/projects/168ada4f-a942-4bc4-ae43-00a0d884df89/clips/3ec6da3f-48bb-45ba-a200-153352e4ea64/v2/render.mp4",
+    "retained": "/downloads/hand-controlled-studio-1/actual-candidate-export.mp4",
+    "bytes": 4125789,
+    "sha256": "b634fdc6c139f6e58e0893544d79983e677ac9626ba6405dcb59d6bacfcf084f"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/39eef7d3-5baf-41ba-9d90-9652411d95a7/projects/a43a9e9b-3d5b-45f1-995a-9ed44485c827/clips/2c758cb3-19ed-4f38-8194-d8014c70b98c/v2/render.mp4",
+    "retained": "/downloads/hand-controlled-studio-1/actual-candidate-export.mp4",
+    "bytes": 4125789,
+    "sha256": "b634fdc6c139f6e58e0893544d79983e677ac9626ba6405dcb59d6bacfcf084f"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/1e0f0fb5-3c6f-4eb0-b8e0-3a1e9b078f25/projects/52308e21-5ae9-47b8-b889-847920e8c16a/clips/3d87b366-e547-4252-a7e0-3752bc998ae9/v2/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/dust150-ocr-heldout-export.mp4",
+    "bytes": 3428596,
+    "sha256": "e70bf5a85bf20923fb70820c139924f7de6fa7c8a0b4a70700c0432a6d28c118"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/0a58976b-cf52-4d62-90ca-d13118d7891b/projects/7394db37-8f8d-4dee-a478-03fa78bc7142/clips/1480e446-55ed-4772-be6b-a0d8a22457ef/v2/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/freedom12-firstpass-export.mp4",
+    "bytes": 4409281,
+    "sha256": "e9a0533180b3a1e1eb05934094f47bdaafaa82b629e4d49338f73ab310c4d9c3"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/857a7e87-488d-4c4b-9094-1658b2f11f8c/projects/49f03d71-3395-471f-986a-99c620a5f016/clips/79886fcc-b75f-432f-b010-57f622758c11/v2/render.mp4",
+    "retained": "/downloads/hand-controlled-pair-1/actual-candidate-export.mp4",
+    "bytes": 4620409,
+    "sha256": "9bd7957a70909602de9341d72c967695b83cd5fd88b1d929a22b8b25f3a41279"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/3556ffdd-336b-475c-b542-355a162ba6a9/projects/c1735c5f-ab69-4960-9f1c-c420889700f9/clips/ffbc1745-8331-4917-9608-1cd7e3b88015/v4/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/dust90-ocr2-regression-export.mp4",
+    "bytes": 3556378,
+    "sha256": "549bf3a5c995f7837b84ac4d1c205b4da0e59710fa24ae6739397ef70ec5edb5"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/3556ffdd-336b-475c-b542-355a162ba6a9/projects/c1735c5f-ab69-4960-9f1c-c420889700f9/clips/ffbc1745-8331-4917-9608-1cd7e3b88015/v3/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/dust90-ocr-regression-export.mp4",
+    "bytes": 4095929,
+    "sha256": "835f3a1e2559b4e3b33b9ecaf35051c2f42f65023560a05a3992190e9811192a"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/3556ffdd-336b-475c-b542-355a162ba6a9/projects/c1735c5f-ab69-4960-9f1c-c420889700f9/clips/ffbc1745-8331-4917-9608-1cd7e3b88015/v2/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/dust90-firstpass-export.mp4",
+    "bytes": 4929515,
+    "sha256": "ca14c9e65ef715271c908f6c9f66ed6f5e44398f2bf63f8a7a2ce9cfd5a85395"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/acc3a3bf-1837-44f9-98a1-8c215fe6644e/projects/9c9e46df-1fa3-4c6a-bb09-a557b3bf176d/clips/92592375-5940-46f1-8acd-d4a5a3dbf7e4/v2/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/wiki180-clock-fixed-export.mp4",
+    "bytes": 5340895,
+    "sha256": "4c72d6fc8544e965506d5910247a0135798efa22960b65aef5bf0ddb58cc3b85"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/f8c17e66-73e2-42e6-a738-120d6bf8bbee/projects/eeb74403-574c-4bbd-9e2d-ec34901b3e1a/clips/e4d72d84-53de-4490-9780-96aabeaa5319/v2/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/dust150-db-isolated-export.mp4",
+    "bytes": 3278949,
+    "sha256": "68870d393280aa72748a4bf2d968707ae9c0beead141d224db335d8f4fb2316b"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/e88b0ef8-cd7c-4aee-9f71-d4db0d35923a/projects/324a543a-b7dd-4a00-a35e-7e42d780d3d7/clips/54102ed1-80a3-4e70-b460-cc7bd4edc37d/v1/render.mp4",
+    "retained": "/downloads/vireo-full-auto-adaptive-40s.mp4",
+    "bytes": 23593957,
+    "sha256": "9ccb8d42486398c3cbac6a67bc1f336aad37b8993b142f6049ec1182f1e33e30"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/66388583-e267-425d-a9c0-38d9c9227578/projects/71a0f623-3a5c-4312-93fe-e81b868635f7/clips/d2e95af1-a45a-4915-a841-a734da595d18/v4/render.mp4",
+    "retained": "/downloads/layout-strip-diagnosis/actual-candidate-export.mp4",
+    "bytes": 15491899,
+    "sha256": "3b86c3565f25803ca41747319ac3eabb8a70696f0231fa91f636fba126ecee26"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/66388583-e267-425d-a9c0-38d9c9227578/projects/71a0f623-3a5c-4312-93fe-e81b868635f7/clips/d2e95af1-a45a-4915-a841-a734da595d18/v2/render.mp4",
+    "retained": "/downloads/layout-assembled/actual-candidate-export.mp4",
+    "bytes": 15172149,
+    "sha256": "b7afe93c2c66693bb21dce624a15dbc34dcf74a3c59f3e448a234c45c0890763"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6070aa69-e763-4ab1-82a4-fdf658b0120e/projects/a70989c4-c92d-4f66-9831-88f3bb8c9fea/clips/49b88cc7-9bf0-410d-a5c7-e683b510b631/v8/render.mp4",
+    "retained": "/downloads/new-watchparty-auto-safe-fit-4s.mp4",
+    "bytes": 2028011,
+    "sha256": "48fbdc8c6c416d8639587e5313dcd0451d35654e91498225feb3dd3e28d1463c"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6070aa69-e763-4ab1-82a4-fdf658b0120e/projects/69ae2d8f-4341-4e21-a4ad-c6d90540d474/clips/8ea60ef6-79bd-48c8-842a-2a7683cf73b4/v6/render.mp4",
+    "retained": "/downloads/scene-override-middle-fill-36s.mp4",
+    "bytes": 14150099,
+    "sha256": "d9dfcdd7548748005ad77dd267d40357271f01de9f9067f15a76216375bb92e9"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6070aa69-e763-4ab1-82a4-fdf658b0120e/projects/69ae2d8f-4341-4e21-a4ad-c6d90540d474/clips/8ea60ef6-79bd-48c8-842a-2a7683cf73b4/v8/render.mp4",
+    "retained": "/downloads/legacy-group-fit43-36s.mp4",
+    "bytes": 13039396,
+    "sha256": "ac554b20ad37ce3642cde049cd6298b080fb3aaf7c3750efe02e2d39e123db9e"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6070aa69-e763-4ab1-82a4-fdf658b0120e/projects/69ae2d8f-4341-4e21-a4ad-c6d90540d474/clips/8ea60ef6-79bd-48c8-842a-2a7683cf73b4/v9/render.mp4",
+    "retained": "/downloads/rightclick-scene-fit-36s.mp4",
+    "bytes": 14257785,
+    "sha256": "cc527abc2b092180ca258049897d878654e0180dd2c79eaa7aa2d56d30ecb690"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6070aa69-e763-4ab1-82a4-fdf658b0120e/projects/69ae2d8f-4341-4e21-a4ad-c6d90540d474/clips/8ea60ef6-79bd-48c8-842a-2a7683cf73b4/v4/render.mp4",
+    "retained": "/downloads/mixed-autolayout-safe-36s.mp4",
+    "bytes": 14152875,
+    "sha256": "f10f4f6a1a27b2537736f8e908c07dbf585158ca5fa6726f3e87995ae25e91f8"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6070aa69-e763-4ab1-82a4-fdf658b0120e/projects/69ae2d8f-4341-4e21-a4ad-c6d90540d474/clips/8ea60ef6-79bd-48c8-842a-2a7683cf73b4/v5/render.mp4",
+    "retained": "/downloads/mixed-autolayout-safe-36s.mp4",
+    "bytes": 14152875,
+    "sha256": "f10f4f6a1a27b2537736f8e908c07dbf585158ca5fa6726f3e87995ae25e91f8"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6070aa69-e763-4ab1-82a4-fdf658b0120e/projects/69ae2d8f-4341-4e21-a4ad-c6d90540d474/clips/8ea60ef6-79bd-48c8-842a-2a7683cf73b4/v7/render.mp4",
+    "retained": "/downloads/scene-override-middle-fill-36s.mp4",
+    "bytes": 14150099,
+    "sha256": "d9dfcdd7548748005ad77dd267d40357271f01de9f9067f15a76216375bb92e9"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6070aa69-e763-4ab1-82a4-fdf658b0120e/projects/69ae2d8f-4341-4e21-a4ad-c6d90540d474/clips/8ea60ef6-79bd-48c8-842a-2a7683cf73b4/v3/render.mp4",
+    "retained": "/downloads/mixed-autolayout-safe-36s.mp4",
+    "bytes": 14152875,
+    "sha256": "f10f4f6a1a27b2537736f8e908c07dbf585158ca5fa6726f3e87995ae25e91f8"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6070aa69-e763-4ab1-82a4-fdf658b0120e/projects/69ae2d8f-4341-4e21-a4ad-c6d90540d474/clips/8ea60ef6-79bd-48c8-842a-2a7683cf73b4/v2/render.mp4",
+    "retained": "/downloads/mixed-mixed-toggle-off-36s.mp4",
+    "bytes": 14358935,
+    "sha256": "1be7aed8dd7dee942e4213bc45e7bc5498a38180408644c77b936a6d13068456"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6070aa69-e763-4ab1-82a4-fdf658b0120e/projects/69ae2d8f-4341-4e21-a4ad-c6d90540d474/clips/8ea60ef6-79bd-48c8-842a-2a7683cf73b4/v1/render.mp4",
+    "retained": "/downloads/mixed-mixed-toggle-off-36s.mp4",
+    "bytes": 14358935,
+    "sha256": "1be7aed8dd7dee942e4213bc45e7bc5498a38180408644c77b936a6d13068456"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6070aa69-e763-4ab1-82a4-fdf658b0120e/projects/69ae2d8f-4341-4e21-a4ad-c6d90540d474/clips/8ea60ef6-79bd-48c8-842a-2a7683cf73b4/v10/render.mp4",
+    "retained": "/downloads/scene-override-trim12-speed2-12s.mp4",
+    "bytes": 4407723,
+    "sha256": "0e2e6a7a5d2e51cd8299ddfd97e74b894542ce4595e925af8f60d118be948eef"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/e096da80-e02c-4d1a-8faa-55d6449e7e14/clips/26a7428e-0be4-4227-8749-8b1e2bb92d37/v1/render.mp4",
+    "retained": "/downloads/home-caption-simple-api.mp4",
+    "bytes": 4329438,
+    "sha256": "306b401b212d42da11e533cddd97e0185408075d39cfdf5e9c0205c44d900b5e"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/187d17de-910e-4270-80c9-188fa109170a/clips/dd10d0e9-505d-4dff-9479-35fc6d69c80d/v2/render.mp4",
+    "retained": "/downloads/home-caption-simple-editor-export.mp4",
+    "bytes": 2442290,
+    "sha256": "52607f73b164d23ced14f53cfe999368f426b18f7df7627e92bd6ee96e70202a"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/187d17de-910e-4270-80c9-188fa109170a/clips/dd10d0e9-505d-4dff-9479-35fc6d69c80d/v1/render.mp4",
+    "retained": "/downloads/home-caption-simple-api.mp4",
+    "bytes": 4329438,
+    "sha256": "306b401b212d42da11e533cddd97e0185408075d39cfdf5e9c0205c44d900b5e"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v18/render.mp4",
+    "retained": "/downloads/four-state-manual-auto-off.mp4",
+    "bytes": 6089351,
+    "sha256": "89c317f080bf95340980532072033ccf9023bcf3eda1a257be308837487750e7"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v6/render.mp4",
+    "retained": "/downloads/walking-auto-matched-off-12s.mp4",
+    "bytes": 6750526,
+    "sha256": "568b4fea1ea56caeb39f068e610355cdf7feec99806906f746bd7b032179613c"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v8/render.mp4",
+    "retained": "/downloads/auto-multi-on-manual-12s.mp4",
+    "bytes": 7017771,
+    "sha256": "288fc98bd5044f39ebf2bca794b08d3a0ce57b483df861fc089a308532413f29"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v9/render.mp4",
+    "retained": "/downloads/auto-multi-on-manual-12s.mp4",
+    "bytes": 7017771,
+    "sha256": "288fc98bd5044f39ebf2bca794b08d3a0ce57b483df861fc089a308532413f29"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v30/render.mp4",
+    "retained": "/downloads/four-state-interior-seed-off.mp4",
+    "bytes": 7002903,
+    "sha256": "ea2eac25e4aab2140e97325717e951663757e1fbf93dbd1204312378f8c86afe"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v31/render.mp4",
+    "retained": "/downloads/four-state-interior-seed-on.mp4",
+    "bytes": 7082255,
+    "sha256": "da44ba0062d9c3ebd6a32c0d30f2b3d35ace0dca5deac04b971dd12d490dcc2f"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v15/render.mp4",
+    "retained": "/downloads/walking-full-auto-fill-12s.mp4",
+    "bytes": 7216307,
+    "sha256": "68136764cafe840356899b0e5d89af3935432eeefda2caf0b7ec094ac187939d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v32/render.mp4",
+    "retained": "/downloads/closeup-body-regression-walking/actual-candidate-export.mp4",
+    "bytes": 7061778,
+    "sha256": "cbcfed8fec951e8d4775c15a0701070ea1fc597d27b61b42d3d4262f3fe2b23d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v19/render.mp4",
+    "retained": "/downloads/four-state-manual-auto-off.mp4",
+    "bytes": 6089351,
+    "sha256": "89c317f080bf95340980532072033ccf9023bcf3eda1a257be308837487750e7"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v27/render.mp4",
+    "retained": "/downloads/tracker-original-support/on-12s.mp4",
+    "bytes": 7079898,
+    "sha256": "5844074b0834aa9a660641b89964bb4e1265484bca4778ee6864565cb6952808"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v22/render.mp4",
+    "retained": "/downloads/tracker-bounded-after-12s.mp4",
+    "bytes": 6562695,
+    "sha256": "0b47f775332276f2634185d0ef813817e02a22bf12770d7ad9e55dde1c1df037"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v12/render.mp4",
+    "retained": "/downloads/walking-legacy-auto-on-12s.mp4",
+    "bytes": 6838903,
+    "sha256": "c252630e2a7b2649fb9cd2a72b919efd50b7af5693937680720f4efaaad14060"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v28/render.mp4",
+    "retained": "/downloads/tracker-original-support/off-12s.mp4",
+    "bytes": 6998950,
+    "sha256": "1f9f1f559b4f5723700511030acc75b3d8e6a150375dbeb40a2b1f5ed4b24f0d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v16/render.mp4",
+    "retained": "/downloads/four-state-auto-on.mp4",
+    "bytes": 7182825,
+    "sha256": "fb42d3dc67599aa9d620cf0a1c68545ac8edebabb32106c31db191727a41458c"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v20/render.mp4",
+    "retained": "/downloads/four-state-manual-coordinate-check.mp4",
+    "bytes": 6107320,
+    "sha256": "1320d8fca0da57e58b473a3c034e034c4985f39b03f8ed5d1b413ed66ee75857"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v14/render.mp4",
+    "retained": "/downloads/walking-legacy-auto-off-12s.mp4",
+    "bytes": 6703241,
+    "sha256": "e54c8b9ab14a0b0e7f221b2a35e4bb4da5cfd66c790d1a4920197e9d3134f627"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v4/render.mp4",
+    "retained": "/downloads/walking-auto-matched-off-12s.mp4",
+    "bytes": 6750526,
+    "sha256": "568b4fea1ea56caeb39f068e610355cdf7feec99806906f746bd7b032179613c"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v5/render.mp4",
+    "retained": "/downloads/walking-auto-matched-off-12s.mp4",
+    "bytes": 6750526,
+    "sha256": "568b4fea1ea56caeb39f068e610355cdf7feec99806906f746bd7b032179613c"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v29/render.mp4",
+    "retained": "/downloads/tracker-original-support/on-12s.mp4",
+    "bytes": 7079898,
+    "sha256": "5844074b0834aa9a660641b89964bb4e1265484bca4778ee6864565cb6952808"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v17/render.mp4",
+    "retained": "/downloads/four-state-auto-off.mp4",
+    "bytes": 6969284,
+    "sha256": "84991cf11e296993e6f1d894d11b7413a06356ca423425d422c5e9c284b9e1a6"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v7/render.mp4",
+    "retained": "/downloads/walking-full-auto-fill-12s.mp4",
+    "bytes": 7216307,
+    "sha256": "68136764cafe840356899b0e5d89af3935432eeefda2caf0b7ec094ac187939d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v26/render.mp4",
+    "retained": "/downloads/tracker-original-support/off-12s.mp4",
+    "bytes": 6998950,
+    "sha256": "1f9f1f559b4f5723700511030acc75b3d8e6a150375dbeb40a2b1f5ed4b24f0d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v3/render.mp4",
+    "retained": "/downloads/walking-full-auto-fill-12s.mp4",
+    "bytes": 7216307,
+    "sha256": "68136764cafe840356899b0e5d89af3935432eeefda2caf0b7ec094ac187939d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v2/render.mp4",
+    "retained": "/downloads/walking-automatic-off-center-12s.mp4",
+    "bytes": 6892790,
+    "sha256": "38e19edbe92a6db367c3ba8d412c83bb6d1f99b4b97160828879c181fecd5c5f"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v21/render.mp4",
+    "retained": "/downloads/tracker-bounded-after-12s.mp4",
+    "bytes": 6562695,
+    "sha256": "0b47f775332276f2634185d0ef813817e02a22bf12770d7ad9e55dde1c1df037"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v23/render.mp4",
+    "retained": "/downloads/four-state-manual-bounded-on.mp4",
+    "bytes": 6612686,
+    "sha256": "85cef634e7e9ccbf802a4840bc644236a5275ee3ddef98069d2b2031bb2905b1"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v1/render.mp4",
+    "retained": "/downloads/walking-full-auto-fill-12s.mp4",
+    "bytes": 7216307,
+    "sha256": "68136764cafe840356899b0e5d89af3935432eeefda2caf0b7ec094ac187939d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/clips/b58580f5-ce28-4a74-b790-8e89417c6e98/v10/render.mp4",
+    "retained": "/downloads/walking-auto-matched-off-12s.mp4",
+    "bytes": 6750526,
+    "sha256": "568b4fea1ea56caeb39f068e610355cdf7feec99806906f746bd7b032179613c"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/4190ef2b-8c2e-47ae-b9fe-59d7b6fe0589/projects/14ffdd84-af40-480f-94ce-6ad1be23e244/clips/16b271b1-54e5-4f70-80f4-ba6edfd54250/v4/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/dust0-ocr2-regression-export.mp4",
+    "bytes": 3676172,
+    "sha256": "22c38e0ac4804e96d5c01fa59a70cf2ee3c9928b9fad202e18f7960bc3cd6a6a"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/4190ef2b-8c2e-47ae-b9fe-59d7b6fe0589/projects/14ffdd84-af40-480f-94ce-6ad1be23e244/clips/16b271b1-54e5-4f70-80f4-ba6edfd54250/v3/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/dust0-ocr-regression-export.mp4",
+    "bytes": 3757544,
+    "sha256": "3879d9773169bdbe7010b35d4f2950d13da0525fb5d8425bff0fd0accafe34fd"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/4190ef2b-8c2e-47ae-b9fe-59d7b6fe0589/projects/14ffdd84-af40-480f-94ce-6ad1be23e244/clips/16b271b1-54e5-4f70-80f4-ba6edfd54250/v2/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/dust0-firstpass-export.mp4",
+    "bytes": 5162740,
+    "sha256": "34c776fb8afca49de6a77b9befc8168d23de30c79c2f74a7253b9655567ecd72"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/90e40a51-b125-417a-8e89-4a56448da648/projects/185100a2-25df-4328-8cc3-47d8e10e9c00/clips/37dc44c2-38f2-407b-ac80-0f709d48325f/v4/render.mp4",
+    "retained": "/downloads/aspect-refresh-studio/export-16x9.mp4",
+    "bytes": 4883763,
+    "sha256": "946ee7fba38b7c5d3b2f6d6d177bfc014aa5ea3110972e46a326b2bd6f20ac89"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/90e40a51-b125-417a-8e89-4a56448da648/projects/185100a2-25df-4328-8cc3-47d8e10e9c00/clips/37dc44c2-38f2-407b-ac80-0f709d48325f/v5/render.mp4",
+    "retained": "/downloads/hand-controlled-studio-1/actual-candidate-export.mp4",
+    "bytes": 4125789,
+    "sha256": "b634fdc6c139f6e58e0893544d79983e677ac9626ba6405dcb59d6bacfcf084f"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/90e40a51-b125-417a-8e89-4a56448da648/projects/185100a2-25df-4328-8cc3-47d8e10e9c00/clips/37dc44c2-38f2-407b-ac80-0f709d48325f/v3/render.mp4",
+    "retained": "/downloads/aspect-refresh-studio/export-1x1.mp4",
+    "bytes": 3114339,
+    "sha256": "a524859526ea2b970ac1ee276a2a22cef1704bd4cf5fbf7ad40cbf6deb9109e1"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/90e40a51-b125-417a-8e89-4a56448da648/projects/185100a2-25df-4328-8cc3-47d8e10e9c00/clips/37dc44c2-38f2-407b-ac80-0f709d48325f/v2/render.mp4",
+    "retained": "/downloads/hand-controlled-studio-1/actual-candidate-export.mp4",
+    "bytes": 4125789,
+    "sha256": "b634fdc6c139f6e58e0893544d79983e677ac9626ba6405dcb59d6bacfcf084f"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/a82ab882-265b-48e2-9879-943caf5743a0/projects/d486d828-0884-4506-b303-90129b8a68bc/clips/4366175e-3e78-4e1f-a43e-9f79a0e7bd5b/v6/render.mp4",
+    "retained": "/downloads/layout-caption-defaults-candidate/api/actual-export.mp4",
+    "bytes": 11589228,
+    "sha256": "4742cdbcc22e4f7ab5ea64ef41ad4bf14e998e299fd4cf12c957ecd80d86f93c"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/a82ab882-265b-48e2-9879-943caf5743a0/projects/d486d828-0884-4506-b303-90129b8a68bc/clips/4366175e-3e78-4e1f-a43e-9f79a0e7bd5b/v9/render.mp4",
+    "retained": "/downloads/layout-caption-defaults-candidate/manual-2s-api/actual-export.mp4",
+    "bytes": 1415889,
+    "sha256": "38cfed53fc2bc432c6e731323d22bbd8471e8e32805bb8538efea8d6ab79788f"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/a82ab882-265b-48e2-9879-943caf5743a0/projects/d486d828-0884-4506-b303-90129b8a68bc/clips/4366175e-3e78-4e1f-a43e-9f79a0e7bd5b/v12/render.mp4",
+    "retained": "/downloads/body-only-product/actual-export.mp4",
+    "bytes": 16536045,
+    "sha256": "e09f6572411d9067623eb9a638486ade2079a2bbf8e08c1c3368d4fc9242303b"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/a82ab882-265b-48e2-9879-943caf5743a0/projects/d486d828-0884-4506-b303-90129b8a68bc/clips/4366175e-3e78-4e1f-a43e-9f79a0e7bd5b/v11/render.mp4",
+    "retained": "/downloads/pair-focus-integration/rank1-api/actual-export.mp4",
+    "bytes": 16389863,
+    "sha256": "d2c8fa19586cd80483f885b45cc47b8424c20f9a228c88a8302ea13e5c1ceabc"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/a82ab882-265b-48e2-9879-943caf5743a0/projects/d486d828-0884-4506-b303-90129b8a68bc/clips/4366175e-3e78-4e1f-a43e-9f79a0e7bd5b/v4/render.mp4",
+    "retained": "/downloads/rank1-auto-product/with-manual-hook-overlap-rejected.mp4",
+    "bytes": 19044465,
+    "sha256": "f83a81e3165e4e2101cb7f0aa61372bb9ce6c8404c87c49340bb91da4e97a8f3"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/a82ab882-265b-48e2-9879-943caf5743a0/projects/d486d828-0884-4506-b303-90129b8a68bc/clips/4366175e-3e78-4e1f-a43e-9f79a0e7bd5b/v5/render.mp4",
+    "retained": "/downloads/rank1-auto-product/actual-export.mp4",
+    "bytes": 16516973,
+    "sha256": "af5eb572a1f12c50d0c8a51094965530a918a1e3a36d71361bf714e4e6686da8"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/a82ab882-265b-48e2-9879-943caf5743a0/projects/d486d828-0884-4506-b303-90129b8a68bc/clips/4366175e-3e78-4e1f-a43e-9f79a0e7bd5b/v2/render.mp4",
+    "retained": "/downloads/rank1-auto-baseline-product/actual-export.mp4",
+    "bytes": 19254962,
+    "sha256": "48c003b4062d0090098d7f159b43d17240bee75673edcc63359828f057b27d21"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/183ab327-0f49-4cc7-896b-59da185abeb6/projects/948bb1c1-9a19-4355-bee7-344aab4e43b0/clips/a46520d3-0e25-41c4-8713-4cbfea3c748e/v6/render.mp4",
+    "retained": "/downloads/fit-anchor-full-product/tracker-handoff-product.mp4",
+    "bytes": 24094669,
+    "sha256": "e6df5f6cc36f56f89fb3287003350cda060a4bca0edd3283ee1fc37137806758"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/183ab327-0f49-4cc7-896b-59da185abeb6/projects/948bb1c1-9a19-4355-bee7-344aab4e43b0/clips/a46520d3-0e25-41c4-8713-4cbfea3c748e/v5/render.mp4",
+    "retained": "/downloads/beast-autolayout-safe-40s.mp4",
+    "bytes": 23732896,
+    "sha256": "c1fc779eb38a41e71cb93450c415104b08ca620ce1312fb3875f80bfa1ac9478"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/183ab327-0f49-4cc7-896b-59da185abeb6/projects/948bb1c1-9a19-4355-bee7-344aab4e43b0/clips/a46520d3-0e25-41c4-8713-4cbfea3c748e/v3/render.mp4",
+    "retained": "/downloads/vireo-full-auto-text-40s.mp4",
+    "bytes": 23991109,
+    "sha256": "dfe3cffac5206fedd1eafe1b5d202b9ce9e57ba7a47125988450ee6aaa8491a6"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/183ab327-0f49-4cc7-896b-59da185abeb6/projects/948bb1c1-9a19-4355-bee7-344aab4e43b0/clips/a46520d3-0e25-41c4-8713-4cbfea3c748e/v2/render.mp4",
+    "retained": "/downloads/vireo-full-auto-fit-40s.mp4",
+    "bytes": 24035340,
+    "sha256": "4610e314a60d375578e1aa3049008669c76e4bb7c2656738cdfd2abc6864a6c3"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/183ab327-0f49-4cc7-896b-59da185abeb6/projects/948bb1c1-9a19-4355-bee7-344aab4e43b0/clips/a46520d3-0e25-41c4-8713-4cbfea3c748e/v1/render.mp4",
+    "retained": "/downloads/vireo-full-auto-refined-40s.mp4",
+    "bytes": 23641006,
+    "sha256": "acf1dd2dcf23735bf30d71a134a9201691728f954e1c3a8a54f1ea0215433153"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/39ca109e-a02b-4d89-8b4a-1442fa2e9caa/projects/5218b07e-e56a-4d9c-9ef9-0b096ce180f8/clips/547e0294-f1aa-4e1d-be85-9a9ccf1d8e76/v4/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/dust45-ocr2-regression-export.mp4",
+    "bytes": 4683532,
+    "sha256": "909af1eb465218ffbad167f02666dd1767d4ac97fff2b70cf6bf829f359c7345"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/39ca109e-a02b-4d89-8b4a-1442fa2e9caa/projects/5218b07e-e56a-4d9c-9ef9-0b096ce180f8/clips/547e0294-f1aa-4e1d-be85-9a9ccf1d8e76/v3/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/dust45-ocr-regression-export.mp4",
+    "bytes": 4542238,
+    "sha256": "41c3bb51c5e744dcb208e12b9429cc9d1f6797655bdf2e0ad91a303a941802cf"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/39ca109e-a02b-4d89-8b4a-1442fa2e9caa/projects/5218b07e-e56a-4d9c-9ef9-0b096ce180f8/clips/547e0294-f1aa-4e1d-be85-9a9ccf1d8e76/v2/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/dust45-firstpass-export.mp4",
+    "bytes": 5114633,
+    "sha256": "737fa785b29bc77455751d840c5cde80c46759eddd32c25c4b6f723ab7a620fe"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/3c207bc1-5fcb-4219-8ee9-af2dfdbaa9d4/projects/9db428d3-327b-43c3-a912-ffccfa0cfaf8/clips/f61bf52f-855a-4860-8701-6e21c2c9c2c9/v2/render.mp4",
+    "retained": "/downloads/hand-controlled-walking-0/actual-candidate-export.mp4",
+    "bytes": 7182860,
+    "sha256": "e015777bc9e253f54e038a32fdbaf2ad3bacadbd1ca9775fc00c5f18c324ba66"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/5746e83d-8851-4e12-a4e8-4f774a1e21a1/projects/3d2e5f4f-a572-4b8a-a2bb-d112547660a7/clips/0a4ebcda-c48f-4355-a20a-4c3299bcecbb/v2/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/freedom0-firstpass-export.mp4",
+    "bytes": 5024675,
+    "sha256": "dff43770ec5fc264a28703edca6e7b48141d54bb0b16625da56bff618bd535ff"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/7ec0ea46-1ef3-4f01-9918-968680af8052/projects/45c16e72-3287-4770-ab42-9ba8bd0508f6/clips/92acb758-ec3e-4457-9dcd-4b03a5a78541/v3/render.mp4",
+    "retained": "/downloads/multishot-c3-continuity/actual-candidate-export.mp4",
+    "bytes": 4434886,
+    "sha256": "e4a5fe32cd43940a91d4dbfb7aa859e41e187b18fc8aebe40340048a110424d7"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/7ec0ea46-1ef3-4f01-9918-968680af8052/projects/45c16e72-3287-4770-ab42-9ba8bd0508f6/clips/92acb758-ec3e-4457-9dcd-4b03a5a78541/v2/render.mp4",
+    "retained": "/downloads/multishot-c3-continuity/actual-candidate-export.mp4",
+    "bytes": 4434886,
+    "sha256": "e4a5fe32cd43940a91d4dbfb7aa859e41e187b18fc8aebe40340048a110424d7"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/539af1dc-cd82-48b4-ade1-a9bd28d2a725/projects/90361105-914c-4dd9-8c55-4666f2b5e8ff/clips/0634a5e3-15a9-425f-a730-7cce5e80874c/v9/render.mp4",
+    "retained": "/downloads/layout-mixed-lock/actual-candidate-export.mp4",
+    "bytes": 5555779,
+    "sha256": "b946dad316497949a13311a4be0caeb4d3a2ba754d31b823af0277c5f7b29a47"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/539af1dc-cd82-48b4-ade1-a9bd28d2a725/projects/90361105-914c-4dd9-8c55-4666f2b5e8ff/clips/0634a5e3-15a9-425f-a730-7cce5e80874c/v11/render.mp4",
+    "retained": "/downloads/layout-mixed-lock/actual-candidate-export.mp4",
+    "bytes": 5555779,
+    "sha256": "b946dad316497949a13311a4be0caeb4d3a2ba754d31b823af0277c5f7b29a47"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/539af1dc-cd82-48b4-ade1-a9bd28d2a725/projects/90361105-914c-4dd9-8c55-4666f2b5e8ff/clips/0634a5e3-15a9-425f-a730-7cce5e80874c/v10/render.mp4",
+    "retained": "/downloads/layout-mixed-lock/actual-candidate-export.mp4",
+    "bytes": 5555779,
+    "sha256": "b946dad316497949a13311a4be0caeb4d3a2ba754d31b823af0277c5f7b29a47"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/539af1dc-cd82-48b4-ade1-a9bd28d2a725/projects/90361105-914c-4dd9-8c55-4666f2b5e8ff/clips/60d39759-cbdd-4739-af3e-6a1ffbf16b55/v6/render.mp4",
+    "retained": "/downloads/closeup-body-regression-pair/actual-candidate-export.mp4",
+    "bytes": 5371485,
+    "sha256": "bef7d47f4b60a82da29c45a07f166376fa8b6f2542f9452e646db838cfe4d920"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/539af1dc-cd82-48b4-ade1-a9bd28d2a725/projects/90361105-914c-4dd9-8c55-4666f2b5e8ff/clips/60d39759-cbdd-4739-af3e-6a1ffbf16b55/v8/render.mp4",
+    "retained": "/downloads/closeup-body-regression-pair/actual-candidate-export.mp4",
+    "bytes": 5371485,
+    "sha256": "bef7d47f4b60a82da29c45a07f166376fa8b6f2542f9452e646db838cfe4d920"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/539af1dc-cd82-48b4-ade1-a9bd28d2a725/projects/90361105-914c-4dd9-8c55-4666f2b5e8ff/clips/60d39759-cbdd-4739-af3e-6a1ffbf16b55/v9/render.mp4",
+    "retained": "/downloads/closeup-body-regression-pair/actual-candidate-export.mp4",
+    "bytes": 5371485,
+    "sha256": "bef7d47f4b60a82da29c45a07f166376fa8b6f2542f9452e646db838cfe4d920"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/539af1dc-cd82-48b4-ade1-a9bd28d2a725/projects/90361105-914c-4dd9-8c55-4666f2b5e8ff/clips/60d39759-cbdd-4739-af3e-6a1ffbf16b55/v4/render.mp4",
+    "retained": "/downloads/closeup-body-regression-pair/actual-candidate-export.mp4",
+    "bytes": 5371485,
+    "sha256": "bef7d47f4b60a82da29c45a07f166376fa8b6f2542f9452e646db838cfe4d920"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/539af1dc-cd82-48b4-ade1-a9bd28d2a725/projects/90361105-914c-4dd9-8c55-4666f2b5e8ff/clips/60d39759-cbdd-4739-af3e-6a1ffbf16b55/v5/render.mp4",
+    "retained": "/downloads/hand-controlled-pair-1/actual-candidate-export.mp4",
+    "bytes": 4620409,
+    "sha256": "9bd7957a70909602de9341d72c967695b83cd5fd88b1d929a22b8b25f3a41279"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/539af1dc-cd82-48b4-ade1-a9bd28d2a725/projects/90361105-914c-4dd9-8c55-4666f2b5e8ff/clips/60d39759-cbdd-4739-af3e-6a1ffbf16b55/v7/render.mp4",
+    "retained": "/downloads/closeup-body-regression-pair/actual-candidate-export.mp4",
+    "bytes": 5371485,
+    "sha256": "bef7d47f4b60a82da29c45a07f166376fa8b6f2542f9452e646db838cfe4d920"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/539af1dc-cd82-48b4-ade1-a9bd28d2a725/projects/90361105-914c-4dd9-8c55-4666f2b5e8ff/clips/60d39759-cbdd-4739-af3e-6a1ffbf16b55/v3/render.mp4",
+    "retained": "/downloads/pair-manual-override-proof/fit-actual-export.mp4",
+    "bytes": 4892043,
+    "sha256": "f7613d13ed49bf34b5c0241a59619aafc7622c61ae8775659389f15f8513767c"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/539af1dc-cd82-48b4-ade1-a9bd28d2a725/projects/90361105-914c-4dd9-8c55-4666f2b5e8ff/clips/60d39759-cbdd-4739-af3e-6a1ffbf16b55/v2/render.mp4",
+    "retained": "/downloads/closeup-body-regression-pair/actual-candidate-export.mp4",
+    "bytes": 5371485,
+    "sha256": "bef7d47f4b60a82da29c45a07f166376fa8b6f2542f9452e646db838cfe4d920"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/92ca1405-af23-49ed-9dfb-fed69ee72286/projects/440a1994-d482-4e2e-86d9-88c455707c73/clips/8904868f-4667-441e-9ac2-f9ac7a2fcb98/v2/render.mp4",
+    "retained": "/downloads/multishot-dust-continuity/actual-candidate-export.mp4",
+    "bytes": 4301309,
+    "sha256": "dd7c6ae92f6d42aec160cd99af2f0a4d385b7bc0bab53c738a276015a20ad9a4"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/2a36bc8f-d212-4b90-a2b4-4d2827bb48fd/projects/13e748b6-3fdb-43dc-be04-59ea3319065b/clips/44545a7f-83b6-49ba-ac37-f852fd2eeb28/v2/render.mp4",
+    "retained": "/downloads/layout-assembled/actual-candidate-export.mp4",
+    "bytes": 15172149,
+    "sha256": "b7afe93c2c66693bb21dce624a15dbc34dcf74a3c59f3e448a234c45c0890763"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/e9cf8f2e-262a-46c3-98f7-d5e1f7bdbb10/projects/602175b0-1949-40d5-924a-6ddd9d159905/clips/72333a42-2a24-495c-bfb7-a26d43ce5711/v2/render.mp4",
+    "retained": "/downloads/c3-independent-firstpass/ui-30/actual-candidate-export.mp4",
+    "bytes": 3605050,
+    "sha256": "26a62ea52a24d2af5d37045b338693df35e282841912dc658ceb24f5d989fed3"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/10a35804-fa3a-4c39-bd7e-9a71adb58a2f/projects/76ef0bd1-56ea-4cb1-b679-76730e1b8244/clips/f5860c5a-399b-41ca-ae63-662e7c555199/v2/render.mp4",
+    "retained": "/downloads/c3-independent-firstpass/frozen-ui-0/actual-candidate-export.mp4",
+    "bytes": 3849518,
+    "sha256": "6e8b860afd97d55033479e5932a6590097249d8cbf97c519e70380f2a813cdf0"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/0401320a-32d1-4945-87ea-18624c3d981c/projects/88298293-99b7-4e7a-990a-75219610c6c7/clips/c81f6206-ed4f-4781-948e-532b0754bdd4/v6/render.mp4",
+    "retained": "/downloads/backdrop-regression-aspects/export-16x9.mp4",
+    "bytes": 5802264,
+    "sha256": "93d24022dc9ef3de9a69ad9f9ef1a966e17c32b66a7085414e754653eb11a12a"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/0401320a-32d1-4945-87ea-18624c3d981c/projects/88298293-99b7-4e7a-990a-75219610c6c7/clips/c81f6206-ed4f-4781-948e-532b0754bdd4/v8/render.mp4",
+    "retained": "/downloads/backdrop-regression-aspects/export-1x1.mp4",
+    "bytes": 3392623,
+    "sha256": "cb272c38e8ec6ac1a31bddff1adf57efe6ebdd61109bfba2e8ef68b4fa8d2f70"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/0401320a-32d1-4945-87ea-18624c3d981c/projects/88298293-99b7-4e7a-990a-75219610c6c7/clips/c81f6206-ed4f-4781-948e-532b0754bdd4/v9/render.mp4",
+    "retained": "/downloads/backdrop-regression-aspects/export-16x9.mp4",
+    "bytes": 5802264,
+    "sha256": "93d24022dc9ef3de9a69ad9f9ef1a966e17c32b66a7085414e754653eb11a12a"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/0401320a-32d1-4945-87ea-18624c3d981c/projects/88298293-99b7-4e7a-990a-75219610c6c7/clips/c81f6206-ed4f-4781-948e-532b0754bdd4/v15/render.mp4",
+    "retained": "/downloads/backdrop-regression-aspects/export-16x9.mp4",
+    "bytes": 5802264,
+    "sha256": "93d24022dc9ef3de9a69ad9f9ef1a966e17c32b66a7085414e754653eb11a12a"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/0401320a-32d1-4945-87ea-18624c3d981c/projects/88298293-99b7-4e7a-990a-75219610c6c7/clips/c81f6206-ed4f-4781-948e-532b0754bdd4/v12/render.mp4",
+    "retained": "/downloads/backdrop-regression-aspects/export-16x9.mp4",
+    "bytes": 5802264,
+    "sha256": "93d24022dc9ef3de9a69ad9f9ef1a966e17c32b66a7085414e754653eb11a12a"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/0401320a-32d1-4945-87ea-18624c3d981c/projects/88298293-99b7-4e7a-990a-75219610c6c7/clips/c81f6206-ed4f-4781-948e-532b0754bdd4/v16/render.mp4",
+    "retained": "/downloads/hand-controlled-pair-1/actual-candidate-export.mp4",
+    "bytes": 4620409,
+    "sha256": "9bd7957a70909602de9341d72c967695b83cd5fd88b1d929a22b8b25f3a41279"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/0401320a-32d1-4945-87ea-18624c3d981c/projects/88298293-99b7-4e7a-990a-75219610c6c7/clips/c81f6206-ed4f-4781-948e-532b0754bdd4/v11/render.mp4",
+    "retained": "/downloads/backdrop-regression-aspects/export-1x1.mp4",
+    "bytes": 3392623,
+    "sha256": "cb272c38e8ec6ac1a31bddff1adf57efe6ebdd61109bfba2e8ef68b4fa8d2f70"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/0401320a-32d1-4945-87ea-18624c3d981c/projects/88298293-99b7-4e7a-990a-75219610c6c7/clips/c81f6206-ed4f-4781-948e-532b0754bdd4/v14/render.mp4",
+    "retained": "/downloads/backdrop-regression-aspects/export-1x1.mp4",
+    "bytes": 3392623,
+    "sha256": "cb272c38e8ec6ac1a31bddff1adf57efe6ebdd61109bfba2e8ef68b4fa8d2f70"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/0401320a-32d1-4945-87ea-18624c3d981c/projects/88298293-99b7-4e7a-990a-75219610c6c7/clips/c81f6206-ed4f-4781-948e-532b0754bdd4/v5/render.mp4",
+    "retained": "/downloads/backdrop-regression-aspects/export-1x1.mp4",
+    "bytes": 3392623,
+    "sha256": "cb272c38e8ec6ac1a31bddff1adf57efe6ebdd61109bfba2e8ef68b4fa8d2f70"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/0401320a-32d1-4945-87ea-18624c3d981c/projects/88298293-99b7-4e7a-990a-75219610c6c7/clips/c81f6206-ed4f-4781-948e-532b0754bdd4/v17/render.mp4",
+    "retained": "/downloads/hand-controlled-manual-override/fit-actual-export.mp4",
+    "bytes": 3098313,
+    "sha256": "fcbcdd155530f62c464bb3bf9c3a222be10f86d5d8b49083b7c94770d1df5ace"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/0401320a-32d1-4945-87ea-18624c3d981c/projects/88298293-99b7-4e7a-990a-75219610c6c7/clips/c81f6206-ed4f-4781-948e-532b0754bdd4/v7/render.mp4",
+    "retained": "/downloads/hand-controlled-pair-1/actual-candidate-export.mp4",
+    "bytes": 4620409,
+    "sha256": "9bd7957a70909602de9341d72c967695b83cd5fd88b1d929a22b8b25f3a41279"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/0401320a-32d1-4945-87ea-18624c3d981c/projects/88298293-99b7-4e7a-990a-75219610c6c7/clips/c81f6206-ed4f-4781-948e-532b0754bdd4/v3/render.mp4",
+    "retained": "/downloads/hand-controlled-manual-override/fit-actual-export.mp4",
+    "bytes": 3098313,
+    "sha256": "fcbcdd155530f62c464bb3bf9c3a222be10f86d5d8b49083b7c94770d1df5ace"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/0401320a-32d1-4945-87ea-18624c3d981c/projects/88298293-99b7-4e7a-990a-75219610c6c7/clips/c81f6206-ed4f-4781-948e-532b0754bdd4/v13/render.mp4",
+    "retained": "/downloads/hand-controlled-pair-1/actual-candidate-export.mp4",
+    "bytes": 4620409,
+    "sha256": "9bd7957a70909602de9341d72c967695b83cd5fd88b1d929a22b8b25f3a41279"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/0401320a-32d1-4945-87ea-18624c3d981c/projects/88298293-99b7-4e7a-990a-75219610c6c7/clips/c81f6206-ed4f-4781-948e-532b0754bdd4/v2/render.mp4",
+    "retained": "/downloads/hand-controlled-pair-1/actual-candidate-export.mp4",
+    "bytes": 4620409,
+    "sha256": "9bd7957a70909602de9341d72c967695b83cd5fd88b1d929a22b8b25f3a41279"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/0401320a-32d1-4945-87ea-18624c3d981c/projects/88298293-99b7-4e7a-990a-75219610c6c7/clips/c81f6206-ed4f-4781-948e-532b0754bdd4/v10/render.mp4",
+    "retained": "/downloads/hand-controlled-pair-1/actual-candidate-export.mp4",
+    "bytes": 4620409,
+    "sha256": "9bd7957a70909602de9341d72c967695b83cd5fd88b1d929a22b8b25f3a41279"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/064f153e-dd50-4080-8bdc-cd36c1b55117/projects/f8dba673-e8f6-4838-85c9-4dc9b3b24067/clips/ddeedc53-8481-4b6b-9db8-f5e5d21c2fe3/v6/render.mp4",
+    "retained": "/downloads/pair-auto-layout-12s.mp4",
+    "bytes": 4967648,
+    "sha256": "76650c17ab25b170208ac49e5998568043aaa8a6c45d473533892e6846af161c"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/064f153e-dd50-4080-8bdc-cd36c1b55117/projects/f8dba673-e8f6-4838-85c9-4dc9b3b24067/clips/ddeedc53-8481-4b6b-9db8-f5e5d21c2fe3/v9/render.mp4",
+    "retained": "/downloads/vireo-shortauto-pair-job-0844/layout-auto-job.mp4",
+    "bytes": 4946149,
+    "sha256": "1f3644adcea4864757fa1db46d62f65b79063a71d9dcc4a5a528a24c219dd7bc"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/064f153e-dd50-4080-8bdc-cd36c1b55117/projects/f8dba673-e8f6-4838-85c9-4dc9b3b24067/clips/ddeedc53-8481-4b6b-9db8-f5e5d21c2fe3/v4/render.mp4",
+    "retained": "/downloads/pair-manual-fill-api-720p.mp4",
+    "bytes": 2954865,
+    "sha256": "20f716fecf42ffb6bc5e2d4653ab2606ab220212a56c4753262f18f8d51c2844"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/064f153e-dd50-4080-8bdc-cd36c1b55117/projects/f8dba673-e8f6-4838-85c9-4dc9b3b24067/clips/ddeedc53-8481-4b6b-9db8-f5e5d21c2fe3/v5/render.mp4",
+    "retained": "/downloads/pair-manual-split-api-720p.mp4",
+    "bytes": 4693277,
+    "sha256": "d5e7334ac67ea4520912737a0fee1cfcb78a6e7d381e93994141e19d592669db"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/064f153e-dd50-4080-8bdc-cd36c1b55117/projects/f8dba673-e8f6-4838-85c9-4dc9b3b24067/clips/ddeedc53-8481-4b6b-9db8-f5e5d21c2fe3/v7/render.mp4",
+    "retained": "/downloads/vireo-shortauto-pair-job-0844/layout-auto-job.mp4",
+    "bytes": 4946149,
+    "sha256": "1f3644adcea4864757fa1db46d62f65b79063a71d9dcc4a5a528a24c219dd7bc"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/064f153e-dd50-4080-8bdc-cd36c1b55117/projects/f8dba673-e8f6-4838-85c9-4dc9b3b24067/clips/ddeedc53-8481-4b6b-9db8-f5e5d21c2fe3/v3/render.mp4",
+    "retained": "/downloads/pair-manual-fit-api-720p.mp4",
+    "bytes": 4174169,
+    "sha256": "d94482260ad4f3971869513abd35a2c18873be9fc53e90a96ccb6d9befef652a"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/064f153e-dd50-4080-8bdc-cd36c1b55117/projects/f8dba673-e8f6-4838-85c9-4dc9b3b24067/clips/ddeedc53-8481-4b6b-9db8-f5e5d21c2fe3/v2/render.mp4",
+    "retained": "/downloads/pair-auto-12s.mp4",
+    "bytes": 4936404,
+    "sha256": "f35b9a3b0864b5c464ec048a6e0d7e20f9a4e40e91052fef90bdea2a9dd0f2b7"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/b2a0b278-acc7-4909-a496-b1eb0e433bd6/projects/fe6ca454-d63e-472c-9626-3dacc72a7f5a/clips/ea13b35b-d6af-4e68-875a-c9cf9a47aacb/v2/render.mp4",
+    "retained": "/downloads/pair-holdout24-product/freedom12-db-isolated-export.mp4",
+    "bytes": 4154129,
+    "sha256": "82eb0d4618854edc4ecba63a54438c2f6b21d7ac5c445e5f36d4add720c6f87a"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-clips/users/b175f48e-cfbb-46d4-8e39-baaaaa03f368/projects/97f06643-ff46-48cc-8528-50a1256c1f3f/clips/0a0960b2-e187-490c-b4a6-8c29fd980a92/v2/render.mp4",
+    "retained": "/downloads/wiki-independent-firstpass/render-180/actual-export.mp4",
+    "bytes": 4635349,
+    "sha256": "3ac77da216ee93eb7ae808b91b6dfcfe14e34f0f1fbf3c33c5757b922decc942"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/be27df2d-ddc6-43fa-9813-458f5e420f89/projects/3b81c8a9-c818-4cbb-bd10-22215ca0bca2/source/beast-aligned-original.mp4",
+    "retained": "/downloads/wiki-full-720p-21137dba.mp4",
+    "bytes": 14870309,
+    "sha256": "a08593657746d22ad560b7463b99a665eae7f29fc4fc92fe2dac53f100c545d5"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/91348099-2c87-4ebc-92fb-45766bf676bb/projects/4be2df70-383e-4d40-ab24-90cb963648f7/source/rank1-complete.mp4",
+    "retained": "/downloads/rank1-clean-source-approx-aligned.mp4",
+    "bytes": 7427704,
+    "sha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/e13c2e67-711a-4156-ae92-1c2a635fda24/projects/633951ea-8c82-4db1-863b-c6f22fb28983/source/beast-aligned-original.mp4",
+    "retained": "/downloads/dust-full-720p-1aa58091.mp4",
+    "bytes": 13511602,
+    "sha256": "5924329e63958549da0069a40bd0c68bb0eab881b89196c02c23bf7293610bec"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/c3f2fb71-042a-4fa6-95dd-db68773be033/projects/cf450042-2bcd-403c-9572-1c4dc03e27ab/source/beast-aligned-original.mp4",
+    "retained": "/downloads/recovered-source/cottonbro-two-person-original.mp4",
+    "bytes": 7504717,
+    "sha256": "03cea7407b178ceb4046e5e504a831b70de12d066158889c1df4cd2b5b650343"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/3a95089f-b99f-4e61-a826-155b4e2e0539/projects/91ab7efe-965b-4d8d-bd7e-444384fc48c1/source/beast-aligned-original.mp4",
+    "retained": "/downloads/vireo-bounded-body-ui-1030/verified-source.mp4",
+    "bytes": 2895562,
+    "sha256": "5ede85ca40525e7c5986cc409783fed564abd454a64d1512ff8b8559be124fc5"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/aad3f2ed-c8ac-4790-924c-ddb10796d39c/projects/ed8d09fe-501b-416d-8af6-3d0a689a229c/source/beast-aligned-original.mp4",
+    "retained": "/downloads/c3-h264-80e4c7ec.mp4",
+    "bytes": 7938140,
+    "sha256": "6a73bb38d2e68cc3c6b9aa4a59e7f6d30750c89c3cdd704f0519f1130012770f"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/febb58c8-fce9-4df8-8aa3-9ad0c061a6fc/projects/59de4b4c-fa6e-4179-b528-af7bb36733b8/source/beast-aligned-original.mp4",
+    "retained": "/downloads/dust-full-720p-1aa58091.mp4",
+    "bytes": 13511602,
+    "sha256": "5924329e63958549da0069a40bd0c68bb0eab881b89196c02c23bf7293610bec"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/29a0bc1d-0da8-4261-8fbe-0e746ff2aa3d/projects/1cd87276-5c9d-4222-a07c-3a44bd4a5d31/source/beast-aligned-original.mp4",
+    "retained": "/downloads/vireo-bounded-body-ui-1030/verified-source.mp4",
+    "bytes": 2895562,
+    "sha256": "5ede85ca40525e7c5986cc409783fed564abd454a64d1512ff8b8559be124fc5"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/743ef6bf-a512-49d4-8914-ef31bd563f02/projects/5c945feb-0fcc-4642-a01f-30bfc70a3b40/source/beast-aligned-original.mp4",
+    "retained": "/downloads/comic-same-footage-clean-4s.mp4",
+    "bytes": 855717,
+    "sha256": "1f99aeeecf5b19ed97ea8ff8e54e169b433367ed04cb4930cf1c44b5584812f1"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/3c05275a-f81c-470a-b16e-3790ff5add54/projects/f13d29a2-73c7-4ac7-a8dd-39a02827b638/source/beast-aligned-original.mp4",
+    "retained": "/downloads/recovered-source/cottonbro-studio-original.mp4",
+    "bytes": 6550468,
+    "sha256": "69bafd8e8860b9a08a1d21bc5eaf70f7ed5df4fc6af01f5eed3a7b401367a24e"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/fe7ec7ae-dbbf-4ee3-9f4b-84cbe4df92fa/projects/5f567224-1b94-4551-b49b-c5f236fb3736/source/beast-aligned-original.mp4",
+    "retained": "/downloads/recovered-source/cottonbro-studio-original.mp4",
+    "bytes": 6550468,
+    "sha256": "69bafd8e8860b9a08a1d21bc5eaf70f7ed5df4fc6af01f5eed3a7b401367a24e"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/6c8c65cb-8f9a-4bd9-84c8-3554cfccd000/projects/9d7efd12-8801-4ab0-a5ea-28747be13f6a/source/beast-aligned-original.mp4",
+    "retained": "/downloads/vireo-bounded-body-ui-1030/verified-source.mp4",
+    "bytes": 2895562,
+    "sha256": "5ede85ca40525e7c5986cc409783fed564abd454a64d1512ff8b8559be124fc5"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/f005e74c-31a3-423e-a78a-59f88467ad6a/projects/86506a23-a713-4f17-a6eb-b4756a88ac31/source/beast-aligned-original.mp4",
+    "retained": "/downloads/wiki-full-720p-21137dba.mp4",
+    "bytes": 14870309,
+    "sha256": "a08593657746d22ad560b7463b99a665eae7f29fc4fc92fe2dac53f100c545d5"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/5691f7aa-d318-4092-b362-86003b172094/projects/05fa7a5e-c2ad-41ac-99a4-81a6abd6cac3/source/beast-aligned-original.mp4",
+    "retained": "/downloads/rank1-clean-source-approx-aligned.mp4",
+    "bytes": 7427704,
+    "sha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/16a0069f-59e4-4857-90b5-4a98d44d8bbc/projects/baad7a0f-15c0-4d24-a858-58ec495cbf6b/source/beast-aligned-original.mp4",
+    "retained": "/downloads/wiki-full-720p-21137dba.mp4",
+    "bytes": 14870309,
+    "sha256": "a08593657746d22ad560b7463b99a665eae7f29fc4fc92fe2dac53f100c545d5"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/8310a0f0-1eac-41d3-93ad-efd74c35b285/projects/fe56eabd-3935-4448-9936-70e2ec799a6c/source/rank1-complete.mp4",
+    "retained": "/downloads/rank1-clean-source-approx-aligned.mp4",
+    "bytes": 7427704,
+    "sha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/4adc7153-1928-4f6f-8e7e-87db5a41df10/projects/53c19b9d-fabb-4588-8bbd-22f858fb0c34/source/pair-native.mp4",
+    "retained": "/downloads/recovered-source/cottonbro-two-person-original.mp4",
+    "bytes": 7504717,
+    "sha256": "03cea7407b178ceb4046e5e504a831b70de12d066158889c1df4cd2b5b650343"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/e242a53f-abe8-4ab7-9abb-fdf17e1f7333/projects/176bf7a6-ad9c-4966-ae09-78d34f26b2a5/source/beast-aligned-original.mp4",
+    "retained": "/downloads/recovered-source/beast-yacht-120-210.mp4",
+    "bytes": 19355046,
+    "sha256": "6e81ace6bcd17d85c9408f0f41624dc6c4fa040df8c78dfc674d052b5dca1f47"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/d87d6d7e-20eb-49cb-a02b-28e90d14603f/projects/c7d28943-d5a2-4827-be09-fb5fd8c201d8/source/beast-aligned-original.mp4",
+    "retained": "/downloads/freedom-h264-6cea4aab.mp4",
+    "bytes": 10143254,
+    "sha256": "564773f8ea9964cd87dfee4cdaed9db377a1b23c7f4a58b54f21b468c3a5ca5b"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/95c5ba70-4ddd-468f-8f12-231e81f25399/projects/69e3e8c9-e05e-489c-95e5-d371fec565ee/source/beast-aligned-original.mp4",
+    "retained": "/downloads/recovered-source/cottonbro-two-person-original.mp4",
+    "bytes": 7504717,
+    "sha256": "03cea7407b178ceb4046e5e504a831b70de12d066158889c1df4cd2b5b650343"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/777ee71e-c3e4-4754-8c21-7e9d63b38741/projects/168ada4f-a942-4bc4-ae43-00a0d884df89/source/beast-aligned-original.mp4",
+    "retained": "/downloads/recovered-source/cottonbro-studio-original.mp4",
+    "bytes": 6550468,
+    "sha256": "69bafd8e8860b9a08a1d21bc5eaf70f7ed5df4fc6af01f5eed3a7b401367a24e"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/39eef7d3-5baf-41ba-9d90-9652411d95a7/projects/a43a9e9b-3d5b-45f1-995a-9ed44485c827/source/beast-aligned-original.mp4",
+    "retained": "/downloads/recovered-source/cottonbro-studio-original.mp4",
+    "bytes": 6550468,
+    "sha256": "69bafd8e8860b9a08a1d21bc5eaf70f7ed5df4fc6af01f5eed3a7b401367a24e"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/1e0f0fb5-3c6f-4eb0-b8e0-3a1e9b078f25/projects/52308e21-5ae9-47b8-b889-847920e8c16a/source/beast-aligned-original.mp4",
+    "retained": "/downloads/dust-full-720p-1aa58091.mp4",
+    "bytes": 13511602,
+    "sha256": "5924329e63958549da0069a40bd0c68bb0eab881b89196c02c23bf7293610bec"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/0a58976b-cf52-4d62-90ca-d13118d7891b/projects/7394db37-8f8d-4dee-a478-03fa78bc7142/source/beast-aligned-original.mp4",
+    "retained": "/downloads/freedom-h264-6cea4aab.mp4",
+    "bytes": 10143254,
+    "sha256": "564773f8ea9964cd87dfee4cdaed9db377a1b23c7f4a58b54f21b468c3a5ca5b"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/857a7e87-488d-4c4b-9094-1658b2f11f8c/projects/49f03d71-3395-471f-986a-99c620a5f016/source/beast-aligned-original.mp4",
+    "retained": "/downloads/recovered-source/cottonbro-two-person-original.mp4",
+    "bytes": 7504717,
+    "sha256": "03cea7407b178ceb4046e5e504a831b70de12d066158889c1df4cd2b5b650343"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/3556ffdd-336b-475c-b542-355a162ba6a9/projects/c1735c5f-ab69-4960-9f1c-c420889700f9/source/beast-aligned-original.mp4",
+    "retained": "/downloads/dust-full-720p-1aa58091.mp4",
+    "bytes": 13511602,
+    "sha256": "5924329e63958549da0069a40bd0c68bb0eab881b89196c02c23bf7293610bec"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/acc3a3bf-1837-44f9-98a1-8c215fe6644e/projects/9c9e46df-1fa3-4c6a-bb09-a557b3bf176d/source/beast-aligned-original.mp4",
+    "retained": "/downloads/wiki-full-720p-21137dba.mp4",
+    "bytes": 14870309,
+    "sha256": "a08593657746d22ad560b7463b99a665eae7f29fc4fc92fe2dac53f100c545d5"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/f8c17e66-73e2-42e6-a738-120d6bf8bbee/projects/eeb74403-574c-4bbd-9e2d-ec34901b3e1a/source/beast-aligned-original.mp4",
+    "retained": "/downloads/dust-full-720p-1aa58091.mp4",
+    "bytes": 13511602,
+    "sha256": "5924329e63958549da0069a40bd0c68bb0eab881b89196c02c23bf7293610bec"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/e88b0ef8-cd7c-4aee-9f71-d4db0d35923a/projects/324a543a-b7dd-4a00-a35e-7e42d780d3d7/source/beast-aligned-original.mp4",
+    "retained": "/downloads/recovered-source/beast-yacht-120-210.mp4",
+    "bytes": 19355046,
+    "sha256": "6e81ace6bcd17d85c9408f0f41624dc6c4fa040df8c78dfc674d052b5dca1f47"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/66388583-e267-425d-a9c0-38d9c9227578/projects/71a0f623-3a5c-4312-93fe-e81b868635f7/source/beast-aligned-original.mp4",
+    "retained": "/downloads/rank1-clean-source-approx-aligned.mp4",
+    "bytes": 7427704,
+    "sha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/6070aa69-e763-4ab1-82a4-fdf658b0120e/projects/69ae2d8f-4341-4e21-a4ad-c6d90540d474/source/beast-aligned-original.mp4",
+    "retained": "/downloads/recovered-source/mixed-framing-36s.mp4",
+    "bytes": 5702470,
+    "sha256": "6d423d72c40f599cc981a7f6caf6dc11eca4208f1a06c78a76e19bfa714cd3b6"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/6f4ecded-7029-44e0-8bc9-c96020addc6e/projects/dc4b3439-2611-4aa8-85b6-0b6e111f5c92/source/beast-aligned-original.mp4",
+    "retained": "/downloads/vireo-bounded-body-ui-1030/verified-source.mp4",
+    "bytes": 2895562,
+    "sha256": "5ede85ca40525e7c5986cc409783fed564abd454a64d1512ff8b8559be124fc5"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/4190ef2b-8c2e-47ae-b9fe-59d7b6fe0589/projects/14ffdd84-af40-480f-94ce-6ad1be23e244/source/beast-aligned-original.mp4",
+    "retained": "/downloads/dust-full-720p-1aa58091.mp4",
+    "bytes": 13511602,
+    "sha256": "5924329e63958549da0069a40bd0c68bb0eab881b89196c02c23bf7293610bec"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/90e40a51-b125-417a-8e89-4a56448da648/projects/185100a2-25df-4328-8cc3-47d8e10e9c00/source/beast-aligned-original.mp4",
+    "retained": "/downloads/recovered-source/cottonbro-studio-original.mp4",
+    "bytes": 6550468,
+    "sha256": "69bafd8e8860b9a08a1d21bc5eaf70f7ed5df4fc6af01f5eed3a7b401367a24e"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/a82ab882-265b-48e2-9879-943caf5743a0/projects/d486d828-0884-4506-b303-90129b8a68bc/source/rank1-unique-clean-source.mp4",
+    "retained": "/downloads/rank1-clean-source-approx-aligned.mp4",
+    "bytes": 7427704,
+    "sha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/183ab327-0f49-4cc7-896b-59da185abeb6/projects/948bb1c1-9a19-4355-bee7-344aab4e43b0/source/beast-aligned-original.mp4",
+    "retained": "/downloads/recovered-source/beast-yacht-120-210.mp4",
+    "bytes": 19355046,
+    "sha256": "6e81ace6bcd17d85c9408f0f41624dc6c4fa040df8c78dfc674d052b5dca1f47"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/39ca109e-a02b-4d89-8b4a-1442fa2e9caa/projects/5218b07e-e56a-4d9c-9ef9-0b096ce180f8/source/beast-aligned-original.mp4",
+    "retained": "/downloads/dust-full-720p-1aa58091.mp4",
+    "bytes": 13511602,
+    "sha256": "5924329e63958549da0069a40bd0c68bb0eab881b89196c02c23bf7293610bec"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/3c207bc1-5fcb-4219-8ee9-af2dfdbaa9d4/projects/9db428d3-327b-43c3-a912-ffccfa0cfaf8/source/beast-aligned-original.mp4",
+    "retained": "/downloads/vireo-bounded-body-ui-1030/verified-source.mp4",
+    "bytes": 2895562,
+    "sha256": "5ede85ca40525e7c5986cc409783fed564abd454a64d1512ff8b8559be124fc5"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/5746e83d-8851-4e12-a4e8-4f774a1e21a1/projects/3d2e5f4f-a572-4b8a-a2bb-d112547660a7/source/beast-aligned-original.mp4",
+    "retained": "/downloads/freedom-h264-6cea4aab.mp4",
+    "bytes": 10143254,
+    "sha256": "564773f8ea9964cd87dfee4cdaed9db377a1b23c7f4a58b54f21b468c3a5ca5b"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/7ec0ea46-1ef3-4f01-9918-968680af8052/projects/45c16e72-3287-4770-ab42-9ba8bd0508f6/source/beast-aligned-original.mp4",
+    "retained": "/downloads/c3-h264-80e4c7ec.mp4",
+    "bytes": 7938140,
+    "sha256": "6a73bb38d2e68cc3c6b9aa4a59e7f6d30750c89c3cdd704f0519f1130012770f"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/539af1dc-cd82-48b4-ade1-a9bd28d2a725/projects/90361105-914c-4dd9-8c55-4666f2b5e8ff/source/beast-aligned-original.mp4",
+    "retained": "/downloads/recovered-source/cottonbro-two-person-original.mp4",
+    "bytes": 7504717,
+    "sha256": "03cea7407b178ceb4046e5e504a831b70de12d066158889c1df4cd2b5b650343"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/92ca1405-af23-49ed-9dfb-fed69ee72286/projects/440a1994-d482-4e2e-86d9-88c455707c73/source/beast-aligned-original.mp4",
+    "retained": "/downloads/dust-full-720p-1aa58091.mp4",
+    "bytes": 13511602,
+    "sha256": "5924329e63958549da0069a40bd0c68bb0eab881b89196c02c23bf7293610bec"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/2a36bc8f-d212-4b90-a2b4-4d2827bb48fd/projects/13e748b6-3fdb-43dc-be04-59ea3319065b/source/beast-aligned-original.mp4",
+    "retained": "/downloads/rank1-clean-source-approx-aligned.mp4",
+    "bytes": 7427704,
+    "sha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/e9cf8f2e-262a-46c3-98f7-d5e1f7bdbb10/projects/602175b0-1949-40d5-924a-6ddd9d159905/source/beast-aligned-original.mp4",
+    "retained": "/downloads/c3-h264-80e4c7ec.mp4",
+    "bytes": 7938140,
+    "sha256": "6a73bb38d2e68cc3c6b9aa4a59e7f6d30750c89c3cdd704f0519f1130012770f"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/10a35804-fa3a-4c39-bd7e-9a71adb58a2f/projects/76ef0bd1-56ea-4cb1-b679-76730e1b8244/source/beast-aligned-original.mp4",
+    "retained": "/downloads/c3-h264-80e4c7ec.mp4",
+    "bytes": 7938140,
+    "sha256": "6a73bb38d2e68cc3c6b9aa4a59e7f6d30750c89c3cdd704f0519f1130012770f"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/0401320a-32d1-4945-87ea-18624c3d981c/projects/88298293-99b7-4e7a-990a-75219610c6c7/source/beast-aligned-original.mp4",
+    "retained": "/downloads/recovered-source/cottonbro-two-person-original.mp4",
+    "bytes": 7504717,
+    "sha256": "03cea7407b178ceb4046e5e504a831b70de12d066158889c1df4cd2b5b650343"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/064f153e-dd50-4080-8bdc-cd36c1b55117/projects/f8dba673-e8f6-4838-85c9-4dc9b3b24067/source/beast-aligned-original.mp4",
+    "retained": "/downloads/vireo-controls-current-savedjob-0551/verified-source.mp4",
+    "bytes": 1517643,
+    "sha256": "c486f16a5f8c36bb1152fdfa8e826dce216e34dc85c34e2d7bd3bd14a88e7fd9"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/b2a0b278-acc7-4909-a496-b1eb0e433bd6/projects/fe6ca454-d63e-472c-9626-3dacc72a7f5a/source/beast-aligned-original.mp4",
+    "retained": "/downloads/freedom-h264-6cea4aab.mp4",
+    "bytes": 10143254,
+    "sha256": "564773f8ea9964cd87dfee4cdaed9db377a1b23c7f4a58b54f21b468c3a5ca5b"
+  },
+  {
+    "removedCache": "/tmp/vireo-local-restore/objects/local-source/users/b175f48e-cfbb-46d4-8e39-baaaaa03f368/projects/97f06643-ff46-48cc-8528-50a1256c1f3f/source/beast-aligned-original.mp4",
+    "retained": "/downloads/wiki-full-720p-21137dba.mp4",
+    "bytes": 14870309,
+    "sha256": "a08593657746d22ad560b7463b99a665eae7f29fc4fc92fe2dac53f100c545d5"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-6812da66-d452-4fbc-812e-f9131e1eb602-1794930270229_c2bcc531/source.mp4",
+    "retained": "/downloads/recovered-source/cottonbro-studio-original.mp4",
+    "bytes": 6550468,
+    "sha256": "69bafd8e8860b9a08a1d21bc5eaf70f7ed5df4fc6af01f5eed3a7b401367a24e"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-6812da66-d452-4fbc-812e-f9131e1eb602-1794930270229_c2bcc531/rendered.mp4",
+    "retained": "/downloads/hand-controlled-studio-1/actual-candidate-export.mp4",
+    "bytes": 4125789,
+    "sha256": "b634fdc6c139f6e58e0893544d79983e677ac9626ba6405dcb59d6bacfcf084f"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-71e48351-6bf2-427c-bffc-b3373dd6a61c-1794937919783_8a5487d8/source.mp4",
+    "retained": "/downloads/rank1-clean-source-approx-aligned.mp4",
+    "bytes": 7427704,
+    "sha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-71e48351-6bf2-427c-bffc-b3373dd6a61c-1794937919783_8a5487d8/rendered.mp4",
+    "retained": "/downloads/rank1-complete-night/vireo-auto-captions-hook-sound.mp4",
+    "bytes": 17716883,
+    "sha256": "db25c07eec234bea684fce39adfa906b2c3e182d0cd700722a8788b7c455629b"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-92e15efc-df9b-435b-81cf-7eda97bb0001-1794918938770_d9539e42/source.mp4",
+    "retained": "/downloads/wiki-full-720p-21137dba.mp4",
+    "bytes": 14870309,
+    "sha256": "a08593657746d22ad560b7463b99a665eae7f29fc4fc92fe2dac53f100c545d5"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-92e15efc-df9b-435b-81cf-7eda97bb0001-1794918938770_d9539e42/rendered.mp4",
+    "retained": "/downloads/wiki-independent-firstpass/render-0/actual-export.mp4",
+    "bytes": 5971973,
+    "sha256": "517c6617f4eac6f8527fe5644f067b3728b1a54eae524ded274321c9be41a2c1"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-4366175e-3e78-4e1f-a43e-9f79a0e7bd5b-1794914177124_3730375a/source.mp4",
+    "retained": "/downloads/rank1-clean-source-approx-aligned.mp4",
+    "bytes": 7427704,
+    "sha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-4366175e-3e78-4e1f-a43e-9f79a0e7bd5b-1794914177124_3730375a/rendered.mp4",
+    "retained": "/downloads/rank1-auto-baseline-product/actual-export.mp4",
+    "bytes": 19254962,
+    "sha256": "48c003b4062d0090098d7f159b43d17240bee75673edcc63359828f057b27d21"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-38ab137e-9c07-4f10-a5b1-1416e30ed614-1794913835953_c46640d3/source.mp4",
+    "retained": "/downloads/rank1-clean-source-approx-aligned.mp4",
+    "bytes": 7427704,
+    "sha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-38ab137e-9c07-4f10-a5b1-1416e30ed614-1794913835953_c46640d3/rendered.mp4",
+    "retained": "/downloads/full-rank1-actual-product.mp4",
+    "bytes": 19280696,
+    "sha256": "6ad4ffb05ab2ef9da1f6c194009fbd3423d1af6c6ccef5b93a986b8cdcddb240"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-4366175e-3e78-4e1f-a43e-9f79a0e7bd5b-1794915118782_6fc86cd0/source.mp4",
+    "retained": "/downloads/rank1-clean-source-approx-aligned.mp4",
+    "bytes": 7427704,
+    "sha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-4366175e-3e78-4e1f-a43e-9f79a0e7bd5b-1794915118782_6fc86cd0/rendered.mp4",
+    "retained": "/downloads/layout-caption-defaults-candidate/api/actual-export.mp4",
+    "bytes": 11589228,
+    "sha256": "4742cdbcc22e4f7ab5ea64ef41ad4bf14e998e299fd4cf12c957ecd80d86f93c"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-d2e95af1-a45a-4915-a841-a734da595d18-1794926597332_32e06294/source.mp4",
+    "retained": "/downloads/rank1-clean-source-approx-aligned.mp4",
+    "bytes": 7427704,
+    "sha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-d2e95af1-a45a-4915-a841-a734da595d18-1794926597332_32e06294/rendered.mp4",
+    "retained": "/downloads/layout-strip-diagnosis/actual-candidate-export.mp4",
+    "bytes": 15491899,
+    "sha256": "3b86c3565f25803ca41747319ac3eabb8a70696f0231fa91f636fba126ecee26"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-4366175e-3e78-4e1f-a43e-9f79a0e7bd5b-1794914736260_975d831a/source.mp4",
+    "retained": "/downloads/rank1-clean-source-approx-aligned.mp4",
+    "bytes": 7427704,
+    "sha256": "77077a07ad64772757648b96a98f4ed05b0beaf50df231fabd767dd768a2d70d"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-4366175e-3e78-4e1f-a43e-9f79a0e7bd5b-1794914736260_975d831a/rendered.mp4",
+    "retained": "/downloads/rank1-auto-product/with-manual-hook-overlap-rejected.mp4",
+    "bytes": 19044465,
+    "sha256": "f83a81e3165e4e2101cb7f0aa61372bb9ce6c8404c87c49340bb91da4e97a8f3"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-2c758cb3-19ed-4f38-8194-d8014c70b98c-1794927823070_8e08611a/source.mp4",
+    "retained": "/downloads/recovered-source/cottonbro-studio-original.mp4",
+    "bytes": 6550468,
+    "sha256": "69bafd8e8860b9a08a1d21bc5eaf70f7ed5df4fc6af01f5eed3a7b401367a24e"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-2c758cb3-19ed-4f38-8194-d8014c70b98c-1794927823070_8e08611a/rendered.mp4",
+    "retained": "/downloads/hand-controlled-studio-1/actual-candidate-export.mp4",
+    "bytes": 4125789,
+    "sha256": "b634fdc6c139f6e58e0893544d79983e677ac9626ba6405dcb59d6bacfcf084f"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-79886fcc-b75f-432f-b010-57f622758c11-1794929171883_d6fde5b4/source.mp4",
+    "retained": "/downloads/recovered-source/cottonbro-two-person-original.mp4",
+    "bytes": 7504717,
+    "sha256": "03cea7407b178ceb4046e5e504a831b70de12d066158889c1df4cd2b5b650343"
+  },
+  {
+    "removedCache": "/tmp/vireo-render-79886fcc-b75f-432f-b010-57f622758c11-1794929171883_d6fde5b4/rendered.mp4",
+    "retained": "/downloads/hand-controlled-pair-1/actual-candidate-export.mp4",
+    "bytes": 4620409,
+    "sha256": "9bd7957a70909602de9341d72c967695b83cd5fd88b1d929a22b8b25f3a41279"
+  }
+]

@@ -1,0 +1,68 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "genre": "gaming",
+      "confidence": 0.98,
+      "streamer_inset": true,
+      "inset_box": [
+        70,
+        450,
+        250,
+        650
+      ],
+      "evidence": "A small inset shows a person's face and shoulders, typical of a streamer's webcam, overlaid on a video game scene with a menu interface."
+    },
+    {
+      "case": 2,
+      "genre": "gaming",
+      "confidence": 0.99,
+      "streamer_inset": false,
+      "inset_box": null,
+      "evidence": "The scene is a third-person perspective of a motorcycle in a city, with no visible webcam inset or streamer."
+    },
+    {
+      "case": 3,
+      "genre": "people_conversation",
+      "confidence": 0.97,
+      "streamer_inset": false,
+      "inset_box": null,
+      "evidence": "Two women are seated at a table with microphones in a studio with acoustic panels, indicating a recorded conversation or podcast."
+    },
+    {
+      "case": 4,
+      "genre": "software_tutorial",
+      "confidence": 0.99,
+      "streamer_inset": false,
+      "inset_box": null,
+      "evidence": "The screen displays the AWS Management Console, a software interface, with a user interacting with it by typing in a search box."
+    },
+    {
+      "case": 5,
+      "genre": "people_conversation",
+      "confidence": 0.98,
+      "streamer_inset": false,
+      "inset_box": null,
+      "evidence": "Three individuals are shown in separate video tiles with names and a show title, indicating a recorded panel discussion or interview."
+    },
+    {
+      "case": 6,
+      "genre": "gaming",
+      "confidence": 0.95,
+      "streamer_inset": true,
+      "inset_box": [
+        100,
+        100,
+        300,
+        400
+      ],
+      "evidence": "The first frame shows two people in a studio with a game title 'DUSTBORN' and a subtitle, suggesting a gaming stream. The second frame shows in-game animation, confirming the genre."
+    }
+  ],
+  "not_activated": true,
+  "purpose": "anonymous six-source visual diagnostic, not generalization proof",
+  "failure_cases": [
+    "GTA5 inset rectangle outside normalized bounds",
+    "Mixed studio/gameplay falsely labeled streamer inset"
+  ]
+}
