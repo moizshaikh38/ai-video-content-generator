@@ -979,7 +979,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         )}
 
                         {autoRanges.map((range,n)=>(
-                          <div key={n} data-testid="automatic-scene-range" title={`${range.label}${range.review ? ' - review side context' : ''}: ${range.start.toFixed(2)}-${range.end.toFixed(2)}s (analysis scene, not an edit boundary)`}
+                          <div key={n} data-testid="automatic-scene-range" title={`${range.label}${range.review ? ' - review side context' : ''}: ${range.start.toFixed(2)}-${range.end.toFixed(2)}s (source scene range, not an edit boundary)`}
                             className={`absolute top-0 bottom-0 border-l border-white/60 pointer-events-none ${playhead>=range.start&&playhead<range.end ? 'bg-violet-500/15' : ''}`}
                             style={{left:`${(range.start-item.timeline_start)*pixelsPerSec}px`,width:`${(range.end-range.start)*pixelsPerSec}px`}}>
                             <button type="button" data-testid="scene-layout-range-button" title={`Change this scene only: ${range.start.toFixed(2)}-${range.end.toFixed(2)}s`} disabled={Boolean(track.locked||item.locked)} onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPlayheadChange(range.start);setSceneMenu({itemId:item.id,start:range.sourceStart!,end:range.sourceEnd!,anchor:e.currentTarget.getBoundingClientRect()})}} className="absolute bottom-1 left-1 right-1 truncate pointer-events-auto cursor-pointer rounded bg-black/80 px-1.5 py-0.5 text-[10px] font-medium text-white">{range.label}{range.review ? ' · Review' : ''} ▾</button>

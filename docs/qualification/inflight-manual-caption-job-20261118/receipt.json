@@ -83,5 +83,7 @@
     "534x360 source, interpolated 720p output, not native detail",
     "Transcript accuracy unverified; selected interval begins mid-sentence",
     "Captioned edited output has clearly visible top/bottom black padding in bottom-left panel; not bar-free qualification"
-  ]
+  ],
+  "captionJobConversationGateEnabled": false,
+  "enabledRouteRecheckedSeparately": true
 }
