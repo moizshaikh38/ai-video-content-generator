@@ -1,0 +1,736 @@
+TAP version 13
+# Subtest: adaptive Fit,Fill,Split boundaries become caption windows from same plan
+ok 1 - adaptive Fit,Fill,Split boundaries become caption windows from same plan
+  ---
+  duration_ms: 1.413981
+  type: 'test'
+  ...
+# Subtest: trim,2x speed,and nonzero edited timeline preserve source clock
+ok 2 - trim,2x speed,and nonzero edited timeline preserve source clock
+  ---
+  duration_ms: 0.33372
+  type: 'test'
+  ...
+# Subtest: manual layouts,panels,framing,tracker override automatic plan
+ok 3 - manual layouts,panels,framing,tracker override automatic plan
+  ---
+  duration_ms: 0.40441
+  type: 'test'
+  ...
+# Subtest: explicit positions are not moved or split by automatic scenes
+ok 4 - explicit positions are not moved or split by automatic scenes
+  ---
+  duration_ms: 0.374798
+  type: 'test'
+  ...
+# Subtest: word clocks are clipped not generated or retimed
+ok 5 - word clocks are clipped not generated or retimed
+  ---
+  duration_ms: 0.230057
+  type: 'test'
+  ...
+# Subtest: invalid/other aspect plans do not create derived windows
+ok 6 - invalid/other aspect plans do not create derived windows
+  ---
+  duration_ms: 0.156125
+  type: 'test'
+  ...
+# Subtest: scene manual override keeps its own layout but unmodified scenes adapt
+ok 7 - scene manual override keeps its own layout but unmodified scenes adapt
+  ---
+  duration_ms: 0.444488
+  type: 'test'
+  ...
+# Subtest: same-source semantic and independently measured rectangle create streamer-top full-game-bottom candidate with explicit limits
+ok 8 - same-source semantic and independently measured rectangle create streamer-top full-game-bottom candidate with explicit limits
+  ---
+  duration_ms: 1.103681
+  type: 'test'
+  ...
+# Subtest: stale source, dimensions, sparse/non-game semantic evidence and raw model boxes never assign views
+ok 9 - stale source, dimensions, sparse/non-game semantic evidence and raw model boxes never assign views
+  ---
+  duration_ms: 0.167446
+  type: 'test'
+  ...
+# Subtest: invalid, ambiguous, unsupported or insufficient rectangles abstain
+ok 10 - invalid, ambiguous, unsupported or insufficient rectangles abstain
+  ---
+  duration_ms: 0.199626
+  type: 'test'
+  ...
+# Subtest: cover review derives full-inset target aspect and leaves normal layout unchanged
+ok 11 - cover review derives full-inset target aspect and leaves normal layout unchanged
+  ---
+  duration_ms: 0.118232
+  type: 'test'
+  ...
+# Subtest: visual review genre joins exact-source geometry, rejects missing and mixed evidence
+ok 12 - visual review genre joins exact-source geometry, rejects missing and mixed evidence
+  ---
+  duration_ms: 0.523918
+  type: 'test'
+  ...
+# Subtest: actual ordinary Auto bridge consumes valid bound gaming evidence without method override
+ok 13 - actual ordinary Auto bridge consumes valid bound gaming evidence without method override
+  ---
+  duration_ms: 1.02278
+  type: 'test'
+  ...
+# Subtest: manual, stale, cut, wrong-source, missing-evidence and Fit-only requests cannot get gameplay review
+ok 14 - manual, stale, cut, wrong-source, missing-evidence and Fit-only requests cannot get gameplay review
+  ---
+  duration_ms: 3.063587
+  type: 'test'
+  ...
+# Subtest: source-aspect target rectangles tile exactly in normalized and pixel plans
+ok 15 - source-aspect target rectangles tile exactly in normalized and pixel plans
+  ---
+  duration_ms: 0.732505
+  type: 'test'
+  ...
+# Subtest: automatic caption windows use source-aspect gaming seam and preserve manual overrides
+ok 16 - automatic caption windows use source-aspect gaming seam and preserve manual overrides
+  ---
+  duration_ms: 4.497449
+  type: 'test'
+  ...
+# Subtest: candidate requires exact persisted version and off is default
+ok 17 - candidate requires exact persisted version and off is default
+  ---
+  duration_ms: 1.00283
+  type: 'test'
+  ...
+# Subtest: clip toggle persists through JSON, preserves manual overrides and locks, reverses
+ok 18 - clip toggle persists through JSON, preserves manual overrides and locks, reverses
+  ---
+  duration_ms: 0.393077
+  type: 'test'
+  ...
+# Subtest: existing scene patches inherit candidate without losing manual crop and off reverses
+ok 19 - existing scene patches inherit candidate without losing manual crop and off reverses
+  ---
+  duration_ms: 0.120367
+  type: 'test'
+  ...
+# Subtest: mixed candidate state includes locked items but ignores hidden ones
+ok 20 - mixed candidate state includes locked items but ignores hidden ones
+  ---
+  duration_ms: 0.491814
+  type: 'test'
+  ...
+# Subtest: source offsets, trims and speed map without touching edit timing
+ok 21 - source offsets, trims and speed map without touching edit timing
+  ---
+  duration_ms: 1.014093
+  type: 'test'
+  ...
+# Subtest: manual scenes remain selectable and truthfully labelled; other aspects stay hidden
+ok 22 - manual scenes remain selectable and truthfully labelled; other aspects stay hidden
+  ---
+  duration_ms: 0.20423
+  type: 'test'
+  ...
+# Subtest: Auto restores existing plan channels only and preserves unrelated edits and manual Tracker
+ok 23 - Auto restores existing plan channels only and preserves unrelated edits and manual Tracker
+  ---
+  duration_ms: 49.363543
+  type: 'test'
+  ...
+# Subtest: Auto cannot change a locked item or locked video track
+ok 24 - Auto cannot change a locked item or locked video track
+  ---
+  duration_ms: 0.471922
+  type: 'test'
+  ...
+# Subtest: base and scene configs accept the same candidate contract
+ok 25 - base and scene configs accept the same candidate contract
+  ---
+  duration_ms: 0.812244
+  type: 'test'
+  ...
+# Subtest: unsupported candidates rejected identically at base and scene boundaries
+ok 26 - unsupported candidates rejected identically at base and scene boundaries
+  ---
+  duration_ms: 0.402704
+  type: 'test'
+  ...
+# Subtest: invalid layout policies rejected at both boundaries
+ok 27 - invalid layout policies rejected at both boundaries
+  ---
+  duration_ms: 0.345297
+  type: 'test'
+  ...
+# Subtest: validation never changes candidate policy ordering or manual fields
+ok 28 - validation never changes candidate policy ordering or manual fields
+  ---
+  duration_ms: 0.146721
+  type: 'test'
+  ...
+# Subtest: legacy absence and explicit null remain compatible
+ok 29 - legacy absence and explicit null remain compatible
+  ---
+  duration_ms: 0.13689
+  type: 'test'
+  ...
+# Subtest: Mongo optional null policy remains absent without rewriting saved manual fields
+ok 30 - Mongo optional null policy remains absent without rewriting saved manual fields
+  ---
+  duration_ms: 0.139446
+  type: 'test'
+  ...
+# Subtest: ordinary Auto uses source clock without a candidate flag; manual ownership does not gain it
+ok 31 - ordinary Auto uses source clock without a candidate flag; manual ownership does not gain it
+  ---
+  duration_ms: 0.722071
+  type: 'test'
+  ...
+# Subtest: ordinary single-item2x trim straddles the real source cut and retains both layouts
+ok 32 - ordinary single-item2x trim straddles the real source cut and retains both layouts
+  ---
+  duration_ms: 6.442474
+  type: 'test'
+  ...
+# Subtest: ordinary multi-item2x trim uses source duration before speed instead of timeline duration
+ok 33 - ordinary multi-item2x trim uses source duration before speed instead of timeline duration
+  ---
+  duration_ms: 1.342791
+  type: 'test'
+  ...
+# Subtest: single-item input/output bounds honor both fast and slow playback and reject stale canvas overrun
+ok 34 - single-item input/output bounds honor both fast and slow playback and reject stale canvas overrun
+  ---
+  duration_ms: 0.75655
+  type: 'test'
+  ...
+# Subtest: scene-local manual Fit wins only inside its source interval after2x trim
+ok 35 - scene-local manual Fit wins only inside its source interval after2x trim
+  ---
+  duration_ms: 8.893803
+  type: 'test'
+  ...
+# Subtest: single normal item input content ignores layout ownership, freeze/title remain separate
+ok 36 - single normal item input content ignores layout ownership, freeze/title remain separate
+  ---
+  duration_ms: 0.43732
+  type: 'test'
+  ...
+# Subtest: fresh initialization uses export palette for every renderable preset without mutating config
+ok 37 - fresh initialization uses export palette for every renderable preset without mutating config
+  ---
+  duration_ms: 1.621319
+  type: 'test'
+  ...
+# Subtest: Comic Punch real-returned phrase retains matching green preview/export accents; custom clip colors win
+ok 38 - Comic Punch real-returned phrase retains matching green preview/export accents; custom clip colors win
+  ---
+  duration_ms: 9.360407
+  type: 'test'
+  ...
+# Subtest: legacy style keeps its legacy defaults
+ok 39 - legacy style keeps its legacy defaults
+  ---
+  duration_ms: 0.144136
+  type: 'test'
+  ...
+# Subtest: fresh preset initialization preserves default pop and explicit animation choices instead of legacy highlight
+ok 40 - fresh preset initialization preserves default pop and explicit animation choices instead of legacy highlight
+  ---
+  duration_ms: 1.53385
+  type: 'test'
+  ...
+# Subtest: actual fresh editor keeps preset-native size and explicit font overrides without hardcoded house fields
+ok 41 - actual fresh editor keeps preset-native size and explicit font overrides without hardcoded house fields
+  ---
+  duration_ms: 1.714036
+  type: 'test'
+  ...
+# Subtest: userlayout default contract:Fit/Fill lowercenter;allpaneltypes center
+ok 42 - userlayout default contract:Fit/Fill lowercenter;allpaneltypes center
+  ---
+  duration_ms: 1.561308
+  type: 'test'
+  ...
+# Subtest: preset changes retain exactmanualXYandexplicitbottomprovenance,cues untouched
+ok 43 - preset changes retain exactmanualXYandexplicitbottomprovenance,cues untouched
+  ---
+  duration_ms: 0.281617
+  type: 'test'
+  ...
+# Subtest: specialgeometries honor centeranchorand retainmanualbottomsemantics
+ok 44 - specialgeometries honor centeranchorand retainmanualbottomsemantics
+  ---
+  duration_ms: 0.593923
+  type: 'test'
+  ...
+# Subtest: all specialpreviewframes retain derivedanchorandactualASSuses adjustedorigin
+ok 45 - all specialpreviewframes retain derivedanchorandactualASSuses adjustedorigin
+  ---
+  duration_ms: 19.531185
+  type: 'test'
+  ...
+# Subtest: editor item numeric drag reaches export cues without mirrored clip config
+ok 46 - editor item numeric drag reaches export cues without mirrored clip config
+  ---
+  duration_ms: 0.971154
+  type: 'test'
+  ...
+# Subtest: manual matching Four reuses distinct verified range; no measured choice leaves views unassigned
+ok 47 - manual matching Four reuses distinct verified range; no measured choice leaves views unassigned
+  ---
+  duration_ms: 1.754251
+  type: 'test'
+  ...
+# Subtest: wrong layout range ambiguous or duplicate regions cannot seed a manual panel choice
+ok 48 - wrong layout range ambiguous or duplicate regions cannot seed a manual panel choice
+  ---
+  duration_ms: 0.210328
+  type: 'test'
+  ...
+# Subtest: saved manual panels and locked items win; scene-only choice cannot leak outside source interval
+ok 49 - saved manual panels and locked items win; scene-only choice cannot leak outside source interval
+  ---
+  duration_ms: 1.570076
+  type: 'test'
+  ...
+# Subtest: whole clip never borrows a different source item assignment
+ok 50 - whole clip never borrows a different source item assignment
+  ---
+  duration_ms: 0.332118
+  type: 'test'
+  ...
+# Subtest: manual seeding validates source identity configuration and tracker safety
+ok 51 - manual seeding validates source identity configuration and tracker safety
+  ---
+  duration_ms: 1.03125
+  type: 'test'
+  ...
+# Subtest: malformed or out-of-range measured controls are rejected rather than clamped
+ok 52 - malformed or out-of-range measured controls are rejected rather than clamped
+  ---
+  duration_ms: 0.2562
+  type: 'test'
+  ...
+# Subtest: late verified analysis can replace untouched placeholders but never a partially assigned manual layout
+ok 53 - late verified analysis can replace untouched placeholders but never a partially assigned manual layout
+  ---
+  duration_ms: 0.377916
+  type: 'test'
+  ...
+# Subtest: new and unconfigured captions use open-license comic variant, old fallback untouched
+ok 54 - new and unconfigured captions use open-license comic variant, old fallback untouched
+  ---
+  duration_ms: 1.006929
+  type: 'test'
+  ...
+# Subtest: saved styles/config are preserved, including manual position font and OFF choice elsewhere
+ok 55 - saved styles/config are preserved, including manual position font and OFF choice elsewhere
+  ---
+  duration_ms: 0.787691
+  type: 'test'
+  ...
+# Subtest: Free and all paid plans can use new house style without broadening other restrictions
+ok 56 - Free and all paid plans can use new house style without broadening other restrictions
+  ---
+  duration_ms: 0.234311
+  type: 'test'
+  ...
+# Subtest: unconfigured caption service uses new default; saved style remains exact
+ok 57 - unconfigured caption service uses new default; saved style remains exact
+  ---
+  duration_ms: 0.16978
+  type: 'test'
+  ...
+# Subtest: new preset is a real editor/export comic style, not plain black blocks
+ok 58 - new preset is a real editor/export comic style, not plain black blocks
+  ---
+  duration_ms: 5.414426
+  type: 'test'
+  ...
+# Subtest: new Studio initialization preserves explicit config-only preset instead of resetting it
+ok 59 - new Studio initialization preserves explicit config-only preset instead of resetting it
+  ---
+  duration_ms: 1.113627
+  type: 'test'
+  ...
+# Subtest: ordinary Auto export derives Fill then Split caption windows without experimental metadata
+ok 60 - ordinary Auto export derives Fill then Split caption windows without experimental metadata
+  ---
+  duration_ms: 5.206965
+  type: 'test'
+  ...
+# Subtest: ordinary caption windows honor source trim and2x speed on edited timeline
+ok 61 - ordinary caption windows honor source trim and2x speed on edited timeline
+  ---
+  duration_ms: 0.613459
+  type: 'test'
+  ...
+# Subtest: manual framing,freeze,title,panels,tracker and stale tracks never acquire ordinary auto windows
+ok 62 - manual framing,freeze,title,panels,tracker and stale tracks never acquire ordinary auto windows
+  ---
+  duration_ms: 4.111285
+  type: 'test'
+  ...
+# Subtest: explicit caption positions remain untouched despite ordinary Auto scenes
+ok 63 - explicit caption positions remain untouched despite ordinary Auto scenes
+  ---
+  duration_ms: 0.559099
+  type: 'test'
+  ...
+# Subtest: split2 contain is opt-in, roundtrips region and preserves review gate
+ok 64 - split2 contain is opt-in, roundtrips region and preserves review gate
+  ---
+  duration_ms: 1.769336
+  type: 'test'
+  ...
+# Subtest: three contain is opt-in, roundtrips region and preserves review gate
+ok 65 - three contain is opt-in, roundtrips region and preserves review gate
+  ---
+  duration_ms: 0.376311
+  type: 'test'
+  ...
+# Subtest: four contain is opt-in, roundtrips region and preserves review gate
+ok 66 - four contain is opt-in, roundtrips region and preserves review gate
+  ---
+  duration_ms: 0.335351
+  type: 'test'
+  ...
+# Subtest: screenshare contain is opt-in, roundtrips region and preserves review gate
+ok 67 - screenshare contain is opt-in, roundtrips region and preserves review gate
+  ---
+  duration_ms: 0.193334
+  type: 'test'
+  ...
+# Subtest: gameplay contain is opt-in, roundtrips region and preserves review gate
+ok 68 - gameplay contain is opt-in, roundtrips region and preserves review gate
+  ---
+  duration_ms: 0.174066
+  type: 'test'
+  ...
+# Subtest: watch_party contain is opt-in, roundtrips region and preserves review gate
+ok 69 - watch_party contain is opt-in, roundtrips region and preserves review gate
+  ---
+  duration_ms: 0.126305
+  type: 'test'
+  ...
+# Subtest: streaming contain is opt-in, roundtrips region and preserves review gate
+ok 70 - streaming contain is opt-in, roundtrips region and preserves review gate
+  ---
+  duration_ms: 0.147075
+  type: 'test'
+  ...
+# Subtest: game_screen_first contain is opt-in, roundtrips region and preserves review gate
+ok 71 - game_screen_first contain is opt-in, roundtrips region and preserves review gate
+  ---
+  duration_ms: 0.109351
+  type: 'test'
+  ...
+# Subtest: invalid contain value cannot enable contain, full-source explicit fit has no region crop
+ok 72 - invalid contain value cannot enable contain, full-source explicit fit has no region crop
+  ---
+  duration_ms: 0.262018
+  type: 'test'
+  ...
+# Subtest: free region resize never escapes or collapses even when pointer crosses or coincides with anchor
+ok 73 - free region resize never escapes or collapses even when pointer crosses or coincides with anchor
+  ---
+  duration_ms: 0.501669
+  type: 'test'
+  ...
+# Subtest: source region roundtrips independently of placeholder/review state
+ok 74 - source region roundtrips independently of placeholder/review state
+  ---
+  duration_ms: 1.209106
+  type: 'test'
+  ...
+# Subtest: invalid region never silently clamps into a different valid region
+ok 75 - invalid region never silently clamps into a different valid region
+  ---
+  duration_ms: 0.119724
+  type: 'test'
+  ...
+# Subtest: all panel layouts keep old cover view unchanged without region
+ok 76 - all panel layouts keep old cover view unchanged without region
+  ---
+  duration_ms: 0.407594
+  type: 'test'
+  ...
+# Subtest: measured region restricts crop to camera, preserving face-safe focus in region
+ok 77 - measured region restricts crop to camera, preserving face-safe focus in region
+  ---
+  duration_ms: 0.357385
+  type: 'test'
+  ...
+# Subtest: observed screen-first template has60/40tiles and unassigned initial views
+ok 78 - observed screen-first template has60/40tiles and unassigned initial views
+  ---
+  duration_ms: 0.193942
+  type: 'test'
+  ...
+# Subtest: independent manual Split is two editable views, never preassigned
+ok 79 - independent manual Split is two editable views, never preassigned
+  ---
+  duration_ms: 0.138654
+  type: 'test'
+  ...
+# Subtest: screenshare seed centers subject using panel-specific cover and keeps views unconfirmed
+ok 80 - screenshare seed centers subject using panel-specific cover and keeps views unconfirmed
+  ---
+  duration_ms: 0.737767
+  type: 'test'
+  ...
+# Subtest: gameplay seed centers subject using panel-specific cover and keeps views unconfirmed
+ok 81 - gameplay seed centers subject using panel-specific cover and keeps views unconfirmed
+  ---
+  duration_ms: 0.094091
+  type: 'test'
+  ...
+# Subtest: unknown roles, missing tracks and existing panel slots remain untouched
+ok 82 - unknown roles, missing tracks and existing panel slots remain untouched
+  ---
+  duration_ms: 0.134573
+  type: 'test'
+  ...
+# Subtest: three and four distinct persistent participants receive unique assigned measured regions
+ok 83 - three and four distinct persistent participants receive unique assigned measured regions
+  ---
+  duration_ms: 3.583386
+  type: 'test'
+  ...
+# Subtest: detection array order cannot change participant ownership
+ok 84 - detection array order cannot change participant ownership
+  ---
+  duration_ms: 2.47821
+  type: 'test'
+  ...
+# Subtest: no invented participant for two faces plus back-facing third body
+ok 85 - no invented participant for two faces plus back-facing third body
+  ---
+  duration_ms: 0.182382
+  type: 'test'
+  ...
+# Subtest: duplicates, sparse, weak or moving observations abstain
+ok 86 - duplicates, sparse, weak or moving observations abstain
+  ---
+  duration_ms: 0.481631
+  type: 'test'
+  ...
+# Subtest: crossed body envelopes or extra people never produce duplicates or erase a participant
+ok 87 - crossed body envelopes or extra people never produce duplicates or erase a participant
+  ---
+  duration_ms: 0.77102
+  type: 'test'
+  ...
+# Subtest: offline aspect-matched face crops preserve complete observed faces and never activate without face-review permission
+ok 88 - offline aspect-matched face crops preserve complete observed faces and never activate without face-review permission
+  ---
+  duration_ms: 1.181496
+  type: 'test'
+  ...
+# Subtest: shared planner respects explicit review flag, Fit-only and protected content
+ok 89 - shared planner respects explicit review flag, Fit-only and protected content
+  ---
+  duration_ms: 334.1478
+  type: 'test'
+  ...
+# Subtest: preview accepts exactly the same effective item identity and shots as normal Pro compute
+ok 90 - preview accepts exactly the same effective item identity and shots as normal Pro compute
+  ---
+  duration_ms: 3.944337
+  type: 'test'
+  ...
+# Subtest: source bytes asset path output shape and per-scene configuration invalidate preview reuse
+ok 91 - source bytes asset path output shape and per-scene configuration invalidate preview reuse
+  ---
+  duration_ms: 1.822743
+  type: 'test'
+  ...
+# Subtest: server envelope requires current source receipt and recorded decoded geometry
+ok 92 - server envelope requires current source receipt and recorded decoded geometry
+  ---
+  duration_ms: 0.63515
+  type: 'test'
+  ...
+# Subtest: manual controls bypass missing envelopes without changing their state
+ok 93 - manual controls bypass missing envelopes without changing their state
+  ---
+  duration_ms: 0.650067
+  type: 'test'
+  ...
+# Subtest: preview plan cloning cannot mutate the measured envelope for another scene
+ok 94 - preview plan cloning cannot mutate the measured envelope for another scene
+  ---
+  duration_ms: 0.310566
+  type: 'test'
+  ...
+# Subtest: source-clock scene expansion agrees with Pro including override ID and range
+ok 95 - source-clock scene expansion agrees with Pro including override ID and range
+  ---
+  duration_ms: 0.844076
+  type: 'test'
+  ...
+# Subtest: policy key is stable under key order and preserves policy and candidate changes
+ok 96 - policy key is stable under key order and preserves policy and candidate changes
+  ---
+  duration_ms: 0.128406
+  type: 'test'
+  ...
+# Subtest: unknown or changed plan geometry never becomes an accepted preview
+ok 97 - unknown or changed plan geometry never becomes an accepted preview
+  ---
+  duration_ms: 0.218502
+  type: 'test'
+  ...
+# Subtest: envelope producer owns computation and rejects mutation of bound options
+ok 98 - envelope producer owns computation and rejects mutation of bound options
+  ---
+  duration_ms: 0.452632
+  type: 'test'
+  ...
+# Subtest: optional Mongo-null policy matches absent measured plan configuration
+ok 99 - optional Mongo-null policy matches absent measured plan configuration
+  ---
+  duration_ms: 0.542096
+  type: 'test'
+  ...
+# Subtest: scene override persists one item, leaves base and other source scenes untouched
+ok 100 - scene override persists one item, leaves base and other source scenes untouched
+  ---
+  duration_ms: 1.274029
+  type: 'test'
+  ...
+# Subtest: render slices map source-clock bounds through2x speed without timeline cuts or transitions
+ok 101 - render slices map source-clock bounds through2x speed without timeline cuts or transitions
+  ---
+  duration_ms: 0.715994
+  type: 'test'
+  ...
+# Subtest: Auto releases only this scene and preserves base manual crop elsewhere
+ok 102 - Auto releases only this scene and preserves base manual crop elsewhere
+  ---
+  duration_ms: 0.166522
+  type: 'test'
+  ...
+# Subtest: whole clip is separate explicit replacement, locks survive
+ok 103 - whole clip is separate explicit replacement, locks survive
+  ---
+  duration_ms: 0.261757
+  type: 'test'
+  ...
+# Subtest: overlap replacements retain unaffected range fragments
+ok 104 - overlap replacements retain unaffected range fragments
+  ---
+  duration_ms: 0.251228
+  type: 'test'
+  ...
+# Subtest: malformed/overlapping ranges fail before render
+ok 105 - malformed/overlapping ranges fail before render
+  ---
+  duration_ms: 0.219969
+  type: 'test'
+  ...
+# Subtest: caption anchors follow effective scene windows without cutting persisted cues/items
+ok 106 - caption anchors follow effective scene windows without cutting persisted cues/items
+  ---
+  duration_ms: 1.65583
+  type: 'test'
+  ...
+# Subtest: scene crop edits seed from existing scene override without changing another scene
+ok 107 - scene crop edits seed from existing scene override without changing another scene
+  ---
+  duration_ms: 0.258445
+  type: 'test'
+  ...
+# Subtest: trim reuses only measured candidate windows on the same source/aspect
+ok 108 - trim reuses only measured candidate windows on the same source/aspect
+  ---
+  duration_ms: 1.055325
+  type: 'test'
+  ...
+# Subtest: retained scene window cannot infer historical source anchor from a changed clip start
+ok 109 - retained scene window cannot infer historical source anchor from a changed clip start
+  ---
+  duration_ms: 0.613748
+  type: 'test'
+  ...
+# Subtest: render cannot revive a stored scene plan whose actual source bytes mismatch
+ok 110 - render cannot revive a stored scene plan whose actual source bytes mismatch
+  ---
+  duration_ms: 0.403738
+  type: 'test'
+  ...
+# Subtest: clip-wide fit replaces scene Auto overrides consistently in preview/render
+ok 111 - clip-wide fit replaces scene Auto overrides consistently in preview/render
+  ---
+  duration_ms: 0.323783
+  type: 'test'
+  ...
+# Subtest: clip-wide blur replaces scene Auto overrides consistently in preview/render
+ok 112 - clip-wide blur replaces scene Auto overrides consistently in preview/render
+  ---
+  duration_ms: 0.154975
+  type: 'test'
+  ...
+# Subtest: clip-wide center replaces scene Auto overrides consistently in preview/render
+ok 113 - clip-wide center replaces scene Auto overrides consistently in preview/render
+  ---
+  duration_ms: 0.158209
+  type: 'test'
+  ...
+# Subtest: clip-wide smart replaces scene Auto overrides consistently in preview/render
+ok 114 - clip-wide smart replaces scene Auto overrides consistently in preview/render
+  ---
+  duration_ms: 0.097005
+  type: 'test'
+  ...
+# Subtest: Color then Blur keeps the later explicit choice in expanded scene export
+ok 115 - Color then Blur keeps the later explicit choice in expanded scene export
+  ---
+  duration_ms: 0.110179
+  type: 'test'
+  ...
+# Subtest: manual scene re-selection stays scene-local when automatic preview is bypassed
+ok 116 - manual scene re-selection stays scene-local when automatic preview is bypassed
+  ---
+  duration_ms: 0.309064
+  type: 'test'
+  ...
+# Subtest: implicit gap and2xsourceclock preserve adjacent saved scenes despite a broad current analysis shot
+ok 117 - implicit gap and2xsourceclock preserve adjacent saved scenes despite a broad current analysis shot
+  ---
+  duration_ms: 0.215968
+  type: 'test'
+  ...
+# Subtest: caller-owned duration and policy are preserved without metadata substitution
+ok 118 - caller-owned duration and policy are preserved without metadata substitution
+  ---
+  duration_ms: 0.539087
+  type: 'test'
+  ...
+# Subtest: legacy absent metadata/dimensions retain established defaults
+ok 119 - legacy absent metadata/dimensions retain established defaults
+  ---
+  duration_ms: 0.099653
+  type: 'test'
+  ...
+# Subtest: option construction does not mutate analysis or add manual camera state
+ok 120 - option construction does not mutate analysis or add manual camera state
+  ---
+  duration_ms: 0.091443
+  type: 'test'
+  ...
+# Subtest: participant aspect route requires exact explicit analysis-review marker
+ok 121 - participant aspect route requires exact explicit analysis-review marker
+  ---
+  duration_ms: 0.174056
+  type: 'test'
+  ...
+1..121
+# tests 121
+# suites 0
+# pass 121
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 5060.048619

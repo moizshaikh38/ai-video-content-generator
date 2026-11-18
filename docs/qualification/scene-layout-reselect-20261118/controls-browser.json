@@ -1,0 +1,1672 @@
+{
+  "states": [
+    {
+      "name": "layout-fill",
+      "project": {
+        "id": "f7f2b845-bacd-437d-a086-1524e3a814f9",
+        "user_id": "05b2d262-c856-4722-b996-0b085601ba9a",
+        "project_id": "50f77d13-13e5-4cd0-b382-666aa55cb7e5",
+        "clip_id": "ad0cf726-3e82-4132-9821-7cb3d2ea7b10",
+        "version": 1,
+        "status": "draft",
+        "title": "Editor: Untitled Clip",
+        "canvas": {
+          "width": 1080,
+          "height": 1920,
+          "aspect_ratio": "9:16",
+          "fps": 30,
+          "duration": 14.014,
+          "background_color": "#000000",
+          "background_mode": "color"
+        },
+        "tracks": [
+          {
+            "id": "6bd36763-3500-445d-b80a-aa9e6f041f53",
+            "type": "VIDEO",
+            "name": "Main Video",
+            "locked": false,
+            "muted": false,
+            "hidden": false,
+            "height": 64,
+            "items": [
+              {
+                "id": "652606fc-2808-4db1-9001-740105ba4fd5",
+                "track_id": "6bd36763-3500-445d-b80a-aa9e6f041f53",
+                "type": "VIDEO",
+                "source_asset_id": "ad0cf726-3e82-4132-9821-7cb3d2ea7b10",
+                "source_path": "fixtures/50f77d13-13e5-4cd0-b382-666aa55cb7e5/source.mp4",
+                "timeline_start": 0,
+                "timeline_end": 14.014,
+                "source_start": 0,
+                "source_end": 14.014,
+                "transform": {
+                  "position_x": 0,
+                  "position_y": 0,
+                  "scale": 1,
+                  "rotation": 0,
+                  "opacity": 1
+                },
+                "layout_mode": "track",
+                "crop_config": {
+                  "mode": "smart",
+                  "layout_mode": "track",
+                  "layout_mode_source": "auto",
+                  "layoutPolicy": null
+                },
+                "speed": {
+                  "speed": 1,
+                  "pitch_preserved": true
+                },
+                "audio": {
+                  "volume": 1,
+                  "fade_in": 0.15,
+                  "fade_out": 0.25,
+                  "normalized": true,
+                  "target_lufs": -16
+                },
+                "effects": [],
+                "keyframes": [],
+                "locked": false,
+                "muted": false,
+                "hidden": false,
+                "z_index": 0,
+                "scene_layout_overrides": [
+                  {
+                    "start": 0,
+                    "end": 7.007,
+                    "layout": "fill",
+                    "patch": {
+                      "crop": {
+                        "mode": "fill",
+                        "focusX": 0.5,
+                        "focusY": 0.5,
+                        "scale": 1
+                      },
+                      "layout_mode": "track",
+                      "crop_config": {
+                        "mode": "smart",
+                        "layout_mode": "track",
+                        "layout_mode_source": "user",
+                        "layoutPolicy": null
+                      }
+                    }
+                  },
+                  {
+                    "start": 7.007,
+                    "end": 14.014,
+                    "layout": "blur",
+                    "patch": {
+                      "crop": {
+                        "mode": "blur",
+                        "choice": "blur",
+                        "band": "4:3",
+                        "focusX": 0.5,
+                        "focusY": 0.5,
+                        "scale": 1
+                      },
+                      "layout_mode": "track",
+                      "crop_config": {
+                        "mode": "smart",
+                        "layout_mode": "track",
+                        "layout_mode_source": "user",
+                        "layoutPolicy": null
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "7a249de1-cb7f-4e94-a8e0-50adba6c6847",
+            "type": "TEXT",
+            "name": "Text & Titles",
+            "locked": false,
+            "muted": false,
+            "hidden": false,
+            "height": 48,
+            "items": []
+          },
+          {
+            "id": "85bb8b86-d5df-4a44-9334-f3be20204252",
+            "type": "CAPTION",
+            "name": "Subtitles",
+            "locked": false,
+            "muted": false,
+            "hidden": false,
+            "height": 48,
+            "items": [
+              {
+                "id": "d00d44be-9006-46dc-805e-657865a43a62",
+                "track_id": "85bb8b86-d5df-4a44-9334-f3be20204252",
+                "type": "CAPTION",
+                "timeline_start": 0,
+                "timeline_end": 14.014,
+                "source_start": 0,
+                "source_end": 14.014,
+                "transform": {
+                  "position_x": 0,
+                  "position_y": 500,
+                  "scale": 1,
+                  "rotation": 0,
+                  "opacity": 1
+                },
+                "speed": {
+                  "speed": 1,
+                  "pitch_preserved": true
+                },
+                "caption": {
+                  "cues": [
+                    {
+                      "id": "cue-1",
+                      "start": 0,
+                      "end": 1.18,
+                      "text": "LAST YEAR.",
+                      "words": [
+                        {
+                          "text": "LAST",
+                          "start": 0,
+                          "end": 0.6
+                        },
+                        {
+                          "text": "YEAR.",
+                          "start": 0.6,
+                          "end": 1.18
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "LAST",
+                          "start": 0,
+                          "end": 0.6
+                        },
+                        {
+                          "text": "YEAR.",
+                          "start": 0.6,
+                          "end": 1.18
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-2",
+                      "start": 1.26,
+                      "end": 2.72,
+                      "text": "AS PART OF",
+                      "words": [
+                        {
+                          "text": "AS",
+                          "start": 1.26,
+                          "end": 2.06
+                        },
+                        {
+                          "text": "PART",
+                          "start": 2.06,
+                          "end": 2.6
+                        },
+                        {
+                          "text": "OF",
+                          "start": 2.6,
+                          "end": 2.72
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "AS",
+                          "start": 1.26,
+                          "end": 2.06
+                        },
+                        {
+                          "text": "PART",
+                          "start": 2.06,
+                          "end": 2.6
+                        },
+                        {
+                          "text": "OF",
+                          "start": 2.6,
+                          "end": 2.72
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-3",
+                      "start": 2.72,
+                      "end": 3.76,
+                      "text": "THE DEMONSTRATION\\NMISSION",
+                      "words": [
+                        {
+                          "text": "THE",
+                          "start": 2.72,
+                          "end": 2.8
+                        },
+                        {
+                          "text": "DEMONSTRATION",
+                          "start": 2.8,
+                          "end": 3.24
+                        },
+                        {
+                          "text": "MISSION",
+                          "start": 3.24,
+                          "end": 3.76
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "THE",
+                          "start": 2.72,
+                          "end": 2.8
+                        },
+                        {
+                          "text": "DEMONSTRATION",
+                          "start": 2.8,
+                          "end": 3.24
+                        },
+                        {
+                          "text": "MISSION",
+                          "start": 3.24,
+                          "end": 3.76
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-4",
+                      "start": 3.76,
+                      "end": 4.64,
+                      "text": "AND HAPPENED TO",
+                      "words": [
+                        {
+                          "text": "AND",
+                          "start": 3.76,
+                          "end": 4.14
+                        },
+                        {
+                          "text": "HAPPENED",
+                          "start": 4.14,
+                          "end": 4.5
+                        },
+                        {
+                          "text": "TO",
+                          "start": 4.5,
+                          "end": 4.64
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "AND",
+                          "start": 3.76,
+                          "end": 4.14
+                        },
+                        {
+                          "text": "HAPPENED",
+                          "start": 4.14,
+                          "end": 4.5
+                        },
+                        {
+                          "text": "TO",
+                          "start": 4.5,
+                          "end": 4.64
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-5",
+                      "start": 4.64,
+                      "end": 5.1,
+                      "text": "BE IN THE",
+                      "words": [
+                        {
+                          "text": "BE",
+                          "start": 4.64,
+                          "end": 4.8
+                        },
+                        {
+                          "text": "IN",
+                          "start": 4.8,
+                          "end": 5
+                        },
+                        {
+                          "text": "THE",
+                          "start": 5,
+                          "end": 5.1
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "BE",
+                          "start": 4.64,
+                          "end": 4.8
+                        },
+                        {
+                          "text": "IN",
+                          "start": 4.8,
+                          "end": 5
+                        },
+                        {
+                          "text": "THE",
+                          "start": 5,
+                          "end": 5.1
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-6",
+                      "start": 5.1,
+                      "end": 5.72,
+                      "text": "SAME SEAT THAT",
+                      "words": [
+                        {
+                          "text": "SAME",
+                          "start": 5.1,
+                          "end": 5.3
+                        },
+                        {
+                          "text": "SEAT",
+                          "start": 5.3,
+                          "end": 5.56
+                        },
+                        {
+                          "text": "THAT",
+                          "start": 5.56,
+                          "end": 5.72
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "SAME",
+                          "start": 5.1,
+                          "end": 5.3
+                        },
+                        {
+                          "text": "SEAT",
+                          "start": 5.3,
+                          "end": 5.56
+                        },
+                        {
+                          "text": "THAT",
+                          "start": 5.56,
+                          "end": 5.72
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-7",
+                      "start": 5.72,
+                      "end": 6.64,
+                      "text": "I'LL BE IN.",
+                      "words": [
+                        {
+                          "text": "I'LL",
+                          "start": 5.72,
+                          "end": 5.96
+                        },
+                        {
+                          "text": "BE",
+                          "start": 5.96,
+                          "end": 6.14
+                        },
+                        {
+                          "text": "IN.",
+                          "start": 6.14,
+                          "end": 6.64
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "I'LL",
+                          "start": 5.72,
+                          "end": 5.96
+                        },
+                        {
+                          "text": "BE",
+                          "start": 5.96,
+                          "end": 6.14
+                        },
+                        {
+                          "text": "IN.",
+                          "start": 6.14,
+                          "end": 6.64
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-8",
+                      "start": 6.98,
+                      "end": 7.7,
+                      "text": "AND ACTUALLY I",
+                      "words": [
+                        {
+                          "text": "AND",
+                          "start": 6.98,
+                          "end": 7.1
+                        },
+                        {
+                          "text": "ACTUALLY",
+                          "start": 7.1,
+                          "end": 7.5
+                        },
+                        {
+                          "text": "I",
+                          "start": 7.5,
+                          "end": 7.7
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "AND",
+                          "start": 6.98,
+                          "end": 7.1
+                        },
+                        {
+                          "text": "ACTUALLY",
+                          "start": 7.1,
+                          "end": 7.5
+                        },
+                        {
+                          "text": "I",
+                          "start": 7.5,
+                          "end": 7.7
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-9",
+                      "start": 7.7,
+                      "end": 8.82,
+                      "text": "HAD SEVERAL YEARS",
+                      "words": [
+                        {
+                          "text": "HAD",
+                          "start": 7.7,
+                          "end": 7.94
+                        },
+                        {
+                          "text": "SEVERAL",
+                          "start": 7.94,
+                          "end": 8.46
+                        },
+                        {
+                          "text": "YEARS",
+                          "start": 8.46,
+                          "end": 8.82
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "HAD",
+                          "start": 7.7,
+                          "end": 7.94
+                        },
+                        {
+                          "text": "SEVERAL",
+                          "start": 7.94,
+                          "end": 8.46
+                        },
+                        {
+                          "text": "YEARS",
+                          "start": 8.46,
+                          "end": 8.82
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-10",
+                      "start": 8.82,
+                      "end": 10.08,
+                      "text": "REALLY OF LEARNING",
+                      "words": [
+                        {
+                          "text": "REALLY",
+                          "start": 8.82,
+                          "end": 9.14
+                        },
+                        {
+                          "text": "OF",
+                          "start": 9.14,
+                          "end": 9.58
+                        },
+                        {
+                          "text": "LEARNING",
+                          "start": 9.58,
+                          "end": 10.08
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "REALLY",
+                          "start": 8.82,
+                          "end": 9.14
+                        },
+                        {
+                          "text": "OF",
+                          "start": 9.14,
+                          "end": 9.58
+                        },
+                        {
+                          "text": "LEARNING",
+                          "start": 9.58,
+                          "end": 10.08
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-11",
+                      "start": 10.08,
+                      "end": 10.8,
+                      "text": "FROM HIM ALONG",
+                      "words": [
+                        {
+                          "text": "FROM",
+                          "start": 10.08,
+                          "end": 10.34
+                        },
+                        {
+                          "text": "HIM",
+                          "start": 10.34,
+                          "end": 10.52
+                        },
+                        {
+                          "text": "ALONG",
+                          "start": 10.52,
+                          "end": 10.8
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "FROM",
+                          "start": 10.08,
+                          "end": 10.34
+                        },
+                        {
+                          "text": "HIM",
+                          "start": 10.34,
+                          "end": 10.52
+                        },
+                        {
+                          "text": "ALONG",
+                          "start": 10.52,
+                          "end": 10.8
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-12",
+                      "start": 10.8,
+                      "end": 11.44,
+                      "text": "THE WAY AS",
+                      "words": [
+                        {
+                          "text": "THE",
+                          "start": 10.8,
+                          "end": 11.02
+                        },
+                        {
+                          "text": "WAY",
+                          "start": 11.02,
+                          "end": 11.2
+                        },
+                        {
+                          "text": "AS",
+                          "start": 11.2,
+                          "end": 11.44
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "THE",
+                          "start": 10.8,
+                          "end": 11.02
+                        },
+                        {
+                          "text": "WAY",
+                          "start": 11.02,
+                          "end": 11.2
+                        },
+                        {
+                          "text": "AS",
+                          "start": 11.2,
+                          "end": 11.44
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-13",
+                      "start": 11.44,
+                      "end": 12.34,
+                      "text": "THEY DEVELOPED THE",
+                      "words": [
+                        {
+                          "text": "THEY",
+                          "start": 11.44,
+                          "end": 11.6
+                        },
+                        {
+                          "text": "DEVELOPED",
+                          "start": 11.6,
+                          "end": 12.08
+                        },
+                        {
+                          "text": "THE",
+                          "start": 12.08,
+                          "end": 12.34
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "THEY",
+                          "start": 11.44,
+                          "end": 11.6
+                        },
+                        {
+                          "text": "DEVELOPED",
+                          "start": 11.6,
+                          "end": 12.08
+                        },
+                        {
+                          "text": "THE",
+                          "start": 12.08,
+                          "end": 12.34
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-14",
+                      "start": 12.34,
+                      "end": 13.4,
+                      "text": "VEHICLE AND THEN",
+                      "words": [
+                        {
+                          "text": "VEHICLE",
+                          "start": 12.34,
+                          "end": 12.76
+                        },
+                        {
+                          "text": "AND",
+                          "start": 12.76,
+                          "end": 13.28
+                        },
+                        {
+                          "text": "THEN",
+                          "start": 13.28,
+                          "end": 13.4
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "VEHICLE",
+                          "start": 12.34,
+                          "end": 12.76
+                        },
+                        {
+                          "text": "AND",
+                          "start": 12.76,
+                          "end": 13.28
+                        },
+                        {
+                          "text": "THEN",
+                          "start": 13.28,
+                          "end": 13.4
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-15",
+                      "start": 13.4,
+                      "end": 13.86,
+                      "text": "AS I WENT",
+                      "words": [
+                        {
+                          "text": "AS",
+                          "start": 13.4,
+                          "end": 13.58
+                        },
+                        {
+                          "text": "I",
+                          "start": 13.58,
+                          "end": 13.68
+                        },
+                        {
+                          "text": "WENT",
+                          "start": 13.68,
+                          "end": 13.86
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "AS",
+                          "start": 13.4,
+                          "end": 13.58
+                        },
+                        {
+                          "text": "I",
+                          "start": 13.58,
+                          "end": 13.68
+                        },
+                        {
+                          "text": "WENT",
+                          "start": 13.68,
+                          "end": 13.86
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-16",
+                      "start": 13.86,
+                      "end": 13.98,
+                      "text": "THROUGH",
+                      "words": [
+                        {
+                          "text": "THROUGH",
+                          "start": 13.86,
+                          "end": 13.98
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "THROUGH",
+                          "start": 13.86,
+                          "end": 13.98
+                        }
+                      ]
+                    }
+                  ],
+                  "cues_covered_end": 14.014,
+                  "style": "vireo_comic_default",
+                  "position": "bottom",
+                  "primary_color": "#FFFFFF",
+                  "highlight_color": "#20FF35",
+                  "animation": "none"
+                },
+                "effects": [],
+                "keyframes": [],
+                "locked": false,
+                "muted": true,
+                "hidden": false,
+                "z_index": 20
+              }
+            ]
+          }
+        ],
+        "playhead": 0,
+        "settings": {
+          "snapping": true,
+          "safe_guides": true,
+          "snap_tolerance_sec": 0.15,
+          "show_safe_zones": true
+        },
+        "producer_plan_id": null,
+        "output_storage_path": null,
+        "preview_video_url": null,
+        "created_at": "2026-11-18T13:11:02.150Z",
+        "updated_at": "2026-11-18T13:11:02.150Z"
+      },
+      "text": "Project\nEditor: Untitled Clip\nSaved\nLive Edit\nRender Review\n⌘K\nAuto Res\n720p HD\n540p\n360p Fast\nExport\nCaptions\nLibrary\nElements\nBrand\nB-Roll\nMotion\nFraming\nRatio\nText\nAudio\nTranslate\nAI Copilot\nAI Tools\nCaption Studio\nSpatial Typography & Styling\nComic Punch\nCaptions On\nStyles\nTypography\nEffects\nPRESET STYLES\n(Hover or select to preview kinetic loop)\nKeep My Colors\nNo captions\nCLEAN & READABLE\n7\nUnderstated styles that stay out of the way.\nHIGH ENERGY\n6\nBold, high-contrast styles built for retention.\nWORD-BY-WORD\n11\nEach word lands on beat with the audio.\nBADGE & PILL\n7\nCaptions sit inside a rounded plate or chip.\nNEON & COLOR POP\n7\nTHOSE 15 SEA\nComic Punch\nIn testing\nTHOSE 15 SEA\nComic Punch Red + Green\nIn testing\nTHOSE 15 SEA\nComic Punch Violet + White\nIn testing\nFUTURE OF\nCONTENT\nVireo Gradient Neon\nLEVEL UP FAST\nVireo Lime Punch\nTHOSE 15 SEA\nVireo Comic Punch\nIn testing\nWORD\nWORD\nWORD\nVireo Prism Stamp\nIn testing\n\nCards use each preset's real fonts, colors, timing and line breaks, enlarged for legibility. The canvas shows the exact on-frame size and position used for export.\n\nPRESET POSITION\nDrag on the preview to place\nTop\nCenter\nBottom\n9:16\nAuto Reframe: ON\nThis video item · Manual framing takes priority\nApply to whole clip\nAuto candidate: OFF\nThis item: candidate OFF\nLayout: Fill\nBackground\nCrop\nObject tracker: OFF\nSafe Zones: ON\nLAST YEAR.\nPLATFORM HEADER SAFE ZONE\nACTION BUTTONS & TITLE DANGER ZONE\nSpeech cleanup\n+\nTrimmed end restored\nSPEAKER 1\n00:00.0 – 00:01.2\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nLAST\n0.6s\nYEAR.\n0.58s\nSPEAKER 1\n00:01.3 – 00:02.7\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nAS\n0.8s\nPART\n0.54s\nOF\nSPEAKER 1\n00:02.7 – 00:03.8\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nTHE\nDEMONSTRATION\n0.44s\nMISSION\n0.52s\nSPEAKER 1\n00:03.8 – 00:04.6\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nAND\n0.38s\nHAPPENED\n0.36s\nTO\nSPEAKER 1\n00:04.6 – 00:05.1\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nBE\nIN\nTHE\nSPEAKER 1\n00:05.1 – 00:05.7\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nSAME\nSEAT\nTHAT\nSPEAKER 1\n00:05.7 – 00:06.6\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nI'LL\nBE\nIN.\n0.5s\nSPEAKER 1\n00:07.0 – 00:07.7\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nAND\nACTUALLY\n0.4s\nI\nSPEAKER 1\n00:07.7 – 00:08.8\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nHAD\nSEVERAL\n0.52s\nYEARS\n0.36s\nSPEAKER 1\n00:08.8 – 00:10.1\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nREALLY\n0.32s\nOF\n0.44s\nLEARNING\n0.5s\nSPEAKER 1\n00:10.1 – 00:10.8\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nFROM\nHIM\nALONG\nSPEAKER 1\n00:10.8 – 00:11.4\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nTHE\nWAY\nAS\nSPEAKER 1\n00:11.4 – 00:12.3\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nTHEY\nDEVELOPED\n0.48s\nTHE\nSPEAKER 1\n00:12.3 – 00:13.4\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nVEHICLE\n0.42s\nAND\n0.52s\nTHEN\nSPEAKER 1\n00:13.4 – 00:13.9\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nAS\nI\nWENT\nSPEAKER 1\n00:13.9 – 00:14.0\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nTHROUGH\nHide timeline\n00:00.00/00:14.01\n0\n2\n4\n6\n8\n10\n12\n14\nMain Video\nAuto Fit · Review ▾\nDialogue Audio\nText & Titles\nAdd Text / Title\nSubtitles\nLAST YEAR.\nAS PART OF\nTHE DEMONSTRATION\\NMISSION\nAND HAPPENED TO\nBE IN THE\nSAME SEAT THAT\nI'LL BE IN.\nAND ACTUALLY I\nHAD SEVERAL YEARS\nREALLY OF LEARNING\nFROM HIM ALONG\nTHE WAY AS\nTHEY DEVELOPED THE\nVEHICLE AND THEN\nAS I WENT\nTHROUGH"
+    },
+    {
+      "name": "layout-four",
+      "project": {
+        "id": "f7f2b845-bacd-437d-a086-1524e3a814f9",
+        "user_id": "05b2d262-c856-4722-b996-0b085601ba9a",
+        "project_id": "50f77d13-13e5-4cd0-b382-666aa55cb7e5",
+        "clip_id": "ad0cf726-3e82-4132-9821-7cb3d2ea7b10",
+        "version": 1,
+        "status": "draft",
+        "title": "Editor: Untitled Clip",
+        "canvas": {
+          "width": 1080,
+          "height": 1920,
+          "aspect_ratio": "9:16",
+          "fps": 30,
+          "duration": 14.014,
+          "background_color": "#000000",
+          "background_mode": "color"
+        },
+        "tracks": [
+          {
+            "id": "6bd36763-3500-445d-b80a-aa9e6f041f53",
+            "type": "VIDEO",
+            "name": "Main Video",
+            "locked": false,
+            "muted": false,
+            "hidden": false,
+            "height": 64,
+            "items": [
+              {
+                "id": "652606fc-2808-4db1-9001-740105ba4fd5",
+                "track_id": "6bd36763-3500-445d-b80a-aa9e6f041f53",
+                "type": "VIDEO",
+                "source_asset_id": "ad0cf726-3e82-4132-9821-7cb3d2ea7b10",
+                "source_path": "fixtures/50f77d13-13e5-4cd0-b382-666aa55cb7e5/source.mp4",
+                "timeline_start": 0,
+                "timeline_end": 14.014,
+                "source_start": 0,
+                "source_end": 14.014,
+                "transform": {
+                  "position_x": 0,
+                  "position_y": 0,
+                  "scale": 1,
+                  "rotation": 0,
+                  "opacity": 1
+                },
+                "layout_mode": "track",
+                "crop_config": {
+                  "mode": "smart",
+                  "layout_mode": "track",
+                  "layout_mode_source": "auto",
+                  "layoutPolicy": null
+                },
+                "speed": {
+                  "speed": 1,
+                  "pitch_preserved": true
+                },
+                "audio": {
+                  "volume": 1,
+                  "fade_in": 0.15,
+                  "fade_out": 0.25,
+                  "normalized": true,
+                  "target_lufs": -16
+                },
+                "effects": [],
+                "keyframes": [],
+                "locked": false,
+                "muted": false,
+                "hidden": false,
+                "z_index": 0,
+                "scene_layout_overrides": [
+                  {
+                    "start": 0,
+                    "end": 7.007,
+                    "layout": "four",
+                    "patch": {
+                      "panels": {
+                        "layout": "four",
+                        "slots": [
+                          {
+                            "fit": "contain",
+                            "focusX": 0.5,
+                            "focusY": 0.5,
+                            "scale": 1,
+                            "sourceRect": {
+                              "x": 0.15844000000000003,
+                              "y": 0.11068622222222224,
+                              "w": 0.09621999999999997,
+                              "h": 0.30362755555555543
+                            },
+                            "set": true
+                          },
+                          {
+                            "fit": "contain",
+                            "focusX": 0.5,
+                            "focusY": 0.5,
+                            "scale": 1,
+                            "sourceRect": {
+                              "x": 0.391705,
+                              "y": 0.20419999999999996,
+                              "w": 0.07348999999999994,
+                              "h": 0.23190177777777762
+                            },
+                            "set": true
+                          },
+                          {
+                            "fit": "contain",
+                            "focusX": 0.5,
+                            "focusY": 0.5,
+                            "scale": 1,
+                            "sourceRect": {
+                              "x": 0.5603600000000001,
+                              "y": 0.18581999999999999,
+                              "w": 0.08587999999999985,
+                              "h": 0.2709991111111106
+                            },
+                            "set": true
+                          },
+                          {
+                            "fit": "contain",
+                            "focusX": 0.5,
+                            "focusY": 0.5,
+                            "scale": 1,
+                            "sourceRect": {
+                              "x": 0.74675,
+                              "y": 0.21575999999999998,
+                              "w": 0.07929999999999993,
+                              "h": 0.2502355555555553
+                            },
+                            "set": true
+                          }
+                        ]
+                      },
+                      "layout_mode": "track",
+                      "crop_config": {
+                        "mode": "smart",
+                        "layout_mode": "track",
+                        "layout_mode_source": "user",
+                        "layoutPolicy": null
+                      }
+                    }
+                  },
+                  {
+                    "start": 7.007,
+                    "end": 14.014,
+                    "layout": "blur",
+                    "patch": {
+                      "crop": {
+                        "mode": "blur",
+                        "choice": "blur",
+                        "band": "4:3",
+                        "focusX": 0.5,
+                        "focusY": 0.5,
+                        "scale": 1
+                      },
+                      "layout_mode": "track",
+                      "crop_config": {
+                        "mode": "smart",
+                        "layout_mode": "track",
+                        "layout_mode_source": "user",
+                        "layoutPolicy": null
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "7a249de1-cb7f-4e94-a8e0-50adba6c6847",
+            "type": "TEXT",
+            "name": "Text & Titles",
+            "locked": false,
+            "muted": false,
+            "hidden": false,
+            "height": 48,
+            "items": []
+          },
+          {
+            "id": "85bb8b86-d5df-4a44-9334-f3be20204252",
+            "type": "CAPTION",
+            "name": "Subtitles",
+            "locked": false,
+            "muted": false,
+            "hidden": false,
+            "height": 48,
+            "items": [
+              {
+                "id": "d00d44be-9006-46dc-805e-657865a43a62",
+                "track_id": "85bb8b86-d5df-4a44-9334-f3be20204252",
+                "type": "CAPTION",
+                "timeline_start": 0,
+                "timeline_end": 14.014,
+                "source_start": 0,
+                "source_end": 14.014,
+                "transform": {
+                  "position_x": 0,
+                  "position_y": 500,
+                  "scale": 1,
+                  "rotation": 0,
+                  "opacity": 1
+                },
+                "speed": {
+                  "speed": 1,
+                  "pitch_preserved": true
+                },
+                "caption": {
+                  "cues": [
+                    {
+                      "id": "cue-1",
+                      "start": 0,
+                      "end": 1.18,
+                      "text": "LAST YEAR.",
+                      "words": [
+                        {
+                          "text": "LAST",
+                          "start": 0,
+                          "end": 0.6
+                        },
+                        {
+                          "text": "YEAR.",
+                          "start": 0.6,
+                          "end": 1.18
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "LAST",
+                          "start": 0,
+                          "end": 0.6
+                        },
+                        {
+                          "text": "YEAR.",
+                          "start": 0.6,
+                          "end": 1.18
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-2",
+                      "start": 1.26,
+                      "end": 2.72,
+                      "text": "AS PART OF",
+                      "words": [
+                        {
+                          "text": "AS",
+                          "start": 1.26,
+                          "end": 2.06
+                        },
+                        {
+                          "text": "PART",
+                          "start": 2.06,
+                          "end": 2.6
+                        },
+                        {
+                          "text": "OF",
+                          "start": 2.6,
+                          "end": 2.72
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "AS",
+                          "start": 1.26,
+                          "end": 2.06
+                        },
+                        {
+                          "text": "PART",
+                          "start": 2.06,
+                          "end": 2.6
+                        },
+                        {
+                          "text": "OF",
+                          "start": 2.6,
+                          "end": 2.72
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-3",
+                      "start": 2.72,
+                      "end": 3.76,
+                      "text": "THE DEMONSTRATION\\NMISSION",
+                      "words": [
+                        {
+                          "text": "THE",
+                          "start": 2.72,
+                          "end": 2.8
+                        },
+                        {
+                          "text": "DEMONSTRATION",
+                          "start": 2.8,
+                          "end": 3.24
+                        },
+                        {
+                          "text": "MISSION",
+                          "start": 3.24,
+                          "end": 3.76
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "THE",
+                          "start": 2.72,
+                          "end": 2.8
+                        },
+                        {
+                          "text": "DEMONSTRATION",
+                          "start": 2.8,
+                          "end": 3.24
+                        },
+                        {
+                          "text": "MISSION",
+                          "start": 3.24,
+                          "end": 3.76
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-4",
+                      "start": 3.76,
+                      "end": 4.64,
+                      "text": "AND HAPPENED TO",
+                      "words": [
+                        {
+                          "text": "AND",
+                          "start": 3.76,
+                          "end": 4.14
+                        },
+                        {
+                          "text": "HAPPENED",
+                          "start": 4.14,
+                          "end": 4.5
+                        },
+                        {
+                          "text": "TO",
+                          "start": 4.5,
+                          "end": 4.64
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "AND",
+                          "start": 3.76,
+                          "end": 4.14
+                        },
+                        {
+                          "text": "HAPPENED",
+                          "start": 4.14,
+                          "end": 4.5
+                        },
+                        {
+                          "text": "TO",
+                          "start": 4.5,
+                          "end": 4.64
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-5",
+                      "start": 4.64,
+                      "end": 5.1,
+                      "text": "BE IN THE",
+                      "words": [
+                        {
+                          "text": "BE",
+                          "start": 4.64,
+                          "end": 4.8
+                        },
+                        {
+                          "text": "IN",
+                          "start": 4.8,
+                          "end": 5
+                        },
+                        {
+                          "text": "THE",
+                          "start": 5,
+                          "end": 5.1
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "BE",
+                          "start": 4.64,
+                          "end": 4.8
+                        },
+                        {
+                          "text": "IN",
+                          "start": 4.8,
+                          "end": 5
+                        },
+                        {
+                          "text": "THE",
+                          "start": 5,
+                          "end": 5.1
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-6",
+                      "start": 5.1,
+                      "end": 5.72,
+                      "text": "SAME SEAT THAT",
+                      "words": [
+                        {
+                          "text": "SAME",
+                          "start": 5.1,
+                          "end": 5.3
+                        },
+                        {
+                          "text": "SEAT",
+                          "start": 5.3,
+                          "end": 5.56
+                        },
+                        {
+                          "text": "THAT",
+                          "start": 5.56,
+                          "end": 5.72
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "SAME",
+                          "start": 5.1,
+                          "end": 5.3
+                        },
+                        {
+                          "text": "SEAT",
+                          "start": 5.3,
+                          "end": 5.56
+                        },
+                        {
+                          "text": "THAT",
+                          "start": 5.56,
+                          "end": 5.72
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-7",
+                      "start": 5.72,
+                      "end": 6.64,
+                      "text": "I'LL BE IN.",
+                      "words": [
+                        {
+                          "text": "I'LL",
+                          "start": 5.72,
+                          "end": 5.96
+                        },
+                        {
+                          "text": "BE",
+                          "start": 5.96,
+                          "end": 6.14
+                        },
+                        {
+                          "text": "IN.",
+                          "start": 6.14,
+                          "end": 6.64
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "I'LL",
+                          "start": 5.72,
+                          "end": 5.96
+                        },
+                        {
+                          "text": "BE",
+                          "start": 5.96,
+                          "end": 6.14
+                        },
+                        {
+                          "text": "IN.",
+                          "start": 6.14,
+                          "end": 6.64
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-8",
+                      "start": 6.98,
+                      "end": 7.7,
+                      "text": "AND ACTUALLY I",
+                      "words": [
+                        {
+                          "text": "AND",
+                          "start": 6.98,
+                          "end": 7.1
+                        },
+                        {
+                          "text": "ACTUALLY",
+                          "start": 7.1,
+                          "end": 7.5
+                        },
+                        {
+                          "text": "I",
+                          "start": 7.5,
+                          "end": 7.7
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "AND",
+                          "start": 6.98,
+                          "end": 7.1
+                        },
+                        {
+                          "text": "ACTUALLY",
+                          "start": 7.1,
+                          "end": 7.5
+                        },
+                        {
+                          "text": "I",
+                          "start": 7.5,
+                          "end": 7.7
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-9",
+                      "start": 7.7,
+                      "end": 8.82,
+                      "text": "HAD SEVERAL YEARS",
+                      "words": [
+                        {
+                          "text": "HAD",
+                          "start": 7.7,
+                          "end": 7.94
+                        },
+                        {
+                          "text": "SEVERAL",
+                          "start": 7.94,
+                          "end": 8.46
+                        },
+                        {
+                          "text": "YEARS",
+                          "start": 8.46,
+                          "end": 8.82
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "HAD",
+                          "start": 7.7,
+                          "end": 7.94
+                        },
+                        {
+                          "text": "SEVERAL",
+                          "start": 7.94,
+                          "end": 8.46
+                        },
+                        {
+                          "text": "YEARS",
+                          "start": 8.46,
+                          "end": 8.82
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-10",
+                      "start": 8.82,
+                      "end": 10.08,
+                      "text": "REALLY OF LEARNING",
+                      "words": [
+                        {
+                          "text": "REALLY",
+                          "start": 8.82,
+                          "end": 9.14
+                        },
+                        {
+                          "text": "OF",
+                          "start": 9.14,
+                          "end": 9.58
+                        },
+                        {
+                          "text": "LEARNING",
+                          "start": 9.58,
+                          "end": 10.08
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "REALLY",
+                          "start": 8.82,
+                          "end": 9.14
+                        },
+                        {
+                          "text": "OF",
+                          "start": 9.14,
+                          "end": 9.58
+                        },
+                        {
+                          "text": "LEARNING",
+                          "start": 9.58,
+                          "end": 10.08
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-11",
+                      "start": 10.08,
+                      "end": 10.8,
+                      "text": "FROM HIM ALONG",
+                      "words": [
+                        {
+                          "text": "FROM",
+                          "start": 10.08,
+                          "end": 10.34
+                        },
+                        {
+                          "text": "HIM",
+                          "start": 10.34,
+                          "end": 10.52
+                        },
+                        {
+                          "text": "ALONG",
+                          "start": 10.52,
+                          "end": 10.8
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "FROM",
+                          "start": 10.08,
+                          "end": 10.34
+                        },
+                        {
+                          "text": "HIM",
+                          "start": 10.34,
+                          "end": 10.52
+                        },
+                        {
+                          "text": "ALONG",
+                          "start": 10.52,
+                          "end": 10.8
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-12",
+                      "start": 10.8,
+                      "end": 11.44,
+                      "text": "THE WAY AS",
+                      "words": [
+                        {
+                          "text": "THE",
+                          "start": 10.8,
+                          "end": 11.02
+                        },
+                        {
+                          "text": "WAY",
+                          "start": 11.02,
+                          "end": 11.2
+                        },
+                        {
+                          "text": "AS",
+                          "start": 11.2,
+                          "end": 11.44
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "THE",
+                          "start": 10.8,
+                          "end": 11.02
+                        },
+                        {
+                          "text": "WAY",
+                          "start": 11.02,
+                          "end": 11.2
+                        },
+                        {
+                          "text": "AS",
+                          "start": 11.2,
+                          "end": 11.44
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-13",
+                      "start": 11.44,
+                      "end": 12.34,
+                      "text": "THEY DEVELOPED THE",
+                      "words": [
+                        {
+                          "text": "THEY",
+                          "start": 11.44,
+                          "end": 11.6
+                        },
+                        {
+                          "text": "DEVELOPED",
+                          "start": 11.6,
+                          "end": 12.08
+                        },
+                        {
+                          "text": "THE",
+                          "start": 12.08,
+                          "end": 12.34
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "THEY",
+                          "start": 11.44,
+                          "end": 11.6
+                        },
+                        {
+                          "text": "DEVELOPED",
+                          "start": 11.6,
+                          "end": 12.08
+                        },
+                        {
+                          "text": "THE",
+                          "start": 12.08,
+                          "end": 12.34
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-14",
+                      "start": 12.34,
+                      "end": 13.4,
+                      "text": "VEHICLE AND THEN",
+                      "words": [
+                        {
+                          "text": "VEHICLE",
+                          "start": 12.34,
+                          "end": 12.76
+                        },
+                        {
+                          "text": "AND",
+                          "start": 12.76,
+                          "end": 13.28
+                        },
+                        {
+                          "text": "THEN",
+                          "start": 13.28,
+                          "end": 13.4
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "VEHICLE",
+                          "start": 12.34,
+                          "end": 12.76
+                        },
+                        {
+                          "text": "AND",
+                          "start": 12.76,
+                          "end": 13.28
+                        },
+                        {
+                          "text": "THEN",
+                          "start": 13.28,
+                          "end": 13.4
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-15",
+                      "start": 13.4,
+                      "end": 13.86,
+                      "text": "AS I WENT",
+                      "words": [
+                        {
+                          "text": "AS",
+                          "start": 13.4,
+                          "end": 13.58
+                        },
+                        {
+                          "text": "I",
+                          "start": 13.58,
+                          "end": 13.68
+                        },
+                        {
+                          "text": "WENT",
+                          "start": 13.68,
+                          "end": 13.86
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "AS",
+                          "start": 13.4,
+                          "end": 13.58
+                        },
+                        {
+                          "text": "I",
+                          "start": 13.58,
+                          "end": 13.68
+                        },
+                        {
+                          "text": "WENT",
+                          "start": 13.68,
+                          "end": 13.86
+                        }
+                      ]
+                    },
+                    {
+                      "id": "cue-16",
+                      "start": 13.86,
+                      "end": 13.98,
+                      "text": "THROUGH",
+                      "words": [
+                        {
+                          "text": "THROUGH",
+                          "start": 13.86,
+                          "end": 13.98
+                        }
+                      ],
+                      "tokens": [
+                        {
+                          "text": "THROUGH",
+                          "start": 13.86,
+                          "end": 13.98
+                        }
+                      ]
+                    }
+                  ],
+                  "cues_covered_end": 14.014,
+                  "style": "vireo_comic_default",
+                  "position": "bottom",
+                  "primary_color": "#FFFFFF",
+                  "highlight_color": "#20FF35",
+                  "animation": "none"
+                },
+                "effects": [],
+                "keyframes": [],
+                "locked": false,
+                "muted": true,
+                "hidden": false,
+                "z_index": 20
+              }
+            ]
+          }
+        ],
+        "playhead": 0,
+        "settings": {
+          "snapping": true,
+          "safe_guides": true,
+          "snap_tolerance_sec": 0.15,
+          "show_safe_zones": true
+        },
+        "producer_plan_id": null,
+        "output_storage_path": null,
+        "preview_video_url": null,
+        "created_at": "2026-11-18T13:11:02.150Z",
+        "updated_at": "2026-11-18T13:11:02.150Z"
+      },
+      "text": "Project\nEditor: Untitled Clip\nSaved\nLive Edit\nRender Review\n⌘K\nAuto Res\n720p HD\n540p\n360p Fast\nExport\nCaptions\nLibrary\nElements\nBrand\nB-Roll\nMotion\nFraming\nRatio\nText\nAudio\nTranslate\nAI Copilot\nAI Tools\nCaption Studio\nSpatial Typography & Styling\nComic Punch\nCaptions On\nStyles\nTypography\nEffects\nPRESET STYLES\n(Hover or select to preview kinetic loop)\nKeep My Colors\nNo captions\nCLEAN & READABLE\n7\nUnderstated styles that stay out of the way.\nHIGH ENERGY\n6\nBold, high-contrast styles built for retention.\nWORD-BY-WORD\n11\nEach word lands on beat with the audio.\nBADGE & PILL\n7\nCaptions sit inside a rounded plate or chip.\nNEON & COLOR POP\n7\nBOMBS\nComic Punch\nIn testing\nTHOSE 15 SEA\nComic Punch Red + Green\nIn testing\nTHOSE 15 SEA\nComic Punch Violet + White\nIn testing\nFUTURE OF\nCONTENT\nVireo Gradient Neon\nLEVEL UP FAST\nVireo Lime Punch\nTHOSE 15 SEA\nVireo Comic Punch\nIn testing\nWORD\nWORD\nWORD\nVireo Prism Stamp\nIn testing\n\nCards use each preset's real fonts, colors, timing and line breaks, enlarged for legibility. The canvas shows the exact on-frame size and position used for export.\n\nPRESET POSITION\nDrag on the preview to place\nTop\nCenter\nBottom\n9:16\nAuto Reframe: ON\nThis video item · Manual framing takes priority\nApply to whole clip\nAuto candidate: OFF\nThis item: candidate OFF\nLayout: Four\nBackground\nPanel 1\nPanel 2\nPanel 3\nPanel 4\nObject tracker: OFF\nSafe Zones: ON\nLAST YEAR.\nPLATFORM HEADER SAFE ZONE\nACTION BUTTONS & TITLE DANGER ZONE\nSpeech cleanup\n+\nTrimmed end restored\nSPEAKER 1\n00:00.0 – 00:01.2\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nLAST\n0.6s\nYEAR.\n0.58s\nSPEAKER 1\n00:01.3 – 00:02.7\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nAS\n0.8s\nPART\n0.54s\nOF\nSPEAKER 1\n00:02.7 – 00:03.8\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nTHE\nDEMONSTRATION\n0.44s\nMISSION\n0.52s\nSPEAKER 1\n00:03.8 – 00:04.6\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nAND\n0.38s\nHAPPENED\n0.36s\nTO\nSPEAKER 1\n00:04.6 – 00:05.1\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nBE\nIN\nTHE\nSPEAKER 1\n00:05.1 – 00:05.7\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nSAME\nSEAT\nTHAT\nSPEAKER 1\n00:05.7 – 00:06.6\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nI'LL\nBE\nIN.\n0.5s\nSPEAKER 1\n00:07.0 – 00:07.7\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nAND\nACTUALLY\n0.4s\nI\nSPEAKER 1\n00:07.7 – 00:08.8\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nHAD\nSEVERAL\n0.52s\nYEARS\n0.36s\nSPEAKER 1\n00:08.8 – 00:10.1\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nREALLY\n0.32s\nOF\n0.44s\nLEARNING\n0.5s\nSPEAKER 1\n00:10.1 – 00:10.8\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nFROM\nHIM\nALONG\nSPEAKER 1\n00:10.8 – 00:11.4\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nTHE\nWAY\nAS\nSPEAKER 1\n00:11.4 – 00:12.3\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nTHEY\nDEVELOPED\n0.48s\nTHE\nSPEAKER 1\n00:12.3 – 00:13.4\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nVEHICLE\n0.42s\nAND\n0.52s\nTHEN\nSPEAKER 1\n00:13.4 – 00:13.9\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nAS\nI\nWENT\nSPEAKER 1\n00:13.9 – 00:14.0\nPreset: Inherit\nComic Punch\nComic Punch Red + Green\nComic Punch Violet + White\nVireo Comic Punch\nVireo Echo Slide\nVireo Prism Stamp\nWord Cut\nSoft Build\nTypewriter\nSoft Cut\nChip background\nGlide\nWith Backdrop\nCrossline\nRetro 3D\nKaraoke\nDeep Diver\nYoushaei\nSimple\nBeasty\nMozi\nPopline\nThink Media\nEditorial Classic\nBold Highlight\nSoft Backdrop\nCompact Creator\nDynamic Duo\nVireo OneWord\nVireo Violet Pill\nVireo Lime Punch\nVireo Hormozi Reveal\nVireo Clean Minimal\nVireo Spring Bounce\nVireo Gradient Neon\nVireo Joined Capsule\nVireo Editorial Track\nVireo Subtle Sweep\nTHROUGH\nHide timeline\n00:00.00/00:14.01\n0\n2\n4\n6\n8\n10\n12\n14\nMain Video\nAuto Fit · Review ▾\nDialogue Audio\nText & Titles\nAdd Text / Title\nSubtitles\nLAST YEAR.\nAS PART OF\nTHE DEMONSTRATION\\NMISSION\nAND HAPPENED TO\nBE IN THE\nSAME SEAT THAT\nI'LL BE IN.\nAND ACTUALLY I\nHAD SEVERAL YEARS\nREALLY OF LEARNING\nFROM HIM ALONG\nTHE WAY AS\nTHEY DEVELOPED THE\nVEHICLE AND THEN\nAS I WENT\nTHROUGH"
+    }
+  ],
+  "calls": [
+    {
+      "url": "http://127.0.0.1:5588/qualification/reframe?layoutCandidate=review-v1",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5588/qualification/reframe?layoutCandidate=off",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5588/qualification/reframe?layoutCandidate=off",
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "actualUIControls": true,
+  "externalRequestsForbidden": true
+}

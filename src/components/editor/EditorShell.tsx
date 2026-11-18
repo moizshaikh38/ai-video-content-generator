@@ -1,9 +1,9 @@
 import{measuredPanelChoicesForManualPick}from'../../../server/src/shared/measuredPanelChoice';
-import {expandSceneLayoutItem} from '../../../server/src/shared/sceneLayoutOverrides';
+import {expandSceneLayoutItem,resolveSceneLayoutItem} from '../../../server/src/shared/sceneLayoutOverrides';
 import {resolvePreviewItemPlan,type PreviewMeasuredPlanEnvelope} from '../../../server/src/shared/previewItemAutomaticPlan';
 import {normalizeEditorCanvasAspect} from '../../../server/src/shared/editorCanvasAspect';
 import {setProjectAutoCandidate,projectAutoCandidate,projectAutoCandidateState} from '../../../server/src/shared/automaticLayoutCandidate';
-import { applyItemLayout, applySceneLayout, applyWholeClipLayout, readItemLayout, applyFramingStrategy } from '../../lib/itemLayout';
+import { applyLayoutAtSourceTime, applyWholeClipLayout, readItemLayout, applyFramingStrategy } from '../../lib/itemLayout';
 import { applyPlanSceneToProject, FRAMING_WINDOW_PREVIEW_PARITY, type PlanShot } from '../../../server/src/shared/framingWindow';
 import { SceneLayoutGrid } from './SceneLayoutMenu';
 import { captionLegacyColorDefaults } from '../../lib/captionPresets';
@@ -1691,10 +1691,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 <div className="shrink-0 px-4 pt-3 pb-2 border-b border-white/[0.08]" data-testid="framing-scene-layouts">
                   <div className="text-[10px] uppercase tracking-wider text-neutral-400 mb-1.5">Scene layout (scene at playhead)</div>
                   <SceneLayoutGrid
-                    current={readItemLayout(sceneItem)}
+                    current={readItemLayout(resolveSceneLayoutItem(sceneItem,sceneItem.source_start+(currentTime-sceneItem.timeline_start)*(sceneItem.speed?.speed||1)))}
                     onPick={(layout) => {
                       onCommitProject?.(project);
-                      onUpdateProject(prev=>{const offset=compositionSourceStart,time=sceneItem.source_start+(currentTime-sceneItem.timeline_start)*(sceneItem.speed?.speed||1);const shot=speakerSplit?.shotComposition?.find(s=>time>=s.start+offset&&time<s.end+offset);return shot?applySceneLayout(prev,sceneItem.id,shot.start+offset,shot.end+offset,layout,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices):applyItemLayout(prev,sceneItem.id,layout,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices)});
+                      onUpdateProject(prev=>{const offset=compositionSourceStart,time=sceneItem.source_start+(currentTime-sceneItem.timeline_start)*(sceneItem.speed?.speed||1);const shot=speakerSplit?.shotComposition?.find(s=>time>=s.start+offset&&time<s.end+offset);return applyLayoutAtSourceTime(prev,sceneItem.id,time,layout,shot?{start:shot.start+offset,end:shot.end+offset}:undefined,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices)});
                     }}
                   />
                 </div>
@@ -1922,7 +1922,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 const item=prev.tracks.flatMap(t=>t.type==='VIDEO'?t.items:[]).find(i=>i.id===itemId);if(!item)return prev;
                 const offset=compositionSourceStart,sourceTime=item.source_start+(currentTime-item.timeline_start)*(item.speed?.speed||1);
                 const shot=speakerSplit?.shotComposition?.find(s=>sourceTime>=s.start+offset&&sourceTime<s.end+offset);
-                return shot ? applySceneLayout(prev,itemId,shot.start+offset,shot.end+offset,layout,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices) : applyItemLayout(prev,itemId,layout,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices);
+                return applyLayoutAtSourceTime(prev,itemId,sourceTime,layout,shot?{start:shot.start+offset,end:shot.end+offset}:undefined,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices);
               });
             }}
             onUpdateCropMode={(mode) => {

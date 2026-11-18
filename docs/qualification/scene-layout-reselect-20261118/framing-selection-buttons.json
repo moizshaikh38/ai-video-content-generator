@@ -1,0 +1,62 @@
+[
+  {
+    "text": "Fill",
+    "pressed": "false",
+    "cls": "flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 text-[10px] transition max-md:shrink-0 max-md:w-[68px] disabled:opacity-40 border-white/10 text-neutral-300 hover:bg-white/10"
+  },
+  {
+    "text": "Fit",
+    "pressed": "false",
+    "cls": "flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 text-[10px] transition max-md:shrink-0 max-md:w-[68px] disabled:opacity-40 border-white/10 text-neutral-300 hover:bg-white/10"
+  },
+  {
+    "text": "Blur",
+    "pressed": "false",
+    "cls": "flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 text-[10px] transition max-md:shrink-0 max-md:w-[68px] disabled:opacity-40 border-white/10 text-neutral-300 hover:bg-white/10"
+  },
+  {
+    "text": "Split",
+    "pressed": "false",
+    "cls": "flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 text-[10px] transition max-md:shrink-0 max-md:w-[68px] disabled:opacity-40 border-white/10 text-neutral-300 hover:bg-white/10"
+  },
+  {
+    "text": "Three",
+    "pressed": "false",
+    "cls": "flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 text-[10px] transition max-md:shrink-0 max-md:w-[68px] disabled:opacity-40 border-white/10 text-neutral-300 hover:bg-white/10"
+  },
+  {
+    "text": "Four",
+    "pressed": "true",
+    "cls": "flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 text-[10px] transition max-md:shrink-0 max-md:w-[68px] disabled:opacity-40 border-violet-400 bg-violet-500/20 text-white font-semibold"
+  },
+  {
+    "text": "ScreenShare",
+    "pressed": "false",
+    "cls": "flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 text-[10px] transition max-md:shrink-0 max-md:w-[68px] disabled:opacity-40 border-white/10 text-neutral-300 hover:bg-white/10"
+  },
+  {
+    "text": "Gameplay",
+    "pressed": "false",
+    "cls": "flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 text-[10px] transition max-md:shrink-0 max-md:w-[68px] disabled:opacity-40 border-white/10 text-neutral-300 hover:bg-white/10"
+  },
+  {
+    "text": "Watch Party",
+    "pressed": "false",
+    "cls": "flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 text-[10px] transition max-md:shrink-0 max-md:w-[68px] disabled:opacity-40 border-white/10 text-neutral-300 hover:bg-white/10"
+  },
+  {
+    "text": "Streaming",
+    "pressed": "false",
+    "cls": "flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 text-[10px] transition max-md:shrink-0 max-md:w-[68px] disabled:opacity-40 border-white/10 text-neutral-300 hover:bg-white/10"
+  },
+  {
+    "text": "Game screen first",
+    "pressed": "false",
+    "cls": "flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 text-[10px] transition max-md:shrink-0 max-md:w-[68px] disabled:opacity-40 border-white/10 text-neutral-300 hover:bg-white/10"
+  },
+  {
+    "text": "PiP (soon)",
+    "pressed": null,
+    "cls": "flex flex-col items-center gap-1 rounded-lg border border-white/5 px-1 py-1.5 text-[10px] text-neutral-500 opacity-50 cursor-not-allowed max-md:shrink-0 max-md:w-[68px]"
+  }
+]

@@ -1,6 +1,6 @@
 import{measuredPanelChoice,type MeasuredPanelChoice}from'../../server/src/shared/measuredPanelChoice';
 import {coverWindow} from './cropBox';
-import {resolveSceneLayoutItem} from '../../server/src/shared/sceneLayoutOverrides';
+import {expandSceneLayoutItem,resolveSceneLayoutItem} from '../../server/src/shared/sceneLayoutOverrides';
 import type { EditorProject, EditorTrackItem } from '../types';
 
 import { normalizePanels, PANEL_LAYOUTS, seedPanelsFromSubject, subjectCenterInWindow, type PanelLayout } from '../../server/src/shared/panelLayouts';
@@ -147,4 +147,15 @@ export function applyWholeClipLayout(project:EditorProject,layout:SceneLayout,su
  let next=project;const track=project.tracks.find(t=>t.type==='VIDEO');if(!track||track.locked)return project;
  for(const i of track.items)if(!i.locked){next=applyItemLayout(next,i.id,layout,subjectKeyframes,sourceSize,measuredChoices);next={...next,tracks:next.tracks.map(t=>t.id!==track.id?t:{...t,items:t.items.map(q=>{if(q.id!==i.id)return q;const n:any={...q};delete n.scene_layout_overrides;return n})})};}
  return next;
+}
+
+/** Re-selecting a manual scene layout must not expand the operation to the
+ * whole source item merely because its automatic preview plan is bypassed. */
+export function applyLayoutAtSourceTime(project:EditorProject,itemId:string,sourceTime:number,layout:SceneLayout,shotRange?:{start:number;end:number},subjectKeyframes?:Array<{time:number;centerX:number;centerY?:number}>|null,sourceSize?:{width:number;height:number},measuredChoices?:MeasuredPanelChoice[]):EditorProject{
+ const item=project.tracks.flatMap(t=>t.type==='VIDEO'?t.items:[]).find(i=>i.id===itemId);if(!item||!Number.isFinite(sourceTime)||sourceTime<item.source_start||sourceTime>item.source_end)return project;
+ const inside=(s:{source_start:number;source_end:number})=>sourceTime>=s.source_start&&(sourceTime<s.source_end||(sourceTime===item.source_end&&s.source_end===item.source_end));
+ const persisted=item.scene_layout_overrides?.length?expandSceneLayoutItem(item).find(inside):undefined;
+ const range=persisted?{start:persisted.source_start,end:persisted.source_end}:shotRange;
+ if(range&&(![range.start,range.end].every(Number.isFinite)||sourceTime<range.start||sourceTime>=range.end&&!(sourceTime===item.source_end&&range.end===item.source_end)))return project;
+ return range?applySceneLayout(project,itemId,range.start,range.end,layout,subjectKeyframes,sourceSize,measuredChoices):applyItemLayout(project,itemId,layout,subjectKeyframes,sourceSize,measuredChoices);
 }

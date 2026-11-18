@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {applySceneLayout,applyWholeClipLayout,applyFramingStrategy} from '../../../src/lib/itemLayout.js';
+import {applySceneLayout,applyWholeClipLayout,applyLayoutAtSourceTime,applyFramingStrategy} from '../../../src/lib/itemLayout.js';
 import {expandSceneLayoutProject,resolveSceneLayoutItem,validateSceneLayoutOverrides} from '../shared/sceneLayoutOverrides.js';
 const make=():any=>({canvas:{aspect_ratio:'9:16',width:1080,height:1920,duration:12},tracks:[{id:'v',type:'VIDEO',items:[{id:'item',source_start:40,source_end:64,timeline_start:0,timeline_end:12,speed:{speed:2},crop_config:{layout_mode_source:'auto'},transform:{scale:1.3},tracker:{enabled:false}}]}]});
 const item=(p:any)=>p.tracks[0].items[0];
@@ -46,3 +46,6 @@ test('Color then Blur keeps the later explicit choice in expanded scene export',
  assert.equal(expandSceneLayoutProject(blur).tracks[0].items[0].crop.mode,'blur');
  assert.equal(blur.canvas.background_user_choice,'blur');
 });
+
+test('manual scene re-selection stays scene-local when automatic preview is bypassed',()=>{let p=applySceneLayout(make(),'item',48,56,'fill');p=applySceneLayout(p,'item',56,64,'blur');const next=applyLayoutAtSourceTime(p,'item',50,'fit');assert.deepEqual(item(next).scene_layout_overrides.map((o:any)=>[o.start,o.end,o.layout]),[[48,56,'fit'],[56,64,'blur']]);assert.equal(resolveSceneLayoutItem(item(next),42).crop,undefined);assert.equal(resolveSceneLayoutItem(item(next),60).crop.mode,'blur');assert.equal(item(next).crop,undefined);});
+test('implicit gap and2xsourceclock preserve adjacent saved scenes despite a broad current analysis shot',()=>{let p=applySceneLayout(make(),'item',48,56,'fill');const next=applyLayoutAtSourceTime(p,'item',45,'fit',{start:40,end:64});assert.deepEqual(item(next).scene_layout_overrides.map((o:any)=>[o.start,o.end,o.layout]),[[40,48,'fit'],[48,56,'fill']]);assert.equal(resolveSceneLayoutItem(item(next),60).crop,undefined);assert.equal(applyLayoutAtSourceTime(p,'item',30,'fit'),p);});
