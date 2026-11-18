@@ -1,13 +1,12 @@
 import { ReframeKeyframe } from '../types/index.js';
 
 /**
- * Word-energy diarization fusion (gaming/quality roadmap).
+ * Optional word-boundary camera timing alignment.
  *
- * The CV analyzer picks dominant speakers from mouth motion, but its keyframe
- * switch times come from frame sampling — switches can land mid-word, which
- * reads as a whip-pan cutting a speaker mid-syllable. This pass fuses the
- * transcript's word timings (the "word energy" signal: exactly when speech is
- * happening and when it pauses) into the keyframe timeline:
+ * Mouth motion is only a visual heuristic, not diarization or verified
+ * audio-to-person association. This pass changes times, not speaker identity.
+ * The CV analyzer proposes camera motion from sampled geometry. This pass uses
+ * transcript word boundaries to avoid discretionary jumps inside a word:
  *
  *  1. SPEECH-GAP GATING — a speaker switch may only occur inside a pause
  *     between words (>= minGapSec of silence). Switches that fall inside
@@ -17,6 +16,9 @@ import { ReframeKeyframe } from '../types/index.js';
  *     we only align it to audible turn boundaries).
  *  3. NO-OP SAFETY — with no word timings, fewer than 2 keyframes, or a
  *     degenerate timeline, the input is returned unchanged.
+ *
+ *  4. SOURCE-CUT PRESERVATION - millisecond paired step anchors from the shot
+ *     smoother keep their exact timestamps, regardless of transcript words.
  *
  * Keyframes that are NOT speaker switches (continuous camera pans with the
  * same subject) are left alone — movement during speech is fine; only CUTS
@@ -87,10 +89,25 @@ export function applyWordEnergyFusion(
   if (validWords.length === 0) return keyframes;
 
   const sorted = [...keyframes].sort((a, b) => a.time - b.time);
+  // The shot smoother emits cut-minus-1ms / cut anchors. These encode a
+  // source camera discontinuity, not a discretionary speaker switch. Keep
+  // BOTH anchors: ordinary minimum-gap repair would stretch the cut to21ms.
+  const sourceStepAnchors = new Set<number>();
+  for (let i = 1; i < sorted.length; i++) {
+    const a = sorted[i - 1], b = sorted[i], dt = b.time - a.time;
+    if (dt > 0 && dt <= 0.002001 &&
+        (Math.abs(b.centerX - a.centerX) > 0.04 || Math.abs((b.centerY ?? .38) - (a.centerY ?? .38)) > 0.04)) {
+      sourceStepAnchors.add(i - 1); sourceStepAnchors.add(i);
+    }
+  }
   const out: ReframeKeyframe[] = [sorted[0]];
 
   for (let i = 1; i < sorted.length; i++) {
     const kf = sorted[i];
+    if (sourceStepAnchors.has(i)) {
+      out.push({ ...kf });
+      continue;
+    }
     const prev = out[out.length - 1];
 
     // Only fuse when this keyframe is a subject/camera CUT (position jump) —
