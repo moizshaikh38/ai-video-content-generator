@@ -1,0 +1,255 @@
+{
+  "status": "transcribed",
+  "transcript": {
+    "project_id": "651e9964-fdea-4c16-bd76-77d38b60e1b5",
+    "user_id": "2797b13f-7a29-4377-a615-30c1ced97392",
+    "av_start_offset_sec": 0,
+    "created_at": "2026-11-18T13:27:50.502Z",
+    "duration_seconds": 14.02,
+    "id": "9a2551a3-a158-4edd-a9e5-1c1b5b45fa50",
+    "language": "en",
+    "quality_assessment": {
+      "version": 1,
+      "status": "unverified",
+      "diagnostics": "present",
+      "issues": [],
+      "provider": "openrouter",
+      "model": "openai/whisper-large-v3-turbo",
+      "requested_language": null,
+      "detected_language": "en"
+    },
+    "segments": [
+      {
+        "start": 0.66,
+        "end": 1.94,
+        "text": "Well, at the...",
+        "avg_logprob": -0.42229876826916424,
+        "no_speech_prob": 0,
+        "compression_ratio": 0.6666666666666666
+      },
+      {
+        "start": 2.37,
+        "end": 3.6900000000000004,
+        "text": "States that were",
+        "avg_logprob": -0.3324885740876198,
+        "no_speech_prob": 0,
+        "compression_ratio": 0.68
+      },
+      {
+        "start": 3.81,
+        "end": 6.99,
+        "text": "At that rate now, I think they're not very interchangeable.",
+        "avg_logprob": -0.14521755759778898,
+        "no_speech_prob": 0,
+        "compression_ratio": 0.9523809523809523
+      },
+      {
+        "start": 7.65,
+        "end": 8.35,
+        "text": "Uh...",
+        "avg_logprob": -0.8600911796092987,
+        "no_speech_prob": 0,
+        "compression_ratio": 0.42857142857142855
+      },
+      {
+        "start": 10.26,
+        "end": 14,
+        "text": "Prior to my assignment as backup command module pilot on.",
+        "avg_logprob": -0.31978419297732985,
+        "no_speech_prob": 0,
+        "compression_ratio": 0.90625
+      }
+    ],
+    "source_binding": {
+      "version": 1,
+      "source_receipt": {
+        "key": "fixtures/651e9964-fdea-4c16-bd76-77d38b60e1b5/source.mp4",
+        "size": 4374778,
+        "etag": "\"d53093a20c24b1bff5d81b3fbb54c0516cff79f400c56b5699e4c6ff505121a3\"",
+        "sha256": "d53093a20c24b1bff5d81b3fbb54c0516cff79f400c56b5699e4c6ff505121a3"
+      },
+      "prepared_audio_sha256": "5def0f8a4674f7675679304f7fcae5516872a4a2d93d7ad1a5e4a13aeddf619d",
+      "requests": [
+        {
+          "sha256": "5def0f8a4674f7675679304f7fcae5516872a4a2d93d7ad1a5e4a13aeddf619d",
+          "bytes": 113449,
+          "status": "completed"
+        }
+      ],
+      "transcript_content_sha256": "798a3ce59fb7db2fdc3cd6370531c32228192ffb8edbdaf9bdf41e18e665f9b9"
+    },
+    "text": "Well, at the...  States that were  At that rate now, I think they're not very interchangeable.  Uh...  Prior to my assignment as backup command module pilot on.",
+    "transcript_text": "Well, at the...  States that were  At that rate now, I think they're not very interchangeable.  Uh...  Prior to my assignment as backup command module pilot on.",
+    "transcription_provenance": {
+      "provider": "openrouter",
+      "model": "openai/whisper-large-v3-turbo",
+      "requested_language": null
+    },
+    "transcription_timing_issues": [],
+    "updated_at": "2026-11-18T13:27:50.502Z",
+    "words": [
+      {
+        "word": "Well,",
+        "start": 0.66,
+        "end": 1.0999999976158144,
+        "id": "w_0_2a818a"
+      },
+      {
+        "word": "at",
+        "start": 1.0999999976158144,
+        "end": 1.220000002384186,
+        "id": "w_1_90b49d"
+      },
+      {
+        "word": "the...",
+        "start": 1.220000002384186,
+        "end": 1.7199999427795412,
+        "id": "w_2_e77f19"
+      },
+      {
+        "word": "States",
+        "start": 2.4100000512599946,
+        "end": 2.849999989271164,
+        "id": "w_3_3ca2af"
+      },
+      {
+        "word": "that",
+        "start": 2.849999989271164,
+        "end": 3.0500000071525575,
+        "id": "w_4_4cb49f"
+      },
+      {
+        "word": "were",
+        "start": 3.0500000071525575,
+        "end": 3.269999976158142,
+        "id": "w_5_ce480f"
+      },
+      {
+        "word": "At",
+        "start": 3.81,
+        "end": 4.069999990463257,
+        "id": "w_6_ca224b"
+      },
+      {
+        "word": "that",
+        "start": 4.069999990463257,
+        "end": 4.210000005960465,
+        "id": "w_7_b28b0b"
+      },
+      {
+        "word": "rate",
+        "start": 4.210000005960465,
+        "end": 4.329999980926514,
+        "id": "w_8_903ad0"
+      },
+      {
+        "word": "now,",
+        "start": 4.329999980926514,
+        "end": 4.749999997615815,
+        "id": "w_9_979449"
+      },
+      {
+        "word": "I",
+        "start": 4.749999997615815,
+        "end": 4.790000019073487,
+        "id": "w_10_999546"
+      },
+      {
+        "word": "think",
+        "start": 4.790000019073487,
+        "end": 5.010000047683716,
+        "id": "w_11_c1bf3d"
+      },
+      {
+        "word": "they're",
+        "start": 5.010000047683716,
+        "end": 5.229999957084656,
+        "id": "w_12_d41fcf"
+      },
+      {
+        "word": "not",
+        "start": 5.229999957084656,
+        "end": 5.390000042915345,
+        "id": "w_13_c6033d"
+      },
+      {
+        "word": "very",
+        "start": 5.390000042915345,
+        "end": 5.709999976158143,
+        "id": "w_14_b9ec43"
+      },
+      {
+        "word": "interchangeable.",
+        "start": 5.709999976158143,
+        "end": 6.149999914169312,
+        "id": "w_15_f3b2a0"
+      },
+      {
+        "word": "Uh...",
+        "start": 7.6699999995529655,
+        "end": 8.310000026226044,
+        "id": "w_16_e332a1"
+      },
+      {
+        "word": "Prior",
+        "start": 10.279999999552965,
+        "end": 10.600000003576278,
+        "id": "w_17_6d5634"
+      },
+      {
+        "word": "to",
+        "start": 10.600000003576278,
+        "end": 10.940000007152557,
+        "id": "w_18_5c6a27"
+      },
+      {
+        "word": "my",
+        "start": 10.940000007152557,
+        "end": 11.360000023841858,
+        "id": "w_19_cbd5f8"
+      },
+      {
+        "word": "assignment",
+        "start": 11.360000023841858,
+        "end": 11.799999961853027,
+        "id": "w_20_5be367"
+      },
+      {
+        "word": "as",
+        "start": 11.799999961853027,
+        "end": 12.000000009536743,
+        "id": "w_21_6ec65b"
+      },
+      {
+        "word": "backup",
+        "start": 12.000000009536743,
+        "end": 12.339999923706054,
+        "id": "w_22_1eddf5"
+      },
+      {
+        "word": "command",
+        "start": 12.339999923706054,
+        "end": 13.119999895095825,
+        "id": "w_23_50ae07"
+      },
+      {
+        "word": "module",
+        "start": 13.119999895095825,
+        "end": 13.440000066757202,
+        "id": "w_24_6910fa"
+      },
+      {
+        "word": "pilot",
+        "start": 13.440000066757202,
+        "end": 13.81999994277954,
+        "id": "w_25_bc6bd0"
+      },
+      {
+        "word": "on.",
+        "start": 13.81999994277954,
+        "end": 13.98000002861023,
+        "id": "w_26_4d5522"
+      }
+    ]
+  }
+}
