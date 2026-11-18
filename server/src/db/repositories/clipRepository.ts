@@ -68,7 +68,7 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
       };
       const renderJob = {
         id: crypto.randomUUID(), clip_id: clip.id, user_id: userId,
-        status: 'queued', progress: 0, stage: 'queued', attempts: 1,
+        status: 'queued', progress: 0, stage: 'queued', attempts: 0,
         created_at: now, updated_at: now,
       };
       await db.collection('clips').insertOne(clip, { session });

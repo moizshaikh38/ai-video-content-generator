@@ -19,6 +19,9 @@ import { assFontsDirArg } from './editorFontFiles.js';
 import { canvasDims, parseRenderResolution, resolveEffectiveResolution, type EffectiveResolution } from '../shared/renderResolution.js';
 import { createClipWithJob } from '../db/repositories/clipRepository.js';
 import { isMongoConfigured, getMongoDb, getMongoClient } from '../db/mongoClient.js';
+import {renderRetryBudget,renderBudgetAvailableExpr} from '../shared/renderRetryBudget.js';
+import {claimRenderLease} from './queue/renderLeaseClaim.js';
+import {recoverRenderQueue} from './queue/renderQueueRecovery.js';
 import {commitFencedRenderOutcome} from './queue/renderLeaseCommit.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import fs from 'fs';
@@ -601,9 +604,7 @@ export class ClipRenderService {
     const workerId = `worker_${process.pid}_${crypto.randomBytes(4).toString('hex')}`;
     const attemptId=crypto.randomUUID();
     const expectedClipVersion={renderVersion:Number(clip.render_version||1),editorVersion:Number(clip.editor_version||1)};
-    const RENDER_LOCK_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes stale lease recovery
     const now = new Date();
-    const staleCutoff = new Date(now.getTime() - RENDER_LOCK_TIMEOUT_MS);
 
     let jobId = existingJobId;
     const db = await getMongoDb();
@@ -636,29 +637,7 @@ export class ClipRenderService {
 
     // Atomic distributed lease acquisition:
     // Claim only if queued OR processing with an expired stale lock
-    const claimedJob = await renderJobsCol.findOneAndUpdate(
-      {
-        id: jobId,
-        clip_id:clipId,
-        user_id:userId,
-        $or: [
-          { status: 'queued' },
-          { status: 'processing', locked_at: { $lt: staleCutoff } },
-        ],
-      },
-      {
-        $set: {
-          status: 'processing',
-          stage: 'downloading',
-          worker_id: workerId,
-          locked_at: now,
-          started_at: now,
-          updated_at: now,
-        },
-        $inc: { attempts: 1 },
-      },
-      { returnDocument: 'after' }
-    );
+    const claimedJob=await claimRenderLease(db,{jobId:jobId!,clipId,userId,workerId,...expectedClipVersion},now);
 
     if (!claimedJob) {
       const currentJob = await renderJobsCol.findOne({ id: jobId,clip_id:clipId,user_id:userId });
@@ -1313,7 +1292,7 @@ export class ClipRenderService {
         try{
           const currentJob=await db.collection('render_jobs').findOne({id:jobId,clip_id:clipId,user_id:userId,worker_id:workerId,status:'processing'});
           if(currentJob){
-            const attempts=currentJob.attempts||1,maxAttempts=currentJob.max_attempts||3;
+            const {attempts,maximum:maxAttempts}=renderRetryBudget(currentJob);
             const retry=code!=='RENDER_INPUT_CHANGED'&&isTransient&&attempts<maxAttempts;
             const nextRetryAt=retry?new Date(Date.now()+JobReliabilityService.computeBackoffDelayMs(attempts,{baseDelayMs:2000,maxDelayMs:30000,jitter:true})):null;
             await commitFencedRenderOutcome(await getMongoClient(),db,{jobId,clipId,userId,workerId,renderVersion:Number(clip.render_version||1),editorVersion:Number(clip.editor_version||1)},{
@@ -1741,24 +1720,9 @@ export class ClipRenderService {
     if (!isMongoConfigured) return 0;
     const db = await getMongoDb();
     const now = new Date();
-    const staleCutoff = new Date(now.getTime() - 15 * 60 * 1000); // 15 min stale lease
 
-    // 1. Recover stale locks
-    await db.collection('render_jobs').updateMany(
-      {
-        status: 'processing',
-        locked_at: { $lt: staleCutoff },
-      },
-      {
-        $set: {
-          status: 'queued',
-          stage: 'queued',
-          worker_id: null,
-          locked_at: null,
-          updated_at: now,
-        },
-      }
-    );
+    // Exact heartbeat/token recovery with per-job retry budgets.
+    await recoverRenderQueue(await getMongoClient(),db,now);
 
     // 2. Admission: no free slot means leave the job queued. Checked before the
     // query so the sweep never claims past the per-process cap shared with inline launches.
@@ -1769,7 +1733,7 @@ export class ClipRenderService {
     const dueJob = await db.collection('render_jobs').findOne(
       {
         status: 'queued',
-        attempts: { $lt: 3 },
+        $expr:renderBudgetAvailableExpr,
         $or: [{ next_retry_at: null }, { next_retry_at: { $lte: now } }],
         ...(busyClipIds.length > 0 ? { clip_id: { $nin: busyClipIds } } : {}),
       },
@@ -1853,9 +1817,8 @@ export class ClipRenderService {
           ['DATABASE_UNAVAILABLE', 'NETWORK_ERROR', 'RENDER_TIMEOUT'].includes(code);
 
         if (isTransient) {
-          const attempts = dueJob.attempts || 0;
-          const maxAttempts = dueJob.max_attempts || 3;
-          if (attempts < maxAttempts) {
+          const {attempts,maximum:maxAttempts}=renderRetryBudget({attempts:dueJob.prelease_failures,max_attempts:3});
+          if (attempts + 1 < maxAttempts) {
             const delayMs = JobReliabilityService.computeBackoffDelayMs(attempts + 1, { baseDelayMs: 2000, maxDelayMs: 30000, jitter: true });
             const nextRetryAt = new Date(Date.now() + delayMs);
             await db.collection('render_jobs').updateOne(
@@ -1871,7 +1834,7 @@ export class ClipRenderService {
                   next_retry_at: nextRetryAt,
                   updated_at: new Date(),
                 },
-                $inc: { attempts: 1 },
+                $inc: { prelease_failures: 1 },
               }
             );
             logger.warn(`[ClipRender] Transient pre-lease failure for job ${dueJob.id}. Scheduled retry at ${nextRetryAt.toISOString()}`);

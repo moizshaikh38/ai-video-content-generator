@@ -671,7 +671,7 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
         status: 'queued',
         progress: 0,
         stage: 'queued',
-        attempts: 1,
+        attempts: 0,
       })
       .select()
       .maybeSingle();

@@ -404,7 +404,7 @@ export const renderEditorProject = async (
         status: 'queued',
         progress: 0,
         stage: 'queued',
-        attempts: 1,
+        attempts: 0,
       })
       .select()
       .maybeSingle();

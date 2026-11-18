@@ -65,7 +65,7 @@ outputs/{userId}/{projectId}/...
 
 ### 4.1 Render Job Lock Recovery
 
-The current queue treats `processing` jobs with a lease older than 15 minutes as stale. Polling requeues them, and the due-job query currently uses a hardcoded attempt limit of three. Exhausted stale jobs and configurable retry-budget behavior still need qualification; do not assume every queued job will recover automatically.
+The local queue recovery correction processes at most 25 stale/exhausted jobs per sweep, rechecks worker/heartbeat state transactionally, respects each job's retry budget and fails exhausted jobs rather than leaving them queued. New jobs start with zero acquired executions. See `qualification/render-retry-recovery-20261119.md` for actual isolated-Mongo claim/recovery tests and legacy limitations. This is backup engineering, not verified production deployment or a process-restart drill.
 
 The local correction uses immutable per-attempt render output paths and fenced transactional stage/outcome updates. See the qualification record linked above for exact real-Mongo and mock coverage. No production restore or process-kill/restart test was performed. New attempt objects can remain orphaned after an interrupted or losing attempt; no cleanup or retention change is approved.
 
