@@ -1,0 +1,115 @@
+{
+  "scope": "diagnostic on retained fresh natural-four detection; no threshold or body removal",
+  "envelopes": [
+    {
+      "id": "subject_1",
+      "envelope": {
+        "left": 0.017785999999999996,
+        "right": 0.36721400000000004,
+        "top": 0.1275,
+        "bottom": 1
+      }
+    },
+    {
+      "id": "subject_2",
+      "envelope": {
+        "left": 0.660956,
+        "right": 0.975669,
+        "top": 0.2137,
+        "bottom": 1
+      }
+    },
+    {
+      "id": "subject_3",
+      "envelope": {
+        "left": 0.479234,
+        "right": 0.76578,
+        "top": 0.1853,
+        "bottom": 1
+      }
+    },
+    {
+      "id": "subject_4",
+      "envelope": null
+    }
+  ],
+  "overlaps": [
+    {
+      "a": "subject_2",
+      "b": "subject_3"
+    }
+  ],
+  "strict": null,
+  "faceReview": {
+    "panels": {
+      "layout": "four",
+      "slots": [
+        {
+          "focusX": 0.5,
+          "focusY": 0.5,
+          "scale": 1,
+          "fit": "contain",
+          "set": true,
+          "sourceRect": {
+            "x": 0.15844000000000003,
+            "y": 0.11068622222222224,
+            "w": 0.09621999999999997,
+            "h": 0.30362755555555543
+          }
+        },
+        {
+          "focusX": 0.5,
+          "focusY": 0.5,
+          "scale": 1,
+          "fit": "contain",
+          "set": true,
+          "sourceRect": {
+            "x": 0.391705,
+            "y": 0.20419999999999996,
+            "w": 0.07348999999999994,
+            "h": 0.23190177777777762
+          }
+        },
+        {
+          "focusX": 0.5,
+          "focusY": 0.5,
+          "scale": 1,
+          "fit": "contain",
+          "set": true,
+          "sourceRect": {
+            "x": 0.5603600000000001,
+            "y": 0.18581999999999999,
+            "w": 0.08587999999999985,
+            "h": 0.2709991111111106
+          }
+        },
+        {
+          "focusX": 0.5,
+          "focusY": 0.5,
+          "scale": 1,
+          "fit": "contain",
+          "set": true,
+          "sourceRect": {
+            "x": 0.74675,
+            "y": 0.21575999999999998,
+            "w": 0.07929999999999993,
+            "h": 0.2502355555555553
+          }
+        }
+      ]
+    },
+    "trackIds": [
+      "subject_1",
+      "subject_4",
+      "subject_3",
+      "subject_2"
+    ],
+    "sampleCount": 60,
+    "coobservedSamples": 60,
+    "evidence": "face-window-review"
+  },
+  "bodyCounts": {
+    "4": 59,
+    "5": 1
+  }
+}

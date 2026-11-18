@@ -1,0 +1,4513 @@
+{
+  "source_width": 426,
+  "source_height": 240,
+  "raw_samples": [
+    {
+      "time": 0,
+      "faces": [
+        {
+          "x": 0.1714,
+          "y": 0.1792,
+          "width": 0.0657,
+          "height": 0.1542,
+          "center_x": 0.2042,
+          "center_y": 0.2562,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.7559,
+          "y": 0.275,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7852,
+          "center_y": 0.3417,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2458,
+          "width": 0.0469,
+          "height": 0.1125,
+          "center_x": 0.6033,
+          "center_y": 0.3021,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4085,
+          "y": 0.2625,
+          "width": 0.0493,
+          "height": 0.1167,
+          "center_x": 0.4331,
+          "center_y": 0.3208,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.7033,
+          "y": 0.2463,
+          "width": 0.2381,
+          "height": 0.7428,
+          "confidence": 0.8689
+        },
+        {
+          "x": 0.0565,
+          "y": 0.1549,
+          "width": 0.2723,
+          "height": 0.8397,
+          "confidence": 0.8608
+        },
+        {
+          "x": 0.5137,
+          "y": 0.2184,
+          "width": 0.2131,
+          "height": 0.7816,
+          "confidence": 0.6951
+        },
+        {
+          "x": 0.3319,
+          "y": 0.2769,
+          "width": 0.1893,
+          "height": 0.7182,
+          "confidence": 0.4772
+        }
+      ]
+    },
+    {
+      "time": 0.233567,
+      "faces": [
+        {
+          "x": 0.1714,
+          "y": 0.175,
+          "width": 0.0657,
+          "height": 0.1542,
+          "center_x": 0.2042,
+          "center_y": 0.2521,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.7559,
+          "y": 0.2792,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7852,
+          "center_y": 0.3438,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5775,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1167,
+          "center_x": 0.6021,
+          "center_y": 0.3042,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4085,
+          "y": 0.2625,
+          "width": 0.0469,
+          "height": 0.1125,
+          "center_x": 0.4319,
+          "center_y": 0.3187,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.7023,
+          "y": 0.2475,
+          "width": 0.2397,
+          "height": 0.742,
+          "confidence": 0.8706
+        },
+        {
+          "x": 0.0563,
+          "y": 0.1539,
+          "width": 0.2718,
+          "height": 0.8415,
+          "confidence": 0.8592
+        },
+        {
+          "x": 0.5149,
+          "y": 0.223,
+          "width": 0.2138,
+          "height": 0.7713,
+          "confidence": 0.6744
+        },
+        {
+          "x": 0.3324,
+          "y": 0.2788,
+          "width": 0.1907,
+          "height": 0.7159,
+          "confidence": 0.4761
+        }
+      ]
+    },
+    {
+      "time": 0.467133,
+      "faces": [
+        {
+          "x": 0.1714,
+          "y": 0.175,
+          "width": 0.0657,
+          "height": 0.1542,
+          "center_x": 0.2042,
+          "center_y": 0.2521,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.7559,
+          "y": 0.2792,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7852,
+          "center_y": 0.3438,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5751,
+          "y": 0.2458,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.6009,
+          "center_y": 0.3042,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4061,
+          "y": 0.2583,
+          "width": 0.0469,
+          "height": 0.1167,
+          "center_x": 0.4296,
+          "center_y": 0.3167,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.7015,
+          "y": 0.2487,
+          "width": 0.2405,
+          "height": 0.7405,
+          "confidence": 0.8681
+        },
+        {
+          "x": 0.0565,
+          "y": 0.1529,
+          "width": 0.271,
+          "height": 0.8441,
+          "confidence": 0.8559
+        },
+        {
+          "x": 0.5117,
+          "y": 0.2218,
+          "width": 0.2169,
+          "height": 0.7752,
+          "confidence": 0.6664
+        },
+        {
+          "x": 0.3308,
+          "y": 0.2665,
+          "width": 0.1893,
+          "height": 0.7294,
+          "confidence": 0.5459
+        }
+      ]
+    },
+    {
+      "time": 0.7007,
+      "faces": [
+        {
+          "x": 0.1714,
+          "y": 0.1792,
+          "width": 0.0657,
+          "height": 0.15,
+          "center_x": 0.2042,
+          "center_y": 0.2542,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.7559,
+          "y": 0.2792,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7852,
+          "center_y": 0.3438,
+          "confidence": 0.92,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5751,
+          "y": 0.2458,
+          "width": 0.0516,
+          "height": 0.1208,
+          "center_x": 0.6009,
+          "center_y": 0.3063,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4061,
+          "y": 0.2625,
+          "width": 0.0446,
+          "height": 0.1125,
+          "center_x": 0.4284,
+          "center_y": 0.3187,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.7006,
+          "y": 0.248,
+          "width": 0.2412,
+          "height": 0.7416,
+          "confidence": 0.8676
+        },
+        {
+          "x": 0.0575,
+          "y": 0.1534,
+          "width": 0.2714,
+          "height": 0.8437,
+          "confidence": 0.8571
+        },
+        {
+          "x": 0.5117,
+          "y": 0.2212,
+          "width": 0.2163,
+          "height": 0.7755,
+          "confidence": 0.6541
+        },
+        {
+          "x": 0.3291,
+          "y": 0.2723,
+          "width": 0.1894,
+          "height": 0.7239,
+          "confidence": 0.5433
+        }
+      ]
+    },
+    {
+      "time": 0.934267,
+      "faces": [
+        {
+          "x": 0.1714,
+          "y": 0.1792,
+          "width": 0.0657,
+          "height": 0.15,
+          "center_x": 0.2042,
+          "center_y": 0.2542,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5751,
+          "y": 0.25,
+          "width": 0.0493,
+          "height": 0.1167,
+          "center_x": 0.5998,
+          "center_y": 0.3083,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.7559,
+          "y": 0.2792,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7852,
+          "center_y": 0.3438,
+          "confidence": 0.92,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2625,
+          "width": 0.0469,
+          "height": 0.1125,
+          "center_x": 0.4272,
+          "center_y": 0.3187,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.6999,
+          "y": 0.2477,
+          "width": 0.2419,
+          "height": 0.7409,
+          "confidence": 0.8665
+        },
+        {
+          "x": 0.0565,
+          "y": 0.1537,
+          "width": 0.2725,
+          "height": 0.8445,
+          "confidence": 0.8614
+        },
+        {
+          "x": 0.5122,
+          "y": 0.2203,
+          "width": 0.2148,
+          "height": 0.7761,
+          "confidence": 0.6759
+        },
+        {
+          "x": 0.3284,
+          "y": 0.2752,
+          "width": 0.1906,
+          "height": 0.7208,
+          "confidence": 0.5253
+        }
+      ]
+    },
+    {
+      "time": 1.167833,
+      "faces": [
+        {
+          "x": 0.1714,
+          "y": 0.1792,
+          "width": 0.0657,
+          "height": 0.15,
+          "center_x": 0.2042,
+          "center_y": 0.2542,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5822,
+          "y": 0.2417,
+          "width": 0.0516,
+          "height": 0.1208,
+          "center_x": 0.608,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.7559,
+          "y": 0.2792,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7852,
+          "center_y": 0.3438,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2583,
+          "width": 0.0469,
+          "height": 0.1167,
+          "center_x": 0.4272,
+          "center_y": 0.3167,
+          "confidence": 0.92,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.7002,
+          "y": 0.2475,
+          "width": 0.2418,
+          "height": 0.7407,
+          "confidence": 0.8687
+        },
+        {
+          "x": 0.0571,
+          "y": 0.1525,
+          "width": 0.272,
+          "height": 0.8436,
+          "confidence": 0.8591
+        },
+        {
+          "x": 0.5141,
+          "y": 0.2277,
+          "width": 0.2117,
+          "height": 0.7671,
+          "confidence": 0.6362
+        },
+        {
+          "x": 0.3436,
+          "y": 0.3145,
+          "width": 0.1749,
+          "height": 0.6832,
+          "confidence": 0.5088
+        }
+      ]
+    },
+    {
+      "time": 1.4014,
+      "faces": [
+        {
+          "x": 0.1714,
+          "y": 0.1792,
+          "width": 0.0634,
+          "height": 0.1458,
+          "center_x": 0.2031,
+          "center_y": 0.2521,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.7559,
+          "y": 0.2792,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7852,
+          "center_y": 0.3438,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5822,
+          "y": 0.2458,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.608,
+          "center_y": 0.3042,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2583,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.4284,
+          "center_y": 0.3146,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.6986,
+          "y": 0.248,
+          "width": 0.2434,
+          "height": 0.739,
+          "confidence": 0.8693
+        },
+        {
+          "x": 0.0572,
+          "y": 0.1533,
+          "width": 0.2731,
+          "height": 0.8426,
+          "confidence": 0.8624
+        },
+        {
+          "x": 0.5156,
+          "y": 0.2303,
+          "width": 0.2129,
+          "height": 0.762,
+          "confidence": 0.6078
+        },
+        {
+          "x": 0.3442,
+          "y": 0.3697,
+          "width": 0.1769,
+          "height": 0.6273,
+          "confidence": 0.5515
+        },
+        {
+          "x": 0.3376,
+          "y": 0.297,
+          "width": 0.1235,
+          "height": 0.6931,
+          "confidence": 0.4293
+        }
+      ]
+    },
+    {
+      "time": 1.634967,
+      "faces": [
+        {
+          "x": 0.1714,
+          "y": 0.1833,
+          "width": 0.0657,
+          "height": 0.15,
+          "center_x": 0.2042,
+          "center_y": 0.2583,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.7559,
+          "y": 0.2792,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7852,
+          "center_y": 0.3438,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5869,
+          "y": 0.2417,
+          "width": 0.0516,
+          "height": 0.1208,
+          "center_x": 0.6127,
+          "center_y": 0.3021,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2583,
+          "width": 0.0469,
+          "height": 0.1167,
+          "center_x": 0.4272,
+          "center_y": 0.3167,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.6978,
+          "y": 0.2489,
+          "width": 0.2438,
+          "height": 0.7375,
+          "confidence": 0.8683
+        },
+        {
+          "x": 0.0565,
+          "y": 0.1555,
+          "width": 0.2735,
+          "height": 0.8403,
+          "confidence": 0.8669
+        },
+        {
+          "x": 0.516,
+          "y": 0.2368,
+          "width": 0.2134,
+          "height": 0.7539,
+          "confidence": 0.6266
+        },
+        {
+          "x": 0.3435,
+          "y": 0.329,
+          "width": 0.1803,
+          "height": 0.6675,
+          "confidence": 0.5021
+        }
+      ]
+    },
+    {
+      "time": 1.868533,
+      "faces": [
+        {
+          "x": 0.1714,
+          "y": 0.1833,
+          "width": 0.0657,
+          "height": 0.1542,
+          "center_x": 0.2042,
+          "center_y": 0.2604,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.7559,
+          "y": 0.2792,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7852,
+          "center_y": 0.3438,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5869,
+          "y": 0.2417,
+          "width": 0.0493,
+          "height": 0.1167,
+          "center_x": 0.6115,
+          "center_y": 0.3,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2583,
+          "width": 0.0469,
+          "height": 0.1167,
+          "center_x": 0.4272,
+          "center_y": 0.3167,
+          "confidence": 0.92,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0564,
+          "y": 0.1553,
+          "width": 0.2732,
+          "height": 0.8404,
+          "confidence": 0.8666
+        },
+        {
+          "x": 0.6957,
+          "y": 0.2494,
+          "width": 0.2456,
+          "height": 0.7384,
+          "confidence": 0.8654
+        },
+        {
+          "x": 0.5152,
+          "y": 0.2384,
+          "width": 0.2117,
+          "height": 0.7587,
+          "confidence": 0.6314
+        },
+        {
+          "x": 0.3437,
+          "y": 0.3202,
+          "width": 0.1799,
+          "height": 0.6778,
+          "confidence": 0.4919
+        }
+      ]
+    },
+    {
+      "time": 2.1021,
+      "faces": [
+        {
+          "x": 0.1714,
+          "y": 0.1833,
+          "width": 0.0634,
+          "height": 0.15,
+          "center_x": 0.2031,
+          "center_y": 0.2583,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.7559,
+          "y": 0.2792,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7852,
+          "center_y": 0.3438,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2417,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.6103,
+          "center_y": 0.3,
+          "confidence": 0.91,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2625,
+          "width": 0.0469,
+          "height": 0.1083,
+          "center_x": 0.4272,
+          "center_y": 0.3167,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0554,
+          "y": 0.1545,
+          "width": 0.2757,
+          "height": 0.841,
+          "confidence": 0.8703
+        },
+        {
+          "x": 0.696,
+          "y": 0.2497,
+          "width": 0.2453,
+          "height": 0.7396,
+          "confidence": 0.8614
+        },
+        {
+          "x": 0.5168,
+          "y": 0.2399,
+          "width": 0.2075,
+          "height": 0.7588,
+          "confidence": 0.5997
+        },
+        {
+          "x": 0.3436,
+          "y": 0.3315,
+          "width": 0.1785,
+          "height": 0.6649,
+          "confidence": 0.5207
+        }
+      ]
+    },
+    {
+      "time": 2.335667,
+      "faces": [
+        {
+          "x": 0.1714,
+          "y": 0.1833,
+          "width": 0.0634,
+          "height": 0.15,
+          "center_x": 0.2031,
+          "center_y": 0.2583,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.7582,
+          "y": 0.2792,
+          "width": 0.0563,
+          "height": 0.125,
+          "center_x": 0.7864,
+          "center_y": 0.3417,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2625,
+          "width": 0.0469,
+          "height": 0.1125,
+          "center_x": 0.4272,
+          "center_y": 0.3187,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2375,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.6103,
+          "center_y": 0.2958,
+          "confidence": 0.91,
+          "track_id": "subject_3"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.6975,
+          "y": 0.2499,
+          "width": 0.2443,
+          "height": 0.7396,
+          "confidence": 0.8673
+        },
+        {
+          "x": 0.0554,
+          "y": 0.155,
+          "width": 0.2757,
+          "height": 0.8393,
+          "confidence": 0.8666
+        },
+        {
+          "x": 0.5167,
+          "y": 0.2299,
+          "width": 0.2101,
+          "height": 0.7701,
+          "confidence": 0.6505
+        },
+        {
+          "x": 0.3438,
+          "y": 0.3052,
+          "width": 0.1775,
+          "height": 0.6928,
+          "confidence": 0.4849
+        }
+      ]
+    },
+    {
+      "time": 2.569233,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.275,
+          "width": 0.0563,
+          "height": 0.1292,
+          "center_x": 0.7864,
+          "center_y": 0.3396,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.169,
+          "y": 0.1875,
+          "width": 0.0681,
+          "height": 0.15,
+          "center_x": 0.2031,
+          "center_y": 0.2625,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2667,
+          "width": 0.0469,
+          "height": 0.1125,
+          "center_x": 0.4272,
+          "center_y": 0.3229,
+          "confidence": 0.92,
+          "track_id": "subject_4"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2417,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.6103,
+          "center_y": 0.3,
+          "confidence": 0.91,
+          "track_id": "subject_3"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0554,
+          "y": 0.1553,
+          "width": 0.276,
+          "height": 0.8396,
+          "confidence": 0.8702
+        },
+        {
+          "x": 0.6985,
+          "y": 0.2497,
+          "width": 0.2427,
+          "height": 0.7395,
+          "confidence": 0.8658
+        },
+        {
+          "x": 0.5145,
+          "y": 0.2286,
+          "width": 0.2154,
+          "height": 0.7669,
+          "confidence": 0.6536
+        },
+        {
+          "x": 0.3439,
+          "y": 0.3002,
+          "width": 0.1756,
+          "height": 0.6981,
+          "confidence": 0.487
+        }
+      ]
+    },
+    {
+      "time": 2.8028,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.275,
+          "width": 0.0563,
+          "height": 0.1292,
+          "center_x": 0.7864,
+          "center_y": 0.3396,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.169,
+          "y": 0.1875,
+          "width": 0.0704,
+          "height": 0.1542,
+          "center_x": 0.2042,
+          "center_y": 0.2646,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2583,
+          "width": 0.0469,
+          "height": 0.1125,
+          "center_x": 0.4272,
+          "center_y": 0.3146,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2417,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.6103,
+          "center_y": 0.3,
+          "confidence": 0.91,
+          "track_id": "subject_3"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0551,
+          "y": 0.1548,
+          "width": 0.2766,
+          "height": 0.8397,
+          "confidence": 0.8747
+        },
+        {
+          "x": 0.6993,
+          "y": 0.2495,
+          "width": 0.2421,
+          "height": 0.7389,
+          "confidence": 0.87
+        },
+        {
+          "x": 0.5161,
+          "y": 0.2352,
+          "width": 0.2151,
+          "height": 0.7585,
+          "confidence": 0.655
+        },
+        {
+          "x": 0.3436,
+          "y": 0.3173,
+          "width": 0.178,
+          "height": 0.6803,
+          "confidence": 0.5123
+        }
+      ]
+    },
+    {
+      "time": 3.036367,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.275,
+          "width": 0.0563,
+          "height": 0.1292,
+          "center_x": 0.7864,
+          "center_y": 0.3396,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.169,
+          "y": 0.1875,
+          "width": 0.0681,
+          "height": 0.1542,
+          "center_x": 0.2031,
+          "center_y": 0.2646,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4061,
+          "y": 0.2667,
+          "width": 0.0446,
+          "height": 0.1083,
+          "center_x": 0.4284,
+          "center_y": 0.3208,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2375,
+          "width": 0.0516,
+          "height": 0.1208,
+          "center_x": 0.6103,
+          "center_y": 0.2979,
+          "confidence": 0.91,
+          "track_id": "subject_3"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0553,
+          "y": 0.1554,
+          "width": 0.2771,
+          "height": 0.8392,
+          "confidence": 0.8751
+        },
+        {
+          "x": 0.7058,
+          "y": 0.2493,
+          "width": 0.2359,
+          "height": 0.735,
+          "confidence": 0.8628
+        },
+        {
+          "x": 0.5119,
+          "y": 0.23,
+          "width": 0.2145,
+          "height": 0.7616,
+          "confidence": 0.6794
+        },
+        {
+          "x": 0.3304,
+          "y": 0.2708,
+          "width": 0.1882,
+          "height": 0.7232,
+          "confidence": 0.5466
+        }
+      ]
+    },
+    {
+      "time": 3.269933,
+      "faces": [
+        {
+          "x": 0.7559,
+          "y": 0.275,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7852,
+          "center_y": 0.3396,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.169,
+          "y": 0.1875,
+          "width": 0.0681,
+          "height": 0.1542,
+          "center_x": 0.2031,
+          "center_y": 0.2646,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2375,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.6103,
+          "center_y": 0.2958,
+          "confidence": 0.91,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2667,
+          "width": 0.0469,
+          "height": 0.1083,
+          "center_x": 0.4272,
+          "center_y": 0.3208,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.7037,
+          "y": 0.2469,
+          "width": 0.239,
+          "height": 0.7363,
+          "confidence": 0.8772
+        },
+        {
+          "x": 0.0557,
+          "y": 0.1551,
+          "width": 0.2767,
+          "height": 0.8401,
+          "confidence": 0.8758
+        },
+        {
+          "x": 0.5149,
+          "y": 0.2103,
+          "width": 0.2152,
+          "height": 0.7733,
+          "confidence": 0.7702
+        },
+        {
+          "x": 0.3277,
+          "y": 0.2718,
+          "width": 0.1924,
+          "height": 0.7231,
+          "confidence": 0.568
+        }
+      ]
+    },
+    {
+      "time": 3.5035,
+      "faces": [
+        {
+          "x": 0.7559,
+          "y": 0.2792,
+          "width": 0.0587,
+          "height": 0.125,
+          "center_x": 0.7852,
+          "center_y": 0.3417,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1714,
+          "y": 0.1875,
+          "width": 0.0657,
+          "height": 0.15,
+          "center_x": 0.2042,
+          "center_y": 0.2625,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5822,
+          "y": 0.2375,
+          "width": 0.0516,
+          "height": 0.1125,
+          "center_x": 0.608,
+          "center_y": 0.2938,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2667,
+          "width": 0.0446,
+          "height": 0.1083,
+          "center_x": 0.4261,
+          "center_y": 0.3208,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.7048,
+          "y": 0.2474,
+          "width": 0.2377,
+          "height": 0.7346,
+          "confidence": 0.8798
+        },
+        {
+          "x": 0.0526,
+          "y": 0.1588,
+          "width": 0.2792,
+          "height": 0.8362,
+          "confidence": 0.8707
+        },
+        {
+          "x": 0.5147,
+          "y": 0.2164,
+          "width": 0.2201,
+          "height": 0.7629,
+          "confidence": 0.763
+        },
+        {
+          "x": 0.3304,
+          "y": 0.2728,
+          "width": 0.1933,
+          "height": 0.7223,
+          "confidence": 0.5104
+        }
+      ]
+    },
+    {
+      "time": 3.737067,
+      "faces": [
+        {
+          "x": 0.7559,
+          "y": 0.2792,
+          "width": 0.0587,
+          "height": 0.125,
+          "center_x": 0.7852,
+          "center_y": 0.3417,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1714,
+          "y": 0.1875,
+          "width": 0.0657,
+          "height": 0.15,
+          "center_x": 0.2042,
+          "center_y": 0.2625,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2375,
+          "width": 0.054,
+          "height": 0.1167,
+          "center_x": 0.6068,
+          "center_y": 0.2958,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2625,
+          "width": 0.0469,
+          "height": 0.1083,
+          "center_x": 0.4272,
+          "center_y": 0.3167,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.704,
+          "y": 0.2482,
+          "width": 0.2386,
+          "height": 0.734,
+          "confidence": 0.8848
+        },
+        {
+          "x": 0.0554,
+          "y": 0.1548,
+          "width": 0.276,
+          "height": 0.8397,
+          "confidence": 0.8713
+        },
+        {
+          "x": 0.5153,
+          "y": 0.2244,
+          "width": 0.217,
+          "height": 0.7547,
+          "confidence": 0.7486
+        },
+        {
+          "x": 0.3276,
+          "y": 0.2584,
+          "width": 0.2057,
+          "height": 0.7346,
+          "confidence": 0.5109
+        }
+      ]
+    },
+    {
+      "time": 3.970633,
+      "faces": [
+        {
+          "x": 0.7559,
+          "y": 0.2792,
+          "width": 0.0587,
+          "height": 0.125,
+          "center_x": 0.7852,
+          "center_y": 0.3417,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1714,
+          "y": 0.1875,
+          "width": 0.0657,
+          "height": 0.15,
+          "center_x": 0.2042,
+          "center_y": 0.2625,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5822,
+          "y": 0.2458,
+          "width": 0.0469,
+          "height": 0.1167,
+          "center_x": 0.6056,
+          "center_y": 0.3042,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2667,
+          "width": 0.0469,
+          "height": 0.1042,
+          "center_x": 0.4272,
+          "center_y": 0.3187,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.7,
+          "y": 0.2479,
+          "width": 0.2424,
+          "height": 0.7342,
+          "confidence": 0.8773
+        },
+        {
+          "x": 0.0525,
+          "y": 0.1582,
+          "width": 0.2794,
+          "height": 0.8373,
+          "confidence": 0.8755
+        },
+        {
+          "x": 0.513,
+          "y": 0.2236,
+          "width": 0.2181,
+          "height": 0.7585,
+          "confidence": 0.7449
+        },
+        {
+          "x": 0.326,
+          "y": 0.261,
+          "width": 0.2043,
+          "height": 0.7349,
+          "confidence": 0.5467
+        }
+      ]
+    },
+    {
+      "time": 4.2042,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2792,
+          "width": 0.0563,
+          "height": 0.125,
+          "center_x": 0.7864,
+          "center_y": 0.3417,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1714,
+          "y": 0.1875,
+          "width": 0.0681,
+          "height": 0.15,
+          "center_x": 0.2054,
+          "center_y": 0.2625,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.6045,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2667,
+          "width": 0.0446,
+          "height": 0.1042,
+          "center_x": 0.4261,
+          "center_y": 0.3187,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.6999,
+          "y": 0.2471,
+          "width": 0.2424,
+          "height": 0.7345,
+          "confidence": 0.8773
+        },
+        {
+          "x": 0.0524,
+          "y": 0.1585,
+          "width": 0.2797,
+          "height": 0.8368,
+          "confidence": 0.8767
+        },
+        {
+          "x": 0.512,
+          "y": 0.2207,
+          "width": 0.22,
+          "height": 0.7604,
+          "confidence": 0.7673
+        },
+        {
+          "x": 0.3252,
+          "y": 0.2553,
+          "width": 0.2056,
+          "height": 0.7405,
+          "confidence": 0.5413
+        }
+      ]
+    },
+    {
+      "time": 4.437767,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.275,
+          "width": 0.0563,
+          "height": 0.1292,
+          "center_x": 0.7864,
+          "center_y": 0.3396,
+          "confidence": 0.93,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1714,
+          "y": 0.1875,
+          "width": 0.0681,
+          "height": 0.15,
+          "center_x": 0.2054,
+          "center_y": 0.2625,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5775,
+          "y": 0.2417,
+          "width": 0.0516,
+          "height": 0.1208,
+          "center_x": 0.6033,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2583,
+          "width": 0.0469,
+          "height": 0.1083,
+          "center_x": 0.4249,
+          "center_y": 0.3125,
+          "confidence": 0.89,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0524,
+          "y": 0.1579,
+          "width": 0.2802,
+          "height": 0.8371,
+          "confidence": 0.8782
+        },
+        {
+          "x": 0.6968,
+          "y": 0.2461,
+          "width": 0.2458,
+          "height": 0.7359,
+          "confidence": 0.8726
+        },
+        {
+          "x": 0.5108,
+          "y": 0.2192,
+          "width": 0.2194,
+          "height": 0.7629,
+          "confidence": 0.7672
+        },
+        {
+          "x": 0.3426,
+          "y": 0.3303,
+          "width": 0.1811,
+          "height": 0.6674,
+          "confidence": 0.512
+        }
+      ]
+    },
+    {
+      "time": 4.671333,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.275,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7876,
+          "center_y": 0.3396,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1714,
+          "y": 0.1875,
+          "width": 0.0681,
+          "height": 0.15,
+          "center_x": 0.2054,
+          "center_y": 0.2625,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5775,
+          "y": 0.2417,
+          "width": 0.0493,
+          "height": 0.1208,
+          "center_x": 0.6021,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2583,
+          "width": 0.0446,
+          "height": 0.1083,
+          "center_x": 0.4237,
+          "center_y": 0.3125,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0524,
+          "y": 0.1584,
+          "width": 0.2802,
+          "height": 0.8361,
+          "confidence": 0.8755
+        },
+        {
+          "x": 0.6967,
+          "y": 0.2451,
+          "width": 0.2467,
+          "height": 0.7368,
+          "confidence": 0.8742
+        },
+        {
+          "x": 0.5112,
+          "y": 0.2186,
+          "width": 0.2197,
+          "height": 0.7634,
+          "confidence": 0.7817
+        },
+        {
+          "x": 0.3265,
+          "y": 0.2547,
+          "width": 0.2061,
+          "height": 0.7397,
+          "confidence": 0.5235
+        }
+      ]
+    },
+    {
+      "time": 4.9049,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.275,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7876,
+          "center_y": 0.3396,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1714,
+          "y": 0.1875,
+          "width": 0.0681,
+          "height": 0.15,
+          "center_x": 0.2054,
+          "center_y": 0.2625,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1167,
+          "center_x": 0.6045,
+          "center_y": 0.3042,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2625,
+          "width": 0.0446,
+          "height": 0.1042,
+          "center_x": 0.4237,
+          "center_y": 0.3146,
+          "confidence": 0.89,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.6985,
+          "y": 0.2443,
+          "width": 0.2438,
+          "height": 0.7391,
+          "confidence": 0.8764
+        },
+        {
+          "x": 0.0561,
+          "y": 0.1547,
+          "width": 0.2739,
+          "height": 0.8395,
+          "confidence": 0.8719
+        },
+        {
+          "x": 0.5111,
+          "y": 0.2148,
+          "width": 0.2227,
+          "height": 0.7676,
+          "confidence": 0.7665
+        },
+        {
+          "x": 0.3327,
+          "y": 0.2773,
+          "width": 0.1934,
+          "height": 0.7179,
+          "confidence": 0.5398
+        }
+      ]
+    },
+    {
+      "time": 5.138467,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.275,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7876,
+          "center_y": 0.3396,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1714,
+          "y": 0.1833,
+          "width": 0.0681,
+          "height": 0.1542,
+          "center_x": 0.2054,
+          "center_y": 0.2604,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.6045,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2583,
+          "width": 0.0446,
+          "height": 0.1125,
+          "center_x": 0.4237,
+          "center_y": 0.3146,
+          "confidence": 0.89,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.6992,
+          "y": 0.243,
+          "width": 0.243,
+          "height": 0.7411,
+          "confidence": 0.8779
+        },
+        {
+          "x": 0.0536,
+          "y": 0.1584,
+          "width": 0.2764,
+          "height": 0.8364,
+          "confidence": 0.873
+        },
+        {
+          "x": 0.5109,
+          "y": 0.2148,
+          "width": 0.2237,
+          "height": 0.7674,
+          "confidence": 0.7661
+        },
+        {
+          "x": 0.3328,
+          "y": 0.2821,
+          "width": 0.194,
+          "height": 0.713,
+          "confidence": 0.5268
+        }
+      ]
+    },
+    {
+      "time": 5.372033,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.275,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7876,
+          "center_y": 0.3396,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1714,
+          "y": 0.1833,
+          "width": 0.0681,
+          "height": 0.1542,
+          "center_x": 0.2054,
+          "center_y": 0.2604,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.6045,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2708,
+          "width": 0.0423,
+          "height": 0.1,
+          "center_x": 0.4249,
+          "center_y": 0.3208,
+          "confidence": 0.89,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.6983,
+          "y": 0.2429,
+          "width": 0.2438,
+          "height": 0.7411,
+          "confidence": 0.8801
+        },
+        {
+          "x": 0.0537,
+          "y": 0.1592,
+          "width": 0.2765,
+          "height": 0.8352,
+          "confidence": 0.8734
+        },
+        {
+          "x": 0.5107,
+          "y": 0.2171,
+          "width": 0.2243,
+          "height": 0.7642,
+          "confidence": 0.767
+        },
+        {
+          "x": 0.3322,
+          "y": 0.288,
+          "width": 0.1944,
+          "height": 0.7075,
+          "confidence": 0.5199
+        }
+      ]
+    },
+    {
+      "time": 5.6056,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.275,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7876,
+          "center_y": 0.3396,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1714,
+          "y": 0.1833,
+          "width": 0.0681,
+          "height": 0.1542,
+          "center_x": 0.2054,
+          "center_y": 0.2604,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.6045,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.275,
+          "width": 0.0446,
+          "height": 0.1042,
+          "center_x": 0.4261,
+          "center_y": 0.3271,
+          "confidence": 0.89,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.6992,
+          "y": 0.2438,
+          "width": 0.2432,
+          "height": 0.7401,
+          "confidence": 0.8777
+        },
+        {
+          "x": 0.0538,
+          "y": 0.1595,
+          "width": 0.2763,
+          "height": 0.8352,
+          "confidence": 0.8725
+        },
+        {
+          "x": 0.5111,
+          "y": 0.2138,
+          "width": 0.224,
+          "height": 0.7691,
+          "confidence": 0.7724
+        },
+        {
+          "x": 0.3326,
+          "y": 0.2813,
+          "width": 0.1943,
+          "height": 0.7135,
+          "confidence": 0.5176
+        }
+      ]
+    },
+    {
+      "time": 5.839167,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.275,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3417,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.6045,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.1714,
+          "y": 0.1833,
+          "width": 0.0681,
+          "height": 0.1542,
+          "center_x": 0.2054,
+          "center_y": 0.2604,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2625,
+          "width": 0.0469,
+          "height": 0.1167,
+          "center_x": 0.4249,
+          "center_y": 0.3208,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.7015,
+          "y": 0.2414,
+          "width": 0.2406,
+          "height": 0.7426,
+          "confidence": 0.8796
+        },
+        {
+          "x": 0.0537,
+          "y": 0.1589,
+          "width": 0.2761,
+          "height": 0.836,
+          "confidence": 0.8758
+        },
+        {
+          "x": 0.5111,
+          "y": 0.2143,
+          "width": 0.2232,
+          "height": 0.7688,
+          "confidence": 0.7737
+        },
+        {
+          "x": 0.3323,
+          "y": 0.268,
+          "width": 0.194,
+          "height": 0.7266,
+          "confidence": 0.5928
+        }
+      ]
+    },
+    {
+      "time": 6.072733,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.275,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7876,
+          "center_y": 0.3396,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.6045,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.1714,
+          "y": 0.1875,
+          "width": 0.0681,
+          "height": 0.15,
+          "center_x": 0.2054,
+          "center_y": 0.2625,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4061,
+          "y": 0.275,
+          "width": 0.0423,
+          "height": 0.1,
+          "center_x": 0.4272,
+          "center_y": 0.325,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.7006,
+          "y": 0.2419,
+          "width": 0.2412,
+          "height": 0.7414,
+          "confidence": 0.8768
+        },
+        {
+          "x": 0.0535,
+          "y": 0.1583,
+          "width": 0.2768,
+          "height": 0.8367,
+          "confidence": 0.8757
+        },
+        {
+          "x": 0.5111,
+          "y": 0.2153,
+          "width": 0.2222,
+          "height": 0.7676,
+          "confidence": 0.7618
+        },
+        {
+          "x": 0.3331,
+          "y": 0.2748,
+          "width": 0.1951,
+          "height": 0.7199,
+          "confidence": 0.5514
+        }
+      ]
+    },
+    {
+      "time": 6.3063,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.275,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3417,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.6045,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.1714,
+          "y": 0.1833,
+          "width": 0.0681,
+          "height": 0.1583,
+          "center_x": 0.2054,
+          "center_y": 0.2625,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2667,
+          "width": 0.0446,
+          "height": 0.1042,
+          "center_x": 0.4261,
+          "center_y": 0.3187,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0556,
+          "y": 0.1547,
+          "width": 0.2753,
+          "height": 0.8404,
+          "confidence": 0.8785
+        },
+        {
+          "x": 0.7002,
+          "y": 0.2417,
+          "width": 0.2416,
+          "height": 0.7421,
+          "confidence": 0.8757
+        },
+        {
+          "x": 0.5112,
+          "y": 0.2168,
+          "width": 0.2213,
+          "height": 0.7668,
+          "confidence": 0.7562
+        },
+        {
+          "x": 0.3296,
+          "y": 0.2576,
+          "width": 0.206,
+          "height": 0.737,
+          "confidence": 0.5333
+        }
+      ]
+    },
+    {
+      "time": 6.539867,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3375,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.6045,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.1714,
+          "y": 0.1875,
+          "width": 0.0681,
+          "height": 0.1542,
+          "center_x": 0.2054,
+          "center_y": 0.2646,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2625,
+          "width": 0.0446,
+          "height": 0.1083,
+          "center_x": 0.4261,
+          "center_y": 0.3167,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0554,
+          "y": 0.1543,
+          "width": 0.2752,
+          "height": 0.8412,
+          "confidence": 0.8808
+        },
+        {
+          "x": 0.6998,
+          "y": 0.242,
+          "width": 0.2421,
+          "height": 0.742,
+          "confidence": 0.8764
+        },
+        {
+          "x": 0.5116,
+          "y": 0.2161,
+          "width": 0.2216,
+          "height": 0.7676,
+          "confidence": 0.7492
+        },
+        {
+          "x": 0.3307,
+          "y": 0.2651,
+          "width": 0.2059,
+          "height": 0.7292,
+          "confidence": 0.5107
+        }
+      ]
+    },
+    {
+      "time": 6.773433,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3375,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.6045,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.1761,
+          "y": 0.1875,
+          "width": 0.0657,
+          "height": 0.1458,
+          "center_x": 0.2089,
+          "center_y": 0.2604,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2625,
+          "width": 0.0469,
+          "height": 0.1083,
+          "center_x": 0.4272,
+          "center_y": 0.3167,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0531,
+          "y": 0.1578,
+          "width": 0.2771,
+          "height": 0.8355,
+          "confidence": 0.8813
+        },
+        {
+          "x": 0.7007,
+          "y": 0.2405,
+          "width": 0.2413,
+          "height": 0.7437,
+          "confidence": 0.8756
+        },
+        {
+          "x": 0.512,
+          "y": 0.2158,
+          "width": 0.2221,
+          "height": 0.768,
+          "confidence": 0.7466
+        },
+        {
+          "x": 0.3299,
+          "y": 0.2654,
+          "width": 0.2098,
+          "height": 0.7296,
+          "confidence": 0.5144
+        }
+      ]
+    },
+    {
+      "time": 7.007,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7876,
+          "center_y": 0.3354,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1737,
+          "y": 0.1958,
+          "width": 0.0657,
+          "height": 0.1542,
+          "center_x": 0.2066,
+          "center_y": 0.2729,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.6045,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2583,
+          "width": 0.0446,
+          "height": 0.1125,
+          "center_x": 0.4261,
+          "center_y": 0.3146,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.7008,
+          "y": 0.2439,
+          "width": 0.2412,
+          "height": 0.7409,
+          "confidence": 0.8796
+        },
+        {
+          "x": 0.0547,
+          "y": 0.1628,
+          "width": 0.2734,
+          "height": 0.8289,
+          "confidence": 0.8645
+        },
+        {
+          "x": 0.5123,
+          "y": 0.2162,
+          "width": 0.2223,
+          "height": 0.7678,
+          "confidence": 0.7568
+        },
+        {
+          "x": 0.3307,
+          "y": 0.2619,
+          "width": 0.2062,
+          "height": 0.7325,
+          "confidence": 0.5112
+        }
+      ]
+    },
+    {
+      "time": 7.240567,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.275,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7876,
+          "center_y": 0.3396,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.6045,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.1761,
+          "y": 0.1917,
+          "width": 0.0657,
+          "height": 0.1458,
+          "center_x": 0.2089,
+          "center_y": 0.2646,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2667,
+          "width": 0.0446,
+          "height": 0.1042,
+          "center_x": 0.4261,
+          "center_y": 0.3187,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.7007,
+          "y": 0.2416,
+          "width": 0.2412,
+          "height": 0.743,
+          "confidence": 0.8808
+        },
+        {
+          "x": 0.0553,
+          "y": 0.1618,
+          "width": 0.2724,
+          "height": 0.8304,
+          "confidence": 0.8607
+        },
+        {
+          "x": 0.5122,
+          "y": 0.2168,
+          "width": 0.2226,
+          "height": 0.7672,
+          "confidence": 0.7579
+        },
+        {
+          "x": 0.3296,
+          "y": 0.2606,
+          "width": 0.2067,
+          "height": 0.734,
+          "confidence": 0.5192
+        }
+      ]
+    },
+    {
+      "time": 7.474133,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1737,
+          "y": 0.1917,
+          "width": 0.0657,
+          "height": 0.1542,
+          "center_x": 0.2066,
+          "center_y": 0.2687,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.6045,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2708,
+          "width": 0.0469,
+          "height": 0.1042,
+          "center_x": 0.4272,
+          "center_y": 0.3229,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.7006,
+          "y": 0.2435,
+          "width": 0.2414,
+          "height": 0.7408,
+          "confidence": 0.8806
+        },
+        {
+          "x": 0.0538,
+          "y": 0.1634,
+          "width": 0.2751,
+          "height": 0.8313,
+          "confidence": 0.8739
+        },
+        {
+          "x": 0.5116,
+          "y": 0.2154,
+          "width": 0.2224,
+          "height": 0.7689,
+          "confidence": 0.7561
+        },
+        {
+          "x": 0.3334,
+          "y": 0.2774,
+          "width": 0.1963,
+          "height": 0.718,
+          "confidence": 0.5312
+        }
+      ]
+    },
+    {
+      "time": 7.7077,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1737,
+          "y": 0.1875,
+          "width": 0.0657,
+          "height": 0.15,
+          "center_x": 0.2066,
+          "center_y": 0.2625,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.6045,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2667,
+          "width": 0.0469,
+          "height": 0.1125,
+          "center_x": 0.4272,
+          "center_y": 0.3229,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.7008,
+          "y": 0.2437,
+          "width": 0.2412,
+          "height": 0.741,
+          "confidence": 0.8788
+        },
+        {
+          "x": 0.0537,
+          "y": 0.1602,
+          "width": 0.2747,
+          "height": 0.8346,
+          "confidence": 0.8758
+        },
+        {
+          "x": 0.5115,
+          "y": 0.2158,
+          "width": 0.2219,
+          "height": 0.7683,
+          "confidence": 0.7623
+        },
+        {
+          "x": 0.3327,
+          "y": 0.2676,
+          "width": 0.1929,
+          "height": 0.7282,
+          "confidence": 0.5929
+        }
+      ]
+    },
+    {
+      "time": 7.941267,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1737,
+          "y": 0.1917,
+          "width": 0.0657,
+          "height": 0.1458,
+          "center_x": 0.2066,
+          "center_y": 0.2646,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5798,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.6045,
+          "center_y": 0.3021,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2667,
+          "width": 0.0469,
+          "height": 0.1042,
+          "center_x": 0.4272,
+          "center_y": 0.3187,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.7019,
+          "y": 0.2448,
+          "width": 0.24,
+          "height": 0.7397,
+          "confidence": 0.8774
+        },
+        {
+          "x": 0.0539,
+          "y": 0.1584,
+          "width": 0.275,
+          "height": 0.8371,
+          "confidence": 0.874
+        },
+        {
+          "x": 0.5118,
+          "y": 0.215,
+          "width": 0.222,
+          "height": 0.7687,
+          "confidence": 0.7586
+        },
+        {
+          "x": 0.3285,
+          "y": 0.2536,
+          "width": 0.2082,
+          "height": 0.7408,
+          "confidence": 0.5343
+        }
+      ]
+    },
+    {
+      "time": 8.174833,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3375,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1737,
+          "y": 0.1917,
+          "width": 0.0657,
+          "height": 0.15,
+          "center_x": 0.2066,
+          "center_y": 0.2667,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2583,
+          "width": 0.0469,
+          "height": 0.1125,
+          "center_x": 0.4272,
+          "center_y": 0.3146,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        },
+        {
+          "x": 0.5751,
+          "y": 0.2417,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.5998,
+          "center_y": 0.2979,
+          "confidence": 0.9,
+          "track_id": "subject_3"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0534,
+          "y": 0.1595,
+          "width": 0.2752,
+          "height": 0.8354,
+          "confidence": 0.8787
+        },
+        {
+          "x": 0.6999,
+          "y": 0.245,
+          "width": 0.2424,
+          "height": 0.7401,
+          "confidence": 0.8767
+        },
+        {
+          "x": 0.5099,
+          "y": 0.2126,
+          "width": 0.2238,
+          "height": 0.7714,
+          "confidence": 0.7543
+        },
+        {
+          "x": 0.3322,
+          "y": 0.286,
+          "width": 0.1938,
+          "height": 0.7099,
+          "confidence": 0.5112
+        }
+      ]
+    },
+    {
+      "time": 8.4084,
+      "faces": [
+        {
+          "x": 0.7559,
+          "y": 0.2708,
+          "width": 0.061,
+          "height": 0.1333,
+          "center_x": 0.7864,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1737,
+          "y": 0.1917,
+          "width": 0.0657,
+          "height": 0.1542,
+          "center_x": 0.2066,
+          "center_y": 0.2687,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2583,
+          "width": 0.0469,
+          "height": 0.1125,
+          "center_x": 0.4272,
+          "center_y": 0.3146,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        },
+        {
+          "x": 0.5681,
+          "y": 0.2417,
+          "width": 0.0516,
+          "height": 0.1208,
+          "center_x": 0.5939,
+          "center_y": 0.3021,
+          "confidence": 0.89,
+          "track_id": "subject_3"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.6986,
+          "y": 0.2441,
+          "width": 0.2441,
+          "height": 0.7403,
+          "confidence": 0.8755
+        },
+        {
+          "x": 0.0532,
+          "y": 0.1605,
+          "width": 0.2747,
+          "height": 0.8334,
+          "confidence": 0.8748
+        },
+        {
+          "x": 0.5112,
+          "y": 0.2247,
+          "width": 0.2208,
+          "height": 0.7591,
+          "confidence": 0.7607
+        },
+        {
+          "x": 0.3335,
+          "y": 0.2883,
+          "width": 0.1942,
+          "height": 0.7083,
+          "confidence": 0.5143
+        }
+      ]
+    },
+    {
+      "time": 8.641967,
+      "faces": [
+        {
+          "x": 0.7559,
+          "y": 0.2708,
+          "width": 0.061,
+          "height": 0.1333,
+          "center_x": 0.7864,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1737,
+          "y": 0.1917,
+          "width": 0.0657,
+          "height": 0.15,
+          "center_x": 0.2066,
+          "center_y": 0.2667,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2542,
+          "width": 0.0469,
+          "height": 0.1208,
+          "center_x": 0.4272,
+          "center_y": 0.3146,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        },
+        {
+          "x": 0.5681,
+          "y": 0.2458,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.5939,
+          "center_y": 0.3042,
+          "confidence": 0.88,
+          "track_id": "subject_3"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.053,
+          "y": 0.1594,
+          "width": 0.2756,
+          "height": 0.8348,
+          "confidence": 0.8783
+        },
+        {
+          "x": 0.6996,
+          "y": 0.245,
+          "width": 0.2431,
+          "height": 0.7398,
+          "confidence": 0.8771
+        },
+        {
+          "x": 0.5111,
+          "y": 0.2213,
+          "width": 0.2222,
+          "height": 0.7625,
+          "confidence": 0.753
+        },
+        {
+          "x": 0.332,
+          "y": 0.2897,
+          "width": 0.1962,
+          "height": 0.707,
+          "confidence": 0.5134
+        }
+      ]
+    },
+    {
+      "time": 8.875533,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7876,
+          "center_y": 0.3354,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1737,
+          "y": 0.1917,
+          "width": 0.0657,
+          "height": 0.15,
+          "center_x": 0.2066,
+          "center_y": 0.2667,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4061,
+          "y": 0.2542,
+          "width": 0.0469,
+          "height": 0.1125,
+          "center_x": 0.4296,
+          "center_y": 0.3104,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        },
+        {
+          "x": 0.5681,
+          "y": 0.2458,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.5939,
+          "center_y": 0.3042,
+          "confidence": 0.88,
+          "track_id": "subject_3"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.6983,
+          "y": 0.2445,
+          "width": 0.2445,
+          "height": 0.7403,
+          "confidence": 0.8797
+        },
+        {
+          "x": 0.0529,
+          "y": 0.1592,
+          "width": 0.2763,
+          "height": 0.8344,
+          "confidence": 0.8776
+        },
+        {
+          "x": 0.5115,
+          "y": 0.2203,
+          "width": 0.2215,
+          "height": 0.7643,
+          "confidence": 0.7522
+        },
+        {
+          "x": 0.3332,
+          "y": 0.2747,
+          "width": 0.1943,
+          "height": 0.7217,
+          "confidence": 0.5513
+        }
+      ]
+    },
+    {
+      "time": 9.1091,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7876,
+          "center_y": 0.3354,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1761,
+          "y": 0.1917,
+          "width": 0.0634,
+          "height": 0.15,
+          "center_x": 0.2077,
+          "center_y": 0.2667,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2583,
+          "width": 0.0469,
+          "height": 0.1125,
+          "center_x": 0.4272,
+          "center_y": 0.3146,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        },
+        {
+          "x": 0.5704,
+          "y": 0.2458,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.5962,
+          "center_y": 0.3042,
+          "confidence": 0.88,
+          "track_id": "subject_3"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0531,
+          "y": 0.1604,
+          "width": 0.276,
+          "height": 0.833,
+          "confidence": 0.8764
+        },
+        {
+          "x": 0.6981,
+          "y": 0.243,
+          "width": 0.2448,
+          "height": 0.7415,
+          "confidence": 0.8754
+        },
+        {
+          "x": 0.5115,
+          "y": 0.2236,
+          "width": 0.2216,
+          "height": 0.7608,
+          "confidence": 0.7555
+        },
+        {
+          "x": 0.3334,
+          "y": 0.2882,
+          "width": 0.1943,
+          "height": 0.7085,
+          "confidence": 0.5272
+        }
+      ]
+    },
+    {
+      "time": 9.342667,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7876,
+          "center_y": 0.3354,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1761,
+          "y": 0.1917,
+          "width": 0.0634,
+          "height": 0.1458,
+          "center_x": 0.2077,
+          "center_y": 0.2646,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2583,
+          "width": 0.0469,
+          "height": 0.1167,
+          "center_x": 0.4272,
+          "center_y": 0.3167,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        },
+        {
+          "x": 0.5704,
+          "y": 0.2458,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.5962,
+          "center_y": 0.3042,
+          "confidence": 0.9,
+          "track_id": "subject_3"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.6983,
+          "y": 0.242,
+          "width": 0.2446,
+          "height": 0.7426,
+          "confidence": 0.8765
+        },
+        {
+          "x": 0.0531,
+          "y": 0.1594,
+          "width": 0.2759,
+          "height": 0.834,
+          "confidence": 0.8741
+        },
+        {
+          "x": 0.5114,
+          "y": 0.2137,
+          "width": 0.2222,
+          "height": 0.771,
+          "confidence": 0.7618
+        },
+        {
+          "x": 0.333,
+          "y": 0.2812,
+          "width": 0.1942,
+          "height": 0.7157,
+          "confidence": 0.5496
+        }
+      ]
+    },
+    {
+      "time": 9.576233,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7876,
+          "center_y": 0.3354,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1761,
+          "y": 0.1917,
+          "width": 0.0634,
+          "height": 0.1458,
+          "center_x": 0.2077,
+          "center_y": 0.2646,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5775,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1167,
+          "center_x": 0.6021,
+          "center_y": 0.3042,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2583,
+          "width": 0.0469,
+          "height": 0.1125,
+          "center_x": 0.4272,
+          "center_y": 0.3146,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.6979,
+          "y": 0.2438,
+          "width": 0.2451,
+          "height": 0.7404,
+          "confidence": 0.8763
+        },
+        {
+          "x": 0.0533,
+          "y": 0.1578,
+          "width": 0.276,
+          "height": 0.8354,
+          "confidence": 0.8736
+        },
+        {
+          "x": 0.5116,
+          "y": 0.2192,
+          "width": 0.2193,
+          "height": 0.7664,
+          "confidence": 0.7621
+        },
+        {
+          "x": 0.333,
+          "y": 0.2961,
+          "width": 0.1934,
+          "height": 0.7009,
+          "confidence": 0.5198
+        }
+      ]
+    },
+    {
+      "time": 9.8098,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7876,
+          "center_y": 0.3354,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1761,
+          "y": 0.1917,
+          "width": 0.0634,
+          "height": 0.1458,
+          "center_x": 0.2077,
+          "center_y": 0.2646,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5822,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1167,
+          "center_x": 0.6068,
+          "center_y": 0.3042,
+          "confidence": 0.93,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2625,
+          "width": 0.0446,
+          "height": 0.1083,
+          "center_x": 0.4261,
+          "center_y": 0.3167,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.6979,
+          "y": 0.2395,
+          "width": 0.2448,
+          "height": 0.7441,
+          "confidence": 0.8757
+        },
+        {
+          "x": 0.0531,
+          "y": 0.1577,
+          "width": 0.276,
+          "height": 0.8354,
+          "confidence": 0.8749
+        },
+        {
+          "x": 0.5113,
+          "y": 0.2168,
+          "width": 0.2197,
+          "height": 0.7688,
+          "confidence": 0.76
+        },
+        {
+          "x": 0.3324,
+          "y": 0.2769,
+          "width": 0.193,
+          "height": 0.7201,
+          "confidence": 0.5521
+        }
+      ]
+    },
+    {
+      "time": 10.043367,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1761,
+          "y": 0.1917,
+          "width": 0.0634,
+          "height": 0.1458,
+          "center_x": 0.2077,
+          "center_y": 0.2646,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2417,
+          "width": 0.0493,
+          "height": 0.1167,
+          "center_x": 0.6092,
+          "center_y": 0.3,
+          "confidence": 0.91,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2625,
+          "width": 0.0446,
+          "height": 0.1083,
+          "center_x": 0.4261,
+          "center_y": 0.3167,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.053,
+          "y": 0.1589,
+          "width": 0.2763,
+          "height": 0.8343,
+          "confidence": 0.8758
+        },
+        {
+          "x": 0.6978,
+          "y": 0.2387,
+          "width": 0.2448,
+          "height": 0.7462,
+          "confidence": 0.8757
+        },
+        {
+          "x": 0.5109,
+          "y": 0.221,
+          "width": 0.2201,
+          "height": 0.7656,
+          "confidence": 0.7691
+        },
+        {
+          "x": 0.3326,
+          "y": 0.2747,
+          "width": 0.1926,
+          "height": 0.7224,
+          "confidence": 0.5543
+        }
+      ]
+    },
+    {
+      "time": 10.276933,
+      "faces": [
+        {
+          "x": 0.7559,
+          "y": 0.2708,
+          "width": 0.061,
+          "height": 0.1333,
+          "center_x": 0.7864,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1761,
+          "y": 0.1917,
+          "width": 0.0657,
+          "height": 0.1458,
+          "center_x": 0.2089,
+          "center_y": 0.2646,
+          "confidence": 0.94,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2458,
+          "width": 0.0493,
+          "height": 0.1125,
+          "center_x": 0.6092,
+          "center_y": 0.3021,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2583,
+          "width": 0.0446,
+          "height": 0.1083,
+          "center_x": 0.4261,
+          "center_y": 0.3125,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.6997,
+          "y": 0.243,
+          "width": 0.2427,
+          "height": 0.7421,
+          "confidence": 0.8752
+        },
+        {
+          "x": 0.0554,
+          "y": 0.1554,
+          "width": 0.275,
+          "height": 0.8411,
+          "confidence": 0.8749
+        },
+        {
+          "x": 0.511,
+          "y": 0.2199,
+          "width": 0.2197,
+          "height": 0.7665,
+          "confidence": 0.7709
+        },
+        {
+          "x": 0.3422,
+          "y": 0.3095,
+          "width": 0.1798,
+          "height": 0.6905,
+          "confidence": 0.5325
+        }
+      ]
+    },
+    {
+      "time": 10.5105,
+      "faces": [
+        {
+          "x": 0.7559,
+          "y": 0.2708,
+          "width": 0.061,
+          "height": 0.1333,
+          "center_x": 0.7864,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1761,
+          "y": 0.1917,
+          "width": 0.0634,
+          "height": 0.1417,
+          "center_x": 0.2077,
+          "center_y": 0.2625,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5869,
+          "y": 0.2458,
+          "width": 0.0469,
+          "height": 0.1125,
+          "center_x": 0.6103,
+          "center_y": 0.3021,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2625,
+          "width": 0.0469,
+          "height": 0.1125,
+          "center_x": 0.4249,
+          "center_y": 0.3187,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.053,
+          "y": 0.1591,
+          "width": 0.2773,
+          "height": 0.8334,
+          "confidence": 0.8765
+        },
+        {
+          "x": 0.6983,
+          "y": 0.2422,
+          "width": 0.2442,
+          "height": 0.7432,
+          "confidence": 0.876
+        },
+        {
+          "x": 0.5113,
+          "y": 0.2194,
+          "width": 0.22,
+          "height": 0.7672,
+          "confidence": 0.7739
+        },
+        {
+          "x": 0.3331,
+          "y": 0.2753,
+          "width": 0.1924,
+          "height": 0.7215,
+          "confidence": 0.5376
+        }
+      ]
+    },
+    {
+      "time": 10.744067,
+      "faces": [
+        {
+          "x": 0.7559,
+          "y": 0.2708,
+          "width": 0.061,
+          "height": 0.1333,
+          "center_x": 0.7864,
+          "center_y": 0.3375,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1761,
+          "y": 0.1875,
+          "width": 0.0657,
+          "height": 0.1458,
+          "center_x": 0.2089,
+          "center_y": 0.2604,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2417,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.6103,
+          "center_y": 0.3,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2625,
+          "width": 0.0446,
+          "height": 0.1083,
+          "center_x": 0.4261,
+          "center_y": 0.3167,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0532,
+          "y": 0.1593,
+          "width": 0.2767,
+          "height": 0.8335,
+          "confidence": 0.8772
+        },
+        {
+          "x": 0.6978,
+          "y": 0.2425,
+          "width": 0.2447,
+          "height": 0.743,
+          "confidence": 0.8736
+        },
+        {
+          "x": 0.5113,
+          "y": 0.2187,
+          "width": 0.2192,
+          "height": 0.7685,
+          "confidence": 0.7701
+        },
+        {
+          "x": 0.3329,
+          "y": 0.2806,
+          "width": 0.1931,
+          "height": 0.7157,
+          "confidence": 0.5255
+        }
+      ]
+    },
+    {
+      "time": 10.977633,
+      "faces": [
+        {
+          "x": 0.7559,
+          "y": 0.2708,
+          "width": 0.061,
+          "height": 0.1333,
+          "center_x": 0.7864,
+          "center_y": 0.3375,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1761,
+          "y": 0.1875,
+          "width": 0.0657,
+          "height": 0.1458,
+          "center_x": 0.2089,
+          "center_y": 0.2604,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2458,
+          "width": 0.0516,
+          "height": 0.1125,
+          "center_x": 0.6103,
+          "center_y": 0.3021,
+          "confidence": 0.91,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4038,
+          "y": 0.2625,
+          "width": 0.0446,
+          "height": 0.1083,
+          "center_x": 0.4261,
+          "center_y": 0.3167,
+          "confidence": 0.91,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0556,
+          "y": 0.1561,
+          "width": 0.2751,
+          "height": 0.8387,
+          "confidence": 0.8785
+        },
+        {
+          "x": 0.6982,
+          "y": 0.2444,
+          "width": 0.2443,
+          "height": 0.7412,
+          "confidence": 0.8732
+        },
+        {
+          "x": 0.5114,
+          "y": 0.2195,
+          "width": 0.2195,
+          "height": 0.7674,
+          "confidence": 0.7702
+        },
+        {
+          "x": 0.3331,
+          "y": 0.2732,
+          "width": 0.1922,
+          "height": 0.7235,
+          "confidence": 0.5586
+        }
+      ]
+    },
+    {
+      "time": 11.2112,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1761,
+          "y": 0.1875,
+          "width": 0.0657,
+          "height": 0.1458,
+          "center_x": 0.2089,
+          "center_y": 0.2604,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2417,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.6103,
+          "center_y": 0.3,
+          "confidence": 0.91,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2583,
+          "width": 0.0469,
+          "height": 0.1167,
+          "center_x": 0.4249,
+          "center_y": 0.3167,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.056,
+          "y": 0.1559,
+          "width": 0.2741,
+          "height": 0.8387,
+          "confidence": 0.8781
+        },
+        {
+          "x": 0.699,
+          "y": 0.2437,
+          "width": 0.2435,
+          "height": 0.7411,
+          "confidence": 0.8755
+        },
+        {
+          "x": 0.5112,
+          "y": 0.2197,
+          "width": 0.2192,
+          "height": 0.7667,
+          "confidence": 0.7744
+        },
+        {
+          "x": 0.3329,
+          "y": 0.2689,
+          "width": 0.192,
+          "height": 0.7271,
+          "confidence": 0.5761
+        }
+      ]
+    },
+    {
+      "time": 11.444767,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1761,
+          "y": 0.1875,
+          "width": 0.0634,
+          "height": 0.1458,
+          "center_x": 0.2077,
+          "center_y": 0.2604,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2417,
+          "width": 0.0493,
+          "height": 0.1167,
+          "center_x": 0.6092,
+          "center_y": 0.3,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2667,
+          "width": 0.0446,
+          "height": 0.1042,
+          "center_x": 0.4237,
+          "center_y": 0.3187,
+          "confidence": 0.89,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0561,
+          "y": 0.1558,
+          "width": 0.2747,
+          "height": 0.8401,
+          "confidence": 0.8796
+        },
+        {
+          "x": 0.6987,
+          "y": 0.2445,
+          "width": 0.2437,
+          "height": 0.7412,
+          "confidence": 0.8755
+        },
+        {
+          "x": 0.5116,
+          "y": 0.2203,
+          "width": 0.219,
+          "height": 0.7668,
+          "confidence": 0.7659
+        },
+        {
+          "x": 0.3332,
+          "y": 0.281,
+          "width": 0.1931,
+          "height": 0.7155,
+          "confidence": 0.5307
+        }
+      ]
+    },
+    {
+      "time": 11.678333,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1761,
+          "y": 0.1875,
+          "width": 0.0634,
+          "height": 0.1458,
+          "center_x": 0.2077,
+          "center_y": 0.2604,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2417,
+          "width": 0.0493,
+          "height": 0.1167,
+          "center_x": 0.6092,
+          "center_y": 0.3,
+          "confidence": 0.91,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2667,
+          "width": 0.0469,
+          "height": 0.1042,
+          "center_x": 0.4249,
+          "center_y": 0.3187,
+          "confidence": 0.89,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0558,
+          "y": 0.156,
+          "width": 0.2755,
+          "height": 0.8405,
+          "confidence": 0.8801
+        },
+        {
+          "x": 0.6988,
+          "y": 0.2436,
+          "width": 0.2434,
+          "height": 0.7418,
+          "confidence": 0.8752
+        },
+        {
+          "x": 0.511,
+          "y": 0.2196,
+          "width": 0.2198,
+          "height": 0.7673,
+          "confidence": 0.7661
+        },
+        {
+          "x": 0.3335,
+          "y": 0.276,
+          "width": 0.1922,
+          "height": 0.7205,
+          "confidence": 0.5489
+        }
+      ]
+    },
+    {
+      "time": 11.9119,
+      "faces": [
+        {
+          "x": 0.7559,
+          "y": 0.275,
+          "width": 0.061,
+          "height": 0.1333,
+          "center_x": 0.7864,
+          "center_y": 0.3417,
+          "confidence": 0.94,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1714,
+          "y": 0.1917,
+          "width": 0.0681,
+          "height": 0.1458,
+          "center_x": 0.2054,
+          "center_y": 0.2646,
+          "confidence": 0.93,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2417,
+          "width": 0.0493,
+          "height": 0.1167,
+          "center_x": 0.6092,
+          "center_y": 0.3,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2583,
+          "width": 0.0446,
+          "height": 0.1125,
+          "center_x": 0.4237,
+          "center_y": 0.3146,
+          "confidence": 0.89,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.056,
+          "y": 0.1555,
+          "width": 0.2755,
+          "height": 0.8402,
+          "confidence": 0.877
+        },
+        {
+          "x": 0.6978,
+          "y": 0.2429,
+          "width": 0.2444,
+          "height": 0.7428,
+          "confidence": 0.872
+        },
+        {
+          "x": 0.5114,
+          "y": 0.2233,
+          "width": 0.2192,
+          "height": 0.7633,
+          "confidence": 0.7544
+        },
+        {
+          "x": 0.343,
+          "y": 0.3034,
+          "width": 0.1808,
+          "height": 0.6966,
+          "confidence": 0.5291
+        }
+      ]
+    },
+    {
+      "time": 12.145467,
+      "faces": [
+        {
+          "x": 0.7559,
+          "y": 0.2708,
+          "width": 0.061,
+          "height": 0.1333,
+          "center_x": 0.7864,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1737,
+          "y": 0.1833,
+          "width": 0.0704,
+          "height": 0.1542,
+          "center_x": 0.2089,
+          "center_y": 0.2604,
+          "confidence": 0.92,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2417,
+          "width": 0.0493,
+          "height": 0.1167,
+          "center_x": 0.6092,
+          "center_y": 0.3,
+          "confidence": 0.91,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2583,
+          "width": 0.0469,
+          "height": 0.1083,
+          "center_x": 0.4249,
+          "center_y": 0.3125,
+          "confidence": 0.88,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0529,
+          "y": 0.1612,
+          "width": 0.2779,
+          "height": 0.8312,
+          "confidence": 0.8787
+        },
+        {
+          "x": 0.6978,
+          "y": 0.2429,
+          "width": 0.2446,
+          "height": 0.7426,
+          "confidence": 0.8718
+        },
+        {
+          "x": 0.5113,
+          "y": 0.2221,
+          "width": 0.22,
+          "height": 0.7641,
+          "confidence": 0.7562
+        },
+        {
+          "x": 0.3429,
+          "y": 0.304,
+          "width": 0.1809,
+          "height": 0.696,
+          "confidence": 0.5278
+        }
+      ]
+    },
+    {
+      "time": 12.379033,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1761,
+          "y": 0.1875,
+          "width": 0.0657,
+          "height": 0.1458,
+          "center_x": 0.2089,
+          "center_y": 0.2604,
+          "confidence": 0.92,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2417,
+          "width": 0.0493,
+          "height": 0.1167,
+          "center_x": 0.6092,
+          "center_y": 0.3,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2583,
+          "width": 0.0446,
+          "height": 0.1083,
+          "center_x": 0.4237,
+          "center_y": 0.3125,
+          "confidence": 0.89,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0533,
+          "y": 0.1639,
+          "width": 0.2774,
+          "height": 0.8284,
+          "confidence": 0.8765
+        },
+        {
+          "x": 0.6986,
+          "y": 0.2461,
+          "width": 0.2441,
+          "height": 0.7393,
+          "confidence": 0.8762
+        },
+        {
+          "x": 0.5114,
+          "y": 0.2234,
+          "width": 0.2206,
+          "height": 0.7625,
+          "confidence": 0.7533
+        },
+        {
+          "x": 0.3428,
+          "y": 0.305,
+          "width": 0.1812,
+          "height": 0.695,
+          "confidence": 0.5263
+        }
+      ]
+    },
+    {
+      "time": 12.6126,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.1784,
+          "y": 0.1875,
+          "width": 0.0657,
+          "height": 0.1458,
+          "center_x": 0.2113,
+          "center_y": 0.2604,
+          "confidence": 0.92,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2417,
+          "width": 0.0493,
+          "height": 0.1167,
+          "center_x": 0.6092,
+          "center_y": 0.3,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2625,
+          "width": 0.0469,
+          "height": 0.1083,
+          "center_x": 0.4249,
+          "center_y": 0.3167,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.698,
+          "y": 0.2459,
+          "width": 0.2446,
+          "height": 0.7393,
+          "confidence": 0.8764
+        },
+        {
+          "x": 0.0533,
+          "y": 0.165,
+          "width": 0.2768,
+          "height": 0.8279,
+          "confidence": 0.8757
+        },
+        {
+          "x": 0.5109,
+          "y": 0.2217,
+          "width": 0.2201,
+          "height": 0.7643,
+          "confidence": 0.7567
+        },
+        {
+          "x": 0.3329,
+          "y": 0.2858,
+          "width": 0.1927,
+          "height": 0.7108,
+          "confidence": 0.5328
+        }
+      ]
+    },
+    {
+      "time": 12.846167,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5845,
+          "y": 0.2417,
+          "width": 0.0493,
+          "height": 0.1167,
+          "center_x": 0.6092,
+          "center_y": 0.3,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.1784,
+          "y": 0.1875,
+          "width": 0.0657,
+          "height": 0.1458,
+          "center_x": 0.2113,
+          "center_y": 0.2604,
+          "confidence": 0.92,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.3991,
+          "y": 0.2583,
+          "width": 0.0493,
+          "height": 0.1167,
+          "center_x": 0.4237,
+          "center_y": 0.3167,
+          "confidence": 0.89,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0528,
+          "y": 0.1646,
+          "width": 0.2772,
+          "height": 0.831,
+          "confidence": 0.8735
+        },
+        {
+          "x": 0.6941,
+          "y": 0.2472,
+          "width": 0.2488,
+          "height": 0.7381,
+          "confidence": 0.87
+        },
+        {
+          "x": 0.5109,
+          "y": 0.2254,
+          "width": 0.2213,
+          "height": 0.7622,
+          "confidence": 0.7481
+        },
+        {
+          "x": 0.3414,
+          "y": 0.3606,
+          "width": 0.184,
+          "height": 0.6391,
+          "confidence": 0.5754
+        }
+      ]
+    },
+    {
+      "time": 13.079733,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1292,
+          "center_x": 0.7876,
+          "center_y": 0.3354,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5822,
+          "y": 0.2417,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.608,
+          "center_y": 0.3,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.1831,
+          "y": 0.1833,
+          "width": 0.061,
+          "height": 0.1458,
+          "center_x": 0.2136,
+          "center_y": 0.2562,
+          "confidence": 0.92,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2625,
+          "width": 0.0469,
+          "height": 0.1125,
+          "center_x": 0.4249,
+          "center_y": 0.3187,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0529,
+          "y": 0.1681,
+          "width": 0.2782,
+          "height": 0.8271,
+          "confidence": 0.8782
+        },
+        {
+          "x": 0.6945,
+          "y": 0.246,
+          "width": 0.2486,
+          "height": 0.7407,
+          "confidence": 0.8705
+        },
+        {
+          "x": 0.5109,
+          "y": 0.2225,
+          "width": 0.2203,
+          "height": 0.7667,
+          "confidence": 0.7516
+        },
+        {
+          "x": 0.3423,
+          "y": 0.3175,
+          "width": 0.1812,
+          "height": 0.6825,
+          "confidence": 0.5445
+        }
+      ]
+    },
+    {
+      "time": 13.3133,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5822,
+          "y": 0.2417,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.608,
+          "center_y": 0.3,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.1831,
+          "y": 0.1833,
+          "width": 0.061,
+          "height": 0.1458,
+          "center_x": 0.2136,
+          "center_y": 0.2562,
+          "confidence": 0.92,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2625,
+          "width": 0.0469,
+          "height": 0.1083,
+          "center_x": 0.4249,
+          "center_y": 0.3167,
+          "confidence": 0.9,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0528,
+          "y": 0.1686,
+          "width": 0.2784,
+          "height": 0.8258,
+          "confidence": 0.8778
+        },
+        {
+          "x": 0.6935,
+          "y": 0.2446,
+          "width": 0.2491,
+          "height": 0.7416,
+          "confidence": 0.8689
+        },
+        {
+          "x": 0.5114,
+          "y": 0.2219,
+          "width": 0.2191,
+          "height": 0.7679,
+          "confidence": 0.7521
+        },
+        {
+          "x": 0.3326,
+          "y": 0.2896,
+          "width": 0.1953,
+          "height": 0.7067,
+          "confidence": 0.5282
+        }
+      ]
+    },
+    {
+      "time": 13.546867,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5822,
+          "y": 0.2417,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.608,
+          "center_y": 0.3,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.1831,
+          "y": 0.1792,
+          "width": 0.061,
+          "height": 0.15,
+          "center_x": 0.2136,
+          "center_y": 0.2542,
+          "confidence": 0.91,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2708,
+          "width": 0.0469,
+          "height": 0.1042,
+          "center_x": 0.4249,
+          "center_y": 0.3229,
+          "confidence": 0.89,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0529,
+          "y": 0.1685,
+          "width": 0.2776,
+          "height": 0.826,
+          "confidence": 0.8783
+        },
+        {
+          "x": 0.6934,
+          "y": 0.2449,
+          "width": 0.2492,
+          "height": 0.7413,
+          "confidence": 0.8734
+        },
+        {
+          "x": 0.5117,
+          "y": 0.2212,
+          "width": 0.2195,
+          "height": 0.7691,
+          "confidence": 0.7521
+        },
+        {
+          "x": 0.3323,
+          "y": 0.2795,
+          "width": 0.1949,
+          "height": 0.7167,
+          "confidence": 0.5494
+        }
+      ]
+    },
+    {
+      "time": 13.780433,
+      "faces": [
+        {
+          "x": 0.7582,
+          "y": 0.2708,
+          "width": 0.0587,
+          "height": 0.1333,
+          "center_x": 0.7876,
+          "center_y": 0.3375,
+          "confidence": 0.95,
+          "track_id": "subject_2"
+        },
+        {
+          "x": 0.5822,
+          "y": 0.2417,
+          "width": 0.0516,
+          "height": 0.1167,
+          "center_x": 0.608,
+          "center_y": 0.3,
+          "confidence": 0.92,
+          "track_id": "subject_3"
+        },
+        {
+          "x": 0.1831,
+          "y": 0.1833,
+          "width": 0.061,
+          "height": 0.1458,
+          "center_x": 0.2136,
+          "center_y": 0.2562,
+          "confidence": 0.92,
+          "track_id": "subject_1"
+        },
+        {
+          "x": 0.4014,
+          "y": 0.2708,
+          "width": 0.0469,
+          "height": 0.1083,
+          "center_x": 0.4249,
+          "center_y": 0.325,
+          "confidence": 0.89,
+          "track_id": "subject_4"
+        }
+      ],
+      "persons": [
+        {
+          "x": 0.0528,
+          "y": 0.1668,
+          "width": 0.2775,
+          "height": 0.8272,
+          "confidence": 0.8797
+        },
+        {
+          "x": 0.6938,
+          "y": 0.2452,
+          "width": 0.249,
+          "height": 0.7411,
+          "confidence": 0.8724
+        },
+        {
+          "x": 0.5118,
+          "y": 0.221,
+          "width": 0.2192,
+          "height": 0.7697,
+          "confidence": 0.7521
+        },
+        {
+          "x": 0.332,
+          "y": 0.2735,
+          "width": 0.1942,
+          "height": 0.7229,
+          "confidence": 0.5646
+        }
+      ]
+    }
+  ]
+}

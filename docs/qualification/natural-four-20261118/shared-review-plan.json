@@ -1,0 +1,80 @@
+[
+  {
+    "start": 0,
+    "end": 14.014,
+    "kind": "group",
+    "contextStatus": "unresolved-review-required",
+    "windowW": 1,
+    "windowH": 1,
+    "keyframes": [
+      {
+        "time": 0,
+        "centerX": 0.5,
+        "centerY": 0.5
+      }
+    ],
+    "uncertainty": "Offline face-window panel proposal: distinct visible tracks, not full-body, camera-boundary or active-speaker proof. Review before sharing.",
+    "split": {
+      "speaker1X": 0.25,
+      "speaker2X": 0.75,
+      "dividerX": 0.5,
+      "focusPanels": {
+        "layout": "four",
+        "slots": [
+          {
+            "focusX": 0.5,
+            "focusY": 0.5,
+            "scale": 1,
+            "fit": "contain",
+            "set": true,
+            "sourceRect": {
+              "x": 0.15844000000000003,
+              "y": 0.11068622222222224,
+              "w": 0.09621999999999997,
+              "h": 0.30362755555555543
+            }
+          },
+          {
+            "focusX": 0.5,
+            "focusY": 0.5,
+            "scale": 1,
+            "fit": "contain",
+            "set": true,
+            "sourceRect": {
+              "x": 0.391705,
+              "y": 0.20419999999999996,
+              "w": 0.07348999999999994,
+              "h": 0.23190177777777762
+            }
+          },
+          {
+            "focusX": 0.5,
+            "focusY": 0.5,
+            "scale": 1,
+            "fit": "contain",
+            "set": true,
+            "sourceRect": {
+              "x": 0.5603600000000001,
+              "y": 0.18581999999999999,
+              "w": 0.08587999999999985,
+              "h": 0.2709991111111106
+            }
+          },
+          {
+            "focusX": 0.5,
+            "focusY": 0.5,
+            "scale": 1,
+            "fit": "contain",
+            "set": true,
+            "sourceRect": {
+              "x": 0.74675,
+              "y": 0.21575999999999998,
+              "w": 0.07929999999999993,
+              "h": 0.2502355555555553
+            }
+          }
+        ]
+      }
+    }
+  }
+]
