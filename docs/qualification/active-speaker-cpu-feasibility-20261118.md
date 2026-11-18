@@ -52,3 +52,11 @@ Keep shared/stable geometry when identity is unresolved. Preserve the feasible s
 8. Additional CPU-oriented implementations inspected but not adopted: https://github.com/sieve-community/fast-asd and https://github.com/huyyxy/DeepTalk-ASD . Hosted function dependencies/automatic multi-model downloads make their whole application packages a poor fit for this bounded local test. Their performance claims were not measured here.
 
 Source coverage is primary implementation, academic paper and dataset documentation. No independent deployment review or general comparative ranking is asserted.
+
+## Longer-context wrong-window check,14:30IST
+
+The same harness now accepts --context-sweep after its new output-directory argument. Three1.6second same-shot windows, source/muted/wrong-window plus-500/-250/+250/+500ms offsets where full audio duration exists. It records absent tail controls by not inventing or wrapping audio. Initial3.5-5.1s window crossed measured5.088s cut and the harness stopped; final3.4-5.0s window stays within the shot. Private report vireo-asd-context-sweep-1532, then parameterized committed-harness rerun below.
+
+Strong rejection signal: direct-question face3.4-5.0s scores positive on100%frames with audio taken from a different1.5-3.1s window, versus32.5%with its own source audio. Own-source mean raw score-.1543; wrong-window+.4462. Offset-250ms positive72.5%,+500ms77.5%. Muted0%. The other face window stays0%for all tested conditions; later direct-speech window own57.5%,wrong32.5%. Thus longer context did not establish synchronization or reliable voice-to-face binding. These few manual windows are a concrete failed qualification, not accuracy metrics for Light-ASD generally. Model lineage, crop/preprocessing equivalence and the edited source remain uncontrolled explanations. Do not infer that voice binding is solved by adding VAD, or tune a threshold against these same few windows. Product activation remains held.
+
+Parameterized final harness rerun vireo-asd-context-sweep-final-1533 reproduced the fractions exactly and source-crop pixels were inspected. Peak processRSS252720KiB, about247MiB, higher than the initial220-222MiB short-context pass. Free disk remained about257MB; no new package/model install or source duplicate was needed.
