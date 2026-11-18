@@ -1,3 +1,4 @@
+import {workLifecycle} from './queue/workLifecycle.js';
 import {verifiedCaptionAssPath} from '../shared/captionBurnInArtifact.js';
 import {syncClipEditorRevision} from '../db/repositories/editorRevisionRepository.js';
 import {editorRenderSnapshot,type EditorRenderSnapshot} from '../shared/editorRenderSnapshot.js';
@@ -120,7 +121,7 @@ export function renderOccupancy(): number {
  * clip already holds a slot or the cap is reached. `cap` is injectable for tests.
  */
 export function tryReserveRenderSlot(clipId: string, cap: number = maxConcurrentRenders()): boolean {
-  if (reservedRenderSlots.has(clipId) || activeRenderSet.has(clipId)) return false;
+  if (workLifecycle.isDraining() || reservedRenderSlots.has(clipId) || activeRenderSet.has(clipId)) return false;
   if (renderOccupancy() >= cap) return false;
   reservedRenderSlots.add(clipId);
   return true;
@@ -131,7 +132,7 @@ export function releaseRenderSlot(clipId: string): void {
 }
 
 export function shouldLaunchInlineRender(): boolean {
-  return renderOccupancy() < maxConcurrentRenders();
+  return !workLifecycle.isDraining() && renderOccupancy() < maxConcurrentRenders();
 }
 
 /**
@@ -146,14 +147,11 @@ export function launchInlineRender(clipId: string, userId: string, jobId: string
   }
   try {
     ownerContext.run(userId, () => {
-      ClipRenderService.renderClipJob(clipId, userId, jobId)
-        .catch((renderErr) => {
-          logger.error('Background clip rendering caught top-level error', {
-            clipId,
-            error: renderErr instanceof Error ? renderErr.message : String(renderErr),
-          });
-        })
-        .finally(() => releaseRenderSlot(clipId));
+      void workLifecycle.run('inline-render-slot',async()=>{
+        try{await ClipRenderService.renderClipJob(clipId,userId,jobId);}
+        catch(renderErr){logger.error('Background clip rendering caught top-level error',{clipId,error:renderErr instanceof Error?renderErr.message:String(renderErr)});}
+        finally{releaseRenderSlot(clipId);}
+      }).catch(launchErr=>{releaseRenderSlot(clipId);logger.warn('Inline render stopped before admission',{clipId,error:String(launchErr)});});
     });
   } catch (launchErr) {
     releaseRenderSlot(clipId);
@@ -569,7 +567,10 @@ export class ClipRenderService {
   /**
    * Executes the real FFmpeg cut, reframe, encode, and storage upload pipeline.
    */
-  public static async renderClipJob(
+  public static async renderClipJob(clipId:string,userId:string,existingJobId?:string):Promise<void>{
+    return workLifecycle.run('clip-render',()=>this.executeRenderClipJob(clipId,userId,existingJobId));
+  }
+  private static async executeRenderClipJob(
     clipId: string,
     userId: string,
     existingJobId?: string
@@ -658,7 +659,7 @@ export class ClipRenderService {
     activeRenderSet.add(clipId);
 
     // Heartbeat timer to renew lease during long rendering operations
-    const heartbeatTimer = setInterval(async () => {
+    const heartbeatTimer = setInterval(() => {void workLifecycle.run('render-heartbeat',async()=>{
       try {
         await db.collection('render_jobs').updateOne(
           { id: jobId, worker_id: workerId },
@@ -667,7 +668,7 @@ export class ClipRenderService {
       } catch (hbErr: any) {
         logger.warn(`[ClipRender] Heartbeat failed for job ${jobId}: ${hbErr.message}`);
       }
-    }, 15000);
+    }).catch(error=>logger.warn('Heartbeat stopped before admission',{error:String(error)}));}, 15000);
     heartbeatTimer.unref();
 
     const uniqueTag = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
@@ -1732,7 +1733,7 @@ export class ClipRenderService {
    * Background processor: claims due queued render jobs and recovers stale leases
    */
   public static async processDueRenderJobs(): Promise<number> {
-    if (!isMongoConfigured) return 0;
+    if (workLifecycle.isDraining() || !isMongoConfigured) return 0;
     const db = await getMongoDb();
     const now = new Date();
 

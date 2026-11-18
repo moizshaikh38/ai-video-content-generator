@@ -1,3 +1,4 @@
+import {workLifecycle} from './queue/workLifecycle.js';
 import { HealthStatus } from '../types/index.js';
 import { config } from '../config/index.js';
 import { isServerSupabaseConfigured } from '../utils/supabase.js';
@@ -41,6 +42,7 @@ export async function getDetailedHealthStatus(): Promise<DetailedHealthStatus> {
 
 export interface ReadinessStatus {
   status: 'ready' | 'not_ready';
+  draining?:boolean;
   timestamp: string;
   checks: {
     mongodb: boolean;
@@ -89,12 +91,13 @@ async function getRenderQueueStats(): Promise<ReadinessStatus['renderQueue']> {
 }
 
 export async function getReadinessStatus(): Promise<ReadinessStatus> {
+  if(workLifecycle.isDraining())return{status:'not_ready',draining:true,timestamp:new Date().toISOString(),checks:{mongodb:false,supabase:false,storage:false,aiProvider:false}};
   const mongoConnected = await isMongoHealthy();
   const supabaseOk = isServerSupabaseConfigured;
   const storageOk = Boolean(config.r2AccountId && config.r2AccessKeyId && config.r2SecretAccessKey);
   const aiOk = Boolean(config.openrouterApiKey || config.groqApiKey);
 
-  const isReady = mongoConnected && supabaseOk && storageOk && aiOk;
+  const isReady = !workLifecycle.isDraining() && mongoConnected && supabaseOk && storageOk && aiOk;
 
   return {
     status: isReady ? 'ready' : 'not_ready',

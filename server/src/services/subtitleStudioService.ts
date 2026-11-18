@@ -1,3 +1,4 @@
+import {workLifecycle} from './queue/workLifecycle.js';
 import {assertTranscriptReusable} from './transcriptSourceBindingService.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -683,7 +684,8 @@ export class SubtitleStudioService {
   /**
    * Background execution worker for full-video subtitle burning via FFmpeg
    */
-  private static async runBurnWorker(projectId: string, userId: string): Promise<void> {
+  private static async runBurnWorker(projectId:string,userId:string):Promise<void>{return workLifecycle.run('subtitle-burn',()=>this.executeBurnWorker(projectId,userId));}
+  private static async executeBurnWorker(projectId: string, userId: string): Promise<void> {
     return ownerContext.run(userId, async () => {
       const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `vireo-subtitles-${projectId.slice(0, 8)}-`));
       const sourceLocalPath = path.join(tempDir, 'source.mp4');

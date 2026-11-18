@@ -1,3 +1,4 @@
+import {workLifecycle} from '../services/queue/workLifecycle.js';
 import { Request, Response, NextFunction } from 'express';
 import { AppError, AuthenticatedRequest } from '../types/index.js';
 import { logger } from '../utils/logger.js';
@@ -87,6 +88,8 @@ export const asyncHandler = (
   fn: (req: AuthenticatedRequest, res: Response, next: NextFunction) => Promise<void>
 ) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
+    const probe=req.method==='GET'&&['/health','/ready','/api/health','/api/ready'].includes(req.originalUrl.split('?')[0]);
+    if(probe){Promise.resolve().then(()=>fn(req,res,next)).catch(next);return;}
+    void workLifecycle.run('http-handler',()=>fn(req,res,next)).catch(next);
   };
 };

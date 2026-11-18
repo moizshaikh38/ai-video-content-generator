@@ -1,3 +1,4 @@
+import {workLifecycle} from './queue/workLifecycle.js';
 import crypto from 'node:crypto';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { getMongoDb } from '../db/mongoClient.js';
@@ -283,7 +284,7 @@ export class AutopilotService {
       }
 
       // Heartbeat renewal timer to prevent premature lock expiration during long operations
-      let heartbeatTimer: NodeJS.Timeout | null = setInterval(async () => {
+      let heartbeatTimer: NodeJS.Timeout | null = setInterval(() => {void workLifecycle.run('autopilot-heartbeat',async()=>{
         try {
           const renewedExpiry = new Date(Date.now() + this.LOCK_LEASE_MS);
           await db.collection('autopilot_runs').updateOne(
@@ -293,7 +294,7 @@ export class AutopilotService {
         } catch (err: any) {
           logger.warn(`[Autopilot] Failed to renew lock lease for run ${runId}: ${err.message}`);
         }
-      }, this.LOCK_HEARTBEAT_MS);
+      }).catch(error=>logger.warn('Heartbeat stopped before admission',{error:String(error)}));}, this.LOCK_HEARTBEAT_MS);
       heartbeatTimer.unref();
 
       try {

@@ -1,3 +1,4 @@
+import {workLifecycle} from './queue/workLifecycle.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -297,7 +298,8 @@ export class PublishingService {
   /**
    * Executes a single publishing job with atomic claiming, token refreshing, and error handling
    */
-  async executePublishJob(jobId: string): Promise<void> {
+  async executePublishJob(jobId:string):Promise<void>{return workLifecycle.run('publish-job',()=>this.executeTrackedPublishJob(jobId));}
+  private async executeTrackedPublishJob(jobId: string): Promise<void> {
     const db = await getMongoDb();
     const job = await db.collection<PublishJobRecord>('publish_jobs').findOne({ id: jobId });
     if (!job) return;
@@ -519,7 +521,11 @@ export class PublishingService {
   /**
    * Background processor loop: claims scheduled jobs and recovers stale locks
    */
-  async processDueJobs(): Promise<number> {
+  async processDueJobs():Promise<number>{
+    if(workLifecycle.isDraining())return 0;
+    return workLifecycle.run('publishing-sweep',()=>this.executeDueJobs());
+  }
+  private async executeDueJobs(): Promise<number> {
     const db = await getMongoDb();
     const now = new Date();
     const workerId = `publish_worker_${process.pid}_${crypto.randomBytes(4).toString('hex')}`;

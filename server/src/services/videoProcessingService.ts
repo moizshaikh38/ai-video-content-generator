@@ -1,3 +1,4 @@
+import {workLifecycle} from './queue/workLifecycle.js';
 import {observeTranscriptionInputs} from './transcription/transcriptionInputObserver.js';
 import {assertTranscriptReusable} from './transcriptSourceBindingService.js';
 import {audioInputSha256,transcriptContentIdentity} from '../shared/transcriptSourceBinding.js';
@@ -55,7 +56,10 @@ export function isProjectProcessingActive(projectId: string): boolean {
  * 9. Settles usage reservation on success, or releases on failure
  * 10. Cleans up temporary audio files reliably
  */
-export async function processProjectVideo(
+export async function processProjectVideo(projectId:string,userId:string,sourceUrl:string,processingAttemptId?:string):Promise<ProcessProjectResult>{
+ return workLifecycle.run('video-processing',()=>executeProjectVideo(projectId,userId,sourceUrl,processingAttemptId));
+}
+async function executeProjectVideo(
   projectId: string,
   userId: string,
   sourceUrl: string,

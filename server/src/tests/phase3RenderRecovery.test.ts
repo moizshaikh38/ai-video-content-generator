@@ -31,13 +31,13 @@ describe('Phase 3 — production wiring guards', () => {
   const indexSource = fs.readFileSync(path.resolve(process.cwd(), 'src/index.ts'), 'utf8');
 
   it('starts the render sweep in production startup (immediate recovery pass)', () => {
-    assert.match(indexSource, /runRenderSweep\('startup-recovery'\)/);
+    assert.match(indexSource, /trackedRenderSweep\('startup-recovery'\)/);
   });
 
   it('runs the sweep on an interval with an overlap guard and clears it on shutdown', () => {
     assert.match(indexSource, /renderSweepTimer = setInterval/);
-    assert.match(indexSource, /if \(renderSweepRunning\) return;/);
-    assert.match(indexSource, /if \(renderSweepTimer\) clearInterval\(renderSweepTimer\);/);
+    assert.match(indexSource, /if \(workLifecycle\.isDraining\(\) \|\| renderSweepRunning\) return;/);
+    assert.match(indexSource, /for\(const timer of\[cleanupTimer,oauthCleanupTimer,renderSweepTimer,multimodalSweepTimer\]\)if\(timer\)clearInterval\(timer\)/);
   });
 
   it('the sweep drains due render jobs through processDueRenderJobs', () => {

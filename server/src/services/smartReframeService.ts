@@ -1,3 +1,4 @@
+import {workLifecycle} from './queue/workLifecycle.js';
 import {proposeAutomaticGamingPanels} from '../shared/automaticGamingPanels.js';
 import {assignParticipantPanels} from '../shared/participantPanels.js';
 import {shortAutoTextDiscovery} from '../shared/shortAutoTextDiscovery.js';
@@ -2897,7 +2898,10 @@ export class SmartReframeService {
    * Main entry point to perform smart reframe analysis for a clip.
    * Acquires clip lock, downloads source, runs CV, extracts keyframes, and persists to DB.
    */
-  public static async analyzeClipFraming(
+  public static async analyzeClipFraming(clipId:string,userId:string,options:SmartReframeOptions & {localSourcePath?:string;sourceReceipt?:SourceObjectReceipt}={}):Promise<ReframeTrackRecord>{
+    return workLifecycle.run('smart-reframe',()=>this.executeClipFraming(clipId,userId,options));
+  }
+  private static async executeClipFraming(
     clipId: string,
     userId: string,
     options: SmartReframeOptions & { localSourcePath?: string;sourceReceipt?:SourceObjectReceipt } = {}

@@ -119,15 +119,13 @@ If a webhook failed due to database unavailability (HTTP 500 or timeout), provid
 - **Liveness Probe**: `GET /health` returns HTTP 200 `{ status: "ok", uptime: ... }` if Node process is responsive.
 - **Readiness Probe**: `GET /ready` returns HTTP 200 if MongoDB is connected and core configs are valid; returns HTTP 503 if MongoDB or critical dependencies fail.
 
-### 7.2 Graceful Shutdown Procedure
-A proposed shutdown sequence is listed below, not a measured drain guarantee. The current implementation stops polling and closes HTTP, but does not explicitly await all background FFmpeg work before closing MongoDB. Restart, lease recovery, child-process handling and readiness during drain need fault testing before release.
+### 7.2 Bounded Shutdown and Remaining Qualification
 
-On receiving `SIGTERM` or `SIGINT`:
-1. Server marks itself unready (stops accepting new HTTP connections).
-2. Active background polling loops and OAuth cleanup intervals are cancelled immediately.
-3. In-flight HTTP requests and FFmpeg tasks are granted up to 10 seconds to finish.
-4. MongoDB connection pool is closed safely.
-5. Node process exits with code 0.
+The backup-branch implementation stops admission, reports readiness `not_ready`, stops pollers and closes idle HTTP connections. Admitted async HTTP handlers remain tracked even after a client disconnect. Detached render/transcription/reframe/subtitle/publishing jobs, sweeps, startup/bootstrap, maintenance and in-flight heartbeat callbacks have tracked lifetimes. Necessary children of work already admitted may finish during drain; new root work is rejected. Cleanup is inside the tracked lifetime.
+
+A shared 10-second deadline covers HTTP close, tracked-work completion and MongoDB pool close. The pool closes only after HTTP and tracked work settle. Timeout or close failure is a nonzero exit, never a successful graceful-drain claim. No queued job is marked successful, reset or deleted merely because shutdown starts. A timed-out process can still leave expired leases or child processes for operational recovery.
+
+Measured local evidence covers deferred synthetic jobs over a real loopback HTTP server and a real isolated Mongo transaction/client-close sequence. It does **not** qualify production signals, actual process termination/restart, FFmpeg child reaping, host stop grace periods, provider cancellation or interrupted imports/transcription. A real render may exceed the 10-second deadline. Before release, test the actual deployment's shutdown budget and restart/lease recovery under separately approved small resource bounds. Do not infer zero data loss or complete child cleanup from these component checks.
 
 ---
 

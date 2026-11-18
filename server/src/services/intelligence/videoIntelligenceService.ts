@@ -1,3 +1,4 @@
+import {workLifecycle} from '../queue/workLifecycle.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -280,7 +281,7 @@ export class VideoIntelligenceService {
 
     // Automatic worker heartbeat renewal (every 60 seconds in production, configurable for testing)
     const heartbeatIntervalMs = options.heartbeatIntervalMs || 60_000;
-    const heartbeatTimer = setInterval(async () => {
+    const heartbeatTimer = setInterval(() => {void workLifecycle.run('intelligence-heartbeat',async()=>{
       try {
         const renewed = await VideoIntelligenceRepository.renewLease(
           jobRecord.id,
@@ -296,7 +297,7 @@ export class VideoIntelligenceService {
       } catch (hbErr: any) {
         logger.warn(`[VideoIntelligenceService] Heartbeat renewal error: ${hbErr.message}`);
       }
-    }, heartbeatIntervalMs);
+    }).catch(error=>logger.warn('Heartbeat stopped before admission',{error:String(error)}));}, heartbeatIntervalMs);
     heartbeatTimer.unref?.();
 
     // Step 5: Execute Single-Pass Intelligence Analysis

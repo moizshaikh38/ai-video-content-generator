@@ -1,3 +1,4 @@
+import {workLifecycle,createShutdown,workAdmission} from './services/queue/workLifecycle.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -34,6 +35,10 @@ if (config.trustProxy) {
 // Root health & readiness probes (Step 14: /health and /ready)
 app.get('/health', asyncHandler(checkHealth));
 app.get('/ready', asyncHandler(checkReadiness));
+
+// Every admitted HTTP request stays tracked until its response closes. Nested
+// background services register their own lifetime before returning HTTP 202.
+app.use(workAdmission);
 
 // Security headers (H1)
 app.use(
@@ -115,10 +120,11 @@ if (process.env.NODE_ENV !== 'test') {
     const maxRetries = config.isProduction ? 2 : 3;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      if(workLifecycle.isDraining())return;
       try {
         // Enforce a 15-second timeout per attempt to prevent indefinite hanging
         await Promise.race([
-          bootstrapMongo(),
+          workLifecycle.run('database-bootstrap',()=>bootstrapMongo()),
           new Promise((_, reject) =>
             setTimeout(() => reject(new Error('MongoDB bootstrap connection timeout (15s)')), 15_000)
           ),
@@ -137,8 +143,8 @@ if (process.env.NODE_ENV !== 'test') {
       }
     }
 
-    if (mongoReady) {
-      const cleanup = () => UsageService.cleanupOrphanedReservations(30)
+    if (mongoReady && !workLifecycle.isDraining()) {
+      const cleanupWork = () => UsageService.cleanupOrphanedReservations(30)
         .then((count) => { if (count > 0) logger.info(`Released ${count} orphaned usage reservations.`); })
         .catch((error) => logger.warn('Usage reservation cleanup failed', { error: error instanceof Error ? error.message : String(error) }))
         .then(() => CreditWalletService.cleanupOrphanedReservations())
@@ -147,14 +153,16 @@ if (process.env.NODE_ENV !== 'test') {
         .then(() => UrlIngestionService.pruneSourceCache())
         .then((pruned) => { if (pruned > 0) logger.info(`Pruned ${pruned} stale source-cache entries.`); })
         .catch((error) => logger.warn('Source cache prune failed', { error: error instanceof Error ? error.message : String(error) }));
+      const cleanup=()=>{if(workLifecycle.isDraining())return;void workLifecycle.run('reservation-cache-cleanup',cleanupWork).catch(error=>logger.warn('Cleanup cycle failed',{error:String(error)}));};
       cleanup();
       cleanupTimer = setInterval(cleanup, 10 * 60_000);
       cleanupTimer.unref();
 
       // Periodic OAuth state cleanup (Step 18)
-      const oauthCleanup = () => socialService.cleanupExpiredOAuthStates()
+      const oauthCleanupWork = () => socialService.cleanupExpiredOAuthStates()
         .then((count) => { if (count > 0) logger.info(`Cleaned up ${count} expired/consumed OAuth state(s).`); })
         .catch((error) => logger.warn('OAuth state cleanup failed', { error: error instanceof Error ? error.message : String(error) }));
+      const oauthCleanup=()=>{if(workLifecycle.isDraining())return;void workLifecycle.run('oauth-cleanup',oauthCleanupWork).catch(error=>logger.warn('OAuth cleanup cycle failed',{error:String(error)}));};
       oauthCleanup();
       oauthCleanupTimer = setInterval(oauthCleanup, 15 * 60_000);
       oauthCleanupTimer.unref();
@@ -170,10 +178,10 @@ if (process.env.NODE_ENV !== 'test') {
       const RENDER_SWEEP_MAX_JOBS_PER_TICK = 3;
       let renderSweepRunning = false;
       const runRenderSweep = async (trigger: string) => {
-        if (renderSweepRunning) return;
+        if (workLifecycle.isDraining() || renderSweepRunning) return;
         renderSweepRunning = true;
         try {
-          for (let i = 0; i < RENDER_SWEEP_MAX_JOBS_PER_TICK; i++) {
+          for (let i = 0; i < RENDER_SWEEP_MAX_JOBS_PER_TICK && !workLifecycle.isDraining(); i++) {
             const processed = await ClipRenderService.processDueRenderJobs();
             if (processed > 0) {
               logger.info(`[RenderSweep] Processed render job ${i + 1}/${RENDER_SWEEP_MAX_JOBS_PER_TICK} (${trigger})`);
@@ -189,8 +197,9 @@ if (process.env.NODE_ENV !== 'test') {
         }
       };
       // Immediate recovery pass for jobs stranded by a previous crash/restart.
-      runRenderSweep('startup-recovery');
-      renderSweepTimer = setInterval(() => runRenderSweep('interval'), RENDER_SWEEP_INTERVAL_MS);
+      const trackedRenderSweep=(trigger:string)=>{if(workLifecycle.isDraining())return;void workLifecycle.run('render-sweep',()=>runRenderSweep(trigger)).catch(error=>logger.warn('Render sweep failed',{error:String(error)}));};
+      trackedRenderSweep('startup-recovery');
+      renderSweepTimer = setInterval(() => trackedRenderSweep('interval'), RENDER_SWEEP_INTERVAL_MS);
       renderSweepTimer.unref();
 
       // Multimodal timeline sweep: same stuck-job class as renders (audit C-1).
@@ -200,10 +209,10 @@ if (process.env.NODE_ENV !== 'test') {
       const MULTIMODAL_SWEEP_MAX_PER_TICK = 2;
       let multimodalSweepRunning = false;
       const runMultimodalSweep = async () => {
-        if (multimodalSweepRunning) return;
+        if (workLifecycle.isDraining() || multimodalSweepRunning) return;
         multimodalSweepRunning = true;
         try {
-          for (let i = 0; i < MULTIMODAL_SWEEP_MAX_PER_TICK; i++) {
+          for (let i = 0; i < MULTIMODAL_SWEEP_MAX_PER_TICK && !workLifecycle.isDraining(); i++) {
             const processed = await VideoAnalysisWorker.processNext();
             if (processed) {
               logger.info(`[MultimodalSweep] Processed analysis job ${i + 1}/${MULTIMODAL_SWEEP_MAX_PER_TICK}`);
@@ -218,42 +227,30 @@ if (process.env.NODE_ENV !== 'test') {
           multimodalSweepRunning = false;
         }
       };
-      multimodalSweepTimer = setInterval(() => runMultimodalSweep(), MULTIMODAL_SWEEP_INTERVAL_MS);
+      const trackedMultimodalSweep=()=>{if(workLifecycle.isDraining())return;void workLifecycle.run('multimodal-sweep',runMultimodalSweep).catch(error=>logger.warn('Multimodal sweep failed',{error:String(error)}));};
+      multimodalSweepTimer = setInterval(trackedMultimodalSweep, MULTIMODAL_SWEEP_INTERVAL_MS);
       multimodalSweepTimer.unref();
     }
   };
 
-  initDatabase().catch((error) => {
+  workLifecycle.run('database-initialization',initDatabase).catch((error) => {
     logger.error('Background database initialization error', { error: error instanceof Error ? error.message : String(error) });
   });
 
-  // Graceful shutdown handling (H8 & Step 15)
-  const handleShutdown = (signal: string) => {
-    logger.info(`Received ${signal}. Initiating graceful shutdown...`);
-    stopPublishingWorker();
-    if (cleanupTimer) clearInterval(cleanupTimer);
-    if (oauthCleanupTimer) clearInterval(oauthCleanupTimer);
-    if (renderSweepTimer) clearInterval(renderSweepTimer);
-    if (multimodalSweepTimer) clearInterval(multimodalSweepTimer);
-    if (server) {
-      server.close(async (err) => {
-        if (err) {
-          logger.error('Error during server shutdown', err);
-          process.exit(1);
-        }
-        logger.info('HTTP server closed successfully.');
-        await closeMongo();
-        process.exit(0);
-      });
-
-      // Force exit after 10 seconds if connections refuse to close
-      setTimeout(() => {
-        logger.error('Forced shutdown: timeout waiting for open connections to close.');
-        process.exit(1);
-      }, 10000).unref();
-    } else {
-      process.exit(0);
-    }
+  // One shared deadline covers HTTP close, admitted background work and DB close.
+  // Timeout never closes Mongo under active work or claims a graceful exit.
+  const shutdown=createShutdown({lifecycle:workLifecycle,timeoutMs:10_000,
+    stopPollers:()=>{
+      stopPublishingWorker();
+      for(const timer of[cleanupTimer,oauthCleanupTimer,renderSweepTimer,multimodalSweepTimer])if(timer)clearInterval(timer);
+    },
+    closeHttp:()=>new Promise<void>((resolve,reject)=>{if(!server){resolve();return;}server.close(error=>error?reject(error):resolve());server.closeIdleConnections();}),
+    closeDatabase:()=>closeMongo(),
+    onTimeout:active=>logger.error('Shutdown deadline expired; unfinished work is not marked successful.',{active}),
+  });
+  const handleShutdown=(signal:string)=>{
+    logger.info(`Received ${signal}. Stopping admission and draining tracked work.`);
+    void shutdown().then(drained=>process.exit(drained?0:1)).catch(error=>{logger.error('Shutdown failed',{error:String(error)});process.exit(1);});
   };
 
   process.on('SIGTERM', () => handleShutdown('SIGTERM'));

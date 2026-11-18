@@ -1,3 +1,4 @@
+import {workLifecycle} from '../services/queue/workLifecycle.js';
 import {assertTranscriptReusable} from '../services/transcriptSourceBindingService.js';
 import {withNewProjectFraming} from '../shared/newProjectFraming.js';
 import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
@@ -1043,7 +1044,7 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
 
     // 5. Initiate processing pipeline asynchronously
     // Run pipeline in background with unique processing_attempt_id
-    processProjectVideo(projectId, userId, project.source_url, attemptId)
+    void workLifecycle.run('project-processing-outcome',()=>processProjectVideo(projectId, userId, project.source_url, attemptId)
       .then((result) => {
         if (result.status === 'transcribed') {
           logger.info(`Background pipeline completed for project ${projectId} (attempt: ${attemptId})`, { projectId, userId });
@@ -1051,14 +1052,13 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
           logger.warn(`Background pipeline failed for project ${projectId} (attempt: ${attemptId})`, { projectId, error: result.error });
         }
       })
-      .catch((err) => {
-        CreditWalletService.releaseReservation(attemptId, 'Processing could not start').catch(() => undefined);
-        UsageService.releaseReservation(attemptId, 'Processing could not start').catch(() => undefined);
+      .catch(async(err) => {
+        await Promise.all([CreditWalletService.releaseReservation(attemptId, 'Processing could not start').catch(() => undefined),UsageService.releaseReservation(attemptId, 'Processing could not start').catch(() => undefined)]);
         logger.error(`Background pipeline unexpected error for project ${projectId} (attempt: ${attemptId})`, {
           projectId,
           error: err instanceof Error ? err.message : String(err),
         });
-      });
+      })).catch(err=>logger.error('Processing launch stopped before admission',{projectId,error:String(err)}));
 
     res.status(202).json({
       status: 'ok',
