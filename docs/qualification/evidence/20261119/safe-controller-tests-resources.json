@@ -1,0 +1,13 @@
+{
+  "exitCode": 0,
+  "breach": null,
+  "peakSampledGroupRssBytes": 211533824,
+  "elapsedSeconds": 0.5248217579937773,
+  "lastSample": {
+    "groupRssBytes": 0,
+    "availableMemoryBytes": 1346920448,
+    "diskFreeBytes": 1256517632,
+    "elapsedSeconds": 0.524769480995019
+  },
+  "noBuildUiCvEncode": true
+}

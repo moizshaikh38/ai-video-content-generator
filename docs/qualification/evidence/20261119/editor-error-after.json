@@ -1,0 +1,21 @@
+{
+  "status": "observed",
+  "realEditorControllerHttp": true,
+  "downstreamServiceFaultIsSynthetic": true,
+  "authenticationNotUnderTest": true,
+  "responseStatus": 500,
+  "body": {
+    "status": "error",
+    "code": "INTERNAL_ERROR",
+    "message": "Internal server error"
+  },
+  "missingStatus": 404,
+  "missingBody": {
+    "status": "error",
+    "code": "PROJECT_NOT_FOUND",
+    "message": "Editor project not found."
+  },
+  "safeExpectationsEnforced": true,
+  "noDatabaseMutation": true,
+  "noExternalNetwork": true
+}

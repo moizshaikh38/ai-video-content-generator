@@ -1,3 +1,4 @@
+import {sendSafeControllerError} from '../utils/safeControllerError.js';
 import {assertSelectionSourceCurrent} from '../services/selectionSourceGuardService.js';
 import {expandSceneLayoutProject} from '../shared/sceneLayoutOverrides.js';
 import { assertPanelViewsAssigned } from '../shared/panelLayouts.js';
@@ -38,12 +39,7 @@ export const getOrCreateClipEditorProject = async (
     const project = await ProEditorService.getOrCreateEditorProject(clipId, userId, req.body || {});
     res.status(200).json({ status: 'ok', data: project });
   } catch (err: any) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      status: 'error',
-      code: err.code || 'INTERNAL_ERROR',
-      message: err.message || 'Failed to initialize editor project.',
-    });
+    sendSafeControllerError(res, err, {message: 'Failed to initialize editor project.'});
   }
 };
 
@@ -72,12 +68,7 @@ export const getEditorProject = async (
     const project = await ProEditorService.getEditorProject(projectId, userId);
     res.status(200).json({ status: 'ok', data: project });
   } catch (err: any) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      status: 'error',
-      code: err.code || 'INTERNAL_ERROR',
-      message: err.message || 'Failed to fetch editor project.',
-    });
+    sendSafeControllerError(res, err, {message: 'Failed to fetch editor project.'});
   }
 };
 
@@ -106,12 +97,7 @@ export const updateEditorProject = async (
     const updated = await ProEditorService.updateEditorProject(projectId, userId, req.body || {}, {clientSupplied:true});
     res.status(200).json({ status: 'ok', data: updated });
   } catch (err: any) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      status: 'error',
-      code: err.code || 'INTERNAL_ERROR',
-      message: err.message || 'Failed to update editor project.',
-    });
+    sendSafeControllerError(res, err, {message: 'Failed to update editor project.'});
   }
 };
 
@@ -140,12 +126,7 @@ export const splitEditorItem = async (
     const updated = await ProEditorService.splitItem(projectId, userId, req.body);
     res.status(200).json({ status: 'ok', data: updated });
   } catch (err: any) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      status: 'error',
-      code: err.code || 'INTERNAL_ERROR',
-      message: err.message || 'Failed to split item.',
-    });
+    sendSafeControllerError(res, err, {message: 'Failed to split item.'});
   }
 };
 
@@ -182,7 +163,7 @@ export const removeEditorProjectFillers = async (
   } catch (err: any) {
     const code = err.code || 'FILLER_REMOVAL_FAILED';
     const status = err.statusCode || (code === 'NO_WORD_TIMINGS' ? 400 : code === 'PROJECT_NOT_FOUND' ? 404 : 500);
-    res.status(status).json({ status: 'error', code, message: err.message || 'Filler removal failed.' });
+    sendSafeControllerError(res, err, {status, code, message: 'Filler removal failed.'});
   }
 };
 
@@ -207,12 +188,7 @@ export const rippleDeleteEditorItem = async (
     const updated = await ProEditorService.rippleDelete(projectId, userId, req.body);
     res.status(200).json({ status: 'ok', data: updated });
   } catch (err: any) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      status: 'error',
-      code: err.code || 'INTERNAL_ERROR',
-      message: err.message || 'Failed to ripple delete item.',
-    });
+    sendSafeControllerError(res, err, {message: 'Failed to ripple delete item.'});
   }
 };
 
@@ -241,12 +217,7 @@ export const duplicateEditorItem = async (
     const updated = await ProEditorService.duplicateItem(projectId, userId, req.body);
     res.status(200).json({ status: 'ok', data: updated });
   } catch (err: any) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      status: 'error',
-      code: err.code || 'INTERNAL_ERROR',
-      message: err.message || 'Failed to duplicate item.',
-    });
+    sendSafeControllerError(res, err, {message: 'Failed to duplicate item.'});
   }
 };
 
@@ -275,12 +246,7 @@ export const freezeEditorItem = async (
     const updated = await ProEditorService.freezeFrame(projectId, userId, req.body);
     res.status(200).json({ status: 'ok', data: updated });
   } catch (err: any) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      status: 'error',
-      code: err.code || 'INTERNAL_ERROR',
-      message: err.message || 'Failed to freeze frame.',
-    });
+    sendSafeControllerError(res, err, {message: 'Failed to freeze frame.'});
   }
 };
 
@@ -323,7 +289,7 @@ export const captureEditorSnapshot = async (
       } catch {}
     });
   } catch (err: any) {
-    res.status(500).json({ status: 'error', message: err.message || 'Snapshot capture failed.' });
+    sendSafeControllerError(res, err, {status: 500, message: 'Snapshot capture failed.'});
   }
 };
 
@@ -424,12 +390,7 @@ export const renderEditorProject = async (
       },
     });
   } catch (err: any) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      status: 'error',
-      code: err.code || 'INTERNAL_ERROR',
-      message: err.message || 'Failed to trigger render for editor project.',
-    });
+    sendSafeControllerError(res, err, {message: 'Failed to trigger render for editor project.'});
   }
 };
 
@@ -472,12 +433,7 @@ export const exportClipNleXml = async (
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.status(200).send(xmlContent);
   } catch (err: any) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      status: 'error',
-      code: err.code || 'INTERNAL_ERROR',
-      message: err.message || 'Failed to export NLE XML.',
-    });
+    sendSafeControllerError(res, err, {message: 'Failed to export NLE XML.'});
   }
 };
 
