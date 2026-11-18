@@ -2309,7 +2309,9 @@ export function buildPresetCueEvents(cue: PresetTimedCue, baseStyle: ResolvedCap
 export function getComicTokenColor(text:string,index:number,words:string[],base='#FFFFFF',accent='#20FF35',number='#F5FF00'):string {
  if(/\d/.test(text))return number;
  const picks=words.map((w,i)=>({w,i})).filter(({w})=>w.replace(/[^A-Za-z]/g,'').length>=4);const last=picks[picks.length-1]?.i;
- return words.length>1&&index===last?accent:base;
+ // Single-word cues still need the preset accent. Short connector words keep
+ // the base color; substantial words use the accent, including when alone.
+ return index===last?accent:base;
 }
 function getCaptionWordSpace(style:ResolvedCaptionStyle):string{return style.wordSpacing?`{\\fsp${style.letterSpacing+style.wordSpacing}} {\\fsp${style.letterSpacing}}`:' ';}
 function getCaptionCueMotion(cue:PresetTimedCue,style:ResolvedCaptionStyle,time:number):CaptionStampMotion|CaptionEchoMotion {
