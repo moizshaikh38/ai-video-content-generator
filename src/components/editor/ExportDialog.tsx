@@ -1,3 +1,4 @@
+import {initialExportResolution} from '../../../server/src/shared/initialExportResolution';
 import { unassignedPanelViews } from '../../../server/src/shared/panelLayouts';
 import React, { useState, useEffect } from 'react';
 import {
@@ -68,11 +69,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   onToggleCaptions,
   downloadStale = false,
 }) => {
-  const [resolution, setResolution] = useState<ExportResolution>(
-    (['720p', '1080p', '1440p', '2160p'] as string[]).includes(String(clip?.render_resolution_requested || ''))
-      ? (clip!.render_resolution_requested as ExportResolution)
-      : '1080p'
-  );
+  const [resolution, setResolution] = useState<ExportResolution>(() => initialExportResolution(clip));
   const unassignedViews = project ? unassignedPanelViews(project) : [];
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
