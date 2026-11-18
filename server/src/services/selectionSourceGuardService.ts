@@ -13,6 +13,8 @@ export async function assertSelectionSourceCurrent(userId:string, projectId:stri
       || !selectionSourceReceiptMatches(receipt,transcript,project.source_url)) {
       throw new AppError('This clip decision cannot be verified against the current source and transcript. Review it before running selection or export again.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
     }
-    await assertTranscriptReusable(transcript,project.source_url);
+    // Existing selected clips may render genuine segment captions when only word clocks are unreliable.
+    // General reuse/automatic clip analysis still calls the strict default directly.
+    await assertTranscriptReusable(transcript,project.source_url,{allowOrderedSegmentFallback:true});
   });
 }

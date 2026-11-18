@@ -43,6 +43,20 @@ test('actual selection/creation/render consumers reject stale decisions without 
  await db.collection('transcripts').insertOne({...t,id:crypto.randomUUID(),project_id:project,user_id:user});
  await db.collection('clip_candidates').insertOne({id:candidate,project_id:project,user_id:user,start_seconds:0,end_seconds:2,status:'suggested',metadata:{selection_source_receipt:receipt}});
  await assertSelectionSourceCurrent(user,project,receipt,key);assert(heads>0);
+ // Timing fallback does not waive source lineage, default reuse or other quality flags.
+ const quality={version:1,status:'needs_review',issues:[{code:'unreliable_word_timing',detail:'Synthetic overlapping provider clocks'}]};
+ const reviewed={...t,source_binding:{...t.source_binding},quality_assessment:quality};
+ reviewed.source_binding.transcript_content_sha256=transcriptContentIdentity(reviewed);
+ await db.collection('transcripts').updateOne({project_id:project},{$set:{quality_assessment:quality,source_binding:reviewed.source_binding}});
+ await assertSelectionSourceCurrent(user,project,selectionSourceReceipt(reviewed,key),key);
+ const {assertTranscriptReusable}=await import('../services/transcriptSourceBindingService.js');
+ await assert.rejects(assertTranscriptReusable(reviewed,key),{code:'TRANSCRIPT_REVIEW_REQUIRED'});
+ const languageCase={...reviewed,source_binding:{...reviewed.source_binding},quality_assessment:{...quality,issues:[{code:'language_mismatch',detail:'Synthetic language issue'}]}};
+ languageCase.source_binding.transcript_content_sha256=transcriptContentIdentity(languageCase);
+ await db.collection('transcripts').updateOne({project_id:project},{$set:{quality_assessment:languageCase.quality_assessment,source_binding:languageCase.source_binding}});
+ await assert.rejects(assertSelectionSourceCurrent(user,project,selectionSourceReceipt(languageCase,key),key),{code:'TRANSCRIPT_REVIEW_REQUIRED'});
+ await db.collection('transcripts').updateOne({project_id:project},{$set:{source_binding:t.source_binding},$unset:{quality_assessment:''}});
+
  await assert.rejects(assertSelectionSourceCurrent(crypto.randomUUID(),project,receipt,key),{code:'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'});
  let created:any=await createClipWithJob(project,candidate,user,'9:16','center');
  assert.deepEqual(created.clip.selection_source_receipt,receipt);

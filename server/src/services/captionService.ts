@@ -1,3 +1,4 @@
+import { reliableOrderedClocks } from '../shared/orderedTranscriptTiming.js';
 import {newCaptionDefaults} from '../shared/newCaptionDefaults.js';
 import { clampCaptionFontSize } from '../shared/captionPresets.js';
 import {assertSelectionSourceCurrent} from './selectionSourceGuardService.js';
@@ -482,8 +483,9 @@ export class CaptionService {
         ? transcript.segments.flatMap((s) => (Array.isArray(s?.words) ? s.words : []))
         : [];
 
-    if (rawWords.length > 0) {
-      // WORD-LEVEL TIMING MODE
+    const wordClocksReliable = reliableOrderedClocks(rawWords);
+    if (rawWords.length > 0 && wordClocksReliable) {
+      // WORD-LEVEL TIMING MODE. Original provider text order is authoritative.
       const candidateTokens: TimedCaptionToken[] = [];
 
       for (const w of rawWords) {
@@ -512,7 +514,6 @@ export class CaptionService {
       }
 
       if (candidateTokens.length > 0) {
-        candidateTokens.sort((a, b) => a.start - b.start || a.end - b.end);
         let cues = this.groupIntoCues(candidateTokens, maxWords, maxLines, maxCharsPerLine);
 
         // Apply manual text overrides if any
@@ -527,6 +528,9 @@ export class CaptionService {
 
     // 2. SEGMENT-LEVEL FALLBACK MODE (Never manufacture fake word timestamps)
     const rawSegments = Array.isArray(transcript.segments) ? transcript.segments : [];
+    if (rawWords.length > 0 && !wordClocksReliable && !reliableOrderedClocks(rawSegments)) {
+      throw Object.assign(new Error('Caption timing needs review: word order is unreliable and no ordered segment fallback is available.'), { code: 'CAPTION_TIMING_REVIEW_REQUIRED' });
+    }
     const cues: TimedCaptionCue[] = [];
 
     for (const seg of rawSegments) {
@@ -1421,7 +1425,7 @@ export class CaptionService {
       .maybeSingle();
 
     if (transcript) {
-      assertTranscriptUsable(transcript);
+      assertTranscriptUsable(transcript,{allowOrderedSegmentFallback:true});
       await assertSelectionSourceCurrent(clip.user_id,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
     }
 

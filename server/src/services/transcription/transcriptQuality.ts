@@ -1,7 +1,8 @@
+import {reliableOrderedClocks} from '../../shared/orderedTranscriptTiming.js';
 import type { NormalizedTranscriptionResult } from './types.js';
 
 export interface TranscriptQualityIssue {
-  code: 'language_mismatch' | 'low_confidence_repetition' | 'possible_silence_hallucination' | 'invalid_timing';
+  code: 'language_mismatch' | 'low_confidence_repetition' | 'possible_silence_hallucination' | 'invalid_timing' | 'unreliable_word_timing';
   start?: number;
   end?: number;
   detail: string;
@@ -26,7 +27,7 @@ const languageCode = (v: string) => ({english:'en',spanish:'es',hindi:'hi'}[v.to
 export function assessTranscriptQuality(result: NormalizedTranscriptionResult, expectedLanguage?: string): TranscriptQualityAssessment {
   const issues: TranscriptQualityIssue[] = [];
   for (const issue of result.timingIssues || []) {
-    issues.push({code:'invalid_timing',detail:`Provider ${issue.kind} ${issue.index} has missing or invalid timing${issue.sourceOffset !== undefined ? ` in source chunk at ${issue.sourceOffset}s` : ''}. No replacement timestamp was invented.`});
+    issues.push({code:issue.kind==='word'&&issue.reason==='unordered-or-overlapping-provider-clock'?'unreliable_word_timing':'invalid_timing',detail:`Provider ${issue.kind} ${issue.index} has ${issue.reason==='unordered-or-overlapping-provider-clock'?'unordered or overlapping':'missing or invalid'} timing${issue.sourceOffset !== undefined ? ` in source chunk at ${issue.sourceOffset}s` : ''}. No replacement timestamp was invented.`});
   }
   for (const word of result.words || []) {
     if (![word.start,word.end].every(Number.isFinite) || word.start < 0 || word.end <= word.start) {
@@ -58,8 +59,9 @@ export function assessTranscriptQuality(result: NormalizedTranscriptionResult, e
 
 /** Only affirmative review flags stop automatic use. Legacy/missing evidence is
  * not a failure, and must never be displayed as verified accuracy either. */
-export function assertTranscriptUsable(record: {quality_assessment?: TranscriptQualityAssessment}): void {
+export function assertTranscriptUsable(record: {quality_assessment?: TranscriptQualityAssessment;segments?:Array<{start?:unknown;end?:unknown}>}, options?:{allowOrderedSegmentFallback?:boolean}): void {
   if (record.quality_assessment?.status !== 'needs_review') return;
+  if(options?.allowOrderedSegmentFallback && record.quality_assessment.issues.length>0 && record.quality_assessment.issues.every(i=>i.code==='unreliable_word_timing') && reliableOrderedClocks(record.segments||[])) return;
   const error = new Error('Transcript needs audio review before automatic captions can be exported. Check the flagged speech spans and source language; no words were silently replaced.');
   (error as any).code = 'TRANSCRIPT_REVIEW_REQUIRED';
   throw error;

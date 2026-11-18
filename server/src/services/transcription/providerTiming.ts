@@ -1,9 +1,10 @@
+import {reliableOrderedClocks} from '../../shared/orderedTranscriptTiming.js';
 import type {NormalizedTranscriptSegment,NormalizedTranscriptWord} from './types.js';
 import {readSegmentDiagnostics} from './transcriptQuality.js';
 export interface TranscriptionTimingIssue {
   kind: 'word' | 'segment';
   index: number;
-  reason: 'invalid-or-missing-provider-clock';
+  reason: 'invalid-or-missing-provider-clock' | 'unordered-or-overlapping-provider-clock';
 }
 /** Keep actual provider clocks only. Invalid entries are accounted for as review
  * issues, not silently repaired into50msword timings or zero-based segments. */
@@ -37,5 +38,8 @@ export function normalizeProviderTiming(result: any): {
     if (text) words.push({word: text, start: word.start, end: word.end,
       ...(typeof word.probability === 'number' && Number.isFinite(word.probability) && word.probability >= 0 && word.probability <= 1 ? {confidence: word.probability} : {})});
   });
+  // Keep clocks and text unchanged, but do not label cross-word overlap/order as reliable.
+  if (words.length && !reliableOrderedClocks(words)) timingIssues.push({kind:'word',index:0,reason:'unordered-or-overlapping-provider-clock'});
+  if (segments.length && !reliableOrderedClocks(segments)) timingIssues.push({kind:'segment',index:0,reason:'unordered-or-overlapping-provider-clock'});
   return {segments, words, timingIssues};
 }
