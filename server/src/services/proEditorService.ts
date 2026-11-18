@@ -1240,13 +1240,18 @@ export class ProEditorService {
    * Legacy fallback remains unchanged; no claim of a full legacy-layout rewrite. */
   public static captionSceneWindows(project:EditorProject,reframe:ProReframeContext):CaptionLayoutWindow[]{
     const track=reframe.track;
-    if(project.canvas.aspect_ratio!=='9:16'||reframe.mode!=='smart'||!track||track.isStale||!track.smoothed_keyframes?.length||track.metadata?.shot_composition_candidate!==true)return [];
+    if(project.canvas.aspect_ratio!=='9:16'||reframe.mode!=='smart'||!track||track.isStale||!track.smoothed_keyframes?.length)return [];
     const expanded=expandSceneLayoutProject(project);
     const items=expanded.tracks.find(t=>t.type==='VIDEO'&&!t.hidden)?.items||[];
     return items.flatMap(item=>{
+      const one={...expanded,tracks:[{type:'VIDEO',items:[item]}]};
+      // Match ordinary Auto picture export before the experimental-plan gate.
+      // captionCompositionWindows owns manual crop/panel/tracker precedence.
+      const ordinary=SmartReframeService.explicitAutoLayoutPlan(track,item.crop_config,Number(track.metadata?.clip_duration)||project.canvas.duration);
+      if(ordinary)return captionCompositionWindows(one,ordinary,reframe.clipStartSec||0,track.source_width||1920,track.source_height||1080);
+      if(track.metadata?.shot_composition_candidate!==true)return [];
       const layout=item.crop_config?.layout_mode_source==='user'?item.layout_mode:reframe.layoutMode;
       if(['blur','split','screencast'].includes(layout||''))return [];
-      const one={...expanded,tracks:[{type:'VIDEO',items:[item]}]};
       return captionCompositionWindows(one,ProEditorService.resolveShotCompositionPlan(item,reframe),reframe.clipStartSec||0,track.source_width||1920,track.source_height||1080);
     });
   }
