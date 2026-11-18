@@ -1461,7 +1461,7 @@ export class SmartReframeService {
     if(cropConfig?.layout_mode_source!=='auto'||track?.status!=='ready'||track.isStale||track.sourceObjectVerified===false||
        track.metadata?.shot_composition_candidate===true||!track.metadata?.analyzed_source_sha256||
        !(duration>0)||!track.raw_samples?.length||
-       (cropConfig.layoutPolicy&&!cropConfig.layoutPolicy.allowed.some((x:string)=>x==='split'||x==='fill'))||
+       (cropConfig.layoutPolicy&&!cropConfig.layoutPolicy.allowed.some((x:string)=>x==='fit'||x==='split'||x==='fill'))||
        ['screen_content','action_context','scene_context'].includes(track.metadata?.content_framing_decision?.policy)||
        track.metadata?.content_framing_decision?.evidence?.possibleEmbeddedCamera===true)return undefined;
     // Reuse independently repeated non-person constraints as well as explicit
