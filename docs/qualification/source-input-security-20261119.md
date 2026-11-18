@@ -28,7 +28,9 @@ This is a local source-level check. No production deployment, private endpoint p
 - Bounded response checks passed using actual loopback HTTP for declared/chunked overflow, exact byte preservation, stalled body abort and connection close.
 - 104 focused assertions pass, including prior overlay-position tests, and both TypeScript checks pass.
 
-- Save-time DNS checks do not by themselves pin a subsequent fetch to the checked address. Runtime preload currently checks the host allowlist and disables redirects but does not rebind the connection to a validated address. Do not interpret the mapped-address fix as complete SSRF remediation.
+- Overlay fetch now uses an HTTPS transport that resolves once, rejects private/mixed answers, and pins the selected validated IP through the connection lookup callback. Hostname/Host/SNI and normal TLS verification remain in place. Agent reuse and automatic redirect following are disabled. Abort covers DNS wait, request and response stream. Only explicit nonproduction loopback development URLs keep their pre-existing exemption.
+- Actual local TLS integration passed with a short-lived trusted localhost test certificate, without disabling certificate verification: exact response bytes, one system DNS resolution for the request, redirect not followed, production-mode private DNS rejection before a request, stalled TLS response abort, actual preload service cache write and oversize no-cache behavior. This is not an arbitrary internet rebinding attack simulation or public-CDN qualification.
+- 108 focused tests and both TypeScript checks pass. Complete production render entry, production JWT authentication, real CDN behavior and full media/load/restart qualification remain unverified. Do not infer that these checks prove the whole application secure.
 - Existing deployment dependency advisories and full media/load/restart qualification remain separate open items.
 
 The previous paid selection-only result still belongs to its recorded earlier prompt version. These source changes have not been followed by another paid or media run.

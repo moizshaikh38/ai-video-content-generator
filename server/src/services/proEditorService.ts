@@ -1,3 +1,4 @@
+import {pinnedHttpsAssetFetch} from '../utils/pinnedHttpsAssetFetch.js';
 import {editorCachePath} from '../utils/editorCachePath.js';
 import {saveEditorRevision,createEditorRevision} from '../db/repositories/editorRevisionRepository.js';
 import {getMongoDb,getMongoClient} from '../db/mongoClient.js';
@@ -786,11 +787,13 @@ export class ProEditorService {
             // Redirects are not followed: an allowlisted host must not be able
             // to bounce the server-side fetch onto an internal address.
             await validateEditorSourcePath(project.user_id, rawPath);
-            const res = await fetch(rawPath, { headers: { 'User-Agent': 'VireoClip/1.0' }, redirect: 'manual', signal: AbortSignal.timeout(EDITOR_OVERLAY_TIMEOUT_MS) });
+            const res = await pinnedHttpsAssetFetch(rawPath, AbortSignal.timeout(EDITOR_OVERLAY_TIMEOUT_MS));
             if (res.ok) {
               const buf = await readBoundedAssetResponse(res);
               fs.writeFileSync(localCachePath, buf);
               item.source_path = localCachePath;
+            } else {
+              await res.body?.cancel();
             }
           } else {
             item.source_path = localCachePath;

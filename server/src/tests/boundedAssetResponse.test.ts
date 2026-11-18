@@ -37,7 +37,7 @@ test('preload checks current destination and bounds time/body before writing',()
  const source=fs.readFileSync(path.resolve('src/services/proEditorService.ts'),'utf8');
  const preload=source.slice(source.indexOf('public static async preloadRemoteOverlayAssets'),source.indexOf('/** Save-time gate'));
  assert.match(preload,/await validateEditorSourcePath\(project.user_id, rawPath\)/);
- assert.match(preload,/redirect: 'manual', signal: AbortSignal.timeout\(EDITOR_OVERLAY_TIMEOUT_MS\)/);
+ assert.match(preload,/pinnedHttpsAssetFetch\(rawPath, AbortSignal.timeout\(EDITOR_OVERLAY_TIMEOUT_MS\)\)/);
  assert.match(preload,/await readBoundedAssetResponse\(res\)/);
  assert.doesNotMatch(preload,/res.arrayBuffer\(/);
 });
