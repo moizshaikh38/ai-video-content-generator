@@ -1,0 +1,47 @@
+[
+  {
+    "label": "Wikipedia Weekly",
+    "sourceSha256": "33aabf71885cce9dc3945e263c8cd8c437cffc86e45cfef7ff7ffe13303cd60e",
+    "sourceWidth": 640,
+    "sourceHeight": 360,
+    "faceSampleCounts": {
+      "3": 60
+    },
+    "personSampleCounts": {
+      "2": 51,
+      "3": 5,
+      "1": 4
+    },
+    "manualProposals": 0
+  },
+  {
+    "label": "Expedition 32/33",
+    "sourceSha256": "56a1fdeb0ebd06be20291da61128b3a157c2b7dcdacce98386496c6f33352fd4",
+    "sourceWidth": 1280,
+    "sourceHeight": 720,
+    "faceSampleCounts": {
+      "4": 32,
+      "1": 28
+    },
+    "personSampleCounts": {
+      "1": 58,
+      "2": 2
+    },
+    "manualProposals": 0
+  },
+  {
+    "label": "Expedition 22 in-flight",
+    "sourceSha256": "a31508fab62d62f67ce7351108fcb8447a0705e6c783f83b75b7043281237801",
+    "sourceWidth": 534,
+    "sourceHeight": 360,
+    "faceSampleCounts": {
+      "3": 60
+    },
+    "personSampleCounts": {
+      "3": 32,
+      "4": 27,
+      "5": 1
+    },
+    "manualProposals": 0
+  }
+]

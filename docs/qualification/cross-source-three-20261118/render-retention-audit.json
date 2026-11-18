@@ -1,0 +1,39 @@
+{
+  "caveat": "Same detector samples, not independent identity or every-frame/hair/full-body proof. Pixel crop rounding uses actual shared panelSourceWindow.",
+  "sampleCount": 60,
+  "panelObservations": 180,
+  "fullyRetained": 180,
+  "foreignOrPartialFaceFragments": 0,
+  "panelTrackIds": [
+    [
+      "subject_2"
+    ],
+    [
+      "subject_3"
+    ],
+    [
+      "subject_1"
+    ]
+  ],
+  "windows": [
+    {
+      "x": 62,
+      "y": 70,
+      "w": 130,
+      "h": 118
+    },
+    {
+      "x": 202,
+      "y": 58,
+      "w": 114,
+      "h": 202
+    },
+    {
+      "x": 336,
+      "y": 54,
+      "w": 114,
+      "h": 202
+    }
+  ],
+  "failures": []
+}
