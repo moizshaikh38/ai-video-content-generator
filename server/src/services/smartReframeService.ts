@@ -3119,6 +3119,7 @@ export class SmartReframeService {
         raw_samples: cvResult.samples,
         smoothed_keyframes: fusedKeyframes,
         metadata: {
+          participant_panels_review:adaptiveScenes&&sourceGenre==='podcast_interview'&&process.env.SMART_REFRAME_AUTO_CONVERSATION_SPLIT==='1'&&process.env.VIREO_PARTICIPANT_ASPECT_REVIEW==='1'?'aspect-face-v1':null,
           automatic_gaming_review_enabled:!!automaticGamingEvidence,
           automatic_gaming_evidence:automaticGamingEvidence,
           dominant_score: score,
