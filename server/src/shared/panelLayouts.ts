@@ -156,12 +156,20 @@ export function assertPanelViewsAssigned(project: Parameters<typeof unassignedPa
 export function seedPanelsFromSubject(
   layout: PanelLayout,
   slots: PanelSlot[] | undefined,
-  subject: { centerX: number; centerY?: number } | null | undefined
+  subject: { centerX: number; centerY?: number } | null | undefined,
+  sourceSize?:{width:number;height:number},canvasAspect=9/16
 ): PanelSlot[] | undefined {
   if (!subject || (layout !== 'screenshare' && layout !== 'gameplay')) return slots;
   const faceIdx = layout === 'screenshare' ? 1 : 0;
   const cl = (v: number) => Math.min(1, Math.max(0, v));
-  const face: PanelSlot = { focusX: cl(subject.centerX), focusY: cl(subject.centerY ?? 0.4), scale: 1.8, set: false, auto: 'track' };
+  const rect=PANEL_RECTS[layout][faceIdx],targetAspect=canvasAspect*rect.w/rect.h;
+  // A measured center is not object-position. At a zoomed per-panel cover,
+  // convert with that panel's actual aspect before seeding the crop dialog.
+  const valid=sourceSize&&sourceSize.width>0&&sourceSize.height>0&&Number.isFinite(sourceSize.width+sourceSize.height+targetAspect)&&targetAspect>0;
+  const windowW=valid?Math.min(1,sourceSize.height*targetAspect/sourceSize.width)/1.8:undefined;
+  const windowH=valid?Math.min(1,sourceSize.width/(targetAspect*sourceSize.height))/1.8:undefined;
+  const focus=(center:number,size:number|undefined)=>size===undefined?cl(center):1-size<1e-6?.5:cl((center-size/2)/(1-size));
+  const face: PanelSlot = { focusX: focus(subject.centerX,windowW), focusY: focus(subject.centerY ?? 0.4,windowH), scale: 1.8, set: false, auto: 'track' };
   const whole: PanelSlot = { focusX: 0.5, focusY: 0.5, scale: 1, set: false, auto: 'track' };
   return [0, 1].map((i) => (i === faceIdx ? face : whole));
 }
