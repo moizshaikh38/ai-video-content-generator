@@ -69,7 +69,7 @@ export function applyItemLayout(
           delete base.framing_window;delete base.scene_layout_overrides;
           if ((PANEL_LAYOUTS as string[]).includes(layout)) {
             const prev = (i as any).panels?.layout === layout ? (i as any).panels : undefined;
-            const seeded = prev?.slots ?? seedPanelsFromSubject(layout as PanelLayout, undefined, subjectCenterInWindow(subjectKeyframes, i.source_start || 0, i.source_end ?? ((i.source_start || 0) + (i.timeline_end - i.timeline_start))));
+            const seeded = prev?.slots ?? seedPanelsFromSubject(layout as PanelLayout, undefined, subjectCenterInWindow(subjectKeyframes, i.source_start || 0, i.source_end ?? ((i.source_start || 0) + (i.timeline_end - i.timeline_start))),sourceSize,project.canvas.width&&project.canvas.height?project.canvas.width/project.canvas.height:project.canvas.aspect_ratio==='16:9'?16/9:project.canvas.aspect_ratio==='1:1'?1:9/16);
             base.panels = normalizePanels({ layout: layout as PanelLayout, slots: seeded });
             delete base.crop;
             return base as EditorTrackItem;
