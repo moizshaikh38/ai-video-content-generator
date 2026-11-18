@@ -1460,7 +1460,15 @@ export class SmartReframeService {
     const plan=this.computeShotComposition({rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,duration,
       sourceWidth:track.source_width,sourceHeight:track.source_height,windowScope:'shot',allowConversationSplit:true,
       protectedContentRegions:track.metadata.protected_content_regions,splitHandSafetyReview:true});
-    // No new Fill/Fit policy or mixed-scene smoothing is introduced here.
+    // A clip-wide face center cannot represent unrelated shots. On measured
+    // cuts, use review Fit locally unless that individual shot has the already
+    // eligible split geometry. Never carry a confident crop across a cut.
+    if((track.metadata.scene_cuts||[]).length&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('fit'))){
+      return presentFit43(plan.map(s=>s.split&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('split'))?s:{
+        start:s.start,end:s.end,kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:s.start,centerX:.5,centerY:.5}],
+        contextStatus:'unresolved-review-required' as const,uncertainty:'Scene-local Fit: unrelated shots cannot share one face crop. Review side context before sharing.'
+      }),track.source_width,track.source_height);
+    }
     if(plan.length&&plan.every(s=>s.split)&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('split')))return plan;
     // A face-less moving body is a different evidence class from a talking
     // head. Use only complete sampled single-body tracks, full source height,
