@@ -1,3 +1,5 @@
+import {freshCandidateSubtitle} from '../../../server/src/shared/freshClipPresentationDefaults';
+import {NEW_CAPTION_PRESET_ID} from '../../../server/src/shared/captionPresets';
 import {candidateRankingDisplay} from '../../../server/src/shared/candidateRankingDisplay';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
@@ -62,12 +64,12 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
   const [candidates, setCandidates] = useState<ClipCandidate[]>([]);
   // Per-candidate subtitle settings
   const [candidateSubtitles, setCandidateSubtitles] = useState<Record<string, { enabled: boolean; preset: string; wordMode?: 'phrase' | 'single' }>>({});
-  const getCandidateSubtitle = (candId: string) => candidateSubtitles[candId] || { enabled: true, preset: 'hormozi' as string, wordMode: 'phrase' as const };
+  const getCandidateSubtitle = (candId: string) => freshCandidateSubtitle(candidateSubtitles[candId]);
   const setCandidateSubtitle = (candId: string, updates: Partial<{ enabled: boolean; preset: string; wordMode: 'phrase' | 'single' }>) => {
-    setCandidateSubtitles((prev) => ({ ...prev, [candId]: { ...(prev[candId] || { enabled: true, preset: 'hormozi' }), ...updates } }));
+    setCandidateSubtitles((prev) => ({ ...prev, [candId]: { ...freshCandidateSubtitle(prev[candId]), ...updates } }));
     // Keep the live-preview ribbon in sync with the per-candidate export preset.
-    if (updates.preset && ['hormozi', 'neon', 'beast', 'karaoke', 'clean'].includes(updates.preset)) {
-      setCaptionPreset(updates.preset as 'hormozi' | 'neon' | 'beast' | 'karaoke' | 'clean');
+    if (updates.preset && isRenderablePresetId(updates.preset)) {
+      setCaptionPreset(updates.preset);
     }
   };
   const [isLoading, setIsLoading] = useState(true);
@@ -81,7 +83,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
   // Aspect Ratio & Phone Framing Studio state
   const [aspectRatio, setAspectRatio] = useState<'9:16' | '1:1' | '16:9'>('9:16');
   const [showSafeZones, setShowSafeZones] = useState<boolean>(false);
-  const [captionPreset, setCaptionPreset] = useState<'hormozi' | 'neon' | 'beast' | 'karaoke' | 'clean'>('hormozi');
+  const [captionPreset, setCaptionPreset] = useState<string>(NEW_CAPTION_PRESET_ID);
 
   // Phase 16: Multimodal Moment Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -972,6 +974,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                     </div>
                     <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
                       {[
+                        { id: NEW_CAPTION_PRESET_ID, label: 'Vireo Comic' },
                         { id: 'hormozi', label: '🔥 Hormozi' },
                         { id: 'neon', label: '⚡ Neon Glow' },
                         { id: 'beast', label: '💥 Beast Red' },
@@ -1081,6 +1084,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                               }
                               className="px-2 py-1 rounded-md bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:border-violet-500"
                             >
+                              <option value={NEW_CAPTION_PRESET_ID}>Vireo Comic (Default)</option>
                               <option value="hormozi">Hormozi (Punchy Yellow)</option>
                               <option value="neon">Cyber Neon Glow</option>
                               <option value="beast">Beast Impact</option>

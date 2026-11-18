@@ -13,3 +13,9 @@ Inspected decoded 1fps output board across all 12 seconds: streamer above, gamep
 Private diagnostic source https://archive.org/details/twitch-clips-744197206 . No source reuse license established; media remains local, not committed.
 
 Cumulative cost $0.06768122962333141 of original $0.20 total. Previous cumulative $0.06506673795666501; failed null-policy run $0.0012002958333332, successful full UI run $0.0014141958333332. No full4K calls, HUD activation, manual Gaming/crop, main merge or release.
+
+## 17:52 caption restoration
+
+Actual earlier records confirm house preset vireo_comic_default. Fresh complete UI run now uses shared house caption default, not UI-hardcoded hormozi. Quick render now derives caption windows from its actual composition plan and uses the same shared scene placement routine. Inspected decoded 1fps board for the new browser-downloaded MP4: white/green uppercase house captions at the measured streamer/game seam, no filename headline, no duplicate camera/black gaps. Explicit caption preset/position overrides remain authoritative in regression coverage. Suppressing filename title is limited to new short-source fallback clips. Other headline behavior is preserved. No saved editor migration. All prior short-source/HUD/model/production caveats remain.
+
+Fresh seam run cumulative $0.0704137712899978. 17:49 style-only attempt had restored typography but remained bottom-position, so is retained as a position failure.

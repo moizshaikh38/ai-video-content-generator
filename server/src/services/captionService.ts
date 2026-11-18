@@ -2,7 +2,7 @@ import {newCaptionDefaults} from '../shared/newCaptionDefaults.js';
 import { clampCaptionFontSize } from '../shared/captionPresets.js';
 import {assertSelectionSourceCurrent} from './selectionSourceGuardService.js';
 import {assertTranscriptUsable} from './transcription/transcriptQuality.js';
-import { applySceneCaptionPlacement } from '../shared/sceneCaptionPlacement.js';
+import { applySceneCaptionPlacement,quickCaptionProject } from '../shared/sceneCaptionPlacement.js';
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { mergeExtendedCues, maxCueEnd, editorProjectCoveredEnd, hasAuthoritativeCaptionCues } from './captionExtendMerge.js';
@@ -1553,9 +1553,9 @@ export class CaptionService {
       preset = extracted.preset;
     }
 
-    if (editorProject) {
+    if (editorProject || options.automaticSceneWindows?.length) {
       cues = applySceneCaptionPlacement(cues, {
-        project: editorProject, sourceWidth: options.sourceWidth, sourceHeight: options.sourceHeight,
+        project: editorProject || quickCaptionProject(Number(clip.duration_seconds)||Number(clip.end_seconds)-Number(clip.start_seconds)), sourceWidth: options.sourceWidth, sourceHeight: options.sourceHeight,
         fallbackLayout: options.sceneLayoutFallback, automaticWindows:options.automaticSceneWindows,
         fontSize: preset?.fontSize, maxLines: preset?.maxLines, maxCharsPerLine: preset?.maxCharsPerLine,
         explicitConfigPosition: hasExplicitConfigPosition || (clip.caption_position ?? 'bottom') !== 'bottom',

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { normalizePanels, panelSourceWindow, panelTargetRects, PANEL_RECTS, type ItemPanels } from '../../../server/src/shared/panelLayouts';
+import { normalizePanels, panelSourceWindow, panelTargetRects,  type ItemPanels } from '../../../server/src/shared/panelLayouts';
 
 interface Props {
   src: string;

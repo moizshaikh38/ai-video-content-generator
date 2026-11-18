@@ -1,5 +1,5 @@
 import {expandSceneLayoutProject} from './sceneLayoutOverrides.js';
-import {normalizePanels,panelTargetRects,PANEL_RECTS} from './panelLayouts.js';
+import {normalizePanels,panelTargetRects} from './panelLayouts.js';
 export type CaptionSceneLayout = 'fill' | 'fit' | 'blur' | 'split' | 'panel_seam' | 'panel_gameplay';
 export interface CaptionPlacementContext {
   project: any;
@@ -104,3 +104,7 @@ export function applySceneCaptionPlacement<T extends {start:number;end:number;te
   }
   return result;
 }
+
+/** Quick-render uses its actual picture plan, without creating a saved editor. */
+export function quickCaptionProject(duration:number){return {canvas:{aspect_ratio:'9:16',duration},tracks:[{type:'VIDEO',items:[{id:'quick-source',source_start:0,source_end:duration,timeline_start:0,timeline_end:duration}]}]};}
+export function quickCaptionWindows(plan:any[],duration:number,w:number,h:number){return captionCompositionWindows(quickCaptionProject(duration),plan,0,w,h);}

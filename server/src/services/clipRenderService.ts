@@ -1,3 +1,4 @@
+import {quickCaptionWindows} from '../shared/sceneCaptionPlacement.js';
 import {singleItemSourceWindow} from '../shared/automaticSourceClock.js';
 import {resolveMeasuredItemPlan} from './itemShotPlanService.js';
 import {prepareSliceRender} from './sliceRenderPreparation.js';
@@ -863,7 +864,7 @@ export class ClipRenderService {
             sourceWidth: reframeDecision.track?.source_width ?? proBlurSourceWidth,
             sourceHeight: reframeDecision.track?.source_height ?? proBlurSourceHeight,
             sceneLayoutFallback: reframeDecision.layoutMode,
-            automaticSceneWindows: editorProject ? ProEditorService.captionSceneWindows(editorProject,{mode:reframeDecision.mode,layoutMode:reframeDecision.layoutMode,track:reframeDecision.track,clipStartSec:startSec,cropConfig:clip.crop_config,aspectRatio:clip.aspect_ratio,sourceSha256,sourceAssetId:clip.id,sourceStoragePath:clip.source_storage_path,decodedSource:srcDims}) : undefined,
+            automaticSceneWindows: editorProject ? ProEditorService.captionSceneWindows(editorProject,{mode:reframeDecision.mode,layoutMode:reframeDecision.layoutMode,track:reframeDecision.track,clipStartSec:startSec,cropConfig:clip.crop_config,aspectRatio:clip.aspect_ratio,sourceSha256,sourceAssetId:clip.id,sourceStoragePath:clip.source_storage_path,decodedSource:srcDims}) : (reframeDecision.metadata as any)?.caption_windows,
             speakerSplit,
           });
 
@@ -1641,7 +1642,7 @@ export class ClipRenderService {
 
         const explicitAuto=SmartReframeService.explicitAutoLayoutPlan(track,clip.crop_config,durationSec);
         const legacyFit=explicitAuto||(clip.crop_config?.layout_mode_source!=='user'?legacyFit43Plan(track,durationSec,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)):undefined);
-        if(legacyFit&&(clip.aspect_ratio||'9:16')==='9:16')return {cropFilter:SmartReframeService.buildShotCompositionFilter({plan:legacyFit,duration:durationSec,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,canvasScale}),mode:'smart',layoutMode:'track',metadata:{reason:'legacy_fit_43_review'},track};
+        if(legacyFit&&(clip.aspect_ratio||'9:16')==='9:16')return {cropFilter:SmartReframeService.buildShotCompositionFilter({plan:legacyFit,duration:durationSec,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,canvasScale}),mode:'smart',layoutMode:'track',metadata:{reason:'legacy_fit_43_review',caption_windows:quickCaptionWindows(legacyFit,durationSec,track.source_width||1920,track.source_height||1080)},track};
         const legacyFallback=clip.crop_config?.layout_mode_source!=='user'?legacyPolicyFallback(clip.crop_config?.layoutPolicy,track,durationSec):undefined;
         if(legacyFallback)return {cropFilter:buildBackdropFitChain(clip.aspect_ratio as ClipAspectRatio,1,{kind:'blur',bandAspect:4/3},'legacyPolicy',canvasScale),mode:'smart',layoutMode:'blur',metadata:{reason:'layout_policy_review_fit'},track};
         if ((track.detected_face_count || 0) === 0 || !track.dominant_track_id) {

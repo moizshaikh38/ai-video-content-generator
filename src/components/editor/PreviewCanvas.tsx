@@ -42,7 +42,7 @@ import { BackgroundControl } from './BackgroundControl';
 import { TrackerControl } from './TrackerControl';
 import { CropBoxControl } from './CropBoxControl';
 import { PanelsPreview } from './PanelsPreview';
-import { normalizePanels, panelSourceWindow, panelTargetRects, PANEL_RECTS, PANEL_LABELS } from '../../../server/src/shared/panelLayouts';
+import { normalizePanels, panelSourceWindow, panelTargetRects,  PANEL_LABELS } from '../../../server/src/shared/panelLayouts';
 import { FIT_BAND_ASPECT, effectiveFitBand, fitBandApplies } from '../../../server/src/shared/fitBand';
 
 interface PreviewCanvasProps {

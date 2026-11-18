@@ -1,3 +1,4 @@
+import {freshCandidateOverlay} from '../../shared/freshClipPresentationDefaults.js';
 import {selectionSourceReceiptMatches} from '../../shared/selectionSourceReceipt.js';
 import {newCaptionDefaults} from '../../shared/newCaptionDefaults.js';
 import crypto from 'node:crypto';
@@ -58,6 +59,7 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
         // Carried for the automatic render headline (Opus-parity): burned at
         // render time unless an explicit overlay config opts out.
         title: (candidate as any)?.title || null,
+        ...(freshCandidateOverlay(candidateMeta)?{overlay_config:freshCandidateOverlay(candidateMeta)}:{}),
         cold_open: coldOpen,
         selection_source_receipt: candidateMeta.selection_source_receipt,
         source_storage_path: project.source_url, source_object_key: project.source_url,
