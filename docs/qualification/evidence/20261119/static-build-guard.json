@@ -1,0 +1,14 @@
+{
+  "exitCode": -9,
+  "breach": "group_rss",
+  "lastSample": {
+    "groupRssBytes": 538931200,
+    "availableMemoryBytes": 960303104,
+    "diskFreeBytes": 1257533440,
+    "elapsedSeconds": 4.1918484780035214
+  },
+  "peakSampledGroupRssBytes": 538931200,
+  "minimumAvailableMemoryBytes": 960303104,
+  "minimumDiskFreeBytes": 1257533440,
+  "elapsedSeconds": 4.196074559004046
+}

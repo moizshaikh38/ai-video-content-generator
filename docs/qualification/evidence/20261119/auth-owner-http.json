@@ -1,0 +1,82 @@
+{
+  "status": "passed",
+  "rows": [
+    {
+      "case": "missing",
+      "method": "GET",
+      "status": 401,
+      "code": "AUTH_MISSING"
+    },
+    {
+      "case": "invalid-or-malformed",
+      "method": "GET",
+      "status": 401,
+      "code": "AUTH_MISSING"
+    },
+    {
+      "case": "invalid-or-malformed",
+      "method": "GET",
+      "status": 401,
+      "code": "AUTH_MISSING"
+    },
+    {
+      "case": "invalid-or-malformed",
+      "method": "GET",
+      "status": 401,
+      "code": "AUTH_INVALID"
+    },
+    {
+      "case": "other",
+      "method": "GET",
+      "status": 404,
+      "code": "PROJECT_NOT_FOUND"
+    },
+    {
+      "case": "owner",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "case": "other",
+      "method": "PATCH",
+      "status": 404,
+      "code": "PROJECT_NOT_FOUND"
+    },
+    {
+      "case": "owner",
+      "method": "PATCH",
+      "status": 200
+    }
+  ],
+  "authCalls": [
+    {
+      "path": "/auth/v1/user",
+      "identity": "invalid"
+    },
+    {
+      "path": "/auth/v1/user",
+      "identity": "other"
+    },
+    {
+      "path": "/auth/v1/user",
+      "identity": "owner"
+    },
+    {
+      "path": "/auth/v1/user",
+      "identity": "other"
+    },
+    {
+      "path": "/auth/v1/user",
+      "identity": "owner"
+    }
+  ],
+  "realAuthMiddleware": true,
+  "realSupabaseSdkHttp": true,
+  "realControllerServiceMongo": true,
+  "localAuthServiceDouble": true,
+  "cryptographicJwtVerificationQualified": false,
+  "bodyOwnerSpoofRejected": true,
+  "database": "vireo_auth_owner_http_20261119_0214",
+  "retained": true,
+  "noExternalNetwork": true
+}
