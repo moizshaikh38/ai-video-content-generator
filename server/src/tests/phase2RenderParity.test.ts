@@ -228,11 +228,10 @@ describe('Phase 2 — post-render output validation gate', () => {
     );
   });
 
-  it('tolerates muted clips (no audio expected) and unavailable probes', async () => {
+  it('tolerates muted clips but rejects unavailable output probes', async () => {
     const file = await renderClip([...VIDEO_ONLY, '-c:v', 'libx264', '-pix_fmt', 'yuv420p'], 'muted.mp4');
     await assert.doesNotReject(() => ClipRenderService.validateRenderedOutput(file, 0.5, { expectAudio: false }));
-    // Missing file: probe fails, gate degrades to a warning instead of throwing.
-    await assert.doesNotReject(() => ClipRenderService.validateRenderedOutput(path.join(tmpDir, 'missing.mp4'), 0.5, { expectAudio: true }));
+    await assert.rejects(() => ClipRenderService.validateRenderedOutput(path.join(tmpDir, 'missing.mp4'), 0.5, { expectAudio: true }), { code: 'OUTPUT_VALIDATION_FAILED' });
   });
 });
 

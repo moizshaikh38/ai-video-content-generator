@@ -1,3 +1,4 @@
+import { validateOutputFile } from '../shared/outputValidation.js';
 import {quickCaptionWindows} from '../shared/sceneCaptionPlacement.js';
 import {primaryVisibleVideoItems} from '../shared/primaryVideoItems.js';
 import {singleItemSourceWindow} from '../shared/automaticSourceClock.js';
@@ -801,19 +802,9 @@ export class ClipRenderService {
           let proBlurSourceWidth: number | undefined;
           let proBlurSourceHeight: number | undefined;
           if (editorProject && !reframeDecision.track) {
-            try {
-              const { stdout } = await execFileAsync('ffprobe', [
-                '-v', 'error', '-select_streams', 'v:0',
-                '-show_entries', 'stream=width,height', '-of', 'json', sourcePath,
-              ]);
-              const streams = ((JSON.parse(stdout) as any).streams || []);
-      const st = streams.find((s:any)=>s.codec_type === 'video') || {};
-              proBlurSourceWidth = Number(st.width) || undefined;
-              proBlurSourceHeight = Number(st.height) || undefined;
-            } catch {
-              // Degrade to the default caption position, matching the policy of
-              // the other probe sites in this file.
-            }
+            const dimensions = await ClipRenderService.probeSourceDimensions(sourcePath);
+            proBlurSourceWidth = dimensions?.width;
+            proBlurSourceHeight = dimensions?.height;
           }
           const blurFitStage =
             reframeDecision.layoutMode === 'blur' ||
@@ -1786,64 +1777,15 @@ export class ClipRenderService {
    * requested render duration before the job may be marked ready.
    * Failures are permanent (non-transient) — a retry re-renders, it does not
    * re-validate the same broken file.
-   * A missing/unavailable ffprobe degrades to a warning, matching the policy of
-   * probeAvStartTimes, rather than failing renders on ops environments without ffprobe.
+   * Probe failure is fail-closed: no upload or ready status without verification.
+   * Source-dimension probing remains best-effort, output verification does not.
    */
   public static async validateRenderedOutput(
     filePath: string,
     expectedDurationSec: number,
     options: { expectAudio: boolean; expectDimensions?: { width: number; height: number } }
   ): Promise<{ width: number; height: number } | null> {
-    try {
-      const { stdout } = await execFileAsync(
-        'ffprobe',
-        [
-          '-v', 'error',
-          '-show_entries', 'stream=codec_type,width,height',
-          '-show_entries', 'format=duration',
-          '-of', 'json',
-          filePath,
-        ],
-        { timeout: 15000, maxBuffer: 4 * 1024 * 1024 }
-      );
-
-      const probe = JSON.parse(stdout) as {
-        streams?: Array<{ codec_type?: string; width?: number; height?: number }>;
-        format?: { duration?: string };
-      };
-      const streams = Array.isArray(probe.streams) ? probe.streams : [];
-      const hasVideo = streams.some((s) => s?.codec_type === 'video');
-      const hasAudio = streams.some((s) => s?.codec_type === 'audio');
-      const duration = Number.parseFloat(probe.format?.duration || '0');
-
-      const videoStream = streams.find((s) => s?.codec_type === 'video');
-      const dims = videoStream && Number(videoStream.width) > 0 && Number(videoStream.height) > 0
-        ? { width: Number(videoStream.width), height: Number(videoStream.height) }
-        : null;
-      const problems: string[] = [];
-      if (!hasVideo) problems.push('no video stream');
-      if (options.expectDimensions && dims &&
-          (dims.width !== options.expectDimensions.width || dims.height !== options.expectDimensions.height)) {
-        problems.push(`frame size ${dims.width}x${dims.height} differs from requested ${options.expectDimensions.width}x${options.expectDimensions.height}`);
-      }
-      if (options.expectAudio && !hasAudio) problems.push('missing audio stream');
-      if (!Number.isFinite(duration) || duration <= 0) {
-        problems.push('unreadable duration');
-      } else if (Math.abs(duration - expectedDurationSec) > 0.5) {
-        problems.push(`duration ${duration.toFixed(2)}s differs from expected ${expectedDurationSec.toFixed(2)}s by more than 0.5s`);
-      }
-
-      if (problems.length > 0) {
-        const err = new Error(`Rendered output failed validation: ${problems.join('; ')}.`);
-        (err as any).code = 'OUTPUT_VALIDATION_FAILED';
-        throw err;
-      }
-      return dims;
-    } catch (err: any) {
-      if (err?.code === 'OUTPUT_VALIDATION_FAILED') throw err;
-      logger.warn(`[ClipRender] Output validation probe unavailable, accepting render without stream checks: ${err.message}`);
-      return null;
-    }
+    return validateOutputFile(filePath, expectedDurationSec, options);
   }
 
   /** Native frame size of the first video stream, or null when ffprobe is unavailable. */

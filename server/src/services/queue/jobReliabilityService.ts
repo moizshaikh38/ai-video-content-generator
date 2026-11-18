@@ -108,6 +108,7 @@ export class JobReliabilityService {
       'INVALID_STEP_STATE',
       'DELIVERABLE_MISSING',
       'OUTPUT_MISSING',
+      'OUTPUT_VALIDATION_FAILED',
       'CLIP_NOT_FOUND',
       'PROJECT_NOT_FOUND',
       'POST_NOT_FOUND',
