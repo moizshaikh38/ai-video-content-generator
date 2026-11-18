@@ -25,7 +25,7 @@ test('final presentation cannot discard explicit context after focus or policy f
  const region={start:0,end:2,x:0,y:.8,width:.15,height:.15,confidence:.95};
  for(const policy of[undefined,{defaultLayout:'auto' as const,allowed:['fit' as const]}]){
   const p=S.computeShotComposition({...opts(),pairFocusReview:true,protectedContentRegions:[region],layoutPolicy:policy})[0];
-  assert.ok(!p.split);const k=p.keyframes[0];assert.ok(k.centerX-p.windowW/2<=region.x);assert.ok(k.centerY+p.windowH/2>=region.y+region.height);assert.match(p.uncertainty!,/protected context/);
+  assert.ok(!p.split);const k=p.keyframes[0];assert.ok(k.centerX-p.windowW/2<=region.x);assert.ok(k.centerX+p.windowW/2>=region.x+region.width);assert.ok(k.centerY-p.windowH/2<=region.y);assert.ok(k.centerY+p.windowH/2>=region.y+region.height);assert.equal(p.presentationProtection?.preserveWindow,true);assert.equal(p.contextStatus,'unresolved-review-required');assert.match(p.uncertainty!,/unverified/);
  }
 });
 test('weak or out-of-shot context does not change accepted focus geometry',()=>{
