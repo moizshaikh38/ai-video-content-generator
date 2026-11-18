@@ -1,3 +1,4 @@
+import {CandidateReviewNotice} from './CandidateReviewNotice';
 import {freshCandidateSubtitle} from '../../../server/src/shared/freshClipPresentationDefaults';
 import {NEW_CAPTION_PRESET_ID} from '../../../server/src/shared/captionPresets';
 import {candidateRankingDisplay} from '../../../server/src/shared/candidateRankingDisplay';
@@ -1050,6 +1051,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                         })()}
                       </div>
 
+                      <CandidateReviewNotice candidate={activeCandidate}/>
                       {/* Per-Clip Subtitle Configuration */}
                       <div className="p-3 rounded-xl bg-black/40 border border-white/10 space-y-2">
                         <div className="flex items-center justify-between gap-3">
@@ -1305,6 +1307,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                         </div>
                       </div>
 
+                      <CandidateReviewNotice candidate={matchingCand}/>
                       {/* Title & Timing Info */}
                       <div>
                         <div className="flex items-center justify-between gap-2 mb-1">

@@ -1,0 +1,11 @@
+# Short-source fallback review handoff
+
+Existing GTA source is about12s against requested15-30s, selector returned no proposals, unranked transcript fallback only. HUD remains cropped. No highlight quality or Auto improvement claimed here.
+
+The candidate list already displayed Unranked, but selected candidate action panel omitted that status and fallback reason, and ready card retained only the badge. Shared fallback notice now remains next to candidate actions and ready output. It states no highlight proposals were returned, span is unranked, and action/captions/crop need review. New fallback candidates persist source duration and recognized preferred duration range as version1 selection_review_context. A shorter-source notice appears only with valid context; legacy records never acquire invented duration or preference facts. Other proposals and scores unchanged. No new clip selection, framing, captions, provider work or render behavior.
+
+Actual ClipWorkspace offline service harness inspected at /downloads/vireo-fallback-review-2145: candidate action and ready output screenshots, readable at1440x1100 browser viewport, reload check passes. Synthetic8s source context against15-30s preference, blank video intentional in fixture. This is UI communication proof, not new source upload/output visual quality or deployed-auth proof.
+
+Eight focused tests pass: notice/null/legacy/invalid-context controls plus real selector and repository persistence with a source-bound synthetic transcript, local HEAD server and empty proposal stub. The test verifies persisted context, unranked/null score and selection-source receipt. No external provider calls, media decode/download/render, or paid calls. Existing selectionFallbackIntegration test stops on source-binding guard on both current and unchanged72c68d3, not counted passed and no guard weakened. Frontend/server TypeScript clean.
+
+Scripts: server/scripts/local-qualification/fallback-review-ui.cjs NEW_DIR; harness-clipworkspace.html?fallback=1&ready=1. Unit/integration files candidateReviewNotice.test.ts, candidateReviewPersistence.test.ts, selectionFallback.test.ts. Source rights/privacy and main-release restrictions unchanged. Existing cropped HUD/unranked highlight quality gaps remain.

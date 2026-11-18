@@ -1,0 +1,14 @@
+{
+  "actualClipWorkspace": true,
+  "offlineServiceFixture": true,
+  "actualBackendPersistence": false,
+  "newRender": false,
+  "externalCalls": 0,
+  "paidCalls": 0,
+  "checks": [
+    "candidate action review notice",
+    "ready output review notice",
+    "reload candidate context"
+  ],
+  "errors": []
+}

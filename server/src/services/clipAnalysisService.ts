@@ -1,3 +1,4 @@
+import {shortSourceReviewContext} from '../shared/candidateReviewNotice.js';
 import {gamingGenreFromVisualReview} from '../shared/automaticGamingPanels.js';
 import {AppError} from '../types/index.js';
 import {transcriptContentIdentity} from '../shared/transcriptSourceBinding.js';
@@ -1166,6 +1167,7 @@ export class ClipAnalysisService {
           cold_open,
           metadata: {
             selection_origin: usedShortSourceFallback ? 'short-source-fallback' : 'provider-proposal',
+            ...(usedShortSourceFallback?{selection_review_context:shortSourceReviewContext(transcript.duration_seconds,normalizedPrefs.preferredDurations)}:{}),
             narrative_evidence_status: 'unreviewed',
             ranking_status: usedShortSourceFallback||scored.ranking_status==='insufficient-evidence' ? 'unranked' : 'heuristic',
             vireo_score: usedShortSourceFallback||scored.ranking_status==='insufficient-evidence' ? null : scored.vireo_score,

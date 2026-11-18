@@ -60,7 +60,8 @@ const mockTranscript: any = {
 (clipService as any).findMoments = async () => [];
 (clipService as any).analyzeClips = async () => ({ candidates: [mockCandidate] });
 (clipService as any).updateClipCandidateStatus = async () => mockCandidate;
-(clipRenderService as any).getProjectClips = async () => [];
+if(new URLSearchParams(location.search).get('fallback')==='1')mockCandidate.metadata.selection_review_context={version:1,source_duration_seconds:8,requested_duration_seconds:{min:15,max:30}};
+(clipRenderService as any).getProjectClips = async () => new URLSearchParams(location.search).get('ready')==='1'?[{id:'ready-1',project_id:'harness-project',candidate_id:mockCandidate.id,start_seconds:0,end_seconds:8,duration_seconds:8,render_status:'ready',aspect_ratio:'9:16',caption_style:'vireo_comic_default',caption_enabled:true,title:'Review output'}]:[];
 
 function Harness() {
   useEffect(() => {
