@@ -87,6 +87,7 @@ import { AudioDuckingService } from './audioDuckingService.js';
 import { SoundDesignService } from './soundDesignService.js';
 import { SmartReframeService } from './smartReframeService.js';
 import { partitionCaptionCues, shiftCaptionItemsForRippleDelete, cloneCaptionCuesForDuplicate } from '../utils/editorRippleCut.js';
+import { readBoundedAssetResponse, EDITOR_OVERLAY_TIMEOUT_MS } from '../utils/boundedAssetResponse.js';
 import { validateClientEditorSourcePath, validateEditorSourcePath, isAllowedEditorSourcePath, overlayAssetExtension } from '../utils/editorAssetValidator.js';
 import { roundedCardPng } from '../utils/roundedCardPng.js';
 import { getDrawtextFfmpeg } from '../utils/drawtextFfmpeg.js';
@@ -783,9 +784,10 @@ export class ProEditorService {
           if (!fs.existsSync(localCachePath)) {
             // Redirects are not followed: an allowlisted host must not be able
             // to bounce the server-side fetch onto an internal address.
-            const res = await fetch(rawPath, { headers: { 'User-Agent': 'VireoClip/1.0' }, redirect: 'manual' });
+            await validateEditorSourcePath(project.user_id, rawPath);
+            const res = await fetch(rawPath, { headers: { 'User-Agent': 'VireoClip/1.0' }, redirect: 'manual', signal: AbortSignal.timeout(EDITOR_OVERLAY_TIMEOUT_MS) });
             if (res.ok) {
-              const buf = Buffer.from(await res.arrayBuffer());
+              const buf = await readBoundedAssetResponse(res);
               fs.writeFileSync(localCachePath, buf);
               item.source_path = localCachePath;
             }

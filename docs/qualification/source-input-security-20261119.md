@@ -13,7 +13,8 @@ This is a local source-level check. No production deployment, private endpoint p
 
 ## Checks
 
-- 88 focused assertions pass across mapped-address, client file boundary, editor protocol/path, prior editor asset, encryption/billing configuration, provider-timing and transcript-review suites.
+- Overlay preloading no longer buffers an unbounded response. It rechecks current destination policy, keeps redirects disabled, uses a 10-second fetch/body abort signal, rejects oversized declared lengths, and enforces a 16 MiB cap on actual streamed bytes before writing a cache file. A rejected body does not publish partial bytes. Synthetic response-stream tests cover declared-length lies, chunked overflow, cancellation, empty bodies and stream errors. This does not pin DNS or establish actual CDN behavior.
+- 95 focused assertions pass across bounded-response, mapped-address, client file boundary, editor protocol/path, prior editor asset, encryption/billing configuration, provider-timing and transcript-review suites.
 - Both frontend and server TypeScript checks pass.
 - All added tests use synthetic strings and pure validation or pre-DNS direct-IP rejection. No request to private targets is made. Existing local-loopback validation test takes its documented development-only exemption.
 - These checks do not show exploitation, production configuration, runtime auth coverage, tenant isolation, DNS pinning or production readiness.
