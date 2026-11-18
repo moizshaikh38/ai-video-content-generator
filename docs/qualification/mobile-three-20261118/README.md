@@ -1,0 +1,7 @@
+# Actual mobile Three controls and compact summary
+
+390x844 actual EditorShell, real mobileFramingtools toggle thenlayoutmenuAuto/Four/Three. Fresh normal source analysis/controller, samegenuineApollotranscriptreuse, actual save/get, ordinary HTTP job completed/localstorageMP4. Nopaidcalls. Fullscope/caveats sameasmanual-three-caption-job-20261118.
+
+Found compactsummary saidFillwhile actualprotectedfull-sourceAutoFitwasrendered. It readbasecropmodeinstead of resolvedautomaticlayout. Fixed tousetheexistingautomaticlabelandaddReviewforunresolvedcontext. Freshactualscreenshotspixels inspected: AutoFit·Review; manualThree withactivehousecaptionatpanelseam. Geometryunchangedbylabelpatch.
+
+Initialmobileharnessusedhiddendesktoptoolbarandlaterlookedformanual-prioritytextinhiddentools. Correctedharnesstouserealmobiletoggleandvisiblecompactlabel. Failedrunsnotcountedaspasses. Finalruncomplete. FrontendTypeScriptclean.

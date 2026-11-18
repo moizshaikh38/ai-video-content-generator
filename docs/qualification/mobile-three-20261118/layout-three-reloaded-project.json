@@ -1,0 +1,590 @@
+{
+  "id": "f2f3f4b8-1414-4284-b7cc-e155b5cbd25d",
+  "user_id": "2797b13f-7a29-4377-a615-30c1ced97392",
+  "project_id": "651e9964-fdea-4c16-bd76-77d38b60e1b5",
+  "clip_id": "01cdf3fb-0bef-4e4a-92eb-3b6184382fe4",
+  "version": 3,
+  "status": "draft",
+  "title": "Editor: Untitled Clip",
+  "canvas": {
+    "width": 1080,
+    "height": 1920,
+    "aspect_ratio": "9:16",
+    "fps": 30,
+    "duration": 14.015,
+    "background_color": "#000000",
+    "background_mode": "color"
+  },
+  "tracks": [
+    {
+      "id": "d9a804ac-afd3-4ea0-83f7-8e1ac00372bc",
+      "type": "VIDEO",
+      "name": "Main Video",
+      "locked": false,
+      "muted": false,
+      "hidden": false,
+      "height": 64,
+      "items": [
+        {
+          "id": "0631b257-dbf1-44ce-8e32-cdc97107297c",
+          "track_id": "d9a804ac-afd3-4ea0-83f7-8e1ac00372bc",
+          "type": "VIDEO",
+          "source_asset_id": "01cdf3fb-0bef-4e4a-92eb-3b6184382fe4",
+          "source_path": "fixtures/651e9964-fdea-4c16-bd76-77d38b60e1b5/source.mp4",
+          "timeline_start": 0,
+          "timeline_end": 14.015,
+          "source_start": 0,
+          "source_end": 14.015,
+          "transform": {
+            "position_x": 0,
+            "position_y": 0,
+            "scale": 1,
+            "rotation": 0,
+            "opacity": 1
+          },
+          "layout_mode": "track",
+          "crop_config": {
+            "mode": "smart",
+            "layout_mode": "track",
+            "layout_mode_source": "auto"
+          },
+          "speed": {
+            "speed": 1,
+            "pitch_preserved": true
+          },
+          "audio": {
+            "volume": 1,
+            "fade_in": 0.15,
+            "fade_out": 0.25,
+            "normalized": true,
+            "target_lufs": -16
+          },
+          "effects": [],
+          "keyframes": [],
+          "locked": false,
+          "muted": false,
+          "hidden": false,
+          "z_index": 0,
+          "scene_layout_overrides": [
+            {
+              "start": 0,
+              "end": 14.015,
+              "layout": "three",
+              "patch": {
+                "panels": {
+                  "layout": "three",
+                  "slots": [
+                    {
+                      "fit": "contain",
+                      "focusX": 0.5,
+                      "focusY": 0.5,
+                      "scale": 1,
+                      "sourceRect": {
+                        "x": 0.19172899053627762,
+                        "y": 0.15959999999999996,
+                        "w": 0.1742820189274448,
+                        "h": 0.20462
+                      },
+                      "set": true
+                    },
+                    {
+                      "fit": "contain",
+                      "focusX": 0.5,
+                      "focusY": 0.5,
+                      "scale": 1,
+                      "sourceRect": {
+                        "x": 0.4725084779179811,
+                        "y": 0.13563999999999998,
+                        "w": 0.10335804416403788,
+                        "h": 0.24270000000000005
+                      },
+                      "set": true
+                    },
+                    {
+                      "fit": "contain",
+                      "focusX": 0.5,
+                      "focusY": 0.5,
+                      "scale": 1,
+                      "sourceRect": {
+                        "x": 0.7227300000000001,
+                        "y": 0.13696387037037033,
+                        "w": 0.10556500000000002,
+                        "h": 0.2478822592592593
+                      },
+                      "set": true
+                    }
+                  ]
+                },
+                "layout_mode": "track",
+                "crop_config": {
+                  "mode": "smart",
+                  "layout_mode_source": "user",
+                  "layout_mode": "track"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "c94315c4-758f-4e7d-b3ca-5f3c8a78b3d8",
+      "type": "TEXT",
+      "name": "Text & Titles",
+      "locked": false,
+      "muted": false,
+      "hidden": false,
+      "height": 48,
+      "items": []
+    },
+    {
+      "id": "256ac61e-566d-4fd2-b755-672fc9431b02",
+      "type": "CAPTION",
+      "name": "Subtitles",
+      "locked": false,
+      "muted": false,
+      "hidden": false,
+      "height": 48,
+      "items": [
+        {
+          "id": "9d94faec-e257-446e-a80a-4a23497b8fec",
+          "track_id": "256ac61e-566d-4fd2-b755-672fc9431b02",
+          "type": "CAPTION",
+          "timeline_start": 0,
+          "timeline_end": 14.015,
+          "source_start": 0,
+          "source_end": 14.015,
+          "transform": {
+            "position_x": 0,
+            "position_y": 500,
+            "scale": 1,
+            "rotation": 0,
+            "opacity": 1
+          },
+          "speed": {
+            "speed": 1,
+            "pitch_preserved": true
+          },
+          "caption": {
+            "cues": [
+              {
+                "id": "cue-1",
+                "start": 0.66,
+                "end": 1.1,
+                "text": "WELL,",
+                "words": [
+                  {
+                    "text": "WELL,",
+                    "start": 0.66,
+                    "end": 1.1
+                  }
+                ],
+                "tokens": [
+                  {
+                    "text": "WELL,",
+                    "start": 0.66,
+                    "end": 1.1
+                  }
+                ]
+              },
+              {
+                "id": "cue-2",
+                "start": 1.1,
+                "end": 1.72,
+                "text": "AT THE...",
+                "words": [
+                  {
+                    "text": "AT",
+                    "start": 1.1,
+                    "end": 1.22
+                  },
+                  {
+                    "text": "THE...",
+                    "start": 1.22,
+                    "end": 1.72
+                  }
+                ],
+                "tokens": [
+                  {
+                    "text": "AT",
+                    "start": 1.1,
+                    "end": 1.22
+                  },
+                  {
+                    "text": "THE...",
+                    "start": 1.22,
+                    "end": 1.72
+                  }
+                ]
+              },
+              {
+                "id": "cue-3",
+                "start": 2.41,
+                "end": 3.27,
+                "text": "STATES THAT WERE",
+                "words": [
+                  {
+                    "text": "STATES",
+                    "start": 2.41,
+                    "end": 2.85
+                  },
+                  {
+                    "text": "THAT",
+                    "start": 2.85,
+                    "end": 3.05
+                  },
+                  {
+                    "text": "WERE",
+                    "start": 3.05,
+                    "end": 3.27
+                  }
+                ],
+                "tokens": [
+                  {
+                    "text": "STATES",
+                    "start": 2.41,
+                    "end": 2.85
+                  },
+                  {
+                    "text": "THAT",
+                    "start": 2.85,
+                    "end": 3.05
+                  },
+                  {
+                    "text": "WERE",
+                    "start": 3.05,
+                    "end": 3.27
+                  }
+                ]
+              },
+              {
+                "id": "cue-4",
+                "start": 3.81,
+                "end": 4.33,
+                "text": "AT THAT RATE",
+                "words": [
+                  {
+                    "text": "AT",
+                    "start": 3.81,
+                    "end": 4.07
+                  },
+                  {
+                    "text": "THAT",
+                    "start": 4.07,
+                    "end": 4.21
+                  },
+                  {
+                    "text": "RATE",
+                    "start": 4.21,
+                    "end": 4.33
+                  }
+                ],
+                "tokens": [
+                  {
+                    "text": "AT",
+                    "start": 3.81,
+                    "end": 4.07
+                  },
+                  {
+                    "text": "THAT",
+                    "start": 4.07,
+                    "end": 4.21
+                  },
+                  {
+                    "text": "RATE",
+                    "start": 4.21,
+                    "end": 4.33
+                  }
+                ]
+              },
+              {
+                "id": "cue-5",
+                "start": 4.33,
+                "end": 4.75,
+                "text": "NOW,",
+                "words": [
+                  {
+                    "text": "NOW,",
+                    "start": 4.33,
+                    "end": 4.75
+                  }
+                ],
+                "tokens": [
+                  {
+                    "text": "NOW,",
+                    "start": 4.33,
+                    "end": 4.75
+                  }
+                ]
+              },
+              {
+                "id": "cue-6",
+                "start": 4.75,
+                "end": 5.23,
+                "text": "I THINK THEY'RE",
+                "words": [
+                  {
+                    "text": "I",
+                    "start": 4.75,
+                    "end": 4.79
+                  },
+                  {
+                    "text": "THINK",
+                    "start": 4.79,
+                    "end": 5.01
+                  },
+                  {
+                    "text": "THEY'RE",
+                    "start": 5.01,
+                    "end": 5.23
+                  }
+                ],
+                "tokens": [
+                  {
+                    "text": "I",
+                    "start": 4.75,
+                    "end": 4.79
+                  },
+                  {
+                    "text": "THINK",
+                    "start": 4.79,
+                    "end": 5.01
+                  },
+                  {
+                    "text": "THEY'RE",
+                    "start": 5.01,
+                    "end": 5.23
+                  }
+                ]
+              },
+              {
+                "id": "cue-7",
+                "start": 5.23,
+                "end": 6.15,
+                "text": "NOT VERY\\NINTERCHANGEABLE.",
+                "words": [
+                  {
+                    "text": "NOT",
+                    "start": 5.23,
+                    "end": 5.39
+                  },
+                  {
+                    "text": "VERY",
+                    "start": 5.39,
+                    "end": 5.71
+                  },
+                  {
+                    "text": "INTERCHANGEABLE.",
+                    "start": 5.71,
+                    "end": 6.15
+                  }
+                ],
+                "tokens": [
+                  {
+                    "text": "NOT",
+                    "start": 5.23,
+                    "end": 5.39
+                  },
+                  {
+                    "text": "VERY",
+                    "start": 5.39,
+                    "end": 5.71
+                  },
+                  {
+                    "text": "INTERCHANGEABLE.",
+                    "start": 5.71,
+                    "end": 6.15
+                  }
+                ]
+              },
+              {
+                "id": "cue-8",
+                "start": 7.67,
+                "end": 8.31,
+                "text": "UH...",
+                "words": [
+                  {
+                    "text": "UH...",
+                    "start": 7.67,
+                    "end": 8.31
+                  }
+                ],
+                "tokens": [
+                  {
+                    "text": "UH...",
+                    "start": 7.67,
+                    "end": 8.31
+                  }
+                ]
+              },
+              {
+                "id": "cue-9",
+                "start": 10.28,
+                "end": 11.36,
+                "text": "PRIOR TO MY",
+                "words": [
+                  {
+                    "text": "PRIOR",
+                    "start": 10.28,
+                    "end": 10.6
+                  },
+                  {
+                    "text": "TO",
+                    "start": 10.6,
+                    "end": 10.94
+                  },
+                  {
+                    "text": "MY",
+                    "start": 10.94,
+                    "end": 11.36
+                  }
+                ],
+                "tokens": [
+                  {
+                    "text": "PRIOR",
+                    "start": 10.28,
+                    "end": 10.6
+                  },
+                  {
+                    "text": "TO",
+                    "start": 10.6,
+                    "end": 10.94
+                  },
+                  {
+                    "text": "MY",
+                    "start": 10.94,
+                    "end": 11.36
+                  }
+                ]
+              },
+              {
+                "id": "cue-10",
+                "start": 11.36,
+                "end": 12.34,
+                "text": "ASSIGNMENT\\NAS BACKUP",
+                "words": [
+                  {
+                    "text": "ASSIGNMENT",
+                    "start": 11.36,
+                    "end": 11.8
+                  },
+                  {
+                    "text": "AS",
+                    "start": 11.8,
+                    "end": 12
+                  },
+                  {
+                    "text": "BACKUP",
+                    "start": 12,
+                    "end": 12.34
+                  }
+                ],
+                "tokens": [
+                  {
+                    "text": "ASSIGNMENT",
+                    "start": 11.36,
+                    "end": 11.8
+                  },
+                  {
+                    "text": "AS",
+                    "start": 11.8,
+                    "end": 12
+                  },
+                  {
+                    "text": "BACKUP",
+                    "start": 12,
+                    "end": 12.34
+                  }
+                ]
+              },
+              {
+                "id": "cue-11",
+                "start": 12.34,
+                "end": 13.82,
+                "text": "COMMAND\\NMODULE PILOT",
+                "words": [
+                  {
+                    "text": "COMMAND",
+                    "start": 12.34,
+                    "end": 13.12
+                  },
+                  {
+                    "text": "MODULE",
+                    "start": 13.12,
+                    "end": 13.44
+                  },
+                  {
+                    "text": "PILOT",
+                    "start": 13.44,
+                    "end": 13.82
+                  }
+                ],
+                "tokens": [
+                  {
+                    "text": "COMMAND",
+                    "start": 12.34,
+                    "end": 13.12
+                  },
+                  {
+                    "text": "MODULE",
+                    "start": 13.12,
+                    "end": 13.44
+                  },
+                  {
+                    "text": "PILOT",
+                    "start": 13.44,
+                    "end": 13.82
+                  }
+                ]
+              },
+              {
+                "id": "cue-12",
+                "start": 13.82,
+                "end": 13.98,
+                "text": "ON.",
+                "words": [
+                  {
+                    "text": "ON.",
+                    "start": 13.82,
+                    "end": 13.98
+                  }
+                ],
+                "tokens": [
+                  {
+                    "text": "ON.",
+                    "start": 13.82,
+                    "end": 13.98
+                  }
+                ]
+              }
+            ],
+            "cues_covered_end": 14.015,
+            "style": "vireo_comic_default",
+            "position": "bottom",
+            "primary_color": "#FFFFFF",
+            "highlight_color": "#20FF35",
+            "animation": "none"
+          },
+          "effects": [],
+          "keyframes": [],
+          "locked": false,
+          "muted": true,
+          "hidden": false,
+          "z_index": 20
+        }
+      ]
+    }
+  ],
+  "playhead": 0,
+  "settings": {
+    "snapping": true,
+    "safe_guides": true,
+    "snap_tolerance_sec": 0.15,
+    "show_safe_zones": true
+  },
+  "producer_plan_id": null,
+  "output_storage_path": null,
+  "preview_video_url": null,
+  "created_at": "2026-11-18T13:38:43.188Z",
+  "updated_at": "2026-11-18T13:39:04.871Z"
+}

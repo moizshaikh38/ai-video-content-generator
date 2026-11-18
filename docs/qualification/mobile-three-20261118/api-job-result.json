@@ -1,0 +1,101 @@
+{
+  "job": {
+    "_id": "6afdaa7bdb4b049354c1608b",
+    "clip_id": "01cdf3fb-0bef-4e4a-92eb-3b6184382fe4",
+    "user_id": "2797b13f-7a29-4377-a615-30c1ced97392",
+    "status": "completed",
+    "progress": 100,
+    "stage": "completed",
+    "attempts": 2,
+    "id": "27810021-ec5b-430a-9ba3-b015d465a995",
+    "created_at": "2026-11-18T13:39:07.802Z",
+    "updated_at": "2026-11-18T13:39:10.807Z",
+    "locked_at": "2026-11-18T13:39:07.811Z",
+    "started_at": "2026-11-18T13:39:07.848Z",
+    "worker_id": "worker_357154_edca87ae",
+    "completed_at": "2026-11-18T13:39:10.807Z"
+  },
+  "clip": {
+    "_id": "6afdaa5cdb4b049354c16088",
+    "id": "01cdf3fb-0bef-4e4a-92eb-3b6184382fe4",
+    "user_id": "2797b13f-7a29-4377-a615-30c1ced97392",
+    "project_id": "651e9964-fdea-4c16-bd76-77d38b60e1b5",
+    "source_storage_path": "fixtures/651e9964-fdea-4c16-bd76-77d38b60e1b5/source.mp4",
+    "start_seconds": 0,
+    "end_seconds": 14.015,
+    "aspect_ratio": "9:16",
+    "caption_enabled": true,
+    "caption_style": "vireo_comic_default",
+    "render_resolution": "720p",
+    "volume": 1,
+    "crop_config": {
+      "mode": "smart",
+      "layout_mode": "track",
+      "layout_mode_source": "auto"
+    },
+    "selection_source_receipt": {
+      "version": 1,
+      "source_key": "fixtures/651e9964-fdea-4c16-bd76-77d38b60e1b5/source.mp4",
+      "source_receipt": {
+        "key": "fixtures/651e9964-fdea-4c16-bd76-77d38b60e1b5/source.mp4",
+        "size": 4374778,
+        "etag": "\"d53093a20c24b1bff5d81b3fbb54c0516cff79f400c56b5699e4c6ff505121a3\"",
+        "sha256": "d53093a20c24b1bff5d81b3fbb54c0516cff79f400c56b5699e4c6ff505121a3"
+      },
+      "transcript_content_sha256": "798a3ce59fb7db2fdc3cd6370531c32228192ffb8edbdaf9bdf41e18e665f9b9"
+    },
+    "render_error_message": null,
+    "render_status": "ready",
+    "render_version": 1,
+    "updated_at": "2026-11-18T13:39:10.805Z",
+    "encoded_audio_review": {
+      "version": 1,
+      "basis": "encoded-output-ebur128",
+      "status": "measured",
+      "integrated_lufs": -16,
+      "true_peak_dbtp": -5.4,
+      "loudness_range_lu": 8.4,
+      "issues": [],
+      "listening_verified": false
+    },
+    "is_watermarked": false,
+    "output_object_key": "users/2797b13f-7a29-4377-a615-30c1ced97392/projects/651e9964-fdea-4c16-bd76-77d38b60e1b5/clips/01cdf3fb-0bef-4e4a-92eb-3b6184382fe4/v1/render.mp4",
+    "output_storage_path": "users/2797b13f-7a29-4377-a615-30c1ced97392/projects/651e9964-fdea-4c16-bd76-77d38b60e1b5/clips/01cdf3fb-0bef-4e4a-92eb-3b6184382fe4/v1/render.mp4",
+    "reframe_metadata": {
+      "layout_mode": "track",
+      "shot_composition_candidate": true,
+      "automatic_plan_identity": {
+        "schemaVersion": 1,
+        "itemId": "01cdf3fb-0bef-4e4a-92eb-3b6184382fe4",
+        "sourceAssetId": "01cdf3fb-0bef-4e4a-92eb-3b6184382fe4",
+        "sourceVersion": "d53093a20c24b1bff5d81b3fbb54c0516cff79f400c56b5699e4c6ff505121a3",
+        "analysisVersion": 1,
+        "sourceStart": 0,
+        "sourceEnd": 14.015,
+        "analysisSourceStart": 0,
+        "analysisSourceEnd": 14.015,
+        "analysisDuration": 14.015,
+        "sourceWidth": 634,
+        "sourceHeight": 480,
+        "outputAspect": "9:16",
+        "configurationFingerprint": "f5b9bcc485ecfdd2a92b8e65ce9a959c8b5cc458c61e2b7e1958f07a5774bdb6"
+      }
+    },
+    "reframe_mode": "smart",
+    "render_error_code": null,
+    "render_output_height": 1280,
+    "render_output_width": 720,
+    "render_resolution_effective": "720p",
+    "render_resolution_note": "Source is 634x480. This 720p (720x1280) export is interpolated about 2.67x from the source crop, so it has the requested size but not native detail.",
+    "render_resolution_requested": "720p",
+    "render_source_height": 480,
+    "render_source_width": 634,
+    "render_upscale_factor": 2.667,
+    "poster_key": "users/2797b13f-7a29-4377-a615-30c1ced97392/projects/651e9964-fdea-4c16-bd76-77d38b60e1b5/clips/01cdf3fb-0bef-4e4a-92eb-3b6184382fe4/poster/render-v1.jpg"
+  },
+  "actualHttpRoute": true,
+  "authFixture": true,
+  "localObjectStorage": true,
+  "captions": true,
+  "notUploadOrGenreAutoProof": true
+}

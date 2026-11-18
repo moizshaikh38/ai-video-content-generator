@@ -1,0 +1,51 @@
+{
+  "offlineOnly": true,
+  "learnedWeights": false,
+  "noActivation": true,
+  "source": "/downloads/vireo-apollo-three-caption-job-1958/verified-source.mp4",
+  "sampleFrames": 350,
+  "seconds": 14.0,
+  "mouthScores": {
+    "exact": {
+      "subject_1": 0.06927612943766284,
+      "subject_2": 0.32216956657833096,
+      "subject_3": 0.11505794326249386
+    },
+    "wrong_source": {
+      "subject_1": -0.1226319826631679,
+      "subject_2": 0.08507641443323478,
+      "subject_3": -0.11217218142215785
+    },
+    "reversed_audio": {
+      "subject_1": 0.14163250785204418,
+      "subject_2": 0.4356889710284327,
+      "subject_3": 0.08696338732509289
+    },
+    "shift_2s": {
+      "subject_1": 0.3349309593187748,
+      "subject_2": -0.19180987303393077,
+      "subject_3": 0.2739157445144124
+    },
+    "shift_5s": {
+      "subject_1": -0.16491712052033303,
+      "subject_2": 0.21553814921185252,
+      "subject_3": 0.21851481344486184
+    },
+    "mute": {
+      "subject_1": 0,
+      "subject_2": 0,
+      "subject_3": 0
+    }
+  },
+  "upperFaceExactScores": {
+    "subject_1": 0.14320779016668111,
+    "subject_2": 0.3219898373680295,
+    "subject_3": 0.18724279642280858
+  },
+  "limits": [
+    "energy correlation is not speech identity",
+    "head and expression motion can correlate",
+    "wrong-audio comparisons must be separated",
+    "no speaker accuracy label or production integration"
+  ]
+}

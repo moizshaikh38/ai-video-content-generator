@@ -1,0 +1,58 @@
+{
+  "offlineOnly": true,
+  "learnedWeights": false,
+  "noActivation": true,
+  "source": "/downloads/vireo-natural-four-manual-saved-1914/verified-source.mp4",
+  "sampleFrames": 350,
+  "seconds": 14.0,
+  "mouthScores": {
+    "exact": {
+      "subject_1": -0.07969694583445425,
+      "subject_2": 0.1106432183331979,
+      "subject_3": 0.0046029290442618255,
+      "subject_4": 0.30633647797366903
+    },
+    "wrong_source": {
+      "subject_1": 0.0893733091448996,
+      "subject_2": 0.1645610508039071,
+      "subject_3": 0.0035366856889264536,
+      "subject_4": 0.2036707850510625
+    },
+    "reversed_audio": {
+      "subject_1": 0.02730582835846014,
+      "subject_2": 0.1001024106352973,
+      "subject_3": 0.02910644925851626,
+      "subject_4": 0.19958402730691374
+    },
+    "shift_2s": {
+      "subject_1": 0.16148475388028788,
+      "subject_2": -0.06202040944888919,
+      "subject_3": 0.05416308530770905,
+      "subject_4": 0.13565058436805358
+    },
+    "shift_5s": {
+      "subject_1": 0.17140531462121186,
+      "subject_2": -0.010023405040099428,
+      "subject_3": -0.05523281457605887,
+      "subject_4": 0.0911908967786953
+    },
+    "mute": {
+      "subject_1": 0,
+      "subject_2": 0,
+      "subject_3": 0,
+      "subject_4": 0
+    }
+  },
+  "upperFaceExactScores": {
+    "subject_1": 0.0021769768160269957,
+    "subject_2": 0.0427696827078316,
+    "subject_3": 0.040101952525894276,
+    "subject_4": 0.22537535146751897
+  },
+  "limits": [
+    "energy correlation is not speech identity",
+    "head and expression motion can correlate",
+    "wrong-audio comparisons must be separated",
+    "no speaker accuracy label or production integration"
+  ]
+}
