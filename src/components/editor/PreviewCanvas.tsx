@@ -1110,7 +1110,6 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // Quick alignment / reset handlers with scope support
   const handleResetPosition = (target: 'top' | 'center' | 'safe' | 'reset') => {
     if (!onUpdateCaptionPosition || !captionItem) return;
-    const preProject = JSON.parse(JSON.stringify(projectRef.current));
     let nextX = 0.5;
     let nextY = 0.667;
     if (target === 'top') {
@@ -1136,9 +1135,6 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     }
 
     onUpdateCaptionPosition(payload, { recordHistory: true, markAsDirty: true });
-    if (onCommitProject) {
-      onCommitProject(preProject);
-    }
   };
 
   // Keyboard accessibility for fine arrow key nudging (0.005, 0.025 with Shift)
@@ -1171,7 +1167,6 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
         if (e.key === 'ArrowLeft') nextX = Math.max(0.08, nextX - step);
         if (e.key === 'ArrowRight') nextX = Math.min(0.92, nextX + step);
 
-        const preProject = JSON.parse(JSON.stringify(projectRef.current));
         onUpdateCaptionPosition(
           {
             x: Number(nextX.toFixed(3)),
@@ -1180,9 +1175,6 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           },
           { recordHistory: true, markAsDirty: true }
         );
-        if (onCommitProject) {
-          onCommitProject(preProject);
-        }
       }
     };
 
@@ -2340,7 +2332,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
 
             {/* FLOATING SCOPE PILL & QUICK PRESETS MICRO-BAR */}
             {isCaptionSelected && !isDraggingCaption && viewMode === 'edit' && (
-              <div onPointerDown={e=>e.stopPropagation()} className="absolute top-3 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 glass-overlay rounded-xl px-2 py-1 shadow-2xl animate-fadeIn select-none whitespace-nowrap">
+              <div onPointerDown={e=>e.stopPropagation()} className="absolute top-3 left-1/2 -translate-x-1/2 z-40 flex flex-wrap justify-center items-center gap-1.5 glass-overlay rounded-xl px-2 py-1 shadow-2xl animate-fadeIn select-none whitespace-nowrap w-max max-w-[calc(100%-16px)]">
                 {/* Scope Toggle */}
                 <div className="flex items-center bg-black/60 rounded-lg p-0.5 ">
                   <button
@@ -2387,7 +2379,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 {captionScope === 'cue' && activeCue && (
                   <button type="button" title="Remove this cue's manual position and inherit track or scene placement"
                     className="px-2 py-0.5 rounded text-[10px] font-medium text-neutral-300 hover:text-white hover:bg-neutral-800 transition cursor-pointer"
-                    onClick={e=>{e.stopPropagation();if(!onUpdateCaptionPosition)return;const before=JSON.parse(JSON.stringify(projectRef.current));onUpdateCaptionPosition({cueId:activeCue.id,resetCuePosition:true},{recordHistory:true,markAsDirty:true});onCommitProject?.(before);}}>
+                    onClick={e=>{e.stopPropagation();if(!onUpdateCaptionPosition)return;onUpdateCaptionPosition({cueId:activeCue.id,resetCuePosition:true},{recordHistory:true,markAsDirty:true});}}>
                     Inherit Position
                   </button>
                 )}
@@ -2400,7 +2392,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     handleResetPosition('top');
                   }}
                   title="Align to Safe Top (20%)"
-                  className="px-2 py-0.5 rounded text-[10px] font-medium text-neutral-300 hover:text-white hover:bg-neutral-800 transition cursor-pointer"
+                  aria-pressed={Math.abs(effectiveCaptionCoords.y-.2)<.002 && Math.abs(effectiveCaptionCoords.x-.5)<.002}
+                  className={`px-2 py-0.5 rounded text-[10px] font-medium transition cursor-pointer ${Math.abs(effectiveCaptionCoords.y-.2)<.002 && Math.abs(effectiveCaptionCoords.x-.5)<.002 ? 'bg-white/20 text-white ring-1 ring-white/30' : 'text-neutral-300 hover:text-white hover:bg-neutral-800'}`}
                 >
                   Top (20%)
                 </button>
@@ -2411,7 +2404,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     handleResetPosition('center');
                   }}
                   title="Align to Horizontal & Vertical Center (50%)"
-                  className="px-2 py-0.5 rounded text-[10px] font-medium text-neutral-300 hover:text-white hover:bg-neutral-800 transition cursor-pointer"
+                  aria-pressed={Math.abs(effectiveCaptionCoords.y-.5)<.002 && Math.abs(effectiveCaptionCoords.x-.5)<.002}
+                  className={`px-2 py-0.5 rounded text-[10px] font-medium transition cursor-pointer ${Math.abs(effectiveCaptionCoords.y-.5)<.002 && Math.abs(effectiveCaptionCoords.x-.5)<.002 ? 'bg-white/20 text-white ring-1 ring-white/30' : 'text-neutral-300 hover:text-white hover:bg-neutral-800'}`}
                 >
                   Center (50%)
                 </button>
@@ -2422,7 +2416,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     handleResetPosition('safe');
                   }}
                   title="Snap to Safe Bottom (75%)"
-                  className="px-2 py-0.5 rounded text-[10px] font-medium text-emerald-300 hover:text-emerald-200 hover:bg-emerald-950/40 border border-emerald-500/30 transition cursor-pointer"
+                  aria-pressed={Math.abs(effectiveCaptionCoords.y-.75)<.002 && Math.abs(effectiveCaptionCoords.x-.5)<.002}
+                  className={`px-2 py-0.5 rounded text-[10px] font-medium transition cursor-pointer ${Math.abs(effectiveCaptionCoords.y-.75)<.002 && Math.abs(effectiveCaptionCoords.x-.5)<.002 ? 'bg-white/20 text-white ring-1 ring-white/30' : 'text-neutral-300 hover:text-white hover:bg-neutral-800'}`}
                 >
                   Bottom Safe (75%)
                 </button>

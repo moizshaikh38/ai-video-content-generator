@@ -1,0 +1,20 @@
+{
+  "actualEditorShell": true,
+  "actualProjectHistoryAutosaveHooks": true,
+  "offlineServices": true,
+  "externalRequestsForbidden": true,
+  "heavyRender": false,
+  "paidCalls": 0,
+  "checks": [
+    "cue top undo redo",
+    "inherit undo redo",
+    "history stack exhausts",
+    "drag one undo and redo",
+    "new edit clears redo",
+    "keyboard nudge undo redo",
+    "layout Four undo redo",
+    "save local boundary and page reload",
+    "cue state resync"
+  ],
+  "errors": []
+}

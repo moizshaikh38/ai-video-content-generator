@@ -1,0 +1,1466 @@
+{
+  "project": {
+    "id": "92992f76-8a31-4eec-ac4a-a1c81a547aa0",
+    "user_id": "05b2d262-c856-4722-b996-0b085601ba9a",
+    "project_id": "50f77d13-13e5-4cd0-b382-666aa55cb7e5",
+    "clip_id": "c4aa9901-030e-4136-b955-56e1b7d10c52",
+    "version": 1,
+    "status": "draft",
+    "title": "Editor: Untitled Clip",
+    "canvas": {
+      "width": 1080,
+      "height": 1920,
+      "aspect_ratio": "9:16",
+      "fps": 30,
+      "duration": 14.014,
+      "background_color": "#000000",
+      "background_mode": "color"
+    },
+    "tracks": [
+      {
+        "id": "e4c6e52f-ba0e-41e8-a465-7dd7cca79b6a",
+        "type": "VIDEO",
+        "name": "Main Video",
+        "locked": false,
+        "muted": false,
+        "hidden": false,
+        "height": 64,
+        "items": [
+          {
+            "id": "f0cc5cad-db23-43a3-a430-f16bdb69e15d",
+            "track_id": "e4c6e52f-ba0e-41e8-a465-7dd7cca79b6a",
+            "type": "VIDEO",
+            "source_asset_id": "c4aa9901-030e-4136-b955-56e1b7d10c52",
+            "source_path": "fixtures/50f77d13-13e5-4cd0-b382-666aa55cb7e5/source.mp4",
+            "timeline_start": 0,
+            "timeline_end": 14.014,
+            "source_start": 0,
+            "source_end": 14.014,
+            "transform": {
+              "position_x": 0,
+              "position_y": 0,
+              "scale": 1,
+              "rotation": 0,
+              "opacity": 1
+            },
+            "layout_mode": "track",
+            "crop_config": {
+              "mode": "smart",
+              "layout_mode": "track",
+              "layout_mode_source": "auto"
+            },
+            "speed": {
+              "speed": 1,
+              "pitch_preserved": true
+            },
+            "audio": {
+              "volume": 1,
+              "fade_in": 0.15,
+              "fade_out": 0.25,
+              "normalized": true,
+              "target_lufs": -16
+            },
+            "effects": [],
+            "keyframes": [],
+            "locked": false,
+            "muted": false,
+            "hidden": false,
+            "z_index": 0,
+            "scene_layout_overrides": [
+              {
+                "start": 0,
+                "end": 7.007,
+                "layout": "four",
+                "patch": {
+                  "panels": {
+                    "layout": "four",
+                    "slots": [
+                      {
+                        "fit": "contain",
+                        "focusX": 0.5,
+                        "focusY": 0.5,
+                        "scale": 1,
+                        "sourceRect": {
+                          "x": 0.15844000000000003,
+                          "y": 0.11068622222222224,
+                          "w": 0.09621999999999997,
+                          "h": 0.30362755555555543
+                        },
+                        "set": true
+                      },
+                      {
+                        "fit": "contain",
+                        "focusX": 0.5,
+                        "focusY": 0.5,
+                        "scale": 1,
+                        "sourceRect": {
+                          "x": 0.391705,
+                          "y": 0.20419999999999996,
+                          "w": 0.07348999999999994,
+                          "h": 0.23190177777777762
+                        },
+                        "set": true
+                      },
+                      {
+                        "fit": "contain",
+                        "focusX": 0.5,
+                        "focusY": 0.5,
+                        "scale": 1,
+                        "sourceRect": {
+                          "x": 0.5603600000000001,
+                          "y": 0.18581999999999999,
+                          "w": 0.08587999999999985,
+                          "h": 0.2709991111111106
+                        },
+                        "set": true
+                      },
+                      {
+                        "fit": "contain",
+                        "focusX": 0.5,
+                        "focusY": 0.5,
+                        "scale": 1,
+                        "sourceRect": {
+                          "x": 0.74675,
+                          "y": 0.21575999999999998,
+                          "w": 0.07929999999999993,
+                          "h": 0.2502355555555553
+                        },
+                        "set": true
+                      }
+                    ]
+                  },
+                  "layout_mode": "track",
+                  "crop_config": {
+                    "mode": "smart",
+                    "layout_mode": "track",
+                    "layout_mode_source": "user"
+                  }
+                }
+              },
+              {
+                "start": 7.007,
+                "end": 14.014,
+                "layout": "blur",
+                "patch": {
+                  "crop": {
+                    "mode": "blur",
+                    "choice": "blur",
+                    "band": "4:3",
+                    "focusX": 0.5,
+                    "focusY": 0.5,
+                    "scale": 1
+                  },
+                  "layout_mode": "track",
+                  "crop_config": {
+                    "mode": "smart",
+                    "layout_mode": "track",
+                    "layout_mode_source": "user"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "1ecee18e-c5e8-4f9c-b956-b47705e750ad",
+        "type": "TEXT",
+        "name": "Text & Titles",
+        "locked": false,
+        "muted": false,
+        "hidden": false,
+        "height": 48,
+        "items": []
+      },
+      {
+        "id": "feab83f0-2ba1-4564-8059-bfdf18f3d670",
+        "type": "CAPTION",
+        "name": "Subtitles",
+        "locked": false,
+        "muted": false,
+        "hidden": false,
+        "height": 48,
+        "items": [
+          {
+            "id": "3da8ac0b-abc4-455e-a7e2-cf66caf0fb53",
+            "track_id": "feab83f0-2ba1-4564-8059-bfdf18f3d670",
+            "type": "CAPTION",
+            "timeline_start": 0,
+            "timeline_end": 14.014,
+            "source_start": 0,
+            "source_end": 14.014,
+            "transform": {
+              "position_x": 0,
+              "position_y": 500,
+              "scale": 1,
+              "rotation": 0,
+              "opacity": 1
+            },
+            "speed": {
+              "speed": 1,
+              "pitch_preserved": true
+            },
+            "caption": {
+              "cues": [
+                {
+                  "id": "cue-1",
+                  "start": 0,
+                  "end": 1.18,
+                  "text": "LAST YEAR.",
+                  "words": [
+                    {
+                      "text": "LAST",
+                      "start": 0,
+                      "end": 0.6
+                    },
+                    {
+                      "text": "YEAR.",
+                      "start": 0.6,
+                      "end": 1.18
+                    }
+                  ],
+                  "tokens": [
+                    {
+                      "text": "LAST",
+                      "start": 0,
+                      "end": 0.6
+                    },
+                    {
+                      "text": "YEAR.",
+                      "start": 0.6,
+                      "end": 1.18
+                    }
+                  ],
+                  "position_x": 0.5,
+                  "position_y": 0.705
+                },
+                {
+                  "id": "cue-2",
+                  "start": 1.26,
+                  "end": 2.72,
+                  "text": "AS PART OF",
+                  "words": [
+                    {
+                      "text": "AS",
+                      "start": 1.26,
+                      "end": 2.06
+                    },
+                    {
+                      "text": "PART",
+                      "start": 2.06,
+                      "end": 2.6
+                    },
+                    {
+                      "text": "OF",
+                      "start": 2.6,
+                      "end": 2.72
+                    }
+                  ],
+                  "tokens": [
+                    {
+                      "text": "AS",
+                      "start": 1.26,
+                      "end": 2.06
+                    },
+                    {
+                      "text": "PART",
+                      "start": 2.06,
+                      "end": 2.6
+                    },
+                    {
+                      "text": "OF",
+                      "start": 2.6,
+                      "end": 2.72
+                    }
+                  ]
+                },
+                {
+                  "id": "cue-3",
+                  "start": 2.72,
+                  "end": 3.76,
+                  "text": "THE DEMONSTRATION\\NMISSION",
+                  "words": [
+                    {
+                      "text": "THE",
+                      "start": 2.72,
+                      "end": 2.8
+                    },
+                    {
+                      "text": "DEMONSTRATION",
+                      "start": 2.8,
+                      "end": 3.24
+                    },
+                    {
+                      "text": "MISSION",
+                      "start": 3.24,
+                      "end": 3.76
+                    }
+                  ],
+                  "tokens": [
+                    {
+                      "text": "THE",
+                      "start": 2.72,
+                      "end": 2.8
+                    },
+                    {
+                      "text": "DEMONSTRATION",
+                      "start": 2.8,
+                      "end": 3.24
+                    },
+                    {
+                      "text": "MISSION",
+                      "start": 3.24,
+                      "end": 3.76
+                    }
+                  ]
+                },
+                {
+                  "id": "cue-4",
+                  "start": 3.76,
+                  "end": 4.64,
+                  "text": "AND HAPPENED TO",
+                  "words": [
+                    {
+                      "text": "AND",
+                      "start": 3.76,
+                      "end": 4.14
+                    },
+                    {
+                      "text": "HAPPENED",
+                      "start": 4.14,
+                      "end": 4.5
+                    },
+                    {
+                      "text": "TO",
+                      "start": 4.5,
+                      "end": 4.64
+                    }
+                  ],
+                  "tokens": [
+                    {
+                      "text": "AND",
+                      "start": 3.76,
+                      "end": 4.14
+                    },
+                    {
+                      "text": "HAPPENED",
+                      "start": 4.14,
+                      "end": 4.5
+                    },
+                    {
+                      "text": "TO",
+                      "start": 4.5,
+                      "end": 4.64
+                    }
+                  ]
+                },
+                {
+                  "id": "cue-5",
+                  "start": 4.64,
+                  "end": 5.1,
+                  "text": "BE IN THE",
+                  "words": [
+                    {
+                      "text": "BE",
+                      "start": 4.64,
+                      "end": 4.8
+                    },
+                    {
+                      "text": "IN",
+                      "start": 4.8,
+                      "end": 5
+                    },
+                    {
+                      "text": "THE",
+                      "start": 5,
+                      "end": 5.1
+                    }
+                  ],
+                  "tokens": [
+                    {
+                      "text": "BE",
+                      "start": 4.64,
+                      "end": 4.8
+                    },
+                    {
+                      "text": "IN",
+                      "start": 4.8,
+                      "end": 5
+                    },
+                    {
+                      "text": "THE",
+                      "start": 5,
+                      "end": 5.1
+                    }
+                  ]
+                },
+                {
+                  "id": "cue-6",
+                  "start": 5.1,
+                  "end": 5.72,
+                  "text": "SAME SEAT THAT",
+                  "words": [
+                    {
+                      "text": "SAME",
+                      "start": 5.1,
+                      "end": 5.3
+                    },
+                    {
+                      "text": "SEAT",
+                      "start": 5.3,
+                      "end": 5.56
+                    },
+                    {
+                      "text": "THAT",
+                      "start": 5.56,
+                      "end": 5.72
+                    }
+                  ],
+                  "tokens": [
+                    {
+                      "text": "SAME",
+                      "start": 5.1,
+                      "end": 5.3
+                    },
+                    {
+                      "text": "SEAT",
+                      "start": 5.3,
+                      "end": 5.56
+                    },
+                    {
+                      "text": "THAT",
+                      "start": 5.56,
+                      "end": 5.72
+                    }
+                  ]
+                },
+                {
+                  "id": "cue-7",
+                  "start": 5.72,
+                  "end": 6.64,
+                  "text": "I'LL BE IN.",
+                  "words": [
+                    {
+                      "text": "I'LL",
+                      "start": 5.72,
+                      "end": 5.96
+                    },
+                    {
+                      "text": "BE",
+                      "start": 5.96,
+                      "end": 6.14
+                    },
+                    {
+                      "text": "IN.",
+                      "start": 6.14,
+                      "end": 6.64
+                    }
+                  ],
+                  "tokens": [
+                    {
+                      "text": "I'LL",
+                      "start": 5.72,
+                      "end": 5.96
+                    },
+                    {
+                      "text": "BE",
+                      "start": 5.96,
+                      "end": 6.14
+                    },
+                    {
+                      "text": "IN.",
+                      "start": 6.14,
+                      "end": 6.64
+                    }
+                  ]
+                },
+                {
+                  "id": "cue-8",
+                  "start": 6.98,
+                  "end": 7.7,
+                  "text": "AND ACTUALLY I",
+                  "words": [
+                    {
+                      "text": "AND",
+                      "start": 6.98,
+                      "end": 7.1
+                    },
+                    {
+                      "text": "ACTUALLY",
+                      "start": 7.1,
+                      "end": 7.5
+                    },
+                    {
+                      "text": "I",
+                      "start": 7.5,
+                      "end": 7.7
+                    }
+                  ],
+                  "tokens": [
+                    {
+                      "text": "AND",
+                      "start": 6.98,
+                      "end": 7.1
+                    },
+                    {
+                      "text": "ACTUALLY",
+                      "start": 7.1,
+                      "end": 7.5
+                    },
+                    {
+                      "text": "I",
+                      "start": 7.5,
+                      "end": 7.7
+                    }
+                  ]
+                },
+                {
+                  "id": "cue-9",
+                  "start": 7.7,
+                  "end": 8.82,
+                  "text": "HAD SEVERAL YEARS",
+                  "words": [
+                    {
+                      "text": "HAD",
+                      "start": 7.7,
+                      "end": 7.94
+                    },
+                    {
+                      "text": "SEVERAL",
+                      "start": 7.94,
+                      "end": 8.46
+                    },
+                    {
+                      "text": "YEARS",
+                      "start": 8.46,
+                      "end": 8.82
+                    }
+                  ],
+                  "tokens": [
+                    {
+                      "text": "HAD",
+                      "start": 7.7,
+                      "end": 7.94
+                    },
+                    {
+                      "text": "SEVERAL",
+                      "start": 7.94,
+                      "end": 8.46
+                    },
+                    {
+                      "text": "YEARS",
+                      "start": 8.46,
+                      "end": 8.82
+                    }
+                  ]
+                },
+                {
+                  "id": "cue-10",
+                  "start": 8.82,
+                  "end": 10.08,
+                  "text": "REALLY OF LEARNING",
+                  "words": [
+                    {
+                      "text": "REALLY",
+                      "start": 8.82,
+                      "end": 9.14
+                    },
+                    {
+                      "text": "OF",
+                      "start": 9.14,
+                      "end": 9.58
+                    },
+                    {
+                      "text": "LEARNING",
+                      "start": 9.58,
+                      "end": 10.08
+                    }
+                  ],
+                  "tokens": [
+                    {
+                      "text": "REALLY",
+                      "start": 8.82,
+                      "end": 9.14
+                    },
+                    {
+                      "text": "OF",
+                      "start": 9.14,
+                      "end": 9.58
+                    },
+                    {
+                      "text": "LEARNING",
+                      "start": 9.58,
+                      "end": 10.08
+                    }
+                  ]
+                },
+                {
+                  "id": "cue-11",
+                  "start": 10.08,
+                  "end": 10.8,
+                  "text": "FROM HIM ALONG",
+                  "words": [
+                    {
+                      "text": "FROM",
+                      "start": 10.08,
+                      "end": 10.34
+                    },
+                    {
+                      "text": "HIM",
+                      "start": 10.34,
+                      "end": 10.52
+                    },
+                    {
+                      "text": "ALONG",
+                      "start": 10.52,
+                      "end": 10.8
+                    }
+                  ],
+                  "tokens": [
+                    {
+                      "text": "FROM",
+                      "start": 10.08,
+                      "end": 10.34
+                    },
+                    {
+                      "text": "HIM",
+                      "start": 10.34,
+                      "end": 10.52
+                    },
+                    {
+                      "text": "ALONG",
+                      "start": 10.52,
+                      "end": 10.8
+                    }
+                  ]
+                },
+                {
+                  "id": "cue-12",
+                  "start": 10.8,
+                  "end": 11.44,
+                  "text": "THE WAY AS",
+                  "words": [
+                    {
+                      "text": "THE",
+                      "start": 10.8,
+                      "end": 11.02
+                    },
+                    {
+                      "text": "WAY",
+                      "start": 11.02,
+                      "end": 11.2
+                    },
+                    {
+                      "text": "AS",
+                      "start": 11.2,
+                      "end": 11.44
+                    }
+                  ],
+                  "tokens": [
+                    {
+                      "text": "THE",
+                      "start": 10.8,
+                      "end": 11.02
+                    },
+                    {
+                      "text": "WAY",
+                      "start": 11.02,
+                      "end": 11.2
+                    },
+                    {
+                      "text": "AS",
+                      "start": 11.2,
+                      "end": 11.44
+                    }
+                  ]
+                },
+                {
+                  "id": "cue-13",
+                  "start": 11.44,
+                  "end": 12.34,
+                  "text": "THEY DEVELOPED THE",
+                  "words": [
+                    {
+                      "text": "THEY",
+                      "start": 11.44,
+                      "end": 11.6
+                    },
+                    {
+                      "text": "DEVELOPED",
+                      "start": 11.6,
+                      "end": 12.08
+                    },
+                    {
+                      "text": "THE",
+                      "start": 12.08,
+                      "end": 12.34
+                    }
+                  ],
+                  "tokens": [
+                    {
+                      "text": "THEY",
+                      "start": 11.44,
+                      "end": 11.6
+                    },
+                    {
+                      "text": "DEVELOPED",
+                      "start": 11.6,
+                      "end": 12.08
+                    },
+                    {
+                      "text": "THE",
+                      "start": 12.08,
+                      "end": 12.34
+                    }
+                  ]
+                },
+                {
+                  "id": "cue-14",
+                  "start": 12.34,
+                  "end": 13.4,
+                  "text": "VEHICLE AND THEN",
+                  "words": [
+                    {
+                      "text": "VEHICLE",
+                      "start": 12.34,
+                      "end": 12.76
+                    },
+                    {
+                      "text": "AND",
+                      "start": 12.76,
+                      "end": 13.28
+                    },
+                    {
+                      "text": "THEN",
+                      "start": 13.28,
+                      "end": 13.4
+                    }
+                  ],
+                  "tokens": [
+                    {
+                      "text": "VEHICLE",
+                      "start": 12.34,
+                      "end": 12.76
+                    },
+                    {
+                      "text": "AND",
+                      "start": 12.76,
+                      "end": 13.28
+                    },
+                    {
+                      "text": "THEN",
+                      "start": 13.28,
+                      "end": 13.4
+                    }
+                  ]
+                },
+                {
+                  "id": "cue-15",
+                  "start": 13.4,
+                  "end": 13.86,
+                  "text": "AS I WENT",
+                  "words": [
+                    {
+                      "text": "AS",
+                      "start": 13.4,
+                      "end": 13.58
+                    },
+                    {
+                      "text": "I",
+                      "start": 13.58,
+                      "end": 13.68
+                    },
+                    {
+                      "text": "WENT",
+                      "start": 13.68,
+                      "end": 13.86
+                    }
+                  ],
+                  "tokens": [
+                    {
+                      "text": "AS",
+                      "start": 13.4,
+                      "end": 13.58
+                    },
+                    {
+                      "text": "I",
+                      "start": 13.58,
+                      "end": 13.68
+                    },
+                    {
+                      "text": "WENT",
+                      "start": 13.68,
+                      "end": 13.86
+                    }
+                  ]
+                },
+                {
+                  "id": "cue-16",
+                  "start": 13.86,
+                  "end": 13.98,
+                  "text": "THROUGH",
+                  "words": [
+                    {
+                      "text": "THROUGH",
+                      "start": 13.86,
+                      "end": 13.98
+                    }
+                  ],
+                  "tokens": [
+                    {
+                      "text": "THROUGH",
+                      "start": 13.86,
+                      "end": 13.98
+                    }
+                  ]
+                }
+              ],
+              "cues_covered_end": 14.014,
+              "style": "vireo_comic_default",
+              "position": "bottom",
+              "primary_color": "#FFFFFF",
+              "highlight_color": "#20FF35",
+              "animation": "none"
+            },
+            "effects": [],
+            "keyframes": [],
+            "locked": false,
+            "muted": true,
+            "hidden": false,
+            "z_index": 20
+          }
+        ]
+      }
+    ],
+    "playhead": 0.8,
+    "settings": {
+      "snapping": true,
+      "safe_guides": true,
+      "snap_tolerance_sec": 0.15,
+      "show_safe_zones": true
+    },
+    "producer_plan_id": null,
+    "output_storage_path": null,
+    "preview_video_url": null,
+    "created_at": "2026-11-18T15:39:26.503Z",
+    "updated_at": "2026-11-18T15:39:26.503Z"
+  },
+  "saveStatus": "dirty",
+  "cues": [
+    {
+      "id": "cue-1",
+      "start": 0,
+      "end": 1.18,
+      "text": "LAST YEAR.",
+      "words": [
+        {
+          "text": "LAST",
+          "start": 0,
+          "end": 0.6
+        },
+        {
+          "text": "YEAR.",
+          "start": 0.6,
+          "end": 1.18
+        }
+      ],
+      "tokens": [
+        {
+          "text": "LAST",
+          "start": 0,
+          "end": 0.6
+        },
+        {
+          "text": "YEAR.",
+          "start": 0.6,
+          "end": 1.18
+        }
+      ],
+      "position_x": 0.5,
+      "position_y": 0.705
+    },
+    {
+      "id": "cue-2",
+      "start": 1.26,
+      "end": 2.72,
+      "text": "AS PART OF",
+      "words": [
+        {
+          "text": "AS",
+          "start": 1.26,
+          "end": 2.06
+        },
+        {
+          "text": "PART",
+          "start": 2.06,
+          "end": 2.6
+        },
+        {
+          "text": "OF",
+          "start": 2.6,
+          "end": 2.72
+        }
+      ],
+      "tokens": [
+        {
+          "text": "AS",
+          "start": 1.26,
+          "end": 2.06
+        },
+        {
+          "text": "PART",
+          "start": 2.06,
+          "end": 2.6
+        },
+        {
+          "text": "OF",
+          "start": 2.6,
+          "end": 2.72
+        }
+      ]
+    },
+    {
+      "id": "cue-3",
+      "start": 2.72,
+      "end": 3.76,
+      "text": "THE DEMONSTRATION\\NMISSION",
+      "words": [
+        {
+          "text": "THE",
+          "start": 2.72,
+          "end": 2.8
+        },
+        {
+          "text": "DEMONSTRATION",
+          "start": 2.8,
+          "end": 3.24
+        },
+        {
+          "text": "MISSION",
+          "start": 3.24,
+          "end": 3.76
+        }
+      ],
+      "tokens": [
+        {
+          "text": "THE",
+          "start": 2.72,
+          "end": 2.8
+        },
+        {
+          "text": "DEMONSTRATION",
+          "start": 2.8,
+          "end": 3.24
+        },
+        {
+          "text": "MISSION",
+          "start": 3.24,
+          "end": 3.76
+        }
+      ]
+    },
+    {
+      "id": "cue-4",
+      "start": 3.76,
+      "end": 4.64,
+      "text": "AND HAPPENED TO",
+      "words": [
+        {
+          "text": "AND",
+          "start": 3.76,
+          "end": 4.14
+        },
+        {
+          "text": "HAPPENED",
+          "start": 4.14,
+          "end": 4.5
+        },
+        {
+          "text": "TO",
+          "start": 4.5,
+          "end": 4.64
+        }
+      ],
+      "tokens": [
+        {
+          "text": "AND",
+          "start": 3.76,
+          "end": 4.14
+        },
+        {
+          "text": "HAPPENED",
+          "start": 4.14,
+          "end": 4.5
+        },
+        {
+          "text": "TO",
+          "start": 4.5,
+          "end": 4.64
+        }
+      ]
+    },
+    {
+      "id": "cue-5",
+      "start": 4.64,
+      "end": 5.1,
+      "text": "BE IN THE",
+      "words": [
+        {
+          "text": "BE",
+          "start": 4.64,
+          "end": 4.8
+        },
+        {
+          "text": "IN",
+          "start": 4.8,
+          "end": 5
+        },
+        {
+          "text": "THE",
+          "start": 5,
+          "end": 5.1
+        }
+      ],
+      "tokens": [
+        {
+          "text": "BE",
+          "start": 4.64,
+          "end": 4.8
+        },
+        {
+          "text": "IN",
+          "start": 4.8,
+          "end": 5
+        },
+        {
+          "text": "THE",
+          "start": 5,
+          "end": 5.1
+        }
+      ]
+    },
+    {
+      "id": "cue-6",
+      "start": 5.1,
+      "end": 5.72,
+      "text": "SAME SEAT THAT",
+      "words": [
+        {
+          "text": "SAME",
+          "start": 5.1,
+          "end": 5.3
+        },
+        {
+          "text": "SEAT",
+          "start": 5.3,
+          "end": 5.56
+        },
+        {
+          "text": "THAT",
+          "start": 5.56,
+          "end": 5.72
+        }
+      ],
+      "tokens": [
+        {
+          "text": "SAME",
+          "start": 5.1,
+          "end": 5.3
+        },
+        {
+          "text": "SEAT",
+          "start": 5.3,
+          "end": 5.56
+        },
+        {
+          "text": "THAT",
+          "start": 5.56,
+          "end": 5.72
+        }
+      ]
+    },
+    {
+      "id": "cue-7",
+      "start": 5.72,
+      "end": 6.64,
+      "text": "I'LL BE IN.",
+      "words": [
+        {
+          "text": "I'LL",
+          "start": 5.72,
+          "end": 5.96
+        },
+        {
+          "text": "BE",
+          "start": 5.96,
+          "end": 6.14
+        },
+        {
+          "text": "IN.",
+          "start": 6.14,
+          "end": 6.64
+        }
+      ],
+      "tokens": [
+        {
+          "text": "I'LL",
+          "start": 5.72,
+          "end": 5.96
+        },
+        {
+          "text": "BE",
+          "start": 5.96,
+          "end": 6.14
+        },
+        {
+          "text": "IN.",
+          "start": 6.14,
+          "end": 6.64
+        }
+      ]
+    },
+    {
+      "id": "cue-8",
+      "start": 6.98,
+      "end": 7.7,
+      "text": "AND ACTUALLY I",
+      "words": [
+        {
+          "text": "AND",
+          "start": 6.98,
+          "end": 7.1
+        },
+        {
+          "text": "ACTUALLY",
+          "start": 7.1,
+          "end": 7.5
+        },
+        {
+          "text": "I",
+          "start": 7.5,
+          "end": 7.7
+        }
+      ],
+      "tokens": [
+        {
+          "text": "AND",
+          "start": 6.98,
+          "end": 7.1
+        },
+        {
+          "text": "ACTUALLY",
+          "start": 7.1,
+          "end": 7.5
+        },
+        {
+          "text": "I",
+          "start": 7.5,
+          "end": 7.7
+        }
+      ]
+    },
+    {
+      "id": "cue-9",
+      "start": 7.7,
+      "end": 8.82,
+      "text": "HAD SEVERAL YEARS",
+      "words": [
+        {
+          "text": "HAD",
+          "start": 7.7,
+          "end": 7.94
+        },
+        {
+          "text": "SEVERAL",
+          "start": 7.94,
+          "end": 8.46
+        },
+        {
+          "text": "YEARS",
+          "start": 8.46,
+          "end": 8.82
+        }
+      ],
+      "tokens": [
+        {
+          "text": "HAD",
+          "start": 7.7,
+          "end": 7.94
+        },
+        {
+          "text": "SEVERAL",
+          "start": 7.94,
+          "end": 8.46
+        },
+        {
+          "text": "YEARS",
+          "start": 8.46,
+          "end": 8.82
+        }
+      ]
+    },
+    {
+      "id": "cue-10",
+      "start": 8.82,
+      "end": 10.08,
+      "text": "REALLY OF LEARNING",
+      "words": [
+        {
+          "text": "REALLY",
+          "start": 8.82,
+          "end": 9.14
+        },
+        {
+          "text": "OF",
+          "start": 9.14,
+          "end": 9.58
+        },
+        {
+          "text": "LEARNING",
+          "start": 9.58,
+          "end": 10.08
+        }
+      ],
+      "tokens": [
+        {
+          "text": "REALLY",
+          "start": 8.82,
+          "end": 9.14
+        },
+        {
+          "text": "OF",
+          "start": 9.14,
+          "end": 9.58
+        },
+        {
+          "text": "LEARNING",
+          "start": 9.58,
+          "end": 10.08
+        }
+      ]
+    },
+    {
+      "id": "cue-11",
+      "start": 10.08,
+      "end": 10.8,
+      "text": "FROM HIM ALONG",
+      "words": [
+        {
+          "text": "FROM",
+          "start": 10.08,
+          "end": 10.34
+        },
+        {
+          "text": "HIM",
+          "start": 10.34,
+          "end": 10.52
+        },
+        {
+          "text": "ALONG",
+          "start": 10.52,
+          "end": 10.8
+        }
+      ],
+      "tokens": [
+        {
+          "text": "FROM",
+          "start": 10.08,
+          "end": 10.34
+        },
+        {
+          "text": "HIM",
+          "start": 10.34,
+          "end": 10.52
+        },
+        {
+          "text": "ALONG",
+          "start": 10.52,
+          "end": 10.8
+        }
+      ]
+    },
+    {
+      "id": "cue-12",
+      "start": 10.8,
+      "end": 11.44,
+      "text": "THE WAY AS",
+      "words": [
+        {
+          "text": "THE",
+          "start": 10.8,
+          "end": 11.02
+        },
+        {
+          "text": "WAY",
+          "start": 11.02,
+          "end": 11.2
+        },
+        {
+          "text": "AS",
+          "start": 11.2,
+          "end": 11.44
+        }
+      ],
+      "tokens": [
+        {
+          "text": "THE",
+          "start": 10.8,
+          "end": 11.02
+        },
+        {
+          "text": "WAY",
+          "start": 11.02,
+          "end": 11.2
+        },
+        {
+          "text": "AS",
+          "start": 11.2,
+          "end": 11.44
+        }
+      ]
+    },
+    {
+      "id": "cue-13",
+      "start": 11.44,
+      "end": 12.34,
+      "text": "THEY DEVELOPED THE",
+      "words": [
+        {
+          "text": "THEY",
+          "start": 11.44,
+          "end": 11.6
+        },
+        {
+          "text": "DEVELOPED",
+          "start": 11.6,
+          "end": 12.08
+        },
+        {
+          "text": "THE",
+          "start": 12.08,
+          "end": 12.34
+        }
+      ],
+      "tokens": [
+        {
+          "text": "THEY",
+          "start": 11.44,
+          "end": 11.6
+        },
+        {
+          "text": "DEVELOPED",
+          "start": 11.6,
+          "end": 12.08
+        },
+        {
+          "text": "THE",
+          "start": 12.08,
+          "end": 12.34
+        }
+      ]
+    },
+    {
+      "id": "cue-14",
+      "start": 12.34,
+      "end": 13.4,
+      "text": "VEHICLE AND THEN",
+      "words": [
+        {
+          "text": "VEHICLE",
+          "start": 12.34,
+          "end": 12.76
+        },
+        {
+          "text": "AND",
+          "start": 12.76,
+          "end": 13.28
+        },
+        {
+          "text": "THEN",
+          "start": 13.28,
+          "end": 13.4
+        }
+      ],
+      "tokens": [
+        {
+          "text": "VEHICLE",
+          "start": 12.34,
+          "end": 12.76
+        },
+        {
+          "text": "AND",
+          "start": 12.76,
+          "end": 13.28
+        },
+        {
+          "text": "THEN",
+          "start": 13.28,
+          "end": 13.4
+        }
+      ]
+    },
+    {
+      "id": "cue-15",
+      "start": 13.4,
+      "end": 13.86,
+      "text": "AS I WENT",
+      "words": [
+        {
+          "text": "AS",
+          "start": 13.4,
+          "end": 13.58
+        },
+        {
+          "text": "I",
+          "start": 13.58,
+          "end": 13.68
+        },
+        {
+          "text": "WENT",
+          "start": 13.68,
+          "end": 13.86
+        }
+      ],
+      "tokens": [
+        {
+          "text": "AS",
+          "start": 13.4,
+          "end": 13.58
+        },
+        {
+          "text": "I",
+          "start": 13.58,
+          "end": 13.68
+        },
+        {
+          "text": "WENT",
+          "start": 13.68,
+          "end": 13.86
+        }
+      ]
+    },
+    {
+      "id": "cue-16",
+      "start": 13.86,
+      "end": 13.98,
+      "text": "THROUGH",
+      "words": [
+        {
+          "text": "THROUGH",
+          "start": 13.86,
+          "end": 13.98
+        }
+      ],
+      "tokens": [
+        {
+          "text": "THROUGH",
+          "start": 13.86,
+          "end": 13.98
+        }
+      ]
+    }
+  ],
+  "canUndo": true,
+  "canRedo": false,
+  "positionButtons": []
+}
