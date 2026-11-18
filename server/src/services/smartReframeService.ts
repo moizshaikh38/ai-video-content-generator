@@ -1478,6 +1478,10 @@ export class SmartReframeService {
         const body=(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('fill'))&&local.length&&local.every((sample:any)=>sample.faces?.length===0)
           ? movingBodyPortraitProposal(local,s.start,s.end,track.source_width,track.source_height,bodyRegions(local,s.start,s.end)) : null;
         if(body)return body;
+        // The planner may already have proved that a narrower presentation
+        // loses supplied or repeatedly measured context. Do not erase that
+        // machine-readable decision by rebuilding a generic centered Fit.
+        if(s.kind==='fit'&&s.presentationProtection?.preserveWindow)return s;
         return {
           start:s.start,end:s.end,kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:s.start,centerX:.5,centerY:.5}],
           contextStatus:'unresolved-review-required' as const,uncertainty:'Scene-local Fit: unrelated shots cannot share one face crop. Review side context before sharing.'
