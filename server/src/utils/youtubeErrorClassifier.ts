@@ -5,8 +5,8 @@ import { AppError } from '../types/index.js';
  *
  * `terminal` kinds describe the video itself (private, removed, members-only, ...) and will
  * fail identically no matter which player client is used, so the caller must stop retrying.
- * Non-terminal kinds describe *our* extraction attempt (a blocked player client, a stale
- * signature, a bot challenge) and are worth retrying with a different client profile.
+ * Challenges and rate limits are also terminal for this operation. Non-terminal kinds
+ * describe recoverable extraction/format/network errors, not permission to evade a block.
  */
 export type YouTubeFailureKind =
   | 'private'
@@ -41,7 +41,7 @@ export interface YouTubeFailure {
   statusCode: number;
   /** AppError code surfaced to the client. */
   code: string;
-  /** True when retrying with another player client cannot possibly help. */
+  /** Stop this operation without trying another client (including challenge/throttle). */
   terminal: boolean;
   /** Cleaned yt-dlp reason line, kept for logs and for composing unknown-failure messages. */
   reason?: string;
@@ -448,14 +448,14 @@ function describe(
       };
     case 'bot_challenge':
       return {
-        message: 'YouTube refused this server import with a verification challenge. No video was imported. Upload a video file or a direct downloadable copy; repeated retries do not resolve this challenge.',
+        message: 'YouTube refused this server request with a verification challenge. Import stopped without trying another player client.',
         statusCode: 429,
         code: 'YOUTUBE_BOT_CHALLENGE',
         terminal: true,
       };
     case 'rate_limited':
       return {
-        message: 'YouTube is rate-limiting this server import. This attempt has stopped without importing the video. Upload a video file or use a direct downloadable copy.',
+        message: 'YouTube is rate-limiting this server request. Import stopped to avoid repeated blocked traffic.',
         statusCode: 429,
         code: 'YOUTUBE_RATE_LIMITED',
         terminal: true,

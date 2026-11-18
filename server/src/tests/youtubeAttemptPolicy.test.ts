@@ -1,0 +1,15 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {runYouTubeStrategyAttempts}from '../utils/youtubeAttemptPolicy.js';
+const strategies=['default','format-fallback','legacy'];
+for(const [name,stderr,code]of [
+ ['challenge',"ERROR: Sign in to confirm you're not a bot",'YOUTUBE_BOT_CHALLENGE'],
+ ['throttle','ERROR: HTTP Error 429: Too Many Requests','YOUTUBE_RATE_LIMITED'],
+ ['private',"ERROR: Private video. Sign in if you've been granted access",'YOUTUBE_PRIVATE_VIDEO'],
+ ['copyright','ERROR: This video contains content from WMG, who has blocked it on copyright grounds.','YOUTUBE_COPYRIGHT_BLOCKED'],
+]as const){test(name+' stops before changing client or starting another attempt',async()=>{let calls=0,cleaned=0;await assert.rejects(runYouTubeStrategyAttempts({strategies,timeoutMs:120000,run:async()=>{calls++;throw {stderr}},onFailure:()=>{cleaned++}}),(e:any)=>e.code===code);assert.equal(calls,1);assert.equal(cleaned,1);});}
+test('recoverable format failure uses only remaining operation deadline',async()=>{let clock=0;const seen:number[]=[];const result=await runYouTubeStrategyAttempts({strategies,timeoutMs:1000,now:()=>clock,run:async(s,ms)=>{seen.push(ms);if(s==='default'){clock+=700;throw {stderr:'ERROR: Requested format is not available'}}return 'actual-value'}});assert.deepEqual(result,{ok:true,value:'actual-value'});assert.deepEqual(seen,[1000,300]);});
+test('deadline exhaustion does not spawn a second subprocess',async()=>{let clock=0,calls=0;await assert.rejects(runYouTubeStrategyAttempts({strategies,timeoutMs:1000,now:()=>clock,run:async()=>{calls++;clock+=1000;throw {stderr:'ERROR: Requested format is not available'}}}),(e:any)=>e.code==='YOUTUBE_TIMEOUT');assert.equal(calls,1);});
+test('child timeout stops the strategy pass and runs failure cleanup',async()=>{let calls=0,cleaned=0;await assert.rejects(runYouTubeStrategyAttempts({strategies,timeoutMs:1000,run:async()=>{calls++;throw {killed:true,code:'ETIMEDOUT'}},onFailure:()=>cleaned++}),(e:any)=>e.code==='YOUTUBE_TIMEOUT');assert.equal(calls,1);assert.equal(cleaned,1);});
+test('all recoverable failures remain available for most-informative reporting',async()=>{let n=0;const result=await runYouTubeStrategyAttempts({strategies,timeoutMs:1000,run:async()=>{n++;throw {stderr:'ERROR: Requested format is not available'}}});assert.equal(result.ok,false);if(!result.ok)assert.equal(result.failures.length,3);assert.equal(n,3);});
+test('a successful first attempt neither retries nor calls cleanup',async()=>{let n=0;assert.deepEqual(await runYouTubeStrategyAttempts({strategies,timeoutMs:1000,run:async()=>{n++;return {title:'fixture'}},onFailure:()=>assert.fail('success is not failure')}),{ok:true,value:{title:'fixture'}});assert.equal(n,1);});
+for(const timeoutMs of [0,-1,NaN,Infinity])test('invalid deadline '+timeoutMs+' never executes',async()=>{await assert.rejects(runYouTubeStrategyAttempts({strategies,timeoutMs,run:async()=>assert.fail('invalid budget must not execute')}),RangeError);});

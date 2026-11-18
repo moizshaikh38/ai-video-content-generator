@@ -1,4 +1,7 @@
 import {supportedYouTubeJsArgs} from '../shared/youtubeRuntime.js';
+import {runYouTubeStrategyAttempts} from '../utils/youtubeAttemptPolicy.js';
+import {resolveYouTubeOutputArtifact} from '../utils/youtubeOutputArtifact.js';
+import {YOUTUBE_SOURCE_FORMAT,YOUTUBE_SOURCE_FORMAT_SORT} from '../utils/youtubeFormatPolicy.js';
 import {withNewProjectFraming} from '../shared/newProjectFraming.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,6 +11,7 @@ import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import {performance} from 'node:perf_hooks';
 import ffmpegStatic from 'ffmpeg-static';
 import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
@@ -17,7 +21,6 @@ import {
   classifyYouTubeFailure,
   mostInformativeFailure,
   toAppError,
-  type YouTubeFailure,
 } from '../utils/youtubeErrorClassifier.js';
 import { uploadFile, sourceObjectKey } from './objectStorageService.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
@@ -491,9 +494,9 @@ export class UrlIngestionService {
    *
    * The first profile passes no `player_client` at all, which lets yt-dlp use the client set it
    * ships with — the only set that currently returns YouTube's full adaptive format ladder.
-   * Pinning a client here is what previously capped every import at 360p and broke extraction
+   * Pinning a client here previously capped imports at 360p and broke extraction
    * outright whenever YouTube retired that client's formats, so the pinned profiles exist only
-   * as fallbacks for when the default set is blocked for our IP.
+   * as fallbacks for recoverable extractor/format failures. Challenges and throttling stop the pass.
    *
    * `YOUTUBE_PLAYER_CLIENT` remains an operator escape hatch: when set it is tried first.
    */
@@ -525,8 +528,9 @@ export class UrlIngestionService {
       '--no-warnings',
       '--no-playlist',
       '--socket-timeout', '30',
-      '--retries', '3',
+      '--retries', '0',
       '--extractor-retries', '0',
+      '--fragment-retries', '0',
       ...supportedYouTubeJsArgs(process.versions.node, process.execPath),
     ];
 
@@ -653,52 +657,22 @@ export class UrlIngestionService {
    * Runs `yt-dlp --dump-json` across the extraction strategies until one succeeds.
    *
    * Throws an AppError for failures that describe the video itself (private, removed,
-   * members-only, ...) since no other player client can fix those. Returns null when every
+   * members-only, ...) or a challenge/throttle. Returns null when every
    * strategy failed for a reason that the download step may still get past.
    */
   private static async dumpYouTubeJson(url: string, timeoutMs: number): Promise<any | null> {
     const { command: dlCommand, prefixArgs } = this.resolveYtDlpCommand();
     const strategies = this.getYtDlpStrategies();
-    const failures: YouTubeFailure[] = [];
-
-    for (const strategy of strategies) {
-      const args = [
-        ...prefixArgs,
-        ...this.getCommonYtDlpArgs(strategy.extractorArgs),
-        '--dump-json',
-        '--skip-download',
-        url,
-      ];
-
-      try {
-        const { stdout } = await execFileAsync(dlCommand, args, {
-          timeout: timeoutMs,
-          maxBuffer: 10 * 1024 * 1024,
-        });
+    const result=await runYouTubeStrategyAttempts({strategies,timeoutMs,
+      run:async(strategy,remainingMs)=>{
+        const args=[...prefixArgs,...this.getCommonYtDlpArgs(strategy.extractorArgs),'--dump-json','--skip-download',url];
+        const {stdout}=await execFileAsync(dlCommand,args,{timeout:remainingMs,maxBuffer:10*1024*1024});
         return JSON.parse(stdout);
-      } catch (err: any) {
-        const failure = classifyYouTubeFailure({
-          stderr: err?.stderr,
-          stdout: err?.stdout,
-          message: err?.message,
-          killed: err?.killed,
-          errCode: err?.code,
-          signal: err?.signal,
-        });
-
-        logger.warn('yt-dlp metadata probe failed', {
-          strategy: strategy.label,
-          kind: failure.kind,
-          reason: failure.reason,
-        });
-
-        if (failure.terminal) {
-          throw toAppError(failure);
-        }
-        failures.push(failure);
-      }
-    }
-
+      },
+      onFailure:(strategy,failure)=>logger.warn('yt-dlp metadata probe failed',{strategy:strategy.label,kind:failure.kind,reason:failure.reason}),
+    });
+    if(result.ok)return result.value;
+    const failures=result.failures;
     const worst = mostInformativeFailure(failures);
     logger.warn('All yt-dlp metadata strategies failed', { kind: worst?.kind, reason: worst?.reason });
     return null;
@@ -717,22 +691,14 @@ export class UrlIngestionService {
     const tempDir = os.tmpdir();
     const uniqueId = `yt-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
     const outTemplate = path.join(tempDir, `${uniqueId}.%(ext)s`);
-    const expectedMp4 = path.join(tempDir, `${uniqueId}.mp4`);
 
     const { command: dlCommand, prefixArgs } = this.resolveYtDlpCommand();
     const ffmpegPath = (ffmpegStatic as unknown as string) || 'ffmpeg';
     const ffmpegDir = path.dirname(ffmpegPath);
 
-    // Prefer H.264 + AAC so the rest of the pipeline never has to transcode, then fall back
-    // through any adaptive pair, then any muxed progressive format. The final `/best` keeps a
-    // 360p-only video ingesting rather than failing outright.
-    const formatSpec = [
-      'bestvideo[vcodec^=avc1][height<=1080]+bestaudio[acodec^=mp4a]',
-      'bestvideo[height<=1080]+bestaudio',
-      'best[height<=1080]',
-      'bestvideo+bestaudio',
-      'best',
-    ].join('/');
+    // Resolution first, then frame rate and codec convenience at equal detail.
+    // Every alternative respects the source acquisition ceiling.
+    const formatSpec=YOUTUBE_SOURCE_FORMAT;
 
     const rangeArgs: string[] = [];
     if (range && (range.startSec !== undefined || range.endSec !== undefined)) {
@@ -749,12 +715,11 @@ export class UrlIngestionService {
 
     const maxFilesizeMb = Math.max(1, Math.round(maxBytes / (1024 * 1024)));
     const strategies = this.getYtDlpStrategies();
-    const failures: YouTubeFailure[] = [];
 
-    const purgePartials = () => {
+    const purgePartials = (preservePath?:string) => {
       try {
-        for (const f of fs.readdirSync(tempDir).filter((f) => f.startsWith(uniqueId))) {
-          fs.unlinkSync(path.join(tempDir, f));
+        for (const f of fs.readdirSync(tempDir).filter((f) => f.startsWith(uniqueId+'.'))) {
+          const ownedPath=path.join(tempDir,f);if(ownedPath!==preservePath)fs.unlinkSync(ownedPath);
         }
       } catch {}
     };
@@ -763,83 +728,30 @@ export class UrlIngestionService {
       `Starting YouTube download via yt-dlp: ${url} (maxBytes: ${maxBytes}, range: ${JSON.stringify(range || 'full')})`
     );
 
-    let downloaded = false;
-    for (const strategy of strategies) {
-      const args = [
-        ...prefixArgs,
-        ...this.getCommonYtDlpArgs(strategy.extractorArgs),
-        '--concurrent-fragments', '4',
-        '--ffmpeg-location', ffmpegDir,
-        '-f', formatSpec,
-        '--merge-output-format', 'mp4',
-        '--max-filesize', `${maxFilesizeMb}M`,
-        ...rangeArgs,
-        '-o', outTemplate,
-        url,
-      ];
-
-      try {
-        await execFileAsync(dlCommand, args, {
-          timeout: timeoutMs,
-          maxBuffer: 10 * 1024 * 1024,
-        });
+    const result=await runYouTubeStrategyAttempts({strategies,timeoutMs,maxBytes,
+      run:async(strategy,remainingMs)=>{
+        const args=[...prefixArgs,...this.getCommonYtDlpArgs(strategy.extractorArgs),
+          '--concurrent-fragments','4','--ffmpeg-location',ffmpegDir,'-f',formatSpec,'--format-sort',YOUTUBE_SOURCE_FORMAT_SORT,
+          '--merge-output-format','mp4','--max-filesize',`${maxFilesizeMb}M`,...rangeArgs,'-o',outTemplate,url];
+        await execFileAsync(dlCommand,args,{timeout:remainingMs,maxBuffer:10*1024*1024});
         logger.info(`yt-dlp download succeeded using strategy ${strategy.label}`);
-        downloaded = true;
-        break;
-      } catch (dlErr: any) {
+        return true;
+      },
+      onFailure:(strategy,failure,dlErr)=>{
         purgePartials();
-
-        const failure = classifyYouTubeFailure(
-          {
-            stderr: dlErr?.stderr,
-            stdout: dlErr?.stdout,
-            message: dlErr?.message,
-            killed: dlErr?.killed,
-            errCode: dlErr?.code,
-            signal: dlErr?.signal,
-          },
-          { maxBytes }
-        );
-
-        logger.error('yt-dlp download failed', {
-          strategy: strategy.label,
-          kind: failure.kind,
-          reason: failure.reason,
-          stderr: String(dlErr?.stderr || '').slice(0, 4000),
-        });
-
-        if (failure.terminal) {
-          throw toAppError(failure);
-        }
-        failures.push(failure);
-      }
+        logger.error('yt-dlp download failed',{strategy:strategy.label,kind:failure.kind,reason:failure.reason,
+          stderr:String((dlErr as any)?.stderr||'').slice(0,4000)});
+      },
+    });
+    if(!result.ok){
+      const worst=mostInformativeFailure(result.failures);
+      throw toAppError(worst??{kind:'unknown',message:'The YouTube download failed for an unrecognised reason. The server logs hold the downloader output.',statusCode:502,code:'YOUTUBE_DOWNLOAD_FAILED',terminal:false});
     }
 
-    if (!downloaded) {
-      const worst = mostInformativeFailure(failures);
-      throw toAppError(
-        worst ?? {
-          kind: 'unknown',
-          message: 'The YouTube download failed for an unrecognised reason. The server logs hold the downloader output.',
-          statusCode: 502,
-          code: 'YOUTUBE_DOWNLOAD_FAILED',
-          terminal: false,
-        }
-      );
-    }
-
-    // Identify final merged output file
-    let finalPath = expectedMp4;
-    if (!fs.existsSync(finalPath)) {
-      // Check if yt-dlp left .mkv or other extension
-      const matches = fs.readdirSync(tempDir).filter((f) => f.startsWith(uniqueId));
-      if (matches.length > 0) {
-        finalPath = path.join(tempDir, matches[0]);
-      } else {
-        throw new AppError('Downloaded YouTube video file was not generated.', 500, 'YOUTUBE_DOWNLOAD_FAILED');
-      }
-    }
-
+    // Accept only a completed merge target, never a sidecar or individual stream.
+    let artifact:ReturnType<typeof resolveYouTubeOutputArtifact>;
+    try{artifact=resolveYouTubeOutputArtifact(tempDir,uniqueId);}catch(error){purgePartials();throw error;}
+    const finalPath=artifact.tempFilePath;
     const stats = fs.statSync(finalPath);
     if (stats.size === 0) {
       try { fs.unlinkSync(finalPath); } catch {}
@@ -851,10 +763,11 @@ export class UrlIngestionService {
       throw new AppError(`Downloaded YouTube video exceeds maximum allowed size of ${Math.round(maxBytes / (1024 * 1024))} MB.`, 400, 'YOUTUBE_FILE_TOO_LARGE');
     }
 
+    purgePartials(finalPath);
     return {
       tempFilePath: finalPath,
       totalBytes: stats.size,
-      contentType: 'video/mp4',
+      contentType: artifact.contentType,
     };
   }
 
@@ -937,6 +850,7 @@ export class UrlIngestionService {
         // YouTube Ingestion Path via yt-dlp
         logger.info(`Starting YouTube video ingestion: ${validated.normalizedUrl} (ID: ${validated.youtubeVideoId}) for project ${projectId}`);
 
+        const acquisitionDeadline=performance.now()+120000;
         // Quick metadata pre-fetch for title, duration bounds, chapters, and auto-genre.
         // A classified AppError here means the video itself is restricted (private, removed,
         // members-only, ...), so fail fast with that reason instead of attempting a download
@@ -962,7 +876,9 @@ export class UrlIngestionService {
           throw new AppError('Video duration exceeds the maximum allowed limit of 2 hours.', 400, 'YOUTUBE_DURATION_TOO_LONG');
         }
 
-        download = await this.downloadYouTubeToTempFile(validated.normalizedUrl, config.maxVideoBytes, 120000, range);
+        const remainingMs=Math.floor(acquisitionDeadline-performance.now());
+        if(remainingMs<=0)throw toAppError(classifyYouTubeFailure({killed:true,errCode:'ETIMEDOUT'}));
+        download = await this.downloadYouTubeToTempFile(validated.normalizedUrl, config.maxVideoBytes, remainingMs, range);
       } else {
         // Direct Public Media URL Path
         logger.info(`Starting secure download for URL: ${validated.hostname} for project ${projectId}`);
