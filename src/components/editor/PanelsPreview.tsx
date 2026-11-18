@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { normalizePanels, panelSourceWindow, PANEL_RECTS, type ItemPanels } from '../../../server/src/shared/panelLayouts';
+import { normalizePanels, panelSourceWindow, panelTargetRects, PANEL_RECTS, type ItemPanels } from '../../../server/src/shared/panelLayouts';
 
 interface Props {
   src: string;
@@ -23,7 +23,7 @@ interface Props {
  */
 export const PanelsPreview: React.FC<Props> = ({ src, panels, canvasW, canvasH, srcW, srcH, time, playing, filter }) => {
   const cfg = normalizePanels(panels)!;
-  const rects = PANEL_RECTS[cfg.layout];
+  const rects = panelTargetRects(cfg);
   const refs = useRef<Array<HTMLVideoElement | null>>([]);
   useEffect(() => {
     refs.current.forEach((v) => {

@@ -1,0 +1,74 @@
+[
+  {
+    "name": "mixed",
+    "cost": 0.0004692,
+    "genres": [
+      {
+        "time": 0,
+        "genre": "people_conversation",
+        "confidence": 0.95
+      },
+      {
+        "time": 5,
+        "genre": "gaming",
+        "confidence": 0.9
+      },
+      {
+        "time": 9.8,
+        "genre": "gaming",
+        "confidence": 0.9
+      }
+    ],
+    "insetStatus": "unresolved",
+    "proposal": null,
+    "cumulative": 0.06412513795666501
+  },
+  {
+    "name": "conversation",
+    "cost": 0.0004756,
+    "genres": [
+      {
+        "time": 0,
+        "genre": "people_conversation",
+        "confidence": 0.95
+      },
+      {
+        "time": 7.007,
+        "genre": "people_conversation",
+        "confidence": 0.95
+      },
+      {
+        "time": 13.814,
+        "genre": "people_conversation",
+        "confidence": 0.95
+      }
+    ],
+    "insetStatus": "unresolved",
+    "proposal": null,
+    "cumulative": 0.06460073795666502
+  },
+  {
+    "name": "holdout",
+    "cost": 0.000466,
+    "genres": [
+      {
+        "time": 0,
+        "genre": "gaming",
+        "confidence": 0.95
+      },
+      {
+        "time": 6.009,
+        "genre": "gaming",
+        "confidence": 0.95
+      },
+      {
+        "time": 11.818000000000001,
+        "genre": "gaming",
+        "confidence": 0.95
+      }
+    ],
+    "insetStatus": "unresolved",
+    "proposal": null,
+    "cumulative": 0.06506673795666501
+  }
+]

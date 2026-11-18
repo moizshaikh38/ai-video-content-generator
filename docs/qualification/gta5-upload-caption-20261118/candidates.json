@@ -1,0 +1,103 @@
+{
+  "auto": true,
+  "automaticSuggestion": {
+    "genre": "general",
+    "confidence": 0.5,
+    "reasons": [
+      "Default balanced baseline."
+    ],
+    "metrics": {
+      "wpm": 155,
+      "ocrDensity": 0,
+      "faceCount": 1,
+      "sceneCutRatePerMin": 3.5,
+      "silenceRatio": 0.12
+    }
+  },
+  "source": "/downloads/recovered-source/gta5-facecam-rp-12s.mp4",
+  "sourceSha256": "feb7a2a42019938b8140ffb6caee4f187948a4ad4cc0f1632093edc7d3e48473",
+  "actualUploadUI": true,
+  "actualProcessProjectVideo": true,
+  "uploadThroughControllers": true,
+  "sameRunEvidenceGenerated": true,
+  "sameRunTranscription": true,
+  "transcriptProvenance": {
+    "provider": "openrouter",
+    "model": "elevenlabs/scribe-v2",
+    "requested_language": null
+  },
+  "syntheticTranscript": false,
+  "manualCandidate": false,
+  "providerCalls": 1,
+  "candidates": [
+    {
+      "start_segment_index": 0,
+      "end_segment_index": 0,
+      "start_seconds": 0,
+      "end_seconds": 12.02,
+      "duration_seconds": 12.02,
+      "title": "gta5-facecam-rp-12s",
+      "hook": "",
+      "reason": "Available short transcript-span fallback because no clip proposals were returned. Story quality and ranking are unverified.",
+      "category": "insight",
+      "genre": "gaming",
+      "content_goal": "shareable_moments",
+      "engagement_score": 0,
+      "cold_open": null,
+      "director_plan": null,
+      "metadata": {
+        "selection_origin": "short-source-fallback",
+        "narrative_evidence_status": "unreviewed",
+        "ranking_status": "unranked",
+        "vireo_score": null,
+        "explanation": null,
+        "genre": "gaming",
+        "layout_mode": "screencast",
+        "layout_mode_source": "genre_recommendation",
+        "caption_position": "bottom",
+        "content_goal": "shareable_moments",
+        "suggested_genre": "gaming",
+        "genre_confidence": 0.9,
+        "cold_open": null,
+        "question_included": null,
+        "was_snapped": true,
+        "silence_snapped": false,
+        "word_snapped": true,
+        "shot_boundary_optimization": {
+          "originalStart": 0,
+          "originalEnd": 12.02,
+          "snappedStart": 0.18,
+          "snappedEnd": 12.02,
+          "wasShotBoundarySnapped": false,
+          "wasSentencePreserved": false,
+          "leadingSilenceTrimmedSec": 0,
+          "trailingSilenceTrimmedSec": 0
+        },
+        "starts_on_cut": false,
+        "ends_on_cut": false,
+        "nearest_prior_cut": null,
+        "nearest_posterior_cut": null,
+        "fusion_warnings": [],
+        "matched_start_word": null,
+        "matched_end_word": "Also",
+        "selection_source_receipt": {
+          "version": 1,
+          "source_key": "users/e22adf45-6f1e-43e7-a8f5-86572557011c/projects/be608ae7-8cb5-4e7c-a071-8c31eafa771c/source/92670857-0f24-45e9-92ae-e6c55f7b45f2-gta5-facecam-rp-12s.mp4",
+          "source_receipt": {
+            "key": "users/e22adf45-6f1e-43e7-a8f5-86572557011c/projects/be608ae7-8cb5-4e7c-a071-8c31eafa771c/source/92670857-0f24-45e9-92ae-e6c55f7b45f2-gta5-facecam-rp-12s.mp4",
+            "size": 1946147,
+            "etag": "\"feb7a2a42019938b8140ffb6caee4f187948a4ad4cc0f1632093edc7d3e48473\"",
+            "sha256": "feb7a2a42019938b8140ffb6caee4f187948a4ad4cc0f1632093edc7d3e48473"
+          },
+          "transcript_content_sha256": "92debc2f01a59e9d215d1d79d0abcac15dfe8e9f4ab4d67b4f6a8a294fd5a27e"
+        }
+      },
+      "id": "e0126a85-ec60-4c63-bcac-12750b140635",
+      "project_id": "be608ae7-8cb5-4e7c-a071-8c31eafa771c",
+      "user_id": "e22adf45-6f1e-43e7-a8f5-86572557011c",
+      "status": "suggested",
+      "created_at": "2026-11-18T12:06:37.012Z",
+      "updated_at": "2026-11-18T12:06:37.012Z"
+    }
+  ]
+}

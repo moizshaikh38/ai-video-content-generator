@@ -11,7 +11,7 @@ export const PANEL_LAYOUTS: PanelLayout[] = ['three', 'four', 'screenshare', 'ga
 export interface PanelRect { x: number; y: number; w: number; h: number }
 /** `set: true` only after the user chose this panel's view (crop box) or a detector assigned it. Defaults are unassigned placeholders. */
 export interface PanelSlot { /** Show the entire chosen region with black bars, ignoring cover zoom/focus. Manual opt-in only. */ fit?: 'contain'; focusX: number; focusY: number; scale: number; /** Restrict this view to a measured source rectangle before cover/zoom. Normalized source coordinates. */ sourceRect?: PanelRect; set?: boolean; /** 'track' = framed on the clip's subject track (a design choice, not Opus's rule). */ auto?: 'track' }
-export interface ItemPanels { layout: PanelLayout; slots: PanelSlot[] }
+export interface ItemPanels { layout: PanelLayout; slots: PanelSlot[]; /** Source-aspect top panel, explicit local gaming review only. */ topFraction?:number }
 
 const R = (x: number, y: number, w: number, h: number): PanelRect => ({ x, y, w, h });
 
@@ -31,6 +31,12 @@ export const PANEL_RECTS: Record<PanelLayout, PanelRect[]> = {
 };
 
 export const PANEL_LABELS: Record<PanelLayout, string> = { split2: 'Split', three: 'Three', four: 'Four', screenshare: 'ScreenShare', gameplay: 'Gameplay', watch_party:'Watch Party', streaming:'Streaming', game_screen_first: 'Game screen first' };
+
+/** Shared target geometry. Existing manual layouts retain their measured template. */
+export function panelTargetRects(p:Pick<ItemPanels,'layout'|'topFraction'>):PanelRect[]{
+ const f=p.topFraction;
+ return p.layout==='gameplay'&&typeof f==='number'&&Number.isFinite(f)&&f>=.25&&f<=.5?[R(0,0,1,f),R(0,f,1,1-f)]:PANEL_RECTS[p.layout];
+}
 
 /**
  * Placeholder per-panel views. They are NOT subject detections: the first panel shows the whole frame
@@ -73,6 +79,7 @@ export function normalizePanels(p: Partial<ItemPanels> | undefined | null): Item
   const clamp = (v: unknown, lo: number, hi: number, d: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
   return {
     layout: p.layout,
+    ...(p.layout==='gameplay'&&typeof p.topFraction==='number'&&Number.isFinite(p.topFraction)&&p.topFraction>=.25&&p.topFraction<=.5?{topFraction:p.topFraction}:{}),
     slots: rects.map((_, i) => ({
       ...(p.slots?.[i]?.fit === 'contain' ? { fit: 'contain' as const } : {}),
       focusX: clamp(p.slots?.[i]?.focusX, 0, 1, def[i].focusX),
@@ -86,9 +93,9 @@ export function normalizePanels(p: Partial<ItemPanels> | undefined | null): Item
 }
 
 /** Integer pixel rects tiling the canvas exactly (even sizes, no gaps/overlaps; last row/col absorbs rounding). */
-export function panelPixelRects(layout: PanelLayout, canvasW: number, canvasH: number): PanelRect[] {
+export function panelPixelRects(layout: PanelLayout, canvasW: number, canvasH: number, topFraction?:number): PanelRect[] {
   const ev = (v: number) => Math.round(v / 2) * 2;
-  return PANEL_RECTS[layout].map((r) => {
+  return panelTargetRects({layout,topFraction}).map((r) => {
     const x = ev(r.x * canvasW), y = ev(r.y * canvasH);
     const x2 = r.x + r.w >= 0.999 ? canvasW : ev((r.x + r.w) * canvasW);
     const y2 = r.y + r.h >= 0.999 ? canvasH : ev((r.y + r.h) * canvasH);
@@ -102,7 +109,7 @@ export function panelPixelRects(layout: PanelLayout, canvasW: number, canvasH: n
  */
 export function buildPanelsFilter(panelsIn: ItemPanels, canvasW: number, canvasH: number, tag = 'vcp'): string {
   const panels = normalizePanels(panelsIn)!;
-  const rects = panelPixelRects(panels.layout, canvasW, canvasH);
+  const rects = panelPixelRects(panels.layout, canvasW, canvasH,panels.topFraction);
   const n = rects.length;
   const outs = rects.map((_, i) => `[${tag}_i${i}]`).join('');
   const parts = [`split=${n}${outs}`];

@@ -1,5 +1,5 @@
 import {expandSceneLayoutProject} from './sceneLayoutOverrides.js';
-import {normalizePanels,PANEL_RECTS} from './panelLayouts.js';
+import {normalizePanels,panelTargetRects,PANEL_RECTS} from './panelLayouts.js';
 export type CaptionSceneLayout = 'fill' | 'fit' | 'blur' | 'split' | 'panel_seam' | 'panel_gameplay';
 export interface CaptionPlacementContext {
   project: any;
@@ -13,7 +13,7 @@ export interface CaptionPlacementContext {
   explicitConfigPosition?: boolean;
 }
 
-export interface CaptionLayoutWindow {itemId:string;start:number;end:number;layout:CaptionSceneLayout}
+export interface CaptionLayoutWindow {itemId:string;start:number;end:number;layout:CaptionSceneLayout;anchorY?:number}
 /** Derived only from the picture composition plan. No persisted layout writes.
  * Plan clocks are clip-relative; item clocks include trim, speed and timeline edits. */
 export function captionCompositionWindows(project:any,plan:any[],clipStart:number,sourceW:number,sourceH:number):CaptionLayoutWindow[]{
@@ -28,7 +28,7 @@ export function captionCompositionWindows(project:any,plan:any[],clipStart:numbe
    const a=Math.max(i.source_start,s.start+clipStart),z=Math.min(i.source_end,s.end+clipStart);if(z<=a)return [];
    const start=Math.max(i.timeline_start,i.timeline_start+(a-i.source_start)/speed),end=Math.min(i.timeline_end,i.timeline_start+(z-i.source_start)/speed);
    const layout:CaptionSceneLayout=s.split?.focusPanels?.layout==='gameplay'?'panel_gameplay':s.split?'split':Math.abs(s.windowW*sourceW/(s.windowH*sourceH)-9/16)<.01?'fill':'fit';
-   return end>start?[{itemId:i.id,start,end,layout}]:[];
+   return end>start?[{itemId:i.id,start,end,layout,...(layout==='panel_gameplay'?{anchorY:panelTargetRects(s.split.focusPanels)[0].h}:{})}]:[];
   });
  });
 }
@@ -61,7 +61,7 @@ function itemPositionIsExplicit(item: any): boolean {
  * Split stays centered on the seam; Fill retains its lower safe edge. */
 export function autoCaptionAnchor(layout: CaptionSceneLayout, context: CaptionPlacementContext, _item?: any, _text = ''): number {
   if(layout==='panel_gameplay'){
-    const p=normalizePanels(_item?.panels);return p?PANEL_RECTS[p.layout][0].h:.5;
+    const p=normalizePanels(_item?.panels);return p?panelTargetRects(p)[0].h:.5;
   }
   if (layout === 'split' || layout === 'panel_seam') return 0.5;
   if (layout === 'fit' || layout === 'blur' || layout === 'fill') return 585 / 720;
@@ -99,7 +99,7 @@ export function applySceneCaptionPlacement<T extends {start:number;end:number;te
       const window=windows.find(w=>w.itemId===scene.id&&start>=w.start-.001&&start<w.end-.001);
       const layout=window?.layout??captionSceneLayout(scene,context.fallbackLayout);
       result.push({...cue,id:cue.id,start,end,...(words?{words}:{}),text,
-        position_y:autoCaptionAnchor(layout,context,scene,text),position_anchor:'center',auto_position:true});
+        position_y:window?.anchorY??autoCaptionAnchor(layout,context,scene,text),position_anchor:'center',auto_position:true});
     }
   }
   return result;

@@ -198,7 +198,9 @@ export async function processProjectVideo(
       const reservation=await db.collection<CreditReservationRecord>('credit_reservations').findOne({attempt_id:processingAttemptId,user_id:userId});
       if(reservation?.metadata?.isReusedTranscript)throw new AppError('The transcript selected for reuse is no longer available. No new transcription was started.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
     }
-    const delegate = getTranscriptionProviderWithFailover();
+    const delegate = process.env.VIREO_AUTOMATIC_GAMING_REVIEW==='1'
+      ? new (await import('./transcription/openRouterTranscriptionProvider.js')).OpenRouterTranscriptionProvider('elevenlabs/scribe-v2')
+      : getTranscriptionProviderWithFailover();
     const inputs=observeTranscriptionInputs(delegate);
     const {provider,requests}=inputs;
     const preparedAudioSha256=audioInputSha256(extractedAudio.audioBuffer);
@@ -296,6 +298,16 @@ export async function processProjectVideo(
     const latestProject=await db.collection('projects').findOne({id:projectId,user_id:userId});
     if(latestProject?.source_url!==sourceUrl || (snapshot.receipt && !sourceObjectReceiptMatches(snapshot.receipt,sourceUrl,await headObject('source',sourceUrl))))throw new AppError('Source changed during transcription. Review before requesting another transcription.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
 
+    // Explicit local-review enrichment. Normal production processing has no
+    // added model calls; a bounded review never accepts externally supplied boxes.
+    if(process.env.VIREO_AUTOMATIC_GAMING_REVIEW==='1'){
+      const {generateAutomaticGamingReviewEvidence}=await import('./automaticGamingEvidenceReviewService.js');
+      const enrichment=await generateAutomaticGamingReviewEvidence(videoPath,path.join(os.tmpdir(),'vireo-gaming-evidence-'+crypto.randomUUID()),config.openrouterApiKey||'');
+      if(enrichment.evidence.sourceSha256!==snapshot.receipt?.sha256)throw new AppError('Gaming evidence source changed',409,'SOURCE_CHANGED');
+      if(!sourceObjectReceiptMatches(snapshot.receipt,sourceUrl,await headObject('source',sourceUrl)))throw new AppError('Source changed during gaming enrichment',409,'SOURCE_CHANGED');
+      const evidenceSaved=await db.collection('projects').updateOne({id:projectId,user_id:userId,source_url:sourceUrl},{$set:{automatic_gaming_evidence:enrichment.evidence}});
+      if(evidenceSaved.matchedCount!==1)throw new AppError('Project source changed during gaming enrichment',409,'SOURCE_CHANGED');
+    }
     // 6. Store transcript in MongoDB (upsert to avoid duplicates)
     const transcriptPayload: any = {
       project_id: projectId,

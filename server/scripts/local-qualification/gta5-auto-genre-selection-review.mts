@@ -1,0 +1,53 @@
+/** Saved real provider response, assisted manual interval/crop fixture. Not recognition accuracy proof. */
+import fs from 'node:fs';import path from 'node:path';import http from 'node:http';import crypto from 'node:crypto';import assert from 'node:assert/strict';import {execFileSync} from 'node:child_process';
+const preset=process.env.VIREO_FIXTURE_PRESET||'vireo_comic_punch';
+if(!['vireo_comic_punch','vireo_comic_default','compact_creator'].includes(preset))throw Error('Use a reviewed qualification preset');
+const lane=process.env.VIREO_FIXTURE_PRO==='1'?'pro':'quick';
+const explicitBundledFont=process.env.VIREO_FIXTURE_FONT==='Inter';
+if(process.env.VIREO_FIXTURE_FONT&&!explicitBundledFont)throw Error('Only explicit Inter comparison is prepared');
+const baseOut=preset==='vireo_comic_punch'?(lane==='pro'?'/downloads/vireo-real-transcript-pro-export':'/downloads/vireo-real-transcript-export'):`/downloads/vireo-real-transcript-${preset}-${lane}`;const out=process.env.VIREO_FIXTURE_OUT||baseOut+(explicitBundledFont?'-inter-bold':'');if(process.env.VIREO_FIXTURE_OUT&&fs.existsSync(out))throw Error('Refuse existing explicit output');fs.mkdirSync(out,{recursive:true});
+Object.assign(process.env,{NODE_ENV:'test',MONGODB_URI:'mongodb://127.0.0.1:27020/?replicaSet=homeproof',MONGODB_DB_NAME:'vireo_real_transcript_export_qualification',SUPABASE_URL:'http://127.0.0.1:5998',SUPABASE_SECRET_KEY:'local-fixture',R2_ACCOUNT_ID:'localfixture',R2_ACCESS_KEY_ID:'localfixture',R2_SECRET_ACCESS_KEY:'localfixture',R2_ENDPOINT:'http://127.0.0.1:5588',R2_SOURCE_BUCKET:'source',R2_CLIPS_BUCKET:'clips',OPENROUTER_API_KEY:'',GROQ_API_KEY:'',GAME_EVENTS_AUTO:'off',MULTIMODAL_AUTO:'off',SMART_REFRAME_ENABLED:'false',REFRAME_AUTO_GENERATE:'false',RENDER_FFMPEG_PRESET:'ultrafast'});
+const source=process.argv[2],sourceBytes=fs.readFileSync(source),sha=crypto.createHash('sha256').update(sourceBytes).digest('hex'),etag='"'+sha+'"';
+const user=crypto.randomUUID(),project=crypto.randomUUID(),candidate=crypto.randomUUID(),key=`fixtures/${project}/source.mp4`,objects=path.join(out,'objects');fs.mkdirSync(objects,{recursive:true});let puts=0,gets=0;const putPaths:string[]=[];
+const storage=http.createServer((req,res)=>{const u=new URL(req.url||'/','http://127.0.0.1'),local=path.resolve(objects,decodeURIComponent(u.pathname).slice(1));if(!local.startsWith(objects+'/'))return res.writeHead(400).end();if(req.method==='PUT'){puts++;putPaths.push(u.pathname);fs.mkdirSync(path.dirname(local),{recursive:true});const stream=fs.createWriteStream(local);req.pipe(stream);stream.on('finish',()=>res.writeHead(200,{ETag:'"fixture-output"'}).end());return;}const file=u.pathname==='/source/'+key?source:local;if(!fs.existsSync(file))return res.writeHead(404).end();if(req.headers['if-match']&&req.headers['if-match']!==etag)return res.writeHead(412).end();res.setHeader('ETag',etag);res.setHeader('Content-Length',fs.statSync(file).size);res.setHeader('Content-Type','video/mp4');if(req.method==='HEAD')res.end();else {gets++;fs.createReadStream(file).pipe(res);}});
+await new Promise<void>(r=>storage.listen(5588,'127.0.0.1',r));
+const {getMongoDb,closeMongo}=await import('../../src/db/mongoClient.js');const {ownerContext}=await import('../../src/db/repositories/dataRepository.js');const {createClipWithJob}=await import('../../src/db/repositories/clipRepository.js');const {ClipRenderService}=await import('../../src/services/clipRenderService.js');const {transcriptContentIdentity}=await import('../../src/shared/transcriptSourceBinding.js');const {selectionSourceReceipt}=await import('../../src/shared/selectionSourceReceipt.js');const {WatermarkService}=await import('../../src/services/watermarkService.js');const {EntitlementService}=await import('../../src/services/entitlementService.js');const {HardwareEncoderService}=await import('../../src/services/hardwareEncoderService.js');
+(WatermarkService as any).shouldWatermark=async()=>false;(EntitlementService as any).resolveUserEntitlements=async()=>EntitlementService.getPlanEntitlements('developer');(HardwareEncoderService as any).getEncoderFlags=async()=>({codec:'libx264',isHardware:false,initArgs:['-filter_threads','1','-filter_complex_threads','1','-threads','1'],videoCodecArgs:['-c:v','libx264','-threads','1'],qualityArgs:['-preset','ultrafast','-crf','22']});
+const db=await getMongoDb();try{
+// Actual saved provider response, unchanged. Candidate/composition are explicit manual fixture.
+const n=JSON.parse(fs.readFileSync(path.join(process.argv[3],'normalized.json'),'utf8'));
+const attempt=JSON.parse(fs.readFileSync(path.join(process.argv[3],'attempt.json'),'utf8'));
+assert.equal(attempt.sourceHash,sha);
+const {downloadObjectToFile}=await import('../../src/services/objectStorageService.js');
+const downloadReceipt=await downloadObjectToFile('source',key,path.join(out,'verified-source.mp4'),{requireSnapshotReceipt:true});assert.equal(downloadReceipt.sha256,sha);assert(downloadReceipt.sourceReceipt);
+const {assignWordIds}=await import('../../src/utils/wordIdentityUtils.js');const {assessTranscriptQuality}=await import('../../src/services/transcription/transcriptQuality.js');
+const t:any={id:crypto.randomUUID(),user_id:user,project_id:project,transcript_text:n.text,text:n.text,segments:n.segments,words:assignWordIds(n.words,project),language:n.language,duration_seconds:n.durationSeconds,transcription_provenance:n.provenance,transcription_timing_issues:n.timingIssues,quality_assessment:assessTranscriptQuality(n)};
+t.source_binding={version:1,source_receipt:downloadReceipt.sourceReceipt,prepared_audio_sha256:attempt.audioSha256,requests:[{sha256:attempt.audioSha256,bytes:attempt.audioBytes,status:'completed'}],transcript_content_sha256:transcriptContentIdentity(t)};const receipt=selectionSourceReceipt(t,key);
+const {GenreIntelligenceService:G}=await import('../../src/services/genreIntelligenceService.js');
+const {ClipAnalysisService}=await import('../../src/services/clipAnalysisService.js');
+const genre=process.argv[4],auto=process.env.VIREO_GENRE_AUTO==='1';
+const input={transcriptText:n.text,wpm:Math.round(n.words.length/(n.durationSeconds/60)),durationSeconds:n.durationSeconds,questionDensityPerMin:(n.text.match(/\?/g)||[]).length/(n.durationSeconds/60)};
+const suggestion=G.classifyVideoGenreLocally(input);
+const preferences={genre:auto?'general':genre,genreSelectionMode:auto?'auto':'manual',preferredDurations:'15-30',framingDefaults:{version:1,layout:'auto'}};
+const semantic=JSON.parse(fs.readFileSync(process.env.VIREO_VISUAL_SEMANTIC_FILE!,'utf8')),inset=JSON.parse(fs.readFileSync(process.env.VIREO_MEASURED_INSET_FILE!,'utf8'));
+const automatic_gaming_evidence={sourceSha256:sha,sourceWidth:semantic.sourceWidth,sourceHeight:semantic.sourceHeight,durationSeconds:n.durationSeconds,semantic,inset,coverReview:true};
+await db.collection('projects').insertOne({id:project,user_id:user,title:'Original-source automatic genre review',source_url:key,video_status:'transcribed',clip_preferences:preferences,automatic_gaming_evidence});await db.collection('transcripts').insertOne(t);
+const secret=process.env.VIREO_QUALIFICATION_KEY_FILE!;const apiKey=fs.readFileSync(secret,'utf8').trim();let calls=0;
+const catalog=await fetch('https://openrouter.ai/api/v1/models').then(r=>r.json())as any;const model=catalog.data.find((m:any)=>m.id==='openai/gpt-4o-mini');assert(model);fs.writeFileSync(path.join(out,'selection-model.json'),JSON.stringify(model,null,2));
+const generate=async(request:any)=>{
+ assert.equal(++calls,1,'No automatic additional paid requests');
+ const payload={model:model.id,messages:[{role:'system',content:request.systemPrompt},{role:'user',content:request.userPrompt}],temperature:request.temperature,max_tokens:1500,response_format:{type:'json_object'}};
+ const bytes=Buffer.byteLength(JSON.stringify(payload));const maxCost=(bytes+2000)*Number(model.pricing.prompt)+1500*Number(model.pricing.completion);assert(maxCost<.005&&Number(process.env.VIREO_PRIOR_COST)+maxCost<.20);
+ fs.writeFileSync(path.join(out,'selection-attempt.json'),JSON.stringify({maxCost,bytes,payload,calls,priorConservative:Number(process.env.VIREO_PRIOR_COST),totalCap:.20,sourceSha256:sha},null,2));
+ const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(65000)});const raw=await r.json() as any;
+ fs.writeFileSync(path.join(out,'selection-response.json'),JSON.stringify(raw,null,2));assert(r.ok);assert(raw.usage?.cost<=maxCost);const cumulative=Number(process.env.VIREO_PRIOR_COST)+raw.usage.cost;fs.writeFileSync(path.join(out,'selection-cost.json'),JSON.stringify({cost:raw.usage.cost,cumulative,remaining:.2-cumulative},null,2));
+ return JSON.parse(raw.choices[0].message.content);
+};
+const provider:any={generateJsonCompletion:generate,generateJsonCompletionWithTelemetry:async(r:any)=>({data:await generate(r),telemetry:{}})};
+
+try {
+const selected=await new ClipAnalysisService(provider).analyzeAndPersistClips({projectId:project,userId:user,preferences:preferences as any});
+fs.writeFileSync(path.join(out,'candidates.json'),JSON.stringify({auto,selectedGenre:genre,automaticSuggestion:suggestion,source,sourceSha256:sha,transcriptProvenance:n.provenance,syntheticTranscript:false,manualCandidate:false,providerCalls:calls,candidates:selected},null,2));
+console.log('GENUINE_SELECTION_COMPLETED',selected.length);
+}catch(e:any){fs.writeFileSync(path.join(out,'pipeline-blocker.json'),JSON.stringify({code:e.code,message:e.message,providerCalls:calls,preferences,quality:t.quality_assessment,source,sourceSha256:sha,automaticGenreUnreached:true},null,2));console.log('NORMAL_AUTO_PIPELINE_BLOCKED',e.code,e.message,'selectionProviderCalls',calls);}
+}finally{fs.unlinkSync(process.env.VIREO_QUALIFICATION_KEY_FILE!);for(const c of ['projects','transcripts','clip_candidates','clips','render_jobs','editor_projects','multimodal_analyses'])await db.collection(c).deleteMany({user_id:user});await closeMongo();await new Promise<void>(r=>storage.close(()=>r()));}

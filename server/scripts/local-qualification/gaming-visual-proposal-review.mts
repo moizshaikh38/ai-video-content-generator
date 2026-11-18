@@ -1,4 +1,4 @@
-/** OFFLINE PROPOSAL INJECTION. Overrides composition with a source-bound semantic/geometry proposal. Not normal Genre Auto, transcript or selection proof. */
+/** Explicit local review route with actual source-bound evidence. No composition method override. Not normal Genre Auto defaults or automatic selection proof. */
 /** Local normal visual-source analysis/controller/EditorShell and direct Pro compile. No transcript, selection or render-job proof. */
 import fs from 'node:fs';import path from 'node:path';import http from 'node:http';import crypto from 'node:crypto';import assert from 'node:assert/strict';import {execFileSync} from 'node:child_process';
 const preset=process.env.VIREO_FIXTURE_PRESET||'vireo_comic_punch';
@@ -26,9 +26,9 @@ activeClipId=created.clip.id;
 const {SmartReframeService}=await import('../../src/services/smartReframeService.js');
 const {proposeAutomaticGamingPanels}=await import('../../src/shared/automaticGamingPanels.js');
 const semantic=JSON.parse(fs.readFileSync(process.env.VIREO_VISUAL_SEMANTIC_FILE!,'utf8')),inset=JSON.parse(fs.readFileSync(process.env.VIREO_MEASURED_INSET_FILE!,'utf8'));
-const proposal=proposeAutomaticGamingPanels({sourceSha256:sha,sourceWidth:probeSource.streams.find((s:any)=>s.codec_type==='video').width,sourceHeight:probeSource.streams.find((s:any)=>s.codec_type==='video').height,semantic,inset});assert(proposal,'Unresolved visual/geometry proposal');
+const proposal=proposeAutomaticGamingPanels({sourceSha256:sha,sourceWidth:probeSource.streams.find((s:any)=>s.codec_type==='video').width,sourceHeight:probeSource.streams.find((s:any)=>s.codec_type==='video').height,semantic,inset,coverReview:process.env.VIREO_GAMING_COVER_REVIEW==='1'});assert(proposal,'Unresolved visual/geometry proposal');
 fs.writeFileSync(path.join(out,'offline-gaming-proposal.json'),JSON.stringify(proposal,null,2));
-const compute=SmartReframeService.computeShotComposition.bind(SmartReframeService);SmartReframeService.computeShotComposition=((o:any)=>{const base=compute(o);return base.map(s=>({...s,kind:'group',windowW:1,windowH:1,keyframes:[{time:s.start,centerX:.5,centerY:.5}],split:{speaker1X:.25,speaker2X:.75,dividerX:.5,focusPanels:proposal.panels},contextStatus:'unresolved-review-required',uncertainty:proposal.limitations.join(' ')}));})as any;
+await db.collection('projects').updateOne({id:project},{$set:{automatic_gaming_evidence:{sourceSha256:sha,sourceWidth:probeSource.streams.find((s:any)=>s.codec_type==='video').width,sourceHeight:probeSource.streams.find((s:any)=>s.codec_type==='video').height,durationSeconds:duration,semantic,inset,coverReview:process.env.VIREO_GAMING_COVER_REVIEW==='1'}}});
 
 const track=await ownerContext.run(user,()=>SmartReframeService.analyzeClipFraming(activeClipId,user,{localSourcePath:path.join(out,'verified-source.mp4'),sourceReceipt:downloadReceipt.sourceReceipt}));
 assert.equal(track.status,'ready');
@@ -54,6 +54,6 @@ for(const row of controls.states.filter((r:any)=>r.name==='layout-auto')){
 assert.equal(JSON.stringify(await db.collection('editor_projects').findOne({clip_id:activeClipId})),beforeProject);
 const probe=JSON.parse(execFileSync('ffprobe',['-v','error','-count_frames','-show_streams','-show_format','-of','json',path.join(out,'actual-direct.mp4')],{encoding:'utf8'}));
 assert(Math.abs(Number(probe.format.duration)-duration)<.15);
-fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({commit:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),source,sourceSha256:sha,manualClipFixture:true,transcriptPresent:false,compositionProposalInjected:true,normalGenreAutoCovered:false,actualNormalAnalyzerWithCompositionOverride:true,actualNormalController:true,actualEditorShell:true,actualDirectProCompile:true,renderJobCovered:false,uploadDownloadCovered:false,authEntitlementsStorageMocked:true,providerCalls:0,savedEditorUnchanged:true,probe},null,2));
-console.log('OFFLINE_GAMING_PROPOSAL_RENDERED_NOT_GENRE_AUTO_PASS');
+fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({commit:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),source,sourceSha256:sha,manualClipFixture:true,transcriptPresent:false,compositionProposalInjected:false,sourceBoundEvidenceSeeded:true,normalGenreAutoCovered:false,actualNormalAnalyzerWithCompositionOverride:true,actualNormalController:true,actualEditorShell:true,actualDirectProCompile:true,renderJobCovered:false,uploadDownloadCovered:false,authEntitlementsStorageMocked:true,providerCalls:0,savedEditorUnchanged:true,probe},null,2));
+console.log('SHARED_GAMING_REVIEW_ROUTE_RENDERED_NOT_END_TO_END_AUTO');
 }finally{for(const c of ['projects','clips','editor_projects','reframe_tracks'])await db.collection(c).deleteMany({user_id:user});await closeMongo();await new Promise<void>(r=>storage.close(()=>r()));}

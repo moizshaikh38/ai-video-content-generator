@@ -1,0 +1,244 @@
+{
+  "status": "transcribed",
+  "transcript": {
+    "project_id": "be608ae7-8cb5-4e7c-a071-8c31eafa771c",
+    "user_id": "e22adf45-6f1e-43e7-a8f5-86572557011c",
+    "av_start_offset_sec": 0,
+    "created_at": "2026-11-18T12:06:35.997Z",
+    "duration_seconds": 12.02,
+    "id": "928b9b96-2429-408e-9f59-6f641f094097",
+    "language": "deu",
+    "quality_assessment": {
+      "version": 1,
+      "status": "unverified",
+      "diagnostics": "unavailable",
+      "issues": [],
+      "provider": "openrouter",
+      "model": "elevenlabs/scribe-v2",
+      "requested_language": null,
+      "detected_language": "deu"
+    },
+    "segments": [
+      {
+        "start": 0,
+        "end": 12.01575,
+        "text": "Mega Projekt. Bestes Projekt, Leute, auf YouTube in Minecraft ever. War so geil. Ähm, Rennen gegen Daniel ABT. Ja, können wir auch mal machen. Hab heute noch mit ihm geschrieben. Also"
+      }
+    ],
+    "source_binding": {
+      "version": 1,
+      "source_receipt": {
+        "key": "users/e22adf45-6f1e-43e7-a8f5-86572557011c/projects/be608ae7-8cb5-4e7c-a071-8c31eafa771c/source/92670857-0f24-45e9-92ae-e6c55f7b45f2-gta5-facecam-rp-12s.mp4",
+        "size": 1946147,
+        "etag": "\"feb7a2a42019938b8140ffb6caee4f187948a4ad4cc0f1632093edc7d3e48473\"",
+        "sha256": "feb7a2a42019938b8140ffb6caee4f187948a4ad4cc0f1632093edc7d3e48473"
+      },
+      "prepared_audio_sha256": "647c336629eb37eb81e0a461389e236183c8968596e93f8823f31af919fce515",
+      "requests": [
+        {
+          "sha256": "647c336629eb37eb81e0a461389e236183c8968596e93f8823f31af919fce515",
+          "bytes": 97204,
+          "status": "completed"
+        }
+      ],
+      "transcript_content_sha256": "92debc2f01a59e9d215d1d79d0abcac15dfe8e9f4ab4d67b4f6a8a294fd5a27e"
+    },
+    "text": "Mega Projekt. Bestes Projekt, Leute, auf YouTube in Minecraft ever. War so geil. Ähm, Rennen gegen Daniel ABT. Ja, können wir auch mal machen. Hab heute noch mit ihm geschrieben. Also",
+    "transcript_text": "Mega Projekt. Bestes Projekt, Leute, auf YouTube in Minecraft ever. War so geil. Ähm, Rennen gegen Daniel ABT. Ja, können wir auch mal machen. Hab heute noch mit ihm geschrieben. Also",
+    "transcription_provenance": {
+      "provider": "openrouter",
+      "model": "elevenlabs/scribe-v2",
+      "requested_language": null
+    },
+    "transcription_timing_issues": [],
+    "updated_at": "2026-11-18T12:06:35.996Z",
+    "words": [
+      {
+        "word": "Mega",
+        "start": 0.18,
+        "end": 0.36,
+        "id": "w_0_c92a72"
+      },
+      {
+        "word": "Projekt.",
+        "start": 0.42,
+        "end": 0.66,
+        "id": "w_1_f5915f"
+      },
+      {
+        "word": "Bestes",
+        "start": 1.04,
+        "end": 1.56,
+        "id": "w_2_1cd1a3"
+      },
+      {
+        "word": "Projekt,",
+        "start": 1.66,
+        "end": 2.02,
+        "id": "w_3_a16a2a"
+      },
+      {
+        "word": "Leute,",
+        "start": 2.12,
+        "end": 2.32,
+        "id": "w_4_9225ce"
+      },
+      {
+        "word": "auf",
+        "start": 2.4,
+        "end": 2.5,
+        "id": "w_5_f7cd1e"
+      },
+      {
+        "word": "YouTube",
+        "start": 2.54,
+        "end": 2.78,
+        "id": "w_6_365b1a"
+      },
+      {
+        "word": "in",
+        "start": 3.26,
+        "end": 3.44,
+        "id": "w_7_b9c8ee"
+      },
+      {
+        "word": "Minecraft",
+        "start": 3.66,
+        "end": 4.019,
+        "id": "w_8_4f646c"
+      },
+      {
+        "word": "ever.",
+        "start": 4.34,
+        "end": 4.52,
+        "id": "w_9_9e3225"
+      },
+      {
+        "word": "War",
+        "start": 4.98,
+        "end": 5.08,
+        "id": "w_10_20ad65"
+      },
+      {
+        "word": "so",
+        "start": 5.1,
+        "end": 5.34,
+        "id": "w_11_8ba1a9"
+      },
+      {
+        "word": "geil.",
+        "start": 5.38,
+        "end": 5.6,
+        "id": "w_12_3079ef"
+      },
+      {
+        "word": "Ähm,",
+        "start": 8.68,
+        "end": 9.12,
+        "id": "w_13_6acb5b"
+      },
+      {
+        "word": "Rennen",
+        "start": 9.3,
+        "end": 9.48,
+        "id": "w_14_32c16d"
+      },
+      {
+        "word": "gegen",
+        "start": 9.52,
+        "end": 9.64,
+        "id": "w_15_248030"
+      },
+      {
+        "word": "Daniel",
+        "start": 9.68,
+        "end": 9.86,
+        "id": "w_16_efb61e"
+      },
+      {
+        "word": "ABT.",
+        "start": 9.9,
+        "end": 10.06,
+        "id": "w_17_0f36a3"
+      },
+      {
+        "word": "Ja,",
+        "start": 10.08,
+        "end": 10.2,
+        "id": "w_18_3acbf3"
+      },
+      {
+        "word": "können",
+        "start": 10.26,
+        "end": 10.32,
+        "id": "w_19_ae0a7f"
+      },
+      {
+        "word": "wir",
+        "start": 10.32,
+        "end": 10.34,
+        "id": "w_20_d363b9"
+      },
+      {
+        "word": "auch",
+        "start": 10.38,
+        "end": 10.46,
+        "id": "w_21_ec5e43"
+      },
+      {
+        "word": "mal",
+        "start": 10.48,
+        "end": 10.54,
+        "id": "w_22_c155e9"
+      },
+      {
+        "word": "machen.",
+        "start": 10.6,
+        "end": 10.76,
+        "id": "w_23_020198"
+      },
+      {
+        "word": "Hab",
+        "start": 10.8,
+        "end": 10.9,
+        "id": "w_24_fef418"
+      },
+      {
+        "word": "heute",
+        "start": 10.92,
+        "end": 11.08,
+        "id": "w_25_d515f6"
+      },
+      {
+        "word": "noch",
+        "start": 11.1,
+        "end": 11.2,
+        "id": "w_26_0a19da"
+      },
+      {
+        "word": "mit",
+        "start": 11.24,
+        "end": 11.3,
+        "id": "w_27_dcdc2f"
+      },
+      {
+        "word": "ihm",
+        "start": 11.34,
+        "end": 11.4,
+        "id": "w_28_81d80a"
+      },
+      {
+        "word": "geschrieben.",
+        "start": 11.42,
+        "end": 11.8,
+        "id": "w_29_0c137f"
+      },
+      {
+        "word": "Also",
+        "start": 11.84,
+        "end": 11.96,
+        "id": "w_30_ecf676"
+      }
+    ]
+  }
+}

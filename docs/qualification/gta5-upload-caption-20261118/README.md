@@ -1,0 +1,17 @@
+# Local upload/caption automatic gaming review checkpoint
+
+2026-11-18 17:39 IST. No main release, no deployment, review route off by default. Original request: GTA5+facecam Genre Auto, streamer above/game below, upload through final export with captions. Still open as full product UX qualification.
+
+Latest actual run /downloads/vireo-gta5-ui-upload-caption-1836 uses real NewProjectPage/file input/Generate clips, actual project/upload URL/PUT/confirm. Local authentication/entitlement/object-store fixtures, not production auth or live cloud storage. After navigation the test uses a placeholder, then orchestrates real processProjectVideo, analysis and render services. Actual ProjectDetailPage processing/generate/export UX remains untested and is NOT a pass. Phone mock preview has overlapping sample caption text, a visible frontend defect retained.
+
+No precomputed geometry, transcript, manual Gaming or crop input in this run. Uploaded bytes are SHA verified. Real processing generates fresh Scribe German transcript with valid word clocks and source-input receipts, fresh GPT4.1mini visual classifications and local scanline border geometry. ClipAnalysis uses GenreAuto/general input, selects Gaming from bound receipts. Selector returned no proposals; existing short-source fallback yielded full12s, unranked/unreviewed. Preferred15-30/source12s caveat. Captions house default visible at seam. Actual render job completes/upload/signed download. 720x1280 interpolates960x540 source, not native detail.
+
+Original source https://archive.org/details/twitch-clips-744197206 . No reuse license established, private diagnostic only. New top panel height derives from measured inset aspect and contains that inset, reducing later leaning-face clipping. Game center cover crops side menu/HUD; no action/HUD/generalization or word-perfect caption claim. Inspected1fps board shows original inset content retained with captions, not temporal model accuracy.
+
+Failed original automatic-da and invalid-clock Whisper attempts remain. German-pinned turbo still two invalid clocks; fullWhisper one invalid clock; local base recognition inaccurate and local small bad clocks. New Scribe route clears gate with status unverified/diagnostics unavailable, not certified accuracy. No clock interpolation or dropped-word acceptance. Defaults unchanged.
+
+Qwen independent fresh uploaded-frame call mislabeled GTA as conversation. GPT4.1mini new generator positive on original. Same-generator controls: mixed studio/gameplay has mixed classifications and abstains;3webcam allconversation abstains; menuGTA allgaming but geometry ambiguous and abstains. Scanline projection fixes border/scene connected-contour merging on original without lowering side/temporal thresholds. Holdout ambiguity retained, no chosen passing detector version.
+
+42focused tests pass and backend TypeScript clean. Tests cover wrong/missing source, manual ownership, stale/cut/policy restrictions, malformed evidence, tiling, source-aspect inset and caption seam/overrides. No default activation, broad evidence validity still incomplete. Three/Four distinct-person local proposals remain gated and poor quality; active-speakerFill unfinished. No full4K attempts or HUD integration activation.
+
+Spend conservative cumulative $0.06506673795666501, remaining $0.13493326204333498 of original $0.20 total. All temporary credential copies deleted. Exact test receipts retained locally; source and output not uploaded to Git.

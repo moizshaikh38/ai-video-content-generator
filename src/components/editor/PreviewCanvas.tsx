@@ -42,7 +42,7 @@ import { BackgroundControl } from './BackgroundControl';
 import { TrackerControl } from './TrackerControl';
 import { CropBoxControl } from './CropBoxControl';
 import { PanelsPreview } from './PanelsPreview';
-import { normalizePanels, panelSourceWindow, PANEL_RECTS, PANEL_LABELS } from '../../../server/src/shared/panelLayouts';
+import { normalizePanels, panelSourceWindow, panelTargetRects, PANEL_RECTS, PANEL_LABELS } from '../../../server/src/shared/panelLayouts';
 import { FIT_BAND_ASPECT, effectiveFitBand, fitBandApplies } from '../../../server/src/shared/fitBand';
 
 interface PreviewCanvasProps {
@@ -1377,7 +1377,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
           )}
           {onUpdateItemPanels && manualPanels && activePanels && videoDims && videoDims.w > 0 && baseVideoItem && (
             <>
-              {PANEL_RECTS[activePanels.layout].map((r, i) => {
+              {panelTargetRects(activePanels).map((r, i) => {
                 const cw = parseFloat(canvasDims.width), ch = parseFloat(canvasDims.height);
                 return (
                   <CropBoxControl

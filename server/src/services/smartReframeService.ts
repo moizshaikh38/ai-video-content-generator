@@ -1,3 +1,4 @@
+import {proposeAutomaticGamingPanels} from '../shared/automaticGamingPanels.js';
 import {assignParticipantPanels} from '../shared/participantPanels.js';
 import {shortAutoTextDiscovery} from '../shared/shortAutoTextDiscovery.js';
 import {shortAutoCutDiscovery,mergeDetectedSceneCuts} from '../shared/shortAutoCutDiscovery.js';
@@ -1465,6 +1466,10 @@ export class SmartReframeService {
        (cropConfig.layoutPolicy&&!cropConfig.layoutPolicy.allowed.some((x:string)=>x==='fit'||x==='split'||x==='fill'))||
        ['screen_content','action_context','scene_context'].includes(track.metadata?.content_framing_decision?.policy)||
        track.metadata?.content_framing_decision?.evidence?.possibleEmbeddedCamera===true)return undefined;
+    if(track.metadata?.automatic_gaming_review_enabled===true&&track.metadata.automatic_gaming_evidence?.sourceSha256===track.metadata.analyzed_source_sha256){
+      const plan=this.computeShotComposition({rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,duration,sourceWidth:track.source_width,sourceHeight:track.source_height,automaticGamingReview:track.metadata.automatic_gaming_evidence,layoutPolicy:cropConfig.layoutPolicy});
+      if(plan.some(s=>s.split?.focusPanels?.layout==='gameplay'))return plan;
+    }
     // Reuse independently repeated non-person constraints as well as explicit
     // regions. A body anchor cannot erase measured side objects from the plan.
     const bodyRegions=(samples:ReframeSample[],start:number,end:number)=>[
@@ -1537,6 +1542,13 @@ export class SmartReframeService {
     split?: {speaker1X:number;speaker2X:number;dividerX:number;focusPanels?:ItemPanels};
     contextStatus?: 'crowd-preserved'|'unresolved-preserved'|'unresolved-review-required';
     uncertainty?: string; presentationProtection?: import('../shared/automaticLayoutPolicy.js').PresentationProtection }> {
+    const gaming=options.automaticGamingReview;
+    // Same shared planner as preview/export; never overwrite a manual view or
+    // apply clip-wide inset geometry across measured cuts.
+    if(gaming&&(!options.sceneCuts?.length)&&options.sourceWidth===gaming.sourceWidth&&options.sourceHeight===gaming.sourceHeight&&(!options.layoutPolicy||options.layoutPolicy.allowed.includes('split'))){
+      const candidate=proposeAutomaticGamingPanels(gaming);
+      if(candidate)return [{start:0,end:options.duration,kind:'group',windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}],split:{speaker1X:.25,speaker2X:.75,dividerX:.5,focusPanels:candidate.panels},contextStatus:'unresolved-review-required',uncertainty:candidate.limitations.join(' ')}];
+    }
     const base=this.computeShotCompositionLegacy(options);
     const plan=options.participantPanelsReview&&options.allowConversationSplit&&options.windowScope==='shot'&&(!options.layoutPolicy||options.layoutPolicy.allowed.includes('split')) ? base.map(shot=>{
       if(shot.split||shot.presentationProtection?.preserveWindow)return shot;
@@ -3086,6 +3098,12 @@ export class SmartReframeService {
       const fusedKeyframes = applyWordEnergyFusion(smoothedKeyframes, wordTimings, { sourceCutTimes: clipSceneCuts });
 
       // 9. Persist to public.reframe_tracks table
+      let automaticGamingEvidence:any;
+      if(process.env.VIREO_AUTOMATIC_GAMING_REVIEW==='1'&&startSec===0){
+        const {data:gamingProject}=await dataRepository.from('projects').select('automatic_gaming_evidence').eq('id',clip.project_id).maybeSingle();
+        const e=(gamingProject as any)?.automatic_gaming_evidence;
+        if(e?.sourceSha256===analyzedSourceSha256&&e.sourceWidth===cvResult.source_width&&e.sourceHeight===cvResult.source_height&&Math.abs(e.durationSeconds-durationSec)<.05)automaticGamingEvidence=e;
+      }
       const trackPayload: Partial<ReframeTrackRecord> = {
         clip_id: clipId,
         project_id: clip.project_id,
@@ -3101,6 +3119,8 @@ export class SmartReframeService {
         raw_samples: cvResult.samples,
         smoothed_keyframes: fusedKeyframes,
         metadata: {
+          automatic_gaming_review_enabled:!!automaticGamingEvidence,
+          automatic_gaming_evidence:automaticGamingEvidence,
           dominant_score: score,
           layout_mode: layoutMode,
           content_framing_decision: contentDecision,

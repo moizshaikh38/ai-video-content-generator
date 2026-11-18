@@ -1,0 +1,264 @@
+{
+  "paid": [
+    {
+      "url": "https://openrouter.ai/api/v1/audio/transcriptions",
+      "raw": {
+        "text": "Mega Projekt. Bestes Projekt, Leute, auf YouTube in Minecraft ever. War so geil. Ähm, Rennen gegen Daniel ABT. Ja, können wir auch mal machen. Hab heute noch mit ihm geschrieben. Also",
+        "usage": {
+          "seconds": 12.01575,
+          "cost": 0.0007342958333331998
+        },
+        "task": "transcribe",
+        "language": "deu",
+        "language_confidence": 0.9891278147697449,
+        "duration": 12.01575,
+        "segments": [
+          {
+            "id": 0,
+            "start": 0,
+            "end": 12.01575,
+            "text": "Mega Projekt. Bestes Projekt, Leute, auf YouTube in Minecraft ever. War so geil. Ähm, Rennen gegen Daniel ABT. Ja, können wir auch mal machen. Hab heute noch mit ihm geschrieben. Also"
+          }
+        ],
+        "words": [
+          {
+            "word": "Mega",
+            "start": 0.18,
+            "end": 0.36,
+            "confidence": 0.6218375232558315
+          },
+          {
+            "word": "Projekt.",
+            "start": 0.42,
+            "end": 0.66,
+            "confidence": 0.9919378105691491
+          },
+          {
+            "word": "Bestes",
+            "start": 1.04,
+            "end": 1.56,
+            "confidence": 0.9999597092893345
+          },
+          {
+            "word": "Projekt,",
+            "start": 1.66,
+            "end": 2.02,
+            "confidence": 0.9993856310056387
+          },
+          {
+            "word": "Leute,",
+            "start": 2.12,
+            "end": 2.32,
+            "confidence": 0.9985502805498575
+          },
+          {
+            "word": "auf",
+            "start": 2.4,
+            "end": 2.5,
+            "confidence": 0.9999971389852362
+          },
+          {
+            "word": "YouTube",
+            "start": 2.54,
+            "end": 2.78,
+            "confidence": 0.9999970197767496
+          },
+          {
+            "word": "in",
+            "start": 3.26,
+            "end": 3.44,
+            "confidence": 0.9524620960915137
+          },
+          {
+            "word": "Minecraft",
+            "start": 3.66,
+            "end": 4.019,
+            "confidence": 0.9998973713361717
+          },
+          {
+            "word": "ever.",
+            "start": 4.34,
+            "end": 4.52,
+            "confidence": 0.9999915600574338
+          },
+          {
+            "word": "War",
+            "start": 4.98,
+            "end": 5.08,
+            "confidence": 0.9999889136593714
+          },
+          {
+            "word": "so",
+            "start": 5.1,
+            "end": 5.34,
+            "confidence": 0.9999961853172863
+          },
+          {
+            "word": "geil.",
+            "start": 5.38,
+            "end": 5.6,
+            "confidence": 0.9999727747386438
+          },
+          {
+            "word": "Ähm,",
+            "start": 8.68,
+            "end": 9.12,
+            "confidence": 0.998811728432091
+          },
+          {
+            "word": "Rennen",
+            "start": 9.3,
+            "end": 9.48,
+            "confidence": 0.9915094267696111
+          },
+          {
+            "word": "gegen",
+            "start": 9.52,
+            "end": 9.64,
+            "confidence": 0.8668862777038702
+          },
+          {
+            "word": "Daniel",
+            "start": 9.68,
+            "end": 9.86,
+            "confidence": 0.7810746329823247
+          },
+          {
+            "word": "ABT.",
+            "start": 9.9,
+            "end": 10.06,
+            "confidence": 0.9545117724881433
+          },
+          {
+            "word": "Ja,",
+            "start": 10.08,
+            "end": 10.2,
+            "confidence": 0.9999483062442491
+          },
+          {
+            "word": "können",
+            "start": 10.26,
+            "end": 10.32,
+            "confidence": 0.9998561350834737
+          },
+          {
+            "word": "wir",
+            "start": 10.32,
+            "end": 10.34,
+            "confidence": 0.9989129214332411
+          },
+          {
+            "word": "auch",
+            "start": 10.38,
+            "end": 10.46,
+            "confidence": 0.9999731786297104
+          },
+          {
+            "word": "mal",
+            "start": 10.48,
+            "end": 10.54,
+            "confidence": 0.9999966621509202
+          },
+          {
+            "word": "machen.",
+            "start": 10.6,
+            "end": 10.76,
+            "confidence": 0.9962488796598974
+          },
+          {
+            "word": "Hab",
+            "start": 10.8,
+            "end": 10.9,
+            "confidence": 0.981987776955001
+          },
+          {
+            "word": "heute",
+            "start": 10.92,
+            "end": 11.08,
+            "confidence": 0.8930241423430169
+          },
+          {
+            "word": "noch",
+            "start": 11.1,
+            "end": 11.2,
+            "confidence": 0.9997137412445506
+          },
+          {
+            "word": "mit",
+            "start": 11.24,
+            "end": 11.3,
+            "confidence": 0.9999970197767496
+          },
+          {
+            "word": "ihm",
+            "start": 11.34,
+            "end": 11.4,
+            "confidence": 0.9999959469005546
+          },
+          {
+            "word": "geschrieben.",
+            "start": 11.42,
+            "end": 11.8,
+            "confidence": 0.9916644196625848
+          },
+          {
+            "word": "Also",
+            "start": 11.84,
+            "end": 11.96,
+            "confidence": 0.9999963045256735
+          }
+        ]
+      }
+    },
+    {
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "raw": {
+        "id": "gen-1795003583-Nf0J64Ozdk2qYAqP7N1s",
+        "object": "chat.completion",
+        "created": 1795003583,
+        "model": "openai/gpt-4.1-mini",
+        "provider": "OpenAI",
+        "system_fingerprint": null,
+        "service_tier": "default",
+        "choices": [
+          {
+            "index": 0,
+            "logprobs": null,
+            "finish_reason": "stop",
+            "native_finish_reason": "completed",
+            "message": {
+              "role": "assistant",
+              "content": "{\n  \"frames\": [\n    {\n      \"frame\": 0,\n      \"genre\": \"gaming\",\n      \"confidence\": 0.9\n    },\n    {\n      \"frame\": 1,\n      \"genre\": \"gaming\",\n      \"confidence\": 0.9\n    },\n    {\n      \"frame\": 2,\n      \"genre\": \"gaming\",\n      \"confidence\": 0.9\n    }\n  ]\n}",
+              "refusal": null,
+              "reasoning": null
+            }
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 801,
+          "completion_tokens": 91,
+          "total_tokens": 892,
+          "cost": 0.000466,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.000466,
+            "upstream_inference_prompt_cost": 0.0003204,
+            "upstream_inference_completions_cost": 0.0001456
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        }
+      }
+    }
+  ],
+  "cumulative": 0.063442037956665
+}

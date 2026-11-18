@@ -16,6 +16,9 @@ const OPENROUTER_MODEL = 'openai/whisper-large-v3-turbo';
 
 export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
   readonly name = 'openrouter';
+  constructor(private readonly model: 'openai/whisper-large-v3-turbo'|'openai/whisper-large-v3'|'elevenlabs/scribe-v2' = OPENROUTER_MODEL) {
+    if(!['openai/whisper-large-v3-turbo','openai/whisper-large-v3','elevenlabs/scribe-v2'].includes(model)) throw new Error('Unsupported timing-capable transcription model');
+  }
 
   async transcribeAudio(
     audioBuffer: Buffer,
@@ -44,13 +47,13 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
     }
 
     logger.info(
-      `[OpenRouter] Submitting ${fileName} (${(audioBuffer.length / (1024 * 1024)).toFixed(2)} MB) to OpenRouter Speech-to-Text (${OPENROUTER_MODEL})...`
+      `[OpenRouter] Submitting ${fileName} (${(audioBuffer.length / (1024 * 1024)).toFixed(2)} MB) to OpenRouter Speech-to-Text (${this.model})...`
     );
 
     const formData = new FormData();
     const blob = new Blob([audioBuffer], { type: mimeType });
     formData.append('file', blob, fileName);
-    formData.append('model', OPENROUTER_MODEL);
+    formData.append('model', this.model);
     formData.append('response_format', 'verbose_json');
     formData.append('timestamp_granularities[]', 'word');
     formData.append('timestamp_granularities[]', 'segment');
@@ -142,7 +145,7 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
       text,
       language,
       durationSeconds,
-      provenance: {provider:'openrouter',model:OPENROUTER_MODEL,requested_language:options?.language},
+      provenance: {provider:'openrouter',model:this.model,requested_language:options?.language},
       segments,
       words,
       timingIssues,

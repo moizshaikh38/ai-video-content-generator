@@ -1,3 +1,4 @@
+import {gamingGenreFromVisualReview} from '../shared/automaticGamingPanels.js';
 import {AppError} from '../types/index.js';
 import {transcriptContentIdentity} from '../shared/transcriptSourceBinding.js';
 import {assertTranscriptReusable} from './transcriptSourceBindingService.js';
@@ -607,7 +608,7 @@ export class ClipAnalysisService {
         // 1. Verify project exists and belongs to user
       const { data: project, error: projErr } = await dataRepository
         .from('projects')
-        .select('id, user_id, title, notes, clip_preferences, source_url')
+        .select(process.env.VIREO_AUTOMATIC_GAMING_REVIEW==='1'?'id, user_id, title, notes, clip_preferences, source_url, automatic_gaming_evidence':'id, user_id, title, notes, clip_preferences, source_url')
         .eq('id', projectId)
         .eq('user_id', userId)
         .maybeSingle();
@@ -758,7 +759,7 @@ export class ClipAnalysisService {
       const questionCount = (fullTranscriptText.match(/\?/g) || []).length;
       const questionDensityPerMin = questionCount / durationMinutes;
 
-      const localSuggestion = GenreIntelligenceService.classifyVideoGenreLocally({
+      let localSuggestion = GenreIntelligenceService.classifyVideoGenreLocally({
         wpm,
         ocrDensityPerMin,
         faceCount,
@@ -771,6 +772,10 @@ export class ClipAnalysisService {
         visualMotionScore,
       });
 
+      if(process.env.VIREO_AUTOMATIC_GAMING_REVIEW==='1'){
+        const visual=gamingGenreFromVisualReview(selectionReceipt.source_receipt.sha256,(project as any).automatic_gaming_evidence);
+        if(visual)localSuggestion={...localSuggestion,...visual};
+      }
       const rawIncomingPrefs = options.preferences || project.clip_preferences;
       const normalizedPrefs = GenreIntelligenceService.normalizePreferences(
         rawIncomingPrefs || undefined,

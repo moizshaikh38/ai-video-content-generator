@@ -3,6 +3,8 @@ import type {AutomaticLayoutPolicy} from './automaticLayoutPolicy.js';
 /** Existing planner input contract. Extraction does not change evidence or policy. */
 export interface ShotCompositionOptions {
     layoutPolicy?:AutomaticLayoutPolicy;
+    /** Local source-bound gaming review. Not enabled by normal project settings. */
+    automaticGamingReview?:Parameters<typeof import('./automaticGamingPanels.js').proposeAutomaticGamingPanels>[0];
     rawSamples?: ReframeSample[] | null; sceneCuts?: number[]; duration: number;
     sourceWidth: number; sourceHeight: number;
     /** Review-only opt-in. No production caller selects this policy. */
