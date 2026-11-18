@@ -15,7 +15,7 @@ The earlier ordered-segment fallback preserved text order but did not establish 
 
 ## Checks
 
-49 focused tests passed across timestamp recovery evidence, ordered caption guards, provider timing, output validation, source receipts, transcript quality and processing speed. Server TypeScript passed. These checks use pure fixtures and scoped local DB/HTTP lineage checks, not live media or paid calls. No all-suite or production readiness claim.
+51 focused tests passed across timestamp recovery evidence, ordered caption guards, provider timing, output validation, source receipts, transcript quality and processing speed. Server TypeScript passed. These checks use pure fixtures and scoped local DB/HTTP lineage checks, not live media or paid calls. No all-suite or production readiness claim.
 
 Separate source-bound recovery diagnostics found conflicting text across recognizers in overlapping streamer/game audio. No candidate was automatically installed or rendered. Complete text and synchronization remain unresolved. There is no native independent listening verification here. Model agreement or readable screenshots do not substitute for audio acceptance.
 
@@ -28,3 +28,9 @@ The requested corrected single-word clip remains incomplete. Speaker-aware recog
 OpenRouter documents multipart diarize=true with verbose_json and anonymous word speaker/speaker_label fields. Scribe v2 supports it. The adapter now exposes an explicit Scribe-only opt-in, default off, and preserves actual returned labels. Mocked request tests only, no diarization request was executed. The API warns that providers may charge extra; an exact current diarization surcharge is not verified. Speaker labels do not identify the streamer, and requesting them does not authorize removing other speech.
 
 Sources checked: https://openrouter.ai/docs/api/api-reference/stt/create-transcription and https://openrouter.ai/blog/announcements/elevenlabs-on-openrouter/
+
+## Explicit review preview and single-word serialization
+
+A separate noncanonical preview projection excludes provider audio-event/redaction labels from spoken-word cues, retains uncertain speech and flags review spans. It does not clear canonical review state. A real full-interval preview was rendered with persistent unverified notice and review notices. This remains an uncertain preview, not an accepted accurate-caption deliverable.
+
+Single-word grouping previously extended a 20ms genuine word window to 50ms, overlapping the next onset. Single-word grouping and animation slicing now preserve the positive measured window. A regression checks serialized ASS centiseconds for distinct-word nonoverlap, allowing multiple same-word outline layers. Actual output boundary pixels were inspected. No equal subdivisions or word-clock inventions were introduced.

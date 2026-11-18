@@ -36,3 +36,18 @@ test('diarization is opt-in, Scribe-only and requests real labels without a paid
  await assert.rejects(new OpenRouterTranscriptionProvider().transcribeAudio(Buffer.from('fixture'),'fixture.wav','audio/wav',{diarize:true}),/not supported/);assert.equal(calls,1);
  }finally{globalThis.fetch=oldFetch;config.openrouterApiKey=oldKey;}
 });
+
+test('explicit preview excludes event labels, retains uncertain speech and marks review spans',async()=>{
+ const {buildCaptionReviewPreview}=await import('../services/transcription/captionReviewPreview.js');const n:any={words:[{word:'Maybe',start:0,end:.3,confidence:.4},{word:'[laughs]',start:.4,end:.9,kind:'audio_event'}]};const before=JSON.stringify(n);const p=buildCaptionReviewPreview(n);assert.equal(p.status,'unverified_preview');assert.equal(p.words.length,1);assert.equal(p.words[0].word,'Maybe');assert.equal(p.reviewSpans.length,2);assert.equal(JSON.stringify(n),before);
+});
+
+test('20ms single-word cues never extend into next measured word after ASS quantization',async()=>{
+ const {buildPresetAssScript,resolveCaptionPreset}=await import('../shared/captionPresets.js');
+ const t={words:[{word:'you',start:2.9,end:2.92},{word:'want',start:2.92,end:3.1}]};
+ const result=CaptionService.extractCuesForClipSettings(t,{start_seconds:0,end_seconds:4,caption_style:'vireo_comic_punch',caption_config:{presetId:'vireo_comic_punch',presetOverrides:{maxWordsPerCue:1,maxLines:1}},aspect_ratio:'9:16'}as any);
+ assert.equal(result.cues[0].end,2.92);assert.equal(result.cues[1].start,2.92);
+ const ass=buildPresetAssScript(result.cues,resolveCaptionPreset('vireo_comic_punch',{maxWordsPerCue:1,maxLines:1},'9:16'));
+ const tick=(t:string)=>{const[h,m,s]=t.split(':');return Math.round((Number(h)*3600+Number(m)*60+Number(s))*100)};const active=new Map<number,Set<string>>();
+ for(const line of ass.split('\n').filter(l=>l.startsWith('Dialogue:'))){const p=line.split(',');const text=p.slice(9).join(',').replace(/\{[^}]*\}/g,'').trim();for(let cs=tick(p[1]);cs<tick(p[2]);cs++){const words=active.get(cs)||new Set<string>();words.add(text);active.set(cs,words);assert(words.size<=1);}}
+ assert.equal(active.get(291)?.has('YOU'),true);assert.equal(active.get(292)?.has('WANT'),true);
+});

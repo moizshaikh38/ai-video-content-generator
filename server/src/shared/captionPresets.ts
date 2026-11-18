@@ -1483,7 +1483,7 @@ export function groupWordsIntoCues(
   const flush = () => {
     if (currentWords.length === 0) return;
     const start = currentWords[0].start;
-    const end = Math.max(start + 0.05, currentWords[currentWords.length - 1].end);
+    const end = safeMaxWords === 1 ? currentWords[0].end : Math.max(start + 0.05, currentWords[currentWords.length - 1].end);
     const rawText = currentWords.map((t) => t.text).join(' ');
 
     let formattedText = width ? (fitCaptionLines(currentWords.map(w=>w.text),maxLines,maxCharsPerLine,width) ?? rawText) : rawText;
@@ -1645,6 +1645,12 @@ export function getValidCueWords(cue: PresetTimedCue): PresetTimedWord[] {
  */
 export function computeCueWordSlices(cue: PresetTimedCue, validWords = getValidCueWords(cue)): CueWordSlice[] {
   if (validWords.length === 0) return [];
+  // A one-word cue must not grow into the next measured onset just to meet
+  // a display-duration floor. Preserve its actual positive window.
+  if (validWords.length === 1) {
+    const w=validWords[0],start=Math.max(0,cue.start,w.start),end=Math.min(cue.end,w.end);
+    return end>start ? [{start,end,activeIdx:0,progressIdx:0}] : [];
+  }
   const cueStart = Math.max(0, cue.start);
   const cueEnd = Math.max(cueStart + 0.05, cue.end);
   const slices: Array<{ start: number; end: number; activeIdx: number }> = [];
