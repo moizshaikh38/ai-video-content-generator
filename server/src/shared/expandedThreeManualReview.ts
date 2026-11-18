@@ -3,7 +3,7 @@ import type{ReframeSample}from'../types/index.js';import{PANEL_RECTS,type ItemPa
  * body/context protection. Extra/unmatched bodies, missing faces, identity
  * changes and crossed windows abstain. Not whole-body or speaker evidence. */
 export function expandedThreeManualReview(samples:ReframeSample[],width:number,height:number):ItemPanels|undefined{
- if(samples.length<6||!(width>0&&height>0))return;
+ if(samples.length<6||![width,height].every(Number.isFinite)||!(width>0&&height>0))return;
  const ids=[...new Set(samples.flatMap(s=>s.faces.map(f=>f.track_id)))];if(ids.length!==3||ids.some(id=>!id))return;
  if(samples.some(s=>s.faces.length!==3||new Set(s.faces.map(f=>f.track_id)).size!==3||s.faces.some(f=>!ids.includes(f.track_id)||![f.x,f.y,f.width,f.height,f.center_x,f.center_y,f.confidence].every(Number.isFinite)||f.confidence<.7||f.width*f.height<.002||f.x<0||f.y<0||f.x+f.width>1||f.y+f.height>1)))return;
  for(const s of samples){const bodies=(s.persons||[]).filter(p=>p.confidence>=.4);if(bodies.length!==3)return;const owners=bodies.map(p=>s.faces.filter(f=>f.center_x>=p.x&&f.center_x<=p.x+p.width&&f.center_y>=p.y&&f.center_y<=p.y+p.height*.55).map(f=>f.track_id));if(owners.some(o=>o.length!==1)||new Set(owners.flat()).size!==3)return;}
