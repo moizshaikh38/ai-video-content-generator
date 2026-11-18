@@ -1,4 +1,7 @@
 # VireoClip Operational Recovery & Backup Procedures
+
+> DRAFT RUNBOOK, NOT VERIFIED PRODUCTION STATE. Backup-branch review on 2026-11-19 found unsupported storage assumptions and unfenced terminal render writes. The local recovery correction and its exact test limits are recorded in `qualification/render-lease-fencing-20261119.md`. No production backup schedule, successful restore, credential rotation, zero-data-loss guarantee or rollout is established by this document. Never run these procedures against production without validating the target, permissions and current vendor capabilities.
+
 **Phase 13 Production Hardening & Operational Runbook**
 
 ---
@@ -6,7 +9,7 @@
 ## 1. Overview & Scope
 
 This document details the operational disaster recovery, backup strategies, lock recovery, secret rotation, and webhook replay runbooks for VireoClip.
-All operations described adhere to strict data-integrity constraints, multi-tenant isolation, and zero-data-loss guarantees.
+This is a proposed operational procedure. Each recovery path needs environment-specific validation and a measured restore drill. The procedures do not establish zero data loss or tenant isolation by themselves.
 
 ---
 
@@ -51,38 +54,22 @@ outputs/{userId}/{projectId}/...
 ```
 
 ### 3.2 R2 Lifecycle & Disaster Recovery
-- **Bucket Versioning**: Cloudflare R2 Bucket Versioning should be enabled for production buckets to protect against accidental deletes or overwrites.
-- **R2 Retention & Abort Multipart**: Configure lifecycle rules to abort incomplete multipart uploads older than 7 days to eliminate orphaned temporary chunks.
-- **Cross-Region Replication**: For mission-critical high availability, replicate the primary R2 bucket to a secondary failover region using Cloudflare R2 Super Slurper or bucket replication.
+- **Versioning and replication are not assumed**: Cloudflare's current S3 compatibility page lists bucket versioning and bucket replication APIs as unimplemented. The earlier instructions to enable them were not an executable recovery plan.
+- **Multipart lifecycle**: Verify the current bucket lifecycle configuration and an approved retention policy before changing it. No production lifecycle state has been checked here.
+- **Independent backup required**: Define and test an authorized separate-copy strategy with an object manifest and content hashes. Super Slurper is a migration/copy tool, not proof of continuous replication, and migrated ETags can change. No copy job or new storage has been authorized or started.
+- Sources verified 2026-11-19: https://developers.cloudflare.com/r2/api/s3/api/ and https://developers.cloudflare.com/r2/data-migration/super-slurper/ .
 
 ---
 
 ## 4. Background Job & Distributed Lock Recovery
 
 ### 4.1 Render Job Lock Recovery
-Render jobs utilize atomic distributed leasing via MongoDB `findOneAndUpdate` with lease timeouts:
-- **Default Lease Timeout (`JOB_LOCK_TIMEOUT_MS`)**: 15 minutes (900,000 ms).
-- **Worker Failure Scenario**: If a backend instance crashes mid-render, its lock expires after `staleCutoff` (`Date.now() - 15m`).
-- **Automatic Recovery**: On the next claim poll, another worker atomically reclaims the job if `attempts < max_attempts` (default: 3).
-- **Manual Lock Release Script**:
-  If a batch of jobs was abandoned by a hard server termination:
-  ```javascript
-  // Execute via MongoDB Shell or Node diagnostic script
-  db.render_jobs.updateMany(
-    {
-      status: "rendering",
-      locked_at: { $lt: new Date(Date.now() - 15 * 60 * 1000) },
-      attempts: { $lt: 3 }
-    },
-    {
-      $set: {
-        status: "queued",
-        worker_id: null,
-        locked_at: null
-      }
-    }
-  );
-  ```
+
+The current queue treats `processing` jobs with a lease older than 15 minutes as stale. Polling requeues them, and the due-job query currently uses a hardcoded attempt limit of three. Exhausted stale jobs and configurable retry-budget behavior still need qualification; do not assume every queued job will recover automatically.
+
+The local correction uses immutable per-attempt render output paths and fenced transactional stage/outcome updates. See the qualification record linked above for exact real-Mongo and mock coverage. No production restore or process-kill/restart test was performed. New attempt objects can remain orphaned after an interrupted or losing attempt; no cleanup or retention change is approved.
+
+Do not bulk-clear worker IDs or reset job status from this runbook. Before any manual recovery, identify the exact owner/job/clip, current token and heartbeat, attempt budget, active worker and desired outcome. A reset that races a live worker can create duplicate work or discard a valid result. A reviewed, scoped recovery tool and a production recovery drill remain required.
 
 ### 4.2 Publishing Worker Stale Lock Recovery
 Social publishing jobs utilize `publish_jobs` with atomic claims:
@@ -133,6 +120,8 @@ If a webhook failed due to database unavailability (HTTP 500 or timeout), provid
 - **Readiness Probe**: `GET /ready` returns HTTP 200 if MongoDB is connected and core configs are valid; returns HTTP 503 if MongoDB or critical dependencies fail.
 
 ### 7.2 Graceful Shutdown Procedure
+A proposed shutdown sequence is listed below, not a measured drain guarantee. The current implementation stops polling and closes HTTP, but does not explicitly await all background FFmpeg work before closing MongoDB. Restart, lease recovery, child-process handling and readiness during drain need fault testing before release.
+
 On receiving `SIGTERM` or `SIGINT`:
 1. Server marks itself unready (stops accepting new HTTP connections).
 2. Active background polling loops and OAuth cleanup intervals are cancelled immediately.
@@ -144,9 +133,9 @@ On receiving `SIGTERM` or `SIGINT`:
 
 ## 8. Emergency Production Deployment Rollback Runbook
 
-### 8.1 Zero-Data-Loss Rollback Principles
-- **Additive Database Schema Guarantee**: VireoClip database schemas are backward-compatible. Rolling back application server code to a prior container tag or commit does not corrupt MongoDB collections.
-- **In-Flight Jobs**: When rolling back backend services, active render jobs will be reclaimed by the rolled-back worker pool once their lease (`JOB_LOCK_TIMEOUT_MS = 15m`) expires or via manual reset.
+### 8.1 Rollback Checks, Not Guarantees
+- **Schema compatibility must be tested**: Check every migration, validator and persisted record format against the actual target revision. There is no blanket guarantee that an arbitrary application rollback is safe.
+- **In-flight jobs need a version-aware plan**: Check worker leases, attempt paths, transaction support and queue retry limits before rollback. Do not assume the older worker can resume every newer record, and do not use an unreviewed bulk reset.
 
 ### 8.2 Rollback Steps
 1. **Frontend Rollback**:

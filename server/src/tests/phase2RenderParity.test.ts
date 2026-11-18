@@ -242,9 +242,11 @@ describe('Phase 2 — output key idempotency on retry', () => {
     assert.match(key, /v3\/render\.mp4$/);
   });
 
-  it('renderClipJob keys the upload off clip.render_version (stable across job retries)', () => {
+  it('renderClipJob uses immutable attempt objects within the clip render version', () => {
     const src = fs.readFileSync(path.resolve(process.cwd(), 'src/services/clipRenderService.ts'), 'utf8');
-    assert.match(src, /renderObjectKey\(clip\.user_id, clip\.project_id, clip\.id, renderVersion\)/);
+    // Stable per-version retry keys let a late stale worker overwrite current
+    // bytes. The helper remains for legacy reads; new writes isolate attempts.
+    assert.match(src, /renderAttemptObjectKey\(clip\.user_id, clip\.project_id, clip\.id, renderVersion,attemptId\)/);
     assert.match(src, /const renderVersion = Number\(clip\.render_version \|\| 1\)/);
   });
 });

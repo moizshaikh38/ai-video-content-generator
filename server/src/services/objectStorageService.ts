@@ -68,6 +68,11 @@ export function renderObjectKey(userId: string, projectId: string, clipId: strin
   return `users/${userId}/projects/${projectId}/clips/${clipId}/v${version}/render.mp4`;
 }
 
+export function renderAttemptObjectKey(userId:string,projectId:string,clipId:string,version:number,attemptId:string):string{
+  assertUUID(attemptId);
+  return renderObjectKey(userId,projectId,clipId,version).replace(/render\.mp4$/,`attempts/${attemptId}/render.mp4`);
+}
+
 export function projectObjectPrefix(userId: string, projectId: string): string {
   assertUUID(userId); assertUUID(projectId);
   return `users/${userId}/projects/${projectId}/`;

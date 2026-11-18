@@ -18,7 +18,8 @@ import { clampCaptionFontSize } from '../shared/captionPresets.js';
 import { assFontsDirArg } from './editorFontFiles.js';
 import { canvasDims, parseRenderResolution, resolveEffectiveResolution, type EffectiveResolution } from '../shared/renderResolution.js';
 import { createClipWithJob } from '../db/repositories/clipRepository.js';
-import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
+import { isMongoConfigured, getMongoDb, getMongoClient } from '../db/mongoClient.js';
+import {commitFencedRenderOutcome} from './queue/renderLeaseCommit.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import fs from 'fs';
 import path from 'path';
@@ -26,7 +27,7 @@ import os from 'os';
 import crypto from 'crypto';
 import ffmpeg from 'fluent-ffmpeg';
 import { getRenderFfmpeg } from '../utils/drawtextFfmpeg.js';
-import { clipObjectPrefix, deletePrefix, downloadObjectToFile, headObject, computeFileStreamSha256, renderObjectKey, signObjectGet, uploadFile } from './objectStorageService.js';
+import { clipObjectPrefix, deletePrefix, downloadObjectToFile, headObject, computeFileStreamSha256, renderAttemptObjectKey, signObjectGet, uploadFile } from './objectStorageService.js';
 import { deleteClipRecords } from '../db/repositories/deletionRepository.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
@@ -598,6 +599,8 @@ export class ClipRenderService {
 
     // Distributed worker and lease identification
     const workerId = `worker_${process.pid}_${crypto.randomBytes(4).toString('hex')}`;
+    const attemptId=crypto.randomUUID();
+    const expectedClipVersion={renderVersion:Number(clip.render_version||1),editorVersion:Number(clip.editor_version||1)};
     const RENDER_LOCK_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes stale lease recovery
     const now = new Date();
     const staleCutoff = new Date(now.getTime() - RENDER_LOCK_TIMEOUT_MS);
@@ -636,6 +639,8 @@ export class ClipRenderService {
     const claimedJob = await renderJobsCol.findOneAndUpdate(
       {
         id: jobId,
+        clip_id:clipId,
+        user_id:userId,
         $or: [
           { status: 'queued' },
           { status: 'processing', locked_at: { $lt: staleCutoff } },
@@ -656,7 +661,7 @@ export class ClipRenderService {
     );
 
     if (!claimedJob) {
-      const currentJob = await renderJobsCol.findOne({ id: jobId });
+      const currentJob = await renderJobsCol.findOne({ id: jobId,clip_id:clipId,user_id:userId });
       if (currentJob?.status === 'completed') {
         logger.info(`[ClipRender] Clip ${clipId} is already rendered and completed.`);
         return;
@@ -689,7 +694,7 @@ export class ClipRenderService {
       fs.mkdirSync(tempDir, { recursive: true });
 
       // Update stage: downloading (5%)
-      await ClipRenderService.updateJobStage(jobId, clipId, 'downloading', 5, 'rendering', workerId);
+      await ClipRenderService.updateJobStage(jobId, clipId, 'downloading', 5, 'rendering', workerId,expectedClipVersion);
 
       // 1. Download private source video
       const sourcePath = path.join(tempDir, 'source.mp4');
@@ -716,7 +721,7 @@ export class ClipRenderService {
       }
 
       // 2. FFmpeg cut, manual framing, ASS subtitles, text overlay, and MP4 encode
-      await ClipRenderService.updateJobStage(jobId, clipId, 'cutting', 10, 'rendering', workerId);
+      await ClipRenderService.updateJobStage(jobId, clipId, 'cutting', 10, 'rendering', workerId,expectedClipVersion);
 
       const trimStart = Number(clip.trim_start_offset || 0);
       const trimEnd = Number(clip.trim_end_offset || 0);
@@ -726,7 +731,7 @@ export class ClipRenderService {
 
       // Speaker-following guarantee: generate the smart-reframe track on demand
       // so active-speaker framing works out of the box.
-      await ClipRenderService.ensureReframeTrackAtRender(clip, sourcePath, jobId, sourceSha256, sourceSnapshot.receipt);
+      await ClipRenderService.ensureReframeTrackAtRender(clip, sourcePath, jobId, sourceSha256, sourceSnapshot.receipt,workerId,expectedClipVersion);
 
       // Shared reframing decision (Quick path filter + Pro per-slice context).
       // Export resolution: requested tier from the clip (set by the export
@@ -780,7 +785,7 @@ export class ClipRenderService {
 
       // ASS Subtitles burn-in
       if (clip.caption_enabled !== false) {
-        await ClipRenderService.updateJobStage(jobId, clipId, 'preparing_captions', 12, 'rendering');
+        await ClipRenderService.updateJobStage(jobId, clipId, 'preparing_captions', 12, 'rendering',workerId,expectedClipVersion);
         const assPath = path.join(tempDir, 'subtitles.ass');
         try {
           // Blur-fit layouts letterbox the source; anchor bottom captions to
@@ -1075,7 +1080,7 @@ export class ClipRenderService {
           await scriptExec.cleanup();
           preparedSlices?.cleanup();
         }
-        await ClipRenderService.updateJobProgress(jobId, 85, 'encoding');
+        await ClipRenderService.updateJobProgress(jobId, 85, 'encoding',workerId);
       } else {
         const audioGraph = ClipRenderService.compileQuickClipAudioGraph({
           durationSec,
@@ -1086,7 +1091,7 @@ export class ClipRenderService {
 
         if (audioGraph.hasBackgroundMusic && !clip.muted) {
           logger.info(`[ClipRender] Executing Quick Clips render with background music and ducking: ${audioGraph.musicPath}`);
-          await ClipRenderService.updateJobProgress(jobId, 25, 'encoding');
+          await ClipRenderService.updateJobProgress(jobId, 25, 'encoding',workerId);
 
           const fullFilterComplex = [
             composeQuickVideoGraph(videoFilters).graph,
@@ -1123,7 +1128,7 @@ export class ClipRenderService {
               throw err;
             }
           });
-          await ClipRenderService.updateJobProgress(jobId, 85, 'encoding');
+          await ClipRenderService.updateJobProgress(jobId, 85, 'encoding',workerId);
         } else {
           await new Promise<void>((resolve, reject) => {
           let isResolved = false;
@@ -1194,7 +1199,7 @@ export class ClipRenderService {
               const rawProgress = 15 + Math.round((currentSec / durationSec) * 70);
               const clampedProgress = Math.min(85, Math.max(15, rawProgress));
 
-              ClipRenderService.updateJobProgress(jobId, clampedProgress, 'encoding').catch(() => {});
+              ClipRenderService.updateJobProgress(jobId, clampedProgress, 'encoding',workerId).catch(() => {});
             }
           });
 
@@ -1240,11 +1245,11 @@ export class ClipRenderService {
       const encodedAudioReview = await reviewEncodedAudio(outputPath,Boolean(clip.muted),timeoutMs);
       await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
       // 3. Upload rendered MP4 to storage with revision versioning
-      await ClipRenderService.updateJobStage(jobId, clipId, 'uploading', 90, 'uploading', workerId);
+      await ClipRenderService.updateJobStage(jobId, clipId, 'uploading', 90, 'uploading', workerId,expectedClipVersion);
 
       const renderedSize = (await fs.promises.stat(outputPath)).size;
       const renderVersion = Number(clip.render_version || 1);
-      const outputStoragePath = renderObjectKey(clip.user_id, clip.project_id, clip.id, renderVersion);
+      const outputStoragePath = renderAttemptObjectKey(clip.user_id, clip.project_id, clip.id, renderVersion,attemptId);
 
       logger.info(
         `[ClipRender] Uploading rendered MP4 v${renderVersion} (${(renderedSize / (1024 * 1024)).toFixed(2)} MB) to path: ${outputStoragePath}`
@@ -1256,10 +1261,11 @@ export class ClipRenderService {
       // Output verification guard: ensure deliverable exists before marking ready
       JobReliabilityService.verifyRequiredOutputs('clip_render', { output_storage_path: finalStoragePath });
 
-      // 4. Update clip status -> 'ready'
-      await dataRepository
-        .from('clips')
-        .update({
+      // Publish clip and job atomically. A stale upload has its own immutable
+      // attempt key and cannot overwrite the current worker's output bytes.
+      await commitFencedRenderOutcome(await getMongoClient(),db,{jobId:jobId!,clipId,userId,workerId,renderVersion,editorVersion:Number(clip.editor_version||1)},{
+        job:{status:'completed',progress:100,stage:'completed',completed_at:new Date(),updated_at:new Date(),worker_id:null,locked_at:null,next_retry_at:null},
+        clip:{
           render_status: 'ready',
           encoded_audio_review: encodedAudioReview,
           output_storage_path: finalStoragePath,
@@ -1278,8 +1284,8 @@ export class ClipRenderService {
           render_error_code: null,
           render_error_message: null,
           updated_at: new Date().toISOString(),
-        })
-        .eq('id', clipId);
+        }
+      });
 
       // 4b. Poster frame for the Media Library while the rendered file is still local (best-effort).
       await ClipPosterService.generateFromRenderedFile(
@@ -1287,21 +1293,7 @@ export class ClipRenderService {
         outputPath,
       );
 
-      // 5. Update render job -> 'completed' (100%) - only if worker still owns it
-      if (jobId) {
-        await db.collection('render_jobs').updateOne(
-          { id: jobId, worker_id: workerId },
-          {
-            $set: {
-              status: 'completed',
-              progress: 100,
-              stage: 'completed',
-              completed_at: new Date(),
-              updated_at: new Date(),
-            },
-          }
-        );
-      }
+      // The completed job and ready clip were committed together above.
 
       logger.info(`[ClipRender] Successfully rendered and published clip ${clipId} to ${finalStoragePath}`);
     } catch (err: any) {
@@ -1315,67 +1307,28 @@ export class ClipRenderService {
         message,
       });
 
-      // Update clip to failed
-      try {
-        await dataRepository
-          .from('clips')
-          .update({
-            render_status: 'failed',
-            render_error_code: code,
-            render_error_message: message.substring(0, 500),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', clipId);
-      } catch {}
-
-      // Update render job status with retry logic (Step 5)
-      if (jobId) {
-        try {
-          const currentJob = await db.collection('render_jobs').findOne({ id: jobId });
-          const attempts = currentJob?.attempts || 1;
-          const maxAttempts = currentJob?.max_attempts || 3;
-
-          if (isTransient && attempts < maxAttempts) {
-            // Exponential backoff with jitter
-            const delayMs = JobReliabilityService.computeBackoffDelayMs(attempts, { baseDelayMs: 2000, maxDelayMs: 30000, jitter: true });
-            const nextRetryAt = new Date(Date.now() + delayMs);
-
-            await db.collection('render_jobs').updateOne(
-              { id: jobId },
-              {
-                $set: {
-                  status: 'queued',
-                  stage: 'queued',
-                  worker_id: null,
-                  locked_at: null,
-                  next_retry_at: nextRetryAt,
-                  error_code: code,
-                  error_message: message.substring(0, 500),
-                  updated_at: new Date(),
-                },
-              }
-            );
-            logger.warn(`[ClipRender] Transient failure for clip ${clipId}. Job ${jobId} scheduled for retry ${attempts + 1}/${maxAttempts} at ${nextRetryAt.toISOString()}`);
-          } else {
-            await db.collection('render_jobs').updateOne(
-              { id: jobId },
-              {
-                $set: {
-                  status: 'failed',
-                  stage: 'failed',
-                  worker_id: null,
-                  locked_at: null,
-                  next_retry_at: null,
-                  error_code: code,
-                  error_message: message.substring(0, 500),
-                  updated_at: new Date(),
-                },
-              }
-            );
-            logger.error(`[ClipRender] Permanent render job failure for clip ${clipId} (${attempts}/${maxAttempts})`);
+      // A lease-loss exception must never mark another worker's clip/job failed.
+      // The transaction also rechecks ownership after the diagnostic read below.
+      if(jobId&&code!=='FENCING_TOKEN_MISMATCH'){
+        try{
+          const currentJob=await db.collection('render_jobs').findOne({id:jobId,clip_id:clipId,user_id:userId,worker_id:workerId,status:'processing'});
+          if(currentJob){
+            const attempts=currentJob.attempts||1,maxAttempts=currentJob.max_attempts||3;
+            const retry=code!=='RENDER_INPUT_CHANGED'&&isTransient&&attempts<maxAttempts;
+            const nextRetryAt=retry?new Date(Date.now()+JobReliabilityService.computeBackoffDelayMs(attempts,{baseDelayMs:2000,maxDelayMs:30000,jitter:true})):null;
+            await commitFencedRenderOutcome(await getMongoClient(),db,{jobId,clipId,userId,workerId,renderVersion:Number(clip.render_version||1),editorVersion:Number(clip.editor_version||1)},{
+              preserveSupersedingClip:true,
+              job:{status:retry?'queued':'failed',stage:retry?'queued':'failed',worker_id:null,locked_at:null,next_retry_at:nextRetryAt,error_code:code,error_message:message,updated_at:new Date()},
+              clip:{render_status:retry?'queued':'failed',render_error_code:code,render_error_message:message,updated_at:new Date().toISOString()},
+            });
+            logger.warn('[ClipRender] Fenced render failure recorded',{clipId,jobId,retry,attempts,maxAttempts});
+          }else{
+            logger.warn('[ClipRender] Discarded stale worker failure',{clipId,jobId});
           }
-        } catch (dbErr) {
-          logger.error('Failed to update render job status on failure', { jobId, dbErr });
+        }catch(dbErr){
+          // No unguarded fallback. Leave lease recovery to the queue if the
+          // transaction is unavailable, rather than partially publishing state.
+          logger.error('Failed to commit fenced render failure',{jobId,dbErr});
         }
       }
     } finally {
@@ -1396,22 +1349,14 @@ export class ClipRenderService {
    * Helper to update job progress safely
    */
   private static async updateJobProgress(
-    jobId?: string,
-    progress?: number,
-    stage?: string
-  ): Promise<void> {
-    if (!jobId) return;
-    const clamped = Math.min(100, Math.max(0, progress || 0));
-    try {
-      await dataRepository
-        .from('render_jobs')
-        .update({
-          progress: clamped,
-          stage: stage || 'encoding',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', jobId);
-    } catch {}
+    jobId?:string,progress?:number,stage?:string,expectedWorkerId?:string
+  ):Promise<void>{
+    if(!jobId||!expectedWorkerId)return;
+    const clamped=Math.min(100,Math.max(0,progress||0));
+    try{
+      const db=await getMongoDb();
+      await db.collection('render_jobs').updateOne({id:jobId,worker_id:expectedWorkerId,status:'processing'},{$set:{progress:clamped,stage:stage||'encoding',updated_at:new Date()}});
+    }catch{}
   }
 
   /**
@@ -1423,40 +1368,17 @@ export class ClipRenderService {
     stage: string,
     progress: number,
     clipStatus: string,
-    expectedWorkerId?: string
+    expectedWorkerId?: string,
+    expectedClipVersion?:{renderVersion:number;editorVersion:number}
   ): Promise<void> {
-    if (jobId) {
-      const db = await getMongoDb();
-      const filter: any = { id: jobId };
-      if (expectedWorkerId) {
-        filter.worker_id = expectedWorkerId;
-      }
-      const res = await db.collection('render_jobs').updateOne(
-        filter,
-        {
-          $set: {
-            stage,
-            progress,
-            status: 'processing',
-            ...(stage === 'cutting' ? { started_at: new Date() } : {}),
-            updated_at: new Date(),
-          },
-        }
-      );
-      if (expectedWorkerId && res.matchedCount === 0) {
-        throw new AppError('Render lease was expired or claimed by another worker.', 409, 'FENCING_TOKEN_MISMATCH');
-      }
-    }
-
-    try {
-      await dataRepository
-        .from('clips')
-        .update({
-          render_status: clipStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', clipId);
-    } catch {}
+    if(!jobId||!expectedWorkerId)throw new AppError('A render worker lease is required.',409,'FENCING_TOKEN_MISMATCH');
+    const db=await getMongoDb();
+    const current=await db.collection('render_jobs').findOne({id:jobId,clip_id:clipId,worker_id:expectedWorkerId,status:'processing'});
+    if(!current?.user_id)throw new AppError('Render lease was expired or claimed by another worker.',409,'FENCING_TOKEN_MISMATCH');
+    await commitFencedRenderOutcome(await getMongoClient(),db,{jobId,clipId,userId:current.user_id,workerId:expectedWorkerId,...expectedClipVersion},{
+      job:{stage,progress,status:'processing',...(stage==='cutting'?{started_at:new Date()}:{}),updated_at:new Date()},
+      clip:{render_status:clipStatus,updated_at:new Date().toISOString()},
+    });
   }
 
   /**
@@ -1471,7 +1393,9 @@ export class ClipRenderService {
     localSourcePath: string,
     jobId?: string,
     expectedSourceSha256?: string,
-    sourceReceipt?:SourceObjectReceipt
+    sourceReceipt?:SourceObjectReceipt,
+    expectedWorkerId?:string,
+    expectedClipVersion?:{renderVersion:number;editorVersion:number}
   ): Promise<void> {
     if (!config.smartReframeEnabled || !config.reframeAutoGenerate) return;
     if (clip.crop_config?.mode !== 'smart') return;
@@ -1487,10 +1411,11 @@ export class ClipRenderService {
     logger.info(`[ClipRender] No ready reframe track for smart clip ${clip.id}; auto-generating from local source`);
     try {
       if (jobId) {
-        await ClipRenderService.updateJobStage(jobId, clip.id, 'analyzing_speakers', 8, 'rendering');
+        await ClipRenderService.updateJobStage(jobId, clip.id, 'analyzing_speakers', 8, 'rendering',expectedWorkerId,expectedClipVersion);
       }
       await SmartReframeService.analyzeClipFraming(clip.id, clip.user_id, { localSourcePath,sourceReceipt });
     } catch (err: any) {
+      if(err?.code==='FENCING_TOKEN_MISMATCH'||err?.code==='RENDER_INPUT_CHANGED')throw err;
       logger.warn(`[ClipRender] Auto reframe analysis failed for clip ${clip.id}: ${err?.message || err}. Falling back to center crop.`);
     }
   }
