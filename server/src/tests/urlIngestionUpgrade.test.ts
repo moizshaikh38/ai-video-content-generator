@@ -187,6 +187,14 @@ describe('UrlIngestionService Upgrade Test Suite', { concurrency: 1 }, () => {
   // 2. downloadToTempFile Stream Timeout, Backpressure & Byte Bounds
   // =========================================================================
   describe('2. downloadToTempFile Stream Safeguards & Backpressure', { concurrency: 1 }, () => {
+    const realPrivateClassifier = UrlValidator.isPrivateIp;
+    before(() => {
+      // Fixture-only allowance for the real local streaming server. Product
+      // download code rejects loopback, even in development. These cases test
+      // transport limits, not public-address classification.
+      UrlValidator.isPrivateIp = (ip: string) => ip === '127.0.0.1' ? false : realPrivateClassifier.call(UrlValidator, ip);
+    });
+    after(() => { UrlValidator.isPrivateIp = realPrivateClassifier; });
     it('enforces Content-Length header limit before downloading (FILE_SIZE_EXCEEDED)', async () => {
       const testUrl = `${testServerBaseUrl}/oversized-header.mp4`;
       const maxBytes = 1024 * 1024; // 1MB

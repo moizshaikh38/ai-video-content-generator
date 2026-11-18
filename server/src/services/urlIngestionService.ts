@@ -1,3 +1,4 @@
+import {pinnedPublicMediaFetch} from '../utils/pinnedHttpsAssetFetch.js';
 import {supportedYouTubeJsArgs} from '../shared/youtubeRuntime.js';
 import {runYouTubeStrategyAttempts} from '../utils/youtubeAttemptPolicy.js';
 import {resolveYouTubeOutputArtifact} from '../utils/youtubeOutputArtifact.js';
@@ -211,6 +212,7 @@ export class UrlIngestionService {
 
     resetStreamTimer();
 
+    try {
     // Follow redirects manually to validate SSRF on every hop
     while (redirectCount <= maxRedirects) {
       if (streamController.signal.aborted) {
@@ -218,15 +220,7 @@ export class UrlIngestionService {
       }
 
       try {
-        response = await fetch(currentUrl, {
-          method: 'GET',
-          redirect: 'manual',
-          signal: streamController.signal,
-          headers: {
-            'User-Agent': 'VireoClip/1.0 (Media Ingestion; +https://vireoclip.ai)',
-            Accept: 'video/*,*/*;q=0.8',
-          },
-        });
+        response = await pinnedPublicMediaFetch(currentUrl, streamController.signal);
         resetStreamTimer();
       } catch (fetchErr: any) {
         if (fetchErr.name === 'AbortError' || streamController.signal.aborted) {
@@ -242,6 +236,7 @@ export class UrlIngestionService {
           throw new AppError('Redirect response was missing Location header.', 502, 'REDIRECT_FAILED');
         }
 
+        await response.body?.cancel();
         const nextUrl = new URL(location, currentUrl).toString();
         // Re-validate target URL for SSRF before following
         await UrlValidator.validateVideoUrl(nextUrl);
@@ -374,6 +369,10 @@ export class UrlIngestionService {
         );
       }
       throw streamErr;
+    }
+    } finally {
+      if (streamTimer) clearTimeout(streamTimer);
+      if (response?.body && !response.body.locked) await response.body.cancel().catch(() => {});
     }
   }
 
@@ -801,11 +800,7 @@ export class UrlIngestionService {
     let contentType: string | undefined = undefined;
 
     try {
-      const headRes = await fetch(validated.normalizedUrl, {
-        method: 'HEAD',
-        headers: { 'User-Agent': 'VireoClip/1.0 (Media Ingestion; +https://vireoclip.ai)' },
-        signal: AbortSignal.timeout(Math.min(timeoutMs, 5000)),
-      });
+      const headRes = await pinnedPublicMediaFetch(validated.normalizedUrl, AbortSignal.timeout(Math.min(timeoutMs, 5000)), {method:'HEAD'});
       if (headRes.ok) {
         const cl = headRes.headers.get('content-length');
         if (cl) contentLength = parseInt(cl, 10);
