@@ -1,3 +1,4 @@
+import {anchorClipFitToMeasuredFaces} from './fitSubjectAnchor.js';
 export interface PresentationProtection {preserveWindow:true;reason:'measured-context'|'measured-subject-conflict'|'persistent-face-conflict'}
 export interface AutomaticLayoutPolicy {defaultLayout:'auto'|'fit'|'fill';allowed: Array<'fit'|'fill'|'split'>}
 export function normalizeAutomaticLayoutPolicy(v:any):AutomaticLayoutPolicy|undefined{
@@ -41,5 +42,5 @@ export function legacyFit43Plan(track:any,duration:number,group:any,lowConfidenc
  if(track?.metadata?.shot_composition_candidate===true||track?.layout_mode==='split'||track?.layout_mode==='screencast')return undefined;
  if(!group&&!lowConfidence&&track?.dominant_track_id&&track?.layout_mode!=='blur')return undefined;
  const g=group||{windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}]};
- return presentFit43([{...g,start:0,end:duration,windowH:g.windowH||1,kind:'fit',contextStatus:'unresolved-review-required',uncertainty:'4:3 Fit can crop side context. Review before sharing.'}],track.source_width||1920,track.source_height||1080);
+ return anchorClipFitToMeasuredFaces(presentFit43([{...g,start:0,end:duration,windowH:g.windowH||1,kind:'fit',contextStatus:'unresolved-review-required',uncertainty:'4:3 Fit can crop side context. Review before sharing.'}],track.source_width||1920,track.source_height||1080),track.raw_samples||[],track.source_width||1920,track.source_height||1080);
 }
