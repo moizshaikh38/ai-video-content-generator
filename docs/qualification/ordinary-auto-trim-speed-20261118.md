@@ -25,3 +25,9 @@ All are bounded local auth/storage/entitlement adapters with full-source manuall
 ## Regression coverage
 
 Pure source-clock tests cover ordinary vs manual ownership, fast and slow selected-window bounds, stale canvas clamp, nonzero analysis origin and multi-item cut crossing. Executable finite-silence regression exercises both dynamic reconstruction and its unused audio sink. Reduced existing synthetic loudness tests cover silent audio, dynamic fallback and caller input seek. Cadence pixel tests cover brief first/interior/last scenes at24/25/29.97/30/60fps without claiming every60fps source frame survives30fps output.
+
+## Follow-up manual scene scope
+
+No product change. Fresh normal24s analysis and actual EditorShell at the saved2x source6->18 edit: This scene -> Fit at timeline4 writes only source12->18; source6->12 stays ordinary Auto body portrait. Saved/reloaded normal queued6s job inspected: portrait first3s then manual4:3Fit pair view. Actual UI manualFit and restoredAuto screenshots inspected. Selecting This scene -> Auto restores measured stackedSplit. The persisted timeline still has one video item. Lower-resolution interpolation, manualFit sidecrop and existingAutoSplit geometry limits remain. This verifies scope/priority, not a new Auto quality win.
+
+An additional source-clock regression tests a partial manual12->12.5 interval on a nonzero-analysis-origin2x trim, exact render-only source/timeline expansion, unchanged persisted item and resumed AutoSplit after the manual interval. No new paid call or deployment. Local evidence: vireo-manual-scope-ui-0958 and vireo-manual-scope-job-0959.
