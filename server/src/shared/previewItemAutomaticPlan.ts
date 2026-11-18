@@ -16,6 +16,7 @@ export interface PreviewMeasuredPlanEnvelope {
  sourcePath:string;
  configurationKey:string;
  shots:AutomaticShotPlan;
+ manualParticipantReview?:Array<{start:number;end:number;panels:import('./panelLayouts.js').ItemPanels}>;
 }
 /** A server-computed full-analysis plan can describe a contained effective
  * item only when all per-item compute inputs match. Do not attach identity to

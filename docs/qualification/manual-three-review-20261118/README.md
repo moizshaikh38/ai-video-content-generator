@@ -1,0 +1,13 @@
+# Explicit manual Three source-window review
+
+New source: NASA/JSC Apollo11prelaunch conference, https://archive.org/details/VJSC_1425A . Fullsource provenance and negative standard route recorded inbroader-controls-and-three-20261118. Bounded14.015s634x480excerpt300–314s, SHA256d53093a20c24b1bff5d81b3fbb54c0516cff79f400c56b5699e4c6ff505121a3.
+
+Explicit VIREO_PARTICIPANT_EXPANDED_REVIEW=1 plus adaptive shot analysis, conversation split enabled and podcast context records expanded-three-v1 manual review metadata. Defaultoff. Source-verified preview envelope may offer manual-only Three windows. It NEVER changes automatic shots, presentationProtection or ordinary strict body assignment. The actual new source retains automatic protected full-source Fit. Source identity, version, geometry, aspect, config and interval are checked by the existing envelope consumer, and manual slots still pass strict assignment/nonoverlap validation. Existing manual edits and tracker precedence stay intact.
+
+Three-person solver requires exactly3persistent faces and3bodies with one-to-one head ownership in every sample, confidence and area checks, stable centers, source-contained padded face unions and disjoint nearest-face horizontal regions. It grows aspect-matched windows with added headroom. Extra/unmatched/missing/weak/duplicate detections abstain; this is face framing, NOT complete-body retention. Protected content/objects and Fit-only policy exclude proposals. No new weights or threshold changes.
+
+Fresh actual normal analyzer/controller/EditorShell Auto→Three source-bound proposal saved/reloaded through actual service, then direct MP4 compiler. All3Panel no-op Apply preserve regions; actualPanel1resize affectsonlyPanel1; Three reselect preservesedit; both initial and editedprojects save/get/directcompile. Final MP4 sampledframes andUI screenshot inspected: initial shows3distinctpeople without broad bars, soft archival source; editedPanel1can gainthincontainbars as expected from itsmanualnonmatchingrectangle. First no-op fixture failed because new regions lackedcontain semantics; fixed proposal semantics and reran fresh,notcountedfailedattemptaspass.
+
+71focusedrelatedtestspass,bothTypeScriptchecksclean. Includesmanualreviewopt-inonly,automaticshotsunchanged,invalidsource/protectedcontext/object/Fit-onlypolicy/wrongmarker/no-extra-body/detectionordernegatives. Earlierbroader673testsweepstillhasdocumentedbaselinefailures; notall-suitegreen.
+
+NOordinaryasyncjob/caption/fullupload/highlight/GenreAuto/productionproof. No paidcalls. Do notactivatebydefault or callfullbody-safe. Review-only UI qualification, not finalrelease.

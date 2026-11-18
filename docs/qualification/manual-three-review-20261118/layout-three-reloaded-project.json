@@ -1,0 +1,199 @@
+{
+  "id": "1fb339b6-58c8-4d75-9695-00c6b5dc76ed",
+  "user_id": "99e41df6-35fc-45d5-8975-69a6f846c4ad",
+  "project_id": "1003817c-c833-4aca-b4c2-71b2d8f65c41",
+  "clip_id": "4dff22e0-a75f-4e1c-9195-9d5ba6e895e5",
+  "version": 3,
+  "status": "draft",
+  "title": "Editor: Untitled Clip",
+  "canvas": {
+    "width": 1080,
+    "height": 1920,
+    "aspect_ratio": "9:16",
+    "fps": 30,
+    "duration": 14.015,
+    "background_color": "#000000",
+    "background_mode": "color"
+  },
+  "tracks": [
+    {
+      "id": "9f02592a-dda1-47a8-b0c4-557294c18869",
+      "type": "VIDEO",
+      "name": "Main Video",
+      "locked": false,
+      "muted": false,
+      "hidden": false,
+      "height": 64,
+      "items": [
+        {
+          "id": "1c3c5fee-7b0e-4f83-8cbf-8e8840a8c675",
+          "track_id": "9f02592a-dda1-47a8-b0c4-557294c18869",
+          "type": "VIDEO",
+          "source_asset_id": "4dff22e0-a75f-4e1c-9195-9d5ba6e895e5",
+          "source_path": "fixtures/1003817c-c833-4aca-b4c2-71b2d8f65c41/source.mp4",
+          "timeline_start": 0,
+          "timeline_end": 14.015,
+          "source_start": 0,
+          "source_end": 14.015,
+          "transform": {
+            "position_x": 0,
+            "position_y": 0,
+            "scale": 1,
+            "rotation": 0,
+            "opacity": 1
+          },
+          "layout_mode": "track",
+          "crop_config": {
+            "mode": "smart",
+            "layout_mode": "track",
+            "layout_mode_source": "auto"
+          },
+          "speed": {
+            "speed": 1,
+            "pitch_preserved": true
+          },
+          "audio": {
+            "volume": 1,
+            "fade_in": 0.15,
+            "fade_out": 0.25,
+            "normalized": true,
+            "target_lufs": -16
+          },
+          "effects": [],
+          "keyframes": [],
+          "locked": false,
+          "muted": false,
+          "hidden": false,
+          "z_index": 0,
+          "scene_layout_overrides": [
+            {
+              "start": 0,
+              "end": 14.015,
+              "layout": "three",
+              "patch": {
+                "panels": {
+                  "layout": "three",
+                  "slots": [
+                    {
+                      "fit": "contain",
+                      "focusX": 0.5,
+                      "focusY": 0.5,
+                      "scale": 1,
+                      "sourceRect": {
+                        "x": 0.19172899053627762,
+                        "y": 0.15959999999999996,
+                        "w": 0.1742820189274448,
+                        "h": 0.20462
+                      },
+                      "set": true
+                    },
+                    {
+                      "fit": "contain",
+                      "focusX": 0.5,
+                      "focusY": 0.5,
+                      "scale": 1,
+                      "sourceRect": {
+                        "x": 0.4725084779179811,
+                        "y": 0.13563999999999998,
+                        "w": 0.10335804416403788,
+                        "h": 0.24270000000000005
+                      },
+                      "set": true
+                    },
+                    {
+                      "fit": "contain",
+                      "focusX": 0.5,
+                      "focusY": 0.5,
+                      "scale": 1,
+                      "sourceRect": {
+                        "x": 0.7227300000000001,
+                        "y": 0.13696387037037033,
+                        "w": 0.10556500000000002,
+                        "h": 0.2478822592592593
+                      },
+                      "set": true
+                    }
+                  ]
+                },
+                "layout_mode": "track",
+                "crop_config": {
+                  "mode": "smart",
+                  "layout_mode_source": "user",
+                  "layout_mode": "track"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "59b6fb04-d0b8-4f2d-849a-5312113fdaf7",
+      "type": "TEXT",
+      "name": "Text & Titles",
+      "locked": false,
+      "muted": false,
+      "hidden": false,
+      "height": 48,
+      "items": []
+    },
+    {
+      "id": "1a415c8a-49e0-4f21-b5ed-573ed1f63fdb",
+      "type": "CAPTION",
+      "name": "Subtitles",
+      "locked": false,
+      "muted": false,
+      "hidden": true,
+      "height": 48,
+      "items": [
+        {
+          "id": "423b250f-fb92-4c0d-b711-c0d451f67240",
+          "track_id": "1a415c8a-49e0-4f21-b5ed-573ed1f63fdb",
+          "type": "CAPTION",
+          "timeline_start": 0,
+          "timeline_end": 14.015,
+          "source_start": 0,
+          "source_end": 14.015,
+          "transform": {
+            "position_x": 0,
+            "position_y": 500,
+            "scale": 1,
+            "rotation": 0,
+            "opacity": 1
+          },
+          "speed": {
+            "speed": 1,
+            "pitch_preserved": true
+          },
+          "caption": {
+            "cues": [],
+            "cues_covered_end": 14.015,
+            "style": "vireo_comic_default",
+            "position": "bottom",
+            "primary_color": "#FFFFFF",
+            "highlight_color": "#20FF35",
+            "animation": "none"
+          },
+          "effects": [],
+          "keyframes": [],
+          "locked": false,
+          "muted": true,
+          "hidden": false,
+          "z_index": 20
+        }
+      ]
+    }
+  ],
+  "playhead": 0,
+  "settings": {
+    "snapping": true,
+    "safe_guides": true,
+    "snap_tolerance_sec": 0.15,
+    "show_safe_zones": true
+  },
+  "producer_plan_id": null,
+  "output_storage_path": null,
+  "preview_video_url": null,
+  "created_at": "2026-11-18T13:25:28.088Z",
+  "updated_at": "2026-11-18T13:25:50.424Z"
+}

@@ -1,0 +1,457 @@
+TAP version 13
+# Subtest: cropBox
+    # Subtest: round-trips crop <-> box for several sources
+    ok 1 - round-trips crop <-> box for several sources
+      ---
+      duration_ms: 0.805079
+      type: 'test'
+      ...
+    # Subtest: anchor near bottom-right edge stays inside the frame (reported bug)
+    ok 2 - anchor near bottom-right edge stays inside the frame (reported bug)
+      ---
+      duration_ms: 0.205243
+      type: 'test'
+      ...
+    # Subtest: visible box equals applied box for random drags incl. crossing the anchor
+    ok 3 - visible box equals applied box for random drags incl. crossing the anchor
+      ---
+      duration_ms: 6.461744
+      type: 'test'
+      ...
+    # Subtest: crossing the anchor flips to the other side
+    ok 4 - crossing the anchor flips to the other side
+      ---
+      duration_ms: 0.181754
+      type: 'test'
+      ...
+    # Subtest: move clamps inside
+    ok 5 - move clamps inside
+      ---
+      duration_ms: 0.163126
+      type: 'test'
+      ...
+    1..5
+ok 1 - cropBox
+  ---
+  duration_ms: 8.529031
+  type: 'suite'
+  ...
+# Subtest: Fit default
+    # Subtest: fit -> blur by default, explicit colour (incl. black) keeps plain fit
+    ok 1 - fit -> blur by default, explicit colour (incl. black) keeps plain fit
+      ---
+      duration_ms: 0.418967
+      type: 'test'
+      ...
+    1..1
+ok 2 - Fit default
+  ---
+  duration_ms: 0.49155
+  type: 'suite'
+  ...
+# Subtest: Fit band
+    # Subtest: chain crops source to 4:3 and places an 810px band on a 1080x1920 canvas
+    ok 1 - chain crops source to 4:3 and places an 810px band on a 1080x1920 canvas
+      ---
+      duration_ms: 0.292578
+      type: 'test'
+      ...
+    # Subtest: legacy items without band stay full frame; canvas choice overrides; only 9:16 applies
+    ok 2 - legacy items without band stay full frame; canvas choice overrides; only 9:16 applies
+      ---
+      duration_ms: 0.15513
+      type: 'test'
+      ...
+    1..2
+ok 3 - Fit band
+  ---
+  duration_ms: 0.63624
+  type: 'suite'
+  ...
+# Subtest: panel rects: measured Opus 9:16 geometry, tile the canvas exactly (no gaps/overlaps), 4K scales
+ok 4 - panel rects: measured Opus 9:16 geometry, tile the canvas exactly (no gaps/overlaps), 4K scales
+  ---
+  duration_ms: 0.872213
+  type: 'test'
+  ...
+# Subtest: panel filter: independent per-panel crops, chain-safe, normalises bad input
+ok 5 - panel filter: independent per-panel crops, chain-safe, normalises bad input
+  ---
+  duration_ms: 0.596565
+  type: 'test'
+  ...
+# Subtest: applyItemLayout: panel layouts set item.panels, clear crop; switching back clears panels
+ok 6 - applyItemLayout: panel layouts set item.panels, clear crop; switching back clears panels
+  ---
+  duration_ms: 0.389294
+  type: 'test'
+  ...
+# Subtest: actual pro slice compiler passes requested resolution into panel geometry
+ok 7 - actual pro slice compiler passes requested resolution into panel geometry
+  ---
+  duration_ms: 0.688595
+  type: 'test'
+  ...
+# Subtest: panel slots: defaults are unassigned; set flag survives normalisation
+ok 8 - panel slots: defaults are unassigned; set flag survives normalisation
+  ---
+  duration_ms: 0.142528
+  type: 'test'
+  ...
+# Subtest: unassigned panel export gate covers every visible scene and rejects before compile
+ok 9 - unassigned panel export gate covers every visible scene and rejects before compile
+  ---
+  duration_ms: 1.545271
+  type: 'test'
+  ...
+# Subtest: subject seed is a suggestion only: never marks slots set
+ok 10 - subject seed is a suggestion only: never marks slots set
+  ---
+  duration_ms: 0.147057
+  type: 'test'
+  ...
+# Subtest: subjectCenterInWindow takes median in window, null when empty
+ok 11 - subjectCenterInWindow takes median in window, null when empty
+  ---
+  duration_ms: 0.106756
+  type: 'test'
+  ...
+# Subtest: panel assignment flags require exact boolean true, not truthy strings
+ok 12 - panel assignment flags require exact boolean true, not truthy strings
+  ---
+  duration_ms: 0.071366
+  type: 'test'
+  ...
+# Subtest: Fit selection survives read-back: Fit stored as blurred backdrop still reads Fit; Blur reads Blur
+ok 13 - Fit selection survives read-back: Fit stored as blurred backdrop still reads Fit; Blur reads Blur
+  ---
+  duration_ms: 0.12899
+  type: 'test'
+  ...
+# Subtest: manual Split without a track builds two stacked speaker-anchored halves that ffmpeg accepts
+ok 14 - manual Split without a track builds two stacked speaker-anchored halves that ffmpeg accepts
+  ---
+  duration_ms: 41.16992
+  type: 'test'
+  ...
+# Subtest: manual Split compiler honors output scale, independent anchor fallbacks and title cards without a track
+ok 15 - manual Split compiler honors output scale, independent anchor fallbacks and title cards without a track
+  ---
+  duration_ms: 0.292683
+  type: 'test'
+  ...
+# Subtest: explicit manual Three grows ratio-matched isolated windows without foreign face fragments
+ok 16 - explicit manual Three grows ratio-matched isolated windows without foreign face fragments
+  ---
+  duration_ms: 2.196909
+  type: 'test'
+  ...
+# Subtest: manual Three rejects sparse, missing, duplicate, weak, extra or unmatched participants
+ok 17 - manual Three rejects sparse, missing, duplicate, weak, extra or unmatched participants
+  ---
+  duration_ms: 1.121547
+  type: 'test'
+  ...
+# Subtest: manual Three abstains when face padding cannot fit source or nearest partition
+ok 18 - manual Three abstains when face padding cannot fit source or nearest partition
+  ---
+  duration_ms: 0.190871
+  type: 'test'
+  ...
+# Subtest: manual matching Four reuses distinct verified range; no measured choice leaves views unassigned
+ok 19 - manual matching Four reuses distinct verified range; no measured choice leaves views unassigned
+  ---
+  duration_ms: 3.206139
+  type: 'test'
+  ...
+# Subtest: wrong layout range ambiguous or duplicate regions cannot seed a manual panel choice
+ok 20 - wrong layout range ambiguous or duplicate regions cannot seed a manual panel choice
+  ---
+  duration_ms: 0.21046
+  type: 'test'
+  ...
+# Subtest: saved manual panels and locked items win; scene-only choice cannot leak outside source interval
+ok 21 - saved manual panels and locked items win; scene-only choice cannot leak outside source interval
+  ---
+  duration_ms: 0.567499
+  type: 'test'
+  ...
+# Subtest: whole clip never borrows a different source item assignment
+ok 22 - whole clip never borrows a different source item assignment
+  ---
+  duration_ms: 0.301759
+  type: 'test'
+  ...
+# Subtest: manual seeding validates source identity configuration and tracker safety
+ok 23 - manual seeding validates source identity configuration and tracker safety
+  ---
+  duration_ms: 0.694003
+  type: 'test'
+  ...
+# Subtest: malformed or out-of-range measured controls are rejected rather than clamped
+ok 24 - malformed or out-of-range measured controls are rejected rather than clamped
+  ---
+  duration_ms: 0.181356
+  type: 'test'
+  ...
+# Subtest: late verified analysis can replace untouched placeholders but never a partially assigned manual layout
+ok 25 - late verified analysis can replace untouched placeholders but never a partially assigned manual layout
+  ---
+  duration_ms: 0.322346
+  type: 'test'
+  ...
+# Subtest: three and four distinct persistent participants receive unique assigned measured regions
+ok 26 - three and four distinct persistent participants receive unique assigned measured regions
+  ---
+  duration_ms: 3.521447
+  type: 'test'
+  ...
+# Subtest: detection array order cannot change participant ownership
+ok 27 - detection array order cannot change participant ownership
+  ---
+  duration_ms: 2.239542
+  type: 'test'
+  ...
+# Subtest: no invented participant for two faces plus back-facing third body
+ok 28 - no invented participant for two faces plus back-facing third body
+  ---
+  duration_ms: 0.17781
+  type: 'test'
+  ...
+# Subtest: duplicates, sparse, weak or moving observations abstain
+ok 29 - duplicates, sparse, weak or moving observations abstain
+  ---
+  duration_ms: 0.47147
+  type: 'test'
+  ...
+# Subtest: crossed body envelopes or extra people never produce duplicates or erase a participant
+ok 30 - crossed body envelopes or extra people never produce duplicates or erase a participant
+  ---
+  duration_ms: 0.797143
+  type: 'test'
+  ...
+# Subtest: offline aspect-matched face crops preserve complete observed faces and never activate without face-review permission
+ok 31 - offline aspect-matched face crops preserve complete observed faces and never activate without face-review permission
+  ---
+  duration_ms: 1.186003
+  type: 'test'
+  ...
+# Subtest: shared planner respects explicit review flag, Fit-only and protected content
+ok 32 - shared planner respects explicit review flag, Fit-only and protected content
+  ---
+  duration_ms: 318.488115
+  type: 'test'
+  ...
+# Subtest: preview accepts exactly the same effective item identity and shots as normal Pro compute
+ok 33 - preview accepts exactly the same effective item identity and shots as normal Pro compute
+  ---
+  duration_ms: 5.352299
+  type: 'test'
+  ...
+# Subtest: source bytes asset path output shape and per-scene configuration invalidate preview reuse
+ok 34 - source bytes asset path output shape and per-scene configuration invalidate preview reuse
+  ---
+  duration_ms: 1.74967
+  type: 'test'
+  ...
+# Subtest: server envelope requires current source receipt and recorded decoded geometry
+ok 35 - server envelope requires current source receipt and recorded decoded geometry
+  ---
+  duration_ms: 0.518788
+  type: 'test'
+  ...
+# Subtest: manual controls bypass missing envelopes without changing their state
+ok 36 - manual controls bypass missing envelopes without changing their state
+  ---
+  duration_ms: 0.814691
+  type: 'test'
+  ...
+# Subtest: preview plan cloning cannot mutate the measured envelope for another scene
+ok 37 - preview plan cloning cannot mutate the measured envelope for another scene
+  ---
+  duration_ms: 0.601418
+  type: 'test'
+  ...
+# Subtest: source-clock scene expansion agrees with Pro including override ID and range
+ok 38 - source-clock scene expansion agrees with Pro including override ID and range
+  ---
+  duration_ms: 4.262489
+  type: 'test'
+  ...
+# Subtest: policy key is stable under key order and preserves policy and candidate changes
+ok 39 - policy key is stable under key order and preserves policy and candidate changes
+  ---
+  duration_ms: 0.152053
+  type: 'test'
+  ...
+# Subtest: unknown or changed plan geometry never becomes an accepted preview
+ok 40 - unknown or changed plan geometry never becomes an accepted preview
+  ---
+  duration_ms: 0.252772
+  type: 'test'
+  ...
+# Subtest: envelope producer owns computation and rejects mutation of bound options
+ok 41 - envelope producer owns computation and rejects mutation of bound options
+  ---
+  duration_ms: 0.479962
+  type: 'test'
+  ...
+# Subtest: optional Mongo-null policy matches absent measured plan configuration
+ok 42 - optional Mongo-null policy matches absent measured plan configuration
+  ---
+  duration_ms: 0.636627
+  type: 'test'
+  ...
+# Subtest: expanded Three proposals are manual-only opt-in; protected automatic shots remain identical
+ok 43 - expanded Three proposals are manual-only opt-in; protected automatic shots remain identical
+  ---
+  duration_ms: 4.653546
+  type: 'test'
+  ...
+# Subtest: manual Three proposals respect protected context, policy and review marker
+ok 44 - manual Three proposals respect protected context, policy and review marker
+  ---
+  duration_ms: 5.982517
+  type: 'test'
+  ...
+# Subtest: scene override persists one item, leaves base and other source scenes untouched
+ok 45 - scene override persists one item, leaves base and other source scenes untouched
+  ---
+  duration_ms: 1.273545
+  type: 'test'
+  ...
+# Subtest: render slices map source-clock bounds through2x speed without timeline cuts or transitions
+ok 46 - render slices map source-clock bounds through2x speed without timeline cuts or transitions
+  ---
+  duration_ms: 0.718829
+  type: 'test'
+  ...
+# Subtest: Auto releases only this scene and preserves base manual crop elsewhere
+ok 47 - Auto releases only this scene and preserves base manual crop elsewhere
+  ---
+  duration_ms: 0.216455
+  type: 'test'
+  ...
+# Subtest: whole clip is separate explicit replacement, locks survive
+ok 48 - whole clip is separate explicit replacement, locks survive
+  ---
+  duration_ms: 0.207266
+  type: 'test'
+  ...
+# Subtest: overlap replacements retain unaffected range fragments
+ok 49 - overlap replacements retain unaffected range fragments
+  ---
+  duration_ms: 0.247175
+  type: 'test'
+  ...
+# Subtest: malformed/overlapping ranges fail before render
+ok 50 - malformed/overlapping ranges fail before render
+  ---
+  duration_ms: 0.261587
+  type: 'test'
+  ...
+# Subtest: caption anchors follow effective scene windows without cutting persisted cues/items
+ok 51 - caption anchors follow effective scene windows without cutting persisted cues/items
+  ---
+  duration_ms: 1.798609
+  type: 'test'
+  ...
+# Subtest: scene crop edits seed from existing scene override without changing another scene
+ok 52 - scene crop edits seed from existing scene override without changing another scene
+  ---
+  duration_ms: 0.258272
+  type: 'test'
+  ...
+# Subtest: trim reuses only measured candidate windows on the same source/aspect
+ok 53 - trim reuses only measured candidate windows on the same source/aspect
+  ---
+  duration_ms: 1.181047
+  type: 'test'
+  ...
+# Subtest: retained scene window cannot infer historical source anchor from a changed clip start
+ok 54 - retained scene window cannot infer historical source anchor from a changed clip start
+  ---
+  duration_ms: 0.522933
+  type: 'test'
+  ...
+# Subtest: render cannot revive a stored scene plan whose actual source bytes mismatch
+ok 55 - render cannot revive a stored scene plan whose actual source bytes mismatch
+  ---
+  duration_ms: 0.388199
+  type: 'test'
+  ...
+# Subtest: clip-wide fit replaces scene Auto overrides consistently in preview/render
+ok 56 - clip-wide fit replaces scene Auto overrides consistently in preview/render
+  ---
+  duration_ms: 0.318923
+  type: 'test'
+  ...
+# Subtest: clip-wide blur replaces scene Auto overrides consistently in preview/render
+ok 57 - clip-wide blur replaces scene Auto overrides consistently in preview/render
+  ---
+  duration_ms: 0.151397
+  type: 'test'
+  ...
+# Subtest: clip-wide center replaces scene Auto overrides consistently in preview/render
+ok 58 - clip-wide center replaces scene Auto overrides consistently in preview/render
+  ---
+  duration_ms: 0.159708
+  type: 'test'
+  ...
+# Subtest: clip-wide smart replaces scene Auto overrides consistently in preview/render
+ok 59 - clip-wide smart replaces scene Auto overrides consistently in preview/render
+  ---
+  duration_ms: 0.097115
+  type: 'test'
+  ...
+# Subtest: Color then Blur keeps the later explicit choice in expanded scene export
+ok 60 - Color then Blur keeps the later explicit choice in expanded scene export
+  ---
+  duration_ms: 0.109829
+  type: 'test'
+  ...
+# Subtest: manual scene re-selection stays scene-local when automatic preview is bypassed
+ok 61 - manual scene re-selection stays scene-local when automatic preview is bypassed
+  ---
+  duration_ms: 0.300945
+  type: 'test'
+  ...
+# Subtest: implicit gap and2xsourceclock preserve adjacent saved scenes despite a broad current analysis shot
+ok 62 - implicit gap and2xsourceclock preserve adjacent saved scenes despite a broad current analysis shot
+  ---
+  duration_ms: 0.21568
+  type: 'test'
+  ...
+# Subtest: caller-owned duration and policy are preserved without metadata substitution
+ok 63 - caller-owned duration and policy are preserved without metadata substitution
+  ---
+  duration_ms: 1.592057
+  type: 'test'
+  ...
+# Subtest: legacy absent metadata/dimensions retain established defaults
+ok 64 - legacy absent metadata/dimensions retain established defaults
+  ---
+  duration_ms: 0.107687
+  type: 'test'
+  ...
+# Subtest: option construction does not mutate analysis or add manual camera state
+ok 65 - option construction does not mutate analysis or add manual camera state
+  ---
+  duration_ms: 0.091504
+  type: 'test'
+  ...
+# Subtest: participant aspect route requires exact explicit analysis-review marker
+ok 66 - participant aspect route requires exact explicit analysis-review marker
+  ---
+  duration_ms: 0.155066
+  type: 'test'
+  ...
+1..66
+# tests 71
+# suites 3
+# pass 71
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1888.19737
