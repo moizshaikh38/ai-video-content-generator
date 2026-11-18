@@ -2,7 +2,8 @@ import {anchorClipFitToMeasuredFaces} from './fitSubjectAnchor.js';
 export interface PresentationProtection {preserveWindow:true;reason:'measured-context'|'measured-subject-conflict'|'persistent-face-conflict'}
 export interface AutomaticLayoutPolicy {defaultLayout:'auto'|'fit'|'fill';allowed: Array<'fit'|'fill'|'split'>}
 export function normalizeAutomaticLayoutPolicy(v:any):AutomaticLayoutPolicy|undefined{
- if(v===undefined)return undefined;
+ // Optional preferences may round-trip through Mongo as null. Neither means a user policy.
+ if(v===undefined||v===null)return undefined;
  if(!v||!['auto','fit','fill'].includes(v.defaultLayout)||!Array.isArray(v.allowed)||!v.allowed.length||v.allowed.some((x:any)=>!['fit','fill','split'].includes(x)))throw Object.assign(Error('Choose at least one supported automatic layout'),{statusCode:400,code:'INVALID_LAYOUT_POLICY'});
  return {defaultLayout:v.defaultLayout,allowed:[...new Set(v.allowed)] as AutomaticLayoutPolicy['allowed']};
 }
