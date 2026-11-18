@@ -17,6 +17,10 @@ const fd=fs.openSync(path.join(out,'controls-vite.log'),'w'),server=cp.spawn(pat
   const after=await page.evaluate(()=>window.itemPlanProject.tracks.find(t=>t.type==='CAPTION').items[0]);fs.writeFileSync(path.join(out,'cue-before-after.json'),JSON.stringify({before,after},null,2));
   if(process.env.VIREO_EXPECT_CUE_SCOPE_FIXED==='1'){
    const changed=after.caption.cues.filter((c,i)=>JSON.stringify(c)!==JSON.stringify(before.caption.cues[i]));assert.equal(changed.length,1);assert.equal(typeof changed[0].position_y,'number');assert.equal(after.caption.position_explicit,before.caption.position_explicit);assert.deepEqual(after.transform,before.transform);
+   if(process.env.VIREO_CUE_INHERIT_CHECK==='1'){
+    await (await page.$('[data-testid="preview-layout-canvas"] [data-selectable-item="true"].cursor-grab')).click();await clickText('Top (20%)');await capture('cue-quick-top');const top=await page.evaluate(()=>window.itemPlanProject.tracks.find(t=>t.type==='CAPTION').items[0]);assert.equal(top.caption.cues[0].position_y,.2);assert.deepEqual(top.caption.cues.slice(1),before.caption.cues.slice(1));
+    await (await page.$('[data-testid="preview-layout-canvas"] [data-selectable-item="true"].cursor-grab')).click();await clickText('Inherit Position');await capture('cue-inherit-position');const reset=await page.evaluate(()=>window.itemPlanProject.tracks.find(t=>t.type==='CAPTION').items[0]);assert.deepEqual(reset,before);fs.writeFileSync(path.join(out,'cue-quick-inherit.json'),JSON.stringify({before,top,reset},null,2));
+   }
    states.splice(states.findIndex(s=>s.name==='layout-four'),1);await capture('layout-four');await seek(3.1);await page.screenshot({path:path.join(out,'other-cue-scene-seam.png')});await seek(fixtureData.project.canvas.duration*.75);await page.screenshot({path:path.join(out,'other-cue-scene-blur.png')});await seek(.8);
   }
  }

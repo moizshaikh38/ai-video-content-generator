@@ -8,3 +8,9 @@ export function applyCuePosition(caption:EditorCaptionItem|undefined,cueId:strin
 
 /** Preview resync includes positioning and per-cue styling, not only word times. */
 export function cueListsEqual(a:unknown[],b:unknown[]):boolean{return JSON.stringify(a)===JSON.stringify(b);}
+
+/** Remove only this cue's manual location; its track and scene decide placement again. */
+export function resetCuePosition(caption:EditorCaptionItem|undefined,cueId:string):EditorCaptionItem|undefined{
+ if(!caption?.cues?.some(c=>c.id===cueId))return caption;
+ return {...caption,cues:caption.cues.map(c=>{if(c.id!==cueId)return c;const next={...c};delete next.position_x;delete next.position_y;delete next.position_anchor;return next;})};
+}

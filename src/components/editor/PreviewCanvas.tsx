@@ -137,7 +137,7 @@ interface PreviewCanvasProps {
   automaticPlanReviewRequired?:boolean;
   lowConfidenceTrack?: boolean;
   onUpdateCaptionPosition?: (
-    pos: { x?: number; y?: number; cueId?: string; fontSize?: number } | number,
+    pos: { x?: number; y?: number; cueId?: string; resetCuePosition?: boolean; fontSize?: number } | number,
     options?: UpdateProjectOptions
   ) => void;
 }
@@ -2383,6 +2383,14 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 </div>
 
                 <div className="w-px h-4 bg-neutral-700 mx-0.5" />
+
+                {captionScope === 'cue' && activeCue && (
+                  <button type="button" title="Remove this cue's manual position and inherit track or scene placement"
+                    className="px-2 py-0.5 rounded text-[10px] font-medium text-neutral-300 hover:text-white hover:bg-neutral-800 transition cursor-pointer"
+                    onClick={e=>{e.stopPropagation();if(!onUpdateCaptionPosition)return;const before=JSON.parse(JSON.stringify(projectRef.current));onUpdateCaptionPosition({cueId:activeCue.id,resetCuePosition:true},{recordHistory:true,markAsDirty:true});onCommitProject?.(before);}}>
+                    Inherit Position
+                  </button>
+                )}
 
                 {/* Quick Presets */}
                 <button

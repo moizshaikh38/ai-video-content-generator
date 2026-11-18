@@ -1,4 +1,4 @@
-import {applyCuePosition} from '../../lib/cuePosition';
+import {applyCuePosition,resetCuePosition} from '../../lib/cuePosition';
 import{measuredPanelChoicesForManualPick}from'../../../server/src/shared/measuredPanelChoice';
 import {expandSceneLayoutItem,resolveSceneLayoutItem} from '../../../server/src/shared/sceneLayoutOverrides';
 import {resolvePreviewItemPlan,type PreviewMeasuredPlanEnvelope} from '../../../server/src/shared/previewItemAutomaticPlan';
@@ -1942,7 +1942,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 if (cueId) {
                   // Per-cue position leaves global layout anchoring and other cues alone.
                   const updatedCaption: EditorCaptionItem = {
-                    ...applyCuePosition(item.caption,cueId,isObj?pos:{}),
+                    ...(isObj && pos.resetCuePosition ? (resetCuePosition(item.caption,cueId) ?? applyCuePosition(undefined,cueId,{})) : applyCuePosition(item.caption,cueId,isObj?pos:{})),
                     ...(newFontSize !== undefined ? {font_size:newFontSize}:{}),
                   };
 
