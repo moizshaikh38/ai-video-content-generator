@@ -1,9 +1,9 @@
 import type {SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
 import crypto from 'node:crypto';
-import { createWriteStream } from 'node:fs';
-import { open } from 'node:fs/promises';
+import { createWriteStream,createReadStream } from 'node:fs';
+import { open,stat } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
-import { Readable } from 'node:stream';
+import { Readable,Transform } from 'node:stream';
 import {
   DeleteObjectsCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command,
   PutObjectCommand, S3Client,
@@ -288,21 +288,25 @@ export async function uploadFile(
   size: number,
   contentType: string
 ): Promise<{ sha256: string }> {
-  const { readFile } = await import('node:fs/promises');
+  let source:ReturnType<typeof createReadStream>|undefined;
+  let body:Transform|undefined;
+  const abort=new AbortController();
   try {
-    const fileBuffer = await readFile(path);
-    const sha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
-    await storageClient().send(
-      new PutObjectCommand({
-        Bucket: bucketName(bucket),
-        Key: key,
-        Body: fileBuffer,
-        ContentLength: fileBuffer.length,
-        ContentType: contentType,
-      })
-    );
-    return { sha256 };
+    const metadata=await stat(path);
+    if(!metadata.isFile()||!Number.isSafeInteger(size)||size<0||metadata.size!==size)throw new Error('Upload file length does not match its declared size.');
+    const hash=crypto.createHash('sha256');let bytes=0;
+    source=createReadStream(path,{highWaterMark:64*1024});
+    body=new Transform({highWaterMark:64*1024,transform(chunk,_encoding,callback){
+      bytes+=chunk.length;
+      if(bytes>size){callback(new Error('Upload file grew during streaming.'));return;}
+      hash.update(chunk);callback(null,chunk);
+    },flush(callback){callback(bytes===size?undefined:new Error('Upload file ended before its declared length.'));}});
+    const pumping=pipeline(source,body);
+    const sending=Promise.resolve().then(()=>storageClient().send(new PutObjectCommand({Bucket:bucketName(bucket),Key:key,Body:body,ContentLength:size,ContentType:contentType}),{abortSignal:abort.signal}));
+    await Promise.all([pumping,sending]);
+    return {sha256:hash.digest('hex')};
   } catch (err: any) {
+    abort.abort();source?.destroy();body?.destroy();
     logger.error('Rendered object upload failed in storageClient', {
       bucket,
       key,
