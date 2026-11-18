@@ -34,5 +34,10 @@ const fd=fs.openSync(path.join(out,'controls-vite.log'),'w'),server=cp.spawn(pat
  const b=await page.evaluate(()=>({canvas:document.querySelector('[data-testid="preview-layout-canvas"]').getBoundingClientRect().toJSON(),dock:document.querySelector('.glass-dock').getBoundingClientRect().toJSON()}));
  fs.writeFileSync(path.join(out,`mobile-${w}x${h}-bounds.json`),JSON.stringify(b));assert(b.canvas.bottom<=b.dock.top,'Short portrait dock occlusion');
  }
+ await page.setViewport({width:390,height:844,deviceScaleFactor:1});await sleep(200);
+ await page.click('[data-testid="mobile-framing-toggle"]');await sleep(150);await page.screenshot({path:path.join(out,'mobile-tools-open.png')});
+ const mobileBefore=await page.evaluate(()=>JSON.stringify(window.itemPlanProject));
+ const crops=await page.$$('button[title="Choose a panel crop or fit a whole source region"]');await crops[0].click();await page.waitForSelector('[data-testid="inline-preview-crop"]');
+ await page.screenshot({path:path.join(out,'mobile-region-editor.png')});await page.click('button[aria-label="Close"]');assert.equal(await page.evaluate(()=>JSON.stringify(window.itemPlanProject)),mobileBefore);
  assert.deepEqual(errors,[]);assert(calls.length>0&&calls.every(c=>c.status===200));fs.writeFileSync(path.join(out,'controls-browser.json'),JSON.stringify({states,calls,errors,actualUIControls:true,externalRequestsForbidden:true},null,2));console.log('ACTUAL_BRANCH_CONTROLS_CAPTURED',states.length);
  }finally{if(browser)await browser.close();server.kill('SIGTERM');fs.closeSync(fd);fs.rmSync(fixture,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1});
