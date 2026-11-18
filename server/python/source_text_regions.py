@@ -29,7 +29,7 @@ def regions_from_tsv(tsv,width,height,include_word_candidates=False):
   result.append(dict(x=x/width,y=y/height,width=(right-x)/width,height=(bottom-y)/height,confidence=min(v[4]for v in strong)/100,kind='ocr-multiword-line' if multiword else 'ocr-word-candidate'))
  return result
 
-def source_text_regions(frame,include_word_candidates=False):
+def source_text_regions(frame,include_word_candidates=False,deadline=None):
  h,w=frame.shape[:2];result=[]
  # Full scene plus a generic enlarged lower-half text pass. Neither route
  # knows the title, subtitle wording or source-specific position/appearance.
@@ -40,7 +40,9 @@ def source_text_regions(frame,include_word_candidates=False):
    # One OCR child at a time, one OpenMP thread in each child. Large default
    # thread pools cost CPU/memory on concurrent render hosts; this is a
    # resource bound, not a change to recognition or sampling thresholds.
-   p=subprocess.run(['tesseract',path,'stdout','--psm','11','tsv'],capture_output=True,text=True,timeout=5,check=True,env={**os.environ,'OMP_THREAD_LIMIT':'1'})
+   timeout=5 if deadline is None else min(5,deadline-__import__('time').monotonic())
+   if timeout<=0:raise TimeoutError('OCR source budget exhausted')
+   p=subprocess.run(['tesseract',path,'stdout','--psm','11','tsv'],capture_output=True,text=True,timeout=timeout,check=True,env={**os.environ,'OMP_THREAD_LIMIT':'1'})
   for r in regions_from_tsv(p.stdout,iw,ih,include_word_candidates):
    x=r['x']*iw/scale;y=r['y']*ih/scale+offset;rw=r['width']*iw/scale;rh=r['height']*ih/scale
    r.update(x=x/w,y=y/h,width=rw/w,height=rh/h)

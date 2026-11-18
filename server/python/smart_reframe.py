@@ -216,7 +216,7 @@ def compute_mouth_score(gray, prev_gray, face_box, prev_box):
     return round(float(np.clip(score, 0.0, 1.0)), 3), round(temporal_norm, 3), round(static_norm, 3)
 
 
-def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0.0, duration_sec: float = 0.0, max_samples: int = 600, discover_short_auto_cuts: bool = False):
+def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0.0, duration_sec: float = 0.0, max_samples: int = 600, discover_short_auto_cuts: bool = False, discover_short_auto_text: bool = False):
     """
     Sample frames from video and detect faces within [start_sec, start_sec + duration_sec].
     Returns normalized face bounding boxes, mouth_scores, and lightweight scene cuts.
@@ -304,6 +304,8 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
         person_detector = PersonRegions(person_model)
 
     ocr_sample_times = []
+    from auto_text_budget import AutoTextBudget
+    auto_text=AutoTextBudget(discover_short_auto_text,effective_duration,source_width,source_height,source_fps)
 
     samples = []
     protected_content_regions = []
@@ -350,15 +352,20 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
             last_text_sample=time_sec
         # Review-only local OCR. Fail visibly if explicitly requested but the
         # host lacks Tesseract; never silently claim text coverage.
-        if os.environ.get('SMART_REFRAME_SOURCE_TEXT_OCR', '') == '1' and time_sec-last_general_text_sample>=.49:
-            from source_text_regions import source_text_regions
-            regions=source_text_regions(frame,include_word_candidates=True)
-            word_region_samples.append({'time':time_sec,'regions':[r for r in regions if r['kind']=='ocr-word-candidate']})
-            for region in regions:
-                if region['kind']!='ocr-word-candidate':
-                    protected_content_regions.append({**region,'start':max(0,time_sec-.3),'end':min(effective_duration,time_sec+.8)})
+        if time_sec-last_general_text_sample>=.49:
+            regions=None
+            if os.environ.get('SMART_REFRAME_SOURCE_TEXT_OCR', '') == '1':
+                from source_text_regions import source_text_regions
+                regions=source_text_regions(frame,include_word_candidates=True)
+            else:
+                regions=auto_text.run(frame)
             last_general_text_sample=time_sec
-            ocr_sample_times.append(time_sec)
+            if regions is not None:
+                word_region_samples.append({'time':time_sec,'regions':[r for r in regions if r['kind']=='ocr-word-candidate']})
+                for region in regions:
+                    if region['kind']!='ocr-word-candidate':
+                        protected_content_regions.append({**region,'start':max(0,time_sec-.3),'end':min(effective_duration,time_sec+.8)})
+                ocr_sample_times.append(time_sec)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # 1. Fast scene cut detection via normalized histogram correlation
@@ -562,6 +569,7 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
     from source_text_geometry import coverage_record
     text_detectors = (['tesseract-review-v2'] if ocr_sample_times else []) + (['db-ic15-resnet18-sha1-'+__import__('source_text_geometry').MODEL_SHA1] if geometry_model else [])
     text_coverage = coverage_record(ocr_sample_times+text_geometry_sample_times,effective_duration,len([r for r in protected_content_regions if r.get('kind')!='numeric-clock-overlay']),text_detectors)
+    text_coverage['automatic_execution']=auto_text.record
     if geometry_result:
         text_coverage["geometry_execution"]={k:v for k,v in geometry_result.items()if k!="samples"}
     return {
@@ -570,7 +578,7 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
         "face_resolution_passes": __import__('yunet_pyramid').inference_sizes(source_width,source_height,os.environ.get('SMART_REFRAME_YUNET_PYRAMID','')=='1') if yunet_detector else None,
         **({"person_detector": "nanodet-2022nov-sha256-" + __import__("person_regions").MODEL_SHA256} if person_detector else {}),
         "protected_content_regions": protected_content_regions,
-        "source_text_detector": "tesseract-local-lines-and-persistent-words-review-v2" if os.environ.get("SMART_REFRAME_SOURCE_TEXT_OCR", "") == "1" else None,
+        "source_text_detector": "tesseract-local-lines-and-persistent-words-review-v2" if ocr_sample_times else None,
         "scene_cut_evidence": cut_evidence,
         "source_width": source_width,
         "source_height": source_height,
@@ -606,7 +614,7 @@ def main():
         start_sec = max(0.0, start_sec)
         duration_sec = max(0.0, duration_sec)
 
-        result = analyze_video(video_path, sample_fps, start_sec, duration_sec, max_samples, params.get("discoverShortAutoCuts") is True)
+        result = analyze_video(video_path, sample_fps, start_sec, duration_sec, max_samples, params.get("discoverShortAutoCuts") is True, params.get("discoverShortAutoText") is True)
 
         # Output structured JSON
         print(json.dumps({"status": "ok", **result}))

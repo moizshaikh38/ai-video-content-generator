@@ -1,3 +1,4 @@
+import {shortAutoTextDiscovery} from '../shared/shortAutoTextDiscovery.js';
 import {shortAutoCutDiscovery,mergeDetectedSceneCuts} from '../shared/shortAutoCutDiscovery.js';
 import {movingBodyPortraitProposal} from '../shared/movingBodyPortraitProposal.js';
 import {adaptiveSceneEligible} from '../shared/adaptiveSceneEligibility.js';
@@ -2747,7 +2748,8 @@ export class SmartReframeService {
     durationSec = 0.0,
     timeoutMs = 120000,
     maxSamples = 600,
-    discoverShortAutoCuts = false
+    discoverShortAutoCuts = false,
+    discoverShortAutoText = false
   ): Promise<{
     source_width: number;
     source_height: number;
@@ -2793,6 +2795,7 @@ export class SmartReframeService {
       durationSec,
       maxSamples,
       discoverShortAutoCuts,
+      discoverShortAutoText,
     });
 
     return new Promise((resolve, reject) => {
@@ -2965,7 +2968,7 @@ export class SmartReframeService {
 
       // 5. Run local Computer Vision analysis
       logger.info(`[SmartReframe] Starting CV face analysis for clip ${clipId}: start=${startSec}s, dur=${durationSec}s`);
-      const cvResult = await this.runCvAnalyzer(localSourcePath, sampleFps, startSec, durationSec, timeoutMs,600,shortAutoCutDiscovery(clip,durationSec));
+      const cvResult = await this.runCvAnalyzer(localSourcePath, sampleFps, startSec, durationSec, timeoutMs,600,shortAutoCutDiscovery(clip,durationSec),shortAutoTextDiscovery(clip,durationSec));
 
       // 6. Gather scene cuts and speech intervals for audio-visual shot-aware reframe
       let clipSceneCuts = options.sceneCuts ? [...options.sceneCuts] : [];

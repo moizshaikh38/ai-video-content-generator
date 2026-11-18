@@ -1,0 +1,4 @@
+import{test}from'node:test';import assert from'node:assert/strict';import{shortAutoTextDiscovery as enabled}from'../shared/shortAutoTextDiscovery.js';
+const clip={aspect_ratio:'9:16',crop_config:{mode:'smart',layout_mode_source:'auto'}};
+test('only short new explicit portrait smart Auto requests text measurements',()=>{for(const d of[.1,8,12])assert.equal(enabled(clip,d),true);for(const d of[0,-1,NaN,Infinity,12.001,30,180])assert.equal(enabled(clip,d),false)});
+test('manual unknown genre nonportrait and fixed crop never request automatic OCR',()=>{for(const source of['user','genre_recommendation',undefined])assert.equal(enabled({...clip,crop_config:{...clip.crop_config,layout_mode_source:source}},8),false);for(const mode of['manual','fit','fit_blur',undefined])assert.equal(enabled({...clip,crop_config:{...clip.crop_config,mode}},8),false);for(const aspect_ratio of['16:9','1:1',undefined])assert.equal(enabled({...clip,aspect_ratio},8),false)});
