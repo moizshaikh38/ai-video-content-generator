@@ -1,11 +1,14 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
+import exactLucideImports from './scripts/exact-lucide-imports.mjs';
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   preview: { allowedHosts: true },
-  plugins: [react()],
+  // Preserve the ordinary pages/components, but avoid parsing unused icon modules.
+  // Build memory benefit remains unmeasured until a separately bounded build.
+  plugins: [react({ babel: command === 'build' ? { plugins: [exactLucideImports] } : undefined })],
   build: {
     rollupOptions: {
       output: {
@@ -34,4 +37,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

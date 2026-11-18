@@ -1,0 +1,8 @@
+{
+  "exitCode": -9,
+  "elapsedSeconds": 5.579927808008506,
+  "sampledMainProcessPeakRssBytes": 537030656,
+  "guardBreach": "guard",
+  "typeCheckOnly": true,
+  "buildExecuted": false
+}
