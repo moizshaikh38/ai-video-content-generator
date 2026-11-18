@@ -34,10 +34,17 @@ export const errorHandler = (
     } else if ('status' in err && typeof (err as any).status === 'number') {
       statusCode = (err as any).status;
     }
-    if ('code' in err && typeof (err as any).code === 'string') {
-      code = (err as any).code;
+    // Driver/filesystem/network errors often carry a code and sensitive message.
+    // A code is not permission to expose an unexpected server failure.
+    if (statusCode >= 500) {
+      code = 'INTERNAL_ERROR';
+      message = 'Internal server error';
+    } else {
+      if ('code' in err && typeof (err as any).code === 'string') {
+        code = (err as any).code;
+      }
+      message = err.message;
     }
-    message = statusCode === 500 && !('code' in err) ? 'Internal server error' : err.message;
   }
 
   // Log error internally with full context (never leaked to client)

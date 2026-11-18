@@ -1,0 +1,50 @@
+{
+  "status": "observed",
+  "realLoopbackHttp": true,
+  "realErrorHandler": true,
+  "productionMode": true,
+  "rows": [
+    {
+      "route": "coded",
+      "status": 500,
+      "body": {
+        "status": "error",
+        "code": "INTERNAL_ERROR",
+        "message": "Internal server error",
+        "error": {
+          "code": "INTERNAL_ERROR",
+          "message": "Internal server error"
+        }
+      }
+    },
+    {
+      "route": "plain",
+      "status": 500,
+      "body": {
+        "status": "error",
+        "code": "INTERNAL_ERROR",
+        "message": "Internal server error",
+        "error": {
+          "code": "INTERNAL_ERROR",
+          "message": "Internal server error"
+        }
+      }
+    },
+    {
+      "route": "known",
+      "status": 409,
+      "body": {
+        "status": "error",
+        "code": "REVISION_CONFLICT",
+        "message": "This clip changed. Reload it.",
+        "error": {
+          "code": "REVISION_CONFLICT",
+          "message": "This clip changed. Reload it."
+        }
+      }
+    }
+  ],
+  "safeExpectationsEnforced": true,
+  "noExternalNetwork": true,
+  "noDatabaseMutation": true
+}
