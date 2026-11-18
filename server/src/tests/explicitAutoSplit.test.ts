@@ -64,3 +64,18 @@ test('ordinary cut fallback preserves measured-context Fit without spreading it 
  const objects:any=moving();objects.metadata.scene_cuts=[5];objects.raw_samples.slice(0,20).forEach((s:any)=>{s.persons=[];s.objects=[{class_id:8,x:0,y:.3,width:1,height:.3,confidence:.95}]});
  const q=S.explicitAutoLayoutPlan(objects,auto,10)!;assert.equal(q[0].windowW,1);assert.equal(q[0].presentationProtection?.preserveWindow,true);assert.equal(q[1].kind,'solo');
 });
+
+test('ordinary cut Fit re-centers repeated off-center faces without shrinking or moving other shots',()=>{
+ const t:any=make();t.source_width=1920;t.source_height=1080;t.metadata.scene_cuts=[2];t.raw_samples.forEach((s:any,i:number)=>{s.persons=[];s.faces=[face(i<8?'left':'right',i<8?.12:.88)]});
+ const original=JSON.stringify(t),p=S.explicitAutoLayoutPlan(t,auto,4)!;assert.equal(JSON.stringify(t),original);assert.equal(p.length,2);
+ for(let i=0;i<2;i++){assert.equal(p[i].windowW,.75);assert.equal(p[i].windowH,1);assert.equal(p[i].keyframes[0].time,i*2);const f=t.raw_samples[i*8].faces[0],c=p[i].keyframes[0].centerX;assert.ok(c-.375<=f.x-.025+1e-9);assert.ok(c+.375>=f.x+f.width+.025-1e-9);}
+ assert.ok(p[0].keyframes[0].centerX<.5);assert.ok(p[1].keyframes[0].centerX>.5);
+});
+test('ordinary cut Fit preserves two repeated incompatible faces, not a transient detector flash',()=>{
+ const t:any=make();t.source_width=1920;t.source_height=1080;t.metadata.scene_cuts=[2];t.raw_samples.forEach((s:any,i:number)=>{s.persons=[];s.faces=i<8?[face('a',.08),face('b',.92)]:[face('c',.5),...(i===8?[face('flash',.95)]:[])]});
+ const p=S.explicitAutoLayoutPlan(t,auto,4)!;assert.equal(p[0].windowW,1);assert.equal(p[0].presentationProtection?.reason,'persistent-face-conflict');assert.equal(p[1].windowW,.75);assert.equal(p[1].keyframes[0].centerX,.5);
+});
+test('ordinary Fit anchoring never changes a planner-protected source window or manual ownership',()=>{
+ const t:any=make();t.source_width=1920;t.source_height=1080;t.metadata.scene_cuts=[2];t.metadata.protected_content_regions=[{start:0,end:4,x:0,y:.1,width:1,height:.8,confidence:.95}];t.raw_samples.forEach((s:any)=>{s.persons=[];s.faces=[face('a',.1),face('b',.9)]});
+ const p=S.explicitAutoLayoutPlan(t,auto,4)!;assert.ok(p.every(s=>s.windowW===1&&s.windowH===1&&s.keyframes[0].centerX===.5));assert.ok(p.every(s=>s.presentationProtection?.preserveWindow));assert.equal(S.explicitAutoLayoutPlan(t,{layout_mode_source:'user'},4),undefined);
+});

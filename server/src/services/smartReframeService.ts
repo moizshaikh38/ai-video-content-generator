@@ -1487,7 +1487,9 @@ export class SmartReframeService {
           start:s.start,end:s.end,kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:s.start,centerX:.5,centerY:.5}],
           contextStatus:'unresolved-review-required' as const,uncertainty:'Scene-local Fit: unrelated shots cannot share one face crop. Review side context before sharing.'
         };
-      }),track.source_width,track.source_height);
+      }),track.source_width,track.source_height).map(shot =>
+        'presentationProtection' in shot && shot.presentationProtection?.preserveWindow ? shot :
+          anchorFitToMeasuredFaces([shot],track.raw_samples,track.source_width,track.source_height,true)[0]);
     }
     if(plan.length&&plan.every(s=>s.split)&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('split')))return plan;
     // A face-less moving body is a different evidence class from a talking
