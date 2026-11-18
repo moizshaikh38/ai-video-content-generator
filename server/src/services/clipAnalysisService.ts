@@ -1,3 +1,4 @@
+import {measuredGenreSignals} from '../shared/measuredGenreSignals.js';
 import {shortSourceReviewContext} from '../shared/candidateReviewNotice.js';
 import {gamingGenreFromVisualReview} from '../shared/automaticGamingPanels.js';
 import {AppError} from '../types/index.js';
@@ -714,63 +715,17 @@ export class ClipAnalysisService {
       );
       const wpm = totalWords / durationMinutes;
 
-      let ocrDensityPerMin = 0;
-      let faceCount = 1;
-      let sceneCutRatePerMin = 3.5;
-      let silenceRatio = 0.12;
-      // Real audio/visual signals for the local genre classifier (genre audit F4).
-      // Laughter and screen-share detectors do not exist yet — those classifier
-      // inputs stay unset rather than fabricated.
-      let audioPeakEnergyDb: number | undefined = undefined;
-      let visualMotionScore: number | undefined = undefined;
-
-      if (multimodalTimeline) {
-        if (Array.isArray(multimodalTimeline.keyframes)) {
-          const ocrKeyframes = multimodalTimeline.keyframes.filter(
-            (k: any) => typeof k.ocr_text === 'string' && k.ocr_text.trim().length > 0
-          );
-          ocrDensityPerMin = ocrKeyframes.length / durationMinutes;
-        }
-        if (Array.isArray(multimodalTimeline.scene_cuts)) {
-          sceneCutRatePerMin = multimodalTimeline.scene_cuts.length / durationMinutes;
-        }
-        if (Array.isArray(multimodalTimeline.silence_intervals)) {
-          const totalSilenceSec = multimodalTimeline.silence_intervals.reduce(
-            (acc: number, s: any) => acc + (s.end - s.start),
-            0
-          );
-          silenceRatio = totalSilenceSec / (durationMinutes * 60);
-        }
-        if (typeof multimodalTimeline.summary_metadata?.detected_face_count === 'number') {
-          faceCount = multimodalTimeline.summary_metadata.detected_face_count;
-        }
-        if (Array.isArray(multimodalTimeline.segments)) {
-          const dbValues = multimodalTimeline.segments
-            .map((s: any) => s.audio_energy_db)
-            .filter((db: any) => typeof db === 'number' && Number.isFinite(db));
-          if (dbValues.length > 0) {
-            audioPeakEnergyDb = Math.max(...dbValues);
-          }
-        }
-        if (typeof multimodalTimeline.summary_metadata?.average_visual_activity === 'number') {
-          visualMotionScore = Math.round(multimodalTimeline.summary_metadata.average_visual_activity);
-        }
-      }
+      const measuredSignals=measuredGenreSignals(multimodalTimeline,Number(transcript.duration_seconds));
 
       const questionCount = (fullTranscriptText.match(/\?/g) || []).length;
       const questionDensityPerMin = questionCount / durationMinutes;
 
       let localSuggestion = GenreIntelligenceService.classifyVideoGenreLocally({
         wpm,
-        ocrDensityPerMin,
-        faceCount,
-        sceneCutRatePerMin,
-        silenceRatio,
+        ...measuredSignals,
         transcriptText: fullTranscriptText,
         questionDensityPerMin,
         durationSeconds: transcript.duration_seconds || durationMinutes * 60,
-        audioPeakEnergyDb,
-        visualMotionScore,
       });
 
       if(process.env.VIREO_AUTOMATIC_GAMING_REVIEW==='1'){

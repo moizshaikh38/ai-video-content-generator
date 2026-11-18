@@ -355,11 +355,11 @@ export interface GenreSuggestion {
   confidence: number; // 0.0 to 1.0
   reasons: string[];
   metrics: {
-    wpm: number;
-    ocrDensity: number;
-    faceCount: number;
-    sceneCutRatePerMin: number;
-    silenceRatio: number;
+    wpm: number | null;
+    ocrDensity: number | null;
+    faceCount: number | null;
+    sceneCutRatePerMin: number | null;
+    silenceRatio: number | null;
   };
 }
 

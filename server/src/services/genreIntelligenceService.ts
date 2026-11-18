@@ -660,15 +660,9 @@ export class GenreIntelligenceService {
    * Runs in sub-millisecond local time with 0 API calls and 0 costs.
    */
   public static classifyVideoGenreLocally(input: ClassifyGenreMetricsInput): GenreSuggestion {
-    const {
-      wpm = 135,
-      ocrDensityPerMin = 0,
-      faceCount = 1,
-      sceneCutRatePerMin = 3.5,
-      silenceRatio = 0.12,
-      transcriptText = '',
-      questionDensityPerMin = 0,
-    } = input;
+    const finite=(value:unknown,min=0,max=Infinity):number|null=>typeof value==='number'&&Number.isFinite(value)&&value>=min&&value<=max?value:null;
+    const wpm=finite(input.wpm),ocrDensityPerMin=finite(input.ocrDensityPerMin),faceCount=Number.isInteger(input.faceCount)?finite(input.faceCount):null,sceneCutRatePerMin=finite(input.sceneCutRatePerMin),silenceRatio=finite(input.silenceRatio,0,1),questionDensityPerMin=finite(input.questionDensityPerMin);
+    const transcriptText=typeof input.transcriptText==='string'?input.transcriptText:'';
 
     const lowerText = transcriptText.toLowerCase();
     const scores: Record<ContentGenre, number> = {
@@ -730,73 +724,73 @@ export class GenreIntelligenceService {
 
     // 2. Multimodal Signal Heuristics
     // Sports: fast scene cuts, low speech pause ratio, rapid camera action
-    if (sceneCutRatePerMin >= 10.0 && silenceRatio <= 0.16) {
+    if (sceneCutRatePerMin !== null && silenceRatio !== null && sceneCutRatePerMin >= 10.0 && silenceRatio <= 0.16) {
       scores.sports += 0.35;
       reasons.sports.push(`High visual tempo (${sceneCutRatePerMin.toFixed(1)} cuts/min) and continuous audio.`);
     }
 
     // Education / Tutorial: High OCR slide density, moderate WPM
-    if (ocrDensityPerMin >= 2.0) {
+    if (ocrDensityPerMin !== null && ocrDensityPerMin >= 2.0) {
       scores.education_tutorial += 0.35;
       reasons.education_tutorial.push(`High on-screen slide/text density (${ocrDensityPerMin.toFixed(1)} OCR detections/min).`);
     }
 
     // Podcast / Interview: Multiple faces detected, elevated question mark density
-    if (faceCount >= 2) {
+    if (faceCount !== null && Number.isInteger(faceCount) && faceCount >= 2) {
       scores.podcast_interview += 0.30;
       reasons.podcast_interview.push(`Multiple subjects detected in frame (${faceCount} active face tracks).`);
     }
-    if (questionDensityPerMin >= 2.5) {
+    if (questionDensityPerMin !== null && questionDensityPerMin >= 2.5) {
       scores.podcast_interview += 0.20;
       reasons.podcast_interview.push(`Elevated conversational inquiry rate (${questionDensityPerMin.toFixed(1)} questions/min).`);
     }
 
     // Gaming: Very high visual activity with gamer keywords or fast pacing
-    if (sceneCutRatePerMin >= 8.0 && scores.gaming > 0.1) {
+    if (sceneCutRatePerMin !== null && sceneCutRatePerMin >= 8.0 && scores.gaming > 0.1) {
       scores.gaming += 0.25;
       reasons.gaming.push('High visual gameplay cut frequency with active gamer terminology.');
     }
 
     // Documentary: cinematic b-roll cut rhythm with steady narrated pacing and no multi-face dialogue
-    if (sceneCutRatePerMin >= 4.0 && sceneCutRatePerMin <= 12.0 && wpm <= 160 && faceCount <= 1 && scores.documentary > 0.1) {
+    if (sceneCutRatePerMin !== null && wpm !== null && faceCount !== null && sceneCutRatePerMin >= 4.0 && sceneCutRatePerMin <= 12.0 && wpm <= 160 && faceCount <= 1 && scores.documentary > 0.1) {
       scores.documentary += 0.20;
       reasons.documentary.push('Cinematic b-roll cut rhythm with steady narrated pacing.');
     }
 
     // Comedy: Setup and timing pause silence ratio > 0.18 with laughter or comedic markers
-    if (silenceRatio >= 0.18 && scores.comedy_entertainment > 0.15) {
+    if (silenceRatio !== null && silenceRatio >= 0.18 && scores.comedy_entertainment > 0.15) {
       scores.comedy_entertainment += 0.25;
       reasons.comedy_entertainment.push('Measured pauses characteristic of comedic timing setups.');
     }
 
     // Storytelling: High WPM flow, low scene cuts (monologue focus)
-    if (wpm >= 140 && sceneCutRatePerMin <= 4.0 && scores.storytelling > 0.15) {
+    if (wpm !== null && sceneCutRatePerMin !== null && wpm >= 140 && sceneCutRatePerMin <= 4.0 && scores.storytelling > 0.15) {
       scores.storytelling += 0.20;
-      reasons.storytelling.push('Continuous narrative speech cadence with stable single-camera framing.');
+      reasons.storytelling.push('Measured speech cadence and low scene-cut rate support a narrative heuristic.');
     }
 
     // Screen share detection: Definitive signal for Education / Coding Tutorial
-    if (input.screenShareDetected) {
+    if (input.screenShareDetected === true) {
       scores.education_tutorial += 0.55;
       reasons.education_tutorial.push('Detected on-screen desktop presentation, code editor, or application window.');
     }
 
     // Audience laughter: Definitive signal for Comedy & Entertainment
-    if (input.audienceLaughterDetected) {
+    if (input.audienceLaughterDetected === true) {
       scores.comedy_entertainment += 0.55;
       reasons.comedy_entertainment.push('Acoustic audience laughter track or chuckles detected.');
     }
 
     // Audio peak energy + visual motion: Gaming or Sports reaction
-    if (input.audioPeakEnergyDb !== undefined && input.audioPeakEnergyDb >= -18) {
-      if (sceneCutRatePerMin >= 6.0 || (input.visualMotionScore && input.visualMotionScore >= 60)) {
+    if (typeof input.audioPeakEnergyDb === 'number' && Number.isFinite(input.audioPeakEnergyDb) && input.audioPeakEnergyDb >= -18) {
+      if ((sceneCutRatePerMin !== null && sceneCutRatePerMin >= 6.0) || (finite(input.visualMotionScore,0,100) ?? -1) >= 60) {
         scores.gaming += 0.20;
         reasons.gaming.push('High-amplitude audio reaction spikes matched with rapid visual motion.');
       }
     }
 
     // High visual motion score: Sports & Action
-    if (input.visualMotionScore && input.visualMotionScore >= 70) {
+    if ((finite(input.visualMotionScore,0,100) ?? -1) >= 70) {
       scores.sports += 0.25;
       reasons.sports.push(`High dynamic camera/subject motion index (${input.visualMotionScore}/100).`);
     }
@@ -820,11 +814,11 @@ export class GenreIntelligenceService {
       confidence,
       reasons: winningReasons,
       metrics: {
-        wpm: Math.round(wpm),
-        ocrDensity: Number(ocrDensityPerMin.toFixed(2)),
-        faceCount,
-        sceneCutRatePerMin: Number(sceneCutRatePerMin.toFixed(2)),
-        silenceRatio: Number(silenceRatio.toFixed(2)),
+        wpm: wpm === null ? null : Math.round(wpm),
+        ocrDensity: ocrDensityPerMin === null ? null : Number(ocrDensityPerMin.toFixed(2)),
+        faceCount:faceCount !== null && Number.isInteger(faceCount) ? faceCount : null,
+        sceneCutRatePerMin: sceneCutRatePerMin === null ? null : Number(sceneCutRatePerMin.toFixed(2)),
+        silenceRatio: silenceRatio === null ? null : Number(silenceRatio.toFixed(2)),
       },
     };
   }

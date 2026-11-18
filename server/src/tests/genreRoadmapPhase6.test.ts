@@ -122,7 +122,9 @@ describe('Genre Phase 6 — production wiring guards', () => {
   it('multimodal analysis jobs have a production recovery sweep (same class as render sweep)', () => {
     assert.match(indexSource, /VideoAnalysisWorker\.processNext\(\)/);
     assert.match(indexSource, /multimodalSweepTimer = setInterval/);
-    assert.match(indexSource, /if \(multimodalSweepTimer\) clearInterval\(multimodalSweepTimer\);/);
+    assert.match(indexSource, /for\(const timer of\s*\[[^\]]*multimodalSweepTimer[^\]]*\]\)if\(timer\)clearInterval\(timer\)/);
+    assert.match(indexSource, /createShutdown\(\{lifecycle:workLifecycle/);
+    assert.match(indexSource, /stopPollers:\(\)=>\{/);
   });
 
   it('dev CORS allows exact loopback origins only — no substring match', () => {
