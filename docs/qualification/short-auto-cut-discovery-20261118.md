@@ -21,3 +21,11 @@ All runs use manual source intervals, no transcript/AutoGenre/automaticselection
 ## Checks
 
 146expandedTS tests pass,44Python tests pass, safe421pass/0fail/1skip. Front/backendtypechecks pass. Resource boundary tests use synthetic metadata only, no4K source decode or export. No entire-repository-green or productionresource claim.
+
+## Precision-aware brief edge scenes
+
+The old import dropped cuts within.25s of either clipedge even when dense evidence confirmed them. Import now uses the scanner's>.04s margin only when that exact timestamp has refined dense-luma evidence with finite positive uncertainty<=.1s. Coarse, unrefined, mismatched or invalid records retain the old quarter-second margin. Near duplicates are still bounded. No source-specific timestamp is embedded.
+
+Fresh yacht12.012s controller/UI/normaljob retained7cuts including11.945267s finaledit. Actual moving output inspected: remainsreviewFit with sidecrop, no yachtqualitywin claimed. Fresh CV plus the normal faceassociation stage also rechecked constructedbody/pair (portrait thenSplit) and originalmissingbodynegative (Fit bothshots). A first diagnostic had skipped faceassociation and lost pair eligibility; corrected diagnostic follows the production association stage, no product change or clearednegative was used.
+
+147expandedTS tests pass and current safe421pass/0fail/1skip; front/backendtypes pass. No claims of semantic scene recall or complete temporal inspection. No additional paidcall, defaultOCR/HUD change, savedanalysis rewrite or release.

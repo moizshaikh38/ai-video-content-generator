@@ -1,4 +1,4 @@
-import {shortAutoCutDiscovery} from '../shared/shortAutoCutDiscovery.js';
+import {shortAutoCutDiscovery,mergeDetectedSceneCuts} from '../shared/shortAutoCutDiscovery.js';
 import {movingBodyPortraitProposal} from '../shared/movingBodyPortraitProposal.js';
 import {adaptiveSceneEligible} from '../shared/adaptiveSceneEligibility.js';
 import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
@@ -2741,7 +2741,7 @@ export class SmartReframeService {
     scene_cut_discovery?:{mode:string;status:string;reason?:string;duration_seconds:number;frame_budget:number};
     source_text_detector?:string|null;
     source_text_coverage?: {status:string;detectors:string[];sample_count:number;max_unsampled_gap_seconds:number;region_count:number;absence_means:string;limitations:string[]};
-    scene_cut_evidence?: Array<{ time: number; coarse_time: number; refined: boolean; uncertainty_seconds?: number; correlation?: number }>;
+    scene_cut_evidence?: Array<{ time: number; coarse_time: number; refined: boolean; uncertainty_seconds?: number; correlation?: number;method?:string }>;
     samples: ReframeSample[];
   }> {
     if (!fs.existsSync(videoPath)) {
@@ -2969,13 +2969,7 @@ export class SmartReframeService {
         }
 
         if (cvResult.scene_cuts && Array.isArray(cvResult.scene_cuts)) {
-          for (const c of cvResult.scene_cuts) {
-            const relCut = Number(c);
-            if (relCut > 0.25 && relCut < durationSec - 0.25 && !clipSceneCuts.some((x) => Math.abs(x - relCut) < ((process.env.SMART_REFRAME_DENSE_CUTS === '1'||cvResult.scene_cut_discovery?.mode==='short-explicit-auto') ? 0.12 : 0.4))) {
-              clipSceneCuts.push(relCut);
-            }
-          }
-          clipSceneCuts.sort((a, b) => a - b);
+          clipSceneCuts=mergeDetectedSceneCuts(clipSceneCuts,cvResult.scene_cuts.map(Number),durationSec,cvResult.scene_cut_evidence);
         }
 
         if (!speechIntervals) {
