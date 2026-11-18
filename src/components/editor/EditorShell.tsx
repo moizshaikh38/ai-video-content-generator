@@ -2167,9 +2167,11 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
       {/* 3. MULTI-TRACK UNIFIED TIMELINE */}
       <UnifiedTimeline
+        measuredPanelChoices={measuredPanelChoices}
+        subjectSourceSize={layoutSubjectSourceSize}
         automaticSceneRanges={(speakerSplit?.shotComposition || []).map(s=>({start:s.start+compositionSourceStart,end:s.end+compositionSourceStart,label:s.split?'Auto Split':Math.abs(s.windowW*(speakerSplit?.sourceWidth||1)/(s.windowH*(speakerSplit?.sourceHeight||1))-9/16)<.01?'Auto Fill':'Auto Fit',review:Boolean((s as any).contextStatus?.startsWith('unresolved')),reason:(s as any).uncertainty}))}
         contentFramingDecision={speakerSplit?.contentFramingDecision ?? null}
-        subjectKeyframes={smartReframe?.keyframes ?? null}
+        subjectKeyframes={layoutSubjectKeyframes}
         height={timelineHeight}
         project={project}
         clip={clip}

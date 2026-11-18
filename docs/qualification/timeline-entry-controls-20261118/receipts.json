@@ -1,0 +1,408 @@
+[
+  {
+    "state": "initial-trim-speed",
+    "canvas": {
+      "width": 1080,
+      "height": 1920,
+      "aspect_ratio": "9:16",
+      "fps": 30,
+      "duration": 5,
+      "background_color": "#000000",
+      "background_mode": "color"
+    },
+    "bounds": {
+      "source_start": 2,
+      "source_end": 12,
+      "timeline_start": 0,
+      "timeline_end": 5,
+      "speed": {
+        "speed": 2
+      }
+    },
+    "overrides": [
+      {
+        "start": 2,
+        "end": 5,
+        "layout": "fit",
+        "patch": {
+          "crop": {
+            "mode": "blur",
+            "choice": "fit",
+            "band": "4:3",
+            "focusX": 0.5,
+            "focusY": 0.5,
+            "scale": 1
+          },
+          "layout_mode": "track",
+          "crop_config": {
+            "mode": "smart",
+            "layout_mode": "track",
+            "layout_mode_source": "user"
+          }
+        }
+      },
+      {
+        "start": 5,
+        "end": 9,
+        "layout": "blur",
+        "patch": {
+          "crop": {
+            "mode": "blur",
+            "choice": "blur",
+            "band": "4:3",
+            "focusX": 0.5,
+            "focusY": 0.5,
+            "scale": 1
+          },
+          "layout_mode": "track",
+          "crop_config": {
+            "mode": "smart",
+            "layout_mode": "track",
+            "layout_mode_source": "user"
+          }
+        }
+      },
+      {
+        "start": 9,
+        "end": 12,
+        "layout": "fit",
+        "patch": {
+          "crop": {
+            "mode": "blur",
+            "choice": "fit",
+            "band": "4:3",
+            "focusX": 0.5,
+            "focusY": 0.5,
+            "scale": 1
+          },
+          "layout_mode": "track",
+          "crop_config": {
+            "mode": "smart",
+            "layout_mode": "track",
+            "layout_mode_source": "user"
+          }
+        }
+      }
+    ],
+    "probe": {
+      "programs": [],
+      "streams": [
+        {
+          "nb_frames": "150"
+        },
+        {
+          "nb_frames": "217"
+        },
+        {
+          "nb_frames": "1"
+        }
+      ],
+      "format": {
+        "duration": "5.000000"
+      }
+    }
+  },
+  {
+    "state": "middle-fill",
+    "canvas": {
+      "width": 1080,
+      "height": 1920,
+      "aspect_ratio": "9:16",
+      "fps": 30,
+      "duration": 5,
+      "background_color": "#000000",
+      "background_mode": "color"
+    },
+    "bounds": {
+      "source_start": 2,
+      "source_end": 12,
+      "timeline_start": 0,
+      "timeline_end": 5,
+      "speed": {
+        "speed": 2
+      }
+    },
+    "overrides": [
+      {
+        "start": 2,
+        "end": 5,
+        "layout": "fit",
+        "patch": {
+          "crop": {
+            "mode": "blur",
+            "choice": "fit",
+            "band": "4:3",
+            "focusX": 0.5,
+            "focusY": 0.5,
+            "scale": 1
+          },
+          "layout_mode": "track",
+          "crop_config": {
+            "mode": "smart",
+            "layout_mode": "track",
+            "layout_mode_source": "user"
+          }
+        }
+      },
+      {
+        "start": 5,
+        "end": 9,
+        "layout": "fill",
+        "patch": {
+          "crop": {
+            "mode": "fill",
+            "focusX": 0.5,
+            "focusY": 0.5,
+            "scale": 1
+          },
+          "layout_mode": "track",
+          "crop_config": {
+            "mode": "smart",
+            "layout_mode": "track",
+            "layout_mode_source": "user"
+          }
+        }
+      },
+      {
+        "start": 9,
+        "end": 12,
+        "layout": "fit",
+        "patch": {
+          "crop": {
+            "mode": "blur",
+            "choice": "fit",
+            "band": "4:3",
+            "focusX": 0.5,
+            "focusY": 0.5,
+            "scale": 1
+          },
+          "layout_mode": "track",
+          "crop_config": {
+            "mode": "smart",
+            "layout_mode": "track",
+            "layout_mode_source": "user"
+          }
+        }
+      }
+    ],
+    "probe": {
+      "programs": [],
+      "streams": [
+        {
+          "nb_frames": "150"
+        },
+        {
+          "nb_frames": "217"
+        },
+        {
+          "nb_frames": "1"
+        }
+      ],
+      "format": {
+        "duration": "5.000000"
+      }
+    }
+  },
+  {
+    "state": "middle-blur",
+    "canvas": {
+      "width": 1080,
+      "height": 1920,
+      "aspect_ratio": "9:16",
+      "fps": 30,
+      "duration": 5,
+      "background_color": "#000000",
+      "background_mode": "color"
+    },
+    "bounds": {
+      "source_start": 2,
+      "source_end": 12,
+      "timeline_start": 0,
+      "timeline_end": 5,
+      "speed": {
+        "speed": 2
+      }
+    },
+    "overrides": [
+      {
+        "start": 2,
+        "end": 5,
+        "layout": "fit",
+        "patch": {
+          "crop": {
+            "mode": "blur",
+            "choice": "fit",
+            "band": "4:3",
+            "focusX": 0.5,
+            "focusY": 0.5,
+            "scale": 1
+          },
+          "layout_mode": "track",
+          "crop_config": {
+            "mode": "smart",
+            "layout_mode": "track",
+            "layout_mode_source": "user"
+          }
+        }
+      },
+      {
+        "start": 5,
+        "end": 9,
+        "layout": "blur",
+        "patch": {
+          "crop": {
+            "mode": "blur",
+            "choice": "blur",
+            "band": "4:3",
+            "focusX": 0.5,
+            "focusY": 0.5,
+            "scale": 1
+          },
+          "layout_mode": "track",
+          "crop_config": {
+            "mode": "smart",
+            "layout_mode": "track",
+            "layout_mode_source": "user"
+          }
+        }
+      },
+      {
+        "start": 9,
+        "end": 12,
+        "layout": "fit",
+        "patch": {
+          "crop": {
+            "mode": "blur",
+            "choice": "fit",
+            "band": "4:3",
+            "focusX": 0.5,
+            "focusY": 0.5,
+            "scale": 1
+          },
+          "layout_mode": "track",
+          "crop_config": {
+            "mode": "smart",
+            "layout_mode": "track",
+            "layout_mode_source": "user"
+          }
+        }
+      }
+    ],
+    "probe": {
+      "programs": [],
+      "streams": [
+        {
+          "nb_frames": "150"
+        },
+        {
+          "nb_frames": "217"
+        },
+        {
+          "nb_frames": "1"
+        }
+      ],
+      "format": {
+        "duration": "5.000000"
+      }
+    }
+  },
+  {
+    "mixedCaptionOrdinaryJob": true,
+    "jobStatus": "completed",
+    "clipStatus": "ready",
+    "overrides": [
+      {
+        "start": 0,
+        "end": 7.007,
+        "layout": "four",
+        "patch": {
+          "panels": {
+            "layout": "four",
+            "slots": [
+              {
+                "fit": "contain",
+                "focusX": 0.5,
+                "focusY": 0.5,
+                "scale": 1,
+                "sourceRect": {
+                  "x": 0.15844000000000003,
+                  "y": 0.11068622222222224,
+                  "w": 0.09621999999999997,
+                  "h": 0.30362755555555543
+                },
+                "set": true
+              },
+              {
+                "fit": "contain",
+                "focusX": 0.5,
+                "focusY": 0.5,
+                "scale": 1,
+                "sourceRect": {
+                  "x": 0.391705,
+                  "y": 0.20419999999999996,
+                  "w": 0.07348999999999994,
+                  "h": 0.23190177777777762
+                },
+                "set": true
+              },
+              {
+                "fit": "contain",
+                "focusX": 0.5,
+                "focusY": 0.5,
+                "scale": 1,
+                "sourceRect": {
+                  "x": 0.5603600000000001,
+                  "y": 0.18581999999999999,
+                  "w": 0.08587999999999985,
+                  "h": 0.2709991111111106
+                },
+                "set": true
+              },
+              {
+                "fit": "contain",
+                "focusX": 0.5,
+                "focusY": 0.5,
+                "scale": 1,
+                "sourceRect": {
+                  "x": 0.74675,
+                  "y": 0.21575999999999998,
+                  "w": 0.07929999999999993,
+                  "h": 0.2502355555555553
+                },
+                "set": true
+              }
+            ]
+          },
+          "layout_mode": "track",
+          "crop_config": {
+            "mode": "smart",
+            "layout_mode": "track",
+            "layout_mode_source": "user"
+          }
+        }
+      },
+      {
+        "start": 7.007,
+        "end": 14.014,
+        "layout": "blur",
+        "patch": {
+          "crop": {
+            "mode": "blur",
+            "choice": "blur",
+            "band": "4:3",
+            "focusX": 0.5,
+            "focusY": 0.5,
+            "scale": 1
+          },
+          "layout_mode": "track",
+          "crop_config": {
+            "mode": "smart",
+            "layout_mode": "track",
+            "layout_mode_source": "user"
+          }
+        }
+      }
+    ],
+    "paidCalls": 0
+  }
+]

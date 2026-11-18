@@ -1,3 +1,4 @@
+import type {MeasuredPanelChoice} from '../../../server/src/shared/measuredPanelChoice';
 import {type AutomaticLayoutRange} from '../../lib/automaticLayoutRanges';
 import {type ContentFramingDecision} from '../../../server/src/shared/contentFramingDecision';
 import React from 'react';
@@ -10,6 +11,8 @@ import { Timeline } from './Timeline';
 
 interface UnifiedTimelineProps {
   automaticSceneRanges?: AutomaticLayoutRange[];
+  measuredPanelChoices?: MeasuredPanelChoice[];
+  subjectSourceSize?: {width:number;height:number};
   contentFramingDecision?: ContentFramingDecision | null;
   subjectKeyframes?: Array<{ time: number; centerX: number; centerY?: number }> | null;
   project: EditorProject;
@@ -42,6 +45,8 @@ export const UnifiedTimeline: React.FC<UnifiedTimelineProps> = ({
   project,
   contentFramingDecision = null,
   automaticSceneRanges = [],
+  measuredPanelChoices,
+  subjectSourceSize,
   subjectKeyframes = null,
   clip,
   sourceVideoUrl,
@@ -103,6 +108,8 @@ export const UnifiedTimeline: React.FC<UnifiedTimelineProps> = ({
         <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           <Timeline
             automaticSceneRanges={automaticSceneRanges}
+            measuredPanelChoices={measuredPanelChoices}
+            subjectSourceSize={subjectSourceSize}
             contentFramingDecision={contentFramingDecision}
             subjectKeyframes={subjectKeyframes}
             project={project}
