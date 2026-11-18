@@ -12,3 +12,8 @@ export function automaticSourceWindow(item:{source_start?:number;source_end?:num
  const sourceDuration=Math.min(Math.max(.1,canvasDuration)*speed,declared);
  return{sourceStart,sourceDuration,outputDuration:sourceDuration/speed};
 }
+/** Input content is an edit decision, independent of automatic/manual layout.
+ * Freeze and title cards have separate source-generation paths. */
+export function singleItemSourceWindow(item:(Parameters<typeof automaticSourceWindow>[0]&{is_freeze?:boolean;is_title_card?:boolean})|undefined,clipStart:number,canvasDuration:number):ReturnType<typeof automaticSourceWindow>|undefined {
+ return item&&!item.is_freeze&&!item.is_title_card?automaticSourceWindow(item,clipStart,canvasDuration):undefined;
+}
