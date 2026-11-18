@@ -23,3 +23,14 @@ test('planner only proposes moving body under existing explicit shot review opt-
  const o={rawSamples:rows(),duration:4.25,sourceWidth:1920,sourceHeight:1080,windowScope:'shot' as const,automaticFitAspect:'4:3' as const};const a=S.computeShotComposition(o),b=S.computeShotComposition({...o,bodyOnlyPortraitReview:true});assert(a[0].windowW>b[0].windowW);assert.match(b[0].uncertainty!,/Moving single-body/);assert(b[0].keyframes.length>1);assert.equal(b[0].windowH,1);
  const c=S.computeShotComposition({...o,bodyOnlyPortraitReview:true,windowScope:'clip'});assert(!c.some(s=>s.uncertainty?.includes('Moving single-body')));
 });
+
+test('long body camera proposal fits export budget and keeps measured margins after reduction',()=>{
+ const ss=Array.from({length:80},(_,i)=>({time:i*.25,faces:[],persons:[{x:.3+i*.0005+Math.sin(i/10)*.003,y:.25,width:.1,height:.6,confidence:.65}]}));
+ const p=choose(ss,0,20,1920,1080);assert.ok(p);assert.ok(p.keyframes.length<=39);
+ for(const s of ss){const k=p.keyframes;let i=0;while(i+1<k.length&&k[i+1].time<s.time)i++;const a=k[i],b=k[Math.min(i+1,k.length-1)],f=b.time>a.time?(s.time-a.time)/(b.time-a.time):0,c=a.centerX+(b.centerX-a.centerX)*f;assert.ok(c-p.windowW/2<=s.persons[0].x-.02+1e-6);assert.ok(c+p.windowW/2>=s.persons[0].x+s.persons[0].width+.02-1e-6);}
+});
+
+test('long noisy body proposal abstains instead of exceeding export expression budget',()=>{
+ const ss=Array.from({length:80},(_,i)=>({time:i*.3,faces:[],persons:[{x:.4+(i%2)*.055,y:.25,width:.1,height:.6,confidence:.65}]}));
+ assert.equal(choose(ss,0,24,1920,1080),null);
+});

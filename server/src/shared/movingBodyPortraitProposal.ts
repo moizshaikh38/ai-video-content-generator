@@ -1,3 +1,4 @@
+import {boundedCameraPath} from './boundedCameraPath.js';
 import type {ReframeSample} from '../types/index.js';
 
 /** Review-only full-height moving window from complete sampled single-body
@@ -37,5 +38,17 @@ export function movingBodyPortraitProposal(samples:ReframeSample[],start:number,
  if(points[0].time-start>.3||end-points.at(-1)!.time>.3)return null;
  if(points[0].time>start)points.unshift({...points[0],time:start});
  if(points.length>400)return null;
- return {start,end,kind:'solo' as const,windowW:width,windowH:1,keyframes:points,contextStatus:'unresolved-review-required' as const,uncertainty:'Moving single-body detector proposal at full source height. Sampled lateral boxes are retained, not independently verified identity or full-body truth. Undetected side content and between-sample motion need review.'};
+ // The export expression supports40 keys, including a shot-end anchor. Share
+ // the same bounded path with preview instead of silently decimating it later.
+ const camera=points.length>39?boundedCameraPath(points):points;
+ if(!camera)return null;
+ for(const sample of samples){
+  let i=0;while(i+1<camera.length&&camera[i+1].time<sample.time)i++;
+  const a=camera[i],b=camera[Math.min(i+1,camera.length-1)],f=b.time>a.time?Math.max(0,Math.min(1,(sample.time-a.time)/(b.time-a.time))):0;
+  const center=a.centerX+(b.centerX-a.centerX)*f,p=sample.persons![0];
+  const left=Math.max(0,Math.min(p.x-margin,...sample.faces.map(v=>v.x-.012),...active.map(r=>r.x-.015)));
+  const right=Math.min(1,Math.max(p.x+p.width+margin,...sample.faces.map(v=>v.x+v.width+.012),...active.map(r=>r.x+r.width+.015)));
+  if(center-width/2>left+1e-6||center+width/2<right-1e-6)return null;
+ }
+ return {start,end,kind:'solo' as const,windowW:width,windowH:1,keyframes:camera,contextStatus:'unresolved-review-required' as const,uncertainty:'Moving single-body detector proposal at full source height. Sampled lateral boxes are retained, not independently verified identity or full-body truth. Undetected side content and between-sample motion need review.'};
 }
