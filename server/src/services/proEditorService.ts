@@ -1,3 +1,4 @@
+import {editorCachePath} from '../utils/editorCachePath.js';
 import {saveEditorRevision,createEditorRevision} from '../db/repositories/editorRevisionRepository.js';
 import {getMongoDb,getMongoClient} from '../db/mongoClient.js';
 import {visibleEditorAssetItems} from '../shared/visibleEditorAssets.js';
@@ -780,7 +781,7 @@ export class ProEditorService {
       if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) {
         try {
           const ext = overlayAssetExtension(rawPath);
-          const localCachePath = path.join(tmpDir, `overlay_${item.id}${ext}`);
+          const localCachePath = editorCachePath(tmpDir, 'overlay', item.id, ext);
           if (!fs.existsSync(localCachePath)) {
             // Redirects are not followed: an allowlisted host must not be able
             // to bounce the server-side fetch onto an internal address.
@@ -1586,7 +1587,7 @@ export class ProEditorService {
         // matches the preview's CSS borderRadius rendering.
         const cardSpec = (item as any).card as { width: number; height: number; radius: number; color: string } | undefined;
         if (!assetPath && cardSpec) {
-          const cardPath = path.join(tmpDir, `card_${item.id}.png`);
+          const cardPath = editorCachePath(tmpDir, 'card', item.id, '.png');
           if (!fs.existsSync(cardPath)) {
             fs.writeFileSync(cardPath, roundedCardPng(cardSpec.width, cardSpec.height, cardSpec.radius, cardSpec.color));
           }
@@ -1604,7 +1605,7 @@ export class ProEditorService {
         // Check if remote URL was already downloaded / cached into tmpDir
         if (assetPath.startsWith('http://') || assetPath.startsWith('https://')) {
           const ext = overlayAssetExtension(assetPath);
-          const localCachePath = path.join(tmpDir, `overlay_${item.id}${ext}`);
+          const localCachePath = editorCachePath(tmpDir, 'overlay', item.id, ext);
           if (fs.existsSync(localCachePath)) {
             assetPath = localCachePath;
           }
@@ -1743,7 +1744,7 @@ export class ProEditorService {
           const radius = Math.round((ti.text!.background_corner_radius || 0) * layout.scaleRatio);
           const rawBg = (ti.text!.background_color || '').trim().replace(/^#/, '');
           const alpha = /^[0-9a-fA-F]{8}$/.test(rawBg) ? parseInt(rawBg.slice(6, 8), 16) / 255 : 0.8;
-          const cardPath = path.join(tmpDir, `textcard_${ti.id}.png`);
+          const cardPath = editorCachePath(tmpDir, 'textcard', ti.id, '.png');
           if (!fs.existsSync(cardPath)) {
             fs.writeFileSync(cardPath, roundedCardPng(cardW, cardH, radius, `#${rawBg.slice(0, 6)}`));
           }

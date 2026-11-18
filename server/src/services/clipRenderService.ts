@@ -1,3 +1,4 @@
+import {assertRenderAssetOwnership} from '../utils/renderAssetOwnership.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import {verifiedCaptionAssPath} from '../shared/captionBurnInArtifact.js';
 import {syncClipEditorRevision} from '../db/repositories/editorRevisionRepository.js';
@@ -972,7 +973,9 @@ export class ClipRenderService {
         logger.info(`[ClipRender] Compiling and executing multi-track EditorProject graph for clip ${clipId}`);
         editorProject=ProEditorService.prepareTrackerHandoffs(editorProject,{track:reframeDecision.track,clipStartSec:startSec,cropConfig:clip.crop_config});
         editorProject=expandSceneLayoutProject(editorProject);
+        assertRenderAssetOwnership(editorProject, tempDir);
         await ProEditorService.preloadRemoteOverlayAssets(editorProject, tempDir);
+        assertRenderAssetOwnership(editorProject, tempDir);
         const videoTrackItems = primaryVisibleVideoItems<EditorTrackItem>(editorProject);
         const isMultiSlice = videoTrackItems.length > 1;
         // Single-slice renders seek the input; the loudnorm measurement pass must

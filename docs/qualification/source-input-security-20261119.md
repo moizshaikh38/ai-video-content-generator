@@ -21,7 +21,13 @@ This is a local source-level check. No production deployment, private endpoint p
 
 ## Remaining risks
 
-- The generic internal editor asset predicate still accepts arbitrary relative paths and paths under the shared OS temporary directory as server-managed assets. The public PATCH no longer accepts them, but legacy persisted projects and trusted internal callers still reach the generic predicate. A local path being under a shared temp directory is not proof that the requesting user owns it. Render-time ownership binding for legacy saved assets remains open. No sensitive local file was read or rendered during this review.
+- The production custom-Pro render orchestration now checks secondary local assets before and after preload against the actual private render directory using realpath, rejecting files in other render directories and symlink escapes. Shared `/tmp` itself is not an acceptable private render root. Current-render regular files are permitted. Primary timeline source references remain exempt only because the actual primary media path is separately resolved from the owning clip. This covers the local-asset boundary, not every aspect of primary-source ownership.
+- Generated overlay/card/text-card cache names hash item identifiers instead of using path-shaped identifiers. Existing symlink cache entries are rejected.
+- Actual-filesystem and actual-compiler integration with synthetic PNGs passed: an owned render file is present in compiler inputs; a foreign render file and symlink escape fail before compilation. No encoder was executed. Full production render entry remains untested after this change.
+- The main PATCH integration also passed through real local HTTP/controller/service/Mongo transactions in a new retained namespace: unsafe sources and another owner do not change revision; a legitimate owned storage key commits; a stale revision conflicts. Identity middleware was synthetic, not real production JWT authentication.
+- Bounded response checks passed using actual loopback HTTP for declared/chunked overflow, exact byte preservation, stalled body abort and connection close.
+- 104 focused assertions pass, including prior overlay-position tests, and both TypeScript checks pass.
+
 - Save-time DNS checks do not by themselves pin a subsequent fetch to the checked address. Runtime preload currently checks the host allowlist and disables redirects but does not rebind the connection to a validated address. Do not interpret the mapped-address fix as complete SSRF remediation.
 - Existing deployment dependency advisories and full media/load/restart qualification remain separate open items.
 
