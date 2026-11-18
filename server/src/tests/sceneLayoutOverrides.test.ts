@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {applySceneLayout,applyWholeClipLayout} from '../../../src/lib/itemLayout.js';
+import {applySceneLayout,applyWholeClipLayout,applyFramingStrategy} from '../../../src/lib/itemLayout.js';
 import {expandSceneLayoutProject,resolveSceneLayoutItem,validateSceneLayoutOverrides} from '../shared/sceneLayoutOverrides.js';
 const make=():any=>({canvas:{aspect_ratio:'9:16',width:1080,height:1920,duration:12},tracks:[{id:'v',type:'VIDEO',items:[{id:'item',source_start:40,source_end:64,timeline_start:0,timeline_end:12,speed:{speed:2},crop_config:{layout_mode_source:'auto'},transform:{scale:1.3},tracker:{enabled:false}}]}]});
 const item=(p:any)=>p.tracks[0].items[0];
@@ -25,3 +25,24 @@ test('retained scene window cannot infer historical source anchor from a changed
 });
 
 test('render cannot revive a stored scene plan whose actual source bytes mismatch',async()=>{const {storedScenePlanWindow}=await import('../shared/storedScenePlanWindow.js');const sha='a'.repeat(64),p=make(),clip={aspect_ratio:'9:16',source_storage_path:'same'},track={status:'ready',isStale:true,analyzed_aspect_ratio:'9:16',raw_samples:[{}],smoothed_keyframes:[{}],metadata:{shot_composition_candidate:true,analyzed_source_path:'same',analyzed_source_start:0,analyzed_source_end:70,clip_duration:70,analyzed_source_sha256:sha}};assert.ok(storedScenePlanWindow(p,clip,track,sha));assert.equal(storedScenePlanWindow(p,clip,track,'b'.repeat(64)),null);});
+
+for (const mode of ['fit','blur','center','smart'] as const) {
+ test('clip-wide '+mode+' replaces scene Auto overrides consistently in preview/render',()=>{
+  let p=applySceneLayout(make(),'item',40,64,'auto');
+  p={...p,canvas:{...p.canvas,background_user_choice:'color'}};
+  const before=structuredClone(p),q=applyFramingStrategy(p,mode),i=item(q);
+  assert.equal(i.scene_layout_overrides,undefined);
+  const preview=resolveSceneLayoutItem(i,50),exportItem=expandSceneLayoutProject(q).tracks[0].items[0];
+  assert.deepEqual(preview.crop,exportItem.crop);
+  assert.equal(preview.crop?.mode,mode==='smart'?undefined:mode==='center'?'fill':mode);
+  assert.deepEqual(i.transform,item(before).transform);assert.deepEqual(p,before);
+ });
+}
+test('Color then Blur keeps the later explicit choice in expanded scene export',()=>{
+ const p=applySceneLayout(make(),'item',40,64,'auto');
+ const color=applyFramingStrategy({...p,canvas:{...p.canvas,background_user_choice:'color'}},'fit');
+ const blur=applyFramingStrategy({...color,canvas:{...color.canvas,background_user_choice:'blur'}},'blur');
+ assert.equal(expandSceneLayoutProject(color).tracks[0].items[0].crop.mode,'fit');
+ assert.equal(expandSceneLayoutProject(blur).tracks[0].items[0].crop.mode,'blur');
+ assert.equal(blur.canvas.background_user_choice,'blur');
+});
