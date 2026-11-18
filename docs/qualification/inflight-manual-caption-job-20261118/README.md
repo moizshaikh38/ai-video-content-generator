@@ -1,0 +1,13 @@
+# Expedition 22 explicit manual Three, genuine captions, ordinary job
+
+Actual exact-byte 90-104s source from https://archive.org/details/nasa_tv-Expedition_22_Educational_Event_1_6_2010 . Source/use restrictions and manual-control methodology in ../cross-source-three-20261118/README.md apply. NASA footage remains private technical qualification only, excluded from website/promotional demos.
+
+Normal processProjectVideo issued one genuine OpenRouter Whisper transcription request for this exact source, with live catalog pricing bounded below $0.001 and no retries/fallback. 43 words, 17 house-style cues, source binding and selection receipt. Normal quality assessment remains unverified, accuracy not independently qualified. The excerpt starts mid-sentence.
+
+Fresh normal visual analysis/controller yields no accepted Three proposal because body evidence contains extra candidates. Actual UI chooses Three explicitly, initially unassigned. Three real Panel controls select operator-chosen panel-shaped source regions. All-three no-op Apply, Panel 1-only edit, reselect preservation and save/get pass. Initial unassigned save/get blocks export with 409. Assigned and edited direct exports pass. Actual ordinary HTTP render endpoint returns 202; async job completed, clip ready and rendered MP4 uploaded through local storage protocol.
+
+Actual MP4 decoded samples and editor screenshot inspected: three distinct people and white/green styled captions at horizontal panel seam. The captioned edited output has clearly visible top/bottom black padding in the bottom-left panel. This is a visible defect, not thin-bar or bar-free qualification. No further source-specific rectangle tuning is part of this result. Source 534x360 is soft and 720p output is interpolated, not native detail. Rounded crop audit retains all 180 sampled detected face observations, stable distinct track per panel, zero foreign/partial detected fragments. This is the same detector, not independent identity or every-frame/hair/full-body proof.
+
+No full upload/highlight, Genre Auto, automatic proposal, active-speaker Fill or production success claimed. Local auth/entitlements/storage fixtures remain in effect. Earlier Apollo ordinary captioned job is separate evidence.
+
+Provider response reports $0.00004662333 for one call; cumulative $0.07055374117999781, remaining $0.1294462588200022 of the user's original TOTAL $0.20 grant. Immediate account usage endpoint had not advanced, so the conservative cost uses the provider response, not a zero usage delta. Temporary API key file deleted after execution. No additional spend for direct exports/controls.

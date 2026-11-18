@@ -1,0 +1,87 @@
+{
+  "normalProcessingStatus": "transcribed",
+  "sourceBinding": {
+    "version": 1,
+    "source_receipt": {
+      "key": "fixtures/f4566385-ca84-486b-85dd-d6b82426a5ba/source.mp4",
+      "size": 1018147,
+      "etag": "\"a31508fab62d62f67ce7351108fcb8447a0705e6c783f83b75b7043281237801\"",
+      "sha256": "a31508fab62d62f67ce7351108fcb8447a0705e6c783f83b75b7043281237801"
+    },
+    "prepared_audio_sha256": "10a7a53073212f08d7f9fcb9ba1201a7de8e7e39a822709354a5c7c8a7aa3f62",
+    "requests": [
+      {
+        "sha256": "10a7a53073212f08d7f9fcb9ba1201a7de8e7e39a822709354a5c7c8a7aa3f62",
+        "bytes": 113237,
+        "status": "completed"
+      }
+    ],
+    "transcript_content_sha256": "41db97a1f38d9743e586a69d204f974af3a8fecc78623541bdcdace5bc2fc8e6"
+  },
+  "wordCount": 43,
+  "qualityAssessment": {
+    "version": 1,
+    "status": "unverified",
+    "diagnostics": "present",
+    "issues": [],
+    "provider": "openrouter",
+    "model": "openai/whisper-large-v3-turbo",
+    "requested_language": null,
+    "detected_language": "en"
+  },
+  "manualProposalCount": 0,
+  "apiAccepted": 202,
+  "jobStatus": "completed",
+  "clipStatus": "ready",
+  "cost": 4.662333e-05,
+  "cumulative": 0.07055374117999781,
+  "remaining": 0.1294462588200022,
+  "calls": 1,
+  "sameDetectorAudit": {
+    "caveat": "Same detector samples, not independent identity or every-frame/hair/full-body proof. Pixel crop rounding uses actual shared panelSourceWindow.",
+    "sampleCount": 60,
+    "panelObservations": 180,
+    "fullyRetained": 180,
+    "foreignOrPartialFaceFragments": 0,
+    "panelTrackIds": [
+      [
+        "subject_2"
+      ],
+      [
+        "subject_3"
+      ],
+      [
+        "subject_1"
+      ]
+    ],
+    "windows": [
+      {
+        "x": 62,
+        "y": 70,
+        "w": 122,
+        "h": 110
+      },
+      {
+        "x": 178,
+        "y": 50,
+        "w": 138,
+        "h": 208
+      },
+      {
+        "x": 336,
+        "y": 54,
+        "w": 114,
+        "h": 202
+      }
+    ],
+    "failures": []
+  },
+  "caveats": [
+    "Explicit operator-chosen panel views, not accepted participant proposal",
+    "Private NASA technical qualification, no website/promotional demos",
+    "Local auth/entitlements/storage fixture, not real upload/highlight/production proof",
+    "534x360 source, interpolated 720p output, not native detail",
+    "Transcript accuracy unverified; selected interval begins mid-sentence",
+    "Captioned edited output has clearly visible top/bottom black padding in bottom-left panel; not bar-free qualification"
+  ]
+}
