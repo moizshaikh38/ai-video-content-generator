@@ -1,0 +1,1340 @@
+import { projectClippingFailure, transcriptReviewRequired } from '../lib/clippingRecovery';
+import React, { useEffect, useState, useRef } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { BTN_PILL_BRAND_SOFT } from '../lib/buttonStyles';
+import {
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  Copy,
+  Pencil,
+  Video,
+  FileText,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  Volume2,
+  Clock,
+  Globe,
+  ChevronDown,
+  ChevronUp,
+  CircleCheck,
+  SlidersHorizontal,
+  RotateCcw,
+  Film,
+  Send,
+  Search,
+  X,
+  Plus,
+} from 'lucide-react';
+import { Button } from '../components/Button';
+import { Input } from '../components/Input';
+import { Textarea } from '../components/Textarea';
+import { StatusBadge, isProcessing } from '../components/StatusBadge';
+import { LoadingState } from '../components/LoadingState';
+import { projectService } from '../services/projectService';
+import { backendRequest } from '../services/backendClient';
+import { Project, ContentOutput, OutputPlatform, Transcript, GenerationOverrides } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { CreatorPersonaCard } from '../components/react-bits/CreatorPersonaCard';
+import { GenerationProgress } from '../components/react-bits/GenerationProgress';
+import { SpotlightCard } from '../components/react-bits/SpotlightCard';
+import { QuotaExceededModal } from '../components/QuotaExceededModal';
+import { ClipWorkspace } from '../components/clips/ClipWorkspace';
+import { PublishModal } from '../components/PublishModal';
+import { ProjectThumbImage } from '../components/ProjectThumbImage';
+
+interface TabConfig {
+  key: OutputPlatform;
+  label: string;
+  groups: Array<{ type: ContentOutput['content_type']; label: string }>;
+}
+
+const TABS: TabConfig[] = [
+  {
+    key: 'youtube',
+    label: 'YouTube',
+    groups: [
+      { type: 'title', label: 'Title ideas (High CTR)' },
+      { type: 'description', label: 'Video description' },
+      { type: 'chapters', label: 'Timestamped chapters' },
+      { type: 'keywords', label: 'SEO keywords & tags' },
+    ],
+  },
+  {
+    key: 'instagram',
+    label: 'Instagram',
+    groups: [
+      { type: 'hook', label: 'Reel & carousel hooks' },
+      { type: 'caption', label: 'Feed caption' },
+      { type: 'hashtags', label: 'Curated hashtags' },
+    ],
+  },
+  {
+    key: 'shorts',
+    label: 'Shorts / Reels',
+    groups: [{ type: 'moment', label: 'Best moments & clip cut-points' }],
+  },
+  {
+    key: 'tiktok',
+    label: 'TikTok',
+    groups: [
+      { type: 'hook', label: 'Opening hooks' },
+      { type: 'caption', label: 'Video caption' },
+      { type: 'moment', label: 'Clip idea' },
+    ],
+  },
+  {
+    key: 'linkedin',
+    label: 'LinkedIn',
+    groups: [{ type: 'post', label: 'Thought leadership post' }],
+  },
+  {
+    key: 'x',
+    label: 'X (Twitter)',
+    groups: [
+      { type: 'post', label: 'Standalone post' },
+      { type: 'thread', label: 'Thread structure & hooks' },
+    ],
+  },
+];
+
+export const ProjectDetailPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const { creatorProfile } = useAuth();
+  const [project, setProject] = useState<Project | undefined>(() =>
+    id ? projectService.getProject(id) : undefined
+  );
+  const [outputs, setOutputs] = useState<ContentOutput[]>(() =>
+    id ? projectService.getOutputs(id) : []
+  );
+  const [transcript, setTranscript] = useState<Transcript | null>(null);
+  const [isLoading, setIsLoading] = useState(!project);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingPlatform, setGeneratingPlatform] = useState<OutputPlatform | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+
+  // Quota error state
+  const [quotaError, setQuotaError] = useState<{
+    remaining_minutes?: number;
+    requested_minutes?: number;
+    limit_minutes?: number;
+    reset_date?: string;
+  } | null>(null);
+  const [isQuotaModalOpen, setIsQuotaModalOpen] = useState(false);
+
+  // Video-level persona tuning state (only applies to this project)
+  const [showTuning, setShowTuning] = useState(false);
+  const [tuningTone, setTuningTone] = useState('');
+  const [tuningLanguage, setTuningLanguage] = useState('');
+  const [tuningInstructions, setTuningInstructions] = useState('');
+  const [tuningCTA, setTuningCTA] = useState('');
+  const [workspaceTab, setWorkspaceTab] = useState<'clips' | 'content' | 'transcript'>('clips');
+
+  const hasTuningOverrides = Boolean(tuningTone || tuningLanguage || tuningInstructions || tuningCTA);
+
+  useEffect(() => {
+    let active = true;
+    setVideoPreviewUrl(null);
+    if (!project?.source_url) return;
+    backendRequest<{ signedUrl: string }>(`/projects/${project.id}/source-preview-url`).then((data) => {
+      if (active) setVideoPreviewUrl(data.signedUrl || null);
+    }).catch(() => { if (active) setVideoPreviewUrl(null); });
+    return () => { active = false; };
+  }, [project?.source_url]);
+
+  const handleGenerateContent = async (targetPlatform?: OutputPlatform) => {
+    if (!id) return;
+    setIsGenerating(true);
+    setGeneratingPlatform(targetPlatform || null);
+    setGenerationError(null);
+
+    const overrides: GenerationOverrides | undefined = (tuningTone || tuningLanguage || tuningCTA)
+      ? {
+          overrideTone: tuningTone || undefined,
+          overrideLanguage: tuningLanguage || undefined,
+          overrideCTA: tuningCTA || undefined,
+        }
+      : undefined;
+
+    try {
+      await projectService.generateContent(
+        id,
+        targetPlatform,
+        tuningInstructions.trim() || undefined,
+        overrides
+      );
+      await refreshData();
+    } catch (err: any) {
+      setGenerationError(err.message || 'Failed to generate content. Please try again.');
+    } finally {
+      setIsGenerating(false);
+      setGeneratingPlatform(null);
+    }
+  };
+
+  const refreshData = async () => {
+    if (!id) return;
+    const p = await projectService.fetchProject(id);
+    const o = projectService.getOutputs(id);
+    if (p) setProject(p);
+    setOutputs(o);
+
+    // Only query transcript if project has reached a transcribed/completed milestone
+    const currentStatus = p?.video_status || p?.status;
+    if (currentStatus === 'transcribed' || currentStatus === 'completed' || currentStatus === 'complete' || currentStatus === 'generating') {
+      const t = await projectService.fetchTranscript(id);
+      if (t) setTranscript(t);
+
+      // Load current content outputs from the backend
+      const realOutputs = await projectService.fetchContentOutputs(id);
+      if (realOutputs) setOutputs(realOutputs);
+    } else if (p && transcriptReviewRequired(projectClippingFailure(p))) {
+      // Reading flagged text does not approve it or bypass the export gate.
+      setTranscript(await projectService.fetchTranscript(id));
+    } else {
+      setTranscript(null);
+    }
+
+    setIsLoading(false);
+  };
+
+  // Initial load & updates listener
+  useEffect(() => {
+    refreshData();
+
+    const handleUpdate = () => refreshData();
+    window.addEventListener('vireo_project_updated', handleUpdate);
+
+    return () => {
+      window.removeEventListener('vireo_project_updated', handleUpdate);
+    };
+  }, [id]);
+
+  const hasAttemptedAutoStart = useRef(false);
+
+  // Auto-start processing once when newly uploaded
+  useEffect(() => {
+    if (!project || !id || hasAttemptedAutoStart.current) return;
+    const currentStatus = project.video_status || project.status;
+    if (currentStatus === 'uploaded' && project.source_url) {
+      hasAttemptedAutoStart.current = true;
+      projectService.startProcessing(id).catch((err: any) => {
+        if (err.status === 403 || err.error_code === 'QUOTA_EXCEEDED') {
+          setQuotaError({
+            remaining_minutes: err.remaining_minutes,
+            requested_minutes: err.requested_minutes,
+            limit_minutes: err.limit_minutes,
+            reset_date: err.reset_date,
+          });
+          setIsQuotaModalOpen(true);
+        } else if (err.message) {
+          setActionError(err.message);
+        }
+        console.warn('Auto-start processing notice:', err.message);
+      });
+    }
+  }, [id, project?.video_status, project?.status, project?.source_url]);
+
+  // Polling loop while processing or transcribing or generating
+  useEffect(() => {
+    if (!id || !project) return;
+    const currentStatus = project.video_status || project.status;
+    const active = isProcessing(currentStatus);
+
+    if (!active) return;
+
+    const interval = setInterval(() => {
+      refreshData();
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [id, project?.video_status, project?.status]);
+
+  const handleRetryProcessing = async () => {
+    if (!id || (project && transcriptReviewRequired(projectClippingFailure(project)))) return;
+    setIsRetrying(true);
+    setActionError(null);
+    setQuotaError(null);
+    try {
+      await projectService.startProcessing(id);
+      await refreshData();
+    } catch (err: any) {
+      if (err.status === 403 || err.error_code === 'QUOTA_EXCEEDED') {
+        setQuotaError({
+          remaining_minutes: err.remaining_minutes,
+          requested_minutes: err.requested_minutes,
+          limit_minutes: err.limit_minutes,
+          reset_date: err.reset_date,
+        });
+        setIsQuotaModalOpen(true);
+      } else {
+        setActionError(err.message || 'Failed to start processing.');
+      }
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="pt-12">
+        <LoadingState
+          message="Loading project details…"
+          description="Fetching video record."
+        />
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="py-20 text-center space-y-4">
+        <p className="text-muted-foreground text-sm">Project not found.</p>
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/dashboard">Back to Studio</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const isUrl = project.source_type === 'url';
+  const statusVal = project.video_status || project.status;
+  const isUploaded = statusVal === 'uploaded';
+  const transcriptNeedsReview = transcriptReviewRequired(projectClippingFailure(project));
+  const hasOutputs = outputs && outputs.length > 0;
+
+
+  return (
+    <div className="space-y-4">
+      {/* Back Link */}
+      <Link
+        to="/history"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-white transition-colors"
+      >
+        <ArrowLeft className="size-4" />
+        <span>Back to Projects</span>
+      </Link>
+
+      {/* Project header — one slim row: thumbnail, title, status, meta, action */}
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+        <ProjectThumbImage
+          project={project}
+          className="hidden sm:block h-14 aspect-video shrink-0 rounded-lg object-cover bg-black"
+        />
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="min-w-0 truncate text-xl font-semibold tracking-tight md:text-2xl font-['Sora',sans-serif] text-white">
+              {project.title}
+            </h1>
+            <StatusBadge status={statusVal} />
+          </div>
+          <p className="mt-1 text-xs text-zinc-400">
+            {new Date(project.created_at).toLocaleDateString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })}
+            {' · '}
+            {isUrl ? 'From link' : 'Uploaded video'}
+            {transcript?.segments && transcript.segments.length > 0 && <> · {transcript.segments.length} spoken segments</>}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <Link
+            to="/dashboard"
+            className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold ${BTN_PILL_BRAND_SOFT}`}
+          >
+            <Plus className="size-3.5" />
+            <span>New Project</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Quota Exceeded Modal & Alert */}
+      {quotaError && (
+        <QuotaExceededModal
+          isOpen={isQuotaModalOpen}
+          onClose={() => setIsQuotaModalOpen(false)}
+          limitMinutes={quotaError.limit_minutes ?? 15}
+          remainingMinutes={quotaError.remaining_minutes ?? 0}
+          requestedMinutes={quotaError.requested_minutes}
+          resetDate={quotaError.reset_date}
+        />
+      )}
+
+      {quotaError && (
+        <div className="rounded-2xl bg-amber-500/10 p-6 text-center space-y-3">
+          <div className="size-10 rounded-xl bg-amber-500/15 text-amber-400 mx-auto flex items-center justify-center border border-amber-500/25">
+            <Clock className="size-5" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-bold text-base text-white font-['Sora',sans-serif]">
+              Monthly Processing Limit Reached
+            </h3>
+            <p className="text-xs sm:text-sm text-zinc-300 max-w-md mx-auto">
+              You have <span className="font-semibold text-white">{quotaError.remaining_minutes ?? 0} minutes</span> remaining in your plan this month.
+              {quotaError.requested_minutes ? (
+                <> This video requires an estimated <span className="font-semibold text-white">~{quotaError.requested_minutes.toFixed(1)} minutes</span>.</>
+              ) : null}
+              {quotaError.reset_date && (
+                <span className="block mt-1 font-mono text-amber-300 text-xs">
+                  Resets on {new Date(quotaError.reset_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })} (UTC).
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+            <Button variant="outline" size="sm" onClick={() => setIsQuotaModalOpen(true)}>
+              View Quota Details
+            </Button>
+            <Button variant="primary" size="sm" onClick={handleRetryProcessing} disabled={isRetrying} className="bg-amber-500 text-black hover:bg-amber-400 font-bold">
+              Check Again
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Failed State: preserve flagged transcript visibility without clearing the quality gate. */}
+      {statusVal === 'failed' || transcriptNeedsReview ? (
+        <div className="rounded-2xl p-8 text-center space-y-4 bg-rose-500/10">
+          <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-400 mx-auto flex items-center justify-center border border-rose-500/25">
+            <RefreshCw className="size-6" />
+          </div>
+          <div>
+            <p className="font-bold text-lg text-white font-['Sora',sans-serif]">{transcriptNeedsReview ? 'Transcript Needs Review' : 'Video Processing Failed'}</p>
+            <p className="text-sm text-zinc-300 max-w-md mx-auto mt-1">
+              {actionError || project.error_message || (transcriptNeedsReview ? 'Automatic captions are blocked by the transcript quality check. Check the source audio and language. Opening or copying this text does not approve it for export.' : 'The video processing or transcription failed. Please verify your video audio or try again.')}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            {!transcriptNeedsReview && <Button
+              variant="primary"
+              disabled={isRetrying}
+              onClick={handleRetryProcessing}
+              className="bg-rose-600 hover:bg-rose-500 text-white font-bold"
+            >
+              {isRetrying ? (
+                <>
+                  <Loader2 className="size-4 animate-spin mr-1.5" />
+                  Retrying Processing…
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="size-4 mr-1.5" />
+                  Retry Processing
+                </>
+              )}
+            </Button>}
+            <Button variant="outline" asChild>
+              <Link to="/dashboard">Try New Video</Link>
+            </Button>
+          </div>
+          {transcriptNeedsReview && <p className="text-sm text-amber-200" role="status">
+            Check the source audio and transcript below. Reading or copying text does not verify it.
+            No automatic retry will run. A new transcription requires a separate decision and credit estimate.
+          </p>}
+          {transcriptNeedsReview && (videoPreviewUrl ? (
+            <div className="text-left space-y-2">
+              <p className="text-sm text-zinc-300">Source audio and video for review</p>
+              <video controls preload="metadata" src={videoPreviewUrl} className="w-full max-h-80 rounded-xl bg-black" />
+            </div>
+          ) : <p className="text-sm text-zinc-400">Source playback is unavailable. Do not treat this transcript as verified without checking the original video.</p>)}
+          {transcriptNeedsReview && transcript && (
+            <div className="text-left" data-testid="flagged-transcript-readonly">
+              <p className="mb-3 text-sm text-amber-200">Unverified transcript. Reading or copying it does not clear the export block.</p>
+              <TranscriptSection transcript={transcript} />
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Video Uploaded / Processing / Transcribed State */
+        <div className="space-y-6">
+          {/* Main Single Video / Processing Tracker Card */}
+          {!['transcribed', 'completed', 'complete'].includes(statusVal) && (
+            <div className="rounded-2xl bg-vc-surface1/90 p-6 md:p-8 space-y-6 shadow-2xl backdrop-blur-xl text-white">
+              {/* Card Header with Estimated Time */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-violet-500/15 text-violet-300 text-xs font-semibold">
+                    <Sparkles className="size-3 text-violet-400" />
+                    <span>Autonomous AI Processing</span>
+                  </div>
+                  <h2 className="font-['Sora',sans-serif] text-xl sm:text-2xl font-bold text-white tracking-tight">
+                    Clipping & Analyzing Your Video
+                  </h2>
+                  <p className="text-xs sm:text-sm text-zinc-400">
+                    Our AI is extracting dialogue, detecting viral hooks, and generating 9:16 vertical clips.
+                  </p>
+                </div>
+
+                <div className="inline-flex items-center gap-2.5 rounded-xl bg-white/[0.04] px-4 py-2.5 shrink-0 self-start sm:self-auto backdrop-blur-sm shadow-md">
+                  <div className="grid size-9 place-items-center rounded-lg bg-violet-500/20 text-violet-300">
+                    <Clock className="size-4.5" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Estimated time</p>
+                    <p className="text-sm font-bold font-mono text-white leading-tight">~60–90 seconds</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              {(() => {
+                const currentIdx = ['uploading', 'uploaded', 'queued', 'processing', 'transcribing', 'analyzing', 'generating', 'transcribed', 'complete', 'completed'].indexOf(statusVal);
+                const percent = Math.min(95, Math.max(15, Math.round((Math.max(1, currentIdx + 1) / 8) * 100)));
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-zinc-300 font-mono">
+                      <span className="flex items-center gap-2 font-semibold text-violet-300">
+                        <span className="size-2 rounded-full bg-violet-400 animate-ping" />
+                        Status: <span className="capitalize text-white">{statusVal}</span>
+                      </span>
+                      <span className="font-bold text-emerald-400">{percent}%</span>
+                    </div>
+                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/[0.06] border border-white/10">
+                      <div
+                        className="h-full rounded-full bg-violet-500 transition-all duration-500"
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Connected Stepper */}
+              <div className="pt-2">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-5 relative">
+                  {[
+                    { key: 'uploaded', label: 'Uploaded', desc: 'Source Secured', icon: CircleCheck },
+                    { key: 'processing', label: 'Processing', desc: 'Audio Extraction', icon: Video },
+                    { key: 'transcribing', label: 'Transcribing', desc: 'Speech-to-Text', icon: Volume2 },
+                    { key: 'generating', label: 'Generating', desc: 'Hook & Virality', icon: Sparkles },
+                    { key: 'complete', label: 'Ready', desc: 'Clips Produced', icon: CircleCheck },
+                  ].map((step, index) => {
+                    const current = ['uploading', 'uploaded', 'queued', 'processing', 'transcribing', 'analyzing', 'generating', 'transcribed', 'complete', 'completed'].indexOf(statusVal);
+                    const stage = [1, 3, 4, 6, 8][index];
+                    const done = current > stage;
+                    const active = current === stage || (index === 1 && statusVal === 'queued') || (index === 3 && statusVal === 'analyzing');
+
+                    return (
+                      <div key={step.key} className="text-center relative flex flex-col items-center">
+                        <span
+                          className={`grid size-12 place-items-center rounded-2xl border-2 transition-all shadow-md ${
+                            done
+                              ? 'border-emerald-400/80 bg-emerald-500/20 text-emerald-300'
+                              : active
+                              ? 'border-violet-400 bg-violet-500/20 text-violet-300 ring-4 ring-violet-500/30 animate-pulse'
+                              : 'border-white/10 bg-white/[0.03] text-zinc-500'
+                          }`}
+                        >
+                          <step.icon className="size-5" />
+                        </span>
+                        <p className="mt-3 text-xs sm:text-sm font-bold text-white font-['Sora',sans-serif]">{step.label}</p>
+                        <p className="mt-0.5 text-xs text-zinc-400 line-clamp-1">
+                          {done ? 'Complete' : active ? step.desc : 'Pending'}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Opus-style Viral Clipping Tip Box */}
+              <div className="p-4 rounded-xl bg-white/[0.02] flex items-center justify-between gap-4 text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="size-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 grid place-items-center shrink-0">
+                    <Sparkles className="size-4" />
+                  </div>
+                  <p className="text-zinc-300 leading-relaxed">
+                    <strong className="text-white">Pro Tip:</strong> 85% of viewers watch short-form videos with sound muted. Our engine automatically adds kinetic word-pop captions to maximize retention.
+                  </p>
+                </div>
+                <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 font-mono text-[11px] shrink-0 font-medium">
+                  ✓ Safe to close tab
+                </span>
+              </div>
+
+              {/* Action Error if any - with Retry button directly beside message */}
+              {actionError && (
+                <div className="p-4 rounded-xl bg-rose-500/10 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <AlertCircle className="size-4 text-rose-400 shrink-0" />
+                    <div className="text-xs sm:text-sm text-rose-300">
+                      <span className="font-semibold text-rose-200">Processing notice:</span>{' '}
+                      <span>{actionError}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={isRetrying}
+                      onClick={handleRetryProcessing}
+                      className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 font-semibold text-xs border border-rose-500/30 transition-all cursor-pointer flex items-center gap-1"
+                    >
+                      {isRetrying && <Loader2 className="size-3 animate-spin" />}
+                      Retry
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActionError(null)}
+                      className="text-xs text-zinc-400 hover:text-white font-medium underline"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Manual trigger button if uploaded and idle */}
+              {isUploaded && !isProcessing(statusVal) && (
+                <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.04]">
+                  <div className="text-xs sm:text-sm text-zinc-300">
+                    <span className="font-semibold text-white">Ready to start processing:</span> Audio extraction, transcription, and AI content kits are queued.
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    disabled={isRetrying}
+                    onClick={handleRetryProcessing}
+                    className="shrink-0"
+                  >
+                    {isRetrying ? (
+                      <Loader2 className="size-3.5 animate-spin mr-1" />
+                    ) : (
+                      <Sparkles className="size-3.5 mr-1" />
+                    )}
+                    {isRetrying ? 'Starting…' : 'Start Processing'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Primary Workspace Navigation (Clips / Content Kit / Transcript) */}
+          {transcript && (
+            <div className="space-y-4">
+              <div className="flex border-b border-white/[0.08] gap-6">
+                <button
+                  onClick={() => setWorkspaceTab('clips')}
+                  className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+                    workspaceTab === 'clips'
+                      ? 'border-violet-500 text-white'
+                      : 'border-transparent text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <Film className="size-4 text-violet-400" />
+                  <span>Clips</span>
+                  <span className="rounded-full bg-violet-500/20 text-violet-300 text-[11px] font-mono px-2 py-0.5 font-bold">
+                    Primary
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setWorkspaceTab('content')}
+                  className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+                    workspaceTab === 'content'
+                      ? 'border-violet-500 text-white'
+                      : 'border-transparent text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <Sparkles className="size-4 text-emerald-400" />
+                  <span>Content Kit</span>
+                  {hasOutputs && (
+                    <span className="rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-mono px-2 py-0.5 font-bold">
+                      {outputs.length}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setWorkspaceTab('transcript')}
+                  className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+                    workspaceTab === 'transcript'
+                      ? 'border-violet-500 text-white'
+                      : 'border-transparent text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <FileText className="size-4 text-zinc-400" />
+                  <span>Transcript</span>
+                </button>
+              </div>
+
+              {/* Tab 1: Clips Workspace (Primary Default) */}
+              {workspaceTab === 'clips' && (
+                <div className="animate-in fade-in duration-200">
+                  <ClipWorkspace
+                    projectId={project.id}
+                    transcript={transcript}
+                    videoPreviewUrl={videoPreviewUrl}
+                  />
+                </div>
+              )}
+
+              {/* Tab 2: Transcript View */}
+              {workspaceTab === 'transcript' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <CreatorPersonaCard
+                    profile={creatorProfile}
+                    hasOverrides={hasTuningOverrides}
+                  />
+                  <TranscriptSection transcript={transcript} />
+                </div>
+              )}
+
+              {/* Tab 3: Content Kit View */}
+              {workspaceTab === 'content' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold font-['Sora',sans-serif] text-white flex items-center gap-2">
+                  <Sparkles className="size-5 text-violet-400" />
+                  <span>Platform Content Kits</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Repurpose video transcript into platform-native content kits for YouTube, Instagram, Shorts/Reels, TikTok, LinkedIn, and X.
+                </p>
+              </div>
+
+              {transcript ? (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowTuning(!showTuning)}
+                    className="gap-1.5 border-white/10 text-zinc-300 hover:text-white"
+                  >
+                    <SlidersHorizontal className="size-3.5 text-violet-400" />
+                    <span>{hasTuningOverrides ? 'Tuned for video' : 'Tune Persona'}</span>
+                    {showTuning ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                  </Button>
+
+                  <Button
+                    variant="brand"
+                    size="sm"
+                    onClick={() => handleGenerateContent()}
+                    disabled={isGenerating}
+                    className="font-bold"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                        <span>Generating Content Kits...</span>
+                      </>
+                    ) : hasOutputs ? (
+                      <>
+                        <RefreshCw className="size-3.5 mr-1.5" />
+                        <span>Regenerate All Kits</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="size-3.5 mr-1.5" />
+                        <span>Generate Content Kits</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Video-Level Persona Tuning Expandable AI Control Surface */}
+            {transcript && showTuning && (
+              <SpotlightCard
+                spotlightColor="rgba(139, 92, 246, 0.15)"
+                className="p-5 md:p-6 bg-vc-surface1 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/[0.08] pb-3 gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/15 text-violet-400 border border-violet-500/25">
+                      <SlidersHorizontal className="size-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold font-['Sora',sans-serif] text-white">
+                        AI Control Surface — Customize for this video
+                      </h4>
+                      <p className="text-[11px] text-zinc-400">
+                        {hasTuningOverrides
+                          ? 'Only applies to this project · Does not modify your saved creator profile'
+                          : 'Currently using your saved creator profile defaults'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {hasTuningOverrides && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setTuningTone('');
+                        setTuningLanguage('');
+                        setTuningCTA('');
+                        setTuningInstructions('');
+                      }}
+                      className="h-7 text-xs text-muted-foreground hover:text-foreground self-start sm:self-auto"
+                    >
+                      <RotateCcw className="size-3 mr-1" /> Reset to defaults
+                    </Button>
+                  )}
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3 pt-3">
+                  <Input
+                    label="Tone Override"
+                    placeholder="e.g. Sarcastic, high-energy, contrarian"
+                    value={tuningTone}
+                    onChange={(e) => setTuningTone(e.target.value)}
+                    className="rounded-xl text-xs"
+                  />
+                  <Input
+                    label="Language Override"
+                    placeholder="e.g. Spanish, German, French"
+                    value={tuningLanguage}
+                    onChange={(e) => setTuningLanguage(e.target.value)}
+                    className="rounded-xl text-xs"
+                  />
+                  <Input
+                    label="Call to Action (CTA) Override"
+                    placeholder="e.g. Download the free checklist link below"
+                    value={tuningCTA}
+                    onChange={(e) => setTuningCTA(e.target.value)}
+                    className="rounded-xl text-xs"
+                  />
+                </div>
+
+                <div className="pt-3">
+                  <Textarea
+                    label="Specific Video Directives"
+                    placeholder="e.g. Emphasize the second tip about cold emails; make the LinkedIn post sound like an engineering postmortem."
+                    value={tuningInstructions}
+                    onChange={(e) => setTuningInstructions(e.target.value)}
+                    rows={2}
+                    className="rounded-xl text-xs"
+                  />
+                </div>
+              </SpotlightCard>
+            )}
+
+            {generationError && (
+              <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive flex items-center justify-between">
+                <span>{generationError}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setGenerationError(null)}
+                  className="h-6 px-2 text-xs text-destructive hover:bg-destructive/10"
+                >
+                  Dismiss
+                </Button>
+              </div>
+            )}
+
+            {/* If transcript is not available yet, honestly communicate waiting state */}
+            {!transcript && !hasOutputs && (
+              <div className="rounded-2xl border border-dashed border-white/10 bg-vc-surface1/60 p-6 sm:p-8 text-center space-y-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-400 mx-auto flex items-center justify-center border border-amber-500/20">
+                  <FileText className="size-5" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-white font-['Sora',sans-serif]">Waiting for Transcript</h4>
+                  <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
+                    AI content generation requires a video transcript. Once transcription is completed, you can generate platform-specific drafts for YouTube, Instagram, Shorts, TikTok, LinkedIn, and X.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* If transcript is ready but no outputs yet */}
+            {transcript && !hasOutputs && !isGenerating && (
+              <div className="rounded-2xl bg-vc-surface1/80 p-6 text-center space-y-3 shadow-lg">
+                <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+                  Transcript is ready! Click "Generate Content Kits" to create platform-specific content packages for this project.
+                </p>
+              </div>
+            )}
+
+            {/* Loading state during generation */}
+            {isGenerating && (
+              <GenerationProgress
+                platformName={generatingPlatform ? generatingPlatform.toUpperCase() : undefined}
+              />
+            )}
+
+            {hasOutputs && (
+              <Workspace
+                outputs={outputs}
+                projectId={project.id}
+                onRefresh={refreshData}
+                onRegeneratePlatform={(p) => handleGenerateContent(p)}
+                isGenerating={isGenerating}
+                generatingPlatform={generatingPlatform}
+              />
+            )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+function TranscriptSection({ transcript }: { transcript: Transcript }) {
+  const [copied, setCopied] = useState(false);
+  const [showSegments, setShowSegments] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleCopyAll = () => {
+    navigator.clipboard.writeText(transcript.transcript_text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const formatTimestamp = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const query = searchQuery.trim().toLowerCase();
+
+  const filteredSegments = (transcript.segments || []).filter((seg) => {
+    if (!query) return true;
+    return seg.text.toLowerCase().includes(query);
+  });
+
+  const highlightMatch = (text: string, q: string) => {
+    if (!q) return text;
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+    return parts.map((part, i) =>
+      part.toLowerCase() === q.toLowerCase() ? (
+        <mark key={i} className="bg-violet-500/40 text-violet-300 font-semibold px-0.5 rounded">
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
+  };
+
+  return (
+    <div className="rounded-2xl bg-vc-surface1/90 p-5 sm:p-7 space-y-6 shadow-xl backdrop-blur-md text-white">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+        <div className="flex items-center gap-3">
+          <div className="size-10 rounded-xl bg-violet-500/15 text-violet-400 border border-violet-500/25 flex items-center justify-center shrink-0">
+            <Volume2 className="size-5" />
+          </div>
+          <div>
+            <h3 className="text-base sm:text-lg font-bold font-['Sora',sans-serif] text-white">
+              Video Transcript
+            </h3>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400 mt-0.5">
+              <span className="flex items-center gap-1">
+                <Globe className="size-3 text-zinc-500" />
+                <span className="uppercase">{transcript.language || 'en'}</span>
+              </span>
+              {typeof transcript.duration_seconds === 'number' && Number.isFinite(transcript.duration_seconds) && transcript.duration_seconds >= 0 && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="size-3 text-zinc-500" />
+                    <span>{formatTimestamp(transcript.duration_seconds)}</span>
+                  </span>
+                </>
+              )}
+              {transcript.segments && transcript.segments.length > 0 && (
+                <>
+                  <span>•</span>
+                  <span>{transcript.segments.length} segments</span>
+                </>
+              )}
+              <span>•</span>
+              <span>{transcript.transcript_text.trim().split(/\s+/).filter(Boolean).length} words</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Reactive Keyword Search Input */}
+          <div className="relative">
+            <Search className="size-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search transcript…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 pl-8 pr-7 text-xs rounded-lg bg-white/[0.05] border border-white/[0.1] text-white placeholder:text-zinc-500 focus:outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10 w-36 sm:w-48 transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white cursor-pointer"
+                aria-label="Clear search"
+              >
+                <X className="size-3" />
+              </button>
+            )}
+          </div>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleCopyAll}
+            className="text-xs"
+          >
+            {copied ? (
+              <>
+                <Check className="size-3.5 text-emerald-400 mr-1.5" />
+                Copied
+              </>
+            ) : (
+              <>
+                <Copy className="size-3.5 mr-1.5" />
+                Copy Transcript
+              </>
+            )}
+          </Button>
+
+          {transcript.segments && transcript.segments.length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowSegments(!showSegments)}
+              className="text-xs"
+            >
+              {showSegments ? (
+                <>
+                  <ChevronUp className="size-3.5 mr-1" />
+                  Hide Timestamps
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="size-3.5 mr-1" />
+                  Show Timestamps
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Search results banner if search is active */}
+      {query && (
+        <div className="flex items-center justify-between text-xs text-zinc-400 bg-white/[0.03] rounded-lg px-3 py-1.5 font-mono">
+          <span>
+            {filteredSegments.length === 0
+              ? `No segments match "${searchQuery}"`
+              : `Found ${filteredSegments.length} matching ${
+                  filteredSegments.length === 1 ? 'segment' : 'segments'
+                }`}
+          </span>
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            className="text-violet-400 hover:text-white underline cursor-pointer"
+          >
+            Reset search
+          </button>
+        </div>
+      )}
+
+      {/* Timestamped Segments */}
+      {showSegments && transcript.segments && transcript.segments.length > 0 ? (
+        filteredSegments.length > 0 ? (
+          <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+            {filteredSegments.map((seg, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] transition-colors"
+              >
+                <span className="font-mono text-xs font-semibold text-zinc-200 px-2 py-0.5 rounded-md bg-white/[0.06] shrink-0 select-all">
+                  {formatTimestamp(seg.start)}
+                </span>
+                <p className="text-xs sm:text-sm text-zinc-200 leading-relaxed flex-1">
+                  {highlightMatch(seg.text, query)}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-10 text-center rounded-xl bg-white/[0.02] space-y-2">
+            <Search className="size-6 text-zinc-500 mx-auto" />
+            <p className="text-xs text-zinc-400">
+              No transcript segments found matching "{searchQuery}".
+            </p>
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="text-xs font-semibold text-violet-400 hover:underline cursor-pointer"
+            >
+              Clear search
+            </button>
+          </div>
+        )
+      ) : (
+        /* Full text fallback */
+        <div className="rounded-xl bg-white/[0.03] p-4 max-h-80 overflow-y-auto">
+          <p className="text-xs sm:text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed">
+            {highlightMatch(transcript.transcript_text, query)}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Workspace({
+  outputs,
+  projectId,
+  onRefresh,
+  onRegeneratePlatform,
+  isGenerating,
+  generatingPlatform,
+}: {
+  outputs: ContentOutput[];
+  projectId: string;
+  onRefresh: () => void;
+  onRegeneratePlatform?: (platform: OutputPlatform) => void;
+  isGenerating?: boolean;
+  generatingPlatform?: OutputPlatform | null;
+}) {
+  const [activeTab, setActiveTab] = useState<OutputPlatform>('youtube');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [publishingItem, setPublishingItem] = useState<ContentOutput | null>(null);
+
+  const tabOutputs = outputs.filter((o) => o.platform === activeTab);
+  const tabConfig = TABS.find((t) => t.key === activeTab)!;
+  const isPlatformGenerating = isGenerating && generatingPlatform === activeTab;
+
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 1800);
+  };
+
+  const startEdit = (out: ContentOutput) => {
+    setEditingId(out.id);
+    setDraft(out.content);
+  };
+
+  const saveEdit = async (outputId: string) => {
+    setIsSavingEdit(true);
+    try {
+      await projectService.updateOutputContentAsync(outputId, projectId, draft);
+      setEditingId(null);
+      onRefresh();
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  return (
+    <div key={projectId} className="space-y-5">
+      {/* Platform Navigation Tabs and Platform Regenerate Action */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-2">
+        <div role="tablist" aria-label="Content platforms" className="flex max-w-full gap-1.5 overflow-x-auto">
+          {TABS.map((tab) => {
+            const isActive = tab.key === activeTab;
+            const count = outputs.filter((o) => o.platform === tab.key).length;
+            return (
+              <button
+                key={tab.key}
+                role="tab"
+                aria-selected={isActive}
+                id={`tab-${tab.key}`}
+                aria-controls={`panel-${tab.key}`}
+                onClick={() => setActiveTab(tab.key)}
+                className={`rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                  isActive
+                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/30'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
+              >
+                <span>{tab.label}</span>
+                {count > 0 && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-white/20 text-white font-mono' : 'bg-white/10 text-zinc-300 font-mono'}`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {onRegeneratePlatform && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onRegeneratePlatform(activeTab)}
+            disabled={isGenerating}
+            className="text-xs h-8 border-white/10 text-zinc-300 hover:text-white"
+          >
+            {isPlatformGenerating ? (
+              <>
+                <Loader2 className="size-3 animate-spin mr-1" />
+                <span>Regenerating {tabConfig.label}...</span>
+              </>
+            ) : isGenerating ? (
+              <>
+                <Loader2 className="size-3 animate-spin mr-1" />
+                <span>Processing...</span>
+              </>
+            ) : (
+              <>
+                <RefreshCw className="size-3 mr-1 text-violet-400" />
+                <span>Regenerate {tabConfig.label}</span>
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+
+      {/* Tab Group Content */}
+      <div role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={`tab-${activeTab}`} className="space-y-6">
+        {tabOutputs.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-white/10 bg-vc-surface1/60 p-8 text-center">
+            <Sparkles className="mx-auto size-6 text-violet-400" />
+            <p className="mt-3 font-bold text-white font-['Sora',sans-serif]">No {tabConfig.label} content yet</p>
+            <p className="mt-1 text-sm text-zinc-400">Generate this platform’s content kit to see drafts here.</p>
+          </div>
+        )}
+        {tabConfig.groups.map((group) => {
+          const items = tabOutputs.filter((o) => o.content_type === group.type);
+          if (items.length === 0) return null;
+
+          return (
+            <div key={group.type} className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                {group.label}
+              </h3>
+              <div className="space-y-3">
+                {items.map((item) => {
+                  const isEditing = editingId === item.id;
+                  const isCopied = copiedId === item.id;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-2xl bg-vc-surface1/90 p-4 sm:p-5 transition-all group shadow-md"
+                    >
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          <Textarea
+                            rows={item.content.length > 200 ? 8 : 4}
+                            value={draft}
+                            onChange={(e) => setDraft(e.target.value)}
+                          />
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setEditingId(null)}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              onClick={() => saveEdit(item.id)}
+                              disabled={isSavingEdit}
+                              className="bg-violet-600 hover:bg-violet-500 text-white font-semibold"
+                            >
+                              {isSavingEdit ? (
+                                <>
+                                  <Loader2 className="size-3 animate-spin mr-1" />
+                                  <span>Saving...</span>
+                                </>
+                              ) : (
+                                <span>Save changes</span>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200 font-sans">
+                            {item.content}
+                          </p>
+                          <div className="flex items-center justify-between border-t border-white/[0.08] pt-3 text-xs">
+                            <span className="text-zinc-400 capitalize font-mono text-[11px]">
+                              {item.content_type}
+                            </span>
+                            <div className="flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => startEdit(item)}
+                                className="h-7 px-2 text-xs text-zinc-300 hover:text-white"
+                              >
+                                <Pencil className="size-3 mr-1" />
+                                <span>Edit</span>
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleCopy(item.content, item.id)}
+                                className="h-7 px-2 text-xs border-white/10 text-zinc-300 hover:text-white"
+                              >
+                                {isCopied ? (
+                                  <>
+                                    <Check className="size-3 mr-1 text-emerald-400" />
+                                    <span className="text-emerald-400">Copied</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="size-3 mr-1" />
+                                    <span>Copy</span>
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="primary"
+                                onClick={() => setPublishingItem(item)}
+                                className="h-7 px-2.5 text-xs bg-violet-600 hover:bg-violet-500 text-white font-semibold"
+                                title="Publish or schedule this content"
+                              >
+                                <Send className="size-3 mr-1" />
+                                <span>Publish</span>
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {publishingItem && (
+        <PublishModal
+          isOpen={true}
+          onClose={() => setPublishingItem(null)}
+          projectId={projectId}
+          contentOutputId={publishingItem.id}
+          initialPlatform={
+            ['youtube', 'instagram', 'tiktok', 'linkedin', 'x'].includes(publishingItem.platform)
+              ? (publishingItem.platform as any)
+              : undefined
+          }
+          initialTitle={publishingItem.content_type === 'title' ? publishingItem.content : ''}
+          initialCaption={publishingItem.content}
+        />
+      )}
+    </div>
+  );
+}

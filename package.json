@@ -1,0 +1,47 @@
+{
+  "name": "ai-video-generator-saas",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n \"frontend,backend\" -c \"cyan,magenta\" \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "vite",
+    "dev:backend": "npm run dev --prefix server",
+    "build": "npm run build:frontend",
+    "build:all": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "tsc && vite build && node scripts/build-site-pages.mjs",
+    "build:backend": "npm run build --prefix server",
+    "start": "npm run start --prefix server",
+    "preview": "vite preview",
+    "test": "npm run test:backend",
+    "test:backend": "npm test --prefix server",
+    "verify:all": "npm --prefix server run verify && tsc --noEmit && vite build",
+    "test:site-pages": "node scripts/audit-site-output.mjs && SITE_OUT=dist node scripts/verify-site-pages.mjs && node scripts/verify-public-navigation.mjs",
+    "test:resource-experiences": "node scripts/verify-resource-experiences.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
+    "clsx": "^2.1.1",
+    "gsap": "^3.15.0",
+    "lucide-react": "^1.16.0",
+    "razorpay": "^2.9.8",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^26.6.4",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "postcss": "^8.4.49",
+    "puppeteer-core": "^25.17.0",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.6.3",
+    "vite": "^6.4.6"
+  }
+}

@@ -1,0 +1,40 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { fileURLToPath, URL } from 'node:url';
+import exactLucideImports from './scripts/exact-lucide-imports.mjs';
+
+// https://vitejs.dev/config/
+export default defineConfig(({ command }) => ({
+  preview: { allowedHosts: true },
+  // Preserve the ordinary pages/components, but avoid parsing unused icon modules.
+  // Build memory benefit remains unmeasured until a separately bounded build.
+  plugins: [react({ babel: command === 'build' ? { plugins: [exactLucideImports] } : undefined })],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/@supabase/')) return 'supabase';
+          if (id.includes('node_modules/react') || id.includes('node_modules/scheduler')) return 'react-vendor';
+        },
+      },
+    },
+  },
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
+  server: {
+    allowedHosts: true,
+    port: 5173,
+    watch: {
+      ignored: ['**/delete/**', '**/dist/**'],
+    },
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
+  },
+}));

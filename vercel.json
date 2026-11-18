@@ -1,0 +1,345 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build:frontend",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/resources/learning-center/editor-tour",
+      "destination": "/resources/learning-center/editor-tour/index.html"
+    },
+    {
+      "source": "/resources/learning-center/editor-tour/",
+      "destination": "/resources/learning-center/editor-tour/index.html"
+    },
+    {
+      "source": "/resources/learning-center/auto-layout",
+      "destination": "/resources/learning-center/auto-layout/index.html"
+    },
+    {
+      "source": "/resources/learning-center/auto-layout/",
+      "destination": "/resources/learning-center/auto-layout/index.html"
+    },
+    {
+      "source": "/resources/learning-center/auto-reframe",
+      "destination": "/resources/learning-center/auto-reframe/index.html"
+    },
+    {
+      "source": "/resources/learning-center/auto-reframe/",
+      "destination": "/resources/learning-center/auto-reframe/index.html"
+    },
+    {
+      "source": "/resources/learning-center/manual-layout",
+      "destination": "/resources/learning-center/manual-layout/index.html"
+    },
+    {
+      "source": "/resources/learning-center/manual-layout/",
+      "destination": "/resources/learning-center/manual-layout/index.html"
+    },
+    {
+      "source": "/resources/learning-center/timeline-editing",
+      "destination": "/resources/learning-center/timeline-editing/index.html"
+    },
+    {
+      "source": "/resources/learning-center/timeline-editing/",
+      "destination": "/resources/learning-center/timeline-editing/index.html"
+    },
+    {
+      "source": "/resources/learning-center/preview-editing",
+      "destination": "/resources/learning-center/preview-editing/index.html"
+    },
+    {
+      "source": "/resources/learning-center/preview-editing/",
+      "destination": "/resources/learning-center/preview-editing/index.html"
+    },
+    {
+      "source": "/resources/learning-center/caption-style",
+      "destination": "/resources/learning-center/caption-style/index.html"
+    },
+    {
+      "source": "/resources/learning-center/caption-style/",
+      "destination": "/resources/learning-center/caption-style/index.html"
+    },
+    {
+      "source": "/resources/learning-center/single-word-captions",
+      "destination": "/resources/learning-center/single-word-captions/index.html"
+    },
+    {
+      "source": "/resources/learning-center/single-word-captions/",
+      "destination": "/resources/learning-center/single-word-captions/index.html"
+    },
+    {
+      "source": "/resources/learning-center/caption-lines",
+      "destination": "/resources/learning-center/caption-lines/index.html"
+    },
+    {
+      "source": "/resources/learning-center/caption-lines/",
+      "destination": "/resources/learning-center/caption-lines/index.html"
+    },
+    {
+      "source": "/resources/learning-center/word-highlight",
+      "destination": "/resources/learning-center/word-highlight/index.html"
+    },
+    {
+      "source": "/resources/learning-center/word-highlight/",
+      "destination": "/resources/learning-center/word-highlight/index.html"
+    },
+    {
+      "source": "/resources/learning-center/correct-captions",
+      "destination": "/resources/learning-center/correct-captions/index.html"
+    },
+    {
+      "source": "/resources/learning-center/correct-captions/",
+      "destination": "/resources/learning-center/correct-captions/index.html"
+    },
+    {
+      "source": "/resources/learning-center/ratio-safe-zones",
+      "destination": "/resources/learning-center/ratio-safe-zones/index.html"
+    },
+    {
+      "source": "/resources/learning-center/ratio-safe-zones/",
+      "destination": "/resources/learning-center/ratio-safe-zones/index.html"
+    },
+    {
+      "source": "/resources/learning-center/speed-and-playback",
+      "destination": "/resources/learning-center/speed-and-playback/index.html"
+    },
+    {
+      "source": "/resources/learning-center/speed-and-playback/",
+      "destination": "/resources/learning-center/speed-and-playback/index.html"
+    },
+    {
+      "source": "/resources/learning-center/save-and-export",
+      "destination": "/resources/learning-center/save-and-export/index.html"
+    },
+    {
+      "source": "/resources/learning-center/save-and-export/",
+      "destination": "/resources/learning-center/save-and-export/index.html"
+    },
+    {
+      "source": "/resources/learning-center/word-timing",
+      "destination": "/resources/learning-center/word-timing/index.html"
+    },
+    {
+      "source": "/resources/learning-center/word-timing/",
+      "destination": "/resources/learning-center/word-timing/index.html"
+    },
+    {
+      "source": "/resources/learning-center/object-tracker-setup",
+      "destination": "/resources/learning-center/object-tracker-setup/index.html"
+    },
+    {
+      "source": "/resources/learning-center/object-tracker-setup/",
+      "destination": "/resources/learning-center/object-tracker-setup/index.html"
+    },
+    {
+      "source": "/resources/blog/accuracy-before-style",
+      "destination": "/resources/blog/accuracy-before-style/index.html"
+    },
+    {
+      "source": "/resources/blog/accuracy-before-style/",
+      "destination": "/resources/blog/accuracy-before-style/index.html"
+    },
+    {
+      "source": "/resources/blog/frame-is-a-choice",
+      "destination": "/resources/blog/frame-is-a-choice/index.html"
+    },
+    {
+      "source": "/resources/blog/frame-is-a-choice/",
+      "destination": "/resources/blog/frame-is-a-choice/index.html"
+    },
+    {
+      "source": "/resources/blog/keep-the-context",
+      "destination": "/resources/blog/keep-the-context/index.html"
+    },
+    {
+      "source": "/resources/blog/keep-the-context/",
+      "destination": "/resources/blog/keep-the-context/index.html"
+    },
+    {
+      "source": "/resources/help-centre/caption-style",
+      "destination": "/resources/help-centre/caption-style/index.html"
+    },
+    {
+      "source": "/resources/help-centre/caption-style/",
+      "destination": "/resources/help-centre/caption-style/index.html"
+    },
+    {
+      "source": "/resources/help-centre/choose-a-frame",
+      "destination": "/resources/help-centre/choose-a-frame/index.html"
+    },
+    {
+      "source": "/resources/help-centre/choose-a-frame/",
+      "destination": "/resources/help-centre/choose-a-frame/index.html"
+    },
+    {
+      "source": "/resources/help-centre/export-review",
+      "destination": "/resources/help-centre/export-review/index.html"
+    },
+    {
+      "source": "/resources/help-centre/export-review/",
+      "destination": "/resources/help-centre/export-review/index.html"
+    },
+    {
+      "source": "/resources/help-centre/troubleshooting",
+      "destination": "/resources/help-centre/troubleshooting/index.html"
+    },
+    {
+      "source": "/resources/help-centre/troubleshooting/",
+      "destination": "/resources/help-centre/troubleshooting/index.html"
+    },
+    {
+      "source": "/resources/help-centre/browser-storage",
+      "destination": "/resources/help-centre/browser-storage/index.html"
+    },
+    {
+      "source": "/resources/help-centre/browser-storage/",
+      "destination": "/resources/help-centre/browser-storage/index.html"
+    },
+    {
+      "source": "/resources",
+      "destination": "/resources/index.html"
+    },
+    {
+      "source": "/resources/",
+      "destination": "/resources/index.html"
+    },
+    {
+      "source": "/resources/help-centre",
+      "destination": "/resources/help-centre/index.html"
+    },
+    {
+      "source": "/resources/help-centre/",
+      "destination": "/resources/help-centre/index.html"
+    },
+    {
+      "source": "/resources/learning-center",
+      "destination": "/resources/learning-center/index.html"
+    },
+    {
+      "source": "/resources/learning-center/",
+      "destination": "/resources/learning-center/index.html"
+    },
+    {
+      "source": "/resources/blog",
+      "destination": "/resources/blog/index.html"
+    },
+    {
+      "source": "/resources/blog/",
+      "destination": "/resources/blog/index.html"
+    },
+    {
+      "source": "/use-cases",
+      "destination": "/use-cases/index.html"
+    },
+    {
+      "source": "/use-cases/",
+      "destination": "/use-cases/index.html"
+    },
+    {
+      "source": "/features",
+      "destination": "/features/index.html"
+    },
+    {
+      "source": "/pricing",
+      "destination": "/pricing/index.html"
+    },
+    {
+      "source": "/tools",
+      "destination": "/tools/index.html"
+    },
+    {
+      "source": "/tools/captions",
+      "destination": "/tools/captions/index.html"
+    },
+    {
+      "source": "/tools/reframe",
+      "destination": "/tools/reframe/index.html"
+    },
+    {
+      "source": "/use-cases/podcasters",
+      "destination": "/use-cases/podcasters/index.html"
+    },
+    {
+      "source": "/use-cases/streamers",
+      "destination": "/use-cases/streamers/index.html"
+    },
+    {
+      "source": "/use-cases/agencies",
+      "destination": "/use-cases/agencies/index.html"
+    },
+    {
+      "source": "/tools/gaming-clips/gta-v",
+      "destination": "/tools/gaming-clips/gta-v/index.html"
+    },
+    {
+      "source": "/tools/gaming-clips/valorant",
+      "destination": "/tools/gaming-clips/valorant/index.html"
+    },
+    {
+      "source": "/tools/gaming-clips/fortnite",
+      "destination": "/tools/gaming-clips/fortnite/index.html"
+    },
+    {
+      "source": "/features/",
+      "destination": "/features/index.html"
+    },
+    {
+      "source": "/pricing/",
+      "destination": "/pricing/index.html"
+    },
+    {
+      "source": "/tools/",
+      "destination": "/tools/index.html"
+    },
+    {
+      "source": "/tools/captions/",
+      "destination": "/tools/captions/index.html"
+    },
+    {
+      "source": "/tools/reframe/",
+      "destination": "/tools/reframe/index.html"
+    },
+    {
+      "source": "/use-cases/podcasters/",
+      "destination": "/use-cases/podcasters/index.html"
+    },
+    {
+      "source": "/use-cases/streamers/",
+      "destination": "/use-cases/streamers/index.html"
+    },
+    {
+      "source": "/use-cases/agencies/",
+      "destination": "/use-cases/agencies/index.html"
+    },
+    {
+      "source": "/tools/gaming-clips/gta-v/",
+      "destination": "/tools/gaming-clips/gta-v/index.html"
+    },
+    {
+      "source": "/tools/gaming-clips/valorant/",
+      "destination": "/tools/gaming-clips/valorant/index.html"
+    },
+    {
+      "source": "/tools/gaming-clips/fortnite/",
+      "destination": "/tools/gaming-clips/fortnite/index.html"
+    },
+    {
+      "source": "/tools/ai-gaming-clip-generator/",
+      "destination": "/tools/ai-gaming-clip-generator/index.html"
+    },
+    {
+      "source": "/((?!.*\\.[a-zA-Z0-9]{1,8}$).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/tools/ai-gaming-clip-generator",
+      "destination": "/tools/ai-gaming-clip-generator/",
+      "permanent": true
+    }
+  ],
+  "git": {
+    "deploymentEnabled": false
+  }
+}
