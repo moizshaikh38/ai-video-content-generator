@@ -16,3 +16,6 @@ test('protected text or measured hand crossing vetoes even an explicit split-onl
  const h=make();(h.raw_samples[3] as any).hands=[{x:.45,y:.6,width:.12,height:.1,confidence:.95}];assert.equal(S.explicitAutoSplitPlan(h,{...auto,layoutPolicy:{allowed:['split']}},4),undefined);
 });
 test('mixed solo/pair clip stays legacy rather than adopting a new mixed-shot policy',()=>{const t=make();t.raw_samples.slice(0,8).forEach(s=>s.faces=s.faces.slice(0,1));(t.metadata.scene_cuts as number[]).push(2);assert.equal(S.explicitAutoSplitPlan(t,auto,4),undefined)});
+
+test('known action, scene, screen context and embedded-camera evidence veto ordinary pair split',()=>{for(const policy of ['screen_content','action_context','scene_context']){const t:any=make();t.metadata.content_framing_decision={policy};assert.equal(S.explicitAutoSplitPlan(t,auto,4),undefined)}const t:any=make();t.metadata.content_framing_decision={evidence:{possibleEmbeddedCamera:true}};assert.equal(S.explicitAutoSplitPlan(t,auto,4),undefined)});
+test('generic face anchor metadata is not evidence of an embedded camera',()=>{const t:any=make();t.metadata.facecam_box={x:.2,y:.2,w:.1,h:.2};t.metadata.facecam_track_id='a';assert.ok(S.explicitAutoSplitPlan(t,auto,4)?.[0].split)});
