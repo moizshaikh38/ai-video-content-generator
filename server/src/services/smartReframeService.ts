@@ -495,6 +495,7 @@ export class SmartReframeService {
     aspectRatio?: ClipAspectRatio;
     sourceWidth?: number;
     sourceHeight?: number;
+    sourceFps?: number;
     sceneCuts?: number[];
     speechIntervals?: Array<{ start: number; end: number }>;
   }): ReframeKeyframe[] {
@@ -510,6 +511,7 @@ export class SmartReframeService {
       aspectRatio = '9:16',
       sourceWidth = 1920,
       sourceHeight = 1080,
+      sourceFps = 30,
     } = params;
 
     // Subject-retention window: half-size of the crop window in normalized
@@ -540,18 +542,21 @@ export class SmartReframeService {
       return [{ time: 0, centerX: 0.5, centerY: 0.5 }];
     }
 
-    // 1. Sanitize and sort scene cut boundaries within (0.25s, duration - 0.25s)
+    // Sort before deduplication so the earliest measured cut wins regardless
+    // of input order. Keep genuine rapid shots distinct at the source timebase.
+    // Narrow port of Antigravity's sanitizer, without its cache or env override.
+    const fps = Number.isFinite(sourceFps) && sourceFps > 0 ? sourceFps : 30;
+    const minCutSeparation = Math.max(0.12, 3.5 / fps);
     const validCuts: number[] = [];
     if (Array.isArray(sceneCuts)) {
-      for (const c of sceneCuts) {
-        const cutTime = Number(c);
-        if (Number.isFinite(cutTime) && cutTime > 0.25 && cutTime < safeDuration - 0.25) {
-          if (!validCuts.some((existing) => Math.abs(existing - cutTime) < 0.4)) {
+      const sortedCandidates = [...new Set(sceneCuts.map(Number).filter(Number.isFinite))].sort((a, b) => a - b);
+      for (const cutTime of sortedCandidates) {
+        if (cutTime > 0.25 && cutTime < safeDuration - 0.25) {
+          if (!validCuts.some((existing) => Math.abs(existing - cutTime) < minCutSeparation)) {
             validCuts.push(Math.round(cutTime * 1000) / 1000);
           }
         }
       }
-      validCuts.sort((a, b) => a - b);
     }
 
     // 2. Partition clip timeline into discrete shots
@@ -3043,6 +3048,7 @@ export class SmartReframeService {
         aspectRatio: clip.aspect_ratio as ClipAspectRatio,
         sourceWidth: cvResult.source_width,
         sourceHeight: cvResult.source_height,
+        sourceFps: cvResult.source_fps,
         sceneCuts: clipSceneCuts,
         speechIntervals,
       });
