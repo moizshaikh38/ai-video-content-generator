@@ -1,0 +1,89 @@
+name: Isolated stage1 preparation
+on:
+  push:
+    branches: [qualification/stage1-20261119-0432]
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify isolated payload
+        run: |
+          test "$(git rev-list --count HEAD)" = 2
+          test -z "$(git cat-file -p HEAD^ | sed -n 's/^parent //p')"
+          test ! -d src/harness
+          test ! -d qualification-notes
+          test ! -d server/scripts
+          test ! -d server/src/scripts
+          node -e "const v=require('./vercel.json');if(v.git.deploymentEnabled!==false)process.exit(1)"
+          mkdir -p stage1-results
+          node --version > stage1-results/node-version.txt
+          free -b > stage1-results/runner-memory.txt
+      - name: Install root locked dependencies without lifecycle scripts
+        id: root_install
+        continue-on-error: true
+        run: /usr/bin/time -v -o stage1-results/root-install-resources.txt npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install server type dependencies without lifecycle scripts
+        id: server_install
+        continue-on-error: true
+        run: /usr/bin/time -v -o stage1-results/server-install-resources.txt npm ci --prefix server --ignore-scripts --no-audit --no-fund
+      - name: Frontend typecheck
+        id: typecheck
+        if: steps.root_install.outcome == 'success' && steps.server_install.outcome == 'success'
+        continue-on-error: true
+        run: /usr/bin/time -v -o stage1-results/typecheck-resources.txt ./node_modules/.bin/tsc --noEmit > stage1-results/typecheck.log 2>&1
+      - name: Frontend production bundle and public page generation
+        id: frontend
+        if: steps.root_install.outcome == 'success'
+        continue-on-error: true
+        run: /usr/bin/time -v -o stage1-results/frontend-resources.txt sh -c './node_modules/.bin/vite build && node scripts/build-site-pages.mjs' > stage1-results/frontend.log 2>&1
+      - name: Studio static-only preparation
+        id: studio
+        if: steps.root_install.outcome == 'success'
+        continue-on-error: true
+        run: /usr/bin/time -v -o stage1-results/studio-resources.txt ./node_modules/.bin/vite build --config vite.studio.config.ts > stage1-results/studio.log 2>&1
+      - name: Package bounded build evidence
+        id: package
+        if: always()
+        env:
+          ROOT_OUTCOME: ${{ steps.root_install.outcome }}
+          SERVER_OUTCOME: ${{ steps.server_install.outcome }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          FRONTEND_OUTCOME: ${{ steps.frontend.outcome }}
+          STUDIO_OUTCOME: ${{ steps.studio.outcome }}
+        run: |
+          node -e "require('fs').writeFileSync('stage1-results/outcomes.json',JSON.stringify(Object.fromEntries(Object.entries(process.env).filter(([k])=>k.endsWith('_OUTCOME'))),null,2))"
+          du -sb dist dist-studio > stage1-results/output-sizes.txt 2>&1 || true
+          tar -czf stage1-builds.tar.gz --ignore-failed-read dist dist-studio
+          test "$(stat -c%s stage1-builds.tar.gz)" -le 180000000
+          mv stage1-builds.tar.gz stage1-results/
+          test "$(du -sb stage1-results | cut -f1)" -le 200000000
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.package.outcome == 'success'
+        with:
+          name: stage1-preparation
+          path: stage1-results/
+          retention-days: 1
+          if-no-files-found: error
+          compression-level: 1
+      - name: Report aggregate result
+        if: always()
+        env:
+          ROOT_OUTCOME: ${{ steps.root_install.outcome }}
+          SERVER_OUTCOME: ${{ steps.server_install.outcome }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          FRONTEND_OUTCOME: ${{ steps.frontend.outcome }}
+          STUDIO_OUTCOME: ${{ steps.studio.outcome }}
+        run: node -e "const v=Object.entries(process.env).filter(([k])=>k.endsWith('_OUTCOME'));console.log(v);if(v.some(([,x])=>x!=='success'))process.exit(1)"
