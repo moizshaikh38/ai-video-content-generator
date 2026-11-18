@@ -11,3 +11,13 @@ The manual control can reuse only a ready source-verified envelope for the same 
 36 focused manual/source-clock/scene/envelope tests pass. Frontend and backend TypeScript checks pass. Existing strict body policy unchanged. Tests cover different source/version/aspect/config, item ownership, duplicate region rejection, missing proposal, manual preservation and locked items.
 
 First save harness attempt was missing owner context and failed AUTH_REQUIRED. Fixed by running actual save/get inside ownerContext. Accepted run is manual-saved-1914; earlier failed attempt is not proof.
+
+## Later edit and export guards
+
+Actual Panel 1 through Panel 4 crop Apply operations leave the measured slots unchanged when not edited. A real Panel 1 mouse gesture changes that panel only. Reselect Four preserves the user edit. Actual service save/get preserves all edited tracks; direct compile reads the reloaded project. Fresh edited screenshot and decoded MP4 samples inspected. This is a fixture edit, not a recommended creative crop.
+
+Three-on-four-source project captured by the actual controls is rejected by the actual compiler with PANEL_VIEWS_UNASSIGNED. No duplicate placeholder export.
+
+Rounded source-pixel retention of the unedited Four is 240/240 measured observations across 60 detector samples, with four distinct stable track IDs and no foreign/partial detected face fragments. This uses the SAME detector and does not establish independent identity, every-frame containment, hair or body retention.
+
+58 focused tests pass, frontend/backend TypeScript clean. Malformed or out-of-range measured controls reject, rather than silently clamp.

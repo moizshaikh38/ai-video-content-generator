@@ -34,7 +34,7 @@ const controller=await fetch('http://127.0.0.1:5588/qualification/reframe?layout
 fs.writeFileSync(path.join(out,'initialized-editor.json'),JSON.stringify(editor,null,2));
 fs.writeFileSync(path.join(out,'fixture.json'),JSON.stringify({project:editor,clip:liveClip,sourceUrl:'http://127.0.0.1:5588/source/'+key,reframeUrl:'http://127.0.0.1:5588/qualification/reframe'},null,2));
 const {spawn}=await import('node:child_process');
-await new Promise<void>((resolve,reject)=>{const c=spawn(process.execPath,['scripts/local-qualification/podcast-multi-layout-ui.cjs',out],{stdio:'inherit'});c.on('exit',code=>code===0?resolve():reject(Error('Controls browser failed: '+code)));});
+await new Promise<void>((resolve,reject)=>{const c=spawn(process.execPath,[process.env.VIREO_PARTICIPANT_EDIT_CHECK==='1'?'scripts/local-qualification/participant-panel-edit-ui.cjs':'scripts/local-qualification/podcast-multi-layout-ui.cjs',out],{stdio:'inherit'});c.on('exit',code=>code===0?resolve():reject(Error('Controls browser failed: '+code)));});
 const beforeProject=JSON.stringify(await db.collection('editor_projects').findOne({clip_id:activeClipId}));
 const sourceHasAudio=probeSource.streams.some((s:any)=>s.codec_type==='audio');
 const ctx:any={mode:'smart',aspectRatio:'9:16',clipStartSec:0,layoutMode:'track',track,sourceSha256:sha,sourceAssetId:activeClipId,sourceStoragePath:key,decodedSource:{width:track.source_width,height:track.source_height},canvasScale:2/3,sourceHasAudio};
@@ -42,7 +42,7 @@ const graph=ProEditorService.compileRenderGraph(editor,source,path.join(out,'act
 fs.writeFileSync(path.join(out,'graph.json'),JSON.stringify(graph,null,2));
 execFileSync('ffmpeg',['-nostdin','-v','error','-y','-threads','1','-filter_threads','1','-filter_complex_threads','1',...graph.inputArgs,'-filter_complex',graph.filterComplex.join(';'),'-map',graph.videoMap,'-map',graph.audioMap,'-t',String(duration),'-c:v','libx264','-threads','1','-preset','ultrafast','-crf','22','-c:a','aac',path.join(out,'actual-direct.mp4')],{timeout:90000});
 const controls=JSON.parse(fs.readFileSync(path.join(out,'controls-browser.json'),'utf8'));
-for(const row of controls.states.filter((r:any)=>['layout-auto','layout-four'].includes(r.name))){
+for(const row of controls.states.filter((r:any)=>['layout-auto','layout-four','layout-four-edited'].includes(r.name))){
  const persisted=await ownerContext.run(user,()=>ProEditorService.updateEditorProject(editor.id,user,{tracks:row.project.tracks}));const reloaded=await ownerContext.run(user,()=>ProEditorService.getEditorProject(editor.id,user));assert.deepEqual(reloaded.tracks,row.project.tracks);fs.writeFileSync(path.join(out,row.name+'-reloaded-project.json'),JSON.stringify(reloaded,null,2));
  const {expandSceneLayoutProject}=await import('../../src/shared/sceneLayoutOverrides.js');const g=ProEditorService.compileRenderGraph(expandSceneLayoutProject(reloaded),source,path.join(out,row.name+'-export.mp4'),out,ctx,'off');
  execFileSync('ffmpeg',['-nostdin','-v','error','-y','-threads','1','-filter_threads','1','-filter_complex_threads','1',...g.inputArgs,'-filter_complex',g.filterComplex.join(';'),'-map',g.videoMap,'-map',g.audioMap,'-t',String(duration),'-c:v','libx264','-threads','1','-preset','ultrafast','-crf','22','-c:a','aac',path.join(out,row.name+'-export.mp4')],{timeout:90000});

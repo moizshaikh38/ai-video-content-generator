@@ -1,0 +1,567 @@
+{
+  "status": "ready",
+  "measuredPlanEnvelope": {
+    "schemaVersion": 1,
+    "sourceValidation": "object-receipt-verified",
+    "geometryEvidence": "recorded-decoded-geometry-bound-to-verified-source",
+    "identity": {
+      "schemaVersion": 1,
+      "itemId": "2c751674-97fd-4f2a-aa9f-fcdeaaca2d2d",
+      "sourceAssetId": "2c751674-97fd-4f2a-aa9f-fcdeaaca2d2d",
+      "sourceVersion": "33aabf71885cce9dc3945e263c8cd8c437cffc86e45cfef7ff7ffe13303cd60e",
+      "analysisVersion": 1,
+      "sourceStart": 0,
+      "sourceEnd": 14.014,
+      "analysisSourceStart": 0,
+      "analysisSourceEnd": 14.014,
+      "analysisDuration": 14.014,
+      "sourceWidth": 640,
+      "sourceHeight": 360,
+      "outputAspect": "9:16",
+      "configurationFingerprint": "296992513c8872f472fb0889a5a18eee4523c617a6d6f4a977f00dca007eee0d"
+    },
+    "sourcePath": "fixtures/26e6d105-9853-4baf-b6f3-615ffa83dd31/source.mp4",
+    "configurationKey": "{\"candidate\":{}}",
+    "shots": [
+      {
+        "start": 0,
+        "end": 14.014,
+        "kind": "group",
+        "windowW": 1,
+        "windowH": 1,
+        "keyframes": [
+          {
+            "time": 0,
+            "centerX": 0.5,
+            "centerY": 0.5
+          }
+        ],
+        "contextStatus": "unresolved-review-required",
+        "uncertainty": "Offline face-window panel proposal: distinct visible tracks, not full-body, camera-boundary or active-speaker proof. Review before sharing.",
+        "split": {
+          "speaker1X": 0.25,
+          "speaker2X": 0.75,
+          "dividerX": 0.5,
+          "focusPanels": {
+            "layout": "three",
+            "slots": [
+              {
+                "focusX": 0.5,
+                "focusY": 0.5,
+                "scale": 1,
+                "fit": "contain",
+                "set": true,
+                "sourceRect": {
+                  "x": 0.10784000000000002,
+                  "y": 0.004459999999999978,
+                  "w": 0.29220999999999997,
+                  "h": 0.6931600000000001
+                }
+              },
+              {
+                "focusX": 0.5,
+                "focusY": 0.5,
+                "scale": 1,
+                "fit": "contain",
+                "set": true,
+                "sourceRect": {
+                  "x": 0.7086,
+                  "y": 0,
+                  "w": 0.26036000000000004,
+                  "h": 0.74332
+                }
+              },
+              {
+                "focusX": 0.5,
+                "focusY": 0.5,
+                "scale": 1,
+                "fit": "contain",
+                "set": true,
+                "sourceRect": {
+                  "x": 0.40005,
+                  "y": 0.41054,
+                  "w": 0.30855,
+                  "h": 0.58946
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "adaptiveComposition": true,
+  "detectedFaceCount": 3,
+  "dominantTrackId": "subject_2",
+  "contentFramingDecision": null,
+  "analyzedSourcePath": "fixtures/26e6d105-9853-4baf-b6f3-615ffa83dd31/source.mp4",
+  "smoothedKeyframes": [
+    {
+      "time": 0,
+      "centerX": 0.4055,
+      "centerY": 0.4688
+    },
+    {
+      "time": 1.167833,
+      "centerX": 0.4047,
+      "centerY": 0.4688
+    },
+    {
+      "time": 2.335667,
+      "centerX": 0.4054,
+      "centerY": 0.4688
+    },
+    {
+      "time": 3.5035,
+      "centerX": 0.4071,
+      "centerY": 0.4688
+    },
+    {
+      "time": 4.671333,
+      "centerX": 0.4383,
+      "centerY": 0.4688
+    },
+    {
+      "time": 5.6056,
+      "centerX": 0.4156,
+      "centerY": 0.4688
+    },
+    {
+      "time": 6.072733,
+      "centerX": 0.3953,
+      "centerY": 0.4688
+    },
+    {
+      "time": 7.240567,
+      "centerX": 0.3969,
+      "centerY": 0.4688
+    },
+    {
+      "time": 8.4084,
+      "centerX": 0.3953,
+      "centerY": 0.4688
+    },
+    {
+      "time": 9.576233,
+      "centerX": 0.4047,
+      "centerY": 0.4688
+    },
+    {
+      "time": 10.744067,
+      "centerX": 0.404,
+      "centerY": 0.4688
+    },
+    {
+      "time": 11.9119,
+      "centerX": 0.4015,
+      "centerY": 0.4688
+    },
+    {
+      "time": 13.079733,
+      "centerX": 0.4001,
+      "centerY": 0.4688
+    },
+    {
+      "time": 14.014,
+      "centerX": 0.3954,
+      "centerY": 0.4688
+    }
+  ],
+  "analysisVersion": 1,
+  "analyzedTrimStart": 0,
+  "analyzedTrimEnd": 0,
+  "analyzedAspectRatio": "9:16",
+  "isStale": false,
+  "speaker1X": 0.26,
+  "speaker2X": 0.8,
+  "splitGeometry": {
+    "speaker1": {
+      "x": 0.26,
+      "y": 0.2459533333333333,
+      "windowW": 0.4842648333333337
+    },
+    "speaker2": {
+      "x": 0.8,
+      "y": 0.69556,
+      "windowW": 0.4842648333333337
+    }
+  },
+  "lowConfidenceTrack": false,
+  "sourceWidth": 640,
+  "sourceHeight": 360,
+  "shotComposition": [
+    {
+      "start": 0,
+      "end": 14.014,
+      "kind": "group",
+      "windowW": 1,
+      "windowH": 1,
+      "keyframes": [
+        {
+          "time": 0,
+          "centerX": 0.5,
+          "centerY": 0.5
+        }
+      ],
+      "contextStatus": "unresolved-review-required",
+      "uncertainty": "Offline face-window panel proposal: distinct visible tracks, not full-body, camera-boundary or active-speaker proof. Review before sharing.",
+      "split": {
+        "speaker1X": 0.25,
+        "speaker2X": 0.75,
+        "dividerX": 0.5,
+        "focusPanels": {
+          "layout": "three",
+          "slots": [
+            {
+              "focusX": 0.5,
+              "focusY": 0.5,
+              "scale": 1,
+              "fit": "contain",
+              "set": true,
+              "sourceRect": {
+                "x": 0.10784000000000002,
+                "y": 0.004459999999999978,
+                "w": 0.29220999999999997,
+                "h": 0.6931600000000001
+              }
+            },
+            {
+              "focusX": 0.5,
+              "focusY": 0.5,
+              "scale": 1,
+              "fit": "contain",
+              "set": true,
+              "sourceRect": {
+                "x": 0.7086,
+                "y": 0,
+                "w": 0.26036000000000004,
+                "h": 0.74332
+              }
+            },
+            {
+              "focusX": 0.5,
+              "focusY": 0.5,
+              "scale": 1,
+              "fit": "contain",
+              "set": true,
+              "sourceRect": {
+                "x": 0.40005,
+                "y": 0.41054,
+                "w": 0.30855,
+                "h": 0.58946
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "groupFrame": {
+    "windowW": 0.92,
+    "windowH": 1,
+    "keyframes": [
+      {
+        "time": 0,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 0.233567,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 0.467133,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 0.7007,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 0.934267,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 1.167833,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 1.4014,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 1.634967,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 1.868533,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 2.1021,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 2.335667,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 2.569233,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 2.8028,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 3.036367,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 3.269933,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 3.5035,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 3.737067,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 3.970633,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 4.2042,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 4.437767,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 4.671333,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 4.9049,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 5.138467,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 5.372033,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 5.6056,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 5.839167,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 6.072733,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 6.3063,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 6.539867,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 6.773433,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 7.007,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 7.240567,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 7.474133,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 7.7077,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 7.941267,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 8.174833,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 8.4084,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 8.641967,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 8.875533,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 9.1091,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 9.342667,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 9.576233,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 9.8098,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 10.043367,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 10.276933,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 10.5105,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 10.744067,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 10.977633,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 11.2112,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 11.444767,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 11.678333,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 11.9119,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 12.145467,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 12.379033,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 12.6126,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 12.846167,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 13.079733,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 13.3133,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 13.546867,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      },
+      {
+        "time": 13.780433,
+        "centerX": 0.52775,
+        "centerY": 0.5
+      }
+    ],
+    "sourceWidth": 640,
+    "sourceHeight": 360
+  }
+}
