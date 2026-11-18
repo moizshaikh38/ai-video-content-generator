@@ -808,6 +808,7 @@ export interface TimedCaptionCue {
 }
 
 export interface ClipEditorUpdateDTO {
+  editorProjectRevision?:{id:string;version:number};
   trimStartOffset?: number;
   trimEndOffset?: number;
   aspectRatio?: ClipAspectRatio;

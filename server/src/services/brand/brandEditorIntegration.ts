@@ -182,8 +182,8 @@ export class BrandEditorIntegration {
       // Save updated project
       const updatedProject = await ProEditorService.updateEditorProject(editorProjectId, userId, {
         tracks: updatedTracks,
-        version: currentProject.version + 1,
-      });
+        version: currentProject.version,
+      },{clipSyncRequired:false});
 
       return {
         updatedProject,
@@ -207,7 +207,7 @@ export class BrandEditorIntegration {
         canvas: snapshot.canvas,
         settings: snapshot.settings,
         version: snapshot.version + 1,
-      });
+      },{clipSyncRequired:false});
     });
   }
 }

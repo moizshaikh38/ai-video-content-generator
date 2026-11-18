@@ -256,10 +256,10 @@ function ShellTemplateApp() {
         tracks: project.tracks,
         playhead: project.playhead,
         settings: project.settings,
-        version: (project as any).version,
+        version: editorProject.version,
       } as any);
       const clipRow = await clipRenderService.getClip(SHELL_CLIP_ID);
-      const payload = buildClipEditorUpdatePayload(project as any, clipRow);
+      const payload = {...buildClipEditorUpdatePayload(project as any, clipRow),editorProjectRevision:{id:savedProject.id,version:savedProject.version}};
       await clipRenderService.updateClipEditor(SHELL_CLIP_ID, payload);
       const afterClip: any = await clipRenderService.getClip(SHELL_CLIP_ID);
       const afterProject: any = await proEditorService.getEditorProject(editorProject.id);

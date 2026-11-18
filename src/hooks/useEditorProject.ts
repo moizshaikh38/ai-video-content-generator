@@ -12,6 +12,7 @@ import {
 import { clipRenderService } from '../services/clipRenderService';
 import { proEditorService } from '../services/proEditorService';
 import { useEditorHistory } from './useEditorHistory';
+import {acknowledgeEditorVersion} from '../lib/editorSaveState';
 import { useEditorAutosave } from './useEditorAutosave';
 import { healCaptionTracks, mergeExtendedCues } from '../lib/captionExtendMerge';
 import {
@@ -132,12 +133,18 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
   // the editor already contains a newer edit. Invalidate from these exact
   // server responses, after BOTH project and clip synchronization succeeded.
   const handleSavedReframeSource = useCallback((savedProject: EditorProject, savedClip?: RenderedClip) => {
-    if (savedClip) setPersistedReframeSourceKey(editorReframeSourceKey(savedClip, savedProject));
+    if (savedClip) {
+      setClip(current=>current?.id===savedClip.id?savedClip:current);
+      setPersistedReframeSourceKey(editorReframeSourceKey(savedClip, savedProject));
+    }
   }, []);
+  const handleProjectVersionAck=useCallback((savedProject:EditorProject)=>{
+    setProject(current=>acknowledgeEditorVersion(current,savedProject));
+  },[]);
   const { saveStatus, lastSavedAt, saveError, saveNow, markDirty } = useEditorAutosave(
     project,
     clip,
-    { onSaved: handleSavedReframeSource }
+    { onSaved: handleSavedReframeSource,onProjectVersionAck:handleProjectVersionAck }
   );
 
   const loadData = useCallback(async (options?: { silent?: boolean }) => {

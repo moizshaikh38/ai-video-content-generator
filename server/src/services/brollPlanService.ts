@@ -249,7 +249,8 @@ export class BrollPlanService {
     const updatedProject = await ProEditorService.updateEditorProject(
       editorProject.id,
       userId,
-      { tracks: editorProject.tracks }
+      { tracks: editorProject.tracks,version:editorProject.version },
+      {clipSyncRequired:false}
     );
 
     // Mark plan as applied
@@ -335,7 +336,7 @@ export class BrollPlanService {
     brollTrack.items.sort((a, b) => a.timeline_start - b.timeline_start);
 
     return ProEditorService.updateEditorProject(editorProjectId, userId, {
-      tracks: editorProject.tracks,
-    });
+      tracks: editorProject.tracks,version:editorProject.version,
+    },{clipSyncRequired:false});
   }
 }

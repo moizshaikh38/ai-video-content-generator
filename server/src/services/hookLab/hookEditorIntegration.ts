@@ -190,8 +190,8 @@ export class HookEditorIntegration {
       // Update editor project in DB
       const updatedProject = await ProEditorService.updateEditorProject(editorProjectId, userId, {
         tracks: updatedTracks,
-        version: currentProject.version + 1,
-      });
+        version: currentProject.version,
+      },{clipSyncRequired:false});
 
       logger.info('Applied HookCandidate to EditorProject', {
         editorProjectId,
@@ -222,7 +222,7 @@ export class HookEditorIntegration {
         settings: snapshot.settings,
         title: snapshot.title,
         version: snapshot.version + 1,
-      });
+      },{clipSyncRequired:false});
 
       logger.info('Reverted HookCandidate in EditorProject', { editorProjectId });
       return restored;

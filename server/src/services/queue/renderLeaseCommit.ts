@@ -1,7 +1,8 @@
 import type {Db,MongoClient} from 'mongodb';
+import {editorRenderSnapshot,type EditorRenderSnapshot} from '../../shared/editorRenderSnapshot.js';
 import {AppError} from '../../types/index.js';
 
-export interface RenderLeaseIdentity {jobId:string;clipId:string;userId:string;workerId:string;renderVersion?:number;editorVersion?:number}
+export interface RenderLeaseIdentity {jobId:string;clipId:string;userId:string;workerId:string;renderVersion?:number;editorVersion?:number;editorProject?:EditorRenderSnapshot|null}
 export interface RenderLeaseOutcome {job:Record<string,unknown>;clip:Record<string,unknown>;preserveSupersedingClip?:boolean}
 /** Publish a terminal/retry outcome only while this exact worker still owns
  * the processing job. Mongo transaction conflicts re-evaluate that ownership.
@@ -17,7 +18,19 @@ export async function commitFencedRenderOutcome(client:MongoClient,db:Db,identit
    if(job.matchedCount!==1)throw new AppError('Render lease was expired or claimed by another worker.',409,'FENCING_TOKEN_MISMATCH');
    const current=await db.collection('clips').findOne({id:identity.clipId,user_id:identity.userId},{session});
    if(!current)throw new AppError('Clip no longer exists for this render owner.',404,'CLIP_NOT_FOUND');
-   const superseded=(identity.renderVersion!==undefined&&Number(current.render_version||1)!==identity.renderVersion)||(identity.editorVersion!==undefined&&Number(current.editor_version||1)!==identity.editorVersion);
+   let projectChanged=false;
+   if(identity.editorProject!==undefined){
+    const project=await db.collection('editor_projects').findOne({clip_id:identity.clipId,user_id:identity.userId},{session});
+    const actual=editorRenderSnapshot(project);
+    projectChanged=JSON.stringify(actual)!==JSON.stringify(identity.editorProject);
+    if(!projectChanged&&project){
+     // A read alone is snapshot isolation, not a concurrent-save fence. Touch
+     // the same document so a racing save conflicts and retries this check.
+     const fence=await db.collection('editor_projects').updateOne({id:project.id,user_id:identity.userId,version:project.version},{$inc:{render_fence_serial:1}},{session});
+     if(fence.matchedCount!==1)projectChanged=true;
+    }
+   }
+   const superseded=!!current.editor_project_sync_pending||projectChanged||(identity.renderVersion!==undefined&&Number(current.render_version||1)!==identity.renderVersion)||(identity.editorVersion!==undefined&&Number(current.editor_version||1)!==identity.editorVersion);
    if(superseded){
     if(outcome.preserveSupersedingClip&&outcome.job.status!=='completed'){
      await db.collection('render_jobs').updateOne({id:identity.jobId,clip_id:identity.clipId,user_id:identity.userId},{$set:{status:'failed',stage:'failed',worker_id:null,locked_at:null,next_retry_at:null,error_code:'RENDER_INPUT_CHANGED',error_message:'Clip inputs changed during rendering. Start a fresh render.',updated_at:new Date()}},{session});

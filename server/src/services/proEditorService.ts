@@ -1,3 +1,5 @@
+import {saveEditorRevision,createEditorRevision} from '../db/repositories/editorRevisionRepository.js';
+import {getMongoDb,getMongoClient} from '../db/mongoClient.js';
 import {visibleEditorAssetItems} from '../shared/visibleEditorAssets.js';
 import {primaryVisibleVideoItems} from '../shared/primaryVideoItems.js';
 import {usesAutomaticSourceClock,automaticSourceWindow} from '../shared/automaticSourceClock.js';
@@ -237,18 +239,11 @@ export class ProEditorService {
     const { data: sourceProject } = await dataRepository.from('projects').select('clip_preferences').eq('id', clip.project_id).eq('user_id', userId).maybeSingle();
     const editorProject = this.buildInitialProject(clip, userId, producerPlan, transcript, dto, sourceProject?.clip_preferences);
 
-    // 6. Save to MongoDB
-    const { error: insertErr } = await dataRepository
-      .from('editor_projects')
-      .insert(editorProject);
-
-    if (insertErr) {
-      logger.error('Failed to create editor project', { clipId, error: insertErr.message });
-      throw new AppError(`Failed to create editor project: ${insertErr.message}`, 500, 'DATABASE_ERROR');
-    }
-
-    logger.info(`[ProEditor] Initialized EditorProject ${editorProject.id} for clip ${clipId}`);
-    return await ProEditorService.withSourceDuration(editorProject as EditorProject, clipId, userId);
+    // Creation touches the clip in the same transaction, fencing a render
+    // which read the absence of an editor project.
+    const saved=await createEditorRevision(await getMongoClient(),await getMongoDb(),editorProject);
+    logger.info(`[ProEditor] Initialized EditorProject ${saved.id} for clip ${clipId}`);
+    return await ProEditorService.withSourceDuration(saved as EditorProject,clipId,userId);
   }
 
   /**
@@ -311,7 +306,8 @@ export class ProEditorService {
   public static async updateEditorProject(
     projectId: string,
     userId: string,
-    dto: UpdateEditorProjectDTO
+    dto: UpdateEditorProjectDTO,
+    options:{clipSyncRequired?:boolean}={}
   ): Promise<EditorProject> {
     if (!isValidUUID(projectId)) {
       throw new AppError('Invalid editor project ID.', 400, 'INVALID_UUID');
@@ -372,11 +368,12 @@ export class ProEditorService {
       }
     }
 
-    const newVersion = dto.version !== undefined ? dto.version : current.version + 1;
+    const expectedVersion=dto.version;
+    if(!Number.isSafeInteger(expectedVersion)||expectedVersion!==current.version)throw new AppError('This editor project changed elsewhere. Your local edits are kept. Reload or reconcile before saving again.',409,'EDITOR_REVISION_CONFLICT');
     const now = new Date();
 
     const updates: Partial<EditorProject> = {
-      version: newVersion,
+      version: expectedVersion+1,
       updated_at: now,
     };
 
@@ -386,19 +383,8 @@ export class ProEditorService {
     if (dto.playhead !== undefined) updates.playhead = Math.max(0, dto.playhead);
     if (dto.settings) updates.settings = { ...current.settings, ...dto.settings };
 
-    const { data: updated, error } = await dataRepository
-      .from('editor_projects')
-      .update(updates)
-      .eq('id', projectId)
-      .eq('user_id', userId)
-      .select('*')
-      .single();
-
-    if (error || !updated) {
-      throw new AppError('Failed to update editor project.', 500, 'DATABASE_ERROR');
-    }
-
-    return updated as EditorProject;
+    const updated=await saveEditorRevision(await getMongoClient(),await getMongoDb(),{id:projectId,userId,expectedVersion:expectedVersion!,updates:updates as Record<string,unknown>,requireClipSync:options.clipSyncRequired!==false});
+    return updated as unknown as EditorProject;
   }
 
   /**
@@ -473,8 +459,9 @@ export class ProEditorService {
     track.items.splice(itemIndex, 1, item1, item2);
 
     return this.updateEditorProject(projectId, userId, {
+      version:project.version,
       tracks: project.tracks,
-    });
+    },{clipSyncRequired:false});
   }
 
   /**
@@ -526,9 +513,10 @@ export class ProEditorService {
     project.canvas.duration = Number(maxEnd.toFixed(3));
 
     return this.updateEditorProject(projectId, userId, {
+      version:project.version,
       tracks: project.tracks,
       canvas: project.canvas,
-    });
+    },{clipSyncRequired:false});
   }
 
   /**
@@ -595,9 +583,10 @@ export class ProEditorService {
     ) as EditorProject;
 
     const updated = await this.updateEditorProject(projectId, userId, {
+      version:project.version,
       tracks: next.tracks,
       canvas: next.canvas,
-    });
+    },{clipSyncRequired:false});
 
     logger.info(
       `[ProEditor] Removed ${summary.totalRanges} filler range(s), ${summary.totalDurationSec}s from project ${projectId}`
@@ -659,8 +648,9 @@ export class ProEditorService {
     track.items.sort((a, b) => a.timeline_start - b.timeline_start);
 
     return this.updateEditorProject(projectId, userId, {
+      version:project.version,
       tracks: project.tracks,
-    });
+    },{clipSyncRequired:false});
   }
 
   /**
@@ -731,8 +721,9 @@ export class ProEditorService {
     targetTrack.items.sort((a, b) => a.timeline_start - b.timeline_start);
 
     return this.updateEditorProject(projectId, userId, {
+      version:updatedProject.version,
       tracks: updatedProject.tracks,
-    });
+    },{clipSyncRequired:false});
   }
 
   /**

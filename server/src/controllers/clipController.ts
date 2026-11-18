@@ -989,6 +989,7 @@ export const updateClipEditor = async (req: AuthenticatedRequest, res: Response)
   }
 
   const allowedKeys = new Set([
+    'editorProjectRevision',
     'trimStartOffset',
     'trimEndOffset',
     'aspectRatio',
@@ -1043,9 +1044,10 @@ export const updateClipEditor = async (req: AuthenticatedRequest, res: Response)
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';
     const status =
+      code === 'EDITOR_REVISION_CONFLICT' ? 409 :
       code === 'CLIP_NOT_FOUND'
         ? 404
-        : code === 'INVALID_TRIM' || code === 'TRIM_TOO_SHORT' || code === 'INVALID_ASPECT_RATIO' || code === 'INVALID_CAPTION_STYLE' || code === 'INVALID_CAPTION_POSITION' || code === 'EXTEND_BEYOND_SOURCE'
+        : code === 'INVALID_VOLUME' || code === 'INVALID_TRIM' || code === 'TRIM_TOO_SHORT' || code === 'INVALID_ASPECT_RATIO' || code === 'INVALID_CAPTION_STYLE' || code === 'INVALID_CAPTION_POSITION' || code === 'EXTEND_BEYOND_SOURCE'
         ? 400
         : 500;
 

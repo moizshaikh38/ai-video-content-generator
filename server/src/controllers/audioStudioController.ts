@@ -355,7 +355,8 @@ export class AudioStudioController {
       const updated = await ProEditorService.updateEditorProject(
         id,
         userId,
-        { tracks: project.tracks }
+        { tracks: project.tracks,version:project.version },
+        {clipSyncRequired:false}
       );
 
       res.json({ success: true, project: updated });

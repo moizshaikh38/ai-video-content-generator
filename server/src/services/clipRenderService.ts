@@ -1,3 +1,5 @@
+import {syncClipEditorRevision} from '../db/repositories/editorRevisionRepository.js';
+import {editorRenderSnapshot,type EditorRenderSnapshot} from '../shared/editorRenderSnapshot.js';
 import { validateOutputFile } from '../shared/outputValidation.js';
 import {quickCaptionWindows} from '../shared/sceneCaptionPlacement.js';
 import {primaryVisibleVideoItems} from '../shared/primaryVideoItems.js';
@@ -591,6 +593,8 @@ export class ClipRenderService {
       throw err;
     }
 
+    if((clip as any).editor_project_sync_pending)throw new AppError('Editor save is incomplete. Save again before rendering.',409,'EDITOR_SYNC_PENDING');
+
     // Concurrency check on DB state (allow recovery if stuck > 15m)
     const isStale =
       Date.now() - new Date(clip.updated_at || clip.created_at).getTime() > 15 * 60 * 1000;
@@ -668,6 +672,7 @@ export class ClipRenderService {
     const uniqueTag = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
     const tempDir = path.join(os.tmpdir(), `vireo-render-${clipId}-${uniqueTag}`);
 
+    let expectedEditorProject:EditorRenderSnapshot|null|undefined;
     try {
       await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
       fs.mkdirSync(tempDir, { recursive: true });
@@ -744,13 +749,17 @@ export class ClipRenderService {
       let editorProject: any = null;
       let editorProjectExists = false;
       try {
-        const { data: proj } = await dataRepository
+        const { data: proj, error:projectReadError } = await dataRepository
           .from('editor_projects')
           .select('*')
           .eq('clip_id', clipId)
           .eq('user_id', userId)
           .maybeSingle();
 
+        if(projectReadError)throw projectReadError;
+        expectedEditorProject=editorRenderSnapshot(proj);
+        const bound=await db.collection('render_jobs').updateOne({id:jobId,clip_id:clipId,user_id:userId,worker_id:workerId,status:'processing'},{$set:{editor_project_snapshot:expectedEditorProject}});
+        if(bound.matchedCount!==1)throw new AppError('Render lease was expired or claimed by another worker.',409,'FENCING_TOKEN_MISMATCH');
         if (proj && Array.isArray(proj.tracks)) {
           editorProjectExists = true;
           hasCustomProTracks = ClipRenderService.hasCustomProEdits(proj, clip);
@@ -759,7 +768,7 @@ export class ClipRenderService {
           }
         }
       } catch (err: any) {
-        logger.warn(`[ClipRender] Error checking EditorProject for clip ${clipId}: ${err.message}`);
+        throw err;
       }
 
       // ASS Subtitles burn-in
@@ -1242,10 +1251,12 @@ export class ClipRenderService {
 
       // Publish clip and job atomically. A stale upload has its own immutable
       // attempt key and cannot overwrite the current worker's output bytes.
-      await commitFencedRenderOutcome(await getMongoClient(),db,{jobId:jobId!,clipId,userId,workerId,renderVersion,editorVersion:Number(clip.editor_version||1)},{
+      await commitFencedRenderOutcome(await getMongoClient(),db,{jobId:jobId!,clipId,userId,workerId,renderVersion,editorVersion:Number(clip.editor_version||1),editorProject:expectedEditorProject},{
         job:{status:'completed',progress:100,stage:'completed',completed_at:new Date(),updated_at:new Date(),worker_id:null,locked_at:null,next_retry_at:null},
         clip:{
           render_status: 'ready',
+          rendered_editor_version:expectedEditorProject?.version??null,
+          rendered_editor_digest:expectedEditorProject?.digest??null,
           encoded_audio_review: encodedAudioReview,
           output_storage_path: finalStoragePath,
           output_object_key: finalStoragePath,
@@ -1295,7 +1306,7 @@ export class ClipRenderService {
             const {attempts,maximum:maxAttempts}=renderRetryBudget(currentJob);
             const retry=code!=='RENDER_INPUT_CHANGED'&&isTransient&&attempts<maxAttempts;
             const nextRetryAt=retry?new Date(Date.now()+JobReliabilityService.computeBackoffDelayMs(attempts,{baseDelayMs:2000,maxDelayMs:30000,jitter:true})):null;
-            await commitFencedRenderOutcome(await getMongoClient(),db,{jobId,clipId,userId,workerId,renderVersion:Number(clip.render_version||1),editorVersion:Number(clip.editor_version||1)},{
+            await commitFencedRenderOutcome(await getMongoClient(),db,{jobId,clipId,userId,workerId,renderVersion:Number(clip.render_version||1),editorVersion:Number(clip.editor_version||1),editorProject:expectedEditorProject},{
               preserveSupersedingClip:true,
               job:{status:retry?'queued':'failed',stage:retry?'queued':'failed',worker_id:null,locked_at:null,next_retry_at:nextRetryAt,error_code:code,error_message:message,updated_at:new Date()},
               clip:{render_status:retry?'queued':'failed',render_error_code:code,render_error_message:message,updated_at:new Date().toISOString()},
@@ -2329,6 +2340,7 @@ export class ClipRenderService {
     }
 
     // Audio
+    if(update.volume!==undefined&&!Number.isFinite(Number(update.volume)))throw new AppError('Volume must be a finite number.',400,'INVALID_VOLUME');
     const safeVolume = update.volume !== undefined
       ? Math.min(2.0, Math.max(0.0, Number(update.volume)))
       : (clip.volume ?? 1.0);
@@ -2350,21 +2362,10 @@ export class ClipRenderService {
       muted: safeMuted,
       background_music: safeBackgroundMusic,
       editor_version: nextEditorVersion,
-      updated_at: new Date().toISOString(),
+      updated_at: new Date(),
     };
 
-    const { data: updated, error: updateErr } = await dataRepository
-      .from('clips')
-      .update(payload)
-      .eq('id', clipId)
-      .eq('user_id', userId)
-      .select()
-      .single();
-
-    if (updateErr) {
-      logger.error('Failed to update clip editor config in DB', { clipId, error: updateErr.message });
-      throw new Error(`Failed to save editor changes: ${updateErr.message}`);
-    }
+    const updated=await syncClipEditorRevision(await getMongoClient(),await getMongoDb(),{clipId,userId,expectedClipVersion:Number(clip.editor_version||1),project:update.editorProjectRevision,payload});
 
     // Beyond-candidate extend backstop: when the tail grows, record the
     // pre-extend caption coverage on an editor project that predates the
@@ -2406,7 +2407,7 @@ export class ClipRenderService {
             await dataRepository
               .from('editor_projects')
               .update({ tracks, updated_at: new Date() })
-              .eq('id', ep.id);
+              .eq('id', ep.id).eq('version',ep.version);
           }
         }
       } catch (markerErr: any) {
@@ -2414,7 +2415,7 @@ export class ClipRenderService {
       }
     }
 
-    return updated as ClipRecord;
+    return updated as unknown as ClipRecord;
   }
 
   /**

@@ -584,8 +584,8 @@ export class ProducerRenderService {
 
         if (editorUpdated) {
           await ProEditorService.updateEditorProject(editorProject.id, userId, {
-            tracks: editorProject.tracks,
-          });
+            tracks: editorProject.tracks,version:editorProject.version,
+          },{clipSyncRequired:false});
           logger.info(`[ProducerRender] Synchronized Producer plan operations into EditorProject ${editorProject.id}`);
         }
       }
