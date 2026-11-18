@@ -1,0 +1,44 @@
+{
+  "frames": [
+    {
+      "frame": "1-0",
+      "source": "/downloads/recovered-source/gta5-facecam-rp-12s.mp4",
+      "source_sha256": "feb7a2a42019938b8140ffb6caee4f187948a4ad4cc0f1632093edc7d3e48473",
+      "time": 0
+    },
+    {
+      "frame": "1-6",
+      "source": "/downloads/recovered-source/gta5-facecam-rp-12s.mp4",
+      "source_sha256": "feb7a2a42019938b8140ffb6caee4f187948a4ad4cc0f1632093edc7d3e48473",
+      "time": 6
+    },
+    {
+      "frame": "2-0",
+      "source": "/downloads/recovered-source/gta5-facecam-menu-holdout-12s.mp4",
+      "source_sha256": "fb7052eebfd8e0412fe4658067f49e1a9940851c4aefc479dc79dd71d2c20fa1",
+      "time": 0
+    },
+    {
+      "frame": "2-6",
+      "source": "/downloads/recovered-source/gta5-facecam-menu-holdout-12s.mp4",
+      "source_sha256": "fb7052eebfd8e0412fe4658067f49e1a9940851c4aefc479dc79dd71d2c20fa1",
+      "time": 6
+    },
+    {
+      "frame": "3-0",
+      "source": "/downloads/recovered-source/dust-game-broll-54-64-0729.mp4",
+      "source_sha256": "48281a225e218ecb0e2a2cdf63bdd60ae2bc356e032851854662fc49d9f4936f",
+      "time": 0
+    },
+    {
+      "frame": "3-6",
+      "source": "/downloads/recovered-source/dust-game-broll-54-64-0729.mp4",
+      "source_sha256": "48281a225e218ecb0e2a2cdf63bdd60ae2bc356e032851854662fc49d9f4936f",
+      "time": 6
+    }
+  ],
+  "model": "qwen/qwen3-vl-8b-instruct",
+  "calls": 1,
+  "maxBudgetUsd": 0.006,
+  "priorConservative": 0.05917572800666541
+}

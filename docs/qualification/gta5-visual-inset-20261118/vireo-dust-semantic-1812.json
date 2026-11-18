@@ -1,0 +1,18 @@
+{
+  "sourceSha256": "48281a225e218ecb0e2a2cdf63bdd60ae2bc356e032851854662fc49d9f4936f",
+  "sourceWidth": 1280,
+  "sourceHeight": 720,
+  "model": "qwen/qwen3-vl-8b-instruct",
+  "frames": [
+    {
+      "time": 0,
+      "genre": "people_conversation",
+      "confidence": 0.97
+    },
+    {
+      "time": 6,
+      "genre": "gaming",
+      "confidence": 0.98
+    }
+  ]
+}

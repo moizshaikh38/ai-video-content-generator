@@ -1,0 +1,18 @@
+{
+  "sourceSha256": "fb7052eebfd8e0412fe4658067f49e1a9940851c4aefc479dc79dd71d2c20fa1",
+  "sourceWidth": 960,
+  "sourceHeight": 540,
+  "model": "qwen/qwen3-vl-8b-instruct",
+  "frames": [
+    {
+      "time": 0,
+      "genre": "gaming",
+      "confidence": 0.98
+    },
+    {
+      "time": 6,
+      "genre": "gaming",
+      "confidence": 0.98
+    }
+  ]
+}

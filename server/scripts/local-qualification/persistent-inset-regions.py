@@ -59,6 +59,12 @@ def run(video,track):
    if competing or sum(anchors.values())<max(6,len(samples)*.25):continue
    if not any(max(abs(p['box'][k]-box[k])for k in box)<.02 for p in proposals):
     proposals.append({'box':box,'anchor_track_ids':sorted(anchors),'anchor_samples':sum(anchors.values()),'observed_frames':len(observations),'sampled_frames':len(rows),'minimum_side_coverage':min(q['side_coverage']for q in observations)})
+ # An independently measured outer border subsumes a nested decorative inner
+ # border with the same face anchors and coverage. Never manufacture a union
+ # of crossing candidates or lower the evidence threshold to select a crop.
+ def contains(outer,inner):
+  a=outer['box'];b=inner['box'];return a['x']<=b['x']+.002 and a['y']<=b['y']+.002 and a['x']+a['w']>=b['x']+b['w']-.002 and a['y']+a['h']>=b['y']+b['h']-.002 and a['w']*a['h']>b['w']*b['h']*1.01
+ proposals=[p for p in proposals if not any(q is not p and q['anchor_track_ids']==p['anchor_track_ids'] and q['observed_frames']>=p['observed_frames'] and contains(q,p) for q in proposals)]
  return {'schema_version':1,'status':'measured-rectangle'if len(proposals)==1 else 'unresolved','not_genre_proof':True,'source_sha256':hashlib.sha256(open(video,'rb').read()).hexdigest(),'proposals':proposals,'observations':rows}
 if __name__=='__main__':
  result=run(sys.argv[1],json.load(open(sys.argv[2])));json.dump(result,open(sys.argv[3],'w'),indent=2);print(json.dumps({k:v for k,v in result.items()if k!='observations'}))

@@ -27,7 +27,7 @@ export function captionCompositionWindows(project:any,plan:any[],clipStart:numbe
    if(![s.start,s.end,s.windowW,s.windowH].every(Number.isFinite)||s.end<=s.start||s.windowW<=0||s.windowH<=0)return [];
    const a=Math.max(i.source_start,s.start+clipStart),z=Math.min(i.source_end,s.end+clipStart);if(z<=a)return [];
    const start=Math.max(i.timeline_start,i.timeline_start+(a-i.source_start)/speed),end=Math.min(i.timeline_end,i.timeline_start+(z-i.source_start)/speed);
-   const layout:CaptionSceneLayout=s.split?'split':Math.abs(s.windowW*sourceW/(s.windowH*sourceH)-9/16)<.01?'fill':'fit';
+   const layout:CaptionSceneLayout=s.split?.focusPanels?.layout==='gameplay'?'panel_gameplay':s.split?'split':Math.abs(s.windowW*sourceW/(s.windowH*sourceH)-9/16)<.01?'fill':'fit';
    return end>start?[{itemId:i.id,start,end,layout}]:[];
   });
  });

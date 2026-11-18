@@ -490,7 +490,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const shotRelativeTime = Math.max(0,shotSourceTime-compositionClipStart);
   const activePlanShot = !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && !baseVideoItem?.framing_window && !manualPanels && (baseVideoItem as any)?.crop_config?.layout_mode_source !== 'user'
     ? effectiveShotComposition.find(s=>shotRelativeTime>=s.start&&shotRelativeTime<s.end) : undefined;
-  const automaticMultiPanels = activePlanShot?.split?.focusPanels && ['three','four'].includes(activePlanShot.split.focusPanels.layout) ? activePlanShot.split.focusPanels : null;
+  const automaticMultiPanels = activePlanShot?.split?.focusPanels && ['three','four','gameplay'].includes(activePlanShot.split.focusPanels.layout) ? activePlanShot.split.focusPanels : null;
   const activePanels = manualPanels || (viewMode === 'export_review' && renderedPreviewUrl ? null : automaticMultiPanels);
   // Framing layout pick (Framing panel): 'split' renders a two-speaker
   // top/bottom stack mirroring the export's buildSplitPodcastFilter.
