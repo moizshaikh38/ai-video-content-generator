@@ -1,3 +1,4 @@
+import {usesAutomaticSourceClock,automaticSourceWindow} from '../shared/automaticSourceClock.js';
 import {resolveMeasuredItemPlan} from './itemShotPlanService.js';
 import {prepareSliceRender} from './sliceRenderPreparation.js';
 import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
@@ -986,16 +987,16 @@ export class ClipRenderService {
         const isMultiSlice = videoTrackItems.length > 1;
         // Single-slice renders seek the input; the loudnorm measurement pass must
         // apply the same seek so it measures the exact audio window being rendered.
-        // Candidate shot plans use source-relative item windows. A single
+        // Ordinary Auto and candidate plans use source-relative item windows. A single
         // trimmed item must seek to its own source_start, just as multi-slice
         // trim filters do, not silently keep the clip's old opening.
-        const candidateSingle = (reframeDecision.track?.metadata?.shot_composition_candidate === true || videoTrackItems.some((i:any)=>i.framing_window !== undefined)) && !isMultiSlice
+        const candidateSingle = (videoTrackItems.some((i:any)=>usesAutomaticSourceClock(i,reframeDecision.track?.metadata?.shot_composition_candidate === true)||i.framing_window !== undefined)) && !isMultiSlice
           ? editorProject.tracks.find((t: {type:string;hidden?:boolean}) => t.type === 'VIDEO' && !t.hidden)?.items.find((i: {hidden?:boolean}) => !i.hidden)
           : undefined;
-        const candidateSourceStart = candidateSingle && !(candidateSingle as any).is_freeze
-          ? Number(candidateSingle.source_start ?? startSec) : startSec;
-        const candidateSourceDuration = candidateSingle && !(candidateSingle as any).is_freeze
-          ? Number(editorProject.canvas.duration || durationSec) * Math.min(4, Math.max(.25, candidateSingle.speed?.speed || 1)) : durationSec;
+        const sourceClockWindow = candidateSingle && !(candidateSingle as any).is_freeze
+          ? automaticSourceWindow(candidateSingle,startSec,Number(editorProject.canvas.duration||durationSec)) : undefined;
+        const candidateSourceStart = sourceClockWindow?.sourceStart ?? startSec;
+        const candidateSourceDuration = sourceClockWindow?.sourceDuration ?? durationSec;
         const inputSeekArgs = !isMultiSlice
           ? ['-ss', candidateSourceStart.toFixed(3), '-t', candidateSourceDuration.toFixed(3)]
           : [];
@@ -1030,7 +1031,7 @@ export class ClipRenderService {
         // beyond it stalls ffmpeg on buffer backpressure until it is killed
         // (reproduced locally). Clamp the output duration to the input window.
         const canvasDuration = Number((editorProject.canvas?.duration || durationSec).toFixed(3));
-        const renderDuration = !isMultiSlice ? Math.min(canvasDuration, durationSec) : canvasDuration;
+        const renderDuration = !isMultiSlice ? Math.min(canvasDuration, sourceClockWindow?.outputDuration ?? durationSec) : canvasDuration;
         expectedDurationSec = renderDuration;
         if (graph.canvas) expectedCanvas = graph.canvas;
 

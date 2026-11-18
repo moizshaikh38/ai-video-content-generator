@@ -91,3 +91,21 @@ test('brief fractional-rate final shot keeps its last distinct frame, not a clon
  assert.equal(pixels.length,12*8*8*3);const mean=(n:number)=>{const b=pixels.subarray(n*192,(n+1)*192);return b.reduce((a,v)=>a+v,0)/b.length;};
  assert.ok(mean(10)>150,'penultimate source frame remains bright');assert.ok(mean(11)<100,'last source frame remains dark instead of cloning the bright frame');
 });
+
+test('brief first/interior/last scenes keep their rounded output spans across24/25/29.97/30/60fps sources',()=>{
+ for(const[num,den]of[[24,1],[25,1],[30000,1001],[30,1],[60,1]]){
+  const frameCount=24,dt=den/num,duration=frameCount*dt,bounds=[0,2*dt,12*dt,22*dt,duration],levels=[35,100,170,230];
+  const raw=path.join(dir,`cadence-${num}.rgb`),input=path.join(dir,`cadence-${num}.mp4`);
+  fs.writeFileSync(raw,Buffer.concat(Array.from({length:frameCount},(_,i)=>Buffer.alloc(64*36*3,levels[i<2?0:i<12?1:i<22?2:3]))));
+  execFileSync(ffmpeg,['-v','error','-y','-f','rawvideo','-pixel_format','rgb24','-video_size','64x36','-framerate',`${num}/${den}`,'-i',raw,'-c:v','libx264','-threads','1','-crf','0','-pix_fmt','yuv444p',input]);
+  const plan=bounds.slice(0,-1).map((start,i)=>({start,end:bounds[i+1],kind:'fit',windowW:.75,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]})) as any;
+  const filter=S.buildShotCompositionFilter({plan,duration,sourceWidth:64,sourceHeight:36,canvasScale:.1});
+  const pixels=execFileSync(ffmpeg,['-v','error','-filter_complex_threads','1','-i',input,'-filter_complex',filter+';[out]fps=30,scale=8:8,format=rgb24[check]','-map','[check]','-f','rawvideo','-threads','1','-'],{timeout:30000});
+  assert.equal(pixels.length,Math.round(duration*30)*192,`${num}/${den} total frame count`);
+  const renderedLevels=[12,71,139,198];
+  for(let shot=0;shot<4;shot++)for(let n=Math.round(bounds[shot]*30);n<Math.round(bounds[shot+1]*30);n++){
+   const b=pixels.subarray(n*192,(n+1)*192),mean=b.reduce((s,v)=>s+v,0)/b.length;
+   assert.ok(Math.abs(mean-renderedLevels[shot])<6,`${num}/${den} shot${shot} frame${n} must not leak an adjacent scene`);
+  }
+ }
+});
