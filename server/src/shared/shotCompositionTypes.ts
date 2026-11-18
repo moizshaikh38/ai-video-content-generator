@@ -27,6 +27,8 @@ export interface ShotCompositionOptions {
     /** Offline face-window-only panel qualification. Never read from user settings. */
     participantFaceWindowReview?: boolean;
     participantAspectMatchedFaceReview?: boolean;
+    /** Offline-only padding candidate. Never loaded from project/user metadata. */
+    participantPaddingSeparationReview?: boolean;
     /** Optional measured regions, local qualification only. Not semantic proof. */
     protectedContentRegions?: Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>;
   }

@@ -1,5 +1,6 @@
 import type {ReframeSample} from '../types/index.js';
 import {associatedBodyEnvelope} from './bodyContext.js';
+import {separateParticipantPadding,type ParticipantBounds} from './participantPadding.js';
 import {PANEL_RECTS,type ItemPanels} from './panelLayouts.js';
 
 export interface ParticipantPanelAssignment { panels:ItemPanels; trackIds:string[]; sampleCount:number; coobservedSamples:number; evidence:'face-body'|'face-window-review' }
@@ -9,7 +10,7 @@ const med=(v:number[])=>[...v].sort((a,b)=>a-b)[Math.floor(v.length/2)];
  * back-facing, crossed or unstable tracks leave the scene in its shared view.
  * Whole measured person envelopes are contained, never duplicated as defaults.
  */
-export function assignParticipantPanels(samples:ReframeSample[],sourceWidth:number,sourceHeight:number,options:{allowFaceWindowReview?:boolean;aspectMatchedFaceReview?:boolean}={}):ParticipantPanelAssignment|null {
+export function assignParticipantPanels(samples:ReframeSample[],sourceWidth:number,sourceHeight:number,options:{allowFaceWindowReview?:boolean;aspectMatchedFaceReview?:boolean;paddingSeparationReview?:boolean}={}):ParticipantPanelAssignment|null {
  if(samples.length<6||!(sourceWidth>0&&sourceHeight>0))return null;
  const valid=(f:ReframeSample['faces'][number])=>!!f.track_id&&[f.x,f.y,f.width,f.height,f.center_x,f.center_y,f.confidence].every(Number.isFinite)&&f.confidence>=.7&&f.width*f.height>=.002&&f.x>=0&&f.y>=0&&f.x+f.width<=1.001&&f.y+f.height<=1.001;
  // Do not filter a weak extra detection into an apparently complete panel set.
@@ -40,11 +41,23 @@ export function assignParticipantPanels(samples:ReframeSample[],sourceWidth:numb
    }return r;});
  }
  // Unmatched people must not be erased merely because their face is unseen.
+ const measured=ids.map(()=>({left:1,right:0,top:1,bottom:0} as ParticipantBounds));
  for(const s of bodyComplete?samples:[]){
   const bodies=(s.persons||[]).filter(p=>p.confidence>=.4&&p.width>0&&p.height>0);
   if(bodies.length!==ids.length)return null;
   const owners=bodies.map(p=>s.faces.filter(f=>ids.includes(f.track_id!)&&f.center_x>=p.x&&f.center_x<=p.x+p.width&&f.center_y>=p.y&&f.center_y<=p.y+p.height*.55).map(f=>f.track_id));
   if(owners.some(o=>o.length!==1)||new Set(owners.flat()).size!==ids.length)return null;
+  for(let j=0;j<bodies.length;j++){
+   const p=bodies[j],b=measured[ids.indexOf(owners[j][0]!)];
+   b.left=Math.min(b.left,p.x);b.right=Math.max(b.right,p.x+p.width);b.top=Math.min(b.top,p.y);b.bottom=Math.max(b.bottom,p.y+p.height);
+  }
+  for(const f of s.faces.filter(f=>ids.includes(f.track_id!))){const b=measured[ids.indexOf(f.track_id!)];b.left=Math.min(b.left,f.x);b.right=Math.max(b.right,f.x+f.width);b.top=Math.min(b.top,f.y);b.bottom=Math.max(b.bottom,f.y+f.height);}
+ }
+ // Explicit candidate only. Keep every raw body/face rectangle across the shot;
+ // this removes padding, never body evidence. All ordinary defaults stay off.
+ if(bodyComplete&&options.paddingSeparationReview){
+  const separated=separateParticipantPadding(envelopes as ParticipantBounds[],measured);
+  if(!separated)return null;envelopes=separated;
  }
  const layout=ids.length===3?'three':'four';
  // An additional offline-only hypothesis: crop padding, not a measured face,

@@ -1551,15 +1551,21 @@ export class SmartReframeService {
     }
     const base=this.computeShotCompositionLegacy(options);
     const plan=options.participantPanelsReview&&options.allowConversationSplit&&options.windowScope==='shot'&&(!options.layoutPolicy||options.layoutPolicy.allowed.includes('split')) ? base.map(shot=>{
-      if(shot.split||shot.presentationProtection?.preserveWindow)return shot;
+      // A single-window aspect conflict is not a veto on a complete measured
+      // body partition. Only this explicit offline candidate can test it;
+      // context/hand/other protection stays final, and body evidence is required.
+      const paddingSubjectReview=options.participantPaddingSeparationReview===true
+        &&shot.presentationProtection?.reason==='measured-subject-conflict';
+      if(shot.split||(shot.presentationProtection?.preserveWindow&&!paddingSubjectReview))return shot;
       const local=(options.rawSamples||[]).filter(s=>s.time>=shot.start&&s.time<shot.end);
       if(shot.end-shot.start<1.5||persistentObjectRegions(local).length||(options.protectedContentRegions||[]).some(r=>r.confidence>=.7&&r.start<shot.end&&r.end>shot.start))return shot;
-      const assigned=assignParticipantPanels(local,options.sourceWidth,options.sourceHeight,{allowFaceWindowReview:options.participantFaceWindowReview,aspectMatchedFaceReview:options.participantAspectMatchedFaceReview});
-      if(!assigned)return shot;
+      const assigned=assignParticipantPanels(local,options.sourceWidth,options.sourceHeight,{allowFaceWindowReview:options.participantFaceWindowReview,aspectMatchedFaceReview:options.participantAspectMatchedFaceReview,paddingSeparationReview:options.participantPaddingSeparationReview});
+      if(!assigned||(paddingSubjectReview&&assigned.evidence!=='face-body'))return shot;
       return {...shot,kind:'group' as const,windowW:1,windowH:1,keyframes:[{time:shot.start,centerX:.5,centerY:.5}],
         split:{speaker1X:.25,speaker2X:.75,dividerX:.5,focusPanels:assigned.panels},
-        contextStatus:assigned.evidence==='face-window-review'?'unresolved-review-required' as const:undefined,
-        uncertainty:assigned.evidence==='face-window-review'?'Offline face-window panel proposal: distinct visible tracks, not full-body, camera-boundary or active-speaker proof. Review before sharing.':undefined};
+        ...(paddingSubjectReview?{presentationProtection:undefined}:{}),
+        contextStatus:options.participantPaddingSeparationReview||assigned.evidence==='face-window-review'?'unresolved-review-required' as const:undefined,
+        uncertainty:options.participantPaddingSeparationReview&&assigned.evidence==='face-body'?'Offline body-backed panel proposal: synthetic padding separated only at measured gaps. All eligible sampled body/face envelopes retained. Hands, side content, between-sample movement and scene meaning remain unverified. Review before sharing.':assigned.evidence==='face-window-review'?'Offline face-window panel proposal: distinct visible tracks, not full-body, camera-boundary or active-speaker proof. Review before sharing.':undefined};
     }):base;
     return options.splitHandSafetyReview&&(!options.layoutPolicy||options.layoutPolicy.allowed.includes('fit'))
       ? reviewMeasuredSplitSeams(plan,options.rawSamples||[]).shots : plan;
