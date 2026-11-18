@@ -16,6 +16,7 @@ import shutil
 import signal
 import subprocess
 import time
+from export_contract import HEX64, read_events
 
 
 class ObserverSignal(BaseException):
@@ -68,7 +69,7 @@ def tree_bytes(directory):
 
 def observe(command, evidence, *, timeout_seconds=10, max_rss_bytes=200*1024*1024,
             max_work_bytes=16*1024*1024, reserve_free_bytes=128*1024*1024,
-            sample_seconds=.05, cancel=None):
+            sample_seconds=.05, cancel=None, manifest_sha256=None):
     """Supervise one newly-created Linux session; no production imports/hooks.
 
     Descendants that keep the session but change process groups are included.
@@ -81,10 +82,12 @@ def observe(command, evidence, *, timeout_seconds=10, max_rss_bytes=200*1024*102
             and 0 < max_work_bytes <= 512*1024*1024 and reserve_free_bytes > 0
             and .01 <= sample_seconds <= .25):
         raise ValueError('Invalid qualification safety limits.')
+    if manifest_sha256 is not None and (not isinstance(manifest_sha256, str) or not HEX64.fullmatch(manifest_sha256)):
+        raise ValueError('Invalid manifest receipt binding.')
     evidence = Path(evidence).resolve()
-    evidence.mkdir(parents=True, exist_ok=False)
+    evidence.mkdir(parents=True, exist_ok=False, mode=0o700)
     work = evidence / 'owned-work'
-    work.mkdir()
+    work.mkdir(mode=0o700)
     started = time.monotonic()
     receipt = {'version': 1, 'state': 'started', 'observer_pid': os.getpid(),
                'command_sha256': hashlib.sha256(json.dumps(command).encode()).hexdigest(),
@@ -95,7 +98,11 @@ def observe(command, evidence, *, timeout_seconds=10, max_rss_bytes=200*1024*102
                'cgroup_before': cgroup_snapshot(), 'free_disk_before': shutil.disk_usage(work).free,
                'coverage': 'sampled Linux session, not escaped descendants or a private cgroup',
                'log_policy': 'content suppressed; byte counts only'}
+    if manifest_sha256 is not None:
+        receipt['manifest_sha256'] = manifest_sha256
     def persist():
+        if manifest_sha256 is not None and work.exists():
+            receipt['worker_diagnostics'] = read_events(work, manifest_sha256)
         receipt['elapsed_seconds'] = round(time.monotonic() - started, 4)
         temp = evidence / 'receipt.tmp'
         with temp.open('w') as stream:
@@ -200,6 +207,8 @@ def observe(command, evidence, *, timeout_seconds=10, max_rss_bytes=200*1024*102
         receipt['cgroup_after'] = cgroup_snapshot()
         receipt['free_disk_after'] = shutil.disk_usage(work).free
         receipt['cleanup'] = 'owned-work-only'
+        if manifest_sha256 is not None:
+            receipt['worker_diagnostics'] = read_events(work, manifest_sha256)
         shutil.rmtree(work)
         persist()
     return receipt
