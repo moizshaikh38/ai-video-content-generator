@@ -37,6 +37,10 @@ First real transaction group: 0.50 seconds, peak shared memory 1,352,056,832 byt
 
 Reproduction scripts are in `server/scripts/local-qualification/render-fence-real-mongo.mts` and `render-fence-real-stage.mts`. They intentionally refuse unexpected/reused fixture state. Evidence JSON and logs are retained locally, not part of a user-data backup.
 
+### Actual loopback S3-protocol SDK path
+
+A separate in-process HTTP test used the actual AWS SDK, `uploadFile`, generated per-attempt keys and `signObjectGet`. It held only two synthetic 1-KiB byte buffers in memory. The newer attempt uploaded first, then the stale attempt uploaded to its distinct key. Actual signed GET requests returned both exact buffers and both SHA-256 receipts matched readback. Recorded requests: PUT-new, PUT-old, GET-new, GET-old. No real media or R2 bucket was used. This qualifies local SDK/path/signing/readback wiring, not R2 durability, permissions, conditional writes or fault behavior. It ran in 0.50 seconds with peak shared memory 1,353,138,176 bytes; retained work remained under 8 KiB.
+
 ## Compatibility and operational consequences before release
 
 Existing preview/download methods sign the stored `output_storage_path`; they do not reconstruct the old per-version key. Existing objects therefore remain readable by their unchanged stored paths. Prefix-based clip cleanup still covers both formats. This is code-path inspection, not production download proof.
