@@ -1447,6 +1447,21 @@ export class SmartReframeService {
    * track is confidently wrong more often than right; both render paths and
    * the preview degrade to the blurred layout instead. Conservative, based on
    * observed clips (bad: 0.241; good: 0.452, 0.582). */
+  /** Explicit Auto choices may use existing measured two-person geometry even
+   * when experimental composition is off. Never upgrade legacy/user ownership,
+   * stale/unbound evidence, or partially eligible clips by inference. */
+  public static explicitAutoSplitPlan(track:any,cropConfig:any,duration:number):ReturnType<typeof SmartReframeService.computeShotComposition>|undefined {
+    if(cropConfig?.layout_mode_source!=='auto'||track?.status!=='ready'||track.isStale||track.sourceObjectVerified===false||
+       track.metadata?.shot_composition_candidate===true||!track.metadata?.analyzed_source_sha256||
+       !(duration>0)||!track.raw_samples?.length||
+       (cropConfig.layoutPolicy&&!cropConfig.layoutPolicy.allowed.includes('split')))return undefined;
+    const plan=this.computeShotComposition({rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,duration,
+      sourceWidth:track.source_width,sourceHeight:track.source_height,windowScope:'shot',allowConversationSplit:true,
+      protectedContentRegions:track.metadata.protected_content_regions,splitHandSafetyReview:true});
+    // No new Fill/Fit policy or mixed-scene smoothing is introduced here.
+    return plan.length&&plan.every(s=>s.split)?plan:undefined;
+  }
+
   public static readonly TRACK_CONFIDENCE_FLOOR = 0.3;
 
   public static isLowConfidenceTrack(track: { metadata?: any } | null | undefined): boolean {

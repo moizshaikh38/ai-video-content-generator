@@ -1349,6 +1349,9 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
     const measuredOptions=shotPlanOptions({track,candidate:req.query.layoutCandidate==='review-v1'?'review-v1':req.query.layoutCandidate==='off'?undefined:policyProject&&projectAutoCandidate(policyProject)?'review-v1':policyClip?.crop_config?.automaticLayoutCandidate,layoutPolicy:policyClip?.crop_config?.layoutPolicy,duration:Number(track.metadata?.clip_duration)});
     const measuredPlanEnvelope=track.metadata?.shot_composition_candidate===true?createPreviewMeasuredEnvelope(policyClip,track,measuredOptions,options=>SmartReframeService.computeShotComposition(options),Boolean(retainedPlan)):null;
     const measuredComposition=track.metadata?.shot_composition_candidate===true?(measuredPlanEnvelope?.shots||SmartReframeService.computeShotComposition(measuredOptions)):null;
+    const explicitAutoConfig=policyClip?.crop_config?.layout_mode_source==='auto'?policyClip.crop_config:
+      policyProject?.tracks?.flatMap((t:any)=>t.type==='VIDEO'?t.items:[]).some((i:any)=>i.crop_config?.layout_mode_source==='auto'||i.scene_layout_overrides?.some((o:any)=>o.layout==='auto'))?{...policyClip?.crop_config,layout_mode_source:'auto'}:undefined;
+    const explicitAutoPlan=SmartReframeService.explicitAutoSplitPlan(track,explicitAutoConfig,Number(track.metadata?.clip_duration)||1);
     // Return safe data without exposing server paths
     res.status(200).json({
       status: track.status,
@@ -1389,7 +1392,7 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       lowConfidenceTrack: SmartReframeService.isLowConfidenceTrack(track),
       sourceWidth: track.source_width || null,
       sourceHeight: track.source_height || null,
-      shotComposition: legacyFit43Plan(track,Number(track.metadata?.clip_duration)||1,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)) || legacyPolicyFallback(policyClip?.crop_config?.layoutPolicy,track,Number(track.metadata?.clip_duration)||track.smoothed_keyframes?.at(-1)?.time||1) || (track.metadata?.shot_composition_candidate === true
+      shotComposition: explicitAutoPlan || legacyFit43Plan(track,Number(track.metadata?.clip_duration)||1,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)) || legacyPolicyFallback(policyClip?.crop_config?.layoutPolicy,track,Number(track.metadata?.clip_duration)||track.smoothed_keyframes?.at(-1)?.time||1) || (track.metadata?.shot_composition_candidate === true
         ? measuredComposition : null),
       groupFrame: (() => {
         const g = SmartReframeService.computeGroupFrameGeometry({
