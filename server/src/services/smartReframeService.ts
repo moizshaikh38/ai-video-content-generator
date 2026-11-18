@@ -1454,7 +1454,9 @@ export class SmartReframeService {
     if(cropConfig?.layout_mode_source!=='auto'||track?.status!=='ready'||track.isStale||track.sourceObjectVerified===false||
        track.metadata?.shot_composition_candidate===true||!track.metadata?.analyzed_source_sha256||
        !(duration>0)||!track.raw_samples?.length||
-       (cropConfig.layoutPolicy&&!cropConfig.layoutPolicy.allowed.includes('split')))return undefined;
+       (cropConfig.layoutPolicy&&!cropConfig.layoutPolicy.allowed.includes('split'))||
+       ['screen_content','action_context','scene_context'].includes(track.metadata?.content_framing_decision?.policy)||
+       track.metadata?.facecam_box||track.metadata?.facecam_track_id)return undefined;
     const plan=this.computeShotComposition({rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,duration,
       sourceWidth:track.source_width,sourceHeight:track.source_height,windowScope:'shot',allowConversationSplit:true,
       protectedContentRegions:track.metadata.protected_content_regions,splitHandSafetyReview:true});

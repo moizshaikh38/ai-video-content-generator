@@ -16,3 +16,5 @@ test('protected text or measured hand crossing vetoes even an explicit split-onl
  const h=make();(h.raw_samples[3] as any).hands=[{x:.45,y:.6,width:.12,height:.1,confidence:.95}];assert.equal(S.explicitAutoSplitPlan(h,{...auto,layoutPolicy:{allowed:['split']}},4),undefined);
 });
 test('mixed solo/pair clip stays legacy rather than adopting a new mixed-shot policy',()=>{const t=make();t.raw_samples.slice(0,8).forEach(s=>s.faces=s.faces.slice(0,1));(t.metadata.scene_cuts as number[]).push(2);assert.equal(S.explicitAutoSplitPlan(t,auto,4),undefined)});
+
+test('known action, scene, screen context and embedded facecam veto ordinary pair split',()=>{for(const policy of ['screen_content','action_context','scene_context']){const t:any=make();t.metadata.content_framing_decision={policy};assert.equal(S.explicitAutoSplitPlan(t,auto,4),undefined)}for(const field of ['facecam_box','facecam_track_id']){const t:any=make();t.metadata[field]=field==='facecam_box'?{x:0,y:0,width:.2,height:.2}:'a';assert.equal(S.explicitAutoSplitPlan(t,auto,4),undefined)}});
