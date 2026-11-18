@@ -773,7 +773,7 @@ export class ClipAnalysisService {
       });
 
       if(process.env.VIREO_AUTOMATIC_GAMING_REVIEW==='1'){
-        const visual=gamingGenreFromVisualReview(selectionReceipt.source_receipt.sha256,(project as any).automatic_gaming_evidence);
+        const visual=gamingGenreFromVisualReview(selectionReceipt.source_receipt.sha256,(project as any).automatic_gaming_evidence,transcript.duration_seconds);
         if(visual)localSuggestion={...localSuggestion,...visual};
       }
       const rawIncomingPrefs = options.preferences || project.clip_preferences;

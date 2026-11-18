@@ -1,0 +1,60 @@
+{
+  "recordedSourceSha256": "feb7a2a42019938b8140ffb6caee4f187948a4ad4cc0f1632093edc7d3e48473",
+  "recordedDuration": 12.011,
+  "cases": [
+    {
+      "name": "recorded-valid",
+      "proposal": true,
+      "gamingPlan": true,
+      "genreReview": true
+    },
+    {
+      "name": "wrong-duration",
+      "proposal": true,
+      "gamingPlan": false,
+      "genreReview": false
+    },
+    {
+      "name": "missing-duration",
+      "proposal": false,
+      "gamingPlan": false,
+      "genreReview": false
+    },
+    {
+      "name": "tail-unobserved",
+      "proposal": false,
+      "gamingPlan": false,
+      "genreReview": false
+    },
+    {
+      "name": "late-only",
+      "proposal": false,
+      "gamingPlan": false,
+      "genreReview": false
+    },
+    {
+      "name": "beyond-source",
+      "proposal": false,
+      "gamingPlan": false,
+      "genreReview": false
+    },
+    {
+      "name": "nonfinite-size",
+      "proposal": false,
+      "gamingPlan": false,
+      "genreReview": false
+    },
+    {
+      "name": "fractional-observation-count",
+      "proposal": false,
+      "gamingPlan": false,
+      "genreReview": false
+    }
+  ],
+  "wrongAnalyzedSourceRejected": true,
+  "mediaDecode": false,
+  "externalCalls": 0,
+  "paidCalls": 0,
+  "render": false,
+  "onlyInputContractQualification": true
+}

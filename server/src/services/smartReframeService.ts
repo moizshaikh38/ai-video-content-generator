@@ -1545,7 +1545,7 @@ export class SmartReframeService {
     const gaming=options.automaticGamingReview;
     // Same shared planner as preview/export; never overwrite a manual view or
     // apply clip-wide inset geometry across measured cuts.
-    if(gaming&&(!options.sceneCuts?.length)&&options.sourceWidth===gaming.sourceWidth&&options.sourceHeight===gaming.sourceHeight&&(!options.layoutPolicy||options.layoutPolicy.allowed.includes('split'))){
+    if(gaming&&Number.isFinite(options.duration)&&Number.isFinite(gaming.durationSeconds)&&Math.abs(options.duration-gaming.durationSeconds)<=.05&&(!options.sceneCuts?.length)&&options.sourceWidth===gaming.sourceWidth&&options.sourceHeight===gaming.sourceHeight&&(!options.layoutPolicy||options.layoutPolicy.allowed.includes('split'))){
       const candidate=proposeAutomaticGamingPanels(gaming);
       if(candidate)return [{start:0,end:options.duration,kind:'group',windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}],split:{speaker1X:.25,speaker2X:.75,dividerX:.5,focusPanels:candidate.panels},contextStatus:'unresolved-review-required',uncertainty:candidate.limitations.join(' ')}];
     }
