@@ -17,3 +17,9 @@ The contain property and normalized source region roundtrip through saved projec
 ## Limits
 
 The real source contains burned-in subtitles spanning its original two halves. Dividing those halves cuts that text. These are geometry demonstrations, not publish-ready captioned clips. Gameplay's small top panel keeps the whole interview region but makes the person smaller. Three/Four duplicate the two regions in this test; they are geometry tests, not useful semantic compositions. Manual source choice and scene scope remain necessary. A 390px editor capture still shows vertically clipped canvas with the caption workspace open; mobile layout quality is not accepted. No spending, production release, automatic HUD activation, or full4K attempt.
+
+## Follow-up: independent Split and mobile dock overlap
+
+Independent Split2 was subsequently exercised through Whole clip Split, Edit Split views, and manual Fit region Apply on both views. Reopen/Cancel preserved the project.
+
+The phone negative was isolated to an open bottom dock overlaying the preview, not to an exported crop. At 390x844 the old preview reached y575 while the dock began y416. A UI-only reservation gives the preview 66% of workspace height when a mobile bottom sheet is open (the sheet uses 34%). The candidate canvas ended at y389, above the unchanged y416 dock edge. Actual captures inspected at 390x844, 320x740 and 390x640. Both views are visible, but the short-screen overview is small. This is not full mobile editing acceptance; framing tools open, keyboard, landscape and all drawer states remain to be checked. Desktop and exported composition are unchanged.
