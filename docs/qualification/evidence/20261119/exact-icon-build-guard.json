@@ -1,0 +1,24 @@
+{
+  "exitCode": -9,
+  "breach": "group_rss",
+  "lastSample": {
+    "groupRssBytes": 536944640,
+    "availableMemoryBytes": 950292480,
+    "diskFreeBytes": 1257189376,
+    "elapsedSeconds": 5.517915247997735,
+    "ownedPids": [
+      393886,
+      393897,
+      393905,
+      393915
+    ]
+  },
+  "peakSampledGroupRssBytes": 536944640,
+  "minimumAvailableMemoryBytes": 950292480,
+  "minimumDiskFreeBytes": 1257172992,
+  "elapsedSeconds": 5.570710578991566,
+  "ownedLivePidsAfterCleanup": [],
+  "noBrowserCvEncode": true,
+  "exactIconTransformEnabled": true,
+  "staticFiles": 0
+}
