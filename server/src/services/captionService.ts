@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { logger } from '../utils/logger.js';
 import {
+  AppError,
   ClipRecord,
   CaptionStyle,
   CaptionPosition,
@@ -63,6 +64,8 @@ export interface GenerateCaptionsOptions {
     speaker1X: number;
     speaker2X: number;
   };
+  /** Render-bound immutable saved document, including explicit known absence. */
+  editorProjectSnapshot?:any|null;
 }
 
 export interface CaptionGenerationResult {
@@ -1379,7 +1382,7 @@ export class CaptionService {
     const { clip, targetAspectRatio = clip.aspect_ratio || '9:16', outputPath } = options;
 
     if (!isMongoConfigured) {
-      return { timingMode: 'segment', cues: [], assContent: '' };
+      throw new AppError('Database is not configured for requested captions.',503,'DATABASE_UNAVAILABLE');
     }
 
     const runGeneration = async (): Promise<CaptionGenerationResult> => {
@@ -1392,28 +1395,21 @@ export class CaptionService {
     let editorCoveredEnd: number | null = null;
     let editorProject: any = null;
 
-    try {
-      const { data: proj } = await dataRepository
-        .from('editor_projects')
-        .select('*')
-        .eq('clip_id', clip.id)
-        .eq('user_id', clip.user_id)
-        .maybeSingle();
-
-      if (proj && Array.isArray(proj.tracks)) {
-        editorProject = proj;
-        const extracted = CaptionService.extractEditorCuesFromProject(proj);
-        if (extracted) {
-          editorCues = extracted.cues;
-          editorStyle = extracted.style || null;
-          editorPosition = extracted.position || null;
-          editorPositionExplicit = extracted.positionExplicit === true;
-          editorPositionYNumeric = typeof extracted.positionY === 'number' ? extracted.positionY : null;
-          editorCoveredEnd = editorProjectCoveredEnd(proj);
-        }
+    {
+      let proj:any;
+      if(Object.prototype.hasOwnProperty.call(options,'editorProjectSnapshot'))proj=options.editorProjectSnapshot;
+      else{
+        const {data,error}=await dataRepository.from('editor_projects').select('*').eq('clip_id',clip.id).eq('user_id',clip.user_id).maybeSingle();
+        if(error)throw new AppError('Saved caption edits could not be read. Retry before exporting.',503,'CAPTION_SOURCE_UNAVAILABLE');
+        proj=data;
       }
-    } catch (err: any) {
-      logger.warn(`Error checking EditorProject captions for clip ${clip.id}: ${err.message}`);
+      if(proj&&(proj.clip_id!==clip.id||proj.user_id!==clip.user_id))throw new AppError('Saved caption edits do not belong to this clip and owner.',409,'CAPTION_SOURCE_MISMATCH');
+      if(proj&&!Array.isArray(proj.tracks))throw new AppError('Saved caption tracks are invalid. Review before exporting.',409,'CAPTION_SOURCE_REQUIRED');
+      if(proj&&Array.isArray(proj.tracks)){
+        editorProject=proj;
+        const extracted=CaptionService.extractEditorCuesFromProject(proj);
+        if(extracted){editorCues=extracted.cues;editorStyle=extracted.style||null;editorPosition=extracted.position||null;editorPositionExplicit=extracted.positionExplicit===true;editorPositionYNumeric=typeof extracted.positionY==='number'?extracted.positionY:null;editorCoveredEnd=editorProjectCoveredEnd(proj);}
+      }
     }
 
     // 2. Load transcript for this project if needed
@@ -1424,15 +1420,19 @@ export class CaptionService {
       .eq('user_id', clip.user_id)
       .maybeSingle();
 
+    if(transErr)throw new AppError('Caption transcript could not be read. Retry before exporting.',503,'CAPTION_SOURCE_UNAVAILABLE');
+
     if (transcript) {
       assertTranscriptUsable(transcript);
       await assertSelectionSourceCurrent(clip.user_id,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
     }
 
-    if (!editorCues && (transErr || !transcript)) {
-      logger.warn(`No transcript found for clip ${clip.id}, rendering without burned captions.`);
-      return { timingMode: 'segment', cues: [], assContent: '' };
+    if(editorCues===null&&!transcript){
+      throw new AppError('Captions are enabled but no verified transcript or saved caption edit is available.',409,'CAPTION_SOURCE_REQUIRED');
     }
+
+    const requestedCaptionDuration=Number(clip.end_seconds)-Number(clip.start_seconds)-Number(clip.trim_start_offset||0)-Number(clip.trim_end_offset||0);
+    if(editorCues!==null&&!transcript&&(editorCoveredEnd===null||requestedCaptionDuration>editorCoveredEnd+0.05))throw new AppError('The saved caption edit does not cover the extended interval and no transcript is available.',409,'CAPTION_SOURCE_REQUIRED');
 
     // Blur-fit band anchor: computed by the render pipeline for layouts whose
     // source does not fill the canvas vertically. Only applied when nobody set
@@ -1534,7 +1534,7 @@ export class CaptionService {
             }
           }
         } catch (extendErr: any) {
-          logger.warn(`Caption extend merge skipped for clip ${clip.id}: ${extendErr.message}`);
+          throw extendErr;
         }
       }
       if (preset && timingMode === 'segment') {

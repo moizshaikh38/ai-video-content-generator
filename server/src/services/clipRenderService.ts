@@ -1,3 +1,4 @@
+import {verifiedCaptionAssPath} from '../shared/captionBurnInArtifact.js';
 import {syncClipEditorRevision} from '../db/repositories/editorRevisionRepository.js';
 import {editorRenderSnapshot,type EditorRenderSnapshot} from '../shared/editorRenderSnapshot.js';
 import { validateOutputFile } from '../shared/outputValidation.js';
@@ -748,6 +749,7 @@ export class ClipRenderService {
       let hasCustomProTracks = false;
       let editorProject: any = null;
       let editorProjectExists = false;
+      let savedEditorProject:any=null;
       try {
         const { data: proj, error:projectReadError } = await dataRepository
           .from('editor_projects')
@@ -757,6 +759,7 @@ export class ClipRenderService {
           .maybeSingle();
 
         if(projectReadError)throw projectReadError;
+        savedEditorProject=proj;
         expectedEditorProject=editorRenderSnapshot(proj);
         const bound=await db.collection('render_jobs').updateOne({id:jobId,clip_id:clipId,user_id:userId,worker_id:workerId,status:'processing'},{$set:{editor_project_snapshot:expectedEditorProject}});
         if(bound.matchedCount!==1)throw new AppError('Render lease was expired or claimed by another worker.',409,'FENCING_TOKEN_MISMATCH');
@@ -844,6 +847,7 @@ export class ClipRenderService {
               : undefined;
           const captionResult = await CaptionService.generateCaptionsForClip({
             clip,
+            editorProjectSnapshot:savedEditorProject,
             targetAspectRatio: clip.aspect_ratio as ClipAspectRatio,
             outputPath: assPath,
             bandAnchorPositionY,
@@ -854,14 +858,14 @@ export class ClipRenderService {
             speakerSplit,
           });
 
-          if (captionResult.cues.length > 0 && fs.existsSync(assPath)) {
+          if (verifiedCaptionAssPath(captionResult,assPath)) {
             const safeAss = assPath.replace(/\\/g, '/').replace(/:/g, '\\\\:');
             videoFilters.push(`ass=${safeAss}${assFontsDirArg()}`);
             logger.info(`[ClipRender] Burning ${captionResult.cues.length} caption cues using style "${clip.caption_style || 'clean'}"`);
           }
         } catch (capErr: any) {
-          if (['TRANSCRIPT_REVIEW_REQUIRED','TRANSCRIPT_SOURCE_REVIEW_REQUIRED'].includes(capErr?.code)) throw capErr;
-          logger.warn(`Failed to generate ASS subtitles for clip ${clipId}: ${capErr.message}. Rendering without subtitles.`);
+          // Requested captions are part of the output contract, not a best-effort overlay.
+          throw capErr;
         }
       }
 
