@@ -1,3 +1,4 @@
+import{measuredPanelChoice,type MeasuredPanelChoice}from'../../server/src/shared/measuredPanelChoice';
 import {coverWindow} from './cropBox';
 import {resolveSceneLayoutItem} from '../../server/src/shared/sceneLayoutOverrides';
 import type { EditorProject, EditorTrackItem } from '../types';
@@ -46,7 +47,8 @@ export function applyItemLayout(
   layout: SceneLayout,
   /** Source-clock subject track, used only to seed a new crop/panel view. */
   subjectKeyframes?: Array<{ time: number; centerX: number; centerY?: number }> | null,
-  sourceSize?: {width:number;height:number}
+  sourceSize?: {width:number;height:number},
+  measuredChoices?:MeasuredPanelChoice[]
 ): EditorProject {
   return {
     ...project,
@@ -69,7 +71,8 @@ export function applyItemLayout(
           delete base.framing_window;delete base.scene_layout_overrides;
           if ((PANEL_LAYOUTS as string[]).includes(layout)) {
             const prev = (i as any).panels?.layout === layout ? (i as any).panels : undefined;
-            const seeded = prev?.slots ?? seedPanelsFromSubject(layout as PanelLayout, undefined, subjectCenterInWindow(subjectKeyframes, i.source_start || 0, i.source_end ?? ((i.source_start || 0) + (i.timeline_end - i.timeline_start))),sourceSize,project.canvas.width&&project.canvas.height?project.canvas.width/project.canvas.height:project.canvas.aspect_ratio==='16:9'?16/9:project.canvas.aspect_ratio==='1:1'?1:9/16);
+            const measured=measuredPanelChoice(measuredChoices,layout,i.source_start,i.source_end,i.id);
+            const seeded = prev?.slots ?? measured?.slots ?? seedPanelsFromSubject(layout as PanelLayout, undefined, subjectCenterInWindow(subjectKeyframes, i.source_start || 0, i.source_end ?? ((i.source_start || 0) + (i.timeline_end - i.timeline_start))),sourceSize,project.canvas.width&&project.canvas.height?project.canvas.width/project.canvas.height:project.canvas.aspect_ratio==='16:9'?16/9:project.canvas.aspect_ratio==='1:1'?1:9/16);
             base.panels = normalizePanels({ layout: layout as PanelLayout, slots: seeded });
             delete base.crop;
             return base as EditorTrackItem;
@@ -125,22 +128,22 @@ export function applyFramingStrategy(project: EditorProject, mode: 'center'|'fit
 
 /** A source-clock override on one analysis scene. The timeline item is not cut.
  * Base manual crops/transforms/tracker and every other scene remain untouched. */
-export function applySceneLayout(project:EditorProject,itemId:string,start:number,end:number,layout:SceneLayout,subjectKeyframes?:Array<{time:number;centerX:number;centerY?:number}>|null,sourceSize?:{width:number;height:number}):EditorProject{
+export function applySceneLayout(project:EditorProject,itemId:string,start:number,end:number,layout:SceneLayout,subjectKeyframes?:Array<{time:number;centerX:number;centerY?:number}>|null,sourceSize?:{width:number;height:number},measuredChoices?:MeasuredPanelChoice[]):EditorProject{
  if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start)return project;
  const t=project.tracks.find(t=>t.type==='VIDEO'&&t.items.some(i=>i.id===itemId));const item=t?.items.find(i=>i.id===itemId);
  if(!t||!item||t!==project.tracks.find(t=>t.type==='VIDEO'&&!t.hidden)||t.locked||item.locked||item.is_freeze||item.is_title_card)return project;
  const a=Math.max(start,item.source_start),b=Math.min(end,item.source_end);if(b<=a)return project;
  const effective={...resolveSceneLayoutItem(item,(a+b)/2),source_start:a,source_end:b};
  const scoped={...project,tracks:project.tracks.map(q=>q.id!==t.id?q:{...q,items:q.items.map(i=>i.id!==itemId?i:effective)})};
- const changed=applyItemLayout(scoped,itemId,layout,subjectKeyframes,sourceSize).tracks.find(q=>q.id===t.id)?.items.find(i=>i.id===itemId) as any;
+ const changed=applyItemLayout(scoped,itemId,layout,subjectKeyframes,sourceSize,measuredChoices).tracks.find(q=>q.id===t.id)?.items.find(i=>i.id===itemId) as any;
  const patch:any={};for(const k of ['crop','panels','layout_mode','crop_config'])if(changed[k]!==undefined)patch[k]=changed[k];
  const prior=((item as any).scene_layout_overrides||[]).flatMap((o:any)=>o.end<=a||o.start>=b?[o]:[...(o.start<a?[{...o,end:a}]:[]),...(o.end>b?[{...o,start:b}]:[])]);
  const overrides=[...prior,{start:a,end:b,layout,patch}].sort((x,y)=>x.start-y.start);
  return {...project,tracks:project.tracks.map(q=>q.id!==t.id?q:{...q,items:q.items.map(i=>i.id!==itemId?i:{...i,scene_layout_overrides:overrides})})} as EditorProject;
 }
 /** Explicit whole-clip action replaces layout overrides on its primary video track. */
-export function applyWholeClipLayout(project:EditorProject,layout:SceneLayout,subjectKeyframes?:Array<{time:number;centerX:number;centerY?:number}>|null,sourceSize?:{width:number;height:number}):EditorProject{
+export function applyWholeClipLayout(project:EditorProject,layout:SceneLayout,subjectKeyframes?:Array<{time:number;centerX:number;centerY?:number}>|null,sourceSize?:{width:number;height:number},measuredChoices?:MeasuredPanelChoice[]):EditorProject{
  let next=project;const track=project.tracks.find(t=>t.type==='VIDEO');if(!track||track.locked)return project;
- for(const i of track.items)if(!i.locked){next=applyItemLayout(next,i.id,layout,subjectKeyframes,sourceSize);next={...next,tracks:next.tracks.map(t=>t.id!==track.id?t:{...t,items:t.items.map(q=>{if(q.id!==i.id)return q;const n:any={...q};delete n.scene_layout_overrides;return n})})};}
+ for(const i of track.items)if(!i.locked){next=applyItemLayout(next,i.id,layout,subjectKeyframes,sourceSize,measuredChoices);next={...next,tracks:next.tracks.map(t=>t.id!==track.id?t:{...t,items:t.items.map(q=>{if(q.id!==i.id)return q;const n:any={...q};delete n.scene_layout_overrides;return n})})};}
  return next;
 }

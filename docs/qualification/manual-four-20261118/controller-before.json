@@ -1,0 +1,588 @@
+{
+  "status": "ready",
+  "measuredPlanEnvelope": {
+    "schemaVersion": 1,
+    "sourceValidation": "object-receipt-verified",
+    "geometryEvidence": "recorded-decoded-geometry-bound-to-verified-source",
+    "identity": {
+      "schemaVersion": 1,
+      "itemId": "491deafd-7056-439c-a434-e02af121add0",
+      "sourceAssetId": "491deafd-7056-439c-a434-e02af121add0",
+      "sourceVersion": "4f6d3cc0cbf2f3ba9407555381d4e951421fe1c99cbb84e814a30105b9184304",
+      "analysisVersion": 1,
+      "sourceStart": 0,
+      "sourceEnd": 14.014,
+      "analysisSourceStart": 0,
+      "analysisSourceEnd": 14.014,
+      "analysisDuration": 14.014,
+      "sourceWidth": 426,
+      "sourceHeight": 240,
+      "outputAspect": "9:16",
+      "configurationFingerprint": "144f41e9a57b6fecefe2b8d7ab0dd5951ee1f08e66d4c2f740fc9d60b68dcba4"
+    },
+    "sourcePath": "fixtures/230fdc10-dc27-4c14-8771-46d24251b557/source.mp4",
+    "configurationKey": "{\"candidate\":{}}",
+    "shots": [
+      {
+        "start": 0,
+        "end": 14.014,
+        "kind": "group",
+        "contextStatus": "unresolved-review-required",
+        "windowW": 1,
+        "windowH": 1,
+        "keyframes": [
+          {
+            "time": 0,
+            "centerX": 0.5,
+            "centerY": 0.5
+          }
+        ],
+        "uncertainty": "Offline face-window panel proposal: distinct visible tracks, not full-body, camera-boundary or active-speaker proof. Review before sharing.",
+        "split": {
+          "speaker1X": 0.25,
+          "speaker2X": 0.75,
+          "dividerX": 0.5,
+          "focusPanels": {
+            "layout": "four",
+            "slots": [
+              {
+                "focusX": 0.5,
+                "focusY": 0.5,
+                "scale": 1,
+                "fit": "contain",
+                "set": true,
+                "sourceRect": {
+                  "x": 0.15844000000000003,
+                  "y": 0.11068622222222224,
+                  "w": 0.09621999999999997,
+                  "h": 0.30362755555555543
+                }
+              },
+              {
+                "focusX": 0.5,
+                "focusY": 0.5,
+                "scale": 1,
+                "fit": "contain",
+                "set": true,
+                "sourceRect": {
+                  "x": 0.391705,
+                  "y": 0.20419999999999996,
+                  "w": 0.07348999999999994,
+                  "h": 0.23190177777777762
+                }
+              },
+              {
+                "focusX": 0.5,
+                "focusY": 0.5,
+                "scale": 1,
+                "fit": "contain",
+                "set": true,
+                "sourceRect": {
+                  "x": 0.5603600000000001,
+                  "y": 0.18581999999999999,
+                  "w": 0.08587999999999985,
+                  "h": 0.2709991111111106
+                }
+              },
+              {
+                "focusX": 0.5,
+                "focusY": 0.5,
+                "scale": 1,
+                "fit": "contain",
+                "set": true,
+                "sourceRect": {
+                  "x": 0.74675,
+                  "y": 0.21575999999999998,
+                  "w": 0.07929999999999993,
+                  "h": 0.2502355555555553
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "adaptiveComposition": true,
+  "detectedFaceCount": 4,
+  "dominantTrackId": "subject_4",
+  "contentFramingDecision": null,
+  "analyzedSourcePath": "fixtures/230fdc10-dc27-4c14-8771-46d24251b557/source.mp4",
+  "smoothedKeyframes": [
+    {
+      "time": 0,
+      "centerX": 0.4331,
+      "centerY": 0.3208
+    },
+    {
+      "time": 1.167833,
+      "centerX": 0.4331,
+      "centerY": 0.3208
+    },
+    {
+      "time": 2.335667,
+      "centerX": 0.4331,
+      "centerY": 0.3208
+    },
+    {
+      "time": 3.5035,
+      "centerX": 0.4331,
+      "centerY": 0.3208
+    },
+    {
+      "time": 4.671333,
+      "centerX": 0.4331,
+      "centerY": 0.3208
+    },
+    {
+      "time": 5.839167,
+      "centerX": 0.4331,
+      "centerY": 0.3208
+    },
+    {
+      "time": 7.007,
+      "centerX": 0.4331,
+      "centerY": 0.3208
+    },
+    {
+      "time": 8.174833,
+      "centerX": 0.4331,
+      "centerY": 0.3208
+    },
+    {
+      "time": 9.342667,
+      "centerX": 0.4331,
+      "centerY": 0.3208
+    },
+    {
+      "time": 10.5105,
+      "centerX": 0.4331,
+      "centerY": 0.3208
+    },
+    {
+      "time": 11.678333,
+      "centerX": 0.4331,
+      "centerY": 0.3208
+    },
+    {
+      "time": 12.846167,
+      "centerX": 0.4331,
+      "centerY": 0.3208
+    },
+    {
+      "time": 14.014,
+      "centerX": 0.4331,
+      "centerY": 0.3208
+    }
+  ],
+  "analysisVersion": 1,
+  "analyzedTrimStart": 0,
+  "analyzedTrimEnd": 0,
+  "analyzedAspectRatio": "9:16",
+  "isStale": false,
+  "speaker1X": 0.21,
+  "speaker2X": 0.79,
+  "splitGeometry": {
+    "speaker1": {
+      "x": 0.21,
+      "y": 0.26135166666666676,
+      "windowW": 0.5800000000000001
+    },
+    "speaker2": {
+      "x": 0.79,
+      "y": 0.33924999999999983,
+      "windowW": 0.5800000000000001
+    }
+  },
+  "lowConfidenceTrack": false,
+  "sourceWidth": 426,
+  "sourceHeight": 240,
+  "shotComposition": [
+    {
+      "start": 0,
+      "end": 14.014,
+      "kind": "group",
+      "contextStatus": "unresolved-review-required",
+      "windowW": 1,
+      "windowH": 1,
+      "keyframes": [
+        {
+          "time": 0,
+          "centerX": 0.5,
+          "centerY": 0.5
+        }
+      ],
+      "uncertainty": "Offline face-window panel proposal: distinct visible tracks, not full-body, camera-boundary or active-speaker proof. Review before sharing.",
+      "split": {
+        "speaker1X": 0.25,
+        "speaker2X": 0.75,
+        "dividerX": 0.5,
+        "focusPanels": {
+          "layout": "four",
+          "slots": [
+            {
+              "focusX": 0.5,
+              "focusY": 0.5,
+              "scale": 1,
+              "fit": "contain",
+              "set": true,
+              "sourceRect": {
+                "x": 0.15844000000000003,
+                "y": 0.11068622222222224,
+                "w": 0.09621999999999997,
+                "h": 0.30362755555555543
+              }
+            },
+            {
+              "focusX": 0.5,
+              "focusY": 0.5,
+              "scale": 1,
+              "fit": "contain",
+              "set": true,
+              "sourceRect": {
+                "x": 0.391705,
+                "y": 0.20419999999999996,
+                "w": 0.07348999999999994,
+                "h": 0.23190177777777762
+              }
+            },
+            {
+              "focusX": 0.5,
+              "focusY": 0.5,
+              "scale": 1,
+              "fit": "contain",
+              "set": true,
+              "sourceRect": {
+                "x": 0.5603600000000001,
+                "y": 0.18581999999999999,
+                "w": 0.08587999999999985,
+                "h": 0.2709991111111106
+              }
+            },
+            {
+              "focusX": 0.5,
+              "focusY": 0.5,
+              "scale": 1,
+              "fit": "contain",
+              "set": true,
+              "sourceRect": {
+                "x": 0.74675,
+                "y": 0.21575999999999998,
+                "w": 0.07929999999999993,
+                "h": 0.2502355555555553
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "groupFrame": {
+    "windowW": 0.92,
+    "windowH": 1,
+    "keyframes": [
+      {
+        "time": 0,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 0.233567,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 0.467133,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 0.7007,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 0.934267,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 1.167833,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 1.4014,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 1.634967,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 1.868533,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 2.1021,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 2.335667,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 2.569233,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 2.8028,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 3.036367,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 3.269933,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 3.5035,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 3.737067,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 3.970633,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 4.2042,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 4.437767,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 4.671333,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 4.9049,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 5.138467,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 5.372033,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 5.6056,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 5.839167,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 6.072733,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 6.3063,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 6.539867,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 6.773433,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 7.007,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 7.240567,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 7.474133,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 7.7077,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 7.941267,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 8.174833,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 8.4084,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 8.641967,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 8.875533,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 9.1091,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 9.342667,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 9.576233,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 9.8098,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 10.043367,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 10.276933,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 10.5105,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 10.744067,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 10.977633,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 11.2112,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 11.444767,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 11.678333,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 11.9119,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 12.145467,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 12.379033,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 12.6126,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 12.846167,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 13.079733,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 13.3133,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 13.546867,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      },
+      {
+        "time": 13.780433,
+        "centerX": 0.4965,
+        "centerY": 0.5
+      }
+    ],
+    "sourceWidth": 426,
+    "sourceHeight": 240
+  }
+}

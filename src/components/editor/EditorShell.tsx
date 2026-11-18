@@ -1,3 +1,4 @@
+import{measuredPanelChoicesForManualPick}from'../../../server/src/shared/measuredPanelChoice';
 import {expandSceneLayoutItem} from '../../../server/src/shared/sceneLayoutOverrides';
 import {resolvePreviewItemPlan,type PreviewMeasuredPlanEnvelope} from '../../../server/src/shared/previewItemAutomaticPlan';
 import {normalizeEditorCanvasAspect} from '../../../server/src/shared/editorCanvasAspect';
@@ -211,7 +212,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       speaker1: { x: number; y: number; windowW: number };
       speaker2: { x: number; y: number; windowW: number };
     } | null;
-    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';split?:{speaker1X:number;speaker2X:number;dividerX:number};windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
+    shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';split?:{speaker1X:number;speaker2X:number;dividerX:number;focusPanels?:import('../../../server/src/shared/panelLayouts').ItemPanels};windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
     contentFramingDecision?: import('../../../server/src/shared/contentFramingDecision').ContentFramingDecision | null;
     analyzedTrimStart?: number;
     groupFrame?: {
@@ -245,6 +246,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   const compositionSourceStart=previewItemPlan?.status==='ready'?previewItemPlan.identity.analysisSourceStart:(Number(clip?.start_seconds)||0)+(speakerSplitData?.analyzedTrimStart||0);
   const selectedComposition=previewItemPlan?.status==='ready'?previewItemPlan.shots as NonNullable<typeof speakerSplitData>['shotComposition']:adaptivePlanExpected?null:activeCandidate?speakerSplitData?.shotComposition:stableShotComposition;
   const speakerSplit=automaticPlanReviewRequired?null:speakerSplitData?{...speakerSplitData,shotComposition:selectedComposition}:null;
+  const measuredPanelChoices=adaptivePlanExpected?measuredPanelChoicesForManualPick(activeCandidateItem?{...activeCandidateItem,id:activeCandidateBase?.id}:undefined,activeEnvelope,{sourceAssetId:clip.id,sourcePath:clip.source_storage_path,outputAspect:project.canvas.aspect_ratio,layoutPolicy:clip.crop_config?.layoutPolicy,sourceVersion:(clip as any).selection_source_receipt?.source_receipt?.sha256}):undefined;
   useEffect(() => {
     let cancelled = false;
     setSpeakerSplit(null);
@@ -1692,7 +1694,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                     current={readItemLayout(sceneItem)}
                     onPick={(layout) => {
                       onCommitProject?.(project);
-                      onUpdateProject(prev=>{const offset=compositionSourceStart,time=sceneItem.source_start+(currentTime-sceneItem.timeline_start)*(sceneItem.speed?.speed||1);const shot=speakerSplit?.shotComposition?.find(s=>time>=s.start+offset&&time<s.end+offset);return shot?applySceneLayout(prev,sceneItem.id,shot.start+offset,shot.end+offset,layout,layoutSubjectKeyframes,layoutSubjectSourceSize):applyItemLayout(prev,sceneItem.id,layout,layoutSubjectKeyframes,layoutSubjectSourceSize)});
+                      onUpdateProject(prev=>{const offset=compositionSourceStart,time=sceneItem.source_start+(currentTime-sceneItem.timeline_start)*(sceneItem.speed?.speed||1);const shot=speakerSplit?.shotComposition?.find(s=>time>=s.start+offset&&time<s.end+offset);return shot?applySceneLayout(prev,sceneItem.id,shot.start+offset,shot.end+offset,layout,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices):applyItemLayout(prev,sceneItem.id,layout,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices)});
                     }}
                   />
                 </div>
@@ -1913,14 +1915,14 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             onUpdateCanvas={(patch) => {
               onUpdateProject((prev) => ({ ...prev, canvas: { ...prev.canvas, ...patch } }));
             }}
-            onPickWholeClipLayout={layout=>{onCommitProject?.(project);onUpdateProject(prev=>applyWholeClipLayout(prev,layout,layoutSubjectKeyframes,layoutSubjectSourceSize));}}
+            onPickWholeClipLayout={layout=>{onCommitProject?.(project);onUpdateProject(prev=>applyWholeClipLayout(prev,layout,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices));}}
             onPickSceneLayout={(itemId, layout) => {
               onCommitProject?.(project);
               onUpdateProject((prev) => {
                 const item=prev.tracks.flatMap(t=>t.type==='VIDEO'?t.items:[]).find(i=>i.id===itemId);if(!item)return prev;
                 const offset=compositionSourceStart,sourceTime=item.source_start+(currentTime-item.timeline_start)*(item.speed?.speed||1);
                 const shot=speakerSplit?.shotComposition?.find(s=>sourceTime>=s.start+offset&&sourceTime<s.end+offset);
-                return shot ? applySceneLayout(prev,itemId,shot.start+offset,shot.end+offset,layout,layoutSubjectKeyframes,layoutSubjectSourceSize) : applyItemLayout(prev,itemId,layout,layoutSubjectKeyframes,layoutSubjectSourceSize);
+                return shot ? applySceneLayout(prev,itemId,shot.start+offset,shot.end+offset,layout,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices) : applyItemLayout(prev,itemId,layout,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices);
               });
             }}
             onUpdateCropMode={(mode) => {

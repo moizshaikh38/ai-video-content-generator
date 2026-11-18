@@ -42,13 +42,14 @@ const graph=ProEditorService.compileRenderGraph(editor,source,path.join(out,'act
 fs.writeFileSync(path.join(out,'graph.json'),JSON.stringify(graph,null,2));
 execFileSync('ffmpeg',['-nostdin','-v','error','-y','-threads','1','-filter_threads','1','-filter_complex_threads','1',...graph.inputArgs,'-filter_complex',graph.filterComplex.join(';'),'-map',graph.videoMap,'-map',graph.audioMap,'-t',String(duration),'-c:v','libx264','-threads','1','-preset','ultrafast','-crf','22','-c:a','aac',path.join(out,'actual-direct.mp4')],{timeout:90000});
 const controls=JSON.parse(fs.readFileSync(path.join(out,'controls-browser.json'),'utf8'));
-for(const row of controls.states.filter((r:any)=>r.name==='layout-auto')){
- const {expandSceneLayoutProject}=await import('../../src/shared/sceneLayoutOverrides.js');const g=ProEditorService.compileRenderGraph(expandSceneLayoutProject(row.project),source,path.join(out,row.name+'-export.mp4'),out,ctx,'off');
+for(const row of controls.states.filter((r:any)=>['layout-auto','layout-four'].includes(r.name))){
+ const persisted=await ownerContext.run(user,()=>ProEditorService.updateEditorProject(editor.id,user,{tracks:row.project.tracks}));const reloaded=await ownerContext.run(user,()=>ProEditorService.getEditorProject(editor.id,user));assert.deepEqual(reloaded.tracks,row.project.tracks);fs.writeFileSync(path.join(out,row.name+'-reloaded-project.json'),JSON.stringify(reloaded,null,2));
+ const {expandSceneLayoutProject}=await import('../../src/shared/sceneLayoutOverrides.js');const g=ProEditorService.compileRenderGraph(expandSceneLayoutProject(reloaded),source,path.join(out,row.name+'-export.mp4'),out,ctx,'off');
  execFileSync('ffmpeg',['-nostdin','-v','error','-y','-threads','1','-filter_threads','1','-filter_complex_threads','1',...g.inputArgs,'-filter_complex',g.filterComplex.join(';'),'-map',g.videoMap,'-map',g.audioMap,'-t',String(duration),'-c:v','libx264','-threads','1','-preset','ultrafast','-crf','22','-c:a','aac',path.join(out,row.name+'-export.mp4')],{timeout:90000});
 }
-assert.equal(JSON.stringify(await db.collection('editor_projects').findOne({clip_id:activeClipId})),beforeProject);
+// Explicit save/reload exercised above; original fixture is removed at closeout.
 const probe=JSON.parse(execFileSync('ffprobe',['-v','error','-count_frames','-show_streams','-show_format','-of','json',path.join(out,'actual-direct.mp4')],{encoding:'utf8'}));
 assert(Math.abs(Number(probe.format.duration)-duration)<.15);
-fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({commit:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),source,sourceSha256:sha,manualClipFixture:true,transcriptPresent:false,actualNormalAnalyzer:true,actualNormalController:true,actualEditorShell:true,actualDirectProCompile:true,renderJobCovered:false,uploadDownloadCovered:false,authEntitlementsStorageMocked:true,providerCalls:0,savedEditorUnchanged:true,probe},null,2));
+fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({commit:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),source,sourceSha256:sha,manualClipFixture:true,transcriptPresent:false,actualNormalAnalyzer:true,actualNormalController:true,actualEditorShell:true,actualDirectProCompile:true,renderJobCovered:false,uploadDownloadCovered:false,authEntitlementsStorageMocked:true,providerCalls:0,savedEditorUnchanged:false,manualFourSaveReloadVerified:true,probe},null,2));
 console.log('VISUAL_SOURCE_PREVIEW_DIRECT_EXPORT_PASS');
 }finally{for(const c of ['projects','clips','editor_projects','reframe_tracks'])await db.collection(c).deleteMany({user_id:user});await closeMongo();await new Promise<void>(r=>storage.close(()=>r()));}
