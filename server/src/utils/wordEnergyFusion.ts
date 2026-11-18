@@ -40,6 +40,9 @@ export interface WordFusionOptions {
   snapPosition?: number;
   /** Keyframe time tolerance for "same time" dedupe after snapping. */
   dedupeToleranceSec?: number;
+  /** Source-relative measured scene boundaries. Protect only existing rounded
+   * cut anchors; never add or move a cut from transcript words. */
+  sourceCutTimes?: number[];
 }
 
 const DEFAULTS: Required<WordFusionOptions> = {
@@ -47,6 +50,7 @@ const DEFAULTS: Required<WordFusionOptions> = {
   maxSnapSec: 0.35,
   snapPosition: 0.5,
   dedupeToleranceSec: 0.02,
+  sourceCutTimes: [],
 };
 
 /** Returns true when [a,b] sits inside a spoken word's time span. */
@@ -93,6 +97,15 @@ export function applyWordEnergyFusion(
   // source camera discontinuity, not a discretionary speaker switch. Keep
   // BOTH anchors: ordinary minimum-gap repair would stretch the cut to21ms.
   const sourceStepAnchors = new Set<number>();
+  const cutTimes = (options.sourceCutTimes ?? []).filter(t => Number.isFinite(t) && t > 0);
+  for (let i = 0; i < sorted.length; i++) {
+    // Smoother rounds source cut timestamps to milliseconds. Do not extend
+    // matching to a frame-wide neighborhood or protect unrelated motion.
+    if (cutTimes.some(t => Math.abs(sorted[i].time - Number(t.toFixed(3))) <= 0.000001)) {
+      sourceStepAnchors.add(i);
+      if (i > 0 && sorted[i].time - sorted[i - 1].time > 0 && sorted[i].time - sorted[i - 1].time <= 0.002001) sourceStepAnchors.add(i - 1);
+    }
+  }
   for (let i = 1; i < sorted.length; i++) {
     const a = sorted[i - 1], b = sorted[i], dt = b.time - a.time;
     if (dt > 0 && dt <= 0.002001 &&

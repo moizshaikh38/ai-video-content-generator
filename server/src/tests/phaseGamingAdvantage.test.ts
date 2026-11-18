@@ -146,7 +146,7 @@ describe('Game-event service + clipping integration (wiring pins)', () => {
   });
 
   it('reframe tracks apply word-energy fusion after CV smoothing', () => {
-    assert.match(reframe, /applyWordEnergyFusion\(smoothedKeyframes, wordTimings\)/);
+    assert.match(reframe, /applyWordEnergyFusion\(smoothedKeyframes, wordTimings, \{ sourceCutTimes: clipSceneCuts \}\)/);
     assert.match(reframe, /smoothed_keyframes: fusedKeyframes/);
     assert.match(reframe, /word_energy_fused: wordTimings\.length > 0/);
   });

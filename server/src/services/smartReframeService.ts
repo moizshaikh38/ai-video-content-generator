@@ -942,7 +942,7 @@ export class SmartReframeService {
 
       if (prevShotLastX !== null && sIdx > 0) {
         const cutTime = shot.start;
-        const jumpDelta = Math.abs(firstShotX - prevShotLastX);
+        const jumpDelta = Math.max(Math.abs(firstShotX - prevShotLastX), Math.abs(firstShotY - (prevShotLastY ?? firstShotY)));
 
         if (jumpDelta > 0.04) {
           // Emit hard-cut keyframe pair to switch camera position instantaneously on cut
@@ -3071,7 +3071,7 @@ export class SmartReframeService {
 
       // 8b. Word-energy diarization fusion: speaker switches only at word
       // boundaries — never mid-word. No-op without word timings.
-      const fusedKeyframes = applyWordEnergyFusion(smoothedKeyframes, wordTimings);
+      const fusedKeyframes = applyWordEnergyFusion(smoothedKeyframes, wordTimings, { sourceCutTimes: clipSceneCuts });
 
       // 9. Persist to public.reframe_tracks table
       const trackPayload: Partial<ReframeTrackRecord> = {
