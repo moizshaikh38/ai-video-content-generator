@@ -1464,9 +1464,18 @@ export class SmartReframeService {
     // cuts, use review Fit locally unless that individual shot has the already
     // eligible split geometry. Never carry a confident crop across a cut.
     if((track.metadata.scene_cuts||[]).length&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('fit'))){
-      return presentFit43(plan.map(s=>s.split&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('split'))?s:{
-        start:s.start,end:s.end,kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:s.start,centerX:.5,centerY:.5}],
-        contextStatus:'unresolved-review-required' as const,uncertainty:'Scene-local Fit: unrelated shots cannot share one face crop. Review side context before sharing.'
+      return presentFit43(plan.map(s=>{
+        if(s.split&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('split')))return s;
+        // Reuse only this shot's complete face-less single-body evidence.
+        // A body in an earlier scene is never an anchor for a later scene.
+        const local=track.raw_samples.filter((sample:any)=>sample.time>=s.start&&sample.time<s.end);
+        const body=(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('fill'))&&local.length&&local.every((sample:any)=>sample.faces?.length===0)
+          ? movingBodyPortraitProposal(local,s.start,s.end,track.source_width,track.source_height,track.metadata.protected_content_regions||[]) : null;
+        if(body)return body;
+        return {
+          start:s.start,end:s.end,kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:s.start,centerX:.5,centerY:.5}],
+          contextStatus:'unresolved-review-required' as const,uncertainty:'Scene-local Fit: unrelated shots cannot share one face crop. Review side context before sharing.'
+        };
       }),track.source_width,track.source_height);
     }
     if(plan.length&&plan.every(s=>s.split)&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('split')))return plan;

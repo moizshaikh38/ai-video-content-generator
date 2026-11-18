@@ -25,4 +25,23 @@ test('complete face-less single-body evidence proposes full-height portrait with
 test('body portrait rejects missing samples, multiple bodies, cuts, faces and context outside portrait',()=>{for(const edit of [(t:any)=>t.raw_samples[8].persons=[],(t:any)=>t.raw_samples[8].persons.push({...t.raw_samples[8].persons[0],x:.7}),(t:any)=>t.raw_samples[8].faces=[face('a',.35)],(t:any)=>t.metadata.protected_content_regions=[{start:0,end:10,x:0,y:0,width:.2,height:.2,confidence:.9}]]){const t=moving();edit(t);assert.equal(S.explicitAutoLayoutPlan(t,auto,10),undefined)}});
 test('body portrait honors Fill exclusions, stale and manual ownership',()=>{assert.equal(S.explicitAutoLayoutPlan(moving(),{...auto,layoutPolicy:{allowed:['fit','split']}},10),undefined);assert.equal(S.explicitAutoLayoutPlan({...moving(),isStale:true},auto,10),undefined);assert.equal(S.explicitAutoLayoutPlan(moving(),{layout_mode_source:'user'},10),undefined)});
 
-test('cut fallback never invents Fill when Fit excluded and does not change manual ownership',()=>{const t:any=moving();t.metadata.scene_cuts=[5];assert.equal(S.explicitAutoLayoutPlan(t,{...auto,layoutPolicy:{allowed:['fill']}},10),undefined);assert.equal(S.explicitAutoLayoutPlan(t,{layout_mode_source:'user'},10),undefined);const p=S.explicitAutoLayoutPlan(t,auto,10)!;assert.equal(p.length,2);assert.ok(p.every(s=>!s.split&&s.kind==='fit'))});
+test('cut body proposal respects excluded Fit and manual ownership',()=>{const t:any=moving();t.metadata.scene_cuts=[5];assert.equal(S.explicitAutoLayoutPlan(t,{...auto,layoutPolicy:{allowed:['fill']}},10),undefined);assert.equal(S.explicitAutoLayoutPlan(t,{layout_mode_source:'user'},10),undefined);const p=S.explicitAutoLayoutPlan(t,auto,10)!;assert.equal(p.length,2);assert.ok(p.every(s=>!s.split&&s.windowH===1&&s.contextStatus==='unresolved-review-required'))});
+
+test('cut scenes reuse body evidence locally and keep an unrelated face scene in review Fit',()=>{
+ const t:any=moving();t.metadata.scene_cuts=[5];t.raw_samples.slice(20).forEach((s:any)=>{s.faces=[face('new',.8)];s.persons=[]});
+ const p=S.explicitAutoLayoutPlan(t,auto,10)!;assert.equal(p.length,2);assert.equal(p[0].kind,'solo');assert.equal(p[0].end,5);assert.equal(p[0].windowW,9/16*1080/1920);assert.equal(p[1].kind,'fit');assert.equal(p[1].start,5);assert.equal(p[1].keyframes[0].centerX,.5);
+ assert.ok(p[0].keyframes.every(k=>k.time<5));
+ const fitOnly=S.explicitAutoLayoutPlan(t,{...auto,layoutPolicy:{allowed:['fit','split']}},10)!;assert.ok(fitOnly.every(s=>s.kind==='fit'));
+});
+test('shot-local body rejects incomplete, protected, short, multi-body and face-bearing scenes',()=>{
+ for(const edit of [(t:any)=>t.raw_samples[4].persons=[],(t:any)=>t.raw_samples[4].persons.push({...t.raw_samples[4].persons[0]}),(t:any)=>t.raw_samples[4].faces=[face('x',.35)],(t:any)=>t.metadata.protected_content_regions=[{start:0,end:5,x:0,y:0,width:.2,height:.1,confidence:.9}]]){
+ const t:any=moving();t.metadata.scene_cuts=[5];edit(t);const p=S.explicitAutoLayoutPlan(t,auto,10)!;assert.equal(p[0].kind,'fit');assert.equal(p[1].kind,'solo');
+ }
+ const t:any=moving();t.metadata.scene_cuts=[.75];assert.equal(S.explicitAutoLayoutPlan(t,auto,10)![0].kind,'fit');
+});
+
+test('synthetic faced multi-person montage cannot gain body portrait or split from shot-local extension',()=>{
+ // Distinct game-like multi-person/faced samples remain review Fit on every cut.
+ const t:any=moving();t.metadata.scene_cuts=[3,6];t.raw_samples.forEach((s:any)=>{s.faces=[face('game-a',.25),face('game-b',.75)];s.persons=[]});
+ const p=S.explicitAutoLayoutPlan(t,auto,10)!;assert.ok(p.every(s=>s.kind==='fit'&&!s.split));
+});
