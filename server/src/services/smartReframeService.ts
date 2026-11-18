@@ -1,3 +1,4 @@
+import {shortAutoCutDiscovery} from '../shared/shortAutoCutDiscovery.js';
 import {movingBodyPortraitProposal} from '../shared/movingBodyPortraitProposal.js';
 import {adaptiveSceneEligible} from '../shared/adaptiveSceneEligibility.js';
 import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
@@ -2724,7 +2725,8 @@ export class SmartReframeService {
     startSec = 0.0,
     durationSec = 0.0,
     timeoutMs = 120000,
-    maxSamples = 600
+    maxSamples = 600,
+    discoverShortAutoCuts = false
   ): Promise<{
     source_width: number;
     source_height: number;
@@ -2736,6 +2738,7 @@ export class SmartReframeService {
     protected_content_regions?: Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>;
     person_detector?: string | null;
     face_resolution_passes?:number[][]|null;
+    scene_cut_discovery?:{mode:string;status:string;reason?:string;duration_seconds:number;frame_budget:number};
     source_text_detector?:string|null;
     source_text_coverage?: {status:string;detectors:string[];sample_count:number;max_unsampled_gap_seconds:number;region_count:number;absence_means:string;limitations:string[]};
     scene_cut_evidence?: Array<{ time: number; coarse_time: number; refined: boolean; uncertainty_seconds?: number; correlation?: number }>;
@@ -2768,6 +2771,7 @@ export class SmartReframeService {
       startSec,
       durationSec,
       maxSamples,
+      discoverShortAutoCuts,
     });
 
     return new Promise((resolve, reject) => {
@@ -2940,7 +2944,7 @@ export class SmartReframeService {
 
       // 5. Run local Computer Vision analysis
       logger.info(`[SmartReframe] Starting CV face analysis for clip ${clipId}: start=${startSec}s, dur=${durationSec}s`);
-      const cvResult = await this.runCvAnalyzer(localSourcePath, sampleFps, startSec, durationSec, timeoutMs);
+      const cvResult = await this.runCvAnalyzer(localSourcePath, sampleFps, startSec, durationSec, timeoutMs,600,shortAutoCutDiscovery(clip,durationSec));
 
       // 6. Gather scene cuts and speech intervals for audio-visual shot-aware reframe
       let clipSceneCuts = options.sceneCuts ? [...options.sceneCuts] : [];
@@ -2967,7 +2971,7 @@ export class SmartReframeService {
         if (cvResult.scene_cuts && Array.isArray(cvResult.scene_cuts)) {
           for (const c of cvResult.scene_cuts) {
             const relCut = Number(c);
-            if (relCut > 0.25 && relCut < durationSec - 0.25 && !clipSceneCuts.some((x) => Math.abs(x - relCut) < (process.env.SMART_REFRAME_DENSE_CUTS === '1' ? 0.12 : 0.4))) {
+            if (relCut > 0.25 && relCut < durationSec - 0.25 && !clipSceneCuts.some((x) => Math.abs(x - relCut) < ((process.env.SMART_REFRAME_DENSE_CUTS === '1'||cvResult.scene_cut_discovery?.mode==='short-explicit-auto') ? 0.12 : 0.4))) {
               clipSceneCuts.push(relCut);
             }
           }
@@ -3090,6 +3094,7 @@ export class SmartReframeService {
           scene_cut_evidence: cvResult.scene_cut_evidence || [],
           person_detector: cvResult.person_detector ?? null,
           face_resolution_passes: cvResult.face_resolution_passes ?? null,
+          scene_cut_discovery: cvResult.scene_cut_discovery ?? null,
           source_text_detector: cvResult.source_text_detector ?? null,
           source_text_coverage: cvResult.source_text_coverage ?? null,
           protected_content_regions: cvResult.protected_content_regions || [],

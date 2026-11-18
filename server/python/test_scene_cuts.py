@@ -32,6 +32,11 @@ class RefinementTests(unittest.TestCase):
             result=m.discover_dense_scene_cuts(path,.5,2,24)
             self.assertTrue(any(abs(e['time']-.75)<1/24 for e in result),result)
             self.assertTrue(all(e['method']=='dense-luma-discontinuity' for e in result))
+    def test_short_auto_source_budget_rejects_4k_highfps_long_and_invalid(self):
+        self.assertTrue(m.short_auto_cut_budget(30,1920,1080,60))
+        self.assertTrue(m.short_auto_cut_budget(12,1280,720,24))
+        for args in [(12,3840,2160,30),(30.01,1280,720,24),(12,1280,720,120),(0,1280,720,24),(12,0,720,24),(12,1280,720,float('nan'))]:
+            self.assertFalse(m.short_auto_cut_budget(*args))
     def test_dense_is_bounded(self):
         self.assertEqual(m.discover_dense_scene_cuts('/not/a/file',0,181,24),[])
     def test_empty_does_not_invent_cuts(self):

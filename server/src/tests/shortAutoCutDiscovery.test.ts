@@ -1,0 +1,5 @@
+import{test}from'node:test';import assert from'node:assert/strict';import{shortAutoCutDiscovery as enabled}from'../shared/shortAutoCutDiscovery.js';
+const clip={aspect_ratio:'9:16',crop_config:{mode:'smart',layout_mode_source:'auto'}};
+test('new bounded explicit smartAuto analyses request cut evidence',()=>{for(const d of[.1,12,24,30])assert.equal(enabled(clip,d),true)});
+test('manual, unknown, genre, nonportrait and fixed-mode ownership do not opt in',()=>{for(const source of['user','genre_recommendation',undefined])assert.equal(enabled({...clip,crop_config:{...clip.crop_config,layout_mode_source:source}},12),false);for(const mode of['manual','fit','fit_blur',undefined])assert.equal(enabled({...clip,crop_config:{...clip.crop_config,mode}},12),false);for(const aspect_ratio of['16:9','1:1',undefined])assert.equal(enabled({...clip,aspect_ratio},12),false)});
+test('invalid/unbounded durations never request work',()=>{for(const d of[0,-1,NaN,Infinity,30.001,180])assert.equal(enabled(clip,d),false)});
