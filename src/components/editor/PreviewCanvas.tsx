@@ -1378,6 +1378,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 return (
                   <CropBoxControl
                     key={`${baseVideoItem.id}-${activePanels.layout}-${i}`}
+                    allowRegionFit
                     inlineTarget={stageViewportRef.current}
                     label={['watch_party','streaming'].includes(activePanels.layout) ? `${i===0?'Facecam (top)':'Stream / Display (bottom)'}${activePanels.slots[i].set ? '' : ' - set view'}` : activePanels.slots[i].set ? `Panel ${i + 1}` : `Panel ${i + 1} (set view)`}
                     videoSrc={cleanSourceUrl || activeVideoSrc || null}
@@ -1386,7 +1387,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     srcH={videoDims.h}
                     canvasAspect={(r.w * cw) / (r.h * ch)}
                     current={activePanels.slots[i]}
-                    notice={activePanels.slots[i].sourceRect ? "This view uses a measured source region. Apply replaces that region with your manual full-source crop." : undefined}
+                    notice={activePanels.slots[i].sourceRect ? "This view uses a chosen source region. Fill replaces it with a full-source crop. Fit lets you keep or resize the region." : undefined}
                     enabled={!videoCropLocked}
                     disabledReason="Unlock this scene or track to change its panel crop."
                     onOpen={() => { setMobileFramingToolsOpen(false); onBeginCrop?.(); }}

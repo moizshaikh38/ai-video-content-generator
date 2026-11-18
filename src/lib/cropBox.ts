@@ -64,3 +64,15 @@ export function resizeBox(srcW: number, srcH: number, canvasAspect: number, anch
 export function moveBox(box: CropBox, dx: number, dy: number): CropBox {
   return { ...box, left: clamp(box.left + dx, 0, 1 - box.w), top: clamp(box.top + dy, 0, 1 - box.h) };
 }
+
+/** Free-aspect source region for a panel's contain mode. Never creates a zero/tiny or outside box. */
+export function resizeRegionBox(anchor: {x:number;y:number}, point: {x:number;y:number}): CropBox {
+  const edge = (a:number,p:number) => {
+    a=clamp(a,0,1); p=clamp(p,0,1);
+    let direction = p < a ? -1 : 1;
+    if ((direction > 0 ? 1-a : a) < .01) direction *= -1;
+    return a + direction*Math.min(Math.max(Math.abs(p-a),.01),direction > 0 ? 1-a : a);
+  };
+  const x=edge(anchor.x,point.x),y=edge(anchor.y,point.y);
+  return {left:Math.min(x,anchor.x),top:Math.min(y,anchor.y),w:Math.abs(x-anchor.x),h:Math.abs(y-anchor.y)};
+}
