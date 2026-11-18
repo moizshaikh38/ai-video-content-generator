@@ -1,3 +1,4 @@
+import {usesAutomaticSourceClock,automaticSourceWindow} from '../shared/automaticSourceClock.js';
 import {resolveMeasuredItemPlan} from './itemShotPlanService.js';
 import {freshEditorCaptionAppearance} from '../shared/freshEditorCaptionAppearance.js';
 import {NEW_CAPTION_PRESET_ID} from '../shared/captionPresets.js';
@@ -1312,7 +1313,10 @@ export class ProEditorService {
     if (reframe?.sourceHasAudio === false) {
       // Keep the normal audio graph/mixing contract for genuinely silent media.
       // This is generated silence, not an invented recording or transcription.
-      inputArgs.push('-f','lavfi','-i','anullsrc=channel_layout=stereo:sample_rate=44100');
+      // It must also reach EOF when a pre-normalized replacement sinks this pad.
+      const silentItems=project.tracks.find(t=>t.type==='VIDEO'&&!t.hidden)?.items||[];
+      const silenceDuration=Math.max(project.canvas.duration||.1,...silentItems.filter(i=>!i.hidden).map(i=>Number(i.source_end)||((Number(i.source_start)||0)+Math.max(0,i.timeline_end-i.timeline_start)*(i.speed?.speed||1))));
+      inputArgs.push('-f','lavfi','-i',`anullsrc=channel_layout=stereo:sample_rate=44100:duration=${silenceDuration.toFixed(6)}`);
       currentInputIdx = 1;
       sourceAudioLabel = '[1:a]';
     }
@@ -1422,7 +1426,7 @@ export class ProEditorService {
           // Keyframes are clip-relative; slices trim straight from the source file, so
           // the slice-local window starts at source_start - clipStart.
           const windowStartClipRel = (item.source_start || 0) - (reframe?.clipStartSec ?? 0);
-          const sliceCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRel, reframe?.track?.metadata?.shot_composition_candidate === true || item.tracker?.enabled ? sourceWindowSec : timelineDur, project.canvas);
+          const sliceCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRel, usesAutomaticSourceClock(item,reframe?.track?.metadata?.shot_composition_candidate === true) || item.tracker?.enabled ? sourceWindowSec : timelineDur, project.canvas);
           const styleFilters = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH, fps);
           const chain = [`trim=start=${startStr}:end=${endStr}`, 'setpts=PTS-STARTPTS'];
           if (sliceCrop) chain.push(sliceCrop);
@@ -1535,8 +1539,9 @@ export class ProEditorService {
       // is already clip-relative and the item keeps its own crop + styling.
       const single = allVideoItems[0];
       const candidateComposition = reframe?.track?.metadata?.shot_composition_candidate === true;
-      const singleSourceStart = candidateComposition ? Math.max(0, (single?.source_start || 0) - (reframe?.clipStartSec ?? 0)) : 0;
-      const singleSourceDuration = (canvasDuration || 10) * (candidateComposition || single?.tracker?.enabled ? Math.min(4, Math.max(.25, single?.speed?.speed || 1)) : 1);
+      const sourceClockComposition = usesAutomaticSourceClock(single,candidateComposition);
+      const singleSourceStart = sourceClockComposition ? Math.max(0, (single?.source_start || 0) - (reframe?.clipStartSec ?? 0)) : 0;
+      const singleSourceDuration = sourceClockComposition && single ? automaticSourceWindow(single,reframe?.clipStartSec||0,canvasDuration||10).sourceDuration : (canvasDuration || 10) * (single?.tracker?.enabled ? Math.min(4, Math.max(.25, single?.speed?.speed || 1)) : 1);
       const singleCrop = single ? ProEditorService.buildSliceCropFilter(single, reframe, singleSourceStart, singleSourceDuration, project.canvas) : null;
       const styleFilters = single ? ProEditorService.buildItemStyleFilters(single, canvasW, canvasH, fps) : [];
       const singleSpeed = single ? Math.min(4, Math.max(0.25, single.speed?.speed || 1.0)) : 1.0;
@@ -1973,16 +1978,16 @@ export class ProEditorService {
       if (mIdx === -1) {
         throw new AppError('Internal error: normalization meter missing from dialogue chain', 500, 'NORMALIZATION_METER_MISSING');
       }
-      const preMarkerFilters = audioFilters.slice(0, mIdx);
+      // Reconstruction for dynamic fallback must retain the same finite bound.
+      const preMarkerFilters = [...audioFilters.slice(0, mIdx), `atrim=end=${Number(project.canvas.duration.toFixed(3))}`];
       const postMarkerFilters = audioFilters.slice(mIdx + 1);
       // Bound the measured program to the render duration: the spliced program
       // can run past canvas.duration (the final render truncates with -t), and
       // metering past the truncation measures material nobody renders.
-      const measureBound = `atrim=end=${Number(project.canvas.duration.toFixed(3))}`;
       measurement = {
         filterComplex: [
           ...audioOnlyChains,
-          `${dialogueInputLabel}${[...preMarkerFilters, measureBound, meterFilter].join(',')}[measure_a]`,
+          `${dialogueInputLabel}${[...preMarkerFilters, meterFilter].join(',')}[measure_a]`,
         ],
         audioMap: '[measure_a]',
         targetI: loudnormTargetI,
