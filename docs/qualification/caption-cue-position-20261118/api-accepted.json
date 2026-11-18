@@ -1,0 +1,14 @@
+{
+  "status": 202,
+  "body": {
+    "status": "ok",
+    "message": "Editor project render queued successfully.",
+    "data": {
+      "job_id": "c5ac82de-0b11-4d6e-a1e7-4127a2272189",
+      "project_id": "8b472bab-0707-4d00-a1a7-be2a74784ec6",
+      "clip_id": "9abe83d4-41d9-4ecc-8ef6-864fc9562d64",
+      "status": "queued",
+      "render_version": 1
+    }
+  }
+}

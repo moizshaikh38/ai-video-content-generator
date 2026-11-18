@@ -1,3 +1,4 @@
+import {applyCuePosition} from '../../lib/cuePosition';
 import{measuredPanelChoicesForManualPick}from'../../../server/src/shared/measuredPanelChoice';
 import {expandSceneLayoutItem,resolveSceneLayoutItem} from '../../../server/src/shared/sceneLayoutOverrides';
 import {resolvePreviewItemPlan,type PreviewMeasuredPlanEnvelope} from '../../../server/src/shared/previewItemAutomaticPlan';
@@ -1939,26 +1940,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 const newFontSize = isObj ? (pos as any).fontSize : undefined;
 
                 if (cueId) {
-                  // Per-cue position override
-                  const updatedCues = (item.caption?.cues || []).map((c) => {
-                    if (c.id === cueId) {
-                      return {
-                        ...c,
-                        ...(isObj && pos.x !== undefined ? { position_x: Number(pos.x.toFixed(3)) } : {}),
-                        ...(isObj && pos.y !== undefined ? { position_y: Number(pos.y.toFixed(3)) } : {}),
-                      };
-                    }
-                    return c;
-                  });
-
+                  // Per-cue position leaves global layout anchoring and other cues alone.
                   const updatedCaption: EditorCaptionItem = {
-                    position_explicit: true,
-                    cues: updatedCues,
-                    style: item.caption?.style || 'clean',
-                    position: item.caption?.position || 'bottom',
-                    ...captionLegacyColorDefaults(item.caption, '#FF6B35'),
-                    ...item.caption,
-                    ...(newFontSize !== undefined ? { font_size: newFontSize } : {}),
+                    ...applyCuePosition(item.caption,cueId,isObj?pos:{}),
+                    ...(newFontSize !== undefined ? {font_size:newFontSize}:{}),
                   };
 
                   onUpdateTrackItem(captionTrack.id, item.id, {

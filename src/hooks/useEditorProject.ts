@@ -1,3 +1,4 @@
+import {cueListsEqual} from '../lib/cuePosition';
 import { editorReframeSourceKey } from '../../server/src/shared/editorReframeSourceKey';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -108,25 +109,6 @@ function deriveCaptionCuesFromProject(project: EditorProject): TimedCaptionCue[]
   }
   aggregated.sort((a, b) => a.start - b.start);
   return aggregated;
-}
-
-// Content equality over the fields the transcript panel and preview render.
-function cueListsEqual(a: TimedCaptionCue[], b: TimedCaptionCue[]): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    const x = a[i];
-    const y = b[i];
-    if (x.id !== y.id || x.start !== y.start || x.end !== y.end || x.text !== y.text) return false;
-    const xw = x.words || [];
-    const yw = y.words || [];
-    if (xw.length !== yw.length) return false;
-    for (let k = 0; k < xw.length; k++) {
-      if (xw[k].start !== yw[k].start || xw[k].end !== yw[k].end || xw[k].text !== yw[k].text) {
-        return false;
-      }
-    }
-  }
-  return true;
 }
 
 export function useEditorProject(clipId: string | undefined): UseEditorProjectReturn {

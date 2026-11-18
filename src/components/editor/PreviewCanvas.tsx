@@ -2340,7 +2340,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
 
             {/* FLOATING SCOPE PILL & QUICK PRESETS MICRO-BAR */}
             {isCaptionSelected && !isDraggingCaption && viewMode === 'edit' && (
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 glass-overlay rounded-xl px-2 py-1 shadow-2xl animate-fadeIn select-none whitespace-nowrap">
+              <div onPointerDown={e=>e.stopPropagation()} className="absolute top-3 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 glass-overlay rounded-xl px-2 py-1 shadow-2xl animate-fadeIn select-none whitespace-nowrap">
                 {/* Scope Toggle */}
                 <div className="flex items-center bg-black/60 rounded-lg p-0.5 ">
                   <button
