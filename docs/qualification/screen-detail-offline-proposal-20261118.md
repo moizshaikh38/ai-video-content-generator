@@ -29,3 +29,18 @@ screen-detail-review.py NEW_OUTPUT SOURCE_MP4 NORMAL_TRACK_JSON [--render]. Requ
 Keep it out of Auto until role ownership, source/context constraints, motion design, false-positive screen/video/animation/scroll negatives and actual UI/queued-export behavior are qualified. Further concerns: text boxes can be incomplete; baseline differences can confuse scrolling or dynamic imagery; narrow region changes may be irrelevant; text input suggestions can be transient; offscreen actions/audio goals remain unknown. Full overview keeps pixels but small text can still be unreadable. Screen-role classification and publish-ready automatic selection remain unfinished.
 
 Source already inspected: https://github.com/narakeet/examples/blob/master/screencast-demo-video/screencast.mp4 . This is a review of an existing qualification source, not a new claim about the source vendor or implementation.
+
+## Broader bounded checks,14:46IST
+
+No threshold changes. Fresh actual analyzer calls with bounded automatic OCR requested produced:
+
+| Source window | Successful OCR samples | Measured text regions | Detail episodes |
+| --- | ---: | ---: | ---: |
+| Same screencast, later30-38s |15|156|0|
+| Existing podium8s source |12|0|0|
+| Existing edited speech/title-card, first8s of private derivative |16|17|0|
+| Controlled vertical translation of later-screen pixels,180px over8s |15|130|0|
+
+Source/overlay boards inspected. No observed detail false-positive on these inputs, but not a role-classifier score or independent accuracy estimate. The controlled vertical translation is synthetic stress, not natural scrolling. Zero episodes in scrolling and the later screen also means no useful detail behavior there, so this does not qualify recall/readability. Full source overview fallback remains necessary. Podcast pair/radio negatives do not exhaust non-screen dynamic text, animation, game HUD, cursor noise, picture-in-picture, rapid transitions or unrelated popup cases.
+
+Artifacts vireo-screen-proposal-holdout-1546 and vireo-screen-scroll-stress-1547. Reproduction scripts screen-detail-source-negatives.py NEW_OUTPUT and screen-detail-scroll-stress.py NEW_OUTPUT invoke the existing actual analyzer with local paths/models/CVenvironment and no providers; the stress script expects the preserved later-screen derivative under the first artifact directory. Both are qualification-only with local preconditions, not portable product tests. Source hash checked before the proposal consumer. Current source derivative files are bounded8s, not full4K. Added media/data about4MB in this check; free241MB, no install. No product/default/UI/queued-render integration or screen Auto acceptance.
