@@ -45,3 +45,15 @@ test('synthetic faced multi-person montage cannot gain body portrait or split fr
  const t:any=moving();t.metadata.scene_cuts=[3,6];t.raw_samples.forEach((s:any)=>{s.faces=[face('game-a',.25),face('game-b',.75)];s.persons=[]});
  const p=S.explicitAutoLayoutPlan(t,auto,10)!;assert.ok(p.every(s=>s.kind==='fit'&&!s.split));
 });
+
+test('ordinary body proposal cannot discard independently repeated side objects',()=>{
+ const side={class_id:8,x:.02,y:.55,width:.18,height:.2,confidence:.9};
+ const t:any=moving();t.raw_samples.forEach((s:any)=>s.objects=[side]);
+ assert.equal(S.explicitAutoLayoutPlan(t,auto,10),undefined);
+ t.metadata.scene_cuts=[5];t.raw_samples.slice(20).forEach((s:any)=>s.objects=[]);
+ const p=S.explicitAutoLayoutPlan(t,auto,10)!;assert.equal(p[0].kind,'fit');assert.equal(p[1].kind,'solo');
+ const inside:any=moving();inside.raw_samples.forEach((s:any)=>s.objects=[{...side,x:.34,width:.08}]);
+ assert.equal(S.explicitAutoLayoutPlan(inside,auto,10)?.[0].kind,'solo');
+ // A one-frame object observation is not a persistent constraint or absence proof.
+ const sparse:any=moving();sparse.raw_samples[0].objects=[side];assert.equal(S.explicitAutoLayoutPlan(sparse,auto,10)?.[0].kind,'solo');
+});

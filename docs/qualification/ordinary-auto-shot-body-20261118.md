@@ -13,3 +13,11 @@ A proposal still needs complete sampled single-body detections, no faces, enough
 -46 focused tests and current frontend/backend typechecks. Safe suite421 passed,0 failed,1 skipped. Not the entire repository suite.
 
 No paid provider call, transcript repair, automatic genre selection, default HUD change, production release or full4K attempt. The original missing-detection negative is retained, not tuned away.
+
+## Measured-object follow-up
+
+Body reuse now includes the same independently repeated non-person object regions as the broader planner, with each region scoped to its own scene. Explicit protected regions still apply. A repeated side object can veto portrait; it is not classified as the story's subject. An observed object inside the portrait does not veto it, and an isolated one-frame detection is not misrepresented as persistent or absent. New bridge regressions test both no-cut and shot-local behavior.
+
+Current47 focused tests pass, front/backend typechecks pass, safe421pass/0fail/1skip. The separate objectContext suite has3pass/1fail: the earlier test expects4:3 but current presentation protection returns a more conservative view. Reproduced on unchanged backed-up281e6f0, not introduced by this bridge. Its expected result was not weakened or cleared. All focused tests including that suite:50pass/1fail.
+
+Additional real-output check: constructed960x540 walking12s + two-person12s. Fresh ordinary Auto UI Whole clip, save/reload, normal queued jobs and signed download. Actual24s inspected: full-height walker followed by measured pair stacked split. Silent, captions off, manual source interval, local adapters. Pair views have unequal side bars and shoulder crops; no hand/action safety or calm shared-view acceptance claimed. Product delivered from2f53443, before object-constraint tightening; rechecked saved source tracks after tightening preserve same plans because no persistent object evidence is supplied there.

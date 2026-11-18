@@ -1457,6 +1457,12 @@ export class SmartReframeService {
        (cropConfig.layoutPolicy&&!cropConfig.layoutPolicy.allowed.some((x:string)=>x==='split'||x==='fill'))||
        ['screen_content','action_context','scene_context'].includes(track.metadata?.content_framing_decision?.policy)||
        track.metadata?.content_framing_decision?.evidence?.possibleEmbeddedCamera===true)return undefined;
+    // Reuse independently repeated non-person constraints as well as explicit
+    // regions. A body anchor cannot erase measured side objects from the plan.
+    const bodyRegions=(samples:ReframeSample[],start:number,end:number)=>[
+      ...(track.metadata.protected_content_regions||[]),
+      ...persistentObjectRegions(samples).map(r=>({...r,start,end}))
+    ];
     const plan=this.computeShotComposition({rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,duration,
       sourceWidth:track.source_width,sourceHeight:track.source_height,windowScope:'shot',allowConversationSplit:true,
       protectedContentRegions:track.metadata.protected_content_regions,splitHandSafetyReview:true});
@@ -1470,7 +1476,7 @@ export class SmartReframeService {
         // A body in an earlier scene is never an anchor for a later scene.
         const local=track.raw_samples.filter((sample:any)=>sample.time>=s.start&&sample.time<s.end);
         const body=(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('fill'))&&local.length&&local.every((sample:any)=>sample.faces?.length===0)
-          ? movingBodyPortraitProposal(local,s.start,s.end,track.source_width,track.source_height,track.metadata.protected_content_regions||[]) : null;
+          ? movingBodyPortraitProposal(local,s.start,s.end,track.source_width,track.source_height,bodyRegions(local,s.start,s.end)) : null;
         if(body)return body;
         return {
           start:s.start,end:s.end,kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:s.start,centerX:.5,centerY:.5}],
@@ -1484,7 +1490,7 @@ export class SmartReframeService {
     // no scene cuts and the existing protected-region constraints. No zoom.
     if((!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('fill'))&&
        !(track.metadata.scene_cuts||[]).length&&track.raw_samples.every((s:any)=>s.faces?.length===0)){
-      const body=movingBodyPortraitProposal(track.raw_samples,0,duration,track.source_width,track.source_height,track.metadata.protected_content_regions||[]);
+      const body=movingBodyPortraitProposal(track.raw_samples,0,duration,track.source_width,track.source_height,bodyRegions(track.raw_samples,0,duration));
       if(body)return [body];
     }
     return undefined;
