@@ -11,3 +11,9 @@ Pixels: three distinct people, but large bars, camera-background fragments and s
 Exact-aspect constraint on the third panel cannot fit the full 14-second face-motion union in the isolated envelope. There is also a tiny floating-point equality at another panel, but fixing that alone does not solve Three. No claim of general camera-boundary detection, full-body preservation, active-speaker binding or production qualification.
 
 No external fetch retries, new weights or paid calls.
+
+## Stable six-second interval does not override shared protection
+
+Offline scout found a6–12second subwindow of the existing14second composite with distinct full-face aspect proposals. A newly encoded6second source was freshly analyzed by the actual CV/controller. The low-level assignment can propose Three, but the actual shared planner preserves full-source Fit because of measured-subject conflict. The actual manual Three export consequently remains blocked as unassigned. Protection was retained, no product pass. This illustrates why the standalone assignment result is not actual product qualification.
+
+A new candidate page was inspected: https://commons.wikimedia.org/wiki/File:Apollo_11_Crew_Prelaunch_Press_Conference.webm . Page identifies NASA three-person prelaunch footage and public-domain/insignia notices. A single Commons media API request returned403; no media obtained and no retry. New source remains untested.

@@ -72,7 +72,8 @@ export function applyItemLayout(
           if ((PANEL_LAYOUTS as string[]).includes(layout)) {
             const prev = (i as any).panels?.layout === layout ? (i as any).panels : undefined;
             const measured=measuredPanelChoice(measuredChoices,layout,i.source_start,i.source_end,i.id);
-            const seeded = prev?.slots ?? measured?.slots ?? seedPanelsFromSubject(layout as PanelLayout, undefined, subjectCenterInWindow(subjectKeyframes, i.source_start || 0, i.source_end ?? ((i.source_start || 0) + (i.timeline_end - i.timeline_start))),sourceSize,project.canvas.width&&project.canvas.height?project.canvas.width/project.canvas.height:project.canvas.aspect_ratio==='16:9'?16/9:project.canvas.aspect_ratio==='1:1'?1:9/16);
+            const priorChoice=prev?.slots?.some((s:any)=>s.set===true||s.sourceRect)?prev.slots:undefined;
+            const seeded = priorChoice ?? measured?.slots ?? prev?.slots ?? seedPanelsFromSubject(layout as PanelLayout, undefined, subjectCenterInWindow(subjectKeyframes, i.source_start || 0, i.source_end ?? ((i.source_start || 0) + (i.timeline_end - i.timeline_start))),sourceSize,project.canvas.width&&project.canvas.height?project.canvas.width/project.canvas.height:project.canvas.aspect_ratio==='16:9'?16/9:project.canvas.aspect_ratio==='1:1'?1:9/16);
             base.panels = normalizePanels({ layout: layout as PanelLayout, slots: seeded });
             delete base.crop;
             return base as EditorTrackItem;

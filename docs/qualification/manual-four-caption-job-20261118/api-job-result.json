@@ -1,0 +1,102 @@
+{
+  "job": {
+    "_id": "6afda295a83bf6c82e6473c4",
+    "clip_id": "442bc34d-e3ca-40e0-a423-6527c123bd3f",
+    "user_id": "05b2d262-c856-4722-b996-0b085601ba9a",
+    "status": "completed",
+    "progress": 100,
+    "stage": "completed",
+    "attempts": 2,
+    "id": "38893f3c-edb9-44af-b03c-cd17ca2cf7ff",
+    "created_at": "2026-11-18T13:05:25.716Z",
+    "updated_at": "2026-11-18T13:05:29.072Z",
+    "locked_at": "2026-11-18T13:05:25.723Z",
+    "started_at": "2026-11-18T13:05:25.746Z",
+    "worker_id": "worker_350221_d926ce73",
+    "completed_at": "2026-11-18T13:05:29.072Z"
+  },
+  "clip": {
+    "_id": "6afda281a83bf6c82e6473c1",
+    "id": "442bc34d-e3ca-40e0-a423-6527c123bd3f",
+    "user_id": "05b2d262-c856-4722-b996-0b085601ba9a",
+    "project_id": "50f77d13-13e5-4cd0-b382-666aa55cb7e5",
+    "source_storage_path": "fixtures/50f77d13-13e5-4cd0-b382-666aa55cb7e5/source.mp4",
+    "start_seconds": 0,
+    "end_seconds": 14.014,
+    "aspect_ratio": "9:16",
+    "caption_enabled": true,
+    "caption_style": "vireo_comic_default",
+    "render_resolution": "720p",
+    "volume": 1,
+    "crop_config": {
+      "mode": "smart",
+      "layout_mode": "track",
+      "layout_mode_source": "auto",
+      "layoutPolicy": null
+    },
+    "selection_source_receipt": {
+      "version": 1,
+      "source_key": "fixtures/50f77d13-13e5-4cd0-b382-666aa55cb7e5/source.mp4",
+      "source_receipt": {
+        "key": "fixtures/50f77d13-13e5-4cd0-b382-666aa55cb7e5/source.mp4",
+        "size": 1481987,
+        "etag": "\"4f6d3cc0cbf2f3ba9407555381d4e951421fe1c99cbb84e814a30105b9184304\"",
+        "sha256": "4f6d3cc0cbf2f3ba9407555381d4e951421fe1c99cbb84e814a30105b9184304"
+      },
+      "transcript_content_sha256": "53aafcdf5650cc2b67eb67e2868161031d3faaa0ee144db3b461ee9398d197bf"
+    },
+    "render_error_message": null,
+    "render_status": "ready",
+    "render_version": 1,
+    "updated_at": "2026-11-18T13:05:29.070Z",
+    "encoded_audio_review": {
+      "version": 1,
+      "basis": "encoded-output-ebur128",
+      "status": "measured",
+      "integrated_lufs": -15.8,
+      "true_peak_dbtp": -2.1,
+      "loudness_range_lu": 2.9,
+      "issues": [],
+      "listening_verified": false
+    },
+    "is_watermarked": false,
+    "output_object_key": "users/05b2d262-c856-4722-b996-0b085601ba9a/projects/50f77d13-13e5-4cd0-b382-666aa55cb7e5/clips/442bc34d-e3ca-40e0-a423-6527c123bd3f/v1/render.mp4",
+    "output_storage_path": "users/05b2d262-c856-4722-b996-0b085601ba9a/projects/50f77d13-13e5-4cd0-b382-666aa55cb7e5/clips/442bc34d-e3ca-40e0-a423-6527c123bd3f/v1/render.mp4",
+    "reframe_metadata": {
+      "layout_mode": "track",
+      "shot_composition_candidate": true,
+      "automatic_plan_identity": {
+        "schemaVersion": 1,
+        "itemId": "442bc34d-e3ca-40e0-a423-6527c123bd3f",
+        "sourceAssetId": "442bc34d-e3ca-40e0-a423-6527c123bd3f",
+        "sourceVersion": "4f6d3cc0cbf2f3ba9407555381d4e951421fe1c99cbb84e814a30105b9184304",
+        "analysisVersion": 1,
+        "sourceStart": 0,
+        "sourceEnd": 14.014,
+        "analysisSourceStart": 0,
+        "analysisSourceEnd": 14.014,
+        "analysisDuration": 14.014,
+        "sourceWidth": 426,
+        "sourceHeight": 240,
+        "outputAspect": "9:16",
+        "configurationFingerprint": "144f41e9a57b6fecefe2b8d7ab0dd5951ee1f08e66d4c2f740fc9d60b68dcba4"
+      }
+    },
+    "reframe_mode": "smart",
+    "render_error_code": null,
+    "render_output_height": 1280,
+    "render_output_width": 720,
+    "render_resolution_effective": "720p",
+    "render_resolution_note": "Source is 426x240. This 720p (720x1280) export is interpolated about 5.33x from the source crop, so it has the requested size but not native detail.",
+    "render_resolution_requested": "720p",
+    "render_source_height": 240,
+    "render_source_width": 426,
+    "render_upscale_factor": 5.333,
+    "poster_key": "users/05b2d262-c856-4722-b996-0b085601ba9a/projects/50f77d13-13e5-4cd0-b382-666aa55cb7e5/clips/442bc34d-e3ca-40e0-a423-6527c123bd3f/poster/render-v1.jpg"
+  },
+  "actualHttpRoute": true,
+  "authFixture": true,
+  "localObjectStorage": true,
+  "captions": true,
+  "notUploadOrGenreAutoProof": true
+}
