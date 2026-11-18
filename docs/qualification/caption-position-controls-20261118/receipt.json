@@ -1,0 +1,33 @@
+{
+  "dragged": {
+    "caption": {
+      "position": "top",
+      "position_x": 0.555,
+      "position_y": 0.338,
+      "position_explicit": true
+    },
+    "transform": {
+      "position_x": 105.6,
+      "position_y": 365,
+      "scale": 1,
+      "rotation": 0,
+      "opacity": 1
+    }
+  },
+  "afterBottomSaveGet": {
+    "caption": {
+      "position": "bottom",
+      "position_x": null,
+      "position_y": null,
+      "position_explicit": true
+    },
+    "transform": {
+      "scale": 1,
+      "rotation": 0,
+      "opacity": 1
+    }
+  },
+  "jobStatus": "completed",
+  "clipStatus": "ready",
+  "paidCalls": 0
+}

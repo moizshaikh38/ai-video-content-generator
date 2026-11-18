@@ -1,3 +1,4 @@
+import {applyCaptionPositionPreset} from '../../lib/captionPositionPreset';
 import { captionLegacyColorDefaults } from '../../lib/captionPresets';
 import React, { useRef, useState } from 'react';
 import { UpdateProjectOptions } from '../../hooks/useEditorProject';
@@ -1339,7 +1340,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                           type="button"
                           role="radio"
                           aria-checked={active}
-                          onClick={() => handleUpdateCaptionProperties({ position: pos })}
+                          onClick={() => onUpdateProject(prev=>({...prev,tracks:prev.tracks.map(t=>t.type!=='CAPTION'?t:{...t,items:t.items.map(i=>applyCaptionPositionPreset(i,pos))})}))}
                           className={`py-1.5 rounded-lg border text-xs capitalize transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
                             active
                               ? 'bg-white/[0.12] border-white/40 text-vc-text-primary font-semibold'
