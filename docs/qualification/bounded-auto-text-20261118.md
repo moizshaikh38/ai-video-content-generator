@@ -26,3 +26,13 @@ Source artifacts: vireo-auto-text-screen-ui-1446, vireo-auto-text-screen-job-144
 ## Open limitations
 
 Large/high-resolution/long sources are skipped, not silently downscaled into a false qualification. Multi-host global concurrency is not controlled by a per-host lock. A busy/failing OCR path preserves available constraints but may leave the legacy crop without new text measurements; unknown coverage is not a safe-crop guarantee. Production runtime installation and memory/CPU headroom remain to verify before release. Source-time sampling can miss short overlays. OCR does not identify meaningful action, speaker, screen-camera roles or legibility. Stronger screen detection/target choice, sports, audio-to-visible-person association, Auto Genre and no-edit clip selection acceptance remain open. Manual edits stay authoritative.
+
+## Additional actual-analyzer checks (13:51-13:53 IST)
+
+Existing walking12s and studio12s source files:23/17 successful automatic OCR samples,0protected text regions. Compared separate fresh OFF analyses after normal JSON serialization: face samples and protected-region arrays are identical; only detector/coverage fields differ. These are analyzer invariance checks, not new output-pixel or entire-product claims. About15.5s/12.8s total analysis,7.0s/4.2s OCR on this host.
+
+Radio/title-card8.008s: actual normal analyzer plus actual EditorShell Auto and direct export. About7.7s analysis,12OCR samples17regions. Inspected source box overlay, UI and output MP4 sampled frames. Title card and lower-third are retained by full-width Fit, but small within portrait canvas. At6s boxes find name and second line but miss part of the third line. Full source containment in this fixture is not complete OCR detection or a general readable crop guarantee.
+
+Actual analyzer with source video plus held host lock:skipped-busy,0samples,8s unsampled gap; simulated missing executable lookup:unavailable; OFF environment:disabled. All keep coverage not-sampled/absence unknown and complete face analysis. These are controlled injected missing/busy cases, not production-host observations. Timeout/partial-failure remain unit checks.
+
+Reproduction scripts auto-text-runtime-audit.py and auto-text-off-equivalence.py are local fixture harnesses; source paths and existing CV model/runtime dependencies must be present. No recognition-provider call or transcript/selection acceptance.
