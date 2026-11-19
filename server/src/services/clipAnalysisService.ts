@@ -544,15 +544,21 @@ export class ClipAnalysisService {
     ]);
 
     const candidates: AIClipCandidate[] = [];
+    // Segment labels identify supplied source rows. Missing values, booleans,
+    // arrays and other coercible JSON values are not proposed segment IDs.
+    const parseSegmentIndex = (value: unknown): number | null => {
+      if (typeof value !== 'number' && !(typeof value === 'string' && /^\d+$/.test(value.trim()))) return null;
+      const index = Number(value);
+      return Number.isSafeInteger(index) && index >= 0 ? index : null;
+    };
 
     for (const item of clipsArray) {
       if (typeof item !== 'object' || item === null) continue;
 
-      const startIndex = Number(item.start_segment_index);
-      const endIndex = Number(item.end_segment_index);
+      const startIndex = parseSegmentIndex(item.start_segment_index);
+      const endIndex = parseSegmentIndex(item.end_segment_index);
 
-      if (!Number.isInteger(startIndex) || !Number.isInteger(endIndex)) continue;
-      if (startIndex < 0 || endIndex < startIndex) continue;
+      if (startIndex === null || endIndex === null || endIndex < startIndex) continue;
 
       const title = typeof item.title === 'string' ? item.title.trim() : '';
       const hook = typeof item.hook === 'string' ? item.hook.trim() : '';
@@ -565,10 +571,7 @@ export class ClipAnalysisService {
         ? (rawCat as ClipCandidateCategory)
         : 'general';
 
-      const rawColdOpen = item.cold_open_segment_index !== undefined && item.cold_open_segment_index !== null
-        ? Number(item.cold_open_segment_index)
-        : null;
-      const cold_open_segment_index = Number.isInteger(rawColdOpen) && (rawColdOpen as number) >= 0 ? rawColdOpen : null;
+      const cold_open_segment_index = parseSegmentIndex(item.cold_open_segment_index);
 
       const parseSubscore = (v: unknown): number | undefined => {
         const n = typeof v === 'string' ? Number(v) : v;
