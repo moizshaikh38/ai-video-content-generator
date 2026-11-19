@@ -1095,6 +1095,13 @@ export class ClipAnalysisService {
 
         const finalSpeechScope = compareFinalSpeechScope({words:rawWords,
           originalStart:raw_start,originalEnd:raw_end,finalStart:start_seconds,finalEnd:end_seconds});
+        // Question inclusion is the last interval mutation and happens after
+        // optimizer validation. Recheck the final word scope, not only the
+        // earlier shot-aligned interval, before admitting the candidate.
+        if (finalSpeechScope.finalWordBoundarySafe === false) {
+          logger.info(`Rejected candidate after final interval adjustment: a spoken word crosses the final boundary.`);
+          continue;
+        }
         // Provider narrative scores describe the original proposal. Once spoken
         // content changes, they cannot rank the altered clip without re-review.
         const narrativeRankingInvalidated = finalSpeechScope.status === 'changed';
