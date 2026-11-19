@@ -32,3 +32,14 @@ export function compareFinalSpeechScope(input: {
     finalEndingPunctuation: Boolean(safe && last && /[.!?।॥]+[\"'”’)]*$/.test(last.text)),
   };
 }
+
+/** Exact final spoken text for internal comparison, never generated labels or
+ * broad overlapping segments. Unknown/partial word evidence cannot suppress
+ * another candidate as a semantic duplicate. Text is not rewritten. */
+export function finalSpokenText(words:Array<{start:number;end:number;word?:string;text?:string}>,start:number,end:number):string {
+ if(![start,end].every(Number.isFinite)||start<0||end<=start)return '';
+ const ms=(v:number)=>Number(v.toFixed(3));start=ms(start);end=ms(end);
+ const selected=words.flatMap((w,index)=>w&&Number.isFinite(w.start)&&Number.isFinite(w.end)&&w.start>=0&&w.end>w.start&&typeof(w.word??w.text)==='string'&&String(w.word??w.text).trim()?[{start:ms(w.start),end:ms(w.end),text:String(w.word??w.text).trim(),index}]:[]).filter(w=>w.end>w.start&&w.start<end&&w.end>start);
+ if(selected.some(w=>w.start<start||w.end>end))return '';
+ return selected.sort((a,b)=>a.start-b.start||a.index-b.index).map(w=>w.text).join(' ');
+}

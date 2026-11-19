@@ -1,4 +1,4 @@
-import { compareFinalSpeechScope } from '../shared/finalSpeechScope.js';
+import { compareFinalSpeechScope, finalSpokenText } from '../shared/finalSpeechScope.js';
 import {measuredGenreSignals} from '../shared/measuredGenreSignals.js';
 import {shortSourceReviewContext} from '../shared/candidateReviewNotice.js';
 import {gamingGenreFromVisualReview} from '../shared/automaticGamingPanels.js';
@@ -973,6 +973,7 @@ export class ClipAnalysisService {
         engagement_score: number;
         cold_open?: ColdOpenConfig | null;
         metadata: Record<string, any>;
+        candidateText: string;
       }> = [];
 
       for (const ai of aiCandidates) {
@@ -1132,6 +1133,7 @@ export class ClipAnalysisService {
           start_seconds,
           end_seconds,
           duration_seconds,
+          candidateText: finalSpokenText(rawWords,start_seconds,end_seconds),
           title: ai.title,
           hook: ai.hook,
           reason: ai.reason,
@@ -1185,7 +1187,7 @@ export class ClipAnalysisService {
         0.25
       );
       const deduped = deduplicateSemantically(
-        overlapDeduped.map((c) => ({ ...c, text: (c as any).candidateText || `${c.title} ${c.hook} ${c.reason}`, score: c.engagement_score })),
+        overlapDeduped.map((c) => ({ ...c, text: c.candidateText, score: c.engagement_score })),
         { threshold: 0.68, mode: 'token' }
       ).map((c) => {
         const { text: _t, score: _s, ...rest } = c as any;
