@@ -176,6 +176,10 @@ export function mergeChunkTranscripts(
     language,
     durationSeconds: round3(Math.max(totalSec, lastEnd)),
     provenance: ordered[0]?.result.provenance,
+    ...(ordered.length && ordered.every(p=>p.result.usage) ? {usage:{
+      costUsd:ordered.reduce((sum,p)=>sum+p.result.usage!.costUsd,0),
+      ...(ordered.every(p=>p.result.usage?.audioSeconds!==undefined) ? {audioSeconds:ordered.reduce((sum,p)=>sum+p.result.usage!.audioSeconds!,0)} : {}),
+    }} : {}),
     timingIssues: ordered.flatMap(({plan,result}) => (result.timingIssues || []).map(issue => ({...issue,sourceOffset:plan.startSec}))),
     segments,
     words,
@@ -284,7 +288,7 @@ export async function transcribeAudioFast(
     }
     return merged;
   } catch (err) {
-    if (!fitsOneRequest || (err as any)?.code === 'TRANSCRIPTION_SEAM_REVIEW_REQUIRED') throw err;
+    if (provider.allowWholeFileFallback === false || !fitsOneRequest || ['TRANSCRIPTION_SEAM_REVIEW_REQUIRED','PARAKEET_WORD_TIMING_REQUIRED','MAI_WORD_TIMING_REQUIRED','PARAKEET_LANGUAGE_REVIEW_REQUIRED','TRANSCRIPTION_POLICY_REVIEW_REQUIRED','TRANSCRIPTION_ENTITLEMENT_REVIEW_REQUIRED'].includes((err as any)?.code)) throw err;
     const msg = err instanceof Error ? err.message : String(err);
     logger.warn(`[Transcription] Parallel windows failed (${msg}); retrying as a single request.`);
     return provider.transcribeAudio(audio.audioBuffer, fileName, 'audio/mp3', options);

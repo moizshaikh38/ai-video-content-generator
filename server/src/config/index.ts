@@ -65,6 +65,8 @@ export const config = {
   gameEventsAuto: process.env.GAME_EVENTS_AUTO === 'on',
   openrouterApiKey: process.env.OPENROUTER_API_KEY || '',
   openrouterTextModel: process.env.OPENROUTER_TEXT_MODEL || 'openai/gpt-4o-mini',
+  // Release gate: code-only tier policy. Remains off until quality/rollout approval.
+  tieredTranscriptionEnabled: process.env.VIREO_TIERED_TRANSCRIPTION === '1',
   transcriptionModel: process.env.TRANSCRIPTION_MODEL || 'openai/whisper-large-v3-turbo',
   groqApiKey: process.env.GROQ_API_KEY || '',
   transcriptionProvider: process.env.TRANSCRIPTION_PROVIDER || 'groq',

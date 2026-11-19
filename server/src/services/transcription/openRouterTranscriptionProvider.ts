@@ -14,7 +14,8 @@ const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // 25 MB OpenRouter limit
 const OPENROUTER_TRANSCRIPTION_URL = 'https://openrouter.ai/api/v1/audio/transcriptions';
 const OPENROUTER_MODEL = 'openai/whisper-large-v3-turbo';
 export const PARAKEET_MODEL = 'nvidia/parakeet-tdt-0.6b-v3';
-const MODELS = [OPENROUTER_MODEL,'openai/whisper-large-v3','elevenlabs/scribe-v2',PARAKEET_MODEL];
+export const MAI_MODEL = 'microsoft/mai-transcribe-2';
+const MODELS = [OPENROUTER_MODEL,'openai/whisper-large-v3','elevenlabs/scribe-v2',PARAKEET_MODEL,MAI_MODEL];
 
 export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
   readonly name = 'openrouter';
@@ -67,7 +68,7 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
     formData.append('timestamp_granularities[]', 'segment');
     formData.append('temperature', '0');
     if (options?.diarize) {
-      if (this.model !== 'elevenlabs/scribe-v2') throw new Error('Diarization is not supported by this adapter model.');
+      if (!['elevenlabs/scribe-v2',MAI_MODEL].includes(this.model)) throw new Error('Diarization is not supported by this adapter model.');
       formData.append('diarize', 'true');
     }
     if (options?.prompt) {
@@ -86,13 +87,14 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
     // Use the exact JSON STT contract qualified for Parakeet. Existing
     // multipart Whisper/Scribe paths remain unchanged.
     let requestBody: BodyInit = formData;
-    if (this.model === PARAKEET_MODEL) {
+    if ([PARAKEET_MODEL,MAI_MODEL].includes(this.model)) {
       const formats: Record<string,string> = {'audio/wav':'wav','audio/x-wav':'wav','audio/mp3':'mp3','audio/mpeg':'mp3','audio/flac':'flac','audio/ogg':'ogg','audio/webm':'webm','audio/mp4':'m4a','audio/aac':'aac'};
       const format = formats[mimeType];
       if (!format) throw new Error('Unsupported audio format for Parakeet. No audio was sent.');
       headers['Content-Type'] = 'application/json';
       requestBody = JSON.stringify({model:this.model,input_audio:{data:audioBuffer.toString('base64'),format},
-        response_format:'verbose_json',timestamp_granularities:['word','segment'],language:'en',
+        response_format:'verbose_json',timestamp_granularities:['word','segment'],
+        ...(this.model === PARAKEET_MODEL ? {language:'en'} : {provider:{options:{azure:{enhancedMode:{modelOptions:{transcribeStyle:'verbatim'}},...(options?.diarize ? {diarization:{enabled:true}} : {})}}}}),
         ...(options?.prompt ? {prompt:options.prompt} : {})});
     }
 
@@ -159,8 +161,8 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
 
     const {segments,words,timingIssues} = normalizeProviderTiming(result);
 
-    if (this.model === PARAKEET_MODEL && (!words.length || timingIssues.some(issue => issue.kind === 'word'))) {
-      throw Object.assign(new Error('Parakeet did not return usable provider word timestamps. No caption timings were invented; review or explicitly choose another model.'),{code:'PARAKEET_WORD_TIMING_REQUIRED'});
+    if ([PARAKEET_MODEL,MAI_MODEL].includes(this.model) && (!words.length || timingIssues.some(issue => issue.kind === 'word'))) {
+      throw Object.assign(new Error('Selected ASR model did not return usable provider word timestamps. No caption timings were invented; review or explicitly choose another model.'),{code:this.model === PARAKEET_MODEL ? 'PARAKEET_WORD_TIMING_REQUIRED' : 'MAI_WORD_TIMING_REQUIRED'});
     }
 
     const durationSeconds = typeof result?.duration === 'number' ? result.duration : null;
@@ -175,7 +177,7 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
       text,
       language,
       durationSeconds,
-      provenance: {provider:'openrouter',model:this.model,requested_language:options?.language},
+      provenance: {provider:'openrouter',model:this.model,requested_language:this.model === MAI_MODEL ? undefined : options?.language,...(this.model === MAI_MODEL && options?.language ? {source_language_preference:options.language} : {})},
       segments,
       words,
       timingIssues,

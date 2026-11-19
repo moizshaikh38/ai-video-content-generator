@@ -6,7 +6,7 @@ import type {TranscriptionProvider} from './transcriptionProvider.js';
 export function observeTranscriptionInputs(delegate:TranscriptionProvider){
   const requests:TranscriptionInputReceipt[]=[];
   const pending:Promise<unknown>[]=[];
-  const provider:TranscriptionProvider={name:delegate.name,transcribeAudio(...args){
+  const provider:TranscriptionProvider={name:delegate.name,allowWholeFileFallback:delegate.allowWholeFileFallback,transcribeAudio(...args){
     const receipt:TranscriptionInputReceipt={sha256:audioInputSha256(args[0]),bytes:args[0].length,status:'submitted'};
     requests.push(receipt);
     const run=(async()=>{try{const result=await delegate.transcribeAudio(...args);receipt.status='completed';return result;}catch(error){receipt.status='failed';throw error;}})();

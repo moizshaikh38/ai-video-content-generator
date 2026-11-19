@@ -14,6 +14,7 @@ import fs from 'node:fs/promises';
 import { headObject } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
 import { extractAudioFromVideo } from './audioExtractionService.js';
+import {createTierTranscriptionProvider,freezeTierSelection} from './transcription/tierTranscriptionPolicy.js';
 import { getTranscriptionProviderWithFailover } from './transcription/failoverTranscriptionProvider.js';
 import { transcribeAudioFast } from './transcription/chunkedTranscription.js';
 import { TranscriptRecord, CreditReservationRecord } from '../types/index.js';
@@ -202,7 +203,9 @@ async function executeProjectVideo(
       const reservation=await db.collection<CreditReservationRecord>('credit_reservations').findOne({attempt_id:processingAttemptId,user_id:userId});
       if(reservation?.metadata?.isReusedTranscript)throw new AppError('The transcript selected for reuse is no longer available. No new transcription was started.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
     }
-    const delegate = process.env.VIREO_AUTOMATIC_GAMING_REVIEW==='1'
+    const tierSelection = config.tieredTranscriptionEnabled
+      ? await freezeTierSelection(db,userId,processingAttemptId,async()=>(await EntitlementService.resolveUserEntitlements(userId)).planId) : undefined;
+    const delegate = tierSelection ? createTierTranscriptionProvider(tierSelection) : process.env.VIREO_AUTOMATIC_GAMING_REVIEW==='1'
       ? new (await import('./transcription/openRouterTranscriptionProvider.js')).OpenRouterTranscriptionProvider('elevenlabs/scribe-v2')
       : getTranscriptionProviderWithFailover();
     const inputs=observeTranscriptionInputs(delegate);
@@ -318,6 +321,7 @@ async function executeProjectVideo(
       user_id: userId,
       quality_assessment: assessTranscriptQuality(transcription),
       transcription_provenance: transcription.provenance,
+      transcription_usage: transcription.usage,
       transcription_timing_issues: transcription.timingIssues,
       transcript_text: transcription.text,
       text: transcription.text,

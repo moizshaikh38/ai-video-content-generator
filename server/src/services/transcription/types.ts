@@ -24,7 +24,7 @@ export interface NormalizedTranscriptionResult {
   /** Actual provider-reported billing only; absent is unknown, not free. */
   usage?: {costUsd: number; audioSeconds?: number};
   timingIssues?: Array<{kind: 'word' | 'segment'; index: number; reason: 'invalid-or-missing-provider-clock' | 'unordered-or-overlapping-provider-clock'; sourceOffset?: number}>;
-  provenance?: {provider: string; model: string; requested_language?: string};
+  provenance?: {provider: string; model: string; requested_language?: string; source_language_preference?: string; routing_policy?: string; plan_at_selection?: string};
   segments: NormalizedTranscriptSegment[];
   words: NormalizedTranscriptWord[];
 }
