@@ -1,3 +1,4 @@
+import {newTranscriptSelectionFields} from './transcription/selectionSegments.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import {observeTranscriptionInputs} from './transcription/transcriptionInputObserver.js';
 import {assertTranscriptReusable} from './transcriptSourceBindingService.js';
@@ -327,7 +328,9 @@ async function executeProjectVideo(
       text: transcription.text,
       language: transcription.language,
       duration_seconds: effectiveDuration,
-      segments: transcription.segments,
+      // Only newly generated transcripts reach here. Loaded/reused rows return
+      // above unchanged, so existing candidate segment-index keys stay stable.
+      ...newTranscriptSelectionFields(transcription.segments, transcription.words),
       // Diagnostic: how far the source container's audio stream starts from its video stream.
       // Recorded (not applied) so caption-drift reports can be correlated with the source;
       // see AvStartTimes in audioExtractionService for why no correction is subtracted.
@@ -344,7 +347,8 @@ async function executeProjectVideo(
     logger.info(`Storing transcript for project ${projectId} into 'transcripts' table...`, {
       projectId,
       charCount: transcription.text.length,
-      segmentCount: transcription.segments?.length || 0,
+      segmentCount: transcriptPayload.segments?.length || 0,
+      providerSegmentCount: transcription.segments?.length || 0,
       wordCount: transcription.words?.length || 0,
     });
 

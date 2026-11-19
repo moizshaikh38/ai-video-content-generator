@@ -161,6 +161,9 @@ export interface TranscriptRecord {
   language: string;
   duration_seconds: number | null;
   segments: TranscriptSegment[];
+  /** Original provider units retained when new selection units were derived. */
+  provider_segments?: import('../services/transcription/types.js').NormalizedTranscriptSegment[];
+  selection_segmentation?: {version: number; method: string; provider_segment_indexes: number[]};
   words?: TranscriptWord[];
   /**
    * Measured A/V start-PTS delta of the source container (audio stream start_time minus

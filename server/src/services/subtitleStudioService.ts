@@ -255,6 +255,8 @@ export class SubtitleStudioService {
                 quality_assessment: sourceTranscript.quality_assessment,
                 transcription_provenance: sourceTranscript.transcription_provenance,
                 transcription_timing_issues: sourceTranscript.transcription_timing_issues,
+                provider_segments: (sourceTranscript as any).provider_segments,
+                selection_segmentation: (sourceTranscript as any).selection_segmentation,
                 source_binding: sourceTranscript.source_binding,
                 av_start_offset_sec: sourceTranscript.av_start_offset_sec,
                 created_at: new Date(),
