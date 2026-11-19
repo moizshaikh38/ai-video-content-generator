@@ -29,3 +29,28 @@ Local implementation, 19 November 2026. Not deployed or activated against user a
 Sources: TikTok status and creator APIs:
 https://developers.tiktok.com/doc/content-posting-api-reference-get-video-status
 https://developers.tiktok.com/doc/content-posting-api-reference-query-creator-info
+
+
+## Instagram follow-up, 23:13 local checkpoint
+
+Local code only. The historical findings above are not a deployment claim.
+
+- Reviewed Meta's version lifecycle, v26 changelog, Facebook Login getting-started and media-publish contracts. Both OAuth and publishing now share v26.0 in code. v19 expired May 21, 2026. Some current guide examples use v27 while the official lifecycle table lists v26; no automatic v27 jump was inferred. The flow still uses the original Facebook Login permissions and objects, not a switch to Instagram Login or new scopes. Commerce, ads and the removed legacy protocol/Page fields are not used by this flow. Real app/version compatibility still needs qualification.
+- Initial publishing creates a container, returns pending, and saves its account-bound receipt before a later worker may publish it. Status checks are one minute apart. Automatic follow-up stops for review after five minutes. It does not leave an in-memory 3-second polling loop running.
+- A ready container requires a majority-written irreversible dispatch marker before one media_publish call. Another worker, transport failure, restart, malformed success payload or uncertain response cannot authorize another media_publish or container upload. The marker is monotonic: a concurrent stale IN_PROGRESS result cannot erase it. A crash after the marker but before the request may require manual review rather than safe-looking automatic retry. This favors no duplicates over falsely promising recovery.
+- PUBLISHED confirms publication, but without a returned media ID the stored receipt remains explicitly a container receipt, not an invented media ID or URL. ERROR/EXPIRED are distinct from pending. Unknown status is not success. An uncertain dispatch that still reports FINISHED is only read, never resubmitted.
+- Known partial successes remain published, not failed/retryable. Caption/attachment issues and unknown attachment verification retain review evidence and a fixed warning in the history API's existing feedback field. No automatic repost is triggered. Full UI presentation of these warnings remains unverified; the existing history component labels that field as an error, so better warning styling is a remaining UX item.
+- Meta account discovery no longer picks the first of multiple accounts or silently binds a basic Facebook user ID as an Instagram account. Multiple/paginated/missing professional-account results require an explicit selection. A complete multi-account selection UI is still owed.
+- Requested OAuth permissions are not claimed granted. The adapter reads actual granted permission statuses and treats missing/incomplete evidence as unverified. Refresh results persist current scopes. Missing expiry is unknown rather than an invented 60-day value. Account/status reads use bearer headers rather than token query URLs, reject redirects and have bounded timeouts. No live authorization or scopes were changed.
+
+Qualification: 32 native Instagram/TikTok/OAuth fixtures pass; one enabled real isolated local Mongo Instagram integration passes with native provider logic but fake HTTP/media URL, covering restart, lost response, partial success, five-minute horizon, two simultaneous FINISHED workers, monotonic checkpoint and removed-permission persistence. The earlier TikTok real-Mongo fixture still passes. 28 owner/readiness contracts and 521 offline checks pass. Focused Instagram provider/OAuth strict TypeScript passes. No real social account, app permission, external upload or post was used. Full backend/frontend/mounted UI restrictions above still apply. This is backed-up progress, not a verified release or competitor superiority claim.
+
+Further current official sources:
+- https://developers.facebook.com/docs/graph-api/changelog/versions/
+- https://developers.facebook.com/docs/graph-api/changelog/version26.0/
+- https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-facebook-login/get-started
+- https://developers.facebook.com/documentation/instagram-platform/content-publishing/
+- https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user/media_publish
+- https://developers.facebook.com/docs/graph-api/reference/user/permissions/
+
+Meta's current publishing guide and reference disagree on the numerical daily cap (50 versus 100). No hardcoded cap or unsupported availability claim was introduced. A future preflight should read actual account quota/config rather than pick one number.

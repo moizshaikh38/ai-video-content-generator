@@ -34,6 +34,7 @@ export interface PublishExecutionResult {
 
 export interface SocialPublishingProvider {
   readonly platform: SocialPlatform;
+  readonly pendingMaxDurationMs?: number;
 
   /** Return supported capabilities and constraints for this platform */
   getCapabilities(): PlatformPublishCapabilities;
@@ -46,6 +47,10 @@ export interface SocialPublishingProvider {
 
   /** Read-only resolution of a persisted submission. Must never create a new post. */
   resolvePending?(accessToken: string, receiptId: string): Promise<PublishExecutionResult>;
+
+  /** Resume preparation using a durable receipt. checkpoint must commit before
+   * any irreversible publish dispatch; uncertain dispatches are read-only. */
+  continuePending?(request: PublishExecutionRequest,receiptId:string,metadata:Record<string,any>,checkpoint:(metadata:Record<string,any>)=>Promise<void>):Promise<PublishExecutionResult>;
 
   /** Check if a published error is retryable (5xx, rate limits, network) */
   isRetryableError(error: unknown): boolean;

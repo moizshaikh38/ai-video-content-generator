@@ -1082,6 +1082,7 @@ export interface PublishJobRecord {
   provider_attempt_started_at?: Date;
   provider_pending_id?: string;
   provider_pending_started_at?: Date;
+  provider_pending_metadata?: Record<string,any>;
   id: string;
   user_id: string;
   published_post_id: string;

@@ -307,6 +307,8 @@ export class SocialService {
       updated_at: now,
     };
 
+    if(refreshResult.scopes)updates.scopes=refreshResult.scopes;
+
     // If provider rotated refresh token, update it; otherwise preserve existing
     if (refreshResult.refreshToken) {
       updates.refresh_token = encryptToken(refreshResult.refreshToken);

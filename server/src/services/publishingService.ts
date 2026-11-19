@@ -374,6 +374,10 @@ export class PublishingService {
       return;
     }
 
+    if (!job.provider_pending_id && post.provider === 'instagram' && !conn.scopes?.includes('instagram_content_publish')) {
+      await this.markJobFailed(jobId,post.id,'INSTAGRAM_PUBLISH_SCOPE_REQUIRED','Instagram publishing permission is missing. No post was sent.',false);return;
+    }
+
     // Step 2: Check & refresh token if expired
     let accessToken: string;
     try {
@@ -390,6 +394,7 @@ export class PublishingService {
           token_expires_at: refResult.expiresInSeconds ? new Date(now.getTime() + refResult.expiresInSeconds * 1000) : null,
           updated_at: now,
         };
+        if(refResult.scopes){updateData.scopes=refResult.scopes;conn.scopes=refResult.scopes;}
         if (refResult.refreshToken) {
           updateData.refresh_token = encryptToken(refResult.refreshToken);
         }
@@ -403,8 +408,12 @@ export class PublishingService {
       return;
     }
 
+    if (!job.provider_pending_id && post.provider==='instagram'&&!conn.scopes?.includes('instagram_content_publish')) {
+      await this.markJobFailed(jobId,post.id,'INSTAGRAM_PUBLISH_SCOPE_REQUIRED','Current Instagram publishing permission is missing. No post was sent.',false);return;
+    }
+
     if (job.provider_pending_id) {
-      await this.resolvePendingPublish(job, post, accessToken);
+      await this.resolvePendingPublish(job, post, accessToken, conn.scopes);
       return;
     }
 
@@ -507,7 +516,8 @@ export class PublishingService {
   }
 
   /** Persist the receipt before acknowledging pending. A crash can then resume
-   * status checks only, without entering the upload path a second time. */
+   * checks/continuation without entering the upload path a second time.
+   * A stale processing read must never erase an irreversible dispatch marker. */
   private async recordPublishOutcome(job: PublishJobRecord, post: PublishedPostRecord, result: import('./publishing/types.js').PublishExecutionResult): Promise<void> {
     if (!result || typeof result.providerPostId !== 'string' || !result.providerPostId.trim() ||
         (result.outcome !== undefined && !['pending', 'published'].includes(result.outcome))) {
@@ -520,8 +530,9 @@ export class PublishingService {
         throw new AppError('The platform submission cannot be safely resolved.', 502, 'PUBLISH_VERIFICATION_FAILED');
       }
       const savedReceipt = await db.collection<PublishJobRecord>('publish_jobs').updateOne(
-        {id:job.id,user_id:job.user_id,status:'publishing'},
-        {$set:{provider_pending_id:result.providerPostId,provider_pending_started_at:job.provider_pending_started_at || now,
+        {id:job.id,user_id:job.user_id,status:'publishing',
+          ...(post.provider==='instagram' && !result.metadata?.publishDispatchStarted ? {'provider_pending_metadata.publishDispatchStarted':{$ne:true}} : {})},
+        {$set:{provider_pending_id:result.providerPostId,provider_pending_started_at:job.provider_pending_started_at || now,provider_pending_metadata:{...job.provider_pending_metadata,...result.metadata},
           status:'scheduled',scheduled_for:new Date(now.getTime()+60000),next_retry_at:null,locked_at:null,updated_at:now}},
         {writeConcern:{w:'majority'}},
       );
@@ -532,10 +543,15 @@ export class PublishingService {
       );
       return;
     }
+    // Preserve confirmed publication while surfacing incomplete/unknown caption
+    // details through the history API's existing visible feedback field. Never
+    // turn partial success into failed/retryable delivery or resend the video.
+    const publicationReview = post.provider==='instagram' && (result.metadata?.partialSuccess || result.metadata?.captionAttachmentVerified===false)
+      ? (result.metadata?.partialSuccess ? 'Published, but Instagram reported incomplete caption or attachment settings. Check the selected Instagram account. Do not repost automatically.' : 'Publication confirmed, but caption and attachments could not be verified. Check the selected Instagram account. Do not repost automatically.') : null;
     await db.collection<PublishedPostRecord>('published_posts').updateOne(
       {id:post.id,user_id:post.user_id,status:{$nin:['failed','cancelled']}},
       {$set:{status:'published',provider_post_id:result.providerPostId,provider_post_url:result.providerPostUrl || null,
-        published_at:now,metadata:{...post.metadata,...result.metadata},last_error_code:null,last_error_message:null,updated_at:now}},
+        published_at:now,metadata:{...post.metadata,...result.metadata},last_error_code:publicationReview?'PUBLISHED_REVIEW_REQUIRED':null,last_error_message:publicationReview,updated_at:now}},
     );
     await db.collection<PublishJobRecord>('publish_jobs').updateOne(
       {id:job.id,user_id:job.user_id},{$set:{status:'completed',completed_at:now,updated_at:now}},
@@ -543,19 +559,26 @@ export class PublishingService {
     logger.info('Publishing confirmed',{postId:post.id,provider:post.provider});
   }
 
-  private async resolvePendingPublish(job: PublishJobRecord, post: PublishedPostRecord, accessToken: string): Promise<void> {
+  private async resolvePendingPublish(job: PublishJobRecord, post: PublishedPostRecord, accessToken: string, grantedScopes?:string[]): Promise<void> {
     const provider = socialPublishingRegistry.getProvider(post.provider);
     const started = job.provider_pending_started_at?.getTime();
-    if (!provider.resolvePending || !started || !Number.isFinite(started) || Date.now()-started > 24*60*60*1000) {
+    if (!provider.resolvePending || !started || !Number.isFinite(started) || Date.now()-started > (provider.pendingMaxDurationMs ?? 24*60*60*1000)) {
       await this.markJobFailed(job.id,post.id,'PUBLISH_OUTCOME_UNKNOWN','Publication is still unconfirmed. Check the selected platform account. This submission will not be uploaded again.',false);
       return;
     }
     try {
-      const result = await provider.resolvePending(accessToken,job.provider_pending_id!);
+      const db=await getMongoDb();
+      const result = provider.continuePending ? await provider.continuePending(
+        {accessToken,payload:post.payload,providerAccountId:post.provider_account_id,grantedScopes},job.provider_pending_id!,job.provider_pending_metadata || {},async(metadata)=>{
+          const saved=await db.collection<PublishJobRecord>('publish_jobs').updateOne(
+            {id:job.id,user_id:job.user_id,published_post_id:post.id,status:'publishing',provider_pending_id:job.provider_pending_id,'provider_pending_metadata.publishDispatchStarted':{$ne:true}},
+            {$set:{provider_pending_metadata:metadata,updated_at:new Date()}},{writeConcern:{w:'majority'}});
+          if(saved.matchedCount!==1)throw new AppError('Publish dispatch was already started or could not be checkpointed.',409,'PUBLISH_CHECKPOINT_UNVERIFIED');
+        }) : await provider.resolvePending(accessToken,job.provider_pending_id!);
       await this.recordPublishOutcome(job,post,result);
     } catch (error: any) {
-      if (error?.code === 'TIKTOK_SUBMISSION_FAILED') {
-        await this.markJobFailed(job.id,post.id,'TIKTOK_SUBMISSION_FAILED','TikTok reported that this submission failed. No automatic new upload will be made.',false);
+      if (['TIKTOK_SUBMISSION_FAILED','INSTAGRAM_SUBMISSION_FAILED','INSTAGRAM_SUBMISSION_BINDING_CHANGED','INSTAGRAM_PUBLISH_SCOPE_REQUIRED'].includes(error?.code)) {
+        await this.markJobFailed(job.id,post.id,error.code,error.message || 'The saved platform submission failed. No automatic new upload will be made.',false);
         return;
       }
       // Status reads can be retried safely. A transport error never permits
