@@ -27,6 +27,9 @@ export function parseStreamVideoSource(url: URL): StreamVideoSource | null {
     }
     else {
         const vod = parts.length === 3 && parts[1] === 'videos' && /^[a-f\d-]{16,64}$/i.test(parts[2]);
+        const pathClip = parts.length === 3 && parts[1] === 'clips' ? parts[2] : null;
+        if (pathClip && /^clip_[A-Za-z0-9_-]{1,195}$/.test(pathClip) && /^[A-Za-z0-9_-]{1,100}$/.test(parts[0]))
+            return { provider: 'kick', kind: 'clip', id: pathClip, normalizedUrl: 'https://kick.com/' + parts[0] + '/clips/' + pathClip };
         const clip = url.searchParams.get('clip');
         if (vod)
             return { provider: 'kick', kind: 'vod', id: parts[2], normalizedUrl: 'https://kick.com/' + parts[0] + '/videos/' + parts[2] };

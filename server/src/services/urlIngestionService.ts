@@ -1,3 +1,4 @@
+import {youtubeAcquisitionCache,type YouTubeAcquisitionKey} from './youtubeAcquisitionCache.js';
 import {TwitchImportService} from './twitchImportService.js';
 import {pinnedPublicMediaFetch} from '../utils/pinnedHttpsAssetFetch.js';
 import {supportedYouTubeJsArgs} from '../shared/youtubeRuntime.js';
@@ -842,6 +843,8 @@ export class UrlIngestionService {
     let tempFile: string | null = null;
     let ytMetaTitle: string | undefined = undefined;
     let ytMeta: YouTubeMetadataResult | undefined = undefined;
+    let acquisitionCacheKey:YouTubeAcquisitionKey|undefined;
+    let reusedAcquisition=false;
 
     const range =
       startTimeSec !== undefined || endTimeSec !== undefined
@@ -888,9 +891,16 @@ export class UrlIngestionService {
           throw new AppError('Video duration exceeds the maximum allowed limit of 2 hours.', 400, 'YOUTUBE_DURATION_TOO_LONG');
         }
 
+        // Optional exact-source reuse is admitted only by fresh positive metadata.
+        // Missing/failed metadata never clears a cached private/deleted/live source.
+        if(ytMeta.videoId===validated.youtubeVideoId&&Number.isFinite(ytMeta.duration)&&Number(ytMeta.duration)>0){
+          acquisitionCacheKey={userId,videoId:validated.youtubeVideoId!,startSec:range?.startSec,endSec:range?.endSec,profile:YOUTUBE_SOURCE_FORMAT+'|'+YOUTUBE_SOURCE_FORMAT_SORT+'|duration:'+ytMeta.duration};
+        }
+        const cached=acquisitionCacheKey?await youtubeAcquisitionCache.take(acquisitionCacheKey,true,config.maxVideoBytes):null;
+        reusedAcquisition=!!cached;
         const remainingMs=Math.floor(acquisitionDeadline-performance.now());
-        if(remainingMs<=0)throw toAppError(classifyYouTubeFailure({killed:true,errCode:'ETIMEDOUT'}));
-        download = await this.downloadYouTubeToTempFile(validated.normalizedUrl, config.maxVideoBytes, remainingMs, range);
+        if(remainingMs<=0){if(cached)await fs.promises.unlink(cached.tempFilePath).catch(()=>{});throw toAppError(classifyYouTubeFailure({killed:true,errCode:'ETIMEDOUT'}));}
+        download = cached??await this.downloadYouTubeToTempFile(validated.normalizedUrl, config.maxVideoBytes, remainingMs, range);
       } else {
         // Direct Public Media URL Path
         logger.info(`Starting secure download for URL: ${validated.hostname} for project ${projectId}`);
@@ -911,6 +921,8 @@ export class UrlIngestionService {
       if (probe.durationSeconds > 7200) {
         throw new AppError('Video duration exceeds the maximum allowed limit of 2 hours.', 400, 'DURATION_EXCEEDED');
       }
+
+      if(acquisitionCacheKey&&!reusedAcquisition)await youtubeAcquisitionCache.put(acquisitionCacheKey,tempFile,true,download.contentType);
 
       // 4. Upload verified source to Cloudflare R2
       const filename = validated.inferredFilename.endsWith('.mp4')
@@ -993,6 +1005,7 @@ export class UrlIngestionService {
           suggested_genre: ytMeta?.suggestedGenre,
           genre_confidence: ytMeta?.genreConfidence,
           selected_range: range,
+          acquisition_reused: reusedAcquisition,
         };
       } else if(validated.streamSource){
         projectRecord.metadata={source_provider:validated.streamSource.provider,source_kind:validated.streamSource.kind,platform_video_id:validated.streamSource.id,original_url:validated.normalizedUrl,ingested_at:new Date().toISOString()};
