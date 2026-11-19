@@ -113,7 +113,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
               setLocalTitle(title);
               setIsEditingTitle(true);
             }}
-            className="text-sm font-semibold text-neutral-200 hover:text-white truncate max-w-[90px] sm:max-w-[280px] text-left hover:bg-white/[0.06] px-2 py-1 rounded transition"
+            className="text-sm font-semibold text-neutral-200 hover:text-white truncate max-w-[130px] min-[420px]:max-w-[180px] sm:max-w-[280px] text-left hover:bg-white/[0.06] px-2 py-1 rounded transition"
             title="Click to rename"
           >
             {title || 'Untitled Clip'}
@@ -125,13 +125,13 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
           {saveStatus === 'saving' && (
             <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-vc-surface1 text-[11px] font-mono text-neutral-400">
               <Loader2 className="w-3 h-3 animate-spin text-neutral-400" />
-              <span>Saving...</span>
+              <span className="hidden sm:inline">Saving...</span>
             </span>
           )}
           {saveStatus === 'saved' && (
             <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/40 text-[11px] font-mono text-emerald-400">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Saved</span>
+              <span className="hidden sm:inline">Saved</span>
             </span>
           )}
           {saveStatus === 'dirty' && (
@@ -141,7 +141,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
               title="Unsaved changes. Click to save now"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              <span>Save</span>
+              <span className="hidden sm:inline">Save</span>
             </button>
           )}
           {saveStatus === 'error' && (
@@ -151,7 +151,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
               title={saveError || 'Save failed. Click to retry'}
             >
               <AlertTriangle className="w-3 h-3 text-rose-400" />
-              <span>Retry</span>
+              <span className="hidden sm:inline">Retry</span>
             </button>
           )}
         </div>
