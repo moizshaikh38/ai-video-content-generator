@@ -2426,7 +2426,7 @@ export class ProEditorService {
           rotation: 0,
           opacity: 1.0,
         },
-        ...(newAutomaticDefault?{automatic_framing:{enabled:projectPreferences?.framingDefaults?.autoReframe!==false,...(projectPreferences?.framingDefaults?.autoReframe===false?{freeze_source_time:clip.start_seconds+trimStart}:{})}}:{}),
+        ...(newAutomaticDefault?{automatic_framing:{enabled:projectPreferences?.framingDefaults?.autoReframe!==false,...(projectPreferences?.framingDefaults?.autoReframe===false?{freeze_source_time:Number(co.start_seconds.toFixed(3))}:{})}}:{}),
       crop: seededCrop ? { ...seededCrop } : undefined,
         layout_mode: clipCrop?.layout_mode || 'track',
         crop_config: clipCrop ? structuredClone(clipCrop) : undefined,

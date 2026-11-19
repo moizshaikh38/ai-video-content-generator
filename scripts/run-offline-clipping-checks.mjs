@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 const tests = [
   'clip-speech-cut-contract',
   'final-speech-score-contract',
+  'auto-cold-open-seed-contract',
   'clip-render-readiness',
   'clip-workspace-recovery',
   'workspace-search-recovery',
