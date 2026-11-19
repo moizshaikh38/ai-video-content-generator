@@ -141,7 +141,7 @@ export const analyzeProjectClips = async (req: AuthenticatedRequest, res: Respon
       return;
     }
 
-    if(err.code==='CLIP_SELECTION_CONTEXT_CHANGED'||err.code==='TRANSCRIPT_REVIEW_REQUIRED'||err.code==='TRANSCRIPT_SOURCE_REVIEW_REQUIRED'||err.code==='CLIP_SEGMENTS_INVALID'){
+    if(err.code==='CLIP_SELECTION_CONTEXT_CHANGED'||err.code==='TRANSCRIPT_WORD_TEXT_REVIEW_REQUIRED'||err.code==='TRANSCRIPT_REVIEW_REQUIRED'||err.code==='TRANSCRIPT_SOURCE_REVIEW_REQUIRED'||err.code==='CLIP_SEGMENTS_INVALID'){
       res.status(409).json({status:'error',code:err.code,message:err.message});
       return;
     }
@@ -1201,7 +1201,7 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
               }
             }
           } catch (error:any) {
-            if (error?.code === 'TRANSCRIPT_SOURCE_REVIEW_REQUIRED' || error?.code === 'TRANSCRIPT_REVIEW_REQUIRED') throw error;
+            if (error?.code === 'TRANSCRIPT_WORD_TEXT_REVIEW_REQUIRED' || error?.code === 'TRANSCRIPT_SOURCE_REVIEW_REQUIRED' || error?.code === 'TRANSCRIPT_REVIEW_REQUIRED') throw error;
             // Fall through with the saved cues.
           }
         }

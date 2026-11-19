@@ -5,7 +5,7 @@ import {mergeChunkTranscripts} from '../services/transcription/chunkedTranscript
 import {GroqTranscriptionProvider} from '../services/transcription/groqTranscriptionProvider.js';
 import {OpenRouterTranscriptionProvider} from '../services/transcription/openRouterTranscriptionProvider.js';
 import {config} from '../config/index.js';
-const base:any={text:'Hold my hand, Daddy.',language:'en',durationSeconds:2,segments:[{start:0,end:2,text:'Hold my hand, Daddy.'}],words:[{start:0,end:.4,word:'Hold'}]};
+const base:any={text:'Hold my hand, Daddy.',language:'en',durationSeconds:2,segments:[{start:0,end:2,text:'Hold my hand, Daddy.'}],words:['Hold','my','hand,','Daddy.'].map((word,i)=>({word,start:i*.4,end:(i+1)*.4}))};
 test('missing diagnostics and legacy records are unverified, not failure or proof of accuracy',()=>{const q=assessTranscriptQuality(base);assert.equal(q.status,'unverified');assert.equal(q.diagnostics,'unavailable');assertTranscriptUsable({});assertTranscriptUsable({quality_assessment:q})});
 test('requested language mismatch requires review but auto/multilingual speech is not guessed from words',()=>{assert.equal(assessTranscriptQuality({...base,language:'es'},'en').status,'needs_review');assert.equal(assessTranscriptQuality({...base,language:'es'},'auto').status,'unverified');assert.equal(assessTranscriptQuality({...base,language:'english'},'en').status,'unverified')});
 test('weak score alone does not reject accented speech',()=>{const q=assessTranscriptQuality({...base,segments:[{...base.segments[0],avg_logprob:-1.4}]});assert.equal(q.status,'unverified');assert.equal(q.diagnostics,'present')});

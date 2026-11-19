@@ -1,7 +1,8 @@
+import {assertSpeechWordCoverage,speechWordCoverage,type SpeechCoverageInput} from '../../shared/speechWordCoverage.js';
 import type { NormalizedTranscriptionResult } from './types.js';
 
 export interface TranscriptQualityIssue {
-  code: 'language_mismatch' | 'low_confidence_repetition' | 'possible_silence_hallucination' | 'invalid_timing' | 'unreliable_word_timing' | 'non_speech_annotation';
+  code: 'language_mismatch' | 'low_confidence_repetition' | 'possible_silence_hallucination' | 'invalid_timing' | 'unreliable_word_timing' | 'non_speech_annotation' | 'text_word_mismatch';
   start?: number;
   end?: number;
   detail: string;
@@ -25,6 +26,7 @@ const languageCode = (v: string) => ({english:'en',spanish:'es',hindi:'hi'}[v.to
  * No dictionary rewrite, translation, language guess or extra provider call. */
 export function assessTranscriptQuality(result: NormalizedTranscriptionResult, expectedLanguage?: string): TranscriptQualityAssessment {
   const issues: TranscriptQualityIssue[] = [];
+  if (speechWordCoverage(result) === 'mismatch') issues.push({code:'text_word_mismatch',detail:'Transcript text and caption-word coverage disagree. Review source audio; no words or clocks were rewritten.'});
   for (const issue of result.timingIssues || []) {
     issues.push({code:issue.kind==='word'&&issue.reason==='unordered-or-overlapping-provider-clock'?'unreliable_word_timing':'invalid_timing',detail:`Provider ${issue.kind} ${issue.index} has ${issue.reason==='unordered-or-overlapping-provider-clock'?'unordered or overlapping':'missing or invalid'} timing${issue.sourceOffset !== undefined ? ` in source chunk at ${issue.sourceOffset}s` : ''}. No replacement timestamp was invented.`});
   }
@@ -57,9 +59,10 @@ export function assessTranscriptQuality(result: NormalizedTranscriptionResult, e
     provider:result.provenance?.provider,model:result.provenance?.model,requested_language:requested,detected_language:result.language};
 }
 
-/** Only affirmative review flags stop automatic use. Legacy/missing evidence is
- * not a failure, and must never be displayed as verified accuracy either. */
-export function assertTranscriptUsable(record: {quality_assessment?: TranscriptQualityAssessment;segments?:Array<{start?:unknown;end?:unknown}>}): void {
+/** Missing legacy metadata alone is not a failure or proof of accuracy.
+ * An observed text/word conflict still requires review without saved metadata. */
+export function assertTranscriptUsable(record: SpeechCoverageInput & {quality_assessment?: TranscriptQualityAssessment}): void {
+  assertSpeechWordCoverage(record);
   if (record.quality_assessment?.status !== 'needs_review') return;
   const error = new Error('Transcript needs audio review before automatic captions can be exported. Check the flagged speech spans and source language; no words were silently replaced.');
   (error as any).code = 'TRANSCRIPT_REVIEW_REQUIRED';

@@ -15,7 +15,7 @@ test('backward word clocks never become reordered spoken phrases',()=>{
 });
 test('ordered word clocks retain word mode; tiny overlap tolerance does not reorder',()=>{
  const ordered=[{start:0,end:1,word:'Alpha'},{start:.98,end:2,word:'beta.'}];
- assert.equal(CaptionService.extractClipCues({segments,words:ordered},0,4).timingMode,'word');
+ assert.equal(CaptionService.extractClipCues({segments:[segments[0]],words:ordered},0,4).timingMode,'word');
 });
 test('segment-only legacy input stays phrase level with no invented word clocks',()=>{
  const out=CaptionService.extractClipCues({segments},0,4);

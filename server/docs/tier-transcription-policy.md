@@ -17,7 +17,7 @@ The independent Parakeet explicit-English implementation remains available throu
 
 41 focused offline tests pass, including eight new tier-policy fixtures. A separate enabled isolated local Mongo test passes for owner binding, concurrent selection, persistent snapshot reuse and retaining other reservation metadata. Focused policy/adapter strict TypeScript passes with the repository's existing ffprobe declaration included. No provider network is used by these tests.
 
-MAI endpoint execution now has one actual synthetic-English call through this adapter, described below. Same-audio Hinglish accuracy/word-alignment is still untested. No quality win is claimed. Full application and deployed pipeline qualification remain incomplete. Keep the gate off until this evidence is obtained within the approved spend limit and rollout is authorized.
+MAI endpoint execution now has one actual synthetic-English call through this adapter, described below. A later paired public-corpus lexical check is described below. Independent human word-alignment and rendered caption sync remain untested. No general quality win is claimed. Full application and deployed pipeline qualification remain incomplete. Keep the gate off until this evidence is obtained within the approved spend limit and rollout is authorized.
 
 ## Economics checked November 19, 2026
 
@@ -41,3 +41,24 @@ One actual request through the final adapter used the same 5.23-second synthetic
 The provider billed six audio seconds and reported $0.00016666666666666666. Short requests can therefore cost more than exact-duration arithmetic. Cumulative spend was checked against the original $0.20 total approval; the conservative ledger includes possible double-counting of delayed prior usage rather than an assumed refund. This establishes request/response and timestamp transport only. It does not establish real-video quality, code-switching accuracy, speaker handling, independently reviewed word boundaries, or perceptual subtitle sync. The tier gate remains off.
 
 Before a quality comparison, use the identical authorized natural Hindi-English recording for Turbo and MAI, lock its hash and independently review the reference transcript/word boundaries before seeing provider hypotheses. Keep code switches, proper names, numbers, silence/noise and language/script policy explicit. Report WER with its reference/tokenization policy, native timing coverage, boundary error on eligible matching words, costs and uncorrected failures. Do not substitute this synthetic English endpoint test or a provider benchmark claim for that evidence.
+
+
+## Public-corpus lexical check and observed word-list defect
+
+Three previously frozen MUCS blind-test segments, 27.01 seconds per model, were each sent once to the existing OpenRouter adapter for MAI and Turbo. Two are Hinglish tutorials, one a 2.01-second Hindi-only control. No retry or active-tier change.
+
+Scoring was frozen before responses: NFC, casefold, punctuation replaced by spaces, whitespace tokenization, retaining script and spelling. Against the 56 corpus tokens, MAI had 7 edit errors and Turbo 22. Case counts were 0/19 versus 8/19, 0/5 versus 1/5, and 7/32 versus 13/32. These are strict corpus-label differences, not semantic error rates or a general accuracy claim. Script/spelling, nasal marks, compound splitting, email formatting, inflection and possible corpus-label errors contribute. The repack/original equivalence and independent human sample review remain unverified. No provider clocks are treated as a human reference.
+
+Actual Turbo native word lists included extra tail tokens absent from transcript text: five in the first case and nine in the third. Existing timing normalization rejected three/eight zero-duration entries, but two/one positive-duration tail entries survived. Text-only lexical scoring does not measure these extra caption candidates.
+
+The local correction rejects transcript/native-word coverage disagreement for audio review. It compares exact speech character sequence after ignoring case, canonical Unicode form, punctuation and spacing, allowing subword/email segmentation without rewriting speech. It does not deduplicate repeats, choose between conflicting renditions, fix text or invent clocks. Every repeated occurrence must still agree. This is a consistency check, not proof of speech accuracy.
+
+Checks run on both native payload and normalized words in the OpenRouter adapter, legacy/cached transcript usability, and the actual word-caption extractor. The explicit review error cannot trigger provider failover or a whole-file transcription retry. Processing records preserve the review status; caption extension cannot swallow it as an ordinary saved-cue fallback. Invalid-clock handling retains its prior error priority.
+
+The six exact captured responses were replayed offline. The two problematic Turbo cases reject; all three MAI cases and the Hindi Turbo control retain their original native clocks and words. Direct caption extraction and cached-record rejection were checked, including the extra tail after removing zero-duration entries. Synthetic legitimate repeated-speech and subword cases remain accepted. This does not prove moving-video synchronization, full application behavior, real-account posting or production readiness. Gate remains off.
+
+Sources:
+- https://openslr.org/104
+- https://huggingface.co/datasets/dianavdavidson/mucs-hinglish-blindtest
+- https://openrouter.ai/microsoft/mai-transcribe-2
+- https://openrouter.ai/openai/whisper-large-v3-turbo

@@ -1,3 +1,4 @@
+import {assertSpeechWordCoverage} from '../../shared/speechWordCoverage.js';
 import {normalizeProviderTiming} from './providerTiming.js';
 import { config } from '../../config/index.js';
 import { logger } from '../../utils/logger.js';
@@ -159,11 +160,16 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
       );
     }
 
+    // A positive clock is not evidence that an extra word belongs in captions.
+    // Retain and check the exact native payload as well as normalized words.
     const {segments,words,timingIssues} = normalizeProviderTiming(result);
 
     if ([PARAKEET_MODEL,MAI_MODEL].includes(this.model) && (!words.length || timingIssues.some(issue => issue.kind === 'word'))) {
       throw Object.assign(new Error('Selected ASR model did not return usable provider word timestamps. No caption timings were invented; review or explicitly choose another model.'),{code:this.model === PARAKEET_MODEL ? 'PARAKEET_WORD_TIMING_REQUIRED' : 'MAI_WORD_TIMING_REQUIRED'});
     }
+
+    assertSpeechWordCoverage(result);
+    assertSpeechWordCoverage({...result,words});
 
     const durationSeconds = typeof result?.duration === 'number' ? result.duration : null;
     // Missing language is unknown evidence, not detected English.

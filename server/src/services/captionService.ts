@@ -1,3 +1,4 @@
+import {assertSpeechWordCoverage} from '../shared/speechWordCoverage.js';
 import { reliableOrderedClocks } from '../shared/orderedTranscriptTiming.js';
 import {newCaptionDefaults} from '../shared/newCaptionDefaults.js';
 import { clampCaptionFontSize } from '../shared/captionPresets.js';
@@ -458,7 +459,7 @@ export class CaptionService {
    * - If only segments exist: uses segment-level captions without fabricating fake word timestamps.
    */
   public static extractClipCues(
-    transcript: { segments?: any[]; words?: any[] },
+    transcript: { text?: unknown; transcript_text?: unknown; segments?: any[]; words?: any[] },
     clipStart: number,
     clipEnd: number,
     trimStartOffset = 0,
@@ -488,6 +489,7 @@ export class CaptionService {
 
     const wordClocksReliable = reliableOrderedClocks(rawWords);
     if (rawWords.length > 0 && wordClocksReliable) {
+      assertSpeechWordCoverage({...transcript,words:rawWords});
       // WORD-LEVEL TIMING MODE. Original provider text order is authoritative.
       const candidateTokens: TimedCaptionToken[] = [];
 
@@ -705,7 +707,7 @@ export class CaptionService {
    * preview regroups them (regroupCuesForPreset).
    */
   public static extractCuesForClipSettings(
-    transcript: { segments?: any[]; words?: any[] },
+    transcript: { text?: unknown; transcript_text?: unknown; segments?: any[]; words?: any[] },
     clip: Pick<ClipRecord, 'start_seconds' | 'end_seconds' | 'trim_start_offset' | 'trim_end_offset' | 'caption_style' | 'caption_config' | 'aspect_ratio'> & { caption_overrides?: any },
     aspectRatio: ClipAspectRatio = (clip.aspect_ratio as ClipAspectRatio) || '9:16',
     options: { preserveCase?: boolean } = {}

@@ -520,8 +520,8 @@ async function executeProjectVideo(
         .update({
           video_status: 'failed',
           error_message: message || 'Video processing failed.',
-          error_code: ['TRANSCRIPT_REVIEW_REQUIRED','TRANSCRIPT_SOURCE_REVIEW_REQUIRED'].includes((err as any)?.code) ? (err as any).code : null,
-          ...(['TRANSCRIPT_REVIEW_REQUIRED','TRANSCRIPT_SOURCE_REVIEW_REQUIRED'].includes((err as any)?.code) ? {transcript_quality_status:'needs_review'} : {}),
+          error_code: ['TRANSCRIPT_WORD_TEXT_REVIEW_REQUIRED','TRANSCRIPT_REVIEW_REQUIRED','TRANSCRIPT_SOURCE_REVIEW_REQUIRED'].includes((err as any)?.code) ? (err as any).code : null,
+          ...(['TRANSCRIPT_WORD_TEXT_REVIEW_REQUIRED','TRANSCRIPT_REVIEW_REQUIRED','TRANSCRIPT_SOURCE_REVIEW_REQUIRED'].includes((err as any)?.code) ? {transcript_quality_status:'needs_review'} : {}),
         })
         .eq('id', projectId)
         .eq('user_id', userId);

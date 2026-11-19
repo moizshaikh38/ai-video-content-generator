@@ -288,7 +288,7 @@ export async function transcribeAudioFast(
     }
     return merged;
   } catch (err) {
-    if (provider.allowWholeFileFallback === false || !fitsOneRequest || ['TRANSCRIPTION_SEAM_REVIEW_REQUIRED','PARAKEET_WORD_TIMING_REQUIRED','MAI_WORD_TIMING_REQUIRED','PARAKEET_LANGUAGE_REVIEW_REQUIRED','TRANSCRIPTION_POLICY_REVIEW_REQUIRED','TRANSCRIPTION_ENTITLEMENT_REVIEW_REQUIRED'].includes((err as any)?.code)) throw err;
+    if (provider.allowWholeFileFallback === false || !fitsOneRequest || ['TRANSCRIPT_WORD_TEXT_REVIEW_REQUIRED','TRANSCRIPTION_SEAM_REVIEW_REQUIRED','PARAKEET_WORD_TIMING_REQUIRED','MAI_WORD_TIMING_REQUIRED','PARAKEET_LANGUAGE_REVIEW_REQUIRED','TRANSCRIPTION_POLICY_REVIEW_REQUIRED','TRANSCRIPTION_ENTITLEMENT_REVIEW_REQUIRED'].includes((err as any)?.code)) throw err;
     const msg = err instanceof Error ? err.message : String(err);
     logger.warn(`[Transcription] Parallel windows failed (${msg}); retrying as a single request.`);
     return provider.transcribeAudio(audio.audioBuffer, fileName, 'audio/mp3', options);
