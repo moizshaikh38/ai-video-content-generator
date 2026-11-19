@@ -1,3 +1,5 @@
+import {InstagramAccountChoice} from '../components/InstagramAccountChoice';
+import type {InstagramAccountSelection} from '../services/socialService';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -113,6 +115,32 @@ export const SettingsPage: React.FC = () => {
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [socialFeedback, setSocialFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  const [instagramSelectionId,setInstagramSelectionId]=useState<string|null>(null);
+  const [instagramSelection,setInstagramSelection]=useState<InstagramAccountSelection|null>(null);
+  const [instagramSelectionLoading,setInstagramSelectionLoading]=useState(false);
+  const [instagramSelectionBusy,setInstagramSelectionBusy]=useState(false);
+  const [instagramSelectionError,setInstagramSelectionError]=useState<string|null>(null);
+  const [instagramChoice,setInstagramChoice]=useState('');
+  const [instagramReplacement,setInstagramReplacement]=useState(false);
+  useEffect(()=>{
+    if(!instagramSelectionId)return;let cancelled=false;
+    setInstagramSelectionLoading(true);setInstagramSelection(null);setInstagramChoice('');setInstagramReplacement(false);setInstagramSelectionError(null);
+    socialService.getInstagramSelection(instagramSelectionId).then(result=>{if(!cancelled){if(result.selectionId!==instagramSelectionId)throw new Error('Account selection does not match this review.');setInstagramSelection(result);}}).catch(error=>{if(!cancelled)setInstagramSelectionError(error?.message||'Account choices could not be loaded. Existing connections are unchanged.');}).finally(()=>{if(!cancelled)setInstagramSelectionLoading(false);});
+    return ()=>{cancelled=true;};
+  },[instagramSelectionId]);
+  const clearInstagramSelection=()=>{setInstagramSelectionId(null);setInstagramSelection(null);setInstagramChoice('');setInstagramReplacement(false);const url=new URL(window.location.href);url.searchParams.delete('instagram_selection');window.history.replaceState({},'',url.pathname+url.search);};
+  const finishInstagramSelection=async(cancel:boolean)=>{
+    if(!instagramSelectionId)return;
+    setInstagramSelectionBusy(true);setInstagramSelectionError(null);
+    try{
+      if(cancel)await socialService.cancelInstagramSelection(instagramSelectionId);
+      else await socialService.confirmInstagramSelection(instagramSelectionId,instagramChoice,instagramReplacement);
+      clearInstagramSelection();await loadSocialAccounts();
+      setSocialFeedback({type:'success',message:cancel?'Instagram selection cancelled. Existing connection was kept.':'The selected Instagram account was connected. No content was published.'});
+    }catch(error:any){setInstagramSelectionError(error?.message||'Choice could not be saved. Refresh account status before trying again.');}
+    finally{setInstagramSelectionBusy(false);}
+  };
+
   const loadSocialAccounts = async () => {
     try {
       setLoadingSocial(true);
@@ -133,6 +161,8 @@ export const SettingsPage: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const connected = params.get('social_connected');
     const socialErr = params.get('social_error');
+    const instagramPending=params.get('instagram_selection');
+    if(instagramPending)setInstagramSelectionId(instagramPending);
 
     if (connected) {
       setSocialFeedback({
@@ -691,7 +721,7 @@ export const SettingsPage: React.FC = () => {
             <div>
               <h2 className="text-base font-semibold font-display text-foreground">Connected Social Accounts</h2>
               <p className="text-[11px] text-muted-foreground">
-                Connect your social channels for seamless future publishing & scheduling.
+                Connect and review the exact destination for future publishing.
               </p>
             </div>
           </div>
@@ -723,6 +753,8 @@ export const SettingsPage: React.FC = () => {
             <span>{socialFeedback.message}</span>
           </div>
         )}
+
+        {instagramSelectionId&&<InstagramAccountChoice selection={instagramSelection} loading={instagramSelectionLoading} busy={instagramSelectionBusy} error={instagramSelectionError} selectedId={instagramChoice} replacementConfirmed={instagramReplacement} onSelect={id=>{setInstagramChoice(id);setInstagramReplacement(false);}} onReplacementConfirmed={setInstagramReplacement} onConfirm={()=>finishInstagramSelection(false)} onCancel={()=>finishInstagramSelection(true)}/>}
 
         {/* Platform Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">

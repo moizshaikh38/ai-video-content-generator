@@ -32,7 +32,21 @@ export interface InitiateConnectResponse {
   };
 }
 
+export interface InstagramAccountSelection {
+  selectionId:string;expiresAt:string;replacesAccountId:string|null;
+  choices:Array<{providerAccountId:string;accountName:string;username:string|null;pageId:string;pageName:string|null}>;
+}
+
 export const socialService = {
+  async getInstagramSelection(id:string):Promise<InstagramAccountSelection>{
+    const result=await backendRequest<{status:'ok';data:InstagramAccountSelection}>(`/social/instagram/selections/${encodeURIComponent(id)}`);return result.data;
+  },
+  async confirmInstagramSelection(id:string,providerAccountId:string,confirmReplacement:boolean):Promise<void>{
+    await backendRequest(`/social/instagram/selections/${encodeURIComponent(id)}/confirm`,{method:'POST',body:JSON.stringify({providerAccountId,confirmReplacement})});
+  },
+  async cancelInstagramSelection(id:string):Promise<void>{
+    await backendRequest(`/social/instagram/selections/${encodeURIComponent(id)}/cancel`,{method:'POST'});
+  },
   /**
    * Fetches all connected accounts and server provider configuration states
    */

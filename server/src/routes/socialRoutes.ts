@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/authMiddleware.js';
 import { generalLimiter } from '../middleware/rateLimiter.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import {
+  getInstagramSelection,confirmInstagramSelection,cancelInstagramSelection,
   getConnectedAccounts,
   initiateConnect,
   handleCallback,
@@ -18,6 +19,11 @@ router.use(generalLimiter);
 
 // 1. Get all connected accounts (safe metadata only)
 router.get('/accounts', requireAuth, asyncHandler(getConnectedAccounts));
+
+// Explicit Meta account review. No connection changes until owner confirms.
+router.get('/instagram/selections/:selectionId',requireAuth,asyncHandler(getInstagramSelection));
+router.post('/instagram/selections/:selectionId/confirm',requireAuth,asyncHandler(confirmInstagramSelection));
+router.post('/instagram/selections/:selectionId/cancel',requireAuth,asyncHandler(cancelInstagramSelection));
 
 // 2. Initiate OAuth flow for a platform (returns authorization URL)
 router.post('/:provider/connect', requireAuth, asyncHandler(initiateConnect));

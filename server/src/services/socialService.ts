@@ -1,3 +1,4 @@
+import {instagramAccountSelectionService} from './instagramAccountSelectionService.js';
 import crypto from 'node:crypto';
 import { getMongoDb } from '../db/mongoClient.js';
 import {
@@ -64,12 +65,15 @@ export class SocialService {
   /**
    * Consumes single-use OAuth state and completes code exchange & credential encryption.
    */
+  handleOAuthCallback(platform:'instagram',rawState:string,code:string,redirectUri?:string):Promise<{selectionId:string}>;
+  handleOAuthCallback(platform:Exclude<SocialPlatform,'instagram'>,rawState:string,code:string,redirectUri?:string):Promise<{connection:SafeSocialAccountConnection}>;
+  handleOAuthCallback(platform:SocialPlatform,rawState:string,code:string,redirectUri?:string):Promise<{connection:SafeSocialAccountConnection}|{selectionId:string}>;
   async handleOAuthCallback(
     platform: SocialPlatform,
     rawState: string,
     code: string,
     redirectUri?: string
-  ): Promise<{ connection: SafeSocialAccountConnection }> {
+  ): Promise<{ connection: SafeSocialAccountConnection }|{selectionId:string}> {
     if (!rawState) {
       throw new AppError('Missing OAuth state parameter.', 400, 'INVALID_OAUTH_STATE');
     }
@@ -108,6 +112,10 @@ export class SocialService {
 
     // Exchange authorization code for provider tokens
     const tokenResult = await provider.exchangeCode(code, redirectUri, codeVerifier);
+
+    // Instagram always pauses for an authenticated explicit account choice,
+    // including a single candidate. Existing destination stays untouched.
+    if(platform==='instagram')return instagramAccountSelectionService.prepare(userId,tokenResult);
 
     // Fetch account identity
     const identity = await provider.getAccountIdentity(tokenResult.accessToken);

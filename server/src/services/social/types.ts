@@ -47,6 +47,9 @@ export interface SocialOAuthProvider {
   /** Fetches public account identity and verified channel/user information from the provider */
   getAccountIdentity(accessToken: string): Promise<ProviderAccountIdentity>;
 
+  /** Explicit selectable identities, never choose the first account. */
+  listAccountIdentities?(accessToken:string):Promise<ProviderAccountIdentity[]>;
+
   /** Revokes token access on provider server if supported */
   revokeConnection?(accessToken: string, refreshToken?: string | null): Promise<void>;
 

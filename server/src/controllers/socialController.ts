@@ -1,3 +1,4 @@
+import {instagramAccountSelectionService} from '../services/instagramAccountSelectionService.js';
 import { Response } from 'express';
 import { AuthenticatedRequest, AppError, SocialPlatform } from '../types/index.js';
 import { socialService } from '../services/socialService.js';
@@ -75,11 +76,13 @@ export async function handleCallback(req: AuthenticatedRequest, res: Response): 
   }
 
   try {
-    await socialService.handleOAuthCallback(
+    const result=await socialService.handleOAuthCallback(
       provider as SocialPlatform,
       state,
       code
     );
+
+    if('selectionId' in result){res.redirect(`${config.appUrl}/settings?instagram_selection=${encodeURIComponent(result.selectionId)}`);return;}
 
     // Redirect user back to frontend Settings page with success indicator
     const clientRedirect = `${config.appUrl}/settings?social_connected=${encodeURIComponent(provider)}`;
@@ -144,4 +147,19 @@ export async function getConnectionStatus(req: AuthenticatedRequest, res: Respon
       connection: connStatus,
     },
   });
+}
+
+export async function getInstagramSelection(req:AuthenticatedRequest,res:Response):Promise<void>{
+  if(!req.user)throw new AppError('Authentication required.',401,'AUTH_REQUIRED');
+  res.json({status:'ok',data:await instagramAccountSelectionService.choices(req.user.id,req.params.selectionId)});
+}
+export async function confirmInstagramSelection(req:AuthenticatedRequest,res:Response):Promise<void>{
+  if(!req.user)throw new AppError('Authentication required.',401,'AUTH_REQUIRED');
+  const accountId=req.body?.providerAccountId;
+  if(typeof accountId!=='string'||!/^\d+$/.test(accountId))throw new AppError('Select an Instagram account.',400,'INVALID_REQUEST');
+  res.json({status:'ok',data:await instagramAccountSelectionService.confirm(req.user.id,req.params.selectionId,accountId,req.body?.confirmReplacement===true)});
+}
+export async function cancelInstagramSelection(req:AuthenticatedRequest,res:Response):Promise<void>{
+  if(!req.user)throw new AppError('Authentication required.',401,'AUTH_REQUIRED');
+  await instagramAccountSelectionService.cancel(req.user.id,req.params.selectionId);res.json({status:'ok'});
 }

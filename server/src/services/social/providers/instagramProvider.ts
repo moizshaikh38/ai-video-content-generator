@@ -148,6 +148,35 @@ export class InstagramOAuthProvider implements SocialOAuthProvider {
     };
   }
 
+  /** Only follows validated opaque cursors on our fixed Graph endpoint, never
+   * provider-supplied next URLs which could redirect bearer credentials. */
+  async listAccountIdentities(accessToken:string):Promise<ProviderAccountIdentity[]> {
+    const accounts=new Map<string,ProviderAccountIdentity>();const seen=new Set<string>();
+    let after:string|undefined;
+    for(let page=0;page<5;page++){
+      const url=new URL(`${META_GRAPH_BASE}/me/accounts`);
+      url.searchParams.set('fields','id,name,instagram_business_account{id,username,name,profile_picture_url}');url.searchParams.set('limit','100');
+      if(after)url.searchParams.set('after',after);
+      const response=await fetch(url.toString(),{headers:{Authorization:`Bearer ${accessToken}`},redirect:'error',signal:AbortSignal.timeout(15000)});
+      const data=await response.json() as any;
+      if(!response.ok||!Array.isArray(data?.data)||data.data.length>100||data.error)throw new AppError('Meta account choices could not be verified. Existing connections are unchanged.',409,'INSTAGRAM_ACCOUNT_SELECTION_UNVERIFIED');
+      for(const item of data.data){
+        if(!item||typeof item!=='object')throw new AppError('Meta account choices were malformed.',409,'INSTAGRAM_ACCOUNT_SELECTION_UNVERIFIED');
+        const ig=item.instagram_business_account;if(!ig)continue;
+        if(typeof item.id!=='string'||!/^\d+$/.test(item.id)||typeof ig.id!=='string'||!/^\d+$/.test(ig.id)||typeof ig.username!=='string'||!ig.username.trim()||ig.username.length>256||ig.name!==undefined&&typeof ig.name!=='string')throw new AppError('Instagram choice identity could not be verified.',409,'INSTAGRAM_ACCOUNT_SELECTION_UNVERIFIED');
+        const candidate:ProviderAccountIdentity={providerAccountId:ig.id,accountName:ig.name||ig.username,username:ig.username,avatarUrl:null,metadata:{pageId:item.id,pageName:typeof item.name==='string'?item.name:null,instagramBusinessId:ig.id}};
+        const prior=accounts.get(ig.id);
+        if(prior&&prior.metadata?.pageId!==item.id)throw new AppError('Instagram account has conflicting page bindings. Existing connections are unchanged.',409,'INSTAGRAM_ACCOUNT_SELECTION_UNVERIFIED');
+        accounts.set(ig.id,candidate);
+      }
+      if(!data.paging?.next)return [...accounts.values()];
+      const cursor=data.paging?.cursors?.after;
+      if(typeof cursor!=='string'||!cursor||cursor.length>4096||seen.has(cursor))throw new AppError('Meta account pagination could not be verified.',409,'INSTAGRAM_ACCOUNT_SELECTION_UNVERIFIED');
+      seen.add(cursor);after=cursor;
+    }
+    throw new AppError('Meta returned more accounts than can be reviewed in one bounded selection. Existing connections are unchanged.',409,'INSTAGRAM_ACCOUNT_SELECTION_UNVERIFIED');
+  }
+
   async getAccountIdentity(accessToken: string): Promise<ProviderAccountIdentity> {
     // 1. Fetch user accounts/pages to find linked Instagram Business/Creator Account
     const pagesRes = await fetch(
