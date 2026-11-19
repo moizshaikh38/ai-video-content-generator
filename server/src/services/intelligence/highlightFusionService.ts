@@ -178,6 +178,8 @@ export class HighlightFusionService {
       preferShotCutAlignment: true,
     });
 
+    if (boundaryResult.boundaryOptimization.wordBoundarySafe === false) return null;
+
     const start = boundaryResult.start;
     const end = boundaryResult.end;
     const duration = boundaryResult.duration;
@@ -199,7 +201,7 @@ export class HighlightFusionService {
     let hookScore = 50;
     let spokenEmphasis = 'Standard conversational pace';
     let completeThought = boundaryResult.boundaryOptimization.wasSentencePreserved;
-    if (!completeThought && dialogue.length > 0) {
+    if (!completeThought && intervalWords.length === 0 && dialogue.length > 0) {
       if (/[.!?]+$/.test(dialogue.trim())) {
         completeThought = true;
       }

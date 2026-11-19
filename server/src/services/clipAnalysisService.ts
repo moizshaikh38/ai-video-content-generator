@@ -1044,10 +1044,15 @@ export class ClipAnalysisService {
           preferShotCutAlignment: true,
         });
 
-        let start_seconds = (shotBoundary.boundaryOptimization.wasShotBoundarySnapped || shotBoundary.boundaryOptimization.wasSentencePreserved)
+        if (shotBoundary.boundaryOptimization.wordBoundarySafe === false) {
+          logger.info('Rejected candidate: duration enforcement would split a transcript word.');
+          continue;
+        }
+
+        let start_seconds = (shotBoundary.boundaryOptimization.wasShotBoundarySnapped || shotBoundary.boundaryOptimization.wasSentencePreserved || shotBoundary.boundaryOptimization.wasWordBoundaryAdjusted)
           ? shotBoundary.start
           : wordSnapped.start_seconds;
-        let end_seconds = (shotBoundary.boundaryOptimization.wasShotBoundarySnapped || shotBoundary.boundaryOptimization.wasSentencePreserved)
+        let end_seconds = (shotBoundary.boundaryOptimization.wasShotBoundarySnapped || shotBoundary.boundaryOptimization.wasSentencePreserved || shotBoundary.boundaryOptimization.wasWordBoundaryAdjusted)
           ? shotBoundary.end
           : wordSnapped.end_seconds;
         let duration_seconds = Number((end_seconds - start_seconds).toFixed(3));

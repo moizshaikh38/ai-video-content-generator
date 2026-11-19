@@ -66,14 +66,14 @@ export class ShotBoundaryFusionService {
 
     const warnings: string[] = [];
     const minDur = Math.max(1.5, targetDuration.min);
-    const maxDur = Math.min(Math.max(minDur + 2, targetDuration.max), totalVideoDuration);
+    const maxDur = Math.min(Math.max(minDur, targetDuration.max), totalVideoDuration);
 
     let currentStart = Math.max(0, Math.min(rawStart, totalVideoDuration - 0.5));
     let currentEnd = Math.min(totalVideoDuration, Math.max(currentStart + 0.5, rawEnd));
 
     // Sort words and scene cuts chronologically
     const sortedWords = [...words]
-      .filter((w) => typeof w.start === 'number' && typeof w.end === 'number' && w.end >= w.start)
+      .filter((w) => Number.isFinite(w.start) && Number.isFinite(w.end) && w.start >= 0 && w.end > w.start && typeof w.word === 'string')
       .sort((a, b) => a.start - b.start);
 
     const sortedCuts = [...sceneCuts]
@@ -260,6 +260,7 @@ export class ShotBoundaryFusionService {
     // ──────────────────────────────────────────────────────────────────────────
     // STEP 4: DURATION ENFORCEMENT & SAFETY CLAMPING
     // ──────────────────────────────────────────────────────────────────────────
+    let wasWordBoundaryAdjusted = false;
     let finalDuration = currentEnd - currentStart;
 
     if (finalDuration < minDur) {
@@ -277,7 +278,14 @@ export class ShotBoundaryFusionService {
     if (finalDuration > maxDur) {
       // Need contraction to respect maximum short-form constraint
       const excess = finalDuration - maxDur;
-      currentEnd = Number((currentEnd - excess).toFixed(3));
+      const ceiling = currentStart + maxDur;
+      const safeEndWords = sortedWords.filter((w) => w.end <= ceiling && w.end - currentStart >= minDur &&
+        !sortedWords.some((other) => other.start < w.end && other.end > w.end));
+      const terminalEnds = safeEndWords.filter((w) => this.TERMINAL_PUNCTUATION_REGEX.test(w.word.trim()));
+      const chosen = terminalEnds.at(-1) ?? safeEndWords.at(-1);
+      currentEnd = Number((chosen?.end ?? ceiling).toFixed(3));
+      wasWordBoundaryAdjusted = Boolean(chosen);
+      endsOnCut = false;
       finalDuration = currentEnd - currentStart;
       warnings.push(`Clamped boundary by ${(excess).toFixed(1)}s to respect maximum clip duration.`);
     }
@@ -294,6 +302,20 @@ export class ShotBoundaryFusionService {
       finalDuration = currentEnd - currentStart;
     }
 
+    // Duration enforcement must not quietly reintroduce a partial spoken word.
+    // An impossible duration/word combination is rejected by the live caller.
+    const wordBoundarySafe = !sortedWords.some((w) =>
+      (w.start < currentStart && w.end > currentStart) || (w.start < currentEnd && w.end > currentEnd));
+    const finalWords = sortedWords.filter((w) => w.start >= currentStart && w.end <= currentEnd);
+    if (sortedWords.length > 0) {
+      wasSentencePreserved = wordBoundarySafe && Boolean(finalWords.length &&
+        this.TERMINAL_PUNCTUATION_REGEX.test(finalWords[finalWords.length - 1].word.trim()));
+    }
+    if (!wordBoundarySafe) warnings.push('No word-safe boundary satisfies the selected duration; reject this candidate.');
+    startsOnCut = startsOnCut && nearestPriorCut === currentStart;
+    endsOnCut = endsOnCut && nearestPosteriorCut === currentEnd;
+    wasShotBoundarySnapped = startsOnCut || endsOnCut;
+
     return {
       start: currentStart,
       end: currentEnd,
@@ -305,6 +327,8 @@ export class ShotBoundaryFusionService {
         snappedEnd: currentEnd,
         wasShotBoundarySnapped,
         wasSentencePreserved,
+        wasWordBoundaryAdjusted,
+        wordBoundarySafe,
         leadingSilenceTrimmedSec,
         trailingSilenceTrimmedSec,
       },

@@ -202,6 +202,8 @@ export interface BoundaryOptimizationInfo {
   snappedEnd: number;
   wasShotBoundarySnapped: boolean;
   wasSentencePreserved: boolean;
+  wasWordBoundaryAdjusted?: boolean;
+  wordBoundarySafe?: boolean;
   leadingSilenceTrimmedSec: number;
   trailingSilenceTrimmedSec: number;
 }
