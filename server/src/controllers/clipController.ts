@@ -1,3 +1,4 @@
+import {assertRenderQuotaMaximum,assertRenderUsageCount} from '../shared/renderQuotaSnapshot.js';
 import {ProEditorService} from '../services/proEditorService.js';
 import {parseCandidateCreation,lookupCandidateCreation,closeCandidateCreation} from '../db/repositories/candidateCreationRepository.js';
 import {prepareCandidateCreation} from '../db/repositories/clipRepository.js';
@@ -375,6 +376,7 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
     // Check monthly clip render limit against plan entitlement
     const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
     if (!entitlements.isUnlimited) {
+      assertRenderQuotaMaximum(entitlements.limits.maxClipRenders);
       const db = await getMongoDb();
       const currentMonthStart = new Date();
       currentMonthStart.setUTCDate(1);
@@ -388,6 +390,7 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
         ],
       });
 
+      assertRenderUsageCount(renderCount);
       if (renderCount >= entitlements.limits.maxClipRenders) {
         res.status(403).json({
           status: 'error',
@@ -611,6 +614,7 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
     // Check monthly clip render limit against plan entitlement
     const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
     if (!entitlements.isUnlimited) {
+      assertRenderQuotaMaximum(entitlements.limits.maxClipRenders);
       const db = await getMongoDb();
       const currentMonthStart = new Date();
       currentMonthStart.setUTCDate(1);
@@ -624,6 +628,7 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
         ],
       });
 
+      assertRenderUsageCount(renderCount);
       if (renderCount >= entitlements.limits.maxClipRenders) {
         res.status(403).json({
           status: 'error',

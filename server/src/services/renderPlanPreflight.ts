@@ -1,3 +1,4 @@
+import {assertRenderQuotaMaximum,assertRenderUsageCount} from '../shared/renderQuotaSnapshot.js';
 import {getMongoDb} from '../db/mongoClient.js';
 import {AppError} from '../types/index.js';
 import {EntitlementService} from './entitlementService.js';
@@ -10,9 +11,7 @@ export async function assertRenderPlanPreflight(userId: string, email: string | 
   const entitlements = await EntitlementService.resolveUserEntitlements(userId, email);
   if (!entitlements.isUnlimited) {
     const maximum = entitlements.limits.maxClipRenders;
-    if (!Number.isSafeInteger(maximum) || maximum < 0) {
-      throw new AppError('Render plan configuration is unavailable.', 503, 'RENDER_PLAN_UNAVAILABLE');
-    }
+    assertRenderQuotaMaximum(maximum);
     const currentMonthStart = new Date();
     currentMonthStart.setUTCDate(1);
     currentMonthStart.setUTCHours(0, 0, 0, 0);
@@ -24,9 +23,7 @@ export async function assertRenderPlanPreflight(userId: string, email: string | 
         {created_at: {$gte: currentMonthStart.toISOString()}},
       ],
     });
-    if (!Number.isSafeInteger(count) || count < 0) {
-      throw new AppError('Render usage could not be checked.', 503, 'RENDER_USAGE_UNAVAILABLE');
-    }
+    assertRenderUsageCount(count);
     if (count >= maximum) {
       throw new AppError(`Your ${entitlements.displayName} plan allows up to ${maximum} clip renders per month. Please upgrade your plan to render more clips.`, 403, 'MONTHLY_RENDER_LIMIT_EXCEEDED');
     }
