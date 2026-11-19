@@ -1,3 +1,4 @@
+import {hookMode} from '../../../server/src/shared/hookDisplayMode';
 import {applyCaptionPositionPreset} from '../../lib/captionPositionPreset';
 import { captionLegacyColorDefaults } from '../../lib/captionPresets';
 import React, { useRef, useState } from 'react';
@@ -60,7 +61,6 @@ import {
   CAPTION_PRESETS,
   getEditorCaptionPresetId,
   resolveEditorCaptionStyle,
-  applyPresetToEditorCaption,
 } from '../../lib/captionPresets';
 
 interface ContextualInspectorProps {
@@ -76,7 +76,8 @@ interface ContextualInspectorProps {
   onUpdateItem: (itemId: string, updates: Partial<EditorTrackItem>, options?: UpdateProjectOptions) => void;
   onAddKeyframe: (itemId: string, property: any, value: number, easing: any, time?: number) => void;
   onDeleteKeyframe: (itemId: string, keyframeId: string) => void;
-  onApplyCaptionPreset: (preset: CaptionPresetId) => void;
+  onApplyCaptionPreset: (preset: CaptionPresetId, options?: {keepColors?: boolean}) => void;
+  hookControls?: React.ReactNode;
   /** Plan-allowed caption preset ids (lowercase); undefined while entitlements load. */
   allowedCaptionPresetIds?: string[];
   /** Discoverable Captions On/Off; re-enabling restores the last chosen preset. */
@@ -119,6 +120,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
   onAddKeyframe: _onAddKeyframe,
   onDeleteKeyframe: _onDeleteKeyframe,
   onApplyCaptionPreset,
+  hookControls,
   allowedCaptionPresetIds,
   onToggleCaptions,
   onActionNotice,
@@ -175,7 +177,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
       const clamped = Math.min(Math.max(parsed, 0.5), project.canvas.duration);
       if (Math.abs(clamped - hookDuration) < 0.01) return;
       const end = selectedItem.timeline_start + clamped;
-      onUpdateItem(selectedItem.id, { timeline_end: end, source_end: end });
+      onUpdateItem(selectedItem.id, { timeline_end: end, source_end: end, text: { ...textConfig, hook_display_mode: undefined } });
     };
 
     const handleRegenerateHook = async () => {
@@ -304,8 +306,9 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
         {isAutoHook && (
           <div className="space-y-2 pb-3 border-b border-white/[0.08]">
             <label className="text-[11px] font-semibold text-vc-text-secondary uppercase tracking-wider">
-              Opening Hook
+              Hook
             </label>
+            {hookControls}
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5 flex-1">
                 <span className="text-vc-text-muted text-[10px]">Duration</span>
@@ -1162,7 +1165,8 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
 
         const captionsHidden = Boolean(captionTrack?.hidden);
         const galleryPresetId = getEditorCaptionPresetId(captionItem?.caption);
-        const selectedPresetId: CaptionPresetId | null = captionsHidden ? 'none' : galleryPresetId;
+        const linkedHook = hookMode(project as any);
+        const selectedPresetId: CaptionPresetId | null = captionsHidden && !linkedHook ? 'none' : galleryPresetId;
         const legacyStyleLabel =
           !captionsHidden && !galleryPresetId ? String(captionItem?.caption?.style || clip?.caption_style || 'clean') : null;
         const resolvedCaptionStyle = captionsHidden
@@ -1201,35 +1205,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
         };
 
         const handleSelectCaptionPreset = (presetId: CaptionPresetId) => {
-          if (keepColors && presetId !== 'none') {
-            onUpdateProject((prev) => ({
-              ...prev,
-              tracks: prev.tracks.map((t) => {
-                if (t.type !== 'CAPTION') return t;
-                return {
-                  ...t,
-                  hidden: false,
-                  items: t.items.map((i) => {
-                    const currentPrimary = i.caption?.primary_color;
-                    const currentHighlight = i.caption?.highlight_color;
-                    const currentStroke = i.caption?.stroke_color;
-                    const applied = applyPresetToEditorCaption(i.caption, presetId);
-                    return {
-                      ...i,
-                      caption: {
-                        ...applied,
-                        ...(currentPrimary ? { primary_color: currentPrimary } : {}),
-                        ...(currentHighlight ? { highlight_color: currentHighlight } : {}),
-                        ...(currentStroke ? { stroke_color: currentStroke } : {}),
-                      },
-                    };
-                  }),
-                };
-              }),
-            }));
-          } else {
-            onApplyCaptionPreset(presetId);
-          }
+          onApplyCaptionPreset(presetId, { keepColors });
         };
 
         return (
@@ -1269,6 +1245,8 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
               </div>
             </div>
 
+            {hookControls}
+
             {/* One tab bar. The old second level duplicated the first — "All Controls" was
                 literally Typography + Effects — so it is gone; sections collapse instead. */}
             <div role="tablist" aria-label="Caption Studio Sections" className={SEGMENTED_GROUP}>
@@ -1294,7 +1272,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
             </div>
 
             {/* One disabled state for the whole studio — it used to be duplicated per tab. */}
-            {captionsHidden ? (
+            {captionsHidden && !linkedHook ? (
               <PanelEmpty
                 icon={Subtitles}
                 title="Captions are off for this clip"

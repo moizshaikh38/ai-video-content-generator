@@ -1,3 +1,4 @@
+import type {CandidateCreationInput} from '../../lib/candidateCreationRecovery';
 import {candidateRankingDisplay} from '../../../server/src/shared/candidateRankingDisplay';
 import { GenerationCaptionPreset } from '../clips/GenerationCaptionPreset';
 import React, { useState, useEffect, useRef } from 'react';
@@ -35,6 +36,7 @@ import { clipRenderService } from '../../services/clipRenderService';
 import { CreditService, CreditBalanceSummary, CreditEstimate } from '../../services/creditService';
 import { CostTransparencySummary } from '../credits/CostTransparencySummary';
 import { clippingStartErrorMessage, projectClippingFailure, transcriptReviewRequired, type ClippingFailure } from '../../lib/clippingRecovery';
+import { waitForClipReady } from '../../lib/clipRenderReadiness';
 import { triggerBrowserDownload } from '../../utils/downloadUtils';
 import { useAuth } from '../../context/AuthContext';
 import { Project, ClipCandidate, RenderedClip, ClipPreferences } from '../../types';
@@ -158,7 +160,18 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   const captionLang = clipPreferences.sourceLanguage || 'auto';
   const setCaptionLang = (value:string) => setClipPreferences(prev => {const next={...prev,sourceLanguage:value};saveClipPreferencesToStorage(next);return next;});
   const [estimateRetry, setEstimateRetry] = useState(0);
-  const [clipCount, setClipCount] = useState<ClipCountPref>('auto');
+  const [clipCount, setClipCount] = useState<ClipCountPref>(() => {
+    const count = loadSavedClipPreferences().targetClipCount;
+    return count === 3 || count === 5 ? String(count) as ClipCountPref : 'auto';
+  });
+  const handleClipCountChange = (value: ClipCountPref) => {
+    setClipCount(value);
+    setClipPreferences(previous => {
+      const next = { ...previous, targetClipCount: value === 'auto' ? undefined : Number(value) };
+      saveClipPreferencesToStorage(next);
+      return next;
+    });
+  };
   const [customInstructions, setCustomInstructions] = useState(
     () => loadSavedClipPreferences().customInstructions || ''
   );
@@ -168,11 +181,23 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     setAspectRatio(newPrefs.aspectRatio as AspectRatioOption);
     setDurationPref(newPrefs.preferredDurations as DurationPref);
     setCustomInstructions(newPrefs.customInstructions || '');
+    setClipCount(newPrefs.targetClipCount === 3 || newPrefs.targetClipCount === 5 ? String(newPrefs.targetClipCount) as ClipCountPref : 'auto');
     saveClipPreferencesToStorage(newPrefs);
   };
 
   // Processing & Job state
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [activeProjectId, setActiveProjectIdState] = useState<string | null>(null);
+  const activeProjectIdRef = useRef<string | null>(null);
+  const setActiveProjectId = (projectId: string | null) => {
+    if (projectId !== activeProjectIdRef.current) {
+      resultReadSequenceRef.current++;
+      workflowSessionRef.current++;
+      exportRequestRef.current?.abort();
+      setCreationRecoveryTarget(null);
+    }
+    activeProjectIdRef.current = projectId;
+    setActiveProjectIdState(projectId);
+  };
   const [activeProjectStatus, setActiveProjectStatus] = useState<string>('idle');
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [processingStageMessage, setProcessingStageMessage] = useState<string>('');
@@ -249,8 +274,50 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const cancelGeneration = () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setIsSubmitting(false);
+  };
   const videoPlayerRef = useRef<HTMLVideoElement | null>(null);
   const offscreenVideoRef = useRef<HTMLVideoElement | null>(null);
+  const exportRequestRef = useRef<AbortController | null>(null);
+  const [creationRecoveryTarget,setCreationRecoveryTarget]=useState<{projectId:string;input:CandidateCreationInput}|null>(null);
+  const candidateExportsRef = useRef(new Map<string, string>());
+  const postProcessingProjectsRef = useRef(new Set<string>());
+  const resultReadSequenceRef = useRef(0);
+  const workflowSessionRef = useRef(0);
+  useEffect(() => () => { resultReadSequenceRef.current++; workflowSessionRef.current++; abortControllerRef.current?.abort(); abortControllerRef.current = null; }, []);
+  useEffect(() => () => { exportRequestRef.current?.abort(); }, [activeProjectId, workflowState]);
+
+  // Reload only looks up a saved creation identity, never prepares or admits.
+  useEffect(()=>{candidateExportsRef.current.clear();setCreationRecoveryTarget(null);},[user?.id]);
+  useEffect(()=>{
+    let cancelled=false;
+    if(!activeProjectId||!user?.id)return;
+    const projectId=activeProjectId,session=workflowSessionRef.current;
+    void(async()=>{try{let recovered=false;
+      const inputs=await clipRenderService.listCandidateCreations(projectId);
+      for(const input of inputs){
+        if(cancelled||session!==workflowSessionRef.current)return;
+        try{const result=await clipRenderService.recoverCandidateCreation(projectId,input);if(result)recovered=true;}
+        catch(error:any){if(!cancelled&&session===workflowSessionRef.current){setCreationRecoveryTarget({projectId,input});setErrorMessage(error.message||'Saved creation recovery is unavailable. No clip was created on reload.');setWorkflowState('error');}return;}
+      }
+      if(recovered&&!cancelled&&session===workflowSessionRef.current)await loadResults(projectId,true);
+    }catch(error:any){if(!cancelled&&session===workflowSessionRef.current){setErrorMessage(error.message||'Saved creation requests could not be listed.');setWorkflowState('error');}}})();
+    return()=>{cancelled=true;};
+  },[activeProjectId,user?.id]);
+  const handleResolveCreation=async()=>{
+    const target=creationRecoveryTarget;if(!target||target.projectId!==activeProjectId||exportRequestRef.current)return;
+    const request=new AbortController();exportRequestRef.current=request;
+    try{const result=await clipRenderService.closeCandidateCreation(target.projectId,target.input);
+      if(request.signal.aborted)return;
+      setCreationRecoveryTarget(null);
+      if(result)navigate(`/clips/${result.clip.id}/edit`);
+      else{setErrorMessage(null);setWorkflowState('clips_ready');}
+    }catch(error:any){if(!request.signal.aborted)setErrorMessage(error.message||'Saved creation could not be resolved. Its identity was kept.');}
+    finally{if(exportRequestRef.current===request)exportRequestRef.current=null;}
+  };
 
   // 1. Persistence Recovery: Check localStorage on Mount
   useEffect(() => {
@@ -266,9 +333,10 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         if (saved.captionLang && !loadSavedClipPreferences().sourceLanguage) setCaptionLang(saved.captionLang);
         if (saved.customInstructions) setCustomInstructions(saved.customInstructions);
 
-        // Fetch project and restore state
+        // Fetch project and restore state only while this saved selection is current.
+        const session = workflowSessionRef.current;
         projectService.fetchProject(saved.projectId).then((proj) => {
-          if (!proj) return;
+          if (!proj || session !== workflowSessionRef.current) return;
           if (proj.clip_preferences) handlePreferencesChange(proj.clip_preferences);
           const captionMode = proj.notes?.match(/\[Captions:\s*([^\]]+)\]/i)?.[1]?.trim();
           if (captionMode) setCaptionsEnabled(captionMode !== 'off');
@@ -298,6 +366,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             setClippingFailure(projectClippingFailure(proj));
           }
         }).catch(() => {
+          if (session !== workflowSessionRef.current) return;
           localStorage.removeItem(STORAGE_KEY);
         });
       }
@@ -338,6 +407,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   // 2. Fetch project source preview URL whenever active project changes
   useEffect(() => {
     let isMounted = true;
+    setSourceVideoStreamingUrl(null);
     if (!activeProjectId) {
       setSourceVideoStreamingUrl(null);
       return;
@@ -399,6 +469,10 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   }, [workflowState, activeProjectId]);
 
   const handleBackToHome = () => {
+    cancelGeneration();
+    resultReadSequenceRef.current++;
+    workflowSessionRef.current++;
+    exportRequestRef.current?.abort();
     navigate('/dashboard', { replace: false });
     setWorkflowState('no_source');
   };
@@ -413,6 +487,10 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   // Listen for Home sidebar/logo click to return cleanly to Home view
   useEffect(() => {
     const handleNavigateHome = () => {
+      cancelGeneration();
+      resultReadSequenceRef.current++;
+      workflowSessionRef.current++;
+      exportRequestRef.current?.abort();
       navigate('/dashboard', { replace: false });
       setWorkflowState('no_source');
     };
@@ -435,18 +513,23 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       }
     } else {
       if (workflowState === 'clips_ready') {
+        resultReadSequenceRef.current++;
+        workflowSessionRef.current++;
+        exportRequestRef.current?.abort();
         setWorkflowState('no_source');
       }
     }
   }, [searchParams]);
 
   const loadResults = async (projectId: string, forceShowReview = false) => {
+    const sequence = ++resultReadSequenceRef.current;
     try {
       const [candData, clipsData] = await Promise.all([
-        clipService.getClipCandidates(projectId).catch(() => []),
-        clipRenderService.getProjectClips(projectId).catch(() => []),
+        clipService.getClipCandidates(projectId),
+        clipRenderService.getProjectClips(projectId),
       ]);
 
+      if (sequence !== resultReadSequenceRef.current) return;
       setCandidates(candData || []);
       setRenderedClips(clipsData || []);
 
@@ -467,14 +550,22 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         setWorkflowState('error');
       }
     } catch {
-      setWorkflowState('source_selected');
+      if (sequence !== resultReadSequenceRef.current) return;
+      // A failed read says nothing about whether saved results exist.
+      // Do not send the user back to generation or claim an empty analysis.
+      setErrorMessage('Could not load your saved clips. Your project is saved. Reopen its review to try loading again; no new generation was started.');
+      setWorkflowState('error');
     }
   };
 
   const handlePostProcessingReady = async (projectId: string) => {
+    if (postProcessingProjectsRef.current.has(projectId)) return;
+    postProcessingProjectsRef.current.add(projectId);
+    const session = workflowSessionRef.current;
     try {
       // Check if candidates already exist
-      const existingCandidates = await clipService.getClipCandidates(projectId).catch(() => []);
+      const existingCandidates = await clipService.getClipCandidates(projectId);
+      if (session !== workflowSessionRef.current) return;
       if (existingCandidates.length === 0) {
         // Trigger clip analysis
         setProcessingStageMessage('Extracting viral clip moments...');
@@ -485,14 +576,18 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
         await clipService.analyzeClips(projectId, promptText || undefined, clipPreferences);
       }
+      if (session !== workflowSessionRef.current) return;
       navigate(`/dashboard?view=review&project=${projectId}`, { replace: false });
       await loadResults(projectId, true);
       onRefreshProjects();
       loadWalletBalance();
       window.dispatchEvent(new CustomEvent('vireo_credit_updated'));
     } catch (err: any) {
+      if (session !== workflowSessionRef.current) return;
       setWorkflowState('error');
       setClippingFailure(err);
+    } finally {
+      postProcessingProjectsRef.current.delete(projectId);
     }
   };
 
@@ -515,6 +610,10 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       URL.revokeObjectURL(localVideoPreviewUrl);
     }
 
+    resultReadSequenceRef.current++;
+    workflowSessionRef.current++;
+    setActiveProjectId(null);
+    cancelGeneration();
     const objectUrl = URL.createObjectURL(file);
     setLocalVideoPreviewUrl(objectUrl);
     setErrorMessage(null);
@@ -567,6 +666,10 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       return;
     }
 
+    resultReadSequenceRef.current++;
+    workflowSessionRef.current++;
+    setActiveProjectId(null);
+    cancelGeneration();
     // Determine title and thumbnail
     const ytThumb = getYouTubeThumbnail(trimmed);
     let title = 'Imported Video';
@@ -587,6 +690,10 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   };
 
   const handlePickSample = (sample: (typeof SAMPLE_VIDEOS)[0]) => {
+    cancelGeneration();
+    resultReadSequenceRef.current++;
+    workflowSessionRef.current++;
+    setActiveProjectId(null);
     setInputUrl(sample.url);
     setUrlValidationError(null);
     setErrorMessage(null);
@@ -601,6 +708,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   };
 
   const handleSelectExistingProject = (proj: Project) => {
+    cancelGeneration();
     setIsBrowseModalOpen(false);
     setErrorMessage(null);
     setActiveProjectId(proj.id);
@@ -640,10 +748,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   };
 
   const handleReplaceSource = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
+    cancelGeneration();
     if (localVideoPreviewUrl) {
       URL.revokeObjectURL(localVideoPreviewUrl);
       setLocalVideoPreviewUrl(null);
@@ -667,7 +772,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   // -------------------------------------------------------------
 
   const handleGenerateClips = async () => {
-    if (needsTranscriptReview || isSubmitting || !selectedSource || isCreditEstimateLoading || !creditEstimate?.has_sufficient_credits) return;
+    if (needsTranscriptReview || isSubmitting || abortControllerRef.current || !selectedSource || isCreditEstimateLoading || !creditEstimate?.has_sufficient_credits) return;
 
     if (!user) {
       setErrorMessage('Please sign in to generate clips with AI.');
@@ -680,6 +785,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
+    const isCurrentRequest = () => abortControllerRef.current === abortController && !abortController.signal.aborted;
 
     try {
       let projectId = selectedSource.projectId;
@@ -716,6 +822,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             notes,
             clip_preferences: clipPreferences,
           });
+          if (!isCurrentRequest()) return;
           setSelectedSource({ ...selectedSource, projectId });
         }
 
@@ -723,10 +830,11 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         await uploadVideoFile({
           file: selectedSource.file,
           projectId,
-          onProgress: (pct) => setUploadProgress(pct),
+          onProgress: (pct) => { if (isCurrentRequest()) setUploadProgress(pct); },
           signal: abortController.signal,
         });
 
+        if (!isCurrentRequest()) return;
         setUploadProgress(100);
         // Confirmation makes this a reusable project source. A later processing
         // failure must not create another project or upload these bytes again.
@@ -737,6 +845,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
         // Start backend processing
         await projectService.startProcessing(projectId);
+        if (!isCurrentRequest()) return;
         setActiveProjectStatus('processing');
         onRefreshProjects();
       }
@@ -764,6 +873,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           clip_preferences: clipPreferences,
         });
 
+        if (!isCurrentRequest()) return;
         projectId = proj.id;
         setActiveProjectId(projectId);
         setSelectedSource({ ...selectedSource, type: 'project', projectId });
@@ -772,6 +882,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         setProcessingStageMessage('Queuing video for AI transcription...');
 
         await projectService.startProcessing(projectId);
+        if (!isCurrentRequest()) return;
         setActiveProjectStatus('processing');
         onRefreshProjects();
       }
@@ -779,8 +890,11 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       else if (selectedSource.type === 'project' && projectId) {
         setWorkflowState('processing');
         const proj = await projectService.fetchProject(projectId);
+        if (!isCurrentRequest()) return;
+        if (!proj) throw new Error('This saved project could not be loaded. Reopen it before starting processing.');
         const notes = (proj?.notes || '').replace(/\[Captions:\s*[^\]]+\]/gi, '').trim();
         await projectService.updateProjectAsync(projectId, {clip_preferences:clipPreferences, notes:`${notes} [Captions: ${captionsEnabled ? captionLang : 'off'}]`});
+        if (!isCurrentRequest()) return;
         const currentStatus = proj?.video_status || proj?.status || 'idle';
 
         if (['completed', 'transcribed'].includes(currentStatus)) {
@@ -791,16 +905,20 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           // Start or resume processing
           setProcessingStageMessage('Processing video with AI...');
           await projectService.startProcessing(projectId);
+          if (!isCurrentRequest()) return;
           setActiveProjectStatus('processing');
         }
       }
     } catch (err: any) {
+      if (!isCurrentRequest()) return;
       loadWalletBalance();
       setClippingFailure(err);
       setWorkflowState('error');
     } finally {
-      setIsSubmitting(false);
-      abortControllerRef.current = null;
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+        if (!abortController.signal.aborted) setIsSubmitting(false);
+      }
     }
   };
 
@@ -870,50 +988,83 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     if (!activeProjectId) return;
 
     if (!isCandidate) {
-      // Already a RenderedClip
       navigate(`/clips/${clipId}/edit`);
       return;
     }
-
-    // If candidate, render it first then navigate to editor
+    if (exportRequestRef.current) return;
+    const request = new AbortController();
+    exportRequestRef.current = request;
     try {
       setExportStatusMessage('Opening editor for clip...');
-      const res = await clipRenderService.createClipFromCandidate(activeProjectId, clipId, aspectRatio, 'smart', {caption_enabled:captionsEnabled,caption_style:clipPreferences.captionStyle,caption_config:clipPreferences.captionStyle?{presetId:clipPreferences.captionStyle}:undefined});
-      navigate(`/clips/${res.clip.id}/edit`);
+      const key = JSON.stringify([activeProjectId, clipId, aspectRatio, captionsEnabled, clipPreferences.captionStyle]);
+      let targetClipId = candidateExportsRef.current.get(key);
+      if (!targetClipId) {
+        const input:CandidateCreationInput={candidateId:clipId,aspectRatio,cropMode:'smart',caption_enabled:captionsEnabled,caption_style:clipPreferences.captionStyle,caption_config:clipPreferences.captionStyle?{presetId:clipPreferences.captionStyle}:undefined};
+        setCreationRecoveryTarget({projectId:activeProjectId,input});
+        const res = await clipRenderService.createClipFromCandidate(activeProjectId, clipId, aspectRatio, 'smart', {caption_enabled:captionsEnabled,caption_style:clipPreferences.captionStyle,caption_config:clipPreferences.captionStyle?{presetId:clipPreferences.captionStyle}:undefined});
+        if(!request.signal.aborted)setCreationRecoveryTarget(null);
+        targetClipId = res.clip.id;
+        candidateExportsRef.current.set(key, targetClipId);
+      }
+      if (!request.signal.aborted) navigate(`/clips/${targetClipId}/edit`);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to prepare clip for editor.');
-      setWorkflowState('error');
+      if (!request.signal.aborted) {
+        setErrorMessage(err.message || 'Failed to prepare clip for editor.');
+        setWorkflowState('error');
+      }
+    } finally {
+      if (exportRequestRef.current === request) {
+        exportRequestRef.current = null;
+        setExportStatusMessage(null);
+      }
     }
   };
 
   // Export clip: Triggers signed download via clipRenderService
-  const handleExportClip = async (clipId: string, isCandidate: boolean) => {
-    if (!activeProjectId) return;
-
+  const handleExportClip = async (clipId: string, isCandidate: boolean): Promise<boolean> => {
+    if (!activeProjectId || exportRequestRef.current) return false;
+    const request = new AbortController();
+    exportRequestRef.current = request;
     setIsExportingClipId(clipId);
     setExportStatusMessage('Preparing high-quality export...');
 
     try {
       let targetClipId = clipId;
-
       if (isCandidate) {
-        // Render clip first
-        const createRes = await clipRenderService.createClipFromCandidate(activeProjectId, clipId, aspectRatio, 'smart', {caption_enabled:captionsEnabled,caption_style:clipPreferences.captionStyle,caption_config:clipPreferences.captionStyle?{presetId:clipPreferences.captionStyle}:undefined});
-        targetClipId = createRes.clip.id;
+        // Keep the same queued render on a wait timeout or download failure.
+        // A changed generation configuration gets its own render instead.
+        const key = JSON.stringify([activeProjectId, clipId, aspectRatio, captionsEnabled, clipPreferences.captionStyle]);
+        const existing = candidateExportsRef.current.get(key);
+        if (existing) targetClipId = existing;
+        else {
+          const input:CandidateCreationInput={candidateId:clipId,aspectRatio,cropMode:'smart',caption_enabled:captionsEnabled,caption_style:clipPreferences.captionStyle,caption_config:clipPreferences.captionStyle?{presetId:clipPreferences.captionStyle}:undefined};
+          setCreationRecoveryTarget({projectId:activeProjectId,input});
+          const created = await clipRenderService.createClipFromCandidate(activeProjectId, clipId, aspectRatio, 'smart', {caption_enabled:captionsEnabled,caption_style:clipPreferences.captionStyle,caption_config:clipPreferences.captionStyle?{presetId:clipPreferences.captionStyle}:undefined});
+          if(!request.signal.aborted)setCreationRecoveryTarget(null);
+          targetClipId = created.clip.id;
+          candidateExportsRef.current.set(key, targetClipId);
+        }
       }
-
+      await waitForClipReady(targetClipId, {
+        signal: request.signal,
+        readClip: (id, signal) => clipRenderService.getClip(id, signal),
+        onProgress: (clip) => setExportStatusMessage(clip.render_status === 'ready' ? 'Preparing download...' : `Rendering clip: ${clip.render_status}...`),
+      });
       const { signedUrl, filename } = await clipRenderService.getDownloadUrl(targetClipId);
-      if (signedUrl) {
-        // Trigger browser download safely without navigating the window
-        await triggerBrowserDownload(signedUrl, filename || `vireoclip-${targetClipId.slice(0, 8)}.mp4`);
-
-        setExportStatusMessage(`Download initiated: ${filename || 'Clip exported'}`);
-        setTimeout(() => setExportStatusMessage(null), 4000);
-      }
+      if (request.signal.aborted) return false;
+      if (!signedUrl) throw new Error('The download is not available yet. Your clip is saved.');
+      await triggerBrowserDownload(signedUrl, filename || `vireoclip-${targetClipId.slice(0, 8)}.mp4`);
+      setExportStatusMessage(`Download initiated: ${filename || 'Clip exported'}`);
+      setTimeout(() => { if (!exportRequestRef.current) setExportStatusMessage(null); }, 4000);
+      return true;
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to export clip. Please retry.');
-      setWorkflowState('error');
+      if (!request.signal.aborted) {
+        setErrorMessage(err.message || 'Failed to export clip. Your clip is saved.');
+        setWorkflowState('error');
+      }
+      return false;
     } finally {
+      if (exportRequestRef.current === request) exportRequestRef.current = null;
       setIsExportingClipId(null);
     }
   };
@@ -923,7 +1074,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     if (selectedClipIds.size === 0) return;
     for (const id of Array.from(selectedClipIds)) {
       const isCandidate = candidates.some((c) => c.id === id);
-      await handleExportClip(id, isCandidate);
+      if (!await handleExportClip(id, isCandidate)) break;
     }
   };
 
@@ -1280,7 +1431,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                   <button
                     key={c.id}
                     type="button"
-                    onClick={() => setClipCount(c.id as ClipCountPref)}
+                    onClick={() => handleClipCountChange(c.id as ClipCountPref)}
                     className={`px-2.5 py-1 rounded-lg border text-xs font-medium cursor-pointer transition-all ${
                       clipCount === c.id
                         ? 'bg-violet-500/20 border-violet-500 text-white'
@@ -1656,7 +1807,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                         const isCand = candidates.some((c) => c.id === activePreviewClipId);
                         handleExportClip(activePreviewClipId, isCand);
                       }}
-                      disabled={isExportingClipId === activePreviewClipId}
+                      disabled={isExportingClipId !== null}
                       className="px-4 py-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/15 text-xs font-semibold text-zinc-100 flex items-center gap-1.5 cursor-pointer transition-all"
                     >
                       {isExportingClipId === activePreviewClipId ? (
@@ -1763,7 +1914,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                       <button
                         type="button"
                         onClick={() => handleExportClip(clip.id, false)}
-                        disabled={isExportingClipId === clip.id}
+                        disabled={isExportingClipId !== null}
                         className="px-2.5 py-1 rounded-lg bg-violet-500/30 hover:bg-violet-500/50 text-xs text-white font-medium transition-colors cursor-pointer"
                       >
                         {isExportingClipId === clip.id ? (
@@ -1869,7 +2020,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                       <button
                         type="button"
                         onClick={() => handleExportClip(cand.id, true)}
-                        disabled={isExportingClipId === cand.id}
+                        disabled={isExportingClipId !== null}
                         className="px-2.5 py-1 rounded-lg bg-violet-500/30 hover:bg-violet-500/50 text-xs text-white font-medium transition-colors cursor-pointer"
                       >
                         {isExportingClipId === cand.id ? (
@@ -1910,6 +2061,11 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             </div>
           </div>
 
+          {creationRecoveryTarget&&<div className="space-y-2 text-xs text-vc-text-secondary">
+            <p>Resolve recovers an already created clip or closes an unadmitted request. It does not create, delete or cancel a rendered clip.</p>
+            <button type="button" onClick={handleResolveCreation} className="px-3 py-2 rounded-lg border border-white/20 text-zinc-200">Resolve saved creation</button>
+          </div>}
+
           {/* Direct upload is a recovery only while URL ingestion is unresolved. */}
           {!needsTranscriptReview && selectedSource?.type === 'url' && <div className="p-3.5 rounded-xl bg-white/[0.03] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-vc-text-secondary">
             <div className="space-y-0.5">
@@ -1940,12 +2096,13 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             No automatic retry will run from this screen. Opening the project does not approve its transcript or start a new transcription.
           </p>}
           <div className="pt-2 flex flex-wrap items-center gap-3">
+            {activeProjectId&&(creationRecoveryTarget||candidates.length>0||renderedClips.length>0)&&<button type="button" onClick={()=>setWorkflowState('clips_ready')} className="px-4 py-2 rounded-lg border border-white/20 text-xs">Back to saved clips</button>}
             {needsTranscriptReview && activeProjectId && <button type="button"
               onClick={() => navigate(`/projects/${encodeURIComponent(activeProjectId)}`)}
               className={`px-5 py-2.5 text-xs font-semibold cursor-pointer ${BTN_PILL_BRAND}`}>
               Open Project for Review
             </button>}
-            {selectedSource && !needsTranscriptReview && (
+            {selectedSource && !needsTranscriptReview && !creationRecoveryTarget && candidates.length===0 && renderedClips.length===0 && (
               <button
                 type="button"
                 onClick={handleGenerateClips}

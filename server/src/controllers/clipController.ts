@@ -1,3 +1,10 @@
+import {ProEditorService} from '../services/proEditorService.js';
+import {parseCandidateCreation,lookupCandidateCreation,closeCandidateCreation} from '../db/repositories/candidateCreationRepository.js';
+import {prepareCandidateCreation} from '../db/repositories/clipRepository.js';
+import {closeSavedRenderSubmission} from '../db/repositories/renderSubmissionCloseRepository.js';
+import {parseRenderSubmission, lookupRenderSubmission} from '../db/repositories/renderSubmissionRepository.js';
+import {enqueueRenderJob, assertRenderAdmissionEnabled} from '../db/repositories/renderAdmissionRepository.js';
+import {editorRenderSnapshot} from '../shared/editorRenderSnapshot.js';
 import {createPreviewMeasuredEnvelope} from '../services/itemShotPlanService.js';
 import {newCaptionDefaults} from '../shared/newCaptionDefaults.js';
 import {shotPlanOptions} from '../shared/shotPlanOptions.js';
@@ -150,8 +157,8 @@ export const analyzeProjectClips = async (req: AuthenticatedRequest, res: Respon
 
     res.status(500).json({
       status: 'error',
-      code: 'CLIP_ANALYSIS_FAILED',
-      message: err.message || 'Failed to analyze video clips.',
+      code: 'INTERNAL_ERROR',
+      message: 'Internal server error',
     });
   }
 };
@@ -353,6 +360,18 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
   }
 
   try {
+    const creation=parseCandidateCreation(req.body,projectId);
+    if(creation){
+      if(req.body.cancel_only){res.status(200).json(await closeCandidateCreation(userId,creation));return;}
+      const prior=await lookupCandidateCreation(userId,creation);
+      if(prior?.cancelled){res.status(409).json({status:'error',code:'CREATION_INTENT_CANCELLED',message:'This saved creation request was closed. No new clip was created.'});return;}
+      if(prior?.clip||req.body.recover_only||req.body.prepare_only&&prior){
+        if(!prior){res.status(404).json({status:'error',code:'CREATION_INTENT_NOT_FOUND',message:'This creation request has not been confirmed.'});return;}
+        res.status(200).json(prior);return;
+      }
+      assertRenderAdmissionEnabled();
+      if(!req.body.prepare_only&&!creation.preparation){res.status(409).json({status:'error',code:'CREATION_PREPARATION_REQUIRED',message:'Prepare and save the creation inputs before admission.'});return;}
+    }
     // Check monthly clip render limit against plan entitlement
     const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
     if (!entitlements.isUnlimited) {
@@ -401,24 +420,37 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
     const effectiveCaptionConfig = effectiveCaptionStyle===initialCaption.captionStyle
       ? initialCaption.captionConfig : {presetId:effectiveCaptionStyle};
 
+    const creationContext=creation?{intent:creation,buildEditor:(clip:any,transcript:any,preferences:any)=>ProEditorService.buildInitialCandidateEditor(clip,userId,transcript,preferences),policy:{planId:entitlements.planId,isUnlimited:entitlements.isUnlimited,
+      maxClipRenders:entitlements.limits.maxClipRenders,watermarkRequired:entitlements.watermarkRequired,
+      features:entitlements.features,allowedSubtitlePresets:entitlements.allowedSubtitlePresets}}:undefined;
+    if(creationContext&&req.body.prepare_only){
+      const {data:candidate,error}=await dataRepository.from('clip_candidates').select('metadata').eq('id',candidateId).eq('project_id',projectId).eq('user_id',userId).maybeSingle();
+      if(error)throw Object.assign(new Error('Candidate read is unavailable.'),{statusCode:503,code:'DATABASE_UNAVAILABLE'});
+      if(!candidate){res.status(404).json({status:'error',code:'CANDIDATE_NOT_FOUND',message:'Clip candidate not found.'});return;}
+      await assertSelectionSourceCurrent(userId,projectId,candidate.metadata?.selection_source_receipt);
+      res.status(200).json(await prepareCandidateCreation(projectId,candidateId,userId,aspectRatio,effectiveCropMode,
+        {caption_enabled,caption_style:effectiveCaptionStyle,caption_config:effectiveCaptionConfig},creationContext));return;
+    }
     const result = await ClipRenderService.createClipFromCandidate(
       projectId,
       userId,
       candidateId,
       aspectRatio,
       effectiveCropMode,
-      { caption_enabled, caption_style: effectiveCaptionStyle, caption_config: effectiveCaptionConfig }
+      { caption_enabled, caption_style: effectiveCaptionStyle, caption_config: effectiveCaptionConfig },
+      creationContext
     );
 
     res.status(202).json({
       status: 'ok',
+      ...(creation?{creationId:creation.id,preparation:creation.preparation,replayed:result.replayed===true}:{}),
       message: 'Clip created and rendering queued.',
       clip: result.clip,
       renderJob: result.renderJob,
     });
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';
-    const status =
+    const status = Number.isInteger(err.statusCode)&&err.statusCode>=400&&err.statusCode<=599?err.statusCode:
       code === 'PROJECT_NOT_FOUND' || code === 'CANDIDATE_NOT_FOUND'
         ? 404
         : code === 'RENDER_ALREADY_ACTIVE' || code === 'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'
@@ -439,10 +471,18 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
 
     res.status(status).json({
       status: 'error',
-      code,
-      message: err.message || 'Failed to create clip.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (code),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to create clip.'),
     });
   }
+};
+
+/** Dedicated cheap read. Forced mode cannot admit, prepare, or close. Keep
+ * conflicting caller flags so the shared parser rejects rather than widens. */
+export const recoverProjectClipCreation=async(req:AuthenticatedRequest,res:Response):Promise<void>=>{
+  const recoveryRequest=Object.create(req) as AuthenticatedRequest;
+  recoveryRequest.body={...req.body,recover_only:true};
+  await createProjectClip(recoveryRequest,res);
 };
 
 /**
@@ -521,8 +561,8 @@ export const getClip = async (req: AuthenticatedRequest, res: Response): Promise
     const status = code === 'CLIP_NOT_FOUND' ? 404 : 500;
     res.status(status).json({
       status: 'error',
-      code,
-      message: err.message || 'Failed to fetch clip.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (code),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to fetch clip.'),
     });
   }
 };
@@ -547,6 +587,27 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
   }
 
   try {
+    const submission = parseRenderSubmission(req.body,clipId);
+    if(req.body?.cancel_only===true && submission){
+      const result=await closeSavedRenderSubmission(userId,clipId,submission);
+      if(!result)throw new Error('Saved request close did not return a verifiable result.');
+      if(result.cancelled){res.status(200).json({status:'ok',cancelled:true,submissionId:submission.id});return;}
+      const prior=result.receipt;
+      if(!prior)throw new Error('Saved request close did not return a verifiable result.');
+      res.status(200).json({status:'ok',clipId,jobId:prior.job.id,renderVersion:prior.renderVersion,editorVersion:prior.job.editor_version,replayed:true});
+      return;
+    }
+    const recovered = await lookupRenderSubmission(userId,clipId,submission);
+    if (recovered) {
+      res.status(200).json({status:'ok',clipId,jobId:recovered.job.id,renderVersion:recovered.renderVersion,
+        editorVersion:recovered.job.editor_version,replayed:true});
+      return;
+    }
+    if (req.body?.recover_only === true) {
+      res.status(404).json({status:'error',code:'RENDER_SUBMISSION_NOT_FOUND',message:'No committed receipt was found for this saved request. No new render was started.'});
+      return;
+    }
+    assertRenderAdmissionEnabled();
     // Check monthly clip render limit against plan entitlement
     const entitlements = await EntitlementService.resolveUserEntitlements(userId, req.user?.email);
     if (!entitlements.isUnlimited) {
@@ -576,11 +637,14 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
     }
 
     const clip = await ClipRenderService.getClip(clipId, userId);
+    if (submission && (Number(clip.render_version??1)!==submission.expectedRenderVersion || Number(clip.editor_version??1)!==submission.expectedEditorVersion)) {
+      throw Object.assign(new Error('Saved inputs changed before this submission was admitted. Review the clip before starting another request.'),{statusCode:409,code:'RENDER_INPUT_CHANGED'});
+    }
     await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
     // Gate the actual Studio/Quick render entry point before queuing. This check
     // deliberately fails closed on repository errors, not a swallowed snapshot read.
     const { data: panelProject, error: panelReadError } = await dataRepository.from('editor_projects')
-      .select('tracks').eq('clip_id', clipId).eq('user_id', userId).maybeSingle();
+      .select('*').eq('clip_id', clipId).eq('user_id', userId).maybeSingle();
     if (panelReadError) throw panelReadError;
     if (panelProject) assertPanelViewsAssigned(expandSceneLayoutProject(panelProject));
 
@@ -622,69 +686,29 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
       }
     }
 
-    const nextRenderVersion = Number(clip.render_version || 1) + 1;
-
-    // Snapshot the editor-project version being rendered so the studio can
-    // tell a stale download (editor saved newer than the render) apart from a
-    // current one, without fragile timestamp comparisons.
-    let renderedEditorVersion: number | null = null;
-    let renderedEditorSavedAt: string | null = null;
-    try {
-      const { data: edProj } = await dataRepository
-        .from('editor_projects')
-        .select('version, updated_at')
-        .eq('clip_id', clipId)
-        .eq('user_id', userId)
-        .maybeSingle();
-      renderedEditorVersion = edProj?.version ?? null;
-      renderedEditorSavedAt = edProj?.updated_at ?? null;
-    } catch { /* non-fatal: leave null */ }
-
-    // Increment render version and queue clip with optional subtitle setting update
-    const clipUpdate: Record<string, any> = {
-      render_version: nextRenderVersion,
-      render_status: 'queued',
-      rendered_editor_version: renderedEditorVersion,
-      rendered_editor_saved_at: renderedEditorSavedAt,
-      updated_at: new Date().toISOString(),
-    };
-    if (req.body?.caption_enabled !== undefined) {
-      clipUpdate.caption_enabled = Boolean(req.body.caption_enabled);
-    }
-    if (req.body?.caption_style) {
-      clipUpdate.caption_style = String(req.body.caption_style);
-    }
-    if (requestedResolution) {
-      clipUpdate.render_resolution = requestedResolution;
-    }
-    await dataRepository
-      .from('clips')
-      .update(clipUpdate)
-      .eq('id', clipId);
-
-    // Create a new render job row for tracking
-    const { data: newJob } = await dataRepository
-      .from('render_jobs')
-      .insert({
-        clip_id: clipId,
-        user_id: userId,
-        status: 'queued',
-        progress: 0,
-        stage: 'queued',
-        attempts: 0,
-      })
-      .select()
-      .maybeSingle();
+    const {job:newJob,renderVersion:nextRenderVersion,replayed} = await enqueueRenderJob({
+      submission,clipId,userId,
+      expectedRenderVersion:Number(clip.render_version??1),
+      expectedEditorVersion:Number(clip.editor_version??1),
+      expectedEditorProject:editorRenderSnapshot(panelProject),
+      settings:{
+        ...(req.body?.caption_enabled!==undefined?{caption_enabled:Boolean(req.body.caption_enabled)}:{}),
+        ...(req.body?.caption_style?{caption_style:String(req.body.caption_style)}:{}),
+        ...(requestedResolution?{render_resolution:requestedResolution}:{}),
+      },
+    });
 
     // Launch rendering asynchronously (deferred to the sweep when at concurrency cap)
-    launchInlineRender(clipId, userId, newJob?.id);
+    if (!replayed) launchInlineRender(clipId, userId, newJob.id);
 
-    res.status(202).json({
+    res.status(replayed ? 200 : 202).json({
       status: 'ok',
       message: 'Clip rendering started with saved editor configuration.',
       clipId,
       renderVersion: nextRenderVersion,
-      jobId: newJob?.id,
+      editorVersion: newJob.editor_version,
+      replayed: Boolean(replayed),
+      jobId: newJob.id,
     });
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';
@@ -693,8 +717,8 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
 
     res.status(status).json({
       status: 'error',
-      code,
-      message: err.message || 'Failed to trigger render.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (code),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to trigger render.'),
     });
   }
 };
@@ -728,8 +752,8 @@ export const deleteClip = async (req: AuthenticatedRequest, res: Response): Prom
     const status = code === 'CLIP_NOT_FOUND' ? 404 : 500;
     res.status(status).json({
       status: 'error',
-      code,
-      message: err.message || 'Failed to delete clip.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (code),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to delete clip.'),
     });
   }
 };
@@ -753,7 +777,19 @@ export const getClipPreviewUrl = async (req: AuthenticatedRequest, res: Response
   }
 
   try {
-    const result = await ClipRenderService.getSignedPreviewUrl(clipId, userId);
+    const values = [req.query.render_version, req.query.editor_version, req.query.job_id];
+    let expected: {renderVersion: number; editorVersion: number; jobId: string} | undefined;
+    if (values.some(value => value !== undefined)) {
+      const [render, editor, job] = values;
+      if (typeof render !== 'string' || !/^[1-9]\d*$/.test(render) || !Number.isSafeInteger(Number(render)) ||
+          typeof editor !== 'string' || !/^[1-9]\d*$/.test(editor) || !Number.isSafeInteger(Number(editor)) ||
+          typeof job !== 'string' || !isValidUUID(job)) {
+        res.status(400).json({status: 'error', code: 'INVALID_RENDER_RECEIPT', message: 'A complete valid render receipt is required.'});
+        return;
+      }
+      expected = {renderVersion: Number(render), editorVersion: Number(editor), jobId: job};
+    }
+    const result = await ClipRenderService.getSignedPreviewUrl(clipId, userId, expected);
     res.status(200).json({
       status: 'ok',
       ...result,
@@ -764,8 +800,8 @@ export const getClipPreviewUrl = async (req: AuthenticatedRequest, res: Response
       err.statusCode || (code === 'CLIP_NOT_FOUND' ? 404 : code === 'CLIP_NOT_READY' ? 400 : code === 'WATERMARK_REQUIRED_RERENDER' ? 403 : 500);
     res.status(status).json({
       status: 'error',
-      code,
-      message: err.message || 'Failed to generate preview URL.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (code),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to generate preview URL.'),
     });
   }
 };
@@ -800,8 +836,8 @@ export const getClipDownloadUrl = async (req: AuthenticatedRequest, res: Respons
       err.statusCode || (code === 'CLIP_NOT_FOUND' ? 404 : code === 'CLIP_NOT_READY' ? 400 : code === 'WATERMARK_REQUIRED_RERENDER' ? 403 : 500);
     res.status(status).json({
       status: 'error',
-      code,
-      message: err.message || 'Failed to generate download URL.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (code),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to generate download URL.'),
     });
   }
 };
@@ -837,8 +873,8 @@ export const getClipEditorData = async (req: AuthenticatedRequest, res: Response
     const status = code === 'CLIP_NOT_FOUND' ? 404 : 500;
     res.status(status).json({
       status: 'error',
-      code,
-      message: err.message || 'Failed to load clip editor data.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (code),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to load clip editor data.'),
     });
   }
 };
@@ -871,8 +907,8 @@ export const getClipWaveform = async (req: AuthenticatedRequest, res: Response):
     // from the editor data load so the client can fall back to a placeholder.
     res.status(status).json({
       status: 'error',
-      code,
-      message: err.message || 'Failed to generate clip waveform.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (code),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to generate clip waveform.'),
     });
   }
 };
@@ -899,7 +935,7 @@ export const getAssetWaveform = async (req: AuthenticatedRequest, res: Response)
     res.status(200).json({ status: 'ok', ...result });
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';
-    res.status(500).json({ status: 'error', code, message: err.message || 'Failed to generate asset waveform.' });
+    res.status(500).json({ status: 'error', code: 'INTERNAL_ERROR', message: 'Internal server error' });
   }
 };
 
@@ -930,8 +966,8 @@ export const getClipThumbnails = async (req: AuthenticatedRequest, res: Response
     const status = code === 'CLIP_NOT_FOUND' ? 404 : code === 'SOURCE_PATH_MISSING' ? 400 : 500;
     res.status(status).json({
       status: 'error',
-      code,
-      message: err.message || 'Failed to generate clip thumbnails.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (code),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to generate clip thumbnails.'),
     });
   }
 };
@@ -1053,8 +1089,8 @@ export const updateClipEditor = async (req: AuthenticatedRequest, res: Response)
 
     res.status(status).json({
       status: 'error',
-      code,
-      message: err.message || 'Failed to update editor configuration.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (code),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to update editor configuration.'),
     });
   }
 };
@@ -1089,8 +1125,8 @@ export const resetClipEditor = async (req: AuthenticatedRequest, res: Response):
     const status = code === 'CLIP_NOT_FOUND' ? 404 : 500;
     res.status(status).json({
       status: 'error',
-      code,
-      message: err.message || 'Failed to reset editor configuration.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (code),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to reset editor configuration.'),
     });
   }
 };
@@ -1209,8 +1245,8 @@ export const getClipCaptions = async (req: AuthenticatedRequest, res: Response):
     const status = err.statusCode || ((code === 'CLIP_NOT_FOUND' || code === 'NOT_FOUND' || err.status === 404) ? 404 : 500);
     res.status(status).json({
       status: 'error',
-      code,
-      message: err.message || 'Failed to fetch clip captions.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (code),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to fetch clip captions.'),
     });
   }
 };
@@ -1302,8 +1338,8 @@ export const analyzeClipReframe = async (req: AuthenticatedRequest, res: Respons
       code === 'CLIP_NOT_FOUND' ? 404 : code === 'REFRAME_ANALYSIS_ACTIVE' ? 409 : 500;
     res.status(status).json({
       status: 'error',
-      code,
-      message: err.message || 'Failed to start smart reframe analysis.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (code),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to start smart reframe analysis.'),
     });
   }
 };
@@ -1409,8 +1445,8 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
     const code = err.code || 'INTERNAL_ERROR';
     res.status(500).json({
       status: 'error',
-      code,
-      message: err.message || 'Failed to fetch reframe track.',
+      code: 'INTERNAL_ERROR',
+      message: 'Internal server error',
     });
   }
 };
@@ -1442,8 +1478,8 @@ export const generateClipProducerPlan = async (req: AuthenticatedRequest, res: R
     const status = err.statusCode || 500;
     res.status(status).json({
       status: 'error',
-      code: err.code || 'INTERNAL_ERROR',
-      message: err.message || 'Failed to generate producer plan.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (err.code || 'INTERNAL_ERROR'),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to generate producer plan.'),
     });
   }
 };
@@ -1475,13 +1511,13 @@ export const getClipProducerPlans = async (req: AuthenticatedRequest, res: Respo
       .order('created_at', { ascending: false });
 
     if (error) {
-      res.status(500).json({ status: 'error', message: error.message });
+      res.status(500).json({ status: 'error', message: 'Internal server error' });
       return;
     }
 
     res.status(200).json({ status: 'ok', data: plans || [] });
   } catch (err: any) {
-    res.status(500).json({ status: 'error', message: err.message || 'Failed to fetch producer plans.' });
+    res.status(500).json({ status: 'error', message: 'Internal server error' });
   }
 };
 
@@ -1518,7 +1554,7 @@ export const getClipProducerPlan = async (req: AuthenticatedRequest, res: Respon
 
     res.status(200).json({ status: 'ok', data: plan });
   } catch (err: any) {
-    res.status(500).json({ status: 'error', message: err.message || 'Failed to fetch plan.' });
+    res.status(500).json({ status: 'error', message: 'Internal server error' });
   }
 };
 
@@ -1547,8 +1583,8 @@ export const reviseClipProducerPlan = async (req: AuthenticatedRequest, res: Res
     const status = err.statusCode || 500;
     res.status(status).json({
       status: 'error',
-      code: err.code || 'INTERNAL_ERROR',
-      message: err.message || 'Failed to revise producer plan.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (err.code || 'INTERNAL_ERROR'),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to revise producer plan.'),
     });
   }
 };
@@ -1578,8 +1614,8 @@ export const previewClipProducerPlan = async (req: AuthenticatedRequest, res: Re
     const status = err.statusCode || 500;
     res.status(status).json({
       status: 'error',
-      code: err.code || 'PREVIEW_FAILED',
-      message: err.message || 'Failed to generate preview render.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (err.code || 'PREVIEW_FAILED'),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to generate preview render.'),
     });
   }
 };
@@ -1613,8 +1649,8 @@ export const applyClipProducerPlan = async (req: AuthenticatedRequest, res: Resp
     const status = err.statusCode || 500;
     res.status(status).json({
       status: 'error',
-      code: err.code || 'APPLY_FAILED',
-      message: err.message || 'Failed to apply producer plan to clip.',
+      code: (status) >= 500 ? 'INTERNAL_ERROR' : (err.code || 'APPLY_FAILED'),
+      message: (status) >= 500 ? 'Internal server error' : (err.message || 'Failed to apply producer plan to clip.'),
     });
   }
 };
@@ -1646,7 +1682,7 @@ export const deleteClipProducerPlan = async (req: AuthenticatedRequest, res: Res
 
     res.status(200).json({ status: 'ok', message: 'Plan deleted successfully.' });
   } catch (err: any) {
-    res.status(500).json({ status: 'error', message: err.message || 'Failed to delete plan.' });
+    res.status(500).json({ status: 'error', message: 'Internal server error' });
   }
 };
 
@@ -1673,7 +1709,7 @@ export const regenerateClipHook = async (req: AuthenticatedRequest, res: Respons
   } catch (err: any) {
     res
       .status(err.statusCode || (err.code === 'CLIP_NOT_FOUND' ? 404 : 500))
-      .json({ status: 'error', code: err.code || 'HOOK_GENERATION_FAILED', message: err.message || 'Hook generation failed.' });
+      .json({ status: 'error', code: (err.statusCode || (err.code === 'CLIP_NOT_FOUND' ? 404 : 500)) >= 500 ? 'INTERNAL_ERROR' : (err.code || 'HOOK_GENERATION_FAILED'), message: (err.statusCode || (err.code === 'CLIP_NOT_FOUND' ? 404 : 500)) >= 500 ? 'Internal server error' : (err.message || 'Hook generation failed.') });
   }
 };
 
@@ -1695,6 +1731,6 @@ export const trackClipSubject = async (req: AuthenticatedRequest, res: Response)
   } catch (err: any) {
     const code = err?.code || 'TRACK_FAILED';
     const http = code === 'INVALID_PAYLOAD' ? 400 : code === 'CLIP_NOT_FOUND' ? 404 : code === 'ACCESS_DENIED' ? 403 : 500;
-    res.status(http).json({ status: 'error', code, message: err?.message || 'Subject tracking failed.' });
+    res.status(http).json({ status: 'error', code: (http) >= 500 ? 'INTERNAL_ERROR' : (code), message: (http) >= 500 ? 'Internal server error' : (err?.message || 'Subject tracking failed.') });
   }
 };

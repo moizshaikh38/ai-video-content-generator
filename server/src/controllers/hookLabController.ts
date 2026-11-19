@@ -46,7 +46,7 @@ export class HookLabController {
       res.status(201).json({ success: true, session });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -62,7 +62,7 @@ export class HookLabController {
       res.json({ success: true, ...data });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -85,7 +85,7 @@ export class HookLabController {
       res.json({ success: true, candidates, count: candidates.length });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -107,7 +107,7 @@ export class HookLabController {
       res.json({ success: true, candidate });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -124,7 +124,7 @@ export class HookLabController {
       res.json({ success: true, candidate });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -145,7 +145,7 @@ export class HookLabController {
       res.json({ success: true, ...result });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -173,7 +173,7 @@ export class HookLabController {
       res.json({ success: true, project: restored });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -193,7 +193,7 @@ export class HookLabController {
       res.json({ success: true, preview });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -209,7 +209,7 @@ export class HookLabController {
       res.json({ success: true, candidate });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -232,7 +232,7 @@ export class HookLabController {
       res.json({ success: true, candidates: imported, count: imported.length });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -260,7 +260,7 @@ export class HookLabController {
       res.json({ success: true, ...result });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -274,7 +274,7 @@ export class HookLabController {
       res.json({ success: true, ...advisory });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -311,7 +311,7 @@ export class HookLabController {
       res.json({ success: true, lines });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 }

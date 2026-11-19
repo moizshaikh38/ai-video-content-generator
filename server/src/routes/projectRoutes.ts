@@ -26,6 +26,7 @@ import {
   getProjectClipCandidates,
   updateProjectClipCandidate,
   createProjectClip,
+  recoverProjectClipCreation,
   getProjectClips,
   getClip,
   renderClip,
@@ -117,6 +118,9 @@ router.get('/projects/:id/multimodal-job', requireAuth, asyncHandler(getMultimod
 
 // Phase 11: Clip Rendering Engine Routes
 router.post('/projects/:id/clips', requireAuth, expensiveLimiter, asyncHandler(createProjectClip));
+// Read-only recovery does not consume the AI processing bucket. General API
+// limiting and authentication still apply; this handler forces lookup-only.
+router.post('/projects/:id/clips/recover', requireAuth, asyncHandler(recoverProjectClipCreation));
 router.get('/projects/:id/clips', requireAuth, asyncHandler(getProjectClips));
 router.get('/clips/:clipId', requireAuth, resolvePublicId('clipId', 'clips'), asyncHandler(getClip));
 router.post('/clips/:clipId/render', requireAuth, resolvePublicId('clipId', 'clips'), expensiveLimiter, asyncHandler(renderClip));

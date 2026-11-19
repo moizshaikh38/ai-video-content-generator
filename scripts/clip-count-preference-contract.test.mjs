@@ -1,0 +1,26 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const moduleFrom=source=>import('data:text/javascript;base64,'+Buffer.from(ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText).toString('base64'));
+const source=fs.readFileSync('server/src/services/genreIntelligenceService.ts','utf8');
+const ast=ts.createSourceFile('genre.ts',source,ts.ScriptTarget.Latest,true);let body;
+function visit(n){if(ts.isMethodDeclaration(n)&&n.name.getText(ast)==='normalizePreferences')body=n.getText(ast);ts.forEachChild(n,visit);}visit(ast);assert(body);
+const {Service}=await moduleFrom(`const normalizeAutomaticLayoutPolicy=()=>undefined,normalizeFramingDefaults=()=>undefined,normalizeSourceLanguage=()=>undefined;const logger={warn:()=>{}};export class Service{static GENRE_PROFILES={general:{}};static getGenreProfile(){return{defaultGoal:'shareable_moments',producerDefaults:{}}};${body}}`);
+test('explicit Top 3/Top 5 survives backend normalization instead of disappearing',()=>{for(const targetClipCount of [3,5])assert.equal(Service.normalizePreferences({targetClipCount}).targetClipCount,targetClipCount);});
+test('Auto remains unset and does not recover an old bracketed clip count',()=>{assert.equal(Service.normalizePreferences({},'[Clips: 3]').targetClipCount,undefined);assert.equal(Service.normalizePreferences({targetClipCount:undefined},'[Clips: 5]').targetClipCount,undefined);});
+test('invalid, fractional, string and out-of-range counts do not reach candidate selection',()=>{for(const targetClipCount of [0,-1,2.5,21,Infinity,NaN,'3',{},null])assert.equal(Service.normalizePreferences({targetClipCount}).targetClipCount,undefined);});
+const home=fs.readFileSync('src/components/dashboard/HomeClippingWorkflow.tsx','utf8');const homeAst=ts.createSourceFile('home.tsx',home,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);let handler;
+function findHandler(n){if(ts.isVariableDeclaration(n)&&n.name.getText(homeAst)==='handleClipCountChange')handler=n.initializer.getText(homeAst);ts.forEachChild(n,findHandler);}findHandler(homeAst);assert(handler);
+const {make}=await moduleFrom(`export function make(d:any){const {setClipCount,setClipPreferences,saveClipPreferencesToStorage}=d;return ${handler}}`);
+test('Home count choice writes the preferences object used by ingestion and analysis',()=>{let value,preferences={captionStyle:'keep'},saved;const choose=make({setClipCount:x=>value=x,setClipPreferences:fn=>preferences=fn(preferences),saveClipPreferencesToStorage:x=>saved=x});choose('3');assert.equal(value,'3');assert.equal(preferences.targetClipCount,3);assert.equal(saved.targetClipCount,3);assert.equal(preferences.captionStyle,'keep');choose('auto');assert.equal(preferences.targetClipCount,undefined);assert.equal(saved.targetClipCount,undefined);});
+
+const storageSource=fs.readFileSync('src/components/clips/ClipPreferencesControl.tsx','utf8');
+const storageAst=ts.createSourceFile('prefs.tsx',storageSource,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);const storageBodies=[];
+function findStorage(n){if(ts.isFunctionDeclaration(n)&&['getDefaultClipPreferences','loadSavedClipPreferences','saveClipPreferencesToStorage'].includes(n.name?.text))storageBodies.push(n.getText(storageAst).replace('export function','function'));ts.forEachChild(n,findStorage);}findStorage(storageAst);
+const {storage}=await moduleFrom(`export function storage(localStorage:any){const CLIP_PREFERENCES_STORAGE_KEY='test-preferences';${storageBodies.join('\n')};return{load:loadSavedClipPreferences,save:saveClipPreferencesToStorage}}`);
+const countSource=fs.readFileSync('server/src/utils/wordSnappingUtils.ts','utf8');const countAst=ts.createSourceFile('counts.ts',countSource,ts.ScriptTarget.Latest,true);let countBody;
+function findCount(n){if(ts.isFunctionDeclaration(n)&&n.name?.text==='calculateAdaptiveClipCount')countBody=n.getText(countAst);ts.forEachChild(n,findCount);}findCount(countAst);
+const {calculateAdaptiveClipCount}=await moduleFrom(countBody);
+test('stored Top3 preferences survive reload, normalization, and final selection cap',()=>{let value=null;const prefs=storage({getItem:()=>value,setItem:(_key,next)=>value=next});prefs.save({...prefs.load(),targetClipCount:3});const loaded=prefs.load();const normalized=Service.normalizePreferences(loaded);assert.equal(loaded.targetClipCount,3);assert.equal(calculateAdaptiveClipCount(1800,12,normalized.targetClipCount).maxClips,3);});
+test('Auto removes a stored Top5 limit and restores adaptive candidate selection',()=>{let value=null;const prefs=storage({getItem:()=>value,setItem:(_key,next)=>value=next});prefs.save({...prefs.load(),targetClipCount:5});prefs.save({...prefs.load(),targetClipCount:undefined});const loaded=prefs.load();const normalized=Service.normalizePreferences(loaded);assert.equal(normalized.targetClipCount,undefined);assert.notEqual(calculateAdaptiveClipCount(1800,12,normalized.targetClipCount).maxClips,5);});

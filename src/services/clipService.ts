@@ -40,7 +40,11 @@ class ClipService {
    */
   async getClipCandidates(projectId: string): Promise<ClipCandidate[]> {
     const data = await backendRequest<GetClipCandidatesResponse>(`/projects/${projectId}/clip-candidates`);
-    return (data.candidates || []) as ClipCandidate[];
+    if (!Array.isArray(data?.candidates) || data.projectId !== projectId ||
+      data.candidates.some(row => !row || typeof row.id !== 'string' || !row.id || row.project_id !== projectId)) {
+      throw new Error('Saved clip candidates could not be read. Please try loading again.');
+    }
+    return data.candidates;
   }
 
   /**

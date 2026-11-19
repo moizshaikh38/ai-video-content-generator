@@ -130,7 +130,7 @@ export async function createOrder(req: Request, res: Response): Promise<void> {
       res.status(401).json({
         status: 'error',
         code: 'AUTH_FAILED',
-        message: err.message || 'Razorpay authentication failed: Invalid API credentials.',
+        message: 'Payment authentication failed.',
       });
       return;
     }
@@ -138,7 +138,7 @@ export async function createOrder(req: Request, res: Response): Promise<void> {
     res.status(500).json({
       status: 'error',
       code: 'ORDER_CREATION_FAILED',
-      message: err?.message || 'Failed to create payment order with Razorpay.',
+      message: 'Failed to create payment order with Razorpay.',
     });
   }
 }

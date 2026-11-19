@@ -26,8 +26,10 @@ export const errorHandler = (
 
   if (err instanceof AppError) {
     statusCode = err.statusCode;
-    code = err.code;
-    message = err.message;
+    // An application wrapper may contain a database or provider diagnostic.
+    // Explicit client errors are safe to show; server failures are not.
+    code = statusCode >= 500 ? 'INTERNAL_ERROR' : err.code;
+    message = statusCode >= 500 ? 'Internal server error' : err.message;
   } else {
     if ('statusCode' in err && typeof (err as any).statusCode === 'number') {
       statusCode = (err as any).statusCode;

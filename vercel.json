@@ -338,5 +338,10 @@
       "destination": "/tools/ai-gaming-clip-generator/",
       "permanent": true
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "instinct-backup": false
+    }
+  }
 }

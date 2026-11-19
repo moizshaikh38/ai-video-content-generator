@@ -1,3 +1,4 @@
+import {normalizeHookTiming} from '../../server/src/shared/hookDisplayMode';
 import {cueListsEqual} from '../lib/cuePosition';
 import { editorReframeSourceKey } from '../../server/src/shared/editorReframeSourceKey';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -14,7 +15,7 @@ import { proEditorService } from '../services/proEditorService';
 import { useEditorHistory } from './useEditorHistory';
 import {acknowledgeEditorVersion} from '../lib/editorSaveState';
 import { useEditorAutosave } from './useEditorAutosave';
-import { healCaptionTracks, mergeExtendedCues } from '../lib/captionExtendMerge';
+import { healCaptionTracks, initCoveredEnd } from '../lib/captionExtendMerge';
 import {
   applyRippleCutToProject,
   applyBatchRippleCuts,
@@ -124,6 +125,10 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
   const [watermarkRequired, setWatermarkRequired] = useState<boolean>(false);
   const [cues, setCues] = useState<TimedCaptionCue[]>([]);
   const [timingMode, setTimingMode] = useState<string>('segment');
+  const loadSequenceRef = useRef(0);
+  const localEditSequenceRef = useRef(0);
+  const activeClipIdRef = useRef(clipId);
+  activeClipIdRef.current = clipId;
 
   const { canUndo, canRedo, pushHistory, undo: historyUndo, redo: historyRedo, resetHistory } =
     useEditorHistory(project);
@@ -133,7 +138,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
   // the editor already contains a newer edit. Invalidate from these exact
   // server responses, after BOTH project and clip synchronization succeeded.
   const handleSavedReframeSource = useCallback((savedProject: EditorProject, savedClip?: RenderedClip) => {
-    if (savedClip) {
+    if (savedClip && savedClip.id === activeClipIdRef.current) {
       setClip(current=>current?.id===savedClip.id?savedClip:current);
       setPersistedReframeSourceKey(editorReframeSourceKey(savedClip, savedProject));
     }
@@ -149,6 +154,9 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
 
   const loadData = useCallback(async (options?: { silent?: boolean }) => {
     if (!clipId) return;
+    const sequence = ++loadSequenceRef.current;
+    const editSequence = localEditSequenceRef.current;
+    const isCurrent = () => sequence === loadSequenceRef.current && activeClipIdRef.current === clipId;
     const isSilent = Boolean(options?.silent);
     if (!isSilent) {
       setLoading(true);
@@ -161,16 +169,9 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
         clipRenderService.getClipCaptions(clipId).catch(() => ({ timingMode: 'segment', cues: [] })),
       ]);
 
+      if (!isCurrent() || editSequence !== localEditSequenceRef.current) return;
       const c = editorData.clip;
-      setClip(c);
-
-      const cleanSrc = editorData.cleanSourceUrl || null;
-      const renderedSrc = editorData.renderedPreviewUrl || null;
-      setWatermarkRequired(editorData.watermarkRequired === true);
-      setCleanSourceUrl(cleanSrc);
-      setRenderedPreviewUrl(renderedSrc);
-      // Prioritize clean source for editing canvas, fall back to previewUrl
-      setPreviewUrl(cleanSrc || editorData.previewUrl || renderedSrc || null);
+      if (!c || c.id !== clipId) throw new Error('The editor response did not match the requested clip.');
 
       let proj = editorData.editorProject;
       if (!proj) {
@@ -178,12 +179,23 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
         proj = await proEditorService.getOrCreateEditorProject(clipId);
       }
 
+      if (!isCurrent() || editSequence !== localEditSequenceRef.current) return;
+      if (!proj || proj.clip_id !== clipId) throw new Error('The editor project did not match the requested clip.');
+      setClip(c);
+      const cleanSrc = editorData.cleanSourceUrl || null;
+      const renderedSrc = editorData.renderedPreviewUrl || null;
+      setWatermarkRequired(editorData.watermarkRequired === true);
+      setCleanSourceUrl(cleanSrc);
+      setRenderedPreviewUrl(renderedSrc);
+      setPreviewUrl(cleanSrc || editorData.previewUrl || renderedSrc || null);
+
       // Prioritize canonical cues saved in EditorProject across all active caption items
       const capTrack = proj?.tracks?.find((t: any) => t.type === 'CAPTION' && !t.hidden);
       let projCaptionCues: TimedCaptionCue[] | null = null;
       if (capTrack && Array.isArray(capTrack.items)) {
         const validItems = capTrack.items.filter(
-          (i: any) => !i.hidden && i.caption && Array.isArray(i.caption.cues) && i.caption.cues.length > 0
+          (i: any) => !i.hidden && i.caption && Array.isArray(i.caption.cues) &&
+            (i.caption.cues.length > 0 || (Number.isFinite(i.caption.cues_covered_end) && i.caption.cues_covered_end >= 0))
         );
         if (validItems.length > 0) {
           validItems.sort((a: any, b: any) => (a.timeline_start || 0) - (b.timeline_start || 0));
@@ -223,7 +235,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
           projCaptionCues = aggregated;
         }
       }
-      const initialCues = (Array.isArray(projCaptionCues) && projCaptionCues.length > 0)
+      const initialCues = Array.isArray(projCaptionCues)
         ? projCaptionCues
         : (captionData.cues || []);
 
@@ -235,40 +247,27 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
       );
 
       if (proj) {
-        // Guarantee that the CAPTION track has cues populated if empty
-        if (initialCues.length > 0 && Array.isArray(proj.tracks)) {
-          const capTrack = proj.tracks.find((t: any) => t.type === 'CAPTION');
-          if (capTrack && capTrack.items.length > 0) {
-            const capItem = capTrack.items[0];
-            if (!capItem.caption) {
-              capItem.caption = { cues: initialCues, style: 'clean' };
-            } else if (!Array.isArray(capItem.caption.cues) || capItem.caption.cues.length === 0) {
-              capItem.caption.cues = initialCues;
-            } else if (
-              projCaptionCues &&
-              Array.isArray(captionData.cues) &&
-              captionData.cues.length > 0
-            ) {
-              // Beyond-candidate extend heal, per visible caption item (any
-              // timeline offset): append only the newly exposed span past each
-              // item's cues_covered_end marker. Existing cues - user edits and
-              // deletions - are never regenerated or resurrected.
-              const { tracks: healed, appended, markersChanged } = healCaptionTracks(
-                proj.tracks,
-                captionData.cues as any,
-                proj.canvas?.duration
-              );
-              if (markersChanged) {
-                proj = { ...proj, tracks: healed };
-                markDirty();
-              }
-              if (appended > 0) {
-                // Reflect the appended span in the transcript panel view too.
-                const panelMax = projCaptionCues.reduce((m, c) => Math.max(m, c.end || 0), 0);
-                const view = mergeExtendedCues(projCaptionCues as any, captionData.cues as any, panelMax);
-                if (view.appended > 0) setCues(view.cues as any);
-              }
+        if (Array.isArray(proj.tracks)) {
+          if (projCaptionCues !== null && Array.isArray(captionData.cues) && captionData.cues.length > 0) {
+            // Empty saved cues with coverage are an intentional edit. Only
+            // speech beyond that saved coverage may be appended on extension.
+            const { tracks, appended, markersChanged } = healCaptionTracks(proj.tracks, captionData.cues as any, proj.canvas?.duration);
+            if (markersChanged) {
+              proj = { ...proj, tracks };
+              markDirty();
             }
+            if (appended > 0) {
+              const healedCues = deriveCaptionCuesFromProject(proj) || [];
+              setCues(healedCues);
+              setTimingMode(healedCues.some(cue => Array.isArray(cue.words) && cue.words.length > 0) ? 'word' : 'segment');
+            }
+          } else if (projCaptionCues === null && initialCues.length > 0) {
+            // Legacy uninitialized items may still be seeded. Do not refill
+            // a known saved empty edit or change a hidden captions-off track.
+            const uninitializedTrack = proj.tracks.find((track: any) => track.type === 'CAPTION' && !track.hidden);
+            const item = uninitializedTrack?.items?.find((entry: any) => !entry.hidden);
+            if (item && !item.caption) item.caption = { cues: initialCues, style: 'clean' };
+            else if (item?.caption && (!Array.isArray(item.caption.cues) || item.caption.cues.length === 0)) item.caption.cues = initialCues;
           }
         }
         setProject(proj);
@@ -276,16 +275,24 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
         resetHistory(proj);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load clip editor data.');
+      if (isCurrent() && editSequence === localEditSequenceRef.current) setError(err.message || 'Failed to load clip editor data.');
     } finally {
-      if (!isSilent) {
+      if (isCurrent() && !isSilent) {
         setLoading(false);
       }
     }
   }, [clipId, resetHistory]);
 
   useEffect(() => {
+    setClip(null);
+    setProject(null);
+    setCues([]);
+    setCleanSourceUrl(null);
+    setRenderedPreviewUrl(null);
+    setPreviewUrl(null);
+    setPersistedReframeSourceKey(null);
     loadData();
+    return () => { loadSequenceRef.current++; };
   }, [loadData]);
 
   // The transcript panel and preview caption overlay read a separate `cues`
@@ -321,6 +328,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
       updater: (prev: EditorProject) => EditorProject,
       options?: UpdateProjectOptions
     ) => {
+      localEditSequenceRef.current++;
       const recordHistory = options?.recordHistory ?? true;
       const shouldMarkDirty = options?.markAsDirty ?? true;
 
@@ -329,7 +337,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
         if (recordHistory) {
           pushHistory(prev);
         }
-        const next = updater(prev);
+        const next = normalizeHookTiming(updater(prev) as any) as unknown as EditorProject;
         if (shouldMarkDirty) {
           markDirty();
         }
@@ -342,6 +350,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
   // Commit a completed user interaction (like dragging or trimming) with its pre-operation snapshot
   const commitProject = useCallback(
     (preOperationProject: EditorProject) => {
+      localEditSequenceRef.current++;
       pushHistory(preOperationProject);
       markDirty();
     },
@@ -353,6 +362,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
     if (!project) return;
     const prev = historyUndo(project);
     if (prev) {
+      localEditSequenceRef.current++;
       setProject(prev);
       markDirty();
     }
@@ -363,6 +373,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
     if (!project) return;
     const next = historyRedo(project);
     if (next) {
+      localEditSequenceRef.current++;
       setProject(next);
       markDirty();
     }
@@ -418,61 +429,37 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
   // Update cue text (invalidates stale tokens safely)
   const updateCueText = useCallback(
     (cueId: string, newText: string) => {
-      let updatedWordsForCue: any[] = [];
-      setCues((prev) =>
-        prev.map((c) => {
-          if (c.id !== cueId) return c;
-          // Re-tokenize words to prevent stale word highlights
-          const words = newText.trim().split(/\s+/).filter(Boolean);
-          const duration = Math.max(0.1, c.end - c.start);
-          const wordDuration = duration / Math.max(1, words.length);
-
-          const updatedWords = words.map((w, idx) => ({
-            text: w,
-            word: w,
-            start: Number((c.start + idx * wordDuration).toFixed(3)),
-            end: Number((c.start + (idx + 1) * wordDuration).toFixed(3)),
+      // Build each state's replacement from its own cue. State updater
+      // scheduling must not decide which words are persisted to the project.
+      const updateCue = (cue: TimedCaptionCue): TimedCaptionCue => {
+        if (cue.id !== cueId) return cue;
+        const words = newText.trim().split(/\s+/).filter(Boolean);
+        const duration = Math.max(0.1, cue.end - cue.start);
+        const wordDuration = duration / Math.max(1, words.length);
+        return {
+          ...cue,
+          text: newText,
+          words: words.map((word, index) => ({
+            text: word,
+            word,
+            start: Number((cue.start + index * wordDuration).toFixed(3)),
+            end: Number((cue.start + (index + 1) * wordDuration).toFixed(3)),
             confidence: 1.0,
-          }));
-          updatedWordsForCue = updatedWords;
-
-          return {
-            ...c,
-            text: newText,
-            words: updatedWords,
-          };
-        })
-      );
-
-      // Also sync into Caption track in EditorProject
-      updateProject((prev) => ({
-        ...prev,
-        tracks: prev.tracks.map((t) => {
-          if (t.type !== 'CAPTION') return t;
-          return {
-            ...t,
-            items: t.items.map((item) => {
-              if (!item.caption) return item;
-              const sourceCues = Array.isArray(item.caption.cues) && item.caption.cues.length > 0
-                ? item.caption.cues
-                : cues;
-              return {
-                ...item,
-                caption: {
-                  ...item.caption,
-                  cues: sourceCues.map((c) =>
-                    c.id === cueId
-                      ? {
-                          ...c,
-                          text: newText,
-                          words: updatedWordsForCue.length > 0 ? updatedWordsForCue : c.words,
-                        }
-                      : c
-                  ),
-                },
-              };
-            }),
-          };
+          })),
+        };
+      };
+      setCues(previous => previous.map(updateCue));
+      updateProject(previous => ({
+        ...previous,
+        tracks: previous.tracks.map(track => track.type !== 'CAPTION' ? track : {
+          ...track,
+          items: track.items.map(item => !item.caption ? item : {
+            ...item,
+            caption: {
+              ...item.caption,
+              cues: (Array.isArray(item.caption.cues) ? item.caption.cues : cues).map(updateCue),
+            },
+          }),
         }),
       }));
     },
@@ -526,6 +513,10 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
                   ...item,
                   caption: {
                     ...item.caption,
+                    cues_covered_end: Math.max(
+                      Number.isFinite(item.caption.cues_covered_end) && Number(item.caption.cues_covered_end) >= 0 ? Number(item.caption.cues_covered_end) : 0,
+                      initCoveredEnd(item.caption.cues)
+                    ),
                     cues: item.caption.cues.filter((c) => c.id !== cueId),
                   },
                 };
@@ -560,7 +551,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
               })
             : c.words;
 
-          const updatedText = c.text.replace(regex, replacementWord);
+          const updatedText = c.text.replace(regex, () => replacementWord);
           if (updatedText !== c.text || hasChange) {
             return {
               ...c,
@@ -580,7 +571,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
             ...t,
             items: t.items.map((item) => {
               if (!item.caption) return item;
-              const sourceCues = Array.isArray(item.caption.cues) && item.caption.cues.length > 0
+              const sourceCues = Array.isArray(item.caption.cues)
                 ? item.caption.cues
                 : cues;
               return {
@@ -598,7 +589,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
                       : c.words;
                     return {
                       ...c,
-                      text: c.text.replace(regex, replacementWord),
+                      text: c.text.replace(regex, () => replacementWord),
                       words: updatedWords,
                     };
                   }),

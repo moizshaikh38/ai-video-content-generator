@@ -209,6 +209,7 @@ export interface ClipPreferences {
   customInstructions?: string;
   allowInteriorPauseCuts?: boolean;
   captionStyle?: CaptionStyle;
+  targetClipCount?: number;
   profileVersion: number;
 }
 
@@ -302,6 +303,9 @@ export type RenderJobStage =
   | 'failed';
 
 export interface RenderJob {
+  render_version?: number;
+  editor_version?: number;
+  admission_version?: number | null;
   id: string;
   clip_id: string;
   user_id: string;
@@ -1013,6 +1017,10 @@ export interface EditorTextConfig {
   /** Marks the auto-generated opening hook/headline text item so the inspector
    * can surface hook-specific controls (duration, visibility, regenerate). */
   auto_headline?: boolean;
+  /** Explicit hook display choice; absent means preserve the legacy/manual edit. */
+  hook_display_mode?: 'hook_only' | 'hook_captions';
+  hook_intro_seconds?: number;
+  hook_caption_preset?: import('../../server/src/shared/captionPresets').RenderableCaptionPresetId;
 }
 
 export interface EditorCaptionItem {

@@ -7,8 +7,10 @@ import {selectionSourceReceiptMatches} from '../shared/selectionSourceReceipt.js
 export async function assertSelectionSourceCurrent(userId:string, projectId:string, receipt:unknown,
   clipSourceKey?:string|null):Promise<void> {
   return ownerContext.run(userId,async()=>{
-    const {data:project} = await dataRepository.from('projects').select('source_url').eq('id',projectId).eq('user_id',userId).maybeSingle();
-    const {data:transcript} = await dataRepository.from('transcripts').select('*').eq('project_id',projectId).eq('user_id',userId).maybeSingle();
+    const {data:project,error:projectReadError} = await dataRepository.from('projects').select('source_url').eq('id',projectId).eq('user_id',userId).maybeSingle();
+    if(projectReadError)throw Object.assign(new Error(projectReadError.message),{code:projectReadError.code||'DATABASE_UNAVAILABLE'});
+    const {data:transcript,error:transcriptReadError} = await dataRepository.from('transcripts').select('*').eq('project_id',projectId).eq('user_id',userId).maybeSingle();
+    if(transcriptReadError)throw Object.assign(new Error(transcriptReadError.message),{code:transcriptReadError.code||'DATABASE_UNAVAILABLE'});
     if (!project || !transcript || (clipSourceKey!==undefined && clipSourceKey!==project.source_url)
       || !selectionSourceReceiptMatches(receipt,transcript,project.source_url)) {
       throw new AppError('This clip decision cannot be verified against the current source and transcript. Review it before running selection or export again.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');

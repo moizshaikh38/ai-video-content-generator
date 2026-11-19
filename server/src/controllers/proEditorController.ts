@@ -1,3 +1,8 @@
+import {closeSavedRenderSubmission} from '../db/repositories/renderSubmissionCloseRepository.js';
+import {parseRenderSubmission, lookupRenderSubmission} from '../db/repositories/renderSubmissionRepository.js';
+import {assertRenderPlanPreflight} from '../services/renderPlanPreflight.js';
+import {enqueueRenderJob, assertRenderAdmissionEnabled} from '../db/repositories/renderAdmissionRepository.js';
+import {editorRenderSnapshot} from '../shared/editorRenderSnapshot.js';
 import {sendSafeControllerError} from '../utils/safeControllerError.js';
 import {assertSelectionSourceCurrent} from '../services/selectionSourceGuardService.js';
 import {expandSceneLayoutProject} from '../shared/sceneLayoutOverrides.js';
@@ -315,19 +320,52 @@ export const renderEditorProject = async (
   }
 
   try {
+    if(req.body?.submission_id===undefined)assertRenderAdmissionEnabled();
     const project = await ProEditorService.getEditorProject(projectId, userId);
+    if(!project.clip_id||!isValidUUID(project.clip_id)){res.status(404).json({status:'error',code:'CLIP_NOT_FOUND',message:'Editor project has no valid owning clip.'});return;}
+
+    let submission;
+    if(req.body?.submission_id!==undefined){
+      if(req.body.caption_enabled!==undefined||req.body.caption_style!==undefined||req.body.platform!==undefined){
+        res.status(400).json({status:'error',code:'INVALID_RENDER_SUBMISSION',message:'Keyed editor-project renders accept resolution and saved revision preconditions only.'});return;
+      }
+      const normalized={...req.body};
+      if(normalized.resolution!==undefined){
+        if(normalized.render_resolution!==undefined&&normalized.render_resolution!==normalized.resolution){res.status(400).json({status:'error',code:'INVALID_RENDER_SUBMISSION',message:'Conflicting render resolutions.'});return;}
+        normalized.render_resolution=normalized.resolution;delete normalized.resolution;
+      }
+      submission=parseRenderSubmission(normalized,project.clip_id,projectId);
+      if(req.body.cancel_only===true&&submission){
+        const result=await closeSavedRenderSubmission(userId,project.clip_id,submission);
+        if(!result)throw new Error('Saved request close did not return a verifiable result.');
+        if(result.cancelled){res.status(200).json({status:'ok',cancelled:true,submissionId:submission.id});return;}
+        const prior=result.receipt;if(!prior)throw new Error('Saved request close did not return a receipt.');
+        res.status(200).json({status:'ok',data:{job_id:prior.job.id,project_id:projectId,clip_id:project.clip_id,status:'queued',render_version:prior.renderVersion,editor_version:prior.job.editor_version,replayed:true}});return;
+      }
+      const prior=await lookupRenderSubmission(userId,project.clip_id,submission);
+      if(prior){res.status(200).json({status:'ok',data:{job_id:prior.job.id,project_id:projectId,clip_id:project.clip_id,status:'queued',render_version:prior.renderVersion,editor_version:prior.job.editor_version,replayed:true}});return;}
+      if(req.body.recover_only===true){res.status(404).json({status:'error',code:'RENDER_SUBMISSION_NOT_FOUND',message:'No committed receipt was found. No new render was started.'});return;}
+      assertRenderAdmissionEnabled();
+    }else if(req.body?.recover_only!==undefined||req.body?.cancel_only!==undefined||req.body?.expected_render_version!==undefined||req.body?.expected_editor_version!==undefined){
+      res.status(400).json({status:'error',code:'INVALID_RENDER_SUBMISSION',message:'A saved submission key is required.'});return;
+    }
 
     assertPanelViewsAssigned(expandSceneLayoutProject(project));
 
     // Fetch next render version
-    const { data: clip } = await dataRepository
+    const { data: clip, error: clipReadError } = await dataRepository
       .from('clips')
-      .select('render_version, project_id, source_storage_path, selection_source_receipt')
+      .select('render_version, editor_version, project_id, source_storage_path, selection_source_receipt, caption_style')
       .eq('id', project.clip_id)
       .eq('user_id', userId)
       .maybeSingle();
 
+    if (clipReadError) throw clipReadError;
     if (!clip) throw Object.assign(new Error('Clip not found.'),{statusCode:404,code:'CLIP_NOT_FOUND'});
+    if(submission&&(Number(clip.render_version??1)!==submission.expectedRenderVersion||Number(clip.editor_version??1)!==submission.expectedEditorVersion)){
+      throw Object.assign(new Error('Saved inputs changed before this submission was admitted.'),{statusCode:409,code:'RENDER_INPUT_CHANGED'});
+    }
+    await assertRenderPlanPreflight(userId, req.user?.email, clip.caption_style);
     await assertSelectionSourceCurrent(userId,clip.project_id,clip.selection_source_receipt,clip.source_storage_path);
 
     let requestedResolution: string | null = null;
@@ -344,49 +382,28 @@ export const renderEditorProject = async (
       }
     }
 
-    const nextRenderVersion = (clip?.render_version || 0) + 1;
-
-    // Update clip status. Must stay 'queued' (mirroring the clip render
-    // endpoint): renderClipJob's concurrency guard rejects clips already in
-    // 'rendering', so setting it here deadlocked every editor-project render
-    // until the 15-minute stale lease expired.
-    await dataRepository
-      .from('clips')
-      .update({
-        render_status: 'queued',
-        render_version: nextRenderVersion,
-        render_error_message: null,
-        ...(requestedResolution ? { render_resolution: requestedResolution } : {}),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', project.clip_id);
-
-    // Create a new render job row
-    const { data: newJob } = await dataRepository
-      .from('render_jobs')
-      .insert({
-        clip_id: project.clip_id,
-        user_id: userId,
-        status: 'queued',
-        progress: 0,
-        stage: 'queued',
-        attempts: 0,
-      })
-      .select()
-      .maybeSingle();
+    const {job:newJob,renderVersion:nextRenderVersion,replayed} = await enqueueRenderJob({
+      submission,clipId:project.clip_id,userId,
+      expectedRenderVersion:Number(clip.render_version??1),
+      expectedEditorVersion:Number(clip.editor_version??1),
+      expectedEditorProject:editorRenderSnapshot(project),
+      settings:requestedResolution?{render_resolution:requestedResolution}:{},
+    });
 
     // Launch rendering asynchronously (deferred to the sweep when at concurrency cap)
-    launchInlineRender(project.clip_id, userId, newJob?.id);
+    if(!replayed)launchInlineRender(project.clip_id, userId, newJob.id);
 
-    res.status(202).json({
+    res.status(replayed?200:202).json({
       status: 'ok',
       message: 'Editor project render queued successfully.',
       data: {
-        job_id: newJob?.id,
+        job_id: newJob.id,
         project_id: projectId,
         clip_id: project.clip_id,
         status: 'queued',
         render_version: nextRenderVersion,
+        editor_version: newJob.editor_version,
+        replayed:Boolean(replayed),
       },
     });
   } catch (err: any) {

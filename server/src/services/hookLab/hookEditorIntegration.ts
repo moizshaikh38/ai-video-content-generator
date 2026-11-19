@@ -115,6 +115,7 @@ export class HookEditorIntegration {
           z_index: 10,
           text: {
             text: overlayText,
+            auto_headline: true,
             font_family: (candidate.text_overlay_plan?.font_family as SafeEditorFont) || 'Inter',
             font_size: candidate.text_overlay_plan?.font_size ?? 54,
             font_weight: 'bold',

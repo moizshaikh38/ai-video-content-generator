@@ -1,3 +1,4 @@
+import {normalizeHookTiming,hookProjectExportIssue} from '../shared/hookDisplayMode.js';
 import {pinnedHttpsAssetFetch} from '../utils/pinnedHttpsAssetFetch.js';
 import {editorCachePath} from '../utils/editorCachePath.js';
 import {saveEditorRevision,createEditorRevision} from '../db/repositories/editorRevisionRepository.js';
@@ -182,13 +183,14 @@ export class ProEditorService {
     }
 
     // 1. Check if an EditorProject already exists for this clip
-    const { data: existingProject } = await dataRepository
+    const { data: existingProject,error:existingProjectError } = await dataRepository
       .from('editor_projects')
       .select('*')
       .eq('clip_id', clipId)
       .eq('user_id', userId)
       .maybeSingle();
 
+    if(existingProjectError)throw new AppError('Editor project read is unavailable.',503,existingProjectError.code||'DATABASE_UNAVAILABLE');
     if (existingProject) {
       return await ProEditorService.withSourceDuration(existingProject as EditorProject, clipId, userId);
     }
@@ -201,7 +203,8 @@ export class ProEditorService {
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (clipErr || !clip) {
+    if(clipErr)throw new AppError('Clip read is unavailable.',503,clipErr.code||'DATABASE_UNAVAILABLE');
+    if (!clip) {
       throw new AppError('Clip not found or access denied.', 404, 'CLIP_NOT_FOUND');
     }
 
@@ -293,7 +296,8 @@ export class ProEditorService {
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (error || !project) {
+    if (error) throw new AppError('Saved editor project could not be read.',503,'DATABASE_UNAVAILABLE');
+    if (!project) {
       throw new AppError('Editor project not found or access denied.', 404, 'PROJECT_NOT_FOUND');
     }
 
@@ -386,6 +390,11 @@ export class ProEditorService {
     if (dto.tracks) updates.tracks = dto.tracks;
     if (dto.playhead !== undefined) updates.playhead = Math.max(0, dto.playhead);
     if (dto.settings) updates.settings = { ...current.settings, ...dto.settings };
+
+    const timingNormalized = normalizeHookTiming({ ...current, ...updates } as EditorProject);
+    const hookIssue = hookProjectExportIssue(timingNormalized);
+    if (hookIssue) throw new AppError(hookIssue, 400, 'INVALID_HOOK_TEXT');
+    if (timingNormalized.tracks !== (updates.tracks ?? current.tracks)) updates.tracks = timingNormalized.tracks;
 
     const updated=await saveEditorRevision(await getMongoClient(),await getMongoDb(),{id:projectId,userId,expectedVersion:expectedVersion!,updates:updates as Record<string,unknown>,requireClipSync:options.clipSyncRequired!==false});
     return updated as unknown as EditorProject;
@@ -2341,6 +2350,12 @@ export class ProEditorService {
     return 'Arial';
   }
 
+  /** First-creation preparation uses this exact Studio initializer. It does
+   * not persist, launch, or infer equivalence with the old Quick pipeline. */
+  public static buildInitialCandidateEditor(clip:ClipRecord,userId:string,transcript:any,projectPreferences?:any):EditorProject {
+    return this.buildInitialProject(clip,userId,null,transcript,{clip_id:clip.id},projectPreferences,true);
+  }
+
   /**
    * Builds an initial EditorProject structure from a clip and optional Producer plan.
    */
@@ -2350,7 +2365,8 @@ export class ProEditorService {
     producerPlan: ProducerEditPlan | null,
     transcript: any,
     dto: CreateEditorProjectDTO,
-    projectPreferences?: { genre?: string; genreSelectionMode?: string;layoutPolicy?:import('../shared/automaticLayoutPolicy.js').AutomaticLayoutPolicy;framingDefaults?:{version:1;layout:'auto';autoReframe:boolean} } | null
+    projectPreferences?: { genre?: string; genreSelectionMode?: string;layoutPolicy?:import('../shared/automaticLayoutPolicy.js').AutomaticLayoutPolicy;framingDefaults?:{version:1;layout:'auto';autoReframe:boolean} } | null,
+    strictPreparation=false
   ): EditorProject {
     const rawDuration = clip.end_seconds - clip.start_seconds;
     const aspectRatio = dto.aspect_ratio || clip.aspect_ratio || '9:16';
@@ -2645,6 +2661,7 @@ export class ProEditorService {
           initialCues = rawCues;
         }
       } catch (err: any) {
+        if(strictPreparation)throw err;
         logger.warn(`Failed to extract initial cues for EditorProject: ${err.message}`);
       }
     }
@@ -2712,6 +2729,7 @@ export class ProEditorService {
           tracks.push(sfxTrack);
         }
       } catch (err: any) {
+        if(strictPreparation)throw err;
         logger.warn(`Failed to initialize sound design track: ${err.message}`);
       }
     }

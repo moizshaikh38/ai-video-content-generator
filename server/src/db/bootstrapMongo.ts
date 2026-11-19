@@ -7,7 +7,7 @@ const UUID_PATTERN = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB
 const collections = [
   'profiles', 'projects', 'transcripts', 'creator_profiles', 'content_outputs',
   'usage_events', 'subscription_limits', 'clip_candidates', 'clips',
-  'render_jobs', 'reframe_tracks', 'social_account_connections', 'oauth_states',
+  'render_jobs', 'render_submissions', 'candidate_creations', 'reframe_tracks', 'social_account_connections', 'oauth_states',
   'published_posts', 'publish_jobs',
   'billing_customers', 'subscriptions', 'billing_events', 'billing_invoices',
   'billing_checkouts',

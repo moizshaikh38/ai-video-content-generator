@@ -881,6 +881,10 @@ export class GenreIntelligenceService {
       }
     }
 
+    const requestedCount = input?.targetClipCount;
+    const targetClipCount = typeof requestedCount === 'number' && Number.isSafeInteger(requestedCount) && requestedCount >= 1 && requestedCount <= 20
+      ? requestedCount : undefined;
+
     const resolvedGenre: ContentGenre =
       input?.genre && input.genre in this.GENRE_PROFILES
         ? input.genre
@@ -925,6 +929,7 @@ export class GenreIntelligenceService {
           ? input.allowInteriorPauseCuts
           : defaultProfile.producerDefaults.allowInteriorPauseCuts,
       captionStyle: input?.captionStyle,
+      targetClipCount,
       profileVersion: input?.profileVersion || 1,
     };
   }

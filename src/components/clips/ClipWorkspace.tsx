@@ -1,3 +1,4 @@
+import type {CandidateCreationInput} from '../../lib/candidateCreationRecovery';
 import {CandidateReviewNotice} from './CandidateReviewNotice';
 import {freshCandidateSubtitle} from '../../../server/src/shared/freshClipPresentationDefaults';
 import {NEW_CAPTION_PRESET_ID} from '../../../server/src/shared/captionPresets';
@@ -95,35 +96,47 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
   // Rendered Clips state
   const [myClips, setMyClips] = useState<RenderedClip[]>([]);
   const [isCreatingClip, setIsCreatingClip] = useState<string | null>(null); // candidateId currently creating
+  const [knownCreationCandidates,setKnownCreationCandidates]=useState<Set<string>>(()=>new Set());
+  const [creationRecoveryTarget,setCreationRecoveryTarget]=useState<{projectId:string;input:CandidateCreationInput}|null>(null);
   const [clipActionError, setClipActionError] = useState<string | null>(null);
   const [previewClipId, setPreviewClipId] = useState<string | null>(null);
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
+  const previewSequenceRef = useRef(0);
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
   const [retryingClipId, setRetryingClipId] = useState<string | null>(null);
   const [publishingClip, setPublishingClip] = useState<RenderedClip | null>(null);
   const [contentPackClip, setContentPackClip] = useState<RenderedClip | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const searchSequenceRef = useRef(0);
+  const searchRequestRef = useRef<number | null>(null);
 
   const handleSearchMoments = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!searchQuery.trim() || isSearching) return;
+    if (!searchQuery.trim() || searchRequestRef.current !== null) return;
+    const sequence = ++searchSequenceRef.current;
+    searchRequestRef.current = sequence;
     setIsSearching(true);
     setSearchError(null);
     try {
       const results = await clipService.findMoments(projectId, searchQuery.trim());
+      if (sequence !== searchSequenceRef.current) return;
       setSearchMoments(results);
       if (results.length === 0) {
         setSearchError('No matching moments found for that query. Try broader keywords.');
       }
     } catch (err: any) {
-      setSearchError(err.message || 'Failed to search video moments.');
+      if (sequence === searchSequenceRef.current) setSearchError(err.message || 'Failed to search video moments.');
     } finally {
-      setIsSearching(false);
+      if (searchRequestRef.current === sequence) searchRequestRef.current = null;
+      if (sequence === searchSequenceRef.current) setIsSearching(false);
     }
   };
 
   const handleClearSearch = () => {
+    searchSequenceRef.current++;
+    searchRequestRef.current = null;
+    setIsSearching(false);
     setSearchQuery('');
     setSearchMoments([]);
     setSearchError(null);
@@ -137,14 +150,20 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
     }
   };
 
+  const clipReadsReadyRef = useRef<string | null>(null);
+  const clipReadSequenceRef = useRef(0);
+  const clipLifecycleRef = useRef(0);
+  const clipMutationLocksRef = useRef(new Set<string>());
   // Load existing clip candidates and rendered clips on mount
   const refreshClipsData = async () => {
+    const sequence = ++clipReadSequenceRef.current;
     try {
       const [candData, clipsData] = await Promise.all([
-        clipService.getClipCandidates(projectId).catch(() => []),
-        clipRenderService.getProjectClips(projectId).catch(() => []),
+        clipService.getClipCandidates(projectId),
+        clipRenderService.getProjectClips(projectId),
       ]);
 
+      if (sequence !== clipReadSequenceRef.current) return;
       setCandidates(candData);
       const initialFiltered = candData.filter((c) => c.status !== 'dismissed');
       if (initialFiltered.length > 0 && !selectedCandidateId) {
@@ -152,15 +171,41 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
       }
 
       setMyClips(clipsData);
-    } catch (err) {
-      // Ignored for initial fallback
+      clipReadsReadyRef.current = projectId;
+      setClipActionError(null);
+    } catch {
+      if (sequence !== clipReadSequenceRef.current) return;
+      clipReadsReadyRef.current = null;
+      setClipActionError('Saved clips could not be loaded. Select Analyze to retry loading first; no new analysis has started.');
     } finally {
-      setIsLoading(false);
+      if (sequence === clipReadSequenceRef.current) setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    clipReadsReadyRef.current = null;
+    setCandidates([]);
+    setMyClips([]);
+    setIsAnalyzing(false);
+    setAnalysisError(null);
+    setIsCreatingClip(null);
+    setRetryingClipId(null);
+    previewSequenceRef.current++;
+    setPreviewClipId(null);
+    setPreviewUrls({});
+    searchSequenceRef.current++;
+    searchRequestRef.current = null;
+    setIsSearching(false);
+    setSearchQuery('');
+    setSearchMoments([]);
+    setSearchError(null);
+    setPublishingClip(null);
+    setContentPackClip(null);
+    setSelectedCandidateId(null);
+    setClipActionError(null);
+    setIsLoading(true);
     refreshClipsData();
+    return () => { clipReadSequenceRef.current++; clipLifecycleRef.current++; searchSequenceRef.current++; previewSequenceRef.current++; };
   }, [projectId]);
 
   // Polling loop for active rendering jobs in 'my_clips'
@@ -171,35 +216,46 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
 
     if (!hasActiveRenders) return;
 
+    let current = true;
     const interval = setInterval(async () => {
       try {
         const updated = await clipRenderService.getProjectClips(projectId);
-        setMyClips(updated);
+        if (current) setMyClips(updated);
       } catch (e) {
         // Polling failure ignored
       }
     }, 2500);
 
-    return () => clearInterval(interval);
+    return () => { current = false; clearInterval(interval); };
   }, [projectId, myClips]);
 
   // Handle Find Clips analysis call (triggers POST /api/projects/:id/analyze-clips ONCE)
   const handleFindClips = async () => {
-    if (isAnalyzing) return;
+    const lockKey = `${projectId}:analyze`;
+    if (isAnalyzing || clipMutationLocksRef.current.has(lockKey)) return;
+    if (clipReadsReadyRef.current !== projectId) {
+      // A read failure must not turn a retry into new, potentially billed work.
+      await refreshClipsData();
+      return;
+    }
+    clipMutationLocksRef.current.add(lockKey);
+    const lifecycle = clipLifecycleRef.current;
     setIsAnalyzing(true);
     setAnalysisError(null);
 
     try {
       const response = await clipService.analyzeClips(projectId);
+      if (lifecycle !== clipLifecycleRef.current) return;
       setCandidates(response.candidates);
       const initialFiltered = (response.candidates || []).filter((c: any) => c.status !== 'dismissed');
       if (initialFiltered.length > 0) {
         setSelectedCandidateId(initialFiltered[0].id);
       }
     } catch (err: any) {
-      setAnalysisError(err.message || 'Failed to analyze video clips.');
+      if (lifecycle === clipLifecycleRef.current) setAnalysisError(err.message || 'Failed to analyze video clips.');
     } finally {
-      setIsAnalyzing(false);
+      clipMutationLocksRef.current.delete(lockKey);
+      if (lifecycle === clipLifecycleRef.current) setIsAnalyzing(false);
     }
   };
 
@@ -216,14 +272,17 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
   };
 
   // Create real 9:16 clip from candidate
-  const handleCreateClip = async (candidateId: string) => {
-    if (isCreatingClip) return;
+  const handleCreateClip = async (candidateId: string,newVariant=false) => {
+    const lockKey = `${projectId}:create`;
+    if (isCreatingClip || clipMutationLocksRef.current.has(lockKey)) return;
+    clipMutationLocksRef.current.add(lockKey);
+    const lifecycle = clipLifecycleRef.current;
     setIsCreatingClip(candidateId);
     setClipActionError(null);
 
     try {
       const subPref = getCandidateSubtitle(candidateId);
-      const res = await clipRenderService.createClipFromCandidate(projectId, candidateId, '9:16', 'smart', {
+      const creationOptions={
         caption_enabled: subPref.enabled,
         caption_style: subPref.preset,
         // Single-word mode (Opus-style one word at a time) = preset override of
@@ -231,37 +290,75 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
         ...(subPref.wordMode === 'single'
           ? { caption_config: { presetOverrides: { maxWordsPerCue: 1, maxLines: 1 } } }
           : {}),
-      });
+      };
+      setCreationRecoveryTarget({projectId,input:{candidateId,aspectRatio:'9:16',cropMode:'smart',...creationOptions}});
+      const res=await clipRenderService.createClipFromCandidate(projectId,candidateId,'9:16','smart',creationOptions,newVariant);
+      if (lifecycle !== clipLifecycleRef.current) return;
       // Mark candidate selected in local UI
       setCandidates((prev) =>
         prev.map((c) => (c.id === candidateId ? { ...c, status: 'selected' } : c))
       );
       // Prepend to myClips
-      setMyClips((prev) => [res.clip, ...prev.filter((c) => c.id !== res.clip.id)]);
+      if(res.replayed)await refreshClipsData();
+      else setMyClips((prev) => [res.clip, ...prev.filter((c) => c.id !== res.clip.id)]);
+      if(lifecycle!==clipLifecycleRef.current)return;
       // Automatically switch to My Clips tab so user sees active rendering
       setActiveTab('my_clips');
+      setKnownCreationCandidates(prev=>new Set([...prev,candidateId]));
+      if(lifecycle===clipLifecycleRef.current)setCreationRecoveryTarget(null);
     } catch (err: any) {
-      setClipActionError(err.message || 'Failed to create clip.');
+      if (lifecycle === clipLifecycleRef.current) setClipActionError(err.message || 'Failed to create clip.');
     } finally {
-      setIsCreatingClip(null);
+      clipMutationLocksRef.current.delete(lockKey);
+      if (lifecycle === clipLifecycleRef.current) setIsCreatingClip(null);
     }
   };
 
+  const handleResolveCreation=async()=>{
+    const target=creationRecoveryTarget,lockKey=`${projectId}:create`;if(!target||target.projectId!==projectId||clipMutationLocksRef.current.has(lockKey))return;
+    const lifecycle=clipLifecycleRef.current;clipMutationLocksRef.current.add(lockKey);
+    try{const result=await clipRenderService.closeCandidateCreation(target.projectId,target.input);
+      if(lifecycle!==clipLifecycleRef.current)return;
+      setCreationRecoveryTarget(null);setClipActionError(null);
+      if(result){await refreshClipsData();if(lifecycle===clipLifecycleRef.current)setActiveTab('my_clips');}
+    }catch(error:any){if(lifecycle===clipLifecycleRef.current)setClipActionError(error.message||'Saved creation could not be resolved.');}
+    finally{clipMutationLocksRef.current.delete(lockKey);}
+  };
+  useEffect(()=>{
+    let cancelled=false;const lifecycle=clipLifecycleRef.current;
+    setCreationRecoveryTarget(null);setKnownCreationCandidates(new Set());
+    void(async()=>{try{let recovered=false;
+      const inputs=await clipRenderService.listCandidateCreations(projectId);
+      for(const input of inputs){
+        if(cancelled||lifecycle!==clipLifecycleRef.current)return;
+        try{const result=await clipRenderService.recoverCandidateCreation(projectId,input);if(result){recovered=true;if(!cancelled&&lifecycle===clipLifecycleRef.current)setKnownCreationCandidates(prev=>new Set([...prev,input.candidateId]));}}
+        catch(error:any){if(!cancelled&&lifecycle===clipLifecycleRef.current){setCreationRecoveryTarget({projectId,input});setClipActionError(error.message||'Saved creation recovery is unavailable. No clip was created on reload.');}return;}
+      }
+      if(recovered&&!cancelled&&lifecycle===clipLifecycleRef.current)await refreshClipsData();
+    }catch(error:any){if(!cancelled&&lifecycle===clipLifecycleRef.current)setClipActionError(error.message||'Saved creation requests could not be listed.');}})();
+    return()=>{cancelled=true;};
+  },[projectId]);
+
   // Retry rendering for a failed clip
   const handleRetryRender = async (clipId: string, options?: { caption_enabled?: boolean; caption_style?: string }) => {
-    if (retryingClipId) return;
+    const lockKey = `${projectId}:retry`;
+    if (retryingClipId || clipMutationLocksRef.current.has(lockKey)) return;
+    clipMutationLocksRef.current.add(lockKey);
+    const lifecycle = clipLifecycleRef.current;
     setRetryingClipId(clipId);
     setClipActionError(null);
 
     try {
       await clipRenderService.renderClip(clipId, options);
+      if (lifecycle !== clipLifecycleRef.current) return;
       // Immediately refresh clips
       const updated = await clipRenderService.getProjectClips(projectId);
-      setMyClips(updated);
+      if (lifecycle === clipLifecycleRef.current) setMyClips(updated);
     } catch (err: any) {
-      setClipActionError(err.message || 'Failed to retry render.');
+      if (lifecycle === clipLifecycleRef.current) setClipActionError(err.message || 'Failed to retry render.');
     } finally {
-      setRetryingClipId(null);
+      clipMutationLocksRef.current.delete(lockKey);
+      if (lifecycle === clipLifecycleRef.current) setRetryingClipId(null);
     }
   };
 
@@ -281,6 +378,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
 
   // Preview clip (obtain signed URL)
   const handleTogglePreview = async (clipId: string) => {
+    const sequence = ++previewSequenceRef.current;
     if (previewClipId === clipId) {
       setPreviewClipId(null);
       return;
@@ -289,10 +387,12 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
     try {
       if (!previewUrls[clipId]) {
         const url = await clipRenderService.getPreviewUrl(clipId);
+        if (sequence !== previewSequenceRef.current) return;
         setPreviewUrls((prev) => ({ ...prev, [clipId]: url }));
       }
-      setPreviewClipId(clipId);
+      if (sequence === previewSequenceRef.current) setPreviewClipId(clipId);
     } catch (err: any) {
+      if (sequence !== previewSequenceRef.current) return;
       alert(err.message || 'Failed to load preview URL.');
     }
   };
@@ -493,6 +593,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
           <div className="flex items-center gap-2">
             <AlertCircle className="size-4 shrink-0" />
             <span>{clipActionError}</span>
+            {creationRecoveryTarget&&<button type="button" onClick={handleResolveCreation} className="text-[11px] underline">Resolve saved creation (recover queued work or close unqueued work)</button>}
           </div>
           <button
             onClick={() => setClipActionError(null)}
@@ -1133,10 +1234,11 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                           ) : (
                             <>
                               <Video className="size-3.5 mr-1.5" />
-                              Create Clip (Render 9:16)
+                              {knownCreationCandidates.has(activeCandidate.id)?'Recover / open saved clip':'Create Clip (Render 9:16)'}
                             </>
                           )}
                         </Button>
+                        {knownCreationCandidates.has(activeCandidate.id)&&<Button variant="outline" size="sm" disabled={!!isCreatingClip} onClick={()=>handleCreateClip(activeCandidate.id,true)}>Create another variant</Button>}
                         {activeCandidate.status === 'selected' ? (
                           <Button
                             variant="outline"

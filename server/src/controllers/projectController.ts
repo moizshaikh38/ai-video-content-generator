@@ -479,8 +479,8 @@ export const ingestProjectUrl = async (req: AuthenticatedRequest, res: Response)
 
     res.status(status).json({
       status: 'error',
-      code,
-      message,
+      code: status >= 500 ? 'INTERNAL_ERROR' : code,
+      message: status >= 500 ? 'Internal server error' : message,
     });
   }
 }
@@ -508,8 +508,8 @@ export async function probeProjectUrl(req: AuthenticatedRequest, res: Response):
     const message = err.message || 'Failed to probe video URL.';
     res.status(status).json({
       status: 'error',
-      code,
-      message,
+      code: status >= 500 ? 'INTERNAL_ERROR' : code,
+      message: status >= 500 ? 'Internal server error' : message,
     });
   }
 };
@@ -1266,7 +1266,7 @@ export const generateProjectContent = async (req: AuthenticatedRequest, res: Res
     res.status(500).json({
       status: 'error',
       code: 'GENERATION_FAILED',
-      message: message || 'Failed to generate content.',
+      message: 'Failed to generate content.',
     });
   }
 };
@@ -1414,6 +1414,6 @@ export const updateProjectContent = async (req: AuthenticatedRequest, res: Respo
       outputId,
       error: message,
     });
-    res.status(500).json({ status: 'error', code: 'UPDATE_FAILED', message: message || 'Failed to update output.' });
+    res.status(500).json({ status: 'error', code: 'UPDATE_FAILED', message: 'Failed to update output.' });
   }
 };

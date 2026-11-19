@@ -1,3 +1,6 @@
+import {HookModeControls} from './HookModeControls';
+import {applyHookDisplayMode, applyHookPreset, hookMode, hookPresetSupported, hookPresetIssue, type HookDisplayMode} from '../../../server/src/shared/hookDisplayMode';
+import {freshPresetTypography} from '../../../server/src/shared/freshPresetTypography';
 import {applyCuePosition,resetCuePosition} from '../../lib/cuePosition';
 import{measuredPanelChoicesForManualPick}from'../../../server/src/shared/measuredPanelChoice';
 import {expandSceneLayoutItem,resolveSceneLayoutItem} from '../../../server/src/shared/sceneLayoutOverrides';
@@ -18,7 +21,7 @@ import {
   EditorTrack,
   EditorCaptionItem,
 } from '../../types';
-import {NEW_CAPTION_PRESET_ID} from '../../../server/src/shared/captionPresets';
+import {FONT_EM_PER_ASS_SIZE, isRenderablePresetId, resolveCaptionPreset, NEW_CAPTION_PRESET_ID} from '../../../server/src/shared/captionPresets';
 import { applyPresetToEditorCaption, CaptionPresetId, RenderableCaptionPresetId } from '../../lib/captionPresets';
 import { CreditService } from '../../services/creditService';
 import { useEditorPlayback } from '../../hooks/useEditorPlayback';
@@ -191,6 +194,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     renderSuccessMsg,
     triggerRender,
     clearRenderStatus,
+    resolveSavedRequest,
   } = useEditorRender({
     clipId: clip.id,
     onRenderComplete: () => {
@@ -781,31 +785,90 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
   // Apply Caption Preset: 'none' hides the caption track (captionEnabled=false on save),
   // any other preset re-enables it and swaps the style while keeping cues and position.
-  const handleApplyCaptionPreset = (requested: CaptionPresetId) => {
+  const handleApplyCaptionPreset = (requested: CaptionPresetId, options?: {keepColors?: boolean}) => {
     const preset: CaptionPresetId = requested === 'none'
       ? 'none'
       : resolvePlanAllowedPreset(requested as RenderableCaptionPresetId);
+    const linked = hookMode(project as any);
+    if (linked && !allowedCaptionPresets) {
+      setActionNotice('Available presets are still loading. No changes made.');
+      return;
+    }
+    if (linked && preset !== 'none') {
+      const style = resolveCaptionPreset(preset, freshPresetTypography(preset), project.canvas.aspect_ratio);
+      const reason = hookPresetIssue(project as any, style, FONT_EM_PER_ASS_SIZE[style.fontFamily]);
+      if (reason) {
+        setActionNotice(reason);
+        return;
+      }
+    }
     if (requested !== 'none' && preset !== requested) {
-      setActionNotice(`The "${requested.replace(/_/g, ' ')}" caption preset is not on your current plan - applied the free "simple" preset instead. Your other edits are unaffected.`);
+      setActionNotice(`The "${requested.replace(/_/g, ' ')}" preset is not on your plan. Applied the free "simple" preset instead.`);
     }
     if (preset !== 'none') setLastCaptionPreset(preset as RenderableCaptionPresetId);
     setExportStale(true);
-    onUpdateProject((prev) => ({
-      ...prev,
-      tracks: prev.tracks.map((t) => {
-        if (t.type !== 'CAPTION') return t;
-        if (preset === 'none') return { ...t, hidden: true };
-        return {
-          ...t,
-          hidden: false,
-          items: t.items.map((i) => ({
-            ...i,
-            caption: applyPresetToEditorCaption(i.caption, preset),
-          })),
-        };
-      }),
-    }));
+    onUpdateProject((prev) => {
+      let next: EditorProject = {
+        ...prev,
+        tracks: prev.tracks.map((t) => {
+          if (t.type !== 'CAPTION') return t;
+          if (preset === 'none') return { ...t, hidden: true };
+          return {
+            ...t,
+            hidden: hookMode(prev as any) === 'hook_only',
+            items: t.items.map((i) => {
+              const applied = applyPresetToEditorCaption(i.caption, preset);
+              return { ...i, caption: options?.keepColors ? {
+                ...applied,
+                ...(i.caption?.primary_color ? {primary_color:i.caption.primary_color} : {}),
+                ...(i.caption?.highlight_color ? {highlight_color:i.caption.highlight_color} : {}),
+                ...(i.caption?.stroke_color ? {stroke_color:i.caption.stroke_color} : {}),
+              } : applied };
+            }),
+          };
+        }),
+      };
+      if (preset !== 'none' && hookMode(prev as any)) {
+        const caption = next.tracks.find(t => t.type === 'CAPTION')?.items.find(i => i.caption)?.caption;
+        const style = resolveCaptionPreset(preset, {
+          ...freshPresetTypography(preset),
+          ...(options?.keepColors && caption?.primary_color ? {textColor:caption.primary_color} : {}),
+          ...(options?.keepColors && caption?.stroke_color ? {outlineColor:caption.stroke_color} : {}),
+        }, next.canvas.aspect_ratio);
+        next = applyHookPreset(next as any, style, FONT_EM_PER_ASS_SIZE[style.fontFamily]) as unknown as EditorProject;
+      }
+      return next;
+    });
   };
+
+  const handleHookMode = (mode: HookDisplayMode) => {
+    if (!allowedCaptionPresets) {
+      setActionNotice('Available presets are still loading. No changes made.');
+      return;
+    }
+    try {
+      const current = project.tracks.find(t => t.type === 'CAPTION')?.items.find(i => i.caption)?.caption?.style;
+      let preset = resolvePlanAllowedPreset(isRenderablePresetId(current) ? current : 'simple');
+      let style = resolveCaptionPreset(preset, freshPresetTypography(preset), project.canvas.aspect_ratio);
+      const unsupported = !hookPresetSupported(style);
+      if (unsupported) {
+        preset = 'simple';
+        style = resolveCaptionPreset(preset, undefined, project.canvas.aspect_ratio);
+      }
+      // Validate without changing the project before handing React an updater.
+      applyHookPreset(applyHookDisplayMode(project as any, mode), style, FONT_EM_PER_ASS_SIZE[style.fontFamily]);
+      setExportStale(true);
+      onUpdateProject(prev => applyHookPreset(applyHookDisplayMode(prev as any, mode), style, FONT_EM_PER_ASS_SIZE[style.fontFamily]) as unknown as EditorProject);
+      setActionNotice(unsupported
+        ? 'Hook mode applied with Simple styling because the current caption font is not supported for static hooks. Choose another supported preset under Hook display.'
+        : 'Hook mode applied. Check its position in the preview. Preset styling is static, without caption motion or word highlights.');
+    } catch (error) {
+      setActionNotice(error instanceof Error ? error.message : 'Hook mode could not be applied.');
+    }
+  };
+
+  const hookControls = <HookModeControls project={project} disabled={isRendering} allowedPresetIds={allowedCaptionPresets}
+    onMode={handleHookMode} onPreset={handleApplyCaptionPreset} />;
 
   // A completed render matches current editor settings again.
   useEffect(() => {
@@ -1160,6 +1223,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         }
       }}
       onApplyCaptionPreset={handleApplyCaptionPreset}
+      hookControls={hookControls}
       allowedCaptionPresetIds={allowedCaptionPresets ?? undefined}
       onToggleCaptions={handleToggleCaptions}
       hasWordTiming={hasWordTiming}
@@ -2234,6 +2298,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         renderProgress={renderProgress}
         renderStage={renderStage}
         renderError={renderError}
+        onResolveSavedRequest={resolveSavedRequest}
         renderSuccessMsg={renderSuccessMsg}
         onTriggerRender={async (resolution) => {
           // Flush pending edits first so export renders the caption preset the preview shows
@@ -2245,6 +2310,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         captionsEnabled={!project.tracks.find((t) => t.type === 'CAPTION')?.hidden}
         onToggleCaptions={handleToggleCaptions}
         downloadStale={exportStale || editorProjectStale}
+        hookControls={hookControls}
       />
 
       {/* 5. COMMAND PALETTE (Cmd+K) */}

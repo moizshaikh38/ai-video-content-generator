@@ -1,5 +1,6 @@
 import { User } from '@supabase/supabase-js';
 import { Request } from 'express';
+import type { EditorRenderSnapshot } from '../shared/editorRenderSnapshot.js';
 import type { CaptionPresetId, CaptionPresetOverrides, WordCustomStyle } from '../shared/captionPresets.js';
 
 // ── Canonical Video Status State Machine ──────────────────────────
@@ -507,6 +508,12 @@ export type RenderJobStage =
   | 'failed';
 
 export interface RenderJobRecord {
+  /** V1 admission pins the job to these saved inputs. Legacy rows omit it. */
+  admission_version?: number | null;
+  render_version?: number;
+  editor_version?: number;
+  editor_project_snapshot?: EditorRenderSnapshot | null;
+  prelease_failures?: number | null;
   id: string;
   clip_id: string;
   user_id: string;
@@ -1040,6 +1047,7 @@ export interface PublishPayload {
 }
 
 export interface PublishedPostRecord {
+  media_selection?:import('../shared/publishMediaSelection.js').PublishMediaSelection;
   id: string;
   user_id: string;
   project_id: string;
@@ -2080,6 +2088,10 @@ export interface EditorTextConfig {
   animation_duration?: number;
   /** Marks the auto-generated opening hook/headline text item. */
   auto_headline?: boolean;
+  /** Explicit hook display choice; absent means preserve the legacy/manual edit. */
+  hook_display_mode?: 'hook_only' | 'hook_captions';
+  hook_intro_seconds?: number;
+  hook_caption_preset?: import('../shared/captionPresets.js').RenderableCaptionPresetId;
 }
 
 export interface EditorCaptionItem {

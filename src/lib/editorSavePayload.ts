@@ -12,8 +12,9 @@ export function buildClipEditorUpdatePayload(
     .find((t) => t.type === 'VIDEO')
     ?.items.find((i) => !i.hidden);
 
-  const captionTrack = project.tracks.find((t) => t.type === 'CAPTION');
-  const captionItem = captionTrack?.items[0];
+  const captionTrack = project.tracks.find((t) => t.type === 'CAPTION' && !t.hidden)
+    || project.tracks.find((t) => t.type === 'CAPTION');
+  const captionItem = captionTrack?.items.find(item => !item.hidden && item.caption) || captionTrack?.items[0];
   const presetId = getEditorCaptionPresetId(captionItem?.caption);
 
   // A ripple cut turns the primary source into multiple video slices. Clip-level
@@ -76,7 +77,9 @@ export function buildClipEditorUpdatePayload(
     trimEndOffset: Number(trimEnd.toFixed(3)),
     cropConfig,
     ...(overlayConfigUpdate ? { overlayConfig: overlayConfigUpdate } : {}),
-    captionEnabled: !captionTrack?.hidden,
+    // A removed or individually hidden caption item is not permission to
+    // regenerate the transcript's original captions at export.
+    captionEnabled: Boolean(captionTrack && !captionTrack.hidden && captionTrack.items.some(item => !item.hidden && item.caption)),
     captionStyle: captionItem?.caption?.style || 'clean',
     captionPosition: captionItem?.caption?.position || 'bottom',
     // Caption settings & overrides: sync preset adjustments and edited cue overrides

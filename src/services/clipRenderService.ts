@@ -1,11 +1,25 @@
+import {createCandidateCreationRecovery,type CandidateCreationInput} from '../lib/candidateCreationRecovery';
+import {supabase} from '../lib/supabase';
+import {createRenderSubmissionRecovery} from '../lib/renderSubmissionRecovery';
 import { backendRequest } from './backendClient';
 import { RenderedClip, ClipAspectRatio } from '../types';
+
+export interface RenderClipReceipt {
+  status: 'ok';
+  submissionId?: string;
+  clipId: string;
+  jobId: string;
+  renderVersion: number;
+  editorVersion: number;
+}
 
 export type ExportResolution = '720p' | '1080p' | '1440p' | '2160p';
 
 export interface CreateClipResponse {
   status: 'ok';
-  message: string;
+  creationId?:string;
+  replayed?:boolean;
+  message?: string;
   clip: RenderedClip;
   renderJob?: any;
 }
@@ -42,19 +56,18 @@ class ClipRenderService {
       caption_enabled?: boolean;
       caption_style?: string;
       caption_config?: any;
-    }
+    },
+    newVariant=false
   ): Promise<CreateClipResponse> {
-    return backendRequest<CreateClipResponse>(`/projects/${projectId}/clips`, {
-      method: 'POST',
-      body: JSON.stringify({
-        candidateId,
-        aspectRatio,
-        cropMode,
-        caption_enabled: options?.caption_enabled,
-        caption_style: options?.caption_style,
-        caption_config: options?.caption_config,
-      }),
-    });
+    return candidateCreationRecovery.submit(projectId,{candidateId,aspectRatio,cropMode,...options},newVariant);
+  }
+
+  async listCandidateCreations(projectId:string):Promise<CandidateCreationInput[]>{return candidateCreationRecovery.listProject(projectId);}
+  async recoverCandidateCreation(projectId:string,input:CandidateCreationInput):Promise<CreateClipResponse|null>{
+    return candidateCreationRecovery.recover(projectId,input);
+  }
+  async closeCandidateCreation(projectId:string,input:CandidateCreationInput):Promise<CreateClipResponse|null>{
+    return candidateCreationRecovery.close(projectId,input);
   }
 
   /**
@@ -62,25 +75,38 @@ class ClipRenderService {
    */
   async getProjectClips(projectId: string): Promise<RenderedClip[]> {
     const data = await backendRequest<GetClipsResponse>(`/projects/${projectId}/clips`);
-    return data.clips || [];
+    if (!Array.isArray(data?.clips) || data.projectId !== projectId ||
+      data.clips.some(row => !row || typeof row.id !== 'string' || !row.id || row.project_id !== projectId)) {
+      throw new Error('Saved rendered clips could not be read. Please try loading again.');
+    }
+    return data.clips;
   }
 
   /**
    * Fetches single clip and its latest render progress
    */
-  async getClip(clipId: string): Promise<RenderedClip> {
-    const data = await backendRequest<GetClipResponse>(`/clips/${clipId}`);
+  async getClip(clipId: string, signal?: AbortSignal): Promise<RenderedClip> {
+    const data = await backendRequest<GetClipResponse>(`/clips/${clipId}`, { signal });
     return data.clip;
   }
 
   /**
    * Retries rendering for a failed or draft clip
    */
-  async renderClip(clipId: string, options?: { caption_enabled?: boolean; caption_style?: string; render_resolution?: ExportResolution }): Promise<void> {
-    await backendRequest<void>(`/clips/${clipId}/render`, {
-      method: 'POST',
-      body: options ? JSON.stringify(options) : undefined,
-    });
+  async renderClip(clipId: string, options?: { caption_enabled?: boolean; caption_style?: string; render_resolution?: ExportResolution }): Promise<RenderClipReceipt> {
+    return renderSubmissionRecovery.submit(clipId,options ?? {});
+  }
+
+  async recoverRender(clipId: string): Promise<RenderClipReceipt | null> {
+    return renderSubmissionRecovery.recover(clipId);
+  }
+
+  async closePendingRender(clipId: string): Promise<RenderClipReceipt | null> {
+    return renderSubmissionRecovery.closePending(clipId);
+  }
+
+  async resolveRender(clipId: string, submissionId?: string): Promise<void> {
+    return renderSubmissionRecovery.resolve(clipId,submissionId);
   }
 
   /**
@@ -106,8 +132,13 @@ class ClipRenderService {
   /**
    * Obtains a signed preview URL for <video> playback
    */
-  async getPreviewUrl(clipId: string): Promise<string> {
-    const data = await backendRequest<SignedUrlResponse>(`/clips/${clipId}/preview-url`);
+  async getPreviewUrl(clipId: string, receipt?: RenderClipReceipt): Promise<string> {
+    if (receipt && receipt.clipId !== clipId) throw new Error('The render receipt belongs to a different clip.');
+    const query = receipt ? '?' + new URLSearchParams({
+      render_version: String(receipt.renderVersion), editor_version: String(receipt.editorVersion), job_id: receipt.jobId,
+    }).toString() : '';
+    const data = await backendRequest<SignedUrlResponse>(`/clips/${clipId}/preview-url${query}`);
+    if (typeof data?.signedUrl !== 'string' || !data.signedUrl.trim()) throw new Error('The rendered preview could not be verified.');
     return data.signedUrl;
   }
 
@@ -292,3 +323,35 @@ class ClipRenderService {
 }
 
 export const clipRenderService = new ClipRenderService();
+
+const renderSubmissionRecovery = createRenderSubmissionRecovery({
+  owner:async()=>{const {data,error}=await supabase.auth.getSession();if(error)throw error;return data.session?.user?.id??'';},
+  request:async(path,options,owner)=>{
+    const {data,error}=await supabase.auth.getSession();
+    if(error)throw error;
+    if(!data.session?.access_token||data.session.user.id!==owner)throw new Error('The signed-in account changed. The render request was not sent.');
+    return backendRequest(path,options,data.session.access_token);
+  },
+  readClip:id=>clipRenderService.getClip(id),
+  storage:()=>{try{return window.localStorage;}catch{throw new Error('Browser storage is required to recover render requests. No render was submitted.');}},
+  newId:()=>crypto.randomUUID(),
+  lock:async(name,work)=>{
+    if(typeof navigator==='undefined'||!navigator.locks?.request)throw new Error('This browser cannot safely coordinate render recovery across tabs. No render was submitted.');
+    return navigator.locks.request(name,work);
+  },
+});
+
+const candidateCreationRecovery=createCandidateCreationRecovery({
+  owner:async()=>{const {data,error}=await supabase.auth.getSession();if(error)throw error;return data.session?.user?.id??'';},
+  request:async(path,options,owner)=>{
+    const {data,error}=await supabase.auth.getSession();if(error)throw error;
+    if(!data.session?.access_token||data.session.user.id!==owner)throw new Error('The signed-in account changed. The creation request was not sent.');
+    return backendRequest(path,options,data.session.access_token);
+  },
+  storage:()=>{try{return window.localStorage;}catch{throw new Error('Browser storage is required to recover clip creation. No clip was created.');}},
+  newId:()=>crypto.randomUUID(),
+  lock:async(name,work)=>{
+    if(typeof navigator==='undefined'||!navigator.locks?.request)throw new Error('This browser cannot safely coordinate creation recovery across tabs. No clip was created.');
+    return navigator.locks.request(name,work);
+  },
+});

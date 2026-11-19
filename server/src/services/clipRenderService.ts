@@ -1,3 +1,4 @@
+import {enforceSavedRenderFreshness} from './renderFreshnessGuard.js';
 import {assertRenderAssetOwnership} from '../utils/renderAssetOwnership.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import {verifiedCaptionAssPath} from '../shared/captionBurnInArtifact.js';
@@ -22,11 +23,13 @@ import { resolveCaptionPreset } from '../shared/captionPresets.js';
 import { clampCaptionFontSize } from '../shared/captionPresets.js';
 import { assFontsDirArg } from './editorFontFiles.js';
 import { canvasDims, parseRenderResolution, resolveEffectiveResolution, type EffectiveResolution } from '../shared/renderResolution.js';
+import type {CandidateCreationPreparation} from '../db/repositories/clipRepository.js';
 import { createClipWithJob } from '../db/repositories/clipRepository.js';
 import { isMongoConfigured, getMongoDb, getMongoClient } from '../db/mongoClient.js';
 import {renderRetryBudget,renderBudgetAvailableExpr} from '../shared/renderRetryBudget.js';
 import {claimRenderLease} from './queue/renderLeaseClaim.js';
 import {recoverRenderQueue} from './queue/renderQueueRecovery.js';
+import {failQueuedRenderJob, queuedRenderSnapshotFilter} from './queue/renderPreleaseOutcome.js';
 import {commitFencedRenderOutcome} from './queue/renderLeaseCommit.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import fs from 'fs';
@@ -162,6 +165,9 @@ export function launchInlineRender(clipId: string, userId: string, jobId: string
 }
 
 export interface CreateClipResult {
+  creationId?:string;
+  preparation?:string;
+  replayed?:boolean;
   clip: ClipRecord;
   renderJob: RenderJobRecord;
 }
@@ -416,7 +422,8 @@ export class ClipRenderService {
     candidateId: string,
     aspectRatio: ClipAspectRatio = '9:16',
     cropMode: ClipCropMode = 'center',
-    options?: { caption_enabled?: boolean; caption_style?: string; caption_config?: any }
+    options?: { caption_enabled?: boolean; caption_style?: string; caption_config?: any },
+    creation?:CandidateCreationPreparation
   ): Promise<CreateClipResult> {
     if (!isMongoConfigured) {
       const err = new Error('Database service is not configured.');
@@ -432,14 +439,18 @@ export class ClipRenderService {
 
     const validRatios: ClipAspectRatio[] = ['9:16', '1:1', '16:9'];
     const validAspectRatio = validRatios.includes(aspectRatio) ? aspectRatio : '9:16';
-    const {data:candidateForSource} = await dataRepository.from('clip_candidates').select('metadata').eq('id',candidateId).eq('project_id',projectId).eq('user_id',userId).maybeSingle();
+    const {data:candidateForSource,error:candidateReadError} = await dataRepository.from('clip_candidates').select('metadata').eq('id',candidateId).eq('project_id',projectId).eq('user_id',userId).maybeSingle();
+    if(candidateReadError)throw new AppError('Clip candidate could not be read.',503,candidateReadError.code||'DATABASE_UNAVAILABLE');
+    if(!candidateForSource)throw new AppError('Clip candidate not found.',404,'CANDIDATE_NOT_FOUND');
     await assertSelectionSourceCurrent(userId,projectId,candidateForSource?.metadata?.selection_source_receipt);
-    const { clip, renderJob } = await createClipWithJob(projectId, candidateId, userId, validAspectRatio, cropMode, options);
+    const result = await createClipWithJob(projectId, candidateId, userId, validAspectRatio, cropMode, options,creation);
+    const {clip,renderJob}=result;
 
     // 6. Launch in-process background rendering (deferred to the sweep when at cap)
-    launchInlineRender(clip.id, userId, renderJob.id);
+    if(!result.replayed)launchInlineRender(clip.id, userId, renderJob.id);
 
     return {
+      ...(creation?{creationId:creation.intent.id,preparation:creation.intent.preparation,replayed:result.replayed}:{}),
       clip: clip as ClipRecord,
       renderJob: renderJob as RenderJobRecord,
     };
@@ -590,7 +601,10 @@ export class ClipRenderService {
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (clipErr || !clip) {
+    // A failed read is not evidence that the clip was deleted. Preserve the
+    // repository code so the sweep can use its bounded pre-lease retry path.
+    if (clipErr) throw Object.assign(new Error(clipErr.message), { code: clipErr.code || 'DATABASE_UNAVAILABLE' });
+    if (!clip) {
       const err = new Error('Clip not found or access denied.');
       (err as any).code = 'CLIP_NOT_FOUND';
       throw err;
@@ -648,6 +662,9 @@ export class ClipRenderService {
 
     if (!claimedJob) {
       const currentJob = await renderJobsCol.findOne({ id: jobId,clip_id:clipId,user_id:userId });
+      if (currentJob?.admission_version!=null && (currentJob.admission_version!==1 || currentJob.render_version!==expectedClipVersion.renderVersion || currentJob.editor_version!==expectedClipVersion.editorVersion)) {
+        throw new AppError('Queued render inputs changed. Start a fresh render.',409,'RENDER_INPUT_CHANGED');
+      }
       if (currentJob?.status === 'completed') {
         logger.info(`[ClipRender] Clip ${clipId} is already rendered and completed.`);
         return;
@@ -763,6 +780,7 @@ export class ClipRenderService {
         if(projectReadError)throw projectReadError;
         savedEditorProject=proj;
         expectedEditorProject=editorRenderSnapshot(proj);
+        if(claimedJob.admission_version===1&&JSON.stringify(claimedJob.editor_project_snapshot)!==JSON.stringify(expectedEditorProject))throw new AppError('Saved editor changed after render admission. Start a fresh render.',409,'RENDER_INPUT_CHANGED');
         const bound=await db.collection('render_jobs').updateOne({id:jobId,clip_id:clipId,user_id:userId,worker_id:workerId,status:'processing'},{$set:{editor_project_snapshot:expectedEditorProject}});
         if(bound.matchedCount!==1)throw new AppError('Render lease was expired or claimed by another worker.',409,'FENCING_TOKEN_MISMATCH');
         if (proj && Array.isArray(proj.tracks)) {
@@ -1805,77 +1823,39 @@ export class ClipRenderService {
       });
 
       // Part 2: Permanent pre-lease failure handling
-      if (code === 'CLIP_NOT_FOUND') {
-        const safeMessage = JobReliabilityService.sanitizeErrorMessage(rawMessage);
-        // Atomic conditional update: matches job ID, owner ID, expected queued status and ensures
-        // we never overwrite a job already claimed (worker_id != null or status != queued) by another worker.
-        await db.collection('render_jobs').updateOne(
-          {
-            id: dueJob.id,
-            user_id: dueJob.user_id,
-            status: 'queued',
-            worker_id: null,
-            locked_at: null,
-          },
-          {
-            $set: {
-              status: 'failed',
-              stage: 'failed',
-              error_code: 'CLIP_NOT_FOUND',
-              error_message: safeMessage,
-              updated_at: new Date(),
-            },
-          }
-        );
+      if (code === 'CLIP_NOT_FOUND' || code === 'RENDER_INPUT_CHANGED') {
+        await failQueuedRenderJob(await getMongoClient(), db, dueJob as any, {
+          code, message: JobReliabilityService.sanitizeErrorMessage(rawMessage),
+        }, new Date());
       } else if (code === 'AUTH_REQUIRED') {
         // Invariant violation: do not mark permanently failed; log for investigation
         logger.error(`[ClipRender] Invariant violation: Authenticated owner context was not established for job ${dueJob.id} (user ${dueJob.user_id}): ${rawMessage}`);
       } else if (code !== 'RENDER_ALREADY_ACTIVE') {
-        // Transient database/network errors: preserve existing retry and recovery behaviour
-        const isTransient = JobReliabilityService.isTransientError(err) ||
-          ['DATABASE_UNAVAILABLE', 'NETWORK_ERROR', 'RENDER_TIMEOUT'].includes(code);
-
-        if (isTransient) {
+        // Any other pre-lease error needs a bounded decision, not an immediate
+        // oldest-first hot loop that starves the queue. This includes incomplete
+        // editor saves and unclassified database errors. Exact queued/empty-lease
+        // guards below prevent touching an acquired or replaced execution.
+        {
           const {attempts,maximum:maxAttempts}=renderRetryBudget({attempts:dueJob.prelease_failures,max_attempts:3});
           if (attempts + 1 < maxAttempts) {
             const delayMs = JobReliabilityService.computeBackoffDelayMs(attempts + 1, { baseDelayMs: 2000, maxDelayMs: 30000, jitter: true });
             const nextRetryAt = new Date(Date.now() + delayMs);
-            await db.collection('render_jobs').updateOne(
-              {
-                id: dueJob.id,
-                user_id: dueJob.user_id,
-                status: 'queued',
-                worker_id: null,
-                locked_at: null,
-              },
+            const scheduled = await db.collection('render_jobs').updateOne(
+              queuedRenderSnapshotFilter(dueJob as any),
               {
                 $set: {
                   next_retry_at: nextRetryAt,
+                  prelease_failures: attempts + 1,
                   updated_at: new Date(),
                 },
-                $inc: { prelease_failures: 1 },
               }
             );
-            logger.warn(`[ClipRender] Transient pre-lease failure for job ${dueJob.id}. Scheduled retry at ${nextRetryAt.toISOString()}`);
+            if (scheduled.matchedCount === 1) logger.warn(`[ClipRender] Pre-lease failure for job ${dueJob.id}. Scheduled retry at ${nextRetryAt.toISOString()}`);
           } else {
-            await db.collection('render_jobs').updateOne(
-              {
-                id: dueJob.id,
-                user_id: dueJob.user_id,
-                status: 'queued',
-                worker_id: null,
-                locked_at: null,
-              },
-              {
-                $set: {
-                  status: 'failed',
-                  stage: 'failed',
-                  error_code: code || 'MAX_ATTEMPTS_EXCEEDED',
-                  error_message: JobReliabilityService.sanitizeErrorMessage(rawMessage),
-                  updated_at: new Date(),
-                },
-              }
-            );
+            await failQueuedRenderJob(await getMongoClient(), db, dueJob as any, {
+              code: code || 'MAX_ATTEMPTS_EXCEEDED',
+              message: JobReliabilityService.sanitizeErrorMessage(rawMessage),
+            }, new Date());
           }
         }
       }
@@ -1890,7 +1870,9 @@ export class ClipRenderService {
    * Fetches all clips belonging to a project and user, attaching the latest render job.
    */
   public static async getProjectClips(projectId: string, userId: string): Promise<ClipRecord[]> {
-    if (!isMongoConfigured) return [];
+    if (!isMongoConfigured) {
+      throw Object.assign(new Error('Database service is not configured.'), { code: 'SERVICE_UNAVAILABLE' });
+    }
 
     const { data: clips, error } = await dataRepository
       .from('clips')
@@ -1899,21 +1881,20 @@ export class ClipRenderService {
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    if (error || !clips) {
-      logger.error('Error fetching project clips', { error: error?.message, projectId, userId });
-      return [];
-    }
+    if (error) throw Object.assign(new Error(error.message), { code: error.code || 'DATABASE_UNAVAILABLE' });
+    if (!Array.isArray(clips)) throw new Error('Saved clips response is invalid.');
 
     // Attach latest render job for each clip
     const enrichedClips: ClipRecord[] = await Promise.all(
       clips.map(async (clip: any) => {
-        const { data: job } = await dataRepository
+        const { data: job, error: jobError } = await dataRepository
           .from('render_jobs')
           .select('*')
           .eq('clip_id', clip.id)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
+        if (jobError) throw Object.assign(new Error(jobError.message), { code: jobError.code || 'DATABASE_UNAVAILABLE' });
 
         return {
           ...clip,
@@ -1942,19 +1923,21 @@ export class ClipRenderService {
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (error || !clip) {
+    if (error) throw Object.assign(new Error(error.message), { code: error.code || 'DATABASE_UNAVAILABLE' });
+    if (!clip) {
       const err = new Error('Clip not found or access denied.');
       (err as any).code = 'CLIP_NOT_FOUND';
       throw err;
     }
 
-    const { data: job } = await dataRepository
+    const { data: job, error: jobError } = await dataRepository
       .from('render_jobs')
       .select('*')
       .eq('clip_id', clipId)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (jobError) throw Object.assign(new Error(jobError.message), { code: jobError.code || 'DATABASE_UNAVAILABLE' });
 
     return {
       ...clip,
@@ -1965,15 +1948,23 @@ export class ClipRenderService {
   /**
    * Generates a short-lived signed URL for previewing the rendered MP4.
    */
-  public static async getSignedPreviewUrl(clipId: string, userId: string): Promise<SignedUrlResult> {
+  public static async getSignedPreviewUrl(clipId: string, userId: string, expected?: {renderVersion: number; editorVersion: number; jobId: string}): Promise<SignedUrlResult> {
     const clip = await ClipRenderService.getClip(clipId, userId);
     await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
+
+    if (expected && (clip.render_version !== expected.renderVersion || clip.editor_version !== expected.editorVersion ||
+        clip.latest_job?.id !== expected.jobId || clip.latest_job?.clip_id !== clipId || clip.latest_job?.status !== 'completed' ||
+        clip.latest_job.render_version !== expected.renderVersion || clip.latest_job.editor_version !== expected.editorVersion)) {
+      throw new AppError('Clip inputs changed after this render request. Reopen the clip before exporting.', 409, 'RENDER_INPUT_CHANGED');
+    }
 
     if (clip.render_status !== 'ready' || !clip.output_storage_path) {
       const err = new Error('Clip is not ready for preview.');
       (err as any).code = 'CLIP_NOT_READY';
       throw err;
     }
+
+    await enforceSavedRenderFreshness(clip, userId);
 
     const entitlements = await EntitlementService.resolveUserEntitlements(userId);
     WatermarkService.assertExportAccess(entitlements, clip);
@@ -1999,6 +1990,8 @@ export class ClipRenderService {
       (err as any).code = 'CLIP_NOT_READY';
       throw err;
     }
+
+    await enforceSavedRenderFreshness(clip, userId);
 
     const entitlements = await EntitlementService.resolveUserEntitlements(userId);
     WatermarkService.assertExportAccess(entitlements, clip);

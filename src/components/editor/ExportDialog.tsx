@@ -29,6 +29,7 @@ const RESOLUTION_OPTIONS: Array<{ value: ExportResolution; title: string; hint: 
 ];
 
 interface ExportDialogProps {
+  hookControls?: React.ReactNode;
   isOpen: boolean;
   onClose: () => void;
   clip?: RenderedClip | null;
@@ -38,6 +39,7 @@ interface ExportDialogProps {
   renderProgress: number;
   renderStage: string;
   renderError: string | null;
+  onResolveSavedRequest?: () => void;
   renderSuccessMsg: string | null;
   onTriggerRender: (resolution: ExportResolution) => void;
   downloadUrl?: string | null;
@@ -61,6 +63,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   renderProgress,
   renderStage,
   renderError,
+  onResolveSavedRequest,
   renderSuccessMsg,
   onTriggerRender,
   downloadUrl,
@@ -68,6 +71,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   captionsEnabled = true,
   onToggleCaptions,
   downloadStale = false,
+  hookControls,
 }) => {
   const [resolution, setResolution] = useState<ExportResolution>(() => initialExportResolution(clip));
   const unassignedViews = project ? unassignedPanelViews(project) : [];
@@ -224,6 +228,8 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                   </p>
                 )}
               </div>
+
+              {hookControls}
 
               {/* Subtitle burn-in toggle */}
               <div className="flex items-center justify-between p-3.5 rounded-xl bg-vc-canvas ">
@@ -429,7 +435,17 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
           {renderError && !isRendering && (
             <div className="p-3 rounded-xl bg-rose-950/50 text-xs text-rose-300 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-              <span>{renderError}</span>
+              <div className="min-w-0">
+                <p>{renderError}</p>
+                {onResolveSavedRequest && (
+                  <div className="mt-3">
+                    <button type="button" onClick={onResolveSavedRequest} className="rounded-lg border border-rose-300/30 px-3 py-2 text-xs font-medium text-rose-100 hover:bg-rose-300/10">
+                      Resolve saved request
+                    </button>
+                    <p className="mt-2 text-[11px] leading-relaxed text-rose-300/80">Recover a queued render, or close an unqueued request. This does not cancel a queued render or start a new one.</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

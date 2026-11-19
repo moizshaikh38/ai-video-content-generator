@@ -1,3 +1,4 @@
+import {selectPublishMedia,assertPublishMediaSelection,assertPublishObjectSelection,type PublishMediaSelection} from '../shared/publishMediaSelection.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -46,7 +47,8 @@ export class PublishingService {
     connectionId: string,
     clipId: string | null | undefined,
     payload: PublishPayload,
-    scheduledFor?: string | null
+    scheduledFor?: string | null,
+    mediaSelection?:PublishMediaSelection
   ): string {
     const canonical = [
       userId,
@@ -58,7 +60,7 @@ export class PublishingService {
       scheduledFor || 'immediate',
     ].join('::');
 
-    return crypto.createHash('sha256').update(canonical).digest('hex');
+    return crypto.createHash('sha256').update(mediaSelection?JSON.stringify([canonical,mediaSelection]):canonical).digest('hex');
   }
 
   /**
@@ -151,11 +153,13 @@ export class PublishingService {
 
     // 2. Verify clip ownership and readiness if provided
     let clip: ClipRecord | null = null;
+    let mediaSelection:PublishMediaSelection|undefined;
     if (dto.clipId) {
       clip = await db.collection<ClipRecord>('clips').findOne({ id: dto.clipId, user_id: dto.userId });
       if (!clip) {
         throw new AppError('Clip not found or access denied.', 404, 'CLIP_NOT_FOUND');
       }
+      if(clip.project_id!==dto.projectId)throw new AppError('Clip does not belong to this project.',409,'PUBLISH_PROJECT_MISMATCH');
       if (clip.render_status !== 'ready' || !clip.output_storage_path) {
         throw new AppError(
           `Clip cannot be published because its render_status is "${clip.render_status}". Only ready clips can be published.`,
@@ -199,13 +203,22 @@ export class PublishingService {
       }
     }
 
+    if(clip){
+      mediaSelection=selectPublishMedia(clip,await headObject('clips',clip.output_storage_path!));
+      // Storage validation can take time. Do not bind a selection against a
+      // newly replaced owner/project/render pointer after that read.
+      const current=await db.collection<ClipRecord>('clips').findOne({id:clip.id,user_id:dto.userId});
+      assertPublishMediaSelection({user_id:dto.userId,project_id:dto.projectId,clip_id:clip.id,media_selection:mediaSelection},current);
+    }
+
     // 5. Idempotency Check via deterministic fingerprint
     const fingerprint = this.generateFingerprint(
       dto.userId,
       dto.socialConnectionId,
       dto.clipId,
       dto.payload,
-      dto.scheduledFor
+      dto.scheduledFor,
+      mediaSelection
     );
 
     const existingPost = await db.collection<PublishedPostRecord>('published_posts').findOne({
@@ -213,13 +226,15 @@ export class PublishingService {
     });
 
     if (existingPost) {
-      if (['publishing', 'published'].includes(existingPost.status)) {
+      if (!['failed','cancelled'].includes(existingPost.status)) {
         throw new AppError(
           `Duplicate publish request detected. This post is already ${existingPost.status}.`,
           409,
           'DUPLICATE_PUBLISH_REQUEST'
         );
       }
+      // Only terminal failed/cancelled records reach this legacy retry path.
+      // Never erase or recreate a still-scheduled request on a duplicate click.
       // If previous attempt was failed or cancelled, we allow a new attempt by deleting old record
       await db.collection('published_posts').deleteOne({ id: existingPost.id });
       await db.collection('publish_jobs').deleteOne({ published_post_id: existingPost.id });
@@ -234,6 +249,7 @@ export class PublishingService {
       user_id: dto.userId,
       project_id: dto.projectId,
       ...(dto.clipId ? { clip_id: dto.clipId } : {}),
+      ...(mediaSelection?{media_selection:mediaSelection}:{}),
       ...(dto.contentOutputId ? { content_output_id: dto.contentOutputId } : {}),
       social_connection_id: dto.socialConnectionId,
       provider: conn.provider,
@@ -302,11 +318,11 @@ export class PublishingService {
   private async executeTrackedPublishJob(jobId: string): Promise<void> {
     const db = await getMongoDb();
     const job = await db.collection<PublishJobRecord>('publish_jobs').findOne({ id: jobId });
-    if (!job) return;
+    if (!job || typeof job.user_id !== 'string' || !job.user_id.trim()) return;
 
-    const post = await db.collection<PublishedPostRecord>('published_posts').findOne({ id: job.published_post_id });
+    const post = await db.collection<PublishedPostRecord>('published_posts').findOne({ id: job.published_post_id, user_id: job.user_id });
     if (!post || post.status === 'cancelled') {
-      await db.collection('publish_jobs').updateOne({ id: jobId }, { $set: { status: 'cancelled', updated_at: new Date() } });
+      await db.collection('publish_jobs').updateOne({ id: jobId, user_id: job.user_id }, { $set: { status: 'cancelled', updated_at: new Date() } });
       return;
     }
 
@@ -319,6 +335,10 @@ export class PublishingService {
     if (!conn) {
       await this.markJobFailed(jobId, post.id, 'CONNECTION_NOT_FOUND', 'Connected account was deleted or not found.', false);
       return;
+    }
+
+    if(conn.provider!==post.provider||conn.provider_account_id!==post.provider_account_id){
+      await this.markJobFailed(jobId,post.id,'PUBLISH_ACCOUNT_CHANGED','The selected social account changed. Review this post before publishing.',false);return;
     }
 
     // Step 2: Check & refresh token if expired
@@ -356,30 +376,45 @@ export class PublishingService {
     let mediaSize: number = 0;
 
     if (post.clip_id) {
-      const clip = await db.collection<ClipRecord>('clips').findOne({ id: post.clip_id });
+      const clip = await db.collection<ClipRecord>('clips').findOne({ id: post.clip_id, user_id: post.user_id });
       if (!clip || !clip.output_storage_path) {
         await this.markJobFailed(jobId, post.id, 'CLIP_NOT_FOUND', 'Rendered clip output path not found.', false);
         return;
       }
 
+      // A scheduled job must recheck the creation-time requirement. An old
+      // output path retained during a new render is not current ready media.
+      if (clip.render_status !== 'ready') {
+        await this.markJobFailed(jobId, post.id, 'CLIP_NOT_READY', 'Clip is no longer ready. Review the clip before publishing.', false);
+        return;
+      }
+
       try {
-        const headInfo = await headObject('clips', clip.output_storage_path);
+        const selection=assertPublishMediaSelection(post,clip);
+        const selectedKey=selection?.objectKey??clip.output_storage_path;
+        const headInfo = await headObject('clips', selectedKey);
+        assertPublishObjectSelection(selection,headInfo);
         mediaSize = headInfo.size;
 
         // Create temporary signed URL for providers that pull via URL (e.g. Meta, TikTok)
-        signedMediaUrl = await signObjectGet('clips', clip.output_storage_path, `clip-${clip.id}.mp4`);
+        signedMediaUrl = await signObjectGet('clips', selectedKey, `clip-${clip.id}.mp4`,selection?.objectVersionId?{versionId:selection.objectVersionId}:undefined);
 
         // If provider requires direct byte stream (e.g. YouTube resumable upload), download to secure temp file
         if (post.provider === 'youtube') {
           const tempDir = os.tmpdir();
           tempFilePath = path.join(tempDir, `vireo-upload-${crypto.randomUUID()}.mp4`);
-          await downloadObjectToFile('clips', clip.output_storage_path, tempFilePath);
+          const downloaded=await downloadObjectToFile('clips', selectedKey, tempFilePath,selection?{requireSnapshotReceipt:true,expectedObject:{size:selection.bytes,etag:selection.etag,versionId:selection.objectVersionId}}:undefined);
+          if(selection){
+            if(!downloaded.sourceReceipt)throw new AppError('Selected video bytes could not be verified.',409,'PUBLISH_MEDIA_CHANGED');
+            assertPublishObjectSelection({...selection,objectVersionId:null},{size:downloaded.sizeBytes,etag:downloaded.sourceReceipt.etag});
+          }
         }
       } catch (err: any) {
+        if(err?.code==='SOURCE_VERSION_CHANGED')err=new AppError('Selected video bytes changed. Review the post before publishing.',409,'PUBLISH_MEDIA_CHANGED');
         if (tempFilePath && fs.existsSync(tempFilePath)) {
           fs.unlinkSync(tempFilePath);
         }
-        await this.markJobFailed(jobId, post.id, 'MEDIA_FETCH_FAILED', `Failed to retrieve media: ${err?.message}`, true);
+        await this.markJobFailed(jobId, post.id, err?.code==='PUBLISH_MEDIA_CHANGED'?'PUBLISH_MEDIA_CHANGED':'MEDIA_FETCH_FAILED', err?.code==='PUBLISH_MEDIA_CHANGED'?err.message:`Failed to retrieve media: ${err?.message}`, err?.code!=='PUBLISH_MEDIA_CHANGED');
         return;
       }
     }

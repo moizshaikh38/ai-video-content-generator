@@ -25,7 +25,7 @@ export class TranslationController {
       res.json({ success: true, languages });
     } catch (err: any) {
       logger.error(`[TranslationController] getLanguages error: ${err.message}`);
-      res.status(500).json({ success: false, error: err.message });
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   }
 
@@ -44,7 +44,7 @@ export class TranslationController {
       res.json({ success: true, result });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -76,7 +76,7 @@ export class TranslationController {
       res.status(201).json({ success: true, project });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -95,7 +95,7 @@ export class TranslationController {
       res.json({ success: true, project });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -112,7 +112,7 @@ export class TranslationController {
       res.json({ success: true, projects });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -131,7 +131,7 @@ export class TranslationController {
       res.json({ success: true, project });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -160,7 +160,7 @@ export class TranslationController {
       res.json({ success: true, project });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -177,7 +177,7 @@ export class TranslationController {
       res.json({ success: true, project });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -218,7 +218,7 @@ export class TranslationController {
       });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -256,7 +256,7 @@ export class TranslationController {
       res.status(201).json({ success: true, dub_project: dubProject });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -274,7 +274,7 @@ export class TranslationController {
         lip_sync: lipSync,
       });
     } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   }
 }

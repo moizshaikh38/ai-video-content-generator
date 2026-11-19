@@ -1,3 +1,4 @@
+import { sendSafeControllerError } from '../utils/safeControllerError.js';
 import { Response } from 'express';
 import { AuthenticatedRequest, isValidUUID, BrollStyle } from '../types/index.js';
 import { MediaAssetService } from '../services/mediaAssetService.js';
@@ -19,7 +20,7 @@ export const getMediaCapabilities = async (
     const capabilities = StockMediaProviderRegistry.getAllCapabilities();
     res.status(200).json({ status: 'ok', data: capabilities });
   } catch (err: any) {
-    res.status(500).json({ status: 'error', code: 'INTERNAL_ERROR', message: err.message });
+    sendSafeControllerError(res, err, { status: 500, message: 'Media request failed.' });
   }
 };
 
@@ -47,12 +48,7 @@ export const searchMedia = async (
     const results = await MediaAssetService.searchMedia(userId, filter);
     res.status(200).json({ status: 'ok', data: results });
   } catch (err: any) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      status: 'error',
-      code: err.code || 'SEARCH_FAILED',
-      message: err.message || 'Media search failed.',
-    });
+    sendSafeControllerError(res, err, { code: 'SEARCH_FAILED', message: 'Media search failed.' });
   }
 };
 
@@ -84,7 +80,7 @@ export const listMediaAssets = async (
 
     res.status(200).json({ status: 'ok', data: result });
   } catch (err: any) {
-    res.status(500).json({ status: 'error', code: 'INTERNAL_ERROR', message: err.message });
+    sendSafeControllerError(res, err, { status: 500, message: 'Media request failed.' });
   }
 };
 
@@ -118,7 +114,7 @@ export const getMediaAsset = async (
 
     res.status(200).json({ status: 'ok', data: asset });
   } catch (err: any) {
-    res.status(500).json({ status: 'error', code: 'INTERNAL_ERROR', message: err.message });
+    sendSafeControllerError(res, err, { status: 500, message: 'Media request failed.' });
   }
 };
 
@@ -147,7 +143,7 @@ export const getSimilarMediaAssets = async (
     const similar = await MediaAssetService.findSimilar(assetId, userId, 6);
     res.status(200).json({ status: 'ok', data: similar });
   } catch (err: any) {
-    res.status(500).json({ status: 'error', code: 'INTERNAL_ERROR', message: err.message });
+    sendSafeControllerError(res, err, { status: 500, message: 'Media request failed.' });
   }
 };
 
@@ -187,12 +183,7 @@ export const importRemoteMedia = async (
 
     res.status(201).json({ status: 'ok', data: imported });
   } catch (err: any) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      status: 'error',
-      code: err.code || 'IMPORT_FAILED',
-      message: err.message || 'Failed to import remote media.',
-    });
+    sendSafeControllerError(res, err, { code: 'IMPORT_FAILED', message: 'Failed to import remote media.' });
   }
 };
 
@@ -222,12 +213,7 @@ export const detectClipBrollOpportunities = async (
     const opportunities = await BrollOpportunityService.detectOpportunities(clipId, userId, style);
     res.status(200).json({ status: 'ok', data: opportunities });
   } catch (err: any) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      status: 'error',
-      code: err.code || 'DETECTION_FAILED',
-      message: err.message || 'Failed to detect B-roll opportunities.',
-    });
+    sendSafeControllerError(res, err, { code: 'DETECTION_FAILED', message: 'Failed to detect B-roll opportunities.' });
   }
 };
 
@@ -257,12 +243,7 @@ export const createClipBrollPlan = async (
     const plan = await BrollPlanService.createPlan(clipId, userId, { style });
     res.status(201).json({ status: 'ok', data: plan });
   } catch (err: any) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      status: 'error',
-      code: err.code || 'PLAN_CREATION_FAILED',
-      message: err.message || 'Failed to create B-roll plan.',
-    });
+    sendSafeControllerError(res, err, { code: 'PLAN_CREATION_FAILED', message: 'Failed to create B-roll plan.' });
   }
 };
 
@@ -291,7 +272,7 @@ export const getClipBrollPlan = async (
     const plan = await BrollPlanService.getLatestPlanForClip(clipId, userId);
     res.status(200).json({ status: 'ok', data: plan });
   } catch (err: any) {
-    res.status(500).json({ status: 'error', code: 'INTERNAL_ERROR', message: err.message });
+    sendSafeControllerError(res, err, { status: 500, message: 'Media request failed.' });
   }
 };
 
@@ -321,12 +302,7 @@ export const applyBrollPlan = async (
     const result = await BrollPlanService.applyPlan(planId, userId, selectedSuggestionIds);
     res.status(200).json({ status: 'ok', data: result });
   } catch (err: any) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      status: 'error',
-      code: err.code || 'APPLY_FAILED',
-      message: err.message || 'Failed to apply B-roll plan.',
-    });
+    sendSafeControllerError(res, err, { code: 'APPLY_FAILED', message: 'Failed to apply B-roll plan.' });
   }
 };
 
@@ -364,11 +340,6 @@ export const insertDirectBroll = async (
     const updated = await BrollPlanService.insertDirectAsset(projectId, userId, asset_id, start, dur);
     res.status(200).json({ status: 'ok', data: updated });
   } catch (err: any) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      status: 'error',
-      code: err.code || 'INSERTION_FAILED',
-      message: err.message || 'Failed to insert B-roll asset.',
-    });
+    sendSafeControllerError(res, err, { code: 'INSERTION_FAILED', message: 'Failed to insert B-roll asset.' });
   }
 };

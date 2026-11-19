@@ -162,11 +162,12 @@ export async function confirmBillingCountry(
   const conflict = vsConfirmed ?? vsIp;
   if (conflict && !confirmConflict) {
     const counterCountry = vsConfirmed ? vsConfirmed.confirmedCountry : vsIp?.ipCountry;
+    const counterProvider = vsConfirmed ? vsConfirmed.confirmedProvider : vsIp?.ipProvider;
     return {
       ok: false,
       code: 'COUNTRY_CONFLICT',
       conflict,
-      message: `Your billing country (${country}) would use ${conflict.confirmedProvider === decision.provider ? decision.provider : conflict.confirmedProvider}, but ${counterCountry} observed earlier implies ${conflict.ipProvider === decision.provider ? conflict.ipProvider : conflict.ipProvider}. Please confirm the switch.`,
+      message: `Your billing country (${country}) would use ${decision.provider}, but ${counterCountry} observed earlier implies ${counterProvider}. Please confirm the switch.`,
     };
   }
 

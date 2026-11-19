@@ -29,7 +29,7 @@ export const getWalletBalance = async (
     res.status(500).json({
       status: 'error',
       code: 'INTERNAL_ERROR',
-      message: err.message || 'Failed to retrieve credit balance.',
+      message: 'Internal server error',
     });
   }
 };
@@ -69,7 +69,7 @@ export const estimateOperationCost = async (
     res.status(500).json({
       status: 'error',
       code: 'INTERNAL_ERROR',
-      message: err.message || 'Failed to estimate operation cost.',
+      message: 'Internal server error',
     });
   }
 };
@@ -101,7 +101,7 @@ export const getTransactionHistory = async (
     res.status(500).json({
       status: 'error',
       code: 'INTERNAL_ERROR',
-      message: err.message || 'Failed to retrieve transaction history.',
+      message: 'Internal server error',
     });
   }
 };
@@ -131,7 +131,7 @@ export const getUserEntitlements = async (
     res.status(500).json({
       status: 'error',
       code: 'INTERNAL_ERROR',
-      message: err.message || 'Failed to retrieve plan entitlements.',
+      message: 'Internal server error',
     });
   }
 };
@@ -156,7 +156,7 @@ export const getAllPlanEntitlements = async (
     res.status(500).json({
       status: 'error',
       code: 'INTERNAL_ERROR',
-      message: err.message || 'Failed to retrieve plans.',
+      message: 'Internal server error',
     });
   }
 };

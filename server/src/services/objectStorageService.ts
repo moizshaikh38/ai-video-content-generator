@@ -101,9 +101,10 @@ export async function headObject(bucket: ObjectBucket, key: string): Promise<{ s
   }
 }
 
-export async function signObjectGet(bucket: ObjectBucket, key: string, filename?: string): Promise<string> {
+export async function signObjectGet(bucket: ObjectBucket, key: string, filename?: string, options?:{versionId?:string}): Promise<string> {
   return getSignedUrl(storageClient(), new GetObjectCommand({
     Bucket: bucketName(bucket), Key: key,
+    ...(options?.versionId?{VersionId:options.versionId}:{}),
     ...(filename ? { ResponseContentDisposition: `attachment; filename="${safeFilename(filename)}"` } : {}),
   }), { expiresIn: 300 });
 }
@@ -225,7 +226,7 @@ export async function downloadObjectToFile(
   bucket: ObjectBucket,
   key: string,
   path: string,
-  options?: { timeoutMs?: number; requireStreamingSha256?: boolean; requireSnapshotReceipt?: boolean }
+  options?: { timeoutMs?: number; requireStreamingSha256?: boolean; requireSnapshotReceipt?: boolean; expectedObject?:{size:number;etag:string;versionId?:string|null} }
 ): Promise<{ sizeBytes: number; sha256: string; sourceReceipt?:SourceObjectReceipt }> {
   let timeoutMs = options?.timeoutMs || 60000;
   const controller = new AbortController();
@@ -243,6 +244,8 @@ export async function downloadObjectToFile(
       new HeadObjectCommand({ Bucket: bucketName(bucket), Key: key }),
       { abortSignal: controller.signal }
     );
+    const expectedObject=options?.expectedObject;
+    if(expectedObject&&(head.ContentLength!==expectedObject.size||head.ETag!==expectedObject.etag||(expectedObject.versionId!=null&&head.VersionId!==expectedObject.versionId)))throw new AppError('Selected output object changed before download.',409,'SOURCE_VERSION_CHANGED');
     const size = Number(head.ContentLength || 0);
     const sizedTimeout = downloadTimeoutForSize(size, timeoutMs);
     if (sizedTimeout > timeoutMs) {

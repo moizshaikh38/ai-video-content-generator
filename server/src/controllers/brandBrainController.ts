@@ -33,7 +33,7 @@ export class BrandBrainController {
       res.json({ success: true, profile });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -54,7 +54,7 @@ export class BrandBrainController {
       res.json({ success: true, profile });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -73,7 +73,7 @@ export class BrandBrainController {
       res.json({ success: true, profile });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -88,7 +88,7 @@ export class BrandBrainController {
       res.json({ success: true, profile, message: 'Learned intelligence layer reset successfully.' });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -115,7 +115,7 @@ export class BrandBrainController {
       res.json({ success: true, context });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -137,7 +137,7 @@ export class BrandBrainController {
       res.json({ success: true, evidence });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -157,7 +157,7 @@ export class BrandBrainController {
       res.json({ success: true, result });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -177,7 +177,7 @@ export class BrandBrainController {
       res.json({ success: true, ...result });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -204,7 +204,7 @@ export class BrandBrainController {
       res.json({ success: true, profile });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -226,7 +226,7 @@ export class BrandBrainController {
       res.json({ success: true, ...result });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -242,7 +242,7 @@ export class BrandBrainController {
       res.json(result);
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -267,7 +267,7 @@ export class BrandBrainController {
       res.json({ success: true, ...result });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -292,7 +292,7 @@ export class BrandBrainController {
       res.json({ success: true, project: updated });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -312,7 +312,7 @@ export class BrandBrainController {
       res.json({ success: true, versions });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -333,7 +333,7 @@ export class BrandBrainController {
       res.json({ success: true, profile: restored });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -349,7 +349,7 @@ export class BrandBrainController {
       res.json({ success: true, draft });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 
@@ -381,7 +381,7 @@ export class BrandBrainController {
       res.json({ success: true, result });
     } catch (err: any) {
       const status = err instanceof AppError ? err.statusCode : 500;
-      res.status(status).json({ success: false, error: err.message, code: err.code });
+      res.status(status).json({ success: false, error: status >= 500 ? 'Internal server error' : err.message, code: status >= 500 ? 'INTERNAL_ERROR' : err.code });
     }
   }
 }

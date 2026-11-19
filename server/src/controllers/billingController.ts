@@ -121,10 +121,15 @@ export async function confirmCountry(req: AuthenticatedRequest, res: Response): 
     }
     res.status(200).json({ status: 'ok', data: { country: result.country, context: result.context } });
   } catch (err: any) {
-    res.status(err.statusCode || 400).json({
+    const status = err.statusCode || 400;
+    const expectedCountryError =
+      (status === 400 && err.code === 'INVALID_COUNTRY') ||
+      (status === 403 && err.code === 'COUNTRY_NOT_SUPPORTED') ||
+      (status === 409 && err.code === 'PROVIDER_LOCKED');
+    res.status(status).json({
       status: 'error',
-      code: err.code || 'COUNTRY_CONFIRM_FAILED',
-      message: err.message || 'Could not confirm billing country.',
+      code: expectedCountryError ? err.code : status >= 500 ? 'INTERNAL_ERROR' : 'COUNTRY_CONFIRM_FAILED',
+      message: expectedCountryError ? err.message : 'Could not confirm billing country.',
     });
   }
 }

@@ -81,6 +81,8 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
   const [aspectFilter, setAspectFilter] = useState<'all' | '9:16' | '1:1' | '16:9'>('all');
   const [activePreviewClip, setActivePreviewClip] = useState<RenderedClip | null>(null);
   const [previewSignedUrl, setPreviewSignedUrl] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const previewReadSequenceRef = useRef(0);
   const [downloadingClipId, setDownloadingClipId] = useState<string | null>(null);
 
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -95,14 +97,17 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
     requestAnimationFrame(() => previousFocus.current?.focus());
   };
   const hasLoadedSuccessfully = useRef(false);
+  const libraryReadSequenceRef = useRef(0);
 
   const loadProjectsAndClips = async () => {
     if (!user) return;
+    const sequence = ++libraryReadSequenceRef.current;
     setIsLoading(true);
     setIsClipsLoading(true);
     setErrorMsg('');
     try {
       let data = await projectService.fetchProjects(user.id);
+      if (sequence !== libraryReadSequenceRef.current) return;
 
       setProjects(data);
       hasLoadedSuccessfully.current = true;
@@ -116,6 +121,8 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
         })
       );
 
+      if (sequence !== libraryReadSequenceRef.current) return;
+      const failedProjectIds = new Set(completed.filter((_project, index) => clipResults[index].status === 'rejected').map((project) => project.id));
       const allClips: (RenderedClip & { projectTitle?: string })[] = [];
       clipResults.forEach((res) => {
         if (res.status === 'fulfilled' && Array.isArray(res.value)) {
@@ -123,18 +130,32 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
         }
       });
 
-      // Sort clips by created_at DESC or virality score
-      allClips.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-      setClips(allClips);
+      // Keep previously loaded clips only for projects whose current read failed.
+      // Successful empty reads still remove deleted clips.
+      setClips((previous) => [...allClips, ...previous.filter((clip) => failedProjectIds.has(clip.project_id))]
+        .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
+      if (failedProjectIds.size) {
+        setErrorMsg(`Clips from ${failedProjectIds.size} project${failedProjectIds.size === 1 ? '' : 's'} could not be refreshed. Previously loaded clips are kept and may be out of date. Retry only reloads saved data.`);
+      }
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Unable to retrieve your projects.');
+      if (sequence === libraryReadSequenceRef.current) setErrorMsg(err?.message || 'Unable to retrieve your projects.');
     } finally {
-      setIsLoading(false);
-      setIsClipsLoading(false);
+      if (sequence === libraryReadSequenceRef.current) {
+        setIsLoading(false);
+        setIsClipsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
+    // Switching owner must never leave the previous owner's media on screen.
+    setProjects([]);
+    setClips([]);
+    setActivePreviewClip(null);
+    setPreviewSignedUrl(null);
+    setPreviewError(null);
+    previewReadSequenceRef.current++;
+    hasLoadedSuccessfully.current = false;
     loadProjectsAndClips();
     const update = () => {
       if (hasLoadedSuccessfully.current) {
@@ -142,7 +163,11 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
       }
     };
     window.addEventListener('vireo_project_updated', update);
-    return () => window.removeEventListener('vireo_project_updated', update);
+    return () => {
+      libraryReadSequenceRef.current++;
+      previewReadSequenceRef.current++;
+      window.removeEventListener('vireo_project_updated', update);
+    };
   }, [user?.id]);
 
   useEffect(() => {
@@ -176,14 +201,23 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
     }
   };
 
+  const closePreview = () => {
+    previewReadSequenceRef.current++;
+    setActivePreviewClip(null);
+    setPreviewSignedUrl(null);
+    setPreviewError(null);
+  };
+
   const handleOpenPreview = async (clip: RenderedClip) => {
+    const sequence = ++previewReadSequenceRef.current;
     setActivePreviewClip(clip);
     setPreviewSignedUrl(null);
+    setPreviewError(null);
     try {
       const url = await clipRenderService.getPreviewUrl(clip.id);
-      setPreviewSignedUrl(url);
+      if (sequence === previewReadSequenceRef.current) setPreviewSignedUrl(url);
     } catch {
-      setPreviewSignedUrl(clip.thumbnail_url || null);
+      if (sequence === previewReadSequenceRef.current) setPreviewError('Preview could not be loaded. Close this preview and try again. Your clip is saved.');
     }
   };
 
@@ -323,6 +357,15 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
         ))}
       </div>
 
+      {errorMsg && (
+        <p role="alert" className="m-4 rounded-xl bg-rose-500/10 p-3 text-sm text-rose-300">
+          {errorMsg}{' '}
+          <button onClick={loadProjectsAndClips} disabled={isLoading || isClipsLoading} className="font-semibold underline hover:text-white">
+            Retry
+          </button>
+        </p>
+      )}
+
       {/* TAB 1: MEDIA LIBRARY (CLIPS) */}
       {activeTab === 'clips' && (
         <section className="space-y-5">
@@ -371,14 +414,14 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
             <div className="rounded-2xl bg-vc-surface1/80 p-14 text-center">
               <Film className="mx-auto size-10 text-zinc-500" />
               <h3 className="mt-3 font-semibold text-lg text-white font-['Sora',sans-serif]">
-                {clips.length ? 'No matching clips found' : 'No clips rendered yet'}
+                {clips.length ? 'No matching clips found' : errorMsg ? 'Clips could not be fully loaded' : 'No clips rendered yet'}
               </h3>
               <p className="mt-1 text-sm text-vc-text-secondary max-w-sm mx-auto">
                 {clips.length
                   ? 'Try adjusting your search terms or format filters.'
-                  : 'Open any project to analyze video moments and generate high-retention 9:16 clips.'}
+                  : errorMsg ? 'Retry loading your saved clips before starting new work.' : 'Open any project to analyze video moments and generate high-retention 9:16 clips.'}
               </p>
-              {!clips.length && (
+              {!clips.length && !errorMsg && (
                 <div className="mt-5">
                   <Link
                     to="/dashboard"
@@ -558,14 +601,6 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
             )}
           </div>
 
-          {errorMsg && (
-            <p role="alert" className="m-4 rounded-xl bg-rose-500/10 p-3 text-sm text-rose-300">
-              {errorMsg}{' '}
-              <button onClick={loadProjectsAndClips} className="font-semibold underline hover:text-white">
-                Retry
-              </button>
-            </p>
-          )}
 
           {isLoading ? (
             <div className="space-y-3 p-5">
@@ -667,7 +702,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
           className="fixed inset-0 z-[70] flex items-center justify-center glass-scrim glass-scrim-deep p-4"
           role="presentation"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setActivePreviewClip(null);
+            if (e.target === e.currentTarget) closePreview();
           }}
         >
           <div className="relative w-full max-w-lg rounded-3xl glass-float p-5 text-white space-y-4">
@@ -682,7 +717,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
               </div>
               <button
                 type="button"
-                onClick={() => setActivePreviewClip(null)}
+                onClick={closePreview}
                 className="p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
               >
                 <X className="size-5" />
@@ -701,8 +736,8 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center text-zinc-400 space-y-2">
-                  <Film className="size-8 text-violet-400 animate-pulse" />
-                  <span className="text-xs">Loading video preview...</span>
+                  {previewError ? <p role="alert" className="px-5 text-center text-sm text-rose-300">{previewError}</p> : <Film className="size-8 text-violet-400 animate-pulse" />}
+                  {!previewError && <span className="text-xs">Loading video preview...</span>}
                 </div>
               )}
             </div>
@@ -711,7 +746,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialTab }) => {
             <div className="flex items-center justify-between gap-3 pt-2 border-t border-white/10">
               <Link
                 to={`/clips/${activePreviewClip.id}/edit`}
-                onClick={() => setActivePreviewClip(null)}
+                onClick={closePreview}
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-500 px-4 py-2.5 text-xs font-bold text-white transition-all shadow"
               >
                 <Scissors className="size-4" />
