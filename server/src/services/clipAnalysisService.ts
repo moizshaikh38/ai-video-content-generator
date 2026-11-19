@@ -1,3 +1,4 @@
+import {selectionContextIdentity} from '../shared/selectionContextIdentity.js';
 import {groundWindowClipProposals} from '../shared/groundWindowClipProposals.js';
 import {shortFallbackCompleteEnd} from '../shared/shortFallbackCompleteEnd.js';
 import { compareFinalSpeechScope, finalSpokenText, narrativeRankingInvalidationReason } from '../shared/finalSpeechScope.js';
@@ -630,6 +631,7 @@ export class ClipAnalysisService {
         throw notFound;
       }
 
+      const expectedSelectionContext = selectionContextIdentity(project);
       // 2. Fetch transcript and ensure timestamped segments exist
       const { data: transcript, error: transErr } = await dataRepository
         .from('transcripts')
@@ -1295,7 +1297,7 @@ export class ClipAnalysisService {
           cold_open: candidate.cold_open,
           director_plan: directorPlans[`${candidate.start_seconds}`] || null,
           metadata: {...(candidate.metadata || {}), selection_source_receipt: selectionReceipt},
-        })), selectionReceipt);
+        })), selectionReceipt, expectedSelectionContext);
       return allProjectCandidates as unknown as ClipCandidate[];
     } finally {
       activeClipAnalysisSet.delete(projectId);

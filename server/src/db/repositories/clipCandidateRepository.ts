@@ -1,3 +1,4 @@
+import {selectionContextIdentity} from '../../shared/selectionContextIdentity.js';
 import {selectionSourceReceiptMatches, type SelectionSourceReceipt} from '../../shared/selectionSourceReceipt.js';
 import crypto from 'node:crypto';
 import { AppError } from '../../types/index.js';
@@ -6,7 +7,7 @@ import { validateRecord } from '../schemaValidation.js';
 
 /** Replace suggestions atomically while preserving candidates the user selected. */
 export async function replaceSuggestedCandidates(userId: string, projectId: string,
-  candidates: Array<Record<string, unknown>>, selectionReceipt?: SelectionSourceReceipt) {
+  candidates: Array<Record<string, unknown>>, selectionReceipt?: SelectionSourceReceipt, expectedContextIdentity?: string) {
   const client = await getMongoClient();
   const db = await getMongoDb();
   const session = client.startSession();
@@ -14,6 +15,15 @@ export async function replaceSuggestedCandidates(userId: string, projectId: stri
     return await session.withTransaction(async () => {
       const project = await db.collection('projects').findOne({ id: projectId, user_id: userId }, { session });
       if (!project) throw new AppError('Project not found.', 404, 'PROJECT_NOT_FOUND');
+      if (expectedContextIdentity !== undefined) {
+        if (selectionContextIdentity(project) !== expectedContextIdentity) {
+          throw new AppError('Clip settings or notes changed during analysis. Existing suggestions were kept. Run analysis again with the current settings.',409,'CLIP_SELECTION_CONTEXT_CHANGED');
+        }
+        // Reading a Mongo snapshot alone does not fence a concurrent project
+        // edit. A real write makes that race conflict/retry; the retry checks
+        // current intent before deleting any existing candidate rows.
+        await db.collection('projects').updateOne({id:projectId,user_id:userId},{$set:{clip_selection_fence:crypto.randomUUID()}},{session});
+      }
       if (selectionReceipt) {
         const transcript = await db.collection('transcripts').findOne({project_id:projectId,user_id:userId},{session});
         if (!transcript || !selectionSourceReceiptMatches(selectionReceipt,transcript,project.source_url)) {
