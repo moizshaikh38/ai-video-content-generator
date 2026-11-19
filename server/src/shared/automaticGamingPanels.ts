@@ -1,7 +1,7 @@
 import type {ItemPanels} from './panelLayouts.js';
 export interface VisualGenreFrame {time:number;genre:'gaming'|'software_tutorial'|'people_conversation'|'other'|'uncertain';confidence:number}
 export interface VisualGenreReceipt {sourceSha256:string;sourceWidth:number;sourceHeight:number;frames:VisualGenreFrame[];model:string}
-export interface MeasuredInsetReceipt {source_sha256:string;status:string;proposals:Array<{box:{x:number;y:number;w:number;h:number};anchor_samples:number;observed_frames:number;sampled_frames:number}>}
+export interface MeasuredInsetReceipt {source_sha256:string;status:string;source_start?:number;source_end?:number;duration_seconds?:number;sample_clock?:string;proposals:Array<{box:{x:number;y:number;w:number;h:number};anchor_samples:number;observed_frames:number;sampled_frames:number}>}
 /** Offline candidate only. Semantic genre and camera geometry are independent
  * requirements. Raw model boxes, confidence alone or a title never assign views.
  * This does not bypass transcript/selection quality gates or enable defaults.
@@ -11,6 +11,11 @@ export function proposeAutomaticGamingPanels(input:{sourceSha256:string;sourceWi
  if(!s||!r||!Array.isArray(s.frames)||!Array.isArray(r.proposals)||!/^[a-f0-9]{64}$/.test(sha)||s.sourceSha256!==sha||r.source_sha256!==sha||!(Number.isFinite(w)&&Number.isFinite(h)&&w>0&&h>0)||s.sourceWidth!==w||s.sourceHeight!==h||!s.model)return null;
  // Match the bounded review ingest contract at every consumer, not only ingestion.
  if(!Number.isFinite(duration)||duration<6||duration>30)return null;
+ // This optional consumer still describes a whole-source review. A hash alone
+ // cannot join a partial interval to whole-source semantic frames. Legacy
+ // receipts have no scope fields; never invent scope for a partial new one.
+ const scoped=[r.source_start,r.source_end,r.duration_seconds,r.sample_clock].some(v=>v!==undefined);
+ if(scoped&&(![r.source_start,r.source_end,r.duration_seconds].every(v=>typeof v==='number'&&Number.isFinite(v))||r.sample_clock!=='interval-relative'||Math.abs(r.source_start!)>.001||Math.abs(r.source_end!-duration)>.001||Math.abs(r.duration_seconds!-duration)>.001))return null;
  const frames=s.frames;
  if(frames.length<3||frames.some(f=>![f.time,f.confidence].every(Number.isFinite)||f.time<0||f.time>=duration||f.genre!=='gaming'||f.confidence<.9||f.confidence>1))return null;
  if(new Set(frames.map(f=>f.time)).size!==frames.length||Math.max(...frames.map(f=>f.time))-Math.min(...frames.map(f=>f.time))<2)return null;

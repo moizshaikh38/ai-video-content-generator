@@ -74,7 +74,7 @@ def run(video,track,start_sec=0.0,duration_sec=None):
    observations=[]
    for z in rows:
     matches=[q for q in z['regions']if max(abs(q[k]-r[k])for k in ['x','y','w','h'])<=.015]
-    if matches:observations.append(max(matches,key=lambda q:(q['side_coverage'],q['w']*q['h'])))
+    if matches:observations.append(min(matches,key=lambda q:(max(abs(q[k]-r[k])for k in ['x','y','w','h']),-q['side_coverage'],-q['w']*q['h'])))
    if len(observations)<max(6,len(rows)*.85):continue
    box={k:float(np.median([q[k]for q in observations]))for k in ['x','y','w','h']}
    anchors={};competing=0
@@ -83,7 +83,7 @@ def run(video,track,start_sec=0.0,duration_sec=None):
     if len(fs)>1:competing+=1
     elif len(fs)==1 and fs[0].get('track_id'):anchors[fs[0]['track_id']]=anchors.get(fs[0]['track_id'],0)+1
    if competing or sum(anchors.values())<max(6,len(samples)*.25):continue
-   if not any(max(abs(p['box'][k]-box[k])for k in box)<.02 for p in proposals):
+   if not any(max(abs(p['box'][k]-box[k])for k in box)<.002 for p in proposals):
     proposals.append({'box':box,'anchor_track_ids':sorted(anchors),'anchor_samples':sum(anchors.values()),'observed_frames':len(observations),'sampled_frames':len(rows),'minimum_side_coverage':min(q['side_coverage']for q in observations),'minimum_edge_coverage':min(q.get('edge_coverage',0)for q in observations)})
  # An independently measured outer border subsumes a nested decorative inner
  # border with the same face anchors and coverage. Never manufacture a union

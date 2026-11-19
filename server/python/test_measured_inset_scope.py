@@ -29,6 +29,11 @@ class Scope(unittest.TestCase):
  def test_full_source_backwards_compatible(self):
   with patch.object(m.cv2,'VideoCapture',Capture),patch.object(m,'candidates',return_value=[]):r=m.run(self.f.name,{'raw_samples':[]})
   self.assertEqual(r['source_start'],0);self.assertEqual(r['source_end'],12);self.assertEqual(len(r['observations']),13)
+ def test_small_nested_border_not_discarded_before_outer_comparison(self):
+  inner={'x':.02,'y':.5,'w':.18,'h':.24,'side_coverage':.98,'edge_coverage':.95};outer={'x':.012,'y':.495,'w':.196,'h':.25,'side_coverage':.99,'edge_coverage':.95}
+  faces=[{'x':.06,'y':.55,'width':.05,'height':.08,'confidence':.9,'track_id':'a'}]
+  with patch.object(m.cv2,'VideoCapture',Capture),patch.object(m,'candidates',return_value=[inner,outer]):r=m.run(self.f.name,{'raw_samples':[{'time':i*.25,'faces':faces}for i in range(18)]},.18,4.34)
+  self.assertEqual(r['status'],'measured-rectangle');self.assertAlmostEqual(r['proposals'][0]['box']['w'],outer['w'])
  def test_source_clock_unavailable_releases_capture(self):
   class BadClock(Capture):
    def get(self,k):return 0
