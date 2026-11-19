@@ -43,3 +43,15 @@ export function finalSpokenText(words:Array<{start:number;end:number;word?:strin
  if(selected.some(w=>w.start<start||w.end>end))return '';
  return selected.sort((a,b)=>a.start-b.start||a.index-b.index).map(w=>w.text).join(' ');
 }
+
+/** Provider scores describe the proposed spoken interval. Without usable words,
+ * a changed clock cannot be assumed to contain the same speech. Tiny source
+ * float noise is compared at the same millisecond precision as saved clips. */
+export function narrativeRankingInvalidationReason(scope:FinalSpeechScope,bounds:{originalStart:number;originalEnd:number;finalStart:number;finalEnd:number}):'spoken-content-changed-after-proposal'|'changed-interval-speech-scope-unverified'|undefined {
+ if(scope.status==='changed')return 'spoken-content-changed-after-proposal';
+ if(scope.status!=='unavailable')return undefined;
+ const values=[bounds.originalStart,bounds.originalEnd,bounds.finalStart,bounds.finalEnd];
+ if(!values.every(Number.isFinite))return 'changed-interval-speech-scope-unverified';
+ const [a,b,c,d]=values.map(v=>Number(v.toFixed(3)));
+ return a!==c||b!==d?'changed-interval-speech-scope-unverified':undefined;
+}

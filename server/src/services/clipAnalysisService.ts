@@ -1,6 +1,6 @@
 import {groundWindowClipProposals} from '../shared/groundWindowClipProposals.js';
 import {shortFallbackCompleteEnd} from '../shared/shortFallbackCompleteEnd.js';
-import { compareFinalSpeechScope, finalSpokenText } from '../shared/finalSpeechScope.js';
+import { compareFinalSpeechScope, finalSpokenText, narrativeRankingInvalidationReason } from '../shared/finalSpeechScope.js';
 import {measuredGenreSignals} from '../shared/measuredGenreSignals.js';
 import {shortSourceReviewContext} from '../shared/candidateReviewNotice.js';
 import {gamingGenreFromVisualReview} from '../shared/automaticGamingPanels.js';
@@ -1104,7 +1104,8 @@ export class ClipAnalysisService {
         }
         // Provider narrative scores describe the original proposal. Once spoken
         // content changes, they cannot rank the altered clip without re-review.
-        const narrativeRankingInvalidated = finalSpeechScope.status === 'changed';
+        const narrativeInvalidationReason=narrativeRankingInvalidationReason(finalSpeechScope,{originalStart:raw_start,originalEnd:raw_end,finalStart:start_seconds,finalEnd:end_seconds});
+        const narrativeRankingInvalidated = narrativeInvalidationReason!==undefined;
         const isUnranked = usedShortSourceFallback || narrativeRankingInvalidated || scored.ranking_status === 'insufficient-evidence';
         const engagement_score = isUnranked ? 0 : scored.vireo_score; // storage/sort sentinel, not a quality score
 
@@ -1148,7 +1149,7 @@ export class ClipAnalysisService {
             ranking_status: isUnranked ? 'unranked' : 'heuristic',
             final_speech_scope: finalSpeechScope,
             ...(fallbackCompleteEnd!==null?{short_fallback_tail_trim:{source_end_seconds:fallbackCompleteEnd,basis:'nearest-recorded-terminal-word',review_required:true}}:{}),
-            ...(narrativeRankingInvalidated ? {ranking_invalidated_reason:'spoken-content-changed-after-proposal'} : {}),
+            ...(narrativeRankingInvalidated ? {ranking_invalidated_reason:narrativeInvalidationReason} : {}),
             vireo_score: isUnranked ? null : scored.vireo_score,
             explanation: usedShortSourceFallback || narrativeRankingInvalidated ? null : scored.explanation,
             genre: genreProfile.genre,
