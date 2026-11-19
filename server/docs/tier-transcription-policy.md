@@ -17,7 +17,7 @@ The independent Parakeet explicit-English implementation remains available throu
 
 41 focused offline tests pass, including eight new tier-policy fixtures. A separate enabled isolated local Mongo test passes for owner binding, concurrent selection, persistent snapshot reuse and retaining other reservation metadata. Focused policy/adapter strict TypeScript passes with the repository's existing ffprobe declaration included. No provider network is used by these tests.
 
-MAI endpoint execution and same-audio Hinglish accuracy/word-alignment are still untested. The earlier single Parakeet synthetic call is not a MAI test. No quality win is claimed. Full application and deployed pipeline qualification remain incomplete. Keep the gate off until this evidence is obtained within the approved spend limit and rollout is authorized.
+MAI endpoint execution now has one actual synthetic-English call through this adapter, described below. Same-audio Hinglish accuracy/word-alignment is still untested. No quality win is claimed. Full application and deployed pipeline qualification remain incomplete. Keep the gate off until this evidence is obtained within the approved spend limit and rollout is authorized.
 
 ## Economics checked November 19, 2026
 
@@ -33,3 +33,11 @@ Sources:
 ## Standalone-path audit
 
 Two additional fixtures check that the legacy helper makes zero requests in tier mode and that the intelligence policy guard precedes extraction outside the old catch-and-continue block. The latter is a source-order contract. A separate actual intelligence-service test with fixture repositories/probe/audio-features confirms the policy error is propagated and recorded as failure, with zero provider calls and no completion. This is not full mounted intelligence execution. The policy and legacy helper strict typecheck passes; the expanded intelligence dependency-graph check hit the existing 192 MiB heap limit, so that check is not a pass. The gate remains off.
+
+## Actual MAI endpoint checkpoint, November 19 at 23:26 IST
+
+One actual request through the final adapter used the same 5.23-second synthetic English WAV as the Parakeet probe. The response was HTTP 200 with matching spoken text, 14 native word clocks, one segment, detected English and no adapter timing issues. An offline replay of that actual response through the adapter and chunk merger preserved all 14 word texts/clocks at a five-second source offset, within existing millisecond rounding. There were no additional paid calls for replay.
+
+The provider billed six audio seconds and reported $0.00016666666666666666. Short requests can therefore cost more than exact-duration arithmetic. Cumulative spend was checked against the original $0.20 total approval; the conservative ledger includes possible double-counting of delayed prior usage rather than an assumed refund. This establishes request/response and timestamp transport only. It does not establish real-video quality, code-switching accuracy, speaker handling, independently reviewed word boundaries, or perceptual subtitle sync. The tier gate remains off.
+
+Before a quality comparison, use the identical authorized natural Hindi-English recording for Turbo and MAI, lock its hash and independently review the reference transcript/word boundaries before seeing provider hypotheses. Keep code switches, proper names, numbers, silence/noise and language/script policy explicit. Report WER with its reference/tokenization policy, native timing coverage, boundary error on eligible matching words, costs and uncorrected failures. Do not substitute this synthetic English endpoint test or a provider benchmark claim for that evidence.

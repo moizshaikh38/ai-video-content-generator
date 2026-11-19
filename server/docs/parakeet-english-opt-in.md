@@ -12,7 +12,7 @@ A single 5.23-second synthetic English fixture returned HTTP 200, matching spoke
 
 Nine new offline fixtures and 33 focused transcription/timing/quality tests pass under existing resource limits. Adapter-only strict TypeScript passes. Wider factory compilation still sees an existing Groq Buffer/Blob typing diagnostic. Wider source-binding tests emit passing assertions but do not exit within the 30-second guard; those runs are not suite passes. No limit was raised.
 
-No paid MAI test, automatic tier routing, default replacement, deployment, live posting, new account scope or copied competitor code is part of this change. Free=Turbo / paid=MAI remains a proposed design pending same-audio accuracy/timing and total included-hours economics.
+This Parakeet change does not activate tier routing, replace defaults, deploy, post live, add account scopes or copy competitor code. Later local tier-policy work and one separate actual MAI synthetic-English endpoint test are recorded in tier-transcription-policy.md. Same-audio Hindi-English quality/timing and full included-hours economics remain qualification gaps; the tier gate stays off.
 
 References:
 - https://openrouter.ai/nvidia/parakeet-tdt-0.6b-v3
