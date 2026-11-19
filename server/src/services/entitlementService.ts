@@ -1,4 +1,4 @@
-import type { Db } from 'mongodb';
+import type { Db, ClientSession } from 'mongodb';
 import { getMongoDb } from '../db/mongoClient.js';
 import {
   PlanEntitlements,
@@ -222,7 +222,8 @@ export class EntitlementService {
   public static async resolveUserEntitlements(
     userId: string,
     userEmail?: string,
-    database?: Db
+    database?: Db,
+    session?:ClientSession
   ): Promise<PlanEntitlements> {
     const db = database ?? (await getMongoDb());
 
@@ -232,7 +233,7 @@ export class EntitlementService {
       try {
         const profile = await db
           .collection('profiles')
-          .findOne({ $or: [{ id: userId }, { user_id: userId }] });
+          .findOne({ $or: [{ id: userId }, { user_id: userId }] },{session});
         if (profile && typeof profile.email === 'string') {
           email = profile.email;
         }
@@ -255,7 +256,7 @@ export class EntitlementService {
         user_id: userId,
         status: { $in: ['active', 'trialing', 'past_due', 'canceled'] },
       },
-      { sort: { updated_at: -1 } }
+      { sort: { updated_at: -1 },session }
     );
 
     // If no subscription records match active states, return Free starter
@@ -356,9 +357,10 @@ export class EntitlementService {
   public static async resolveLegacyUserEntitlement(
     userId: string,
     userEmail?: string,
-    database?: Db
+    database?: Db,
+    session?:ClientSession
   ): Promise<UserEntitlement> {
-    const entitlements = await this.resolveUserEntitlements(userId, userEmail, database);
+    const entitlements = await this.resolveUserEntitlements(userId, userEmail, database,session);
     return this.toLegacyUserEntitlement(entitlements);
   }
 

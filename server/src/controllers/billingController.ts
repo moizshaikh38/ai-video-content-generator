@@ -1,4 +1,4 @@
-import crypto from 'node:crypto';
+import {applyVerifiedBillingEvent} from '../services/billingEventApplication.js';
 import { Request, Response } from 'express';
 import { AuthenticatedRequest, AppError, BillingProviderName, PlanId, BillingInterval } from '../types/index.js';
 import { config, isBillingProviderEnabled } from '../config/index.js';
@@ -6,7 +6,7 @@ import { logger } from '../utils/logger.js';
 import { getPlanDefinition, getAllPlans } from '../services/billing/planConfig.js';
 import { BillingRegistry } from '../services/billing/billingRegistry.js';
 import { planOffersFor } from '../services/billing/billingCountryService.js';
-import { SubscriptionService, BillingOwnershipError } from '../services/subscriptionService.js';
+import { SubscriptionService } from '../services/subscriptionService.js';
 import { UsageService } from '../services/usageService.js';
 import { getMongoDb } from '../db/mongoClient.js';
 import {
@@ -422,44 +422,16 @@ async function processWebhook(
     return;
   }
 
-  // 3. Idempotency: atomically claim the event (unique provider+event id). Retries and
-  //    concurrent duplicate deliveries of an already-claimed event are acknowledged as no-ops.
-  //    (isEventAlreadyProcessed remains the read-only check used elsewhere.)
-  const claimed = await SubscriptionService.claimEvent(providerName, event.eventId);
-  if (!claimed) {
-    logger.info(`[${providerName} Webhook] Duplicate event ${event.eventId} already processed.`);
-    res.status(200).json({ received: true, idempotent: true });
-    return;
-  }
-
-  const payloadHash = crypto.createHash('sha256').update(JSON.stringify(event.rawPayload)).digest('hex');
-
-  // 4. Authoritative Mutation & Persistence
+  // 3. State and terminal receipt commit together. A crashed attempt leaves no
+  // committed claim to suppress the provider's next delivery.
   try {
-    await SubscriptionService.processNormalizedEvent(event);
-    await SubscriptionService.recordEvent(providerName, event.eventId, event.rawEventType, 'processed', payloadHash);
-    logger.info(`[${providerName} Webhook] Successfully processed event ${event.eventId} (${event.eventType})`);
-    res.status(200).json({ received: true });
-  } catch (err: any) {
-    if (err instanceof BillingOwnershipError) {
-      // Signed by the provider but bound to another account: record it, change nothing, don't retry.
-      logger.error(`[${providerName} Webhook] ${err.message}`);
-      await SubscriptionService.recordEvent(providerName, event.eventId, event.rawEventType, 'ignored', payloadHash, err.code, err.message);
-      res.status(200).json({ received: true, ignored: true });
-      return;
-    }
-    logger.error(`[${providerName} Webhook] Failed to process event ${event.eventId}:`, err);
-    await SubscriptionService.recordEvent(
-      providerName,
-      event.eventId,
-      event.rawEventType,
-      'failed',
-      payloadHash,
-      err.code || 'PROCESS_FAILED',
-      err.message
-    );
-    res.status(500).json({ error: 'Failed to process webhook event.' });
+    const result=await applyVerifiedBillingEvent(event);
+    res.status(200).json({received:true,...result});
+  } catch(err:any) {
+    logger.error(`[${providerName} Webhook] Atomic event application failed:`,err);
+    res.status(err?.statusCode===503?503:500).json({error:'Failed to process webhook event.'});
   }
+
 }
 
 /**

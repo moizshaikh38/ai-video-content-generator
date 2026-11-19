@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import type { Db } from 'mongodb';
+import type { Db, ClientSession } from 'mongodb';
 import { getMongoDb } from '../db/mongoClient.js';
 import {
   BillingCustomerRecord,
@@ -34,8 +34,8 @@ export class SubscriptionService {
    * Resolves the authoritative entitlement for a user across any provider.
    * Delegates to the canonical EntitlementService.
    */
-  static async resolveUserEntitlement(userId: string, userEmail?: string, database?: Db): Promise<UserEntitlement> {
-    return EntitlementService.resolveLegacyUserEntitlement(userId, userEmail, database);
+  static async resolveUserEntitlement(userId: string, userEmail?: string, database?: Db, session?:ClientSession): Promise<UserEntitlement> {
+    return EntitlementService.resolveLegacyUserEntitlement(userId, userEmail, database, session);
   }
 
   /**
@@ -98,7 +98,7 @@ export class SubscriptionService {
    *  - Idempotent writes: limits and invoices use $set/upsert keyed by provider ids, so a
    *    replayed event cannot grant more than once.
    */
-  static async processNormalizedEvent(event: NormalizedBillingEvent, database?: Db): Promise<void> {
+  static async processNormalizedEvent(event: NormalizedBillingEvent, database?: Db, session?:ClientSession): Promise<void> {
     const db = database ?? (await getMongoDb());
     const subCol = db.collection<SubscriptionRecord>('subscriptions');
     const limitsCol = db.collection('subscription_limits');
@@ -110,17 +110,17 @@ export class SubscriptionService {
 
     // 1. Who does this event belong to? Collect every server-side binding and require agreement.
     const existing = event.subscriptionId
-      ? await subCol.findOne({ provider: event.provider, provider_subscription_id: event.subscriptionId })
+      ? await subCol.findOne({ provider: event.provider, provider_subscription_id: event.subscriptionId },{session})
       : null;
     const customer = event.customerId
-      ? await customerCol.findOne({ provider: event.provider, provider_customer_id: event.customerId })
+      ? await customerCol.findOne({ provider: event.provider, provider_customer_id: event.customerId },{session})
       : null;
     // Razorpay checkouts are keyed by subscription id; Paddle by the checkout transaction id,
     // which subscription.* events carry as data.transaction_id.
     const rawData = (event.rawPayload as any)?.data || {};
     const checkoutRefs = [event.subscriptionId, rawData.id, rawData.transaction_id].filter(Boolean) as string[];
     const checkout = checkoutRefs.length
-      ? await checkoutCol.findOne({ provider: event.provider, provider_ref: { $in: checkoutRefs } })
+      ? await checkoutCol.findOne({ provider: event.provider, provider_ref: { $in: checkoutRefs } },{session})
       : null;
 
     const owners = new Set(
@@ -146,7 +146,7 @@ export class SubscriptionService {
           $set: { provider_customer_id: event.customerId, updated_at: now },
           $setOnInsert: { id: crypto.randomUUID(), user_id: targetUserId, provider: event.provider, email: '', created_at: now },
         },
-        { upsert: true }
+        { upsert: true,session }
       );
     }
 
@@ -206,11 +206,11 @@ export class SubscriptionService {
             created_at: now,
           },
         },
-        { upsert: true }
+        { upsert: true,session }
       );
 
       if (checkout && (status === 'active' || status === 'trialing')) {
-        await checkoutCol.updateOne({ id: checkout.id }, { $set: { status: 'completed', updated_at: now } });
+        await checkoutCol.updateOne({ id: checkout.id }, { $set: { status: 'completed', updated_at: now } },{session});
       }
 
       // Update current UTC billing period limits ($set: replaying the event cannot add more)
@@ -224,11 +224,11 @@ export class SubscriptionService {
               monthly_minutes_limit: plan.monthly_minutes,
             },
           },
-          { upsert: true }
+          { upsert: true,session }
         );
       } else if (status === 'canceled') {
         // If canceled and past period, restore free plan limit
-        const activeEntitlement = await this.resolveUserEntitlement(targetUserId, undefined, db);
+        const activeEntitlement = await this.resolveUserEntitlement(targetUserId, undefined, db,session);
         if (activeEntitlement.plan_id === 'free') {
           await limitsCol.updateOne(
             { user_id: targetUserId, billing_period: currentPeriod },
@@ -237,7 +237,8 @@ export class SubscriptionService {
                 plan_tier: 'free',
                 monthly_minutes_limit: PLANS.free.monthly_minutes,
               },
-            }
+            },
+            {session}
           );
         }
       }
@@ -265,7 +266,7 @@ export class SubscriptionService {
       await invCol.updateOne(
         { provider: event.provider, provider_invoice_id: invoiceId },
         { $set: invRecord, $setOnInsert: { id: crypto.randomUUID(), created_at: now } },
-        { upsert: true }
+        { upsert: true,session }
       );
     }
   }

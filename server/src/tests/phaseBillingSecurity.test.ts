@@ -64,7 +64,8 @@ describe('Billing — settlement invariants (source-level)', () => {
   it('webhook processing verifies signatures and dedupes events', () => {
     const billing = fs.readFileSync(path.resolve(process.cwd(), 'src/controllers/billingController.ts'), 'utf8');
     assert.match(billing, /provider\.verifyWebhook\(rawBody/);
-    assert.match(billing, /isEventAlreadyProcessed/);
+    assert.match(billing, /applyVerifiedBillingEvent\(event\)/);
+    assert.doesNotMatch(billing, /SubscriptionService\.claimEvent\(/, 'controller must not persist a claim separately from effects');
     const payment = fs.readFileSync(path.resolve(process.cwd(), 'src/controllers/paymentController.ts'), 'utf8');
     assert.match(payment, /timingSafeEqual/);
     assert.match(payment, /createHmac\('sha256', keySecret\)/);
