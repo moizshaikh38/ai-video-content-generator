@@ -107,16 +107,16 @@ export const SceneLayoutMenu: React.FC<MenuProps> = ({ anchor, current, onPick, 
 
 /** Inline (non-popover) grid for use inside a side panel. */
 export const SceneLayoutGrid: React.FC<{ current: SceneLayout | 'context_window'; onPick: (l: SceneLayout) => void; disabled?: boolean }> = ({ current, onPick, disabled }) => (
-  <div className="grid grid-cols-4 gap-1.5 max-md:flex max-md:overflow-x-auto max-md:pb-1">
+  <div className="grid grid-cols-4 gap-1.5 max-md:flex short:flex max-md:overflow-x-auto short:overflow-x-auto max-md:pb-1 short:pb-1">
     {SCENE_LAYOUT_OPTIONS.filter(o=>o.id!=='auto').map((o) => (
       <button key={o.id} type="button" disabled={disabled} aria-pressed={current === o.id} onClick={() => onPick(o.id)}
-        className={`flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 text-[10px] transition max-md:shrink-0 max-md:w-[68px] disabled:opacity-40 ${current === o.id ? 'border-violet-400 bg-violet-500/20 text-white font-semibold' : 'border-white/10 text-neutral-300 hover:bg-white/10'}`}>
+        className={`flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 text-[10px] transition max-md:shrink-0 short:shrink-0 max-md:w-[68px] short:w-[68px] disabled:opacity-40 ${current === o.id ? 'border-violet-400 bg-violet-500/20 text-white font-semibold' : 'border-white/10 text-neutral-300 hover:bg-white/10'}`}>
         <Thumb id={o.id} />
         <span className="leading-tight text-center">{o.label}</span>
       </button>
     ))}
     <button type="button" disabled title="Picture in picture is not available yet"
-      className="flex flex-col items-center gap-1 rounded-lg border border-white/5 px-1 py-1.5 text-[10px] text-neutral-500 opacity-50 cursor-not-allowed max-md:shrink-0 max-md:w-[68px]">
+      className="flex flex-col items-center gap-1 rounded-lg border border-white/5 px-1 py-1.5 text-[10px] text-neutral-500 opacity-50 cursor-not-allowed max-md:shrink-0 short:shrink-0 max-md:w-[68px] short:w-[68px]">
       <Thumb id="pip" />
       <span className="leading-tight text-center">PiP (soon)</span>
     </button>

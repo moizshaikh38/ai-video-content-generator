@@ -47,15 +47,15 @@ export const BackgroundControl: React.FC<Props> = ({ project, sceneItem, cropMod
     </button>
   );
   const slider = (label: string, value: number, max: number, unit: string, key: 'background_spacing' | 'background_corner_radius') => (
-    <label className="flex items-center gap-3 max-md:gap-2 text-[11px] text-neutral-300">
-      <span className="w-20 max-md:w-16 shrink-0">{label}</span>
+    <label className="flex items-center gap-3 max-md:gap-2 short:gap-2 text-[11px] text-neutral-300">
+      <span className="w-20 max-md:w-16 short:w-16 shrink-0">{label}</span>
       <input type="range" min={0} max={max} step={1} value={value} disabled={active === 'none'}
         onChange={(e) => onUpdateCanvas({ [key]: Number(e.target.value) } as any)} className="flex-1 min-w-0 w-0" />
       <span className="w-10 shrink-0 text-right font-mono">{value}{unit}</span>
     </label>
   );
   return (
-    <div ref={rootRef} className="relative max-md:static">
+    <div ref={rootRef} className="relative max-md:static short:static">
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
@@ -66,7 +66,7 @@ export const BackgroundControl: React.FC<Props> = ({ project, sceneItem, cropMod
         <span>Background</span>
       </button>
       {open && (
-        <div onClick={(e) => e.stopPropagation()} className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-72 max-md:w-[min(18rem,calc(100vw-8rem))] glass-float rounded-xl p-3 space-y-3 z-40">
+        <div onClick={(e) => e.stopPropagation()} className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-72 max-md:w-[min(18rem,calc(100vw-8rem))] short:w-[min(18rem,calc(100vw-8rem))] glass-float rounded-xl p-3 space-y-3 z-40">
           <div className="flex items-center gap-1">{tab('blur', 'Blur')}{tab('color', 'Color')}</div>
           {active === 'none' && <p className="text-[10px] text-neutral-500">Layout is Fill, so no backdrop shows. Pick Blur or Color to fit the full frame over a backdrop.</p>}
           {active === 'color' && (
@@ -81,7 +81,7 @@ export const BackgroundControl: React.FC<Props> = ({ project, sceneItem, cropMod
           )}
           {active !== 'none' && (project.canvas.aspect_ratio || '9:16') === '9:16' && (
             <div className="flex items-center gap-1 text-[11px] text-neutral-300">
-              <span className="w-20 max-md:w-16 shrink-0">Fit shape</span>
+              <span className="w-20 max-md:w-16 short:w-16 shrink-0">Fit shape</span>
               {(['4:3', 'full'] as const).map((b) => (
                 <button key={b} type="button" onClick={() => onUpdateCanvas({ fit_band: b })}
                   className={`px-2.5 py-1 rounded-lg font-medium transition ${effBand === b ? 'bg-white/[0.16] text-white' : 'text-neutral-400 hover:text-white hover:bg-white/[0.08]'}`}>

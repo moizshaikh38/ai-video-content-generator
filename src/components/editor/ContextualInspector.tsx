@@ -263,7 +263,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
     };
 
     return (
-      <aside className="w-[350px] max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl shrink-0 z-20 flex flex-col gap-4 min-h-0 overflow-y-auto border-r border-vc-border bg-vc-surface1 p-4 text-xs text-vc-text-secondary select-none animate-panelSlideIn">
+      <aside className="w-[350px] max-md:absolute short:absolute max-md:left-[52px] short:left-[52px] max-md:right-0 short:right-0 max-md:bottom-0 short:bottom-0 max-md:w-auto short:w-auto max-md:h-[34%] short:h-[34%] max-md:z-30 short:z-30 max-md:border-r-0 short:border-r-0 max-md:border-t short:border-t max-md:rounded-t-2xl short:rounded-t-2xl max-md:shadow-2xl short:shadow-2xl shrink-0 z-20 flex flex-col gap-4 min-h-0 overflow-y-auto border-r border-vc-border bg-vc-surface1 p-4 text-xs text-vc-text-secondary select-none animate-panelSlideIn">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
           <div className="flex items-center gap-2">
@@ -841,7 +841,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
   // If a track item is actively selected on timeline/canvas, show item property inspector
   if (selectedItem) {
     return (
-      <aside className="w-[350px] max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl shrink-0 z-20 flex flex-col gap-4 min-h-0 overflow-y-auto border-r border-vc-border bg-vc-surface1 p-4 text-xs text-vc-text-secondary select-none">
+      <aside className="w-[350px] max-md:absolute short:absolute max-md:left-[52px] short:left-[52px] max-md:right-0 short:right-0 max-md:bottom-0 short:bottom-0 max-md:w-auto short:w-auto max-md:h-[34%] short:h-[34%] max-md:z-30 short:z-30 max-md:border-r-0 short:border-r-0 max-md:border-t short:border-t max-md:rounded-t-2xl short:rounded-t-2xl max-md:shadow-2xl short:shadow-2xl shrink-0 z-20 flex flex-col gap-4 min-h-0 overflow-y-auto border-r border-vc-border bg-vc-surface1 p-4 text-xs text-vc-text-secondary select-none">
         <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
           <div className="flex items-center gap-2">
             <Sliders className="w-4 h-4 text-vc-text-secondary" />
@@ -1156,7 +1156,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
   // When no item is selected, display the tool panel for the active sidebar tab
   return (
     <aside
-      className="w-[350px] max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl bg-vc-surface1/95 backdrop-blur-2xl border-r border-white/[0.08] flex flex-col text-xs text-vc-text-secondary overflow-y-auto select-none shrink-0 z-20 shadow-[12px_0_40px_rgba(0,0,0,0.65)] p-4 gap-3 animate-panelSlideIn"
+      className="w-[350px] max-md:absolute short:absolute max-md:left-[52px] short:left-[52px] max-md:right-0 short:right-0 max-md:bottom-0 short:bottom-0 max-md:w-auto short:w-auto max-md:h-[34%] short:h-[34%] max-md:z-30 short:z-30 max-md:border-r-0 short:border-r-0 max-md:border-t short:border-t max-md:rounded-t-2xl short:rounded-t-2xl max-md:shadow-2xl short:shadow-2xl bg-vc-surface1/95 backdrop-blur-2xl border-r border-white/[0.08] flex flex-col text-xs text-vc-text-secondary overflow-y-auto select-none shrink-0 z-20 shadow-[12px_0_40px_rgba(0,0,0,0.65)] p-4 gap-3 animate-panelSlideIn"
     >
       {/* 1. CAPTIONS TAB */}
       {activeSidebarTab === 'captions' && (() => {

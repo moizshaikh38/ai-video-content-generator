@@ -498,9 +498,9 @@ export const Timeline: React.FC<TimelineProps> = ({
           Left: [📹 Hide timeline] | [⬚] [🔗] [🗑️] [✂️] [📋]
           Center: [⏮] [▶] [⏭] 01:07.03 / 02:23.08
           Right: [🔍-] [====O====] [🔍+] [⤢] */}
-      <div className="vc-timeline-toolbar grid grid-cols-[1fr_auto_1fr] max-md:flex max-md:flex-wrap max-md:justify-center items-center gap-2 px-3 py-1.5 bg-vc-surface1 border-b border-white/[0.07] text-xs">
+      <div className="vc-timeline-toolbar grid grid-cols-[1fr_auto_1fr] max-md:flex short:flex max-md:flex-wrap short:flex-wrap max-md:justify-center short:justify-center items-center gap-2 px-3 py-1.5 bg-vc-surface1 border-b border-white/[0.07] text-xs">
         {/* Left: edit actions */}
-        <div className="flex items-center gap-1.5 justify-self-start min-w-0 overflow-x-auto no-scrollbar max-md:w-full">
+        <div className="flex items-center gap-1.5 justify-self-start min-w-0 overflow-x-auto no-scrollbar max-md:w-full short:w-full">
           {/* Hide timeline toggle button matching Opus */}
           {onToggleCollapse && (
             <button
@@ -629,10 +629,10 @@ export const Timeline: React.FC<TimelineProps> = ({
         </div>
 
         {/* Center: shared transport (play/pause, stepping, timecode, settings) */}
-        <div className="justify-self-center max-md:order-3">{transportSlot}</div>
+        <div className="justify-self-center max-md:order-3 short:order-3">{transportSlot}</div>
 
         {/* Right: zoom & collapse */}
-        <div className="flex items-center gap-2.5 justify-self-end min-w-0 max-md:order-2 max-md:w-full max-md:justify-center">
+        <div className="flex items-center gap-2.5 justify-self-end min-w-0 max-md:order-2 short:order-2 max-md:w-full short:w-full max-md:justify-center short:justify-center">
           <button
             type="button"
             onClick={() => setPixelsPerSec((p) => Math.max(20, p - 20))}
@@ -817,31 +817,31 @@ export const Timeline: React.FC<TimelineProps> = ({
                         type="button"
                         onClick={() => toggleTrackProperty(track.id, 'muted')}
                         title={track.muted ? 'Unmute Track' : 'Mute Track'}
-                        className={`p-0.5 max-md:p-2 rounded hover:bg-neutral-800 transition ${
+                        className={`p-0.5 max-md:p-2 short:p-2 rounded hover:bg-neutral-800 transition ${
                           track.muted ? 'text-red-400' : 'text-neutral-400 hover:text-white'
                         }`}
                       >
-                        {track.muted ? <VolumeX className="w-2.5 h-2.5 max-md:w-4 max-md:h-4" /> : <Volume2 className="w-2.5 h-2.5 max-md:w-4 max-md:h-4" />}
+                        {track.muted ? <VolumeX className="w-2.5 h-2.5 max-md:w-4 short:w-4 max-md:h-4 short:h-4" /> : <Volume2 className="w-2.5 h-2.5 max-md:w-4 short:w-4 max-md:h-4 short:h-4" />}
                       </button>
                       <button
                         type="button"
                         onClick={() => toggleTrackProperty(track.id, 'locked')}
                         title={track.locked ? 'Unlock Track' : 'Lock Track'}
-                        className={`p-0.5 max-md:p-2 rounded hover:bg-neutral-800 transition ${
+                        className={`p-0.5 max-md:p-2 short:p-2 rounded hover:bg-neutral-800 transition ${
                           track.locked ? 'text-amber-400' : 'text-neutral-400 hover:text-white'
                         }`}
                       >
-                        {track.locked ? <Lock className="w-2.5 h-2.5 max-md:w-4 max-md:h-4" /> : <Unlock className="w-2.5 h-2.5 max-md:w-4 max-md:h-4" />}
+                        {track.locked ? <Lock className="w-2.5 h-2.5 max-md:w-4 short:w-4 max-md:h-4 short:h-4" /> : <Unlock className="w-2.5 h-2.5 max-md:w-4 short:w-4 max-md:h-4 short:h-4" />}
                       </button>
                       <button
                         type="button"
                         onClick={() => toggleTrackProperty(track.id, 'hidden')}
                         title={track.hidden ? 'Show Track' : 'Hide Track'}
-                        className={`p-0.5 max-md:p-2 rounded hover:bg-neutral-800 transition ${
+                        className={`p-0.5 max-md:p-2 short:p-2 rounded hover:bg-neutral-800 transition ${
                           track.hidden ? 'text-neutral-500' : 'text-neutral-400 hover:text-white'
                         }`}
                       >
-                        {track.hidden ? <EyeOff className="w-2.5 h-2.5 max-md:w-4 max-md:h-4" /> : <Eye className="w-2.5 h-2.5 max-md:w-4 max-md:h-4" />}
+                        {track.hidden ? <EyeOff className="w-2.5 h-2.5 max-md:w-4 short:w-4 max-md:h-4 short:h-4" /> : <Eye className="w-2.5 h-2.5 max-md:w-4 short:w-4 max-md:h-4 short:h-4" />}
                       </button>
                     </div>
                   </div>
@@ -854,7 +854,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         title="Add intro"
                         aria-label="Add intro"
                         onClick={(e) => { e.stopPropagation(); onAddIntroOutro('intro'); }}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 max-md:w-10 max-md:h-10 rounded-lg bg-vc-surface2 hover:bg-[#242424] border border-white/[0.08] hover:border-white/20 text-neutral-400 hover:text-white flex items-center justify-center transition shadow-sm"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 max-md:w-10 short:w-10 max-md:h-10 short:h-10 rounded-lg bg-vc-surface2 hover:bg-[#242424] border border-white/[0.08] hover:border-white/20 text-neutral-400 hover:text-white flex items-center justify-center transition shadow-sm"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -864,7 +864,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         aria-label="Add outro"
                         onClick={(e) => { e.stopPropagation(); onAddIntroOutro('outro'); }}
                         style={{ left: `${TRACK_INSET_LEFT + duration * pixelsPerSec + 10}px` }}
-                        className="absolute top-1/2 -translate-y-1/2 z-30 w-8 h-8 max-md:w-10 max-md:h-10 rounded-lg bg-vc-surface2 hover:bg-[#242424] border border-white/[0.08] hover:border-white/20 text-neutral-400 hover:text-white flex items-center justify-center transition shadow-sm"
+                        className="absolute top-1/2 -translate-y-1/2 z-30 w-8 h-8 max-md:w-10 short:w-10 max-md:h-10 short:h-10 rounded-lg bg-vc-surface2 hover:bg-[#242424] border border-white/[0.08] hover:border-white/20 text-neutral-400 hover:text-white flex items-center justify-center transition shadow-sm"
                       >
                         <Plus className="w-4 h-4" />
                       </button>

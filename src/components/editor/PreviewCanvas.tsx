@@ -1257,7 +1257,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       className="flex-1 min-h-0 bg-vc-surface1 flex flex-col items-center p-3 overflow-hidden relative select-none"
     >
       {/* OPUS-STYLE TOP PREVIEW TOOLBAR */}
-      <div className="w-full shrink-0 flex flex-col items-center justify-center gap-1 pb-2 z-30 max-md:pr-9">
+      <div className="w-full shrink-0 flex flex-col items-center justify-center gap-1 pb-2 z-30 max-md:pr-9 short:pr-9">
         <div className="md:hidden w-full flex items-center justify-between gap-2 glass-float px-2 py-1 rounded-xl text-xs" data-testid="mobile-framing-summary">
           <span className="truncate min-w-0 text-neutral-300">{project.canvas.aspect_ratio || '9:16'} · {(automaticLayoutLabel ? automaticLayoutLabel+(!automaticLayoutLabel.includes('Review')&&activeAutomaticShot?.contextStatus?.startsWith('unresolved')?' · Review':'') : undefined) || (baseVideoItem?.framing_window ? 'Context window' : activePanels ? PANEL_LABELS[activePanels.layout] : primaryLayoutMode === 'split' ? 'Split' : primaryVideoCropMode === 'fit' ? 'Fit' : primaryVideoCropMode === 'blur' ? 'Blur' : 'Fill')}</span>
           <button

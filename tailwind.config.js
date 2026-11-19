@@ -99,5 +99,12 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // Short-height screens (phones in landscape): mirror the mobile editor
+    // layout when vertical space is too small for the desktop 3-pane shell,
+    // even though width has crossed the md breakpoint.
+    function ({ addVariant }) {
+      addVariant('short', '@media (max-height: 600px) and (max-width: 1023.9px)');
+    },
+  ],
 }

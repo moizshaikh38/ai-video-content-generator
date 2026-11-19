@@ -327,6 +327,9 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       const stored = localStorage.getItem('vireo_editor_timeline_collapsed');
       if (stored !== null) return stored === 'true';
     } catch {}
+    // Phones in landscape have too little vertical room for preview + timeline;
+    // default to collapsed (still one tap to reopen) so the preview stays visible.
+    if (typeof window !== 'undefined' && window.innerHeight < 480 && window.innerWidth < 1024) return true;
     return false;
   });
 
@@ -1581,7 +1584,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* DIRECT B-ROLL DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'broll' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute short:absolute max-md:left-[52px] short:left-[52px] max-md:right-0 short:right-0 max-md:bottom-0 short:bottom-0 max-md:w-auto short:w-auto max-md:h-[34%] short:h-[34%] max-md:z-30 short:z-30 max-md:border-r-0 short:border-r-0 max-md:border-t short:border-t max-md:rounded-t-2xl short:rounded-t-2xl max-md:shadow-2xl short:shadow-2xl">
             <MediaBin
               project={project}
               sourceVideoUrl={cleanSourceUrl || renderedPreviewUrl}
@@ -1595,7 +1598,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* DIRECT TRANSLATE DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'translate' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute short:absolute max-md:left-[52px] short:left-[52px] max-md:right-0 short:right-0 max-md:bottom-0 short:bottom-0 max-md:w-auto short:w-auto max-md:h-[34%] short:h-[34%] max-md:z-30 short:z-30 max-md:border-r-0 short:border-r-0 max-md:border-t short:border-t max-md:rounded-t-2xl short:rounded-t-2xl max-md:shadow-2xl short:shadow-2xl">
             <TranslationWorkspace
               project={project}
               sourceTranscriptText={cues.map((c) => c.text).join(' ')}
@@ -1647,7 +1650,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* MEDIA LIBRARY DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'media' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute short:absolute max-md:left-[52px] short:left-[52px] max-md:right-0 short:right-0 max-md:bottom-0 short:bottom-0 max-md:w-auto short:w-auto max-md:h-[34%] short:h-[34%] max-md:z-30 short:z-30 max-md:border-r-0 short:border-r-0 max-md:border-t short:border-t max-md:rounded-t-2xl short:rounded-t-2xl max-md:shadow-2xl short:shadow-2xl">
             <MediaBin
               project={project}
               sourceVideoUrl={cleanSourceUrl || renderedPreviewUrl}
@@ -1661,7 +1664,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* AI COPILOT DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'copilot' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute short:absolute max-md:left-[52px] short:left-[52px] max-md:right-0 short:right-0 max-md:bottom-0 short:bottom-0 max-md:w-auto short:w-auto max-md:h-[34%] short:h-[34%] max-md:z-30 short:z-30 max-md:border-r-0 short:border-r-0 max-md:border-t short:border-t max-md:rounded-t-2xl short:rounded-t-2xl max-md:shadow-2xl short:shadow-2xl">
             <AICopilotPanel
               project={project}
               cues={cues}
@@ -1673,7 +1676,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* AI TOOLS DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'ai_tools' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute short:absolute max-md:left-[52px] short:left-[52px] max-md:right-0 short:right-0 max-md:bottom-0 short:bottom-0 max-md:w-auto short:w-auto max-md:h-[34%] short:h-[34%] max-md:z-30 short:z-30 max-md:border-r-0 short:border-r-0 max-md:border-t short:border-t max-md:rounded-t-2xl short:rounded-t-2xl max-md:shadow-2xl short:shadow-2xl">
             <AiToolsPanel
               activeToolId={null}
               onSelectToolId={() => {}}
@@ -1690,7 +1693,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* AUDIO STUDIO DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'audio' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute short:absolute max-md:left-[52px] short:left-[52px] max-md:right-0 short:right-0 max-md:bottom-0 short:bottom-0 max-md:w-auto short:w-auto max-md:h-[34%] short:h-[34%] max-md:z-30 short:z-30 max-md:border-r-0 short:border-r-0 max-md:border-t short:border-t max-md:rounded-t-2xl short:rounded-t-2xl max-md:shadow-2xl short:shadow-2xl">
             <AudioWorkspacePanel
               project={project}
               currentTime={currentTime}
@@ -1702,7 +1705,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* BRAND KIT DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'brand' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute short:absolute max-md:left-[52px] short:left-[52px] max-md:right-0 short:right-0 max-md:bottom-0 short:bottom-0 max-md:w-auto short:w-auto max-md:h-[34%] short:h-[34%] max-md:z-30 short:z-30 max-md:border-r-0 short:border-r-0 max-md:border-t short:border-t max-md:rounded-t-2xl short:rounded-t-2xl max-md:shadow-2xl short:shadow-2xl">
             <BrandKitPanel
               project={project}
               onUpdateProject={onUpdateProject}
@@ -1712,7 +1715,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* TEXT & MOTION TEMPLATES DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'text' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute short:absolute max-md:left-[52px] short:left-[52px] max-md:right-0 short:right-0 max-md:bottom-0 short:bottom-0 max-md:w-auto short:w-auto max-md:h-[34%] short:h-[34%] max-md:z-30 short:z-30 max-md:border-r-0 short:border-r-0 max-md:border-t short:border-t max-md:rounded-t-2xl short:rounded-t-2xl max-md:shadow-2xl short:shadow-2xl">
             <TextWorkspacePanel
               project={project}
               currentTime={currentTime}
@@ -1724,7 +1727,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* ELEMENTS & STICKERS DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'elements' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute short:absolute max-md:left-[52px] short:left-[52px] max-md:right-0 short:right-0 max-md:bottom-0 short:bottom-0 max-md:w-auto short:w-auto max-md:h-[34%] short:h-[34%] max-md:z-30 short:z-30 max-md:border-r-0 short:border-r-0 max-md:border-t short:border-t max-md:rounded-t-2xl short:rounded-t-2xl max-md:shadow-2xl short:shadow-2xl">
             <ElementsWorkspacePanel
               project={project}
               currentTime={currentTime}
@@ -1736,7 +1739,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* MOTION DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'layout' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute short:absolute max-md:left-[52px] short:left-[52px] max-md:right-0 short:right-0 max-md:bottom-0 short:bottom-0 max-md:w-auto short:w-auto max-md:h-[34%] short:h-[34%] max-md:z-30 short:z-30 max-md:border-r-0 short:border-r-0 max-md:border-t short:border-t max-md:rounded-t-2xl short:rounded-t-2xl max-md:shadow-2xl short:shadow-2xl">
             <MotionWorkspacePanel
               project={project}
               selectedItemId={selectedItemId}
@@ -1747,7 +1750,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* FRAMING & SMART REFRAME DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'framing' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute short:absolute max-md:left-[52px] short:left-[52px] max-md:right-0 short:right-0 max-md:bottom-0 short:bottom-0 max-md:w-auto short:w-auto max-md:h-[34%] short:h-[34%] max-md:z-30 short:z-30 max-md:border-r-0 short:border-r-0 max-md:border-t short:border-t max-md:rounded-t-2xl short:rounded-t-2xl max-md:shadow-2xl short:shadow-2xl">
             {(() => {
               const vids = project.tracks.filter((t) => t.type === 'VIDEO').flatMap((t) => t.items);
               const sceneItem = vids.find((i) => currentTime >= i.timeline_start && currentTime < i.timeline_end) ?? vids[0];
@@ -1866,7 +1869,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* ASPECT RATIO DRAWER */}
         {showLeftDrawer && activeSidebarTab === 'aspect_ratio' && (
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-r-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-2xl">
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0 overflow-hidden border-r border-vc-border bg-vc-surface1 animate-panelSlideIn max-md:absolute short:absolute max-md:left-[52px] short:left-[52px] max-md:right-0 short:right-0 max-md:bottom-0 short:bottom-0 max-md:w-auto short:w-auto max-md:h-[34%] short:h-[34%] max-md:z-30 short:z-30 max-md:border-r-0 short:border-r-0 max-md:border-t short:border-t max-md:rounded-t-2xl short:rounded-t-2xl max-md:shadow-2xl short:shadow-2xl">
             <AspectRatioWorkspacePanel
               project={project}
               onUpdateProject={onUpdateProject}
@@ -1876,13 +1879,13 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* CONTEXTUAL INSPECTOR PANEL — smoothly docks beside the rail */}
         {showRightInspector && !inspectorCollapsed && (
-          <div className="relative shrink-0 flex z-20 max-md:contents">
+          <div className="relative shrink-0 flex z-20 max-md:contents short:contents">
             {inspectorPanel}
           </div>
         )}
 
         {/* CENTER VIEWPORT (VIDEO PREVIEW + TRANSPORT) */}
-        <div data-testid="editor-preview-workspace" className={`flex-1 flex flex-col min-w-0 min-h-0 bg-vc-surface1 overflow-hidden relative ${(!transcriptCollapsed || showLeftDrawer || (showRightInspector && !inspectorCollapsed)) ? 'max-md:h-[66%]' : ''}`}>
+        <div data-testid="editor-preview-workspace" className={`flex-1 flex flex-col min-w-0 min-h-0 bg-vc-surface1 overflow-hidden relative ${(!transcriptCollapsed || showLeftDrawer || (showRightInspector && !inspectorCollapsed)) ? 'max-md:h-[66%] short:h-[66%]' : ''}`}>
           {automaticPlanReviewRequired&&viewMode==='edit'&&<div role="status" className="shrink-0 border-b border-amber-700/50 bg-amber-950/70 px-3 py-2 text-xs text-amber-100">Automatic framing needs review for this scene. Showing the full source, not an export-qualified layout. Your manual settings are unchanged.</div>}
           <PreviewCanvas
             automaticPlanReviewRequired={automaticPlanReviewRequired}
@@ -2044,12 +2047,12 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
         {/* TRANSCRIPT DOCK — persistent on the far right, independent of the selected tool */}
         {transcriptCollapsed ? (
-          <div className="w-10 shrink-0 max-md:absolute max-md:right-0 max-md:top-0 max-md:h-auto max-md:rounded-bl-xl max-md:z-40 glass-rail flex flex-col items-center py-3 z-20 border-l border-white/[0.08]">
+          <div className="w-10 shrink-0 max-md:absolute short:absolute max-md:right-0 short:right-0 max-md:top-0 short:top-0 max-md:h-auto short:h-auto max-md:rounded-bl-xl short:rounded-bl-xl max-md:z-40 short:z-40 glass-rail flex flex-col items-center py-3 z-20 border-l border-white/[0.08]">
             <button
               onClick={toggleTranscriptCollapsed}
               title="Show transcript"
               aria-label="Show transcript"
-              className="w-7 h-7 max-md:w-10 max-md:h-10 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-neutral-400 hover:text-white flex items-center justify-center transition-colors"
+              className="w-7 h-7 max-md:w-10 short:w-10 max-md:h-10 short:h-10 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-neutral-400 hover:text-white flex items-center justify-center transition-colors"
             >
               <PanelRightOpen className="w-4 h-4" />
             </button>
@@ -2058,7 +2061,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             </span>
           </div>
         ) : (
-          <div className="w-[320px] md:w-[340px] xl:w-[360px] max-md:absolute max-md:left-[52px] max-md:right-0 max-md:bottom-0 max-md:w-auto max-md:h-[34%] max-md:z-30 max-md:border-l-0 max-md:border-t max-md:rounded-t-2xl shrink-0 glass-dock flex flex-col min-h-0 z-20 border-white/[0.08] md:border-l">
+          <div className="w-[320px] md:w-[340px] xl:w-[360px] max-md:absolute short:absolute max-md:left-[52px] short:left-[52px] max-md:right-0 short:right-0 max-md:bottom-0 short:bottom-0 max-md:w-auto short:w-auto max-md:h-[34%] short:h-[34%] max-md:z-30 short:z-30 max-md:border-l-0 short:border-l-0 max-md:border-t short:border-t max-md:rounded-t-2xl short:rounded-t-2xl shrink-0 glass-dock flex flex-col min-h-0 z-20 border-white/[0.08] md:border-l">
             <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
               {actionNotice && (
                 <div className="mx-3 mt-2 flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-950/40 border border-amber-800/50">

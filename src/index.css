@@ -670,3 +670,94 @@ body {
     min-height: 32px;
   }
 }
+
+/* Phones in landscape: height is the constraint once width passes md.
+   Mirror the same touch sizing so the editor stays usable at e.g. 844x390. */
+@media (max-height: 600px) and (max-width: 1023.9px) {
+  .vc-timeline-toolbar button,
+  .vc-transport button {
+    min-width: 40px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .vc-timeline-toolbar button > svg,
+  .vc-transport button > svg {
+    width: 16px;
+    height: 16px;
+  }
+  .vc-timeline-toolbar input[type='range'] {
+    height: 24px;
+    background: transparent;
+  }
+  .vc-timeline-toolbar input[type='range']::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: #272727;
+  }
+  .vc-timeline-toolbar input[type='range']::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    background: #fff;
+    margin-top: -5px;
+  }
+  .vc-timeline-toolbar input[type='range']::-moz-range-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: #272727;
+  }
+  .vc-timeline-toolbar input[type='range']::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: none;
+    border-radius: 9999px;
+    background: #fff;
+  }
+  .vc-framing-tools button,
+  .vc-framing-tools [role='button'] {
+    min-width: 40px;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+  }
+  .vc-editor-topbar button {
+    min-width: 36px;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+  }
+  .vireo-footer-col ul a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+  }
+}
+
+/* Landscape phones: keep the framing bar to one compact scrollable row so the
+   preview retains height; controls stay tappable via 40px min-width. */
+@media (max-height: 600px) and (max-width: 1023.9px) {
+  .vc-framing-tools {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    justify-content: flex-start !important;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    gap: 6px;
+    scrollbar-width: none;
+  }
+  .vc-framing-tools button,
+  .vc-framing-tools [role='button'] {
+    min-height: 34px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+}
+
+@media (max-height: 600px) and (max-width: 1023.9px) {
+  .vc-framing-tools > * {
+    flex-shrink: 0;
+  }
+}

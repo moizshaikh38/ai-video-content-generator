@@ -9,7 +9,7 @@ export const SceneLayoutBadge: React.FC<{ label: string; title?:string; autoAvai
   return (
     <div className="absolute left-2.5 top-1.5 z-30" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
       <button ref={btn} type="button" onClick={() => setAnchor(anchor ? null : btn.current!.getBoundingClientRect())} title={title || "Change layout for this entire video item"}
-        className="px-1.5 py-0.5 max-md:px-2.5 max-md:py-2 rounded bg-black/60 backdrop-blur-md text-[10px] max-md:text-xs font-medium text-white shadow hover:bg-black/80">
+        className="px-1.5 py-0.5 max-md:px-2.5 short:px-2.5 max-md:py-2 short:py-2 rounded bg-black/60 backdrop-blur-md text-[10px] max-md:text-xs short:text-xs font-medium text-white shadow hover:bg-black/80">
         {label} ▾
       </button>
       {anchor && <SceneLayoutMenu autoAvailable={autoAvailable} anchor={anchor} current={current} onPick={onPick} onClose={() => setAnchor(null)} />}

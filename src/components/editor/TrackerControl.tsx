@@ -71,7 +71,7 @@ export const TrackerControl: React.FC<Props> = ({ clipId, project, videoSrc, sou
   };
 
   return (
-    <div ref={rootRef} className="relative max-md:static">
+    <div ref={rootRef} className="relative max-md:static short:static">
       <button type="button" onClick={(e) => { e.stopPropagation(); setMenu((v) => !v); }}
         className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg hover:bg-white/[0.08] text-neutral-300 hover:text-white transition font-medium"
         title="Object tracker: follows the subject you select. Separate from automatic framing.">
@@ -80,7 +80,7 @@ export const TrackerControl: React.FC<Props> = ({ clipId, project, videoSrc, sou
       </button>
       {activeOn && (active?.tracker?.lost_after != null || active?.tracker?.lost_before != null) && <span className="text-[10px] text-amber-300" role="status">Partial track: {active.tracker.tracked_from?.toFixed(1)}s to {active.tracker.tracked_to?.toFixed(1)}s. Other times use the existing layout.</span>}
       {menu && (
-        <div onClick={(e) => e.stopPropagation()} className="absolute top-full mt-2 right-0 max-md:right-auto max-md:left-1/2 max-md:-translate-x-1/2 w-64 max-md:max-w-full glass-float rounded-xl p-1 z-40 text-[11px]">
+        <div onClick={(e) => e.stopPropagation()} className="absolute top-full mt-2 right-0 max-md:right-auto short:right-auto max-md:left-1/2 short:left-1/2 max-md:-translate-x-1/2 short:-translate-x-1/2 w-64 max-md:max-w-full short:max-w-full glass-float rounded-xl p-1 z-40 text-[11px]">
           <p className="px-3 py-2 whitespace-normal leading-relaxed text-[10px] text-neutral-400">Tracks the subject you pick only during its measured range. Other times use the existing layout. Turning this off does not turn off automatic framing.</p>
           <button className="block w-full whitespace-normal text-left px-3 py-2 rounded-lg hover:bg-white/10 text-white" onClick={() => { setMenu(false); setPickSourceTime(sourceTime); setPickReady(false); setDialog(true); setBox(null); setError(null); }}>Select object / subject</button>
           <button disabled={!activeOn} className="block w-full whitespace-normal text-left px-3 py-2 rounded-lg hover:bg-white/10 text-neutral-300 disabled:opacity-40" onClick={() => { setMenu(false); onSetTracker({ itemId: active?.id ?? null }, null); }}>Turn off object tracker - this scene</button>
