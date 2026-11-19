@@ -139,6 +139,13 @@ export class SubscriptionService {
       return;
     }
 
+    // Refuse stale subscription events before any customer binding mutation.
+    // Ownership checks still run first. Payment-history events are independent.
+    if (event.subscriptionId && (event.eventType.startsWith('subscription.') || event.eventType === 'checkout.completed') && existing?.last_provider_event_at && existing.last_provider_event_at > event.occurredAt) {
+      logger.info(`[SubscriptionService] Ignored out-of-order event ${event.eventId} for sub ${event.subscriptionId}`);
+      return;
+    }
+
     if (event.customerId && !customer) {
       await customerCol.updateOne(
         { user_id: targetUserId, provider: event.provider },
@@ -152,11 +159,6 @@ export class SubscriptionService {
 
     // 2. Subscription lifecycle.
     if (event.subscriptionId && (event.eventType.startsWith('subscription.') || event.eventType === 'checkout.completed')) {
-      // Avoid applying out-of-order stale events
-      if (existing && existing.last_provider_event_at && existing.last_provider_event_at > event.occurredAt) {
-        logger.info(`[SubscriptionService] Ignored out-of-order event ${event.eventId} for sub ${event.subscriptionId}`);
-        return;
-      }
 
       const planId = event.planId || existing?.plan_id || checkout?.plan_id || null;
       if (!planId || !getPlanDefinition(planId) || planId === 'free') {
