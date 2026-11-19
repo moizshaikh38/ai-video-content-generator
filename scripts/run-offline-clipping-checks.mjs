@@ -30,6 +30,7 @@ const tests = [
   'candidate-creation-contract',
   'candidate-creation-client',
   'candidate-creation-ui-contract',
+  'dialogue-edge-fades-contract',
   'candidate-editor-baseline-contract',
   'render-submission-close-contract',
   'render-submission-recovery-client',

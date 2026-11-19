@@ -13,6 +13,7 @@ import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 import {validateAutomaticLayoutCropConfig} from '../shared/automaticLayoutValidation.js';
 import {normalizeEditorCanvasAspect} from '../shared/editorCanvasAspect.js';
 import {candidateCompositionOptions} from '../shared/automaticLayoutCandidate.js';
+import {newSpeechEdgeFades,dialogueProgramFades} from '../shared/dialogueEdgeFades.js';
 import {captionCompositionWindows,type CaptionLayoutWindow} from '../shared/sceneCaptionPlacement.js';
 import {trackerHandoffSpec,buildTrackerHandoffFilter} from '../shared/trackerHandoff.js';
 import {legacyFit43Plan,legacyPolicyFallback} from '../shared/automaticLayoutPolicy.js';
@@ -1858,12 +1859,13 @@ export class ProEditorService {
         }
       }
 
-      // Dialogue audio volume & subtle fades
-      audioFilters.push('afade=t=in:ss=0:d=0.15');
-      const fadeOutStart = Math.max(0, project.canvas.duration - 0.25);
-      audioFilters.push(`afade=t=out:st=${fadeOutStart.toFixed(2)}:d=0.25`);
+      // Saved edge controls win, including zero. New speech baselines seed these
+      // values from word-free time, not across an opening/closing spoken word.
+      const edgeFades=dialogueProgramFades(allVideoItems,project.canvas.duration);
+      if(edgeFades.fade_in>0)audioFilters.push(`afade=t=in:ss=0:d=${edgeFades.fade_in.toFixed(3)}`);
+      if(edgeFades.fade_out>0)audioFilters.push(`afade=t=out:st=${Math.max(0,project.canvas.duration-edgeFades.fade_out).toFixed(3)}:d=${edgeFades.fade_out.toFixed(3)}`);
 
-      filterComplex.push(`${audioStreamLabel}${audioFilters.join(',')}[dialogue_proc]`);
+      filterComplex.push(`${audioStreamLabel}${audioFilters.join(',')||'anull'}[dialogue_proc]`);
     }
     const processedDialogueLabel = '[dialogue_proc]';
     // Dialogue input pad ([base_a] / [0:a] / [base_a_speed]) - captured before
@@ -2409,6 +2411,7 @@ export class ProEditorService {
 
     if (hasColdOpen) {
       const co = clip.cold_open!;
+      const teaserSpeechFades=strictPreparation?newSpeechEdgeFades(transcript?.words,co.start_seconds,co.end_seconds):{fade_in:.1,fade_out:.1};
       videoItems.push({
         id: crypto.randomUUID(),
         track_id: videoTrackId,
@@ -2433,8 +2436,8 @@ export class ProEditorService {
         speed: { speed: 1.0, pitch_preserved: true },
         audio: {
           volume: clip.volume !== undefined ? clip.volume : 1.0,
-          fade_in: 0.1,
-          fade_out: 0.1,
+          fade_in: teaserSpeechFades.fade_in,
+          fade_out: teaserSpeechFades.fade_out,
           normalized: true,
           target_lufs: -16,
         },
@@ -2447,6 +2450,7 @@ export class ProEditorService {
       });
     }
 
+    const speechEdgeFades = strictPreparation ? newSpeechEdgeFades(transcript?.words,clip.start_seconds+trimStart,clip.end_seconds-trimEnd) : {fade_in:.15,fade_out:.25};
     const videoItemId = crypto.randomUUID();
     const videoItem: EditorTrackItem = {
       id: videoItemId,
@@ -2472,8 +2476,8 @@ export class ProEditorService {
       speed: { speed: 1.0, pitch_preserved: true },
       audio: {
         volume: clip.volume !== undefined ? clip.volume : 1.0,
-        fade_in: producerPlan?.operations.find((o) => o.type === 'AUDIO_FADE' && o.enabled)?.parameters.fade_in_sec ?? 0.15,
-        fade_out: producerPlan?.operations.find((o) => o.type === 'AUDIO_FADE' && o.enabled)?.parameters.fade_out_sec ?? 0.25,
+        fade_in: producerPlan?.operations.find((o) => o.type === 'AUDIO_FADE' && o.enabled)?.parameters.fade_in_sec ?? speechEdgeFades.fade_in,
+        fade_out: producerPlan?.operations.find((o) => o.type === 'AUDIO_FADE' && o.enabled)?.parameters.fade_out_sec ?? speechEdgeFades.fade_out,
         normalized: true,
         target_lufs: -16,
       },
