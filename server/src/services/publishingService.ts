@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { getMongoDb } from '../db/mongoClient.js';
+import { getMongoDb, getMongoClient } from '../db/mongoClient.js';
 import {
   AppError,
   SocialPlatform,
@@ -226,18 +226,13 @@ export class PublishingService {
     });
 
     if (existingPost) {
-      if (!['failed','cancelled'].includes(existingPost.status)) {
-        throw new AppError(
-          `Duplicate publish request detected. This post is already ${existingPost.status}.`,
-          409,
-          'DUPLICATE_PUBLISH_REQUEST'
-        );
-      }
-      // Only terminal failed/cancelled records reach this legacy retry path.
-      // Never erase or recreate a still-scheduled request on a duplicate click.
-      // If previous attempt was failed or cancelled, we allow a new attempt by deleting old record
-      await db.collection('published_posts').deleteOne({ id: existingPost.id });
-      await db.collection('publish_jobs').deleteOne({ published_post_id: existingPost.id });
+      // Preserve failed/cancelled history as well. The explicit retry operation
+      // owns retries; a repeated create must not erase prior provider outcomes.
+      throw new AppError(
+        `Duplicate publish request detected. This post is already ${existingPost.status}. Review the existing post instead.`,
+        409,
+        'DUPLICATE_PUBLISH_REQUEST'
+      );
     }
 
     const now = new Date();
@@ -272,8 +267,6 @@ export class PublishingService {
       updated_at: now,
     };
 
-    await db.collection<PublishedPostRecord>('published_posts').insertOne(postRecord);
-
     const jobId = crypto.randomUUID();
     const jobRecord: PublishJobRecord = {
       id: jobId,
@@ -291,7 +284,24 @@ export class PublishingService {
       updated_at: now,
     };
 
-    await db.collection<PublishJobRecord>('publish_jobs').insertOne(jobRecord);
+    const session = (await getMongoClient()).startSession();
+    try {
+      // A visible post must have its durable worker job. Never compensate a
+      // partial failure by deleting history or admit work before commit.
+      await session.withTransaction(async () => {
+        await db.collection<PublishedPostRecord>('published_posts').insertOne(postRecord, { session });
+        await db.collection<PublishJobRecord>('publish_jobs').insertOne(jobRecord, { session });
+      }, { readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' } });
+    } catch (error: any) {
+      if (error?.code === 11000) {
+        throw new AppError('This publish request already exists. Review the existing post instead.', 409, 'DUPLICATE_PUBLISH_REQUEST');
+      }
+      // An unknown commit result is not proof of failure. Do not launch or
+      // delete anything; the persisted fingerprint keeps a later create safe.
+      throw error;
+    } finally {
+      await session.endSession();
+    }
 
     logger.info('Publish post created', {
       postId,
