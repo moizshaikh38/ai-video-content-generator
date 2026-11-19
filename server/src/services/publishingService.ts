@@ -336,6 +336,16 @@ export class PublishingService {
       return;
     }
 
+    if (post.status === 'published') {
+      await db.collection('publish_jobs').updateOne({id:jobId,user_id:job.user_id},{$set:{status:'completed',completed_at:post.published_at||new Date(),updated_at:new Date()}});
+      return;
+    }
+    if (job.status !== 'publishing') return;
+    if (job.provider_attempt_started_at !== undefined) {
+      await this.markJobFailed(jobId, post.id, 'PUBLISH_OUTCOME_UNKNOWN', 'A previous delivery attempt may have reached the platform. Check the connected platform before taking any further action. Automatic resend is disabled.', false);
+      return;
+    }
+
     // Step 1: Resolve connection & token
     const conn = await db.collection<SocialAccountConnectionRecord>('social_account_connections').findOne({
       id: post.social_connection_id,
@@ -432,7 +442,17 @@ export class PublishingService {
     // Step 4: Execute provider publish
     const publishProvider = socialPublishingRegistry.getProvider(post.provider);
 
+    let providerEntered = false;
     try {
+      // A one-way marker is persisted before the first external side effect.
+      // Ambiguous crashes/transport errors never authorize another upload.
+      const dispatch = await db.collection<PublishJobRecord>('publish_jobs').updateOne(
+        {id:jobId,user_id:job.user_id,published_post_id:post.id,status:'publishing',provider_attempt_started_at:{$exists:false}},
+        {$set:{provider_attempt_started_at:new Date(),updated_at:new Date()}},
+        {writeConcern:{w:'majority'}}
+      );
+      if (dispatch.matchedCount !== 1) return;
+      providerEntered = true;
       const pubResult = await publishProvider.publish({
         accessToken,
         payload: post.payload,
@@ -477,8 +497,17 @@ export class PublishingService {
         providerPostId: pubResult.providerPostId,
       });
     } catch (err: any) {
-      const normErr = publishProvider.normalizePublishError(err);
-      await this.markJobFailed(jobId, post.id, normErr.code, normErr.message, normErr.retryable);
+      if (providerEntered) {
+        // The post write may have succeeded before the job acknowledgement
+        // failed. Never downgrade a verified published record to failed.
+        const persisted = await db.collection<PublishedPostRecord>('published_posts').findOne({id:post.id,user_id:post.user_id});
+        if (persisted?.status === 'published' && persisted.provider_post_id) return;
+        await this.markJobFailed(jobId, post.id, 'PUBLISH_OUTCOME_UNKNOWN', 'The platform may have accepted this post, but delivery could not be confirmed. Check the connected platform before taking any further action. Automatic resend is disabled.', false);
+      } else {
+        // No provider call was entered. The dispatch write itself may still
+        // have committed, so recovery must respect any persisted marker.
+        throw err;
+      }
     } finally {
       if (tempFilePath && fs.existsSync(tempFilePath)) {
         try { fs.unlinkSync(tempFilePath); } catch { /* ignore */ }
@@ -711,9 +740,14 @@ export class PublishingService {
       throw new AppError('Only failed posts can be retried.', 400, 'CANNOT_RETRY');
     }
 
+    const job = await db.collection<PublishJobRecord>('publish_jobs').findOne({published_post_id:postId,user_id:userId});
+    if (post.last_error_code === 'PUBLISH_OUTCOME_UNKNOWN' || job?.provider_attempt_started_at !== undefined) {
+      throw new AppError('Delivery may already have reached the platform. Check the connected platform; this request cannot be resent automatically.',409,'PUBLISH_OUTCOME_UNKNOWN');
+    }
+    if (!job) throw new AppError('The saved publish job is missing. No retry was started.',409,'PUBLISH_JOB_MISSING');
     const now = new Date();
     await db.collection<PublishedPostRecord>('published_posts').updateOne(
-      { id: postId },
+      { id: postId, user_id:userId },
       {
         $set: {
           status: 'publishing',
@@ -725,7 +759,6 @@ export class PublishingService {
       }
     );
 
-    const job = await db.collection<PublishJobRecord>('publish_jobs').findOne({ published_post_id: postId });
     if (job) {
       await db.collection<PublishJobRecord>('publish_jobs').updateOne(
         { id: job.id },

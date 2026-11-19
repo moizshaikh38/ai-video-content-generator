@@ -270,7 +270,7 @@ export const PublishingHistoryPage: React.FC = () => {
                     </Button>
                   )}
 
-                  {post.status === 'failed' && (
+                  {post.status === 'failed' && post.last_error_code !== 'PUBLISH_OUTCOME_UNKNOWN' && (
                     <Button
                       variant="outline"
                       size="sm"

@@ -1078,6 +1078,7 @@ export interface PublishedPostRecord {
 export type PublishJobStatus = 'scheduled' | 'publishing' | 'completed' | 'failed' | 'cancelled';
 
 export interface PublishJobRecord {
+  provider_attempt_started_at?: Date;
   id: string;
   user_id: string;
   published_post_id: string;
