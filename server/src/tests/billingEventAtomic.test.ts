@@ -1,3 +1,6 @@
+import {PaddleBillingProvider} from '../services/billing/providers/paddleBillingProvider.js';
+import {RazorpayBillingProvider} from '../services/billing/providers/razorpayBillingProvider.js';
+import {assertBillingEventShape} from '../services/billing/billingEventValidation.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -6,6 +9,12 @@ import {config} from '../config/index.js';
 import {handlePaddleWebhook} from '../controllers/billingController.js';
 import {closeMongo} from '../db/mongoClient.js';
 import {applyVerifiedBillingEvent} from '../services/billingEventApplication.js';
+
+test('major-unit fractional amounts from both actual normalizers remain valid',async()=>{
+ const paddle=await new PaddleBillingProvider().normalizeWebhook(JSON.stringify({event_id:'evt_fractional_paddle',event_type:'transaction.completed',occurred_at:new Date().toISOString(),data:{id:'txn_fractional',currency_code:'USD',details:{totals:{total:'1999'}},custom_data:{userId:'fixture-user'}}}),{});
+ const razor=await new RazorpayBillingProvider().normalizeWebhook(JSON.stringify({event:'payment.captured',created_at:Math.floor(Date.now()/1000),payload:{payment:{entity:{id:'pay_fractional',amount:199950,currency:'INR',notes:{userId:'fixture-user'}}}}}),{'x-razorpay-event-id':'evt_fractional_razorpay'});
+ assert(paddle);assert(razor);assert.equal(paddle.amount,19.99);assert.equal(razor.amount,1999.5);assert.doesNotThrow(()=>assertBillingEventShape(paddle));assert.doesNotThrow(()=>assertBillingEventShape(razor));
+});
 
 test('malformed verified event lookup keys and dates refuse before database access',async()=>{
  const valid:any={provider:'paddle',eventId:'evt_fixture',eventType:'subscription.active',rawEventType:'subscription.activated',occurredAt:new Date(),rawPayload:{fixture:true}};
@@ -45,6 +54,7 @@ test('actual Mongo billing terminal receipt and state commit together; races, ro
   try{assert.equal((await deliver(`ts=${ts};h1=${sig}`)).code,500);}finally{Collection.prototype.updateOne=oldUpdate;}
   assert.equal(await db.collection('subscriptions').countDocuments({user_id:callback.userId}),0);assert.equal(await db.collection('billing_events').countDocuments({provider_event_id:callback.eventId}),0);
   assert.equal((await deliver(`ts=${ts};h1=${sig}`)).code,200);assert.equal((await deliver(`ts=${ts};h1=${sig}`)).body.idempotent,true);assert.equal(await db.collection('subscriptions').countDocuments({user_id:callback.userId}),1);
+  const payment=seed();const payBody=JSON.stringify({event_id:payment.eventId,event_type:'transaction.completed',occurred_at:new Date().toISOString(),data:{id:`txn-${payment.userId}`,currency_code:'USD',details:{totals:{total:'1999'}},custom_data:{userId:payment.userId}}});const paySig=crypto.createHmac('sha256',config.paddleWebhookSecret).update(`${ts}:${payBody}`).digest('hex');assert.equal((await deliver(`ts=${ts};h1=${paySig}`,payBody)).code,200);assert.equal((await db.collection('billing_invoices').findOne({user_id:payment.userId}))?.amount_paid,19.99);
   const cancel={...event,eventId:`fixture-${prefix}-cancel`,eventType:'subscription.canceled',rawEventType:'subscription.canceled',status:'canceled',currentPeriodEnd:new Date(Date.now()-86400000),occurredAt:new Date(Date.now()+1000),rawPayload:{cancel:true}};ids.push(cancel.eventId);await applyVerifiedBillingEvent(cancel,db,client);assert.equal((await db.collection('subscription_limits').findOne({user_id:event.userId}))?.plan_tier,'free','cancellation resolver reads its own transactional subscription write');
  }finally{for(const name of ['subscriptions','billing_customers','subscription_limits','billing_invoices'])await db.collection(name).deleteMany({user_id:{$in:users}});await db.collection('billing_events').deleteMany({provider_event_id:{$in:ids}});await client.close();await closeMongo();}
 });

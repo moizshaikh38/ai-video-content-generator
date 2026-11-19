@@ -15,7 +15,7 @@ export function assertBillingEventShape(event:NormalizedBillingEvent){
  if(event.planId!=null&&!['free','creator','pro','studio'].includes(event.planId))fail();
  if(event.interval!=null&&!['month','year'].includes(event.interval))fail();
  if(event.status!=null&&!statuses.has(event.status))fail();
- if(event.amount!=null&&(!Number.isSafeInteger(event.amount)||event.amount<0))fail();
+ if(event.amount!=null&&(typeof event.amount!=='number'||!Number.isFinite(event.amount)||event.amount<0||event.amount>Number.MAX_SAFE_INTEGER))fail();
  if(event.currency!=null&&(typeof event.currency!=='string'||!/^[A-Z]{3}$/.test(event.currency)))fail();
  if(event.cancelAtPeriodEnd!=null&&typeof event.cancelAtPeriodEnd!=='boolean')fail();
  if(!event.rawPayload||typeof event.rawPayload!=='object'||Array.isArray(event.rawPayload))fail();
