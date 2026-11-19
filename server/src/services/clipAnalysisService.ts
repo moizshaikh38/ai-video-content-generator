@@ -1,3 +1,4 @@
+import {groundWindowClipProposals} from '../shared/groundWindowClipProposals.js';
 import {shortFallbackCompleteEnd} from '../shared/shortFallbackCompleteEnd.js';
 import { compareFinalSpeechScope, finalSpokenText } from '../shared/finalSpeechScope.js';
 import {measuredGenreSignals} from '../shared/measuredGenreSignals.js';
@@ -870,20 +871,11 @@ export class ClipAnalysisService {
                 });
                 const parsed = ClipAnalysisService.parseAIResponse(aiResponse);
 
-                // Map any relative indices to global indices
-                return parsed.map((cand) => {
-                  let sIdx = cand.start_segment_index;
-                  let eIdx = cand.end_segment_index;
-                  if (sIdx < chunk.startIndex && sIdx + chunk.startIndex < segments.length) {
-                    sIdx += chunk.startIndex;
-                    eIdx += chunk.startIndex;
-                  }
-                  return {
-                    ...cand,
-                    start_segment_index: sIdx,
-                    end_segment_index: eIdx,
-                  };
-                });
+                // The prompt labels source segments with global IDs. Never
+                // reinterpret an unseen ID as a different local convention.
+                const grounded=groundWindowClipProposals(parsed,chunk);
+                if(grounded.length<parsed.length)logger.warn(`Rejected ${parsed.length-grounded.length} clip proposals outside chunk ${chunkNum}'s supplied segment window.`);
+                return grounded;
               } catch (err: any) {
                 logger.warn(`Failed AI analysis for chunk ${chunkNum}/${chunks.length}: ${err.message}`);
                 return [];
