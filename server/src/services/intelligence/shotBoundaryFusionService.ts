@@ -37,7 +37,7 @@ export interface ShotBoundaryFusionResult {
 }
 
 export class ShotBoundaryFusionService {
-  private static readonly TERMINAL_PUNCTUATION_REGEX = /[.!?]+$/;
+  private static readonly TERMINAL_PUNCTUATION_REGEX = /[.!?।॥]+[\"'”’)]*$/;
   private static readonly CLAUSE_PUNCTUATION_REGEX = /[,;—–-]+$/;
   private static readonly INCOMPLETE_CONJUNCTIONS = new Set([
     'and', 'but', 'or', 'so', 'because', 'although', 'though', 'since',
@@ -132,7 +132,9 @@ export class ShotBoundaryFusionService {
 
       // 1D: Terminal Punctuation Lookahead (Avoid trailing off mid-sentence)
       // Look ahead up to 2.0s for terminal punctuation (. ! ?)
-      const lookaheadWords = sortedWords.filter(
+      const lastSpokenWord = sortedWords.filter((w) => w.end <= finalSpokenWordEnd).at(-1);
+      const endingAlreadyComplete = lastSpokenWord && this.TERMINAL_PUNCTUATION_REGEX.test(lastSpokenWord.word.trim());
+      const lookaheadWords = endingAlreadyComplete ? [] : sortedWords.filter(
         (w) => w.start >= finalSpokenWordEnd && w.end - finalSpokenWordEnd <= 2.2
       );
 
@@ -200,7 +202,8 @@ export class ShotBoundaryFusionService {
         // This eliminates the awkward visual sliver of the previous camera shot.
         if (gapBeforeSpeech >= 0.1 && gapBeforeSpeech <= 1.2) {
           const durationWithCut = currentEnd - nearestPriorCut;
-          if (durationWithCut <= maxDur) {
+          const crossesPriorSpeech = sortedWords.some((w) => w.start < initialSpokenWordStart && w.end > nearestPriorCut!);
+          if (durationWithCut <= maxDur && !crossesPriorSpeech) {
             currentStart = Number(nearestPriorCut.toFixed(3));
             wasShotBoundarySnapped = true;
             startsOnCut = true;
@@ -218,7 +221,8 @@ export class ShotBoundaryFusionService {
         // This eliminates a flash frame of the subsequent camera shot.
         if (gapAfterSpeech >= 0.1 && gapAfterSpeech <= 0.8) {
           const durationWithCut = nearestPosteriorCut - currentStart;
-          if (durationWithCut <= maxDur && durationWithCut >= minDur) {
+          const crossesFollowingSpeech = sortedWords.some((w) => w.end > finalSpokenWordEnd && w.start < nearestPosteriorCut!);
+          if (durationWithCut <= maxDur && durationWithCut >= minDur && !crossesFollowingSpeech) {
             currentEnd = Number(nearestPosteriorCut.toFixed(3));
             wasShotBoundarySnapped = true;
             endsOnCut = true;

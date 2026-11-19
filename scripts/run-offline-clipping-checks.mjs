@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 // services. Do not glob the test directory: other tests start applications,
 // connect databases/providers, run browsers, or encode media.
 const tests = [
+  'clip-speech-cut-contract',
   'clip-render-readiness',
   'clip-workspace-recovery',
   'workspace-search-recovery',

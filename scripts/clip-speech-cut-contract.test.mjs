@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const source=fs.readFileSync('server/src/services/intelligence/shotBoundaryFusionService.ts','utf8');
+const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
+const {ShotBoundaryFusionService:S}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
+const base={rawStart:10,rawEnd:20,totalVideoDuration:40,targetDuration:{min:5,max:25},preferShotCutAlignment:true};
+test('a completed sentence does not drag in the following short sentence',()=>{const r=S.optimizeBoundaries({...base,words:[{word:'Start',start:10,end:11},{word:'Done.',start:19,end:20},{word:'Next.',start:20.3,end:21}]});assert.equal(r.end,20)});
+test('a preceding shot cut cannot add a partial word from the previous sentence',()=>{const r=S.optimizeBoundaries({...base,words:[{word:'previous.',start:9,end:9.7},{word:'Start',start:10,end:11},{word:'Done.',start:19,end:20}],sceneCuts:[{timestamp:9.5,score:1}]});assert.equal(r.start,10);assert.equal(r.startsOnCut,false)});
+test('a following shot cut cannot include the beginning of the next sentence',()=>{const r=S.optimizeBoundaries({...base,words:[{word:'Start',start:10,end:11},{word:'Done.',start:19,end:20},{word:'Because',start:20.2,end:21.5},{word:'later.',start:24,end:25}],sceneCuts:[{timestamp:20.5,score:1}]});assert.equal(r.end,20);assert.equal(r.endsOnCut,false)});
+test('a genuinely incomplete ending still extends to its nearby completion',()=>{const r=S.optimizeBoundaries({...base,words:[{word:'Start',start:10,end:11},{word:'the',start:19,end:20},{word:'answer.',start:20.3,end:21}]});assert.equal(r.end,21)});
+test('speech-free adjacent cuts remain usable',()=>{const r=S.optimizeBoundaries({...base,words:[{word:'Start',start:10,end:11},{word:'Done.',start:19,end:20}],sceneCuts:[{timestamp:9.5,score:1},{timestamp:20.5,score:1}]});assert.equal(r.start,9.5);assert.equal(r.end,20.5);assert(r.startsOnCut&&r.endsOnCut)});
+test('quoted and Hindi terminal punctuation keep the following thought out',()=>{for(const word of ['Done."','Done!”','Done?)','समाप्त।','समाप्त॥']){const r=S.optimizeBoundaries({...base,words:[{word:'Start',start:10,end:11},{word,start:19,end:20},{word:'Next.',start:20.3,end:21}]});assert.equal(r.end,20,word)}});
+test('a cut exactly at adjacent word boundary does not include any part of that word',()=>{const r=S.optimizeBoundaries({...base,words:[{word:'Before.',start:9,end:9.5},{word:'Start',start:10,end:11},{word:'Done.',start:19,end:20},{word:'Next',start:20.5,end:21.5}],sceneCuts:[{timestamp:9.5,score:1},{timestamp:20.5,score:1}]});assert.equal(r.start,9.5);assert.equal(r.end,20.5)});
