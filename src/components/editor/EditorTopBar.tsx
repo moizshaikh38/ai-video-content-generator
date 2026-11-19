@@ -113,7 +113,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
               setLocalTitle(title);
               setIsEditingTitle(true);
             }}
-            className="text-sm font-semibold text-neutral-200 hover:text-white truncate max-w-[150px] min-[420px]:max-w-[200px] sm:max-w-[280px] text-left hover:bg-white/[0.06] px-2 py-1 rounded transition"
+            className="text-sm font-semibold text-neutral-200 hover:text-white truncate max-w-[190px] min-[420px]:max-w-[220px] sm:max-w-[280px] text-left hover:bg-white/[0.06] px-2 py-1 rounded transition"
             title="Click to rename"
           >
             {title || 'Untitled Clip'}
@@ -251,17 +251,17 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
         <button
           onClick={onOpenExportDialog}
           disabled={isRendering}
-          className="px-3.5 py-1.5 rounded-full bg-vc-ai-hover text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai active:bg-violet-700 active:translate-y-px font-semibold text-xs flex items-center gap-1.5 transition disabled:opacity-50"
+          className="px-3.5 max-[420px]:px-2.5 py-1.5 rounded-full bg-vc-ai-hover text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai active:bg-violet-700 active:translate-y-px font-semibold text-xs flex items-center gap-1.5 transition disabled:opacity-50"
         >
           {isRendering ? (
             <>
               <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
-              <span>Rendering...</span>
+              <span className="max-[420px]:hidden">Rendering...</span>
             </>
           ) : (
             <>
               <Download className="w-3.5 h-3.5 text-black" />
-              <span>Export</span>
+              <span className="max-[420px]:hidden">Export</span>
             </>
           )}
         </button>

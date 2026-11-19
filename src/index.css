@@ -623,7 +623,7 @@ body {
     height: 16px;
   }
   .vc-timeline-toolbar input[type='range'] {
-    height: 22px;
+    height: 24px;
     background: transparent;
   }
   .vc-timeline-toolbar input[type='range']::-webkit-slider-runnable-track {
