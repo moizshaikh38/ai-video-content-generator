@@ -1,3 +1,4 @@
+import {embeddedCameraPanelReview} from '../shared/embeddedCameraPanelReview.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import {proposeAutomaticGamingPanels} from '../shared/automaticGamingPanels.js';
 import {assignParticipantPanels} from '../shared/participantPanels.js';
@@ -1461,6 +1462,13 @@ export class SmartReframeService {
    * when experimental composition is off. Never upgrade legacy/user ownership,
    * stale/unbound evidence, or partially eligible clips by inference. */
   public static explicitAutoLayoutPlan(track:any,cropConfig:any,duration:number):ReturnType<typeof SmartReframeService.computeShotComposition>|undefined {
+    // Explicit local candidate only. Normal Auto and manual layouts do not
+    // consume ambiguous inset evidence or infer an editorial source role.
+    if(track?.metadata?.embedded_camera_panel_review_enabled===true&&cropConfig?.layout_mode_source==='auto'&&track.status==='ready'&&!track.isStale&&track.sourceObjectVerified===true&&!(track.metadata.scene_cuts||[]).length&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('split'))){
+      const m=track.metadata;
+      const candidate=embeddedCameraPanelReview({receipt:m.embedded_camera_panel_review,sha256:m.analyzed_source_sha256,sourceStart:m.analyzed_source_start,sourceEnd:m.analyzed_source_end,sourceWidth:track.source_width,sourceHeight:track.source_height});
+      if(candidate&&Math.abs(duration-(m.analyzed_source_end-m.analyzed_source_start))<=.001)return [{start:0,end:duration,kind:'group',windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}],split:{speaker1X:.25,speaker2X:.75,dividerX:.5,focusPanels:candidate.panels},contextStatus:'unresolved-review-required',uncertainty:candidate.limitations.join(' ')}];
+    }
     if(cropConfig?.layout_mode_source!=='auto'||track?.status!=='ready'||track.isStale||track.sourceObjectVerified===false||
        track.metadata?.shot_composition_candidate===true||!track.metadata?.analyzed_source_sha256||
        !(duration>0)||!track.raw_samples?.length||
