@@ -128,7 +128,7 @@ export const SupportPage: React.FC = () => {
               key={f.q}
               className="group rounded-2xl border border-[#dfe7da] bg-white px-5 py-4 open:shadow-sm"
             >
-              <summary className="cursor-pointer text-sm font-semibold list-none flex items-center justify-between gap-3">
+              <summary className="cursor-pointer text-sm font-semibold list-none flex items-center justify-between gap-3 max-md:min-h-[44px]">
                 {f.q}
                 <span className="text-[#36764c] group-open:rotate-45 transition-transform text-lg leading-none">+</span>
               </summary>

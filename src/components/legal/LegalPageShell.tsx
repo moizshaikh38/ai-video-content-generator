@@ -97,7 +97,7 @@ export const LegalPageShell: React.FC<LegalPageShellProps> = ({
         <div className="max-w-5xl mx-auto px-5 lg:px-8 pt-10 pb-14 relative">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 text-xs font-semibold text-white/60 hover:text-white mb-8 transition-colors"
+            className="inline-flex items-center gap-2 text-xs font-semibold text-white/60 hover:text-white mb-8 transition-colors py-2.5 -my-2.5"
           >
             <ArrowLeft size={15} />
             Back to VireoClip home

@@ -169,19 +169,19 @@ export const Footer: React.FC = () => {
           <div className="flex items-center gap-6">
             <Link
               to="/terms"
-              className="transition-colors hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-400 focus-visible:rounded"
+              className="inline-flex items-center py-2.5 sm:py-0 transition-colors hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-400 focus-visible:rounded"
             >
               Terms of Service
             </Link>
             <Link
               to="/privacy"
-              className="transition-colors hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-400 focus-visible:rounded"
+              className="inline-flex items-center py-2.5 sm:py-0 transition-colors hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-400 focus-visible:rounded"
             >
               Privacy Policy
             </Link>
             <Link
               to="/support"
-              className="transition-colors hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-400 focus-visible:rounded"
+              className="inline-flex items-center py-2.5 sm:py-0 transition-colors hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-400 focus-visible:rounded"
             >
               Official Support
             </Link>
