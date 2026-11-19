@@ -36,6 +36,13 @@ export async function assertTransactionalRenderQuota(db:Db,session:ClientSession
  const locked=await db.collection<any>('render_quota_fences').updateOne({_id:fenceKey(userId),user_id:userId},{$inc:{serial:1},$set:{updated_at:now}},{session});
  if(locked.matchedCount!==1)throw new AppError('Render quota serialization is unavailable.',503,'RENDER_USAGE_UNAVAILABLE');
  if(policy.kind==='unlimited')return;
+ // Historical usage without a countable clock must not become free quota.
+ // Do not repair, delete or infer a month for malformed records.
+ const unknown=await db.collection('render_jobs').findOne({user_id:userId,$or:[
+  {created_at:{$not:{$type:['date','string']}}},
+  {$expr:{$eq:[{$convert:{input:'$created_at',to:'date',onError:null,onNull:null}},null]}}
+ ]},{session,projection:{_id:1}});
+ if(unknown)throw new AppError('Existing render usage has an invalid timestamp. Review usage before admitting another render.',503,'RENDER_USAGE_UNAVAILABLE');
  const start=new Date(now);start.setUTCDate(1);start.setUTCHours(0,0,0,0);
  const count=await db.collection('render_jobs').countDocuments({user_id:userId,$or:[{created_at:{$gte:start}},{created_at:{$gte:start.toISOString()}}]},{session});
  assertRenderUsageCount(count);
