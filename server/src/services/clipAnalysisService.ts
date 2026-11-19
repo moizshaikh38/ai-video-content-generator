@@ -1120,7 +1120,11 @@ export class ClipAnalysisService {
           const coStart = Number(coSeg.start.toFixed(3));
           const coEnd = Number(coSeg.end.toFixed(3));
           const coDur = Math.max(1.0, Math.round((coEnd - coStart) * 100) / 100);
-          if (coDur >= 1.5 && coDur <= 6.5) {
+          // An optional teaser must not bypass the final main-interval speech
+          // check. Omit only a known unsafe teaser, without guessing a new cut.
+          const teaserSpeechScope = compareFinalSpeechScope({words:rawWords,
+            originalStart:coStart,originalEnd:coEnd,finalStart:coStart,finalEnd:coEnd});
+          if (coDur >= 1.5 && coDur <= 6.5 && teaserSpeechScope.finalWordBoundarySafe !== false) {
             cold_open = {
               enabled: true,
               start_seconds: coStart,
