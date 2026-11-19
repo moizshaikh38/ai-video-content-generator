@@ -1,3 +1,4 @@
+import {bracketedFaceGap} from '../shared/bracketedFaceGap.js';
 import {embeddedCameraPanelReview,embeddedCameraMeasurementEligible,embeddedSourceSplitMeasurementEligible,embeddedSourceSplitVeto} from '../shared/embeddedCameraPanelReview.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import {proposeAutomaticGamingPanels} from '../shared/automaticGamingPanels.js';
@@ -841,6 +842,17 @@ export class SmartReframeService {
           }
         }
 
+        // Repeated boxes on both sides of a bounded detector gap can support
+        // a framing bridge. Do not turn absence alone into a hold, and do not
+        // cross shot boundaries or override an observed target.
+        if(process.env.SMART_REFRAME_BRACKETED_GAP_REVIEW==='1'&&targetX===null&&shotDominantTrackId!=='__midpoint__'){
+          const bridge=bracketedFaceGap(time,lastSeenTime,lastSeenFace,shotSamples);
+          if(bridge){
+            rawShotTraj.push({time,x:bridge.x+bridge.w/2,y:bridge.y+bridge.h/2,box:bridge});
+            if(sample.faces.length===1){lastSeenFace=sample.faces[0];lastSeenTime=time;}
+            continue;
+          }
+        }
         const fallbackY = lastSeenFace ? lastSeenFace.center_y : 0.38;
 
         if (targetX !== null) {
