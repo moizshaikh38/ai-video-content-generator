@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {TikTokPublishingProvider} from '../services/publishing/providers/tiktokPublishingProvider.js';
 import type {PublishExecutionRequest} from '../services/publishing/types.js';
 
-const request = (privacy?: any): PublishExecutionRequest => ({accessToken:'fixture-not-live',payload:{title:'Fixture',...(privacy === undefined ? {} : {privacy})},mediaUrl:'https://media.invalid/fixture.mp4',grantedScopes:['video.publish'],mediaDurationSeconds:12});
+const request = (privacy?: any): PublishExecutionRequest => ({accessToken:'fixture-not-live',payload:{title:'Fixture',platform_custom:{tiktok_music_consent:true},privacy:privacy===undefined?'private':privacy},mediaUrl:'https://media.invalid/fixture.mp4',grantedScopes:['video.publish'],mediaDurationSeconds:12});
 const ok = (data: unknown) => new Response(JSON.stringify({data,error:{code:'ok'}}),{status:200,headers:{'Content-Type':'application/json'}});
-const creator = (levels = ['SELF_ONLY','PUBLIC_TO_EVERYONE']) => ({privacy_level_options:levels,max_video_post_duration_sec:60,duet_disabled:true});
+const creator = (levels = ['SELF_ONLY','PUBLIC_TO_EVERYONE']) => ({creator_nickname:'Fixture creator',creator_username:'fixture-creator',privacy_level_options:levels,max_video_post_duration_sec:60,duet_disabled:true,comment_disabled:false,stitch_disabled:false});
 async function fake(run: (calls:{url:string;body:any}[], provider:TikTokPublishingProvider)=>Promise<void>, replies: any[]) {
   const original = globalThis.fetch, calls:{url:string;body:any}[] = [];
   globalThis.fetch = async (input, init) => {
@@ -20,7 +20,7 @@ async function fake(run: (calls:{url:string;body:any}[], provider:TikTokPublishi
   try {await run(calls,new TikTokPublishingProvider());} finally {globalThis.fetch=original;}
 }
 
-test('TikTok absent privacy is private, init is pending not published',async()=>fake(async(c,p)=>{
+test('TikTok explicit private init is pending not published',async()=>fake(async(c,p)=>{
   const r=await p.publish(request()); assert.equal(r.outcome,'pending'); assert.equal(r.providerPostId,'receipt');assert.equal(r.providerPostUrl,null);
   assert.equal(c[1].body.post_info.privacy_level,'SELF_ONLY');assert.equal(c[1].body.post_info.disable_comment,true);assert.equal(c.length,2);
 },[ok(creator()),ok({publish_id:'receipt'})]));
@@ -82,3 +82,17 @@ test('TikTok provider API errors do not leak bodies or credentials',async()=>fak
 test('TikTok transport failure is not retried by provider',async()=>fake(async(c,p)=>{
   await assert.rejects(p.resolvePending('fixture-not-live','receipt'),/fixture timeout/);assert.equal(c.length,1);
 },[new Error('fixture timeout')]));
+
+test('TikTok no privacy or music consent cannot query/init',async()=>fake(async(c,p)=>{
+  await assert.rejects(p.publish({...request(),payload:{title:'Fixture',platform_custom:{tiktok_music_consent:true}}}),{code:'TIKTOK_VISIBILITY_INVALID'});
+  await assert.rejects(p.publish({...request(),payload:{privacy:'private'}}),{code:'TIKTOK_VISIBILITY_INVALID'});assert.equal(c.length,0);
+},[]));
+test('TikTok friends creator choice is preserved and allowed interaction is explicit',async()=>fake(async(c,p)=>{
+  const r=request();r.payload={platform_custom:{tiktok_privacy_level:'MUTUAL_FOLLOW_FRIENDS',tiktok_allow_comment:true,tiktok_music_consent:true}};await p.publish(r);assert.equal(c[1].body.post_info.privacy_level,'MUTUAL_FOLLOW_FRIENDS');assert.equal(c[1].body.post_info.disable_comment,false);assert.equal(c[1].body.post_info.disable_stitch,true);
+},[ok(creator(['MUTUAL_FOLLOW_FRIENDS','SELF_ONLY'])),ok({publish_id:'receipt'})]));
+test('TikTok account-disabled interaction never silently enabled or submitted',async()=>fake(async(c,p)=>{
+ const r=request();r.payload.platform_custom!.tiktok_allow_duet=true;await assert.rejects(p.publish(r),{code:'TIKTOK_INTERACTION_UNAVAILABLE'});assert.equal(c.length,1);
+},[ok(creator())]));
+test('TikTok malformed creator options never produce init',async()=>fake(async(c,p)=>{
+ await assert.rejects(p.publish(request()),{code:'TIKTOK_CREATOR_OPTIONS_UNVERIFIED'});assert.equal(c.length,1);
+},[ok({privacy_level_options:['SELF_ONLY']})]));

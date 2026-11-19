@@ -1,3 +1,4 @@
+import {parseTikTokCreatorOptions,selectedTikTokPrivacy,type TikTokCreatorOptions} from '../../../shared/tiktokCreatorOptions.js';
 import { AppError } from '../../../types/index.js';
 import {
   SocialPublishingProvider, PlatformPublishCapabilities,
@@ -5,7 +6,6 @@ import {
 } from '../types.js';
 
 const API = 'https://open.tiktokapis.com/v2';
-const PRIVACY = {private: 'SELF_ONLY', public: 'PUBLIC_TO_EVERYONE'} as const;
 
 /** Official Direct Post API. An init receipt is not a confirmed publication.
  * Status is resolved by the durable worker, never by uploading a second copy.
@@ -28,9 +28,10 @@ export class TikTokPublishingProvider implements SocialPublishingProvider {
     if (!hasMedia) errors.push('TikTok publishing requires a rendered video clip.');
     const caption = payload.caption || payload.description || payload.title || '';
     if (caption.length > 2200) errors.push(`TikTok caption cannot exceed 2200 characters (currently ${caption.length}).`);
-    if (payload.privacy !== undefined && payload.privacy !== 'private' && payload.privacy !== 'public') {
-      errors.push('TikTok does not support the selected visibility. Choose private or public explicitly.');
+    if (!selectedTikTokPrivacy(payload)) {
+      errors.push('Choose a TikTok audience explicitly from the current account options.');
     }
+    if(payload.platform_custom?.tiktok_music_consent!==true)errors.push('Confirm TikTok music usage before submitting.');
     return {valid: errors.length === 0, errors};
   }
 
@@ -48,30 +49,36 @@ export class TikTokPublishingProvider implements SocialPublishingProvider {
     return result.data;
   }
 
+  async getCreatorOptions(accessToken:string):Promise<TikTokCreatorOptions> {
+    const data=await this.call('/post/publish/creator_info/query/',accessToken,{});
+    const options=parseTikTokCreatorOptions(data);
+    if(!options)throw new AppError('TikTok creator options could not be verified. Refresh account options before posting.',502,'TIKTOK_CREATOR_OPTIONS_UNVERIFIED');
+    return options;
+  }
+
   async publish(request: PublishExecutionRequest): Promise<PublishExecutionResult> {
     const {accessToken, payload, mediaUrl, grantedScopes, mediaDurationSeconds} = request;
     if (!mediaUrl) throw new AppError('TikTok publishing requires a video media URL.', 400, 'MEDIA_URL_REQUIRED');
-    if (!grantedScopes?.includes('video.publish')) {
+    if (!Array.isArray(grantedScopes)||!grantedScopes.includes('video.publish')) {
       throw new AppError('TikTok Direct Post needs video.publish permission. Existing upload-only permission cannot publish directly.', 409, 'TIKTOK_DIRECT_POST_SCOPE_REQUIRED');
     }
     const validation = this.validatePublishRequest(payload, true);
     if (!validation.valid) throw new AppError(validation.errors.join(' '), 400, 'TIKTOK_VISIBILITY_INVALID');
-    const privacy = payload.privacy === 'public' ? 'public' : 'private';
-    const level = PRIVACY[privacy];
-    const creator = await this.call('/post/publish/creator_info/query/', accessToken, {});
-    if (!Array.isArray(creator.privacy_level_options) || !creator.privacy_level_options.includes(level)) {
+    const level = selectedTikTokPrivacy(payload)!;
+    const creator = await this.getCreatorOptions(accessToken);
+    if (!creator.privacyLevels.includes(level)) {
       throw new AppError('The TikTok account does not currently support the selected visibility. Review it before posting.', 409, 'TIKTOK_VISIBILITY_UNAVAILABLE');
     }
-    const maximum = creator.max_video_post_duration_sec;
-    if (typeof mediaDurationSeconds !== 'number' || !Number.isFinite(mediaDurationSeconds) || mediaDurationSeconds <= 0 ||
-        typeof maximum !== 'number' || !Number.isFinite(maximum) || maximum <= 0 || mediaDurationSeconds > maximum) {
-      throw new AppError('The clip duration could not be verified against this TikTok account\'s current limit.', 400, 'TIKTOK_DURATION_UNVERIFIED');
+    if (typeof mediaDurationSeconds !== 'number' || !Number.isFinite(mediaDurationSeconds) || mediaDurationSeconds <= 0 || mediaDurationSeconds > creator.maxVideoSeconds) {
+      throw new AppError('The clip duration could not be verified against this TikTok account current limit.', 400, 'TIKTOK_DURATION_UNVERIFIED');
     }
+    const custom=payload.platform_custom||{};
+    if((custom.tiktok_allow_comment===true&&creator.commentDisabled)||(custom.tiktok_allow_duet===true&&creator.duetDisabled)||(custom.tiktok_allow_stitch===true&&creator.stitchDisabled))throw new AppError('A requested TikTok interaction is disabled by the selected account. Refresh options before posting.',409,'TIKTOK_INTERACTION_UNAVAILABLE');
     const data = await this.call('/post/publish/video/init/', accessToken, {
       post_info: {
         title: payload.caption || payload.description || payload.title || '', privacy_level: level,
         // No new interaction permission is implied by choosing visibility.
-        disable_duet: true, disable_stitch: true, disable_comment: true,
+        disable_duet: custom.tiktok_allow_duet!==true, disable_stitch: custom.tiktok_allow_stitch!==true, disable_comment: custom.tiktok_allow_comment!==true,
       },
       source_info: {source: 'PULL_FROM_URL', video_url: mediaUrl},
     });
@@ -79,7 +86,7 @@ export class TikTokPublishingProvider implements SocialPublishingProvider {
       throw new AppError('TikTok did not return a usable submission receipt. Check the account before retrying.', 502, 'TIKTOK_RECEIPT_MISSING');
     }
     return {providerPostId: data.publish_id, outcome: 'pending', providerPostUrl: null,
-      metadata: {publishId: data.publish_id, privacy, confirmation: 'awaiting_platform'}};
+      metadata: {publishId: data.publish_id, privacy:level, confirmation: 'awaiting_platform'}};
   }
 
   async resolvePending(accessToken: string, publishId: string): Promise<PublishExecutionResult> {

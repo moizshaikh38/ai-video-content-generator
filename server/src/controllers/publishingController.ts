@@ -24,6 +24,14 @@ export async function getPublishingCapabilities(req: AuthenticatedRequest, res: 
   });
 }
 
+export async function getTikTokComposerOptions(req:AuthenticatedRequest,res:Response):Promise<void>{
+  if(!req.user)throw new AppError('Authentication required.',401,'AUTH_REQUIRED');
+  const connectionId=req.body?.socialConnectionId;
+  if(typeof connectionId!=='string'||!connectionId.trim())throw new AppError('socialConnectionId is required.',400,'INVALID_REQUEST');
+  const data=await publishingService.getTikTokComposerOptions(req.user.id,connectionId);
+  res.json({status:'ok',data});
+}
+
 export async function previewPublish(req: AuthenticatedRequest, res: Response): Promise<void> {
   if (!req.user) throw new AppError('Authentication required.', 401, 'AUTH_REQUIRED');
 

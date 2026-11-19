@@ -42,6 +42,9 @@ export interface SocialPublishingProvider {
   /** Validate publish payload before attempting upload */
   validatePublishRequest(payload: PublishPayload, hasMedia: boolean): { valid: boolean; errors: string[] };
 
+  /** Read current creator constraints only, never upload or change grants. */
+  getCreatorOptions?(accessToken:string):Promise<import('../../shared/tiktokCreatorOptions.js').TikTokCreatorOptions>;
+
   /** Execute upload/publishing to the official platform API */
   publish(request: PublishExecutionRequest): Promise<PublishExecutionResult>;
 

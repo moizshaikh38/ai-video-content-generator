@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import {TikTokComposerConstraints,emptyTikTokSelection} from './TikTokComposerConstraints';
+import type {TikTokComposerOptions} from '../services/publishingService';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Send,
   Calendar,
@@ -42,6 +44,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
   initialTags = [],
   initialPlatform,
 }) => {
+  const accountsLoadingRef=useRef(false);
   const [accounts, setAccounts] = useState<SafeSocialAccountConnection[]>([]);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string>('');
   const [loadingAccounts, setLoadingAccounts] = useState(false);
@@ -65,6 +68,12 @@ export const PublishModal: React.FC<PublishModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  const [tiktokOptions,setTikTokOptions]=useState<TikTokComposerOptions|null>(null);
+  const [tiktokLoading,setTikTokLoading]=useState(false);
+  const [tiktokError,setTikTokError]=useState<string|null>(null);
+  const [tiktokSelection,setTikTokSelection]=useState(emptyTikTokSelection);
+  const [tiktokRefresh,setTikTokRefresh]=useState(0);
+  const tiktokGeneration=useRef(0);
   const hasMedia = Boolean(clipId);
 
   const isAccountDisabled = (account: SafeSocialAccountConnection): boolean => {
@@ -90,6 +99,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
 
   const loadAccounts = async () => {
     try {
+      accountsLoadingRef.current=true;
       setLoadingAccounts(true);
       const [accountsRes, capsRes] = await Promise.all([
         socialService.getAccounts().catch(() => ({ accounts: [] })),
@@ -124,11 +134,30 @@ export const PublishModal: React.FC<PublishModalProps> = ({
     } catch (err: any) {
       console.warn('Could not load social accounts:', err?.message);
     } finally {
+      accountsLoadingRef.current=false;
       setLoadingAccounts(false);
     }
   };
 
   const selectedAccount = accounts.find((a) => a.id === selectedConnectionId);
+
+  // Exactly one creator read per open/selected-account/explicit refresh, not caption edits.
+  useEffect(()=>{
+    const generation=++tiktokGeneration.current;
+    setTikTokOptions(null);setTikTokError(null);setTikTokLoading(false);setTikTokSelection(emptyTikTokSelection());
+    if(!isOpen||loadingAccounts||accountsLoadingRef.current||selectedAccount?.provider!=='tiktok')return;
+    if(!selectedAccount.scopes?.includes('video.publish')){setTikTokError('TikTok Direct Post needs video.publish permission. This upload-only connection is not ready. No permission will be added automatically.');return;}
+    setTikTokLoading(true);
+    publishingService.getTikTokComposerOptions(selectedAccount.id).then(result=>{
+      if(tiktokGeneration.current!==generation)return;
+      if(result.connectionId!==selectedAccount.id)throw new Error('Creator options do not match the selected account.');
+      setTikTokOptions(result);
+    }).catch(error=>{if(tiktokGeneration.current===generation)setTikTokError(error?.message||'Current TikTok creator options could not be loaded.');}).finally(()=>{if(tiktokGeneration.current===generation)setTikTokLoading(false);});
+    return ()=>{++tiktokGeneration.current;};
+  },[isOpen,selectedConnectionId,tiktokRefresh,selectedAccount,loadingAccounts]);
+  const tiktokCurrent=selectedAccount?.provider==='tiktok'&&tiktokOptions?.connectionId===selectedConnectionId&&!tiktokLoading&&!tiktokError;
+  const tiktokReady=Boolean(tiktokCurrent&&tiktokSelection.privacy&&tiktokOptions?.creator.privacyLevels.includes(tiktokSelection.privacy)&&tiktokSelection.musicConsent&&typeof preview?.media_metadata?.duration_seconds==='number'&&preview.media_metadata.duration_seconds>0&&preview.media_metadata.duration_seconds<=tiktokOptions.creator.maxVideoSeconds);
+  const tiktokPayload=selectedAccount?.provider==='tiktok'?{privacy:undefined,platform_custom:{tiktok_privacy_level:tiktokSelection.privacy,tiktok_allow_comment:tiktokSelection.comment,tiktok_allow_duet:tiktokSelection.duet,tiktok_allow_stitch:tiktokSelection.stitch,tiktok_music_consent:tiktokSelection.musicConsent}}:{};
 
   // Guard against having a disabled account selected when media is missing
   useEffect(() => {
@@ -164,6 +193,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
           description: caption,
           tags: parsedTags,
           privacy,
+          ...tiktokPayload,
         };
 
         const res = await publishingService.preview(selectedConnectionId, clipId, payload);
@@ -177,10 +207,11 @@ export const PublishModal: React.FC<PublishModalProps> = ({
 
     const timer = setTimeout(runPreview, 400);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [selectedConnectionId, clipId, title, caption, tags, privacy, selectedAccount, capabilities]);
+  }, [selectedConnectionId, clipId, title, caption, tags, privacy, selectedAccount, capabilities, tiktokSelection]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if(selectedAccount?.provider==='tiktok'&&!tiktokReady){setFeedback({type:'error',message:'Load current TikTok options, choose an audience, confirm music use and check the clip duration before submitting.'});return;}
     if (!selectedConnectionId) {
       setFeedback({ type: 'error', message: 'Please select a connected social account.' });
       return;
@@ -209,6 +240,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
         description: caption,
         tags: parsedTags,
         privacy,
+        ...tiktokPayload,
       };
 
       if (publishMode === 'now') {
@@ -472,7 +504,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
               onChange={(e) => setTags(e.target.value)}
             />
 
-            {selectedAccount && ['youtube', 'tiktok', 'instagram'].includes(selectedAccount.provider) && (
+            {selectedAccount && ['youtube', 'instagram'].includes(selectedAccount.provider) && (
               <div>
                 <label className="text-xs font-semibold text-foreground block mb-1">Privacy</label>
                 <select
@@ -485,15 +517,15 @@ export const PublishModal: React.FC<PublishModalProps> = ({
                   {selectedAccount.provider === 'youtube' && <option value="unlisted">Unlisted</option>}
                 </select>
                 <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                  {selectedAccount.provider === 'tiktok'
-                    ? 'Private by default. Your selected visibility is checked with TikTok before submission. Processing is not confirmed publication.'
-                    : selectedAccount.provider === 'instagram'
+                  {selectedAccount.provider === 'instagram'
                     ? 'Instagram Reels uses your account audience. Choose Public explicitly to continue; private or unlisted posting is not supported.'
                     : 'Private by default. Review this account and visibility before submitting.'}
                 </p>
               </div>
             )}
           </div>
+
+          {selectedAccount?.provider==='tiktok'&&<TikTokComposerConstraints mediaDurationSeconds={preview?.media_metadata?.duration_seconds} creator={tiktokCurrent?tiktokOptions!.creator:null} loading={tiktokLoading} error={tiktokError} selection={tiktokSelection} onChange={setTikTokSelection} onRefresh={()=>setTikTokRefresh(v=>v+1)}/>}
 
           {/* Validation Warnings */}
           {preview && preview.warnings.length > 0 && (
@@ -518,6 +550,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
               className="w-full h-11 text-sm font-semibold"
               disabled={
                 isSubmitting ||
+                (selectedAccount?.provider==='tiktok'&&!tiktokReady) ||
                 accounts.length === 0 ||
                 !selectedConnectionId ||
                 Boolean(preview && !preview.valid) ||

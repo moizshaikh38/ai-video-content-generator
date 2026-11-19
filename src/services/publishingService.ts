@@ -1,3 +1,5 @@
+import type {TikTokCreatorOptions} from '../../server/src/shared/tiktokCreatorOptions';
+export interface TikTokComposerOptions {connectionId:string;providerAccountId:string;checkedAt:string;creator:TikTokCreatorOptions}
 import { backendRequest } from './backendClient';
 import { SocialPlatform, SafeSocialAccountConnection } from './socialService';
 
@@ -131,6 +133,10 @@ export interface PublishPreviewResult {
 }
 
 export const publishingService = {
+  async getTikTokComposerOptions(socialConnectionId:string):Promise<TikTokComposerOptions>{
+    const res=await backendRequest<{status:'ok';data:TikTokComposerOptions}>('/publishing/tiktok/creator-options',{method:'POST',body:JSON.stringify({socialConnectionId})});
+    return res.data;
+  },
   async getAccounts(): Promise<SafeSocialAccountConnection[]> {
     const res = await backendRequest<{ status: 'ok'; data: { accounts: SafeSocialAccountConnection[] } }>('/publishing/accounts');
     return res.data.accounts;

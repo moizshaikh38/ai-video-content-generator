@@ -70,6 +70,21 @@ export class PublishingService {
     return socialPublishingRegistry.getAllCapabilities();
   }
 
+  /** Explicit composer/account-open read, not called by keystroke previews.
+   * No refresh, grants or account writes. Owner/account and scope checked first. */
+  async getTikTokComposerOptions(userId:string,connectionId:string) {
+    const db=await getMongoDb();
+    const conn=await db.collection<SocialAccountConnectionRecord>('social_account_connections').findOne({id:connectionId,user_id:userId});
+    if(!conn||conn.provider!=='tiktok')throw new AppError('Selected TikTok connection not found.',404,'CONNECTION_NOT_FOUND');
+    if(conn.status!=='connected')throw new AppError('Selected TikTok connection needs attention.',409,'TIKTOK_CONNECTION_NOT_READY');
+    if(!Array.isArray(conn.scopes)||!conn.scopes.includes('video.publish'))throw new AppError('TikTok Direct Post needs video.publish. Upload-only permission cannot load Direct Post creator options. No permission was added.',409,'TIKTOK_DIRECT_POST_SCOPE_REQUIRED');
+    if(conn.token_expires_at&&(!(conn.token_expires_at instanceof Date)||!Number.isFinite(conn.token_expires_at.getTime())||conn.token_expires_at.getTime()<=Date.now()))throw new AppError('Selected TikTok connection has expired. Refresh it before loading creator options.',409,'TIKTOK_CONNECTION_NOT_READY');
+    const provider=socialPublishingRegistry.getProvider('tiktok');
+    if(!provider.getCreatorOptions)throw new AppError('TikTok creator options are unavailable.',503,'TIKTOK_CREATOR_OPTIONS_UNVERIFIED');
+    const creator=await provider.getCreatorOptions(decryptToken(conn.access_token));
+    return {connectionId:conn.id,providerAccountId:conn.provider_account_id,checkedAt:new Date().toISOString(),creator};
+  }
+
   /**
    * Preview a publish payload without calling provider APIs
    */

@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/authMiddleware.js';
 import { expensiveLimiter, generalLimiter } from '../middleware/rateLimiter.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import {
+  getTikTokComposerOptions,
   getPublishingAccounts,
   getPublishingCapabilities,
   previewPublish,
@@ -22,6 +23,9 @@ router.get('/accounts', requireAuth, generalLimiter, asyncHandler(getPublishingA
 
 // 1b. Get platform publishing capabilities
 router.get('/capabilities', requireAuth, generalLimiter, asyncHandler(getPublishingCapabilities));
+
+// Account-specific read, called on composer open/selection or deliberate refresh.
+router.post('/tiktok/creator-options', requireAuth, generalLimiter, asyncHandler(getTikTokComposerOptions));
 
 // 2. Validate & preview post
 router.post('/preview', requireAuth, generalLimiter, asyncHandler(previewPublish));
