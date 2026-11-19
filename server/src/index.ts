@@ -1,3 +1,5 @@
+import {startRenderQueueWake} from './services/queue/renderQueueWake.js';
+import {runsBackgroundWorkers,acceptsApiRequests,validateRuntimePolicy,renderSweepInterval} from './services/runtimePolicy.js';
 import {workLifecycle,createShutdown,workAdmission} from './services/queue/workLifecycle.js';
 import express from 'express';
 import cors from 'cors';
@@ -9,7 +11,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { requestIdMiddleware } from './middleware/requestId.js';
 import { generalLimiter } from './middleware/rateLimiter.js';
 import { bootstrapMongo } from './db/bootstrapMongo.js';
-import { closeMongo, isMongoConfigured } from './db/mongoClient.js';
+import { closeMongo, isMongoConfigured, getMongoDb } from './db/mongoClient.js';
 import { UsageService } from './services/usageService.js';
 import { CreditWalletService } from './services/creditWalletService.js';
 import { socialService } from './services/socialService.js';
@@ -22,6 +24,7 @@ import { asyncHandler } from './middleware/errorHandler.js';
 
 // Validate environment variables on startup (fails fast in production)
 validateEnvironment();
+validateRuntimePolicy();
 
 const app = express();
 
@@ -89,7 +92,8 @@ app.use(express.json({ limit: '1mb', reviver: pollutionSafeReviver }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // API Routes
-app.use('/api', apiRouter);
+if(acceptsApiRequests())app.use('/api', apiRouter);
+else app.use('/api',(_req,res)=>{res.status(503).json({status:'error',code:'WORKER_ONLY',message:'This service only runs background workers.'});});
 
 // 404 & Global Error Handlers (M2)
 app.use(notFoundHandler);
@@ -99,6 +103,7 @@ app.use(errorHandler);
 let server: ReturnType<typeof app.listen> | null = null;
 let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 let oauthCleanupTimer: ReturnType<typeof setInterval> | null = null;
+let stopRenderWake:(()=>void)|undefined;
 let renderSweepTimer: ReturnType<typeof setInterval> | null = null;
 let multimodalSweepTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -143,7 +148,7 @@ if (process.env.NODE_ENV !== 'test') {
       }
     }
 
-    if (mongoReady && !workLifecycle.isDraining()) {
+    if (mongoReady && runsBackgroundWorkers() && !workLifecycle.isDraining()) {
       const cleanupWork = () => UsageService.cleanupOrphanedReservations(30)
         .then((count) => { if (count > 0) logger.info(`Released ${count} orphaned usage reservations.`); })
         .catch((error) => logger.warn('Usage reservation cleanup failed', { error: error instanceof Error ? error.message : String(error) }))
@@ -174,7 +179,7 @@ if (process.env.NODE_ENV !== 'test') {
       // left by crashes/restarts, and drains jobs deferred by the inline concurrency cap.
       // Each tick claims at most a few jobs; renders themselves serialize behind the
       // per-process concurrency cap in clipRenderService.
-      const RENDER_SWEEP_INTERVAL_MS = 60_000;
+      const RENDER_SWEEP_INTERVAL_MS = renderSweepInterval();
       const RENDER_SWEEP_MAX_JOBS_PER_TICK = 3;
       let renderSweepRunning = false;
       const runRenderSweep = async (trigger: string) => {
@@ -197,7 +202,12 @@ if (process.env.NODE_ENV !== 'test') {
         }
       };
       // Immediate recovery pass for jobs stranded by a previous crash/restart.
-      const trackedRenderSweep=(trigger:string)=>{if(workLifecycle.isDraining())return;void workLifecycle.run('render-sweep',()=>runRenderSweep(trigger)).catch(error=>logger.warn('Render sweep failed',{error:String(error)}));};
+      const drainRenderQueue=()=>workLifecycle.run('render-sweep',()=>runRenderSweep('queue-wakeup'));
+      const wakeError=(error:unknown)=>logger.warn('Render queue notifications unavailable; periodic recovery remains active.',{error:String(error)});
+      let requestRenderWake:()=>void;
+      try{const wake=startRenderQueueWake(await getMongoDb(),drainRenderQueue,wakeError);stopRenderWake=wake.stop;requestRenderWake=wake.request;}
+      catch(error){wakeError(error);requestRenderWake=()=>{void drainRenderQueue().catch(wakeError);};}
+      const trackedRenderSweep=(_trigger:string)=>{if(!workLifecycle.isDraining())requestRenderWake();};
       trackedRenderSweep('startup-recovery');
       renderSweepTimer = setInterval(() => trackedRenderSweep('interval'), RENDER_SWEEP_INTERVAL_MS);
       renderSweepTimer.unref();
@@ -242,6 +252,7 @@ if (process.env.NODE_ENV !== 'test') {
   const shutdown=createShutdown({lifecycle:workLifecycle,timeoutMs:10_000,
     stopPollers:()=>{
       stopPublishingWorker();
+      stopRenderWake?.();
       for(const timer of[cleanupTimer,oauthCleanupTimer,renderSweepTimer,multimodalSweepTimer])if(timer)clearInterval(timer);
     },
     closeHttp:()=>new Promise<void>((resolve,reject)=>{if(!server){resolve();return;}server.close(error=>error?reject(error):resolve());server.closeIdleConnections();}),

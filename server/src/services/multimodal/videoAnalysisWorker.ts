@@ -1,3 +1,4 @@
+import {runsBackgroundWorkers} from '../runtimePolicy.js';
 import {workLifecycle} from '../queue/workLifecycle.js';
 import {transcriptSnapshotIdentity} from '../../shared/transcriptSnapshotIdentity.js';
 import type {SourceObjectReceipt} from '../../shared/sourceObjectReceipt.js';
@@ -294,7 +295,7 @@ export class VideoAnalysisWorker {
    * Convenience runner: checks for next job and processes it.
    */
   public static async processNext():Promise<boolean>{
-    if(workLifecycle.isDraining())return false;
+    if(!runsBackgroundWorkers()||workLifecycle.isDraining())return false;
     return workLifecycle.run('multimodal-analysis',()=>this.executeNext());
   }
   private static async executeNext(): Promise<boolean> {

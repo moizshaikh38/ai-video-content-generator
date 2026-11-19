@@ -1,3 +1,4 @@
+import {runsBackgroundWorkers,hostRenderCapacity,ffmpegThreadArgs,ffmpegEncoderThreadArgs} from './runtimePolicy.js';
 import type {RenderQuotaPolicy} from '../db/repositories/renderQuotaRepository.js';
 import {enforceSavedRenderFreshness} from './renderFreshnessGuard.js';
 import {assertRenderAssetOwnership} from '../utils/renderAssetOwnership.js';
@@ -101,8 +102,7 @@ export const activeRenderSet = new Set<string>();
 // Inline (request-triggered) launches defer to the background sweep once the
 // per-process cap is reached; the job stays 'queued' and is picked up later.
 export function maxConcurrentRenders(): number {
-  const cpus = os.cpus().length || 1;
-  return Math.max(1, Math.min(4, Math.floor(cpus / 2)));
+  return hostRenderCapacity(renderOccupancy());
 }
 
 // Admission slots are reserved synchronously, BEFORE any await, by every path that
@@ -137,7 +137,7 @@ export function releaseRenderSlot(clipId: string): void {
 }
 
 export function shouldLaunchInlineRender(): boolean {
-  return !workLifecycle.isDraining() && renderOccupancy() < maxConcurrentRenders();
+  return runsBackgroundWorkers() && !workLifecycle.isDraining() && renderOccupancy() < maxConcurrentRenders();
 }
 
 /**
@@ -146,6 +146,7 @@ export function shouldLaunchInlineRender(): boolean {
  * started in index.ts picks it up.
  */
 export function launchInlineRender(clipId: string, userId: string, jobId: string | undefined): boolean {
+  if(!runsBackgroundWorkers())return false;
   if (!tryReserveRenderSlot(clipId)) {
     logger.warn(`[ClipRender] Inline render deferred to background sweep for clip ${clipId} (concurrency cap ${maxConcurrentRenders()} reached or clip already holds a slot)`);
     return false;
@@ -1046,6 +1047,7 @@ export class ClipRenderService {
             const ffmpegArgs = [
               '-y',
               ...encoderFlags.initArgs,
+              ...ffmpegThreadArgs(),
               ...inputSeekArgs,
               ...graph.inputArgs,
               ...scriptExec.args,
@@ -1053,6 +1055,7 @@ export class ClipRenderService {
               '-map', graph.audioMap,
               ...encoderFlags.videoCodecArgs,
               ...encoderFlags.qualityArgs,
+              ...ffmpegEncoderThreadArgs(),
               '-c:a', 'aac',
               '-b:a', '128k',
               '-movflags', '+faststart',
@@ -1097,6 +1100,7 @@ export class ClipRenderService {
               '-nostdin',
               '-y',
               ...encoderFlags.initArgs,
+              ...ffmpegThreadArgs(),
               '-ss', startSec.toFixed(3),
               '-t', durationSec.toFixed(3),
               '-i', sourcePath,
@@ -1106,6 +1110,7 @@ export class ClipRenderService {
               '-map', audioGraph.audioMap,
               ...encoderFlags.videoCodecArgs,
               ...encoderFlags.qualityArgs,
+              ...ffmpegEncoderThreadArgs(),
               '-c:a', 'aac',
               '-b:a', '128k',
               '-pix_fmt', 'yuv420p',
@@ -1130,6 +1135,7 @@ export class ClipRenderService {
 
           const videoGraph = composeQuickVideoGraph(videoFilters);
           const cmd = ffmpeg(sourcePath)
+            .inputOptions(ffmpegThreadArgs())
             .setStartTime(startSec)
             .setDuration(durationSec);
           // -filter_complex disables ffmpeg's default stream selection, so the
@@ -1153,6 +1159,7 @@ export class ClipRenderService {
           }
 
           const outputOpts = [
+            ...ffmpegEncoderThreadArgs(),
             '-pix_fmt yuv420p',
             `-preset ${config.renderPreset}`,
             '-crf', '22',
@@ -1735,7 +1742,7 @@ export class ClipRenderService {
    * Background processor: claims due queued render jobs and recovers stale leases
    */
   public static async processDueRenderJobs(): Promise<number> {
-    if (workLifecycle.isDraining() || !isMongoConfigured) return 0;
+    if (!runsBackgroundWorkers() || workLifecycle.isDraining() || !isMongoConfigured) return 0;
     const db = await getMongoDb();
     const now = new Date();
 
