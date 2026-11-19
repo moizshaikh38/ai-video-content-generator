@@ -54,3 +54,17 @@ Further current official sources:
 - https://developers.facebook.com/docs/graph-api/reference/user/permissions/
 
 Meta's current publishing guide and reference disagree on the numerical daily cap (50 versus 100). No hardcoded cap or unsupported availability claim was introduced. A future preflight should read actual account quota/config rather than pick one number.
+
+## Dynamic Instagram publishing-capacity check, November 19 at 23:39 IST
+
+Immediately before the first irreversible `media_publish` checkpoint, the native provider reads the exact selected account's `content_publishing_limit?fields=quota_usage,config` using the existing bearer token. It accepts only one response row with nonnegative integer usage, positive integer ceiling and positive integer window duration. It does not hardcode the contradictory 50/100-post documentation values or turn missing/coerced data into spare capacity.
+
+If usage reaches the account-returned ceiling, the same saved container remains pending without a publish checkpoint or dispatch. The existing one-minute/five-minute reconciliation bounds remain. Capacity can reopen on a later read, without creating another container. Missing/malformed capacity cannot authorize dispatch. A previously started uncertain dispatch remains read-only and does not make a new quota read. The snapshot is retained with the checkpoint/result metadata. This check is not a reservation: another app or concurrent job can use capacity after the read, and Meta still enforces its final limit.
+
+34 native-provider/OAuth fixtures pass, including dynamic exhaustion and malformed-capacity cases. The enabled isolated real-Mongo recovery test passes with quota exhausted then reopened on the same receipt, plus prior restart/lost-response/partial-success/expiry/concurrent-worker cases. Social HTTP responses and media URL are fixtures; no real social call or post occurred. Focused provider strict TypeScript passes under the existing resource bounds. Full mounted UI, live app/permissions and actual platform execution remain unverified. No API-version, scope, account or deployed setting changed for this check.
+
+Official sources inspected:
+- https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user/content_publishing_limit
+- https://developers.facebook.com/documentation/instagram-platform/content-publishing/
+
+The reference field table defines `config`, while its example request asks for an undefined `rate_limit_settings` field. The implementation follows the field table and example response with `config`, and fails closed if the actual supported API does not return it. This discrepancy still needs an authorized live-contract check before release, not an automatic field fallback or version bump.

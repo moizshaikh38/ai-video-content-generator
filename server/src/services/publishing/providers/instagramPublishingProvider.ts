@@ -34,6 +34,17 @@ export class InstagramPublishingProvider implements SocialPublishingProvider {
     if(!response.ok||data?.error)throw new AppError('Instagram request could not be confirmed. The saved container will not be re-uploaded.',response.status>=500?502:400,'INSTAGRAM_REQUEST_UNCONFIRMED');
     return data;
   }
+  /** The account response, not conflicting static 50/100-post docs, supplies
+   * the moving-window ceiling. This is a preflight, not a quota reservation. */
+  private async publishingQuota(token:string,account:string):Promise<{usage:number;total:number;durationSeconds:number;checkedAt:string}> {
+    const result=await this.graph(token,`${account}/content_publishing_limit?fields=quota_usage,config`);
+    const row=Array.isArray(result?.data)&&result.data.length===1?result.data[0]:null;
+    const usage=row?.quota_usage,total=row?.config?.quota_total,durationSeconds=row?.config?.quota_duration;
+    if(!Number.isSafeInteger(usage)||usage<0||!Number.isSafeInteger(total)||total<1||!Number.isSafeInteger(durationSeconds)||durationSeconds<1) {
+      throw new AppError('Instagram publishing capacity could not be verified. The saved container was not published.',502,'INSTAGRAM_QUOTA_UNVERIFIED');
+    }
+    return {usage,total,durationSeconds,checkedAt:new Date().toISOString()};
+  }
   async publish(request:PublishExecutionRequest):Promise<PublishExecutionResult> {
     const validation=this.validatePublishRequest(request.payload,Boolean(request.mediaUrl));
     if(!validation.valid)throw new AppError(validation.errors.join(' '),400,'INSTAGRAM_VISIBILITY_UNSUPPORTED');
@@ -63,9 +74,13 @@ export class InstagramPublishingProvider implements SocialPublishingProvider {
     const status=await this.resolvePending(request.accessToken,receipt);
     if(status.outcome==='published'||status.metadata?.confirmation!=='FINISHED')return {...status,metadata:{...metadata,...status.metadata}};
     if(metadata.publishDispatchStarted)return {...status,metadata:{...metadata,...status.metadata,confirmation:'publish_outcome_unknown'}};
+    // Recheck immediately before dispatch. Capacity may be used by other apps
+    // after this read; the platform still owns final enforcement.
+    const publishingQuota=await this.publishingQuota(request.accessToken,account);
+    if(publishingQuota.usage>=publishingQuota.total)return {...status,metadata:{...metadata,...status.metadata,publishingQuota,confirmation:'publishing_quota_wait'}};
     // Persist this irreversible boundary BEFORE the external call. A crash in
     // either direction never authorizes a second media_publish request.
-    const started={...metadata,publishDispatchStarted:true,confirmation:'publish_dispatch_started'};
+    const started={...metadata,publishingQuota,publishDispatchStarted:true,confirmation:'publish_dispatch_started'};
     await checkpoint(started);
     const data=await this.graph(request.accessToken,`${account}/media_publish`,{creation_id:receipt});
     const mediaId=this.id(data.id,'INSTAGRAM_PUBLISH_UNVERIFIED');
