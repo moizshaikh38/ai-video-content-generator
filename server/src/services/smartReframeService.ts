@@ -1,3 +1,4 @@
+import {supervisedExecFile} from './queue/supervisedExecFile.js';
 import {bracketedFaceGap} from '../shared/bracketedFaceGap.js';
 import {embeddedCameraPanelReview,embeddedCameraMeasurementEligible,embeddedSourceSplitMeasurementEligible,embeddedSourceSplitVeto} from '../shared/embeddedCameraPanelReview.js';
 import {workLifecycle} from './queue/workLifecycle.js';
@@ -40,7 +41,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { execFile, ChildProcess } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { downloadObjectToFile, computeFileStreamSha256, headObject } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
@@ -2802,7 +2803,8 @@ export class SmartReframeService {
     timeoutMs = 120000,
     maxSamples = 600,
     discoverShortAutoCuts = false,
-    discoverShortAutoText = false
+    discoverShortAutoText = false,
+    signal?:AbortSignal
   ): Promise<{
     source_width: number;
     source_height: number;
@@ -2851,69 +2853,29 @@ export class SmartReframeService {
       discoverShortAutoText,
     });
 
-    return new Promise((resolve, reject) => {
-      let isSettled = false;
-      let child: ChildProcess | null = null;
-
-      const timer = setTimeout(() => {
-        if (!isSettled) {
-          isSettled = true;
-          if (child) {
-            try {
-              child.kill('SIGKILL');
-            } catch {}
-          }
-          const err = new Error(`Smart reframe analysis timed out after ${timeoutMs / 1000}s`);
-          (err as any).code = 'REFRAME_ANALYSIS_TIMEOUT';
-          reject(err);
-        }
-      }, timeoutMs);
-
-      try {
-        child = execFile(
-          pythonBin,
-          [scriptPath],
-          { maxBuffer: 10 * 1024 * 1024 },
-          (err, stdout, stderr) => {
-            clearTimeout(timer);
-            if (isSettled) return;
-            isSettled = true;
-
-            if (err) {
-              logger.error('[SmartReframe] Python CV analyzer failed', { error: err.message, stderr });
-              const wrappedErr = new Error(`Computer vision analyzer failed: ${err.message}`);
-              (wrappedErr as any).code = 'CV_ANALYZER_FAILED';
-              return reject(wrappedErr);
-            }
-
-            try {
-              const res = JSON.parse(stdout.trim());
-              if (res.status !== 'ok') {
-                const appErr = new Error(res.error_message || 'CV Analyzer returned error status');
-                (appErr as any).code = res.error_code || 'CV_ANALYZER_ERROR';
-                return reject(appErr);
-              }
-              resolve(res);
-            } catch (pErr: any) {
-              const parseErr = new Error(`Failed to parse CV analyzer output: ${pErr.message}`);
-              (parseErr as any).code = 'MALFORMED_CV_OUTPUT';
-              reject(parseErr);
-            }
-          }
-        );
-
-        if (child.stdin) {
-          child.stdin.write(inputPayload);
-          child.stdin.end();
-        }
-      } catch (launchErr: any) {
-        clearTimeout(timer);
-        if (!isSettled) {
-          isSettled = true;
-          reject(launchErr);
-        }
-      }
-    });
+    let stdout:string;
+    try {
+      // Linux owns the whole process group and verifies exit before callers
+      // clean sources or, in a future integrated gate, release capacity.
+      const result=process.platform==='linux'
+        ? await supervisedExecFile(pythonBin,[scriptPath],{input:inputPayload,timeoutMs,maxBuffer:10*1024*1024,signal})
+        : await new Promise<{stdout:string;stderr:string}>((resolve,reject)=>{
+          const child=execFile(pythonBin,[scriptPath],{timeout:timeoutMs,killSignal:'SIGKILL',maxBuffer:10*1024*1024,signal},(error,stdout,stderr)=>error?reject(error):resolve({stdout,stderr}));
+          child.stdin?.on('error',()=>{});child.stdin?.end(inputPayload);
+        });
+      stdout=result.stdout;
+    } catch(error:any) {
+      if(error.code==='PROCESS_TIMEOUT'||(process.platform!=='linux'&&error.killed&&error.signal==='SIGKILL'))throw Object.assign(Error(`Smart reframe analysis timed out after ${timeoutMs/1000}s`),{code:'REFRAME_ANALYSIS_TIMEOUT',cause:error});
+      if(error.code==='ABORT_ERR'&&signal?.aborted)throw Object.assign(Error('Work was cancelled.'),{code:'WORK_CANCELLED'});
+      if(['WORK_CANCELLED','PROCESS_STOP_UNVERIFIED','SUPERVISION_UNAVAILABLE'].includes(error.code))throw error;
+      logger.error('[SmartReframe] Python CV analyzer failed',{error:error.message});
+      throw Object.assign(Error(`Computer vision analyzer failed: ${error.message}`),{code:'CV_ANALYZER_FAILED',cause:error});
+    }
+    let result:any;
+    try{result=JSON.parse(stdout.trim());if(result===null)throw Error('CV result is null.');}
+    catch(error:any){throw Object.assign(Error(`Failed to parse CV analyzer output: ${error.message}`),{code:'MALFORMED_CV_OUTPUT'});}
+    if(result.status!=='ok')throw Object.assign(Error(result.error_message||'CV Analyzer returned error status'),{code:result.error_code||'CV_ANALYZER_ERROR'});
+    return result;
   }
 
   /**

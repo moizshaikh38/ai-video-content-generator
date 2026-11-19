@@ -31,3 +31,39 @@ Expired reservations continue to count. A stopped heartbeat does not prove a chi
 The targeted fixture uses the existing isolated local `render_jobs` collection only as an injected document store for the primitive. Its documents have synthetic prefixed IDs and no queued render status; they are deleted in `finally`. No new collection/index is created, and the helper is not wired to real render jobs.
 
 Tests cover cross-connection races, independent memory/CPU/scratch/count gates, duplicate IDs, policy mismatch, missing pool, wrong identity, literal owner values, renewal and expiry quarantine, release after fixture work stopped, and database outage propagation. Fixture resource numbers are arbitrary test units, not production capacity recommendations. Full application typing/build, nested scopes, real child-process cancellation, durable queue integration and hosted behavior remain unverified.
+
+## First supervised workload path
+
+On Linux, `SmartReframeService.runCvAnalyzer` now uses `supervisedExecFile` for its
+actual Python launch. The helper creates a dedicated process group, captures
+bounded stdout/stderr, sends input without a shell, and stops the owned group on
+timeout, cancellation or output overflow. It waits for child close and checks
+`/proc` for remaining non-exited group members before returning. A successful
+leader cannot leave silent same-group descendants running. A supplied
+`AbortSignal` is optional and leaves existing callers unchanged. The former
+CV timeout could reject immediately after issuing kill, before exit was known.
+
+The timeout error remains `REFRAME_ANALYSIS_TIMEOUT`; malformed JSON and provider
+status errors remain distinct. Local fixture executable tests exercise the real
+service launch path as well as the low-level child tests. One retained gaming
+source's 0..1 second interval produced an exactly equal analyzer JSON result
+through the service and standalone Python with the same inputs/environment.
+This is a narrow correctness check, not representative quality/capacity evidence.
+
+This is not yet permit integration. Render FFmpeg execution, source processing,
+parent-worker death recovery and lease-loss cancellation are not supervised by
+this change. Existing callers do not yet pass a distributed lease-loss signal.
+A child deliberately escaping its process group is outside this helper's scope;
+the trusted CV script's ordinary FFmpeg/Tesseract children inherit the group.
+A worker killed outright may leave children behind, so expired resource permits
+must still quarantine capacity. Non-Linux uses direct execFile and has no group
+exit guarantee. An unreadable `/proc` or unverified stop must never be interpreted
+as permission to free a resource reservation. Uninterruptible kernel work can
+prevent close; the helper must not claim it has exited.
+
+Detached groups also change local measurement: a guard that sums only the
+parent's process group omits the analyzer. Qualification must sum the recursive
+owned descendant tree, retain observed reparented children in that accounting,
+and include those children in guard-stop cleanup. Summed RSS can double-count
+shared pages and sampling can miss short peaks. The local guard limits are not
+production resource policy.

@@ -1,0 +1,11 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';import os from 'node:os';import path from 'node:path';
+import {SmartReframeService as S} from '../services/smartReframeService.js';
+test('actual runCvAnalyzer launch path preserves JSON/status/errors and cancellation contract using local fixture executable',async()=>{const dir=await fs.mkdtemp(path.join(os.tmpdir(),'vireo-cv-launch-')),runner=path.join(dir,'fixture-executable'),source=path.join(dir,'source'),old=process.env.PYTHON_PATH;await fs.writeFile(source,'local fixture, not video');process.env.PYTHON_PATH=runner;const write=async(body:string)=>{await fs.writeFile(runner,'#!'+process.execPath+'\n'+body);await fs.chmod(runner,0o700);};
+ try{await write("process.stdin.resume();process.stdin.on('end',()=>console.log(JSON.stringify({status:'ok',source_width:12,source_height:6,samples:[],sample_count:0}))); ");assert.equal((await S.runCvAnalyzer(source,1,0,1,1000,2)).source_width,12);
+ await write("console.log('invalid JSON')");await assert.rejects(S.runCvAnalyzer(source,1,0,1,1000,2),{code:'MALFORMED_CV_OUTPUT'});
+ await write("console.log('null')");await assert.rejects(S.runCvAnalyzer(source,1,0,1,1000,2),{code:'MALFORMED_CV_OUTPUT'});
+ await write("console.log(JSON.stringify({status:'error',error_code:'FIXTURE_CV_ERROR',error_message:'local test'}))");await assert.rejects(S.runCvAnalyzer(source,1,0,1,1000,2),{code:'FIXTURE_CV_ERROR'});
+ await write('process.exit(2)');await assert.rejects(S.runCvAnalyzer(source,1,0,1,1000,2),{code:'CV_ANALYZER_FAILED'});
+ await write('setInterval(()=>{},1000)');await assert.rejects(S.runCvAnalyzer(source,1,0,1,50,2),{code:'REFRAME_ANALYSIS_TIMEOUT'});
+ const controller=new AbortController();const pending=S.runCvAnalyzer(source,1,0,1,1000,2,false,false,controller.signal);setTimeout(()=>controller.abort(),50);await assert.rejects(pending,{code:'WORK_CANCELLED'});
+ }finally{if(old===undefined)delete process.env.PYTHON_PATH;else process.env.PYTHON_PATH=old;await fs.rm(dir,{recursive:true,force:true});}});
