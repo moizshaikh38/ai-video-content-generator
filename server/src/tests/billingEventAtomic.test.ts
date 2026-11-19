@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
-import {MongoClient,Collection} from 'mongodb';
+import {MongoClient,Collection,ClientSession,MongoServerError} from 'mongodb';
 import {config} from '../config/index.js';
 import {handlePaddleWebhook} from '../controllers/billingController.js';
 import {closeMongo} from '../db/mongoClient.js';
@@ -26,6 +26,10 @@ test('actual Mongo billing terminal receipt and state commit together; races, ro
   (Collection.prototype as any).updateOne=async function(filter:any,...rest:any[]){if(this.collectionName==='subscription_limits'&&filter.user_id===rollback.userId){injected=true;throw Object.assign(Error('Synthetic post-subscription failure'),{code:'FIXTURE_FAILURE'});}return (original as any).call(this,filter,...rest);};
   try{await assert.rejects(applyVerifiedBillingEvent(rollback,db,client),{code:'FIXTURE_FAILURE'});}finally{Collection.prototype.updateOne=original;}
   assert(injected);assert.equal(await db.collection('subscriptions').countDocuments({user_id:rollback.userId}),0);assert.equal(await db.collection('billing_customers').countDocuments({user_id:rollback.userId}),0);assert.equal(await db.collection('billing_events').countDocuments({provider_event_id:rollback.eventId}),0);assert.equal((await applyVerifiedBillingEvent(rollback,db,client))?.idempotent,false);
+  const lostResponse=seed(),oldCommit=ClientSession.prototype.commitTransaction;let commitResponseLost=false;
+  (ClientSession.prototype as any).commitTransaction=async function(...args:any[]){const result=await (oldCommit as any).apply(this,args);if(!commitResponseLost){commitResponseLost=true;throw new MongoServerError({message:'Synthetic response loss after actual commit',code:91});}return result;};
+  try{await assert.rejects(applyVerifiedBillingEvent(lostResponse,db,client),{code:91});}finally{ClientSession.prototype.commitTransaction=oldCommit;}
+  assert(commitResponseLost);assert.equal((await db.collection('billing_events').findOne({provider_event_id:lostResponse.eventId}))?.status,'processed');assert.equal((await applyVerifiedBillingEvent(lostResponse,db,client))?.idempotent,true);assert.equal(await db.collection('subscriptions').countDocuments({user_id:lostResponse.userId}),1);
   const legacy=seed();await db.collection('billing_events').insertOne({provider:'paddle',provider_event_id:legacy.eventId,status:'processing',processed_at:new Date(0)});await assert.rejects(applyVerifiedBillingEvent(legacy,db,client),{code:'BILLING_EVENT_RECOVERY_REQUIRED'});assert.equal(await db.collection('subscriptions').countDocuments({user_id:legacy.userId}),0);
   await db.collection('billing_events').updateOne({provider_event_id:legacy.eventId},{$set:{status:'failed'}});assert.equal((await applyVerifiedBillingEvent(legacy,db,client))?.idempotent,false);
   const blocked=seed();await db.collection('billing_events').insertOne({provider:'paddle',provider_event_id:blocked.eventId,status:'failed'});const blocker=client.startSession();blocker.startTransaction();
