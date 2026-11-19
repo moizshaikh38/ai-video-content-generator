@@ -1124,7 +1124,7 @@ export class ClipAnalysisService {
           // check. Omit only a known unsafe teaser, without guessing a new cut.
           const teaserSpeechScope = compareFinalSpeechScope({words:rawWords,
             originalStart:coStart,originalEnd:coEnd,finalStart:coStart,finalEnd:coEnd});
-          if (coDur >= 1.5 && coDur <= 6.5 && teaserSpeechScope.finalWordBoundarySafe !== false) {
+          if (coDur >= 1.5 && coDur <= 6.5 && Number((duration_seconds + coDur).toFixed(3)) <= maxDurationLimit && teaserSpeechScope.finalWordBoundarySafe !== false) {
             cold_open = {
               enabled: true,
               start_seconds: coStart,
