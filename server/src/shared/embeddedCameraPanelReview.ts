@@ -35,3 +35,16 @@ export function embeddedCameraPanelReview(input:{receipt:InsetObservationReceipt
 export function embeddedCameraMeasurementEligible(input:{flag:unknown;sourceReceipt:unknown;layoutSource:unknown;aspect:unknown;duration:number;sceneCuts:unknown}):boolean{
  return input.flag==='1'&&!!input.sourceReceipt&&input.layoutSource==='auto'&&input.aspect==='9:16'&&Number.isFinite(input.duration)&&input.duration>0&&input.duration<=15&&Array.isArray(input.sceneCuts)&&input.sceneCuts.length===0;
 }
+
+/** Measure only an already inferred short portrait-Auto conversation split.
+ * Repeated inset geometry can disprove that inference; it cannot choose roles.
+ * This guard never extracts the inset or crops source context. */
+export function embeddedSourceSplitMeasurementEligible(input:{sourceReceipt:unknown;layoutSource:unknown;cropMode:unknown;aspect:unknown;duration:number;sceneCuts:unknown;inferredLayout:unknown}):boolean {
+ return input.cropMode==='smart'&&input.inferredLayout==='split'&&embeddedCameraMeasurementEligible({...input,flag:'1'});
+}
+export function embeddedSourceSplitVeto(track:any,cropConfig:any,duration:number):any[]|undefined {
+ const m=track?.metadata;
+ if(!Number.isFinite(duration)||duration<=0||m?.embedded_source_split_guard_enabled!==true||track.layout_mode!=='split'||cropConfig?.layout_mode_source!=='auto'||(cropConfig.mode&&cropConfig.mode!=='smart')||track.status!=='ready'||track.isStale||track.sourceObjectVerified!==true||!Array.isArray(m.scene_cuts)||m.scene_cuts.length||Math.abs(duration-(m.analyzed_source_end-m.analyzed_source_start))>.001)return undefined;
+ if(!embeddedCameraPanelReview({receipt:m.embedded_camera_panel_review,sha256:m.analyzed_source_sha256,sourceStart:m.analyzed_source_start,sourceEnd:m.analyzed_source_end,sourceWidth:track.source_width,sourceHeight:track.source_height}))return undefined;
+ return [{start:0,end:duration,kind:'fit',windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}],presentationProtection:{preserveWindow:true,reason:'measured-context'},contextStatus:'unresolved-review-required',uncertainty:'Repeated inset-like source geometry conflicts with the inferred conversation split. Keep one unextracted source view. Source roles, readable UI and final composition remain unresolved; review before sharing.'}];
+}

@@ -1,4 +1,4 @@
-import {embeddedCameraPanelReview,embeddedCameraMeasurementEligible} from '../shared/embeddedCameraPanelReview.js';
+import {embeddedCameraPanelReview,embeddedCameraMeasurementEligible,embeddedSourceSplitMeasurementEligible,embeddedSourceSplitVeto} from '../shared/embeddedCameraPanelReview.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import {proposeAutomaticGamingPanels} from '../shared/automaticGamingPanels.js';
 import {assignParticipantPanels} from '../shared/participantPanels.js';
@@ -1469,6 +1469,8 @@ export class SmartReframeService {
       const candidate=embeddedCameraPanelReview({receipt:m.embedded_camera_panel_review,sha256:m.analyzed_source_sha256,sourceStart:m.analyzed_source_start,sourceEnd:m.analyzed_source_end,sourceWidth:track.source_width,sourceHeight:track.source_height});
       if(candidate&&Math.abs(duration-(m.analyzed_source_end-m.analyzed_source_start))<=.001)return [{start:0,end:duration,kind:'group',windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}],split:{speaker1X:.25,speaker2X:.75,dividerX:.5,focusPanels:candidate.panels},contextStatus:'unresolved-review-required',uncertainty:candidate.limitations.join(' ')}];
     }
+    const embeddedSplitVeto=embeddedSourceSplitVeto(track,cropConfig,duration);
+    if(embeddedSplitVeto)return embeddedSplitVeto;
     if(cropConfig?.layout_mode_source!=='auto'||track?.status!=='ready'||track.isStale||track.sourceObjectVerified===false||
        track.metadata?.shot_composition_candidate===true||!track.metadata?.analyzed_source_sha256||
        !(duration>0)||!track.raw_samples?.length||
@@ -3123,9 +3125,10 @@ export class SmartReframeService {
         if(e?.sourceSha256===analyzedSourceSha256&&e.sourceWidth===cvResult.source_width&&e.sourceHeight===cvResult.source_height&&Math.abs(e.durationSeconds-durationSec)<.05)automaticGamingEvidence=e;
       }
       let embeddedCameraReview:unknown;
-      // Bounded experimental measurement only. Never invoke from the ordinary
-      // pipeline without the explicit local flag, nor on unverified inputs.
-      if(embeddedCameraMeasurementEligible({flag:process.env.VIREO_EMBEDDED_CAMERA_PANEL_REVIEW,sourceReceipt,layoutSource:clip.crop_config?.layout_mode_source,aspect:clip.aspect_ratio,duration:durationSec,sceneCuts:clipSceneCuts})){
+      // The optional panel experiment and conservative source-structure veto
+      // share decoding only. Ordinary Auto never extracts a proposed camera.
+      const sourceSplitGuard=embeddedSourceSplitMeasurementEligible({sourceReceipt,layoutSource:clip.crop_config?.layout_mode_source,cropMode:clip.crop_config?.mode,aspect:clip.aspect_ratio,duration:durationSec,sceneCuts:clipSceneCuts,inferredLayout:layoutMode});
+      if(sourceSplitGuard||embeddedCameraMeasurementEligible({flag:process.env.VIREO_EMBEDDED_CAMERA_PANEL_REVIEW,sourceReceipt,layoutSource:clip.crop_config?.layout_mode_source,aspect:clip.aspect_ratio,duration:durationSec,sceneCuts:clipSceneCuts})){
         const measurementInput=path.join(tempDir,'inset-review-input.json');
         const measurementOutput=path.join(tempDir,'inset-review-output.json');
         fs.writeFileSync(measurementInput,JSON.stringify({raw_samples:cvResult.samples,metadata:{analyzed_source_start:startSec,analyzed_source_end:endSec,clip_duration:durationSec}}));
@@ -3153,7 +3156,8 @@ export class SmartReframeService {
         metadata: {
           participant_manual_review:adaptiveScenes&&sourceGenre==='podcast_interview'&&process.env.SMART_REFRAME_AUTO_CONVERSATION_SPLIT==='1'&&process.env.VIREO_PARTICIPANT_EXPANDED_REVIEW==='1'?'expanded-three-v1':null,
           participant_panels_review:adaptiveScenes&&sourceGenre==='podcast_interview'&&process.env.SMART_REFRAME_AUTO_CONVERSATION_SPLIT==='1'&&process.env.VIREO_PARTICIPANT_ASPECT_REVIEW==='1'?'aspect-face-v1':null,
-          embedded_camera_panel_review_enabled:!!embeddedCameraReview,
+          embedded_camera_panel_review_enabled:!!embeddedCameraReview&&process.env.VIREO_EMBEDDED_CAMERA_PANEL_REVIEW==='1',
+          embedded_source_split_guard_enabled:!!embeddedCameraReview&&sourceSplitGuard,
           embedded_camera_panel_review:embeddedCameraReview,
           automatic_gaming_review_enabled:!!automaticGamingEvidence,
           automatic_gaming_evidence:automaticGamingEvidence,
@@ -3265,9 +3269,9 @@ export class SmartReframeService {
 
     let {isStale} = reframeTrackFreshness(clip,track,expectedSourceSha256);
     let sourceObjectVerified:boolean|undefined;
-    // The explicit embedded-region review requires an independently verified
-    // object receipt at every consumer, including the ordinary export reader.
-    if(verifyObjectReceipt||track.metadata?.embedded_camera_panel_review_enabled===true){
+    // Embedded-region review and source-structure guards require an independently
+    // verified object receipt at every consumer, including ordinary export.
+    if(verifyObjectReceipt||track.metadata?.embedded_camera_panel_review_enabled===true||track.metadata?.embedded_source_split_guard_enabled===true){
       sourceObjectVerified=false;
       const receipt=track.metadata?.analyzed_source_receipt;
       if(receipt && clip.source_storage_path){

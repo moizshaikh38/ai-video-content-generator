@@ -42,6 +42,9 @@ test('download receipt binds actual hash to object validator and normal preview 
    assert.equal((await SmartReframeService.getReframeTrack(id,uid))?.sourceObjectVerified,undefined);
    await db.collection('reframe_tracks').updateMany({clip_id:id},{$set:{'metadata.embedded_camera_panel_review_enabled':true}});
    assert.equal((await SmartReframeService.getReframeTrack(id,uid))?.sourceObjectVerified,true);
+   // Ordinary source-structure guards require the same consumer-side HEAD.
+   await db.collection('reframe_tracks').updateMany({clip_id:id},{$set:{'metadata.embedded_camera_panel_review_enabled':false,'metadata.embedded_source_split_guard_enabled':true}});
+   assert.equal((await SmartReframeService.getReframeTrack(id,uid))?.sourceObjectVerified,true);
    etag='"version-b"';
    const reviewChanged=await SmartReframeService.getReframeTrack(id,uid);
    assert.equal(reviewChanged?.sourceObjectVerified,false);assert.equal(reviewChanged?.isStale,true);
