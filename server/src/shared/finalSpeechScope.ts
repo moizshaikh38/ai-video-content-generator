@@ -12,12 +12,14 @@ export function compareFinalSpeechScope(input: {
   words: Array<{ start: number; end: number; word?: string; text?: string }>;
   originalStart: number; originalEnd: number; finalStart: number; finalEnd: number;
 }): FinalSpeechScope {
+  const ms = (time:number) => Number(time.toFixed(3));
   const words = input.words.flatMap((w, index) => w && Number.isFinite(w.start) && Number.isFinite(w.end) &&
     w.start >= 0 && w.end > w.start && typeof (w.word ?? w.text) === 'string' && String(w.word ?? w.text).trim()
-    ? [{ ...w, index, text: String(w.word ?? w.text).trim() }] : []);
+    ? [{ ...w, start:ms(w.start),end:ms(w.end),index,text:String(w.word ?? w.text).trim() }] : []).filter(w => w.end > w.start);
   const validBounds = [input.originalStart,input.originalEnd,input.finalStart,input.finalEnd].every(Number.isFinite) &&
     input.originalStart >= 0 && input.finalStart >= 0 && input.originalEnd > input.originalStart && input.finalEnd > input.finalStart;
   if (!validBounds || !words.length) return {status:'unavailable',originalWordCount:0,finalWordCount:0,finalWordBoundarySafe:null,finalEndingPunctuation:null};
+  input = {...input,originalStart:ms(input.originalStart),originalEnd:ms(input.originalEnd),finalStart:ms(input.finalStart),finalEnd:ms(input.finalEnd)};
   const original = words.filter(w => w.start < input.originalEnd && w.end > input.originalStart);
   const final = words.filter(w => w.start < input.finalEnd && w.end > input.finalStart);
   if (!original.length && !final.length) return {status:'unavailable',originalWordCount:0,finalWordCount:0,finalWordBoundarySafe:null,finalEndingPunctuation:null};

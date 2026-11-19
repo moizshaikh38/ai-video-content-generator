@@ -68,12 +68,16 @@ export class ShotBoundaryFusionService {
     const minDur = Math.max(1.5, targetDuration.min);
     const maxDur = Math.min(Math.max(minDur, targetDuration.max), totalVideoDuration);
 
-    let currentStart = Math.max(0, Math.min(rawStart, totalVideoDuration - 0.5));
-    let currentEnd = Math.min(totalVideoDuration, Math.max(currentStart + 0.5, rawEnd));
+    let currentStart = Number(Math.max(0, Math.min(rawStart, totalVideoDuration - 0.5)).toFixed(3));
+    let currentEnd = Number(Math.min(totalVideoDuration, Math.max(currentStart + 0.5, rawEnd)).toFixed(3));
 
     // Sort words and scene cuts chronologically
     const sortedWords = [...words]
       .filter((w) => Number.isFinite(w.start) && Number.isFinite(w.end) && w.start >= 0 && w.end > w.start && typeof w.word === 'string')
+      // Output/candidate times are millisecond precision. Normalize provider
+      // float noise once so a rounded endpoint is not a false partial word.
+      .map((w) => ({...w,start:Number(w.start.toFixed(3)),end:Number(w.end.toFixed(3))}))
+      .filter((w) => w.end > w.start)
       .sort((a, b) => a.start - b.start);
 
     const sortedCuts = [...sceneCuts]
