@@ -1195,7 +1195,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                   onChange={(e) => setInputUrl(e.target.value)}
                   placeholder="YouTube, your Twitch clip, or a direct video file URL"
                   aria-label="Video URL"
-                  className="flex-1 min-w-0 min-h-[28px] bg-transparent border-0 outline-none text-base sm:text-[15px] text-vc-text-primary placeholder:text-vc-text-secondary"
+                  className="flex-1 min-w-0 min-h-[40px] sm:min-h-[28px] bg-transparent border-0 outline-none text-base sm:text-[15px] text-vc-text-primary placeholder:text-vc-text-secondary"
                 />
               </div>
               <button
