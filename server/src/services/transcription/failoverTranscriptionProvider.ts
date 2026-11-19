@@ -3,7 +3,7 @@ import { logger } from '../../utils/logger.js';
 import { TranscriptionProvider } from './transcriptionProvider.js';
 import { NormalizedTranscriptionResult, TranscriptionOptions } from './types.js';
 import { GroqTranscriptionProvider } from './groqTranscriptionProvider.js';
-import { OpenRouterTranscriptionProvider } from './openRouterTranscriptionProvider.js';
+import { createConfiguredOpenRouterProvider } from './openRouterTranscriptionProvider.js';
 
 /**
  * Runtime failover between the two Whisper providers (roadmap Phase 6).
@@ -78,7 +78,7 @@ export class FailoverTranscriptionProvider implements TranscriptionProvider {
 export function getTranscriptionProviderWithFailover(): TranscriptionProvider {
   const chosen = (config.transcriptionProvider || 'groq').toLowerCase().trim();
   const groq = new GroqTranscriptionProvider();
-  const openrouter = new OpenRouterTranscriptionProvider();
+  const openrouter = createConfiguredOpenRouterProvider();
 
   let primary: TranscriptionProvider;
   let secondary: TranscriptionProvider | null = null;

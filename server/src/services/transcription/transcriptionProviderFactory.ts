@@ -2,7 +2,7 @@ import { config } from '../../config/index.js';
 import { logger } from '../../utils/logger.js';
 import { TranscriptionProvider } from './transcriptionProvider.js';
 import { GroqTranscriptionProvider } from './groqTranscriptionProvider.js';
-import { OpenRouterTranscriptionProvider } from './openRouterTranscriptionProvider.js';
+import { createConfiguredOpenRouterProvider } from './openRouterTranscriptionProvider.js';
 
 /**
  * Returns a configured TranscriptionProvider instance according to the TRANSCRIPTION_PROVIDER env var.
@@ -17,7 +17,7 @@ export function getTranscriptionProvider(providerName?: string): TranscriptionPr
     case 'groq':
       return new GroqTranscriptionProvider();
     case 'openrouter':
-      return new OpenRouterTranscriptionProvider();
+      return createConfiguredOpenRouterProvider();
     default:
       const errMsg = `Unsupported transcription provider "${chosen}". Supported providers are: "groq", "openrouter".`;
       logger.error(`[Transcription Factory] ${errMsg}`);

@@ -13,11 +13,13 @@ import { normalizeTranscriptionError } from './errorNormalizer.js';
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // 25 MB OpenRouter limit
 const OPENROUTER_TRANSCRIPTION_URL = 'https://openrouter.ai/api/v1/audio/transcriptions';
 const OPENROUTER_MODEL = 'openai/whisper-large-v3-turbo';
+export const PARAKEET_MODEL = 'nvidia/parakeet-tdt-0.6b-v3';
+const MODELS = [OPENROUTER_MODEL,'openai/whisper-large-v3','elevenlabs/scribe-v2',PARAKEET_MODEL];
 
 export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
   readonly name = 'openrouter';
-  constructor(private readonly model: 'openai/whisper-large-v3-turbo'|'openai/whisper-large-v3'|'elevenlabs/scribe-v2' = OPENROUTER_MODEL) {
-    if(!['openai/whisper-large-v3-turbo','openai/whisper-large-v3','elevenlabs/scribe-v2'].includes(model)) throw new Error('Unsupported timing-capable transcription model');
+  constructor(private readonly model: string = OPENROUTER_MODEL) {
+    if(!MODELS.includes(model)) throw new Error('Unsupported timing-capable transcription model');
   }
 
   async transcribeAudio(
@@ -26,6 +28,12 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
     mimeType: string = 'audio/mp3',
     options?: TranscriptionOptions
   ): Promise<NormalizedTranscriptionResult> {
+    // Parakeet v3 is opt-in for explicitly English source audio only. Auto or
+    // Hindi/Hinglish preferences must not silently route to a European model.
+    if (this.model === PARAKEET_MODEL && options?.language?.trim().toLowerCase() !== 'en') {
+      throw Object.assign(new Error('Parakeet requires an explicit English source-language choice. No audio was sent.'),{code:'PARAKEET_LANGUAGE_REVIEW_REQUIRED'});
+    }
+
     const apiKey = config.openrouterApiKey?.trim();
 
     if (!apiKey) {
@@ -51,7 +59,7 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
     );
 
     const formData = new FormData();
-    const blob = new Blob([audioBuffer], { type: mimeType });
+    const blob = new Blob([new Uint8Array(audioBuffer)], { type: mimeType });
     formData.append('file', blob, fileName);
     formData.append('model', this.model);
     formData.append('response_format', 'verbose_json');
@@ -75,6 +83,19 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
       'X-Title': 'Vireo AI Video Content Generator',
     };
 
+    // Use the exact JSON STT contract qualified for Parakeet. Existing
+    // multipart Whisper/Scribe paths remain unchanged.
+    let requestBody: BodyInit = formData;
+    if (this.model === PARAKEET_MODEL) {
+      const formats: Record<string,string> = {'audio/wav':'wav','audio/x-wav':'wav','audio/mp3':'mp3','audio/mpeg':'mp3','audio/flac':'flac','audio/ogg':'ogg','audio/webm':'webm','audio/mp4':'m4a','audio/aac':'aac'};
+      const format = formats[mimeType];
+      if (!format) throw new Error('Unsupported audio format for Parakeet. No audio was sent.');
+      headers['Content-Type'] = 'application/json';
+      requestBody = JSON.stringify({model:this.model,input_audio:{data:audioBuffer.toString('base64'),format},
+        response_format:'verbose_json',timestamp_granularities:['word','segment'],language:'en',
+        ...(options?.prompt ? {prompt:options.prompt} : {})});
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       controller.abort(new Error(`OpenRouter transcription timed out after ${config.transcriptionTimeoutMs / 1000}s.`));
@@ -84,8 +105,9 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
     try {
       response = await fetch(OPENROUTER_TRANSCRIPTION_URL, {
         method: 'POST',
+        redirect: 'error',
         headers,
-        body: formData,
+        body: requestBody,
         signal: controller.signal,
       });
     } catch (fetchErr: any) {
@@ -137,6 +159,10 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
 
     const {segments,words,timingIssues} = normalizeProviderTiming(result);
 
+    if (this.model === PARAKEET_MODEL && (!words.length || timingIssues.some(issue => issue.kind === 'word'))) {
+      throw Object.assign(new Error('Parakeet did not return usable provider word timestamps. No caption timings were invented; review or explicitly choose another model.'),{code:'PARAKEET_WORD_TIMING_REQUIRED'});
+    }
+
     const durationSeconds = typeof result?.duration === 'number' ? result.duration : null;
     // Missing language is unknown evidence, not detected English.
     const language = typeof result?.language === 'string' ? result.language.trim() : '';
@@ -153,6 +179,19 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
       segments,
       words,
       timingIssues,
+      ...(typeof result.usage?.cost === 'number' && Number.isFinite(result.usage.cost) && result.usage.cost >= 0 ? {usage:{costUsd:result.usage.cost,audioSeconds:typeof result.usage.seconds === 'number' && Number.isFinite(result.usage.seconds) ? result.usage.seconds : undefined}} : {}),
     };
   }
+}
+
+/** Explicit English-only opt-in. Hindi, Hinglish and auto keep the existing
+ * OpenRouter Turbo path. Every result records the model actually used. */
+export function createConfiguredOpenRouterProvider(): TranscriptionProvider {
+  if (config.transcriptionModel !== PARAKEET_MODEL) return new OpenRouterTranscriptionProvider(config.transcriptionModel);
+  const english = new OpenRouterTranscriptionProvider(PARAKEET_MODEL);
+  const baseline = new OpenRouterTranscriptionProvider();
+  return {name:'openrouter',transcribeAudio(audio,fileName,mimeType,options) {
+    return (options?.language?.trim().toLowerCase() === 'en' ? english : baseline)
+      .transcribeAudio(audio,fileName,mimeType,options);
+  }};
 }
