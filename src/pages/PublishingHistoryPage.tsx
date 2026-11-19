@@ -7,16 +7,16 @@ import {
   AlertCircle,
   CheckCircle2,
   ExternalLink,
-  XCircle,
   RotateCcw,
   Filter,
 } from 'lucide-react';
+import { PublishOutcomeBadge, PublishOutcomeDetails } from '../components/PublishOutcomeDetails';
+import { postingOutcomeView } from '../shared/postingOutcomeView';
 import { Button } from '../components/Button';
 import { SpotlightCard } from '../components/react-bits/SpotlightCard';
 import {
   publishingService,
   PublishedPost,
-  PublishStatus,
 } from '../services/publishingService';
 
 export const PublishingHistoryPage: React.FC = () => {
@@ -75,42 +75,6 @@ export const PublishingHistoryPage: React.FC = () => {
     }
   };
 
-  const getStatusBadge = (status: PublishStatus) => {
-    switch (status) {
-      case 'published':
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-            <CheckCircle2 className="size-3" /> Published
-          </span>
-        );
-      case 'publishing':
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-semibold text-violet-300 animate-pulse">
-            <RefreshCw className="size-3 animate-spin" /> Publishing
-          </span>
-        );
-      case 'scheduled':
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.08] px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
-            <Calendar className="size-3" /> Scheduled
-          </span>
-        );
-      case 'failed':
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-destructive/20 px-2 py-0.5 text-[10px] font-semibold text-destructive">
-            <XCircle className="size-3" /> Failed
-          </span>
-        );
-      case 'cancelled':
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-            Cancelled
-          </span>
-        );
-      default:
-        return <span className="capitalize text-xs text-muted-foreground">{status}</span>;
-    }
-  };
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
@@ -122,7 +86,7 @@ export const PublishingHistoryPage: React.FC = () => {
             <span>Publishing & Scheduling</span>
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Track published content, manage upcoming scheduled drops, and handle retries.
+            Review saved publishing results, selected destinations and scheduled posts.
           </p>
         </div>
 
@@ -170,7 +134,7 @@ export const PublishingHistoryPage: React.FC = () => {
           <option value="scheduled">Scheduled</option>
           <option value="publishing">Publishing</option>
           <option value="published">Published</option>
-          <option value="failed">Failed</option>
+          <option value="failed">Failed / unconfirmed</option>
           <option value="cancelled">Cancelled</option>
         </select>
 
@@ -208,6 +172,7 @@ export const PublishingHistoryPage: React.FC = () => {
         <div className="space-y-3">
           {posts.map((post) => {
             const isProcessing = processingId === post.id;
+            const outcome = postingOutcomeView(post);
             return (
               <SpotlightCard
                 key={post.id}
@@ -219,7 +184,7 @@ export const PublishingHistoryPage: React.FC = () => {
                     <span className="font-semibold text-xs capitalize text-foreground font-display">
                       {post.provider}
                     </span>
-                    {getStatusBadge(post.status)}
+                    <PublishOutcomeBadge post={post} />
                     {post.publish_type === 'scheduled' && post.scheduled_for && (
                       <span className="text-[10px] text-muted-foreground font-mono flex items-center gap-1">
                         <Clock className="size-3" />
@@ -237,23 +202,19 @@ export const PublishingHistoryPage: React.FC = () => {
                     {post.payload.title || post.payload.caption || post.payload.description || 'Untitled post'}
                   </p>
 
-                  {post.last_error_message && (
-                    <p className="text-[11px] text-destructive">
-                      Error: {post.last_error_message}
-                    </p>
-                  )}
+                  <PublishOutcomeDetails post={post} />
                 </div>
 
                 {/* Card Actions */}
                 <div className="flex items-center gap-2 shrink-0">
-                  {post.provider_post_url && (
+                  {outcome.verifiedLink && (
                     <a
-                      href={post.provider_post_url}
+                      href={outcome.verifiedLink}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:underline"
                     >
-                      <span>View Live</span>
+                      <span>View post</span>
                       <ExternalLink className="size-3" />
                     </a>
                   )}
@@ -270,7 +231,7 @@ export const PublishingHistoryPage: React.FC = () => {
                     </Button>
                   )}
 
-                  {post.status === 'failed' && post.last_error_code !== 'PUBLISH_OUTCOME_UNKNOWN' && (
+                  {outcome.canRetry && (
                     <Button
                       variant="outline"
                       size="sm"

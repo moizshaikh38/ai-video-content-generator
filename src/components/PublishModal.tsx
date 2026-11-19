@@ -221,7 +221,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
         });
         setFeedback({
           type: 'success',
-          message: 'Publishing job queued successfully! Post is publishing in the background.',
+          message: 'Publishing queued. Publication is not yet confirmed. Check Publishing & Scheduling for the saved result.',
         });
       } else {
         if (!scheduleDate || !scheduleTime) {

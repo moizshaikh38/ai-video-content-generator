@@ -68,3 +68,19 @@ Official sources inspected:
 - https://developers.facebook.com/documentation/instagram-platform/content-publishing/
 
 The reference field table defines `config`, while its example request asks for an undefined `rate_limit_settings` field. The implementation follows the field table and example response with `config`, and fails closed if the actual supported API does not return it. This discrepancy still needs an authorized live-contract check before release, not an automatic field fallback or version bump.
+
+## Posting history review feedback, November 19 at23:52 IST
+
+User-visible local UI changes, not a release or a real platform result:
+
+- Confirmed Instagram publication with incomplete/unverified caption or attachment details stays Published, review details, with a warning rather than a red Error/Failed label. It never offers a retry.
+- Unknown dispatch/delivery is Delivery unconfirmed, not definitive Failed or Published. Pending processing says Awaiting confirmation and directs the user to refresh saved history, not upload the same clip again. No new polling or platform calls were introduced.
+- Every history card displays the persisted selected platform account ID, requested visibility and available platform receipt. Requested is explicit: the UI does not claim that it rechecked the live audience. Missing legacy audience remains Not recorded. Account names are not invented from provider IDs or rediscovered from a first account.
+- Viewing links require confirmed published status and a saved credential-free HTTPS URL. No link is invented from a media/container ID. Private confirmed posts without a public URL are explained. The display name is View post rather than View Live.
+- Composer queue acknowledgement now says publication is not confirmed and points to Publishing & Scheduling. The failed-status filter is labelled Failed / unconfirmed because both records retain their existing backend status.
+
+Twenty new helper/actual isolated React component checks plus28existing owner/readiness regressions pass together. A focused strict TypeScript check of the new helper/components/tests passes. Full history/composer dependency graph and mounted flows remain unqualified; exhausted broad TypeScript and Chromium launches were not retried.
+
+Actual badge/details React components were server-rendered with fixture records and inspected as static pixels at390pxand desktop width using a lightweight renderer. All five inspected states show readable destination/audience/receipt text and full wrapped feedback. Unknown delivery has no retry, partial publication remains visibly published, and the definitive-failure fixture alone shows a retry-action indicator. This is an isolated visual fixture, not a screenshot of a mounted page or evidence that clicks, state transitions, responsive app chrome or live provider calls work. Fixed theme-color fallbacks were needed for the static renderer's unsupported CSS variables; full production theme fidelity is not claimed. Desktop and phone fixture images are retained outside product source. No published content, private account records or provider secrets were used.
+
+Remaining independent posting work includes TikTok fresh creator options in composer, explicit Meta professional-account selection during OAuth discovery and resource-feasible mounted interaction qualification. App permissions/review and actual platform behavior still require separately authorized setup/testing. No account, permission, scope, quota, platform version, production setting or spending limit changed in this step.
