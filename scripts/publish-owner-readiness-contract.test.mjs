@@ -2,14 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
-const source=fs.readFileSync('server/src/services/publishingService.ts','utf8');const ast=ts.createSourceFile('publishing.ts',source,ts.ScriptTarget.Latest,true);let method;
-function visit(n){if(ts.isMethodDeclaration(n)&&n.name.getText(ast)==='executeTrackedPublishJob')method=n.getText(ast);ts.forEachChild(n,visit)}visit(ast);assert(method);
+const source=fs.readFileSync('server/src/services/publishingService.ts','utf8');const ast=ts.createSourceFile('publishing.ts',source,ts.ScriptTarget.Latest,true);let method;const outcomeMethods=[];
+function visit(n){if(ts.isMethodDeclaration(n)&&n.name.getText(ast)==='executeTrackedPublishJob')method=n.getText(ast);if(ts.isMethodDeclaration(n)&&['recordPublishOutcome','resolvePendingPublish'].includes(n.name.getText(ast)))outcomeMethods.push(n.getText(ast));ts.forEachChild(n,visit)}visit(ast);assert(method);
 const helperText=fs.readFileSync('server/src/shared/publishMediaSelection.ts','utf8').replace(/^import .*;\n/gm,'');
 class AppError extends Error{constructor(message,statusCode,code){super(message);this.statusCode=statusCode;this.code=code;}}
 const helperJs=ts.transpileModule(`export function helpers(AppError:any){${helperText.replace(/export /g,'')};return{selectPublishMedia,assertPublishMediaSelection,assertPublishObjectSelection}}`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 const media=(await import('data:text/javascript;base64,'+Buffer.from(helperJs).toString('base64'))).helpers(AppError);
 const names=['assertPublishMediaSelection','assertPublishObjectSelection','getMongoDb','logger','socialProviderRegistry','decryptToken','encryptToken','headObject','signObjectGet','downloadObjectToFile','socialPublishingRegistry','AppError','fs','os','path','crypto'];
-const js=ts.transpileModule(`export function make(d:any){const {${names}}=d;return new class{${method}\nasync markJobFailed(...args:any[]){d.failed.push(args)};async run(){return this.executeTrackedPublishJob('job')}}}`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
+const js=ts.transpileModule(`export function make(d:any){const {${names}}=d;return new class{${method}\n${outcomeMethods.join('\n')}\nasync markJobFailed(...args:any[]){d.failed.push(args)};async run(){return this.executeTrackedPublishJob('job')}}}`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 const {make}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
 function setup(options={}){
  const calls=[],failed=[];let postReads=0;const job={id:'job',user_id:'owner',published_post_id:'post',status:'publishing',...options.job};const post={id:'post',user_id:'owner',social_connection_id:'connection',clip_id:'clip',provider:'test-provider',provider_account_id:'account',status:'publishing',payload:{},...options.post};const clip={id:'clip',user_id:'owner',render_status:'ready',output_storage_path:'saved-output',...options.clip};

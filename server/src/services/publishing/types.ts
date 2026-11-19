@@ -19,9 +19,14 @@ export interface PublishExecutionRequest {
   mediaUrl?: string;
   mediaSize?: number;
   mediaContentType?: string;
+  grantedScopes?: string[];
+  providerAccountId?: string;
+  mediaDurationSeconds?: number;
 }
 
 export interface PublishExecutionResult {
+  /** Absent is legacy synchronous success. Pending must never be shown as published. */
+  outcome?: 'pending' | 'published';
   providerPostId: string;
   providerPostUrl?: string | null;
   metadata?: Record<string, any>;
@@ -38,6 +43,9 @@ export interface SocialPublishingProvider {
 
   /** Execute upload/publishing to the official platform API */
   publish(request: PublishExecutionRequest): Promise<PublishExecutionResult>;
+
+  /** Read-only resolution of a persisted submission. Must never create a new post. */
+  resolvePending?(accessToken: string, receiptId: string): Promise<PublishExecutionResult>;
 
   /** Check if a published error is retryable (5xx, rate limits, network) */
   isRetryableError(error: unknown): boolean;

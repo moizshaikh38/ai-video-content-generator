@@ -51,7 +51,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
   const [title, setTitle] = useState(initialTitle);
   const [caption, setCaption] = useState(initialCaption);
   const [tags, setTags] = useState(initialTags.join(', '));
-  const [privacy, setPrivacy] = useState<'public' | 'unlisted' | 'private'>('public');
+  const [privacy, setPrivacy] = useState<'public' | 'unlisted' | 'private'>('private');
 
   // Scheduling State
   const [publishMode, setPublishMode] = useState<'now' | 'scheduled'>('now');
@@ -82,6 +82,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
       setTitle(initialTitle);
       setCaption(initialCaption);
       setTags(initialTags.join(', '));
+      setPrivacy('private');
       setFeedback(null);
       setPreview(null);
     }
@@ -147,6 +148,8 @@ export const PublishModal: React.FC<PublishModalProps> = ({
       return;
     }
 
+    let cancelled = false;
+    setPreview(null);
     const runPreview = async () => {
       try {
         setIsValidating(true);
@@ -164,16 +167,16 @@ export const PublishModal: React.FC<PublishModalProps> = ({
         };
 
         const res = await publishingService.preview(selectedConnectionId, clipId, payload);
-        setPreview(res);
+        if (!cancelled) setPreview(res);
       } catch (err: any) {
-        setPreview(null);
+        if (!cancelled) setPreview(null);
       } finally {
-        setIsValidating(false);
+        if (!cancelled) setIsValidating(false);
       }
     };
 
     const timer = setTimeout(runPreview, 400);
-    return () => clearTimeout(timer);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [selectedConnectionId, clipId, title, caption, tags, privacy, selectedAccount, capabilities]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -339,6 +342,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
                       aria-disabled={disabled}
                       onClick={() => {
                         if (!disabled) {
+                          if (selectedConnectionId !== acc.id) setPrivacy('private');
                           setSelectedConnectionId(acc.id);
                         }
                       }}
@@ -468,7 +472,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
               onChange={(e) => setTags(e.target.value)}
             />
 
-            {selectedAccount?.provider === 'youtube' && (
+            {selectedAccount && ['youtube', 'tiktok', 'instagram'].includes(selectedAccount.provider) && (
               <div>
                 <label className="text-xs font-semibold text-foreground block mb-1">Privacy</label>
                 <select
@@ -476,10 +480,17 @@ export const PublishModal: React.FC<PublishModalProps> = ({
                   onChange={(e) => setPrivacy(e.target.value as any)}
                   className="w-full text-xs bg-card border border-border rounded-2xl px-3 py-2 text-foreground"
                 >
-                  <option value="public">Public</option>
-                  <option value="unlisted">Unlisted</option>
-                  <option value="private">Private</option>
+                  <option value="private" disabled={selectedAccount.provider === 'instagram'}>Private{selectedAccount.provider === 'instagram' ? ' (not supported for Instagram)' : ''}</option>
+                  <option value="public">Public / account audience</option>
+                  {selectedAccount.provider === 'youtube' && <option value="unlisted">Unlisted</option>}
                 </select>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                  {selectedAccount.provider === 'tiktok'
+                    ? 'Private by default. Your selected visibility is checked with TikTok before submission. Processing is not confirmed publication.'
+                    : selectedAccount.provider === 'instagram'
+                    ? 'Instagram Reels uses your account audience. Choose Public explicitly to continue; private or unlisted posting is not supported.'
+                    : 'Private by default. Review this account and visibility before submitting.'}
+                </p>
               </div>
             )}
           </div>
@@ -509,6 +520,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
                 isSubmitting ||
                 accounts.length === 0 ||
                 !selectedConnectionId ||
+                Boolean(preview && !preview.valid) ||
                 Boolean(selectedAccount && isAccountDisabled(selectedAccount))
               }
               leftIcon={

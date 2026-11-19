@@ -112,6 +112,10 @@ export class PublishingService {
     const validation = provider.validatePublishRequest(payload, hasMedia);
 
     const warnings: string[] = [];
+    if (conn.provider === 'tiktok' && !conn.scopes?.includes('video.publish')) {
+      validation.valid = false;
+      warnings.push('TikTok Direct Post is not ready: this connection needs video.publish permission. No permission will be added automatically.');
+    }
     if (clip && clip.render_status !== 'ready') {
       warnings.push(`Clip is currently in "${clip.render_status}" status. It must be rendered before publishing.`);
     }
@@ -149,6 +153,10 @@ export class PublishingService {
     });
     if (!conn) {
       throw new AppError('Connected social account not found or access denied.', 404, 'CONNECTION_NOT_FOUND');
+    }
+
+    if (conn.provider === 'tiktok' && !conn.scopes?.includes('video.publish')) {
+      throw new AppError('TikTok Direct Post needs video.publish permission. No permission will be added automatically.',409,'TIKTOK_DIRECT_POST_SCOPE_REQUIRED');
     }
 
     // 2. Verify clip ownership and readiness if provided
@@ -341,7 +349,7 @@ export class PublishingService {
       return;
     }
     if (job.status !== 'publishing') return;
-    if (job.provider_attempt_started_at !== undefined) {
+    if (job.provider_attempt_started_at !== undefined && !job.provider_pending_id) {
       await this.markJobFailed(jobId, post.id, 'PUBLISH_OUTCOME_UNKNOWN', 'A previous delivery attempt may have reached the platform. Check the connected platform before taking any further action. Automatic resend is disabled.', false);
       return;
     }
@@ -359,6 +367,11 @@ export class PublishingService {
 
     if(conn.provider!==post.provider||conn.provider_account_id!==post.provider_account_id){
       await this.markJobFailed(jobId,post.id,'PUBLISH_ACCOUNT_CHANGED','The selected social account changed. Review this post before publishing.',false);return;
+    }
+
+    if (!job.provider_pending_id && post.provider === 'tiktok' && !conn.scopes?.includes('video.publish')) {
+      await this.markJobFailed(jobId, post.id, 'TIKTOK_DIRECT_POST_SCOPE_REQUIRED', 'TikTok Direct Post needs video.publish permission. Upload-only permission cannot publish directly. No post was sent.', false);
+      return;
     }
 
     // Step 2: Check & refresh token if expired
@@ -390,10 +403,16 @@ export class PublishingService {
       return;
     }
 
+    if (job.provider_pending_id) {
+      await this.resolvePendingPublish(job, post, accessToken);
+      return;
+    }
+
     // Step 3: Prepare media if clip is specified
     let tempFilePath: string | null = null;
     let signedMediaUrl: string | null = null;
     let mediaSize: number = 0;
+    let mediaDurationSeconds: number | undefined;
 
     if (post.clip_id) {
       const clip = await db.collection<ClipRecord>('clips').findOne({ id: post.clip_id, user_id: post.user_id });
@@ -409,6 +428,7 @@ export class PublishingService {
         return;
       }
 
+      mediaDurationSeconds = clip.duration_seconds;
       try {
         const selection=assertPublishMediaSelection(post,clip);
         const selectedKey=selection?.objectKey??clip.output_storage_path;
@@ -459,49 +479,20 @@ export class PublishingService {
         mediaFilePath: tempFilePath || undefined,
         mediaUrl: signedMediaUrl || undefined,
         mediaSize,
+        grantedScopes: conn.scopes,
+        providerAccountId: post.provider_account_id,
+        mediaDurationSeconds,
       });
 
-      if (!pubResult || !pubResult.providerPostId) {
-        throw new AppError('Publishing deliverable verification failed: provider post ID missing', 500, 'PUBLISH_VERIFICATION_FAILED');
-      }
-
-      const now = new Date();
-      await db.collection<PublishedPostRecord>('published_posts').updateOne(
-        { id: post.id },
-        {
-          $set: {
-            status: 'published',
-            provider_post_id: pubResult.providerPostId,
-            provider_post_url: pubResult.providerPostUrl,
-            published_at: now,
-            metadata: pubResult.metadata,
-            updated_at: now,
-          },
-        }
-      );
-
-      await db.collection<PublishJobRecord>('publish_jobs').updateOne(
-        { id: jobId },
-        {
-          $set: {
-            status: 'completed',
-            completed_at: now,
-            updated_at: now,
-          },
-        }
-      );
-
-      logger.info('Publishing succeeded', {
-        postId: post.id,
-        provider: post.provider,
-        providerPostId: pubResult.providerPostId,
-      });
+      await this.recordPublishOutcome(job, post, pubResult);
     } catch (err: any) {
       if (providerEntered) {
         // The post write may have succeeded before the job acknowledgement
         // failed. Never downgrade a verified published record to failed.
         const persisted = await db.collection<PublishedPostRecord>('published_posts').findOne({id:post.id,user_id:post.user_id});
         if (persisted?.status === 'published' && persisted.provider_post_id) return;
+        const recoverable = await db.collection<PublishJobRecord>('publish_jobs').findOne({id:jobId,user_id:job.user_id});
+        if (recoverable?.provider_pending_id) return; // persisted receipt is resolved, never re-uploaded
         await this.markJobFailed(jobId, post.id, 'PUBLISH_OUTCOME_UNKNOWN', 'The platform may have accepted this post, but delivery could not be confirmed. Check the connected platform before taking any further action. Automatic resend is disabled.', false);
       } else {
         // No provider call was entered. The dispatch write itself may still
@@ -512,6 +503,68 @@ export class PublishingService {
       if (tempFilePath && fs.existsSync(tempFilePath)) {
         try { fs.unlinkSync(tempFilePath); } catch { /* ignore */ }
       }
+    }
+  }
+
+  /** Persist the receipt before acknowledging pending. A crash can then resume
+   * status checks only, without entering the upload path a second time. */
+  private async recordPublishOutcome(job: PublishJobRecord, post: PublishedPostRecord, result: import('./publishing/types.js').PublishExecutionResult): Promise<void> {
+    if (!result || typeof result.providerPostId !== 'string' || !result.providerPostId.trim() ||
+        (result.outcome !== undefined && !['pending', 'published'].includes(result.outcome))) {
+      throw new AppError('The platform did not return a verified posting outcome.', 502, 'PUBLISH_VERIFICATION_FAILED');
+    }
+    const db = await getMongoDb(), now = new Date();
+    if (result.outcome === 'pending') {
+      if (!socialPublishingRegistry.getProvider(post.provider).resolvePending ||
+          (job.provider_pending_id && job.provider_pending_id !== result.providerPostId)) {
+        throw new AppError('The platform submission cannot be safely resolved.', 502, 'PUBLISH_VERIFICATION_FAILED');
+      }
+      const savedReceipt = await db.collection<PublishJobRecord>('publish_jobs').updateOne(
+        {id:job.id,user_id:job.user_id,status:'publishing'},
+        {$set:{provider_pending_id:result.providerPostId,provider_pending_started_at:job.provider_pending_started_at || now,
+          status:'scheduled',scheduled_for:new Date(now.getTime()+60000),next_retry_at:null,locked_at:null,updated_at:now}},
+        {writeConcern:{w:'majority'}},
+      );
+      if (savedReceipt.matchedCount !== 1) throw new AppError('Submission receipt could not be saved.',502,'PUBLISH_RECEIPT_NOT_SAVED');
+      await db.collection<PublishedPostRecord>('published_posts').updateOne(
+        {id:post.id,user_id:post.user_id,status:{$nin:['published','failed','cancelled']}},
+        {$set:{status:'publishing',metadata:{...post.metadata,...result.metadata,confirmation:'awaiting_platform'},updated_at:now}},
+      );
+      return;
+    }
+    await db.collection<PublishedPostRecord>('published_posts').updateOne(
+      {id:post.id,user_id:post.user_id,status:{$nin:['failed','cancelled']}},
+      {$set:{status:'published',provider_post_id:result.providerPostId,provider_post_url:result.providerPostUrl || null,
+        published_at:now,metadata:{...post.metadata,...result.metadata},last_error_code:null,last_error_message:null,updated_at:now}},
+    );
+    await db.collection<PublishJobRecord>('publish_jobs').updateOne(
+      {id:job.id,user_id:job.user_id},{$set:{status:'completed',completed_at:now,updated_at:now}},
+    );
+    logger.info('Publishing confirmed',{postId:post.id,provider:post.provider});
+  }
+
+  private async resolvePendingPublish(job: PublishJobRecord, post: PublishedPostRecord, accessToken: string): Promise<void> {
+    const provider = socialPublishingRegistry.getProvider(post.provider);
+    const started = job.provider_pending_started_at?.getTime();
+    if (!provider.resolvePending || !started || !Number.isFinite(started) || Date.now()-started > 24*60*60*1000) {
+      await this.markJobFailed(job.id,post.id,'PUBLISH_OUTCOME_UNKNOWN','Publication is still unconfirmed. Check the selected platform account. This submission will not be uploaded again.',false);
+      return;
+    }
+    try {
+      const result = await provider.resolvePending(accessToken,job.provider_pending_id!);
+      await this.recordPublishOutcome(job,post,result);
+    } catch (error: any) {
+      if (error?.code === 'TIKTOK_SUBMISSION_FAILED') {
+        await this.markJobFailed(job.id,post.id,'TIKTOK_SUBMISSION_FAILED','TikTok reported that this submission failed. No automatic new upload will be made.',false);
+        return;
+      }
+      // Status reads can be retried safely. A transport error never permits
+      // resending the media. Keep the durable receipt on the SAME job.
+      const db = await getMongoDb(), now = new Date();
+      await db.collection<PublishJobRecord>('publish_jobs').updateOne(
+        {id:job.id,user_id:job.user_id,status:'publishing'},
+        {$set:{status:'scheduled',scheduled_for:new Date(now.getTime()+60000),next_retry_at:null,locked_at:null,updated_at:now}},
+      );
     }
   }
 
