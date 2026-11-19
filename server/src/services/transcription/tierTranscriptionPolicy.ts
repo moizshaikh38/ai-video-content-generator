@@ -3,6 +3,13 @@ import {AppError} from '../../types/index.js';
 import type {TranscriptionProvider} from './transcriptionProvider.js';
 import {OpenRouterTranscriptionProvider,MAI_MODEL} from './openRouterTranscriptionProvider.js';
 
+/** Standalone helpers lack an owner-bound reservation and must not make an
+ * unmetered provider call while tier routing is enabled. Callers may still use
+ * a source-verified reusable transcript or the canonical processing pipeline. */
+export function assertStandaloneTranscriptionAllowed(tierEnabled:boolean):void {
+  if(tierEnabled) throw new AppError('Transcription must use the verified processing reservation. No standalone audio request was sent.',409,'TRANSCRIPTION_POLICY_REVIEW_REQUIRED');
+}
+
 export const TIER_POLICY = 'free-turbo-paid-mai-v1';
 export const TURBO_MODEL = 'openai/whisper-large-v3-turbo';
 export interface TierTranscriptionSelection {

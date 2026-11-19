@@ -1,3 +1,5 @@
+import {config} from '../config/index.js';
+import {assertStandaloneTranscriptionAllowed} from './transcription/tierTranscriptionPolicy.js';
 import { OpenRouterTranscriptionProvider } from './transcription/openRouterTranscriptionProvider.js';
 import { NormalizedTranscriptionResult } from './transcription/types.js';
 import { TranscriptSegment, TranscriptWord } from '../types/index.js';
@@ -22,6 +24,7 @@ export async function transcribeAudioWithOpenRouter(
   fileName: string = 'audio.mp3',
   mimeType: string = 'audio/mp3'
 ): Promise<TranscriptionResult> {
+  assertStandaloneTranscriptionAllowed(config.tieredTranscriptionEnabled);
   const provider = new OpenRouterTranscriptionProvider();
   const result: NormalizedTranscriptionResult = await provider.transcribeAudio(
     audioBuffer,

@@ -28,6 +28,7 @@ import { VideoSceneService } from '../multimodal/videoSceneService.js';
 import { AudioFeatureService } from '../multimodal/audioFeatureService.js';
 import { FaceFeatureService } from '../multimodal/faceFeatureService.js';
 import { OpenRouterTranscriptionProvider } from '../transcription/openRouterTranscriptionProvider.js';
+import { assertStandaloneTranscriptionAllowed } from '../transcription/tierTranscriptionPolicy.js';
 import { GroqTranscriptionProvider } from '../transcription/groqTranscriptionProvider.js';
 import { HighlightFusionService } from './highlightFusionService.js';
 import { extractAudioFromVideo } from '../audioExtractionService.js';
@@ -327,6 +328,9 @@ export class VideoIntelligenceService {
 
         // If no existing transcript provided, transcribe audio
         if (!audioResult.transcriptText) {
+          // Outside the legacy catch: never silently skip this policy failure
+          // and mark a transcript-less intelligence result complete.
+          assertStandaloneTranscriptionAllowed(config.tieredTranscriptionEnabled);
           try {
             const extracted = await extractAudioFromVideo(videoPath, 'source.mp4', {
               durationHintSec: metadata.durationSeconds,

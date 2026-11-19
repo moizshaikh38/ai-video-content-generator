@@ -11,7 +11,7 @@ When enabled after qualification:
 - MAI errors do not silently route to Turbo or a separate provider. Invalid/missing native word clocks require review rather than invented captions. Whole-file automatic retries after chunk failures are disabled for this tier policy, including through the input observer.
 - Existing source/word timing and reuse checks remain in place. An existing reusable transcript is checked before tier selection, so an upgrade does not itself trigger a paid re-transcription. The actual selected model/policy and known provider cost are stored with the result. Chunk cost sums are exposed only when every chunk returned billing evidence; missing cost is unknown, not free.
 
-The independent Parakeet explicit-English implementation remains available through the existing non-tier configuration. Turning on tier mode takes precedence over the global model and gaming-review override for this path. That is local staged behavior, not approval to turn it on. Other transcription entry points are not claimed tier-aware until audited.
+The independent Parakeet explicit-English implementation remains available through the existing non-tier configuration. Turning on tier mode takes precedence over the global model and gaming-review override for this path. That is local staged behavior, not approval to turn it on. The intelligence fallback and legacy standalone transcription helper now refuse new audio requests when tier mode is on, because they have no owner-bound processing reservation. Intelligence can still reuse its source-verified cache or a supplied transcript. Content Studio can fall back to its existing transcript-only behavior; this does not claim complete tier-enabled multimodal coverage. These paths must be connected to the canonical pipeline before full feature parity is claimed.
 
 ## Qualification
 
@@ -29,3 +29,7 @@ Sources:
 - https://openrouter.ai/openai/whisper-large-v3-turbo
 - https://openrouter.ai/api/v1/models?output_modalities=transcription
 - https://openrouter.ai/docs/guides/overview/multimodal/stt
+
+## Standalone-path audit
+
+Two additional fixtures check that the legacy helper makes zero requests in tier mode and that the intelligence policy guard precedes extraction outside the old catch-and-continue block. The latter is a source-order contract. A separate actual intelligence-service test with fixture repositories/probe/audio-features confirms the policy error is propagated and recorded as failure, with zero provider calls and no completion. This is not full mounted intelligence execution. The policy and legacy helper strict typecheck passes; the expanded intelligence dependency-graph check hit the existing 192 MiB heap limit, so that check is not a pass. The gate remains off.

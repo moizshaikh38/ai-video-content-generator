@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {config} from '../config/index.js';
-import {createTierTranscriptionProvider,selectTierTranscription,freezeTierSelection,readTierSelection,TIER_POLICY,TURBO_MODEL} from '../services/transcription/tierTranscriptionPolicy.js';
+import {assertStandaloneTranscriptionAllowed,createTierTranscriptionProvider,selectTierTranscription,freezeTierSelection,readTierSelection,TIER_POLICY,TURBO_MODEL} from '../services/transcription/tierTranscriptionPolicy.js';
 import {MAI_MODEL} from '../services/transcription/openRouterTranscriptionProvider.js';
 import {mergeChunkTranscripts} from '../services/transcription/chunkedTranscription.js';
 const transcript={text:'Hello world',duration:1,segments:[{text:'Hello world',start:0,end:1}],words:[{word:'Hello',start:0,end:.4},{word:'world',start:.4,end:.9}],usage:{cost:.00003,seconds:1}};
@@ -49,4 +49,22 @@ test('chunk merge sums actual costs only when every chunk has billing evidence',
  const result:any={...transcript,language:'',durationSeconds:1,usage:{costUsd:.01,audioSeconds:1}},part=(index:number,r=result)=>({plan:{index,startSec:index,durationSec:1,ownStartSec:index,ownEndSec:index+1},result:r});
  assert.deepEqual(mergeChunkTranscripts([part(0),part(1)],2).usage,{costUsd:.02,audioSeconds:2});
  assert.equal(mergeChunkTranscripts([part(0),part(1,{...result,usage:undefined})],2).usage,undefined,'unknown charge is not zero');
+});
+
+test('standalone transcription refuses tier mode before any provider request',async()=>{
+ const old=globalThis.fetch,enabled=config.tieredTranscriptionEnabled;let calls=0;
+ globalThis.fetch=async()=>{calls++;throw Error('Unexpected network');};
+ try{
+  assert.doesNotThrow(()=>assertStandaloneTranscriptionAllowed(false));
+  assert.throws(()=>assertStandaloneTranscriptionAllowed(true),{code:'TRANSCRIPTION_POLICY_REVIEW_REQUIRED'});
+  config.tieredTranscriptionEnabled=true;
+  const {transcribeAudioWithOpenRouter}=await import('../services/transcriptionService.js');
+  await assert.rejects(transcribeAudioWithOpenRouter(Buffer.from('fixture')),{code:'TRANSCRIPTION_POLICY_REVIEW_REQUIRED'});
+  assert.equal(calls,0);
+ }finally{globalThis.fetch=old;config.tieredTranscriptionEnabled=enabled;}
+});
+test('intelligence fallback policy guard precedes extraction outside the swallowed legacy error',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const s=readFileSync(new URL('../services/intelligence/videoIntelligenceService.ts',import.meta.url),'utf8');
+ assert.match(s,/if \(!audioResult.transcriptText\) \{[\s\S]*?assertStandaloneTranscriptionAllowed\(config.tieredTranscriptionEnabled\);\s*try \{\s*const extracted = await extractAudioFromVideo/);
 });
