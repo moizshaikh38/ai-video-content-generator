@@ -1,3 +1,4 @@
+import {assertBillingEventShape} from './billing/billingEventValidation.js';
 import crypto from 'node:crypto';
 import type {Db,MongoClient} from 'mongodb';
 import {AppError} from '../types/index.js';
@@ -10,6 +11,7 @@ import type {NormalizedBillingEvent} from './billing/types.js';
  * processing lease outside this transaction. Legacy processing rows need
  * reviewed recovery after old nontransactional writers are retired. */
 export async function applyVerifiedBillingEvent(event:NormalizedBillingEvent,database?:Db,mongoClient?:MongoClient){
+ assertBillingEventShape(event);
  const db=database??await getMongoDb(),client=mongoClient??await getMongoClient();
  await assertTransactionalTopology(client);
  const session=client.startSession();

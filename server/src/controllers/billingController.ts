@@ -429,7 +429,7 @@ async function processWebhook(
     res.status(200).json({received:true,...result});
   } catch(err:any) {
     logger.error(`[${providerName} Webhook] Atomic event application failed:`,err);
-    res.status(err?.statusCode===503?503:500).json({error:'Failed to process webhook event.'});
+    res.status(err?.statusCode===503?503:err?.code==='BILLING_EVENT_INVALID'?400:500).json({error:'Failed to process webhook event.'});
   }
 
 }
