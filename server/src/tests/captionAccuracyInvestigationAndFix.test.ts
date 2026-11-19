@@ -1,4 +1,8 @@
-import { describe, it, after } from 'node:test';
+import http from 'node:http';
+import {config} from '../config/index.js';
+import {transcriptContentIdentity} from '../shared/transcriptSourceBinding.js';
+import {selectionSourceReceipt} from '../shared/selectionSourceReceipt.js';
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { CaptionService } from '../services/captionService.js';
 import { ClipAnalysisService } from '../services/clipAnalysisService.js';
@@ -50,6 +54,11 @@ describe('VireoClip — Critical Caption Accuracy Investigation & Fix Verificati
   const testUserId = '00000000-0000-4000-8000-000000000001';
   const testProjectId = '00000000-0000-4000-8000-000000000010';
   const testClipId = '00000000-0000-4000-8000-000000000020';
+  const sourceKey=`users/${testUserId}/projects/${testProjectId}/source/caption-fixture.mp4`;
+  let sourceSelection:any;
+  const storage=http.createServer((_req,res)=>{res.setHeader('ETag','"caption-fixture"');res.setHeader('Content-Length','7');res.end();});
+  const oldStorage={r2AccountId:config.r2AccountId,r2AccessKeyId:config.r2AccessKeyId,r2SecretAccessKey:config.r2SecretAccessKey,r2SourceBucket:config.r2SourceBucket,r2Endpoint:config.r2Endpoint};
+  before(async()=>{await new Promise<void>(r=>storage.listen(0,'127.0.0.1',r));const address=storage.address();assert(address&&typeof address!=='string');Object.assign(config,{r2AccountId:'fixture',r2AccessKeyId:'fixture',r2SecretAccessKey:'fixture',r2SourceBucket:'source',r2Endpoint:`http://127.0.0.1:${address.port}`});});
 
   describe('1. Endpoint Parity: getClipCaptions respects EditorProject canonical cues', () => {
     it('returns custom edited cues from editor_projects so editor preview matches export', async () => {
@@ -80,6 +89,16 @@ describe('VireoClip — Critical Caption Accuracy Investigation & Fix Verificati
             { word: 'transcript', start: 85.0, end: 90.0 },
           ],
         });
+
+        // This is synthetic local provenance, not a provider or cloud-storage claim.
+        // Export/raw fallback must exercise the real source gate, not bypass it.
+        const {data:seededTranscript}=await dataRepository.from('transcripts').select('*').eq('project_id',testProjectId).maybeSingle();
+        assert(seededTranscript);
+        seededTranscript.source_binding={version:1,source_receipt:{key:sourceKey,size:7,etag:'"caption-fixture"',sha256:'a'.repeat(64)},prepared_audio_sha256:'b'.repeat(64),requests:[{sha256:'b'.repeat(64),bytes:7,status:'completed'}],transcript_content_sha256:transcriptContentIdentity(seededTranscript)};
+        const transcriptWrite=await dataRepository.from('transcripts').upsert(seededTranscript);assert.equal(transcriptWrite.error,null);
+        sourceSelection=selectionSourceReceipt(seededTranscript,sourceKey);
+        const projectWrite=await dataRepository.from('projects').upsert({id:testProjectId,user_id:testUserId,title:'Synthetic caption lineage',source_url:sourceKey});assert.equal(projectWrite.error,null);
+        const clipWrite=await dataRepository.from('clips').update({source_storage_path:sourceKey,selection_source_receipt:sourceSelection}).eq('id',testClipId);assert.equal(clipWrite.error,null);
 
         // Seed editor_projects with user edited text
         await dataRepository.from('editor_projects').upsert({
@@ -167,6 +186,7 @@ describe('VireoClip — Critical Caption Accuracy Investigation & Fix Verificati
       await ownerContext.run(testUserId, async () => {
         await dataRepository.from('clips').upsert({
           id: freshClipId,
+          source_storage_path:sourceKey,selection_source_receipt:sourceSelection,
           project_id: testProjectId,
           user_id: testUserId,
           start_seconds: 60.0,
@@ -189,6 +209,15 @@ describe('VireoClip — Critical Caption Accuracy Investigation & Fix Verificati
         assert.ok(data.cues.length > 0);
         assert.equal(data.cues[0].start, 0.0, 'First cue must be clip-relative starting at 0');
       });
+    });
+  });
+
+  it('raw fallback without source lineage is refused, not silently captioned',async()=>{
+    await ownerContext.run(testUserId,async()=>{
+      const staleClip='00000000-0000-4000-8000-000000000060';
+      const seeded=await dataRepository.from('clips').upsert({id:staleClip,user_id:testUserId,project_id:testProjectId,start_seconds:60,end_seconds:90,duration_seconds:30,caption_style:'clean',caption_enabled:true});assert.equal(seeded.error,null);
+      const {req,res,getStatusCode,getResponseData}=mockReqRes({user:{id:testUserId},params:{clipId:staleClip}});
+      await getClipCaptions(req,res);assert.equal(getStatusCode(),409);assert.equal(getResponseData().code,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
     });
   });
 
@@ -346,6 +375,7 @@ describe('VireoClip — Critical Caption Accuracy Investigation & Fix Verificati
   });
 
   after(async () => {
+    storage.closeAllConnections();await new Promise<void>(r=>storage.close(()=>r()));Object.assign(config,oldStorage);
     await closeMongo();
   });
 });
