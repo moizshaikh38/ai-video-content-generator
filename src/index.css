@@ -651,4 +651,22 @@ body {
     border-radius: 9999px;
     background: #fff;
   }
+  .vc-framing-tools button,
+  .vc-framing-tools [role='button'] {
+    min-width: 40px;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+  }
+  .vc-editor-topbar button {
+    min-width: 40px;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+  }
+  .vireo-footer-col ul a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+  }
 }

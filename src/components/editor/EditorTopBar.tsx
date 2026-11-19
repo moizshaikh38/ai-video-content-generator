@@ -68,7 +68,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
   };
 
   return (
-    <header className="h-14 glass-chrome px-2 md:px-4 flex items-center justify-between select-none z-30 shrink-0">
+    <header className="vc-editor-topbar h-14 glass-chrome px-2 md:px-4 flex items-center justify-between select-none z-30 shrink-0">
       {/* Left: Navigation, Title & Save Status */}
       <div className="flex items-center gap-1 md:gap-3 min-w-0">
         <button

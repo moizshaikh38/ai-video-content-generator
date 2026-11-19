@@ -242,7 +242,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                   checked={captionsEnabled}
                   onChange={(e) => onToggleCaptions?.(e.target.checked)}
                   disabled={!onToggleCaptions}
-                  className="w-4 h-4 rounded accent-white cursor-pointer disabled:opacity-50"
+                  className="w-5 h-5 rounded accent-white cursor-pointer disabled:opacity-50"
                 />
               </div>
 

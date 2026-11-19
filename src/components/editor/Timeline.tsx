@@ -854,7 +854,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         title="Add intro"
                         aria-label="Add intro"
                         onClick={(e) => { e.stopPropagation(); onAddIntroOutro('intro'); }}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-lg bg-vc-surface2 hover:bg-[#242424] border border-white/[0.08] hover:border-white/20 text-neutral-400 hover:text-white flex items-center justify-center transition shadow-sm"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 max-md:w-10 max-md:h-10 rounded-lg bg-vc-surface2 hover:bg-[#242424] border border-white/[0.08] hover:border-white/20 text-neutral-400 hover:text-white flex items-center justify-center transition shadow-sm"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -864,7 +864,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                         aria-label="Add outro"
                         onClick={(e) => { e.stopPropagation(); onAddIntroOutro('outro'); }}
                         style={{ left: `${TRACK_INSET_LEFT + duration * pixelsPerSec + 10}px` }}
-                        className="absolute top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-lg bg-vc-surface2 hover:bg-[#242424] border border-white/[0.08] hover:border-white/20 text-neutral-400 hover:text-white flex items-center justify-center transition shadow-sm"
+                        className="absolute top-1/2 -translate-y-1/2 z-30 w-8 h-8 max-md:w-10 max-md:h-10 rounded-lg bg-vc-surface2 hover:bg-[#242424] border border-white/[0.08] hover:border-white/20 text-neutral-400 hover:text-white flex items-center justify-center transition shadow-sm"
                       >
                         <Plus className="w-4 h-4" />
                       </button>

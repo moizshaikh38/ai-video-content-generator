@@ -255,7 +255,7 @@ export const DashboardPage: React.FC = () => {
 
             <Link
               to="/history"
-              className="text-xs sm:text-sm font-semibold text-violet-400 hover:text-violet-300 transition-colors"
+              className="inline-flex items-center min-h-[40px] sm:min-h-0 text-xs sm:text-sm font-semibold text-violet-400 hover:text-violet-300 transition-colors"
             >
               View all &rarr;
             </Link>

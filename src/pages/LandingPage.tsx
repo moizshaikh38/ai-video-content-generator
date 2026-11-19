@@ -533,7 +533,7 @@ function Pricing() {
                 <div>
                   <Link
                     to="/signup"
-                    className={`w-full py-2.5 px-4 rounded-full text-xs font-bold text-center block transition-all ${
+                    className={`w-full py-3.5 sm:py-2.5 px-4 rounded-full text-xs font-bold text-center block transition-all ${
                       isFeatured
                         ? 'bg-gradient-to-r from-[#6734c9] to-[#8753e3] hover:brightness-110 text-white shadow-lg'
                         : 'bg-white/[0.06] hover:bg-white/[0.1] text-white'

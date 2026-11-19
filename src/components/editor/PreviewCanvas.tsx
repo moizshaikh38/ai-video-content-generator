@@ -1266,10 +1266,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             aria-expanded={mobileFramingToolsOpen}
             aria-label={mobileFramingToolsOpen ? 'Close framing tools' : 'Open framing tools'}
             onClick={(e) => { e.stopPropagation(); setLayoutAnchor(null); setMobileFramingToolsOpen(open => !open); }}
-            className="shrink-0 min-h-[36px] rounded-lg px-2 bg-white/10 text-white font-medium"
+            className="shrink-0 min-h-[40px] rounded-lg px-2.5 bg-white/10 text-white font-medium"
           >{mobileFramingToolsOpen ? 'Done' : 'Framing tools'}</button>
         </div>
-        <div data-testid="preview-framing-tools" className={`${mobileFramingToolsOpen ? 'flex' : 'hidden'} md:flex relative flex-wrap items-center justify-center gap-x-2 gap-y-1 max-w-full glass-float px-3 py-1 rounded-2xl text-xs whitespace-nowrap`}>
+        <div data-testid="preview-framing-tools" className={`vc-framing-tools ${mobileFramingToolsOpen ? 'flex' : 'hidden'} md:flex relative flex-wrap items-center justify-center gap-x-2 gap-y-1 max-w-full glass-float px-3 py-1 rounded-2xl text-xs whitespace-nowrap`}>
           {shotComposition?.some(s=>s.contextStatus?.startsWith('unresolved')) && (
             <span data-testid="automatic-context-review" className="text-amber-300" title={activeAutomaticShot?.uncertainty || "Automatic 4:3 Fit crops side pixels. Some scenes need a side-content review before sharing."}>Review side context</span>
           )}
