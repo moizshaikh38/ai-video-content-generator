@@ -1,3 +1,4 @@
+import type {RenderQuotaPolicy} from '../db/repositories/renderQuotaRepository.js';
 import {enforceSavedRenderFreshness} from './renderFreshnessGuard.js';
 import {assertRenderAssetOwnership} from '../utils/renderAssetOwnership.js';
 import {workLifecycle} from './queue/workLifecycle.js';
@@ -423,7 +424,8 @@ export class ClipRenderService {
     aspectRatio: ClipAspectRatio = '9:16',
     cropMode: ClipCropMode = 'center',
     options?: { caption_enabled?: boolean; caption_style?: string; caption_config?: any },
-    creation?:CandidateCreationPreparation
+    creation?:CandidateCreationPreparation,
+    quotaPolicy?:RenderQuotaPolicy
   ): Promise<CreateClipResult> {
     if (!isMongoConfigured) {
       const err = new Error('Database service is not configured.');
@@ -443,7 +445,7 @@ export class ClipRenderService {
     if(candidateReadError)throw new AppError('Clip candidate could not be read.',503,candidateReadError.code||'DATABASE_UNAVAILABLE');
     if(!candidateForSource)throw new AppError('Clip candidate not found.',404,'CANDIDATE_NOT_FOUND');
     await assertSelectionSourceCurrent(userId,projectId,candidateForSource?.metadata?.selection_source_receipt);
-    const result = await createClipWithJob(projectId, candidateId, userId, validAspectRatio, cropMode, options,creation);
+    const result = await createClipWithJob(projectId, candidateId, userId, validAspectRatio, cropMode, options,creation,quotaPolicy);
     const {clip,renderJob}=result;
 
     // 6. Launch in-process background rendering (deferred to the sweep when at cap)
@@ -593,6 +595,9 @@ export class ClipRenderService {
       throw err;
     }
 
+    // Execution is never admission. Every producer must commit a job first.
+    if(!existingJobId||!isValidUUID(existingJobId))throw new AppError('A committed render job ID is required.',409,'RENDER_JOB_REQUIRED');
+
     // Fetch clip and verify ownership
     const { data: clip, error: clipErr } = await dataRepository
       .from('clips')
@@ -627,34 +632,9 @@ export class ClipRenderService {
     const expectedClipVersion={renderVersion:Number(clip.render_version||1),editorVersion:Number(clip.editor_version||1)};
     const now = new Date();
 
-    let jobId = existingJobId;
+    const jobId = existingJobId;
     const db = await getMongoDb();
     const renderJobsCol = db.collection('render_jobs');
-
-    // Ensure a render job exists in MongoDB
-    if (!jobId) {
-      const existingJob = await renderJobsCol.findOne({ clip_id: clipId, user_id: userId }, { sort: { created_at: -1 } });
-      if (existingJob) {
-        jobId = existingJob.id;
-      } else {
-        const newId = crypto.randomUUID();
-        await renderJobsCol.insertOne({
-          id: newId,
-          clip_id: clipId,
-          user_id: userId,
-          status: 'queued',
-          progress: 0,
-          stage: 'queued',
-          attempts: 0,
-          max_attempts: 3,
-          worker_id: null,
-          locked_at: null,
-          created_at: now,
-          updated_at: now,
-        });
-        jobId = newId;
-      }
-    }
 
     // Atomic distributed lease acquisition:
     // Claim only if queued OR processing with an expired stale lock

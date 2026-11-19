@@ -365,7 +365,7 @@ export const renderEditorProject = async (
     if(submission&&(Number(clip.render_version??1)!==submission.expectedRenderVersion||Number(clip.editor_version??1)!==submission.expectedEditorVersion)){
       throw Object.assign(new Error('Saved inputs changed before this submission was admitted.'),{statusCode:409,code:'RENDER_INPUT_CHANGED'});
     }
-    await assertRenderPlanPreflight(userId, req.user?.email, clip.caption_style);
+    const quotaPolicy=await assertRenderPlanPreflight(userId, req.user?.email, clip.caption_style);
     await assertSelectionSourceCurrent(userId,clip.project_id,clip.selection_source_receipt,clip.source_storage_path);
 
     let requestedResolution: string | null = null;
@@ -383,7 +383,7 @@ export const renderEditorProject = async (
     }
 
     const {job:newJob,renderVersion:nextRenderVersion,replayed} = await enqueueRenderJob({
-      submission,clipId:project.clip_id,userId,
+      submission,clipId:project.clip_id,userId,quotaPolicy,
       expectedRenderVersion:Number(clip.render_version??1),
       expectedEditorVersion:Number(clip.editor_version??1),
       expectedEditorProject:editorRenderSnapshot(project),

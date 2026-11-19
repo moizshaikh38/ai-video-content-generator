@@ -1,3 +1,4 @@
+import {renderQuotaPolicy} from '../db/repositories/renderQuotaRepository.js';
 import {assertRenderQuotaMaximum,assertRenderUsageCount} from '../shared/renderQuotaSnapshot.js';
 import {ProEditorService} from '../services/proEditorService.js';
 import {parseCandidateCreation,lookupCandidateCreation,closeCandidateCreation} from '../db/repositories/candidateCreationRepository.js';
@@ -441,7 +442,7 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
       aspectRatio,
       effectiveCropMode,
       { caption_enabled, caption_style: effectiveCaptionStyle, caption_config: effectiveCaptionConfig },
-      creationContext
+      creationContext,renderQuotaPolicy(entitlements)
     );
 
     res.status(202).json({
@@ -692,7 +693,7 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
     }
 
     const {job:newJob,renderVersion:nextRenderVersion,replayed} = await enqueueRenderJob({
-      submission,clipId,userId,
+      submission,clipId,userId,quotaPolicy:renderQuotaPolicy(entitlements),
       expectedRenderVersion:Number(clip.render_version??1),
       expectedEditorVersion:Number(clip.editor_version??1),
       expectedEditorProject:editorRenderSnapshot(panelProject),

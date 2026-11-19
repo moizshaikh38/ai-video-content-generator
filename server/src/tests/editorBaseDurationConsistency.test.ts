@@ -33,7 +33,7 @@ test('ordinary clip creation and editor trims keep base duration consistent; mal
     await db.collection('clip_candidates').insertOne({ id: candidateId, project_id: projectId, user_id: user,
       start_seconds: 10, end_seconds: 40, duration_seconds: 999, status: 'suggested',
       metadata: { selection_source_receipt: selectionSourceReceipt(transcript, key) } });
-    const created = await createClipWithJob(projectId, candidateId, user, '9:16', 'center');
+    const created = await createClipWithJob(projectId, candidateId, user, '9:16', 'center',undefined,undefined,{kind:'unlimited'});
     assert(created);
     const clip: any = created.clip;
     // Creation does not copy an inconsistent candidate duration field.

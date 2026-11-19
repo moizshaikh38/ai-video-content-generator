@@ -400,7 +400,7 @@ export class ProducerRenderService {
       }
     }
 
-    await assertRenderPlanPreflight(userId,undefined,captionStyle);
+    const quotaPolicy=await assertRenderPlanPreflight(userId,undefined,captionStyle);
     const clipUpdates={trim_start_offset:trimStartOffset,trim_end_offset:trimEndOffset,aspect_ratio:aspectRatio,crop_config:cropConfig,caption_style:captionStyle,caption_position:captionPosition,caption_config:captionConfig,overlay_config:overlayConfig,volume};
     const {data:existingEditor,error:editorError}=await dataRepository.from('editor_projects').select('*').eq('clip_id',clip.id).eq('user_id',userId).maybeSingle();
     if(editorError)throw new AppError('Editor project could not be read.',503,editorError.code||'DATABASE_UNAVAILABLE');
@@ -545,7 +545,7 @@ export class ProducerRenderService {
     // applied clip and queued editor snapshot share one transaction boundary.
     const stagedUpdates=await ProEditorService.prepareEditorRevision(editorProject,userId,{tracks:editorProject.tracks,version:editorProject.version});
     const stagedEditor=JSON.parse(JSON.stringify({...editorProject,...stagedUpdates,version:existingEditor?existingEditor.version+1:1}));
-    const result=await commitProducerApply(await getMongoClient(),db,{userId,plan:originalPlan,clip,expectedEditor:existingEditor,editor:stagedEditor,clipUpdates});
+    const result=await commitProducerApply(await getMongoClient(),db,{userId,plan:originalPlan,clip,expectedEditor:existingEditor,editor:stagedEditor,clipUpdates,quotaPolicy});
     if(!result?.clip||!result?.renderJob)throw new AppError('Producer Apply did not return a committed render receipt.',503,'PRODUCER_APPLY_UNVERIFIED');
     if(!result.replayed)launchInlineRender(clip.id,userId,result.renderJob.id);
     return result as any;

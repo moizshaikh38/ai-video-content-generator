@@ -22,7 +22,7 @@ test('fresh generated Free defaults accept verified fixture decisions and preser
  Object.assign(config,{r2AccountId:'fixture',r2AccessKeyId:'fixture',r2SecretAccessKey:'fixture',r2SourceBucket:'source',r2Endpoint:`http://127.0.0.1:${address.port}`});
  const orig=ClipRenderService.createClipFromCandidate;
  // Use the real transactional candidate-to-clip path, without launching an asynchronous render.
- ClipRenderService.createClipFromCandidate=async(p,u,c,a,m,o)=>createClipWithJob(p,c,u,a!,m!,o) as any;
+ ClipRenderService.createClipFromCandidate=async(p,u,c,a,m,o,creation,quota)=>createClipWithJob(p,c,u,a!,m!,o,creation,quota) as any;
  try{
   await db.collection('projects').insertOne({id:pid,user_id:uid,source_url:'local-free-test.mp4',video_status:'transcribed'});
   // Explicitly synthetic receipt. This test is entitlement/default coverage, not recognition proof.

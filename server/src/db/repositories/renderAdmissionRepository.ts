@@ -1,3 +1,4 @@
+import {ensureRenderQuotaFence,assertTransactionalRenderQuota,type RenderQuotaPolicy} from './renderQuotaRepository.js';
 import {findRenderSubmission, renderSubmissionKey, type RenderSubmissionIntent} from './renderSubmissionRepository.js';
 import crypto from 'node:crypto';
 import type {Db, MongoClient, ClientSession} from 'mongodb';
@@ -9,6 +10,7 @@ import {assertPanelViewsAssigned} from '../../shared/panelLayouts.js';
 import {expandSceneLayoutProject} from '../../shared/sceneLayoutOverrides.js';
 
 export interface RenderAdmissionInput {
+  quotaPolicy?:RenderQuotaPolicy;
   submission?: RenderSubmissionIntent;
   clipId: string;
   userId: string;
@@ -27,6 +29,7 @@ const revision = (value: unknown) => value === undefined || value === null ? 1 :
  */
 export async function admitRenderJob(client: MongoClient, db: Db, input: RenderAdmissionInput) {
   validateRenderAdmissionInput(input);
+  await ensureRenderQuotaFence(db,input.userId);
   const session = client.startSession();
   try {
     const receipt = await session.withTransaction(async () => {
@@ -95,6 +98,7 @@ export async function admitRenderJobInTransaction(db:Db,session:ClientSession,in
   // Also reject a live legacy clip lease even if its job cannot be found.
   if (['rendering','uploading'].includes(clip.render_status)) throw new AppError('Clip has an active render state. Wait for recovery before retrying.',409,'RENDER_ALREADY_ACTIVE');
   const now = new Date();
+  await assertTransactionalRenderQuota(db,session,input.userId,input.quotaPolicy,now);
   const renderVersion = input.expectedRenderVersion + 1;
   const settings: Record<string, unknown> = {};
   if (input.settings?.caption_enabled !== undefined) settings.caption_enabled=Boolean(input.settings.caption_enabled);

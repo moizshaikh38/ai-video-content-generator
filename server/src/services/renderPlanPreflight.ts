@@ -1,13 +1,15 @@
+import {renderQuotaPolicy,type RenderQuotaPolicy} from '../db/repositories/renderQuotaRepository.js';
 import {assertRenderQuotaMaximum,assertRenderUsageCount} from '../shared/renderQuotaSnapshot.js';
 import {getMongoDb} from '../db/mongoClient.js';
 import {AppError} from '../types/index.js';
 import {EntitlementService} from './entitlementService.js';
 
 /** Same saved-clip baseline policy as the Quick render route. This is a
- * preflight, not an account-wide atomic quota reservation. In-editor per-item
- * styles need their own explicit product policy; do not infer one here.
+ * preflight returning a server-verified policy for transactional admission,
+ * not a reservation itself. In-editor per-item styles need their own explicit
+ * product policy; do not infer one here.
  */
-export async function assertRenderPlanPreflight(userId: string, email: string | undefined, captionPreset: unknown): Promise<void> {
+export async function assertRenderPlanPreflight(userId: string, email: string | undefined, captionPreset: unknown): Promise<RenderQuotaPolicy> {
   const entitlements = await EntitlementService.resolveUserEntitlements(userId, email);
   if (!entitlements.isUnlimited) {
     const maximum = entitlements.limits.maxClipRenders;
@@ -31,4 +33,5 @@ export async function assertRenderPlanPreflight(userId: string, email: string | 
   if (captionPreset && !EntitlementService.isPresetAllowed(entitlements, String(captionPreset))) {
     throw new AppError(`The subtitle preset "${String(captionPreset)}" is not available on your current ${entitlements.displayName} plan. Please upgrade to access this preset.`, 403, 'PRESET_RESTRICTED');
   }
+  return renderQuotaPolicy(entitlements);
 }

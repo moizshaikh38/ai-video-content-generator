@@ -27,8 +27,8 @@ test('Producer Apply atomically admits a revision-bound job and replays without 
  (ClipRenderService as any).renderClipJob=async(...args:any[])=>{launches.push(args);};
  (EntitlementService as any).resolveUserEntitlements=async()=>({isUnlimited:true,displayName:'Fixture',allowedSubtitlePresets:['simple','clean']});
  const owners:string[]=[];
- async function fixture(){
-  const user=crypto.randomUUID(),project=crypto.randomUUID(),clip=crypto.randomUUID(),plan=crypto.randomUUID(),key=`users/${user}/projects/${project}/source/fixture.mp4`;owners.push(user);
+ async function fixture(user=crypto.randomUUID()){
+  const project=crypto.randomUUID(),clip=crypto.randomUUID(),plan=crypto.randomUUID(),key=`users/${user}/projects/${project}/source/fixture.mp4`;owners.push(user);
   const transcript:any={id:crypto.randomUUID(),user_id:user,project_id:project,transcript_text:'Synthetic fixture words.',language:'en',duration_seconds:2,segments:[{start:0,end:2,text:'Synthetic fixture words.'}]};
   transcript.source_binding={version:1,source_receipt:{key,size:7,etag:'"fixture"',sha256:'a'.repeat(64)},prepared_audio_sha256:'b'.repeat(64),requests:[{sha256:'b'.repeat(64),bytes:7,status:'completed'}],transcript_content_sha256:transcriptContentIdentity(transcript)};
   await db.collection('projects').insertOne({id:project,user_id:user,source_url:key,video_status:'transcribed'});
@@ -67,6 +67,11 @@ test('Producer Apply atomically admits a revision-bound job and replays without 
   const pending=await fixture();await db.collection('clips').updateOne({id:pending.clip},{$set:{editor_project_sync_pending:{id:crypto.randomUUID(),version:2}}});await assert.rejects(apply(pending),{code:'PRODUCER_APPLY_CONFLICT'});await unchanged(pending);
   const stale=await fixture();await db.collection('projects').updateOne({id:stale.project},{$set:{source_url:'replaced'}});await assert.rejects(apply(stale),{code:'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'});await unchanged(stale);
   const limited=await fixture();(EntitlementService as any).resolveUserEntitlements=async()=>({isUnlimited:false,limits:{maxClipRenders:0},displayName:'Fixture'});await assert.rejects(apply(limited),{code:'MONTHLY_RENDER_LIMIT_EXCEEDED'});await unchanged(limited);(EntitlementService as any).resolveUserEntitlements=async()=>({isUnlimited:true,allowedSubtitlePresets:['simple','clean']});
+  const accountOne=await fixture(),accountTwo=await fixture(accountOne.user),priorMonth=new Date();priorMonth.setUTCDate(1);priorMonth.setUTCHours(0,0,0,0);priorMonth.setUTCDate(0);
+  await db.collection('render_jobs').updateMany({user_id:accountOne.user},{$set:{created_at:priorMonth}});
+  (EntitlementService as any).resolveUserEntitlements=async()=>({isUnlimited:false,limits:{maxClipRenders:1},displayName:'Fixture',allowedSubtitlePresets:['simple','clean']});
+  const accountRace=await Promise.allSettled([apply(accountOne),apply(accountTwo)]);assert.equal(accountRace.filter(r=>r.status==='fulfilled').length,1);assert.equal(accountRace.filter(r=>r.status==='rejected'&&r.reason.code==='MONTHLY_RENDER_LIMIT_EXCEEDED').length,1);assert.equal(await db.collection('render_jobs').countDocuments({user_id:accountOne.user,status:'queued'}),1);
+  (EntitlementService as any).resolveUserEntitlements=async()=>({isUnlimited:true,allowedSubtitlePresets:['simple','clean']});
   const validation=await fixture(),oldPrepare=ProEditorService.prepareEditorRevision;
   (ProEditorService as any).prepareEditorRevision=async()=>{throw Object.assign(Error('Synthetic staging failure'),{code:'FIXTURE_EDITOR_INVALID'});};try{await assert.rejects(apply(validation),{code:'FIXTURE_EDITOR_INVALID'});await unchanged(validation);}finally{ProEditorService.prepareEditorRevision=oldPrepare;}
   const lateSource=await fixture(),oldStage=ProEditorService.prepareEditorRevision;
@@ -92,7 +97,7 @@ test('Producer Apply atomically admits a revision-bound job and replays without 
  }finally{
   (ClipRenderService as any).renderClipJob=oldWorker;(EntitlementService as any).resolveUserEntitlements=oldPlan;
   if(oldGate===undefined)delete process.env.VIREO_RENDER_ADMISSION_V1;else process.env.VIREO_RENDER_ADMISSION_V1=oldGate;
-  for(const name of ['projects','transcripts','clips','producer_plans','render_jobs','editor_projects'])await db.collection(name).deleteMany({user_id:{$in:owners}});
+  for(const name of ['projects','transcripts','clips','producer_plans','render_jobs','editor_projects','render_quota_fences'])await db.collection(name).deleteMany({user_id:{$in:owners}});
   storage.closeAllConnections();await new Promise<void>(r=>storage.close(()=>r()));Object.assign(config,savedConfig);await closeMongo();
  }
 });

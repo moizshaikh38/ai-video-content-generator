@@ -7,7 +7,7 @@ const UUID_PATTERN = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB
 const collections = [
   'profiles', 'projects', 'transcripts', 'creator_profiles', 'content_outputs',
   'usage_events', 'subscription_limits', 'clip_candidates', 'clips',
-  'render_jobs', 'render_submissions', 'candidate_creations', 'reframe_tracks', 'social_account_connections', 'oauth_states',
+  'render_jobs', 'render_quota_fences', 'render_submissions', 'candidate_creations', 'reframe_tracks', 'social_account_connections', 'oauth_states',
   'published_posts', 'publish_jobs',
   'billing_customers', 'subscriptions', 'billing_events', 'billing_invoices',
   'billing_checkouts',
@@ -208,6 +208,7 @@ export async function bootstrapMongo(db?: Db): Promise<void> {
     database.collection('clips').createIndex({ id: 1 }, { unique: true }),
     database.collection('clips').createIndex({ project_id: 1, user_id: 1, render_status: 1 }),
     database.collection('render_jobs').createIndex({ id: 1 }, { unique: true }),
+    database.collection('render_jobs').createIndex({user_id:1,created_at:1}),
     database.collection('render_jobs').createIndex({ clip_id: 1, user_id: 1, status: 1, created_at: -1 }),
     database.collection('reframe_tracks').createIndex({ id: 1 }, { unique: true }),
     database.collection('reframe_tracks').createIndex({ clip_id: 1, user_id: 1, status: 1 }),

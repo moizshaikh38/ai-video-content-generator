@@ -1,3 +1,4 @@
+import {ensureRenderQuotaFence,type RenderQuotaPolicy} from './renderQuotaRepository.js';
 import crypto from 'node:crypto';
 import type {Db,MongoClient,ClientSession} from 'mongodb';
 import {AppError} from '../../types/index.js';
@@ -30,11 +31,12 @@ export async function findProducerApply(db:Db,userId:string,plan:any,session?:Cl
  if(!job?.id||job.user_id!==userId||job.clip_id!==clip.id||job.admission_version!==1||!Number.isSafeInteger(job.render_version)||!Number.isSafeInteger(job.editor_version)||receipt.clip?.id!==clip.id||receipt.clip?.user_id!==userId||receipt.clip?.render_version!==job.render_version||receipt.clip?.editor_version!==job.editor_version)throw new AppError('Producer Apply receipt cannot be verified. No new render was started.',503,'PRODUCER_APPLY_UNVERIFIED');
  return {clip,plan:row,renderJob:job,replayed:true};
 }
-export interface ProducerApplyInput {userId:string;plan:any;clip:any;expectedEditor:any;editor:any;clipUpdates:Record<string,unknown>}
+export interface ProducerApplyInput {quotaPolicy?:RenderQuotaPolicy;userId:string;plan:any;clip:any;expectedEditor:any;editor:any;clipUpdates:Record<string,unknown>}
 /** One atomic boundary: configuration, editor, plan receipt and V1 job. No
  * background worker is invoked from this transaction. Live source and plan
  * preflight remain the service's responsibility, as with Quick/Studio. */
 export async function commitProducerApply(client:MongoClient,db:Db,input:ProducerApplyInput){
+ await ensureRenderQuotaFence(db,input.userId);
  const session=client.startSession();
  try{return await session.withTransaction(async()=>{
   const prior=await findProducerApply(db,input.userId,input.plan,session);if(prior)return prior;
@@ -56,7 +58,7 @@ export async function commitProducerApply(client:MongoClient,db:Db,input:Produce
    const saved=await db.collection('editor_projects').replaceOne({id:editor.id,clip_id:clip.id,user_id:input.userId,version:editor.version},updates,{session});if(saved.matchedCount!==1)throw changed();
   }else await db.collection('editor_projects').insertOne({...staged},{session});
   const updated=await db.collection('clips').updateOne({id:clip.id,user_id:input.userId},{$set:{...input.clipUpdates,editor_version:editorVersion,updated_at:now}},{session});if(updated.matchedCount!==1)throw changed();
-  const admitted=await admitRenderJobInTransaction(db,session,{clipId:clip.id,userId:input.userId,expectedRenderVersion:renderVersion,expectedEditorVersion:editorVersion,expectedEditorProject:editorRenderSnapshot(staged)});
+  const admitted=await admitRenderJobInTransaction(db,session,{clipId:clip.id,userId:input.userId,expectedRenderVersion:renderVersion,expectedEditorVersion:editorVersion,expectedEditorProject:editorRenderSnapshot(staged),quotaPolicy:input.quotaPolicy});
   const savedClip=await db.collection('clips').findOne({id:clip.id,user_id:input.userId},{session});
   const receipt={version:1,plan_identity:producerPlanIdentity(plan),job:admitted.job,clip:savedClip};
   const savedPlan=await db.collection('producer_plans').findOneAndUpdate({id:plan.id,user_id:input.userId},{$set:{status:'applied',applied_at:now,updated_at:now,apply_receipt:receipt}},{session,returnDocument:'after'});

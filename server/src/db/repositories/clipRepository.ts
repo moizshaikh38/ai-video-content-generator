@@ -1,3 +1,4 @@
+import {ensureRenderQuotaFence,assertTransactionalRenderQuota,type RenderQuotaPolicy} from './renderQuotaRepository.js';
 import {editorRenderSnapshot} from '../../shared/editorRenderSnapshot.js';
 import {assertPanelViewsAssigned} from '../../shared/panelLayouts.js';
 import {validateRecord} from '../schemaValidation.js';
@@ -101,9 +102,10 @@ export async function prepareCandidateCreation(projectId:string,candidateId:stri
 /** Verify relationships and create clip plus initial render job in one transaction. */
 export async function createClipWithJob(projectId: string, candidateId: string, userId: string,
   aspectRatio: ClipAspectRatio, cropMode: ClipCropMode,
-  options?: { caption_enabled?: boolean; caption_style?: string; caption_config?: any },creation?:CandidateCreationPreparation) {
+  options?: { caption_enabled?: boolean; caption_style?: string; caption_config?: any },creation?:CandidateCreationPreparation,quotaPolicy?:RenderQuotaPolicy) {
   const client = await getMongoClient();
   const db = await getMongoDb();
+  await ensureRenderQuotaFence(db,userId);
   const session = client.startSession();
   try {
     return await session.withTransaction(async () => {
@@ -123,6 +125,7 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
       }
       const {candidate}=inputs;
       const now=new Date();
+      await assertTransactionalRenderQuota(db,session,userId,quotaPolicy,now);
       const template=creation?JSON.parse(JSON.stringify(inputs.template)):inputs.template;
       const clip={id:creation?prepared.planned_clip_id:crypto.randomUUID(),...template,created_at:now,updated_at:now};
       const initialEditor=creation?{...prepared.initial_editor,created_at:new Date(prepared.initial_editor.created_at),updated_at:new Date(prepared.initial_editor.updated_at)}:null;

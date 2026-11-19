@@ -219,7 +219,7 @@ test('Mongo repositories, ownership, indexes, and quota concurrency', { timeout:
   await ownerContext.run(user, async () => { await dataRepository.from('projects').update({ video_status: 'uploaded' }).eq('id', projectId); });
   await ownerContext.run(user, async () => {
     await dataRepository.from('clip_candidates').update({ start_seconds: 0, end_seconds: 20 }).eq('id', candidateId);
-    const pair = await createClipWithJob(projectId, candidateId, user, '9:16', 'center');
+    const pair = await createClipWithJob(projectId, candidateId, user, '9:16', 'center',undefined,undefined,{kind:'unlimited'});
     assert.equal(pair.clip.candidate_id, candidateId);
     assert.equal(pair.renderJob.clip_id, pair.clip.id);
     assert.equal(await (await getMongoDb()).collection('render_jobs').countDocuments({ clip_id: pair.clip.id }), 1);

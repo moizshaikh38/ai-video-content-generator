@@ -58,7 +58,7 @@ test('actual selection/creation/render consumers reject stale decisions without 
  await db.collection('transcripts').updateOne({project_id:project},{$set:{source_binding:t.source_binding},$unset:{quality_assessment:''}});
 
  await assert.rejects(assertSelectionSourceCurrent(crypto.randomUUID(),project,receipt,key),{code:'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'});
- let created:any=await createClipWithJob(project,candidate,user,'9:16','center');
+ let created:any=await createClipWithJob(project,candidate,user,'9:16','center',undefined,undefined,{kind:'unlimited'});
  assert.deepEqual(created.clip.selection_source_receipt,receipt);
  etag='"replaced-same-size"';
  await assert.rejects(assertSelectionSourceCurrent(user,project,receipt,key),{code:'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'});
@@ -77,7 +77,7 @@ test('actual selection/creation/render consumers reject stale decisions without 
  const clip=await db.collection('clips').findOne({id:created.clip.id});const job=await db.collection('render_jobs').findOne({id:created.renderJob.id});
  assert.equal(clip?.render_status,'failed');assert.equal(clip?.render_error_code,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');assert.equal(job?.status,'failed');assert(!clip?.output_storage_path);
  etag='"fixture-a"';await db.collection('transcripts').updateOne({project_id:project},{$set:{transcript_text:'Changed while selection was running'}});
- await assert.rejects(createClipWithJob(project,candidate,user,'9:16','center'),{code:'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'});
+ await assert.rejects(createClipWithJob(project,candidate,user,'9:16','center',undefined,undefined,{kind:'unlimited'}),{code:'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'});
  await assert.rejects(replaceSuggestedCandidates(user,project,[],receipt),{code:'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'});
  assert.equal(await db.collection('clip_candidates').countDocuments({id:candidate}),1);
  } finally {for(const col of ['projects','transcripts','clip_candidates','clips','render_jobs'])await db.collection(col).deleteMany({user_id:user});await closeMongo();await new Promise<void>(r=>server.close(()=>r()));}
