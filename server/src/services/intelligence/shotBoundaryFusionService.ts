@@ -273,10 +273,24 @@ export class ShotBoundaryFusionService {
       const expandEnd = Math.min(totalVideoDuration, currentEnd + deficit);
       const remainingDeficit = minDur - (expandEnd - currentStart);
       const expandStart = Math.max(0, currentStart - remainingDeficit);
-      currentStart = Number(expandStart.toFixed(3));
-      currentEnd = Number(expandEnd.toFixed(3));
+      const safeEdge=(t:number)=>!sortedWords.some(w=>w.start<t&&w.end>t);
+      // Expanding by elapsed seconds can land inside a word and discard an
+      // otherwise usable candidate at final validation. Prefer the nearest
+      // complete-word edge inside the same duration limits. Narrative scoring
+      // is still invalidated by the caller when the spoken scope changes.
+      const safeEnds=safeEdge(currentStart)?[expandEnd,...sortedWords.map(w=>w.end)]
+        .filter(t=>t>=expandEnd&&t<=totalVideoDuration&&t-currentStart>=minDur&&t-currentStart<=maxDur&&safeEdge(t))
+        .sort((a,b)=>a-b):[];
+      const completeEnd=safeEnds.find(t=>t-expandEnd<=2.2&&sortedWords.some(w=>w.end===t&&this.TERMINAL_PUNCTUATION_REGEX.test(w.word.trim())));
+      const safeEnd=completeEnd??safeEnds[0];
+      const safeStart=safeEnd===undefined&&safeEdge(currentEnd)?[expandStart,...sortedWords.map(w=>w.start)]
+        .filter(t=>t>=0&&t<=currentStart&&currentEnd-t>=minDur&&currentEnd-t<=maxDur&&safeEdge(t))
+        .sort((a,b)=>b-a)[0]:undefined;
+      currentStart = Number((safeEnd!==undefined?currentStart:safeStart??expandStart).toFixed(3));
+      currentEnd = Number((safeEnd??(safeStart!==undefined?currentEnd:expandEnd)).toFixed(3));
       finalDuration = currentEnd - currentStart;
-      warnings.push(`Expanded boundary by ${(deficit).toFixed(1)}s to fulfill minimum clip duration.`);
+      wasWordBoundaryAdjusted=safeEnd!==undefined||safeStart!==undefined;
+      warnings.push(`Expanded boundary by ${(finalDuration-(minDur-deficit)).toFixed(1)}s to fulfill minimum clip duration.`);
     }
 
     if (finalDuration > maxDur) {
