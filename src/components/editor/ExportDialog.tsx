@@ -180,7 +180,8 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-white/[0.06] transition"
+            aria-label="Close export dialog"
+            className="p-1 max-md:p-2.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/[0.06] transition"
           >
             <X className="w-5 h-5" />
           </button>
@@ -242,7 +243,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                   checked={captionsEnabled}
                   onChange={(e) => onToggleCaptions?.(e.target.checked)}
                   disabled={!onToggleCaptions}
-                  className="w-5 h-5 rounded accent-white cursor-pointer disabled:opacity-50"
+                  className="w-5 h-5 shrink-0 rounded accent-white cursor-pointer disabled:opacity-50"
                 />
               </div>
 

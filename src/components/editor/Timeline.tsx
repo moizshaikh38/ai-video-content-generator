@@ -817,31 +817,31 @@ export const Timeline: React.FC<TimelineProps> = ({
                         type="button"
                         onClick={() => toggleTrackProperty(track.id, 'muted')}
                         title={track.muted ? 'Unmute Track' : 'Mute Track'}
-                        className={`p-0.5 rounded hover:bg-neutral-800 transition ${
+                        className={`p-0.5 max-md:p-2 rounded hover:bg-neutral-800 transition ${
                           track.muted ? 'text-red-400' : 'text-neutral-400 hover:text-white'
                         }`}
                       >
-                        {track.muted ? <VolumeX className="w-2.5 h-2.5" /> : <Volume2 className="w-2.5 h-2.5" />}
+                        {track.muted ? <VolumeX className="w-2.5 h-2.5 max-md:w-4 max-md:h-4" /> : <Volume2 className="w-2.5 h-2.5 max-md:w-4 max-md:h-4" />}
                       </button>
                       <button
                         type="button"
                         onClick={() => toggleTrackProperty(track.id, 'locked')}
                         title={track.locked ? 'Unlock Track' : 'Lock Track'}
-                        className={`p-0.5 rounded hover:bg-neutral-800 transition ${
+                        className={`p-0.5 max-md:p-2 rounded hover:bg-neutral-800 transition ${
                           track.locked ? 'text-amber-400' : 'text-neutral-400 hover:text-white'
                         }`}
                       >
-                        {track.locked ? <Lock className="w-2.5 h-2.5" /> : <Unlock className="w-2.5 h-2.5" />}
+                        {track.locked ? <Lock className="w-2.5 h-2.5 max-md:w-4 max-md:h-4" /> : <Unlock className="w-2.5 h-2.5 max-md:w-4 max-md:h-4" />}
                       </button>
                       <button
                         type="button"
                         onClick={() => toggleTrackProperty(track.id, 'hidden')}
                         title={track.hidden ? 'Show Track' : 'Hide Track'}
-                        className={`p-0.5 rounded hover:bg-neutral-800 transition ${
+                        className={`p-0.5 max-md:p-2 rounded hover:bg-neutral-800 transition ${
                           track.hidden ? 'text-neutral-500' : 'text-neutral-400 hover:text-white'
                         }`}
                       >
-                        {track.hidden ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
+                        {track.hidden ? <EyeOff className="w-2.5 h-2.5 max-md:w-4 max-md:h-4" /> : <Eye className="w-2.5 h-2.5 max-md:w-4 max-md:h-4" />}
                       </button>
                     </div>
                   </div>
