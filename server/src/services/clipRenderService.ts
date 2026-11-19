@@ -1818,6 +1818,15 @@ export class ClipRenderService {
         queueAdvanced=await failQueuedRenderJob(await getMongoClient(), db, dueJob as any, {
           code, message: JobReliabilityService.sanitizeErrorMessage(rawMessage),
         }, new Date());
+      } else if (code === 'RENDER_ALREADY_ACTIVE') {
+        // A live remote/older render can leave a newer queued job at the fair
+        // head. Defer that exact unclaimed snapshot without spending attempts,
+        // so unrelated owners can use otherwise idle capacity.
+        const deferred=await db.collection('render_jobs').updateOne(
+          queuedRenderSnapshotFilter(dueJob as any),
+          {$set:{next_retry_at:new Date(Date.now()+2000),updated_at:new Date()}}
+        );
+        queueAdvanced=deferred.matchedCount===1;
       } else if (code === 'RENDER_ADMISSION_UNAVAILABLE') {
         // A fairness query/transaction outage is not an acquired execution or
         // evidence of bad media. Preserve queued work for bounded next pickup.

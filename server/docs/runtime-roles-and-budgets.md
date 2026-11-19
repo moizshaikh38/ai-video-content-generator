@@ -55,7 +55,12 @@ measurement. No unlimited backlog or strict maximum wait is promised.
 A freed slot nudges the existing notification drain after a successful acquired
 lease or meaningful queue progress. An out-of-turn inline reservation also hands
 off once after release. An unchanged busy/pre-lease failure must not generate an
-endless release/wake loop. Notifications remain hints, not ownership. Periodic
+endless release/wake loop. If a queued job is blocked by its clip's still-active
+remote/older render, its exact unclaimed snapshot is deferred for two seconds,
+without spending execution or pre-lease attempts. This lets other eligible owners
+advance rather than repeatedly consuming every bounded sweep. The next actual
+pickup still depends on notifications/periodic recovery; two seconds is not a
+latency guarantee. Notifications remain hints, not ownership. Periodic
 recovery is still required when streams or workers are unavailable.
 
 Local qualification covers a 100-job older single-owner backlog followed by two
