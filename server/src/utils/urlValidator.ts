@@ -1,3 +1,4 @@
+import {parseStreamVideoSource,type StreamVideoSource} from '../shared/streamVideoSource.js';
 import dns from 'node:dns/promises';
 import net from 'node:net';
 import { AppError } from '../types/index.js';
@@ -21,7 +22,8 @@ export interface ValidatedUrlResult {
   normalizedUrl: string;
   hostname: string;
   inferredFilename: string;
-  provider: 'direct_media' | 'youtube';
+  provider: 'direct_media' | 'youtube' | 'twitch' | 'kick';
+  streamSource?: StreamVideoSource;
   youtubeVideoId?: string;
 }
 
@@ -264,6 +266,9 @@ export class UrlValidator {
     }
 
     const host = parsed.hostname.toLowerCase();
+
+    const streamSource=parseStreamVideoSource(parsed);
+    if(streamSource)return {normalizedUrl:streamSource.normalizedUrl,hostname:host,inferredFilename:streamSource.provider+'-'+streamSource.id+'.mp4',provider:streamSource.provider,streamSource};
 
     // 1. Check for supported YouTube video URLs first
     const ytResult = this.parseYouTubeUrl(parsed);

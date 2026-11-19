@@ -1,3 +1,4 @@
+import {TwitchImportConnection} from './TwitchImportConnection';
 import type {CandidateCreationInput} from '../../lib/candidateCreationRecovery';
 import {candidateRankingDisplay} from '../../../server/src/shared/candidateRankingDisplay';
 import { GenerationCaptionPreset } from '../clips/GenerationCaptionPreset';
@@ -1192,7 +1193,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                   type="url"
                   value={inputUrl}
                   onChange={(e) => setInputUrl(e.target.value)}
-                  placeholder="Paste a supported video URL (YouTube, Vimeo, MP4)..."
+                  placeholder="YouTube, your Twitch clip, or a direct video file URL"
                   aria-label="Video URL"
                   className="flex-1 min-w-0 bg-transparent border-0 outline-none text-sm sm:text-[15px] text-vc-text-primary placeholder:text-vc-text-secondary"
                 />
@@ -1205,6 +1206,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               </button>
             </form>
 
+            <TwitchImportConnection userId={user?.id}/>
             {/* Source Action Buttons Row */}
             <div className="mt-4 sm:mt-5 flex flex-wrap items-center justify-center gap-3">
               <button

@@ -1,3 +1,4 @@
+import {TwitchImportService} from './twitchImportService.js';
 import {pinnedPublicMediaFetch} from '../utils/pinnedHttpsAssetFetch.js';
 import {supportedYouTubeJsArgs} from '../shared/youtubeRuntime.js';
 import {runYouTubeStrategyAttempts} from '../utils/youtubeAttemptPolicy.js';
@@ -79,7 +80,7 @@ export interface YouTubeMetadataResult {
 }
 
 export interface UrlProbeMetadataResult {
-  provider: 'youtube' | 'direct';
+  provider: 'youtube' | 'direct' | 'twitch';
   normalizedUrl: string;
   title?: string;
   duration?: number;
@@ -564,6 +565,7 @@ export class UrlIngestionService {
       return {};
     }
 
+    if(info.is_live===true||info.is_upcoming===true||['is_live','is_upcoming','post_live'].includes(info.live_status))throw new AppError('Live streams and upcoming videos are not supported. Use a completed video or upload your file.',400,'LIVE_SOURCE_NOT_SUPPORTED');
     try {
       const title = typeof info.title === 'string' ? info.title.trim() : undefined;
       const duration = typeof info.duration === 'number' ? info.duration : undefined;
@@ -730,6 +732,7 @@ export class UrlIngestionService {
     const result=await runYouTubeStrategyAttempts({strategies,timeoutMs,maxBytes,
       run:async(strategy,remainingMs)=>{
         const args=[...prefixArgs,...this.getCommonYtDlpArgs(strategy.extractorArgs),
+          '--match-filters','!is_live & !is_upcoming & live_status !=? post_live',
           '--concurrent-fragments','4','--ffmpeg-location',ffmpegDir,'-f',formatSpec,'--format-sort',YOUTUBE_SOURCE_FORMAT_SORT,
           '--merge-output-format','mp4','--max-filesize',`${maxFilesizeMb}M`,...rangeArgs,'-o',outTemplate,url];
         await execFileAsync(dlCommand,args,{timeout:remainingMs,maxBuffer:10*1024*1024});
@@ -774,8 +777,15 @@ export class UrlIngestionService {
    * Lightweight pre-ingest URL probe returning video metadata and auto-suggested genre in ~1s
    * without downloading the media payload.
    */
-  public static async probeUrlMetadata(url: string, timeoutMs = 15000): Promise<UrlProbeMetadataResult> {
+  public static async probeUrlMetadata(url: string, timeoutMs = 15000, userId?: string): Promise<UrlProbeMetadataResult> {
     const validated = await UrlValidator.validateVideoUrl(url);
+    if(validated.streamSource){
+      const source=validated.streamSource;
+      if(source.provider!=='twitch'||source.kind!=='clip')throw new AppError('This platform video download is not available. Upload your downloaded file instead. Live streams are not supported.',409,'PLATFORM_IMPORT_UNAVAILABLE');
+      if(!userId)throw new AppError('Sign in to import Twitch clips.',401,'AUTH_REQUIRED');
+      const media=await TwitchImportService.clip(userId,source.id);
+      return {provider:'twitch',normalizedUrl:source.normalizedUrl,title:media.title,duration:media.duration,channel:media.channel,thumbnail:media.thumbnail};
+    }
 
     if (validated.provider === 'youtube') {
       const meta = await this.fetchYouTubeMetadata(validated.normalizedUrl, timeoutMs);
@@ -841,7 +851,14 @@ export class UrlIngestionService {
     try {
       let download: { tempFilePath: string; totalBytes: number; contentType: string };
 
-      if (validated.provider === 'youtube') {
+      if(validated.streamSource){
+        const source=validated.streamSource;
+        if(source.provider!=='twitch'||source.kind!=='clip')throw new AppError('This platform video download is not available. Upload your downloaded file instead. Live streams are not supported.',409,'PLATFORM_IMPORT_UNAVAILABLE');
+        if(range)throw new AppError('Twitch clip imports use the complete clip. Choose a range after importing.',400,'PLATFORM_IMPORT_RANGE_UNSUPPORTED');
+        const media=await TwitchImportService.clip(userId,source.id);
+        ytMetaTitle=media.title;
+        download=await this.downloadToTempFile(media.url);
+      } else if (validated.provider === 'youtube') {
         // YouTube Ingestion Path via yt-dlp
         logger.info(`Starting YouTube video ingestion: ${validated.normalizedUrl} (ID: ${validated.youtubeVideoId}) for project ${projectId}`);
 
@@ -977,6 +994,8 @@ export class UrlIngestionService {
           genre_confidence: ytMeta?.genreConfidence,
           selected_range: range,
         };
+      } else if(validated.streamSource){
+        projectRecord.metadata={source_provider:validated.streamSource.provider,source_kind:validated.streamSource.kind,platform_video_id:validated.streamSource.id,original_url:validated.normalizedUrl,ingested_at:new Date().toISOString()};
       } else {
         projectRecord.metadata = {
           source_provider: 'direct',

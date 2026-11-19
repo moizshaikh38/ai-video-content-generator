@@ -1,3 +1,4 @@
+import importRoutes from './importRoutes.js';
 import { Router } from 'express';
 import healthRoutes from './healthRoutes.js';
 import authRoutes from './authRoutes.js';
@@ -39,6 +40,7 @@ apiRouter.use('/elements', elementsRoutes);
 apiRouter.use('/billing', billingRoutes);
 apiRouter.use('/credits', creditRoutes);
 apiRouter.use('/support', supportRoutes);
+apiRouter.use('/imports', importRoutes);
 apiRouter.use('/social', socialRoutes);
 apiRouter.use('/publishing', publishingRoutes);
 apiRouter.use('/analytics', analyticsRoutes);

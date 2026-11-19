@@ -496,7 +496,7 @@ export async function probeProjectUrl(req: AuthenticatedRequest, res: Response):
   }
 
   try {
-    const probe = await UrlIngestionService.probeUrlMetadata(url.trim());
+    const probe = await UrlIngestionService.probeUrlMetadata(url.trim(),15000,req.user?.id);
     res.status(200).json({
       status: 'ok',
       probe,
