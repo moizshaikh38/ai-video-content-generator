@@ -2541,13 +2541,13 @@ export class SmartReframeService {
 
   public static resolveLayoutWithProvenance(args: {
     cropLayoutMode?: ReframeLayoutMode;
-    cropLayoutSource?: 'genre_recommendation' | 'user' | 'legacy_unknown';
+    cropLayoutSource?: 'genre_recommendation' | 'user' | 'legacy_unknown' | 'auto';
     genrePreferredLayoutMode?: ReframeLayoutMode;
     samples: ReframeSample[];
     facecamSuggestionPresent: boolean;
   }): { layoutMode: ReframeLayoutMode; speaker1X?: number; speaker2X?: number } {
     const { cropLayoutMode, cropLayoutSource, genrePreferredLayoutMode, samples, facecamSuggestionPresent } = args;
-    const cropAuthoritative = !!cropLayoutMode && cropLayoutSource !== 'genre_recommendation';
+    const cropAuthoritative = !!cropLayoutMode && cropLayoutSource !== 'genre_recommendation' && cropLayoutSource !== 'auto';
     if (cropAuthoritative) {
       return this.determineOptimalLayoutMode(samples, {
         preferredMode: cropLayoutMode,
@@ -3077,7 +3077,7 @@ export class SmartReframeService {
       });
       const contentDecision = process.env.SMART_REFRAME_CONTENT_AWARE === '1'
         ? this.computeContentFramingDecision({genre:sourceGenre,samples:cvResult.samples,
-            explicitMode:clip.crop_config?.layout_mode && (clip.crop_config as any).layout_mode_source !== 'genre_recommendation' ? clip.crop_config.layout_mode : undefined})
+            explicitMode:clip.crop_config?.layout_mode && !['genre_recommendation','auto'].includes((clip.crop_config as any).layout_mode_source) ? clip.crop_config.layout_mode : undefined})
         : null;
       const {speaker1X,speaker2X} = resolvedLayout;
       const adaptiveScenes = adaptiveSceneEligible(clip,process.env.SMART_REFRAME_ADAPTIVE_SCENES === '1');

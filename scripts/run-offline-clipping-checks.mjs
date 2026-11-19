@@ -9,6 +9,7 @@ const tests = [
   'auto-cold-open-seed-contract',
   'caption-empty-speech-contract',
   'cold-open-caption-clock-contract',
+  'auto-layout-provenance-contract',
   'clip-render-readiness',
   'clip-workspace-recovery',
   'workspace-search-recovery',

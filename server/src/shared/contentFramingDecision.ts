@@ -51,6 +51,6 @@ export function effectiveContentLayout(item:any,decision?:ContentFramingDecision
   if(!decision || decision.source!=='content_candidate')return stored;
   const crop=item?.crop?.mode;
   if(crop && crop!=='smart')return stored;
-  if(item?.layout_mode && item?.crop_config?.layout_mode_source!=='genre_recommendation')return stored;
+  if(item?.layout_mode && !['genre_recommendation','auto'].includes(item?.crop_config?.layout_mode_source))return stored;
   return decision.layoutMode;
 }
