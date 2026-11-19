@@ -31,6 +31,7 @@ const tests = [
   'render-preview-receipt-contract',
   'render-freshness-guard-contract',
   'publish-owner-readiness-contract',
+  'youtube-upload-stream-contract',
   'selection-source-read-contract',
   'render-controller-queue-contract',
   'editor-render-queue-contract',

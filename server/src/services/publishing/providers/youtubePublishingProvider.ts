@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import {finished} from 'node:stream/promises';
 import { AppError } from '../../../types/index.js';
 import {
   SocialPublishingProvider,
@@ -55,6 +56,9 @@ export class YouTubePublishingProvider implements SocialPublishingProvider {
     }
 
     const stat = fs.statSync(mediaFilePath);
+    if (!stat.isFile() || !Number.isSafeInteger(stat.size) || stat.size <= 0) {
+      throw new AppError('YouTube upload requires a nonempty regular media file.',400,'MEDIA_FILE_INVALID');
+    }
     const videoTitle = payload.title || 'VireoClip Video';
     const videoDescription = payload.description || payload.caption || '';
     const privacy = payload.privacy || 'private'; // Default safe privacy
@@ -101,16 +105,28 @@ export class YouTubePublishingProvider implements SocialPublishingProvider {
     }
 
     // Step 2: Stream media file to the resumable location
-    const fileStream = fs.createReadStream(mediaFilePath);
-    const uploadRes = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'video/mp4',
-        'Content-Length': String(stat.size),
-      },
-      // Note: Node 18+ / 20+ fetch supports ReadableStream or Buffer
-      body: fs.readFileSync(mediaFilePath),
-    });
+    const fileStream = fs.createReadStream(mediaFilePath, {highWaterMark:64*1024});
+    // Register before fetch so a synchronously rejected request cannot leave
+    // an unhandled asynchronous open/read error after temp-file cleanup.
+    const streamSettled = finished(fileStream).catch(() => undefined);
+    let uploadRes:Response;
+    try {
+      // Node fetch consumes a bounded Readable stream. Never buffer the entire
+      // MP4, even though the provider accepts files much larger than our RAM.
+      const uploadRequest = {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'video/mp4',
+          'Content-Length': String(stat.size),
+        },
+        body: fileStream,
+        duplex: 'half',
+      } as unknown as RequestInit;
+      uploadRes = await fetch(uploadUrl, uploadRequest);
+    } finally {
+      fileStream.destroy();
+      await streamSettled;
+    }
 
     if (!uploadRes.ok) {
       const errText = await uploadRes.text();
