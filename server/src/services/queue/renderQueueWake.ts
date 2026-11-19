@@ -1,3 +1,4 @@
+import {onRenderCapacityAvailable} from './renderCapacitySignal.js';
 import type {ChangeStream, Db} from 'mongodb';
 
 /** Notifications only wake the existing lease-based drain. Polling still recovers
@@ -14,6 +15,7 @@ export function startRenderQueueWake(db: Db, drain: () => Promise<void>, onError
     if (running || timer) return;
     timer = setImmediate(() => { timer = undefined; void run(); });
   };
+  const stopCapacitySignal=onRenderCapacityAvailable(request);
   const run = async () => {
     if (stopped || running) return;
     running = true;
@@ -62,7 +64,7 @@ export function startRenderQueueWake(db: Db, drain: () => Promise<void>, onError
   };
   open(false);
   return {request, stop: () => {
-    stopped = true; pending = false;
+    stopped = true; pending = false; stopCapacitySignal();
     if (timer) clearImmediate(timer);
     if (retry) clearTimeout(retry);
     const current = stream; stream = undefined;

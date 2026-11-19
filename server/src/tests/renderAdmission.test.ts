@@ -89,9 +89,11 @@ describe('Render admission: one shared slot pool for inline launches and the swe
     const start = src.indexOf('public static async processDueRenderJobs');
     const body = src.slice(start, src.indexOf('public static async getProjectClips'));
     assert.match(body, /renderOccupancy\(\) >= maxConcurrentRenders\(\)\) return 0/);
-    assert.match(body, /clip_id: \{ \$nin: busyClipIds \}/);
+    assert.match(body, /nextOwnerFairRenderJob\(db,now,\{busyClipIds\}\)/);
+    const selector=fs.readFileSync(path.resolve(process.cwd(),'src/services/queue/ownerFairRenderQueue.ts'),'utf8');
+    assert.match(selector,/clip_id:\{\$nin:options.busyClipIds\}/);
     assert.match(body, /tryReserveRenderSlot\(dueJob\.clip_id\)/);
-    assert.match(body, /finally \{\s*releaseRenderSlot\(dueJob\.clip_id\)/);
+    assert.match(body, /finally \{\s*releaseRenderSlot\(dueJob\.clip_id,queueAdvanced\)/);
     assert.ok(body.indexOf('tryReserveRenderSlot') < body.indexOf('this.renderClipJob'), 'reserve before render');
   });
 });

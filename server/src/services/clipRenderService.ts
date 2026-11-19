@@ -28,8 +28,9 @@ import { canvasDims, parseRenderResolution, resolveEffectiveResolution, type Eff
 import type {CandidateCreationPreparation} from '../db/repositories/clipRepository.js';
 import { createClipWithJob } from '../db/repositories/clipRepository.js';
 import { isMongoConfigured, getMongoDb, getMongoClient } from '../db/mongoClient.js';
-import {renderRetryBudget,renderBudgetAvailableExpr} from '../shared/renderRetryBudget.js';
-import {claimRenderLease} from './queue/renderLeaseClaim.js';
+import {renderRetryBudget} from '../shared/renderRetryBudget.js';
+import {claimOwnerFairRenderLease as claimRenderLease,nextOwnerFairRenderJob} from './queue/ownerFairRenderQueue.js';
+import {notifyRenderCapacityAvailable} from './queue/renderCapacitySignal.js';
 import {recoverRenderQueue} from './queue/renderQueueRecovery.js';
 import {failQueuedRenderJob, queuedRenderSnapshotFilter} from './queue/renderPreleaseOutcome.js';
 import {commitFencedRenderOutcome} from './queue/renderLeaseCommit.js';
@@ -111,6 +112,7 @@ export function maxConcurrentRenders(): number {
 // alone let two launches in the same tick both pass the cap, and the sweep never
 // checked the cap at all. A slot is always released in a finally.
 const reservedRenderSlots = new Set<string>();
+const leasedRenderSlots = new Set<string>();
 
 /** Clip ids that hold a slot, either reserved by a launcher or actively rendering. */
 function occupiedRenderClipIds(): string[] {
@@ -132,8 +134,9 @@ export function tryReserveRenderSlot(clipId: string, cap: number = maxConcurrent
   return true;
 }
 
-export function releaseRenderSlot(clipId: string): void {
-  reservedRenderSlots.delete(clipId);
+export function releaseRenderSlot(clipId: string, requestDrain = true): void {
+  const acquired=leasedRenderSlots.delete(clipId);
+  if(reservedRenderSlots.delete(clipId)&&(requestDrain||acquired)&&!workLifecycle.isDraining())notifyRenderCapacityAvailable();
 }
 
 export function shouldLaunchInlineRender(): boolean {
@@ -639,7 +642,12 @@ export class ClipRenderService {
 
     // Atomic distributed lease acquisition:
     // Claim only if queued OR processing with an expired stale lock
-    const claimedJob=await claimRenderLease(db,{jobId:jobId!,clipId,userId,workerId,...expectedClipVersion},now);
+    const claim=await claimRenderLease(db,{jobId:jobId!,clipId,userId,workerId,...expectedClipVersion},now,await getMongoClient());
+    // Inline launches and sweeps share ordering. An out-of-turn job remains
+    // queued with no acquired attempt or pre-lease failure. Slot release nudges
+    // the drain after this inline reservation is gone.
+    if(claim?.status==='deferred'){logger.info(`[ClipRender] Fair queue deferred job ${jobId}`);return;}
+    const claimedJob=claim?.status==='claimed'?claim.job:null;
 
     if (!claimedJob) {
       const currentJob = await renderJobsCol.findOne({ id: jobId,clip_id:clipId,user_id:userId });
@@ -655,6 +663,7 @@ export class ClipRenderService {
       throw err;
     }
 
+    if(reservedRenderSlots.has(clipId))leasedRenderSlots.add(clipId);
     activeRenderSet.add(clipId);
 
     // Heartbeat timer to renew lease during long rendering operations
@@ -1755,22 +1764,14 @@ export class ClipRenderService {
 
     // 3. Pick the next due job, skipping clips that already hold a slot.
     const busyClipIds = occupiedRenderClipIds();
-    const dueJob = await db.collection('render_jobs').findOne(
-      {
-        status: 'queued',
-        $expr:renderBudgetAvailableExpr,
-        $or: [{ next_retry_at: null }, { next_retry_at: { $lte: now } }],
-        ...(busyClipIds.length > 0 ? { clip_id: { $nin: busyClipIds } } : {}),
-      },
-      { sort: { created_at: 1 } }
-    );
+    const dueJob = await nextOwnerFairRenderJob(db,now,{busyClipIds});
 
     if (!dueJob) return 0;
 
     // Invariant check: job must have a valid string owner identity
-    if (!dueJob.user_id || typeof dueJob.user_id !== 'string') {
+    if (!dueJob.user_id || typeof dueJob.user_id !== 'string' || !dueJob.user_id.trim()) {
       logger.error(`[ClipRender] Invariant violation: render job ${dueJob.id} is missing a valid user_id`);
-      await db.collection('render_jobs').updateOne(
+      const invalidated=await db.collection('render_jobs').updateOne(
         {
           id: dueJob.id,
           status: 'queued',
@@ -1787,6 +1788,7 @@ export class ClipRenderService {
           },
         }
       );
+      if(invalidated.matchedCount===1)notifyRenderCapacityAvailable();
       return 1;
     }
 
@@ -1794,6 +1796,7 @@ export class ClipRenderService {
     // launch cannot also pass the cap; released in the finally below.
     if (!tryReserveRenderSlot(dueJob.clip_id)) return 0;
 
+    let queueAdvanced=false;
     try {
       // Part 1: Propagate authenticated owner context using trusted persisted owner ID
       await ownerContext.run(dueJob.user_id, async () => {
@@ -1812,9 +1815,13 @@ export class ClipRenderService {
 
       // Part 2: Permanent pre-lease failure handling
       if (code === 'CLIP_NOT_FOUND' || code === 'RENDER_INPUT_CHANGED') {
-        await failQueuedRenderJob(await getMongoClient(), db, dueJob as any, {
+        queueAdvanced=await failQueuedRenderJob(await getMongoClient(), db, dueJob as any, {
           code, message: JobReliabilityService.sanitizeErrorMessage(rawMessage),
         }, new Date());
+      } else if (code === 'RENDER_ADMISSION_UNAVAILABLE') {
+        // A fairness query/transaction outage is not an acquired execution or
+        // evidence of bad media. Preserve queued work for bounded next pickup.
+        logger.warn('[ClipRender] Queue admission unavailable; job remains queued',{jobId:dueJob.id});
       } else if (code === 'AUTH_REQUIRED') {
         // Invariant violation: do not mark permanently failed; log for investigation
         logger.error(`[ClipRender] Invariant violation: Authenticated owner context was not established for job ${dueJob.id} (user ${dueJob.user_id}): ${rawMessage}`);
@@ -1838,9 +1845,10 @@ export class ClipRenderService {
                 },
               }
             );
+            queueAdvanced=scheduled.matchedCount===1;
             if (scheduled.matchedCount === 1) logger.warn(`[ClipRender] Pre-lease failure for job ${dueJob.id}. Scheduled retry at ${nextRetryAt.toISOString()}`);
           } else {
-            await failQueuedRenderJob(await getMongoClient(), db, dueJob as any, {
+            queueAdvanced=await failQueuedRenderJob(await getMongoClient(), db, dueJob as any, {
               code: code || 'MAX_ATTEMPTS_EXCEEDED',
               message: JobReliabilityService.sanitizeErrorMessage(rawMessage),
             }, new Date());
@@ -1850,7 +1858,7 @@ export class ClipRenderService {
 
       return 1;
     } finally {
-      releaseRenderSlot(dueJob.clip_id);
+      releaseRenderSlot(dueJob.clip_id,queueAdvanced);
     }
   }
 

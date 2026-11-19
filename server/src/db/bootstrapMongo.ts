@@ -209,6 +209,8 @@ export async function bootstrapMongo(db?: Db): Promise<void> {
     database.collection('clips').createIndex({ project_id: 1, user_id: 1, render_status: 1 }),
     database.collection('render_jobs').createIndex({ id: 1 }, { unique: true }),
     database.collection('render_jobs').createIndex({user_id:1,created_at:1}),
+    database.collection('render_jobs').createIndex({status:1,created_at:1}),
+    database.collection('render_jobs').createIndex({user_id:1,started_at:-1}),
     database.collection('render_jobs').createIndex({ clip_id: 1, user_id: 1, status: 1, created_at: -1 }),
     database.collection('reframe_tracks').createIndex({ id: 1 }, { unique: true }),
     database.collection('reframe_tracks').createIndex({ clip_id: 1, user_id: 1, status: 1 }),

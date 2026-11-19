@@ -30,3 +30,57 @@ Lower concurrency can increase queue wait; fewer threads can slow an individual 
 ## Still open
 
 Source extraction/transcription and several explicit analysis/CV HTTP workflows still run inline. This role split is not complete isolation of all expensive operations. Those workflows need durable queue/admission and recovery design before moving them off API processes. Runtime image dependencies, full build/typecheck, hosted two-role deployment, representative media latency/throughput/RAM/scratch measurements and chosen budget values remain rollout checks. Do not substitute notification tests or small retained-source renders for those checks.
+
+## Owner-fair render dispatch
+
+Inline launches and recovery sweeps consult the same durable ordering before
+claiming a queued render. Each owner's oldest eligible job competes, and the
+owner least recently started is chosen first. New owners tie at epoch and use
+oldest queued creation time. History comes from actual `render_jobs.started_at`,
+written with the Mongo server clock only on a successful atomic claim. An inline
+request that is not next remains queued without spending an attempt. This can
+increase that individual job's wait in exchange for avoiding a single owner's
+backlog monopolizing every next dispatch. It is not a latency or throughput win.
+
+The fair-head check and claim run in a snapshot transaction. A competing worker
+must recheck after a write conflict. A failed query or transaction does not fall
+back to an unfair or unfenced claim, and does not spend execution/pre-lease retry
+budgets. Admission operations have a 2-second query/commit bound and a 5-second
+transaction deadline. Jobs remain queued on admission unavailability. Bootstrap
+adds queued-creation and owner-started indexes to the existing job collection;
+there is no new owner-state service or table. Do not skip normal database
+bootstrap during rollout. Large-backlog query cost still needs production-like
+measurement. No unlimited backlog or strict maximum wait is promised.
+
+A freed slot nudges the existing notification drain after a successful acquired
+lease or meaningful queue progress. An out-of-turn inline reservation also hands
+off once after release. An unchanged busy/pre-lease failure must not generate an
+endless release/wake loop. Notifications remain hints, not ownership. Periodic
+recovery is still required when streams or workers are unavailable.
+
+Local qualification covers a 100-job older single-owner backlog followed by two
+other owners, real atomic claim races, second-connection ordering, wrong-owner
+refusal, inline deferral without attempt consumption, saturated-then-freed slot
+pickup, and no hot loop on an unchanged busy job. This is control-plane evidence
+with synthetic jobs, not concurrent media, customer capacity, full API E2E, or
+hosted Mongo availability evidence. User/plan quotas, media quality and encoder
+settings are unchanged. New-owner floods, other queues, and overload admission
+need their own work; fair dispatch does not create capacity.
+
+## Resource admission still required
+
+The host-memory/CPU resource problem is separate from dispatch fairness. Current
+render budgets are opt-in and per process. Project processing/clip CV locks are
+also per-identity duplicate guards, not an overall multi-user memory budget. A
+configured API/worker split must not be described as complete expensive-work
+isolation while those explicit processing/analysis routes still run inline.
+
+A complete next step needs durable heavy-work admission for source processing,
+CV and render work, an explicit shared host/pool identity, atomic leased resource
+reservations across processes, crash/expiry recovery, and resource class costs
+measured on representative inputs. New owners or retries must not bypass the
+same gate. Missing/unmeasured worker policy must be visible instead of silently
+reported as automatic capacity. Do not guess production memory costs from short
+1080 examples, set arbitrary universal safe concurrency, reduce final quality,
+or claim that slower queues are a speed improvement. No such deployment-wide
+resource policy is activated by the owner-fair change.
