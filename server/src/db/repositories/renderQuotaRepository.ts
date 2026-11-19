@@ -44,7 +44,7 @@ export async function assertTransactionalRenderQuota(db:Db,session:ClientSession
  ]},{session,projection:{_id:1}});
  if(unknown)throw new AppError('Existing render usage has an invalid timestamp. Review usage before admitting another render.',503,'RENDER_USAGE_UNAVAILABLE');
  const start=new Date(now);start.setUTCDate(1);start.setUTCHours(0,0,0,0);
- const count=await db.collection('render_jobs').countDocuments({user_id:userId,$or:[{created_at:{$gte:start}},{created_at:{$gte:start.toISOString()}}]},{session});
+ const count=await db.collection('render_jobs').countDocuments({user_id:userId,$or:[{created_at:{$gte:start}},{created_at:{$type:'string'},$expr:{$gte:[{$convert:{input:'$created_at',to:'date',onError:null,onNull:null}},start]}}]},{session});
  assertRenderUsageCount(count);
  if(count>=policy.maximum)throw new AppError(`Your ${policy.displayName} plan allows up to ${policy.maximum} clip renders per month. Please upgrade your plan to render more clips.`,403,'MONTHLY_RENDER_LIMIT_EXCEEDED');
 }
