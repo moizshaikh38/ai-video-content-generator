@@ -25,9 +25,11 @@ export function TwitchImportConnection({ userId }: {
     async function act(disconnect = false) { if (lock.current || !userId)
         return; lock.current = true; setBusy(true); setError(''); const current = userId; try {
         if (disconnect) {
-            await backendRequest('/imports/twitch/disconnect', { method: 'POST' });
-            if (owner.current === current)
+            const result=await backendRequest<{data:{remoteRevocationConfirmed?:boolean}}>('/imports/twitch/disconnect', { method: 'POST' });
+            if (owner.current === current) {
                 setStatus(s => s ? { ...s, connected: false, account: null } : s);
+                if(result.data?.remoteRevocationConfirmed===false)setError('Twitch is disconnected here. Remote access revocation could not be confirmed. You can remove VireoClip in your Twitch connection settings.');
+            }
         }
         else {
             const r = await backendRequest<{
