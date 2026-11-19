@@ -1,3 +1,6 @@
+import {PublishRenderedReview} from './PublishRenderedReview';
+import type {PublishMediaReview} from '../services/publishingService';
+import {tikTokCommercialErrors} from '../../server/src/shared/tiktokCommercialDisclosure';
 import {TikTokComposerConstraints,emptyTikTokSelection} from './TikTokComposerConstraints';
 import type {TikTokComposerOptions} from '../services/publishingService';
 import React, { useState, useEffect, useRef } from 'react';
@@ -68,6 +71,14 @@ export const PublishModal: React.FC<PublishModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  const [renderReview,setRenderReview]=useState<PublishMediaReview|null>(null);
+  const [renderReviewLoading,setRenderReviewLoading]=useState(false);
+  const [renderReviewError,setRenderReviewError]=useState<string|null>(null);
+  const [renderReviewLoaded,setRenderReviewLoaded]=useState(false);
+  const [renderReviewed,setRenderReviewed]=useState(false);
+  const [reviewedDecisionKey,setReviewedDecisionKey]=useState<string|null>(null);
+  const [renderReviewRefresh,setRenderReviewRefresh]=useState(0);
+  const reviewGeneration=useRef(0);
   const [tiktokOptions,setTikTokOptions]=useState<TikTokComposerOptions|null>(null);
   const [tiktokLoading,setTikTokLoading]=useState(false);
   const [tiktokError,setTikTokError]=useState<string|null>(null);
@@ -155,9 +166,25 @@ export const PublishModal: React.FC<PublishModalProps> = ({
     }).catch(error=>{if(tiktokGeneration.current===generation)setTikTokError(error?.message||'Current TikTok creator options could not be loaded.');}).finally(()=>{if(tiktokGeneration.current===generation)setTikTokLoading(false);});
     return ()=>{++tiktokGeneration.current;};
   },[isOpen,selectedConnectionId,tiktokRefresh,selectedAccount,loadingAccounts]);
+  useEffect(()=>{
+    const generation=++reviewGeneration.current;
+    setRenderReview(null);setRenderReviewLoading(false);setRenderReviewError(null);setRenderReviewLoaded(false);setRenderReviewed(false);
+    if(!isOpen||!clipId||selectedAccount?.provider!=='tiktok')return;
+    setRenderReviewLoading(true);
+    publishingService.getPublishReview(projectId,clipId).then(result=>{
+      if(reviewGeneration.current!==generation)return;
+      if(result.selection.clipId!==clipId||result.selection.projectId!==projectId)throw new Error('Reviewed render does not match the selected clip.');
+      setRenderReview(result);
+    }).catch(error=>{if(reviewGeneration.current===generation)setRenderReviewError(error?.message||'The selected rendered output could not be loaded.');}).finally(()=>{if(reviewGeneration.current===generation)setRenderReviewLoading(false);});
+    return ()=>{++reviewGeneration.current;};
+  },[isOpen,projectId,clipId,selectedConnectionId,selectedAccount,renderReviewRefresh]);
+  // Any changed post decision requires a fresh explicit review confirmation.
+  useEffect(()=>{setRenderReviewed(false);},[title,caption,tags,tiktokSelection,publishMode,scheduleDate,scheduleTime,timezone,selectedConnectionId,tiktokRefresh]);
   const tiktokCurrent=selectedAccount?.provider==='tiktok'&&tiktokOptions?.connectionId===selectedConnectionId&&!tiktokLoading&&!tiktokError;
-  const tiktokReady=Boolean(tiktokCurrent&&tiktokSelection.privacy&&tiktokOptions?.creator.privacyLevels.includes(tiktokSelection.privacy)&&tiktokSelection.musicConsent&&typeof preview?.media_metadata?.duration_seconds==='number'&&preview.media_metadata.duration_seconds>0&&preview.media_metadata.duration_seconds<=tiktokOptions.creator.maxVideoSeconds);
-  const tiktokPayload=selectedAccount?.provider==='tiktok'?{privacy:undefined,platform_custom:{tiktok_privacy_level:tiktokSelection.privacy,tiktok_allow_comment:tiktokSelection.comment,tiktok_allow_duet:tiktokSelection.duet,tiktok_allow_stitch:tiktokSelection.stitch,tiktok_music_consent:tiktokSelection.musicConsent}}:{};
+  const reviewDecisionKey=JSON.stringify([projectId,clipId,selectedConnectionId,title,caption,tags,tiktokSelection,publishMode,scheduleDate,scheduleTime,timezone,renderReview?.selection,tiktokOptions?.checkedAt]);
+  const currentRenderReviewed=renderReviewed&&reviewedDecisionKey===reviewDecisionKey;
+  const tiktokReady=Boolean(renderReview&&renderReviewLoaded&&currentRenderReviewed&&!renderReviewError&&tiktokCurrent&&tiktokSelection.privacy&&tiktokOptions?.creator.privacyLevels.includes(tiktokSelection.privacy)&&tiktokSelection.musicConsent&&tikTokCommercialErrors(tiktokSelection,tiktokSelection.privacy).length===0&&typeof preview?.media_metadata?.duration_seconds==='number'&&preview.media_metadata.duration_seconds>0&&preview.media_metadata.duration_seconds<=tiktokOptions.creator.maxVideoSeconds);
+  const tiktokPayload=selectedAccount?.provider==='tiktok'?{privacy:undefined,platform_custom:{tiktok_privacy_level:tiktokSelection.privacy,tiktok_allow_comment:tiktokSelection.comment,tiktok_allow_duet:tiktokSelection.duet,tiktok_allow_stitch:tiktokSelection.stitch,tiktok_music_consent:tiktokSelection.musicConsent,tiktok_content_disclosure:tiktokSelection.disclose,tiktok_own_brand:tiktokSelection.ownBrand,tiktok_branded_content:tiktokSelection.brandedContent,tiktok_reviewed_media:currentRenderReviewed?renderReview?.selection:undefined}}:{};
 
   // Guard against having a disabled account selected when media is missing
   useEffect(() => {
@@ -207,11 +234,11 @@ export const PublishModal: React.FC<PublishModalProps> = ({
 
     const timer = setTimeout(runPreview, 400);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [selectedConnectionId, clipId, title, caption, tags, privacy, selectedAccount, capabilities, tiktokSelection]);
+  }, [selectedConnectionId, clipId, title, caption, tags, privacy, selectedAccount, capabilities, tiktokSelection,renderReviewed,renderReview]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if(selectedAccount?.provider==='tiktok'&&!tiktokReady){setFeedback({type:'error',message:'Load current TikTok options, choose an audience, confirm music use and check the clip duration before submitting.'});return;}
+    if(selectedAccount?.provider==='tiktok'&&!tiktokReady){setFeedback({type:'error',message:'Load current TikTok options, choose audience/disclosure, confirm music use and review the exact rendered clip before submitting.'});return;}
     if (!selectedConnectionId) {
       setFeedback({ type: 'error', message: 'Please select a connected social account.' });
       return;
@@ -541,6 +568,8 @@ export const PublishModal: React.FC<PublishModalProps> = ({
               </ul>
             </div>
           )}
+
+          {selectedAccount?.provider==='tiktok'&&<PublishRenderedReview url={renderReview?.url||null} loading={renderReviewLoading} error={renderReviewError} mediaLoaded={renderReviewLoaded} reviewed={currentRenderReviewed} renderVersion={renderReview?.selection.renderVersion??null} onLoaded={()=>setRenderReviewLoaded(true)} onError={()=>{setRenderReviewLoaded(false);setRenderReviewed(false);setRenderReviewError('The selected video could not be played. Reload it before review.');}} onReviewed={value=>{setRenderReviewed(value);setReviewedDecisionKey(value?reviewDecisionKey:null);}} onRefresh={()=>setRenderReviewRefresh(value=>value+1)}/>}
 
           {/* Footer Submit */}
           <div className="pt-2">

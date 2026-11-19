@@ -38,3 +38,11 @@ export function assertPublishMediaSelection(post:any,clip:any):PublishMediaSelec
 export function assertPublishObjectSelection(selection:PublishMediaSelection|null,head:{size:number;etag?:string;versionId?:string}):void {
   if(selection&&(head.size!==selection.bytes||head.etag!==selection.etag||(selection.objectVersionId!==null&&head.versionId!==selection.objectVersionId)))throw changed();
 }
+
+/** Review uses exact immutable selection fields, not caller-supplied URLs. */
+export function assertReviewedPublishMedia(reviewed:unknown,selected:PublishMediaSelection):void {
+  if(!reviewed||typeof reviewed!=='object'||Array.isArray(reviewed))throw new AppError('Review the exact rendered video before submitting to TikTok.',409,'PUBLISH_REVIEW_REQUIRED');
+  const row=reviewed as Record<string,unknown>;
+  const keys:Array<keyof PublishMediaSelection>=['version','clipId','owner','projectId','objectKey','renderVersion','editorVersion','renderedEditorVersion','renderedEditorDigest','bytes','etag','objectVersionId'];
+  if(keys.some(key=>row[key]!==selected[key]))throw changed();
+}

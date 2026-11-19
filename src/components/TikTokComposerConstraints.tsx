@@ -1,7 +1,8 @@
+import {tikTokCommercialErrors,tikTokMusicDeclaration} from '../../server/src/shared/tiktokCommercialDisclosure';
 import React from 'react';
 import {TIKTOK_PRIVACY_LABELS,type TikTokCreatorOptions,type TikTokPrivacyLevel} from '../../server/src/shared/tiktokCreatorOptions';
-export interface TikTokConstraintSelection {privacy:TikTokPrivacyLevel|'';comment:boolean;duet:boolean;stitch:boolean;musicConsent:boolean}
-export const emptyTikTokSelection=():TikTokConstraintSelection=>({privacy:'',comment:false,duet:false,stitch:false,musicConsent:false});
+export interface TikTokConstraintSelection {privacy:TikTokPrivacyLevel|'';comment:boolean;duet:boolean;stitch:boolean;musicConsent:boolean;disclose:boolean;ownBrand:boolean;brandedContent:boolean}
+export const emptyTikTokSelection=():TikTokConstraintSelection=>({privacy:'',comment:false,duet:false,stitch:false,musicConsent:false,disclose:false,ownBrand:false,brandedContent:false});
 export const TikTokComposerConstraints:React.FC<{
   creator:TikTokCreatorOptions|null;loading:boolean;error:string|null;selection:TikTokConstraintSelection;mediaDurationSeconds?:number|null;
   onChange:(value:TikTokConstraintSelection)=>void;onRefresh:()=>void;
@@ -17,13 +18,22 @@ export const TikTokComposerConstraints:React.FC<{
     <label className="block font-medium">TikTok audience
       <select value={selection.privacy} disabled={loading} onChange={e=>onChange({...selection,privacy:e.target.value as TikTokPrivacyLevel|''})} className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-2">
         <option value="" disabled>Choose an audience, no default</option>
-        {creator.privacyLevels.map(level=><option key={level} value={level}>{TIKTOK_PRIVACY_LABELS[level]}</option>)}
+        {creator.privacyLevels.map(level=><option key={level} value={level} disabled={!['PUBLIC_TO_EVERYONE','MUTUAL_FOLLOW_FRIENDS'].includes(level)&&selection.brandedContent}>{TIKTOK_PRIVACY_LABELS[level]}</option>)}
       </select>
     </label>
     <fieldset className="space-y-2"><legend className="mb-1 font-medium">Interactions, off unless you choose them</legend>
       {([{key:'comment',label:'Allow comments',disabled:creator.commentDisabled},{key:'duet',label:'Allow Duet',disabled:creator.duetDisabled},{key:'stitch',label:'Allow Stitch',disabled:creator.stitchDisabled}] as const).map(item=><label key={item.key} className={`flex items-center gap-2 ${item.disabled?'opacity-50':''}`}><input type="checkbox" checked={!item.disabled&&selection[item.key]} disabled={loading||item.disabled} onChange={e=>onChange({...selection,[item.key]:e.target.checked})}/>{item.label}{item.disabled?' (disabled by this account)':''}</label>)}
     </fieldset>
-    <label className="flex items-start gap-2"><input type="checkbox" checked={selection.musicConsent} disabled={loading} onChange={e=>onChange({...selection,musicConsent:e.target.checked})}/><span>By posting, you agree to TikTok's Music Usage Confirmation.</span></label>
-    <p className="text-muted-foreground">Current account options do not prove app approval, verified media-domain setup or publication. Options are checked again before submission. Review your rendered clip before submitting. Commercial content controls are not available in this local build. Do not use it for promotional posts.</p>
+    <fieldset className="space-y-2"><legend className="font-medium">Commercial content disclosure</legend>
+      <label className="flex items-start gap-2"><input type="checkbox" checked={selection.disclose} onChange={e=>onChange({...selection,disclose:e.target.checked,ownBrand:false,brandedContent:false,musicConsent:false})}/><span>This content promotes a brand, product or service</span></label>
+      {selection.disclose&&<>
+        <label className="flex items-start gap-2"><input type="checkbox" checked={selection.ownBrand} onChange={e=>onChange({...selection,ownBrand:e.target.checked,musicConsent:false})}/><span>Your brand{selection.ownBrand&&!selection.brandedContent?', labelled Promotional content':''}</span></label>
+        <label className={`flex items-start gap-2 ${(['SELF_ONLY','FOLLOWER_OF_CREATOR'].includes(selection.privacy))?'opacity-50':''}`} title={(['SELF_ONLY','FOLLOWER_OF_CREATOR'].includes(selection.privacy))?'Branded content requires Everyone or Friends. Choose another supported audience.':undefined}><input type="checkbox" checked={selection.brandedContent} disabled={(['SELF_ONLY','FOLLOWER_OF_CREATOR'].includes(selection.privacy))} onChange={e=>onChange({...selection,brandedContent:e.target.checked,musicConsent:false})}/><span>Branded content, promoting a third party{selection.brandedContent?', labelled Paid partnership':''}</span></label>
+        {(['SELF_ONLY','FOLLOWER_OF_CREATOR'].includes(selection.privacy))&&<p>Branded content requires Everyone or Friends, not private or followers-only. Audience is never changed automatically.</p>}
+        {tikTokCommercialErrors(selection,selection.privacy).map(message=><p role="alert" key={message} className="text-destructive">{message}</p>)}
+      </>}
+    </fieldset>
+    <label className="flex items-start gap-2"><input type="checkbox" checked={selection.musicConsent} disabled={loading} onChange={e=>onChange({...selection,musicConsent:e.target.checked})}/><span>{tikTokMusicDeclaration(selection.disclose&&selection.brandedContent)}</span></label>
+    <p className="text-muted-foreground">Current account options do not prove app approval, verified media-domain setup or publication. Options are checked again before submission. Review your rendered clip before submitting. Processing can take a few minutes after submission; it is not confirmed publication.</p>
   </>}
 </section>;

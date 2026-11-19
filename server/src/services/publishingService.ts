@@ -1,4 +1,4 @@
-import {selectPublishMedia,assertPublishMediaSelection,assertPublishObjectSelection,type PublishMediaSelection} from '../shared/publishMediaSelection.js';
+import {selectPublishMedia,assertPublishMediaSelection,assertPublishObjectSelection,assertReviewedPublishMedia,type PublishMediaSelection} from '../shared/publishMediaSelection.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -68,6 +68,20 @@ export class PublishingService {
    */
   getCapabilities(): Record<SocialPlatform, PlatformPublishCapabilities> {
     return socialPublishingRegistry.getAllCapabilities();
+  }
+
+  /** Exact rendered output review. Returns a pinned signed URL to its owner,
+   * never uploads to a social platform or accepts a caller's media URL. */
+  async getPublishReview(userId:string,projectId:string,clipId:string) {
+    const db=await getMongoDb();
+    const clip=await db.collection<ClipRecord>('clips').findOne({id:clipId,user_id:userId});
+    if(!clip||clip.project_id!==projectId)throw new AppError('Selected clip not found in this project.',404,'CLIP_NOT_FOUND');
+    if(clip.render_status!=='ready'||!clip.output_storage_path)throw new AppError('Review requires a ready rendered clip.',409,'CLIP_NOT_READY');
+    const selection=selectPublishMedia(clip,await headObject('clips',clip.output_storage_path));
+    const current=await db.collection<ClipRecord>('clips').findOne({id:clipId,user_id:userId});
+    assertPublishMediaSelection({user_id:userId,project_id:projectId,clip_id:clipId,media_selection:selection},current);
+    const url=await signObjectGet('clips',selection.objectKey,`clip-${clipId}.mp4`,selection.objectVersionId?{versionId:selection.objectVersionId}:undefined);
+    return {selection,url,durationSeconds:clip.duration_seconds};
   }
 
   /** Explicit composer/account-open read, not called by keystroke previews.
@@ -228,6 +242,7 @@ export class PublishingService {
 
     if(clip){
       mediaSelection=selectPublishMedia(clip,await headObject('clips',clip.output_storage_path!));
+      if(conn.provider==='tiktok')assertReviewedPublishMedia(dto.payload.platform_custom?.tiktok_reviewed_media,mediaSelection);
       // Storage validation can take time. Do not bind a selection against a
       // newly replaced owner/project/render pointer after that read.
       const current=await db.collection<ClipRecord>('clips').findOne({id:clip.id,user_id:dto.userId});

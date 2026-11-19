@@ -1,3 +1,4 @@
+import {tikTokCommercialErrors,tikTokCommercialSelection} from '../../../shared/tiktokCommercialDisclosure.js';
 import {parseTikTokCreatorOptions,selectedTikTokPrivacy,type TikTokCreatorOptions} from '../../../shared/tiktokCreatorOptions.js';
 import { AppError } from '../../../types/index.js';
 import {
@@ -31,6 +32,7 @@ export class TikTokPublishingProvider implements SocialPublishingProvider {
     if (!selectedTikTokPrivacy(payload)) {
       errors.push('Choose a TikTok audience explicitly from the current account options.');
     }
+    errors.push(...tikTokCommercialErrors(tikTokCommercialSelection(payload.platform_custom),selectedTikTokPrivacy(payload)));
     if(payload.platform_custom?.tiktok_music_consent!==true)errors.push('Confirm TikTok music usage before submitting.');
     return {valid: errors.length === 0, errors};
   }
@@ -76,6 +78,8 @@ export class TikTokPublishingProvider implements SocialPublishingProvider {
     if((custom.tiktok_allow_comment===true&&creator.commentDisabled)||(custom.tiktok_allow_duet===true&&creator.duetDisabled)||(custom.tiktok_allow_stitch===true&&creator.stitchDisabled))throw new AppError('A requested TikTok interaction is disabled by the selected account. Refresh options before posting.',409,'TIKTOK_INTERACTION_UNAVAILABLE');
     const data = await this.call('/post/publish/video/init/', accessToken, {
       post_info: {
+        brand_content_toggle:custom.tiktok_content_disclosure===true&&custom.tiktok_branded_content===true,
+        brand_organic_toggle:custom.tiktok_content_disclosure===true&&custom.tiktok_own_brand===true,
         title: payload.caption || payload.description || payload.title || '', privacy_level: level,
         // No new interaction permission is implied by choosing visibility.
         disable_duet: custom.tiktok_allow_duet!==true, disable_stitch: custom.tiktok_allow_stitch!==true, disable_comment: custom.tiktok_allow_comment!==true,

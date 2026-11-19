@@ -24,6 +24,14 @@ export async function getPublishingCapabilities(req: AuthenticatedRequest, res: 
   });
 }
 
+export async function getPublishReview(req:AuthenticatedRequest,res:Response):Promise<void>{
+  if(!req.user)throw new AppError('Authentication required.',401,'AUTH_REQUIRED');
+  const {projectId,clipId}=req.body||{};
+  if(typeof projectId!=='string'||!projectId.trim()||typeof clipId!=='string'||!clipId.trim())throw new AppError('projectId and clipId are required.',400,'INVALID_REQUEST');
+  const data=await publishingService.getPublishReview(req.user.id,projectId,clipId);
+  res.json({status:'ok',data});
+}
+
 export async function getTikTokComposerOptions(req:AuthenticatedRequest,res:Response):Promise<void>{
   if(!req.user)throw new AppError('Authentication required.',401,'AUTH_REQUIRED');
   const connectionId=req.body?.socialConnectionId;

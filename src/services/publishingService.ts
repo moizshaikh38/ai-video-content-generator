@@ -1,3 +1,5 @@
+import type {PublishMediaSelection} from '../../server/src/shared/publishMediaSelection';
+export interface PublishMediaReview {selection:PublishMediaSelection;url:string;durationSeconds?:number}
 import type {TikTokCreatorOptions} from '../../server/src/shared/tiktokCreatorOptions';
 export interface TikTokComposerOptions {connectionId:string;providerAccountId:string;checkedAt:string;creator:TikTokCreatorOptions}
 import { backendRequest } from './backendClient';
@@ -133,6 +135,10 @@ export interface PublishPreviewResult {
 }
 
 export const publishingService = {
+  async getPublishReview(projectId:string,clipId:string):Promise<PublishMediaReview>{
+    const res=await backendRequest<{status:'ok';data:PublishMediaReview}>('/publishing/review-media',{method:'POST',body:JSON.stringify({projectId,clipId})});
+    return res.data;
+  },
   async getTikTokComposerOptions(socialConnectionId:string):Promise<TikTokComposerOptions>{
     const res=await backendRequest<{status:'ok';data:TikTokComposerOptions}>('/publishing/tiktok/creator-options',{method:'POST',body:JSON.stringify({socialConnectionId})});
     return res.data;

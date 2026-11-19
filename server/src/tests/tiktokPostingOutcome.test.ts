@@ -96,3 +96,9 @@ test('TikTok account-disabled interaction never silently enabled or submitted',a
 test('TikTok malformed creator options never produce init',async()=>fake(async(c,p)=>{
  await assert.rejects(p.publish(request()),{code:'TIKTOK_CREATOR_OPTIONS_UNVERIFIED'});assert.equal(c.length,1);
 },[ok({privacy_level_options:['SELF_ONLY']})]));
+test('TikTok third-party disclosure stays explicit in native init and privacy is preserved',async()=>fake(async(c,p)=>{
+ const r=request('public');r.payload.platform_custom={tiktok_music_consent:true,tiktok_content_disclosure:true,tiktok_own_brand:true,tiktok_branded_content:true};await p.publish(r);assert.equal(c[1].body.post_info.brand_content_toggle,true);assert.equal(c[1].body.post_info.brand_organic_toggle,true);assert.equal(c[1].body.post_info.privacy_level,'PUBLIC_TO_EVERYONE');
+},[ok(creator()),ok({publish_id:'receipt'})]));
+test('TikTok empty disclosure category and private branded content refuse before creator query',async()=>fake(async(c,p)=>{
+ for(const custom of [{tiktok_content_disclosure:true},{tiktok_content_disclosure:true,tiktok_branded_content:true},{tiktok_content_disclosure:false,tiktok_own_brand:true}]){const r=request('private');r.payload.platform_custom={tiktok_music_consent:true,...custom};await assert.rejects(p.publish(r),{code:'TIKTOK_VISIBILITY_INVALID'});}assert.equal(c.length,0);
+},[]));

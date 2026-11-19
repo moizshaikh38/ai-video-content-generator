@@ -100,3 +100,23 @@ Sources inspected live:
 - https://developers.tiktok.com/doc/content-sharing-guidelines/
 
 The creator endpoint documents20requests/minute/token. No automatic retry/polling was introduced. A deliberate refresh is a new user action; provider429/errors block options rather than infer availability. The endpoint itself makes no upload/init/status or scope-changing call.
+
+## TikTok commercial disclosure and exact rendered review, November20 at00:03 IST
+
+The existing modal, not a new website page, now includes disclosure and rendered-content review:
+
+- Commercial disclosure starts off. Enabling it reveals Your brand and Branded content, with at least one category required. Own-brand shows Promotional content; third-party or both show Paid partnership. The music-use declaration adds the Branded Content Policy when appropriate, and changing disclosure/category clears consent. Native init receives the exact explicit brand_organic_toggle/brand_content_toggle flags, not a caption heuristic.
+- Third-party promotion cannot silently broaden audience. It is disabled for Only me/followers-only; choosing a restricted audience is disabled while third-party disclosure is selected. The native validator also requires Everyone or Friends for that combination. Empty/inconsistent disclosure cannot be submitted.
+- An authenticated owner/project/clip-scoped review read verifies ready state, gets the immutable selected storage identity, rereads the source record, then signs that exact object version. It neither uploads to TikTok nor changes a connection. No caller-supplied playback URL becomes a publish source.
+- The modal presents that exact rendered output in a controlled, non-autoplay video element. Review confirmation is disabled until a video loaded-data event, and resets on changes to content, account, audience/interactions/disclosure, scheduling or the chosen render. The checked state is additionally bound to an exact decision key for the current content/account/schedule/creator-read/render selection, so an effect reset is not its only protection against changed inputs. The checkbox is an explicit user attestation, not proof that a human watched every frame.
+- TikTok creation compares every reviewed selection identity field with a freshly selected immutable object before insertion. A replaced render, owner, project, revision, byte size, ETag or version is rejected rather than silently publishing a different output. Existing execute-time pinned media checks remain. Review URLs are not stored in posting payloads; the reviewed immutable selection is.
+
+100focused fixture/regression checks pass after one test-only method-name typo was fixed and rerun. Three of these execute actual creation with fixture dependencies to reject missing/changed review and retain an exact unchanged selection. Shared/media/provider/components/tests focused strict TypeScript passes. This includes actual service-method execution with fixture owner/storage/signing dependencies, native fake-HTTP init flag checks, isolated React markup and existing owner/media/unknown-dispatch regressions. No storage or TikTok account was read or posted during these tests. This is not the full service/controller/modal dependency graph or mounted click/playback acceptance.
+
+The390pxstatic React fixture was pixel-inspected: third-party/friends state shows Paid partnership and the changed unchecked declaration; Only me state greys third-party promotion and exposes missing-category feedback; exact-render review has a deliberately unloaded video and a disabled confirmation checkbox. No video playback or reviewed footage is claimed from this image. Static theme fallbacks and missing mounted/native-player behavior remain explicit. The actual signed-media load, modal state transitions, save/reopen/schedule behavior and real platform validation still need app acceptance before release. No production deployment, app grant, scope change, private upload or paid call occurred.
+
+Official API fields and UX rules were rechecked at:
+- https://developers.tiktok.com/doc/content-posting-api-reference-direct-post
+- https://developers.tiktok.com/doc/content-sharing-guidelines/
+
+This closes the local implementation gap, not the platform compliance/eligibility gap. Third-party disclosure/audience interpretation follows the guideline's Everyone/Friends limit conservatively, without switching a user's choice. App audit, actual domain verification, rights/music/commercial accuracy and any watermark restrictions remain distinct release checks. A user's checkbox is not a license or rights determination.
