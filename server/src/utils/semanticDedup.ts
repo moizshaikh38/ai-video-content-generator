@@ -41,8 +41,9 @@ const STOPWORDS = new Set([
 /** Lowercased content tokens (stopwords + short tokens removed). */
 export function contentTokens(text: string): string[] {
   return (text || '')
+    .normalize('NFC')
     .toLowerCase()
-    .replace(/[^a-z0-9\s']/g, ' ')
+    .replace(/[^\p{L}\p{M}\p{N}\s']/gu, ' ')
     .split(/\s+/)
     .filter((t) => t.length > 2 && !STOPWORDS.has(t));
 }

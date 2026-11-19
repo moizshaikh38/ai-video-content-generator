@@ -161,3 +161,27 @@ describe('B2+B4 — pipeline wiring pins', () => {
     assert.match(analysis, /isQaCriticalGenre\(genreProfile\.genre\)/);
   });
 });
+
+describe('B2 Unicode transcript integrity',()=>{
+  const practice='Python सीखने के लिए रोज अभ्यास करना चाहिए।';
+  const installation='Python इंस्टॉल करने के लिए आधिकारिक वेबसाइट खोलें।';
+  it('retains Hindi letters and combining marks instead of reducing both moments to their Latin name',()=>{
+    assert(contentTokens(practice).includes('सीखने'));
+    assert(contentTokens(installation).includes('इंस्टॉल'));
+    assert(tokenJaccard(practice,installation)<.68);
+    assert.deepEqual(deduplicateSemantically([{id:'practice',text:practice,score:90},{id:'installation',text:installation,score:80}],{threshold:.68,mode:'token'}).map(c=>c.id),['practice','installation']);
+  });
+  it('still removes exact Hindi duplicates and keeps the higher-scored source',()=>{
+    assert.equal(tokenJaccard(practice,practice),1);
+    assert.deepEqual(deduplicateSemantically([{id:'a',text:practice,score:70},{id:'b',text:practice,score:90}],{threshold:.68,mode:'token'}).map(c=>c.id),['b']);
+  });
+  it('uses canonical accent normalization and retains non-Latin scripts',()=>{
+    assert.equal(tokenJaccard('café résumé','cafe\u0301 re\u0301sume\u0301'),1);
+    assert(contentTokens('日本語の練習').includes('日本語の練習'));
+    assert(contentTokens('تعلم البرمجة').includes('البرمجة'));
+  });
+  it('does not invent duplicate evidence for empty punctuation or short unsupported token sets',()=>{
+    assert.equal(tokenJaccard('!!!','???'),0);
+    assert.equal(deduplicateSemantically([{text:'!!!',score:90},{text:'???',score:80}],{mode:'token'}).length,2);
+  });
+});
