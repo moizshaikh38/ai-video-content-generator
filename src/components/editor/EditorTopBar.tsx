@@ -113,7 +113,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
               setLocalTitle(title);
               setIsEditingTitle(true);
             }}
-            className="text-sm font-semibold text-neutral-200 hover:text-white truncate max-w-[130px] min-[420px]:max-w-[180px] sm:max-w-[280px] text-left hover:bg-white/[0.06] px-2 py-1 rounded transition"
+            className="text-sm font-semibold text-neutral-200 hover:text-white truncate max-w-[150px] min-[420px]:max-w-[200px] sm:max-w-[280px] text-left hover:bg-white/[0.06] px-2 py-1 rounded transition"
             title="Click to rename"
           >
             {title || 'Untitled Clip'}
