@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 // connect databases/providers, run browsers, or encode media.
 const tests = [
   'clip-speech-cut-contract',
+  'final-speech-score-contract',
   'clip-render-readiness',
   'clip-workspace-recovery',
   'workspace-search-recovery',

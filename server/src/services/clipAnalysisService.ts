@@ -1,3 +1,4 @@
+import { compareFinalSpeechScope } from '../shared/finalSpeechScope.js';
 import {measuredGenreSignals} from '../shared/measuredGenreSignals.js';
 import {shortSourceReviewContext} from '../shared/candidateReviewNotice.js';
 import {gamingGenreFromVisualReview} from '../shared/automaticGamingPanels.js';
@@ -1058,7 +1059,6 @@ export class ClipAnalysisService {
         let duration_seconds = Number((end_seconds - start_seconds).toFixed(3));
 
         // Use hybrid multimodal Vireo Score
-        const engagement_score = usedShortSourceFallback ? 0 : scored.vireo_score; // legacy numeric sort sentinel, not a fallback quality score
 
         // Question auto-inclusion (advantage B4): when the clip answers a
         // question it doesn't include and the exchange fits the genre clamps,
@@ -1092,6 +1092,14 @@ export class ClipAnalysisService {
         }
 
 
+
+        const finalSpeechScope = compareFinalSpeechScope({words:rawWords,
+          originalStart:raw_start,originalEnd:raw_end,finalStart:start_seconds,finalEnd:end_seconds});
+        // Provider narrative scores describe the original proposal. Once spoken
+        // content changes, they cannot rank the altered clip without re-review.
+        const narrativeRankingInvalidated = finalSpeechScope.status === 'changed';
+        const isUnranked = usedShortSourceFallback || narrativeRankingInvalidated || scored.ranking_status === 'insufficient-evidence';
+        const engagement_score = isUnranked ? 0 : scored.vireo_score; // storage/sort sentinel, not a quality score
 
         let cold_open: ColdOpenConfig | null = null;
         if (typeof ai.cold_open_segment_index === 'number' && segments[ai.cold_open_segment_index]) {
@@ -1129,9 +1137,11 @@ export class ClipAnalysisService {
             selection_origin: usedShortSourceFallback ? 'short-source-fallback' : 'provider-proposal',
             ...(usedShortSourceFallback?{selection_review_context:shortSourceReviewContext(transcript.duration_seconds,normalizedPrefs.preferredDurations)}:{}),
             narrative_evidence_status: 'unreviewed',
-            ranking_status: usedShortSourceFallback||scored.ranking_status==='insufficient-evidence' ? 'unranked' : 'heuristic',
-            vireo_score: usedShortSourceFallback||scored.ranking_status==='insufficient-evidence' ? null : scored.vireo_score,
-            explanation: usedShortSourceFallback ? null : scored.explanation,
+            ranking_status: isUnranked ? 'unranked' : 'heuristic',
+            final_speech_scope: finalSpeechScope,
+            ...(narrativeRankingInvalidated ? {ranking_invalidated_reason:'spoken-content-changed-after-proposal'} : {}),
+            vireo_score: isUnranked ? null : scored.vireo_score,
+            explanation: usedShortSourceFallback || narrativeRankingInvalidated ? null : scored.explanation,
             genre: genreProfile.genre,
             layout_mode: genreProfile.recommendedLayoutMode || 'track',
             // Provenance: this value is a genre-profile recommendation, not a
