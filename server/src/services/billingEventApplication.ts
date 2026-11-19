@@ -31,11 +31,13 @@ export async function applyVerifiedBillingEvent(event:NormalizedBillingEvent,dat
    catch(error){if(!(error instanceof BillingOwnershipError))throw error;ignored=true;errorCode=error.code;errorMessage=error.message;}
    await events.updateOne(key,{$set:{status:ignored?'ignored':'processed',event_type:event.rawEventType,processed_at:new Date(),payload_hash:payloadHash,error_code:errorCode,error_message:errorMessage}},{session});
    return {idempotent:false,ignored};
-  },{readConcern:{level:'snapshot'},writeConcern:{w:'majority'}});
+  // Bound transaction lock waits/retries; an unfinished attempt must return
+  // non-2xx so the provider can retry after database recovery.
+  },{readConcern:{level:'snapshot'},writeConcern:{w:'majority'},timeoutMS:10_000});
  }catch(error:any){
   // A concurrent first delivery may win the unique event key. Only a verified
   // matching terminal receipt is safe to acknowledge, never any duplicate key.
-  if(error?.code===11000){const current=await events.findOne(key);if(current?.payload_hash===payloadHash&&(current.status==='processed'||current.status==='ignored'))return {idempotent:true,ignored:current.status==='ignored'};}
+  if(error?.code===11000){const current=await events.findOne(key,{timeoutMS:2_000});if(current?.payload_hash===payloadHash&&(current.status==='processed'||current.status==='ignored'))return {idempotent:true,ignored:current.status==='ignored'};}
   throw error;
  }finally{await session.endSession();}
 }
