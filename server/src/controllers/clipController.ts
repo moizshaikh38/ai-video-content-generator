@@ -1,5 +1,6 @@
+import {readRenderUsageCount} from '../db/repositories/renderQuotaRepository.js';
 import {renderQuotaPolicy} from '../db/repositories/renderQuotaRepository.js';
-import {assertRenderQuotaMaximum,assertRenderUsageCount} from '../shared/renderQuotaSnapshot.js';
+import {assertRenderQuotaMaximum} from '../shared/renderQuotaSnapshot.js';
 import {ProEditorService} from '../services/proEditorService.js';
 import {parseCandidateCreation,lookupCandidateCreation,closeCandidateCreation} from '../db/repositories/candidateCreationRepository.js';
 import {prepareCandidateCreation} from '../db/repositories/clipRepository.js';
@@ -379,19 +380,7 @@ export const createProjectClip = async (req: AuthenticatedRequest, res: Response
     if (!entitlements.isUnlimited) {
       assertRenderQuotaMaximum(entitlements.limits.maxClipRenders);
       const db = await getMongoDb();
-      const currentMonthStart = new Date();
-      currentMonthStart.setUTCDate(1);
-      currentMonthStart.setUTCHours(0, 0, 0, 0);
-
-      const renderCount = await db.collection('render_jobs').countDocuments({
-        user_id: userId,
-        $or: [
-          { created_at: { $gte: currentMonthStart } },
-          { created_at: { $gte: currentMonthStart.toISOString() } },
-        ],
-      });
-
-      assertRenderUsageCount(renderCount);
+      const renderCount = await readRenderUsageCount(db,userId);
       if (renderCount >= entitlements.limits.maxClipRenders) {
         res.status(403).json({
           status: 'error',
@@ -617,19 +606,7 @@ export const renderClip = async (req: AuthenticatedRequest, res: Response): Prom
     if (!entitlements.isUnlimited) {
       assertRenderQuotaMaximum(entitlements.limits.maxClipRenders);
       const db = await getMongoDb();
-      const currentMonthStart = new Date();
-      currentMonthStart.setUTCDate(1);
-      currentMonthStart.setUTCHours(0, 0, 0, 0);
-
-      const renderCount = await db.collection('render_jobs').countDocuments({
-        user_id: userId,
-        $or: [
-          { created_at: { $gte: currentMonthStart } },
-          { created_at: { $gte: currentMonthStart.toISOString() } },
-        ],
-      });
-
-      assertRenderUsageCount(renderCount);
+      const renderCount = await readRenderUsageCount(db,userId);
       if (renderCount >= entitlements.limits.maxClipRenders) {
         res.status(403).json({
           status: 'error',

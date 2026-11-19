@@ -1,5 +1,5 @@
-import {renderQuotaPolicy,type RenderQuotaPolicy} from '../db/repositories/renderQuotaRepository.js';
-import {assertRenderQuotaMaximum,assertRenderUsageCount} from '../shared/renderQuotaSnapshot.js';
+import {renderQuotaPolicy,readRenderUsageCount,type RenderQuotaPolicy} from '../db/repositories/renderQuotaRepository.js';
+import {assertRenderQuotaMaximum} from '../shared/renderQuotaSnapshot.js';
 import {getMongoDb} from '../db/mongoClient.js';
 import {AppError} from '../types/index.js';
 import {EntitlementService} from './entitlementService.js';
@@ -14,18 +14,8 @@ export async function assertRenderPlanPreflight(userId: string, email: string | 
   if (!entitlements.isUnlimited) {
     const maximum = entitlements.limits.maxClipRenders;
     assertRenderQuotaMaximum(maximum);
-    const currentMonthStart = new Date();
-    currentMonthStart.setUTCDate(1);
-    currentMonthStart.setUTCHours(0, 0, 0, 0);
     const db = await getMongoDb();
-    const count = await db.collection('render_jobs').countDocuments({
-      user_id: userId,
-      $or: [
-        {created_at: {$gte: currentMonthStart}},
-        {created_at: {$gte: currentMonthStart.toISOString()}},
-      ],
-    });
-    assertRenderUsageCount(count);
+    const count = await readRenderUsageCount(db,userId);
     if (count >= maximum) {
       throw new AppError(`Your ${entitlements.displayName} plan allows up to ${maximum} clip renders per month. Please upgrade your plan to render more clips.`, 403, 'MONTHLY_RENDER_LIMIT_EXCEEDED');
     }

@@ -36,6 +36,12 @@ export async function assertTransactionalRenderQuota(db:Db,session:ClientSession
  const locked=await db.collection<any>('render_quota_fences').updateOne({_id:fenceKey(userId),user_id:userId},{$inc:{serial:1},$set:{updated_at:now}},{session});
  if(locked.matchedCount!==1)throw new AppError('Render quota serialization is unavailable.',503,'RENDER_USAGE_UNAVAILABLE');
  if(policy.kind==='unlimited')return;
+ const count=await readRenderUsageCount(db,userId,now,session);
+ if(count>=policy.maximum)throw new AppError(`Your ${policy.displayName} plan allows up to ${policy.maximum} clip renders per month. Please upgrade your plan to render more clips.`,403,'MONTHLY_RENDER_LIMIT_EXCEEDED');
+}
+
+/** Read-only snapshot for early refusal; only admission holds the account fence. */
+export async function readRenderUsageCount(db:Db,userId:string,now=new Date(),session?:ClientSession){
  // Historical usage without a countable clock must not become free quota.
  // Do not repair, delete or infer a month for malformed records.
  const unknown=await db.collection('render_jobs').findOne({user_id:userId,$or:[
@@ -46,5 +52,5 @@ export async function assertTransactionalRenderQuota(db:Db,session:ClientSession
  const start=new Date(now);start.setUTCDate(1);start.setUTCHours(0,0,0,0);
  const count=await db.collection('render_jobs').countDocuments({user_id:userId,$or:[{created_at:{$gte:start}},{created_at:{$type:'string'},$expr:{$gte:[{$convert:{input:'$created_at',to:'date',onError:null,onNull:null}},start]}}]},{session});
  assertRenderUsageCount(count);
- if(count>=policy.maximum)throw new AppError(`Your ${policy.displayName} plan allows up to ${policy.maximum} clip renders per month. Please upgrade your plan to render more clips.`,403,'MONTHLY_RENDER_LIMIT_EXCEEDED');
+ return count;
 }

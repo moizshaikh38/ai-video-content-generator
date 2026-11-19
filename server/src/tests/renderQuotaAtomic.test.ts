@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import {MongoClient,Collection} from 'mongodb';
 import {admitRenderJob} from '../db/repositories/renderAdmissionRepository.js';
 import {createClipWithJob} from '../db/repositories/clipRepository.js';
-import {renderQuotaPolicy} from '../db/repositories/renderQuotaRepository.js';
+import {renderQuotaPolicy,readRenderUsageCount} from '../db/repositories/renderQuotaRepository.js';
 import {parseRenderSubmission} from '../db/repositories/renderSubmissionRepository.js';
 import {selectionSourceReceipt} from '../shared/selectionSourceReceipt.js';
 import {transcriptContentIdentity} from '../shared/transcriptSourceBinding.js';
@@ -55,11 +55,16 @@ test('actual Mongo serializes account quota across clips and initial/saved admis
   await db.collection('render_jobs').insertOne({id:crypto.randomUUID(),user_id:legacy.user,clip_id:crypto.randomUUID(),status:'failed',created_at:currentStart.toISOString()});await assert.rejects(admitRenderJob(a,db,legacy.input),{code:'MONTHLY_RENDER_LIMIT_EXCEEDED'});
   for(const bad of [undefined,null,'not-a-date','2026-99-99T00:00:00.000Z',17,{},[]]){
    const unknown=await seed();const row:any={id:crypto.randomUUID(),user_id:unknown.user,status:'failed'};if(bad!==undefined)row.created_at=bad;await db.collection('render_jobs').insertOne(row);
+   await assert.rejects(readRenderUsageCount(db,unknown.user),{code:'RENDER_USAGE_UNAVAILABLE'});
    await assert.rejects(admitRenderJob(a,db,unknown.input),{code:'RENDER_USAGE_UNAVAILABLE'},'uncountable usage is not free allowance');assert.equal(await db.collection('render_jobs').countDocuments({user_id:unknown.user}),1);
   }
   const offsetBoundary=await seed();const beforeMidnight=new Date(currentStart.getTime()-3600000).toISOString().replace('Z','-02:00');
   await db.collection('render_jobs').insertOne({id:crypto.randomUUID(),user_id:offsetBoundary.user,status:'failed',created_at:beforeMidnight});
+  assert.equal(await readRenderUsageCount(db,offsetBoundary.user),1);
   await assert.rejects(admitRenderJob(a,db,offsetBoundary.input),{code:'MONTHLY_RENDER_LIMIT_EXCEEDED'},'ISO offset is compared by UTC instant, not text');
+  const previousOffset=await seed();const localNewMonth=new Date(currentStart.getTime()+3600000).toISOString().replace('Z','+02:00');
+  await db.collection('render_jobs').insertOne({id:crypto.randomUUID(),user_id:previousOffset.user,status:'failed',created_at:localNewMonth});
+  assert.equal(await readRenderUsageCount(db,previousOffset.user),0,'last UTC month must not falsely block this month');assert((await admitRenderJob(a,db,previousOffset.input)).job.id);
   const previous=await seed();const old=new Date(currentStart);old.setUTCDate(0);await db.collection('render_jobs').insertOne({id:crypto.randomUUID(),user_id:previous.user,status:'completed',created_at:old});assert((await admitRenderJob(a,db,previous.input)).job.id);
   const free=await seed();assert((await admitRenderJob(a,db,{...free.input,quotaPolicy:unlimited})).job.id);const extra=await seed(free.user);assert((await admitRenderJob(b,other,{...extra.input,quotaPolicy:unlimited})).job.id);
  }finally{for(const name of ['projects','transcripts','clips','clip_candidates','render_jobs','render_submissions','render_quota_fences'])await db.collection(name).deleteMany({user_id:{$in:users}});await closeMongo();await Promise.all([a.close(),b.close()]);}
