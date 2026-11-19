@@ -81,6 +81,7 @@ export class YouTubePublishingProvider implements SocialPublishingProvider {
       'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',
       {
         method: 'POST',
+        redirect: 'error',
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json; charset=UTF-8',
@@ -104,6 +105,17 @@ export class YouTubePublishingProvider implements SocialPublishingProvider {
       throw new AppError('YouTube did not return a resumable upload location header.', 502, 'YOUTUBE_LOCATION_MISSING');
     }
 
+    let sessionUrl:URL;
+    try { sessionUrl = new URL(uploadUrl); }
+    catch { throw new AppError('YouTube returned an invalid upload session URL.',502,'YOUTUBE_LOCATION_INVALID'); }
+    // Restrict video bytes and credentials to the documented YouTube upload
+    // endpoint. Unexpected hosts/paths fail closed rather than forwarding.
+    if (sessionUrl.protocol !== 'https:' || sessionUrl.hostname !== 'www.googleapis.com' ||
+        (sessionUrl.port !== '' && sessionUrl.port !== '443') || sessionUrl.username || sessionUrl.password ||
+        sessionUrl.pathname !== '/upload/youtube/v3/videos' || sessionUrl.hash) {
+      throw new AppError('YouTube returned an unsupported upload session URL.',502,'YOUTUBE_LOCATION_INVALID');
+    }
+
     // Step 2: Stream media file to the resumable location
     const fileStream = fs.createReadStream(mediaFilePath, {highWaterMark:64*1024});
     // Register before fetch so a synchronously rejected request cannot leave
@@ -115,7 +127,9 @@ export class YouTubePublishingProvider implements SocialPublishingProvider {
       // MP4, even though the provider accepts files much larger than our RAM.
       const uploadRequest = {
         method: 'PUT',
+        redirect: 'error',
         headers: {
+          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'video/mp4',
           'Content-Length': String(stat.size),
         },
