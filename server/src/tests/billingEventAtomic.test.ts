@@ -25,7 +25,7 @@ test('malformed verified event lookup keys and dates refuse before database acce
 
 test('actual Mongo billing terminal receipt and state commit together; races, rollback, retry and ownership',async()=>{
  process.env.PADDLE_ENABLED='true';config.paddleApiKey='pdl_sdbx_synthetic_fixture_not_real';config.paddleWebhookSecret='synthetic-fixture-secret';config.paddlePriceProMonthly='pri_FIXTURE';
- const client=await new MongoClient(process.env.MONGODB_URI!,{maxPoolSize:3}).connect();const db=client.db(process.env.MONGODB_DB_NAME);const prefix=crypto.randomUUID();const users:string[]=[],ids:string[]=[];
+ const client=await new MongoClient(process.env.MONGODB_URI!,{maxPoolSize:1}).connect();const db=client.db(process.env.MONGODB_DB_NAME);const prefix=crypto.randomUUID();const users:string[]=[],ids:string[]=[];
  const seed=()=>{const user=crypto.randomUUID();users.push(user);const id=`fixture-${prefix}-${ids.length}`;ids.push(id);return {provider:'paddle',eventId:id,eventType:'subscription.active',rawEventType:'subscription.activated',occurredAt:new Date(),userId:user,customerId:`fixture-${user}`,subscriptionId:`fixture-${user}`,planId:'pro',interval:'month',status:'active',rawPayload:{fixture:id},currentPeriodEnd:new Date(Date.now()+86400000)} as any;};
  try{
   for(const [name,key] of [['billing_events',{provider:1,provider_event_id:1}],['subscriptions',{provider:1,provider_subscription_id:1}],['billing_customers',{user_id:1,provider:1}],['subscription_limits',{user_id:1,billing_period:1}],['billing_invoices',{provider:1,provider_invoice_id:1}]] as const)await db.collection(name).createIndex(key as any,{unique:true});
