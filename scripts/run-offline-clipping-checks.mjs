@@ -7,6 +7,7 @@ const tests = [
   'clip-speech-cut-contract',
   'final-speech-score-contract',
   'auto-cold-open-seed-contract',
+  'caption-empty-speech-contract',
   'clip-render-readiness',
   'clip-workspace-recovery',
   'workspace-search-recovery',

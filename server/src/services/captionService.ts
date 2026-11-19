@@ -529,6 +529,13 @@ export class CaptionService {
       }
     }
 
+    // Reliable word clocks remain authoritative even when this slice contains
+    // no words. Falling through would caption an entire overlapping segment,
+    // including speech outside the selected interval.
+    if (rawWords.length > 0 && wordClocksReliable) {
+      return {timingMode:'word',cues:[]};
+    }
+
     // 2. SEGMENT-LEVEL FALLBACK MODE (Never manufacture fake word timestamps)
     const rawSegments = Array.isArray(transcript.segments) ? transcript.segments : [];
     if (rawWords.length > 0 && !wordClocksReliable) {
