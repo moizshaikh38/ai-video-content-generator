@@ -1576,9 +1576,9 @@ export class ClipRenderService {
         const legacyFallback=clip.crop_config?.layout_mode_source!=='user'?legacyPolicyFallback(clip.crop_config?.layoutPolicy,track,durationSec):undefined;
         if(legacyFallback)return {cropFilter:buildBackdropFitChain(clip.aspect_ratio as ClipAspectRatio,1,{kind:'blur',bandAspect:4/3},'legacyPolicy',canvasScale),mode:'smart',layoutMode:'blur',metadata:{reason:'layout_policy_review_fit'},track};
         if ((track.detected_face_count || 0) === 0 || !track.dominant_track_id) {
-          // A genre-stamped layout recommendation is not authoritative; with no
+          // Auto placeholders and genre recommendations are not authoritative; with no
           // detected subject the measured outcome is the modern blurred layout.
-          const cropLayout = (clip.crop_config as any)?.layout_mode_source !== 'genre_recommendation' ? clip.crop_config?.layout_mode : undefined;
+          const cropLayout = !['genre_recommendation','auto'].includes((clip.crop_config as any)?.layout_mode_source) ? clip.crop_config?.layout_mode : undefined;
           const targetLayout = cropLayout || 'blur';
           if (targetLayout === 'blur' && (clip.aspect_ratio === '9:16' || !clip.aspect_ratio)) {
             logger.info(`[ClipRender] No subject detected in smart reframe track for clip ${clip.id}. Using modern blurred background layout.`);
@@ -1594,10 +1594,11 @@ export class ClipRenderService {
           return { cropFilter: centerCrop(), mode: 'fallback_center', metadata: { reason: 'no_subject_detected', detected_face_count: 0 }, layoutMode: targetLayout, track };
         }
 
-        // Provenance-aware precedence: user/legacy crop layout wins; otherwise
+        // Provenance-aware precedence: user/legacy crop layout wins; Auto
+        // placeholders and genre hints yield to current measured layout. Otherwise
         // the measured track layout (which already applies the genre hint
         // rules) beats a genre-stamped crop_config value.
-        const cropLayout = (clip.crop_config as any)?.layout_mode_source !== 'genre_recommendation' ? clip.crop_config?.layout_mode : undefined;
+        const cropLayout = !['genre_recommendation','auto'].includes((clip.crop_config as any)?.layout_mode_source) ? clip.crop_config?.layout_mode : undefined;
         const targetLayout = cropLayout || track.layout_mode || clip.crop_config?.layout_mode || 'track';
         const splitGeometry =
           targetLayout === 'split'
