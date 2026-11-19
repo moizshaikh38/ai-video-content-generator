@@ -1,4 +1,4 @@
-import {embeddedCameraPanelReview} from '../shared/embeddedCameraPanelReview.js';
+import {embeddedCameraPanelReview,embeddedCameraMeasurementEligible} from '../shared/embeddedCameraPanelReview.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import {proposeAutomaticGamingPanels} from '../shared/automaticGamingPanels.js';
 import {assignParticipantPanels} from '../shared/participantPanels.js';
@@ -3122,6 +3122,20 @@ export class SmartReframeService {
         const e=(gamingProject as any)?.automatic_gaming_evidence;
         if(e?.sourceSha256===analyzedSourceSha256&&e.sourceWidth===cvResult.source_width&&e.sourceHeight===cvResult.source_height&&Math.abs(e.durationSeconds-durationSec)<.05)automaticGamingEvidence=e;
       }
+      let embeddedCameraReview:unknown;
+      // Bounded experimental measurement only. Never invoke from the ordinary
+      // pipeline without the explicit local flag, nor on unverified inputs.
+      if(embeddedCameraMeasurementEligible({flag:process.env.VIREO_EMBEDDED_CAMERA_PANEL_REVIEW,sourceReceipt,layoutSource:clip.crop_config?.layout_mode_source,aspect:clip.aspect_ratio,duration:durationSec,sceneCuts:clipSceneCuts})){
+        const measurementInput=path.join(tempDir,'inset-review-input.json');
+        const measurementOutput=path.join(tempDir,'inset-review-output.json');
+        fs.writeFileSync(measurementInput,JSON.stringify({raw_samples:cvResult.samples,metadata:{analyzed_source_start:startSec,analyzed_source_end:endSec,clip_duration:durationSec}}));
+        try{
+          const scriptPath=[path.resolve(process.cwd(),'server/python/measured_inset_review.py'),path.resolve(process.cwd(),'python/measured_inset_review.py'),path.resolve(process.cwd(),'../server/python/measured_inset_review.py')].find(p=>fs.existsSync(p))!;
+          await execFileAsync(this.getPythonPath(),[scriptPath,localSourcePath,measurementInput,measurementOutput,String(startSec),String(durationSec)],{timeout:8000,maxBuffer:256*1024,env:{...process.env,OMP_NUM_THREADS:'1',OPENBLAS_NUM_THREADS:'1'}});
+          const candidate=JSON.parse(fs.readFileSync(measurementOutput,'utf8'));
+          if(embeddedCameraPanelReview({receipt:candidate,sha256:analyzedSourceSha256,sourceStart:startSec,sourceEnd:endSec,sourceWidth:cvResult.source_width,sourceHeight:cvResult.source_height})){const {observations,...compactReceipt}=candidate;embeddedCameraReview=compactReceipt;}
+        }catch(error:any){logger.warn('[SmartReframe] Optional inset geometry review unavailable',{code:error?.code??'MEASUREMENT_UNAVAILABLE'});}
+      }
       const trackPayload: Partial<ReframeTrackRecord> = {
         clip_id: clipId,
         project_id: clip.project_id,
@@ -3139,6 +3153,8 @@ export class SmartReframeService {
         metadata: {
           participant_manual_review:adaptiveScenes&&sourceGenre==='podcast_interview'&&process.env.SMART_REFRAME_AUTO_CONVERSATION_SPLIT==='1'&&process.env.VIREO_PARTICIPANT_EXPANDED_REVIEW==='1'?'expanded-three-v1':null,
           participant_panels_review:adaptiveScenes&&sourceGenre==='podcast_interview'&&process.env.SMART_REFRAME_AUTO_CONVERSATION_SPLIT==='1'&&process.env.VIREO_PARTICIPANT_ASPECT_REVIEW==='1'?'aspect-face-v1':null,
+          embedded_camera_panel_review_enabled:!!embeddedCameraReview,
+          embedded_camera_panel_review:embeddedCameraReview,
           automatic_gaming_review_enabled:!!automaticGamingEvidence,
           automatic_gaming_evidence:automaticGamingEvidence,
           dominant_score: score,
@@ -3249,7 +3265,9 @@ export class SmartReframeService {
 
     let {isStale} = reframeTrackFreshness(clip,track,expectedSourceSha256);
     let sourceObjectVerified:boolean|undefined;
-    if(verifyObjectReceipt){
+    // The explicit embedded-region review requires an independently verified
+    // object receipt at every consumer, including the ordinary export reader.
+    if(verifyObjectReceipt||track.metadata?.embedded_camera_panel_review_enabled===true){
       sourceObjectVerified=false;
       const receipt=track.metadata?.analyzed_source_receipt;
       if(receipt && clip.source_storage_path){

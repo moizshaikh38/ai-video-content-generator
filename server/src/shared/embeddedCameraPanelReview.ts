@@ -30,3 +30,8 @@ export function embeddedCameraPanelReview(input:{receipt:InsetObservationReceipt
  const topFraction=(9/16)/(enclosure.w*w/(enclosure.h*h));if(!Number.isFinite(topFraction)||topFraction<.25||topFraction>.5)return null;
  return{enclosure,anchorTrackId:anchor!,panels:{layout:'gameplay',topFraction,slots:[{set:true,focusX:.5,focusY:.5,scale:1,fit:'contain',sourceRect:enclosure},{set:true,focusX:.5,focusY:.5,scale:1,fit:'contain',sourceRect:main}]},limitations:['Explicit geometry review only. Nearby border alternatives are enclosed, not certified as one measured boundary.','Camera-like geometry is not real-person, active-speaker or gameplay proof.','Disjoint compiler-rounded source windows prevent duplicate region pixels, but exclude side context and can reduce content size.','No claim of between-sample camera-boundary completeness, HUD readability or automatic highlight quality.']};
 }
+
+/** Operational gate for extra local decoding; defaults never add work. */
+export function embeddedCameraMeasurementEligible(input:{flag:unknown;sourceReceipt:unknown;layoutSource:unknown;aspect:unknown;duration:number;sceneCuts:unknown}):boolean{
+ return input.flag==='1'&&!!input.sourceReceipt&&input.layoutSource==='auto'&&input.aspect==='9:16'&&Number.isFinite(input.duration)&&input.duration>0&&input.duration<=15&&Array.isArray(input.sceneCuts)&&input.sceneCuts.length===0;
+}

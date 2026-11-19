@@ -37,13 +37,22 @@ test('download receipt binds actual hash to object validator and normal preview 
    assert.equal(boundResponse.adaptiveComposition,true);assert.equal(boundResponse.measuredPlanEnvelope?.sourceValidation,'object-receipt-verified');assert.equal(boundResponse.measuredPlanEnvelope.identity.sourceVersion,downloaded.sha256);
    const {resolvePreviewItemPlan}=await import('../shared/previewItemAutomaticPlan.js');
    const accepted=resolvePreviewItemPlan({id:'contained-ui-item',source_start:1,source_end:3,source_asset_id:id,source_path:key},boundResponse.measuredPlanEnvelope,{sourceAssetId:id,sourcePath:key,outputAspect:'9:16',sourceVersion:downloaded.sha256});assert.equal(accepted.status,'ready');
-   etag='"version-b"';const changed=await SmartReframeService.getReframeTrack(id,uid,undefined,true);assert.equal(changed?.isStale,true);assert.equal(changed?.sourceObjectVerified,false);
+   // Ordinary reads stay unchanged, but review records cannot skip HEAD
+   // simply because the export caller omitted verifyObjectReceipt.
+   assert.equal((await SmartReframeService.getReframeTrack(id,uid))?.sourceObjectVerified,undefined);
+   await db.collection('reframe_tracks').updateMany({clip_id:id},{$set:{'metadata.embedded_camera_panel_review_enabled':true}});
+   assert.equal((await SmartReframeService.getReframeTrack(id,uid))?.sourceObjectVerified,true);
+   etag='"version-b"';
+   const reviewChanged=await SmartReframeService.getReframeTrack(id,uid);
+   assert.equal(reviewChanged?.sourceObjectVerified,false);assert.equal(reviewChanged?.isStale,true);
+   const changed=await SmartReframeService.getReframeTrack(id,uid,undefined,true);assert.equal(changed?.isStale,true);assert.equal(changed?.sourceObjectVerified,false);
    const {getClipReframe}=await import('../controllers/clipController.js');let response:any;
    await getClipReframe({user:{id:uid},params:{clipId:id},query:{}} as any,{status(){return this;},json(value:any){response=value;return this;}} as any);
    assert.equal(response.isStale,true);assert.equal(response.measuredPlanEnvelope,null);
 
    etag='"version-a"';await db.collection('reframe_tracks').updateMany({clip_id:id},{$unset:{'metadata.analyzed_source_receipt':''}});
    assert.equal((await SmartReframeService.getReframeTrack(id,uid,undefined,true))?.isStale,true);
+   assert.equal((await SmartReframeService.getReframeTrack(id,uid))?.sourceObjectVerified,false);
   });
  }finally{await db.collection('clips').deleteOne({id});await db.collection('reframe_tracks').deleteMany({clip_id:id});await closeMongo();await new Promise<void>(resolve=>server.close(()=>resolve()));fs.rmSync(dir,{recursive:true,force:true});}
 });

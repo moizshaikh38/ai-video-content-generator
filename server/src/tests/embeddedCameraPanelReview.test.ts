@@ -16,3 +16,9 @@ describe('local review activation is explicit and source-bound',()=>{
  for(const[name,change]of Object.entries({off:(t:any,c:any)=>t.metadata.embedded_camera_panel_review_enabled=false,absent:(t:any,c:any)=>delete t.metadata.embedded_camera_panel_review_enabled,user:(t:any,c:any)=>c.layout_mode_source='user',legacy:(t:any,c:any)=>delete c.layout_mode_source,stale:(t:any,c:any)=>t.isStale=true,unverified:(t:any,c:any)=>delete t.sourceObjectVerified,changedSource:(t:any,c:any)=>t.metadata.analyzed_source_sha256='b'.repeat(64),cuts:(t:any,c:any)=>t.metadata.scene_cuts=[1],policy:(t:any,c:any)=>c.layoutPolicy={allowed:['fit']}}))it('does not activate for '+name,()=>{const t=routeFixture(),c:any={layout_mode_source:'auto'};change(t,c);assert.equal(S.explicitAutoLayoutPlan(t,c,4.34),undefined);});
  it('does not transplant to another duration',()=>assert.equal(S.explicitAutoLayoutPlan(routeFixture(),{layout_mode_source:'auto'},3),undefined));
 });
+import{embeddedCameraMeasurementEligible as eligible}from'../shared/embeddedCameraPanelReview.js';
+describe('fresh optional decoding gate',()=>{
+ const f=()=>({flag:'1',sourceReceipt:{key:'source'},layoutSource:'auto',aspect:'9:16',duration:4.34,sceneCuts:[]});
+ it('permits the explicit short verified source review',()=>assert(eligible(f())));
+ for(const[name,change]of Object.entries({off:(x:any)=>x.flag='0',absent:(x:any)=>delete x.flag,boolean:(x:any)=>x.flag=true,receipt:(x:any)=>x.sourceReceipt=undefined,user:(x:any)=>x.layoutSource='user',legacy:(x:any)=>delete x.layoutSource,aspect:(x:any)=>x.aspect='16:9',long:(x:any)=>x.duration=16,zero:(x:any)=>x.duration=0,nan:(x:any)=>x.duration=NaN,cuts:(x:any)=>x.sceneCuts=[1],missingCuts:(x:any)=>x.sceneCuts=undefined}))it('does not decode '+name,()=>{const x=f();change(x);assert.equal(eligible(x),false);});
+});
