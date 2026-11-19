@@ -48,7 +48,9 @@ export class GroqTranscriptionProvider implements TranscriptionProvider {
     );
 
     const formData = new FormData();
-    const blob = new Blob([audioBuffer], { type: mimeType });
+    // Copy only this Buffer view's bytes into an ArrayBuffer-backed view.
+    // Buffer may wrap SharedArrayBuffer, which is not a valid typed BlobPart.
+    const blob = new Blob([new Uint8Array(audioBuffer)], { type: mimeType });
     formData.append('file', blob, fileName);
     formData.append('model', GROQ_MODEL);
     formData.append('response_format', 'verbose_json');
