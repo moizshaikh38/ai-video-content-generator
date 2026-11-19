@@ -2263,6 +2263,7 @@ export const EDITOR_RESOURCE_LIMITS = {
 } as const;
 
 export const SAFE_EDITOR_FONTS = [
+  'Bangers',
   'Arial',
   'Inter',
   'Roboto',

@@ -24,7 +24,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 type BundledWeight = 'regular' | 'medium' | 'bold' | 'black';
 
-const BUNDLED_FONTS: Record<string, Record<BundledWeight, string>> = {
+const BUNDLED_FONTS: Record<string, Partial<Record<BundledWeight, string>>> = {
+  Bangers: { regular: 'bangers/Bangers-Regular.ttf' },
   Montserrat: {
     regular: 'montserrat/Montserrat-Regular.ttf',
     medium: 'montserrat/Montserrat-Medium.ttf',
@@ -52,6 +53,7 @@ export function resolveBundledFontFile(fontFamily?: string, weight?: string | nu
   const family = BUNDLED_FONTS[fontFamily.trim()];
   if (!family) return null;
   const rel = family[normalizeTextWeight(weight)];
+  if (!rel) return null;
   // Works from both server/src/services (tsx) and server/dist/services (compiled).
   const abs = path.resolve(HERE, '..', '..', 'assets', 'fonts', rel);
   return fs.existsSync(abs) ? abs : null;

@@ -53,3 +53,10 @@ test('unbundled Arial honors bold preview weight rather than regular host fallba
  assert.equal(drawtextFontArg('Arial','black'), drawtextFontArg('Arial','bold'));
  assert.equal(drawtextFontArg('Arial','normal'), `font='Arial'`);
 });
+
+
+test('Bangers binds its bundled regular face without inventing missing weights', () => {
+  assert.match(resolveBundledFontFile('Bangers', 'normal')!, /bangers\/Bangers-Regular\.ttf$/);
+  assert.match(drawtextFontArg('Bangers', 'normal'), /^fontfile='.+'$/);
+  for (const weight of ['medium', 'bold', 'black']) assert.equal(resolveBundledFontFile('Bangers', weight), null);
+});

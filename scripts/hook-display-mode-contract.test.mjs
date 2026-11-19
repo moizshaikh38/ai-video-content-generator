@@ -116,7 +116,7 @@ const {freshPresetTypography}=await load(fs.readFileSync('server/src/shared/fres
 const supportedCatalogue=Object.keys(realPresets.CAPTION_PRESETS).filter(id=>hookPresetSupported(realPresets.resolveCaptionPreset(id,freshPresetTypography(id))));
 test('actual caption catalogue maps supported fonts without fallback across portrait, square and landscape',()=>{
   assert(supportedCatalogue.includes('simple'));
-  assert(!supportedCatalogue.includes('vireo_comic_default'));
+  assert(supportedCatalogue.includes('vireo_comic_default'));
   for(const id of supportedCatalogue) for(const aspect of ['9:16','1:1','16:9']){
     const p=fixture();p.canvas.aspect_ratio=aspect;
     const resolved=realPresets.resolveCaptionPreset(id,freshPresetTypography(id),aspect);
@@ -179,4 +179,13 @@ test('static preset admission refuses overlong wrapped text or invalid metrics w
   const p=applyHookDisplayMode(fixture(),'hook_only');projectHook(p).text.text='one\ntwo\nthree\nfour\nfive';const before=structuredClone(p);
   assert.throws(()=>applyHookPreset(p,staticStyle,1),/four-line/);assert.deepEqual(p,before);
   const valid=applyHookDisplayMode(fixture(),'hook_only');assert.throws(()=>applyHookPreset(valid,staticStyle,NaN),/font metrics/);
+});
+
+
+test('Comic Punch Bangers supports its real regular face, not synthetic weights', () => {
+  assert.equal(hookPresetSupported({fontFamily:'Bangers',fontWeight:400}),true);
+  assert.equal(hookPresetSupported({fontFamily:'Bangers',bold:true}),false);
+  assert.equal(hookPresetSupported({fontFamily:'Bangers',fontWeight:400,bold:true}),false);
+  for (const weight of [600,700,900]) assert.equal(hookPresetSupported({fontFamily:'Bangers',fontWeight:weight}),false);
+  assert.equal(hookPresetSupported({fontFamily:'Komika Axis',fontWeight:400}),false);
 });

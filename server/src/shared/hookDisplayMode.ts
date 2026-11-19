@@ -32,7 +32,9 @@ export function hookModeUnavailable(project: EditorProject): string | null {
   return null;
 }
 
-export function hookPresetSupported(style: Pick<ResolvedCaptionStyle, 'fontFamily' | 'fontWeight'>): boolean {
+export function hookPresetSupported(style: Pick<ResolvedCaptionStyle, 'fontFamily' | 'fontWeight'> & Partial<Pick<ResolvedCaptionStyle, 'bold'>>): boolean {
+  // Bangers only ships a regular face. Do not promise synthetic weight parity.
+  if (style.fontFamily === 'Bangers' && (style.bold || (style.fontWeight != null && style.fontWeight !== 400))) return false;
   return (SAFE_EDITOR_FONTS as readonly string[]).includes(style.fontFamily)
     && (style.fontWeight == null || [400, 600, 700, 900].includes(style.fontWeight));
 }
