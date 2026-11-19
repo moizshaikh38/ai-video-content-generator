@@ -1,3 +1,4 @@
+import {ensureSignupProfile} from '../services/signupCreditService.js';
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../types/index.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
@@ -80,17 +81,7 @@ export function validateAndSanitizeCreatorProfile(raw: Record<string, unknown>):
 
 export const getProfiles = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const user = req.user!;
-  let { data: profile, error } = await dataRepository.from('profiles').select('*').eq('id', user.id).maybeSingle();
-  if (error) throw new Error('Profile database unavailable.');
-  if (!profile) {
-    const created = await dataRepository.from('profiles').insert({
-      id: user.id,
-      email: user.email || '',
-      full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Creator',
-    }).select().single();
-    if (created.error) throw new Error('Profile database unavailable.');
-    profile = created.data;
-  }
+  const profile = await ensureSignupProfile(user);
   let { data: creatorProfile, error: creatorError } = await dataRepository.from('creator_profiles')
     .select('*').eq('user_id', user.id).maybeSingle();
   if (creatorError) throw new Error('Profile database unavailable.');
