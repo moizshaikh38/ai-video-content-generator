@@ -8,6 +8,7 @@ const tests = [
   'final-speech-score-contract',
   'auto-cold-open-seed-contract',
   'caption-empty-speech-contract',
+  'cold-open-caption-clock-contract',
   'clip-render-readiness',
   'clip-workspace-recovery',
   'workspace-search-recovery',

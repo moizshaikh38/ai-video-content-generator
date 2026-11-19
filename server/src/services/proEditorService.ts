@@ -2655,6 +2655,10 @@ export class ProEditorService {
               ...c,
               start: Number((c.start + teaserDuration).toFixed(3)),
               end: Number((c.end + teaserDuration).toFixed(3)),
+              words: Array.isArray(c.words) ? c.words.map((w:any) => ({...w,
+                start:Number((w.start+teaserDuration).toFixed(3)),end:Number((w.end+teaserDuration).toFixed(3))})) : c.words,
+              tokens: Array.isArray(c.tokens) ? c.tokens.map((w:any) => ({...w,
+                start:Number((w.start+teaserDuration).toFixed(3)),end:Number((w.end+teaserDuration).toFixed(3))})) : c.tokens,
             });
           }
         } else {
