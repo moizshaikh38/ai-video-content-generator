@@ -2,3 +2,18 @@
 .help-top{height:auto;min-height:76px}.help-article{padding:0;width:100%;min-width:0}.help-toc{display:block}.help-footer{height:auto}.help-search input{font:12px system-ui}@media(max-width:1100px){.help-toc{display:none}}@media(max-width:740px){.help-top{min-height:128px}.help-tabs{display:flex}.help-article{padding:0}.help-search{margin:0}}
 
 .help-tabs a:first-child,.help-sidebar nav a:first-child,.help-toc a:first-child{display:block}
+
+/* Mobile tap targets + font floor (audit pass, Nov 2026) */
+@media(max-width:740px){
+  nav a{display:inline-flex;align-items:center;min-height:40px}
+  input:not([type=range]),select,textarea{font-size:16px;min-height:40px}
+  article a{min-height:0}
+  .hero a,.sidebar a,a.button{display:inline-flex;align-items:center;min-height:40px}
+}
+@media(max-width:740px){
+  footer a,.breadcrumb a,.toc a{display:inline-flex;align-items:center;min-height:40px}
+  summary{min-height:44px;display:flex;align-items:center}
+}
+@media(max-width:740px){
+  .help-workspace,.help-tabs a{display:inline-flex;align-items:center;min-height:40px}
+}

@@ -24,3 +24,15 @@
 
 /* A small red/green rhythm, with neutral words between highlights. */
 .caption-art[data-palette=colorful]{--timing-accent:#a6d5b1}.caption-art[data-palette=colorful]:has([data-word="1"].active),.caption-art[data-palette=colorful]:has([data-word="3"].active){--timing-accent:#e7a29d}.caption-art[data-palette=colorful] .caption-sentence span.active{background:var(--timing-accent)}.caption-art[data-palette=colorful][data-treatment=outline] .caption-sentence span.active,.caption-art[data-palette=colorful][data-treatment=editorial] .caption-sentence span.active{background:none;color:var(--timing-accent);border-color:var(--timing-accent)}.treatment-options button[data-treatment=outline] b{-webkit-text-stroke-color:#a6d5b1}.treatment-options button[data-treatment=editorial] b{color:#e7a29d;border-bottom-color:#a6d5b1}
+
+/* Mobile tap targets + font floor (audit pass, Nov 2026) */
+@media(max-width:740px){
+  nav a{display:inline-flex;align-items:center;min-height:40px}
+  input:not([type=range]),select,textarea{font-size:16px;min-height:40px}
+  input[type=range]{min-height:24px}
+  .related-links a,.price-card a,.demo-disclosure a,.media-note a{display:inline-flex;align-items:center;min-height:40px}
+  .demo-controls button,.ratio-controls button,.price-controls button{min-height:40px;padding:8px 14px}
+}
+@media(max-width:740px){
+  footer a,.breadcrumb a,.text-link,.hero-actions a{display:inline-flex;align-items:center;min-height:40px}
+}
