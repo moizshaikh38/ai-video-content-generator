@@ -1,3 +1,4 @@
+import {shortFallbackCompleteEnd} from '../shared/shortFallbackCompleteEnd.js';
 import { compareFinalSpeechScope, finalSpokenText } from '../shared/finalSpeechScope.js';
 import {measuredGenreSignals} from '../shared/measuredGenreSignals.js';
 import {shortSourceReviewContext} from '../shared/candidateReviewNotice.js';
@@ -1086,6 +1087,12 @@ export class ClipAnalysisService {
           }
         }
 
+        const fallbackCompleteEnd=usedShortSourceFallback?shortFallbackCompleteEnd(rawWords,start_seconds,end_seconds,minDurationLimit):null;
+        if(fallbackCompleteEnd!==null){
+          end_seconds=fallbackCompleteEnd;
+          duration_seconds=Number((end_seconds-start_seconds).toFixed(3));
+        }
+
         // Duration constraints: strictly minDurationLimit to maxDurationLimit (adaptive for short test videos under 15s)
         if (duration_seconds < minDurationLimit || duration_seconds > maxDurationLimit) {
           logger.info(`Rejected candidate "${ai.title}": duration ${duration_seconds}s outside [${minDurationLimit}s, ${maxDurationLimit}s] window.`);
@@ -1148,6 +1155,7 @@ export class ClipAnalysisService {
             narrative_evidence_status: 'unreviewed',
             ranking_status: isUnranked ? 'unranked' : 'heuristic',
             final_speech_scope: finalSpeechScope,
+            ...(fallbackCompleteEnd!==null?{short_fallback_tail_trim:{source_end_seconds:fallbackCompleteEnd,basis:'nearest-recorded-terminal-word',review_required:true}}:{}),
             ...(narrativeRankingInvalidated ? {ranking_invalidated_reason:'spoken-content-changed-after-proposal'} : {}),
             vireo_score: isUnranked ? null : scored.vireo_score,
             explanation: usedShortSourceFallback || narrativeRankingInvalidated ? null : scored.explanation,
