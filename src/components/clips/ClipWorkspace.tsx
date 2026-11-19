@@ -1185,7 +1185,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                               onChange={(e) =>
                                 setCandidateSubtitle(activeCandidate.id, { preset: e.target.value })
                               }
-                              className="px-2 py-1 rounded-md bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:border-violet-500"
+                              className="px-2.5 py-2 sm:py-1 rounded-md bg-zinc-800 border border-zinc-700 text-sm sm:text-xs text-white focus:outline-none focus:border-violet-500"
                             >
                               <option value={NEW_CAPTION_PRESET_ID}>Vireo Comic (Default)</option>
                               <option value="hormozi">Hormozi (Punchy Yellow)</option>
@@ -1204,7 +1204,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                               onChange={(e) =>
                                 setCandidateSubtitle(activeCandidate.id, { wordMode: e.target.value as 'phrase' | 'single' })
                               }
-                              className="px-2 py-1 rounded-md bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:border-violet-500"
+                              className="px-2.5 py-2 sm:py-1 rounded-md bg-zinc-800 border border-zinc-700 text-sm sm:text-xs text-white focus:outline-none focus:border-violet-500"
                             >
                               <option value="phrase">Phrase + word highlight</option>
                               <option value="single">Single word</option>

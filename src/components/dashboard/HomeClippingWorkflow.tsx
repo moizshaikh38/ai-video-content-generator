@@ -1187,7 +1187,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                 isDragOver ? 'border-white/60 ring-4 ring-white/15' : 'border-white/[0.14] focus-within:border-violet-500/80'
               }`}
             >
-              <div className="flex items-center gap-2.5 flex-1 min-w-0 px-2 sm:px-3 py-1 sm:py-0">
+              <div className="flex items-center gap-2.5 flex-1 min-w-0 px-2 sm:px-3 py-2 sm:py-0">
                 <Link2 className="size-5 text-vc-text-secondary shrink-0" />
                 <input
                   type="url"
@@ -1195,7 +1195,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                   onChange={(e) => setInputUrl(e.target.value)}
                   placeholder="YouTube, your Twitch clip, or a direct video file URL"
                   aria-label="Video URL"
-                  className="flex-1 min-w-0 bg-transparent border-0 outline-none text-sm sm:text-[15px] text-vc-text-primary placeholder:text-vc-text-secondary"
+                  className="flex-1 min-w-0 min-h-[28px] bg-transparent border-0 outline-none text-base sm:text-[15px] text-vc-text-primary placeholder:text-vc-text-secondary"
                 />
               </div>
               <button

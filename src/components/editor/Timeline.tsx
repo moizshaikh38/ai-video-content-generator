@@ -498,7 +498,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           Left: [📹 Hide timeline] | [⬚] [🔗] [🗑️] [✂️] [📋]
           Center: [⏮] [▶] [⏭] 01:07.03 / 02:23.08
           Right: [🔍-] [====O====] [🔍+] [⤢] */}
-      <div className="grid grid-cols-[1fr_auto_1fr] max-md:flex max-md:flex-wrap max-md:justify-center items-center gap-2 px-3 py-1.5 bg-vc-surface1 border-b border-white/[0.07] text-xs">
+      <div className="vc-timeline-toolbar grid grid-cols-[1fr_auto_1fr] max-md:flex max-md:flex-wrap max-md:justify-center items-center gap-2 px-3 py-1.5 bg-vc-surface1 border-b border-white/[0.07] text-xs">
         {/* Left: edit actions */}
         <div className="flex items-center gap-1.5 justify-self-start min-w-0 overflow-x-auto no-scrollbar max-md:w-full">
           {/* Hide timeline toggle button matching Opus */}

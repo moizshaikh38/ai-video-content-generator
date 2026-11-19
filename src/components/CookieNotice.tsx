@@ -54,7 +54,7 @@ export const CookieNotice: React.FC = () => {
           <button
             type="button"
             onClick={handleDismiss}
-            className="rounded-lg bg-[#F4F6FB] text-[#0B0C0F] hover:bg-white px-2.5 py-1.5 text-[10px] font-semibold transition-all shadow-[0_4px_14px_rgba(0,0,0,0.45)] focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-1 focus:ring-offset-[#0E1017]"
+            className="rounded-lg bg-[#F4F6FB] text-[#0B0C0F] hover:bg-white px-3 py-2 sm:px-2.5 sm:py-1.5 text-xs sm:text-[10px] font-semibold transition-all shadow-[0_4px_14px_rgba(0,0,0,0.45)] focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-1 focus:ring-offset-[#0E1017]"
           >
             Got it
           </button>

@@ -34,7 +34,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             aria-invalid={Boolean(error)}
             aria-describedby={error && errorId ? errorId : undefined}
             className={cn(
-              'flex h-10 w-full appearance-none rounded-xl border border-white/[0.08] bg-white/[0.03] bg-none shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)] px-3.5 pr-9 py-2 text-sm text-vc-text-primary transition-all focus-visible:outline-none focus-visible:border-white/25 focus-visible:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-white/15 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer',
+              'flex h-11 w-full appearance-none rounded-xl border border-white/[0.08] bg-white/[0.03] bg-none shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)] px-3.5 pr-9 py-2 text-base text-vc-text-primary transition-all focus-visible:outline-none focus-visible:border-white/25 focus-visible:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-white/15 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer sm:h-10 sm:text-sm',
               error && 'border-rose-500/80 focus-visible:border-rose-500 focus-visible:ring-rose-500/20 text-rose-100',
               className
             )}

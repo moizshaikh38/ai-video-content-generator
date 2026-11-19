@@ -51,10 +51,12 @@ const variantStyles: Record<NonNullable<ButtonProps['variant']>, string> = {
 };
 
 const sizeStyles: Record<NonNullable<ButtonProps['size']>, string> = {
-  default: 'h-10 px-5 text-sm',
-  sm: 'h-9 px-3 text-xs',
+  // On coarse-pointer screens keep tap targets >= 40px (44px for primary/icon),
+  // then restore the denser desktop sizing from sm up.
+  default: 'h-11 px-5 text-sm sm:h-10',
+  sm: 'h-10 px-3.5 text-xs sm:h-9 sm:px-3',
   lg: 'h-12 px-7 text-base',
-  icon: 'h-10 w-10 p-0',
+  icon: 'h-11 w-11 p-0 sm:h-10 sm:w-10',
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(

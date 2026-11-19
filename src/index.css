@@ -563,3 +563,92 @@ select { padding-right: 1.75rem; }
 .compact-clip-settings .settings-help summary { color:var(--vc-text-muted); }
 .compact-clip-settings .settings-help[open] { grid-column:span 1; }
 .clean-configure-panel .compact-clip-settings > .border { border-color:rgba(255,255,255,.07); }
+
+/* ─── Mobile foundations (max-width: 639px, Tailwind `sm` breakpoint floor) ───
+   Guard rails for small touch screens. Element-level rules only fill gaps:
+   utility classes (h-*, text-*) still win, so desktop styling is untouched. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  -webkit-tap-highlight-color: transparent;
+}
+@media (max-width: 639px) {
+  /* Stop iOS focus auto-zoom on small fields that miss the shared
+     Input/Select/Textarea components (those already go 16px on mobile). */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  /* Generic buttons without sizing classes stay tappable. */
+  button:not([class*='h-']) {
+    min-height: 40px;
+  }
+  /* Bare checkboxes/radios without size classes stay tappable. */
+  input[type='checkbox']:not([class*='size-']):not([class*='w-']),
+  input[type='radio']:not([class*='size-']):not([class*='w-']) {
+    width: 18px;
+    height: 18px;
+  }
+  /* Long unbroken strings (URLs, ids) must not force horizontal page scroll. */
+  body {
+    overflow-x: clip;
+    overflow-wrap: break-word;
+  }
+}
+/* Respect device safe areas on fixed chrome (notch / home indicator). */
+.safe-area-b {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}
+.safe-area-t {
+  padding-top: max(env(safe-area-inset-top), 0.5rem);
+}
+
+/* Editor: 40px+ tap targets in the dense timeline toolbar and transport on
+   phones only; desktop density is unchanged. */
+@media (max-width: 639px) {
+  .vc-timeline-toolbar button,
+  .vc-transport button {
+    min-width: 40px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .vc-timeline-toolbar button > svg,
+  .vc-transport button > svg {
+    width: 16px;
+    height: 16px;
+  }
+  .vc-timeline-toolbar input[type='range'] {
+    height: 22px;
+    background: transparent;
+  }
+  .vc-timeline-toolbar input[type='range']::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: #272727;
+  }
+  .vc-timeline-toolbar input[type='range']::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    background: #fff;
+    margin-top: -5px;
+  }
+  .vc-timeline-toolbar input[type='range']::-moz-range-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: #272727;
+  }
+  .vc-timeline-toolbar input[type='range']::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: none;
+    border-radius: 9999px;
+    background: #fff;
+  }
+}

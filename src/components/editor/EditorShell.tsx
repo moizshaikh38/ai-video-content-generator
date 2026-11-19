@@ -2049,7 +2049,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               onClick={toggleTranscriptCollapsed}
               title="Show transcript"
               aria-label="Show transcript"
-              className="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-neutral-400 hover:text-white flex items-center justify-center transition-colors"
+              className="w-7 h-7 max-md:w-10 max-md:h-10 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-neutral-400 hover:text-white flex items-center justify-center transition-colors"
             >
               <PanelRightOpen className="w-4 h-4" />
             </button>

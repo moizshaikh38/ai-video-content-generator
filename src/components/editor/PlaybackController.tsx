@@ -96,7 +96,7 @@ export const PlaybackController: React.FC<PlaybackControllerProps> = ({
   const secondaryActive = isLooping || showSafeGuides || playbackRate !== 1 || isMuted;
 
   return (
-    <div className="flex items-center gap-1.5 select-none">
+    <div className="vc-transport flex items-center gap-1.5 select-none">
       <button
         onClick={() => onStepFrames(-1)}
         className="p-1.5 rounded-md text-neutral-400 hover:text-white hover:bg-white/[0.08] transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
