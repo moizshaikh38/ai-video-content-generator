@@ -1,3 +1,8 @@
+import {getMongoDb,getMongoClient} from '../db/mongoClient.js';
+import {commitProducerApply,findProducerApply} from '../db/repositories/producerApplyRepository.js';
+import {assertRenderAdmissionEnabled} from '../db/repositories/renderAdmissionRepository.js';
+import {assertRenderPlanPreflight} from './renderPlanPreflight.js';
+import {assertSelectionSourceCurrent} from './selectionSourceGuardService.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -29,7 +34,7 @@ import {
   signObjectGet,
 } from './objectStorageService.js';
 import { CaptionService } from './captionService.js';
-import { ClipRenderService, buildCropFilter } from './clipRenderService.js';
+import { ClipRenderService, buildCropFilter, launchInlineRender } from './clipRenderService.js';
 import { LoudnormTwoPassService } from './loudnormTwoPassService.js';
 import { ProEditorService } from './proEditorService.js';
 import { sanitizePlanOperations, clipSpanSeconds } from './planSafetyService.js';
@@ -303,8 +308,9 @@ export class ProducerRenderService {
    */
   public static async applyPlanToClip(
     planId: string,
-    userId: string
-  ): Promise<{ clip: ClipRecord; plan: ProducerEditPlan }> {
+    userId: string,
+    expectedClipId?:string
+  ): Promise<{ clip: ClipRecord; plan: ProducerEditPlan;renderJob?:any;replayed?:boolean }> {
     if (!isValidUUID(planId)) {
       throw new AppError('Invalid plan ID format.', 400, 'INVALID_UUID');
     }
@@ -321,6 +327,12 @@ export class ProducerRenderService {
       throw new AppError('Producer plan not found or access denied.', 404, 'PLAN_NOT_FOUND');
     }
 
+    if(expectedClipId&&plan.clip_id!==expectedClipId)throw new AppError('Producer plan not found for this clip.',404,'PLAN_NOT_FOUND');
+    const originalPlan=structuredClone(plan);
+    const db=await getMongoDb();
+    const prior=await findProducerApply(db,userId,originalPlan);if(prior)return prior as any;
+    assertRenderAdmissionEnabled();
+
     // 2. Fetch clip
     const { data: clip, error: clipErr } = await dataRepository
       .from('clips')
@@ -332,6 +344,8 @@ export class ProducerRenderService {
     if (clipErr || !clip) {
       throw new AppError('Clip not found.', 404, 'CLIP_NOT_FOUND');
     }
+
+    await assertSelectionSourceCurrent(userId,clip.project_id,clip.selection_source_receipt,clip.source_storage_path);
 
     // Code-enforced plan limits: clamp/drop out-of-range operations before
     // persisting anything derived from them to the clip.
@@ -345,11 +359,11 @@ export class ProducerRenderService {
     let trimStartOffset = clip.trim_start_offset || 0;
     let trimEndOffset = clip.trim_end_offset || 0;
     let aspectRatio: ClipAspectRatio = clip.aspect_ratio || '9:16';
-    let cropConfig: CropConfig = clip.crop_config || { mode: 'center', focusX: 0.5, focusY: 0.5 };
+    let cropConfig: CropConfig = structuredClone(clip.crop_config) || { mode: 'center', focusX: 0.5, focusY: 0.5 };
     let captionStyle: CaptionStyle = clip.caption_style || 'clean';
     let captionPosition: CaptionPosition = clip.caption_position || 'bottom';
-    let captionConfig: CaptionConfig = clip.caption_config || {};
-    let overlayConfig: OverlayConfig = clip.overlay_config || { enabled: false };
+    let captionConfig: CaptionConfig = structuredClone(clip.caption_config) || {};
+    let overlayConfig: OverlayConfig = structuredClone(clip.overlay_config) || { enabled: false };
     let volume = clip.volume !== undefined ? clip.volume : 1.0;
 
     for (const op of plan.operations) {
@@ -386,224 +400,155 @@ export class ProducerRenderService {
       }
     }
 
-    const editorVersion = (clip.editor_version || 1) + 1;
-    const now = new Date();
+    await assertRenderPlanPreflight(userId,undefined,captionStyle);
+    const clipUpdates={trim_start_offset:trimStartOffset,trim_end_offset:trimEndOffset,aspect_ratio:aspectRatio,crop_config:cropConfig,caption_style:captionStyle,caption_position:captionPosition,caption_config:captionConfig,overlay_config:overlayConfig,volume};
+    const {data:existingEditor,error:editorError}=await dataRepository.from('editor_projects').select('*').eq('clip_id',clip.id).eq('user_id',userId).maybeSingle();
+    if(editorError)throw new AppError('Editor project could not be read.',503,editorError.code||'DATABASE_UNAVAILABLE');
+    const {data:transcript,error:transcriptError}=await dataRepository.from('transcripts').select('*').eq('project_id',clip.project_id).eq('user_id',userId).maybeSingle();
+    if(transcriptError||!transcript)throw new AppError('Transcript could not be read.',503,'DATABASE_UNAVAILABLE');
+    const {data:sourceProject,error:sourceProjectError}=await dataRepository.from('projects').select('clip_preferences').eq('id',clip.project_id).eq('user_id',userId).maybeSingle();
+    if(sourceProjectError)throw new AppError('Project defaults could not be read.',503,'DATABASE_UNAVAILABLE');
+    const editorProject=existingEditor?structuredClone(existingEditor):ProEditorService.buildInitialProducerEditor({...clip,...clipUpdates},userId,plan,transcript,sourceProject?.clip_preferences);
+    if(!editorProject||!Array.isArray(editorProject.tracks))throw new AppError('Producer editor preparation failed.',503,'PRODUCER_EDITOR_UNAVAILABLE');
 
-    // 4. Update clip record non-destructively
-    const { data: updatedClip, error: updateClipErr } = await dataRepository
-      .from('clips')
-      .update({
-        trim_start_offset: trimStartOffset,
-        trim_end_offset: trimEndOffset,
-        aspect_ratio: aspectRatio,
-        crop_config: cropConfig,
-        caption_style: captionStyle,
-        caption_position: captionPosition,
-        caption_config: captionConfig,
-        overlay_config: overlayConfig,
-        volume: volume,
-        editor_version: editorVersion,
-        render_status: 'draft',
-        updated_at: now,
-      })
-      .eq('id', clip.id)
-      .select('*')
-      .single();
+    const videoTrack = editorProject.tracks.find((t) => t.type === 'VIDEO');
+    const videoItem = videoTrack?.items[0];
 
-    if (updateClipErr) {
-      throw new AppError(`Failed to update clip: ${updateClipErr.message}`, 500, 'DATABASE_ERROR');
+    // Sync PUNCH_IN keyframe. Word-timing parity with the producer
+    // preview path: snap the synced keyframe to speech boundaries and
+    // suppress (drop any existing synced keyframe) when the producer
+    // would suppress, so editor export and producer preview agree on
+    // WHERE the punch lands. The pro compiler still renders it as a
+    // fixed 2.5s step zoom - easing parity is a separate change.
+    const punchInOp = plan.operations.find((o: ProducerOperation) => o.type === 'PUNCH_IN' && o.enabled);
+    if (videoItem && punchInOp && punchInOp.parameters.punch_in_start_sec !== undefined) {
+      let syncWordTimings: Array<{ start: number; end: number }> | undefined;
+      const rawWords=Array.isArray(transcript.words)?transcript.words:[];
+      const wt=rawWords.map((w:any)=>({start:Number(w?.start)-clip.start_seconds,end:Number(w?.end)-clip.start_seconds})).filter((w:any)=>Number.isFinite(w.start)&&Number.isFinite(w.end)&&w.end>w.start);
+      if(wt.length>0)syncWordTimings=wt;
+      const rawPunchStart = Math.max(0, punchInOp.parameters.punch_in_start_sec - clip.start_seconds);
+      const adaptedSync = adaptPunchInToWordTimings(
+        {
+          startSec: rawPunchStart,
+          durationSec: punchInOp.parameters.punch_in_duration_sec || 2.5,
+          scale: punchInOp.parameters.scale || 1.06,
+        },
+        syncWordTimings
+      );
+      if (!videoItem.keyframes) videoItem.keyframes = [];
+      const existingKfIdx = videoItem.keyframes.findIndex((k) => k.property === 'scale');
+      if (adaptedSync.suppressed) {
+        if (existingKfIdx >= 0) {
+          videoItem.keyframes.splice(existingKfIdx, 1);
+
+        }
+        logger.info(`[ProducerRender] Editor-sync punch-in suppressed (${adaptedSync.reason})`);
+      } else {
+      const punchTime = adaptedSync.startSec;
+      const punchKf = {
+        id: crypto.randomUUID(),
+        time: Number(punchTime.toFixed(3)),
+        property: 'scale' as const,
+        value: punchInOp.parameters.scale || 1.06,
+        easing: 'ease-in-out' as const,
+      };
+      if (existingKfIdx >= 0) {
+        videoItem.keyframes[existingKfIdx] = punchKf;
+      } else {
+        videoItem.keyframes.push(punchKf);
+      }
+
+      }
     }
 
-    // 5. Update plan status -> applied
-    const { data: updatedPlan, error: updatePlanErr } = await dataRepository
-      .from('producer_plans')
-      .update({
-        status: 'applied',
-        applied_at: now,
-        updated_at: now,
-      })
-      .eq('id', planId)
-      .select('*')
-      .single();
+    // Sync AUDIO_FADE
+    const fadeOp = plan.operations.find((o: ProducerOperation) => o.type === 'AUDIO_FADE' && o.enabled);
+    if (videoItem && fadeOp) {
+      if (!videoItem.audio) {
+        videoItem.audio = { volume: 1.0, fade_in: 0.15, fade_out: 0.25, normalized: true, target_lufs: -16 };
+      }
+      videoItem.audio.fade_in = fadeOp.parameters.fade_in_sec ?? 0.15;
+      videoItem.audio.fade_out = fadeOp.parameters.fade_out_sec ?? 0.25;
 
-    if (updatePlanErr) {
-      logger.warn(`Could not mark plan ${planId} as applied: ${updatePlanErr.message}`);
     }
 
-    // 6. Synchronize planned operations into the clip's EditorProject
-    try {
-      const editorProject = await ProEditorService.getOrCreateEditorProject(clip.id, userId, {
-        clip_id: clip.id,
-        from_producer_plan_id: plan.id,
-        aspect_ratio: aspectRatio,
-      });
+    // Sync CAPTION_EMPHASIS
+    const emphasisOp = plan.operations.find((o: ProducerOperation) => o.type === 'CAPTION_EMPHASIS' && o.enabled);
+    const captionTrack = editorProject.tracks.find((t) => t.type === 'CAPTION');
+    if (captionTrack && emphasisOp && emphasisOp.parameters.highlight_color) {
+      for (const item of captionTrack.items) {
+        if (item.caption) {
+          item.caption.highlight_color = emphasisOp.parameters.highlight_color;
 
-      if (editorProject && Array.isArray(editorProject.tracks)) {
-        let editorUpdated = false;
-        const videoTrack = editorProject.tracks.find((t) => t.type === 'VIDEO');
-        const videoItem = videoTrack?.items[0];
-
-        // Sync PUNCH_IN keyframe. Word-timing parity with the producer
-        // preview path: snap the synced keyframe to speech boundaries and
-        // suppress (drop any existing synced keyframe) when the producer
-        // would suppress, so editor export and producer preview agree on
-        // WHERE the punch lands. The pro compiler still renders it as a
-        // fixed 2.5s step zoom - easing parity is a separate change.
-        const punchInOp = plan.operations.find((o: ProducerOperation) => o.type === 'PUNCH_IN' && o.enabled);
-        if (videoItem && punchInOp && punchInOp.parameters.punch_in_start_sec !== undefined) {
-          let syncWordTimings: Array<{ start: number; end: number }> | undefined;
-          try {
-            const { data: tx } = await dataRepository
-              .from('transcripts')
-              .select('words')
-              .eq('project_id', clip.project_id)
-              .eq('user_id', userId)
-              .maybeSingle();
-            const rawWords = Array.isArray((tx as any)?.words) ? (tx as any).words : [];
-            const wt = rawWords
-              .map((w: any) => ({ start: Number(w?.start) - clip.start_seconds, end: Number(w?.end) - clip.start_seconds }))
-              .filter((w: any) => Number.isFinite(w.start) && Number.isFinite(w.end) && w.end > w.start);
-            if (wt.length > 0) syncWordTimings = wt;
-          } catch (wErr: any) {
-            logger.info(`[ProducerRender] Editor-sync word timings unavailable: ${wErr.message}`);
-          }
-          const rawPunchStart = Math.max(0, punchInOp.parameters.punch_in_start_sec - clip.start_seconds);
-          const adaptedSync = adaptPunchInToWordTimings(
-            {
-              startSec: rawPunchStart,
-              durationSec: punchInOp.parameters.punch_in_duration_sec || 2.5,
-              scale: punchInOp.parameters.scale || 1.06,
-            },
-            syncWordTimings
-          );
-          if (!videoItem.keyframes) videoItem.keyframes = [];
-          const existingKfIdx = videoItem.keyframes.findIndex((k) => k.property === 'scale');
-          if (adaptedSync.suppressed) {
-            if (existingKfIdx >= 0) {
-              videoItem.keyframes.splice(existingKfIdx, 1);
-              editorUpdated = true;
-            }
-            logger.info(`[ProducerRender] Editor-sync punch-in suppressed (${adaptedSync.reason})`);
-          } else {
-          const punchTime = adaptedSync.startSec;
-          const punchKf = {
-            id: crypto.randomUUID(),
-            time: Number(punchTime.toFixed(3)),
-            property: 'scale' as const,
-            value: punchInOp.parameters.scale || 1.06,
-            easing: 'ease-in-out' as const,
-          };
-          if (existingKfIdx >= 0) {
-            videoItem.keyframes[existingKfIdx] = punchKf;
-          } else {
-            videoItem.keyframes.push(punchKf);
-          }
-          editorUpdated = true;
-          }
-        }
-
-        // Sync AUDIO_FADE
-        const fadeOp = plan.operations.find((o: ProducerOperation) => o.type === 'AUDIO_FADE' && o.enabled);
-        if (videoItem && fadeOp) {
-          if (!videoItem.audio) {
-            videoItem.audio = { volume: 1.0, fade_in: 0.15, fade_out: 0.25, normalized: true, target_lufs: -16 };
-          }
-          videoItem.audio.fade_in = fadeOp.parameters.fade_in_sec ?? 0.15;
-          videoItem.audio.fade_out = fadeOp.parameters.fade_out_sec ?? 0.25;
-          editorUpdated = true;
-        }
-
-        // Sync CAPTION_EMPHASIS
-        const emphasisOp = plan.operations.find((o: ProducerOperation) => o.type === 'CAPTION_EMPHASIS' && o.enabled);
-        const captionTrack = editorProject.tracks.find((t) => t.type === 'CAPTION');
-        if (captionTrack && emphasisOp && emphasisOp.parameters.highlight_color) {
-          for (const item of captionTrack.items) {
-            if (item.caption) {
-              item.caption.highlight_color = emphasisOp.parameters.highlight_color;
-              editorUpdated = true;
-            }
-          }
-        }
-
-        // Sync BRAND_OVERLAY
-        const brandOp = plan.operations.find((o: ProducerOperation) => o.type === 'BRAND_OVERLAY' && o.enabled);
-        if (brandOp) {
-          let textTrack = editorProject.tracks.find((t) => t.type === 'TEXT');
-          if (!textTrack) {
-            textTrack = {
-              id: crypto.randomUUID(),
-              type: 'TEXT',
-              name: 'Text & Overlays',
-              locked: false,
-              muted: false,
-              hidden: false,
-              height: 48,
-              items: [],
-            };
-            editorProject.tracks.push(textTrack);
-          }
-          const brandText = brandOp.parameters.text || brandOp.parameters.brand_name || 'Brand';
-          textTrack.items.push({
-            id: crypto.randomUUID(),
-            track_id: textTrack.id,
-            type: 'TEXT',
-            timeline_start: 0,
-            timeline_end: Number((clip.end_seconds - clip.start_seconds).toFixed(3)),
-            source_start: 0,
-            source_end: Number((clip.end_seconds - clip.start_seconds).toFixed(3)),
-            transform: { position_x: 0, position_y: -750, scale: 0.85, rotation: 0, opacity: 0.9 },
-            speed: { speed: 1.0, pitch_preserved: true },
-            text: {
-              text: String(brandText),
-              font_family: 'Arial',
-              font_size: 36,
-              font_weight: 'bold',
-              italic: false,
-              alignment: 'center',
-              color: '#FFFFFF',
-              background_color: '#00000080',
-              preset: 'minimal',
-            },
-            effects: [],
-            keyframes: [],
-            locked: false,
-            muted: true,
-            hidden: false,
-            z_index: 15,
-          });
-          editorUpdated = true;
-        }
-
-        // Sync REMOVE_RANGE
-        const removeOp = plan.operations.find((o: ProducerOperation) => o.type === 'REMOVE_RANGE' && o.enabled);
-        if (removeOp && Array.isArray(removeOp.parameters.cut_ranges) && removeOp.parameters.cut_ranges.length > 0) {
-          if (!(editorProject as any).metadata) (editorProject as any).metadata = {};
-          (editorProject as any).metadata.cut_ranges = removeOp.parameters.cut_ranges;
-          editorUpdated = true;
-        }
-
-        if (editorUpdated) {
-          await ProEditorService.updateEditorProject(editorProject.id, userId, {
-            tracks: editorProject.tracks,version:editorProject.version,
-          },{clipSyncRequired:false});
-          logger.info(`[ProducerRender] Synchronized Producer plan operations into EditorProject ${editorProject.id}`);
         }
       }
-    } catch (eProjectErr: any) {
-      logger.warn(`Could not sync plan to EditorProject: ${eProjectErr.message}`);
     }
 
-    logger.info(`[ProducerRender] Applied plan ${planId} to clip ${clip.id} (editorVersion=${editorVersion})`);
+    // Sync BRAND_OVERLAY
+    const brandOp = plan.operations.find((o: ProducerOperation) => o.type === 'BRAND_OVERLAY' && o.enabled);
+    if (brandOp) {
+      let textTrack = editorProject.tracks.find((t) => t.type === 'TEXT');
+      if (!textTrack) {
+        textTrack = {
+          id: crypto.randomUUID(),
+          type: 'TEXT',
+          name: 'Text & Overlays',
+          locked: false,
+          muted: false,
+          hidden: false,
+          height: 48,
+          items: [],
+        };
+        editorProject.tracks.push(textTrack);
+      }
+      const brandText = brandOp.parameters.text || brandOp.parameters.brand_name || 'Brand';
+      textTrack.items.push({
+        id: crypto.randomUUID(),
+        track_id: textTrack.id,
+        type: 'TEXT',
+        timeline_start: 0,
+        timeline_end: Number((clip.end_seconds - clip.start_seconds).toFixed(3)),
+        source_start: 0,
+        source_end: Number((clip.end_seconds - clip.start_seconds).toFixed(3)),
+        transform: { position_x: 0, position_y: -750, scale: 0.85, rotation: 0, opacity: 0.9 },
+        speed: { speed: 1.0, pitch_preserved: true },
+        text: {
+          text: String(brandText),
+          font_family: 'Arial',
+          font_size: 36,
+          font_weight: 'bold',
+          italic: false,
+          alignment: 'center',
+          color: '#FFFFFF',
+          background_color: '#00000080',
+          preset: 'minimal',
+        },
+        effects: [],
+        keyframes: [],
+        locked: false,
+        muted: true,
+        hidden: false,
+        z_index: 15,
+      });
 
-    // 7. Trigger ClipRenderService in background
-    ClipRenderService.renderClipJob(clip.id, userId).catch((rErr) => {
-      logger.error(`Clip re-render failed after applying Producer plan: ${rErr.message}`);
-    });
+    }
 
-    return {
-      clip: (updatedClip || clip) as ClipRecord,
-      plan: (updatedPlan || plan) as ProducerEditPlan,
-    };
+    // Sync REMOVE_RANGE
+    const removeOp = plan.operations.find((o: ProducerOperation) => o.type === 'REMOVE_RANGE' && o.enabled);
+    if (removeOp && Array.isArray(removeOp.parameters.cut_ranges) && removeOp.parameters.cut_ranges.length > 0) {
+      if (!(editorProject as any).metadata) (editorProject as any).metadata = {};
+      (editorProject as any).metadata.cut_ranges = removeOp.parameters.cut_ranges;
+
+    }
+
+    // Validate without writes. Even unchanged tracks get a new revision so the
+    // applied clip and queued editor snapshot share one transaction boundary.
+    const stagedUpdates=await ProEditorService.prepareEditorRevision(editorProject,userId,{tracks:editorProject.tracks,version:editorProject.version});
+    const stagedEditor=JSON.parse(JSON.stringify({...editorProject,...stagedUpdates,version:existingEditor?existingEditor.version+1:1}));
+    const result=await commitProducerApply(await getMongoClient(),db,{userId,plan:originalPlan,clip,expectedEditor:existingEditor,editor:stagedEditor,clipUpdates});
+    if(!result?.clip||!result?.renderJob)throw new AppError('Producer Apply did not return a committed render receipt.',503,'PRODUCER_APPLY_UNVERIFIED');
+    if(!result.replayed)launchInlineRender(clip.id,userId,result.renderJob.id);
+    return result as any;
   }
 
   /**

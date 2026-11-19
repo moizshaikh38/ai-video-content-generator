@@ -321,7 +321,16 @@ export class ProEditorService {
       throw new AppError('Invalid editor project ID.', 400, 'INVALID_UUID');
     }
 
-    const current = await this.getEditorProject(projectId, userId);
+    const current=await this.getEditorProject(projectId,userId);
+    const updates=await this.prepareEditorRevision(current,userId,dto,options);
+    const expectedVersion=dto.version;
+    const updated=await saveEditorRevision(await getMongoClient(),await getMongoDb(),{id:projectId,userId,expectedVersion:expectedVersion!,updates:updates as Record<string,unknown>,requireClipSync:options.clipSyncRequired!==false});
+    return updated as unknown as EditorProject;
+  }
+
+  /** Validate and stage an editor update without writing. Producer uses this
+   * before committing its edit and render admission in one transaction. */
+  public static async prepareEditorRevision(current:EditorProject,userId:string,dto:UpdateEditorProjectDTO,options:{clientSupplied?:boolean}={}):Promise<Partial<EditorProject>> {
 
     // Validate resource limits
     if (dto.tracks) {
@@ -397,8 +406,7 @@ export class ProEditorService {
     if (hookIssue) throw new AppError(hookIssue, 400, 'INVALID_HOOK_TEXT');
     if (timingNormalized.tracks !== (updates.tracks ?? current.tracks)) updates.tracks = timingNormalized.tracks;
 
-    const updated=await saveEditorRevision(await getMongoClient(),await getMongoDb(),{id:projectId,userId,expectedVersion:expectedVersion!,updates:updates as Record<string,unknown>,requireClipSync:options.clipSyncRequired!==false});
-    return updated as unknown as EditorProject;
+    return updates;
   }
 
   /**
@@ -2356,6 +2364,12 @@ export class ProEditorService {
    * not persist, launch, or infer equivalence with the old Quick pipeline. */
   public static buildInitialCandidateEditor(clip:ClipRecord,userId:string,transcript:any,projectPreferences?:any):EditorProject {
     return this.buildInitialProject(clip,userId,null,transcript,{clip_id:clip.id},projectPreferences,true);
+  }
+
+  /** Pure Producer initialization. Its caller commits this document and the
+   * plan's clip changes in the same render-admission transaction. */
+  public static buildInitialProducerEditor(clip:ClipRecord,userId:string,plan:ProducerEditPlan,transcript:any,preferences?:any):EditorProject{
+    return this.buildInitialProject(clip,userId,plan,transcript,{clip_id:clip.id,from_producer_plan_id:plan.id,aspect_ratio:clip.aspect_ratio},preferences);
   }
 
   /**

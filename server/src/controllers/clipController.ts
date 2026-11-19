@@ -1644,10 +1644,10 @@ export const applyClipProducerPlan = async (req: AuthenticatedRequest, res: Resp
   }
 
   try {
-    const result = await ProducerRenderService.applyPlanToClip(planId, userId);
+    const result = await ProducerRenderService.applyPlanToClip(planId, userId, req.params.clipId);
     res.status(200).json({
       status: 'ok',
-      message: 'Producer plan successfully applied to clip.',
+      message: 'Producer plan applied and render queued.',
       data: result,
     });
   } catch (err: any) {
