@@ -495,7 +495,7 @@ export interface AIClipAnalysisResponse {
 // ── Phase 11: Clip Rendering Engine Types ─────────────────────────
 
 export type ClipAspectRatio = '9:16' | '1:1' | '16:9';
-export type ClipCropMode = 'center' | 'manual';
+export type ClipCropMode = 'center' | 'manual' | 'smart' | 'fit';
 export type ClipRenderStatus = 'draft' | 'queued' | 'rendering' | 'uploading' | 'ready' | 'failed';
 export type RenderJobStatus = 'queued' | 'processing' | 'uploading' | 'completed' | 'failed';
 export type RenderJobStage =

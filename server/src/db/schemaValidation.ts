@@ -4,7 +4,7 @@ const enums: Record<string, Record<string, readonly string[]>> = {
   projects: { source_type: ['upload', 'url'], video_status: VIDEO_STATUSES },
   content_outputs: { platform: VALID_PLATFORMS },
   clip_candidates: { status: ['suggested', 'selected', 'dismissed'] },
-  clips: { aspect_ratio: ['9:16', '1:1', '16:9'], crop_mode: ['center', 'manual', 'smart'],
+  clips: { aspect_ratio: ['9:16', '1:1', '16:9'], crop_mode: ['center', 'manual', 'smart', 'fit'],
     render_status: ['draft', 'queued', 'rendering', 'uploading', 'ready', 'failed'] },
   render_jobs: { status: ['queued', 'processing', 'uploading', 'completed', 'failed'] },
   reframe_tracks: { status: ['pending', 'analyzing', 'ready', 'failed'] },
