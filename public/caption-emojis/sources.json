@@ -1,0 +1,26 @@
+[
+  {
+    "asset": "1f4a1",
+    "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f4a1.svg",
+    "sha256": "2cd037cce2c3c16c3d33b1fbe4d9d46206633af2f8b4e082cea209c56a3e8b56",
+    "bytes": 1078
+  },
+  {
+    "asset": "1f3ae",
+    "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f3ae.svg",
+    "sha256": "eb9b8da31ca230a280bcb5f66143b1580ad722527cd9d9820e523cc33bb88b3c",
+    "bytes": 1382
+  },
+  {
+    "asset": "2764",
+    "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/2764.svg",
+    "sha256": "09a743ee0c32ca57c9be64b13b29c396310d1dd309cb4d7d3be722e47db95f27",
+    "bytes": 368
+  },
+  {
+    "asset": "1f3c6",
+    "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f3c6.svg",
+    "sha256": "7510cc92013c2cd6c8271e3435539d9870044945e4a50151a50b18e61ee4ba83",
+    "bytes": 1237
+  }
+]
