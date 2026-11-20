@@ -7,14 +7,15 @@ const compile=source=>ts.transpileModule(source,{compilerOptions:{module:ts.Modu
 const load=source=>import('data:text/javascript;base64,'+Buffer.from(compile(source)).toString('base64'));
 const strip=path=>fs.readFileSync(path,'utf8').replace(/^import\b.*;\n/gm,'');
 const snapshot=await load(`import crypto from 'node:crypto';\n${strip('server/src/shared/editorRenderSnapshot.ts')}`);
-const {make}=await load(`export function make(d:any){const {findRenderSubmission,renderSubmissionKey,crypto,getMongoClient,getMongoDb,AppError,editorRenderSnapshot,selectionSourceReceiptMatches,assertPanelViewsAssigned,expandSceneLayoutProject}=d;${strip('server/src/db/repositories/renderAdmissionRepository.ts').replace(/export /g,'')};return {admitRenderJob,enqueueRenderJob,assertRenderAdmissionEnabled};}`);
+const quota=await load(`import crypto from 'node:crypto';\nclass AppError extends Error{constructor(message:any,statusCode:any,code:any){super(message);this.statusCode=statusCode;this.code=code}}\n${strip('server/src/shared/renderQuotaSnapshot.ts')}${strip('server/src/db/repositories/renderQuotaRepository.ts')}`);
+const {make}=await load(`export function make(d:any){const {findRenderSubmission,renderSubmissionKey,crypto,getMongoClient,getMongoDb,AppError,editorRenderSnapshot,selectionSourceReceiptMatches,assertPanelViewsAssigned,expandSceneLayoutProject,ensureRenderQuotaFence,assertTransactionalRenderQuota}=d;${strip('server/src/db/repositories/renderAdmissionRepository.ts').replace(/export /g,'')};return {admitRenderJob,enqueueRenderJob,assertRenderAdmissionEnabled};}`);
 class AppError extends Error{constructor(message,statusCode,code){super(message);this.statusCode=statusCode;this.code=code;}}
 function fixture(options={}){
  let clip={id:'clip',user_id:'owner',project_id:'project',render_version:4,editor_version:9,render_status:'ready',source_storage_path:'source',selection_source_receipt:{version:1}};
  let editor={id:'editor',clip_id:'clip',user_id:'owner',version:7,tracks:[],canvas:{duration:24},settings:{}};
  if(options.clip)Object.assign(clip,options.clip);
  if(options.editor)Object.assign(editor,options.editor);
- const events=[],jobs=[];let ended=false,committed=false;
+ const events=[],jobs=[],fenceEvents=[];let ended=false,committed=false,fence=null;
  const session={withTransaction:async(fn,tx)=>{events.push(['tx',tx]);if(options.txUnsupported)throw Error('transactions unsupported');const result=await fn();if(options.commitError)throw Error('commit failed');committed=true;return result},endSession:async()=>{ended=true}};
  const client={startSession:()=>session};
  const db={collection:table=>({
@@ -23,21 +24,27 @@ function fixture(options={}){
    if(table==='editor_projects')return options.noEditor?null:editor;
    if(table==='projects')return options.noProject?null:{id:'project',user_id:'owner',source_url:options.sourceChanged?'changed':'source'};
    if(table==='transcripts')return options.noTranscript?null:{id:'transcript'};
-   if(table==='render_jobs')return options.activeJob?{id:'existing'}:null;
+   if(table==='render_jobs')return options.activeJob&&filter.status?{id:'existing'}:null;
    throw Error('unexpected collection');},
-  updateOne:async(filter,update,opts)=>{assert.strictEqual(opts.session,session);events.push(['write',table,filter,update]);return{matchedCount:options.casFailure===table?0:1}},
+  updateOne:async(filter,update,opts)=>{
+   if(table==='render_quota_fences'&&!opts?.session){fenceEvents.push(['provision',filter]);if(!fence)fence={_id:filter._id,user_id:filter.user_id,...(update.$setOnInsert??{})};return{matchedCount:0,upsertedCount:1};}
+   assert.strictEqual(opts.session,session);events.push(['write',table,filter,update]);
+   if(table==='render_quota_fences'){if(!fence||fence._id!==filter._id||fence.user_id!==filter.user_id)return{matchedCount:0};fence.serial=(fence.serial??0)+(update.$inc?.serial??0);return{matchedCount:1};}
+   return{matchedCount:options.casFailure===table?0:1}},
   insertOne:async(row,opts)=>{assert.strictEqual(opts.session,session);events.push(['insert',table,row]);if(options.insertError)throw Error('insert failed');jobs.push(row);return{insertedId:'id'};},
+  countDocuments:async(filter,opts)=>{assert.strictEqual(opts.session,session);events.push(['count',table,filter]);return options.usageCount??0},
  })};
- const f=make({crypto,AppError,...snapshot,selectionSourceReceiptMatches:()=>!options.receiptChanged,assertPanelViewsAssigned:()=>{if(options.panelError)throw new AppError('unassigned',409,'PANEL_VIEW_REQUIRED')},expandSceneLayoutProject:p=>p,getMongoClient:async()=>client,getMongoDb:async()=>db,findRenderSubmission:async()=>options.replayedReceipt??null,renderSubmissionKey:()=> 'scoped-key'});
- const input={clipId:'clip',userId:'owner',expectedRenderVersion:4,expectedEditorVersion:9,expectedEditorProject:options.noEditor?null:snapshot.editorRenderSnapshot(editor),settings:{caption_enabled:false,render_resolution:'720p'}};
+ const f=make({crypto,AppError,...snapshot,selectionSourceReceiptMatches:()=>!options.receiptChanged,assertPanelViewsAssigned:()=>{if(options.panelError)throw new AppError('unassigned',409,'PANEL_VIEW_REQUIRED')},expandSceneLayoutProject:p=>p,getMongoClient:async()=>client,getMongoDb:async()=>db,findRenderSubmission:async()=>options.replayedReceipt??null,renderSubmissionKey:()=> 'scoped-key',ensureRenderQuotaFence:quota.ensureRenderQuotaFence,assertTransactionalRenderQuota:quota.assertTransactionalRenderQuota});
+ const input={clipId:'clip',userId:'owner',quotaPolicy:{kind:'limited',maximum:10,displayName:'Free'},expectedRenderVersion:4,expectedEditorVersion:9,expectedEditorProject:options.noEditor?null:snapshot.editorRenderSnapshot(editor),settings:{caption_enabled:false,render_resolution:'720p'}};
  if(options.input)Object.assign(input,options.input);
- return{events,jobs,input,run:()=>f.admitRenderJob(client,db,input),get ended(){return ended},get committed(){return committed}};
+ return{events,jobs,fenceEvents,input,run:()=>f.admitRenderJob(client,db,input),get ended(){return ended},get committed(){return committed}};
 }
 test('shared admission shapes one transaction with owner-scoped reads, editor fence, clip CAS, pinned job and post-commit receipt',async()=>{
  const s=fixture(),result=await s.run();assert(s.ended);assert(s.committed);assert.equal(result.renderVersion,5);assert.equal(result.job.id,s.jobs[0].id);
  const job=s.jobs[0];assert.equal(job.admission_version,1);assert.equal(job.render_version,5);assert.equal(job.editor_version,9);assert.deepEqual(job.editor_project_snapshot,s.input.expectedEditorProject);assert.equal(job.status,'queued');assert.equal(job.attempts,0);assert.equal(job.worker_id,null);
- const writes=s.events.filter(e=>['write','insert'].includes(e[0]));assert.deepEqual(writes.map(e=>[e[0],e[1]]),[['write','editor_projects'],['write','clips'],['insert','render_jobs']]);
- const clipWrite=writes[1];assert.equal(clipWrite[2].user_id,'owner');assert.equal(clipWrite[2].editor_project_sync_pending,null);assert(clipWrite[2].$expr.$and);assert.equal(clipWrite[3].$set.caption_enabled,false);assert.equal(clipWrite[3].$set.render_resolution,'720p');assert.equal(clipWrite[3].$set.render_version,5);assert.equal(clipWrite[3].$set.editor_version,9);
+ const writes=s.events.filter(e=>['write','insert'].includes(e[0]));assert.deepEqual(writes.map(e=>[e[0],e[1]]),[['write','editor_projects'],['write','render_quota_fences'],['write','clips'],['insert','render_jobs']]);
+ assert.equal(s.fenceEvents.length,1);
+ const clipWrite=writes[2];assert.equal(clipWrite[2].user_id,'owner');assert.equal(clipWrite[2].editor_project_sync_pending,null);assert(clipWrite[2].$expr.$and);assert.equal(clipWrite[3].$set.caption_enabled,false);assert.equal(clipWrite[3].$set.render_resolution,'720p');assert.equal(clipWrite[3].$set.render_version,5);assert.equal(clipWrite[3].$set.editor_version,9);
  assert.equal(s.events[0][1].readConcern.level,'snapshot');assert.equal(s.events[0][1].writeConcern.w,'majority');
  for(const e of s.events.filter(e=>e[0]==='read'))assert.equal(e[2].user_id,'owner');
 });
@@ -64,7 +71,7 @@ test('absence of an editor is admitted only when caller also validated its absen
  const wrong=fixture({input:{expectedEditorProject:null}});await assert.rejects(wrong.run(),{code:'RENDER_INPUT_CHANGED'});
 });
 const retry=await load(strip('server/src/shared/renderRetryBudget.ts'));
-const {makeClaim}=await load(`export function makeClaim(renderBudgetAvailableExpr:any){${strip('server/src/services/queue/renderLeaseClaim.ts').replace('export async function','async function')};return claimRenderLease;}`);
+const {makeClaim}=await load(`export function makeClaim(renderBudgetAvailableExpr:any){${strip('server/src/services/queue/renderLeaseClaim.ts').replace(/export /g,'')};return claimRenderLease;}`);
 test('actual worker claim filter pins new admissions to exact revisions while retaining explicit legacy compatibility',async()=>{
  let captured;const db={collection:()=>({findOneAndUpdate:async(...args)=>{captured=args;return null}})};
  await makeClaim(retry.renderBudgetAvailableExpr)(db,{jobId:'job',clipId:'clip',userId:'owner',workerId:'worker',renderVersion:5,editorVersion:9},new Date());

@@ -51,6 +51,7 @@ const tests = [
   'editor-caption-text-contract',
   'clip-count-preference-contract',
   'hook-display-mode-contract',
+  'subtitle-burn-route',
 ].map(name => `scripts/${name}.test.mjs`);
 
 // Run one test process at a time. The 192 MiB V8 heap cap is not a total-RSS
