@@ -7,3 +7,9 @@ test('ordinary Auto export derives Fill then Split caption windows without exper
 test('ordinary caption windows honor source trim and2x speed on edited timeline',()=>{const p=project();Object.assign(p.tracks[0].items[0],{source_start:101,source_end:104,timeline_start:10,timeline_end:11.5,speed:{speed:2}});assert.deepEqual(run(p).map(s=>[s.start,s.end,s.layout]),[[10,10.5,'fill'],[10.5,11.5,'split']]);});
 test('manual framing,freeze,title,panels,tracker and stale tracks never acquire ordinary auto windows',()=>{for(const patch of[{crop_config:{layout_mode_source:'user'},layout_mode:'split'},{crop:{mode:'fit'}},{panels:{layout:'three',slots:[]}},{tracker:{enabled:true,keyframes:[{time:100,centerX:.5,centerY:.5},{time:104,centerX:.5,centerY:.5}]}},{is_freeze:true},{is_title_card:true}]){const p=project();Object.assign(p.tracks[0].items[0],patch);assert.deepEqual(run(p),[],JSON.stringify(patch));}assert.deepEqual(run(project(),{...track(),isStale:true}),[]);});
 test('explicit caption positions remain untouched despite ordinary Auto scenes',()=>{const p=project(),c={start:1,end:3,text:'TEST',position_y:.23};assert.deepEqual(place([c],{project:p,automaticWindows:run(p)}),[c]);});
+
+test('legacy ordinary Fit captions consume same4:3picture plan instead of silently fixed canvas position',()=>{
+ const p=project(),t:any=track();t.layout_mode='blur';t.dominant_track_id=null;t.raw_samples=t.raw_samples.map((s:any)=>({...s,faces:[],persons:[]}));t.metadata.scene_cuts=[];
+ const w=run(p,t);assert.equal(w.length,1);assert.equal(w[0].layout,'fit');assert.ok(Math.abs(w[0].anchorY!-.6646875)<1e-8);
+ const c=place([{start:0,end:1,text:'TEST'}],{project:p,automaticWindows:w})[0];assert.ok(Math.abs(c.position_y!-.6646875)<1e-8);
+});

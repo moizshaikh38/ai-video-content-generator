@@ -1263,7 +1263,9 @@ export class ProEditorService {
       const one={...expanded,tracks:[{type:'VIDEO',items:[item]}]};
       // Match ordinary Auto picture export before the experimental-plan gate.
       // captionCompositionWindows owns manual crop/panel/tracker precedence.
-      const ordinary=SmartReframeService.explicitAutoLayoutPlan(track,item.crop_config,Number(track.metadata?.clip_duration)||project.canvas.duration);
+      const duration=Number(track.metadata?.clip_duration)||project.canvas.duration;
+      const ordinary=SmartReframeService.explicitAutoLayoutPlan(track,item.crop_config,duration)||
+        (item.crop_config?.layout_mode_source!=='user'?legacyFit43Plan(track,duration,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)):undefined);
       if(ordinary)return captionCompositionWindows(one,ordinary,reframe.clipStartSec||0,track.source_width||1920,track.source_height||1080);
       if(track.metadata?.shot_composition_candidate!==true)return [];
       const layout=item.crop_config?.layout_mode_source==='user'?item.layout_mode:reframe.layoutMode;

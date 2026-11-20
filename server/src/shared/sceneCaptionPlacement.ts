@@ -1,3 +1,4 @@
+import {automaticFitBottomBoundary} from './automaticFitGeometry.js';
 import {expandSceneLayoutProject} from './sceneLayoutOverrides.js';
 import {normalizePanels,panelTargetRects} from './panelLayouts.js';
 export type CaptionSceneLayout = 'fill' | 'fit' | 'blur' | 'split' | 'panel_seam' | 'panel_gameplay';
@@ -28,9 +29,17 @@ export function captionCompositionWindows(project:any,plan:any[],clipStart:numbe
    const a=Math.max(i.source_start,s.start+clipStart),z=Math.min(i.source_end,s.end+clipStart);if(z<=a)return [];
    const start=Math.max(i.timeline_start,i.timeline_start+(a-i.source_start)/speed),end=Math.min(i.timeline_end,i.timeline_start+(z-i.source_start)/speed);
    const layout:CaptionSceneLayout=s.split?.focusPanels?.layout==='gameplay'?'panel_gameplay':s.split?'split':Math.abs(s.windowW*sourceW/(s.windowH*sourceH)-9/16)<.01?'fill':'fit';
-   return end>start?[{itemId:i.id,start,end,layout,...(layout==='panel_gameplay'?{anchorY:panelTargetRects(s.split.focusPanels)[0].h}:{})}]:[];
+   return end>start?[{itemId:i.id,start,end,layout,...(layout==='panel_gameplay'?{anchorY:panelTargetRects(s.split.focusPanels)[0].h}:layout==='fit'?{anchorY:fitPictureBoundaryAnchor(s.windowW*sourceW/(s.windowH*sourceH))}:{})}]:[];
   });
  });
+}
+
+/** Caption center sits on the lower sharp-picture boundary, not a fixed canvas
+ * coordinate. This is derived from the same source window used by the picture
+ * compiler. Unknown geometry keeps the legacy anchor; user coordinates win. */
+export function fitPictureBoundaryAnchor(pictureAspect:number):number {
+ if(!Number.isFinite(pictureAspect)||pictureAspect<=0)return 585/720;
+ return automaticFitBottomBoundary(pictureAspect);
 }
 
 /** Reads the same persisted VIDEO-item layout contract as the editor controls.

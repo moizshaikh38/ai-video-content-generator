@@ -1,3 +1,5 @@
+import {compactEmbeddedReviewPanels} from '../shared/compactEmbeddedReviewPanels.js';
+import {AUTOMATIC_FIT_FOCUS_Y} from '../shared/automaticFitGeometry.js';
 import {supervisedExecFile} from './queue/supervisedExecFile.js';
 import {bracketedFaceGap} from '../shared/bracketedFaceGap.js';
 import {embeddedCameraPanelReview,embeddedCameraMeasurementEligible,embeddedSourceSplitMeasurementEligible,embeddedSourceSplitVeto} from '../shared/embeddedCameraPanelReview.js';
@@ -1481,7 +1483,7 @@ export class SmartReframeService {
     if(track?.metadata?.embedded_camera_panel_review_enabled===true&&cropConfig?.layout_mode_source==='auto'&&track.status==='ready'&&!track.isStale&&track.sourceObjectVerified===true&&!(track.metadata.scene_cuts||[]).length&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('split'))){
       const m=track.metadata;
       const candidate=embeddedCameraPanelReview({receipt:m.embedded_camera_panel_review,sha256:m.analyzed_source_sha256,sourceStart:m.analyzed_source_start,sourceEnd:m.analyzed_source_end,sourceWidth:track.source_width,sourceHeight:track.source_height});
-      if(candidate&&Math.abs(duration-(m.analyzed_source_end-m.analyzed_source_start))<=.001)return [{start:0,end:duration,kind:'group',windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}],split:{speaker1X:.25,speaker2X:.75,dividerX:.5,focusPanels:candidate.panels},contextStatus:'unresolved-review-required',uncertainty:candidate.limitations.join(' ')}];
+      if(candidate&&Math.abs(duration-(m.analyzed_source_end-m.analyzed_source_start))<=.001)return [{start:0,end:duration,kind:'group',windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}],split:{speaker1X:.25,speaker2X:.75,dividerX:.5,focusPanels:compactEmbeddedReviewPanels(candidate.panels,track.raw_samples,track.source_width,track.source_height)||candidate.panels},contextStatus:'unresolved-review-required',uncertainty:candidate.limitations.join(' ')+' Explicit compact review can crop unmeasured side content; observed face boxes are not complete body, action or HUD evidence.'}];
     }
     const embeddedSplitVeto=embeddedSourceSplitVeto(track,cropConfig,duration);
     if(embeddedSplitVeto)return embeddedSplitVeto;
@@ -2179,7 +2181,7 @@ export class SmartReframeService {
       sourceHeight,
       canvasWidth = 1080,
       canvasHeight = 1920,
-      focusY = 0.42,
+      focusY = AUTOMATIC_FIT_FOCUS_Y,
       tag,
     } = options;
     const gS = canvasWidth / 1080;

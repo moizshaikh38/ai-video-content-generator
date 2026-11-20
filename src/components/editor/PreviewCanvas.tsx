@@ -1,3 +1,4 @@
+import {AUTOMATIC_FIT_FOCUS_Y} from '../../../server/src/shared/automaticFitGeometry';
 import {needsAutomaticFitFallback} from '../../../server/src/shared/automaticPreviewFallback';
 import {previewBackdropBlurPx,PREVIEW_BACKDROP_COLOR_MATRIX} from '../../../server/src/shared/blurBackdropPreview';
 import {mirrorDecodedFrames} from '../../lib/decodedFrameMirror';
@@ -736,7 +737,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     const cx = Math.min(0.95, Math.max(0.05, center.centerX));
     const cy = Math.min(0.95, Math.max(0.05, center.centerY));
     const left = Math.min(0, Math.max(boxW - elW, -(cx * elW - boxW / 2)));
-    const bandTop = (boxH - bandH) * 0.42;
+    const bandTop = (boxH - bandH) * AUTOMATIC_FIT_FOCUS_Y;
     // Mirror the export's clamped window: the band shows source rows
     // [shift, shift+bandH] of the oversized element, shift edge-clamped.
     const shift = Math.min(Math.max(cy * elH - bandH / 2, 0), Math.max(0, elH - bandH));

@@ -77,14 +77,16 @@ def run(video,track,start_sec=0.0,duration_sec=None):
     if matches:observations.append(min(matches,key=lambda q:(max(abs(q[k]-r[k])for k in ['x','y','w','h']),-q['side_coverage'],-q['w']*q['h'])))
    if len(observations)<max(6,len(rows)*.85):continue
    box={k:float(np.median([q[k]for q in observations]))for k in ['x','y','w','h']}
-   anchors={};competing=0
+   anchors={};competing=0;exclusive=[]
    for s in samples:
     fs=[f for f in s['faces']if f['confidence']>=.8 and f['x']>=box['x']and f['y']>=box['y']and f['x']+f['width']<=box['x']+box['w']and f['y']+f['height']<=box['y']+box['h']]
     if len(fs)>1:competing+=1
-    elif len(fs)==1 and fs[0].get('track_id'):anchors[fs[0]['track_id']]=anchors.get(fs[0]['track_id'],0)+1
+    elif len(fs)==1 and fs[0].get('track_id'):
+     anchors[fs[0]['track_id']]=anchors.get(fs[0]['track_id'],0)+1
+     exclusive.append({'time':s['time'],'track_id':fs[0]['track_id']})
    if competing or sum(anchors.values())<max(6,len(samples)*.25):continue
    if not any(max(abs(p['box'][k]-box[k])for k in box)<.002 for p in proposals):
-    proposals.append({'box':box,'anchor_track_ids':sorted(anchors),'anchor_samples':sum(anchors.values()),'observed_frames':len(observations),'sampled_frames':len(rows),'minimum_side_coverage':min(q['side_coverage']for q in observations),'minimum_edge_coverage':min(q.get('edge_coverage',0)for q in observations)})
+    proposals.append({'box':box,'anchor_track_ids':sorted(anchors),'anchor_samples':sum(anchors.values()),'anchor_observations':exclusive,'competing_face_samples':competing,'face_sample_count':len(samples),'observed_frames':len(observations),'sampled_frames':len(rows),'minimum_side_coverage':min(q['side_coverage']for q in observations),'minimum_edge_coverage':min(q.get('edge_coverage',0)for q in observations)})
  # An independently measured outer border subsumes a nested decorative inner
  # border with the same face anchors and coverage. Never manufacture a union
  # of crossing candidates or lower the evidence threshold to select a crop.
@@ -95,6 +97,6 @@ def run(video,track,start_sec=0.0,duration_sec=None):
   digest=hashlib.sha256()
   for chunk in iter(lambda:source_file.read(1024*1024),b''):digest.update(chunk)
   source_sha=digest.hexdigest()
- return {'schema_version':1,'status':'measured-rectangle'if len(proposals)==1 else 'unresolved','not_genre_proof':True,'not_real_person_proof':True,'source_start':start,'source_end':start+duration,'duration_seconds':duration,'sample_clock':'interval-relative','source_sha256':source_sha,'proposals':proposals,'observations':rows}
+ return {'schema_version':2,'status':'measured-rectangle'if len(proposals)==1 else 'unresolved','not_genre_proof':True,'not_real_person_proof':True,'source_start':start,'source_end':start+duration,'duration_seconds':duration,'sample_clock':'interval-relative','source_sha256':source_sha,'proposals':proposals,'observations':rows}
 if __name__=='__main__':
  result=run(sys.argv[1],json.load(open(sys.argv[2])),float(sys.argv[4]) if len(sys.argv)>4 else 0.0,float(sys.argv[5]) if len(sys.argv)>5 else None);json.dump(result,open(sys.argv[3],'w'),indent=2);print(json.dumps({k:v for k,v in result.items()if k!='observations'}))
