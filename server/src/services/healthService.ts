@@ -50,6 +50,11 @@ export interface ReadinessStatus {
     storage: boolean;
     aiProvider: boolean;
   };
+  /** Configuration visibility only. Enabled does not prove Mongo transaction support,
+   * worker rollout compatibility or a successful export. It does not gate /ready. */
+  renderAdmission: {
+    enabled: boolean;
+  };
   /** Render-job queue depth (informational; never affects readiness). */
   renderQueue?: {
     queued: number;
@@ -91,7 +96,7 @@ async function getRenderQueueStats(): Promise<ReadinessStatus['renderQueue']> {
 }
 
 export async function getReadinessStatus(): Promise<ReadinessStatus> {
-  if(workLifecycle.isDraining())return{status:'not_ready',draining:true,timestamp:new Date().toISOString(),checks:{mongodb:false,supabase:false,storage:false,aiProvider:false}};
+  if(workLifecycle.isDraining())return{status:'not_ready',draining:true,timestamp:new Date().toISOString(),checks:{mongodb:false,supabase:false,storage:false,aiProvider:false},renderAdmission:{enabled:process.env.VIREO_RENDER_ADMISSION_V1==='1'}};
   const mongoConnected = await isMongoHealthy();
   const supabaseOk = isServerSupabaseConfigured;
   const storageOk = Boolean(config.r2AccountId && config.r2AccessKeyId && config.r2SecretAccessKey);
@@ -108,6 +113,7 @@ export async function getReadinessStatus(): Promise<ReadinessStatus> {
       storage: storageOk,
       aiProvider: aiOk,
     },
+    renderAdmission: { enabled: process.env.VIREO_RENDER_ADMISSION_V1 === '1' },
     renderQueue: await getRenderQueueStats(),
     reframeRuntime: await getReframeRuntimeStats(),
   };

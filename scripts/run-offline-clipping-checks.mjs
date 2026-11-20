@@ -4,6 +4,8 @@ import { spawnSync } from 'node:child_process';
 // services. Do not glob the test directory: other tests start applications,
 // connect databases/providers, run browsers, or encode media.
 const tests = [
+  'landing-return-path',
+  'readiness-render-admission',
   'clip-speech-cut-contract',
   'short-fallback-ending-contract',
   'final-speech-score-contract',
@@ -56,7 +58,7 @@ const tests = [
 
 // Run one test process at a time. The 192 MiB V8 heap cap is not a total-RSS
 // guarantee and is not a substitute for resource monitoring on runtime work.
-// The full serial allowlist includes 48 source-extraction and service contract files. Cloud run
+// The full serial allowlist includes 50 source-extraction and service contract files. Cloud run
 // 44695576777 reached 480 passing checks before the old 30-second suite cap.
 // Keep a bounded two-minute suite deadline without dropping any assertions.
 const result = spawnSync(process.execPath, [

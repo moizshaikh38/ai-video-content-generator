@@ -117,7 +117,7 @@ If a webhook failed due to database unavailability (HTTP 500 or timeout), provid
 
 ### 7.1 Health & Readiness Endpoints
 - **Liveness Probe**: `GET /health` returns HTTP 200 `{ status: "ok", uptime: ... }` if Node process is responsive.
-- **Readiness Probe**: `GET /ready` returns HTTP 200 if MongoDB is connected and core configs are valid; returns HTTP 503 if MongoDB or critical dependencies fail.
+- **Readiness Probe**: `GET /ready` returns HTTP 200 if MongoDB is connected and core configs are valid; returns HTTP 503 if MongoDB or critical dependencies fail. `renderAdmission.enabled` separately reports whether `VIREO_RENDER_ADMISSION_V1` is exactly `1`, including during drain. It is informational and does not change probe status. A ready response or enabled flag does not verify transaction support, compatible worker rollout, or successful exports. Check those separately before promotion.
 
 ### 7.2 Bounded Shutdown and Remaining Qualification
 
