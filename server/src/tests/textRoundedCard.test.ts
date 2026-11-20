@@ -45,8 +45,9 @@ function projectWithHook(animation: string): any {
   };
 }
 
-test('rounded card: pop-animated hook gets one underlay + box=0 lines', () => {
+test('rounded card: pop-animated hook gets one underlay + box=0 lines', (t) => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'textcard-'));
+  t.after(() => fs.rmSync(tmpDir, {recursive:true,force:true}));
   const compiled = ProEditorService.compileRenderGraph(projectWithHook('pop'), '/tmp/realmedia/tos-twoshot.mp4', path.join(tmpDir, 'out.mp4'), tmpDir);
   const cardPath = editorCachePath(tmpDir, 'textcard', 'hook1', '.png');
   assert.ok(fs.existsSync(cardPath), 'card PNG synthesized');
@@ -68,16 +69,18 @@ test('rounded card: pop-animated hook gets one underlay + box=0 lines', () => {
   assert.ok(!joined.includes('box=1'), 'no legacy boxes');
 });
 
-test('rounded card: slide_up keeps legacy per-line boxes (animation moves the block)', () => {
+test('rounded card: slide_up keeps legacy per-line boxes (animation moves the block)', (t) => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'textcard-'));
+  t.after(() => fs.rmSync(tmpDir, {recursive:true,force:true}));
   const compiled = ProEditorService.compileRenderGraph(projectWithHook('slide_up'), '/tmp/realmedia/tos-twoshot.mp4', path.join(tmpDir, 'out.mp4'), tmpDir);
   assert.ok(!fs.existsSync(editorCachePath(tmpDir, 'textcard', 'hook1', '.png')), 'no card for moving blocks');
   const drawtexts = compiled.filterComplex.filter((f) => f.includes('drawtext='));
   assert.ok(drawtexts.every((f) => f.includes('box=1')), 'legacy boxes preserved');
 });
 
-test('rounded card: no background_corner_radius keeps legacy boxes', () => {
+test('rounded card: no background_corner_radius keeps legacy boxes', (t) => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'textcard-'));
+  t.after(() => fs.rmSync(tmpDir, {recursive:true,force:true}));
   const p = projectWithHook('none');
   delete p.tracks[1].items[0].text.background_corner_radius;
   const compiled = ProEditorService.compileRenderGraph(p, '/tmp/realmedia/tos-twoshot.mp4', path.join(tmpDir, 'out.mp4'), tmpDir);
