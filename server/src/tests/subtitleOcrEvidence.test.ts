@@ -1,0 +1,39 @@
+import {it} from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {parseSubtitleOcrTsv} from '../shared/subtitleOcrEvidence.js';
+import {BurnedSubtitleService} from '../services/burnedSubtitleService.js';
+const header='level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext';
+const frame=(y=610,confidence=96)=>[header,'1\t1\t0\t0\t0\t0\t0\t0\t1280\t720\t-1\t',...['Hello','there'].map((t,i)=>`5\t1\t1\t1\t1\t${i+1}\t${300+i*140}\t${y}\t130\t30\t${confidence}\t${t}`)].join('\n');
+it('finds multiword lower-band text, not upper text or weak OCR',()=>{
+ assert.deepEqual(parseSubtitleOcrTsv(frame()),{candidateTop:610/720});
+ assert.deepEqual(parseSubtitleOcrTsv(frame(100)),{candidateTop:null});
+ assert.deepEqual(parseSubtitleOcrTsv(frame(610,20)),{candidateTop:null});
+ assert.equal(parseSubtitleOcrTsv('not TSV'),null);
+});
+it('does not count a single logo word, malformed geometry, or giant word as a subtitle line',()=>{
+ assert.deepEqual(parseSubtitleOcrTsv(frame().replace(/5\t1\t1\t1\t1\t2[^\n]*/,'')),{candidateTop:null});
+ assert.deepEqual(parseSubtitleOcrTsv(frame().replace(/\t30\t96/g,'\t300\t96')),{candidateTop:null});
+ assert.deepEqual(parseSubtitleOcrTsv(frame().replace(/\t130\t/g,'\tNaN\t')),{candidateTop:null});
+});
+it('unavailable OCR never reports confident absence and successful empty OCR remains sampled only',async()=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'vireo-ocr-test-'));
+ try {const p=path.join(dir,'frame.png'), q=path.join(dir,'other.png');await fs.writeFile(p,Buffer.alloc(24));await fs.writeFile(q,Buffer.alloc(24));
+ const unknown=await BurnedSubtitleService.detectBurnedSubtitles([p,q],async()=>{throw Error('no executable')});
+ assert.equal(unknown.status,'unavailable');assert.equal(unknown.confidence,0);
+ const absent=await BurnedSubtitleService.detectBurnedSubtitles([p,q],async()=>({candidateTop:null}));
+ assert.equal(absent.status,'not-observed');assert.match(absent.reason,/does not establish/);
+ }finally{await fs.rm(dir,{recursive:true,force:true});}
+});
+it('requires repeated evidence, caps work, and never advises destructive crop',async()=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'vireo-ocr-test-'));
+ try {const p=path.join(dir,'frame.png'), q=path.join(dir,'other.png');await fs.writeFile(p,Buffer.alloc(24));await fs.writeFile(q,Buffer.alloc(24));let calls=0;
+ const single=await BurnedSubtitleService.detectBurnedSubtitles([p],async()=>({candidateTop:.8}));assert.equal(single.status,'unavailable');
+ const paths=await Promise.all(Array.from({length:8},async(_,i)=>{const file=path.join(dir,`sample-${i}.png`);await fs.writeFile(file,Buffer.alloc(24));return file}));
+ const duplicate=await BurnedSubtitleService.detectBurnedSubtitles([p,p,p],async()=>({candidateTop:.8}));assert.equal(duplicate.analyzedFrames,1);assert.equal(duplicate.status,'unavailable');
+ const found=await BurnedSubtitleService.detectBurnedSubtitles(paths,async()=>{calls++;return{candidateTop:.8};});
+ assert.equal(calls,5);assert.equal(found.status,'suspected-source-text');assert.equal(found.hasBurnedSubtitles,true);assert.equal(found.recommendedCropFilter,undefined);assert.equal(found.bandHeightRatio,.2);
+ }finally{await fs.rm(dir,{recursive:true,force:true});}
+});

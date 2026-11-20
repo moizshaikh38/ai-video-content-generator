@@ -1,8 +1,15 @@
 import fs from 'node:fs/promises';
-import { logger } from '../utils/logger.js';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { parseSubtitleOcrTsv, type SubtitleOcrFrame } from '../shared/subtitleOcrEvidence.js';
+const execFileAsync = promisify(execFile);
 
 export interface BurnedSubtitleAnalysisResult {
+  /** Suspected lower-band source text, not semantic subtitle verification. Never auto-remove captions. */
   hasBurnedSubtitles: boolean;
+  status: 'suspected-source-text' | 'not-observed' | 'unavailable';
+  sampledFrames: number;
+  analyzedFrames: number;
   bandHeightRatio: number; // e.g., 0.12 (12% of frame height)
   confidence: number;      // 0.0 to 1.0
   recommendedCropFilter?: string; // e.g. "crop=iw:ih*(1-0.12):0:0"
@@ -38,58 +45,43 @@ export const DEFAULT_MOBILE_SAFE_ZONE: SafeZoneProfile = {
  * where it obscures the least face area.
  */
 export class BurnedSubtitleService {
-  /**
-   * Evaluates sampled frames for persistent bottom-band burned-in subtitles.
-   * Uses structural image heuristics: subtitles reside in the lower 25% of the frame
-   * (y > 75%), have high contrast, and appear consistently across dialogue frames.
-   */
+  /** Bounded local OCR, with explicit unknown when unavailable. Geometry only:
+   * logos and lower thirds may resemble subtitles. No destructive crop advice.
+   * Does not alter caption settings or introduce a provider call. */
   public static async detectBurnedSubtitles(
-    framePaths: string[]
+    framePaths: string[],
+    probe: (path: string) => Promise<SubtitleOcrFrame | null> = async (path) => {
+      const { stdout } = await execFileAsync('tesseract', [path, 'stdout', '--psm', '11', 'tsv'], {
+        timeout: 2500, maxBuffer: 1024 * 1024, env: { ...process.env, OMP_THREAD_LIMIT: '1' },
+      });
+      return parseSubtitleOcrTsv(stdout);
+    },
   ): Promise<BurnedSubtitleAnalysisResult> {
-    if (!Array.isArray(framePaths) || framePaths.length === 0) {
-      return {
-        hasBurnedSubtitles: false,
-        bandHeightRatio: 0,
-        confidence: 0,
-        reason: 'No frames provided for analysis.',
-      };
-    }
-
-    let validFrames = 0;
-    let subtitleCandidateFrames = 0;
-
-    for (const framePath of framePaths) {
+    // Evenly bound caller input; never launch concurrent OCR jobs.
+    const paths = Array.isArray(framePaths) ? [...new Set(framePaths.filter(p => typeof p === 'string' && p))].slice(0, 5) : [];
+    let analyzedFrames = 0, candidateFrames = 0, minTop = 1;
+    for (const path of paths) {
       try {
-        const stats = await fs.stat(framePath);
-        if (stats.size > 1000) {
-          validFrames++;
-          // In production, an OCR or edge detection probe evaluates the bottom 25%
-          // For unit testing and fast offline execution, we verify file presence and structure
-        }
-      } catch {}
+        const stat = await fs.stat(path);
+        if (!stat.isFile() || stat.size < 24 || stat.size > 12 * 1024 * 1024) continue;
+        const frame = await probe(path);
+        if (!frame) continue;
+        analyzedFrames++;
+        if (frame.candidateTop !== null) { candidateFrames++; minTop = Math.min(minTop, frame.candidateTop); }
+      } catch { /* Missing OCR binary, timeout and unreadable input remain unknown. */ }
     }
-
-    if (validFrames === 0) {
-      return {
-        hasBurnedSubtitles: false,
-        bandHeightRatio: 0,
-        confidence: 0,
-        reason: 'Sampled frames could not be read.',
-      };
-    }
-
-    const detectionRatio = subtitleCandidateFrames / validFrames;
-    const hasBurned = detectionRatio >= 0.4;
-    const bandRatio = hasBurned ? 0.12 : 0;
-
+    const supported = analyzedFrames >= 2;
+    const hasBurned = supported && candidateFrames >= Math.max(2, Math.ceil(analyzedFrames * 0.4));
     return {
       hasBurnedSubtitles: hasBurned,
-      bandHeightRatio: bandRatio,
-      confidence: hasBurned ? 0.85 : 0.9,
-      recommendedCropFilter: hasBurned ? `crop=iw:ih*(1-${bandRatio}):0:0` : undefined,
-      reason: hasBurned
-        ? `Detected hardcoded subtitles in lower third across ${Math.round(detectionRatio * 100)}% of frames.`
-        : 'No consistent burned-in subtitle band detected in lower third.',
+      status: !supported ? 'unavailable' : hasBurned ? 'suspected-source-text' : 'not-observed',
+      sampledFrames: paths.length, analyzedFrames,
+      bandHeightRatio: hasBurned ? Number((1 - minTop).toFixed(4)) : 0,
+      // This is sample support, not probability that the text is a subtitle.
+      confidence: supported ? candidateFrames / analyzedFrames : 0,
+      reason: !supported ? 'Insufficient local OCR evidence; source subtitle presence is unknown.'
+        : hasBurned ? 'Repeated lower-band source text observed. Review duplicate captions; text may be a logo or lower third. No automatic crop or caption removal.'
+        : 'No repeated lower-band source text observed in these samples. This does not establish that subtitles are absent.',
     };
   }
 
