@@ -79,7 +79,7 @@ test('manual caption visibility or hook visibility leaves the explicit mode with
 // Actual editor callback with fake project/history and a fake preset resolver.
 // This establishes state mutation only, not mounted React, network save or pixels.
 const bodies=declarations('src/components/editor/EditorShell.tsx',['handleApplyCaptionPreset']);
-const names=['resolvePlanAllowedPreset','hookMode','allowedCaptionPresets','setActionNotice','resolveCaptionPreset','freshPresetTypography','hookModeUnavailable','hookPresetSupported','hookPresetIssue','setLastCaptionPreset','setExportStale','onUpdateProject','applyPresetToEditorCaption','applyHookPreset','FONT_EM_PER_ASS_SIZE','project'];
+const names=['hookPresetLinked','resolvePlanAllowedPreset','hookMode','allowedCaptionPresets','setActionNotice','resolveCaptionPreset','freshPresetTypography','hookModeUnavailable','hookPresetSupported','hookPresetIssue','setLastCaptionPreset','setExportStale','onUpdateProject','applyPresetToEditorCaption','applyHookPreset','FONT_EM_PER_ASS_SIZE','project'];
 const {make}=await load(`export function make(d:any){const {${names}}=d;return ${bodies.handleApplyCaptionPreset};}`);
 function callbackFixture(project){let row=project;const notices=[],events=[];
   const deps={project,allowedCaptionPresets:['*'],resolvePlanAllowedPreset:id=>id,...helpers,

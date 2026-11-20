@@ -7,16 +7,19 @@ const ast = ts.createSourceFile('editor.ts', source, ts.ScriptTarget.Latest, tru
 let body;
 function visit(n) { if (ts.isVariableDeclaration(n) && n.name.getText(ast) === 'loadData') body = n.initializer.arguments[0].getText(ast); ts.forEachChild(n, visit); }
 visit(ast); assert(body);
-const names = ['clipId','loadSequenceRef','localEditSequenceRef','activeClipIdRef','setLoading','setError','clipRenderService','proEditorService','setClip','setWatermarkRequired','setCleanSourceUrl','setRenderedPreviewUrl','setPreviewUrl','setCues','setTimingMode','healCaptionTracks','markDirty','mergeExtendedCues','setProject','setPersistedReframeSourceKey','editorReframeSourceKey','resetHistory','deriveCaptionCuesFromProject'];
+const names = ['clipId','loadSequenceRef','localEditSequenceRef','activeClipIdRef','setLoading','setError','clipRenderService','proEditorService','setClip','setWatermarkRequired','setCleanSourceUrl','setRenderedPreviewUrl','setPreviewUrl','setCues','setTimingMode','healCaptionTracks','markDirty','mergeExtendedCues','setProject','setPersistedReframeSourceKey','editorReframeSourceKey','resetHistory','deriveCaptionCuesFromProject','cancelWaitRef','getCurrentAuthOwner','ownerMismatch','waitForDrain','setDrainSlow'];
 const js = ts.transpileModule(`export function make(d:any){const {${names}}=d;return ${body}}`, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
 let deriveBody;function findDerive(n){if(ts.isFunctionDeclaration(n)&&n.name?.text==='deriveCaptionCuesFromProject')deriveBody=n.getText(ast);ts.forEachChild(n,findDerive);}findDerive(ast);
 const deriveJs=ts.transpileModule(deriveBody+';export {deriveCaptionCuesFromProject};',{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 const {deriveCaptionCuesFromProject}=await import('data:text/javascript;base64,'+Buffer.from(deriveJs).toString('base64'));
 const { make } = await import('data:text/javascript;base64,' + Buffer.from(js).toString('base64'));
+const authBundle = await import('data:text/javascript;base64,'+Buffer.from(ts.transpileModule(fs.readFileSync('src/lib/authOwner.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText).toString('base64'));
+const saveCoordinator = await import('data:text/javascript;base64,'+Buffer.from(ts.transpileModule(fs.readFileSync('src/lib/editorSaveCoordinator.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText).toString('base64'));
 const helpers = await import('data:text/javascript;base64,' + Buffer.from(ts.transpileModule(fs.readFileSync('src/lib/captionExtendMerge.ts','utf8'), {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText).toString('base64'));
-function data(id = 'c') { return { clip: { id }, editorProject: { id: 'editor:' + id, clip_id: id, tracks: [], canvas: { duration: 30 } } }; }
+function data(id = 'c') { return { clip: { id, user_id: 'owner' }, editorProject: { id: 'editor:' + id, clip_id: id, user_id: 'owner', tracks: [], canvas: { duration: 30 } } }; }
 function setup() {
-  const events = [], d = { deriveCaptionCuesFromProject, clipId: 'c', loadSequenceRef: { current: 0 }, localEditSequenceRef: { current: 0 }, activeClipIdRef: { current: 'c' }, clipRenderService: { getClipEditorData: async () => data(), getClipCaptions: async () => ({ cues: [], timingMode: 'segment' }) }, proEditorService: { getOrCreateEditorProject: async () => data().editorProject }, editorReframeSourceKey: () => 'key', healCaptionTracks: helpers.healCaptionTracks, mergeExtendedCues: helpers.mergeExtendedCues };
+  authBundle.setCurrentAuthOwner('owner');
+  const events = [], d = { deriveCaptionCuesFromProject, cancelWaitRef: { current: null }, getCurrentAuthOwner: authBundle.getCurrentAuthOwner, ownerMismatch: authBundle.ownerMismatch, waitForDrain: saveCoordinator.waitForDrain, clipId: 'c', loadSequenceRef: { current: 0 }, localEditSequenceRef: { current: 0 }, activeClipIdRef: { current: 'c' }, clipRenderService: { getClipEditorData: async () => data(), getClipCaptions: async () => ({ cues: [], timingMode: 'segment' }) }, proEditorService: { getOrCreateEditorProject: async () => data().editorProject }, editorReframeSourceKey: () => 'key', healCaptionTracks: helpers.healCaptionTracks, mergeExtendedCues: helpers.mergeExtendedCues };
   for (const name of names.filter(n => n.startsWith('set') || ['resetHistory','markDirty'].includes(n))) d[name] = value => events.push([name, value]);
   return { d, events, run: make(d) };
 }
@@ -24,15 +27,15 @@ test('current matching clip/editor response loads the editor document', async ()
 test('older reload cannot overwrite a newer completed editor document', async () => {
   const s = setup(); let resolve, reads = 0;
   s.d.clipRenderService.getClipEditorData = () => ++reads === 1 ? new Promise(r => resolve = r) : Promise.resolve(data());
-  const old = s.run(); await s.run(); s.events.length = 0; resolve(data()); await old; assert.deepEqual(s.events, []);
+  const old = s.run(); await new Promise(r => setTimeout(r)); await s.run(); s.events.length = 0; resolve(data()); await old; assert.deepEqual(s.events, []);
 });
 test('clip navigation invalidates pending load before any old clip publication', async () => {
   const s = setup(); let resolve; s.d.clipRenderService.getClipEditorData = () => new Promise(r => resolve = r);
-  const old = s.run(); s.d.activeClipIdRef.current = 'new'; s.events.length = 0; resolve(data()); await old; assert.deepEqual(s.events, []);
+  const old = s.run(); await new Promise(r => setTimeout(r)); s.d.activeClipIdRef.current = 'new'; s.events.length = 0; resolve(data()); await old; assert.deepEqual(s.events, []);
 });
 test('silent render-completion reload cannot overwrite edits made while its read was pending', async () => {
   const s = setup(); let resolve; s.d.clipRenderService.getClipEditorData = () => new Promise(r => resolve = r);
-  const old = s.run({ silent: true }); s.d.localEditSequenceRef.current++; s.events.length = 0; resolve(data()); await old; assert.deepEqual(s.events, []);
+  const old = s.run({ silent: true }); await new Promise(r => setTimeout(r)); s.d.localEditSequenceRef.current++; s.events.length = 0; resolve(data()); await old; assert.deepEqual(s.events, []);
 });
 test('fallback initialization cannot publish half of a clip/editor pair', async () => {
   const s = setup(); let resolve; s.d.clipRenderService.getClipEditorData = async () => ({ clip: { id: 'c' } });
@@ -48,7 +51,7 @@ test('wrong clip or editor project identity stops without publishing source/time
 });
 test('late old-clip load errors cannot replace the new clip error/loading state', async () => {
   const s = setup(); let reject; s.d.clipRenderService.getClipEditorData = () => new Promise((_r,j) => reject = j);
-  const old = s.run(); s.d.activeClipIdRef.current = 'new'; s.events.length = 0; reject(Error('old')); await old; assert.deepEqual(s.events, []);
+  const old = s.run(); await new Promise(r => setTimeout(r)); s.d.activeClipIdRef.current = 'new'; s.events.length = 0; reject(Error('old')); await old; assert.deepEqual(s.events, []);
 });
 
 function captionDataFixture(marker = 10) {
