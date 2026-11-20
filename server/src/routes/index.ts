@@ -1,3 +1,4 @@
+import liveCaptureRoutes from './liveCaptureRoutes.js';
 import importRoutes from './importRoutes.js';
 import { Router } from 'express';
 import healthRoutes from './healthRoutes.js';
@@ -41,6 +42,7 @@ apiRouter.use('/billing', billingRoutes);
 apiRouter.use('/credits', creditRoutes);
 apiRouter.use('/support', supportRoutes);
 apiRouter.use('/imports', importRoutes);
+apiRouter.use('/live-captures', liveCaptureRoutes);
 apiRouter.use('/social', socialRoutes);
 apiRouter.use('/publishing', publishingRoutes);
 apiRouter.use('/analytics', analyticsRoutes);
