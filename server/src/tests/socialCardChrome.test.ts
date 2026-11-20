@@ -1,3 +1,4 @@
+import {editorCachePath} from '../utils/editorCachePath.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -61,7 +62,7 @@ function projectWithCard(): any {
 test('compile: card item synthesizes its PNG and overlays it at design_center geometry', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cardtest-'));
   const compiled = ProEditorService.compileRenderGraph(projectWithCard(), '/tmp/realmedia/tos-twoshot.mp4', path.join(tmpDir, 'out.mp4'), tmpDir);
-  const cardPath = path.join(tmpDir, 'card_card1.png');
+  const cardPath = editorCachePath(tmpDir, 'card', 'card1', '.png');
   assert.ok(fs.existsSync(cardPath), 'synthesized card PNG written to tmpDir');
   assert.ok(compiled.inputArgs.includes(cardPath), 'card PNG is an ffmpeg input');
   // width 200 design px * unitX 3 = 600

@@ -30,8 +30,8 @@ export class InstagramPublishingProvider implements SocialPublishingProvider {
       headers:{Authorization:`Bearer ${token}`,...(params?{'Content-Type':'application/x-www-form-urlencoded'}:{})},
       ...(params?{body:new URLSearchParams(params).toString()}:{}),
     });
-    const data=await response.json();
-    if(!response.ok||data?.error)throw new AppError('Instagram request could not be confirmed. The saved container will not be re-uploaded.',response.status>=500?502:400,'INSTAGRAM_REQUEST_UNCONFIRMED');
+    const data:unknown=await response.json();
+    if(!response.ok||(data!==null&&typeof data==='object'&&'error' in data&&data.error))throw new AppError('Instagram request could not be confirmed. The saved container will not be re-uploaded.',response.status>=500?502:400,'INSTAGRAM_REQUEST_UNCONFIRMED');
     return data;
   }
   /** The account response, not conflicting static 50/100-post docs, supplies

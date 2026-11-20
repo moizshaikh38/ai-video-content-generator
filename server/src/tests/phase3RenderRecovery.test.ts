@@ -47,8 +47,8 @@ describe('Phase 3 — production wiring guards', () => {
   it('inline render launches go through the concurrency-guarded helper in both controllers', () => {
     const clipController = fs.readFileSync(path.resolve(process.cwd(), 'src/controllers/clipController.ts'), 'utf8');
     const proEditorController = fs.readFileSync(path.resolve(process.cwd(), 'src/controllers/proEditorController.ts'), 'utf8');
-    assert.match(clipController, /launchInlineRender\(clipId, userId, newJob\?\.id\)/);
-    assert.match(proEditorController, /launchInlineRender\(project\.clip_id, userId, newJob\?\.id\)/);
+    assert.match(clipController, /if \(!replayed\) launchInlineRender\(clipId, userId, newJob\.id\)/);
+    assert.match(proEditorController, /if\(!replayed\)launchInlineRender\(project\.clip_id, userId, newJob\.id\)/);
     // The unguarded fire-and-forget pattern must not return.
     assert.doesNotMatch(clipController, /renderClipJob\(clipId, userId, newJob\?\.id\)\.catch/);
     assert.doesNotMatch(proEditorController, /renderClipJob\(project\.clip_id, userId, newJob\?\.id\)\.catch/);

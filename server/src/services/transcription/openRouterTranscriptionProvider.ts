@@ -87,7 +87,7 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
 
     // Use the exact JSON STT contract qualified for Parakeet. Existing
     // multipart Whisper/Scribe paths remain unchanged.
-    let requestBody: BodyInit = formData;
+    let requestBody: NonNullable<Parameters<typeof fetch>[1]>['body'] = formData;
     if ([PARAKEET_MODEL,MAI_MODEL].includes(this.model)) {
       const formats: Record<string,string> = {'audio/wav':'wav','audio/x-wav':'wav','audio/mp3':'mp3','audio/mpeg':'mp3','audio/flac':'flac','audio/ogg':'ogg','audio/webm':'webm','audio/mp4':'m4a','audio/aac':'aac'};
       const format = formats[mimeType];

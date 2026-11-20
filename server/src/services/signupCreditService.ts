@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import type {Db,MongoClient} from 'mongodb';
+import type {Db,MongoClient,Document,WithId} from 'mongodb';
 import {getMongoDb,getMongoClient,assertTransactionalTopology} from '../db/mongoClient.js';
 import {getCurrentBillingPeriod,getBillingResetDate} from '../db/repositories/creditRepository.js';
 import {EntitlementService,getProvisionalMonthlyCredits} from './entitlementService.js';
@@ -27,7 +27,7 @@ export async function ensureSignupProfile(user:{id:string;email?:string;user_met
    let wallet=await wallets.findOne({user_id:user.id},{session});
    // Do not add another grant to a legacy or externally funded wallet.
    if(!receipt&&(!wallet||(wallet.available_credits===0&&wallet.reserved_credits===0&&wallet.lifetime_granted===0&&wallet.lifetime_consumed===0&&wallet.period_granted===0&&wallet.period_consumed===0))){
-    if(!wallet){wallet={id:crypto.randomUUID(),user_id:user.id,workspace_id:null,available_credits:0,reserved_credits:0,lifetime_granted:0,lifetime_consumed:0,period_granted:0,period_consumed:0,billing_period:period,reset_date:getBillingResetDate(),status:'active',version:1,created_at:now,updated_at:now};await wallets.insertOne(wallet,{session});}
+    if(!wallet){const newWallet:Document={id:crypto.randomUUID(),user_id:user.id,workspace_id:null,available_credits:0,reserved_credits:0,lifetime_granted:0,lifetime_consumed:0,period_granted:0,period_consumed:0,billing_period:period,reset_date:getBillingResetDate(),status:'active',version:1,created_at:now,updated_at:now};const inserted=await wallets.insertOne(newWallet,{session});wallet={...newWallet,_id:inserted.insertedId} as WithId<Document>;}
     if(wallet.status!=='active')throw new AppError('Credit wallet is not active.',403,'WALLET_INACTIVE');
     await wallets.updateOne({id:wallet.id},{$inc:{available_credits:amount,lifetime_granted:amount,period_granted:amount,version:1},$set:{updated_at:now,billing_period:period,reset_date:getBillingResetDate()}},{session});
     await ledger.insertOne({id:crypto.randomUUID(),wallet_id:wallet.id,user_id:user.id,workspace_id:null,type:'monthly_grant',amount,balance_before:0,balance_after:amount,reserved_before:0,reserved_after:0,available_delta:amount,reserved_delta:0,lifetime_granted_delta:amount,lifetime_consumed_delta:0,net_adjustments_delta:0,idempotency_key:key,description:'Initial Free signup credit allowance',metadata:{plan_tier:'free',grant_reason:'signup',billing_period:period},created_at:now},{session});

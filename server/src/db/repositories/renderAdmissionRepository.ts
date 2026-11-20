@@ -84,7 +84,8 @@ export async function admitRenderJobInTransaction(db:Db,session:ClientSession,in
   const editorSnapshot = editorRenderSnapshot(editor);
   if (JSON.stringify(editorSnapshot)!==JSON.stringify(input.expectedEditorProject)) throw changed();
   if (editor) {
-    assertPanelViewsAssigned(expandSceneLayoutProject(editor));
+    if (!Array.isArray(editor.tracks)) throw changed();
+    assertPanelViewsAssigned(expandSceneLayoutProject({...editor,tracks:editor.tracks}));
     const fence = await db.collection('editor_projects').updateOne({id:editor.id,clip_id:input.clipId,user_id:input.userId,version:editor.version},{$inc:{render_admission_serial:1}},{session});
     if (fence.matchedCount!==1) throw changed();
   }

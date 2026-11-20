@@ -1,3 +1,4 @@
+import {editorCachePath} from '../utils/editorCachePath.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -47,7 +48,7 @@ function projectWithHook(animation: string): any {
 test('rounded card: pop-animated hook gets one underlay + box=0 lines', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'textcard-'));
   const compiled = ProEditorService.compileRenderGraph(projectWithHook('pop'), '/tmp/realmedia/tos-twoshot.mp4', path.join(tmpDir, 'out.mp4'), tmpDir);
-  const cardPath = path.join(tmpDir, 'textcard_hook1.png');
+  const cardPath = editorCachePath(tmpDir, 'textcard', 'hook1', '.png');
   assert.ok(fs.existsSync(cardPath), 'card PNG synthesized');
   assert.ok(compiled.inputArgs.includes(cardPath), 'card PNG is an input');
   const png = fs.readFileSync(cardPath);
@@ -70,7 +71,7 @@ test('rounded card: pop-animated hook gets one underlay + box=0 lines', () => {
 test('rounded card: slide_up keeps legacy per-line boxes (animation moves the block)', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'textcard-'));
   const compiled = ProEditorService.compileRenderGraph(projectWithHook('slide_up'), '/tmp/realmedia/tos-twoshot.mp4', path.join(tmpDir, 'out.mp4'), tmpDir);
-  assert.ok(!fs.existsSync(path.join(tmpDir, 'textcard_hook1.png')), 'no card for moving blocks');
+  assert.ok(!fs.existsSync(editorCachePath(tmpDir, 'textcard', 'hook1', '.png')), 'no card for moving blocks');
   const drawtexts = compiled.filterComplex.filter((f) => f.includes('drawtext='));
   assert.ok(drawtexts.every((f) => f.includes('box=1')), 'legacy boxes preserved');
 });

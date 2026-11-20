@@ -17,6 +17,7 @@ import { config } from '../config/index.js';
 import {
   AppError,
   ClipRecord,
+  EditorProject,
   ProjectRecord,
   ProducerEditPlan,
   ProducerOperation,
@@ -408,7 +409,7 @@ export class ProducerRenderService {
     if(transcriptError||!transcript)throw new AppError('Transcript could not be read.',503,'DATABASE_UNAVAILABLE');
     const {data:sourceProject,error:sourceProjectError}=await dataRepository.from('projects').select('clip_preferences').eq('id',clip.project_id).eq('user_id',userId).maybeSingle();
     if(sourceProjectError)throw new AppError('Project defaults could not be read.',503,'DATABASE_UNAVAILABLE');
-    const editorProject=existingEditor?structuredClone(existingEditor):ProEditorService.buildInitialProducerEditor({...clip,...clipUpdates},userId,plan,transcript,sourceProject?.clip_preferences);
+    const editorProject:EditorProject=existingEditor?structuredClone(existingEditor):ProEditorService.buildInitialProducerEditor({...clip,...clipUpdates},userId,plan,transcript,sourceProject?.clip_preferences);
     if(!editorProject||!Array.isArray(editorProject.tracks))throw new AppError('Producer editor preparation failed.',503,'PRODUCER_EDITOR_UNAVAILABLE');
 
     const videoTrack = editorProject.tracks.find((t) => t.type === 'VIDEO');
