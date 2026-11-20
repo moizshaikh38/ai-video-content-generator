@@ -1,3 +1,4 @@
+import {renewRenderLeaseForCv} from './queue/renderLeaseClaim.js';
 import {runsBackgroundWorkers,hostRenderCapacity,ffmpegThreadArgs,ffmpegEncoderThreadArgs} from './runtimePolicy.js';
 import type {RenderQuotaPolicy} from '../db/repositories/renderQuotaRepository.js';
 import {enforceSavedRenderFreshness} from './renderFreshnessGuard.js';
@@ -113,10 +114,14 @@ export function maxConcurrentRenders(): number {
 // checked the cap at all. A slot is always released in a finally.
 const reservedRenderSlots = new Set<string>();
 const leasedRenderSlots = new Set<string>();
+// Never free local capacity on an unverified process stop. Supervisor recovery
+// must prove exit before a restart/recovery plan can clear this quarantine.
+const quarantinedRenderSlots = new Set<string>();
+export function quarantineRenderSlot(clipId:string){quarantinedRenderSlots.add(clipId);}
 
 /** Clip ids that hold a slot, either reserved by a launcher or actively rendering. */
 function occupiedRenderClipIds(): string[] {
-  return Array.from(new Set<string>([...reservedRenderSlots, ...activeRenderSet]));
+  return Array.from(new Set<string>([...reservedRenderSlots, ...activeRenderSet,...quarantinedRenderSlots]));
 }
 
 export function renderOccupancy(): number {
@@ -135,6 +140,7 @@ export function tryReserveRenderSlot(clipId: string, cap: number = maxConcurrent
 }
 
 export function releaseRenderSlot(clipId: string, requestDrain = true): void {
+  if(quarantinedRenderSlots.has(clipId))return;
   const acquired=leasedRenderSlots.delete(clipId);
   if(reservedRenderSlots.delete(clipId)&&(requestDrain||acquired)&&!workLifecycle.isDraining())notifyRenderCapacityAvailable();
 }
@@ -667,16 +673,11 @@ export class ClipRenderService {
     activeRenderSet.add(clipId);
 
     // Heartbeat timer to renew lease during long rendering operations
+    const renderCancellation=new AbortController();
     const heartbeatTimer = setInterval(() => {void workLifecycle.run('render-heartbeat',async()=>{
-      try {
-        await db.collection('render_jobs').updateOne(
-          { id: jobId, worker_id: workerId },
-          { $set: { locked_at: new Date(), updated_at: new Date() } }
-        );
-      } catch (hbErr: any) {
-        logger.warn(`[ClipRender] Heartbeat failed for job ${jobId}: ${hbErr.message}`);
-      }
-    }).catch(error=>logger.warn('Heartbeat stopped before admission',{error:String(error)}));}, 15000);
+      const renewed=await renewRenderLeaseForCv(db,{jobId:jobId!,clipId,userId,workerId},renderCancellation);
+      if(!renewed)logger.warn('[ClipRender] Lease renewal unverified; supervised CV cancelled',{jobId});
+    }).catch(error=>{renderCancellation.abort(Object.assign(Error('Render heartbeat stopped.'),{code:'FENCING_TOKEN_MISMATCH',cause:error}));});},15000);
     heartbeatTimer.unref();
 
     const uniqueTag = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
@@ -725,7 +726,8 @@ export class ClipRenderService {
 
       // Speaker-following guarantee: generate the smart-reframe track on demand
       // so active-speaker framing works out of the box.
-      await ClipRenderService.ensureReframeTrackAtRender(clip, sourcePath, jobId, sourceSha256, sourceSnapshot.receipt,workerId,expectedClipVersion);
+      await ClipRenderService.ensureReframeTrackAtRender(clip, sourcePath, jobId, sourceSha256, sourceSnapshot.receipt,workerId,expectedClipVersion,renderCancellation.signal);
+      if(renderCancellation.signal.aborted)throw renderCancellation.signal.reason;
 
       // Shared reframing decision (Quick path filter + Pro per-slice context).
       // Export resolution: requested tier from the clip (set by the export
@@ -1310,6 +1312,7 @@ export class ClipRenderService {
       logger.info(`[ClipRender] Successfully rendered and published clip ${clipId} to ${finalStoragePath}`);
     } catch (err: any) {
       const code = err.code || 'RENDER_FAILED';
+      if(code==='PROCESS_STOP_UNVERIFIED'){quarantineRenderSlot(clipId);logger.error('[ClipRender] Local capacity quarantined until owned process exit is proved',{clipId,jobId,processGroupId:err.owned_process_group});}
       const isTransient = JobReliabilityService.isTransientError(err) || ['RENDER_TIMEOUT', 'STORAGE_UNAVAILABLE', 'FFMPEG_FAILED', 'NETWORK_ERROR'].includes(code);
       const message = JobReliabilityService.sanitizeErrorMessage(err.message || 'Video rendering failed.');
 
@@ -1347,7 +1350,7 @@ export class ClipRenderService {
       clearInterval(heartbeatTimer);
       // 6. Reliable cleanup of all temporary directories and files
       try {
-        if (fs.existsSync(tempDir)) {
+        if (!quarantinedRenderSlots.has(clipId)&&fs.existsSync(tempDir)) {
           fs.rmSync(tempDir, { recursive: true, force: true });
         }
       } catch (rmErr) {
@@ -1388,7 +1391,7 @@ export class ClipRenderService {
     const current=await db.collection('render_jobs').findOne({id:jobId,clip_id:clipId,worker_id:expectedWorkerId,status:'processing'});
     if(!current?.user_id)throw new AppError('Render lease was expired or claimed by another worker.',409,'FENCING_TOKEN_MISMATCH');
     await commitFencedRenderOutcome(await getMongoClient(),db,{jobId,clipId,userId:current.user_id,workerId:expectedWorkerId,...expectedClipVersion},{
-      job:{stage,progress,status:'processing',...(stage==='cutting'?{started_at:new Date()}:{}),updated_at:new Date()},
+      job:{stage,progress,status:'processing',updated_at:new Date()},
       clip:{render_status:clipStatus,updated_at:new Date().toISOString()},
     });
   }
@@ -1398,7 +1401,8 @@ export class ClipRenderService {
    * framing). When the clip's crop mode is 'smart' but no ready reframe track
    * exists, run the CV analyzer on the ALREADY-downloaded source and persist
    * the track before the reframing decision. Failures fall back to the
-   * existing center-crop path — this must never break a render.
+   * existing center-crop path for ordinary analyzer failures. Cancellation,
+   * unverified process stop, admission policy and fencing errors must propagate.
    */
   private static async ensureReframeTrackAtRender(
     clip: ClipRecord,
@@ -1407,8 +1411,10 @@ export class ClipRenderService {
     expectedSourceSha256?: string,
     sourceReceipt?:SourceObjectReceipt,
     expectedWorkerId?:string,
-    expectedClipVersion?:{renderVersion:number;editorVersion:number}
+    expectedClipVersion?:{renderVersion:number;editorVersion:number},
+    signal?:AbortSignal
   ): Promise<void> {
+    if(signal?.aborted)throw signal.reason||Object.assign(Error('Render cancelled.'),{code:'WORK_CANCELLED'});
     if (!config.smartReframeEnabled || !config.reframeAutoGenerate) return;
     if (clip.crop_config?.mode !== 'smart') return;
 
@@ -1425,9 +1431,13 @@ export class ClipRenderService {
       if (jobId) {
         await ClipRenderService.updateJobStage(jobId, clip.id, 'analyzing_speakers', 8, 'rendering',expectedWorkerId,expectedClipVersion);
       }
-      await SmartReframeService.analyzeClipFraming(clip.id, clip.user_id, { localSourcePath,sourceReceipt });
+      await SmartReframeService.analyzeClipFraming(clip.id, clip.user_id, { localSourcePath,sourceReceipt,signal });
     } catch (err: any) {
-      if(err?.code==='FENCING_TOKEN_MISMATCH'||err?.code==='RENDER_INPUT_CHANGED')throw err;
+      // Missing exit proof outranks a concurrent lease-loss cancellation: the
+      // caller must quarantine capacity, not downgrade this to fencing only.
+      if(err?.code==='PROCESS_STOP_UNVERIFIED')throw err;
+      if(signal?.aborted)throw signal.reason||err;
+      if(['FENCING_TOKEN_MISMATCH','RENDER_INPUT_CHANGED','WORK_CANCELLED','PROCESS_STOP_UNVERIFIED','SUPERVISION_UNAVAILABLE','RESOURCE_POLICY_MISMATCH','RESOURCE_WORK_TOO_LARGE'].includes(err?.code))throw err;
       logger.warn(`[ClipRender] Auto reframe analysis failed for clip ${clip.id}: ${err?.message || err}. Falling back to center crop.`);
     }
   }

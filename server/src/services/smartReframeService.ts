@@ -76,6 +76,7 @@ export interface SmartReframeOptions {
   maxVelocity?: number;
   smoothingAlpha?: number;
   timeoutMs?: number;
+  signal?:AbortSignal;
   sceneCuts?: number[];
   speechIntervals?: Array<{ start: number; end: number }>;
 }
@@ -2890,6 +2891,7 @@ export class SmartReframeService {
     userId: string,
     options: SmartReframeOptions & { localSourcePath?: string;sourceReceipt?:SourceObjectReceipt } = {}
   ): Promise<ReframeTrackRecord> {
+    if(options.signal?.aborted)throw options.signal.reason||Object.assign(Error('Analysis cancelled.'),{code:'WORK_CANCELLED'});
     if (!isMongoConfigured) {
       const err = new Error('Database service is not configured.');
       (err as any).code = 'SERVICE_UNAVAILABLE';
@@ -2907,6 +2909,7 @@ export class SmartReframeService {
 
     const tempTag = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
     const tempDir = path.join(os.tmpdir(), `vireo-reframe-${clipId}-${tempTag}`);
+    let stopVerified=true;
 
     try {
       // 2. Fetch clip and verify ownership
@@ -2986,7 +2989,7 @@ export class SmartReframeService {
 
       // 5. Run local Computer Vision analysis
       logger.info(`[SmartReframe] Starting CV face analysis for clip ${clipId}: start=${startSec}s, dur=${durationSec}s`);
-      const cvResult = await this.runCvAnalyzer(localSourcePath, sampleFps, startSec, durationSec, timeoutMs,600,shortAutoCutDiscovery(clip,durationSec),shortAutoTextDiscovery(clip,durationSec));
+      const cvResult = await this.runCvAnalyzer(localSourcePath, sampleFps, startSec, durationSec, timeoutMs,600,shortAutoCutDiscovery(clip,durationSec),shortAutoTextDiscovery(clip,durationSec),options.signal);
 
       // 6. Gather scene cuts and speech intervals for audio-visual shot-aware reframe
       let clipSceneCuts = options.sceneCuts ? [...options.sceneCuts] : [];
@@ -3177,6 +3180,7 @@ export class SmartReframeService {
         updated_at: new Date().toISOString(),
       };
 
+      if(options.signal?.aborted)throw options.signal.reason||Object.assign(Error('Analysis cancelled before persistence.'),{code:'WORK_CANCELLED'});
       const { data: savedRecord, error: upsertErr } = await dataRepository
         .from('reframe_tracks')
         .upsert(trackPayload, { onConflict: 'clip_id, analysis_version' })
@@ -3194,11 +3198,12 @@ export class SmartReframeService {
       }
 
       return savedRecord as ReframeTrackRecord;
-    } finally {
-      // Always cleanup temp files and release lock
-      activeReframeAnalysisSet.delete(clipId);
+    } catch(error:any){if(error?.code==='PROCESS_STOP_UNVERIFIED')stopVerified=false;throw error;} finally {
+      // A failed stop proof must not free the duplicate guard or delete files
+      // that an unverified child could still be using.
+      if(stopVerified)activeReframeAnalysisSet.delete(clipId);
       try {
-        if (fs.existsSync(tempDir)) {
+        if (stopVerified&&fs.existsSync(tempDir)) {
           fs.rmSync(tempDir, { recursive: true, force: true });
         }
       } catch (rmErr: any) {

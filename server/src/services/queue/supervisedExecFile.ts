@@ -24,7 +24,7 @@ export async function supervisedExecFile(file:string,args:string[],options:Super
  // A leader may exit while descendants close their pipes and keep running.
  // Stop the entire owned group even after successful leader exit.
  kill();
- if(child.pid){const deadline=Date.now()+1500;while(await hasRunningGroupMember(child.pid)){if(Date.now()>=deadline)throw Object.assign(Error('Owned child group exit could not be verified. Do not release its resource permit.'),{code:'PROCESS_STOP_UNVERIFIED'});await new Promise(r=>setTimeout(r,10));}}
+ if(child.pid){try{const deadline=Date.now()+1500;while(await hasRunningGroupMember(child.pid)){if(Date.now()>=deadline)throw Error('Owned child group remains running.');await new Promise(r=>setTimeout(r,10));}}catch(cause){throw Object.assign(Error('Owned child group exit could not be verified. Do not release its resource permit.'),{code:'PROCESS_STOP_UNVERIFIED',owned_process_group:child.pid,cause});}}
  if(!closed)throw Object.assign(Error('Child close was not observed.'),{code:'PROCESS_STOP_UNVERIFIED'});
  if(failure)throw failure;
  if(exit.code!==0)throw Object.assign(Error(`Process exited unsuccessfully (${exit.code??exit.signal}).`),{code:'PROCESS_FAILED',stderr:Buffer.concat(stderr).toString()});

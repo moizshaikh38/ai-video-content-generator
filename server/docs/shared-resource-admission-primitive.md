@@ -51,8 +51,9 @@ through the service and standalone Python with the same inputs/environment.
 This is a narrow correctness check, not representative quality/capacity evidence.
 
 This is not yet permit integration. Render FFmpeg execution, source processing,
-parent-worker death recovery and lease-loss cancellation are not supervised by
-this change. Existing callers do not yet pass a distributed lease-loss signal.
+parent-worker death recovery are not supervised by this change. Render heartbeat
+loss/uncertainty now cancels the nested supervised CV path, but separate FFmpeg
+encoding paths are not interrupted by that signal.
 A child deliberately escaping its process group is outside this helper's scope;
 the trusted CV script's ordinary FFmpeg/Tesseract children inherit the group.
 A worker killed outright may leave children behind, so expired resource permits
@@ -67,3 +68,25 @@ owned descendant tree, retain observed reparented children in that accounting,
 and include those children in guard-stop cleanup. Summed RSS can double-count
 shared pages and sampling can miss short peaks. The local guard limits are not
 production resource policy.
+
+Render heartbeat renewal now matches job, clip, user, worker and processing
+status, using Mongo time and a bounded majority write. A missing match or
+ambiguous database failure aborts the render's CV signal. The signal passes
+through render-time auto-reframe into the actual analyzer, and cancellation is
+checked before track persistence and before proceeding beyond auto-reframe.
+Fencing, cancellation, unverified stop and resource-policy errors must propagate,
+not turn into ordinary center-crop fallback followed by more expensive encoding.
+Ordinary analyzer errors keep the existing fallback behavior. Detection still
+uses the existing 15-second heartbeat cadence; this is not instantaneous lease
+loss detection or cancellation of every media process.
+
+An unverified process stop retains the CV duplicate guard/temp files and
+quarantines the render's local capacity slot rather than pretending it was freed.
+There is no automatic clear/restart recovery for that quarantine. A supervisor
+must prove exit before freeing capacity; a restart alone is not that proof.
+This can reduce availability, intentionally, rather than overadmit after an
+unknown stop. The shared pool ledger remains unused. A real Mongo/harmless-child
+regression covers lease replacement and cancellation, and a stubbed analyzer
+orchestration test checks retained guards/files without launching unsafe work.
+Stage progress updates no longer overwrite the claim's server-clock `started_at`,
+so owner-fair history is not silently changed at the cutting stage.
