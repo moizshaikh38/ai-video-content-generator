@@ -92,6 +92,10 @@ interface EditorShellProps {
   onReloadData: (options?: { silent?: boolean }) => Promise<void>;
 }
 
+// Phones in short landscape (e.g. 844x390): height, not width, is the binding constraint.
+export const isShortLandscapeViewport = (): boolean =>
+  typeof window !== 'undefined' && window.matchMedia('(max-height: 600px) and (max-width: 1023.9px)').matches;
+
 export const EditorShell: React.FC<EditorShellProps> = ({
   clip,
   project,
@@ -341,6 +345,13 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       } catch {}
       return next;
     });
+    // Short landscape phones: not enough vertical room for a bottom sheet AND the timeline.
+    // Expanding the timeline closes any open sheet (one bottom region at a time).
+    if (isTimelineCollapsed && isShortLandscapeViewport()) {
+      setTranscriptCollapsed(true);
+      setInspectorCollapsed(true);
+      if (isDrawerTab) setActiveSidebarTab('transcript');
+    }
   };
 
   // Responsive screen size tracking (< 1280px mutual exclusion between Left Drawer & Right Inspector)
@@ -416,6 +427,18 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       return next;
     });
   }, []);
+
+  // Short landscape: opening any bottom sheet collapses the timeline, so the preview and the
+  // sheet never fight the expanded timeline for the same 390px-tall screen.
+  const anyBottomSheetOpen = showLeftDrawer || (showRightInspector && !inspectorCollapsed) || !transcriptCollapsed;
+  useEffect(() => {
+    if (anyBottomSheetOpen && !isTimelineCollapsed && isShortLandscapeViewport()) {
+      setIsTimelineCollapsed(true);
+      try {
+        localStorage.setItem('vireo_editor_timeline_collapsed', 'true');
+      } catch {}
+    }
+  }, [anyBottomSheetOpen, isTimelineCollapsed]);
 
   const [timelineHeight, setTimelineHeight] = useState<number>(() => {
     try {
