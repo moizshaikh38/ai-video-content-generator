@@ -72,3 +72,18 @@ test('ordinary Auto stays full source on sparse OCR misses and unmeasured wide l
  t.metadata.protected_content_regions=[{start:5,end:10,x:0,y:.8,width:1,height:.15,confidence:1}] as any;
  const p=S.explicitAutoLayoutPlan(t,{layout_mode_source:'auto'},10)!;assert.equal(p[1].windowW,1);
 });
+
+
+test('positive solo, crowd, changed pair and same-side evidence cannot be outvoted by a95percent pair majority',()=>{
+ for(const conflict of [[face('left',.5)],[face('left',.25),face('right',.75),face('third',.5)],[face('new-left',.25),face('new-right',.75)],[face('left',.2),face('right',.35)]]){
+  const t=make();t.raw_samples[19].faces=conflict;const before=JSON.stringify(t);
+  for(const layout_mode_source of ['auto','genre_recommendation']){const p=resolve(t,{layout_mode_source},10)!;assert.equal(p[0].split,undefined);assert.equal(p[0].windowW,1);assert.equal(p[0].presentationProtection.reason,'persistent-face-conflict');}
+  assert.equal(JSON.stringify(t),before);assert.equal(resolve(t,{layout_mode_source:'user'},10),undefined);
+ }
+});
+test('measured source-bound pair-to-closeup interval is not a detector dropout',()=>{
+ const real=JSON.parse(fs.readFileSync(new URL('./fixtures/interview-pair-to-closeup-cv.json',import.meta.url),'utf8'));
+ const t={...make(),raw_samples:real.samples};const pairSamples=t.raw_samples.filter((s:any)=>s.faces.length===2).length;
+ assert(pairSamples/t.raw_samples.length>.8,'old majority rule would admit this interval');
+ const p=resolve(t,{layout_mode_source:'auto'},real.provenance.duration)!;assert.equal(p[0].windowW,1);assert.equal(p[0].windowH,1);
+});
