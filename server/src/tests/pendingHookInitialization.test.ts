@@ -7,3 +7,22 @@ test('pending review rejects words font x canvas timing video and changed owner/
 test('non-translation terminal reviews cannot smuggle any anchor or payload change',()=>{for(const status of ['unchanged','no-room','unavailable'] as const){const f=fixture();f.review={...f.review,status,project:f.baseline}as any;assert.doesNotThrow(()=>validatePendingHookReview(f));f.review.project=structuredClone(f.baseline);projectHook(f.review.project)!.transform.position_y=99;assert.throws(()=>validatePendingHookReview(f));}});
 test('clip identity ignores worker progress but binds source trim output layout and choices',()=>{const {clip}=fixture(),identity=pendingHookClipIdentity(clip);assert.equal(pendingHookClipIdentity({...clip,render_status:'rendering',updated_at:new Date(),stage:'analyzing'}),identity);for(const edit of[{source_storage_path:'other.mp4'},{trim_start_offset:1},{end_seconds:15},{aspect_ratio:'16:9'},{render_resolution:'4k'},{crop_config:{mode:'manual'}},{caption_enabled:false},{auto_hook_title_text:'changed'},{volume:0}])assert.notEqual(pendingHookClipIdentity({...clip,...edit}),identity);});
 test('prepared-path qualification switch cannot activate outside test mode and defaults off',()=>{const source=fs.readFileSync(new URL('../config/index.ts',import.meta.url),'utf8');assert.match(source,/pendingHookInitialization: process\.env\.NODE_ENV === 'test' && process\.env\.VIREO_PENDING_HOOK_INITIALIZATION === '1'/);});
+
+test('pending registration rejects mutated admitted identity before inserting any marker',async()=>{
+ const {registerPendingHookInitialization:register}=await import('../db/repositories/pendingHookInitializationRepository.js');
+ const {editorRenderSnapshot}=await import('../shared/editorRenderSnapshot.js');
+ for(const edit of[(v:any)=>v.project.version=2,(v:any)=>v.clip.editor_version=2,(v:any)=>v.clip.render_version=2,(v:any)=>v.project.user_id='other',(v:any)=>v.project.clip_id='other',(v:any)=>v.job.user_id='other',(v:any)=>v.job.clip_id='other',(v:any)=>v.job.admission_version=0,(v:any)=>v.job.editor_version=2,(v:any)=>v.job.render_version=2,(v:any)=>v.job.status='processing',(v:any)=>v.job.editor_project_snapshot.digest='other']){
+  const f=fixture();const value={clip:f.clip,project:f.baseline,job:{id:'fixture-job',user_id:f.userId,clip_id:f.clipId,status:'queued',admission_version:1,editor_version:1,render_version:1,editor_project_snapshot:editorRenderSnapshot(f.baseline)}};edit(value);let writes=0;const db={collection:()=>({insertOne:async()=>{writes++;}})};
+  await assert.rejects(register(db as any,{} as any,value),{code:'RENDER_INPUT_CHANGED'});assert.equal(writes,0);
+ }
+});
+test('pending registration skips non-Auto disabled unlinked or unverified new hooks without inserts',async()=>{
+ const {registerPendingHookInitialization:register}=await import('../db/repositories/pendingHookInitializationRepository.js');
+ for(const edit of[(v:any)=>v.clip.auto_hook_title_enabled=false,(v:any)=>v.clip.crop_config.mode='manual',(v:any)=>v.clip.crop_config.layout_mode_source='user',(v:any)=>projectHook(v.project)!.text!.hook_style_linked=false,(v:any)=>v.clip.selection_source_receipt.source_receipt.sha256='bad',(v:any)=>delete v.clip.source_storage_path]){
+  const f=fixture(),value={clip:f.clip,project:f.baseline,job:{}};edit(value);let writes=0;const db={collection:()=>({insertOne:async()=>{writes++;}})};assert.equal(await register(db as any,{} as any,value),false);assert.equal(writes,0);
+ }
+});
+test('only-y review rejects exhaustive per-hook style transform timing and lifecycle mutations',()=>{
+ const edits=[(p:any)=>projectHook(p)!.hidden=true,(p:any)=>projectHook(p)!.locked=true,(p:any)=>projectHook(p)!.transform.opacity=.1,(p:any)=>projectHook(p)!.transform.rotation=10,(p:any)=>projectHook(p)!.transform.scale=.5,(p:any)=>projectHook(p)!.text!.animation='fade',(p:any)=>projectHook(p)!.text!.background_color='#ffffff',(p:any)=>projectHook(p)!.text!.stroke_width=9,(p:any)=>projectHook(p)!.timeline_start=1,(p:any)=>p.settings={changed:true},(p:any)=>p.tracks.reverse()];
+ for(const edit of edits){const f=fixture();edit(f.review.project);assert.throws(()=>validatePendingHookReview(f),{code:'RENDER_INPUT_CHANGED'});}
+});

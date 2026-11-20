@@ -1,3 +1,4 @@
+import {sourceTextReviewNotice,type SourceTextReviewNotice} from '../shared/sourceTextReviewNotice.js';
 import {completePendingHookInitialization,recoverPendingHookCompletion} from '../db/repositories/pendingHookInitializationRepository.js';
 import {nonPortraitAutoFullSourceFit} from '../shared/nonPortraitAutoFit.js';
 import {automaticHeadlineText} from '../shared/autoHookTitle.js';
@@ -2554,6 +2555,7 @@ export class ClipRenderService {
     renderedPreviewUrl?: string;
     editorProject?: any;
     watermarkRequired?: boolean;
+    sourceTextReview?:SourceTextReviewNotice|null;
   }> {
     let clip = await ClipRenderService.getClip(clipId, userId);
 
@@ -2628,6 +2630,7 @@ export class ClipRenderService {
       renderedPreviewUrl,
       editorProject,
       watermarkRequired,
+      sourceTextReview:sourceTextReviewNotice(clip),
     };
   }
 
