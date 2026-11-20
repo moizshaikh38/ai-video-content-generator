@@ -1,3 +1,5 @@
+import {config} from '../../config/index.js';
+import {registerPendingHookInitialization} from './pendingHookInitializationRepository.js';
 import {candidateAutoHookTitle} from '../../shared/autoHookTitle.js';
 import {ensureRenderQuotaFence,assertTransactionalRenderQuota,type RenderQuotaPolicy} from './renderQuotaRepository.js';
 import {editorRenderSnapshot} from '../../shared/editorRenderSnapshot.js';
@@ -141,6 +143,7 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
       await db.collection('clips').insertOne(clip, { session });
       if(initialEditor)await db.collection('editor_projects').insertOne(initialEditor,{session});
       await db.collection('render_jobs').insertOne(renderJob, { session });
+      if(config.pendingHookInitialization&&initialEditor)await registerPendingHookInitialization(db,session,{clip,project:initialEditor,job:renderJob});
       if (candidate.status === 'suggested') await db.collection('clip_candidates').updateOne({
         id: candidateId, project_id: projectId, user_id: userId, status: 'suggested',
       }, { $set: { status: 'selected', updated_at: now } }, { session });

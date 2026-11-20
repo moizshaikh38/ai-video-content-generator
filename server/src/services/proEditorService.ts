@@ -1,3 +1,4 @@
+import {readEditorAndFreezePendingHook} from '../db/repositories/pendingHookInitializationRepository.js';
 import {AUTOMATIC_FIT_FOCUS_Y} from '../shared/automaticFitGeometry.js';
 import {placeFreshHookInUpperBand,type FreshHookBandReview} from '../shared/freshHookPictureBand.js';
 import {projectHook} from '../shared/hookDisplayMode.js';
@@ -192,6 +193,11 @@ export class ProEditorService {
       throw new AppError('Invalid clip ID.', 400, 'INVALID_UUID');
     }
 
+    if(config.pendingHookInitialization){
+      const frozen=await readEditorAndFreezePendingHook(await getMongoClient(),await getMongoDb(),{userId,clipId});
+      if(frozen)return this.withSourceDuration(frozen as EditorProject,clipId,userId);
+    }
+
     // 1. Check if an EditorProject already exists for this clip
     const { data: existingProject,error:existingProjectError } = await dataRepository
       .from('editor_projects')
@@ -308,6 +314,12 @@ export class ProEditorService {
   public static async getEditorProject(projectId: string, userId: string): Promise<EditorProject> {
     if (!isValidUUID(projectId)) {
       throw new AppError('Invalid editor project ID.', 400, 'INVALID_UUID');
+    }
+
+    if(config.pendingHookInitialization){
+      const frozen=await readEditorAndFreezePendingHook(await getMongoClient(),await getMongoDb(),{userId,projectId});
+      if(!frozen)throw new AppError('Editor project not found or access denied.',404,'PROJECT_NOT_FOUND');
+      return frozen.clip_id?this.withSourceDuration(frozen as EditorProject,frozen.clip_id,userId):frozen as EditorProject;
     }
 
     const { data: project, error } = await dataRepository

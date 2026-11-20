@@ -8,6 +8,8 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 dotenv.config();
 
 export const config = {
+  // Local qualification only. No production activation until prepared/read races pass.
+  pendingHookInitialization: process.env.NODE_ENV === 'test' && process.env.VIREO_PENDING_HOOK_INITIALIZATION === '1',
   port: parseInt(process.env.PORT || '5000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   isProduction: process.env.NODE_ENV === 'production',

@@ -1,3 +1,4 @@
+import {completePendingHookInitialization,recoverPendingHookCompletion} from '../db/repositories/pendingHookInitializationRepository.js';
 import {nonPortraitAutoFullSourceFit} from '../shared/nonPortraitAutoFit.js';
 import {automaticHeadlineText} from '../shared/autoHookTitle.js';
 import {BurnedSubtitleService} from './burnedSubtitleService.js';
@@ -732,6 +733,25 @@ export class ClipRenderService {
       // so active-speaker framing works out of the box.
       await ClipRenderService.ensureReframeTrackAtRender(clip, sourcePath, jobId, sourceSha256, sourceSnapshot.receipt,workerId,expectedClipVersion,renderCancellation.signal);
       if(renderCancellation.signal.aborted)throw renderCancellation.signal.reason;
+      if(config.pendingHookInitialization){
+        const pending=await db.collection('pending_hook_initializations').findOne({clip_id:clipId,user_id:userId,state:{$in:['pending','completed']},job_id:jobId});
+        if(pending){
+          const baseline=await db.collection('editor_projects').findOne({clip_id:clipId,user_id:userId});
+          let completion;
+          if(pending.state==='completed')completion=await recoverPendingHookCompletion(await getMongoClient(),db,{userId,clipId,jobId:jobId!,workerId});
+          else if(baseline){
+            const track=await SmartReframeService.getReframeTrack(clipId,userId,sourceSha256,true);
+            const review=ProEditorService.prepareFreshHookPictureBand(baseline as any,clip,track);
+            completion=await completePendingHookInitialization(await getMongoClient(),db,{userId,clipId,jobId:jobId!,workerId,clip,baseline,review});
+          }
+          if(completion?.editorVersion){
+            expectedClipVersion.editorVersion=completion.editorVersion;
+            clip.editor_version=completion.editorVersion;
+            claimedJob.editor_version=completion.editorVersion;
+            claimedJob.editor_project_snapshot=completion.editorProject;
+          }
+        }
+      }
 
       // Shared reframing decision (Quick path filter + Pro per-slice context).
       // Export resolution: requested tier from the clip (set by the export
@@ -2535,7 +2555,7 @@ export class ClipRenderService {
     editorProject?: any;
     watermarkRequired?: boolean;
   }> {
-    const clip = await ClipRenderService.getClip(clipId, userId);
+    let clip = await ClipRenderService.getClip(clipId, userId);
 
     // Get timing mode from transcript
     let timingMode = 'segment';
@@ -2572,6 +2592,9 @@ export class ClipRenderService {
     let editorProject: any = null;
     try {
       editorProject = await ProEditorService.getOrCreateEditorProject(clipId, userId);
+      // Completion may have won after the initial clip read but before the
+      // atomic editable read. Return its current clip revision, not v1 + editor v2.
+      if(config.pendingHookInitialization)clip=await ClipRenderService.getClip(clipId,userId);
     } catch (e: any) {
       logger.warn(`Could not load or create EditorProject for clip ${clipId}: ${e.message}`);
     }
