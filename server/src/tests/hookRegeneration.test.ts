@@ -137,7 +137,7 @@ describe('Hook regeneration route (HTTP + Mongo, mocked provider)', () => {
     }finally{await db.collection('transcripts').updateOne({project_id:projectId},{$unset:{quality_assessment:''}});}
   });
 
-  it('fails closed with 503 HOOK_PROVIDER_UNAVAILABLE when no provider is available', async () => {
+  it('fails closed with sanitized 503 when no provider is available', async () => {
     // Remove the instance-level mock so the real provider path (and its key
     // availability check) is exercised.
     delete (defaultAiProvider as any).generateJsonCompletion;
@@ -152,7 +152,9 @@ describe('Hook regeneration route (HTTP + Mongo, mocked provider)', () => {
       });
       const body: any = await res.json();
       assert.equal(res.status, 503);
-      assert.equal(body.code, 'HOOK_PROVIDER_UNAVAILABLE');
+      // Server-side provider diagnostics stay private under the shared error contract.
+      assert.equal(body.code, 'INTERNAL_ERROR');
+      assert.equal(body.message, 'Internal server error');
       assert.ok(!body.hook, 'must never return fabricated hook text');
     } finally {
       (defaultAiProvider as any).primaryProvider.isConfigured = origPrimary;
