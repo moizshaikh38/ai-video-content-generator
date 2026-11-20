@@ -465,7 +465,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
       {/* Control Bar: Platform Selector + Generation Options */}
       <div className="px-5 py-3 border-b border-border/40 bg-muted/20 flex flex-wrap items-center justify-between gap-3 text-xs">
         {/* Platform Tabs */}
-        <div className="flex items-center gap-1 bg-background/80 p-1 rounded-xl ">
+        <div className="flex items-center gap-1 flex-wrap bg-background/80 p-1 rounded-xl ">
           {(['all', 'shorts', 'youtube', 'instagram', 'tiktok', 'linkedin', 'x'] as const).map(
             (p) => (
               <button
@@ -512,7 +512,7 @@ export const ContentPackWorkspace: React.FC<ContentPackWorkspaceProps> = ({
       </div>
 
       {/* User Instruction Bar */}
-      <div className="px-5 py-2.5 border-b border-border/40 bg-card/30 flex items-center gap-3">
+      <div className="px-5 py-2.5 border-b border-border/40 bg-card/30 flex flex-wrap items-center gap-3">
         <Input
           placeholder="User instruction (e.g. 'Make titles punchier', 'Target LinkedIn professionals', 'No emojis')..."
           value={userInstruction}

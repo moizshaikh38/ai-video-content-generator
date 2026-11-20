@@ -859,7 +859,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
                   placeholder="Search subtitle text..."
                   value={searchFilter}
                   onChange={(e) => setSearchFilter(e.target.value)}
-                  className="flex-1 px-3 py-1.5 rounded-lg bg-zinc-800/80 border border-zinc-700/60 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-violet-500"
+                  className="flex-1 min-w-0 px-3 py-1.5 rounded-lg bg-zinc-800/80 border border-zinc-700/60 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-violet-500"
                 />
                 <Button
                   variant="outline"
