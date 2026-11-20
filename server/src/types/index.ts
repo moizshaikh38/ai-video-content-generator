@@ -1549,7 +1549,15 @@ export interface MultimodalTimeline {
 }
 
 export interface PlatformFitDetail {
+  /** Legacy candidate inclusion hint, not technical eligibility or a reach forecast. */
   suitable: boolean;
+  score_basis?: 'editorial-heuristic';
+  publishing_eligibility?: 'unverified';
+  duration_check?: {
+    status: 'within-checked-range' | 'outside-checked-range' | 'account-or-route-dependent' | 'unknown';
+    checked_at: string;
+    source_url: string;
+  };
   score: number;
   recommended_ratio: ClipAspectRatio;
   reason: string;

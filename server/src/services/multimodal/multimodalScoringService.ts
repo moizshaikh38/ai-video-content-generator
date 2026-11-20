@@ -1,9 +1,8 @@
+import {candidatePlatformAdvice} from '../../shared/candidatePlatformAdvice.js';
 import {unverifiedMultimodalSignals} from '../../shared/multimodalSignalEvidence.js';
 import {
   MultimodalTimeline,
   VireoClipScoreExplanation,
-  PlatformFitDetail,
-  OutputPlatform,
   ClipCandidateCategory,
   GenreProfileConfig,
   ContentGoal,
@@ -337,48 +336,10 @@ export class MultimodalScoringService {
       reasons.push(`Whole-source audio-volume-derived heuristic: ${audio_energy_score}/100. Speech clarity and candidate-local loudness are not measured here.`);
     }
 
-    // 6. Platform Suitability Breakdown
-    const platform_suitability: Record<OutputPlatform, PlatformFitDetail> = {
-      shorts: {
-        suitable: duration_seconds <= 60,
-        score: duration_seconds <= 60 ? Math.min(100, overall_score + 2) : 55,
-        recommended_ratio: '9:16',
-        reason:
-          duration_seconds <= 60
-            ? 'Fully within YouTube Shorts 60s limit with strong hook retention'
-            : 'Exceeds standard 60-second YouTube Shorts duration limit',
-      },
-      tiktok: {
-        suitable: true,
-        score: Math.min(100, overall_score + (hasFaceInHook ? 5 : 0)),
-        recommended_ratio: '9:16',
-        reason: 'Fast opening tempo and high hook strength fit TikTok FYP algorithms',
-      },
-      instagram: {
-        suitable: duration_seconds <= 90,
-        score: Math.min(100, overall_score),
-        recommended_ratio: '9:16',
-        reason: 'Optimal 9:16 vertical delivery for Instagram Reels feed discovery',
-      },
-      linkedin: {
-        suitable: true,
-        score: Math.min(100, (insight_score ?? 50) + 5),
-        recommended_ratio: '1:1',
-        reason: 'Substantive professional insight suitable for feed autoplay with captions',
-      },
-      x: {
-        suitable: duration_seconds <= 140,
-        score: Math.min(100, overall_score),
-        recommended_ratio: '16:9',
-        reason: 'Punchy concise observation suitable for X timeline engagement',
-      },
-      youtube: {
-        suitable: true,
-        score: Math.min(100, overall_score - 5),
-        recommended_ratio: '16:9',
-        reason: 'Suitable as a community post teaser or standalone highlight',
-      },
-    };
+    // 6. Editorial scores, duration conditions and unverified publishing state
+    // are separate. Use the exact span for hard boundaries, not rounded display time.
+    const platform_suitability = candidatePlatformAdvice(end_seconds-start_seconds,overall_score,insight_score,hasFaceInHook);
+    reasons.push('Platform-fit and platform scores are editorial heuristics, not technical upload eligibility or measured audience performance. Review the separate duration conditions and final-file/account requirements.');
 
     const explanation: VireoClipScoreExplanation = {
       signal_evidence:structuredClone(timeline?.signal_evidence||unverifiedMultimodalSignals()),
