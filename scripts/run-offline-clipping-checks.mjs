@@ -56,8 +56,11 @@ const tests = [
 
 // Run one test process at a time. The 192 MiB V8 heap cap is not a total-RSS
 // guarantee and is not a substitute for resource monitoring on runtime work.
+// The full serial allowlist includes 48 source-extraction and service contract files. Cloud run
+// 44695576777 reached 480 passing checks before the old 30-second suite cap.
+// Keep a bounded two-minute suite deadline without dropping any assertions.
 const result = spawnSync(process.execPath, [
   '--max-old-space-size=192', '--test', '--test-concurrency=1', ...tests,
-], { stdio: 'inherit', cwd: new URL('../', import.meta.url), timeout: 30_000 });
+], { stdio: 'inherit', cwd: new URL('../', import.meta.url), timeout: 120_000 });
 if (result.error) console.error(result.error.message);
 process.exitCode = result.status ?? 1;
