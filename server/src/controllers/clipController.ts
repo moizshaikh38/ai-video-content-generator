@@ -1371,7 +1371,7 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
     const measuredPlanEnvelope=track.metadata?.shot_composition_candidate===true?createPreviewMeasuredEnvelope(policyClip,track,measuredOptions,options=>SmartReframeService.computeShotComposition(options),Boolean(retainedPlan)):null;
     const measuredComposition=track.metadata?.shot_composition_candidate===true?(measuredPlanEnvelope?.shots||SmartReframeService.computeShotComposition(measuredOptions)):null;
     const explicitAutoConfig=policyClip?.crop_config?.layout_mode_source==='auto'?policyClip.crop_config:
-      policyProject?.tracks?.flatMap((t:any)=>t.type==='VIDEO'?t.items:[]).some((i:any)=>i.crop_config?.layout_mode_source==='auto'||i.scene_layout_overrides?.some((o:any)=>o.layout==='auto'))?{...policyClip?.crop_config,layout_mode_source:'auto'}:undefined;
+      policyProject?.tracks?.flatMap((t:any)=>t.type==='VIDEO'?t.items:[]).some((i:any)=>i.crop_config?.layout_mode_source==='auto'||i.scene_layout_overrides?.some((o:any)=>o.layout==='auto'))?{...policyClip?.crop_config,layout_mode_source:'auto'}:policyClip?.crop_config;
     const explicitAutoPlan=SmartReframeService.explicitAutoLayoutPlan(track,explicitAutoConfig,Number(track.metadata?.clip_duration)||1);
     // Return safe data without exposing server paths
     res.status(200).json({

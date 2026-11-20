@@ -1,3 +1,4 @@
+import {automaticSplitReviewPlan} from '../shared/automaticSplitEvidence.js';
 import {compactEmbeddedReviewPanels} from '../shared/compactEmbeddedReviewPanels.js';
 import {AUTOMATIC_FIT_FOCUS_Y} from '../shared/automaticFitGeometry.js';
 import {supervisedExecFile} from './queue/supervisedExecFile.js';
@@ -1487,6 +1488,8 @@ export class SmartReframeService {
     }
     const embeddedSplitVeto=embeddedSourceSplitVeto(track,cropConfig,duration);
     if(embeddedSplitVeto)return embeddedSplitVeto;
+    const unsupportedSplit=automaticSplitReviewPlan(track,cropConfig,duration);
+    if(unsupportedSplit)return unsupportedSplit;
     if(cropConfig?.layout_mode_source!=='auto'||track?.status!=='ready'||track.isStale||track.sourceObjectVerified===false||
        track.metadata?.shot_composition_candidate===true||!track.metadata?.analyzed_source_sha256||
        !(duration>0)||!track.raw_samples?.length||
