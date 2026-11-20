@@ -3,7 +3,7 @@ name: Backup isolated qualification (no deploy)
 on:
   push:
     branches: [instinct-backup]
-    paths: [.github/workflows/backup-qualification.yml]
+    paths: [.github/qualification-request]
 
 permissions:
   contents: read
@@ -38,6 +38,8 @@ jobs:
           free -m
           df -h .
           node --version
+      - name: Install system media tools for executable tests
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Install dependencies without application startup
         run: |
           npm ci --no-audit --no-fund
