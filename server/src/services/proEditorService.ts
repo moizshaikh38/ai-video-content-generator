@@ -1,5 +1,5 @@
 import {readEditorAndFreezePendingHook} from '../db/repositories/pendingHookInitializationRepository.js';
-import {AUTOMATIC_FIT_FOCUS_Y} from '../shared/automaticFitGeometry.js';
+import {automaticFitFocusY} from '../shared/automaticFitGeometry.js';
 import {placeFreshHookInUpperBand,type FreshHookBandReview} from '../shared/freshHookPictureBand.js';
 import {projectHook} from '../shared/hookDisplayMode.js';
 import {reframeTrackFreshness} from '../shared/reframeTrackFreshness.js';
@@ -2244,7 +2244,7 @@ export class ProEditorService {
     const stroke=hook.text.stroke_width?Math.max(1,Math.round(hook.text.stroke_width*layout.scaleRatio)):0;
     const bounds={top:Math.min(cardY,bbox.y-stroke),bottom:Math.max(cardY+cardH,bbox.y+bbox.h+stroke)};
     const fraction=Math.min(1,(w/h)/(track.source_width/track.source_height));
-    const pictureTop=(1-fraction)*(project.canvas.aspect_ratio==='9:16'?AUTOMATIC_FIT_FOCUS_Y:.5)*h;
+    const pictureTop=(1-fraction)*automaticFitFocusY(project.canvas.aspect_ratio)*h;
     return placeFreshHookInUpperBand(project,pictureTop,bounds);
   }
 

@@ -31,7 +31,7 @@ export function captionCompositionWindows(project:any,plan:any[],clipStart:numbe
    const a=Math.max(i.source_start,s.start+clipStart),z=Math.min(i.source_end,s.end+clipStart);if(z<=a)return [];
    const start=Math.max(i.timeline_start,i.timeline_start+(a-i.source_start)/speed),end=Math.min(i.timeline_end,i.timeline_start+(z-i.source_start)/speed);
    const layout:CaptionSceneLayout=s.split?.focusPanels?.layout==='gameplay'?'panel_gameplay':s.split?'split':Math.abs(s.windowW*sourceW/(s.windowH*sourceH)-outputAspect)<.01?'fill':'fit';
-   return end>start?[{itemId:i.id,start,end,layout,...(layout==='panel_gameplay'?{anchorY:panelTargetRects(s.split.focusPanels)[0].h}:layout==='fit'?{anchorY:outputAspect===9/16?fitPictureBoundaryAnchor(s.windowW*sourceW/(s.windowH*sourceH)):Math.min(.92,(1+Math.min(1,outputAspect/(s.windowW*sourceW/(s.windowH*sourceH))))/2)}:{})}]:[];
+   return end>start?[{itemId:i.id,start,end,layout,...(layout==='panel_gameplay'?{anchorY:panelTargetRects(s.split.focusPanels)[0].h}:layout==='fit'?{anchorY:automaticFitBottomBoundary(s.windowW*sourceW/(s.windowH*sourceH),project.canvas.aspect_ratio)}:{})}]:[];
   });
  });
 }
