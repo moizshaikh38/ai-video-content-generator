@@ -183,6 +183,9 @@ export class HardwareEncoderService {
     try {
       return await renderFn(primaryFlags);
     } catch (primaryErr: any) {
+      // Lifecycle/admission failure is not evidence that another encoder is
+      // safe to start. In particular, unknown exit cannot run twice in parallel.
+      if(['WORK_CANCELLED','PROCESS_STOP_UNVERIFIED','FENCING_TOKEN_MISMATCH','RENDER_INPUT_CHANGED','RENDER_TIMEOUT','RESOURCE_POLICY_MISMATCH','RESOURCE_WORK_TOO_LARGE','SUPERVISION_UNAVAILABLE'].includes(primaryErr?.code))throw primaryErr;
       if (!primaryFlags.isHardware) {
         // Already software, cannot fall back further
         throw primaryErr;

@@ -50,10 +50,10 @@ source's 0..1 second interval produced an exactly equal analyzer JSON result
 through the service and standalone Python with the same inputs/environment.
 This is a narrow correctness check, not representative quality/capacity evidence.
 
-This is not yet permit integration. Render FFmpeg execution, source processing,
+This is not yet permit integration. Legacy fluent-ffmpeg, qualification-only slice staging, source processing and
 parent-worker death recovery are not supervised by this change. Render heartbeat
-loss/uncertainty now cancels the nested supervised CV path, but separate FFmpeg
-encoding paths are not interrupted by that signal.
+loss/uncertainty now cancels the nested supervised CV path, and both explicit-argv FFmpeg encoder paths now use the same signal. The
+remaining legacy fluent-ffmpeg path is not interrupted by it.
 A child deliberately escaping its process group is outside this helper's scope;
 the trusted CV script's ordinary FFmpeg/Tesseract children inherit the group.
 A worker killed outright may leave children behind, so expired resource permits
@@ -90,3 +90,21 @@ regression covers lease replacement and cancellation, and a stubbed analyzer
 orchestration test checks retained guards/files without launching unsafe work.
 Stage progress updates no longer overwrite the claim's server-clock `started_at`,
 so owner-fair history is not silently changed at the cutting stage.
+
+
+The existing explicit-argv compiled-graph encoder and quick-clip music/ducking
+encoder now call the same supervised process execution with the render signal.
+The argv generation, codec/quality flags and duration are unchanged. Encoder
+timeout/cancellation waits for owned-group exit on Linux. Hardware fallback does
+not start a software encoder after timeout, cancellation, fencing, missing exit
+proof or admission-policy failure; ordinary hardware initialization failures
+still use the existing software fallback. Filter scripts and staged intermediate
+files are retained when the encoder stop is unverified.
+
+A tiny synthetic 64x96, two-frame H.264 encode checks the actual executor's codec,
+dimensions, frame count and decoded red pixel. Real FFmpeg realtime null-output
+fixtures check timeout and cancellation. These prove execution/cancellation
+mechanics only, not customer output quality, long-video performance or multi-user
+capacity. The remaining fluent-ffmpeg path and offline slice preparation still
+prevent describing a complete supervised render envelope or activating a shared
+resource permit for every render.

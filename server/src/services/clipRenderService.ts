@@ -1,3 +1,4 @@
+import {supervisedExecFile} from './queue/supervisedExecFile.js';
 import {renewRenderLeaseForCv} from './queue/renderLeaseClaim.js';
 import {runsBackgroundWorkers,hostRenderCapacity,ffmpegThreadArgs,ffmpegEncoderThreadArgs} from './runtimePolicy.js';
 import type {RenderQuotaPolicy} from '../db/repositories/renderQuotaRepository.js';
@@ -1077,16 +1078,21 @@ export class ClipRenderService {
             try {
               const remaining=stagedDeadline===undefined?timeoutMs:stagedDeadline-Date.now();
               if(remaining<=0)throw new AppError('Bounded staged render deadline exceeded.',504,'RENDER_TIMEOUT');
-              await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: remaining,...(stagedDeadline===undefined?{}:{killSignal:'SIGKILL' as const}) });
+              await ClipRenderService.executeEncoderProcess(ffmpegBin,ffmpegArgs,remaining,renderCancellation.signal);
             } catch (err: any) {
               const detail = String(err?.stderr || '').trim().split('\n').slice(-12).join('\n');
               if (detail) err.message = `${err.message}\nffmpeg stderr: ${detail}`;
               throw err;
             }
           });
+        } catch(error:any){
+          if(error?.code==='PROCESS_STOP_UNVERIFIED')quarantineRenderSlot(clipId);
+          throw error;
         } finally {
-          await scriptExec.cleanup();
-          preparedSlices?.cleanup();
+          if(!quarantinedRenderSlots.has(clipId)){
+            await scriptExec.cleanup();
+            preparedSlices?.cleanup();
+          }
         }
         await ClipRenderService.updateJobProgress(jobId, 85, 'encoding',workerId);
       } else {
@@ -1131,7 +1137,7 @@ export class ClipRenderService {
             ];
 
             try {
-              await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: timeoutMs });
+              await ClipRenderService.executeEncoderProcess(ffmpegBin,ffmpegArgs,timeoutMs,renderCancellation.signal);
             } catch (err: any) {
               const detail = String(err?.stderr || '').trim().split('\n').slice(-12).join('\n');
               if (detail) err.message = `${err.message}\nffmpeg stderr: ${detail}`;
@@ -1734,6 +1740,21 @@ export class ClipRenderService {
     options: { expectAudio: boolean; expectDimensions?: { width: number; height: number } }
   ): Promise<{ width: number; height: number } | null> {
     return validateOutputFile(filePath, expectedDurationSec, options);
+  }
+
+  /** Executes the explicit-argv encoder paths with lifecycle cancellation.
+   * The fluent-ffmpeg and offline slice staging paths are separate scopes. */
+  public static async executeEncoderProcess(binary:string,args:string[],timeoutMs:number,signal?:AbortSignal){
+    try{
+      return process.platform==='linux'
+        ? await supervisedExecFile(binary,args,{timeoutMs,maxBuffer:1024*1024,signal})
+        : await execFileAsync(binary,args,{timeout:timeoutMs,killSignal:'SIGKILL',signal});
+    }catch(error:any){
+      if(error?.code==='PROCESS_STOP_UNVERIFIED')throw error;
+      if(signal?.aborted)throw signal.reason||Object.assign(Error('Render cancelled.'),{code:'WORK_CANCELLED'});
+      if(error?.code==='PROCESS_TIMEOUT'||(process.platform!=='linux'&&error.killed&&error.signal==='SIGKILL'))throw Object.assign(Error('FFmpeg rendering timed out.'),{code:'RENDER_TIMEOUT',cause:error});
+      throw Object.assign(Error(`FFmpeg processing failed: ${error.message}`),{code:'FFMPEG_FAILED',stderr:error.stderr,cause:error});
+    }
   }
 
   /** Native frame size of the first video stream, or null when ffprobe is unavailable. */
