@@ -4,7 +4,7 @@ import ffmpegStatic from 'ffmpeg-static';
 import {supervisedExecFile} from './queue/supervisedExecFile.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { parseSubtitleOcrTsv, sourceSubtitleReviewInputSupported, type SubtitleOcrFrame } from '../shared/subtitleOcrEvidence.js';
+import { parseSubtitleOcrTsv, sourceSubtitleReviewInputSupported, timedSourceSubtitleSamples, type SourceSubtitleOcrSample, type SubtitleOcrFrame } from '../shared/subtitleOcrEvidence.js';
 const execFileAsync = promisify(execFile);
 
 export interface BurnedSubtitleAnalysisResult {
@@ -17,6 +17,7 @@ export interface BurnedSubtitleAnalysisResult {
   confidence: number;      // 0.0 to 1.0
   recommendedCropFilter?: string; // e.g. "crop=iw:ih*(1-0.12):0:0"
   reason: string;
+  samples?: SourceSubtitleOcrSample[];
 }
 
 export interface FaceBoundingBox {
@@ -54,7 +55,7 @@ export class BurnedSubtitleService {
    * children; callers retain unknown when OCR or the resource budget is absent. */
   public static async reviewVideo(input: {sourcePath:string;start:number;duration:number;sourceSha256:string;tempDirectory:string;sourceWidth?:number;sourceHeight?:number;signal?:AbortSignal}) {
     const unknown:BurnedSubtitleAnalysisResult={hasBurnedSubtitles:false,status:'unavailable',sampledFrames:0,analyzedFrames:0,bandHeightRatio:0,confidence:0,reason:'Source text review unavailable; subtitle presence remains unknown.'};
-    const bind=(result:BurnedSubtitleAnalysisResult)=>({...result,sourceSha256:input.sourceSha256,sourceStart:input.start,sourceEnd:input.start+input.duration,semanticVerification:'unknown' as const,captionSettingsChanged:false as const});
+    const bind=(result:BurnedSubtitleAnalysisResult)=>({...result,sourceSha256:input.sourceSha256,sourceStart:input.start,sourceEnd:input.start+input.duration,semanticVerification:'unknown' as const,captionSettingsChanged:false as const,geometryCoverage:'sparse-positive-only' as const,establishesTextAbsence:false as const,samples:timedSourceSubtitleSamples(result.samples||[],input.start,input.duration)});
     if(!sourceSubtitleReviewInputSupported(input))return bind(unknown);
     if(this.reviewBusy)return bind({...unknown,reason:'Local source text reviewer is busy; subtitle presence remains unknown.'});
     const stat=await fs.statfs(input.tempDirectory);
@@ -102,12 +103,14 @@ export class BurnedSubtitleService {
     // Evenly bound caller input; never launch concurrent OCR jobs.
     const paths = Array.isArray(framePaths) ? [...new Set(framePaths.filter(p => typeof p === 'string' && p))].slice(0, 5) : [];
     let analyzedFrames = 0, candidateFrames = 0, minTop = 1;
-    for (const path of paths) {
+    const samples:SourceSubtitleOcrSample[]=paths.map((_,sampleIndex)=>({sampleIndex,status:'unavailable',candidateTop:null}));
+    for (const [sampleIndex,path] of paths.entries()) {
       try {
         const stat = await fs.stat(path);
         if (!stat.isFile() || stat.size < 24 || stat.size > 12 * 1024 * 1024) continue;
         const frame = await probe(path);
-        if (!frame) continue;
+        if (!frame || (frame.candidateTop!==null&&(!Number.isFinite(frame.candidateTop)||frame.candidateTop<.72||frame.candidateTop>=1))) continue;
+        samples[sampleIndex]={sampleIndex,status:frame.candidateTop===null?'not-observed':'suspected-source-text',candidateTop:frame.candidateTop};
         analyzedFrames++;
         if (frame.candidateTop !== null) { candidateFrames++; minTop = Math.min(minTop, frame.candidateTop); }
       } catch(error:any) {
@@ -120,7 +123,7 @@ export class BurnedSubtitleService {
     return {
       hasBurnedSubtitles: hasBurned,
       status: !supported ? 'unavailable' : hasBurned ? 'suspected-source-text' : 'not-observed',
-      sampledFrames: paths.length, analyzedFrames,
+      sampledFrames: paths.length, analyzedFrames, samples,
       bandHeightRatio: hasBurned ? Number((1 - minTop).toFixed(4)) : 0,
       // This is sample support, not probability that the text is a subtitle.
       confidence: supported ? candidateFrames / analyzedFrames : 0,

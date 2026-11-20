@@ -35,3 +35,19 @@ export function sourceSubtitleReviewInputSupported(input:{start:number;duration:
   input.start>=0&&input.duration>0&&input.duration<=180&&
   input.sourceWidth!>0&&input.sourceWidth!<=1280&&input.sourceHeight!>0&&input.sourceHeight!<=720;
 }
+
+/** Each sample is positive-only evidence at one decoded instant. A miss cannot
+ * certify a clear region, including at the sampled instant. Never interpolate
+ * this sparse record into per-scene subtitle absence or a crop permission. */
+export interface SourceSubtitleOcrSample {
+ sampleIndex:number;
+ status:'suspected-source-text'|'not-observed'|'unavailable';
+ candidateTop:number|null;
+}
+export function timedSourceSubtitleSamples(samples:SourceSubtitleOcrSample[],sourceStart:number,duration:number){
+ if(![sourceStart,duration].every(Number.isFinite)||sourceStart<0||duration<=0)return [];
+ return samples.filter(s=>Number.isSafeInteger(s.sampleIndex)&&s.sampleIndex>=0&&s.sampleIndex<5).map(sample=>{
+  const clipTime=duration*(sample.sampleIndex+.2)/5;
+  return {...sample,clipTime,sourceTime:sourceStart+clipTime,establishesTextAbsence:false as const};
+ });
+}

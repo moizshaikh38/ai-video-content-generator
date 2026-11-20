@@ -54,3 +54,18 @@ it('source-text review admits product180s cap without widening pixel or invalid-
  for(const duration of [.1,120,120.001,129.845,180])assert.equal(sourceSubtitleReviewInputSupported({...base,duration}),true);
  for(const patch of [{duration:180.001},{duration:0},{duration:NaN},{duration:Infinity},{start:-.01},{sourceWidth:1281},{sourceHeight:721},{sourceWidth:undefined},{sourceSha256:'bad'}])assert.equal(sourceSubtitleReviewInputSupported({...base,...patch}),false);
 });
+
+it('preserves sparse positive/missed/unavailable observations without converting a miss into clearance',async()=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'vireo-ocr-test-'));
+ try{const files=await Promise.all(Array.from({length:4},async(_,i)=>{const p=path.join(dir,`${i}.png`);await fs.writeFile(p,Buffer.alloc(24));return p}));let i=0;
+ const result=await BurnedSubtitleService.detectBurnedSubtitles(files,async()=>{const n=i++;if(n===2)throw Error('unavailable');return{candidateTop:n===0?.8:n===3?NaN:null}});
+ assert.deepEqual(result.samples,[{sampleIndex:0,status:'suspected-source-text',candidateTop:.8},{sampleIndex:1,status:'not-observed',candidateTop:null},{sampleIndex:2,status:'unavailable',candidateTop:null},{sampleIndex:3,status:'unavailable',candidateTop:null}]);
+ assert.equal(result.analyzedFrames,2);assert.equal(result.hasBurnedSubtitles,true);assert.equal(result.confidence,.5);
+ }finally{await fs.rm(dir,{recursive:true,force:true});}
+});
+it('timed source samples retain exact five-sample clock without interpolating missing intervals',async()=>{
+ const {timedSourceSubtitleSamples}=await import('../shared/subtitleOcrEvidence.js');
+ const samples=timedSourceSubtitleSamples([{sampleIndex:0,status:'suspected-source-text',candidateTop:.8},{sampleIndex:4,status:'not-observed',candidateTop:null}],100,25);
+ assert.deepEqual(samples,[{sampleIndex:0,status:'suspected-source-text',candidateTop:.8,clipTime:1,sourceTime:101,establishesTextAbsence:false},{sampleIndex:4,status:'not-observed',candidateTop:null,clipTime:21,sourceTime:121,establishesTextAbsence:false}]);
+ assert.deepEqual(timedSourceSubtitleSamples([],NaN,25),[]);
+});
