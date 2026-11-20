@@ -30,3 +30,26 @@ test('normal reframe controller forwards genre provenance instead of dropping th
  const source=fs.readFileSync(new URL('../controllers/clipController.ts',import.meta.url),'utf8');
  assert.match(source,/layout_mode_source:'auto'}:policyClip\?\.crop_config;/);
 });
+
+function cutBoundTrack(){
+ const raw_samples=Array.from({length:40},(_,i)=>({time:.01+i*.25,faces:[{...face(i<20?'one':'two',.5),x:.44,y:.3}],persons:[]}));
+ return {...make(),sourceObjectVerified:true,source_width:1280,source_height:720,raw_samples,
+ metadata:{analyzed_source_sha256:'a'.repeat(64),analyzed_source_start:50,analyzed_source_end:60,scene_cuts:[5],protected_content_regions:[]}};
+}
+test('source-bound cut-local recovery rejects fabricated split but uses measured single views',()=>{
+ const t=cutBoundTrack(),before=JSON.stringify(t),p=S.explicitAutoLayoutPlan(t,{layout_mode_source:'auto'},10)!;
+ assert.equal(p.length,2);assert.deepEqual(p.map(v=>[v.start,v.end]),[[0,5],[5,10]]);
+ assert(p.every(v=>!v.split&&v.windowW<1&&v.contextStatus==='unresolved-review-required'));
+ assert.equal(JSON.stringify(t),before);
+});
+test('cut-local recovery keeps measured side context and does not narrow prohibited or stale inputs',()=>{
+ const t=cutBoundTrack();
+ t.metadata.protected_content_regions=[{start:0,end:5,x:0,y:0,width:1,height:1,confidence:1}] as any;
+ const p=S.explicitAutoLayoutPlan(t,{layout_mode_source:'auto'},10)!;
+ assert.equal(p[0].windowW,1);assert.equal(p[0].windowH,1);assert(p[1].windowW<1);
+ for(const patch of [{sourceObjectVerified:false},{isStale:true},{metadata:{...t.metadata,analyzed_source_end:61}},{metadata:{...t.metadata,scene_cuts:[NaN]}},{metadata:{...t.metadata,scene_cuts:[6,5]}},{raw_samples:[]}]){
+  const next=S.explicitAutoLayoutPlan({...t,...patch},{layout_mode_source:'auto'},10)!;assert.equal(next.length,1);assert.equal(next[0].windowW,1);
+ }
+ const prohibited=S.explicitAutoLayoutPlan(t,{layout_mode_source:'auto',layoutPolicy:{defaultLayout:'auto',allowed:['split']}},10)!;
+ assert.equal(prohibited.length,1);assert.equal(prohibited[0].windowW,1);
+});

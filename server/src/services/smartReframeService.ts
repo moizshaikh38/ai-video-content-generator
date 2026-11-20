@@ -1489,7 +1489,32 @@ export class SmartReframeService {
     const embeddedSplitVeto=embeddedSourceSplitVeto(track,cropConfig,duration);
     if(embeddedSplitVeto)return embeddedSplitVeto;
     const unsupportedSplit=automaticSplitReviewPlan(track,cropConfig,duration);
-    if(unsupportedSplit)return unsupportedSplit;
+    if(unsupportedSplit){
+      // Rejecting a clip-wide pair is not evidence that every measured shot
+      // requires the same source-aspect strip. Reuse the existing conservative
+      // single-view planner only for current source-bound, cut-local evidence.
+      // It may retain full Fit per shot. Never infer new cuts or re-enable Split.
+      const m=track.metadata, cuts=m?.scene_cuts, samples=track.raw_samples;
+      const bound=track.status==='ready'&&!track.isStale&&track.sourceObjectVerified===true&&
+        /^[a-f0-9]{64}$/.test(m?.analyzed_source_sha256||'')&&
+        [m?.analyzed_source_start,m?.analyzed_source_end,track.source_width,track.source_height].every(Number.isFinite)&&
+        m.analyzed_source_start>=0&&Math.abs(m.analyzed_source_end-m.analyzed_source_start-duration)<.001&&
+        track.source_width>0&&track.source_height>0;
+      const validCuts=Array.isArray(cuts)&&cuts.length>0&&cuts.length<=80&&
+        cuts.every((t:number,i:number)=>Number.isFinite(t)&&t>0&&t<duration&&(i===0||t>cuts[i-1]));
+      const validSamples=Array.isArray(samples)&&samples.length>=6&&samples.every((s:any,i:number)=>
+        Number.isFinite(s.time)&&s.time>=0&&s.time<duration&&Array.isArray(s.faces)&&
+        (i===0||s.time>samples[i-1].time));
+      if(bound&&validCuts&&validSamples&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('fit'))){
+        return this.computeShotComposition({rawSamples:samples,sceneCuts:cuts,duration,
+          sourceWidth:track.source_width,sourceHeight:track.source_height,windowScope:'shot',
+          automaticFitAspect:'4:3',allowConversationSplit:false,protectedContentRegions:m.protected_content_regions,
+          layoutPolicy:cropConfig.layoutPolicy}).map(shot=>({...shot,
+            contextStatus:'unresolved-review-required',
+            uncertainty:(shot.uncertainty||'Measured shot-local single view.')+' Clip-wide Split rejected; source text, missed objects and between-sample motion still require review.'}));
+      }
+      return unsupportedSplit;
+    }
     if(cropConfig?.layout_mode_source!=='auto'||track?.status!=='ready'||track.isStale||track.sourceObjectVerified===false||
        track.metadata?.shot_composition_candidate===true||!track.metadata?.analyzed_source_sha256||
        !(duration>0)||!track.raw_samples?.length||
