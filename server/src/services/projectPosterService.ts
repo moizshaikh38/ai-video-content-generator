@@ -88,6 +88,10 @@ export class ProjectPosterService {
         } catch (err: any) {
           if(err?.code==='PROCESS_STOP_UNVERIFIED'){cleanupSafe=false;logger.error('[Poster] Frame scratch quarantined pending child exit proof',{label,tmpDir,processGroupId:err.owned_process_group});throw err;}
           logger.warn(`[Poster] ffmpeg failed for ${label} at ${at}s: ${err?.message}`);
+          // A failed encoder can leave a nonempty partial JPEG. Its process is
+          // proved stopped above, but its bytes are not a publishable result.
+          fs.rmSync(outPath,{force:true});
+          continue;
         }
         if (fs.existsSync(outPath) && fs.statSync(outPath).size > 0) break;
       }
