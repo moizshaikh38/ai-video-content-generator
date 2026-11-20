@@ -40,6 +40,14 @@ test('download receipt binds actual hash to object validator and normal preview 
    // Ordinary reads stay unchanged, but review records cannot skip HEAD
    // simply because the export caller omitted verifyObjectReceipt.
    assert.equal((await SmartReframeService.getReframeTrack(id,uid))?.sourceObjectVerified,undefined);
+   // Ordinary fragmented Split recovery must carry a real object HEAD too.
+   await db.collection('reframe_tracks').updateMany({clip_id:id},{$set:{layout_mode:'split','metadata.scene_cuts':[2],'metadata.shot_composition_candidate':false}});
+   assert.equal((await SmartReframeService.getReframeTrack(id,uid))?.sourceObjectVerified,true);
+   etag='"version-b"';
+   const cutChanged=await SmartReframeService.getReframeTrack(id,uid);
+   assert.equal(cutChanged?.sourceObjectVerified,false);assert.equal(cutChanged?.isStale,true);
+   etag='"version-a"';
+   await db.collection('reframe_tracks').updateMany({clip_id:id},{$set:{layout_mode:'track','metadata.scene_cuts':[]}});
    await db.collection('reframe_tracks').updateMany({clip_id:id},{$set:{'metadata.embedded_camera_panel_review_enabled':true}});
    assert.equal((await SmartReframeService.getReframeTrack(id,uid))?.sourceObjectVerified,true);
    // Ordinary source-structure guards require the same consumer-side HEAD.
