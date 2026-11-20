@@ -75,7 +75,14 @@ export class AudioDuckingService {
     // 1st input: main signal to be compressed (background audio)
     // 2nd input: sidechain control signal (dialogue)
     // Format: [main][sidechain]sidechaincompress=threshold=T:ratio=R:attack=A:release=R[out]
-    const sidechainFilter = `${backgroundLabel}${dialogueLabel}sidechaincompress=threshold=${thresholdFormatted}:ratio=${ratio}:attack=${attack}:release=${release}${outputLabel}`;
+    // amix and sidechaincompress can otherwise leave a cyclic channel-layout
+    // negotiation unresolved. Explicit stereo double samples match the editor
+    // delivery mix without changing stored volume, timing or ducking settings.
+    const stem=outputLabel.replace(/[^a-zA-Z0-9_]/g,'');
+    const backgroundFormat=`[${stem}_background_format]`,dialogueFormat=`[${stem}_dialogue_format]`;
+    filters.push(`${backgroundLabel}aformat=sample_fmts=dbl:channel_layouts=stereo${backgroundFormat}`);
+    filters.push(`${dialogueLabel}aformat=sample_fmts=dbl:channel_layouts=stereo${dialogueFormat}`);
+    const sidechainFilter = `${backgroundFormat}${dialogueFormat}sidechaincompress=threshold=${thresholdFormatted}:ratio=${ratio}:attack=${attack}:release=${release}${outputLabel}`;
     filters.push(sidechainFilter);
 
     return filters;
