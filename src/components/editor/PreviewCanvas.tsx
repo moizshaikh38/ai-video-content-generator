@@ -1,3 +1,4 @@
+import{suppressStaleCaptionEmojis}from'../../../server/src/shared/sparseCaptionEmojiProject';
 import {AUTOMATIC_FIT_FOCUS_Y} from '../../../server/src/shared/automaticFitGeometry';
 import {needsAutomaticFitFallback} from '../../../server/src/shared/automaticPreviewFallback';
 import {previewBackdropBlurPx,PREVIEW_BACKDROP_COLOR_MATRIX} from '../../../server/src/shared/blurBackdropPreview';
@@ -448,7 +449,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     };
   }, [captionItem, project.canvas.aspect_ratio]);
 
-  for (const track of project.tracks) {
+  for (const track of suppressStaleCaptionEmojis(project).tracks) {
     if (track.hidden) continue;
     for (const item of track.items) {
       if (item.hidden) continue;

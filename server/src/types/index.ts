@@ -2221,6 +2221,8 @@ export interface EditorTrackItem {
 }
 
 export interface EditorTrack {
+  /** On-demand sparse caption accents. Changed caption text/timing suppresses them. */
+  caption_emoji?: {version:1;sourceSignature:string};
   id: string;
   type: EditorTrackType;
   name: string;

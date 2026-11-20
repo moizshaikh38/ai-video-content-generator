@@ -1208,7 +1208,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       activeAiTool={activeAiTool}
       onSelectAiTool={setActiveAiTool}
       onNavigateTab={setActiveSidebarTab}
-      onUpdateProject={onUpdateProject}
+      onUpdateProject={(update)=>{setExportStale(true);onUpdateProject(update);}}
       onUpdateItem={(itemId, updates, options) => {
         // Selection via the preview overlay sets only the item id; resolve the
         // owning track from the item when no track is selected, otherwise

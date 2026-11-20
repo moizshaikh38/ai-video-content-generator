@@ -93,6 +93,8 @@ import { SmartReframeService } from './smartReframeService.js';
 import { partitionCaptionCues, shiftCaptionItemsForRippleDelete, cloneCaptionCuesForDuplicate } from '../utils/editorRippleCut.js';
 import { readBoundedAssetResponse, EDITOR_OVERLAY_TIMEOUT_MS } from '../utils/boundedAssetResponse.js';
 import { validateClientEditorSourcePath, validateEditorSourcePath, isAllowedEditorSourcePath, overlayAssetExtension } from '../utils/editorAssetValidator.js';
+import{suppressStaleCaptionEmojis}from'../shared/sparseCaptionEmojiProject.js';
+import{cacheBundledCaptionEmoji}from'./captionEmojiAssetService.js';
 import { roundedCardPng } from '../utils/roundedCardPng.js';
 import { getDrawtextFfmpeg } from '../utils/drawtextFfmpeg.js';
 import { resolveXfadeName, getTransitionPreset, clampTransitionDuration } from '../shared/transitionPresets.js';
@@ -789,6 +791,8 @@ export class ProEditorService {
     for (const item of visibleEditorAssetItems(project)) {
       const rawPath = item.source_path;
       if (!rawPath) continue;
+      const bundledEmoji=cacheBundledCaptionEmoji(rawPath,tmpDir);
+      if(bundledEmoji){item.source_path=bundledEmoji;continue;}
 
       // Defense in depth: items persisted before source-path validation existed
       // must not be fetched server-side. Disallowed sources are skipped.
@@ -1295,6 +1299,7 @@ export class ProEditorService {
     reframe?: ProReframeContext,
     loudnorm?: LoudnormCompileMode
   ): CompiledRenderGraph {
+    project=suppressStaleCaptionEmojis(project);
     // Render-only normalization: base crops already use canonical aspect design
     // dimensions. Transitions/overlays must use the same canvas, not stale saved
     // pixel sizes. The requested export tier remains reframe.canvasScale.
@@ -1604,7 +1609,7 @@ export class ProEditorService {
     for (const st of secondaryTracks) {
       for (const item of st.items) {
         if (item.hidden) continue;
-        let assetPath = item.source_path;
+        let assetPath = cacheBundledCaptionEmoji(item.source_path,tmpDir)??item.source_path;
         // Synthesized card backgrounds (social card chrome): no source asset;
         // the PNG is rendered here from the item's own geometry so it always
         // matches the preview's CSS borderRadius rendering.

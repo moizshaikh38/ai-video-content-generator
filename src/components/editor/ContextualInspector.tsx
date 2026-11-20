@@ -1,3 +1,4 @@
+import{SparseCaptionEmojiControl}from'./SparseCaptionEmojiControl';
 import {hookMode} from '../../../server/src/shared/hookDisplayMode';
 import {applyCaptionPositionPreset} from '../../lib/captionPositionPreset';
 import { captionLegacyColorDefaults } from '../../lib/captionPresets';
@@ -1270,6 +1271,8 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                 );
               })}
             </div>
+
+            <SparseCaptionEmojiControl project={project} onUpdateProject={onUpdateProject}/>
 
             {/* One disabled state for the whole studio — it used to be duplicated per tab. */}
             {captionsHidden && !linkedHook ? (

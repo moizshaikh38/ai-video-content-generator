@@ -1,4 +1,5 @@
 import path from 'node:path';
+import{captionEmojiAssetId}from'../shared/captionEmojiAssets.js';
 import os from 'node:os';
 import { AppError } from '../types/index.js';
 import { config } from '../config/index.js';
@@ -43,6 +44,7 @@ export function isAllowedEditorSourcePath(userId: string, value: unknown): boole
   if (typeof value !== 'string') return false;
   const v = value.trim();
   if (!v) return true;
+  if(captionEmojiAssetId(v))return true;
   // Check before the user-scoped storage prefix: an apparent own-user key
   // must not bypass traversal/protocol guards. Backslashes and controls are
   // ambiguous across filesystem, URL and FFmpeg input handling.
@@ -104,6 +106,7 @@ export function isAllowedClientEditorSourcePath(userId: string, value: unknown):
   if (!isAllowedEditorSourcePath(userId, value)) return false;
   if (value == null || (typeof value === 'string' && !value.trim())) return true;
   const v = (value as string).trim();
+  if(captionEmojiAssetId(v))return true;
   // Client requests carry storage references or remote CDN assets, never a
   // server filesystem capability. Generated local assets use the internal path.
   return v.startsWith(`users/${userId}/`) || /^https:\/\//i.test(v);
