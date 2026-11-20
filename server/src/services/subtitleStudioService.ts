@@ -1,3 +1,4 @@
+import {subtitleProjectDefaults} from '../shared/subtitleProjectDefaults.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import {assertTranscriptReusable} from './transcriptSourceBindingService.js';
 import fs from 'node:fs';
@@ -55,21 +56,7 @@ export class SubtitleStudioService {
       source_url: data.source_url || null,
       source_filename: data.source_filename || null,
       video_status: data.source_url ? 'uploaded' : 'uploading',
-      project_type: 'subtitles',
-      subtitle_cues: [],
-      subtitle_style: {
-        preset: EntitlementService.isPresetAllowed(entitlements, 'hormozi') ? 'hormozi' : 'clean',
-        fontFamily: 'Montserrat',
-        fontSize: 54,
-        fontWeight: 'bold',
-        textColor: '#FFFFFF',
-        highlightColor: '#FACC15',
-        boxEnabled: false,
-        position: 'bottom',
-        alignment: 'center',
-      },
-      subtitle_export_status: 'idle',
-      subtitle_export_progress: 0,
+      ...subtitleProjectDefaults(EntitlementService.isPresetAllowed(entitlements, 'hormozi')),
       created_at: now,
       updated_at: now,
     };

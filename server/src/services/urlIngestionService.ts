@@ -1,3 +1,4 @@
+import {subtitleProjectDefaults} from '../shared/subtitleProjectDefaults.js';
 import {youtubeAcquisitionCache,type YouTubeAcquisitionKey} from './youtubeAcquisitionCache.js';
 import {TwitchImportService} from './twitchImportService.js';
 import {pinnedPublicMediaFetch} from '../utils/pinnedHttpsAssetFetch.js';
@@ -36,6 +37,9 @@ export interface IngestUrlOptions {
   userId: string;
   /** Server-resolved entitlement only. Missing callers remain legacy-safe. */
   creationPlanId?: string;
+  /** Internal server-resolved subtitle creation, never raw request fields. */
+  subtitleProject?: {hormoziAllowed:boolean};
+  maxBytes?: number;
   projectId?: string;
   url: string;
   title?: string;
@@ -836,6 +840,7 @@ export class UrlIngestionService {
    */  public static async ingestUrlToProject(options: IngestUrlOptions): Promise<IngestUrlResult> {
     const { userId, url, title, notes, clipPreferences, startTimeSec, endTimeSec } = options;
     const projectId = options.projectId || crypto.randomUUID();
+    const maxBytes=Math.min(config.maxVideoBytes,Number.isFinite(options.maxBytes)&&Number(options.maxBytes)>0?Number(options.maxBytes):config.maxVideoBytes);
 
     // 1. Server-side URL & SSRF Validation
     const validated = await UrlValidator.validateVideoUrl(url);
@@ -860,7 +865,7 @@ export class UrlIngestionService {
         if(range)throw new AppError('Twitch clip imports use the complete clip. Choose a range after importing.',400,'PLATFORM_IMPORT_RANGE_UNSUPPORTED');
         const media=await TwitchImportService.clip(userId,source.id);
         ytMetaTitle=media.title;
-        download=await this.downloadToTempFile(media.url);
+        download=await this.downloadToTempFile(media.url,maxBytes);
       } else if (validated.provider === 'youtube') {
         // YouTube Ingestion Path via yt-dlp
         logger.info(`Starting YouTube video ingestion: ${validated.normalizedUrl} (ID: ${validated.youtubeVideoId}) for project ${projectId}`);
@@ -896,18 +901,19 @@ export class UrlIngestionService {
         if(ytMeta.videoId===validated.youtubeVideoId&&Number.isFinite(ytMeta.duration)&&Number(ytMeta.duration)>0){
           acquisitionCacheKey={userId,videoId:validated.youtubeVideoId!,startSec:range?.startSec,endSec:range?.endSec,profile:YOUTUBE_SOURCE_FORMAT+'|'+YOUTUBE_SOURCE_FORMAT_SORT+'|duration:'+ytMeta.duration};
         }
-        const cached=acquisitionCacheKey?await youtubeAcquisitionCache.take(acquisitionCacheKey,true,config.maxVideoBytes):null;
+        const cached=acquisitionCacheKey?await youtubeAcquisitionCache.take(acquisitionCacheKey,true,maxBytes):null;
         reusedAcquisition=!!cached;
         const remainingMs=Math.floor(acquisitionDeadline-performance.now());
         if(remainingMs<=0){if(cached)await fs.promises.unlink(cached.tempFilePath).catch(()=>{});throw toAppError(classifyYouTubeFailure({killed:true,errCode:'ETIMEDOUT'}));}
-        download = cached??await this.downloadYouTubeToTempFile(validated.normalizedUrl, config.maxVideoBytes, remainingMs, range);
+        download = cached??await this.downloadYouTubeToTempFile(validated.normalizedUrl, maxBytes, remainingMs, range);
       } else {
         // Direct Public Media URL Path
         logger.info(`Starting secure download for URL: ${validated.hostname} for project ${projectId}`);
-        download = await this.downloadToTempFile(validated.normalizedUrl);
+        download = await this.downloadToTempFile(validated.normalizedUrl,maxBytes);
       }
 
       tempFile = download.tempFilePath;
+      if(download.totalBytes>maxBytes)throw new AppError('Video exceeds your plan file size limit.',400,'FILE_SIZE_EXCEEDED');
 
       // 3. Probe video file with FFmpeg to verify streams and duration
       logger.info(`Probing downloaded video for project ${projectId} (${download.totalBytes} bytes)`);
@@ -987,6 +993,7 @@ export class UrlIngestionService {
         height: probe.height,
         clip_preferences: normalizedPrefs,
         notes: String(notes || '').trim().slice(0, 2000),
+        ...(options.subtitleProject ? {...subtitleProjectDefaults(options.subtitleProject.hormoziAllowed),source_filename:filename,updated_at:createdAt} : {}),
       };
 
       if (validated.provider === 'youtube') {

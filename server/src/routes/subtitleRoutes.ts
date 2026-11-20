@@ -7,6 +7,7 @@ import { SubtitleController } from '../controllers/subtitleController.js';
 const router = Router();
 
 // Subtitle Studio Project Management
+router.post('/projects/ingest-url', requireAuth, expensiveLimiter, asyncHandler(SubtitleController.ingestProjectUrl));
 router.post('/projects', requireAuth, asyncHandler(SubtitleController.createProject));
 router.get('/projects', requireAuth, asyncHandler(SubtitleController.listProjects));
 router.get('/projects/:id', requireAuth, asyncHandler(SubtitleController.getProject));

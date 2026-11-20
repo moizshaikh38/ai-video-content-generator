@@ -1,3 +1,5 @@
+import {UrlIngestionService} from '../services/urlIngestionService.js';
+import {dataRepository} from '../db/repositories/dataRepository.js';
 import { Response } from 'express';
 import crypto from 'node:crypto';
 import { AuthenticatedRequest, isValidUUID, AppError } from '../types/index.js';
@@ -74,6 +76,24 @@ export class SubtitleController {
       status: 'ok',
       project,
     });
+  }
+
+  /** Source import only. Transcription and spending retain their separate route. */
+  public static async ingestProjectUrl(req: AuthenticatedRequest,res: Response):Promise<void>{
+    const userId=req.user?.id;
+    if(!userId){res.status(401).json({status:'error',code:'AUTH_REQUIRED',message:'User not authenticated.'});return;}
+    const {url,title}=req.body||{};
+    if(typeof url!=='string'||!url.trim()){res.status(400).json({status:'error',code:'INVALID_URL',message:'Valid video URL is required.'});return;}
+    const entitlements=await EntitlementService.resolveUserEntitlements(userId,req.user?.email);
+    if(!entitlements.isUnlimited){
+      const db=await getMongoDb(),start=new Date();start.setUTCDate(1);start.setUTCHours(0,0,0,0);
+      const count=await db.collection('projects').countDocuments({user_id:userId,$or:[{created_at:{$gte:start}},{created_at:{$gte:start.toISOString()}}]});
+      if(count>=entitlements.limits.maxProjects){res.status(403).json({status:'error',code:'MONTHLY_PROJECT_LIMIT_EXCEEDED',message:`Your ${entitlements.displayName} plan allows up to ${entitlements.limits.maxProjects} projects per month.`,limit:entitlements.limits.maxProjects,current:count});return;}
+    }
+    const result=await UrlIngestionService.ingestUrlToProject({userId,url:url.trim(),title:typeof title==='string'?title.trim():undefined,creationPlanId:entitlements.planId,maxBytes:Math.min(config.maxVideoBytes,entitlements.limits.maxFileSizeBytes),subtitleProject:{hormoziAllowed:EntitlementService.isPresetAllowed(entitlements,'hormozi')}});
+    const {data:project,error}=await dataRepository.from('projects').select('*').eq('id',result.projectId).eq('user_id',userId).eq('project_type','subtitles').single();
+    if(error||!project)throw new AppError('Failed to load imported subtitle project.',500,'DB_ERROR');
+    res.status(201).json({status:'ok',project});
   }
 
   public static async listProjects(req: AuthenticatedRequest, res: Response): Promise<void> {
