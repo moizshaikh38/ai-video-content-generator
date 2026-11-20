@@ -74,7 +74,7 @@ export const UnifiedTimeline: React.FC<UnifiedTimelineProps> = ({
   return (
     <div
       style={!isCollapsed && height ? { height: `${height}px` } : undefined}
-      className={`bg-vc-canvas border-t border-white/[0.08] flex flex-col transition-[height] duration-75 ${
+      className={`vc-timeline-root bg-vc-canvas border-t border-white/[0.08] flex flex-col transition-[height] duration-75 ${
         isCollapsed ? 'h-9' : !height ? 'h-60 sm:h-64 md:h-72' : ''
       } shrink-0 select-none overflow-hidden z-20`}
     >

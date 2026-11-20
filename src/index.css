@@ -760,3 +760,11 @@ body {
     flex-shrink: 0;
   }
 }
+
+/* Short landscape: cap the expanded timeline so a meaningful preview survives while editing.
+   Inline height (140-450px from the resize handle) is capped only in this context; tracks scroll internally. */
+@media (max-height: 600px) and (max-width: 1023.9px) {
+  .vc-timeline-root {
+    max-height: 44vh;
+  }
+}
