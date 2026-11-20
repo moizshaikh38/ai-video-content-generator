@@ -749,12 +749,18 @@ export class ClipRenderService {
         `canvas=${outputCanvas.width}x${outputCanvas.height} source=${srcDims ? `${srcDims.width}x${srcDims.height}` : 'unknown'}` +
         (resolution.warning ? ` WARNING: ${resolution.warning}` : '')
       );
-      const reframeDecision = await ClipRenderService.resolveReframeDecision(clip, durationSec, canvasScale, sourceSha256, srcDims);
-      const cropFilter = reframeDecision.cropFilter;
-      const actualReframeMode = reframeDecision.mode;
       // Source pixels can contain captions independently of the generated cue
       // layer. Record bounded evidence, never silently disable the user's style.
       const sourceSubtitleReview = await BurnedSubtitleService.reviewVideo({sourcePath,start:startSec,duration:durationSec,sourceSha256,tempDirectory:tempDir,sourceWidth:srcDims?.width,sourceHeight:srcDims?.height,signal:renderCancellation.signal});
+      // Bind review to the same analysis bytes/span before preview/export plan
+      // selection. Never attach it to another version or a differently trimmed source.
+      await db.collection('reframe_tracks').updateMany({clip_id:clipId,user_id:userId,status:'ready',
+        'metadata.analyzed_source_sha256':sourceSha256,'metadata.analyzed_source_start':startSec,
+        'metadata.analyzed_source_end':Number((startSec+durationSec).toFixed(6))},
+        {$set:{'metadata.source_subtitle_review':sourceSubtitleReview}});
+      const reframeDecision = await ClipRenderService.resolveReframeDecision(clip, durationSec, canvasScale, sourceSha256, srcDims);
+      const cropFilter = reframeDecision.cropFilter;
+      const actualReframeMode = reframeDecision.mode;
       const reframeMetadata = {...reframeDecision.metadata,source_subtitle_review:sourceSubtitleReview};
 
       const videoFilters: string[] = [cropFilter];

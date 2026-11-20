@@ -34,7 +34,7 @@ test('normal reframe controller forwards genre provenance instead of dropping th
 function cutBoundTrack(){
  const raw_samples=Array.from({length:40},(_,i)=>({time:.01+i*.25,faces:[{...face(i<20?'one':'two',.5),x:.44,y:.3}],persons:[]}));
  return {...make(),sourceObjectVerified:true,source_width:1280,source_height:720,raw_samples,
- metadata:{analyzed_source_sha256:'a'.repeat(64),analyzed_source_start:50,analyzed_source_end:60,scene_cuts:[5],protected_content_regions:[]}};
+ metadata:{cut_local_split_recovery_review_enabled:true,analyzed_source_sha256:'a'.repeat(64),analyzed_source_start:50,analyzed_source_end:60,scene_cuts:[5],protected_content_regions:[],source_subtitle_review:{status:'not-observed',sourceSha256:'a'.repeat(64),sourceStart:50,sourceEnd:60,analyzedFrames:5}}};
 }
 test('source-bound cut-local recovery rejects fabricated split but uses measured single views',()=>{
  const t=cutBoundTrack(),before=JSON.stringify(t),p=S.explicitAutoLayoutPlan(t,{layout_mode_source:'auto'},10)!;
@@ -52,4 +52,23 @@ test('cut-local recovery keeps measured side context and does not narrow prohibi
  }
  const prohibited=S.explicitAutoLayoutPlan(t,{layout_mode_source:'auto',layoutPolicy:{defaultLayout:'auto',allowed:['split']}},10)!;
  assert.equal(prohibited.length,1);assert.equal(prohibited[0].windowW,1);
+});
+
+test('positive, missing, unknown or wrong-version source-text evidence cannot narrow old full-source fallback',()=>{
+ const t=cutBoundTrack();
+ for(const review of [undefined,{...t.metadata.source_subtitle_review,status:'suspected-source-text'}, {...t.metadata.source_subtitle_review,status:'unavailable'}, {...t.metadata.source_subtitle_review,sourceSha256:'b'.repeat(64)}, {...t.metadata.source_subtitle_review,sourceStart:51}, {...t.metadata.source_subtitle_review,analyzedFrames:0}]){
+  const p=S.explicitAutoLayoutPlan({...t,metadata:{...t.metadata,source_subtitle_review:review}},{layout_mode_source:'auto'},10)!;assert.equal(p.length,1);assert.equal(p[0].windowW,1);
+ }
+});
+
+test('ordinary Auto stays full source on sparse OCR misses and unmeasured wide lower-thirds across cuts',()=>{
+ const t=cutBoundTrack();
+ for(const review of [{...t.metadata.source_subtitle_review},{...t.metadata.source_subtitle_review,status:'not-observed',analyzedFrames:2}]){
+  const p=S.explicitAutoLayoutPlan({...t,metadata:{...t.metadata,cut_local_split_recovery_review_enabled:false,source_subtitle_review:review}},{layout_mode_source:'auto'},10)!;
+  assert.equal(p.length,1);assert.equal(p[0].windowW,1);assert.equal(p[0].windowH,1);
+ }
+ // A measured wide title appearing only after a source cut remains full Fit
+ // even in the explicit local candidate. No OCR miss clears that geometry.
+ t.metadata.protected_content_regions=[{start:5,end:10,x:0,y:.8,width:1,height:.15,confidence:1}] as any;
+ const p=S.explicitAutoLayoutPlan(t,{layout_mode_source:'auto'},10)!;assert.equal(p[1].windowW,1);
 });
