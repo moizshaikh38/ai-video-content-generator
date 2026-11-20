@@ -1,0 +1,7 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import ts from 'typescript';
+test('actual subtitle status client method requests the authenticated registered GET route',async()=>{
+ const source=fs.readFileSync('src/services/subtitleService.ts','utf8');const ast=ts.createSourceFile('client.ts',source,ts.ScriptTarget.Latest,true);let method;const walk=n=>{if(ts.isMethodDeclaration(n)&&n.name?.getText(ast)==='getBurnStatus')method=n.getText(ast);ts.forEachChild(n,walk)};walk(ast);assert(method);
+ const js=ts.transpileModule(`export function make(backendRequest:any){return class Client{${method}}}`,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+ const {make}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));const requests=[];const response={status:'ok',burnStatus:{status:'idle',progress:0}};const client=make(async(...args)=>{requests.push(args);return response});const project='11111111-1111-4111-8111-111111111111';assert.equal(await client.getBurnStatus(project),response);assert.deepEqual(requests,[[`/subtitles/projects/${project}/export/burn-status`]]);
+ const routes=fs.readFileSync('server/src/routes/subtitleRoutes.ts','utf8');assert.match(routes,/router\.get\('\/projects\/:id\/export\/burn-status', requireAuth, asyncHandler\(SubtitleController\.getBurnStatus\)\)/);
+});

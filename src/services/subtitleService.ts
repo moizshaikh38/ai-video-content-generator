@@ -127,7 +127,7 @@ export class SubtitleService {
     return backendRequest<{
       status: string;
       burnStatus: BurnStatusResponse;
-    }>(`/subtitles/projects/${projectId}/export/burn/status`);
+    }>(`/subtitles/projects/${projectId}/export/burn-status`);
   }
 
   /**
