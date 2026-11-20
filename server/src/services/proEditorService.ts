@@ -1,3 +1,4 @@
+import {automaticHeadlineText} from '../shared/autoHookTitle.js';
 import {normalizeHookTiming,hookProjectExportIssue} from '../shared/hookDisplayMode.js';
 import {pinnedHttpsAssetFetch} from '../utils/pinnedHttpsAssetFetch.js';
 import {editorCachePath} from '../utils/editorCachePath.js';
@@ -2551,12 +2552,9 @@ export class ProEditorService {
     // Auto-headline parity: the legacy render burns clip.title as a timed headline
     // (ClipRenderService.buildHeadlineSpec) whenever overlay_config is unset. Mirror it
     // as an editable text item so the studio preview shows what export will burn.
-    const autoHeadlineText =
-      !hookText && clip.overlay_config?.enabled === undefined && !clip.overlay_config?.text && clip.title
-        ? String(clip.title).replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()
-        : null;
+    const autoHeadlineText = !hookText ? automaticHeadlineText(clip) : null;
     if (!hookText && autoHeadlineText) {
-      const capped = autoHeadlineText.length > 60 ? autoHeadlineText.slice(0, 57).trimEnd() + '...' : autoHeadlineText;
+      const capped = clip.auto_hook_title_enabled===true ? autoHeadlineText : autoHeadlineText.length > 60 ? autoHeadlineText.slice(0, 57).trimEnd() + '...' : autoHeadlineText;
       let headLines = [capped];
       if (capped.length > 26) {
         const words = capped.split(' ');

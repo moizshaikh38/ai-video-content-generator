@@ -1,3 +1,4 @@
+import {effectiveClipDurationBounds} from '../shared/clipDurationPreferences.js';
 import {selectionContextIdentity} from '../shared/selectionContextIdentity.js';
 import {groundWindowClipProposals} from '../shared/groundWindowClipProposals.js';
 import {shortFallbackCompleteEnd} from '../shared/shortFallbackCompleteEnd.js';
@@ -765,8 +766,7 @@ export class ClipAnalysisService {
       // Match the existing duration acceptance bar before paying for analysis.
       // Do not silently lower it when the selected source/profile cannot fit.
       const measuredSourceDuration = Number(transcript.duration_seconds);
-      const minimumAcceptedDuration = measuredSourceDuration > 0 && measuredSourceDuration < 15
-        ? 2 : Math.max(15, genreProfile.targetDuration.min);
+      const minimumAcceptedDuration = effectiveClipDurationBounds(genreProfile.targetDuration,measuredSourceDuration).min;
       if (Number.isFinite(measuredSourceDuration) && measuredSourceDuration > 0 && measuredSourceDuration < minimumAcceptedDuration) {
         const tooShort: any = new Error(`This source is shorter than the ${minimumAcceptedDuration}-second minimum for the current clip settings. Choose a longer source or change the clip settings before analyzing again.`);
         tooShort.code = 'SOURCE_TOO_SHORT_FOR_CLIP_SETTINGS';
@@ -1015,8 +1015,7 @@ export class ClipAnalysisService {
 
         // Phase 1: Word-boundary snapping (preventing clips from cutting mid-word)
         const isShortVideo = Boolean(transcript.duration_seconds && transcript.duration_seconds < 15);
-        const minDurationLimit = isShortVideo ? 2.0 : Math.max(15.0, genreProfile.targetDuration.min);
-        const maxDurationLimit = isShortVideo ? 90.0 : Math.min(90.0, genreProfile.targetDuration.max);
+        const {min:minDurationLimit,max:maxDurationLimit} = effectiveClipDurationBounds(genreProfile.targetDuration,transcript.duration_seconds);
 
         const wordSnapped = ClipAnalysisService.refineWordBoundaries({
           start_seconds: scored.start_seconds,
@@ -1040,7 +1039,7 @@ export class ClipAnalysisService {
           silenceIntervals: (multimodalTimeline?.silence_intervals || []),
           faceIntervals: (multimodalTimeline?.face_intervals || []),
           totalVideoDuration: transcript.duration_seconds || 120,
-          targetDuration: { min: minDurationLimit, max: maxDurationLimit, optimal: 30 },
+          targetDuration: { min: minDurationLimit, max: maxDurationLimit, optimal: genreProfile.targetDuration.optimal },
           preferShotCutAlignment: true,
         });
 

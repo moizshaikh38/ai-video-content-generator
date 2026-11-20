@@ -1,3 +1,4 @@
+import {effectiveClipDurationBounds} from '../shared/clipDurationPreferences.js';
 import {
   TranscriptSegment,
   CreatorProfileData,
@@ -241,8 +242,7 @@ export class ClipPromptService {
       }
     }
 
-    const minDur = durationSeconds && durationSeconds < 15 ? 2 : Math.max(15, genreProfile.targetDuration.min);
-    const maxDur = durationSeconds && durationSeconds < 15 ? Math.round(durationSeconds) : Math.min(90, genreProfile.targetDuration.max);
+    const {min:minDur,max:maxDur}=effectiveClipDurationBounds(genreProfile.targetDuration,durationSeconds);
 
     const firstAvailableIndex = startIndexOffset || 0;
     const lastAvailableIndex = firstAvailableIndex + Math.max(0, segments.length - 1);

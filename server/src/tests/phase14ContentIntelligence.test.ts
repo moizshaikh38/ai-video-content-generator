@@ -378,7 +378,7 @@ describe('Phase 4: AI Content Quality + Clip Intelligence Tests', () => {
       });
 
       assert.match(prompt, /This video is short \(~10s\)/);
-      assert.match(prompt, /Clips may span between 2 seconds and 10 seconds/);
+      assert.match(prompt, /Clips may span between 2 seconds and 9\.8 seconds/);
     });
   });
 

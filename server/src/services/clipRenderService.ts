@@ -1,3 +1,4 @@
+import {automaticHeadlineText} from '../shared/autoHookTitle.js';
 import {BurnedSubtitleService} from './burnedSubtitleService.js';
 import {supervisedExecFile} from './queue/supervisedExecFile.js';
 import {renewRenderLeaseForCv} from './queue/renderLeaseClaim.js';
@@ -927,7 +928,7 @@ export class ClipRenderService {
           ? windowKeyframes.reduce((acc: number, k: any) => acc + k.centerY, 0) / windowKeyframes.length
           : undefined;
         const canvasH = clip.aspect_ratio === '16:9' || clip.aspect_ratio === '1:1' ? 1080 : 1920;
-        const placement = ClipRenderService.resolveHeadlinePlacement({
+        const placement = clip.auto_hook_title_enabled===true ? {yBase:150,zone:'top',reason:'configure_auto_hook_top'} : ClipRenderService.resolveHeadlinePlacement({
           captionPosition: (clip.caption_position as any) || 'bottom',
           canvasHeight: canvasH,
           faceCenterY01,
@@ -1518,14 +1519,11 @@ export class ClipRenderService {
   }
 
   public static buildHeadlineSpec(
-    clip: Pick<ClipRecord, 'title' | 'overlay_config'>
+    clip: Pick<ClipRecord, 'title' | 'overlay_config' | 'auto_hook_title_enabled' | 'auto_hook_title_text'>
   ): { text: string; fontSize: number; durationSec: number } | null {
-    const autoHeadline =
-      clip.overlay_config?.enabled === undefined && !clip.overlay_config?.text && !!clip.title;
-    if (!autoHeadline) return null;
-    const stripped = String(clip.title).replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const stripped = automaticHeadlineText(clip);
     if (!stripped) return null;
-    const capped = stripped.length > 60 ? stripped.slice(0, 57).trimEnd() + '...' : stripped;
+    const capped = clip.auto_hook_title_enabled===true ? stripped : stripped.length > 60 ? stripped.slice(0, 57).trimEnd() + '...' : stripped;
     // Two-line wrap at a word boundary near the midpoint; single line when
     // short. Rendered via drawtext textfile so user text (apostrophes,
     // percent, backslashes, unicode) is preserved byte-for-byte.

@@ -378,7 +378,8 @@ export interface ClipPreferences {
   suggestedGenre?: ContentGenre;
   genreConfidence?: number;
   contentGoal: ContentGoal;
-  preferredDurations: 'auto' | '15-30' | '30-60' | '60-90';
+  preferredDurations: import('../shared/clipDurationPreferences.js').ClipDurationPreference;
+  autoHookTitle?: boolean;
   aspectRatio: ClipAspectRatio;
   topicKeywords?: string[];
   customInstructions?: string;
@@ -538,6 +539,8 @@ export interface RenderJobRecord {
 }
 
 export interface ClipRecord {
+  auto_hook_title_enabled?: boolean;
+  auto_hook_title_text?: string | null;
   id: string;
   project_id: string;
   candidate_id?: string | null;

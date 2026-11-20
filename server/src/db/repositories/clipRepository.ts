@@ -1,3 +1,4 @@
+import {candidateAutoHookTitle} from '../../shared/autoHookTitle.js';
 import {ensureRenderQuotaFence,assertTransactionalRenderQuota,type RenderQuotaPolicy} from './renderQuotaRepository.js';
 import {editorRenderSnapshot} from '../../shared/editorRenderSnapshot.js';
 import {assertPanelViewsAssigned} from '../../shared/panelLayouts.js';
@@ -59,6 +60,7 @@ export async function readCandidateCreationTemplate(db:Db, session:ClientSession
         // Carried for the automatic render headline (Opus-parity): burned at
         // render time unless an explicit overlay config opts out.
         title: (candidate as any)?.title || null,
+        ...candidateAutoHookTitle(project.clip_preferences,candidate),
         ...(freshCandidateOverlay(candidateMeta)?{overlay_config:freshCandidateOverlay(candidateMeta)}:{}),
         cold_open: coldOpen,
         selection_source_receipt: candidateMeta.selection_source_receipt,

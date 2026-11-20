@@ -1,3 +1,4 @@
+import {normalizeDurationPreference,configuredDurationTarget,type ClipDurationPreference} from '../shared/clipDurationPreferences.js';
 import {normalizeAutomaticLayoutPolicy} from '../shared/automaticLayoutPolicy.js';
 import {normalizeFramingDefaults} from '../shared/newProjectFraming.js';
 import {normalizeSourceLanguage} from './transcription/transcriptQuality.js';
@@ -831,7 +832,7 @@ export class GenreIntelligenceService {
     legacyNotes?: string | null
   ): ClipPreferences {
     let parsedAspect: ClipAspectRatio = '9:16';
-    let parsedDuration: 'auto' | '15-30' | '30-60' | '60-90' = 'auto';
+    let parsedDuration: ClipDurationPreference = 'auto';
     let parsedGenre: ContentGenre | undefined = undefined;
     let parsedGoal: ContentGoal | undefined = undefined;
     let parsedTopics: string[] | undefined = undefined;
@@ -846,7 +847,7 @@ export class GenreIntelligenceService {
       const durMatch = legacyNotes.match(/\[Duration:\s*([^\]]+)\]/i);
       if (durMatch) {
         const cleanDur = durMatch[1].trim().replace(/s$/i, '');
-        if (['auto', '15-30', '30-60', '60-90'].includes(cleanDur)) {
+        if (['auto','0-30','15-30','30-60','60-90','60-120','120-180'].includes(cleanDur)) {
           parsedDuration = cleanDur as any;
         } else if (cleanDur.includes('15') || cleanDur.includes('30')) {
           parsedDuration = '15-30';
@@ -918,7 +919,8 @@ export class GenreIntelligenceService {
       suggestedGenre: input?.suggestedGenre,
       genreConfidence: input?.genreConfidence,
       contentGoal: resolvedGoal,
-      preferredDurations: input?.preferredDurations || parsedDuration,
+      preferredDurations: normalizeDurationPreference(input?.preferredDurations ?? parsedDuration),
+      autoHookTitle: input?.autoHookTitle === true,
       aspectRatio: input?.aspectRatio || parsedAspect,
       topicKeywords: Array.isArray(input?.topicKeywords)
         ? input.topicKeywords
@@ -964,14 +966,7 @@ export class GenreIntelligenceService {
     const genreProfile = this.getGenreProfile(normalized.genre);
 
     // 1. Target Duration resolution
-    let targetDuration = { ...genreProfile.targetDuration };
-    if (normalized.preferredDurations === '15-30') {
-      targetDuration = { min: 15, max: 30, optimal: 24 };
-    } else if (normalized.preferredDurations === '30-60') {
-      targetDuration = { min: 30, max: 60, optimal: 45 };
-    } else if (normalized.preferredDurations === '60-90') {
-      targetDuration = { min: 60, max: 90, optimal: 75 };
-    }
+    const targetDuration = configuredDurationTarget(normalized.preferredDurations,genreProfile.targetDuration);
 
     // 2. Caption Style precedence: Explicit Override > User Preference > Creator Profile > Genre Profile
     let captionStyle: CaptionStyle = genreProfile.producerDefaults.captionStyle;
