@@ -18,3 +18,32 @@ test('Quick resolver consumes full-source safety plan for both nonportrait canva
   }
  }finally{S.getReframeTrack=original;}
 });
+
+
+test('malformed retained whole-source Fit rows decline eligibility without crashing preview or export routing',()=>{
+ for(const aspect of ['1:1','16:9']){
+  for(const value of [null,undefined,false,0,'fit',[]]){
+   assert.doesNotThrow(()=>eligible([value] as any,aspect));
+   assert.equal(eligible([value] as any,aspect),false);
+   assert.equal(eligible([{...plan()[0],keyframes:[value]}] as any,aspect),false);
+   assert.equal(eligible([...plan(),value] as any,aspect),false);
+  }
+  assert.equal(eligible(plan(),aspect),true);
+ }
+});
+
+
+test('Quick export decision falls back rather than throwing for malformed explicit Fit rows',async()=>{
+ const {SmartReframeService:S}=await import('../services/smartReframeService.js');
+ const {ClipRenderService:C}=await import('../services/clipRenderService.js');
+ const get=S.getReframeTrack,resolve=S.explicitAutoLayoutPlan;
+ try{
+  S.getReframeTrack=async()=>({...track(),dominant_track_id:'solo',detected_face_count:1}) as any;
+  for(const aspect_ratio of ['1:1','16:9'])for(const malformed of [[null],[{...plan()[0],keyframes:[null]}]]){
+   S.explicitAutoLayoutPlan=(()=>malformed) as any;
+   const d=await C.resolveReframeDecision({id:'fixture',user_id:'fixture',aspect_ratio,crop_config:{mode:'smart',layout_mode_source:'auto'}} as any,4,2/3);
+   assert.notEqual(d.metadata?.reason,'automatic_full_source_fit');
+   assert.equal(typeof d.cropFilter,'string');
+  }
+ }finally{S.getReframeTrack=get;S.explicitAutoLayoutPlan=resolve;}
+});

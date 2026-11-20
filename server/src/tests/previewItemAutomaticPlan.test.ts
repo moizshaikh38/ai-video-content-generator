@@ -19,3 +19,16 @@ test('optional Mongo-null policy matches absent measured plan configuration',()=
 
 test('expanded Three proposals are manual-only opt-in; protected automatic shots remain identical',()=>{const f=fixture();const t=f.ctx.track;t.raw_samples=Array.from({length:20},(_,i)=>({time:i*.3,faces:[.2,.45,.7].map((x,j)=>({x,y:.2,width:.05,height:.08,center_x:x+.025,center_y:.24,confidence:.98,track_id:'p'+j})),persons:[.2,.45,.7].map(x=>({x:x-.025,y:.18,width:.1,height:.35,confidence:.9}))}));Object.assign(t.metadata,{conversation_split_candidate:true,shot_composition_window_scope:'shot'});const o=shotPlanOptions({track:t,duration:6});const make=()=>createPreviewMeasuredEnvelope(f.clip,t,o,q=>S.computeShotComposition(q))!;const base=make();assert.equal(base.manualParticipantReview,undefined);t.metadata.participant_manual_review='expanded-three-v1';const review=make();assert.deepEqual(review.shots,base.shots);assert.equal(review.manualParticipantReview?.length,1);assert.equal(review.manualParticipantReview?.[0].panels.layout,'three');for(const change of[()=>t.sourceObjectVerified=false,()=>t.metadata.analyzed_source_sha256='unknown']){change();assert.equal(make(),null);}});
 test('manual Three proposals respect protected context, policy and review marker',()=>{for(const mode of['protected','policy','object','wrong-marker']){const f=fixture(),t=f.ctx.track;t.raw_samples=Array.from({length:20},(_,i)=>({time:i*.3,faces:[.2,.45,.7].map((x,j)=>({x,y:.2,width:.05,height:.08,center_x:x+.025,center_y:.24,confidence:.98,track_id:'p'+j})),persons:[.2,.45,.7].map(x=>({x:x-.025,y:.18,width:.1,height:.35,confidence:.9}))}));Object.assign(t.metadata,{participant_manual_review:mode==='wrong-marker'?'unknown':'expanded-three-v1',conversation_split_candidate:true,shot_composition_window_scope:'shot',...(mode==='protected'?{protected_content_regions:[{start:0,end:6,x:0,y:0,width:1,height:1,confidence:.99}]}:{})});const o=shotPlanOptions({track:t,duration:6,layoutPolicy:mode==='policy'?{defaultLayout:'fit',allowed:['fit']}:undefined});if(mode==='object')o.rawSamples=o.rawSamples?.map(s=>({...s,objects:[{x:.1,y:.1,width:.2,height:.2,confidence:.99,class_id:67}]}));const e=createPreviewMeasuredEnvelope(f.clip,t,o,q=>S.computeShotComposition(q));assert.equal(e?.manualParticipantReview?.length||0,0,mode);}});
+
+test('malformed persisted shot or keyframe rows decline preview reuse without throwing or changing the envelope',()=>{
+ for(const value of [null,undefined,false,0,'keyframe',[]]){
+  const f=fixture(),bad=structuredClone(f.envelope);bad.shots[0].keyframes=[value] as any;
+  const before=JSON.stringify(bad);
+  assert.doesNotThrow(()=>resolvePreviewItemPlan(f.item,bad,f.current));
+  assert.equal(resolvePreviewItemPlan(f.item,bad,f.current).status,'unavailable');
+  assert.equal(JSON.stringify(bad),before);
+  const malformed=structuredClone(f.envelope);malformed.shots=[value] as any;
+  assert.doesNotThrow(()=>resolvePreviewItemPlan(f.item,malformed,f.current));
+  assert.equal(resolvePreviewItemPlan(f.item,malformed,f.current).status,'unavailable');
+ }
+});
