@@ -244,6 +244,11 @@ export class ClipPromptService {
     const minDur = durationSeconds && durationSeconds < 15 ? 2 : Math.max(15, genreProfile.targetDuration.min);
     const maxDur = durationSeconds && durationSeconds < 15 ? Math.round(durationSeconds) : Math.min(90, genreProfile.targetDuration.max);
 
+    const firstAvailableIndex = startIndexOffset || 0;
+    const lastAvailableIndex = firstAvailableIndex + Math.max(0, segments.length - 1);
+    const proposalLimit = Math.min(10, segments.length * (segments.length + 1) / 2);
+    if (!segments.length) return 'No transcript segments are available. Return {"clips":[]}.';
+
     return [
       genreContext,
       goalContext,
@@ -256,7 +261,9 @@ export class ClipPromptService {
       '---',
       '',
       'TASK:',
-      `Analyze the transcript segments above and identify 5 to 10 of the strongest standalone short-form clip opportunities for ${genreProfile.displayName}.`,
+      `Analyze the transcript segments above and return up to ${proposalLimit} distinct, source-grounded standalone short-form clip opportunities for ${genreProfile.displayName}.`,
+      '- There is no minimum count. Return {"clips":[]} when no span meets the grounding, duration, opening and ending rules. Never invent, duplicate or pad proposals to fill a quota.',
+      segments.length ? `- Available segment indexes are ${firstAvailableIndex} through ${lastAvailableIndex}, inclusive. Use only these indexes. A single-segment input can support at most one distinct segment-index span.` : '- No transcript segments are available. Return {"clips":[]}.',
       '',
       'DURATION CONSTRAINTS:',
       durationSeconds && durationSeconds < 15
@@ -284,13 +291,13 @@ export class ClipPromptService {
       '- platform_score: How naturally this fits short-form feeds (Shorts/Reels/TikTok) (0–100)',
       '',
       'RESPONSE FORMAT:',
-      'Respond ONLY with a JSON object matching this schema:',
+      'Respond ONLY with a JSON object matching this schema. Example indexes show available bounds, not a recommendation to select the full source. Apply every duration and story-quality rule before proposing a span:',
       '{',
       '  "clips": [',
       '    {',
-      '      "start_segment_index": 12,',
-      '      "end_segment_index": 21,',
-      '      "cold_open_segment_index": 20,',
+      `      "start_segment_index": ${firstAvailableIndex},`,
+      `      "end_segment_index": ${lastAvailableIndex},`,
+      '      "cold_open_segment_index": null,',
       '      "title": "A concise, engaging clip title (under 60 chars)",',
       '      "hook": "The captivating opening line or angle of the clip",',
       '      "reason": "Brief explanation of why this moment will succeed on short-form feeds",',
