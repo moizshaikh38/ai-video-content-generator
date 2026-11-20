@@ -1,3 +1,4 @@
+import {nonPortraitAutoFullSourceFit} from './nonPortraitAutoFit.js';
 import {automaticFitBottomBoundary} from './automaticFitGeometry.js';
 import {expandSceneLayoutProject} from './sceneLayoutOverrides.js';
 import {normalizePanels,panelTargetRects} from './panelLayouts.js';
@@ -18,7 +19,8 @@ export interface CaptionLayoutWindow {itemId:string;start:number;end:number;layo
 /** Derived only from the picture composition plan. No persisted layout writes.
  * Plan clocks are clip-relative; item clocks include trim, speed and timeline edits. */
 export function captionCompositionWindows(project:any,plan:any[],clipStart:number,sourceW:number,sourceH:number):CaptionLayoutWindow[]{
- if(project?.canvas?.aspect_ratio!=='9:16'||![clipStart,sourceW,sourceH].every(Number.isFinite)||sourceW<=0||sourceH<=0)return [];
+ if((project?.canvas?.aspect_ratio!=='9:16'&&!nonPortraitAutoFullSourceFit(plan,project?.canvas?.aspect_ratio))||![clipStart,sourceW,sourceH].every(Number.isFinite)||sourceW<=0||sourceH<=0)return [];
+ const outputAspect=project.canvas.aspect_ratio==='1:1'?1:project.canvas.aspect_ratio==='16:9'?16/9:9/16;
  const items=expandSceneLayoutProject(project).tracks?.find((t:any)=>t.type==='VIDEO'&&!t.hidden)?.items||[];
  return items.flatMap((i:any)=>{
   if(i.hidden||i.is_title_card||i.is_freeze||i.crop||i.panels||i.framing_window||i.tracker?.enabled||i.crop_config?.layout_mode_source==='user')return [];
@@ -28,8 +30,8 @@ export function captionCompositionWindows(project:any,plan:any[],clipStart:numbe
    if(![s.start,s.end,s.windowW,s.windowH].every(Number.isFinite)||s.end<=s.start||s.windowW<=0||s.windowH<=0)return [];
    const a=Math.max(i.source_start,s.start+clipStart),z=Math.min(i.source_end,s.end+clipStart);if(z<=a)return [];
    const start=Math.max(i.timeline_start,i.timeline_start+(a-i.source_start)/speed),end=Math.min(i.timeline_end,i.timeline_start+(z-i.source_start)/speed);
-   const layout:CaptionSceneLayout=s.split?.focusPanels?.layout==='gameplay'?'panel_gameplay':s.split?'split':Math.abs(s.windowW*sourceW/(s.windowH*sourceH)-9/16)<.01?'fill':'fit';
-   return end>start?[{itemId:i.id,start,end,layout,...(layout==='panel_gameplay'?{anchorY:panelTargetRects(s.split.focusPanels)[0].h}:layout==='fit'?{anchorY:fitPictureBoundaryAnchor(s.windowW*sourceW/(s.windowH*sourceH))}:{})}]:[];
+   const layout:CaptionSceneLayout=s.split?.focusPanels?.layout==='gameplay'?'panel_gameplay':s.split?'split':Math.abs(s.windowW*sourceW/(s.windowH*sourceH)-outputAspect)<.01?'fill':'fit';
+   return end>start?[{itemId:i.id,start,end,layout,...(layout==='panel_gameplay'?{anchorY:panelTargetRects(s.split.focusPanels)[0].h}:layout==='fit'?{anchorY:outputAspect===9/16?fitPictureBoundaryAnchor(s.windowW*sourceW/(s.windowH*sourceH)):Math.min(.92,(1+Math.min(1,outputAspect/(s.windowW*sourceW/(s.windowH*sourceH))))/2)}:{})}]:[];
   });
  });
 }
@@ -115,5 +117,5 @@ export function applySceneCaptionPlacement<T extends {start:number;end:number;te
 }
 
 /** Quick-render uses its actual picture plan, without creating a saved editor. */
-export function quickCaptionProject(duration:number){return {canvas:{aspect_ratio:'9:16',duration},tracks:[{type:'VIDEO',items:[{id:'quick-source',source_start:0,source_end:duration,timeline_start:0,timeline_end:duration}]}]};}
-export function quickCaptionWindows(plan:any[],duration:number,w:number,h:number){return captionCompositionWindows(quickCaptionProject(duration),plan,0,w,h);}
+export function quickCaptionProject(duration:number,aspect='9:16'){return {canvas:{aspect_ratio:aspect,duration},tracks:[{type:'VIDEO',items:[{id:'quick-source',source_start:0,source_end:duration,timeline_start:0,timeline_end:duration}]}]};}
+export function quickCaptionWindows(plan:any[],duration:number,w:number,h:number,aspect='9:16'){return captionCompositionWindows(quickCaptionProject(duration,aspect),plan,0,w,h);}

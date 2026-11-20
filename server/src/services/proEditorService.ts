@@ -1,3 +1,4 @@
+import {nonPortraitAutoFullSourceFit} from '../shared/nonPortraitAutoFit.js';
 import {fitFreshAutoHook} from '../shared/freshAutoHookFit.js';
 import {automaticHeadlineText} from '../shared/autoHookTitle.js';
 import {normalizeHookTiming,hookProjectExportIssue,applyHookPreset} from '../shared/hookDisplayMode.js';
@@ -977,6 +978,7 @@ export class ProEditorService {
       // failed permanently until this).
       const layoutTag = 'vc' + crypto.createHash('sha256').update(String(item.id || 'x')).digest('hex').slice(0, 16);
       const explicitAuto=SmartReframeService.explicitAutoLayoutPlan(track,itemCfg,Number(track.metadata?.clip_duration)||sliceDuration);
+      if(nonPortraitAutoFullSourceFit(explicitAuto,ratio))return buildBackdropFitChain(ratio,1,{kind:'blur'},layoutTag,cs);
       const legacyFit=explicitAuto||(!userItemLayout?legacyFit43Plan(track,Number(track.metadata?.clip_duration)||sliceDuration,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)):undefined);
       if(legacyFit&&ratio==='9:16')return SmartReframeService.buildShotCompositionFilter({plan:freezeAutomaticPlan(legacyFit,item.automatic_framing,reframe?.clipStartSec||0),start:sliceWindowStartClipRel,duration:sliceDuration,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,tag:layoutTag,canvasScale:cs});
       const legacyFallback=!userItemLayout ? legacyPolicyFallback(item.crop_config?.layoutPolicy||reframe?.cropConfig?.layoutPolicy,track,Number(track.metadata?.clip_duration)||sliceDuration) : undefined;
@@ -1262,7 +1264,7 @@ export class ProEditorService {
    * Legacy fallback remains unchanged; no claim of a full legacy-layout rewrite. */
   public static captionSceneWindows(project:EditorProject,reframe:ProReframeContext):CaptionLayoutWindow[]{
     const track=reframe.track;
-    if(project.canvas.aspect_ratio!=='9:16'||reframe.mode!=='smart'||!track||track.isStale||!track.smoothed_keyframes?.length)return [];
+    if(reframe.mode!=='smart'||!track||track.isStale||!track.smoothed_keyframes?.length)return [];
     const expanded=expandSceneLayoutProject(project);
     const items=expanded.tracks.find(t=>t.type==='VIDEO'&&!t.hidden)?.items||[];
     return items.flatMap(item=>{
@@ -1272,6 +1274,7 @@ export class ProEditorService {
       const duration=Number(track.metadata?.clip_duration)||project.canvas.duration;
       const ordinary=SmartReframeService.explicitAutoLayoutPlan(track,item.crop_config,duration)||
         (item.crop_config?.layout_mode_source!=='user'?legacyFit43Plan(track,duration,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)):undefined);
+      if(project.canvas.aspect_ratio!=='9:16'&&!nonPortraitAutoFullSourceFit(ordinary,project.canvas.aspect_ratio))return [];
       if(ordinary)return captionCompositionWindows(one,ordinary,reframe.clipStartSec||0,track.source_width||1920,track.source_height||1080);
       if(track.metadata?.shot_composition_candidate!==true)return [];
       const layout=item.crop_config?.layout_mode_source==='user'?item.layout_mode:reframe.layoutMode;
