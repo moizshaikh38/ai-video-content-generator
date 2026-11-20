@@ -13,7 +13,7 @@ import { applyLayoutAtSourceTime, applyWholeClipLayout, readItemLayout, applyFra
 import { applyPlanSceneToProject, FRAMING_WINDOW_PREVIEW_PARITY, type PlanShot } from '../../../server/src/shared/framingWindow';
 import { SceneLayoutGrid } from './SceneLayoutMenu';
 import { captionLegacyColorDefaults } from '../../lib/captionPresets';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useJournalIssue } from '../../lib/editorJournal';
 import {
@@ -302,6 +302,35 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   // Refusal feedback for canvas turn-off controls: shown in normal flow above the canvas (the transcript notice area is collapsed on phones).
   const [lockNotice, setLockNotice] = useState<string | null>(null);
   const journalIssue = useJournalIssue(project);
+  const saveStatusRef = useRef(saveStatus); saveStatusRef.current = saveStatus;
+  // Back to project: wait for the project save and clip sync to finish. If saving failed, ask before discarding.
+  // Single-flight, and cancelled when this editor unmounts or the clip changes, so a stale wait can never prompt or navigate elsewhere.
+  const backBusyRef = useRef(false);
+  const backTokenRef = useRef(0);
+  useEffect(() => () => { backTokenRef.current += 1; backBusyRef.current = false; }, [clip.id]);
+  const guardedBack = useCallback(async () => {
+    if (backBusyRef.current) return;
+    backBusyRef.current = true;
+    const token = backTokenRef.current;
+    const alive = () => backTokenRef.current === token;
+    const go = () => { if (alive()) navigate(`/projects/${clip.project_id}`); };
+    try {
+      for (let i = 0; i < 30; i++) {
+        if (!alive()) return;
+        const st = saveStatusRef.current;
+        if (st === 'saved') { go(); return; }
+        if (st === 'error') {
+          if (window.confirm('Your latest changes could not be saved. Leave anyway and discard them?')) go();
+          return;
+        }
+        if (st === 'dirty') { void onSaveNow(); }
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      if (alive() && window.confirm('Saving is taking longer than expected. Leave anyway?')) go();
+    } finally {
+      if (alive()) backBusyRef.current = false;
+    }
+  }, [navigate, clip.project_id, clip.id, onSaveNow]);
   useEffect(() => { if (!lockNotice) return; const t = window.setTimeout(() => setLockNotice(null), 7000); return () => window.clearTimeout(t); }, [lockNotice]);
   const hookPositionReview = React.useMemo(() => reviewHookCanvasPosition(project as any), [project]);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
@@ -1555,7 +1584,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         onUpdateTitle={(newTitle) => {
           onUpdateProject((prev) => ({ ...prev, title: newTitle }));
         }}
-        onBack={() => navigate(`/projects/${clip.project_id}`)}
+        onBack={guardedBack}
         saveStatus={saveStatus}
         saveError={saveError}
         onSaveNow={onSaveNow}

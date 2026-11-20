@@ -326,6 +326,14 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   } | null>(null);
   const preCropProjectRef = useRef<EditorProject | null>(null);
   const suppressClickAfterCropDragRef = useRef<boolean>(false);
+  const suppressClickAfterCaptionTapRef = useRef<boolean>(false);
+  const isCoarsePointer = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+
+  useEffect(() => {
+    const clearSuppress = () => { suppressClickAfterCaptionTapRef.current = false; };
+    window.addEventListener('pointerdown', clearSuppress, true);
+    return () => window.removeEventListener('pointerdown', clearSuppress, true);
+  }, []);
   // Wheel zoom: transient crop.scale changes while scrolling, one history
   // entry committed after the wheel goes idle.
   const cropZoomCommitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1051,10 +1059,35 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     );
   };
 
+  // A no-movement pointer release on the caption is a selection tap. Touch needs
+  // this because pointer capture suppresses the synthesized click; on mouse it
+  // just repeats what the click does. Cancels and releases that land on an inner
+  // control (like Turn off captions) are not selection taps.
+  const selectCaptionOnTap = (e: React.PointerEvent) => {
+    if (e.type === 'pointercancel') return;
+    if ((e.target as HTMLElement).closest('button')) return;
+    if (!captionItem) return;
+    if (e.pointerType === 'touch') {
+      // The trailing click of this gesture may be retargeted to the backdrop or
+      // video; let only that click through without deselecting. The flag lives
+      // until the next pointerdown anywhere: a gesture's trailing click always
+      // lands before the next gesture starts, so an unrelated quick tap can
+      // never have its own click swallowed.
+      suppressClickAfterCaptionTapRef.current = true;
+    }
+    onSelectItem(captionItem.id);
+  };
+
   const handleCaptionPointerUp = (e: React.PointerEvent) => {
+    if (!isDraggingCaption) {
+      selectCaptionOnTap(e);
+      return;
+    }
     if (isDraggingCaption) {
+      let captionMoved = false;
       if (preTransformProjectRef.current) {
         const hasChanged = JSON.stringify(preTransformProjectRef.current.tracks) !== JSON.stringify(projectRef.current.tracks);
+        captionMoved = hasChanged;
         if (hasChanged && onCommitProject) {
           onCommitProject(preTransformProjectRef.current);
         }
@@ -1068,6 +1101,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       try {
         (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
       } catch {}
+      if (!captionMoved) selectCaptionOnTap(e);
     }
   };
 
@@ -1487,7 +1521,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             transform: `scale(${fitScale})`,
             transformOrigin: 'top left',
           }}
-          onClick={() => onSelectItem(null)}
+          onClick={() => { if (suppressClickAfterCaptionTapRef.current) { suppressClickAfterCaptionTapRef.current = false; return; } onSelectItem(null); }}
           className="relative overflow-hidden flex items-center justify-center"
         >
           <svg aria-hidden style={{position:'absolute',width:0,height:0,pointerEvents:'none'}}>
@@ -1551,6 +1585,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                   return;
                 }
                 if (selectedItemId) {
+                  if (suppressClickAfterCaptionTapRef.current) { suppressClickAfterCaptionTapRef.current = false; return; }
                   onSelectItem(null);
                   return;
                 }
@@ -1873,9 +1908,21 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                             title="Turn off hook (turn it back on in Hook display)"
                             onClick={(e) => { e.stopPropagation(); onTurnOffHook(item.id); }}
                             onPointerDown={(e) => { e.stopPropagation(); }}
-                            className="absolute -top-3.5 -right-3.5 w-6 h-6 bg-red-600/95 hover:bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg pointer-events-auto max-md:after:content-[''] max-md:after:absolute max-md:after:-inset-[15px]"
+                            className={isCoarsePointer
+                              ? "absolute pointer-events-auto flex items-center justify-center bg-transparent"
+                              : "absolute -top-3.5 -right-3.5 w-6 h-6 bg-red-600/95 hover:bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg pointer-events-auto max-md:after:content-[''] max-md:after:absolute max-md:after:-inset-[15px]"}
+                            style={isCoarsePointer ? { width: 44 / fitScale, height: 44 / fitScale, top: -6 / fitScale, right: -6 / fitScale } : undefined}
                           >
-                            <Trash2 className="w-3 h-3" />
+                            {isCoarsePointer ? (
+                              <span
+                                className="rounded-full bg-red-600/95 text-white flex items-center justify-center shadow-lg"
+                                style={{ width: 26 / fitScale, height: 26 / fitScale }}
+                              >
+                                <Trash2 style={{ width: 14 / fitScale, height: 14 / fitScale }} />
+                              </span>
+                            ) : (
+                              <Trash2 className="w-3 h-3" />
+                            )}
                           </button>
                         )}
                         {/* Scale handle (bottom-right) */}
@@ -2074,6 +2121,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     e.stopPropagation();
                     if (captionItem) onSelectItem(captionItem.id);
                   }}
+                  onTurnOffCaptions={onTurnOffCaptions}
+                  turnOffScale={fitScale}
+                  turnOffCoarse={isCoarsePointer}
                 />
               );
             })()}
@@ -2183,6 +2233,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     // Anchored like the exported ASS (bottom edge at effY for \an2 styles,
                     // center/top for the middle/top unset-position defaults).
                     transform: anchorTransform,
+                    // Lift the selected caption (and its turn-off control) above the
+                    // generic non-text transform-handle box, which otherwise swallows taps.
+                    zIndex: isCaptionSelected ? 30 : undefined,
                   }}
                   data-selectable-item="true"
                   className={`absolute text-center pointer-events-auto select-none touch-none max-w-[88%] transition-opacity ${
@@ -2254,9 +2307,28 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                         title="Turn off captions (turn them back on with Captions On)"
                         onClick={(e) => { e.stopPropagation(); onTurnOffCaptions(); }}
                         onPointerDown={(e) => { e.stopPropagation(); }}
-                        className="absolute -top-4 left-1/2 -translate-x-1/2 w-6 h-6 bg-red-600/95 hover:bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg z-40 pointer-events-auto max-md:after:content-[''] max-md:after:absolute max-md:after:-inset-[15px]"
+                        className={isCoarsePointer
+                          ? "absolute z-40 pointer-events-auto flex items-center justify-center bg-transparent"
+                          : "absolute -top-4 left-1/2 -translate-x-1/2 w-6 h-6 bg-red-600/95 hover:bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg z-40 pointer-events-auto max-md:after:content-[''] max-md:after:absolute max-md:after:-inset-[15px]"}
+                        style={isCoarsePointer ? {
+                          width: 44 / fitScale,
+                          height: 44 / fitScale,
+                          // Corner-attached so the control never covers caption text, and
+                          // flipped below the chip when the caption sits near the canvas top.
+                          right: -10 / fitScale,
+                          ...(effY > 0.28 ? { top: -50 / fitScale } : { bottom: -50 / fitScale }),
+                        } : undefined}
                       >
-                        <Trash2 className="w-3 h-3" />
+                        {isCoarsePointer ? (
+                          <span
+                            className="rounded-full bg-red-600/95 text-white flex items-center justify-center shadow-lg"
+                            style={{ width: 26 / fitScale, height: 26 / fitScale }}
+                          >
+                            <Trash2 style={{ width: 14 / fitScale, height: 14 / fitScale }} />
+                          </span>
+                        ) : (
+                          <Trash2 className="w-3 h-3" />
+                        )}
                       </button>
                     )}
                     {/* Corner handles on legacy caption for font size scaling */}

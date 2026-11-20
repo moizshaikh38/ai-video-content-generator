@@ -1,4 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import { FONT_EM_PER_ASS_SIZE, getCaptionRollingGeometry, getPreviewCss, PreviewFrame, PreviewWord, ResolvedCaptionStyle } from '../../lib/captionPresets';
 
 interface CaptionPresetRendererProps {
@@ -20,6 +21,11 @@ interface CaptionPresetRendererProps {
   onPointerUp?: (e: React.PointerEvent) => void;
   onPointerCancel?: (e: React.PointerEvent) => void;
   onClick?: (e: React.MouseEvent) => void;
+  /** Small-delete control for the selected caption (editor only). */
+  onTurnOffCaptions?: () => void;
+  /** Canvas fit scale: keeps the turn-off hit target at 44 CSS px on coarse pointers. */
+  turnOffScale?: number;
+  turnOffCoarse?: boolean;
 }
 
 
@@ -139,6 +145,9 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
   onPointerUp,
   onPointerCancel,
   onClick,
+  onTurnOffCaptions,
+  turnOffScale,
+  turnOffCoarse,
 }) => {
   if (!frame || frame.words.length === 0) return null;
   const css = getPreviewCss(style, scale);
@@ -163,6 +172,8 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
         ...(frame.chipLayout || frame.rollingRows || frame.movingBoxLayout || style.backdropBand ? {lineHeight:0}:{}),
         ...((frame.chipLayout || frame.rollingRows || frame.movingBoxLayout) && (frame.positionX!==undefined||frame.positionY!==undefined)?{textAlign:'center'}:{}),
         opacity: frame.opacity,
+        // Selected caption must win over the non-text transform-handle box that swallows taps.
+        ...(isSelected && interactive ? { zIndex: 30 } : {}),
         ...(interactive ? { pointerEvents: 'auto' } : {}),
         ...(frame.positionX !== undefined || frame.positionY !== undefined
           ? {
@@ -266,6 +277,48 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
             />
           </>
         )}
+
+        {/* Small-delete control for the selected preset caption. Same placement rules as the
+            legacy caption overlay: corner-attached on coarse pointers so it never covers text,
+            flipped below the words when the caption sits near the canvas top. */}
+        {showResizeHandles && isSelected && !isDragging && onTurnOffCaptions && (() => {
+          // The words wrapper carries the cue motion's per-frame scale/rotate, and this
+          // control sits inside it like the resize handles: include that scale so the hit
+          // target stays 44 CSS px at every animation frame.
+          const s = (turnOffScale || 1) * (frame.stampMotion ? frame.stampMotion.scale : 1);
+          const flipBelow = frame.positionY !== undefined
+            ? frame.positionY < 0.28
+            : style.alignment >= 7 && style.alignment <= 9;
+          return (
+            <button
+              type="button"
+              aria-label="Turn off captions"
+              title="Turn off captions (turn them back on with Captions On)"
+              onClick={(e) => { e.stopPropagation(); onTurnOffCaptions(); }}
+              onPointerDown={(e) => { e.stopPropagation(); }}
+              className={turnOffCoarse
+                ? "absolute z-40 pointer-events-auto flex items-center justify-center bg-transparent"
+                : "absolute -top-4 left-1/2 -translate-x-1/2 w-6 h-6 bg-red-600/95 hover:bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg z-40 pointer-events-auto max-md:after:content-[''] max-md:after:absolute max-md:after:-inset-[15px]"}
+              style={turnOffCoarse ? {
+                width: 44 / s,
+                height: 44 / s,
+                right: -10 / s,
+                ...(flipBelow ? { bottom: -50 / s } : { top: -50 / s }),
+              } : undefined}
+            >
+              {turnOffCoarse ? (
+                <span
+                  className="rounded-full bg-red-600/95 text-white flex items-center justify-center shadow-lg"
+                  style={{ width: 26 / s, height: 26 / s }}
+                >
+                  <Trash2 style={{ width: 14 / s, height: 14 / s }} />
+                </span>
+              ) : (
+                <Trash2 className="w-3 h-3" />
+              )}
+            </button>
+          );
+        })()}
       </div>
     </div>
     </>
