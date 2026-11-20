@@ -1191,6 +1191,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   ]);
 
   const canvasDims = getAspectRatioDimensions();
+  // Short-height landscape phones: allow the canvas to shrink below the desktop floor so it always
+  // fits the stage instead of overflowing behind the framing bar, dock or timeline.
+  const isShortLandscape = typeof window !== 'undefined' && window.matchMedia('(max-height: 600px) and (max-width: 1023.9px)').matches;
   // Background panel spacing/radius: mirrors buildBackdropFitChain (inset box, rounded corners) in export.
   const backdropInset = (() => {
     const mode = primaryVideoCropMode;
@@ -1240,7 +1243,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const baseW = parseFloat(canvasDims.width);
   const baseH = parseFloat(canvasDims.height);
   const fitScale = availSize
-    ? computeCanvasFitScale({ baseW, baseH, availW: availSize.w, availH: availSize.h })
+    ? computeCanvasFitScale({ baseW, baseH, availW: availSize.w, availH: availSize.h, ...(isShortLandscape ? { min: 0.03, pad: 8 } : {}) })
     : 1;
   fitScaleRef.current = fitScale;
   const fitW = Math.round(baseW * fitScale);
