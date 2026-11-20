@@ -2110,6 +2110,8 @@ export interface EditorTextConfig {
   /** Explicit hook display choice; absent means preserve the legacy/manual edit. */
   hook_display_mode?: 'hook_only' | 'hook_captions';
   hook_intro_seconds?: number;
+  /** Caption-catalogue styling link without changing explicit subtitle visibility. */
+  hook_style_linked?: boolean;
   hook_caption_preset?: import('../shared/captionPresets.js').RenderableCaptionPresetId;
 }
 

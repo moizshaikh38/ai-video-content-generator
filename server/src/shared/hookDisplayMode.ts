@@ -21,6 +21,12 @@ export function hookMode(project: Pick<EditorProject, 'tracks'>): HookDisplayMod
   return null;
 }
 
+/** Preset linkage is independent of subtitle visibility. Configure Auto Hook
+ * with captions off still lasts only its opening window, not Hook only mode. */
+export function hookPresetLinked(project: Pick<EditorProject,'tracks'>): boolean {
+  return Boolean(hookMode(project) || projectHook(project)?.text?.hook_style_linked === true);
+}
+
 export function hookModeUnavailable(project: EditorProject): string | null {
   const hook = projectHook(project);
   if (!hook) return 'Add one hook in Hook Lab first. Multiple hook layers must be reduced to one before choosing a mode.';
@@ -92,7 +98,7 @@ export function hookProjectExportIssue(project: EditorProject): string | null {
     if (track.type !== 'TEXT' || track.hidden) continue;
     for (const item of track.items) {
       const text = item.text;
-      if (item.hidden || !text?.auto_headline || !['hook_only', 'hook_captions'].includes(text.hook_display_mode || '')) continue;
+      if (item.hidden || !text?.auto_headline || (!text.hook_style_linked && !['hook_only', 'hook_captions'].includes(text.hook_display_mode || ''))) continue;
       if (typeof text.text !== 'string' || !text.text.trim() || text.text.length > 100) return 'Hook text must contain 1 to 100 characters. Your local edit is kept; shorten it before saving.';
       const size = Math.max(16, Math.round((text.font_size || 36) * height / previewHeight * (item.transform?.scale || 1)));
       if (!Number.isFinite(size) || size <= 0) return 'The hook text size is invalid.';
@@ -108,7 +114,7 @@ export function hookProjectExportIssue(project: EditorProject): string | null {
  * fontEmRatio is the caption font's ASS-to-CSS em ratio from the shared catalogue.
  */
 export function applyHookPreset(project: EditorProject, style: ResolvedCaptionStyle, fontEmRatio: number): EditorProject {
-  if (!hookMode(project)) return project;
+  if (!hookPresetLinked(project)) return project;
   const reason = hookPresetIssue(project, style, fontEmRatio);
   if (reason) throw new Error(reason);
   const hook = projectHook(project)!;

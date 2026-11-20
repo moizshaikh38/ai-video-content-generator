@@ -1,3 +1,5 @@
+import {hookPresetLinked,hookMode,applyHookPreset,hookProjectExportIssue} from '../shared/hookDisplayMode.js';
+import {resolveCaptionPreset,FONT_EM_PER_ASS_SIZE} from '../shared/captionPresets.js';
 import {test}from'node:test';import assert from'node:assert/strict';
 import {GenreIntelligenceService as G}from'../services/genreIntelligenceService.js';
 import {effectiveClipDurationBounds}from'../shared/clipDurationPreferences.js';
@@ -49,5 +51,22 @@ test('new Auto Hook title initialization stays inside each aspect without moving
   title.transform.position_y=42;title.text!.text='My manual edit';
   P.compileRenderGraph(editor,'fixture.mp4','unused.mp4','/tmp',{mode:'manual',aspectRatio:aspect,clipStartSec:0,cropConfig:null,layoutMode:'manual',track:null},'off');
   assert.equal(title.transform.position_y,42);assert.equal(title.text!.text,'My manual edit');
+ }
+});
+
+test('new Configure Auto Hook reuses selected caption preset, retains5s and links later restyling without enabling captions',()=>{
+ for(const captions of [true,false]){
+  const clip:any={id:'fixture',project_id:'fixture',user_id:'fixture',start_seconds:0,end_seconds:20,duration_seconds:20,aspect_ratio:'9:16',title:'Legacy',caption_style:'vireo_comic_default',caption_enabled:captions,auto_hook_title_enabled:true,auto_hook_title_text:'Real candidate hook'};
+  const editor=P.buildInitialCandidateEditor(clip,'fixture',null);
+  const title=editor.tracks.filter(t=>t.type==='TEXT').flatMap(t=>t.items).find(i=>i.text?.auto_headline)!;
+  assert.equal(title.text?.font_family,'Bangers');assert.equal(title.text?.hook_caption_preset,'vireo_comic_default');assert.equal(hookPresetLinked(editor),true);
+  assert.equal(title.timeline_end,5);assert.equal(title.transform.position_y,-249.5);
+  assert.equal(editor.tracks.find(t=>t.type==='CAPTION')?.hidden,!captions);
+  assert.equal(hookMode(editor),captions?'hook_captions':null);
+  const style=resolveCaptionPreset('simple',undefined,'9:16');const changed=applyHookPreset(editor,style,FONT_EM_PER_ASS_SIZE[style.fontFamily]);
+  const after=changed.tracks.filter(t=>t.type==='TEXT').flatMap(t=>t.items).find(i=>i.text?.auto_headline)!;
+  assert.equal(after.text?.hook_caption_preset,'simple');assert.equal(after.timeline_end,5);assert.equal(changed.tracks.find(t=>t.type==='CAPTION')?.hidden,!captions);
+  assert.equal(title.text?.hook_caption_preset,'vireo_comic_default','restyling must not mutate saved input');
+  title.text!.text='a'.repeat(101);assert.match(hookProjectExportIssue(editor)!,/1 to 100/);
  }
 });

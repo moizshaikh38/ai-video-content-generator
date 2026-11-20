@@ -1,5 +1,5 @@
 import {automaticHeadlineText} from '../shared/autoHookTitle.js';
-import {normalizeHookTiming,hookProjectExportIssue} from '../shared/hookDisplayMode.js';
+import {normalizeHookTiming,hookProjectExportIssue,applyHookPreset} from '../shared/hookDisplayMode.js';
 import {pinnedHttpsAssetFetch} from '../utils/pinnedHttpsAssetFetch.js';
 import {editorCachePath} from '../utils/editorCachePath.js';
 import {saveEditorRevision,createEditorRevision} from '../db/repositories/editorRevisionRepository.js';
@@ -9,7 +9,7 @@ import {primaryVisibleVideoItems} from '../shared/primaryVideoItems.js';
 import {usesAutomaticSourceClock,automaticSourceWindow} from '../shared/automaticSourceClock.js';
 import {resolveMeasuredItemPlan} from './itemShotPlanService.js';
 import {freshEditorCaptionAppearance} from '../shared/freshEditorCaptionAppearance.js';
-import {NEW_CAPTION_PRESET_ID} from '../shared/captionPresets.js';
+import {NEW_CAPTION_PRESET_ID,resolveCaptionPreset,FONT_EM_PER_ASS_SIZE} from '../shared/captionPresets.js';
 import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 import {validateAutomaticLayoutCropConfig} from '../shared/automaticLayoutValidation.js';
 import {normalizeEditorCanvasAspect} from '../shared/editorCanvasAspect.js';
@@ -2783,7 +2783,7 @@ export class ProEditorService {
 
     const now = new Date();
 
-    return {
+    const initialized:EditorProject = {
       id: crypto.randomUUID(),
       user_id: userId,
       project_id: clip.project_id,
@@ -2814,5 +2814,19 @@ export class ProEditorService {
       created_at: now,
       updated_at: now,
     };
+    // Configure Auto Hook reuses the existing caption-catalogue adapter. Only a
+    // fresh automatically initialized title is linked, never a manual overlay,
+    // Producer title or saved editor. Preserve the selected preset and geometry.
+    if (clip.auto_hook_title_enabled===true && !hookText && autoHeadlineText) {
+      const hook=initialized.tracks.find(t=>t.type==='TEXT')?.items.find(i=>i.text?.auto_headline);
+      if(hook?.text){
+        hook.text.hook_style_linked=true;
+        if(clip.caption_enabled!==false){hook.text.hook_display_mode='hook_captions';hook.text.hook_intro_seconds=Math.min(5,finalDuration);}
+        const style=resolveCaptionPreset(captionStyle,clip.caption_config?.presetOverrides,aspectRatio);
+        try{return applyHookPreset(initialized,style,FONT_EM_PER_ASS_SIZE[style.fontFamily]);}
+        catch(error){throw new AppError(`Auto Hook cannot use this caption style: ${(error as Error).message} Turn off Auto Hook or choose a supported caption preset.`,409,'HOOK_PRESET_UNAVAILABLE');}
+      }
+    }
+    return initialized;
   }
 }
