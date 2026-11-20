@@ -10,6 +10,7 @@ export const ClipEditorPage: React.FC = () => {
 
   const {
     loading,
+    drainSlow,
     error,
     clip,
     project,
@@ -51,7 +52,7 @@ export const ClipEditorPage: React.FC = () => {
           </div>
           <div className="text-center">
             <h2 className="text-sm font-semibold text-white">Loading VireoClip Studio</h2>
-            <p className="text-xs text-neutral-500 mt-1 font-mono">Synchronizing timeline document...</p>
+            <p className="text-xs text-neutral-500 mt-1 font-mono">{drainSlow ? 'Still saving your last changes. This can take a moment.' : 'Synchronizing timeline document...'}</p>
           </div>
         </div>
       </div>

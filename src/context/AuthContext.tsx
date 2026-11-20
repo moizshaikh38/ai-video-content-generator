@@ -3,6 +3,7 @@ import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { backendRequest } from '../services/backendClient';
 import { projectService } from '../services/projectService';
+import { setCurrentAuthOwner } from '../lib/authOwner';
 
 export interface UserProfile {
   id: string;
@@ -57,6 +58,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [creatorProfile, setCreatorProfile] = useState<CreatorProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  // Publish the signed-in account synchronously with render so detached save chains see an account switch immediately.
+  setCurrentAuthOwner(user?.id);
 
   const fetchProfiles = useCallback(async (userId: string, userEmail: string, token?: string) => {
     if (!isSupabaseConfigured) {

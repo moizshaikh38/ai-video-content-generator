@@ -1,3 +1,6 @@
+import { getCurrentAuthOwner, ownerMismatch } from '../lib/authOwner';
+import { useAuth } from '../context/AuthContext';
+import { waitForDrain } from '../lib/editorSaveCoordinator';
 import {normalizeHookTiming} from '../../server/src/shared/hookDisplayMode';
 import {cueListsEqual} from '../lib/cuePosition';
 import { editorReframeSourceKey } from '../../server/src/shared/editorReframeSourceKey';
@@ -32,6 +35,8 @@ export interface UpdateProjectOptions {
 
 export interface UseEditorProjectReturn {
   loading: boolean;
+  /** True while a previous editor for this clip is still finishing its last save and has taken longer than expected. */
+  drainSlow: boolean;
   error: string | null;
   clip: RenderedClip | null;
   project: EditorProject | null;
@@ -115,6 +120,7 @@ function deriveCaptionCuesFromProject(project: EditorProject): TimedCaptionCue[]
 
 export function useEditorProject(clipId: string | undefined): UseEditorProjectReturn {
   const [loading, setLoading] = useState<boolean>(true);
+  const [drainSlow, setDrainSlow] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const [clip, setClip] = useState<RenderedClip | null>(null);
@@ -126,6 +132,8 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
   const [cues, setCues] = useState<TimedCaptionCue[]>([]);
   const [timingMode, setTimingMode] = useState<string>('segment');
   const loadSequenceRef = useRef(0);
+  const cancelWaitRef = useRef<(() => void) | null>(null);
+  const { user: authUser } = useAuth();
   const localEditSequenceRef = useRef(0);
   const activeClipIdRef = useRef(clipId);
   activeClipIdRef.current = clipId;
@@ -154,9 +162,12 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
 
   const loadData = useCallback(async (options?: { silent?: boolean }) => {
     if (!clipId) return;
+    cancelWaitRef.current?.();
+    const ownerAtStart = getCurrentAuthOwner();
+    if (!ownerAtStart) { setError('Sign in to open this clip.'); setLoading(false); return; }
     const sequence = ++loadSequenceRef.current;
     const editSequence = localEditSequenceRef.current;
-    const isCurrent = () => sequence === loadSequenceRef.current && activeClipIdRef.current === clipId;
+    const isCurrent = () => sequence === loadSequenceRef.current && activeClipIdRef.current === clipId && getCurrentAuthOwner() === ownerAtStart;
     const isSilent = Boolean(options?.silent);
     if (!isSilent) {
       setLoading(true);
@@ -164,6 +175,13 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
     setError(null);
 
     try {
+      // A previous editor for this clip may still be draining its last save: load the live revision only after it settles.
+      // Waits for every drain on this clip (conservative). The coordinator supports owner/project scoping, but the auth user id is not yet proven equal to project.user_id, so it is not used here.
+      const ac = new AbortController();
+      cancelWaitRef.current = () => ac.abort();
+      const drained = await waitForDrain(clipId, () => { if (isCurrent()) setDrainSlow(true); }, 20000, { user: ownerAtStart, signal: ac.signal });
+      if (!drained || !isCurrent()) { setDrainSlow(false); return; }
+      setDrainSlow(false);
       const [editorData, captionData] = await Promise.all([
         clipRenderService.getClipEditorData(clipId),
         clipRenderService.getClipCaptions(clipId).catch(() => ({ timingMode: 'segment', cues: [] })),
@@ -181,6 +199,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
 
       if (!isCurrent() || editSequence !== localEditSequenceRef.current) return;
       if (!proj || proj.clip_id !== clipId) throw new Error('The editor project did not match the requested clip.');
+      if (ownerMismatch(proj.user_id, ownerAtStart) || (c.user_id && ownerMismatch(c.user_id, ownerAtStart))) throw new Error('This clip belongs to a different account.');
       setClip(c);
       const cleanSrc = editorData.cleanSourceUrl || null;
       const renderedSrc = editorData.renderedPreviewUrl || null;
@@ -283,6 +302,27 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
     }
   }, [clipId, resetHistory]);
 
+  // Account change (sign-out or another account): drop everything of the previous account (project, clip, cues, media, history),
+  // invalidate any load still in flight, and cancel a pending wait. Its unsaved drafts stay in scoped storage under its own user id
+  // and are never listed for another account.
+  const loadDataRef = useRef(loadData);
+  loadDataRef.current = loadData;
+  const prevAuthIdRef = useRef<string | undefined>(authUser?.id);
+  useEffect(() => {
+    const id = authUser?.id;
+    const prev = prevAuthIdRef.current;
+    prevAuthIdRef.current = id;
+    if (prev === id) return;
+    loadSequenceRef.current++;
+    if (cancelWaitRef.current) cancelWaitRef.current();
+    setProject(null); setClip(null); setCues([]);
+    setCleanSourceUrl(null); setRenderedPreviewUrl(null); setPreviewUrl(null); setPersistedReframeSourceKey(null);
+    setDrainSlow(false);
+    resetHistory();
+    // Restart the load for the account that is signed in now (it refuses a clip that is not theirs); signed out shows the sign-in message instead of loading forever.
+    if (id) { void loadDataRef.current({}); } else { setError('Sign in to open this clip.'); setLoading(false); }
+  }, [authUser?.id, resetHistory]);
+
   useEffect(() => {
     setClip(null);
     setProject(null);
@@ -292,7 +332,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
     setPreviewUrl(null);
     setPersistedReframeSourceKey(null);
     loadData();
-    return () => { loadSequenceRef.current++; };
+    return () => { loadSequenceRef.current++; cancelWaitRef.current?.(); };
   }, [loadData]);
 
   // The transcript panel and preview caption overlay read a separate `cues`
@@ -846,6 +886,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
 
   return {
     loading,
+    drainSlow,
     error,
     clip,
     project,

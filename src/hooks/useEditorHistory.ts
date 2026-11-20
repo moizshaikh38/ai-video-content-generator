@@ -9,7 +9,7 @@ export interface UseEditorHistoryReturn {
   pushHistory: (project: EditorProject) => void;
   undo: (current: EditorProject) => EditorProject | null;
   redo: (current: EditorProject) => EditorProject | null;
-  resetHistory: (initial: EditorProject) => void;
+  resetHistory: (initial?: EditorProject) => void;
 }
 
 export function useEditorHistory(_initialProject?: EditorProject | null): UseEditorHistoryReturn {

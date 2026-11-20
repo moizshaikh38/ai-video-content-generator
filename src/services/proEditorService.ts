@@ -61,12 +61,13 @@ class ProEditorService {
    */
   async updateEditorProject(
     projectId: string,
-    dto: UpdateEditorProjectDTO
+    dto: UpdateEditorProjectDTO,
+    tokenOverride?: string
   ): Promise<EditorProject> {
     const res = await backendRequest<EditorProjectResponse>(`/editor-projects/${projectId}`, {
       method: 'PATCH',
       body: JSON.stringify(dto),
-    });
+    }, tokenOverride);
     return res.data;
   }
 

@@ -171,12 +171,13 @@ class ClipRenderService {
    */
   async updateClipEditor(
     clipId: string,
-    update: Record<string, any>
+    update: Record<string, any>,
+    tokenOverride?: string
   ): Promise<RenderedClip> {
     const data = await backendRequest<{ clip: RenderedClip }>(`/clips/${clipId}/editor`, {
       method: 'PATCH',
       body: JSON.stringify(update),
-    });
+    }, tokenOverride);
     return data.clip;
   }
 

@@ -15,6 +15,7 @@ import { SceneLayoutGrid } from './SceneLayoutMenu';
 import { captionLegacyColorDefaults } from '../../lib/captionPresets';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useJournalIssue } from '../../lib/editorJournal';
 import {
   EditorProject,
   RenderedClip,
@@ -300,6 +301,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   // Refusal feedback for canvas turn-off controls: shown in normal flow above the canvas (the transcript notice area is collapsed on phones).
   const [lockNotice, setLockNotice] = useState<string | null>(null);
+  const journalIssue = useJournalIssue(project);
   useEffect(() => { if (!lockNotice) return; const t = window.setTimeout(() => setLockNotice(null), 7000); return () => window.clearTimeout(t); }, [lockNotice]);
   const hookPositionReview = React.useMemo(() => reviewHookCanvasPosition(project as any), [project]);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
@@ -1919,6 +1921,12 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         <div data-testid="editor-preview-workspace" className={`flex-1 flex flex-col min-w-0 min-h-0 bg-vc-surface1 overflow-hidden relative ${(!transcriptCollapsed || showLeftDrawer || (showRightInspector && !inspectorCollapsed)) ? 'max-md:h-[66%] short:h-[66%]' : ''}`}>
           {automaticPlanReviewRequired&&viewMode==='edit'&&<div role="status" className="shrink-0 border-b border-amber-700/50 bg-amber-950/70 px-3 py-2 text-xs text-amber-100">Automatic framing needs review for this scene. Showing the full source, not an export-qualified layout. Your manual settings are unchanged.</div>}
           {/* Warnings stay in normal flow above the canvas so they are reachable with the transcript collapsed or auto-scrolling */}
+              {viewMode==='edit' && journalIssue && saveStatus !== 'saved' && (
+                <div role="status" data-testid="journal-warning" className="shrink-0 flex items-start gap-2 pl-3 pr-3 max-md:pr-14 py-1.5 max-md:py-3 border-b border-amber-800/50 bg-vc-surface1">
+                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                  <p className="text-[11px] text-amber-200/90 leading-snug">{journalIssue}</p>
+                </div>
+              )}
               {viewMode==='edit' && lockNotice && (
                 <div role="status" data-testid="lock-notice" className="shrink-0 flex items-start gap-2 pl-3 pr-3 max-md:pr-14 py-1.5 max-md:py-3 border-b border-amber-800/50 bg-vc-surface1">
                   <span className="mt-1 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
