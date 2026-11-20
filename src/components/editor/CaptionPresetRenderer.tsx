@@ -155,7 +155,7 @@ export const CaptionPresetRenderer: React.FC<CaptionPresetRendererProps> = ({
       data-selectable-item="true"
       className={`${className || ''} ${
         interactive
-          ? 'pointer-events-auto cursor-grab select-none'
+          ? 'pointer-events-auto cursor-grab select-none touch-none'
           : 'pointer-events-none'
       }`}
       style={{

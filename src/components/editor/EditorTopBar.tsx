@@ -113,7 +113,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
               setLocalTitle(title);
               setIsEditingTitle(true);
             }}
-            className="text-sm font-semibold text-neutral-200 hover:text-white truncate max-w-[90px] sm:max-w-[280px] text-left hover:bg-white/[0.06] px-2 py-1 rounded transition"
+            className="text-sm font-semibold text-neutral-200 hover:text-white truncate max-w-[56px] min-[420px]:max-w-[90px] sm:max-w-[280px] text-left hover:bg-white/[0.06] px-2 py-1 rounded transition"
             title="Click to rename"
           >
             {title || 'Untitled Clip'}
@@ -137,21 +137,23 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
           {saveStatus === 'dirty' && (
             <button
               onClick={onSaveNow}
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-950/40 border border-amber-800/40 text-[11px] font-mono text-amber-400 hover:bg-amber-900/40 transition"
+              className="flex items-center gap-1.5 px-2 py-0.5 whitespace-nowrap shrink-0 rounded-full bg-amber-950/40 border border-amber-800/40 text-[11px] font-mono text-amber-400 hover:bg-amber-900/40 transition"
               title="Unsaved changes. Click to save now"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              <span>Save</span>
+              <span>Save<span className="hidden sm:inline"> now</span></span>
             </button>
           )}
           {saveStatus === 'error' && (
             <button
               onClick={onSaveNow}
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-950/60 border border-rose-800/60 text-[11px] font-mono text-rose-400 hover:bg-rose-900/60 transition"
-              title={saveError || 'Save failed. Click to retry'}
+              className="flex items-center gap-1.5 px-2 py-0.5 whitespace-nowrap shrink-0 rounded-full bg-rose-950/60 border border-rose-800/60 text-[11px] font-mono text-rose-400 hover:bg-rose-900/60 transition"
+              title={`Not saved. Your edits are kept on screen. ${saveError || 'Select to retry saving.'}`}
+              aria-label={`Not saved. Your edits are kept on screen. Retry saving. ${saveError || ''}`}
+              role="alert"
             >
               <AlertTriangle className="w-3 h-3 text-rose-400" />
-              <span>Retry</span>
+              <span>Not saved<span className="hidden sm:inline"> · Retry</span></span>
             </button>
           )}
         </div>

@@ -84,6 +84,9 @@ export function useEditorShortcuts({
 
       // Space: Toggle Play/Pause
       if (e.code === 'Space') {
+        // Let a focused button/link handle Space itself (keyboard activation)
+        const tgt = e.target as HTMLElement | null;
+        if (tgt && typeof tgt.closest === 'function' && tgt.closest('button, a[href], [role="button"]')) return;
         e.preventDefault();
         onTogglePlay();
         return;
@@ -91,6 +94,9 @@ export function useEditorShortcuts({
 
       // Backspace or Delete: Delete selected item
       if (e.key === 'Backspace' || e.key === 'Delete') {
+        // A focused native button/link must not trigger a delete of the selected item
+        const delTgt = e.target as HTMLElement | null;
+        if (delTgt && typeof delTgt.closest === 'function' && delTgt.closest('button, a[href]')) return;
         e.preventDefault();
         if (onDeleteSelected) onDeleteSelected();
         return;

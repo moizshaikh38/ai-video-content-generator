@@ -1,5 +1,5 @@
 import{suppressStaleCaptionEmojis}from'../../../server/src/shared/sparseCaptionEmojiProject';
-import {AUTOMATIC_FIT_FOCUS_Y} from '../../../server/src/shared/automaticFitGeometry';
+import {automaticFitFocusY} from '../../../server/src/shared/automaticFitGeometry';
 import {needsAutomaticFitFallback} from '../../../server/src/shared/automaticPreviewFallback';
 import {previewBackdropBlurPx,PREVIEW_BACKDROP_COLOR_MATRIX} from '../../../server/src/shared/blurBackdropPreview';
 import {mirrorDecodedFrames} from '../../lib/decodedFrameMirror';
@@ -10,6 +10,7 @@ import {freezeAutomaticPlan,freezeAutomaticKeyframes} from '../../../server/src/
 import { framingWindowRect, validateFramingWindow } from '../../../server/src/shared/framingWindow';
 import { SceneLayoutMenu } from './SceneLayoutMenu';
 import { readItemLayout, type SceneLayout } from '../../lib/itemLayout';
+import { nonPortraitAutoFullSourceFit } from '../../../server/src/shared/nonPortraitAutoFit';
 import { applySceneCaptionPlacement,captionCompositionWindows } from '../../../server/src/shared/sceneCaptionPlacement';
 import {effectiveContentLayout, type ContentFramingDecision} from '../../../server/src/shared/contentFramingDecision';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
@@ -61,6 +62,8 @@ interface PreviewCanvasProps {
   selectedItemId: string | null;
   onSelectItem: (itemId: string | null) => void;
   onDeleteItem?: (itemId: string) => void;
+  onTurnOffHook?: (itemId: string) => void;
+  onTurnOffCaptions?: () => void;
   onUpdateItemTransform: (itemId: string, transform: any, options?: UpdateProjectOptions) => void;
   // Preview-first crop override: dragging the base video pans the per-item crop
   // focus (EditorTrackItem.crop.focusX/focusY), which the render compiler honors
@@ -238,6 +241,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   selectedItemId,
   onSelectItem,
   onDeleteItem,
+  onTurnOffHook,
+  onTurnOffCaptions,
   onUpdateItemTransform,
   onUpdateItemCrop,
   onBeginCrop,
@@ -589,11 +594,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const cues = useMemo(() => applySceneCaptionPlacement(rawCues, {
     project, sourceWidth: videoDims?.w, sourceHeight: videoDims?.h,
     fallbackLayout: primaryLayoutMode,
-    automaticWindows:captionCompositionWindows(project,shotComposition||[],compositionClipStart,videoDims?.w||0,videoDims?.h||0),
+    automaticWindows:captionCompositionWindows(project,nonPortraitAutoFullSourceFit(effectiveShotComposition,project.canvas.aspect_ratio)?effectiveShotComposition:(shotComposition||[]),compositionClipStart,videoDims?.w||0,videoDims?.h||0),
     fontSize: placementStyle?.fontSize ?? captionItem?.caption?.font_size,
     maxCharsPerLine: placementStyle?.maxCharsPerLine,
     maxLines: placementStyle?.maxLines ?? captionItem?.caption?.max_lines,
-  }), [rawCues, project, videoDims, primaryLayoutMode, shotComposition, compositionClipStart, captionItem, placementStyle?.fontSize, placementStyle?.maxLines, placementStyle?.maxCharsPerLine]);
+  }), [rawCues, project, videoDims, primaryLayoutMode, shotComposition, effectiveShotComposition, compositionClipStart, captionItem, placementStyle?.fontSize, placementStyle?.maxLines, placementStyle?.maxCharsPerLine]);
   const activeCue = cues.find(c => playhead >= c.start && playhead < c.end);
   const splitCaptionCueY = undefined;
   const effectiveCaptionCoords = {
@@ -738,7 +743,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     const cx = Math.min(0.95, Math.max(0.05, center.centerX));
     const cy = Math.min(0.95, Math.max(0.05, center.centerY));
     const left = Math.min(0, Math.max(boxW - elW, -(cx * elW - boxW / 2)));
-    const bandTop = (boxH - bandH) * AUTOMATIC_FIT_FOCUS_Y;
+    const bandTop = (boxH - bandH) * automaticFitFocusY(project.canvas.aspect_ratio);
     // Mirror the export's clamped window: the band shows source rows
     // [shift, shift+bandH] of the oversized element, shift edge-clamped.
     const shift = Math.min(Math.max(cy * elH - bandH / 2, 0), Math.max(0, elH - bandH));
@@ -872,13 +877,15 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     };
 
     if (isTransformDragging) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('pointermove', handleMouseMove);
+      window.addEventListener('pointerup', handleMouseUp);
+      window.addEventListener('pointercancel', handleMouseUp);
       window.addEventListener('blur', handleMouseUp);
     }
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('pointermove', handleMouseMove);
+      window.removeEventListener('pointerup', handleMouseUp);
+      window.removeEventListener('pointercancel', handleMouseUp);
       window.removeEventListener('blur', handleMouseUp);
     };
   }, [isTransformDragging, dragStartPos, initialTransform, selectedItem, transformDragMode, onUpdateItemTransform, onCommitProject]);
@@ -1798,7 +1805,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                   <div
                     key={item.id}
                     data-selectable-item="true"
-                    onMouseDown={(e) => {
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => {
                       e.stopPropagation();
                       onSelectItem(item.id);
                       preTransformProjectRef.current = JSON.parse(JSON.stringify(projectRef.current));
@@ -1808,6 +1816,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                       setInitialTransform({ ...item.transform });
                     }}
                     style={{
+                      touchAction: 'none',
                       fontFamily: t.font_family || 'Inter',
                       fontSize: `${t.font_size || 36}px`,
                       fontWeight:
@@ -1832,6 +1841,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                         ? '6px 12px'
                         : '2px 4px',
                       borderRadius: `${t.background_corner_radius || 0}px`,
+                      // Outline sits behind the fill (as the export's border does) so a dark outline cannot thin the glyphs
+                      paintOrder: 'stroke fill',
                       WebkitTextStroke: t.stroke_width
                         ? `${t.stroke_width}px ${t.stroke_color || '#000000'}`
                         : undefined,
@@ -1854,11 +1865,24 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     {/* DIRECT MANIPULATION HANDLES ATTACHED TO SELECTED TEXT */}
                     {isSelected && (
                       <>
+                        {/* Turn-off control for the hook (reversible: hides it, text is kept) */}
+                        {viewMode === 'edit' && onTurnOffHook && t.auto_headline && (
+                          <button
+                            type="button"
+                            aria-label="Turn off hook"
+                            title="Turn off hook (turn it back on in Hook display)"
+                            onClick={(e) => { e.stopPropagation(); onTurnOffHook(item.id); }}
+                            onPointerDown={(e) => { e.stopPropagation(); }}
+                            className="absolute -top-3.5 -right-3.5 w-6 h-6 bg-red-600/95 hover:bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg pointer-events-auto max-md:after:content-[''] max-md:after:absolute max-md:after:-inset-[15px]"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
                         {/* Scale handle (bottom-right) */}
                         <div
-                          className="absolute -right-2 -bottom-2 w-4 h-4 bg-white/20 border-2 border-white rounded-full cursor-se-resize shadow pointer-events-auto"
+                          className="touch-none before:content-[''] before:absolute before:-inset-4 absolute -right-2 -bottom-2 w-4 h-4 bg-white/20 border-2 border-white rounded-full cursor-se-resize shadow pointer-events-auto"
                           title="Drag to Scale Text"
-                          onMouseDown={(e) => {
+                          onPointerDown={(e) => {
                             e.stopPropagation();
                             preTransformProjectRef.current = JSON.parse(JSON.stringify(projectRef.current));
                             setIsTransformDragging(true);
@@ -1869,9 +1893,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                         />
                         {/* Rotate handle (top-center) */}
                         <div
-                          className="absolute -top-7 left-1/2 -translate-x-1/2 w-5 h-5 bg-white/[0.15] border border-white/60 rounded-full flex items-center justify-center text-white cursor-pointer shadow hover:scale-110 pointer-events-auto transition"
+                          className="touch-none before:content-[''] before:absolute before:-inset-4 absolute -top-7 left-1/2 -translate-x-1/2 w-5 h-5 bg-white/[0.15] border border-white/60 rounded-full flex items-center justify-center text-white cursor-pointer shadow hover:scale-110 pointer-events-auto transition"
                           title="Rotate Text"
-                          onMouseDown={(e) => {
+                          onPointerDown={(e) => {
                             e.stopPropagation();
                             preTransformProjectRef.current = JSON.parse(JSON.stringify(projectRef.current));
                             setIsTransformDragging(true);
@@ -1909,7 +1933,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                   <div
                     key={item.id}
                     data-selectable-item="true"
-                    onMouseDown={(e) => {
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => {
                       e.stopPropagation();
                       onSelectItem(item.id);
                       preTransformProjectRef.current = JSON.parse(JSON.stringify(projectRef.current));
@@ -1919,6 +1944,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                       setInitialTransform({ ...item.transform });
                     }}
                     style={{
+                      touchAction: 'none',
                       ...(designCenter ? { left: '50%', top: '50%' } : {}),
                       transform: designCenter
                         ? `translate(-50%, -50%) translate(${posX}px, ${posY}px) scale(${scale}) rotate(${rotation}deg)`
@@ -1968,7 +1994,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                                 onDeleteItem(item.id);
                               }
                             }}
-                            onMouseDown={(e) => {
+                            onPointerDown={(e) => {
                               e.stopPropagation();
                             }}
                             className="absolute -top-3.5 -right-3.5 w-6 h-6 bg-red-600/95 hover:bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition pointer-events-auto border border-white/90 z-20 group"
@@ -1978,9 +2004,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                         )}
                         {/* Scale handle (bottom-right) */}
                         <div
-                          className="absolute -right-2 -bottom-2 w-4 h-4 bg-white/20 border-2 border-white rounded-full cursor-se-resize shadow pointer-events-auto"
+                          className="touch-none before:content-[''] before:absolute before:-inset-4 absolute -right-2 -bottom-2 w-4 h-4 bg-white/20 border-2 border-white rounded-full cursor-se-resize shadow pointer-events-auto"
                           title="Drag to Scale Element"
-                          onMouseDown={(e) => {
+                          onPointerDown={(e) => {
                             e.stopPropagation();
                             preTransformProjectRef.current = JSON.parse(JSON.stringify(projectRef.current));
                             setIsTransformDragging(true);
@@ -1991,9 +2017,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                         />
                         {/* Rotate handle (top-center) */}
                         <div
-                          className="absolute -top-7 left-1/2 -translate-x-1/2 w-5 h-5 bg-white/[0.15] border border-white/60 rounded-full flex items-center justify-center text-white cursor-pointer shadow hover:scale-110 pointer-events-auto transition"
+                          className="touch-none before:content-[''] before:absolute before:-inset-4 absolute -top-7 left-1/2 -translate-x-1/2 w-5 h-5 bg-white/[0.15] border border-white/60 rounded-full flex items-center justify-center text-white cursor-pointer shadow hover:scale-110 pointer-events-auto transition"
                           title="Rotate Element"
-                          onMouseDown={(e) => {
+                          onPointerDown={(e) => {
                             e.stopPropagation();
                             preTransformProjectRef.current = JSON.parse(JSON.stringify(projectRef.current));
                             setIsTransformDragging(true);
@@ -2159,7 +2185,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     transform: anchorTransform,
                   }}
                   data-selectable-item="true"
-                  className={`absolute text-center pointer-events-auto select-none max-w-[88%] transition-opacity ${
+                  className={`absolute text-center pointer-events-auto select-none touch-none max-w-[88%] transition-opacity ${
                     isDraggingCaption ? 'cursor-grabbing opacity-90' : 'cursor-grab opacity-100'
                   }`}
                 >
@@ -2221,6 +2247,18 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                       )}
                     </span>
 
+                    {isCaptionSelected && !isDraggingCaption && viewMode === 'edit' && onTurnOffCaptions && (
+                      <button
+                        type="button"
+                        aria-label="Turn off captions"
+                        title="Turn off captions (turn them back on with Captions On)"
+                        onClick={(e) => { e.stopPropagation(); onTurnOffCaptions(); }}
+                        onPointerDown={(e) => { e.stopPropagation(); }}
+                        className="absolute -top-4 left-1/2 -translate-x-1/2 w-6 h-6 bg-red-600/95 hover:bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg z-40 pointer-events-auto max-md:after:content-[''] max-md:after:absolute max-md:after:-inset-[15px]"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
                     {/* Corner handles on legacy caption for font size scaling */}
                     {isCaptionSelected && !isDraggingCaption && viewMode === 'edit' && (
                       <>
@@ -2437,6 +2475,17 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 >
                   Reset Center
                 </button>
+                {onTurnOffCaptions && (
+                  <button
+                    type="button"
+                    aria-label="Turn off captions"
+                    title="Turn off captions (turn them back on with Captions On)"
+                    onClick={(e) => { e.stopPropagation(); onTurnOffCaptions(); }}
+                    className="w-5 h-5 rounded-full bg-red-600/95 hover:bg-red-500 text-white flex items-center justify-center cursor-pointer relative max-md:after:content-[''] max-md:after:absolute max-md:after:-inset-[15px]"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             )}
 

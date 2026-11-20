@@ -55,7 +55,7 @@ export const OpusBRollIcon: React.FC<{ className?: string }> = ({ className = 'w
   </svg>
 );
 
-const PRIMARY_TABS: TabItem[] = [
+export const PRIMARY_TABS: TabItem[] = [
   { id: 'captions', label: 'Captions', icon: Subtitles },
   { id: 'media', label: 'Library', icon: CloudUpload },
   { id: 'elements', label: 'Elements', icon: Sticker },

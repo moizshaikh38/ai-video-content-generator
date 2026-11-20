@@ -1,5 +1,7 @@
 import {HookModeControls} from './HookModeControls';
-import {applyHookDisplayMode, applyHookPreset, hookMode, hookPresetSupported, hookPresetIssue, type HookDisplayMode} from '../../../server/src/shared/hookDisplayMode';
+import {sourceTextReviewNotice} from '../../lib/sourceTextReviewNotice';
+import {centerProjectHook, reviewHookCanvasPosition} from '../../../server/src/shared/hookCanvasPosition';
+import {applyHookDisplayMode, applyHookPreset, hookMode, hookPresetLinked, hookPresetSupported, hookPresetIssue, type HookDisplayMode} from '../../../server/src/shared/hookDisplayMode';
 import {freshPresetTypography} from '../../../server/src/shared/freshPresetTypography';
 import {applyCuePosition,resetCuePosition} from '../../lib/cuePosition';
 import{measuredPanelChoicesForManualPick}from'../../../server/src/shared/measuredPanelChoice';
@@ -30,7 +32,7 @@ import { useEditorShortcuts } from '../../hooks/useEditorShortcuts';
 import { useEditorRender } from '../../hooks/useEditorRender';
 import { UpdateProjectOptions } from '../../hooks/useEditorProject';
 import { EditorTopBar } from './EditorTopBar';
-import { EditorSidebar } from './EditorSidebar';
+import { EditorSidebar, PRIMARY_TABS } from './EditorSidebar';
 import { PreviewCanvas } from './PreviewCanvas';
 import { PlaybackController } from './PlaybackController';
 import { ContextualInspector } from './ContextualInspector';
@@ -250,6 +252,8 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   const activeCandidateItem=activeCandidateScenes.find(i=>activeCandidateSourceTime>=i.source_start&&(activeCandidateSourceTime<i.source_end||(currentTime===project.canvas.duration&&activeCandidateSourceTime===i.source_end)));
   const activeCandidate=activeCandidateItem?.crop_config?.automaticLayoutCandidate==='review-v1';
   const activeEnvelope=activeCandidate?candidatePlanEnvelope:stablePlanEnvelope;
+  const [warnDetailsOpen, setWarnDetailsOpen] = useState(false);
+  const sourceReviewNotice = React.useMemo(() => sourceTextReviewNotice(clip), [clip]);
   const previewItemPlan=adaptivePlanExpected&&activeCandidateBase?(activeCandidateItem?resolvePreviewItemPlan(activeCandidateItem,activeEnvelope,{sourceAssetId:clip.id,sourcePath:clip.source_storage_path,outputAspect:project.canvas.aspect_ratio,layoutPolicy:clip.crop_config?.layoutPolicy,sourceVersion:(clip as any).selection_source_receipt?.source_receipt?.sha256}):{status:'unavailable' as const,reason:'effective-scene-clock-invalid'}):null;
   const automaticPlanReviewRequired=previewItemPlan?.status==='unavailable';
   const compositionSourceStart=previewItemPlan?.status==='ready'?previewItemPlan.identity.analysisSourceStart:(Number(clip?.start_seconds)||0)+(speakerSplitData?.analyzedTrimStart||0);
@@ -294,6 +298,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   }, [clip?.id, persistedReframeSourceKey]);
   // Non-destructive reason when an action is refused (e.g. locked followers).
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  // Refusal feedback for canvas turn-off controls: shown in normal flow above the canvas (the transcript notice area is collapsed on phones).
+  const [lockNotice, setLockNotice] = useState<string | null>(null);
+  useEffect(() => { if (!lockNotice) return; const t = window.setTimeout(() => setLockNotice(null), 7000); return () => window.clearTimeout(t); }, [lockNotice]);
+  const hookPositionReview = React.useMemo(() => reviewHookCanvasPosition(project as any), [project]);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
   // Export staleness: caption setting changed after the last completed render;
   // the previously rendered file must not be offered as the changed export.
@@ -815,7 +823,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     const preset: CaptionPresetId = requested === 'none'
       ? 'none'
       : resolvePlanAllowedPreset(requested as RenderableCaptionPresetId);
-    const linked = hookMode(project as any);
+    const linked = hookPresetLinked(project as any);
     if (linked && !allowedCaptionPresets) {
       setActionNotice('Available presets are still loading. No changes made.');
       return;
@@ -854,7 +862,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
           };
         }),
       };
-      if (preset !== 'none' && hookMode(prev as any)) {
+      if (preset !== 'none' && hookPresetLinked(prev as any)) {
         const caption = next.tracks.find(t => t.type === 'CAPTION')?.items.find(i => i.caption)?.caption;
         const style = resolveCaptionPreset(preset, {
           ...freshPresetTypography(preset),
@@ -1910,6 +1918,52 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         {/* CENTER VIEWPORT (VIDEO PREVIEW + TRANSPORT) */}
         <div data-testid="editor-preview-workspace" className={`flex-1 flex flex-col min-w-0 min-h-0 bg-vc-surface1 overflow-hidden relative ${(!transcriptCollapsed || showLeftDrawer || (showRightInspector && !inspectorCollapsed)) ? 'max-md:h-[66%] short:h-[66%]' : ''}`}>
           {automaticPlanReviewRequired&&viewMode==='edit'&&<div role="status" className="shrink-0 border-b border-amber-700/50 bg-amber-950/70 px-3 py-2 text-xs text-amber-100">Automatic framing needs review for this scene. Showing the full source, not an export-qualified layout. Your manual settings are unchanged.</div>}
+          {/* Warnings stay in normal flow above the canvas so they are reachable with the transcript collapsed or auto-scrolling */}
+              {viewMode==='edit' && lockNotice && (
+                <div role="status" data-testid="lock-notice" className="shrink-0 flex items-start gap-2 pl-3 pr-3 max-md:pr-14 py-1.5 max-md:py-3 border-b border-amber-800/50 bg-vc-surface1">
+                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                  <p className="text-[11px] text-amber-200/90 leading-snug">{lockNotice}</p>
+                  <button type="button" onClick={() => setLockNotice(null)} aria-label="Dismiss" className="ml-auto shrink-0 text-amber-300/70 hover:text-amber-200 text-xs px-2 py-1">×</button>
+                </div>
+              )}
+              {viewMode==='edit' && hookPositionReview.status === 'anchor-outside-canvas' && (
+                <div role="status" className="shrink-0 flex items-start gap-2 pl-3 pr-3 max-md:pr-14 py-1.5 max-md:py-3 border-b border-amber-800/50 bg-vc-surface1">
+                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                  <p className="text-[11px] text-amber-200/90 leading-snug"><span className="md:hidden">The title is outside this canvas.{' '}<button type="button" aria-expanded={warnDetailsOpen} onClick={() => setWarnDetailsOpen(v => !v)} className="underline underline-offset-2 relative after:content-[''] after:absolute after:-inset-y-[15px] after:-inset-x-3">{warnDetailsOpen ? 'Less' : 'Details'}</button>{warnDetailsOpen && <span className="block mt-1">The title is positioned outside this canvas. Center hook moves it to the middle; check the preview afterward, since the text may cover part of the frame.</span>}</span><span className="max-md:hidden">The title is positioned outside this canvas. Center hook moves it to the middle; check the preview afterward, since the text may cover part of the frame.</span></p>
+                  <button
+                    onClick={() => {
+                      // Validate on the current project first (centerProjectHook throws on locked/animated hooks), then keep the
+                      // deferred updater non-throwing: a project that became locked meanwhile is returned unchanged.
+                      try { centerProjectHook(project as any); }
+                      catch (e) { setLockNotice(e instanceof Error ? e.message : 'The hook could not be centered.'); return; }
+                      setLockNotice(null);
+                      onUpdateProject((prev) => { try { return centerProjectHook(prev as any) as unknown as EditorProject; } catch { return prev; } });
+                    }}
+                    className="ml-auto shrink-0 text-[11px] font-medium text-amber-100 border border-amber-700/60 rounded px-2 py-0.5 hover:bg-white/5"
+                  >
+                    Center hook
+                  </button>
+                </div>
+              )}
+              {viewMode==='edit' && sourceReviewNotice && (
+                <div role="status" data-testid="source-text-review-notice" className="shrink-0 flex items-start gap-2 pl-3 pr-3 max-md:pr-14 py-1.5 max-md:py-3 border-b border-white/10 bg-vc-surface1">
+                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" />
+                  <p className="text-[11px] text-neutral-300 leading-snug"><span className="md:hidden">Text was seen in sampled source frames.{' '}<button type="button" aria-expanded={warnDetailsOpen} onClick={() => setWarnDetailsOpen(v => !v)} className="underline underline-offset-2 relative after:content-[''] after:absolute after:-inset-y-[15px] after:-inset-x-3">{warnDetailsOpen ? 'Less' : 'Details'}</button>{warnDetailsOpen && <span className="block mt-1">{sourceReviewNotice.message}</span>}</span><span className="max-md:hidden">{sourceReviewNotice.message}</span></p>
+                </div>
+              )}
+          {/* Mobile discoverability: collapsed inspector gets an explicit opener in normal flow above the canvas,
+              so it never overlaps the rendered video or the caption safe area (an earlier overlay pill obscured cues). */}
+          {showRightInspector && inspectorCollapsed && (
+            <div className="hidden max-md:flex short:flex shrink-0 justify-center border-b border-white/[0.08] bg-vc-surface1 py-1.5">
+              <button
+                type="button"
+                onClick={() => setInspectorCollapsed(false)}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-vc-surface2/95 border border-white/[0.14] text-xs font-semibold text-zinc-100 active:scale-[0.97] transition-transform"
+              >
+                <span>Open {PRIMARY_TABS.find((t) => t.id === activeSidebarTab)?.label ?? 'panel'}</span>
+              </button>
+            </div>
+          )}
           <PreviewCanvas
             automaticPlanReviewRequired={automaticPlanReviewRequired}
             project={project}
@@ -1933,7 +1987,26 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             onPlayheadChange={seek}
             onTogglePlay={togglePlay}
             selectedItemId={selectedItemId}
-            onSelectItem={(id) => selectItem(id)}
+            onSelectItem={(id) => selectItem(id, id ? (project.tracks.find((t) => t.items.some((i) => i.id === id))?.id ?? null) : null)}
+            onTurnOffHook={(itemId) => {
+              const lockedHook = (prj: EditorProject) => { const t = prj.tracks.find((x) => x.items.some((i) => i.id === itemId)); return !t || t.locked || Boolean(t.items.find((i) => i.id === itemId)?.locked); };
+              if (lockedHook(project)) { setLockNotice('Unlock the hook layer before turning it off. Nothing was changed.'); return; }
+              clearSelection();
+              setExportStale(true);
+              onUpdateProject((prev) => lockedHook(prev) ? prev : ({
+                ...prev,
+                tracks: prev.tracks.map((t) => t.items.some((i) => i.id === itemId)
+                  ? { ...t, items: t.items.map((i) => i.id === itemId ? { ...i, hidden: true } : i) }
+                  : t),
+              }));
+            }}
+            onTurnOffCaptions={() => {
+              const lockedCaps = (prj: EditorProject) => prj.tracks.some((t) => t.type === 'CAPTION' && (t.locked || t.items.some((i) => i.locked)));
+              if (lockedCaps(project)) { setLockNotice('Unlock the caption layer before turning captions off. Nothing was changed.'); return; }
+              clearSelection();
+              setExportStale(true);
+              onUpdateProject((prev) => lockedCaps(prev) ? prev : ({ ...prev, tracks: prev.tracks.map((t) => t.type === 'CAPTION' ? { ...t, hidden: true } : t) }));
+            }}
             onDeleteItem={(itemId) => {
               const track = project.tracks.find((t) => t.items.some((i) => i.id === itemId));
               if (track) {

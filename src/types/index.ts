@@ -1019,6 +1019,7 @@ export interface EditorTextConfig {
   auto_headline?: boolean;
   /** Explicit hook display choice; absent means preserve the legacy/manual edit. */
   hook_display_mode?: 'hook_only' | 'hook_captions';
+  hook_style_linked?: boolean;
   hook_intro_seconds?: number;
   hook_caption_preset?: import('../../server/src/shared/captionPresets').RenderableCaptionPresetId;
 }
