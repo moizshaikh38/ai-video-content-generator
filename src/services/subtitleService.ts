@@ -90,7 +90,7 @@ export class SubtitleService {
    */
   public static async updateCues(projectId: string, cues: TimedCaptionCue[]): Promise<{ cues: TimedCaptionCue[] }> {
     return backendRequest<{ cues: TimedCaptionCue[] }>(`/subtitles/projects/${projectId}/cues`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify({ cues }),
     });
   }
@@ -103,7 +103,7 @@ export class SubtitleService {
     style: SubtitleStyleConfig
   ): Promise<{ style: SubtitleStyleConfig }> {
     return backendRequest<{ style: SubtitleStyleConfig }>(`/subtitles/projects/${projectId}/style`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify({ style }),
     });
   }
