@@ -14,6 +14,9 @@ export interface CaptionBandReviewInput {
  captionBounds:CaptionReviewRect;
  /** Animated presets need the union across the whole cue, not one raster. */
  captionBoundsCoverage:'cue-union'|'sample-instant';
+ /** Requires a separately justified unclipped envelope. A canvas-clipped bbox
+  * or a finite guard without an extent bound cannot supply this assertion. */
+ captionBoundsUnclippedVerified:boolean;
  /** Actual current normalized ASS anchor, not the raster bbox center. */
  compilerAnchorY:number;
  cue:{start:number;end:number};
@@ -57,6 +60,7 @@ export function reviewCaptionPictureBand(input:CaptionBandReviewInput):CaptionBa
   const translatedAnchor=input.compilerAnchorY+(bounds.top-input.captionBounds.top)/h;
   if(translatedAnchor<.08||translatedAnchor>.92)continue;
   if(input.captionBoundsCoverage!=='cue-union')return result('unavailable','A sampled collision is real, but one caption raster does not bound animation across the cue. A cue-wide ink/stroke/card union is required before proposing translation.',collisions);
+  if(input.captionBoundsUnclippedVerified!==true)return result('unavailable','The cue-wide caption envelope has not been verified unclipped. An on-canvas alpha bbox or an unjustified finite guard may conceal off-canvas ink. No translation was proposed.',collisions);
   return result(candidate.status,'Unchanged caption fits outside the entire verified sharp-source footprint and measured overlays. Local output pixels still require qualification; no position was saved.',collisions,bounds);
  }
  return result('no-room','Measured source-text collision has no unchanged-size top/bottom picture-band placement representable by the compiler anchor. No caption suppression, font reduction, source crop or forced anchor was proposed.',collisions);
