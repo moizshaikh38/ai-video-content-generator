@@ -23,7 +23,7 @@ export function postingOutcomeView(post:PostingOutcomeInput):PostingOutcomeView 
   const privacy=post.payload?.privacy;
   const level=post.payload?.platform_custom?.tiktok_privacy_level;
   const tiktokLabels:Record<string,string>={SELF_ONLY:'Only me',PUBLIC_TO_EVERYONE:'Everyone',MUTUAL_FOLLOW_FRIENDS:'Friends (mutual followers)',FOLLOWER_OF_CREATOR:'Followers'};
-  const visibility=post.provider==='tiktok'&&typeof level==='string'&&Object.hasOwn(tiktokLabels,level)?tiktokLabels[level]+' (requested)':privacy==='public'?(post.provider==='instagram'?'Account audience (requested)':'Public (requested)'):privacy==='private'?'Private (requested)':privacy==='unlisted'?'Unlisted (requested)':'Not recorded';
+  const visibility=post.provider==='tiktok'&&typeof level==='string'&&Object.prototype.hasOwnProperty.call(tiktokLabels,level)?tiktokLabels[level]+' (requested)':privacy==='public'?(post.provider==='instagram'?'Account audience (requested)':'Public (requested)'):privacy==='private'?'Private (requested)':privacy==='unlisted'?'Unlisted (requested)':'Not recorded';
   const verifiedLink=published?httpsLink(post.provider_post_url):null;
   let feedbackLabel:string|null=null,feedback:string|null=null;
   if(unknown&&!published){feedbackLabel='Check selected account';feedback=post.last_error_message||'The platform may have received this submission. Publication is unconfirmed. Do not submit it again before checking the selected account.';}
