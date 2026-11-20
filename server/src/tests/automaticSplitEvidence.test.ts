@@ -1,3 +1,4 @@
+import {ClipRenderService as C} from '../services/clipRenderService.js';
 import {reviewSplitSubjectEvidence} from '../shared/splitSubjectEvidenceReview.js';
 import fs from'node:fs';
 import{test}from'node:test';import assert from'node:assert/strict';
@@ -109,4 +110,18 @@ test('manual Split review separates sparse consistent pair, dropout and invalid 
  track.raw_samples[18].faces[0].width=-.1;assert.equal(reviewSplitSubjectEvidence(clip,track,sha).conflicts[0].reason,'invalid-subject-geometry');
  track.raw_samples[18].faces=[null] as any;assert.equal(reviewSplitSubjectEvidence(clip,track,sha).conflicts[0].reason,'invalid-subject-geometry');
  track.raw_samples.forEach(s=>s.faces=[]);assert.equal(reviewSplitSubjectEvidence(clip,track,sha).status,'insufficient-samples');
+});
+
+test('explicit Auto Split and fallback Fit do not claim the legacy4:3Fit metadata reason',async()=>{
+ const stable=JSON.parse(fs.readFileSync(new URL('./fixtures/podcast-pair-normal-cv.json',import.meta.url),'utf8'));
+ const bad=JSON.parse(fs.readFileSync(new URL('./fixtures/interview-pair-to-closeup-cv.json',import.meta.url),'utf8'));
+ const original=S.getReframeTrack;
+ try{
+  for(const [fixture,duration] of [[stable,12],[bad,6]] as const){
+   const track={...make(),source_width:fixture.provenance.sourceWidth,source_height:fixture.provenance.sourceHeight,raw_samples:fixture.samples,smoothed_keyframes:[{time:0,center_x:.5,center_y:.5}],dominant_track_id:'subject_1',detected_face_count:2,metadata:{analyzed_source_sha256:fixture.provenance.sourceSha256,shot_composition_candidate:false,clip_duration:duration}};
+   S.getReframeTrack=async()=>track as any;
+   const clip:any={id:'fixture',user_id:'fixture',aspect_ratio:'9:16',start_seconds:0,end_seconds:duration,crop_config:{mode:'smart',layout_mode:'track',layout_mode_source:'auto'}};
+   const result=await C.resolveReframeDecision(clip,duration,1,fixture.provenance.sourceSha256,{width:track.source_width,height:track.source_height});assert.equal(result.metadata?.reason,'automatic_layout_plan');assert.equal(result.metadata?.caption_windows[0].layout,fixture===stable?'split':'fit');
+  }
+ }finally{S.getReframeTrack=original;}
 });
