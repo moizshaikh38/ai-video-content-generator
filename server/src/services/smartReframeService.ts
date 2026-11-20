@@ -3290,7 +3290,7 @@ export class SmartReframeService {
     let sourceObjectVerified:boolean|undefined;
     // Embedded-region review and source-structure guards require an independently
     // verified object receipt at every consumer, including ordinary export.
-    const cutLocalSplit=track.layout_mode==='split'&&track.metadata?.shot_composition_candidate!==true&&Array.isArray(track.metadata?.scene_cuts)&&track.metadata.scene_cuts.length>0;
+    const cutLocalSplit=track.metadata?.cut_local_split_recovery_review_enabled===true&&track.layout_mode==='split'&&track.metadata?.shot_composition_candidate!==true&&Array.isArray(track.metadata?.scene_cuts)&&track.metadata.scene_cuts.length>0;
     if(verifyObjectReceipt||cutLocalSplit||track.metadata?.embedded_camera_panel_review_enabled===true||track.metadata?.embedded_source_split_guard_enabled===true){
       sourceObjectVerified=false;
       const receipt=track.metadata?.analyzed_source_receipt;
