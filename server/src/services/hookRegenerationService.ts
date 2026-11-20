@@ -1,3 +1,5 @@
+import {assertSelectionSourceCurrent} from './selectionSourceGuardService.js';
+import {selectionSourceReceiptMatches} from '../shared/selectionSourceReceipt.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
 import { logger } from '../utils/logger.js';
 import { AppError } from '../types/index.js';
@@ -33,13 +35,16 @@ export class HookRegenerationService {
       );
     }
 
-    const { data: transcript } = await dataRepository
+    const { data: transcript, error: transcriptReadError } = await dataRepository
       .from('transcripts')
       .select('*')
       .eq('project_id', clip.project_id)
       .eq('user_id', userId)
       .maybeSingle();
 
+    if (transcriptReadError) {
+      throw Object.assign(new Error(transcriptReadError.message), {code: transcriptReadError.code || 'DATABASE_UNAVAILABLE'});
+    }
     if (!transcript || (!Array.isArray(transcript.words) && !Array.isArray(transcript.segments))) {
       throw new AppError('No transcript is available for this clip yet.', 409, 'HOOK_NO_TRANSCRIPT');
     }
@@ -53,6 +58,14 @@ export class HookRegenerationService {
         'TRANSCRIPT_REVIEW_REQUIRED'
       );
     }
+
+    // A latest transcript is not automatically evidence for an older clip.
+    // Verify both the exact speech read here and current source/selection lineage
+    // before any provider call. This gate never retranscribes or repairs rows.
+    if (!selectionSourceReceiptMatches((clip as any).selection_source_receipt, transcript, clip.source_storage_path || '')) {
+      throw new AppError('Hook input cannot be verified against this clip source. Review the source and transcript first.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+    }
+    await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
 
     const sourceEvidence=collectHookOpeningEvidence(clip,transcript);
     if (!sourceEvidence) {

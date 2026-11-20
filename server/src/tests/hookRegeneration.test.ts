@@ -1,3 +1,6 @@
+import {config} from '../config/index.js';
+import {transcriptContentIdentity} from '../shared/transcriptSourceBinding.js';
+import {selectionSourceReceipt} from '../shared/selectionSourceReceipt.js';
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -26,11 +29,18 @@ describe('Hook regeneration route (HTTP + Mongo, mocked provider)', () => {
   const projectId = crypto.randomUUID();
   const clipId = crypto.randomUUID();
   const TOKEN = 'test-hook-regen-token';
+  const sourceKey=`users/${userId}/projects/${projectId}/source/hook-fixture.mp4`;
+  let sourceEtag='"hook-fixture"';
+  const storage=http.createServer((_req,res)=>{res.setHeader('ETag',sourceEtag);res.setHeader('Content-Length','7');res.end();});
+  const oldStorage={r2AccountId:config.r2AccountId,r2AccessKeyId:config.r2AccessKeyId,r2SecretAccessKey:config.r2SecretAccessKey,r2SourceBucket:config.r2SourceBucket,r2Endpoint:config.r2Endpoint};
 
   let server: http.Server | null = null;
   let baseUrl = '';
 
   before(async () => {
+    await new Promise<void>(r=>storage.listen(0,'127.0.0.1',r));
+    const storageAddress=storage.address();assert(storageAddress&&typeof storageAddress!=='string');
+    Object.assign(config,{r2AccountId:'fixture',r2AccessKeyId:'fixture',r2SecretAccessKey:'fixture',r2SourceBucket:'source',r2Endpoint:`http://127.0.0.1:${storageAddress.port}`});
     const db = await getMongoDb();
     const now = new Date();
 
@@ -38,6 +48,7 @@ describe('Hook regeneration route (HTTP + Mongo, mocked provider)', () => {
       id: projectId,
       user_id: userId,
       title: 'Hook regen project',
+      source_url: sourceKey,
       status: 'READY',
       created_at: now,
       updated_at: now,
@@ -73,6 +84,12 @@ describe('Hook regeneration route (HTTP + Mongo, mocked provider)', () => {
       updated_at: now,
     });
 
+    // Synthetic local source receipt. No cloud storage or speech-provider claim.
+    const transcript=await db.collection('transcripts').findOne({project_id:projectId});assert(transcript);
+    const binding={version:1,source_receipt:{key:sourceKey,size:7,etag:sourceEtag,sha256:'a'.repeat(64)},prepared_audio_sha256:'b'.repeat(64),requests:[{sha256:'b'.repeat(64),bytes:7,status:'completed'}],transcript_content_sha256:transcriptContentIdentity(transcript)};
+    await db.collection('transcripts').updateOne({project_id:projectId},{$set:{source_binding:binding}});
+    await db.collection('clips').updateOne({id:clipId},{$set:{source_storage_path:sourceKey,selection_source_receipt:selectionSourceReceipt({...transcript,source_binding:binding},sourceKey)}});
+
     (supabaseAuthClient.auth as any).getUser = async (token: string) => {
       if (token === TOKEN) {
         return { data: { user: { id: userId, email: 'hook-regen@vireoclip.test' } }, error: null };
@@ -95,6 +112,8 @@ describe('Hook regeneration route (HTTP + Mongo, mocked provider)', () => {
     (defaultAiProvider as any).generateJsonCompletion = undefined;
     delete (defaultAiProvider as any).generateJsonCompletion;
     await new Promise<void>((resolve) => server?.close(() => resolve()));
+    await new Promise<void>((resolve)=>storage.close(()=>resolve()));
+    Object.assign(config,oldStorage);
     await closeMongo();
   });
 
@@ -135,6 +154,24 @@ describe('Hook regeneration route (HTTP + Mongo, mocked provider)', () => {
       const res=await fetch(`${baseUrl}/api/clips/${clipId}/hook/regenerate`,{method:'POST',headers:{Authorization:`Bearer ${TOKEN}`}});
       assert.equal(res.status,409);assert.equal((await res.json() as any).code,'TRANSCRIPT_REVIEW_REQUIRED');assert.equal(calls,0);
     }finally{await db.collection('transcripts').updateOne({project_id:projectId},{$unset:{quality_assessment:''}});}
+  });
+
+  it('refuses changed transcript or missing selection lineage before any provider call',async()=>{
+    const db=await getMongoDb();const original=await db.collection('transcripts').findOne({project_id:projectId});assert(original);
+    const clip=await db.collection('clips').findOne({id:clipId});assert(clip);
+    let calls=0;(defaultAiProvider as any).generateJsonCompletion=async()=>{calls++;return{hook:'Not allowed'};};
+    const check=async()=>{const res=await fetch(`${baseUrl}/api/clips/${clipId}/hook/regenerate`,{method:'POST',headers:{Authorization:`Bearer ${TOKEN}`}});assert.equal(res.status,409);assert.equal((await res.json() as any).code,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');assert.equal(calls,0);};
+    try{
+      await db.collection('transcripts').updateOne({project_id:projectId},{$set:{words:[{text:'Unrelated replacement',start:10,end:11}]}});await check();
+      await db.collection('transcripts').updateOne({project_id:projectId},{$set:{words:original.words}});
+      await db.collection('clips').updateOne({id:clipId},{$unset:{selection_source_receipt:''}});await check();
+    }finally{await db.collection('transcripts').updateOne({project_id:projectId},{$set:{words:original.words}});await db.collection('clips').updateOne({id:clipId},{$set:{selection_source_receipt:clip.selection_source_receipt}});}
+  });
+
+  it('refuses source object replacement before any provider call',async()=>{
+    let calls=0;(defaultAiProvider as any).generateJsonCompletion=async()=>{calls++;return{hook:'Not allowed'};};
+    sourceEtag='"replaced-hook-source"';
+    try{const res=await fetch(`${baseUrl}/api/clips/${clipId}/hook/regenerate`,{method:'POST',headers:{Authorization:`Bearer ${TOKEN}`}});assert.equal(res.status,409);assert.equal((await res.json() as any).code,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');assert.equal(calls,0);}finally{sourceEtag='"hook-fixture"';}
   });
 
   it('fails closed with sanitized 503 when no provider is available', async () => {
