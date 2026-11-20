@@ -11,7 +11,8 @@ import {AppError} from '../types/index.js';
  * URL hostname remains the TLS identity/Host header. No ambient proxy or
  * reusable socket can silently select a different destination. No redirects.
  */
-export async function pinnedPublicMediaFetch(raw: string, signal: AbortSignal, options: {method?:'GET'|'HEAD';httpsOnly?:boolean;allowDevelopmentLoopback?:boolean} = {}): Promise<Response> {
+export async function pinnedPublicMediaFetch(raw: string, signal: AbortSignal, options: {method?:'GET'|'HEAD'|'POST';body?:string;byteRange?:{start:number;length:number};httpsOnly?:boolean;allowDevelopmentLoopback?:boolean} = {}): Promise<Response> {
+  if(options.byteRange&&(!Number.isSafeInteger(options.byteRange.start)||options.byteRange.start<0||!Number.isSafeInteger(options.byteRange.length)||options.byteRange.length<=0||!Number.isSafeInteger(options.byteRange.start+options.byteRange.length)))throw new AppError('Invalid byte range.',400,'INVALID_MEDIA_RANGE');
   const url = new URL(raw);
   if (!['http:','https:'].includes(url.protocol) || (options.httpsOnly && url.protocol !== 'https:') || url.username || url.password) throw new AppError('Invalid asset URL.',400,'EDITOR_SOURCE_NOT_ALLOWED');
   const host = url.hostname.replace(/^\[|\]$/g,'').toLowerCase();
@@ -34,7 +35,7 @@ export async function pinnedPublicMediaFetch(raw: string, signal: AbortSignal, o
     const transport=url.protocol==='https:'?https:http;
     const request = transport.request(url,{
       method:options.method||'GET',agent:false,signal,
-      headers:{'User-Agent':'VireoClip/1.0'},
+      headers:{'User-Agent':'VireoClip/1.0',...(options.byteRange?{Range:`bytes=${options.byteRange.start}-${options.byteRange.start+options.byteRange.length-1}`} : {}),...(options.body?{'Content-Type':'application/json','Content-Length':String(Buffer.byteLength(options.body))}:{})},
       lookup:((_hostname: string, options: any, callback: any)=>{
         if(options?.all) callback(null,[selected]);
         else callback(null,selected.address,selected.family);
@@ -53,7 +54,7 @@ export async function pinnedPublicMediaFetch(raw: string, signal: AbortSignal, o
         resolve(new Response(Readable.toWeb(incoming) as any,{status,headers}));
       }
     });
-    request.on('error',reject);request.end();
+    request.on('error',reject);request.end(options.body);
   });
 }
 

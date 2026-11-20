@@ -1,3 +1,5 @@
+import {KickImportService} from './kickImportService.js';
+import {downloadCloudVideo,probeCloudVideo} from './cloudVideoImportService.js';
 import {subtitleProjectDefaults} from '../shared/subtitleProjectDefaults.js';
 import {youtubeAcquisitionCache,type YouTubeAcquisitionKey} from './youtubeAcquisitionCache.js';
 import {TwitchImportService} from './twitchImportService.js';
@@ -85,7 +87,7 @@ export interface YouTubeMetadataResult {
 }
 
 export interface UrlProbeMetadataResult {
-  provider: 'youtube' | 'direct' | 'twitch';
+  provider: 'youtube' | 'direct' | 'twitch' | 'kick' | 'google_drive' | 'dropbox';
   normalizedUrl: string;
   title?: string;
   duration?: number;
@@ -194,7 +196,9 @@ export class UrlIngestionService {
   public static async downloadToTempFile(
     initialUrl: string,
     maxBytes: number = config.maxVideoBytes,
-    timeoutMs: number = 60000
+    timeoutMs: number = 60000,
+    byteRange?: {start:number;length:number},
+    httpsOnly = false
   ): Promise<{ tempFilePath: string; totalBytes: number; contentType: string }> {
     const tempDir = os.tmpdir();
     const tempFileName = `vireo-ingest-${Date.now()}-${crypto.randomUUID()}.tmp`;
@@ -226,7 +230,7 @@ export class UrlIngestionService {
       }
 
       try {
-        response = await pinnedPublicMediaFetch(currentUrl, streamController.signal);
+        response = await pinnedPublicMediaFetch(currentUrl, streamController.signal,{byteRange,httpsOnly});
         resetStreamTimer();
       } catch (fetchErr: any) {
         if (fetchErr.name === 'AbortError' || streamController.signal.aborted) {
@@ -261,6 +265,8 @@ export class UrlIngestionService {
       throw new AppError(`Remote server returned HTTP ${status} when fetching video.`, 502, 'REMOTE_FETCH_FAILED');
     }
 
+    if(byteRange){const cr=response.headers.get('content-range')?.match(/^bytes (\d+)-(\d+)\/(\d+)$/);if(response.status!==206||!cr||Number(cr[1])!==byteRange.start||Number(cr[2])!==byteRange.start+byteRange.length-1||Number(cr[3])<=Number(cr[2])){await response.body?.cancel();throw new AppError('Video host did not honor the requested byte range.',502,'INVALID_MEDIA_RANGE');}}
+
     // Check declared Content-Length
     const contentLengthHeader = response.headers.get('content-length');
     if (contentLengthHeader) {
@@ -276,6 +282,7 @@ export class UrlIngestionService {
       }
     }
 
+    if(byteRange&&contentLengthHeader!==null&&Number(contentLengthHeader)!==byteRange.length){await response.body?.cancel();throw new AppError('Unexpected media byte-range length.',502,'INVALID_MEDIA_RANGE');}
     const contentType = response.headers.get('content-type') || 'video/mp4';
 
     // Stream to disk and strictly track downloaded byte count
@@ -341,6 +348,7 @@ export class UrlIngestionService {
         fileStream.on('error', reject);
       });
 
+      if(byteRange&&bytesWritten!==byteRange.length)throw new AppError('Incomplete video byte range.',502,'INVALID_MEDIA_RANGE');
       return {
         tempFilePath,
         totalBytes: bytesWritten,
@@ -784,8 +792,10 @@ export class UrlIngestionService {
    */
   public static async probeUrlMetadata(url: string, timeoutMs = 15000, userId?: string): Promise<UrlProbeMetadataResult> {
     const validated = await UrlValidator.validateVideoUrl(url);
+    if(validated.cloudSource)return probeCloudVideo(validated.cloudSource);
     if(validated.streamSource){
       const source=validated.streamSource;
+      if(source.provider==='kick'){const media=await KickImportService.resolve(source);return{provider:'kick',normalizedUrl:source.normalizedUrl,title:media.title,duration:media.duration};}
       if(source.provider!=='twitch'||source.kind!=='clip')throw new AppError('This platform video download is not available. Upload your downloaded file instead. Live streams are not supported.',409,'PLATFORM_IMPORT_UNAVAILABLE');
       if(!userId)throw new AppError('Sign in to import Twitch clips.',401,'AUTH_REQUIRED');
       const media=await TwitchImportService.clip(userId,source.id);
@@ -859,13 +869,21 @@ export class UrlIngestionService {
     try {
       let download: { tempFilePath: string; totalBytes: number; contentType: string };
 
-      if(validated.streamSource){
+      if(validated.cloudSource){
+        if(range)throw new AppError('Cloud file imports use the complete video. Choose a range after importing.',400,'PLATFORM_IMPORT_RANGE_UNSUPPORTED');
+        download=await downloadCloudVideo(validated.cloudSource,maxBytes,(u,m)=>this.downloadToTempFile(u,m,60000,undefined,true));
+      } else if(validated.streamSource){
         const source=validated.streamSource;
+        if(source.provider==='kick'){
+          if(range)throw new AppError('Import the completed Kick video before choosing a range.',400,'PLATFORM_IMPORT_RANGE_UNSUPPORTED');
+          const media=await KickImportService.resolve(source);ytMetaTitle=media.title;download=await KickImportService.download(media,maxBytes,(u,m,t,r)=>this.downloadToTempFile(u,m,t,r,true));
+        }else{
         if(source.provider!=='twitch'||source.kind!=='clip')throw new AppError('This platform video download is not available. Upload your downloaded file instead. Live streams are not supported.',409,'PLATFORM_IMPORT_UNAVAILABLE');
         if(range)throw new AppError('Twitch clip imports use the complete clip. Choose a range after importing.',400,'PLATFORM_IMPORT_RANGE_UNSUPPORTED');
         const media=await TwitchImportService.clip(userId,source.id);
         ytMetaTitle=media.title;
         download=await this.downloadToTempFile(media.url,maxBytes);
+        }
       } else if (validated.provider === 'youtube') {
         // YouTube Ingestion Path via yt-dlp
         logger.info(`Starting YouTube video ingestion: ${validated.normalizedUrl} (ID: ${validated.youtubeVideoId}) for project ${projectId}`);
@@ -1014,6 +1032,8 @@ export class UrlIngestionService {
           selected_range: range,
           acquisition_reused: reusedAcquisition,
         };
+      } else if(validated.cloudSource){
+        projectRecord.metadata={source_provider:validated.cloudSource.provider,original_url:validated.cloudSource.normalizedUrl,ingested_at:new Date().toISOString()};
       } else if(validated.streamSource){
         projectRecord.metadata={source_provider:validated.streamSource.provider,source_kind:validated.streamSource.kind,platform_video_id:validated.streamSource.id,original_url:validated.normalizedUrl,ingested_at:new Date().toISOString()};
       } else {

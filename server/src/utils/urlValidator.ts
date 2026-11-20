@@ -1,3 +1,4 @@
+import {parseCloudVideoSource,type CloudVideoSource} from '../shared/cloudVideoSource.js';
 import {parseStreamVideoSource,type StreamVideoSource} from '../shared/streamVideoSource.js';
 import dns from 'node:dns/promises';
 import net from 'node:net';
@@ -22,7 +23,8 @@ export interface ValidatedUrlResult {
   normalizedUrl: string;
   hostname: string;
   inferredFilename: string;
-  provider: 'direct_media' | 'youtube' | 'twitch' | 'kick';
+  provider: 'direct_media' | 'youtube' | 'twitch' | 'kick' | 'google_drive' | 'dropbox';
+  cloudSource?: CloudVideoSource;
   streamSource?: StreamVideoSource;
   youtubeVideoId?: string;
 }
@@ -267,6 +269,8 @@ export class UrlValidator {
 
     const host = parsed.hostname.toLowerCase();
 
+    const cloudSource=parseCloudVideoSource(parsed);
+    if(cloudSource)return {normalizedUrl:cloudSource.normalizedUrl,hostname:host,inferredFilename:cloudSource.provider+'-video.mp4',provider:cloudSource.provider,cloudSource};
     const streamSource=parseStreamVideoSource(parsed);
     if(streamSource)return {normalizedUrl:streamSource.normalizedUrl,hostname:host,inferredFilename:streamSource.provider+'-'+streamSource.id+'.mp4',provider:streamSource.provider,streamSource};
 
