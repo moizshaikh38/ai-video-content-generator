@@ -36,3 +36,18 @@ test('actual Studio and Quick hook initialization use the same title; manual ove
  const manual=P.buildInitialCandidateEditor({...base,auto_hook_title_enabled:false,overlay_config:{enabled:true,text:'Manual title'}} as any,'fixture',null);
  assert.equal(manual.tracks.filter(t=>t.type==='TEXT').flatMap(t=>t.items).find(i=>i.text?.auto_headline)?.text?.text,'Manual title');
 });
+
+test('new Auto Hook title initialization stays inside each aspect without moving saved manual layers',()=>{
+ for(const [aspect,previewH,canvasH] of [['9:16',640,1920],['1:1',480,1080],['16:9',360,1080]] as const){
+  const clip:any={id:'fixture',project_id:'fixture',user_id:'fixture',start_seconds:0,end_seconds:20,duration_seconds:20,aspect_ratio:aspect,title:'Legacy',auto_hook_title_enabled:true,auto_hook_title_text:'Real candidate hook title in two lines'};
+  const editor=P.buildInitialCandidateEditor(clip,'fixture',null);
+  const title=editor.tracks.filter(t=>t.type==='TEXT').flatMap(t=>t.items).find(i=>i.text?.auto_headline)!;
+  const center=(previewH/2+title.transform.position_y)*(canvasH/previewH);
+  assert.equal(center,211.5);
+  assert(title.text!.font_size!>=12);
+  if(aspect==='9:16')assert.equal(title.transform.position_y,-249.5);
+  title.transform.position_y=42;title.text!.text='My manual edit';
+  P.compileRenderGraph(editor,'fixture.mp4','unused.mp4','/tmp',{mode:'manual',aspectRatio:aspect,clipStartSec:0,cropConfig:null,layoutMode:'manual',track:null},'off');
+  assert.equal(title.transform.position_y,42);assert.equal(title.text!.text,'My manual edit');
+ }
+});

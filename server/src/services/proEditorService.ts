@@ -2573,6 +2573,13 @@ export class ProEditorService {
       }
       const longest = Math.max(...headLines.map((l) => l.length));
       const tier = longest <= 22 ? 64 : longest <= 28 ? 56 : longest <= 34 ? 48 : 40;
+      // New Configure titles retain the established 9:16 geometry, expressed in
+      // the target preview's own coordinates. Reusing y=-249.5 on a 360px-high
+      // landscape preview would place the title outside the visible canvas.
+      // Only initialization changes; saved/manual text transforms are untouched.
+      const titlePreviewH = aspectRatio === '9:16' ? 640 : aspectRatio === '1:1' ? 480 : 360;
+      const titleDesignScale = canvasH / titlePreviewH;
+      const configuredTitlePositionY = (211.5 - canvasH / 2) / titleDesignScale;
       textItems.push({
         id: crypto.randomUUID(),
         track_id: textTrackId,
@@ -2587,12 +2594,12 @@ export class ProEditorService {
         // 2-line wrap: 211.5 export px => (211.5-960)/3 = -249.5 preview px. This keeps
         // the headline below the watermark zone (top-right box ends ~y=129) and matches
         // the legacy layout exactly.
-        transform: { position_x: 0, position_y: -249.5, scale: 1.0, rotation: 0, opacity: 1.0 },
+        transform: { position_x: 0, position_y: clip.auto_hook_title_enabled===true ? configuredTitlePositionY : -249.5, scale: 1.0, rotation: 0, opacity: 1.0 },
         speed: { speed: 1.0, pitch_preserved: true },
         text: {
           text: headLines.join('\n'),
           font_family: 'Arial',
-          font_size: Math.max(12, Math.round(tier / 3)),
+          font_size: Math.max(12, Math.round(tier / (clip.auto_hook_title_enabled===true ? titleDesignScale : 3))),
           font_weight: 'regular',
           italic: false,
           alignment: 'center',
