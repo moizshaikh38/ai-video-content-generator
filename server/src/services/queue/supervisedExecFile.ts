@@ -1,7 +1,7 @@
 import {spawn} from 'node:child_process';
 import fs from 'node:fs/promises';
 
-export type SupervisedExecOptions={input?:string;timeoutMs:number;maxBuffer:number;signal?:AbortSignal};
+export type SupervisedExecOptions={input?:string;timeoutMs:number;maxBuffer:number;signal?:AbortSignal;onStderr?:(chunk:string)=>void};
 /** Linux process-group ownership. Settle only after close and no running group
  * member remains. Zombies have exited and cannot retain work/resources. This
  * does not authorize freeing a distributed permit owned by another worker. */
@@ -17,7 +17,7 @@ export async function supervisedExecFile(file:string,args:string[],options:Super
  const timer=setTimeout(()=>stop(`Process timed out after ${options.timeoutMs}ms.`,'PROCESS_TIMEOUT'),options.timeoutMs);
  options.signal?.addEventListener('abort',abort,{once:true});
  if(options.signal?.aborted)abort();
- const collect=(chunk:Buffer,which:'stdout'|'stderr')=>{if(which==='stdout')outBytes+=chunk.length;else errBytes+=chunk.length;if(outBytes>options.maxBuffer||errBytes>options.maxBuffer){stop('Process output exceeded its buffer limit.','PROCESS_OUTPUT_LIMIT');return;}if(which==='stdout')stdout.push(chunk);else stderr.push(chunk);};
+ const collect=(chunk:Buffer,which:'stdout'|'stderr')=>{if(which==='stdout')outBytes+=chunk.length;else errBytes+=chunk.length;if(outBytes>options.maxBuffer||errBytes>options.maxBuffer){stop('Process output exceeded its buffer limit.','PROCESS_OUTPUT_LIMIT');return;}if(which==='stdout')stdout.push(chunk);else{stderr.push(chunk);try{options.onStderr?.(chunk.toString());}catch{/* Progress reporting cannot strand owned work. */}}};
  child.stdout.on('data',chunk=>collect(chunk,'stdout'));child.stderr.on('data',chunk=>collect(chunk,'stderr'));
  const exit=await new Promise<{code:number|null;signal:NodeJS.Signals|null}>(resolve=>{child.once('error',error=>{failure??=Object.assign(Error(`Process launch failed: ${error.message}`),{code:'PROCESS_LAUNCH_FAILED'});});child.once('close',(code,signal)=>{closed=true;resolve({code,signal});});child.stdin.on('error',()=>{/* Broken input pipe is reported by exit/output. */});child.stdin.end(options.input??'');});
  clearTimeout(timer);options.signal?.removeEventListener('abort',abort);

@@ -1149,6 +1149,13 @@ export class ClipRenderService {
           await new Promise<void>((resolve, reject) => {
           let isResolved = false;
           let lastProgressUpdate = 0;
+          const reportProgress=(timemark:string)=>{
+            const now=Date.now();if(now-lastProgressUpdate<=1500)return;
+            lastProgressUpdate=now;
+            const currentSec=parseTimemarkToSeconds(timemark);
+            const clampedProgress=Math.min(85,Math.max(15,15+Math.round((currentSec/durationSec)*70)));
+            void ClipRenderService.updateJobProgress(jobId, clampedProgress, 'encoding',workerId).catch(()=>{});
+          };
 
           const videoGraph = composeQuickVideoGraph(videoFilters);
           const cmd = ffmpeg(sourcePath)
@@ -1195,7 +1202,19 @@ export class ClipRenderService {
           .output(outputPath);
 
 
-          // Explicit timeout enforcement
+          // Keep fluent's existing argv construction, but own the Linux
+          // encoder process group instead of settling immediately after kill.
+          if(process.platform==='linux'){
+            let progressTail='';
+            void ClipRenderService.executeFluentEncoder(cmd,ffmpegBin,timeoutMs,renderCancellation.signal,chunk=>{
+              progressTail=(progressTail+chunk).slice(-2048);
+              const times=[...progressTail.matchAll(/time=(\d+:\d+:\d+(?:\.\d+)?)/g)];
+              const last=times[times.length-1];if(last)reportProgress(last[1]);
+            }).then(()=>resolve(),reject);
+            return;
+          }
+
+          // Explicit timeout enforcement for the unchanged non-Linux path.
           const timer = setTimeout(() => {
             if (!isResolved) {
               isResolved = true;
@@ -1209,17 +1228,7 @@ export class ClipRenderService {
           }, timeoutMs);
 
           // Progress listener
-          cmd.on('progress', (progress) => {
-            const now = Date.now();
-            if (now - lastProgressUpdate > 1500) {
-              lastProgressUpdate = now;
-              const currentSec = parseTimemarkToSeconds(progress.timemark);
-              const rawProgress = 15 + Math.round((currentSec / durationSec) * 70);
-              const clampedProgress = Math.min(85, Math.max(15, rawProgress));
-
-              ClipRenderService.updateJobProgress(jobId, clampedProgress, 'encoding',workerId).catch(() => {});
-            }
-          });
+          cmd.on('progress',progress=>reportProgress(progress.timemark));
 
           cmd.on('end', () => {
             if (!isResolved) {
@@ -1742,12 +1751,22 @@ export class ClipRenderService {
     return validateOutputFile(filePath, expectedDurationSec, options);
   }
 
-  /** Executes the explicit-argv encoder paths with lifecycle cancellation.
-   * The fluent-ffmpeg and offline slice staging paths are separate scopes. */
-  public static async executeEncoderProcess(binary:string,args:string[],timeoutMs:number,signal?:AbortSignal){
+  /** Compatibility boundary for the pinned fluent-ffmpeg argv builder. The
+   * actual fixed H.264/AAC MP4 options require no experimental codec additions.
+   * Tests compare this argv to fluent's prepared argv before actual encoding. */
+  public static async executeFluentEncoder(command:unknown,binary:string,timeoutMs:number,signal?:AbortSignal,onStderr?:(chunk:string)=>void){
+    const args=(command as any)?._getArguments?.();
+    if(!Array.isArray(args)||!args.every((arg:unknown)=>typeof arg==='string'||(typeof arg==='number'&&Number.isFinite(arg))))throw Object.assign(Error('FFmpeg argv construction is unavailable.'),{code:'FFMPEG_FAILED'});
+    // Native spawn stringifies numeric duration/seek arguments from fluent.
+    return this.executeEncoderProcess(binary,args.map(String),timeoutMs,signal,onStderr);
+  }
+
+  /** Executes encoder argv with lifecycle cancellation on Linux.
+   * Offline qualification-only slice staging remains a separate scope. */
+  public static async executeEncoderProcess(binary:string,args:string[],timeoutMs:number,signal?:AbortSignal,onStderr?:(chunk:string)=>void){
     try{
       return process.platform==='linux'
-        ? await supervisedExecFile(binary,args,{timeoutMs,maxBuffer:1024*1024,signal})
+        ? await supervisedExecFile(binary,args,{timeoutMs,maxBuffer:1024*1024,signal,onStderr})
         : await execFileAsync(binary,args,{timeout:timeoutMs,killSignal:'SIGKILL',signal});
     }catch(error:any){
       if(error?.code==='PROCESS_STOP_UNVERIFIED')throw error;

@@ -50,10 +50,9 @@ source's 0..1 second interval produced an exactly equal analyzer JSON result
 through the service and standalone Python with the same inputs/environment.
 This is a narrow correctness check, not representative quality/capacity evidence.
 
-This is not yet permit integration. Legacy fluent-ffmpeg, qualification-only slice staging, source processing and
-parent-worker death recovery are not supervised by this change. Render heartbeat
-loss/uncertainty now cancels the nested supervised CV path, and both explicit-argv FFmpeg encoder paths now use the same signal. The
-remaining legacy fluent-ffmpeg path is not interrupted by it.
+This is not yet permit integration. Qualification-only slice staging, source processing and parent-worker death
+recovery are not supervised by this change. Render heartbeat
+loss/uncertainty now cancels the nested supervised CV path, and all three normal FFmpeg encoder routes now use the same signal on Linux.
 A child deliberately escaping its process group is outside this helper's scope;
 the trusted CV script's ordinary FFmpeg/Tesseract children inherit the group.
 A worker killed outright may leave children behind, so expired resource permits
@@ -105,6 +104,27 @@ A tiny synthetic 64x96, two-frame H.264 encode checks the actual executor's code
 dimensions, frame count and decoded red pixel. Real FFmpeg realtime null-output
 fixtures check timeout and cancellation. These prove execution/cancellation
 mechanics only, not customer output quality, long-video performance or multi-user
-capacity. The remaining fluent-ffmpeg path and offline slice preparation still
-prevent describing a complete supervised render envelope or activating a shared
-resource permit for every render.
+capacity. Offline slice preparation and source processing still prevent describing
+complete shared heavy-work admission or activating a measured shared pool.
+
+
+The ordinary quick-clip fluent builder now also executes its existing argv through
+the supervised Linux executor. A compatibility boundary checks the pinned
+fluent-ffmpeg private `_getArguments` API and matches native spawn's numeric argv
+string conversion. The current fixed H.264/AAC MP4 options have no experimental
+codec additions in fluent's native preparation. Tests compare all four
+linear/labeled and audio/muted fixture argv arrays to native prepared arguments,
+then encode each through the actual adapter and check codec, dimensions, frame
+count, audio presence and a decoded pixel. Timeout and cancellation also pass
+through the adapter. This compatibility check must be revisited on any fluent
+upgrade or codec/output-mode change; unknown argv construction fails rather than
+running a guessed command. Native stderr timestamps retain bounded progress
+updates. Diagnostic output is bounded by the supervised executor; non-Linux keeps
+the old fluent execution and has no group guarantee.
+
+This closes the main normal encoder process-group gap, not the whole source/CV/
+render shared-admission outcome. Qualification-only slice preparation, ancillary
+probes/reviews, source processing, actual host policy sizing and crash recovery
+remain separate. The shared resource permit is still not activated. Tiny fixture
+encodes and argv equivalence do not replace representative integrated customer
+output testing or concurrent media capacity measurements.
