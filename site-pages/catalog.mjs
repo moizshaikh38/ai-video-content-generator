@@ -1,4 +1,4 @@
-export const origin='https://vireoclip.vercel.app';
+export const origin='https://vireoclip.com';
 export const pages=[{
  path:'/features',title:'Video clipping, captions & framing features | VireoClip',description:'Explore VireoClip’s clipping workflow, caption styling and framing controls, with clear notes on what still needs review.',eyebrow:'THE EDITING WORKFLOW',heading:'Make the cut.\nKeep the context.',intro:'Find the moment. Shape the frame. Make every word readable.',theme:'features',cta:'Open your workspace',href:'/dashboard',note:'Preview build · Some editor updates are still under review.',
  sections:[

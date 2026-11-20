@@ -49,8 +49,12 @@ for(const name of ['editor-lessons.css','lesson-images.js'])await copyFile('site
 const gamingPath='/tools/ai-gaming-clip-generator/';
 // Preserve the approved standalone gaming page; only add missing SEO tags on the build artifact.
 const gamingFile=out+gamingPath+'index.html';let gh=await readFile(gamingFile,'utf8');
+// Metadata generation is repeatable: a second local build must not keep an
+// earlier canonical or duplicate tags from the previous generated artifact.
+gh=gh.replace(/<link\b(?=[^>]*\brel=["']canonical["'])[^>]*>/gi,'')
+ .replace(/<meta\b(?=[^>]*(?:property=["']og:(?:type|title|description|url|image)["']|name=["']twitter:(?:card|image)["']))[^>]*>/gi,'');
 gh=gh.replace('</head>',`<link rel="canonical" href="${origin+gamingPath}"><meta property="og:type" content="website"><meta property="og:title" content="Gaming clips, with your style | VireoClip"><meta property="og:description" content="Explore credited, manually edited gaming layout examples. Automatic gameplay quality is still under review."><meta property="og:url" content="${origin+gamingPath}"><meta property="og:image" content="${origin}/site-assets/gaming.png"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="${origin}/site-assets/gaming.png"></head>`);await writeFile(gamingFile,gh);
 const paths=['/',...pages.map(p=>p.path),...editorLessons.map(a=>'/resources/learning-center/'+a.id),gamingPath];
 await writeFile(out+'/sitemap.xml',`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${paths.map(p=>`<url><loc>${origin+p}</loc></url>`).join('')}</urlset>`);
 await writeFile(out+'/robots.txt',`User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`);
-console.log(`Generated ${pages.length} static pages, gaming metadata, sitemap and robots in ${out}`);
+console.log(`Generated ${pages.length+editorLessons.length+1} static subpages (${pages.length} catalog pages, ${editorLessons.length} lessons, 1 gaming page), ${paths.length} sitemap URLs including homepage, and robots in ${out}`);
