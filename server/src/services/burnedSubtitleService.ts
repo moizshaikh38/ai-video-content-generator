@@ -1,4 +1,7 @@
 import fs from 'node:fs/promises';
+import path from 'node:path';
+import ffmpegStatic from 'ffmpeg-static';
+import {supervisedExecFile} from './queue/supervisedExecFile.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { parseSubtitleOcrTsv, type SubtitleOcrFrame } from '../shared/subtitleOcrEvidence.js';
@@ -45,6 +48,45 @@ export const DEFAULT_MOBILE_SAFE_ZONE: SafeZoneProfile = {
  * where it obscures the least face area.
  */
 export class BurnedSubtitleService {
+  private static reviewBusy = false;
+  /** Export review only. Decode existing bytes, never acquire or modify source.
+   * Fresh dedicated directory, bounded five stills/20s, sequential single-thread
+   * children; callers retain unknown when OCR or the resource budget is absent. */
+  public static async reviewVideo(input: {sourcePath:string;start:number;duration:number;sourceSha256:string;tempDirectory:string;sourceWidth?:number;sourceHeight?:number;signal?:AbortSignal}) {
+    const unknown:BurnedSubtitleAnalysisResult={hasBurnedSubtitles:false,status:'unavailable',sampledFrames:0,analyzedFrames:0,bandHeightRatio:0,confidence:0,reason:'Source text review unavailable; subtitle presence remains unknown.'};
+    const bind=(result:BurnedSubtitleAnalysisResult)=>({...result,sourceSha256:input.sourceSha256,sourceStart:input.start,sourceEnd:input.start+input.duration,semanticVerification:'unknown' as const,captionSettingsChanged:false as const});
+    if(!/^[a-f0-9]{64}$/.test(input.sourceSha256)||![input.start,input.duration].every(Number.isFinite)||input.start<0||input.duration<=0||input.duration>120||!Number.isFinite(input.sourceWidth)||!Number.isFinite(input.sourceHeight)||!(input.sourceWidth!>0&&input.sourceWidth!<=1280&&input.sourceHeight!>0&&input.sourceHeight!<=720))return bind(unknown);
+    if(this.reviewBusy)return bind({...unknown,reason:'Local source text reviewer is busy; subtitle presence remains unknown.'});
+    const stat=await fs.statfs(input.tempDirectory);
+    if(stat.bavail*stat.bsize<1024**3+20*1024**2)return bind({...unknown,reason:'Source text review skipped to preserve disk margin; subtitle presence remains unknown.'});
+    const dir=await fs.mkdtemp(path.join(input.tempDirectory,'subtitle-review-'));
+    this.reviewBusy=true;
+    let stopVerified=true;
+    const deadline=Date.now()+20000;
+    const run=async(binary:string,args:string[])=>{
+      if(input.signal?.aborted)throw input.signal.reason;
+      const timeoutMs=Math.min(2500,deadline-Date.now());if(timeoutMs<=0)throw Error('Review budget exhausted');
+      return supervisedExecFile(binary==='tesseract'?'env':binary,binary==='tesseract'?['OMP_THREAD_LIMIT=1',binary,...args]:args,{timeoutMs,maxBuffer:1024*1024,signal:input.signal});
+    };
+    try{
+      const paths:string[]=[];
+      for(let i=0;i<5;i++){
+        const file=path.join(dir,`sample-${i}.png`);
+        await run((ffmpegStatic as unknown as string)||'ffmpeg',['-v','error','-threads','1','-filter_threads','1','-ss',String(input.start+input.duration*(i+.2)/5),'-i',input.sourcePath,'-frames:v','1','-vf','scale=w=min(1280\\,iw):h=-2',file]);
+        paths.push(file);
+      }
+      const result=await this.detectBurnedSubtitles(paths,async(file)=>{
+        const {stdout}=await run('tesseract',[file,'stdout','--psm','11','tsv']);
+        return parseSubtitleOcrTsv(stdout);
+      });
+      return bind(result);
+    }catch(error:any){
+      if(error?.code==='PROCESS_STOP_UNVERIFIED')stopVerified=false;
+      if(input.signal?.aborted||['WORK_CANCELLED','PROCESS_STOP_UNVERIFIED','SUPERVISION_UNAVAILABLE'].includes(error?.code))throw error;
+      return bind(unknown);
+    }finally{if(stopVerified){await fs.rm(dir,{recursive:true,force:true});this.reviewBusy=false;}}
+  }
+
   /** Bounded local OCR, with explicit unknown when unavailable. Geometry only:
    * logos and lower thirds may resemble subtitles. No destructive crop advice.
    * Does not alter caption settings or introduce a provider call. */
@@ -68,10 +110,13 @@ export class BurnedSubtitleService {
         if (!frame) continue;
         analyzedFrames++;
         if (frame.candidateTop !== null) { candidateFrames++; minTop = Math.min(minTop, frame.candidateTop); }
-      } catch { /* Missing OCR binary, timeout and unreadable input remain unknown. */ }
+      } catch(error:any) {
+        if(['WORK_CANCELLED','PROCESS_STOP_UNVERIFIED','SUPERVISION_UNAVAILABLE'].includes(error?.code))throw error;
+        /* Missing OCR binary, timeout and unreadable input remain unknown. */
+      }
     }
     const supported = analyzedFrames >= 2;
-    const hasBurned = supported && candidateFrames >= Math.max(2, Math.ceil(analyzedFrames * 0.4));
+    const hasBurned = supported && candidateFrames > 0;
     return {
       hasBurnedSubtitles: hasBurned,
       status: !supported ? 'unavailable' : hasBurned ? 'suspected-source-text' : 'not-observed',
@@ -80,7 +125,7 @@ export class BurnedSubtitleService {
       // This is sample support, not probability that the text is a subtitle.
       confidence: supported ? candidateFrames / analyzedFrames : 0,
       reason: !supported ? 'Insufficient local OCR evidence; source subtitle presence is unknown.'
-        : hasBurned ? 'Repeated lower-band source text observed. Review duplicate captions; text may be a logo or lower third. No automatic crop or caption removal.'
+        : hasBurned ? 'Lower-band source text observed in one or more samples. Review duplicate captions; text may be a logo or lower third. No automatic crop or caption removal.'
         : 'No repeated lower-band source text observed in these samples. This does not establish that subtitles are absent.',
     };
   }

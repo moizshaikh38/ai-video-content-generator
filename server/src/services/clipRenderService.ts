@@ -1,3 +1,4 @@
+import {BurnedSubtitleService} from './burnedSubtitleService.js';
 import {supervisedExecFile} from './queue/supervisedExecFile.js';
 import {renewRenderLeaseForCv} from './queue/renderLeaseClaim.js';
 import {runsBackgroundWorkers,hostRenderCapacity,ffmpegThreadArgs,ffmpegEncoderThreadArgs} from './runtimePolicy.js';
@@ -751,7 +752,10 @@ export class ClipRenderService {
       const reframeDecision = await ClipRenderService.resolveReframeDecision(clip, durationSec, canvasScale, sourceSha256, srcDims);
       const cropFilter = reframeDecision.cropFilter;
       const actualReframeMode = reframeDecision.mode;
-      const reframeMetadata = reframeDecision.metadata;
+      // Source pixels can contain captions independently of the generated cue
+      // layer. Record bounded evidence, never silently disable the user's style.
+      const sourceSubtitleReview = await BurnedSubtitleService.reviewVideo({sourcePath,start:startSec,duration:durationSec,sourceSha256,tempDirectory:tempDir,sourceWidth:srcDims?.width,sourceHeight:srcDims?.height,signal:renderCancellation.signal});
+      const reframeMetadata = {...reframeDecision.metadata,source_subtitle_review:sourceSubtitleReview};
 
       const videoFilters: string[] = [cropFilter];
 

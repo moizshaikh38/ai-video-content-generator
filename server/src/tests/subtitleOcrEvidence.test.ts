@@ -27,7 +27,7 @@ it('unavailable OCR never reports confident absence and successful empty OCR rem
  assert.equal(absent.status,'not-observed');assert.match(absent.reason,/does not establish/);
  }finally{await fs.rm(dir,{recursive:true,force:true});}
 });
-it('requires repeated evidence, caps work, and never advises destructive crop',async()=>{
+it('requires sampled evidence, caps work, and never advises destructive crop',async()=>{
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'vireo-ocr-test-'));
  try {const p=path.join(dir,'frame.png'), q=path.join(dir,'other.png');await fs.writeFile(p,Buffer.alloc(24));await fs.writeFile(q,Buffer.alloc(24));let calls=0;
  const single=await BurnedSubtitleService.detectBurnedSubtitles([p],async()=>({candidateTop:.8}));assert.equal(single.status,'unavailable');
@@ -36,4 +36,15 @@ it('requires repeated evidence, caps work, and never advises destructive crop',a
  const found=await BurnedSubtitleService.detectBurnedSubtitles(paths,async()=>{calls++;return{candidateTop:.8};});
  assert.equal(calls,5);assert.equal(found.status,'suspected-source-text');assert.equal(found.hasBurnedSubtitles,true);assert.equal(found.recommendedCropFilter,undefined);assert.equal(found.bandHeightRatio,.2);
  }finally{await fs.rm(dir,{recursive:true,force:true});}
+});
+it('one positive among valid samples still requests review, never reports source text absent',async()=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'vireo-ocr-test-'));
+ try{const files=await Promise.all(Array.from({length:5},async(_,i)=>{const p=path.join(dir,`${i}.png`);await fs.writeFile(p,Buffer.alloc(24));return p}));let i=0;
+ const r=await BurnedSubtitleService.detectBurnedSubtitles(files,async()=>({candidateTop:i++===0?.8:null}));assert.equal(r.status,'suspected-source-text');assert.equal(r.confidence,.2);assert.equal(r.recommendedCropFilter,undefined);
+ }finally{await fs.rm(dir,{recursive:true,force:true});}
+});
+it('cancellation or unverified child stop cannot be laundered into absence',async()=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'vireo-ocr-test-'));
+ try{const p=path.join(dir,'sample.png');await fs.writeFile(p,Buffer.alloc(24));for(const code of ['WORK_CANCELLED','PROCESS_STOP_UNVERIFIED'])await assert.rejects(BurnedSubtitleService.detectBurnedSubtitles([p],async()=>{throw Object.assign(Error('stopped'),{code})}),{code});}
+ finally{await fs.rm(dir,{recursive:true,force:true});}
 });
