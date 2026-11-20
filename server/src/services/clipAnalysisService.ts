@@ -1,7 +1,7 @@
 import {selectionContextIdentity} from '../shared/selectionContextIdentity.js';
 import {groundWindowClipProposals} from '../shared/groundWindowClipProposals.js';
 import {shortFallbackCompleteEnd} from '../shared/shortFallbackCompleteEnd.js';
-import { compareFinalSpeechScope, finalSpokenText, narrativeRankingInvalidationReason } from '../shared/finalSpeechScope.js';
+import { compareFinalSpeechScope, finalSpokenText, narrativeRankingInvalidationReason, potentialDependentOpening } from '../shared/finalSpeechScope.js';
 import {measuredGenreSignals} from '../shared/measuredGenreSignals.js';
 import {shortSourceReviewContext} from '../shared/candidateReviewNotice.js';
 import {gamingGenreFromVisualReview} from '../shared/automaticGamingPanels.js';
@@ -1063,7 +1063,7 @@ export class ClipAnalysisService {
         // question it doesn't include and the exchange fits the genre clamps,
         // repair the boundary instead of only penalizing completeness.
         let questionInclusion: { extendedBySec: number; includedQuestionText: string } | null = null;
-        if (isQaCriticalGenre(genreProfile.genre) && precedingSeg) {
+        if ((isQaCriticalGenre(genreProfile.genre) || potentialDependentOpening(candidateText)) && precedingSeg) {
           const inclusion = tryIncludeQuestion(
             {
               start_seconds,

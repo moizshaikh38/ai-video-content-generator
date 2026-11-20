@@ -4,7 +4,15 @@ export type FinalSpeechScope = {
   finalWordCount: number;
   finalWordBoundarySafe: boolean | null;
   finalEndingPunctuation: boolean | null;
+  /** Lexical review signal only, never a standalone-quality verdict. */
+  finalOpeningReviewReason?: 'potential-dependent-opening';
 };
+
+/** Narrow lexical signal for omitted-question review. It never proves that an
+ * opening is bad or good; only actual adjacent question evidence may repair it. */
+export function potentialDependentOpening(text:string):boolean {
+ return /^(?:because\b|that(?:'s| is) why\b)/i.test(text.replace(/^[\s"'“”‘’]+/u,''));
+}
 
 // Word identity is the row's position in the same source transcript, not its
 // spelling. Repeated words must not hide a changed source interval.
@@ -29,6 +37,7 @@ export function compareFinalSpeechScope(input: {
   return {
     status: JSON.stringify(signature(original,input.originalStart,input.originalEnd)) === JSON.stringify(signature(final,input.finalStart,input.finalEnd)) ? 'unchanged' : 'changed',
     originalWordCount: original.length, finalWordCount: final.length, finalWordBoundarySafe:safe,
+    ...(safe && potentialDependentOpening([...final].sort((a,b)=>a.start-b.start||a.index-b.index).slice(0,5).map(w=>w.text).join(' ')) ? {finalOpeningReviewReason:'potential-dependent-opening' as const} : {}),
     finalEndingPunctuation: Boolean(safe && last && /[.!?।॥]+[\"'”’)]*$/.test(last.text)),
   };
 }
@@ -46,9 +55,12 @@ export function finalSpokenText(words:Array<{start:number;end:number;word?:strin
 
 /** Provider scores describe the proposed spoken interval. Without usable words,
  * a changed clock cannot be assumed to contain the same speech. Tiny source
- * float noise is compared at the same millisecond precision as saved clips. */
-export function narrativeRankingInvalidationReason(scope:FinalSpeechScope,bounds:{originalStart:number;originalEnd:number;finalStart:number;finalEnd:number}):'spoken-content-changed-after-proposal'|'changed-interval-speech-scope-unverified'|undefined {
+ * float noise is compared at the same millisecond precision as saved clips.
+ * A lexical dependent-opening flag also suspends ranking for review. It is not
+ * a semantic rejection, and absence of the flag is not narrative acceptance. */
+export function narrativeRankingInvalidationReason(scope:FinalSpeechScope,bounds:{originalStart:number;originalEnd:number;finalStart:number;finalEnd:number}):'spoken-content-changed-after-proposal'|'changed-interval-speech-scope-unverified'|'dependent-opening-needs-review'|undefined {
  if(scope.status==='changed')return 'spoken-content-changed-after-proposal';
+ if(scope.finalOpeningReviewReason)return 'dependent-opening-needs-review';
  if(scope.status!=='unavailable')return undefined;
  const values=[bounds.originalStart,bounds.originalEnd,bounds.finalStart,bounds.finalEnd];
  if(!values.every(Number.isFinite))return 'changed-interval-speech-scope-unverified';

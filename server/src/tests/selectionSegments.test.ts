@@ -21,3 +21,10 @@ test('punctuation in numbers is not a terminal boundary and Hindi punctuation is
 });
 
 test('storage fields retain provider units only when deriving new units',()=>{const fields=newTranscriptSelectionFields(segments,words);assert.equal(fields.provider_segments,segments);assert.deepEqual(fields.selection_segmentation?.provider_segment_indexes,[0,0,0]);assert.equal(fields.segments.length,3);const raw=newTranscriptSelectionFields(segments,[]);assert.equal(raw.segments,segments);assert.equal(raw.provider_segments,undefined);});
+
+test('one millisecond provider boundary rounding uses unchanged word clocks, never shifts text or overlaps a neighbor',()=>{
+ const s=[{start:.101,end:2.999,text:'First. Second.'}],w=[{word:'First.',start:.1,end:1},{word:'Second.',start:2,end:3}];const before=JSON.stringify({s,w});const r=derive(s,w);assert(r.changed);assert.deepEqual(r.segments.map(s=>[s.start,s.end]),[[.1,1],[2,3]]);assert.equal(JSON.stringify({s,w}),before);
+ assert.equal(derive([{...s[0],end:2.998}],w).changed,false);
+ const ss=[{start:0,end:.999,text:'First.'},{start:.999,end:2,text:'Second.'}],ww=[{word:'First.',start:0,end:1},{word:'Second.',start:1,end:2}];assert.equal(derive(ss,ww).changed,false,'expanded word envelope may not overlap the next provider segment');
+ const overlapping=[{...ss[0]},{...ss[1],start:.999, text:'Second.'}];const ow=[ww[0],{...ww[1],start:.999}];assert.equal(derive(overlapping,ow).changed,false,'real word overlap is never repaired');
+});
