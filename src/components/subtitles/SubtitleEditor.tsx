@@ -1036,12 +1036,12 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
                         }`}
                       >
                         <div className="flex items-center justify-between gap-1 mb-1">
-                          <span className="text-xs font-bold text-white truncate flex items-center gap-1">
+                          <span className="text-xs font-bold text-white flex items-center gap-1 min-w-0">
                             {!isAllowed && <Lock className="size-3 text-amber-400 shrink-0" />}
-                            {p.name}
+                            <span className="truncate">{p.name}</span>
                           </span>
                           <span
-                            className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
+                            className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${
                               !isAllowed
                                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                                 : 'bg-violet-500/20 text-violet-300'
@@ -1154,7 +1154,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
                         type="text"
                         value={style.textColor || '#FFFFFF'}
                         onChange={(e) => handleStyleChange({ textColor: e.target.value })}
-                        className="flex-1 px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-xs text-white font-mono"
+                        className="flex-1 min-w-0 px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-xs text-white font-mono"
                       />
                     </div>
                   </div>
@@ -1172,7 +1172,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
                         type="text"
                         value={style.highlightColor || '#FACC15'}
                         onChange={(e) => handleStyleChange({ highlightColor: e.target.value })}
-                        className="flex-1 px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-xs text-white font-mono"
+                        className="flex-1 min-w-0 px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-xs text-white font-mono"
                       />
                     </div>
                   </div>
