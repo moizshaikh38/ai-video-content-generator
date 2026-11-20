@@ -1,1 +1,1 @@
-2026-11-20T16:47:00+05:30 qualify explicit bounded local live capture preview, default and production disabled; no deploy
+2026-11-20T16:49:00+05:30 retain completed local captures until explicit owner discard; qualify exact preview, no deploy
