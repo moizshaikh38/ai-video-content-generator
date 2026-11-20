@@ -6,6 +6,8 @@ export interface SourceTextReviewNotice {
  blocking:false;
  message:string;
  evidence:'recorded-source-samples';
+ timeBasis:'selected-source-window-not-edited-timeline';
+ observedSourceTimes:number[];
  sourceSha256:string;
  sourceStart:number;
  sourceEnd:number;
@@ -28,5 +30,5 @@ export function sourceTextReviewNotice(clip:any):SourceTextReviewNotice|null {
  // clip-wide summaries, and never treat an empty list as absence.
  const times=(items:any[])=>[...new Set<number>(items.map(s=>s.clipTime))].sort((a,b)=>a-b);
  const observed=valid.filter((s:any)=>s.status==='suspected-source-text'&&Number.isFinite(s.candidateTop)&&s.candidateTop>=.72&&s.candidateTop<1);
- return {kind:'source-text-observed',blocking:false,message:'Text was observed in sampled source frames. Generated captions may overlap or repeat it. Review the preview; unobserved times remain unknown.',evidence:'recorded-source-samples',sourceSha256:sha,sourceStart:start,sourceEnd:end,observedClipTimes:times(observed),sampledClipTimes:times(valid),coverage:'sparse-positive-only',semanticVerification:'unknown',establishesTextAbsence:false,captionSettingsChanged:false};
+ return {kind:'source-text-observed',blocking:false,message:'Text was observed in sampled source frames. Generated captions may overlap or repeat it. Review the preview; unobserved times remain unknown.',evidence:'recorded-source-samples',timeBasis:'selected-source-window-not-edited-timeline',observedSourceTimes:times(observed).map(t=>start+t),sourceSha256:sha,sourceStart:start,sourceEnd:end,observedClipTimes:times(observed),sampledClipTimes:times(valid),coverage:'sparse-positive-only',semanticVerification:'unknown',establishesTextAbsence:false,captionSettingsChanged:false};
 }
