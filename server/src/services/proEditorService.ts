@@ -1,3 +1,7 @@
+import {AUTOMATIC_FIT_FOCUS_Y} from '../shared/automaticFitGeometry.js';
+import {placeFreshHookInUpperBand,type FreshHookBandReview} from '../shared/freshHookPictureBand.js';
+import {projectHook} from '../shared/hookDisplayMode.js';
+import {reframeTrackFreshness} from '../shared/reframeTrackFreshness.js';
 import {nonPortraitAutoFullSourceFit} from '../shared/nonPortraitAutoFit.js';
 import {fitFreshAutoHook} from '../shared/freshAutoHookFit.js';
 import {automaticHeadlineText} from '../shared/autoHookTitle.js';
@@ -249,7 +253,18 @@ export class ProEditorService {
 
     // 5. Build initial multi-track structure
     const { data: sourceProject } = await dataRepository.from('projects').select('clip_preferences').eq('id', clip.project_id).eq('user_id', userId).maybeSingle();
-    const editorProject = this.buildInitialProject(clip, userId, producerPlan, transcript, dto, sourceProject?.clip_preferences);
+    let editorProject = this.buildInitialProject(clip, userId, producerPlan, transcript, dto, sourceProject?.clip_preferences);
+    // Only this first-creation path may choose a new generated hook anchor.
+    // A saved project returned above never enters source measurement or placement.
+    if(clip.auto_hook_title_enabled===true&&projectHook(editorProject)?.text?.hook_style_linked){
+      const sha=(clip as any).selection_source_receipt?.source_receipt?.sha256;
+      if(typeof sha==='string'&&/^[a-f0-9]{64}$/.test(sha)){
+        const track=await SmartReframeService.getReframeTrack(clipId,userId,sha,true);
+        const review=this.prepareFreshHookPictureBand(editorProject,clip,track);
+        editorProject=review.project;
+        logger.info(`[ProEditor] Fresh hook picture-band placement for ${clipId}: ${review.status}: ${review.reason}`);
+      }
+    }
 
     // Creation touches the clip in the same transaction, fencing a render
     // which read the absence of an editor project.
@@ -2192,6 +2207,35 @@ export class ProEditorService {
     return { safeLines, font, scaledFontSize, scaleRatio, posX, posY, start, end, boxBorderW, lineGap };
   }
 
+  /** New editor creation only, never a saved/manual geometry migration. */
+  public static prepareFreshHookPictureBand(project:EditorProject,clip:any,track:any):FreshHookBandReview {
+    const unavailable=(reason:string):FreshHookBandReview=>({project,status:'unavailable',reason});
+    const sha=clip?.selection_source_receipt?.source_receipt?.sha256;
+    if(clip?.crop_config?.mode!=='smart'||clip?.crop_config?.layout_mode_source!=='auto')return unavailable('Only a new explicit Auto smart layout is eligible.');
+    if(typeof sha!=='string'||!/^[a-f0-9]{64}$/.test(sha)||!track||track.status!=='ready'||track.isStale||track.sourceObjectVerified!==true||reframeTrackFreshness(clip,track,sha).isStale)return unavailable('A current independently verified source framing track is required.');
+    const duration=Number(clip.end_seconds)-Number(clip.start_seconds)-Number(clip.trim_start_offset||0)-Number(clip.trim_end_offset||0);
+    const plan=SmartReframeService.explicitAutoLayoutPlan(track,clip.crop_config,duration);
+    if(!Array.isArray(plan)||!plan.length||plan.some((s:any,i:number)=>s.kind!=='fit'||s.split||s.windowW!==1||s.windowH!==1||!s.keyframes?.length||s.keyframes.some((k:any)=>k.centerX!==.5||k.centerY!==.5)||Math.abs(s.start-(i?plan[i-1].end:0))>.001)||Math.abs(plan[plan.length-1].end-duration)>.001)return unavailable('Only a complete static whole-source Auto Fit supplies this placement geometry.');
+    if(project.canvas.aspect_ratio!==clip.aspect_ratio||project.clip_id!==clip.id)return unavailable('The fresh canvas and clip identity must match.');
+    if(project.tracks.some(t=>!['VIDEO','TEXT','CAPTION','AUDIO'].includes(t.type)&&!t.hidden&&t.items.some(i=>!i.hidden)))return unavailable('Other visual layers require a separate collision review.');
+    const video=project.tracks.filter(t=>t.type==='VIDEO'&&!t.hidden).flatMap(t=>t.items);
+    if(video.length!==1||video.some(i=>i.crop||i.panels||i.framing_window||i.tracker?.enabled||i.keyframes?.length||i.crop_config?.layout_mode_source!=='auto'||i.transform?.scale!==1||i.transform?.rotation!==0||i.transform?.position_x!==0||i.transform?.position_y!==0||i.source_asset_id!==clip.id||i.source_path!==clip.source_storage_path||Math.abs(i.source_start-(clip.start_seconds+Number(clip.trim_start_offset||0)))>.001||Math.abs(i.source_end-(clip.end_seconds-Number(clip.trim_end_offset||0)))>.001||i.timeline_start!==0||Math.abs(i.timeline_end-duration)>.001||(i.speed?.speed??1)!==1)||Math.abs(project.canvas.duration-duration)>.001)return unavailable('Edited or multi-item picture geometry is not eligible.');
+    if(project.tracks.filter(t=>t.type==='TEXT'&&!t.hidden).flatMap(t=>t.items).filter(i=>!i.hidden).length!==1)return unavailable('Other text layers require a separate collision review.');
+    const hook=projectHook(project);if(!hook?.text)return unavailable('One generated hook is required.');
+    const w=project.canvas.width,h=project.canvas.height;
+    if(![w,h,track.source_width,track.source_height].every(Number.isFinite)||w<=0||h<=0||w*h>2073600||track.source_width<=0||track.source_height<=0)return unavailable('Picture dimensions exceed the bounded placement probe.');
+    const layout=this.layoutTextBlock(hook,w,h,project.canvas.aspect_ratio),bbox=layout&&this.measureTextBlockBBox(layout,hook.text.font_weight,w,h,3000);
+    if(!layout||!bbox||bbox.x<=0||bbox.x+bbox.w>=w||bbox.y<=0||bbox.y+bbox.h>=h)return unavailable('Complete hook ink bounds could not be measured.');
+    if(!hook.text.background_color||!hook.text.background_corner_radius||hook.text.shadow_blur)return unavailable('Only the fresh static rounded-card style is eligible.');
+    const cardH=Math.round(layout.safeLines.length*layout.scaledFontSize*(hook.text.line_height||1.2)+2*layout.boxBorderW);
+    const cardY=Math.max(0,Math.min(h-cardH,Math.round(bbox.y+bbox.h/2-cardH/2)));
+    const stroke=hook.text.stroke_width?Math.max(1,Math.round(hook.text.stroke_width*layout.scaleRatio)):0;
+    const bounds={top:Math.min(cardY,bbox.y-stroke),bottom:Math.max(cardY+cardH,bbox.y+bbox.h+stroke)};
+    const fraction=Math.min(1,(w/h)/(track.source_width/track.source_height));
+    const pictureTop=(1-fraction)*(project.canvas.aspect_ratio==='9:16'?AUTOMATIC_FIT_FOCUS_Y:.5)*h;
+    return placeFreshHookInUpperBand(project,pictureTop,bounds);
+  }
+
   /**
    * Measures the exact rendered bounding box of a text block by drawing it
    * once with the same drawtext parameters (final, un-animated state) onto a
@@ -2204,7 +2248,8 @@ export class ProEditorService {
     layout: NonNullable<ReturnType<typeof ProEditorService.layoutTextBlock>>,
     fontWeight: string | undefined,
     canvasW: number,
-    canvasH: number
+    canvasH: number,
+    timeoutMs=20000
   ): { x: number; y: number; w: number; h: number } | null {
     try {
       const probeBin = getDrawtextFfmpeg();
@@ -2219,7 +2264,7 @@ export class ProEditorService {
       const res = spawnSync(
         probeBin,
         ['-y', '-f', 'lavfi', '-i', `color=c=black@0.0:s=${canvasW}x${canvasH},format=rgba`, '-vf', chain, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-'],
-        { maxBuffer: canvasW * canvasH * 4 + 4096, timeout: 20000 }
+        { maxBuffer: canvasW * canvasH * 4 + 4096, timeout: timeoutMs }
       );
       if (res.status !== 0 || !res.stdout || res.stdout.length < canvasW * canvasH * 4) return null;
       const buf = res.stdout;
