@@ -156,3 +156,37 @@ The full source pipeline still includes source resolution, fire-and-forget
 poster work, provider/chunk processing and downstream analysis that are not
 covered by this extraction-only lifecycle change. Non-Linux extraction retains
 the legacy execution path and has no process-group guarantee.
+
+### Borrowed-source frame readers
+
+Source processing now registers its parallel project-poster FFmpeg phase and the
+existing flag-gated game-event frame-copy phase with `BorrowedSourceReaders`.
+Cleanup closes registration and joins those read phases before removing the
+source or clearing the process-local source guard. Poster upload/DB update and
+game-event provider/DB work start only after frames are copied, so source cleanup
+does not await their remote completion. Those background jobs are separately
+visible to `workLifecycle` shutdown draining. Existing feature flags, frame
+recipes and provider behavior are unchanged.
+
+On Linux the actual poster and game-event FFmpeg processes use process-group
+supervision. Unknown child exit stops retries, retains frame scratch and records
+an unsafe reader even when a best-effort service catches its error. The source
+pipeline then retains its source/audio scratch and active guard without changing
+an already-settled transcript/credit outcome. Render-poster unknown exit reaches
+the existing render quarantine, retaining local output/capacity; an already
+committed completed job is not rewritten by its worker-fenced failure handler.
+Ordinary poster/game-event failures remain best-effort.
+
+The join can add end-of-pipeline latency while actual frame reads finish. It is
+not a speed improvement. It has no guessed timeout that would authorize deletion
+while a reader might still run. Non-Linux legacy frame launching has no Linux
+group-exit guarantee. Worker crash, escaped process groups, crash recovery,
+provider cancellation, additional ancillary readers and a measured shared pool
+policy remain outside this change. It does not activate resource admission.
+
+Qualification: low-footprint delayed-extraction/delayed-upload and unknown-stop
+stubs exercise the actual poster/game-event entry points; pipeline cleanup and
+postpublish render handling are source-wiring evidence, not a complete paid
+transcription/render integration. Actual tiny-image Linux launcher output equals
+native FFmpeg output with identical arguments. No fullsize export, whole-program
+semantic result, hosted acceptance or concurrent-capacity result is implied.

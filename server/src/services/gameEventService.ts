@@ -1,3 +1,5 @@
+import {supervisedExecFile} from './queue/supervisedExecFile.js';
+import type {BorrowedSourceReaders} from './queue/borrowedSourceReaders.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -60,22 +62,19 @@ async function extractFrames(localSourcePath: string, startSec: number, duration
   const count = Math.max(4, Math.min(MAX_FRAMES, Math.ceil(durationSec / 2.5)));
   const interval = durationSec / count;
   const frames: FrameSample[] = [];
+  let cleanupSafe=true;
   try {
     for (let i = 0; i < count; i++) {
       const t = startSec + i * interval;
       const out = path.join(dir, `f${i}.jpg`);
-      await execFileAsync(
-        ffmpegBin,
-        ['-y', '-ss', t.toFixed(2), '-i', localSourcePath, '-frames:v', '1',
-         '-vf', `scale=640:-2`, '-q:v', FRAME_JPEG_QUALITY, out],
-        { timeout: 20_000 }
-      );
+      await GameEventService.executeFrameProcess(localSourcePath,t,out);
       if (fs.existsSync(out) && fs.statSync(out).size > 0) {
         frames.push({ time: Number(t.toFixed(2)), base64: fs.readFileSync(out).toString('base64') });
       }
     }
+  } catch(error:any){if(error?.code==='PROCESS_STOP_UNVERIFIED'){cleanupSafe=false;logger.error('[GameEvents] Frame scratch quarantined pending child exit proof',{dir,processGroupId:error.owned_process_group});}throw error;
   } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
+    if(cleanupSafe)fs.rmSync(dir, { recursive: true, force: true });
   }
   return frames;
 }
@@ -100,6 +99,15 @@ Rules: only report events you can SEE evidence for in a frame; confidence < 0.4 
 }
 
 export class GameEventService {
+  static async executeFrameProcess(input:string,at:number,out:string):Promise<void>{
+    const args=['-y','-ss',at.toFixed(2),'-i',input,'-frames:v','1','-vf','scale=640:-2','-q:v',FRAME_JPEG_QUALITY,out];
+    if(process.platform==='linux')await supervisedExecFile(ffmpegBin,args,{timeoutMs:20000,maxBuffer:4*1024*1024});
+    else await execFileAsync(ffmpegBin,args,{timeout:20000});
+  }
+  static extractFrames(input:string,start:number,duration:number,readers?:BorrowedSourceReaders):Promise<FrameSample[]>{
+    const read=()=>extractFrames(input,start,duration);
+    return readers?readers.read(read):read();
+  }
   /** Runs VLM game-event detection on an already-local source. Never throws. */
   public static async analyzeLocalVideo(
     projectId: string,
@@ -107,13 +115,14 @@ export class GameEventService {
     localSourcePath: string,
     startSec: number,
     durationSec: number,
-    energySegments: EnergySegment[] = []
+    energySegments: EnergySegment[] = [],
+    sourceReaders?:BorrowedSourceReaders
   ): Promise<GameEventAnalysis> {
     const empty: GameEventAnalysis = { project_id: projectId, events: [], created_at: new Date().toISOString() };
     try {
       if (!config.gameEventsAuto || durationSec < 8) return empty;
 
-      const frames = await extractFrames(localSourcePath, startSec, durationSec);
+      const frames = await this.extractFrames(localSourcePath, startSec, durationSec,sourceReaders);
       if (frames.length < 4) return empty;
 
       const spikes: ReactionSpike[] = detectReactionSpikes(energySegments);

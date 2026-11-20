@@ -1,3 +1,5 @@
+import {supervisedExecFile} from './queue/supervisedExecFile.js';
+import type {BorrowedSourceReaders} from './queue/borrowedSourceReaders.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -64,39 +66,56 @@ export class ProjectPosterService {
    * Extracts one HD frame from a local path or signed URL (trying each time in order until a
    * frame comes out) and uploads it to the clips bucket under `key`. True when uploaded.
    */
-  static async extractAndUpload(input: string, times: number[], key: string, label: string): Promise<boolean> {
+  static async executeFrameProcess(input:string,at:number,outPath:string):Promise<void>{
+    const args=this.buildArgs(input,at,outPath);
+    if(process.platform==='linux')await supervisedExecFile(ffmpegBin,args,{timeoutMs:EXTRACT_TIMEOUT_MS,maxBuffer:4*1024*1024});
+    else await execFileAsync(ffmpegBin,args,{timeout:EXTRACT_TIMEOUT_MS});
+  }
+
+  static async uploadPoster(key:string,outPath:string):Promise<void>{
+    await uploadFile('clips',key,outPath,fs.statSync(outPath).size,'image/jpeg');
+  }
+
+  static async extractAndUpload(input: string, times: number[], key: string, label: string, sourceReaders?:BorrowedSourceReaders): Promise<boolean> {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vireo-poster-'));
     const outPath = path.join(tmpDir, `${crypto.randomUUID()}.jpg`);
+    let cleanupSafe=true;
     try {
+      const read=async()=>{
       for (const at of times) {
         try {
-          await execFileAsync(ffmpegBin, this.buildArgs(input, at, outPath), { timeout: EXTRACT_TIMEOUT_MS });
+          await this.executeFrameProcess(input,at,outPath);
         } catch (err: any) {
+          if(err?.code==='PROCESS_STOP_UNVERIFIED'){cleanupSafe=false;logger.error('[Poster] Frame scratch quarantined pending child exit proof',{label,tmpDir,processGroupId:err.owned_process_group});throw err;}
           logger.warn(`[Poster] ffmpeg failed for ${label} at ${at}s: ${err?.message}`);
         }
         if (fs.existsSync(outPath) && fs.statSync(outPath).size > 0) break;
       }
       if (!fs.existsSync(outPath) || fs.statSync(outPath).size === 0) return false;
-      await uploadFile('clips', key, outPath, fs.statSync(outPath).size, 'image/jpeg');
+      return true;
+      };
+      if(!await (sourceReaders?sourceReaders.read(read):read()))return false;
+      // No source reads occur beyond this point. Remote upload may finish later.
+      await this.uploadPoster(key,outPath);
       return true;
     } finally {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      if(cleanupSafe)fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   }
 
   /** Extracts a project poster from a local path or a signed URL and uploads it. Returns the key or null. */
-  static async generate(userId: string, projectId: string, input: string, durationSeconds?: number | null): Promise<string | null> {
+  static async generate(userId: string, projectId: string, input: string, durationSeconds?: number | null, sourceReaders?:BorrowedSourceReaders): Promise<string | null> {
     const key = this.posterKey(userId, projectId);
-    const ok = await this.extractAndUpload(input, [this.frameTime(durationSeconds), 0], key, `project ${projectId}`);
+    const ok = await this.extractAndUpload(input, [this.frameTime(durationSeconds), 0], key, `project ${projectId}`,sourceReaders);
     if (!ok) return null;
     await dataRepository.from('projects').update({ poster_key: key }).eq('id', projectId).eq('user_id', userId);
     return key;
   }
 
-  /** Best-effort during processing, from the already-downloaded source file. Never throws. */
-  static async generateFromLocalFile(userId: string, projectId: string, videoPath: string, durationSeconds?: number | null): Promise<void> {
+  /** Best-effort during processing. Reader outcome remains recorded even when errors are swallowed. */
+  static async generateFromLocalFile(userId: string, projectId: string, videoPath: string, durationSeconds?: number | null, sourceReaders?:BorrowedSourceReaders): Promise<void> {
     try {
-      await this.generate(userId, projectId, videoPath, durationSeconds);
+      await this.generate(userId, projectId, videoPath, durationSeconds,sourceReaders);
     } catch (err: any) {
       logger.warn(`[Poster] Could not create poster for project ${projectId}: ${err?.message}`);
     }

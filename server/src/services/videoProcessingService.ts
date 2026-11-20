@@ -1,3 +1,4 @@
+import {BorrowedSourceReaders} from './queue/borrowedSourceReaders.js';
 import {newTranscriptSelectionFields} from './transcription/selectionSegments.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import {observeTranscriptionInputs} from './transcription/transcriptionInputObserver.js';
@@ -80,6 +81,7 @@ async function executeProjectVideo(
     let cleanupAudio: (() => void) | null = null;
     let downloadedVideoPath: string | null = null;
     let cleanupSafe=true;
+    const sourceReaders=new BorrowedSourceReaders();
 
     try {
     // 1. Update status to 'processing'
@@ -176,9 +178,8 @@ async function executeProjectVideo(
       .eq('user_id', userId)
       .maybeSingle();
     if (posterRow?.source_type === 'upload') {
-      // Fire-and-forget: the poster is a dashboard nicety and must not delay
-      // audio extraction/transcription (which are the latency-critical stages).
-      ProjectPosterService.generateFromLocalFile(userId, projectId, videoPath, posterRow.duration_seconds)
+      // Parallel best-effort upload; source cleanup joins only the owned reader.
+      workLifecycle.run('source-project-poster',()=>ProjectPosterService.generateFromLocalFile(userId, projectId, videoPath, posterRow.duration_seconds,sourceReaders))
         .catch((err: any) => logger.warn(`Poster generation failed for project ${projectId}: ${err?.message || err}`));
     }
 
@@ -476,7 +477,7 @@ async function executeProjectVideo(
       if (config.gameEventsAuto && (genre === 'gaming' || genre === 'sports')) {
         const { GameEventService } = await import('./gameEventService.js');
         const duration = effectiveDuration > 0 ? effectiveDuration : 60;
-        GameEventService.analyzeLocalVideo(projectId, userId, videoPath, 0, Math.min(duration, 600))
+        workLifecycle.run('source-game-events',()=>GameEventService.analyzeLocalVideo(projectId, userId, videoPath, 0, Math.min(duration, 600),[],sourceReaders))
           .catch(() => undefined);
       }
     } catch {
@@ -543,6 +544,9 @@ async function executeProjectVideo(
       error: message || 'Video processing failed.',
     };
   } finally {
+    // Does not await uploads/VLM/DB work or replace an already-settled transcript.
+    const readersStopped=await sourceReaders.closeAndWait();
+    cleanupSafe=cleanupSafe&&readersStopped;
     if (cleanupSafe&&cleanupAudio) {
       try {
         cleanupAudio();

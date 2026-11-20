@@ -52,11 +52,12 @@ export class ClipPosterService {
     return key;
   }
 
-  /** Best-effort right after a render, from the local output file. Never throws. */
+  /** Best-effort after render. Unknown child exit must retain the borrowed output. */
   static async generateFromRenderedFile(clip: PosterClip, outputPath: string): Promise<void> {
     try {
       await this.store({ ...clip, render_status: 'ready', output_storage_path: clip.output_storage_path || 'local' }, outputPath, true);
     } catch (err: any) {
+      if(err?.code==='PROCESS_STOP_UNVERIFIED')throw err;
       logger.warn(`[Poster] Could not create poster for clip ${clip.id}: ${err?.message}`);
     }
   }
