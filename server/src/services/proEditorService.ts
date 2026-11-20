@@ -1,3 +1,4 @@
+import {fitFreshAutoHook} from '../shared/freshAutoHookFit.js';
 import {automaticHeadlineText} from '../shared/autoHookTitle.js';
 import {normalizeHookTiming,hookProjectExportIssue,applyHookPreset} from '../shared/hookDisplayMode.js';
 import {pinnedHttpsAssetFetch} from '../utils/pinnedHttpsAssetFetch.js';
@@ -2823,7 +2824,7 @@ export class ProEditorService {
         hook.text.hook_style_linked=true;
         if(clip.caption_enabled!==false){hook.text.hook_display_mode='hook_captions';hook.text.hook_intro_seconds=Math.min(5,finalDuration);}
         const style=resolveCaptionPreset(captionStyle,clip.caption_config?.presetOverrides,aspectRatio);
-        try{return applyHookPreset(initialized,style,FONT_EM_PER_ASS_SIZE[style.fontFamily]);}
+        try{return fitFreshAutoHook(applyHookPreset(initialized,style,FONT_EM_PER_ASS_SIZE[style.fontFamily]));}
         catch(error){throw new AppError(`Auto Hook cannot use this caption style: ${(error as Error).message} Turn off Auto Hook or choose a supported caption preset.`,409,'HOOK_PRESET_UNAVAILABLE');}
       }
     }
