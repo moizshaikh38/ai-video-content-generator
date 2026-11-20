@@ -69,7 +69,7 @@ export function hookTextLineCount(text: string, maxChars: number): number {
   return count;
 }
 
-export function hookPresetIssue(project: EditorProject, style: ResolvedCaptionStyle, fontEmRatio: number): string | null {
+export function hookPresetIssue(project: EditorProject, style: ResolvedCaptionStyle, fontEmRatio: number, options?:{layoutAdmission?:'fresh-initialization'}): string | null {
   const reason = hookModeUnavailable(project);
   if (reason) return reason;
   if (!hookPresetSupported(style)) return 'This caption preset font or weight is not supported for static hooks. Choose another preset.';
@@ -81,7 +81,7 @@ export function hookPresetIssue(project: EditorProject, style: ResolvedCaptionSt
   const height = Number.isFinite(project.canvas.height) && project.canvas.height > 0 ? project.canvas.height : previewHeight;
   const exportSize = Math.max(16, Math.round(size * height / previewHeight * (projectHook(project)!.transform?.scale || 1)));
   const maxChars = Math.max(8, Math.floor(0.9 * width / (exportSize * 0.5)));
-  if (hookTextLineCount(projectHook(project)!.text!.text, maxChars) > 4) return 'This hook exceeds the four-line export limit in this style. Shorten the hook or choose a smaller style.';
+  if (options?.layoutAdmission!=='fresh-initialization' && hookTextLineCount(projectHook(project)!.text!.text, maxChars) > 4) return 'This hook exceeds the four-line export limit in this style. Shorten the hook or choose a smaller style.';
   return null;
 }
 
@@ -112,10 +112,12 @@ export function hookProjectExportIssue(project: EditorProject): string | null {
 /** Static adaptation only. Keep the user's words and geometry; do not claim
  * caption motion, word highlights, casing or multilayer shadows as TEXT parity.
  * fontEmRatio is the caption font's ASS-to-CSS em ratio from the shared catalogue.
+ * Fresh initialization may defer only line fitting until its generated text is
+ * fitted, then must run hookProjectExportIssue. Saved/manual callers never defer.
  */
-export function applyHookPreset(project: EditorProject, style: ResolvedCaptionStyle, fontEmRatio: number): EditorProject {
+export function applyHookPreset(project: EditorProject, style: ResolvedCaptionStyle, fontEmRatio: number, options?:{layoutAdmission?:'fresh-initialization'}): EditorProject {
   if (!hookPresetLinked(project)) return project;
-  const reason = hookPresetIssue(project, style, fontEmRatio);
+  const reason = hookPresetIssue(project, style, fontEmRatio,options);
   if (reason) throw new Error(reason);
   const hook = projectHook(project)!;
   const previewWidth = project.canvas.aspect_ratio === '9:16' ? 360 : project.canvas.aspect_ratio === '1:1' ? 480 : 640;

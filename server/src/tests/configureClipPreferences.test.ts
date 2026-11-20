@@ -80,3 +80,14 @@ test('fresh wide hook fitting preserves every glyph, style, placement and saved 
  }
  const plain=P.buildInitialCandidateEditor({...base,auto_hook_title_enabled:false,overlay_config:{enabled:true,text:'W'.repeat(80)}},'fixture',null);const manual=plain.tracks.find(t=>t.type==='TEXT')!.items[0];assert.equal(manual.text!.text,'W'.repeat(80));assert.equal(manual.text!.hook_style_linked,undefined);
 });
+
+test('fresh100-character prose is fitted before final line admission; saved restyling never bypasses it',()=>{
+ const text='Why working with the wrong mentor wastes your money while the right mentor changes your whole future';assert.equal(text.length,100);
+ const base:any={id:'fixture',project_id:'fixture',user_id:'fixture',start_seconds:0,end_seconds:20,duration_seconds:20,aspect_ratio:'9:16',caption_style:'vireo_comic_default',caption_enabled:false,auto_hook_title_enabled:true,auto_hook_title_text:text};
+ for(const aspect_ratio of ['9:16','1:1','16:9']){
+  const project=P.buildInitialCandidateEditor({...base,aspect_ratio},'fixture',null);const hook=project.tracks.find(t=>t.type==='TEXT')!.items[0];
+  assert.equal(hook.text!.text.replace(/\s+/g,' '),text);assert.equal(hook.text!.text.length,100);assert.equal(hookProjectExportIssue(project),null);assert(hook.text!.text.split('\n').length<=4);assert.equal(hook.text!.hook_caption_preset,'vireo_comic_default');
+ }
+ const saved=P.buildInitialCandidateEditor({...base,auto_hook_title_text:'Real hook'},'fixture',null);saved.tracks.find(t=>t.type==='TEXT')!.items[0].text!.text=text;const before=JSON.stringify(saved);const style=resolveCaptionPreset('vireo_comic_default',undefined,'9:16');assert.throws(()=>applyHookPreset(saved,style,FONT_EM_PER_ASS_SIZE[style.fontFamily]),/four-line/);assert.equal(JSON.stringify(saved),before);
+ assert.throws(()=>P.buildInitialCandidateEditor({...base,auto_hook_title_text:text+'!'},'fixture',null),/100 characters/);
+});
