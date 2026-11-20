@@ -1,0 +1,87 @@
+name: Backup isolated qualification (no deploy)
+
+on:
+  push:
+    branches: [instinct-backup]
+    paths: [.github/workflows/backup-qualification.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-isolated-qualification
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    if: github.ref == 'refs/heads/instinct-backup'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      NODE_ENV: test
+      NODE_OPTIONS: --max-old-space-size=3072
+      SUPABASE_URL: http://127.0.0.1:5998
+      SUPABASE_SECRET_KEY: isolated-offline-fixture
+      GAME_EVENTS_AUTO: 'off'
+      MULTIMODAL_AUTO: 'off'
+      VIREO_RENDER_MAX_CONCURRENT: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Record runner capacity and checkout
+        run: |
+          git rev-parse HEAD
+          free -m
+          df -h .
+          node --version
+      - name: Install dependencies without application startup
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix server --no-audit --no-fund
+      - name: Whole backend typecheck
+        id: backend
+        continue-on-error: true
+        run: npm --prefix server run typecheck
+      - name: Frontend typecheck and build (no deployment)
+        id: frontend
+        continue-on-error: true
+        run: npm run build:frontend
+      - name: Offline source and recovery contracts
+        id: contracts
+        continue-on-error: true
+        run: npm run test:clipping-offline
+      - name: Serial safe tests, no database or provider credentials
+        id: safe
+        continue-on-error: true
+        run: npm --prefix server run test:safe
+      - name: Source readers and process supervision regression tests
+        id: lifecycle
+        continue-on-error: true
+        working-directory: server
+        run: >-
+          node --import tsx --test --test-concurrency=1
+          src/tests/borrowedSourceReaders.test.ts
+          src/tests/clipPosterService.test.ts
+          src/tests/audioExtractionSupervision.test.ts
+          src/tests/fluentEncoderSupervision.test.ts
+          src/tests/supervisedRenderEncoder.test.ts
+          src/tests/supervisedExecFile.test.ts
+          src/tests/cvAnalyzerSupervision.test.ts
+          src/tests/renderAdmission.test.ts
+          src/tests/renderRetryBudget.test.ts
+          src/tests/renderQueueWake.test.ts
+          src/tests/renderLeaseCommit.test.ts
+      - name: Deterministic selection benchmark
+        id: benchmark
+        continue-on-error: true
+        run: npm --prefix server run bench:selection
+      - name: Qualification outcome (no artifacts stored, no deploy)
+        if: always()
+        env:
+          RESULTS: ${{ toJSON(steps) }}
+        run: |
+          node -e 'const s=JSON.parse(process.env.RESULTS);for(const [k,v] of Object.entries(s))console.log(k,v.outcome);if(Object.values(s).some(v=>v.outcome!=="success"))process.exit(1)'
