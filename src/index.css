@@ -659,7 +659,6 @@ body {
     justify-content: center;
   }
   .vc-editor-topbar button {
-    min-width: 36px;
     min-height: 40px;
     align-items: center;
     justify-content: center;

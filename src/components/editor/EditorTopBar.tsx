@@ -113,7 +113,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
               setLocalTitle(title);
               setIsEditingTitle(true);
             }}
-            className="text-sm font-semibold text-neutral-200 hover:text-white truncate max-w-[190px] min-[420px]:max-w-[220px] sm:max-w-[280px] text-left hover:bg-white/[0.06] px-2 py-1 rounded transition"
+            className="text-sm font-semibold text-neutral-200 hover:text-white truncate max-w-[90px] sm:max-w-[280px] text-left hover:bg-white/[0.06] px-2 py-1 rounded transition"
             title="Click to rename"
           >
             {title || 'Untitled Clip'}
@@ -125,13 +125,13 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
           {saveStatus === 'saving' && (
             <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-vc-surface1 text-[11px] font-mono text-neutral-400">
               <Loader2 className="w-3 h-3 animate-spin text-neutral-400" />
-              <span className="hidden sm:inline">Saving...</span>
+              <span>Saving...</span>
             </span>
           )}
           {saveStatus === 'saved' && (
             <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/40 text-[11px] font-mono text-emerald-400">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="hidden sm:inline">Saved</span>
+              <span>Saved</span>
             </span>
           )}
           {saveStatus === 'dirty' && (
@@ -141,7 +141,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
               title="Unsaved changes. Click to save now"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              <span className="hidden sm:inline">Save</span>
+              <span>Save</span>
             </button>
           )}
           {saveStatus === 'error' && (
@@ -151,7 +151,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
               title={saveError || 'Save failed. Click to retry'}
             >
               <AlertTriangle className="w-3 h-3 text-rose-400" />
-              <span className="hidden sm:inline">Retry</span>
+              <span>Retry</span>
             </button>
           )}
         </div>
@@ -251,17 +251,17 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
         <button
           onClick={onOpenExportDialog}
           disabled={isRendering}
-          className="px-3.5 max-[420px]:px-2.5 py-1.5 rounded-full bg-vc-ai-hover text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai active:bg-violet-700 active:translate-y-px font-semibold text-xs flex items-center gap-1.5 transition disabled:opacity-50"
+          className="px-3.5 py-1.5 rounded-full bg-vc-ai-hover text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4),0_6px_16px_-6px_rgba(124,58,237,0.55)] hover:bg-vc-ai active:bg-violet-700 active:translate-y-px font-semibold text-xs flex items-center gap-1.5 transition disabled:opacity-50"
         >
           {isRendering ? (
             <>
               <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
-              <span className="max-[420px]:hidden">Rendering...</span>
+              <span>Rendering...</span>
             </>
           ) : (
             <>
               <Download className="w-3.5 h-3.5 text-black" />
-              <span className="max-[420px]:hidden">Export</span>
+              <span>Export</span>
             </>
           )}
         </button>
