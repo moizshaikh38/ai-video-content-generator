@@ -4,7 +4,7 @@ import ffmpegStatic from 'ffmpeg-static';
 import {supervisedExecFile} from './queue/supervisedExecFile.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { parseSubtitleOcrTsv, type SubtitleOcrFrame } from '../shared/subtitleOcrEvidence.js';
+import { parseSubtitleOcrTsv, sourceSubtitleReviewInputSupported, type SubtitleOcrFrame } from '../shared/subtitleOcrEvidence.js';
 const execFileAsync = promisify(execFile);
 
 export interface BurnedSubtitleAnalysisResult {
@@ -55,7 +55,7 @@ export class BurnedSubtitleService {
   public static async reviewVideo(input: {sourcePath:string;start:number;duration:number;sourceSha256:string;tempDirectory:string;sourceWidth?:number;sourceHeight?:number;signal?:AbortSignal}) {
     const unknown:BurnedSubtitleAnalysisResult={hasBurnedSubtitles:false,status:'unavailable',sampledFrames:0,analyzedFrames:0,bandHeightRatio:0,confidence:0,reason:'Source text review unavailable; subtitle presence remains unknown.'};
     const bind=(result:BurnedSubtitleAnalysisResult)=>({...result,sourceSha256:input.sourceSha256,sourceStart:input.start,sourceEnd:input.start+input.duration,semanticVerification:'unknown' as const,captionSettingsChanged:false as const});
-    if(!/^[a-f0-9]{64}$/.test(input.sourceSha256)||![input.start,input.duration].every(Number.isFinite)||input.start<0||input.duration<=0||input.duration>120||!Number.isFinite(input.sourceWidth)||!Number.isFinite(input.sourceHeight)||!(input.sourceWidth!>0&&input.sourceWidth!<=1280&&input.sourceHeight!>0&&input.sourceHeight!<=720))return bind(unknown);
+    if(!sourceSubtitleReviewInputSupported(input))return bind(unknown);
     if(this.reviewBusy)return bind({...unknown,reason:'Local source text reviewer is busy; subtitle presence remains unknown.'});
     const stat=await fs.statfs(input.tempDirectory);
     if(stat.bavail*stat.bsize<1024**3+20*1024**2)return bind({...unknown,reason:'Source text review skipped to preserve disk margin; subtitle presence remains unknown.'});

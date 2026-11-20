@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {parseSubtitleOcrTsv} from '../shared/subtitleOcrEvidence.js';
+import {parseSubtitleOcrTsv,sourceSubtitleReviewInputSupported} from '../shared/subtitleOcrEvidence.js';
 import {BurnedSubtitleService} from '../services/burnedSubtitleService.js';
 const header='level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext';
 const frame=(y=610,confidence=96)=>[header,'1\t1\t0\t0\t0\t0\t0\t0\t1280\t720\t-1\t',...['Hello','there'].map((t,i)=>`5\t1\t1\t1\t1\t${i+1}\t${300+i*140}\t${y}\t130\t30\t${confidence}\t${t}`)].join('\n');
@@ -47,4 +47,10 @@ it('cancellation or unverified child stop cannot be laundered into absence',asyn
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'vireo-ocr-test-'));
  try{const p=path.join(dir,'sample.png');await fs.writeFile(p,Buffer.alloc(24));for(const code of ['WORK_CANCELLED','PROCESS_STOP_UNVERIFIED'])await assert.rejects(BurnedSubtitleService.detectBurnedSubtitles([p],async()=>{throw Object.assign(Error('stopped'),{code})}),{code});}
  finally{await fs.rm(dir,{recursive:true,force:true});}
+});
+
+it('source-text review admits product180s cap without widening pixel or invalid-input limits',()=>{
+ const base={sourceSha256:'a'.repeat(64),start:0,duration:129.845,sourceWidth:1280,sourceHeight:720};
+ for(const duration of [.1,120,120.001,129.845,180])assert.equal(sourceSubtitleReviewInputSupported({...base,duration}),true);
+ for(const patch of [{duration:180.001},{duration:0},{duration:NaN},{duration:Infinity},{start:-.01},{sourceWidth:1281},{sourceHeight:721},{sourceWidth:undefined},{sourceSha256:'bad'}])assert.equal(sourceSubtitleReviewInputSupported({...base,...patch}),false);
 });

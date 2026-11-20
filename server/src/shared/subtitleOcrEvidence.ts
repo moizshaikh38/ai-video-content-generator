@@ -25,3 +25,13 @@ export function parseSubtitleOcrTsv(tsv: string): SubtitleOcrFrame | null {
   }
   return { candidateTop: tops.length ? Math.min(...tops) : null };
 }
+
+
+/** Current clipping product duration cap, not an OCR absence guarantee. Work
+ * remains five samples even at180s, so interval coverage stays explicitly sparse. */
+export function sourceSubtitleReviewInputSupported(input:{start:number;duration:number;sourceSha256:string;sourceWidth?:number;sourceHeight?:number}):boolean {
+ return /^[a-f0-9]{64}$/.test(input.sourceSha256)&&
+  [input.start,input.duration,input.sourceWidth,input.sourceHeight].every(Number.isFinite)&&
+  input.start>=0&&input.duration>0&&input.duration<=180&&
+  input.sourceWidth!>0&&input.sourceWidth!<=1280&&input.sourceHeight!>0&&input.sourceHeight!<=720;
+}
