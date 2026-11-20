@@ -1,3 +1,4 @@
+import {reviewSplitSubjectEvidence} from '../shared/splitSubjectEvidenceReview.js';
 import fs from'node:fs';
 import{test}from'node:test';import assert from'node:assert/strict';
 import{automaticSplitReviewPlan as resolve}from'../shared/automaticSplitEvidence.js';
@@ -86,4 +87,26 @@ test('measured source-bound pair-to-closeup interval is not a detector dropout',
  const t={...make(),raw_samples:real.samples};const pairSamples=t.raw_samples.filter((s:any)=>s.faces.length===2).length;
  assert(pairSamples/t.raw_samples.length>.8,'old majority rule would admit this interval');
  const p=resolve(t,{layout_mode_source:'auto'},real.provenance.duration)!;assert.equal(p[0].windowW,1);assert.equal(p[0].windowH,1);
+});
+
+
+test('manual Split review locates sampled conflicts without changing manual layout or claiming continuous coverage',()=>{
+ const fixture=JSON.parse(fs.readFileSync(new URL('./fixtures/interview-pair-to-closeup-cv.json',import.meta.url),'utf8'));
+ const sha=fixture.provenance.sourceSha256;
+ const clip={source_storage_path:'fixture.mp4',start_seconds:106.8,end_seconds:112.8,aspect_ratio:'9:16',crop_config:{mode:'smart',layout_mode:'split',layout_mode_source:'user'}};
+ const track={...make(),analyzed_aspect_ratio:'9:16',raw_samples:fixture.samples,metadata:{analyzed_source_path:clip.source_storage_path,analyzed_source_start:106.8,analyzed_source_end:112.8,analyzed_source_sha256:sha}};
+ const before=JSON.stringify({clip,track});const review=reviewSplitSubjectEvidence(clip,track,sha);
+ assert.equal(review.status,'sampled-conflict');assert.equal(review.sampleCount,25);assert.equal(review.pairSamples,23);assert.equal(review.conflictCount,2);assert.deepEqual(review.conflicts.map(v=>v.time),[5.52,5.76]);assert(review.conflicts.every(v=>v.reason==='single-observed-subject'));assert.equal(review.coverage,'sampled-only');assert.equal(review.manualLayoutChanged,false);assert.equal(JSON.stringify({clip,track}),before);
+ for(const changed of [{...clip,start_seconds:107},{...clip,source_storage_path:'other.mp4'},{...clip,aspect_ratio:'1:1'}])assert.equal(reviewSplitSubjectEvidence(changed,track,sha).status,'unavailable');
+ for(const changed of [{...track,isStale:true},{...track,sourceObjectVerified:false},{...track,raw_samples:[{time:NaN,faces:[]}]},{...track,raw_samples:[{time:7,faces:[]}]}])assert.equal(reviewSplitSubjectEvidence(clip,changed,sha).status,'unavailable');
+ assert.equal(reviewSplitSubjectEvidence(clip,track,'b'.repeat(64)).status,'unavailable');
+});
+test('manual Split review separates sparse consistent pair, dropout and invalid geometry',()=>{
+ const clip={source_storage_path:'fixture.mp4',start_seconds:0,end_seconds:10,aspect_ratio:'9:16'};const sha='a'.repeat(64);
+ const track={...make(),analyzed_aspect_ratio:'9:16',metadata:{analyzed_source_path:clip.source_storage_path,analyzed_source_start:0,analyzed_source_end:10,analyzed_source_sha256:sha},raw_samples:Array.from({length:20},(_,i)=>({time:i*.4,...pair()}))};
+ assert.equal(reviewSplitSubjectEvidence(clip,track,sha).status,'sampled-pair-consistent');
+ track.raw_samples[19].faces=[];const dropout=reviewSplitSubjectEvidence(clip,track,sha);assert.equal(dropout.status,'sampled-pair-consistent');assert.equal(dropout.dropoutSamples,1);assert.equal(dropout.conflictCount,0);
+ track.raw_samples[18].faces[0].width=-.1;assert.equal(reviewSplitSubjectEvidence(clip,track,sha).conflicts[0].reason,'invalid-subject-geometry');
+ track.raw_samples[18].faces=[null] as any;assert.equal(reviewSplitSubjectEvidence(clip,track,sha).conflicts[0].reason,'invalid-subject-geometry');
+ track.raw_samples.forEach(s=>s.faces=[]);assert.equal(reviewSplitSubjectEvidence(clip,track,sha).status,'insufficient-samples');
 });
