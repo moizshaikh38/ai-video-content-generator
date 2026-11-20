@@ -1,3 +1,4 @@
+import {supervisedExecFile} from './queue/supervisedExecFile.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -60,22 +61,15 @@ function parseStartTime(raw: unknown): number | null {
 
 /**
  * Reads the video/audio stream start timestamps of a media container via ffprobe.
- * Never throws: a missing ffprobe binary or an unparsable probe degrades to all-zero
- * values with `probed: false`, leaving existing behaviour untouched.
+ * Ordinary probe failure degrades: a missing ffprobe binary or unparsable probe returns all-zero
+ * values with `probed: false`. Cancellation or unverified process stop propagates.
  */
-export async function probeAvStartTimes(filePath: string): Promise<AvStartTimes> {
+export async function probeAvStartTimes(filePath: string,signal?:AbortSignal): Promise<AvStartTimes> {
   try {
-    const { stdout } = await execFileAsync(
-      ffprobePath,
-      [
-        '-v', 'error',
-        '-show_entries', 'stream=index,codec_type,start_time',
-        '-show_entries', 'format=start_time',
-        '-of', 'json',
-        filePath,
-      ],
-      { timeout: 15000, maxBuffer: 4 * 1024 * 1024 }
-    );
+    const args=['-v','error','-show_entries','stream=index,codec_type,start_time','-show_entries','format=start_time','-of','json',filePath];
+    const {stdout}=process.platform==='linux'
+      ? await supervisedExecFile(ffprobePath,args,{timeoutMs:15000,maxBuffer:4*1024*1024,signal})
+      : await execFileAsync(ffprobePath,args,{timeout:15000,maxBuffer:4*1024*1024,signal});
 
     const probe = JSON.parse(stdout) as {
       streams?: Array<{ codec_type?: string; start_time?: string }>;
@@ -101,7 +95,8 @@ export async function probeAvStartTimes(filePath: string): Promise<AvStartTimes>
       avStartOffsetSec: Number((audioStartTimeSec - videoStartTimeSec).toFixed(6)),
       probed: true,
     };
-  } catch (e: unknown) {
+  } catch (e: any) {
+    if(['WORK_CANCELLED','PROCESS_STOP_UNVERIFIED','SUPERVISION_UNAVAILABLE'].includes(e?.code)||signal?.aborted)throw e;
     const msg = e instanceof Error ? e.message : String(e);
     logger.warn(`ffprobe A/V start-time probe failed for ${filePath}: ${msg}. Defaulting offset to 0.`);
     return { ...UNPROBED_AV_START_TIMES };
@@ -131,6 +126,7 @@ export async function extractAudioFromVideo(
     durationHintSec?: number | null;
     /** Largest MP3 the caller can send on. Defaults to the 25 MB single-request provider limit. */
     maxAudioBytes?: number;
+    signal?:AbortSignal;
   } = {}
 ): Promise<ExtractedAudioResult> {
   if (!videoBuffer || videoBuffer.length === 0) {
@@ -169,14 +165,17 @@ export async function extractAudioFromVideo(
     }
   };
 
+  const probeCancellation=new AbortController();
+  const signal=options.signal?AbortSignal.any([options.signal,probeCancellation.signal]):probeCancellation.signal;
+  let probeOutcome:Promise<{value?:AvStartTimes;error?:any}>|undefined;
   try {
     // Record how far the source's audio stream starts from its video stream. The extraction
     // below normalises the MP3 to start at the container's zero, so this is captured purely
     // as a diagnostic; see AvStartTimes for why it is not subtracted from caption timings.
     // The probe only reads headers, so it runs alongside the encode instead of ahead of it.
-    const avStartTimesProbe = probeAvStartTimes(tempVideoPath);
-    avStartTimesProbe.then((avStartTimes) => {
-      if (!avStartTimes.probed) return;
+    probeOutcome=probeAvStartTimes(tempVideoPath,signal).then(value=>({value}),error=>({error}));
+    void probeOutcome.then(({value:avStartTimes}) => {
+      if (!avStartTimes?.probed) return;
       logger.info(
         `Source A/V start times: video=${avStartTimes.videoStartTimeSec}s audio=${avStartTimes.audioStartTimeSec}s ` +
           `container=${avStartTimes.containerStartTimeSec}s av_start_offset=${avStartTimes.avStartOffsetSec}s`
@@ -186,6 +185,13 @@ export async function extractAudioFromVideo(
     logger.info(`Extracting audio with FFmpeg: ${tempVideoPath} -> ${tempAudioPath}`);
 
     const extractWithBitrate = (bitrateKbps: number): Promise<void> => {
+      if(process.platform==='linux')return (async()=>{
+        const command=ffmpeg(tempVideoPath).noVideo().audioCodec('libmp3lame').audioBitrate(bitrateKbps).audioChannels(1).audioFrequency(16000).audioFilters('aresample=async=1:first_pts=0').outputOptions(['-avoid_negative_ts','make_zero']).format('mp3').output(tempAudioPath);
+        const args=(command as any)._getArguments?.();
+        if(!Array.isArray(args)||!args.every((arg:unknown)=>typeof arg==='string'||(typeof arg==='number'&&Number.isFinite(arg))))throw Error('Audio extraction argv construction is unavailable.');
+        try{await supervisedExecFile(getRenderFfmpeg(),args.map(String),{timeoutMs:config.ffmpegTimeoutMs,maxBuffer:1024*1024,signal});}
+        catch(error:any){if(['WORK_CANCELLED','PROCESS_STOP_UNVERIFIED','SUPERVISION_UNAVAILABLE'].includes(error?.code))throw error;if(error?.code==='PROCESS_TIMEOUT')throw Object.assign(Error(`FFmpeg audio extraction timed out after ${config.ffmpegTimeoutMs/1000}s.`),{code:'AUDIO_EXTRACTION_TIMEOUT',cause:error});throw Object.assign(Error(`FFmpeg audio extraction failed: ${error.message}`),{cause:error});}
+      })();
       return new Promise<void>((resolve, reject) => {
         let killed = false;
         const ffmpegCommand = ffmpeg(tempVideoPath)
@@ -239,7 +245,9 @@ export async function extractAudioFromVideo(
 
     // Extract at 64 kbps mono (enables up to ~53 min speech under 25MB with crisp Whisper accuracy)
     await extractWithBitrate(firstBitrate);
-    const avStartTimes = await avStartTimesProbe;
+    const probe=await probeOutcome;
+    if(probe.error)throw probe.error;
+    const avStartTimes=probe.value!;
 
     if (!fs.existsSync(tempAudioPath)) {
       throw new Error('Extracted audio file does not exist after FFmpeg completion.');
@@ -290,7 +298,15 @@ export async function extractAudioFromVideo(
       cleanup,
       avStartTimes,
     };
-  } catch (err) {
+  } catch (err:any) {
+    // Stop and join the parallel header probe before source/audio cleanup.
+    probeCancellation.abort(err);
+    const probe=await probeOutcome;
+    if(err?.code==='PROCESS_STOP_UNVERIFIED'||probe?.error?.code==='PROCESS_STOP_UNVERIFIED'){
+      const failure=err?.code==='PROCESS_STOP_UNVERIFIED'?err:probe!.error;
+      logger.error('Audio extraction cleanup quarantined because owned process exit was not verified',{source:tempVideoPath,audio:tempAudioPath,processGroupId:failure.owned_process_group});
+      throw failure;
+    }
     cleanup();
     throw err;
   }

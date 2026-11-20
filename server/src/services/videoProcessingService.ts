@@ -79,6 +79,7 @@ async function executeProjectVideo(
   return await ownerContext.run(userId, async () => {
     let cleanupAudio: (() => void) | null = null;
     let downloadedVideoPath: string | null = null;
+    let cleanupSafe=true;
 
     try {
     // 1. Update status to 'processing'
@@ -504,6 +505,7 @@ async function executeProjectVideo(
       transcript: savedTranscript as TranscriptRecord,
     };
   } catch (err: unknown) {
+    if((err as any)?.code==='PROCESS_STOP_UNVERIFIED')cleanupSafe=false;
     const message = err instanceof Error ? err.message : String(err);
     logger.error(`Video processing failed for project ${projectId}`, {
       projectId,
@@ -541,15 +543,16 @@ async function executeProjectVideo(
       error: message || 'Video processing failed.',
     };
   } finally {
-    if (cleanupAudio) {
+    if (cleanupSafe&&cleanupAudio) {
       try {
         cleanupAudio();
       } catch {
         // Ignore cleanup errors
       }
     }
-    if (downloadedVideoPath) await fs.rm(downloadedVideoPath, { force: true }).catch(() => undefined);
-    activeProcessingSet.delete(projectId);
+    if (cleanupSafe&&downloadedVideoPath) await fs.rm(downloadedVideoPath, { force: true }).catch(() => undefined);
+    if(cleanupSafe)activeProcessingSet.delete(projectId);
+    else logger.error('Source processing guard/files quarantined until child exit is proved',{projectId,source:downloadedVideoPath});
   }
   });
 }

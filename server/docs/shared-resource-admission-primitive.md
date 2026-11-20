@@ -128,3 +128,31 @@ probes/reviews, source processing, actual host policy sizing and crash recovery
 remain separate. The shared resource permit is still not activated. Tiny fixture
 encodes and argv equivalence do not replace representative integrated customer
 output testing or concurrent media capacity measurements.
+
+## Source audio extraction and its parallel header probe
+
+On Linux, the actual MP3 extraction and A/V start-time ffprobe now use supervised
+owned groups. The MP3 codec, bitrate choice/re-encode policy, mono/16kHz settings,
+`aresample=async=1:first_pts=0`, and timestamp options are unchanged. Extraction
+failure cancels and joins the parallel header probe before deleting owned
+scratch. Ordinary probe errors still degrade to `probed:false`; cancellation or
+missing exit proof cannot be disguised as an ordinary unprobed source.
+
+The extractor retains owned source/audio files when either process stop is
+unverified. The main source-processing caller also retains its borrowed source
+and duplicate guard in that case. Intelligence and content-handoff optional
+fallbacks propagate lifecycle errors instead of starting more work after them;
+bookkeeping failure must not replace that error with an ordinary fallback.
+Those caller guards have source-wiring qualification, not full paid workflow
+execution. There is still no automatic proven-exit recovery for quarantine.
+
+A short synthetic source with offset audio compares the production supervised
+extractor to native fluent extraction with the same settings. Decoded PCM is
+identical, as are A/V start diagnostics. Actual timeout/probe-join, pre-cancel,
+owned-scratch cleanup and borrowed-source retention checks pass without any
+transcription or billing provider. This does not prove linguistic word timing,
+all container formats, source-processing throughput or a shared memory budget.
+The full source pipeline still includes source resolution, fire-and-forget
+poster work, provider/chunk processing and downstream analysis that are not
+covered by this extraction-only lifecycle change. Non-Linux extraction retains
+the legacy execution path and has no process-group guarantee.

@@ -359,6 +359,7 @@ export class VideoIntelligenceService {
               extracted.cleanup();
             }
           } catch (trErr: any) {
+            if(['WORK_CANCELLED','PROCESS_STOP_UNVERIFIED','SUPERVISION_UNAVAILABLE'].includes(trErr?.code))throw trErr;
             logger.warn(`[VideoIntelligenceService] Audio transcription fallback: ${trErr.message}`);
           }
         }
@@ -530,6 +531,12 @@ export class VideoIntelligenceService {
         throw err;
       }
       logger.error(`[VideoIntelligenceService] Job ${jobRecord.id} failed: ${err.message}`);
+      if(['WORK_CANCELLED','PROCESS_STOP_UNVERIFIED','SUPERVISION_UNAVAILABLE'].includes(err?.code)){
+        // Failure bookkeeping must not replace missing-exit-proof with a DB
+        // exception that an outer optional-intelligence fallback might swallow.
+        await VideoIntelligenceRepository.markFailed(jobRecord.id,userId,err.message,{workerId,leaseToken}).catch((failure:any)=>logger.warn('Could not record lifecycle failure',{jobId:jobRecord.id,error:failure.message}));
+        throw err;
+      }
       await VideoIntelligenceRepository.markFailed(jobRecord.id, userId, err.message, { workerId, leaseToken });
       throw err;
     } finally {
