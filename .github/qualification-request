@@ -1,1 +1,1 @@
-2026-11-20T15:59:00+05:30 qualify consistent bundled-encoder A/V HLS fixture and bounded assembly diagnostics; previous run11 safe-test failure remains until requalified; no deploy
+2026-11-20T16:27:00+05:30 use shared runtime FFmpeg resolver for Kick local HLS assembly; qualify exact commit, no deploy
