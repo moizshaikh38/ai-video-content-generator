@@ -12,10 +12,15 @@ export async function deleteProjectRecords(userId: string, projectId: string): P
       const clips = await db.collection('clips').find({ user_id: userId, project_id: projectId }, { session })
         .project({ id: 1 }).toArray();
       const clipIds = clips.map((clip) => clip.id);
-      for (const name of ['transcripts', 'content_outputs', 'clip_candidates', 'clips', 'reframe_tracks', 'project_upload_attempts']) {
+      for (const name of ['transcripts', 'content_outputs', 'clip_candidates', 'clips', 'reframe_tracks', 'project_upload_attempts', 'editor_projects', 'producer_plans']) {
         await db.collection(name).deleteMany({ user_id: userId, project_id: projectId }, { session });
       }
-      if (clipIds.length) await db.collection('render_jobs').deleteMany({ user_id: userId, clip_id: { $in: clipIds } }, { session });
+      if (clipIds.length) {
+        // Clip-bound records may predate project_id materialization. Keep owner
+        // scope and remove these in the same transaction as their parent.
+        for(const name of ['render_jobs','editor_projects','producer_plans'])
+          await db.collection(name).deleteMany({user_id:userId,clip_id:{$in:clipIds}},{session});
+      }
       await db.collection('projects').deleteOne({ id: projectId, user_id: userId }, { session });
     });
   } finally {
@@ -33,6 +38,8 @@ export async function deleteClipRecords(userId: string, clipId: string): Promise
       if (!clip) return;
       await db.collection('render_jobs').deleteMany({ clip_id: clipId, user_id: userId }, { session });
       await db.collection('reframe_tracks').deleteMany({ clip_id: clipId, user_id: userId }, { session });
+      await db.collection('editor_projects').deleteMany({ clip_id: clipId, user_id: userId }, { session });
+      await db.collection('producer_plans').deleteMany({ clip_id: clipId, user_id: userId }, { session });
       await db.collection('clips').deleteOne({ id: clipId, user_id: userId }, { session });
     });
   } finally {

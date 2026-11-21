@@ -41,6 +41,7 @@ import {notifyRenderCapacityAvailable} from './queue/renderCapacitySignal.js';
 import {recoverRenderQueue} from './queue/renderQueueRecovery.js';
 import {failQueuedRenderJob, queuedRenderSnapshotFilter} from './queue/renderPreleaseOutcome.js';
 import {commitFencedRenderOutcome} from './queue/renderLeaseCommit.js';
+import {commitUploadedRenderOutcome} from './queue/renderUploadedCommit.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import fs from 'fs';
 import path from 'path';
@@ -50,6 +51,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import { getRenderFfmpeg } from '../utils/drawtextFfmpeg.js';
 import { clipObjectPrefix, deletePrefix, downloadObjectToFile, headObject, computeFileStreamSha256, renderAttemptObjectKey, signObjectGet, uploadFile } from './objectStorageService.js';
 import { deleteClipRecords } from '../db/repositories/deletionRepository.js';
+import { admitClipDeletion } from './deletionAdmissionService.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 import {
@@ -1316,14 +1318,13 @@ export class ClipRenderService {
       );
       await uploadFile('clips', outputStoragePath, outputPath, renderedSize, 'video/mp4');
       const finalStoragePath = outputStoragePath;
-      await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
 
       // Output verification guard: ensure deliverable exists before marking ready
       JobReliabilityService.verifyRequiredOutputs('clip_render', { output_storage_path: finalStoragePath });
 
       // Publish clip and job atomically. A stale upload has its own immutable
       // attempt key and cannot overwrite the current worker's output bytes.
-      await commitFencedRenderOutcome(await getMongoClient(),db,{jobId:jobId!,clipId,userId,workerId,renderVersion,editorVersion:Number(clip.editor_version||1),editorProject:expectedEditorProject},{
+      await commitUploadedRenderOutcome(await getMongoClient(),db,{jobId:jobId!,clipId,userId,workerId,renderVersion,editorVersion:Number(clip.editor_version||1),editorProject:expectedEditorProject},{
         job:{status:'completed',progress:100,stage:'completed',completed_at:new Date(),updated_at:new Date(),worker_id:null,locked_at:null,next_retry_at:null},
         clip:{
           render_status: 'ready',
@@ -1347,7 +1348,7 @@ export class ClipRenderService {
           render_error_message: null,
           updated_at: new Date().toISOString(),
         }
-      });
+      },{projectId:clip.project_id,attemptId,objectKey:finalStoragePath,validateSource:()=>assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path)});
 
       // 4b. Poster frame for the Media Library while the rendered file is still local (best-effort).
       await ClipPosterService.generateFromRenderedFile(
@@ -2118,6 +2119,17 @@ export class ClipRenderService {
    */
   public static async deleteClip(clipId: string, userId: string): Promise<void> {
     const clip = await ClipRenderService.getClip(clipId, userId);
+
+    // Admit deletion BEFORE the storage prefix listing: the marker fences
+    // poster/render publication that could land after the listing. A failed
+    // cleanup below leaves marker + records in place, so the clip stays
+    // retryable and is never reported deleted early.
+    const admitted = await admitClipDeletion(userId, clipId);
+    if (!admitted) {
+      const err = new Error('Clip not found or access denied.');
+      (err as any).code = 'CLIP_NOT_FOUND';
+      throw err;
+    }
 
     await deletePrefix('clips', clipObjectPrefix(clip.user_id, clip.project_id, clip.id));
 

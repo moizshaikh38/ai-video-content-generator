@@ -1,4 +1,4 @@
-import { dataRepository } from '../db/repositories/dataRepository.js';
+import {posterAttemptKey,posterKeyMatchesRecipe,publishPosterAttempt} from './posterPublicationService.js';
 import { logger } from '../utils/logger.js';
 import { clipObjectPrefix, signObjectGet } from './objectStorageService.js';
 import { ProjectPosterService } from './projectPosterService.js';
@@ -45,11 +45,11 @@ export class ClipPosterService {
   }
 
   private static async store(clip: PosterClip, input: string, rendered: boolean): Promise<string | null> {
-    const key = this.posterKey(clip, rendered);
+    const canonical = this.posterKey(clip, rendered);
+    const key = posterAttemptKey(canonical);
     const ok = await ProjectPosterService.extractAndUpload(input, this.frameTimes(clip, rendered), key, `clip ${clip.id}`);
     if (!ok) return null;
-    await dataRepository.from('clips').update({ poster_key: key }).eq('id', clip.id).eq('user_id', clip.user_id);
-    return key;
+    return publishPosterAttempt('clips',clip.user_id,clip.id,key,canonical,rendered?{$expr:{$eq:[{$ifNull:['$render_version',1]},Number(clip.render_version||1)]},output_storage_path:clip.output_storage_path}:{});
   }
 
   /** Best-effort after render. Unknown child exit must retain the borrowed output. */
@@ -64,7 +64,7 @@ export class ClipPosterService {
 
   /** Signed URL of an up-to-date poster, or null if none exists yet (no generation). */
   static async signedUrlIfReady(clip: PosterClip): Promise<string | null> {
-    if (!clip.poster_key || clip.poster_key !== this.expectedKey(clip)) return null;
+    if (!clip.poster_key || !posterKeyMatchesRecipe(clip.poster_key,this.expectedKey(clip))) return null;
     try {
       return await signObjectGet('clips', clip.poster_key);
     } catch {

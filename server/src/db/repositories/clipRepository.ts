@@ -6,6 +6,7 @@ import {editorRenderSnapshot} from '../../shared/editorRenderSnapshot.js';
 import {assertPanelViewsAssigned} from '../../shared/panelLayouts.js';
 import {validateRecord} from '../schemaValidation.js';
 import {candidateCreationKey,candidatePreparationDigest,creationDigest,creationConflict,findCandidateCreation,type CandidateCreationIntent} from './candidateCreationRepository.js';
+import {DELETION_MARKER_FIELD} from '../../services/deletionAdmissionService.js';
 import type {Db,ClientSession} from 'mongodb';
 import {freshCandidateOverlay} from '../../shared/freshClipPresentationDefaults.js';
 import {selectionSourceReceiptMatches} from '../../shared/selectionSourceReceipt.js';
@@ -74,9 +75,17 @@ export async function readCandidateCreationTemplate(db:Db, session:ClientSession
 }
 async function fenceCreationInputs(db:Db,session:ClientSession,inputs:Awaited<ReturnType<typeof readCandidateCreationTemplate>>,owner:string){
   for(const [name,row] of [['projects',inputs.project],['clip_candidates',inputs.candidate],['transcripts',inputs.transcript]] as const){
-    const filter=row._id!==undefined?{_id:row._id,user_id:owner}:{id:row.id,user_id:owner};
+    const base=row._id!==undefined?{_id:row._id,user_id:owner}:{id:row.id,user_id:owner};
+    // The project fence contends with deletion admission on the same document:
+    // a clip created beneath a deleting project would carry no marker, and
+    // poster/render publication checks the child marker only. Whichever
+    // transaction commits first wins; the loser write-conflicts and retries.
+    const filter=name==='projects'?{...base,[DELETION_MARKER_FIELD]:{$exists:false}}:base;
     const result=await db.collection(name).updateOne(filter,{$inc:{creation_admission_serial:1}},{session});
-    if(result.matchedCount!==1)throw creationConflict();
+    if(result.matchedCount!==1){
+      if(name==='projects')throw new AppError('This project is being deleted. No new clips can be created for it.',409,'PROJECT_DELETING');
+      throw creationConflict();
+    }
   }
 }
 export async function prepareCandidateCreation(projectId:string,candidateId:string,userId:string,aspectRatio:ClipAspectRatio,cropMode:ClipCropMode,
@@ -123,9 +132,11 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
         if(prepared?.baseline_version!==1)throw new AppError('This older preparation has no admitted Studio baseline. Resolve it before preparing a new request.',409,'CREATION_BASELINE_REQUIRED');
       }
       const inputs=await readCandidateCreationTemplate(db,session,projectId,candidateId,userId,aspectRatio,cropMode,options);
+      // Fence unconditionally (not only the prepared path): every clip
+      // insertion contends with deletion admission on the parent project.
+      await fenceCreationInputs(db,session,inputs,userId);
       if(creation){
         if(candidatePreparationDigest(inputs.template,creation.policy,prepared.initial_editor)!==creation.intent.preparation||creationDigest({template:inputs.template,preferences:inputs.project.clip_preferences??null})!==prepared.editor_input_identity)throw new AppError('Candidate, source, project defaults or plan choices changed. Resolve the prepared request before starting a new clip.',409,'CREATION_INPUT_CHANGED');
-        await fenceCreationInputs(db,session,inputs,userId);
       }
       const {candidate}=inputs;
       const now=new Date();

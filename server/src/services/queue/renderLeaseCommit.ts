@@ -1,6 +1,7 @@
 import type {Db,MongoClient} from 'mongodb';
 import {editorRenderSnapshot,type EditorRenderSnapshot} from '../../shared/editorRenderSnapshot.js';
 import {AppError} from '../../types/index.js';
+import {DELETION_MARKER_FIELD} from '../deletionAdmissionService.js';
 
 export interface RenderLeaseIdentity {jobId:string;clipId:string;userId:string;workerId:string;renderVersion?:number;editorVersion?:number;editorProject?:EditorRenderSnapshot|null}
 export interface RenderLeaseOutcome {job:Record<string,unknown>;clip:Record<string,unknown>;preserveSupersedingClip?:boolean}
@@ -38,7 +39,10 @@ export async function commitFencedRenderOutcome(client:MongoClient,db:Db,identit
     }
     throw new AppError('Clip inputs changed during rendering. Start a fresh render.',409,'RENDER_INPUT_CHANGED');
    }
-   const clip=await db.collection('clips').updateOne({id:identity.clipId,user_id:identity.userId},{$set:outcome.clip},{session});
+   // Contend with deletion admission on the same document: a marked clip
+   // fails this write, so a render outcome can never publish onto a parent
+   // whose storage prefix listing has already begun.
+   const clip=await db.collection('clips').updateOne({id:identity.clipId,user_id:identity.userId,[DELETION_MARKER_FIELD]:{$exists:false}},{$set:outcome.clip},{session});
    if(clip.matchedCount!==1)throw new AppError('Clip no longer exists for this render owner.',404,'CLIP_NOT_FOUND');
   },{readPreference:'primary',readConcern:{level:'snapshot'},writeConcern:{w:'majority'},maxCommitTimeMS:10_000});
  }finally{await session.endSession();}

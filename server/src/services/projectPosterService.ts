@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import ffmpegStatic from 'ffmpeg-static';
-import { dataRepository } from '../db/repositories/dataRepository.js';
+import {posterAttemptKey,posterKeyMatchesRecipe,publishPosterAttempt} from './posterPublicationService.js';
 import { logger } from '../utils/logger.js';
 import { projectObjectPrefix, signObjectGet, uploadFile } from './objectStorageService.js';
 
@@ -109,11 +109,11 @@ export class ProjectPosterService {
 
   /** Extracts a project poster from a local path or a signed URL and uploads it. Returns the key or null. */
   static async generate(userId: string, projectId: string, input: string, durationSeconds?: number | null, sourceReaders?:BorrowedSourceReaders): Promise<string | null> {
-    const key = this.posterKey(userId, projectId);
+    const canonical = this.posterKey(userId, projectId);
+    const key = posterAttemptKey(canonical);
     const ok = await this.extractAndUpload(input, [this.frameTime(durationSeconds), 0], key, `project ${projectId}`,sourceReaders);
     if (!ok) return null;
-    await dataRepository.from('projects').update({ poster_key: key }).eq('id', projectId).eq('user_id', userId);
-    return key;
+    return publishPosterAttempt('projects',userId,projectId,key,canonical);
   }
 
   /** Best-effort during processing. Reader outcome remains recorded even when errors are swallowed. */
@@ -131,7 +131,7 @@ export class ProjectPosterService {
    */
   static async getPosterUrl(project: PosterProject): Promise<string | null> {
     const expectedKey = this.posterKey(project.user_id, project.id);
-    if (project.poster_key === expectedKey) return signObjectGet('clips', expectedKey);
+    if (posterKeyMatchesRecipe(project.poster_key,expectedKey)) return signObjectGet('clips', project.poster_key!);
 
     if (project.source_type !== 'upload' || !project.source_url || project.video_status === 'uploading') return null;
 

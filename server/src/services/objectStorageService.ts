@@ -363,9 +363,10 @@ export async function listObjects(
 }
 
 export async function deleteObject(bucket: ObjectBucket, key: string): Promise<void> {
-  await storageClient().send(new DeleteObjectsCommand({
+  const result=await storageClient().send(new DeleteObjectsCommand({
     Bucket: bucketName(bucket), Delete: { Objects: [{ Key: key }], Quiet: true },
   }));
+  if(result.Errors?.length)throw new AppError('Object deletion was not completed by storage.',503,'STORAGE_UNAVAILABLE');
 }
 
 export async function deletePrefix(bucket: ObjectBucket, prefix: string): Promise<void> {
@@ -379,8 +380,11 @@ export async function deletePrefix(bucket: ObjectBucket, prefix: string): Promis
     continuationToken = listed.NextContinuationToken;
   } while (continuationToken);
   for (let i = 0; i < keys.length; i += 1000) {
-    await storageClient().send(new DeleteObjectsCommand({
+    const result=await storageClient().send(new DeleteObjectsCommand({
       Bucket: bucketName(bucket), Delete: { Objects: keys.slice(i, i + 1000).map((Key) => ({ Key })), Quiet: true },
     }));
+    // S3/R2 may return HTTP200 while denying individual objects. Do not let
+    // callers erase parent records or claim success after partial cleanup.
+    if(result.Errors?.length)throw new AppError('Some objects could not be deleted by storage.',503,'STORAGE_UNAVAILABLE');
   }
 }

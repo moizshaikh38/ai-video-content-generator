@@ -16,6 +16,7 @@ import { deletePrefix, projectObjectPrefix, sourceObjectKey, signSourceUpload, h
 import { UploadLifecycleService } from '../services/uploadLifecycleService.js';
 import { ProjectPosterService } from '../services/projectPosterService.js';
 import { deleteProjectRecords } from '../db/repositories/deletionRepository.js';
+import { admitProjectDeletion } from '../services/deletionAdmissionService.js';
 import { claimProjectProcessing } from '../db/repositories/projectRepository.js';
 import { UrlIngestionService } from '../services/urlIngestionService.js';
 import { registerPublicId } from '../middleware/publicIdMiddleware.js';
@@ -759,6 +760,16 @@ export const deleteProject = async (req: AuthenticatedRequest, res: Response): P
     }
 
     if (!project) {
+      res.status(404).json({ status: 'error', code: 'NOT_FOUND', message: 'Project not found or access denied.' });
+      return;
+    }
+
+    // Admit deletion BEFORE any storage prefix listing: the marker (project
+    // + all clips, one transaction) fences clip poster/render publication
+    // that could land after the listing. If storage cleanup fails below,
+    // marker + records stay in place and the project remains retryable.
+    const admitted = await admitProjectDeletion(userId, projectId);
+    if (!admitted) {
       res.status(404).json({ status: 'error', code: 'NOT_FOUND', message: 'Project not found or access denied.' });
       return;
     }
