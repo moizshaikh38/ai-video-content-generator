@@ -371,17 +371,24 @@ export class UploadLifecycleService {
       }
 
       // b. Render jobs
-      const activeRenderJob = await db.collection('render_jobs').findOne({
+      const activeRenders = db.collection('render_jobs').find({
         user_id: attempt.user_id,
         status: { $in: ['queued', 'rendering', 'processing'] },
-      });
-      if (activeRenderJob) {
-        // Cross-check if clip belongs to this project
-        const clip = await db.collection('clips').findOne({ id: activeRenderJob.clip_id, project_id: attempt.project_id });
-        if (clip) {
-          result.skipped.push({ key, reason: 'ACTIVE_RENDER_JOB' });
-          continue;
+      }, {projection: {clip_id: 1}});
+      let projectHasActiveRender = false;
+      try {
+        // The first same-owner job may belong to another project. Stream all
+        // active jobs until a matching clip is found, without an unbounded array.
+        for await (const job of activeRenders) {
+          const clip = await db.collection('clips').findOne({
+            id: job.clip_id, project_id: attempt.project_id, user_id: attempt.user_id,
+          }, {projection: {_id: 1}});
+          if (clip) {projectHasActiveRender = true; break;}
         }
+      } finally {await activeRenders.close();}
+      if (projectHasActiveRender) {
+        result.skipped.push({ key, reason: 'ACTIVE_RENDER_JOB' });
+        continue;
       }
 
       // 5. Downstream persistent & historical references check:
