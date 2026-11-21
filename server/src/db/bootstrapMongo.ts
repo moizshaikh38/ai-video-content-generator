@@ -1,3 +1,4 @@
+import {isDeepStrictEqual} from 'node:util';
 import { Db } from 'mongodb';
 import { getMongoDb } from './mongoClient.js';
 import { logger } from '../utils/logger.js';
@@ -80,13 +81,12 @@ export async function auditWalletCollectionValidator(database: Db): Promise<{
   const existingValidator = collInfo?.options?.validator;
   const validationLevel = collInfo?.options?.validationLevel;
 
-  // Check if existing validator matches the bounded schema (checks required fields, additionalProperties, multipleOf: 1, max)
+  // Whole-schema equality is order independent. Enforcement can be disabled
+  // even when the schema itself is current, so inspect both settings as well.
   const isCurrent =
-    existingValidator?.$jsonSchema &&
-    existingValidator.$jsonSchema.additionalProperties === false &&
-    existingValidator.$jsonSchema.properties?.available_credits?.multipleOf === 1 &&
-    existingValidator.$jsonSchema.properties?.available_credits?.maximum === 9007199254740991 &&
-    existingValidator.$jsonSchema.properties?._id?.maxLength === 36;
+    isDeepStrictEqual(existingValidator, { $jsonSchema: WALLET_COLLECTION_JSON_SCHEMA }) &&
+    (validationLevel === undefined || validationLevel === 'strict') &&
+    (collInfo?.options?.validationAction === undefined || collInfo.options.validationAction === 'error');
 
   if (isCurrent) {
     logger.info('[BootstrapMongo] credit_wallets collection validator is CURRENT and enforced in strict mode.');
@@ -105,6 +105,7 @@ export async function auditWalletCollectionValidator(database: Db): Promise<{
       collMod: 'credit_wallets',
       validator: { $jsonSchema: WALLET_COLLECTION_JSON_SCHEMA },
       validationLevel: 'strict',
+      validationAction: 'error',
     });
     hasCollModPermission = true;
     logger.info('[BootstrapMongo] Successfully upgraded credit_wallets validator to final schema via collMod.');
