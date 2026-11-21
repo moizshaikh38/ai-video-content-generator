@@ -17,7 +17,7 @@ export function useLandingMotion(pageRef: RefObject<HTMLElement>) {
       { threshold: 0.12, rootMargin: "0px 0px -5% 0px" },
     );
     page
-      .querySelectorAll(".lv-reveal, .lv-reveal-group")
+      .querySelectorAll(".lv-reveal, .lv-reveal-left, .lv-reveal-right, .lv-reveal-group")
       .forEach((element) => revealObserver.observe(element));
 
     const ambientObserver = new IntersectionObserver(

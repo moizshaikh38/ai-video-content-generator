@@ -5,21 +5,17 @@ import {
   ArrowRight,
   ChevronDown,
   Check,
-  TrendingUp,
-  XCircle,
+
   Sparkles,
 } from "lucide-react";
 import { Logo } from "../components/Logo";
 import { apiBase } from "../services/backendClient";
-import vireoOutput916 from "../assets/landing/vireo-output-916.webp";
-import rawFootage169 from "../assets/landing/raw-footage-169.webp";
-import stepHooks from "../assets/landing/step-hooks.webp";
-import stepPublish from "../assets/landing/step-publish.webp";
 import { TransformationVisual } from "../components/landing/ProductVisuals";
 import { plans } from "../data/marketing";
 import { useLandingMotion } from "../components/landing/useLandingMotion";
-import { Reveal, AnimatedNumber } from "../lib/motion";
+import { Reveal } from "../lib/motion";
 import { LandingHero } from "../components/landing/LandingHero";
+import HiwMotion from "../components/landing/HiwMotion";
 import { CombinedWorkflowShowcase } from "../components/landing/CombinedWorkflowShowcase";
 import { useCurrency, CurrencyProvider } from "../context/CurrencyContext";
 import { CurrencyToggle } from "../components/CurrencyToggle";
@@ -31,258 +27,31 @@ import "./landing-foundation.css";
 const faqs = [
   {
     q: "How does VireoClip differ from generic AI video clippers?",
-    a: "Unlike tools that merely slice fixed 30-second segments, VireoClip uses multimodal acoustic, emotional, and facial tracking. It analyzes sentiment inflection points, removes dead pauses with sub-frame accuracy, frames speakers smoothly in 9:16 with Bézier camera easing, and generates word-level SubStation Alpha (ASS) kinetic captions.",
+    a: "Unlike tools that slice fixed 30-second segments, VireoClip analyzes the full recording to find standout moments, removes dead air, reframes speakers into vertical 9:16, and generates word-by-word captions. Detection quality and timing precision are still being validated on real uploads, so we do not quote accuracy figures yet.",
   },
   {
     q: "Can I edit the clips inside a browser timeline before publishing?",
-    a: "Yes! VireoClip features a full multi-track studio timeline editor right in your browser. You can adjust video crop handles, drop in AI B-roll overlays, customize subtitle presets (Hormozi, Neon, Beast), tweak audio ducking levels, and add custom brand watermarks.",
+    a: "VireoClip includes a browser-based studio for refining generated clips, including crop, caption, and branding adjustments before export. The editor is in active development, so its exact feature set may change before release.",
   },
   {
     q: "Which platforms and video formats are supported?",
     a: "You can upload MP4, MOV, WEBM, or paste direct YouTube, Loom, and Google Drive links up to 2 GB. VireoClip formats clips and platform-specific content kits for YouTube Shorts, TikTok, Instagram Reels, LinkedIn, and X.",
   },
-  {
-    q: "What is Brand Brain and how does it maintain consistency?",
-    a: "Brand Brain allows you to save custom brand color palettes, font pairings, logo watermarks, and brand voice guidelines once. Every clip and social kit generated automatically applies your saved assets, ensuring 100% brand compliance across client accounts or multiple channels.",
-  },
-  {
-    q: "How does the A/B Testing Studio work?",
-    a: "Our A/B Testing Studio generates variant hooks, titles, and thumbnail combinations. As your clips generate views and clicks, our engine runs two-proportion Z-score statistical tests to highlight which variant drives statistically significant higher retention.",
-  },
+  // FAQ entries for Brand Brain and the A/B Testing Studio were removed 2026-11-22:
+  // both asserted working automation and performance comparisons that are not yet
+  // verified against the live backend. Reinstate only after backend-owner verification.
 ];
 
 const Label = ({ children }: { children: React.ReactNode }) => (
   <Reveal variant="fade" as="span" className="lv-section-label inline-block">{children}</Reveal>
 );
 
-function ProofStrip() {
-  const stats = [
-    { value: 1.2, suffix: 'M+', decimals: 1, label: 'clips generated' },
-    { value: 60, suffix: 's', decimals: 0, label: 'average turnaround' },
-    { value: 98, suffix: '%', decimals: 0, label: 'caption accuracy' },
-    { value: 5, suffix: '', decimals: 0, label: 'platforms, one upload' },
-  ];
-  return (
-    <div className="mv-stagger flex flex-wrap justify-center gap-x-10 gap-y-4 py-8" aria-label="Product statistics">
-      {stats.map((stat) => (
-        <div key={stat.label} className="text-center">
-          <div className="text-2xl sm:text-3xl font-extrabold text-white font-['Sora',sans-serif]">
-            <AnimatedNumber value={stat.value} decimals={stat.decimals} suffix={stat.suffix} />
-          </div>
-          <div className="text-[11px] uppercase tracking-wider text-slate-400 mt-0.5">{stat.label}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function BeforeAfter() {
-  const [activeMode, setActiveMode] = useState<'after' | 'before'>('after');
-
-  return (
-    <section className="py-20 lg:py-28 bg-[#000000]">
-      <div className="lv-container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <Label>SIDE-BY-SIDE TRANSFORMATION</Label>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white mt-3 mb-4">
-            See the Quality Difference <br />
-            <em className="text-[#bba9e8] not-italic">In Real-Time.</em>
-          </h2>
-          <p className="text-base text-slate-300">
-            Toggle between raw unprocessed camera footage and VireoClip's studio-polished short-form highlight.
-          </p>
-
-          {/* Mode Switcher */}
-          <div className="inline-flex items-center p-1 rounded-full bg-[#090C16] mt-6 shadow-lg">
-            <button
-              type="button"
-              onClick={() => setActiveMode('after')}
-              className={`px-5 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
-                activeMode === 'after'
-                  ? 'bg-gradient-to-r from-[#6734c9] to-[#8753e3] text-white shadow-[0_0_20px_rgba(139,92,246,0.3)]'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Sparkles size={14} className={activeMode === 'after' ? 'text-white' : 'text-[#bba9e8]'} />
-              <span>Vireo AI Viral Short (Engine Active)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveMode('before')}
-              className={`px-5 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
-                activeMode === 'before'
-                  ? 'bg-slate-700 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <span>Raw 16:9 Footage (Uncut)</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Live Comparison Box (Clean borderless obsidian card) */}
-        <div className="max-w-4xl mx-auto bg-[#070A14] rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-          {activeMode === 'after' ? (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-              <div className="md:col-span-5 flex justify-center">
-                <div className="w-[260px] h-[400px] rounded-[28px] bg-black shadow-[0_0_35px_rgba(139,92,246,0.25)] relative overflow-hidden flex flex-col justify-between p-3">
-                  {/* Genuine VireoClip export frame: centered speaker, word-timed caption, blurred-pad fill */}
-                  <img
-                    src={vireoOutput916}
-                    alt="Actual VireoClip export: a 9:16 clip with the speaker centered, a word-timed caption and a blurred background fill"
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                  <div className="relative z-10 flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded-full">
-                      Actual VireoClip export
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="md:col-span-7 space-y-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#20E3A2]/10 text-[#20E3A2] text-xs font-semibold">
-                  <TrendingUp size={14} />
-                  <span>VireoClip Processing Applied</span>
-                </div>
-                <h3 className="text-2xl font-bold text-white">
-                  <span className="text-[#bba9e8]">Reframed, Captioned, Ready to Post</span>
-                </h3>
-                <ul className="space-y-2.5 text-xs sm:text-sm text-slate-300">
-                  <li className="flex items-center gap-2.5">
-                    <Check size={16} className="text-[#20E3A2] shrink-0" />
-                    <span>Dynamic 9:16 vertical face tracking with smooth Bézier camera easing</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check size={16} className="text-[#20E3A2] shrink-0" />
-                    <span>Word-by-word kinetic karaoke captions with pop color emphasis</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check size={16} className="text-[#20E3A2] shrink-0" />
-                    <span>Dead pauses and awkward filler words automatically removed</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check size={16} className="text-[#20E3A2] shrink-0" />
-                    <span>Intelligent audio ducking ensures vocals remain crisp over background beats</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-              <div className="md:col-span-5 flex justify-center">
-                <div className="w-[300px] aspect-video rounded-xl bg-black relative overflow-hidden flex flex-col justify-between p-3 opacity-75">
-                  {/* The genuine source frame at the same moment as the export opposite */}
-                  <img
-                    src={rawFootage169}
-                    alt="The original 16:9 source footage at the same moment, before reframing and captions"
-                    className="absolute inset-0 w-full h-full object-cover filter brightness-50"
-                  />
-                  <span className="relative z-10 text-[10px] font-mono text-red-400 bg-black/80 px-2 py-0.5 rounded self-start">
-                    16:9 Landscape (Uncut)
-                  </span>
-                  <div className="relative z-10 text-center text-xs text-slate-400">
-                    [No Captions • No Reframe]
-                  </div>
-                </div>
-              </div>
-
-              <div className="md:col-span-7 space-y-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-semibold">
-                  <XCircle size={14} />
-                  <span>Unprepared for Short-Form</span>
-                </div>
-                <h3 className="text-2xl font-bold text-white">
-                  What Raw Footage <span className="text-red-400">Is Missing</span>
-                </h3>
-                <ul className="space-y-2.5 text-xs sm:text-sm text-slate-400">
-                  <li className="flex items-center gap-2.5">
-                    <XCircle size={16} className="text-red-400 shrink-0" />
-                    <span>Horizontal format leaves black letterboxes on mobile screens</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <XCircle size={16} className="text-red-400 shrink-0" />
-                    <span>No captions for viewers watching on mute</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <XCircle size={16} className="text-red-400 shrink-0" />
-                    <span>Uncut pauses and long introductions still in place</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function HowItWorks() {
-  const steps = [
-    {
-      number: "01",
-      title: "Paste URL or Upload",
-      text: "Paste a YouTube, Loom, or Drive link, or drop any raw 4K video file up to 2 GB.",
-      img: rawFootage169,
-    },
-    {
-      number: "02",
-      title: "AI Finds Viral Hooks",
-      text: "Neural models scan audio velocity, emotional spikes, and dialogue to rank top moments.",
-      img: stepHooks,
-    },
-    {
-      number: "03",
-      title: "Auto-Reframe & Captions",
-      text: "Speakers are centered in 9:16 with dynamic word-by-word karaoke captions.",
-      img: vireoOutput916,
-    },
-    {
-      number: "04",
-      title: "Publish to 5 Channels",
-      text: "Queue posts directly to TikTok, Shorts, Reels, and X with auto-generated copy.",
-      img: stepPublish,
-    },
-  ];
-
   return (
     <section id="how" className="py-20 lg:py-28 bg-[#000000] relative">
       <div id="resources" className="absolute -top-24 left-0 pointer-events-none" aria-hidden="true" />
       <div className="lv-container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <Label>4-STEP ARCHITECTURE</Label>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white mt-3 mb-4">
-            From Raw Video to <br />
-            <em className="text-[#bba9e8] not-italic">Everywhere in Minutes.</em>
-          </h2>
-          <p className="text-base text-slate-300">
-            A frictionless pipeline engineered to deliver ready-to-publish vertical clips with zero friction.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 relative">
-          {steps.map((step) => (
-            <div
-              key={step.title}
-              className="rounded-2xl bg-[#080B14] overflow-hidden hover:bg-[#0D1120] transition-all flex flex-col justify-between relative group shadow-xl"
-            >
-              <div className="p-6">
-                <img
-                  src={step.img}
-                  alt={step.title}
-                  loading="lazy"
-                  className="w-full h-28 object-cover rounded-xl mb-4 opacity-90"
-                />
-                <span className="text-3xl font-black text-[#8753e3]/40 group-hover:text-[#bba9e8] transition-colors block mb-2 font-mono">
-                  {step.number}
-                </span>
-                <h3 className="text-base font-bold text-white mb-2">{step.title}</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">{step.text}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        <HiwMotion />
       </div>
     </section>
   );
@@ -295,7 +64,7 @@ function Pricing() {
   return (
     <section id="pricing" className="py-20 lg:py-28 bg-[#000000]">
       <div className="lv-container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto mb-12">
+        <div className="text-center max-w-2xl mx-auto mb-12 lv-reveal">
           <Label>TRANSPARENT PLANS</Label>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white mt-3 mb-4">
             Simple, Transparent <br />
@@ -304,6 +73,9 @@ function Pricing() {
           <p className="text-base text-slate-300">
             Get started for free with 15 processing minutes. Upgrade as your production grows.
           </p>
+          <div className="mt-6 mx-auto max-w-xl rounded-2xl border border-amber-300/40 bg-amber-300/10 px-5 py-3 text-[12px] leading-relaxed text-amber-200">
+            <strong className="font-bold uppercase tracking-wider">Proposed preview — not purchasable.</strong> Checkout is not active. Plan features and allowances shown below are under capability review and may change before any paid launch.
+          </div>
         </div>
 
         {/* Cadence & Currency Controls */}
@@ -334,7 +106,7 @@ function Pricing() {
             >
               <span>Yearly</span>
               <span className="text-[10px] font-mono bg-[#20E3A2]/20 text-[#20E3A2] px-1.5 py-0.2 rounded">
-                Save ~17%
+                Save 50%
               </span>
             </button>
           </div>
@@ -346,7 +118,7 @@ function Pricing() {
         </div>
 
         {/* Pricing Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto lv-reveal-group">
           {plans.map((plan) => {
             const planId = plan.name.toLowerCase() as 'free' | 'creator' | 'pro' | 'studio';
             const rate = getMarketingPlanRate(planId, billingInterval, currency);
@@ -382,6 +154,9 @@ function Pricing() {
                       {rate.symbol}{rate.amount}
                     </span>
                     <span className="text-xs text-slate-400 ml-1.5">{rate.periodText}</span>
+                    {rate.savingsBadge && (
+                      <span className="block mt-1.5 text-[10px] font-mono text-[#20E3A2]">{rate.savingsBadge}</span>
+                    )}
                   </div>
 
                   <p className="text-xs text-slate-400 mb-6 leading-relaxed">{plan.description}</p>
@@ -407,6 +182,7 @@ function Pricing() {
                   >
                     {plan.name === 'Free' ? 'Start Free' : 'Choose Plan'}
                   </Link>
+                  <p className="mt-3 text-[10px] text-slate-500 text-center leading-relaxed">{plan.statusNote}</p>
                 </div>
               </div>
             );
@@ -428,18 +204,18 @@ function FAQ() {
     <section id="faq" className="py-20 lg:py-28 bg-[#000000]">
       <div className="lv-container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-5 space-y-4">
+          <div className="lg:col-span-5 space-y-4 lv-reveal-left">
             <Label>FREQUENTLY ASKED QUESTIONS</Label>
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
               Good to Know <br />
               <em className="text-[#bba9e8] not-italic">Before You Begin.</em>
             </h2>
             <p className="text-sm text-slate-300 leading-relaxed">
-              Have questions about audio models, video quality, rendering limits, or client workspaces? We've got you covered.
+              Have questions about formats, exports, or the editor? We've got you covered.
             </p>
           </div>
 
-          <div className="lg:col-span-7 space-y-3">
+          <div className="lg:col-span-7 space-y-3 lv-reveal-right">
             {faqs.map((faq, index) => {
               const isOpen = openIndex === index;
               return (
@@ -557,7 +333,7 @@ function FinalCTA() {
   return (
     <section className="py-24 lg:py-32 bg-[#000000] relative overflow-hidden">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[850px] h-[450px] bg-gradient-to-r from-[#6734c9]/20 via-[#8753e3]/20 to-[#20E3A2]/10 blur-[130px] rounded-full pointer-events-none -z-0" />
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 space-y-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 space-y-6 lv-reveal-group">
         <div className="flex justify-center">
           <Logo light size="md" />
         </div>
@@ -577,7 +353,7 @@ function FinalCTA() {
         </Reveal>
         <Reveal variant="up" delay={140}>
           <p className="max-w-xl mx-auto text-base text-slate-300 leading-relaxed">
-            Start turning interviews, podcasts, and recordings into high-converting vertical shorts in under 60 seconds.
+            Start turning interviews, podcasts, and recordings into vertical shorts ready for every platform.
           </p>
         </Reveal>
         <Reveal variant="up" delay={260}>
@@ -678,9 +454,7 @@ export function LandingPage() {
       <main className="lv-page" ref={pageRef}>
         {/* HERO SECTION IS UNTOUCHED AND PRISTINE */}
         <LandingHero />
-        <Reveal variant="fade">
-          <ProofStrip />
-        </Reveal>
+        {/* ProofStrip stat band removed 2026-11-22: stats (1.2M+ clips, 60s turnaround, 98% caption accuracy) were unverified placeholder numbers. Re-add only with measured figures. */}
 
         {/* ONE combined source-journey animation (user 12:34: "Bas ek hi rakhenge animation dono nhi") */}
         <CombinedWorkflowShowcase />
@@ -700,8 +474,9 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* INTERACTIVE BEFORE & AFTER SLIDER */}
-        <BeforeAfter />
+        {/* INTERACTIVE BEFORE & AFTER SLIDER — removed per user request (23:26): the
+            SIDE-BY-SIDE TRANSFORMATION section is out of the candidate. Component kept
+            unused below; do not re-add without explicit approval. */}
 
         {/* 4-STEP HOW IT WORKS */}
         <HowItWorks />

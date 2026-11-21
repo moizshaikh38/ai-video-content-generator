@@ -89,16 +89,15 @@ export function Navbar() {
               </div>
             </details>
           ))}
-          <a href="/pricing" aria-current={location.pathname === '/pricing' ? 'page' : undefined}>Pricing</a>
+          <a href="/#pricing">Pricing</a>
           <a href="/#faq">FAQ</a>
         </div>
         <div className="lp-nav-actions">
           <Link className="lp-nav-login" to={isAuthenticated ? '/dashboard' : '/login'}>{isAuthenticated ? 'Dashboard' : 'Sign in'}</Link>
           <Link className="lp-button lp-button-dark" to={ctaPath}>{ctaLabel} <ArrowRight size={15} aria-hidden="true" /></Link>
         </div>
-        <button className="lp-menu-button site-menu-toggle" type="button" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="lp-mobile-menu" onClick={() => setOpen(v => !v)}>
-          <span>Menu</span>
-          {open ? <X size={15} aria-hidden="true" /> : <Menu size={15} aria-hidden="true" />}
+        <button className="lp-menu-button" type="button" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="lp-mobile-menu" onClick={() => setOpen(v => !v)}>
+          {open ? <X size={21} aria-hidden="true" /> : <Menu size={21} aria-hidden="true" />}
         </button>
       </nav>
       {open && <div className="lp-mobile-menu vc-clean-menu" id="lp-mobile-menu">
@@ -116,7 +115,7 @@ export function Navbar() {
             </div>
           </details>
         ))}
-        <a className="vc-plain-link" href="/pricing" onClick={() => setOpen(false)}>Pricing<ArrowRight size={13} aria-hidden="true" /></a>
+        <a className="vc-plain-link" href="/#pricing" onClick={() => setOpen(false)}>Pricing<ArrowRight size={13} aria-hidden="true" /></a>
         <a className="vc-plain-link" href="/#faq" onClick={() => setOpen(false)}>FAQ<ArrowRight size={13} aria-hidden="true" /></a>
         <div className="vc-clean-menu-actions"><Link to={isAuthenticated ? '/dashboard' : '/login'} onClick={() => setOpen(false)}>{isAuthenticated ? 'Dashboard' : 'Sign in'}</Link><Link className="lp-button lp-button-dark" to={ctaPath} onClick={() => setOpen(false)}>{ctaLabel} <ArrowRight size={14} aria-hidden="true" /></Link></div>
       </div>}

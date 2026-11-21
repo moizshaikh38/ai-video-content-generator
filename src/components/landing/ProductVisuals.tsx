@@ -8,64 +8,27 @@ import {
   Play,
 } from "lucide-react";
 import { Logo } from "../Logo";
-import creatorVideo from "../../assets/landing/creator-video.webp";
+import creatorVideo from "../../assets/landing/creator-video-ai.webp";
 import creatorMomentTwo from "../../assets/landing/creator-moment-2.webp";
 import creatorMomentThree from "../../assets/landing/creator-moment-3.webp";
 import instagramLogo from "../../assets/landing/platforms/instagram.svg";
 import { channels, platformOutputs } from "../../data/platforms";
 
 function VideoTile({ compact = false }: { compact?: boolean }) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  const togglePlay = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isPlaying) {
-      videoRef.current?.pause();
-      setIsPlaying(false);
-    } else {
-      videoRef.current
-        ?.play()
-        .then(() => setIsPlaying(true))
-        .catch(() => setIsPlaying(true));
-    }
-  };
-
+  // Static tile: the play affordance was removed 2026-11-22 because it loaded
+  // /demo/creator-studio-demo.mp4, which is not in the build, so pressing play
+  // broke the tile. No replacement footage exists for this slot; re-add a
+  // control only together with a real clip at a real path.
   return (
-    <div
-      className={`lv-video ${compact ? "lv-video-compact" : ""} cursor-pointer group`}
-      onClick={togglePlay}
-    >
-      {isPlaying ? (
-        <video
-          ref={videoRef}
-          src="/demo/creator-studio-demo.mp4"
-          className="absolute inset-0 w-full h-full object-cover"
-          autoPlay
-          loop
-          playsInline
-        />
-      ) : (
-        <img
-          src={creatorVideo}
-          alt="Creator speaking to camera in a warm home studio"
-          loading={compact ? "lazy" : "eager"}
-          decoding="async"
-        />
-      )}
+    <div className={`lv-video ${compact ? "lv-video-compact" : ""}`}>
+      <img
+        src={creatorVideo}
+        alt="Illustrative AI-generated image of a creator speaking to camera in a warm home studio"
+        loading={compact ? "lazy" : "eager"}
+        decoding="async"
+        style={{ objectPosition: "center 32%" }}
+      />
       <div className="lv-video-content">
-        <button
-          type="button"
-          onClick={togglePlay}
-          className="lv-video-play"
-          aria-label={isPlaying ? "Pause video preview" : "Play video preview"}
-        >
-          {isPlaying ? (
-            <span className="size-3.5 bg-current rounded-xs" />
-          ) : (
-            <Play size={18} fill="currentColor" />
-          )}
-        </button>
         <span className="lv-video-label">YOUR VIDEO</span>
       </div>
     </div>

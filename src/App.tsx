@@ -72,6 +72,9 @@ export const App: React.FC = () => {
           {/* Public marketing layout with top navbar & footer */}
           <Route element={<RootLayout />}>
             <Route path="/" element={<LandingPage />} />
+            {/* Pricing lives as the landing #pricing section; the nav link and
+                any external /pricing references resolve there, not to a 404. */}
+            <Route path="/pricing" element={<Navigate to="/#pricing" replace />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/support" element={<SupportPage />} />

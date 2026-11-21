@@ -192,6 +192,10 @@ export async function bootstrapMongo(db?: Db): Promise<void> {
     .catch(() => undefined);
 
   await Promise.all([
+    // Waitlist uniqueness must be ready before public capture admission.
+    database.collection('waitlist').createIndex({ email: 1 }, { unique: true }),
+    database.collection('waitlist_mail_intents').createIndex({ email: 1, kind: 1 }, { unique: true }),
+    database.collection('waitlist_mail_intents').createIndex({ status: 1, created_at: 1 }),
     database.collection('profiles').createIndex({ user_id: 1 }, { unique: true }),
     database.collection('projects').createIndex({ id: 1 }, { unique: true }),
     database.collection('projects').createIndex({ user_id: 1, created_at: -1 }),

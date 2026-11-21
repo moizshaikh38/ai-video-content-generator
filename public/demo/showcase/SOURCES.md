@@ -46,3 +46,10 @@ assertions.
 
 These are raw sample footage for demonstrating the UI. They are not Vireo
 output and no processing results are implied.
+
+## Landing step-card frames (*-card.webp, Nov 21)
+
+Single frames extracted from the same creator segments above, used as
+4-step workflow card imagery (raw source-footage samples, not Vireo output):
+mrbeast-challenge t=1s, ishowspeed-moto t=1s, mrbeast-hook t=1s, ronaldo-a t=3s.
+Same licenses and attribution as their parent segments.

@@ -1,3 +1,4 @@
+import waitlistRoutes from './waitlistRoutes.js';
 import liveCaptureRoutes from './liveCaptureRoutes.js';
 import importRoutes from './importRoutes.js';
 import { Router } from 'express';
@@ -30,6 +31,7 @@ import { getProfiles, saveProfiles, getCreatorProfile, updateCreatorProfile } fr
 const apiRouter = Router();
 
 apiRouter.use('/', healthRoutes);
+apiRouter.use('/', waitlistRoutes);
 apiRouter.use('/', authRoutes);
 apiRouter.get('/profiles/me', requireAuth, asyncHandler(getProfiles));
 apiRouter.put('/profiles/me', requireAuth, asyncHandler(saveProfiles));

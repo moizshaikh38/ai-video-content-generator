@@ -19,6 +19,10 @@
 @font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/inter/Inter-SemiBold.ttf') format('truetype'); }
 @font-face { font-family: 'Inter'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/inter/Inter-Bold.ttf') format('truetype'); }
 @font-face { font-family: 'Inter'; font-style: normal; font-weight: 900; font-display: swap; src: url('/fonts/inter/Inter-Black.ttf') format('truetype'); }
+@font-face { font-family: 'Sora'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/sora/Sora-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'Sora'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/sora/Sora-SemiBold.ttf') format('truetype'); }
+@font-face { font-family: 'Sora'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/sora/Sora-Bold.ttf') format('truetype'); }
+@font-face { font-family: 'Sora'; font-style: normal; font-weight: 800; font-display: swap; src: url('/fonts/sora/Sora-ExtraBold.ttf') format('truetype'); }
 
 @tailwind base;
 @tailwind components;

@@ -202,10 +202,12 @@ export function getMarketingPlanRate(
 
   // USD
   if (interval === 'year') {
+    // Annual billing at the owner-directed 50% off the monthly rate
+    // (2026-11-21 WhatsApp instruction): yearly = monthly x 12 x 0.5.
     const yearlyRates: Record<'creator' | 'pro' | 'studio', { amount: number; monthly: string; save: number }> = {
-      creator: { amount: 120, monthly: '$10/mo', save: 24 },
-      pro: { amount: 240, monthly: '$20/mo', save: 48 },
-      studio: { amount: 490, monthly: '$40.83/mo', save: 98 },
+      creator: { amount: 72, monthly: '$6/mo', save: 72 },
+      pro: { amount: 144, monthly: '$12/mo', save: 144 },
+      studio: { amount: 294, monthly: '$24.50/mo', save: 294 },
     };
     const rate = yearlyRates[planId];
     return {
@@ -213,7 +215,7 @@ export function getMarketingPlanRate(
       amount: rate.amount.toString(),
       periodText: `/ year (${rate.monthly})`,
       isAvailable: true,
-      savingsBadge: `Save $${rate.save}/yr`,
+      savingsBadge: `Save 50% ($${rate.save}/yr)`,
     };
   }
 

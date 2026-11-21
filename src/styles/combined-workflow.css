@@ -19,8 +19,8 @@
 .cw-stage {
   flex: 1 1 0;
   min-width: 0;
-  background: #000;
-  border: 1px solid transparent;
+  background: #0a0d17;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 18px;
   padding: 14px;
   display: flex;
@@ -31,12 +31,12 @@
 
 .cw-stage.active {
   transform: translateY(-6px);
-  border-color: transparent;
+  border-color: rgba(139, 92, 246, 0.55);
   box-shadow: 0 0 32px rgba(139, 92, 246, 0.28);
 }
 
 .cw-stage.done {
-  border-color: transparent;
+  border-color: rgba(32, 227, 162, 0.22);
 }
 
 .cw-stage-head {
@@ -59,41 +59,68 @@
   color: #94a3b8;
 }
 
+/* Every stage thumb sits in the same 16:9 box so the rail reads as one
+   coherent strip; vertical content gets a blurred fill of the same frame
+   behind it instead of dead space. */
 .cw-stage-thumb {
   position: relative;
   display: flex;
+  align-items: center;
   justify-content: center;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #05070d;
+}
+
+.cw-thumb-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(14px) brightness(0.5);
+  transform: scale(1.2);
 }
 
 .cw-thumb-wide {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  height: 100%;
   object-fit: cover;
   border-radius: 10px;
   background: #000;
 }
 
 .cw-thumb-vertical {
-  height: 96px;
+  position: relative;
+  height: 100%;
   aspect-ratio: 9 / 16;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: 6px;
   background: #000;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
 }
 
 .cw-mini-clips {
+  position: relative;
   display: flex;
-  gap: 6px;
+  gap: 8px;
+  height: 100%;
+  align-items: center;
   justify-content: center;
 }
 
 .cw-mini-clip {
   position: relative;
-  width: 34px;
+  height: 92%;
   aspect-ratio: 9 / 16;
   border-radius: 6px;
   overflow: hidden;
   background: #000;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
 }
 
 .cw-mini-clip img:first-child {
@@ -128,9 +155,9 @@
 .cw-connector {
   align-self: center;
   width: 34px;
-  height: 2px;
+  height: 3px;
   margin: 0 6px;
-  background: rgba(148, 163, 184, 0.18);
+  background: rgba(148, 163, 184, 0.3);
   border-radius: 999px;
   overflow: hidden;
   flex: 0 0 auto;
@@ -411,16 +438,80 @@
   color: #cbd5e1;
 }
 
+/* Mobile focused-step pattern: one large step at a time, numbered progress
+   tabs, swipe on the stage view. The small card rail and the 3-tab strip
+   give way to it. */
+.cw-steps-mob { display: none; }
+.cw-caption-mob { display: none; }
+
 @media (max-width: 900px) {
   .cw-rail {
+    display: none;
+  }
+
+  .cw-tabs { display: none; }
+
+  .cw-steps-mob {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .cw-step-mob {
+    flex: 1 1 0;
+    display: flex;
     flex-direction: row;
-    gap: 10px;
-    max-width: 100%;
-    margin: 0 0 1.5rem;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    padding-bottom: 8px;
-    -webkit-overflow-scrolling: touch;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 7px 2px;
+    border-radius: 10px;
+    background: #0a0d17;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #94a3b8;
+    font-size: 10.5px;
+    font-weight: 600;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
+  }
+
+  .cw-step-mob .cw-step-num {
+    font-size: 12px;
+    font-weight: 800;
+    color: #bba9e8;
+    transition: color 0.3s ease;
+  }
+
+  .cw-step-mob.done .cw-step-num { color: #20E3A2; }
+
+  .cw-step-mob.on {
+    border-color: rgba(139, 92, 246, 0.55);
+    color: #fff;
+    box-shadow: 0 0 18px rgba(139, 92, 246, 0.22);
+    animation: cw-step-activate 0.45s ease;
+  }
+
+  @keyframes cw-step-activate {
+    0% { transform: scale(0.96); }
+    60% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+  }
+
+  .cw-caption-mob {
+    display: block;
+    margin-top: 10px;
+    text-align: center;
+    font-size: 11.5px;
+    color: #94a3b8;
+  }
+
+  /* Restrained step-change motion: content fades and rises 8px on switch. */
+  .cw-stage-view .cw-view {
+    animation: cw-view-in 0.4s ease;
+  }
+
+  @keyframes cw-view-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   .cw-rail-item {
@@ -449,13 +540,34 @@
     transform: none;
   }
 
-  .cw-panel { padding: 14px; }
+  .cw-panel { padding: 12px; }
 
-  .cw-view-split { gap: 16px; }
+  /* Tight mobile vertical budget: heading, tabs and media must share one
+     phone screen with a complete stage visible. */
+  .cw-section > div > .text-center { margin-bottom: 14px !important; }
+  .cw-section h2 { font-size: 1.45rem !important; line-height: 1.2 !important; margin-bottom: 6px !important; }
+  .cw-section h2 + p { font-size: 12.5px !important; line-height: 1.45 !important; }
+  .cw-section .py-16 { padding-top: 2.5rem; padding-bottom: 2.5rem; }
 
-  .cw-crop-demo { width: min(240px, 90%); }
+  /* No reserved blank band on mobile: stage wraps its content. */
+  .cw-stage-view { min-height: 0; justify-content: flex-start; }
 
-  .cw-view-poster { height: 210px; }
+  .cw-view-split { gap: 10px; justify-content: center; }
+
+  .cw-view-wide { max-height: 200px; }
+
+  /* Keep reframe source + 9:16 result on one row so the stage fits a screen. */
+  .cw-crop-demo { width: min(190px, 55%); }
+  .cw-crop-demo .cw-view-wide { max-height: 120px; }
+
+  .cw-view-poster { height: 148px; }
+
+  /* Clip cards: one row of three, no wrap. */
+  .cw-clips-row { flex-wrap: nowrap; gap: 10px; }
+  .cw-clip-card { width: 92px; }
+  .cw-clips-row .cw-clip-card img { max-height: 150px; }
+
+  .cw-credit { margin-top: 8px; }
 }
 
 /* Vertical sample-video variants */

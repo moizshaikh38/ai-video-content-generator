@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Film,
   Scissors,
@@ -41,7 +41,7 @@ const TABS: { id: Mode; label: string }[] = [
 ];
 
 const FEATURES = [
-  { icon: Sparkles, label: "AI Virality Scoring" },
+  { icon: Sparkles, label: "Clip Ranking" },
   { icon: Captions, label: "Kinetic Captions" },
   { icon: Crop, label: "Smart 9:16 Reframe" },
   { icon: Layers, label: "Multi-Track Editor" },
@@ -52,10 +52,20 @@ const FEATURES = [
 const stageIndexFor = (mode: Mode) =>
   mode === "captions" ? 2 : STAGES.findIndex((s) => s.mode === mode);
 
+const MOBILE_MODES: Mode[] = ["source", "moments", "framing", "clips"];
+
 export function CombinedWorkflowShowcase() {
   const [mode, setMode] = useState<Mode>("source");
   const [paused, setPaused] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const touchX = useRef<number | null>(null);
+
+  const swipeTo = (dir: 1 | -1) => {
+    const cur = MOBILE_MODES.indexOf(mode === "captions" ? "framing" : mode);
+    const next = Math.min(MOBILE_MODES.length - 1, Math.max(0, cur + dir));
+    setMode(MOBILE_MODES[next]);
+    setPaused(true);
+  };
 
   // Honor prefers-reduced-motion: no auto-advance timers, videos render as
   // poster frames instead of playing.
@@ -67,9 +77,12 @@ export function CombinedWorkflowShowcase() {
     return () => mq.removeEventListener?.("change", update);
   }, []);
 
-  // Auto-advance the journey; pauses briefly when the user picks a tab.
+  // Auto-advance the journey on desktop; pauses briefly when the user picks a
+  // tab. On mobile the numbered steps + swipe are the navigation, so nothing
+  // auto-advances there (avoids competing motion and surprise step changes).
   useEffect(() => {
     if (paused || reduceMotion) return;
+    if (window.matchMedia("(max-width: 900px)").matches) return;
     const t = setInterval(() => {
       setMode((m) => MODES[(MODES.indexOf(m) + 1) % MODES.length]);
     }, 2800);
@@ -142,19 +155,31 @@ export function CombinedWorkflowShowcase() {
                 </div>
                 <div className="cw-stage-thumb">
                   {stage.mode === "clips" ? (
-                    <div className="cw-mini-clips">
-                      {[ytShortsLogo, tiktokLogo, instagramLogo].map((logo, j) => (
-                        <div className="cw-mini-clip" key={j}>
-                          <img src={ZOOM_POSTER} alt="Illustrative clip card frame from the sample video" />
-                          <img className="cw-mini-logo" src={logo} alt={["YouTube Shorts", "TikTok", "Instagram Reels"][j]} />
-                        </div>
-                      ))}
-                    </div>
+                    <>
+                      <img className="cw-thumb-backdrop" src={ZOOM_POSTER} alt="" aria-hidden="true" />
+                      <div className="cw-mini-clips">
+                        {[ytShortsLogo, tiktokLogo, instagramLogo].map((logo, j) => (
+                          <div className="cw-mini-clip" key={j}>
+                            <img src={ZOOM_POSTER} alt="Illustrative clip card frame from the sample video" />
+                            <img className="cw-mini-logo" src={logo} alt={["YouTube Shorts", "TikTok", "Instagram Reels"][j]} />
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : stage.mode === "framing" ? (
+                    <>
+                      <img className="cw-thumb-backdrop" src={ZOOM_POSTER} alt="" aria-hidden="true" />
+                      <img
+                        src={ZOOM_POSTER}
+                        alt={`Sample video frame for the ${stage.label} step`}
+                        className="cw-thumb-vertical"
+                      />
+                    </>
                   ) : (
                     <img
-                      src={stage.mode === "framing" ? ZOOM_POSTER : SRC_POSTER}
+                      src={SRC_POSTER}
                       alt={`Sample video frame for the ${stage.label} step`}
-                      className={stage.mode === "framing" ? "cw-thumb-vertical" : "cw-thumb-wide"}
+                      className="cw-thumb-wide"
                     />
                   )}
                   {stage.mode === "moments" && (
@@ -178,6 +203,26 @@ export function CombinedWorkflowShowcase() {
 
         {/* Focus panel: the same clip, in the selected workflow state */}
         <div className="cw-panel">
+          {/* Mobile focused-step navigation: one large step at a time */}
+          <div className="cw-steps-mob" role="tablist" aria-label="Workflow steps">
+            {STAGES.map((s, i) => (
+              <button
+                key={s.mode}
+                role="tab"
+                aria-selected={activeStage === i}
+                aria-label={`Step ${i + 1}: ${s.label}`}
+                className={`cw-step-mob ${activeStage === i ? "on" : ""} ${i < activeStage ? "done" : ""}`}
+                onClick={() => {
+                  setMode(s.mode);
+                  setPaused(true);
+                }}
+              >
+                <span className="cw-step-num">{i + 1}</span>
+                <span className="cw-step-name">{({ source: "Source", moments: "Moments", framing: "Reframe", captions: "Captions", clips: "Clips" } as Record<Mode, string>)[s.mode]}</span>
+              </button>
+            ))}
+          </div>
+
           <div className="cw-tabs" role="tablist" aria-label="Workflow steps">
             {TABS.map((tab) => (
               <button
@@ -195,7 +240,19 @@ export function CombinedWorkflowShowcase() {
             ))}
           </div>
 
-          <div className="cw-stage-view" aria-live="polite">
+          <div
+            className="cw-stage-view"
+            aria-live="polite"
+            onTouchStart={(e) => {
+              touchX.current = e.touches[0].clientX;
+            }}
+            onTouchEnd={(e) => {
+              if (touchX.current === null) return;
+              const dx = e.changedTouches[0].clientX - touchX.current;
+              touchX.current = null;
+              if (Math.abs(dx) > 48) swipeTo(dx < 0 ? 1 : -1);
+            }}
+          >
             {mode === "source" && (
               <div className="cw-view">
                 {videoFor(SRC_VIDEO, SRC_POSTER, "Sample video playing: IShowSpeed GTA stream capture, original 16:9 landscape frame", "cw-view-wide")}
@@ -253,6 +310,8 @@ export function CombinedWorkflowShowcase() {
               </div>
             )}
           </div>
+
+          <p className="cw-caption-mob">{STAGES[activeStage].sub}</p>
 
           <p className="cw-credit">
             Footage: IShowSpeed on YouTube
