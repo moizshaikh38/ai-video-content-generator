@@ -1346,7 +1346,7 @@ export class ClipRenderService {
           render_upscale_factor: resolution.upscaleFactor,
           render_error_code: null,
           render_error_message: null,
-          updated_at: new Date().toISOString(),
+          updated_at: new Date(),
         }
       },{projectId:clip.project_id,attemptId,objectKey:finalStoragePath,validateSource:()=>assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path)});
 
@@ -1383,7 +1383,7 @@ export class ClipRenderService {
             await commitFencedRenderOutcome(await getMongoClient(),db,{jobId,clipId,userId,workerId,renderVersion:Number(clip.render_version||1),editorVersion:Number(clip.editor_version||1),editorProject:expectedEditorProject},{
               preserveSupersedingClip:true,
               job:{status:retry?'queued':'failed',stage:retry?'queued':'failed',worker_id:null,locked_at:null,next_retry_at:nextRetryAt,error_code:code,error_message:message,updated_at:new Date()},
-              clip:{render_status:retry?'queued':'failed',render_error_code:code,render_error_message:message,updated_at:new Date().toISOString()},
+              clip:{render_status:retry?'queued':'failed',render_error_code:code,render_error_message:message,updated_at:new Date()},
             });
             logger.warn('[ClipRender] Fenced render failure recorded',{clipId,jobId,retry,attempts,maxAttempts});
           }else{
@@ -1441,7 +1441,7 @@ export class ClipRenderService {
     if(!current?.user_id)throw new AppError('Render lease was expired or claimed by another worker.',409,'FENCING_TOKEN_MISMATCH');
     await commitFencedRenderOutcome(await getMongoClient(),db,{jobId,clipId,userId:current.user_id,workerId:expectedWorkerId,...expectedClipVersion},{
       job:{stage,progress,status:'processing',updated_at:new Date()},
-      clip:{render_status:clipStatus,updated_at:new Date().toISOString()},
+      clip:{render_status:clipStatus,updated_at:new Date()},
     });
   }
 

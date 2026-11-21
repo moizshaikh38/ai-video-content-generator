@@ -21,12 +21,12 @@ test('selection receipt changes with speech, source or source bytes, not row met
 });
 
 test('actual selection/creation/render consumers reject stale decisions without provider or render work',async()=>{
- Object.assign(process.env,{NODE_ENV:'test',MONGODB_URI:'mongodb://127.0.0.1:27020/?replicaSet=homeproof',MONGODB_DB_NAME:'vireo_selection_source_qualification',SUPABASE_URL:'http://127.0.0.1:5998',SUPABASE_SECRET_KEY:'fixture',OPENROUTER_API_KEY:'',GROQ_API_KEY:''});
+ Object.assign(process.env,{NODE_ENV:'test',MONGODB_URI:process.env.MONGODB_URI||'mongodb://127.0.0.1:27020/?replicaSet=homeproof',MONGODB_DB_NAME:process.env.MONGODB_DB_NAME||'vireo_selection_source_qualification',SUPABASE_URL:'http://127.0.0.1:5998',SUPABASE_SECRET_KEY:'fixture',OPENROUTER_API_KEY:'',GROQ_API_KEY:''});
  let etag='"fixture-a"',heads=0;
  const server=http.createServer((req,res)=>{heads++;res.setHeader('ETag',etag);res.setHeader('Content-Length','7');res.end();});
  await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));const a=server.address();assert(a&&typeof a!=='string');
  const {config}=await import('../config/index.js');Object.assign(config,{r2AccountId:'fixture',r2AccessKeyId:'fixture',r2SecretAccessKey:'fixture',r2SourceBucket:'source',r2Endpoint:`http://127.0.0.1:${a.port}`,openrouterApiKey:''});
- const {getMongoDb,closeMongo}=await import('../db/mongoClient.js');const db=await getMongoDb();
+ const {getMongoDb,closeMongo}=await import('../db/mongoClient.js');await (await import('../db/bootstrapMongo.js')).bootstrapMongo();const db=await getMongoDb();
  const {ownerContext}=await import('../db/repositories/dataRepository.js');
  const {assertSelectionSourceCurrent}=await import('../services/selectionSourceGuardService.js');
  const {createClipWithJob}=await import('../db/repositories/clipRepository.js');
@@ -75,7 +75,7 @@ test('actual selection/creation/render consumers reject stale decisions without 
  assert.equal(captionStatus,409);assert.equal(captionBody.code,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
  await ownerContext.run(user,()=>ClipRenderService.renderClipJob(created.clip.id,user,created.renderJob.id));
  const clip=await db.collection('clips').findOne({id:created.clip.id});const job=await db.collection('render_jobs').findOne({id:created.renderJob.id});
- assert.equal(clip?.render_status,'failed');assert.equal(clip?.render_error_code,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');assert.equal(job?.status,'failed');assert(!clip?.output_storage_path);
+ assert.equal(clip?.render_status,'failed');assert.equal(clip?.render_error_code,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');assert.equal(job?.status,'failed');assert(clip?.updated_at instanceof Date);assert(job?.updated_at instanceof Date);assert(!clip?.output_storage_path);
  etag='"fixture-a"';await db.collection('transcripts').updateOne({project_id:project},{$set:{transcript_text:'Changed while selection was running'}});
  await assert.rejects(createClipWithJob(project,candidate,user,'9:16','center',undefined,undefined,{kind:'unlimited'}),{code:'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'});
  await assert.rejects(replaceSuggestedCandidates(user,project,[],receipt),{code:'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'});

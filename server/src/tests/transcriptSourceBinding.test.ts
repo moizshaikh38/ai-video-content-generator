@@ -31,7 +31,7 @@ test('request observer hashes actual different inputs and settles failed and lat
 });
 
 test('actual processing records downloaded bytes and provider-input audio; stale/legacy/edit reuse stops without another provider call',async()=>{
- Object.assign(process.env,{NODE_ENV:'test',MONGODB_URI:'mongodb://127.0.0.1:27019',MONGODB_DB_NAME:'vireo_transcript_lineage_qualification',SUPABASE_URL:'http://127.0.0.1:5998',SUPABASE_SECRET_KEY:'fixture',OPENROUTER_API_KEY:'',GROQ_API_KEY:'fixture'});
+ Object.assign(process.env,{NODE_ENV:'test',MONGODB_URI:process.env.MONGODB_URI||'mongodb://127.0.0.1:27019',MONGODB_DB_NAME:process.env.MONGODB_DB_NAME||'vireo_transcript_lineage_qualification',SUPABASE_URL:'http://127.0.0.1:5998',SUPABASE_SECRET_KEY:'fixture',OPENROUTER_API_KEY:'',GROQ_API_KEY:'fixture'});
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'transcript-lineage-')),source=path.join(dir,'source.mp4');
  execFileSync(ffmpeg as unknown as string,['-v','error','-f','lavfi','-i','color=s=160x90:r=10:d=0.5','-f','lavfi','-i','sine=frequency=440:duration=0.5','-c:v','libx264','-threads','1','-preset','ultrafast','-c:a','aac','-shortest',source],{timeout:10000});
  const bytes=fs.readFileSync(source);let etag='"source-a"';
@@ -48,7 +48,7 @@ test('actual processing records downloaded bytes and provider-input audio; stale
  E.resolveUserEntitlements=async()=>({isUnlimited:true} as any);
  const {processProjectVideo}=await import('../services/videoProcessingService.js');
  const {SubtitleStudioService:S}=await import('../services/subtitleStudioService.js');
- const db=await getMongoDb(),user=crypto.randomUUID(),project=crypto.randomUUID(),key='fixture/'+crypto.randomUUID()+'.mp4';const projects=[project];
+ await (await import('../db/bootstrapMongo.js')).bootstrapMongo();const db=await getMongoDb(),user=crypto.randomUUID(),project=crypto.randomUUID(),key='fixture/'+crypto.randomUUID()+'.mp4';const projects=[project];
  try {
   await db.collection('projects').insertOne({id:project,user_id:user,source_url:key,storage_path:key,source_type:'fixture',duration_seconds:.5});
   const result=await processProjectVideo(project,user,key);assert.equal(result.status,'transcribed');assert.equal(calls,1);
@@ -61,8 +61,8 @@ test('actual processing records downloaded bytes and provider-input audio; stale
   etag='"source-b"';const stale=await processProjectVideo(project,user,key);assert.equal(stale.status,'failed');assert.match(stale.error!,/cannot be verified/);assert.equal(calls,1);await assert.rejects((S as any).findReusableTranscript(user,clone,key),{code:'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'});etag='"source-a"';
   await db.collection('transcripts').updateOne({project_id:project},{$set:{transcript_text:'Edited'}});assert.equal((await processProjectVideo(project,user,key)).status,'failed');assert.equal(calls,1);
   await db.collection('transcripts').updateOne({project_id:project},{$set:{transcript_text:'Fixture.'},$unset:{source_binding:''}});assert.equal((await processProjectVideo(project,user,key)).status,'failed');assert.equal(calls,1);
-  const vanished=crypto.randomUUID(),attempt=crypto.randomUUID();projects.push(vanished);await db.collection('projects').insertOne({id:vanished,user_id:user,source_url:key,source_type:'fixture',duration_seconds:.5});await db.collection('credit_reservations').insertOne({attempt_id:attempt,user_id:user,status:'settled',amount:0,settled_amount:0,metadata:{isReusedTranscript:true}});assert.equal((await processProjectVideo(vanished,user,key,attempt)).status,'failed');assert.equal(calls,1);await db.collection('credit_reservations').deleteOne({attempt_id:attempt});
+  const vanished=crypto.randomUUID(),attempt=crypto.randomUUID();projects.push(vanished);await db.collection('projects').insertOne({id:vanished,user_id:user,source_url:key,source_type:'fixture',duration_seconds:.5});await (await import('../services/creditWalletService.js')).CreditWalletService.reserveCredits({userId:user,attemptId:attempt,operationId:'core_video_processing',amount:0,metadata:{isReusedTranscript:true}});assert.equal((await processProjectVideo(vanished,user,key,attempt)).status,'failed');assert.equal(calls,1);await db.collection('credit_reservations').deleteOne({attempt_id:attempt});
   const moved=crypto.randomUUID();projects.push(moved);await db.collection('projects').insertOne({id:moved,user_id:user,source_url:key,source_type:'fixture',duration_seconds:.5});changeDuringProvider=true;assert.equal((await processProjectVideo(moved,user,key)).status,'failed');assert.equal(calls,2);assert.equal(await db.collection('transcripts').countDocuments({project_id:moved}),0);
   assert.equal((await processProjectVideo(clone,crypto.randomUUID(),key)).status,'failed');assert.equal(calls,2);
- }finally{G.prototype.transcribeAudio=originalProvider;E.resolveUserEntitlements=originalEntitlements;await db.collection('projects').deleteMany({id:{$in:projects}});await db.collection('transcripts').deleteMany({project_id:{$in:projects}});await closeMongo();await new Promise<void>(resolve=>server.close(()=>resolve()));fs.rmSync(dir,{recursive:true,force:true});}
+ }finally{G.prototype.transcribeAudio=originalProvider;E.resolveUserEntitlements=originalEntitlements;await db.collection('projects').deleteMany({id:{$in:projects}});await db.collection('transcripts').deleteMany({project_id:{$in:projects}});for(const col of ['credit_reservations','credit_ledger','credit_wallets'])await db.collection(col).deleteMany({user_id:user});await closeMongo();await new Promise<void>(resolve=>server.close(()=>resolve()));fs.rmSync(dir,{recursive:true,force:true});}
 });
