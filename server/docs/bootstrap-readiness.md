@@ -17,3 +17,9 @@ Readiness starts the core Mongo check and advisory queue/CV probes concurrently.
 These deadlines bound the HTTP wait, not cancellation of a shared connection attempt or the cached Python capability probe. Late failures are handled; late completion is not cached as a permanent readiness failure. A cached runtime check may still settle after the HTTP response. This is not a hard real-time guarantee under CPU/event-loop starvation or a full dependency acceptance test.
 
 Actual local HTTP tests use a fake Mongo client and stalled advisory callbacks. They cover bounded advisory response, core-timeout503, later recovery and drain-during-probe503. They do not connect to a real database, run Python, encode media or validate hosted supervision timeouts.
+
+## Connection lifetime during close/retry
+
+Closing the pool fences its current connection generation and closes both established and in-flight clients. A connect or ping that finishes after close cannot publish that candidate as the process client. Its failure also cannot clear a newer generation's shared connection promise. Multiple callers still share one current attempt; an ordinary current-generation failure can retry normally.
+
+Controlled-promise tests on the actual pool module cover close during connect, close during ping, old connect rejection after a newer attempt begins, shared fresh callers and normal retry. Client methods are fixtures; no network connection is made. These tests do not replace real driver/network/shutdown acceptance. Pool close remains reusable by later callers and is not a permanent process-wide admission stop; the shutdown lifecycle owns stopping new application work.

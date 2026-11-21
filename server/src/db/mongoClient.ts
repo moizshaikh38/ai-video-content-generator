@@ -12,6 +12,8 @@ try {
 
 let client: MongoClient | null = null;
 let connecting: Promise<Db> | null = null;
+let pendingClient:MongoClient|null=null;
+let connectionGeneration=0;
 
 export const isMongoConfigured = Boolean(config.mongodbUri && config.mongodbDbName);
 
@@ -28,16 +30,25 @@ export async function getMongoDb(): Promise<Db> {
       connectTimeoutMS: 30_000,
       serverSelectionTimeoutMS: 30_000,
     });
+    const generation=connectionGeneration;
+    pendingClient=candidate;
+    const assertCurrent=()=>{
+      if(generation!==connectionGeneration)throw new AppError('Database connection was closed before becoming ready.',503,'DATABASE_UNAVAILABLE');
+    };
     connecting = candidate.connect()
       .then(async () => {
+        assertCurrent();
         const db = candidate.db(config.mongodbDbName);
         await db.command({ ping: 1 });
+        assertCurrent();
         client = candidate;
+        pendingClient=null;
         return db;
       })
       .catch(async (err: unknown) => {
         await candidate.close().catch(() => undefined);
-        connecting = null;
+        // A stale attempt cannot clear the newer generation's shared promise.
+        if(generation===connectionGeneration){connecting = null;pendingClient=null;}
         const detail = err instanceof Error ? err.message : String(err);
         throw new AppError(`Database is unavailable: ${detail}`, 503, 'DATABASE_UNAVAILABLE');
       });
@@ -82,10 +93,13 @@ export async function assertDatabaseTransactionalTopology(database: Db): Promise
 }
 
 export async function closeMongo(force = true): Promise<void> {
-  const current = client;
+  const current = client, pending=pendingClient;
+  connectionGeneration++;
   client = null;
+  pendingClient=null;
   connecting = null;
-  await current?.close(force);
+  // Close pending handshakes too; their late continuations cannot republish.
+  await Promise.all([...new Set([current,pending].filter((value):value is MongoClient=>value!==null))].map(value=>value.close(force)));
 }
 
 export async function isMongoHealthy(): Promise<boolean> {
