@@ -4,6 +4,14 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/waitlist",
+      "destination": "https://api.vireoclip.com/api/waitlist"
+    },
+    {
+      "source": "/api/waitlist/:path*",
+      "destination": "https://api.vireoclip.com/api/waitlist/:path*"
+    },
+    {
       "source": "/((?!.*\\.[a-zA-Z0-9]{1,8}$).*)",
       "destination": "/index.html"
     }

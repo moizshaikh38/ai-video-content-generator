@@ -1,3 +1,4 @@
+import waitlistRoutes from './waitlistRoutes.js';
 import { Router } from 'express';
 import healthRoutes from './healthRoutes.js';
 import authRoutes from './authRoutes.js';
@@ -56,4 +57,5 @@ apiRouter.use('/payments', paymentRoutes);
 apiRouter.use('/mcp', mcpRoutes);
 apiRouter.use('/subtitles', subtitleRoutes);
 
+apiRouter.use(waitlistRoutes);
 export default apiRouter;

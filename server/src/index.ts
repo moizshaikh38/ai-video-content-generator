@@ -1,3 +1,4 @@
+import{startWaitlistMailWorker}from'./services/waitlistMailWorker.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -91,6 +92,7 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // Start server if not running inside test runner
+let stopWaitlistMail:()=>void=()=>{};
 let server: ReturnType<typeof app.listen> | null = null;
 let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 let oauthCleanupTimer: ReturnType<typeof setInterval> | null = null;
@@ -138,6 +140,7 @@ if (process.env.NODE_ENV !== 'test') {
     }
 
     if (mongoReady) {
+      stopWaitlistMail=startWaitlistMailWorker();
       const cleanup = () => UsageService.cleanupOrphanedReservations(30)
         .then((count) => { if (count > 0) logger.info(`Released ${count} orphaned usage reservations.`); })
         .catch((error) => logger.warn('Usage reservation cleanup failed', { error: error instanceof Error ? error.message : String(error) }))
@@ -230,6 +233,7 @@ if (process.env.NODE_ENV !== 'test') {
   // Graceful shutdown handling (H8 & Step 15)
   const handleShutdown = (signal: string) => {
     logger.info(`Received ${signal}. Initiating graceful shutdown...`);
+    stopWaitlistMail();
     stopPublishingWorker();
     if (cleanupTimer) clearInterval(cleanupTimer);
     if (oauthCleanupTimer) clearInterval(oauthCleanupTimer);
