@@ -31,6 +31,8 @@ import {
 import { uploadFile, sourceObjectKey } from './objectStorageService.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
 import { GenreIntelligenceService } from './genreIntelligenceService.js';
+import {insertProjectWithinQuota, projectQuotaPolicy, type ProjectQuotaPolicy} from '../db/repositories/projectQuotaRepository.js';
+import {EntitlementService} from './entitlementService.js';
 import { createProjectRetention } from '../shared/projectRetention.js';
 
 const execFileAsync = promisify(execFile);
@@ -39,6 +41,8 @@ export interface IngestUrlOptions {
   userId: string;
   /** Server-resolved entitlement only. Missing callers remain legacy-safe. */
   creationPlanId?: string;
+  /** Server-resolved policy; never a client-provided allowance. */
+  projectQuota?: ProjectQuotaPolicy;
   /** Internal server-resolved subtitle creation, never raw request fields. */
   subtitleProject?: {hormoziAllowed:boolean};
   maxBytes?: number;
@@ -1046,16 +1050,8 @@ export class UrlIngestionService {
         };
       }
 
-      const { data: createdProject, error: dbErr } = await dataRepository
-        .from('projects')
-        .insert(projectRecord)
-        .select()
-        .single();
-
-      if (dbErr) {
-        logger.error('Failed to create project record in MongoDB after URL ingestion', { error: dbErr.message });
-        throw new AppError('Failed to save project record in database.', 500, 'DB_ERROR');
-      }
+      const quota = options.projectQuota ?? projectQuotaPolicy(await EntitlementService.resolveUserEntitlements(userId));
+      await insertProjectWithinQuota(userId, projectRecord, quota);
 
       return {
         projectId,

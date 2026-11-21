@@ -1,7 +1,8 @@
+import {insertProjectWithinQuota,projectQuotaPolicy} from '../db/repositories/projectQuotaRepository.js';
 import fs from'node:fs';import path from'node:path';import crypto from'node:crypto';import{AppError,isValidUUID}from'../types/index.js';import{config}from'../config/index.js';import{getMongoDb}from'../db/mongoClient.js';import{UrlIngestionService as U}from'./urlIngestionService.js';import{uploadFile}from'./objectStorageService.js';import{GenreIntelligenceService}from'./genreIntelligenceService.js';import{withNewProjectFraming}from'../shared/newProjectFraming.js';import{createProjectRetention}from'../shared/projectRetention.js';import type{LiveSource}from'../shared/liveCapture.js';import type{EntitlementService}from'./entitlementService.js';
 type Plan=Awaited<ReturnType<typeof EntitlementService.resolveUserEntitlements>>;
 export type CapturedProjectInput={owner:string;projectId:string;captureId:string;file:string;source:LiveSource;title:string;capturedAt:string;requestedSeconds:number;maxHeight:number};
-export const liveProjectDeps={upload:uploadFile,probe:U.probeVideoFile,db:getMongoDb};
+export const liveProjectDeps={upload:uploadFile,probe:U.probeVideoFile,db:getMongoDb,admit:async(owner:string,record:Record<string,any>,plan:Plan)=>insertProjectWithinQuota(owner,record,projectQuotaPolicy(plan))};
 /** Only server-owned completed capture paths reach this function. It never resolves
  * a source URL, records again, starts AI, debits credits or deletes the capture. */
 export async function importCapturedProject(input:CapturedProjectInput,plan:Plan,deps=liveProjectDeps){
@@ -13,9 +14,11 @@ export async function importCapturedProject(input:CapturedProjectInput,plan:Plan
  const hasher=crypto.createHash('sha256');for await(const chunk of fs.createReadStream(input.file))hasher.update(chunk);const hash=hasher.digest('hex');const key=`users/${owner}/projects/${projectId}/source/live-${captureId}-${hash.slice(0,16)}.mp4`;
  await deps.upload('source',key,input.file,stat.size,'video/mp4');
  const now=new Date().toISOString();const record={id:projectId,user_id:owner,title:(input.title||'Live capture').slice(0,255),project_type:'clipping',source_type:'url',source_url:key,source_object_key:key,source_storage_path:key,source_filename:'live-capture.mp4',mime_type:'video/mp4',file_size:stat.size,video_status:'uploaded',duration_seconds:probe.durationSeconds,width:probe.width,height:probe.height,created_at:now,updated_at:now,retention_policy:createProjectRetention(plan.planId,now),clip_preferences:GenreIntelligenceService.normalizePreferences(withNewProjectFraming({}),''),notes:'Captured live source. Transcription and clipping have not started.',metadata:{source_provider:input.source.provider,source_kind:'live_capture',original_url:input.source.url,live_capture_id:captureId,captured_at:input.capturedAt,ingested_at:now,capture_start:'next-segment',requested_duration_seconds:input.requestedSeconds,measured_duration_seconds:probe.durationSeconds,source_sha256:hash}};
- // Session serializes promotion, deterministic id prevents duplicate retry projects.
- await db.collection('projects').updateOne({id:projectId,user_id:owner},{$setOnInsert:record},{upsert:true});
+ // Final quota admission contends with ordinary, Subtitle and URL project
+ // creation. Recheck deterministic retry identity after a concurrent winner.
+ let admitted:any;
+ try{admitted=await deps.admit(owner,record,plan);}catch(error){const winner=await db.collection('projects').findOne({id:projectId,user_id:owner});if(winner?.metadata?.live_capture_id===captureId){const{_id,...project}=winner;return{project,reused:true};}throw error;}
  // Cache is an optimization only. Never remove the sole capture on a cache failure.
  try{const dir=U.getSourceCacheDir();const s=fs.statfsSync(dir);if(s.bavail*s.bsize>=1024**3+stat.size+8*1024**2){const cache=path.join(dir,crypto.createHash('sha256').update(key).digest('hex')+'.mp4');fs.copyFileSync(input.file,cache);}}catch{/* durable object source remains canonical */}
- return{project:record,reused:false};
+ return{project:admitted,reused:false};
 }

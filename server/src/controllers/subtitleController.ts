@@ -1,3 +1,4 @@
+import {projectQuotaPolicy} from '../db/repositories/projectQuotaRepository.js';
 import {UrlIngestionService} from '../services/urlIngestionService.js';
 import {dataRepository} from '../db/repositories/dataRepository.js';
 import { Response } from 'express';
@@ -90,7 +91,7 @@ export class SubtitleController {
       const count=await db.collection('projects').countDocuments({user_id:userId,$or:[{created_at:{$gte:start}},{created_at:{$gte:start.toISOString()}}]});
       if(count>=entitlements.limits.maxProjects){res.status(403).json({status:'error',code:'MONTHLY_PROJECT_LIMIT_EXCEEDED',message:`Your ${entitlements.displayName} plan allows up to ${entitlements.limits.maxProjects} projects per month.`,limit:entitlements.limits.maxProjects,current:count});return;}
     }
-    const result=await UrlIngestionService.ingestUrlToProject({userId,url:url.trim(),title:typeof title==='string'?title.trim():undefined,creationPlanId:entitlements.planId,maxBytes:Math.min(config.maxVideoBytes,entitlements.limits.maxFileSizeBytes),subtitleProject:{hormoziAllowed:EntitlementService.isPresetAllowed(entitlements,'hormozi')}});
+    const result=await UrlIngestionService.ingestUrlToProject({userId,url:url.trim(),title:typeof title==='string'?title.trim():undefined,creationPlanId:entitlements.planId,projectQuota:projectQuotaPolicy(entitlements),maxBytes:Math.min(config.maxVideoBytes,entitlements.limits.maxFileSizeBytes),subtitleProject:{hormoziAllowed:EntitlementService.isPresetAllowed(entitlements,'hormozi')}});
     const {data:project,error}=await dataRepository.from('projects').select('*').eq('id',result.projectId).eq('user_id',userId).eq('project_type','subtitles').single();
     if(error||!project)throw new AppError('Failed to load imported subtitle project.',500,'DB_ERROR');
     res.status(201).json({status:'ok',project});

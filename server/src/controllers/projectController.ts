@@ -425,6 +425,7 @@ export const ingestProjectUrl = async (req: AuthenticatedRequest, res: Response)
     const result = await UrlIngestionService.ingestUrlToProject({
       userId,
       creationPlanId: entitlements.planId,
+      projectQuota: projectQuotaPolicy(entitlements),
       projectId: id,
       url: url.trim(),
       title: typeof title === 'string' ? title.trim() : undefined,
