@@ -31,18 +31,18 @@ If this wasn't you, or you change your mind later, this email includes a link to
 ${url}
 
 Vireo`;
-  const html = `<!doctype html><html><body style="margin:0;background:#0a0a0a;">
-<div style="max-width:600px;margin:0 auto;padding:40px 28px;font-family:Arial,Helvetica,sans-serif;background:#000000;color:#f5f5f5;">
+  const html = `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark"><style>u + .body .gmail-blend-screen{background:#000;mix-blend-mode:screen}u + .body .gmail-blend-difference{background:#000;mix-blend-mode:difference}</style></head><body class="body" bgcolor="#000000" style="margin:0;background:#000000;background-image:linear-gradient(#000000,#000000);">
+<div style="max-width:600px;margin:0 auto;padding:40px 28px;font-family:Arial,Helvetica,sans-serif;background:#000000;background-image:linear-gradient(#000000,#000000);color:#f5f5f5;">
   <div style="text-align:center;padding-bottom:24px;">
-    ${logo ? `<img src="${logo}" alt="Vireo" style="height:36px;">` : '<span style="font-size:20px;font-weight:700;">Vireo</span>'}
+    ${logo ? `<img src="${logo}" alt="Vireo" width="143" height="36" style="display:block;width:143px;height:36px;max-width:100%;margin:0 auto;border:0;">` : '<span style="font-size:20px;font-weight:700;">Vireo</span>'}
   </div>
-  <h1 style="font-size:22px;font-weight:600;margin:0 0 16px;text-align:center;">You're on the Vireo waitlist</h1>
-  <p style="font-size:15px;line-height:1.6;color:#d4d4d4;margin:0 0 14px;">Thanks for signing up. We've saved this email address on the Vireo waitlist, and we'll use it to contact you about your signup.</p>
-  <p style="font-size:15px;line-height:1.6;color:#d4d4d4;margin:0 0 28px;">If this wasn't you, or you change your mind later, this email includes a link to leave the list at any time.</p>
+  <div class="gmail-blend-screen"><div class="gmail-blend-difference"><h1 style="font-size:22px;font-weight:600;margin:0 0 16px;text-align:center;">You're on the Vireo waitlist</h1></div></div>
+  <div class="gmail-blend-screen"><div class="gmail-blend-difference"><p style="font-size:15px;line-height:1.6;color:#d4d4d4;margin:0 0 14px;">Thanks for signing up. We've saved this email address on the Vireo waitlist, and we'll use it to contact you about your signup.</p></div></div>
+  <div class="gmail-blend-screen"><div class="gmail-blend-difference"><p style="font-size:15px;line-height:1.6;color:#d4d4d4;margin:0 0 28px;">If this wasn't you, or you change your mind later, this email includes a link to leave the list at any time.</p></div></div>
   <div style="text-align:center;padding:18px 0;border-top:1px solid #7c3aed;">
-    <a href="${url}" style="font-size:13px;color:#a78bfa;text-decoration:underline;">Leave the waitlist</a>
+    <div class="gmail-blend-screen"><div class="gmail-blend-difference"><a href="${url}" style="font-size:13px;color:#a78bfa;text-decoration:underline;">Leave the waitlist</a></div></div>
   </div>
-  <p style="font-size:12px;color:#737373;text-align:center;margin:18px 0 0;">Vireo</p>
+  <div class="gmail-blend-screen"><div class="gmail-blend-difference"><p style="font-size:12px;color:#737373;text-align:center;margin:18px 0 0;">Vireo</p></div></div>
 </div>
 </body></html>`;
   return { subject: CONFIRM_SUBJECT, text, html };
