@@ -15,14 +15,11 @@ import tiktokLogo from "../../assets/landing/platforms/tiktok.svg";
 import instagramLogo from "../../assets/landing/platforms/instagram.svg";
 import "../../styles/combined-workflow.css";
 
-// Same-source sample: IShowSpeed GTA stream capture (YouTube kR8bhkVAgBY,
-// 20s segment) and a 9:16 facecam+gameplay layout composed from it locally.
-// See public/demo/landing/clips/manifest.json for provenance and rights note.
-// Local preview only - public use rights not established.
-const SRC_VIDEO = "/demo/landing/clips/ishowspeed-gta-raw-169.mp4";
-const ZOOM_VIDEO = "/demo/landing/clips/ishowspeed-gta-facecam-916.mp4";
-const SRC_POSTER = "/demo/landing/clips/ishowspeed-gta-raw-169-poster.jpg";
-const ZOOM_POSTER = "/demo/landing/clips/ishowspeed-gta-facecam-916-poster.jpg";
+// Illustrative AI-generated challenge-host images supplied by the site owner.
+// Not real footage and not Vireo exports. Image-only slots: no sample video
+// plays behind these posters (previous sample mp4s remain on disk, unused).
+const SRC_POSTER = "/demo/landing/clips/mrbeast-arena-raw-169-poster.jpg";
+const ZOOM_POSTER = "/demo/landing/clips/mrbeast-arena-916-poster.jpg";
 
 type Mode = "source" | "moments" | "framing" | "captions" | "clips";
 const MODES: Mode[] = ["source", "moments", "framing", "captions", "clips"];
@@ -77,14 +74,14 @@ export function CombinedWorkflowShowcase() {
     return () => mq.removeEventListener?.("change", update);
   }, []);
 
-  // Auto-advance the journey on desktop; pauses briefly when the user picks a
-  // tab. On mobile the numbered steps + swipe are the navigation, so nothing
-  // auto-advances there (avoids competing motion and surprise step changes).
+  // Auto-advance the journey on desktop and mobile; pauses briefly when the
+  // user picks a step or swipes. Mobile cycles its four-step sequence (no
+  // separate captions stop); reduced-motion disables auto-advance entirely.
   useEffect(() => {
     if (paused || reduceMotion) return;
-    if (window.matchMedia("(max-width: 900px)").matches) return;
+    const seq = window.matchMedia("(max-width: 900px)").matches ? MOBILE_MODES : MODES;
     const t = setInterval(() => {
-      setMode((m) => MODES[(MODES.indexOf(m) + 1) % MODES.length]);
+      setMode((m) => seq[(seq.indexOf(m) + 1) % seq.length]);
     }, 2800);
     return () => clearInterval(t);
   }, [paused, reduceMotion]);
@@ -97,26 +94,11 @@ export function CombinedWorkflowShowcase() {
 
   const activeStage = stageIndexFor(mode);
 
-  // One playing video at a time; everything else renders as poster frames so
-  // mobile never decodes several loops at once.
-  const videoFor = (src: string, poster: string, label: string, cls: string) =>
-    reduceMotion ? (
-      <img key={poster + mode} className={cls} src={poster} alt={label} />
-    ) : (
-    <video
-      key={src + mode}
-      className={cls}
-      src={src}
-      poster={poster}
-      autoPlay
-      muted
-      loop
-      playsInline
-      disableRemotePlayback
-      preload="metadata"
-      aria-label={label}
-    />
-    );
+  // Image-only slots for the current illustrative stills; the stage auto-
+  // advance supplies the motion. Keyed on mode so swaps re-animate.
+  const videoFor = (_src: string, poster: string, label: string, cls: string) => (
+    <img key={poster + mode} className={cls} src={poster} alt={label} />
+  );
 
   return (
     <section
@@ -255,14 +237,14 @@ export function CombinedWorkflowShowcase() {
           >
             {mode === "source" && (
               <div className="cw-view">
-                {videoFor(SRC_VIDEO, SRC_POSTER, "Sample video playing: IShowSpeed GTA stream capture, original 16:9 landscape frame", "cw-view-wide")}
+                {videoFor("", SRC_POSTER, "Illustrative AI-generated challenge-host image, original 16:9 landscape frame", "cw-view-wide")}
               </div>
             )}
 
             {mode === "moments" && (
               <div className="cw-view">
                 <div className="cw-moments-wrap">
-                  {videoFor(SRC_VIDEO, SRC_POSTER, "Sample video playing with illustrative moment markers", "cw-view-wide")}
+                  {videoFor("", SRC_POSTER, "Illustrative challenge-host image with illustrative moment markers", "cw-view-wide")}
                   <div className="cw-timeline" aria-hidden="true">
                     <span className="cw-marker" style={{ left: "18%" }} />
                     <span className="cw-marker pulse" style={{ left: "46%" }} />
@@ -275,17 +257,17 @@ export function CombinedWorkflowShowcase() {
             {mode === "framing" && (
               <div className="cw-view cw-view-split">
                 <div className="cw-crop-demo">
-                  {videoFor(SRC_VIDEO, SRC_POSTER, "Sample video playing with an illustrative crop region", "cw-view-wide")}
+                  {videoFor("", SRC_POSTER, "Illustrative challenge-host image with an illustrative crop region", "cw-view-wide")}
                   <div className="cw-cropbox" aria-hidden="true" />
                 </div>
-                <img src={ZOOM_POSTER} alt="Static frame of the 9:16 sample layout (facecam plus gameplay panels) from the same source" className="cw-view-poster" />
+                <img src={ZOOM_POSTER} alt="Illustrative AI-generated vertical composition of the same challenge-host scene" className="cw-view-poster" />
               </div>
             )}
 
             {mode === "captions" && (
               <div className="cw-view cw-view-split">
                 <div className="cw-caption-demo">
-                  {videoFor(ZOOM_VIDEO, ZOOM_POSTER, "9:16 layout playing with synced captions", "cw-view-poster")}
+                  {videoFor("", ZOOM_POSTER, "Illustrative 9:16 vertical layout of the same challenge-host scene", "cw-view-poster")}
                 </div>
               </div>
             )}
@@ -314,7 +296,7 @@ export function CombinedWorkflowShowcase() {
           <p className="cw-caption-mob">{STAGES[activeStage].sub}</p>
 
           <p className="cw-credit">
-            Footage: IShowSpeed on YouTube
+            Illustrative AI-generated images supplied by the site owner, not Vireo exports.
           </p>
         </div>
 
