@@ -24,12 +24,18 @@ export function transcriptContentIdentity(transcript:Record<string,any>):string 
   return crypto.createHash('sha256').update(JSON.stringify(canonical(content))).digest('hex');
 }
 export const audioInputSha256=(audio:Buffer):string=>crypto.createHash('sha256').update(audio).digest('hex');
-export function transcriptSourceBindingMatches(transcript:Record<string,any>,key:string,head:{size:number;etag?:string}):boolean {
+/** Local lineage validity is knowable without storage. Missing/tampered proof
+ * cannot become valid because HEAD succeeds, nor should an outage hide it. */
+export function hasValidTranscriptSourceBinding(transcript:Record<string,any>,key:string):boolean {
   const binding=transcript.source_binding as TranscriptSourceBinding|undefined;
-  return binding?.version===1 && sourceObjectReceiptMatches(binding.source_receipt,key,head) &&
+  const receipt=binding?.source_receipt;
+  return binding?.version===1 && Boolean(receipt) && sourceObjectReceiptMatches(receipt,key,{size:receipt?.size??0,etag:receipt?.etag}) &&
     /^[a-f0-9]{64}$/.test(binding.prepared_audio_sha256) &&
     Array.isArray(binding.requests) && binding.requests.length>0 &&
-    binding.requests.every(r=>/^[a-f0-9]{64}$/.test(r.sha256)&&Number.isSafeInteger(r.bytes)&&r.bytes>0&&['completed','failed'].includes(r.status)) &&
+    binding.requests.every(r=>r!==null&&typeof r==='object'&&/^[a-f0-9]{64}$/.test(r.sha256)&&Number.isSafeInteger(r.bytes)&&r.bytes>0&&['completed','failed'].includes(r.status)) &&
     binding.requests.some(r=>r.status==='completed') &&
     binding.transcript_content_sha256===transcriptContentIdentity(transcript);
+}
+export function transcriptSourceBindingMatches(transcript:Record<string,any>,key:string,head:{size:number;etag?:string}):boolean {
+  return hasValidTranscriptSourceBinding(transcript,key) && sourceObjectReceiptMatches(transcript.source_binding.source_receipt,key,head);
 }
