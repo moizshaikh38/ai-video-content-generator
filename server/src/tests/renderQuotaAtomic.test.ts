@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import {MongoClient,Collection} from 'mongodb';
 import {admitRenderJob} from '../db/repositories/renderAdmissionRepository.js';
 import {createClipWithJob} from '../db/repositories/clipRepository.js';
-import {renderQuotaPolicy,readRenderUsageCount} from '../db/repositories/renderQuotaRepository.js';
+import {renderQuotaPolicy,readRenderUsageCount,ensureRenderQuotaFence} from '../db/repositories/renderQuotaRepository.js';
 import {parseRenderSubmission} from '../db/repositories/renderSubmissionRepository.js';
 import {selectionSourceReceipt} from '../shared/selectionSourceReceipt.js';
 import {transcriptContentIdentity} from '../shared/transcriptSourceBinding.js';
@@ -34,6 +34,28 @@ test('actual Mongo serializes account quota across clips and initial/saved admis
   // collection, not a permissive in-memory stand-in.
   if(!(await db.listCollections({name:'render_quota_fences'}).toArray()).length)await db.createCollection('render_quota_fences');
   await db.command({collMod:'render_quota_fences',validator:{$jsonSchema:{bsonType:'object',required:['id','user_id'],properties:{id:{bsonType:'string'},user_id:{bsonType:'string'},created_at:{bsonType:'date'},updated_at:{bsonType:'date'}}}},validationLevel:'moderate'});
+  const contentionFixtures = [await seed(), await seed()];
+  const contentionResults = await Promise.allSettled(contentionFixtures.map(async (fixture, index) => {
+   await ensureRenderQuotaFence(db, fixture.user);
+   const blocker = a.startSession(); blocker.startTransaction();
+   let safetyRelease:ReturnType<typeof setTimeout>|undefined;
+   const submit = () => index === 0 ? admitRenderJob(b, other, fixture.input) : (createClipWithJob as any)(fixture.project, fixture.candidate, fixture.user, '9:16', 'center', undefined, undefined, limit(1));
+   try {
+    await db.collection('render_quota_fences').updateOne({user_id: fixture.user}, {$inc:{serial:1}}, {session:blocker});
+    safetyRelease=setTimeout(()=>{void blocker.abortTransaction();},12000);
+    const began=Date.now();
+    await assert.rejects(submit,{name:'MongoOperationTimeoutError'},index===0?'saved admission timeout':'initial admission timeout');
+    assert(Date.now()-began<15000);
+    assert.equal(await db.collection('render_jobs').countDocuments({user_id:fixture.user}),0);
+   } finally {
+    if(safetyRelease)clearTimeout(safetyRelease);
+    if(blocker.inTransaction())await blocker.abortTransaction();
+    await blocker.endSession();
+   }
+   await submit();
+   assert.equal(await db.collection('render_jobs').countDocuments({user_id:fixture.user}),1);
+  }));
+  for(const result of contentionResults)if(result.status==='rejected')throw result.reason;
   const one=await seed(),two=await seed(one.user);
   const race=await Promise.allSettled([admitRenderJob(a,db,one.input),admitRenderJob(b,other,two.input)]);
   assert.equal(race.filter(r=>r.status==='fulfilled').length,1,'only one new job may consume the account last slot');

@@ -34,7 +34,7 @@ export async function admitRenderJob(client: MongoClient, db: Db, input: RenderA
   try {
     const receipt = await session.withTransaction(async () => {
       return admitRenderJobInTransaction(db,session,input);
-    },{readPreference:'primary',readConcern:{level:'snapshot'},writeConcern:{w:'majority'},maxCommitTimeMS:10_000});
+    }, {readPreference:'primary',readConcern:{level:'snapshot'},writeConcern:{w:'majority'},timeoutMS:10_000});
     if (!receipt?.job?.id) throw new Error('Render admission did not return a committed job receipt.');
     return receipt;
   } catch (error: any) {

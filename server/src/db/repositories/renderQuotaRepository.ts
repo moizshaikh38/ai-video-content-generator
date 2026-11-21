@@ -23,8 +23,8 @@ const fenceKey=(userId:string)=>crypto.createHash('sha256').update(JSON.stringif
 export async function ensureRenderQuotaFence(db:Db,userId:string){
  if(typeof userId!=='string'||!userId.trim())throw new AppError('Render owner is invalid.',503,'RENDER_PLAN_UNAVAILABLE');
  const key=fenceKey(userId),collection=db.collection<any>('render_quota_fences'),now=new Date();
- try{await collection.updateOne({_id:key,user_id:userId},{$setOnInsert:{id:key,user_id:userId,serial:0,created_at:now,updated_at:now}},{upsert:true});}
- catch(error:any){if(error.code!==11000||!await collection.findOne({_id:key,user_id:userId}))throw error;}
+ try{await collection.updateOne({_id:key,user_id:userId},{$setOnInsert:{id:key,user_id:userId,serial:0,created_at:now,updated_at:now}},{upsert:true,timeoutMS:10_000});}
+ catch(error:any){if(error.code!==11000||!await collection.findOne({_id:key,user_id:userId},{timeoutMS:2_000}))throw error;}
 }
 /** Serialize EVERY new account admission before counting jobs in the same
  * snapshot transaction. A conflicting writer retries and sees the committed

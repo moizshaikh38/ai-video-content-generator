@@ -168,7 +168,7 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
         if(stored.matchedCount!==1)throw creationConflict();
       }
       return{...receipt,...(creation?{creationId:creation.intent.id,preparation:creation.intent.preparation,replayed:false}:{})};
-    },{readPreference:'primary',readConcern:{level:'snapshot'},writeConcern:{w:'majority'},maxCommitTimeMS:10000});
+    },{readPreference:'primary',readConcern:{level:'snapshot'},writeConcern:{w:'majority'},timeoutMS:10_000});
   } catch(error){
     if(creation){const prior=await findCandidateCreation(db,userId,creation.intent);if(prior?.clip)return prior;}
     throw error;
