@@ -16,7 +16,7 @@ import { deletePrefix, projectObjectPrefix, sourceObjectKey, signSourceUpload, h
 import { UploadLifecycleService } from '../services/uploadLifecycleService.js';
 import { ProjectPosterService } from '../services/projectPosterService.js';
 import { deleteProjectRecords } from '../db/repositories/deletionRepository.js';
-import { admitProjectDeletion } from '../services/deletionAdmissionService.js';
+import { admitProjectDeletion, DELETION_MARKER_FIELD } from '../services/deletionAdmissionService.js';
 import { claimProjectProcessing } from '../db/repositories/projectRepository.js';
 import { UrlIngestionService } from '../services/urlIngestionService.js';
 import { registerPublicId } from '../middleware/publicIdMiddleware.js';
@@ -533,6 +533,9 @@ export const createProjectUploadUrl = async (req: AuthenticatedRequest, res: Res
   }
   const { data: project, error } = await dataRepository.from('projects').select('*').eq('id', projectId).maybeSingle();
   if (error || !project) { res.status(404).json({ status: 'error', code: 'PROJECT_NOT_FOUND', message: 'Project not found.' }); return; }
+  if (DELETION_MARKER_FIELD in project) {
+    res.status(409).json({status: 'error', code: 'PROJECT_DELETING', message: 'This project is being deleted.'}); return;
+  }
   if (!['uploading', 'failed'].includes(project.video_status)) {
     res.status(409).json({ status: 'error', code: 'UPLOAD_NOT_ALLOWED', message: 'Project cannot accept an upload now.' }); return;
   }
@@ -540,8 +543,8 @@ export const createProjectUploadUrl = async (req: AuthenticatedRequest, res: Res
   const expiresAt = new Date(Date.now() + 15 * 60_000);
   const uploadUrl = await signSourceUpload(key, contentType);
 
-  // Record immutable upload attempt record before writing pending session
-  const attempt = await UploadLifecycleService.recordAttempt({
+  // Admit the parent session and immutable attempt in one transaction.
+  const attempt = await UploadLifecycleService.admitAttempt({
     userId,
     projectId,
     objectKey: key,
@@ -551,11 +554,6 @@ export const createProjectUploadUrl = async (req: AuthenticatedRequest, res: Res
     expiresAt,
   });
 
-  const update = await dataRepository.from('projects').update({
-    pending_upload_key: key, pending_upload_size: size, pending_upload_mime_type: contentType,
-    pending_upload_expires_at: expiresAt, video_status: 'uploading',
-  }).eq('id', projectId);
-  if (update.error) { res.status(503).json({ status: 'error', code: 'DATABASE_UNAVAILABLE', message: 'Could not create upload session.' }); return; }
   res.status(200).json({ status: 'ok', uploadUrl, headers: { 'Content-Type': contentType }, expiresInSeconds: 900, attemptId: attempt.id, objectKey: key });
 };
 
@@ -566,6 +564,11 @@ export const confirmProjectUpload = async (req: AuthenticatedRequest, res: Respo
   if (!projectId || !isValidUUID(projectId)) { res.status(400).json({ status: 'error', code: 'INVALID_UUID', message: 'Valid project UUID required.' }); return; }
   const { data: project, error } = await dataRepository.from('projects').select('*').eq('id', projectId).maybeSingle();
   if (error || !project) { res.status(404).json({ status: 'error', code: 'PROJECT_NOT_FOUND', message: 'Project not found.' }); return; }
+
+  // A deleting parent must never return an idempotent upload success.
+  if (DELETION_MARKER_FIELD in project) {
+    res.status(409).json({status: 'error', code: 'PROJECT_DELETING', message: 'This project is being deleted.'}); return;
+  }
 
   // Accept optional attemptId or objectKey in request body for explicit fencing
   const { attemptId, objectKey } = req.body || {};
@@ -615,6 +618,7 @@ export const confirmProjectUpload = async (req: AuthenticatedRequest, res: Respo
       id: projectId,
       user_id: userId,
       pending_upload_key: project.pending_upload_key,
+      [DELETION_MARKER_FIELD]: {$exists: false},
       video_status: { $in: ['uploading', 'pending'] },
     },
     {
@@ -638,6 +642,10 @@ export const confirmProjectUpload = async (req: AuthenticatedRequest, res: Respo
     if (!currentProject) {
       res.status(404).json({ status: 'error', code: 'PROJECT_NOT_FOUND', message: 'Project not found.' });
       return;
+    }
+
+    if (DELETION_MARKER_FIELD in currentProject) {
+      res.status(409).json({status: 'error', code: 'PROJECT_DELETING', message: 'This project is being deleted.'}); return;
     }
 
     // Check if another request or retry already confirmed this exact key (Idempotent success)

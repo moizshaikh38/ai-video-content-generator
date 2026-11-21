@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
-import { getMongoDb } from '../db/mongoClient.js';
+import { getMongoClient, getMongoDb } from '../db/mongoClient.js';
+import type {ClientSession} from 'mongodb';
+import {DELETION_MARKER_FIELD} from './deletionAdmissionService.js';
 import { headObject, listObjects } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
 import { isValidUUID, AppError } from '../types/index.js';
@@ -58,7 +60,7 @@ export class UploadLifecycleService {
     fileSize: number;
     contentType: string;
     expiresAt: Date;
-  }): Promise<UploadAttemptRecord> {
+  }, session?: ClientSession): Promise<UploadAttemptRecord> {
     const db = await getMongoDb();
     const now = new Date();
     const attempt: UploadAttemptRecord = {
@@ -79,9 +81,38 @@ export class UploadLifecycleService {
     await db.collection('project_upload_attempts').insertOne({
       ...attempt,
       _id: attempt.id,
-    } as any);
+    } as any, {session});
 
     return attempt;
+  }
+
+  /** Admit the pending session and immutable attempt together. The parent write
+   * contends with deletion admission, so no new grant is admitted beneath an
+   * already deleting project. A previously admitted presigned URL cannot be
+   * revoked here and still needs expiry-aware storage reconciliation. */
+  public static async admitAttempt(params: Parameters<typeof UploadLifecycleService.recordAttempt>[0]): Promise<UploadAttemptRecord> {
+    const client = await getMongoClient(), db = await getMongoDb(), session = client.startSession();
+    try {
+      const admitted = await session.withTransaction(async () => {
+        const result = await db.collection('projects').updateOne({
+          id: params.projectId, user_id: params.userId,
+          [DELETION_MARKER_FIELD]: {$exists: false}, video_status: {$in: ['uploading', 'failed']},
+        }, {$set: {
+          pending_upload_key: params.objectKey, pending_upload_size: params.fileSize,
+          pending_upload_mime_type: params.contentType, pending_upload_expires_at: params.expiresAt,
+          video_status: 'uploading', updated_at: new Date(),
+        }}, {session});
+        if (result.matchedCount !== 1) {
+          const project = await db.collection('projects').findOne({id: params.projectId, user_id: params.userId}, {session});
+          if (!project) throw new AppError('Project not found.', 404, 'PROJECT_NOT_FOUND');
+          if (DELETION_MARKER_FIELD in project) throw new AppError('This project is being deleted.', 409, 'PROJECT_DELETING');
+          throw new AppError('Project cannot accept an upload now.', 409, 'UPLOAD_NOT_ALLOWED');
+        }
+        return this.recordAttempt(params, session);
+      }, {readPreference: 'primary', readConcern: {level: 'snapshot'}, writeConcern: {w: 'majority'}, maxCommitTimeMS: 10000});
+      if (!admitted) throw new AppError('Could not create upload session.', 503, 'DATABASE_UNAVAILABLE');
+      return admitted;
+    } finally {await session.endSession();}
   }
 
   /**
@@ -150,18 +181,20 @@ export class UploadLifecycleService {
       throw new AppError('Tenant isolation violation.', 403, 'FORBIDDEN');
     }
 
-    // Idempotent return if already confirmed
-    if (attempt.status === 'confirmed') {
-      return { status: 'already_confirmed', attempt };
-    }
-
-    // 2. Verify project state
+    // Check the parent before even an idempotent reply. The final source
+    // publication in the controller also fences this marker atomically.
     const project = await db.collection('projects').findOne({
       id: params.projectId,
       user_id: params.userId,
     });
     if (!project) {
       throw new AppError('Project not found.', 404, 'PROJECT_NOT_FOUND');
+    }
+    if (DELETION_MARKER_FIELD in project) {
+      throw new AppError('This project is being deleted.', 409, 'PROJECT_DELETING');
+    }
+    if (attempt.status === 'confirmed') {
+      return { status: 'already_confirmed', attempt };
     }
 
     // Stale check: If project already has a confirmed canonical source that is newer than this attempt,

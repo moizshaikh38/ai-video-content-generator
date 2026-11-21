@@ -15,7 +15,7 @@ test('local HTTP deletion retries and admission fences keep records and immutabl
   const {config} = await import('../config/index.js');
   const {getMongoDb, closeMongo} = await import('../db/mongoClient.js');
   const {ownerContext} = await import('../db/repositories/dataRepository.js');
-  const {deleteProject} = await import('../controllers/projectController.js');
+  const {deleteProject, createProjectUploadUrl, confirmProjectUpload} = await import('../controllers/projectController.js');
   const {ClipRenderService} = await import('../services/clipRenderService.js');
   const {publishPosterAttempt, posterAttemptKey} = await import('../services/posterPublicationService.js');
   const {createClipWithJob} = await import('../db/repositories/clipRepository.js');
@@ -36,6 +36,12 @@ test('local HTTP deletion retries and admission fences keep records and immutabl
         for await (const chunk of req) chunks.push(Buffer.from(chunk));
         objects.set(decodeURIComponent(url.pathname), Buffer.concat(chunks));
         res.setHeader('ETag', '"fixture"'); res.end(); return;
+      }
+      if (req.method === 'HEAD') {
+        const bytes = objects.get(decodeURIComponent(url.pathname));
+        res.statusCode = bytes ? 200 : 404;
+        if (bytes) {res.setHeader('Content-Length', String(bytes.length)); res.setHeader('Content-Type', 'video/mp4'); res.setHeader('ETag', '"fixture"');}
+        res.end(); return;
       }
       if (req.method === 'GET') {
         const bucket = url.pathname.split('/')[1];
@@ -66,12 +72,18 @@ test('local HTTP deletion retries and admission fences keep records and immutabl
         status(code: number) {res.statusCode = code; return this;},
         json(value: unknown) {res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(value));},
       };
-      if (parts[1] === 'projects') await deleteProject({user: {id: owner}, params: {id: parts[2]}} as unknown as AuthenticatedRequest, mockResponse as any);
-      else {
+      if (parts[1] === 'projects') {
+        let body = '';
+        for await (const chunk of req) body += chunk.toString();
+        const mockRequest = {user: {id: owner}, params: {id: parts[2]}, body: body ? JSON.parse(body) : {}} as unknown as AuthenticatedRequest;
+        if (parts[3] === 'upload-url') await createProjectUploadUrl(mockRequest, mockResponse as any);
+        else if (parts[3] === 'confirm-upload') await confirmProjectUpload(mockRequest, mockResponse as any);
+        else await deleteProject(mockRequest, mockResponse as any);
+      } else {
         try {await ClipRenderService.deleteClip(parts[2], owner); res.statusCode = 200; res.end('{}');}
         catch {res.statusCode = 500; res.end('{}');}
       }
-    }).catch(() => {res.statusCode = 500; res.end('{}');});
+    }).catch((error: any) => {res.statusCode = error.statusCode || 500; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({code: error.code || 'INTERNAL_ERROR'}));});
   });
   await new Promise<void>(r => api.listen(0, '127.0.0.1', r));
   const apiOrigin = 'http://127.0.0.1:' + (api.address() as AddressInfo).port;
@@ -152,6 +164,96 @@ test('local HTTP deletion retries and admission fences keep records and immutabl
       assert.equal(await db.collection('render_jobs').countDocuments({user_id: owner}), 1);
       assert.equal((await fetch(apiOrigin + '/projects/' + f.project, {method: 'DELETE'})).status, 200);
       assert.equal(await db.collection('render_jobs').countDocuments({user_id: owner}), 0);
+    });
+    await t.test('deletion-admitted project cannot issue another upload grant', async () => {
+      const f = await seed();
+      await db.collection('projects').updateOne({id: f.project}, {$set: {video_status: 'uploading'}});
+      const {admitProjectDeletion} = await import('../services/deletionAdmissionService.js');
+      assert.equal(await admitProjectDeletion(owner, f.project), true);
+      const response = await fetch(apiOrigin + '/projects/' + f.project + '/upload-url', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({fileName: 'fixture.mp4', fileSize: 7, contentType: 'video/mp4'})});
+      assert.equal(response.status, 409);
+      assert.equal((await response.json() as any).code, 'PROJECT_DELETING');
+      assert.equal(await db.collection('project_upload_attempts').countDocuments({project_id: f.project}), 0);
+      assert.equal((await fetch(apiOrigin + '/projects/' + f.project, {method: 'DELETE'})).status, 200);
+    });
+    await t.test('grant racing deletion cannot admit its parent session or orphan attempt record', async () => {
+      const f = await seed();
+      await db.collection('projects').updateOne({id: f.project}, {$set: {video_status: 'uploading'}});
+      const {UploadLifecycleService} = await import('../services/uploadLifecycleService.js');
+      const {admitProjectDeletion} = await import('../services/deletionAdmissionService.js');
+      const original = UploadLifecycleService.admitAttempt;
+      let raced = false;
+      UploadLifecycleService.admitAttempt = async function(params) {
+        raced = true; assert.equal(await admitProjectDeletion(owner, f.project), true);
+        return original.call(this, params);
+      };
+      try {
+        const response = await fetch(apiOrigin + '/projects/' + f.project + '/upload-url', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({fileName: 'fixture.mp4', fileSize: 7, contentType: 'video/mp4'})});
+        assert.equal(response.status, 409); assert.equal((await response.json() as any).code, 'PROJECT_DELETING');
+      } finally {UploadLifecycleService.admitAttempt = original;}
+      assert(raced); assert.equal(await db.collection('project_upload_attempts').countDocuments({project_id: f.project}), 0);
+      assert.equal((await db.collection('projects').findOne({id: f.project}))?.pending_upload_key, undefined);
+      assert.equal((await fetch(apiOrigin + '/projects/' + f.project, {method: 'DELETE'})).status, 200);
+    });
+    await t.test('source publication CAS refuses deletion admitted after confirmation bookkeeping', async () => {
+      const f = await seed();
+      await db.collection('projects').updateOne({id: f.project}, {$set: {video_status: 'uploading'}});
+      const grantResponse = await fetch(apiOrigin + '/projects/' + f.project + '/upload-url', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({fileName: 'fixture.mp4', fileSize: 7, contentType: 'video/mp4'})});
+      assert.equal(grantResponse.status, 200); const grant = await grantResponse.json() as any;
+      assert.equal(new URL(grant.uploadUrl).hostname, '127.0.0.1');
+      assert.equal((await fetch(grant.uploadUrl, {method: 'PUT', headers: {'Content-Type': 'video/mp4'}, body: 'fixture'})).status, 200);
+      const {UploadLifecycleService} = await import('../services/uploadLifecycleService.js');
+      const {admitProjectDeletion} = await import('../services/deletionAdmissionService.js');
+      const original = UploadLifecycleService.confirmAttempt;
+      let raced = false;
+      UploadLifecycleService.confirmAttempt = async function(params) {
+        const result = await original.call(this, params);
+        raced = true; assert.equal(await admitProjectDeletion(owner, f.project), true);
+        return result;
+      };
+      const confirm = () => fetch(apiOrigin + '/projects/' + f.project + '/confirm-upload', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({attemptId: grant.attemptId, objectKey: grant.objectKey})});
+      try {
+        const response = await confirm(); assert.equal(response.status, 409);
+        assert.equal((await response.json() as any).code, 'PROJECT_DELETING');
+      } finally {UploadLifecycleService.confirmAttempt = original;}
+      assert(raced);
+      const project = await db.collection('projects').findOne({id: f.project});
+      assert.notEqual(project?.source_url, grant.objectKey); assert.equal(project?.video_status, 'uploading');
+      const repeated = await confirm(); assert.equal(repeated.status, 409);
+      await assert.rejects(() => UploadLifecycleService.confirmAttempt({userId: owner, projectId: f.project, attemptId: grant.attemptId}), {code: 'PROJECT_DELETING'});
+      assert.equal((await fetch(apiOrigin + '/projects/' + f.project, {method: 'DELETE'})).status, 200);
+    });
+    await t.test('normal admitted upload still confirms and retries idempotently before deletion', async () => {
+      const f = await seed();
+      await db.collection('projects').updateOne({id: f.project}, {$set: {video_status: 'uploading'}});
+      const response = await fetch(apiOrigin + '/projects/' + f.project + '/upload-url', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({fileName: 'fixture.mp4', fileSize: 7, contentType: 'video/mp4'})});
+      assert.equal(response.status, 200); const grant = await response.json() as any;
+      assert.equal(new URL(grant.uploadUrl).hostname, '127.0.0.1');
+      assert.equal((await fetch(grant.uploadUrl, {method: 'PUT', headers: {'Content-Type': 'video/mp4'}, body: 'fixture'})).status, 200);
+      const confirm = () => fetch(apiOrigin + '/projects/' + f.project + '/confirm-upload', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({attemptId: grant.attemptId, objectKey: grant.objectKey})});
+      assert.equal((await confirm()).status, 200); assert.equal((await confirm()).status, 200);
+      assert.equal((await db.collection('projects').findOne({id: f.project}))?.source_url, grant.objectKey);
+      assert.equal((await db.collection('project_upload_attempts').findOne({id: grant.attemptId}))?.status, 'confirmed');
+      const {UploadLifecycleService} = await import('../services/uploadLifecycleService.js');
+      await assert.rejects(() => UploadLifecycleService.admitAttempt({userId: crypto.randomUUID(), projectId: f.project, objectKey: f.prefix + 'foreign.mp4', fileName: 'foreign.mp4', fileSize: 7, contentType: 'video/mp4', expiresAt: new Date(Date.now() + 60000)}), {code: 'PROJECT_NOT_FOUND'});
+      assert.equal(await db.collection('project_upload_attempts').countDocuments({project_id: f.project}), 1);
+      assert.equal((await fetch(apiOrigin + '/projects/' + f.project, {method: 'DELETE'})).status, 200);
+    });
+    await t.test('failed immutable attempt insert rolls back the pending parent session', async () => {
+      const f = await seed();
+      await db.collection('projects').updateOne({id: f.project}, {$set: {video_status: 'uploading'}});
+      const {Collection} = await import('mongodb'); const original = Collection.prototype.insertOne;
+      (Collection.prototype as any).insertOne = function(this: any, document: any, options: any) {
+        if (this.collectionName === 'project_upload_attempts' && document.project_id === f.project) throw Error('isolated attempt insert failure');
+        return (original as any).call(this, document, options);
+      };
+      try {
+        const response = await fetch(apiOrigin + '/projects/' + f.project + '/upload-url', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({fileName: 'fixture.mp4', fileSize: 7, contentType: 'video/mp4'})});
+        assert.equal(response.status, 500);
+      } finally {Collection.prototype.insertOne = original;}
+      assert.equal(await db.collection('project_upload_attempts').countDocuments({project_id: f.project}), 0);
+      assert.equal((await db.collection('projects').findOne({id: f.project}))?.pending_upload_key, undefined);
+      assert.equal((await fetch(apiOrigin + '/projects/' + f.project, {method: 'DELETE'})).status, 200);
     });
     assert.equal(objects.size, 0);
     assert(receipts.some(r => r.method === 'PUT'));
