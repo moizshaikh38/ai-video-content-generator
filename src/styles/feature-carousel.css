@@ -625,7 +625,8 @@
 .vireo-showcase .d-clip .clip {
   position: absolute;
   top: 29cqw;
-  left: calc(13cqw + var(--n) * 12.6cqw);
+  /* 5-tile set: base offset centers the cascade (was 13cqw for six tiles) */
+  left: calc(19.3cqw + var(--n) * 12.6cqw);
   width: 11cqw;
   cursor: pointer;
   transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -636,6 +637,7 @@
   z-index: 5;
 }
 
+.vireo-showcase .d-clip .ic img { width: 1.5cqw; height: 1.5cqw; object-fit: contain; border-radius: 22%; }
 .vireo-showcase .d-clip .ic {
   position: absolute;
   left: 50%;
@@ -2042,3 +2044,47 @@
     display: none;
   }
 }
+
+/* One-at-a-time platform logo cycle at the link icon (matches public tool pages) */
+.vireo-showcase .d-clip .bar .bar-cycle { position: relative; width: 1.8cqw; height: 1.8cqw; flex: none; display: block; }
+.vireo-showcase .d-clip .bar .bar-cycle img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; animation: barPlatCycle 9.6s ease-in-out infinite; }
+.vireo-showcase .d-clip .bar .bar-cycle img:nth-of-type(2) { animation-delay: 1.6s; }
+.vireo-showcase .d-clip .bar .bar-cycle img:nth-of-type(3) { animation-delay: 3.2s; }
+.vireo-showcase .d-clip .bar .bar-cycle img:nth-of-type(4) { animation-delay: 4.8s; }
+.vireo-showcase .d-clip .bar .bar-cycle img:nth-of-type(5) { animation-delay: 6.4s; }
+.vireo-showcase .d-clip .bar .bar-cycle img:nth-of-type(6) { animation-delay: 8s; }
+.vireo-showcase .d-clip .bar .bar-cycle .bar-cycle-link { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
+@keyframes barPlatCycle { 0%, 10% { opacity: 1; } 16%, 94% { opacity: 0; } 100% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .vireo-showcase .d-clip .bar .bar-cycle img { animation: none; opacity: 0; }
+  .vireo-showcase .d-clip .bar .bar-cycle .bar-cycle-link { opacity: 1; }
+}
+
+/* TikTok/X glyphs are near-black: invert them only inside the dark link bar cycle */
+.vireo-showcase .d-clip .bar .bar-cycle img:nth-of-type(3),
+.vireo-showcase .d-clip .bar .bar-cycle img:nth-of-type(5) { filter: invert(1); }
+
+/* Black/borderless mobile pass (Nov 21): panel surfaces black, ornamental rims off,
+   badges readable, arrows clear of the badge row at phone width */
+.vireo-showcase .stage { border: none; }
+.vireo-showcase .d-clip .bar { border: none; box-shadow: 0 12px 36px -10px rgba(0,0,0,0.75); }
+.vireo-showcase .d-clip .th { border: none; }
+.vireo-showcase .d-clip .clip.top .th { outline: none; }
+.vireo-showcase .d-clip .ic { background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.4); }
+.vireo-showcase .d-clip .ic img.plat-TT, .vireo-showcase .d-clip .ic img.plat-X { filter: invert(1); }
+@media (max-width: 768px) {
+  .vireo-showcase .nav { top: calc(29cqw + 8cqw - 15px); bottom: auto; width: 30px; height: 30px; z-index: 12; }
+  .vireo-showcase .nav.prev { left: 8px; right: auto; }
+  .vireo-showcase .nav.next { right: 8px; left: auto; }
+}
+
+/* Panel rim removal (Nov 21): drop the 1px border + white active ring; keep black drop shadow */
+.vireo-showcase .card { border: none; }
+.vireo-showcase .slide.active .card { box-shadow: 0 40px 100px -30px rgba(0, 0, 0, 0.85); }
+
+/* Clip rail wrapper: transparent on desktop (cards stay absolutely positioned) */
+.vireo-showcase .d-clip .clip-rail { display: contents; }
+
+/* Phone (user correction Nov 21 18:39): restore pre-release one-screen fit -
+   wide short panel (base aspect-ratio 2/1.08) with all six clip tiles visible
+   in the base absolute layout; the big swipe-card rail from 1704986 is reverted. */

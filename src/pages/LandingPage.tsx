@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Logo } from "../components/Logo";
+import { apiBase } from "../services/backendClient";
 import vireoOutput916 from "../assets/landing/vireo-output-916.webp";
 import rawFootage169 from "../assets/landing/raw-footage-169.webp";
 import ucPodcasters from "../assets/landing/uc-podcasters.webp";
@@ -609,6 +610,84 @@ function FAQ() {
   );
 }
 
+function Waitlist() {
+  const enabled = import.meta.env.VITE_WAITLIST_ENABLED === 'true';
+  const [email, setEmail] = useState('');
+  const [state, setState] = useState<'idle' | 'submitting' | 'joined' | 'error'>('idle');
+  const [errorText, setErrorText] = useState('');
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!enabled || state === 'submitting') return;
+    setState('submitting');
+    setErrorText('');
+    try {
+      const res = await fetch(`${apiBase}/waitlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, consent: true, source: 'landing' }),
+      });
+      const body = await res.json().catch(() => null);
+      // Only validation copy is user-meaningful; never surface raw server/fixture detail.
+      if (!res.ok) throw new Error(body?.code === 'WAITLIST_EMAIL_INVALID' ? 'Enter a valid email address.' : 'Could not join right now. Please try again.');
+      // Strict success contract: any 2xx without the exact JSON status (static
+      // fallback HTML, malformed or unknown body) is a failure, never a join.
+      if (body?.status !== 'joined') throw new Error('Could not join right now. Please try again.');
+      setState('joined');
+    } catch (err) {
+      setState('error');
+      setErrorText(err instanceof Error ? err.message : 'Could not join right now. Please try again.');
+    }
+  }
+
+  return (
+    <section id="waitlist" style={{ scrollMarginTop: '96px' }} className="py-20 lg:py-24 bg-[#000000] relative overflow-hidden">
+      <div className="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 space-y-5">
+        <Reveal variant="up">
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
+            Join the waitlist
+          </h2>
+        </Reveal>
+        <Reveal variant="up" delay={120}>
+          <p className="text-sm text-slate-300 leading-relaxed">
+            Leave your email and we will tell you when VireoClip access opens.
+          </p>
+        </Reveal>
+        {state === 'joined' ? (
+          <p className="text-sm font-semibold text-[#20E3A2]">You're on the list. We'll email you when access opens.</p>
+        ) : (
+          <Reveal variant="up" delay={200}>
+            <form onSubmit={submit} className="flex flex-col sm:flex-row items-stretch justify-center gap-3">
+              <input
+                type="email"
+                required
+                disabled={!enabled}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                aria-label="Email address"
+                className="flex-1 px-4 py-3 rounded-full bg-white/[0.06] text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-[#8753e3]"
+              />
+              <button
+                type="submit"
+                disabled={!enabled || state === 'submitting'}
+                className="px-6 py-3 rounded-full text-sm font-bold text-white bg-gradient-to-r from-[#6734c9] to-[#8753e3] hover:brightness-110 transition disabled:opacity-60"
+              >
+                {state === 'submitting' ? 'Joining…' : 'Join waitlist'}
+              </button>
+            </form>
+            {state === 'error' && <p className="mt-3 text-xs text-red-400">{errorText}</p>}
+          </Reveal>
+        )}
+        {!enabled && <p role="status" className="text-xs text-slate-400">Preview only. Waitlist signup is not connected yet, and no email is collected here.</p>}
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          By joining you agree to receive waitlist and launch emails from VireoClip. No spam.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function FinalCTA() {
   return (
     <section className="py-24 lg:py-32 bg-[#000000] relative overflow-hidden">
@@ -776,6 +855,9 @@ export function LandingPage() {
 
         {/* ENHANCED FAQ ACCORDION */}
         <FAQ />
+
+        {/* WAITLIST CAPTURE (real, stored server-side) */}
+        <Waitlist />
 
         {/* CINEMATIC FINAL CTA */}
         <FinalCTA />

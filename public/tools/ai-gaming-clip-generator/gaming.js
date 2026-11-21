@@ -85,7 +85,7 @@
 // Paste-link start: validates the URL, hands off to the workspace with the gaming genre preselected.
 document.querySelectorAll('.tool-link-form').forEach(form=>{
 const input=form.querySelector('input[type=url]');
-form.addEventListener('submit',event=>{event.preventDefault();const value=input.value.trim();try{const url=new URL(value);if(!['https:','http:'].includes(url.protocol))throw Error();location.href='/dashboard?url='+encodeURIComponent(value)+'&tool=gaming-clips';}catch{input.setCustomValidity('Enter a valid http or https video URL.');input.reportValidity();}});
+form.addEventListener('submit',event=>{event.preventDefault();location.href='/#waitlist';});
 input.addEventListener('input',()=>input.setCustomValidity(''));
 form.querySelector('.tool-link-paste')?.addEventListener('click',async()=>{try{const text=await navigator.clipboard.readText();if(text)input.value=text.trim();}catch{}});
 });
