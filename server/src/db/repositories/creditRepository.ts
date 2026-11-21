@@ -9,6 +9,7 @@ import {
   CreditBalanceSummary,
   OutboxEventRecord,
   IdempotencyKeyRecord,
+  UserConcurrencySlotRecord,
   AppError,
 } from '../../types/index.js';
 import { ConcurrencySlotRepository } from './concurrencySlotRepository.js';
@@ -835,6 +836,19 @@ export class CreditRepository {
         );
 
         const updatedWallet = await wallets.findOne({ id: wallet.id }, { session });
+        // Publish the logical concurrency slot in the same transaction as the
+        // reservation, debit, ledger and dispatch outbox. A lost commit response
+        // must not leave a durable reservation with only a pending slot.
+        const linkedSlot = await db.collection<UserConcurrencySlotRecord>('user_concurrency_slots').updateOne({
+          _id: acquiredSlot._id, user_id: userId, attempt_id: attemptId,
+          slot_token: acquiredSlot.slot_token, status: 'reserved_pending_tx',
+        }, {$set: {
+          status: 'active', reservation_id: resRecord.id,
+          leased_until: leasedUntil, updated_at: now,
+        }}, {session});
+        if (linkedSlot.matchedCount !== 1) {
+          throw new AppError('Reservation concurrency slot changed before commit. Retry the same attempt.', 409, 'RESERVATION_SLOT_CHANGED');
+        }
         return {
           allowed: true,
           reservation: resRecord,
@@ -848,6 +862,7 @@ export class CreditRepository {
           await ConcurrencySlotRepository.releaseSlot({
             slotId: acquiredSlot._id,
             slotToken: acquiredSlot.slot_token,
+            onlyIfPending: true,
           });
         }
         return {
@@ -858,16 +873,7 @@ export class CreditRepository {
         };
       }
 
-      // Link concurrency slot to committed reservation
-      if (acquiredSlot.slot_token && reservationResult.reservation) {
-        await ConcurrencySlotRepository.linkReservation({
-          slotId: acquiredSlot._id,
-          slotToken: acquiredSlot.slot_token,
-          reservationId: reservationResult.reservation.id,
-          leaseMs: 45_000,
-        });
-      }
-
+      // The committed reservation and active slot were published atomically.
       return reservationResult;
     } catch (txErr: any) {
       // If code 11000 duplicate key, check if this attempt was committed concurrently by another instance
@@ -879,6 +885,7 @@ export class CreditRepository {
               await ConcurrencySlotRepository.releaseSlot({
                 slotId: acquiredSlot._id,
                 slotToken: acquiredSlot.slot_token,
+                onlyIfPending: true,
               }).catch(() => undefined);
             }
             throw new AppError(
@@ -894,6 +901,7 @@ export class CreditRepository {
               await ConcurrencySlotRepository.releaseSlot({
                 slotId: acquiredSlot._id,
                 slotToken: acquiredSlot.slot_token,
+                onlyIfPending: true,
               }).catch(() => undefined);
             }
             return {
@@ -906,11 +914,13 @@ export class CreditRepository {
         }
       }
 
-      // Transaction aborted: release concurrency slot
+      // Abort or uncertain commit: only release an uncommitted pending slot.
+      // An active slot belongs to the durable financial outcome and must stay.
       if (acquiredSlot.slot_token) {
         await ConcurrencySlotRepository.releaseSlot({
           slotId: acquiredSlot._id,
           slotToken: acquiredSlot.slot_token,
+          onlyIfPending: true,
         }).catch(() => undefined);
       }
       throw txErr;

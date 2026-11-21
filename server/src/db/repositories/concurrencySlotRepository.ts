@@ -185,8 +185,9 @@ export class ConcurrencySlotRepository {
   public static async releaseSlot(params: {
     slotId: string;
     slotToken: string;
+    onlyIfPending?: boolean;
   }): Promise<boolean> {
-    const { slotId, slotToken } = params;
+    const { slotId, slotToken, onlyIfPending = false } = params;
     const db = await getMongoDb();
     const slots = db.collection<UserConcurrencySlotRecord>('user_concurrency_slots');
     const now = new Date();
@@ -195,6 +196,7 @@ export class ConcurrencySlotRepository {
       {
         _id: slotId,
         slot_token: slotToken,
+        ...(onlyIfPending ? {status: 'reserved_pending_tx'} : {}),
       },
       {
         $set: {
