@@ -57,8 +57,19 @@ export async function getMongoClient(): Promise<MongoClient> {
  */
 export async function assertTransactionalTopology(candidateClient?: MongoClient): Promise<void> {
   const mongoClient = candidateClient ?? (await getMongoClient());
-  const adminDb = mongoClient.db('admin');
-  const hello = await adminDb.command({ hello: 1 }).catch(() => adminDb.command({ isMaster: 1 }));
+  await assertDatabaseTransactionalTopology(mongoClient.db('admin'));
+}
+
+/** Necessary topology prerequisite only, not proof of transaction permissions or commit health. */
+export async function assertDatabaseTransactionalTopology(database: Db): Promise<void> {
+  let hello;
+  try { hello=await database.command({hello:1},{timeoutMS:2_000}); }
+  catch(error:any) {
+    // Only older servers lacking hello get the legacy handshake. Permission,
+    // timeout and network failures must not be retried as another command.
+    if(error?.code!==59&&error?.codeName!=='CommandNotFound')throw error;
+    hello=await database.command({isMaster:1},{timeoutMS:2_000});
+  }
   const isReplSet = Boolean(hello.setName);
   const isMongos = hello.msg === 'isdbgrid';
   if (!isReplSet && !isMongos) {

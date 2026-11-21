@@ -1,6 +1,6 @@
 import {isDeepStrictEqual} from 'node:util';
 import { Db } from 'mongodb';
-import { getMongoDb } from './mongoClient.js';
+import { getMongoDb, assertDatabaseTransactionalTopology } from './mongoClient.js';
 import { logger } from '../utils/logger.js';
 
 const UUID_PATTERN = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$';
@@ -134,6 +134,8 @@ export async function auditWalletCollectionValidator(database: Db): Promise<{
 /** Idempotent index/bootstrap setup. Run with an app DB user allowed to create indexes. */
 export async function bootstrapMongo(db?: Db): Promise<void> {
   const database = db ?? await getMongoDb();
+  // Gate before schema writes: this app requires transactional topology.
+  await assertDatabaseTransactionalTopology(database);
   const existing = new Set((await database.listCollections({}, { nameOnly: true }).toArray()).map((item) => item.name));
   for (const name of collections) {
     if (!existing.has(name)) {
