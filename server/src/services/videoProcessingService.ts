@@ -1,3 +1,4 @@
+import {transcriptReviewCode,type TranscriptReviewCode} from '../shared/transcriptReviewErrors.js';
 import {BorrowedSourceReaders} from './queue/borrowedSourceReaders.js';
 import {newTranscriptSelectionFields} from './transcription/selectionSegments.js';
 import {workLifecycle} from './queue/workLifecycle.js';
@@ -37,6 +38,7 @@ export interface ProcessProjectResult {
   status: 'transcribed' | 'failed';
   transcript?: TranscriptRecord;
   error?: string;
+  reviewCode?: TranscriptReviewCode;
 }
 
 /**
@@ -508,6 +510,7 @@ async function executeProjectVideo(
   } catch (err: unknown) {
     if((err as any)?.code==='PROCESS_STOP_UNVERIFIED')cleanupSafe=false;
     const message = err instanceof Error ? err.message : String(err);
+    const reviewCode=transcriptReviewCode((err as any)?.code);
     logger.error(`Video processing failed for project ${projectId}`, {
       projectId,
       userId,
@@ -527,8 +530,8 @@ async function executeProjectVideo(
         .update({
           video_status: 'failed',
           error_message: message || 'Video processing failed.',
-          error_code: ['TRANSCRIPT_WORD_TEXT_REVIEW_REQUIRED','TRANSCRIPT_REVIEW_REQUIRED','TRANSCRIPT_SOURCE_REVIEW_REQUIRED'].includes((err as any)?.code) ? (err as any).code : null,
-          ...(['TRANSCRIPT_WORD_TEXT_REVIEW_REQUIRED','TRANSCRIPT_REVIEW_REQUIRED','TRANSCRIPT_SOURCE_REVIEW_REQUIRED'].includes((err as any)?.code) ? {transcript_quality_status:'needs_review'} : {}),
+          error_code: reviewCode ?? null,
+          ...(reviewCode ? {transcript_quality_status:'needs_review'} : {}),
         })
         .eq('id', projectId)
         .eq('user_id', userId);
@@ -542,6 +545,7 @@ async function executeProjectVideo(
     return {
       status: 'failed',
       error: message || 'Video processing failed.',
+      ...(reviewCode?{reviewCode}:{}),
     };
   } finally {
     // Does not await uploads/VLM/DB work or replace an already-settled transcript.

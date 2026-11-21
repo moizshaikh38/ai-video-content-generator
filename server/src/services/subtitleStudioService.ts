@@ -1,3 +1,4 @@
+import {transcriptReviewCode} from '../shared/transcriptReviewErrors.js';
 import {insertProjectWithinQuota, projectQuotaPolicy} from '../db/repositories/projectQuotaRepository.js';
 import {subtitleProjectDefaults} from '../shared/subtitleProjectDefaults.js';
 import {workLifecycle} from './queue/workLifecycle.js';
@@ -398,7 +399,8 @@ export class SubtitleStudioService {
 
     if (result.status !== 'transcribed' || !result.transcript) {
       await CreditWalletService.releaseReservation(attemptId, 'Transcription failed to generate output').catch(() => undefined);
-      throw new AppError(result.error || 'Transcription failed to generate output.', 500, 'TRANSCRIPTION_FAILED');
+      const reviewCode=transcriptReviewCode(result.reviewCode);
+      throw new AppError(result.error || 'Transcription failed to generate output.', reviewCode?409:500, reviewCode||'TRANSCRIPTION_FAILED');
     }
 
     const transcript = result.transcript;
