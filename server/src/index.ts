@@ -1,3 +1,4 @@
+import {DatabaseBootstrapAttempt} from './services/databaseBootstrapAttempt.js';
 import {databaseBootstrapAdmission} from './middleware/databaseBootstrapAdmission.js';
 import {setDatabaseBootstrapState} from './services/databaseBootstrapState.js';
 import {startRenderQueueWake} from './services/queue/renderQueueWake.js';
@@ -125,17 +126,14 @@ if (process.env.NODE_ENV !== 'test') {
 
     let mongoReady = false;
     const maxRetries = config.isProduction ? 2 : 3;
+    const bootstrapAttempt=new DatabaseBootstrapAttempt(()=>workLifecycle.run('database-bootstrap',()=>bootstrapMongo()));
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       if(workLifecycle.isDraining())return;
       try {
-        // Enforce a 15-second timeout per attempt to prevent indefinite hanging
-        await Promise.race([
-          workLifecycle.run('database-bootstrap',()=>bootstrapMongo()),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('MongoDB bootstrap connection timeout (15s)')), 15_000)
-          ),
-        ]);
+        // A wait deadline is not cancellation. Reuse pending schema work on
+        // retry; only a genuinely rejected attempt can start another writer.
+        await bootstrapAttempt.wait(15_000);
         setDatabaseBootstrapState('ready');
         mongoReady = true;
         logger.info('Database bootstrap completed successfully.');

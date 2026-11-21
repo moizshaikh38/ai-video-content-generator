@@ -23,3 +23,11 @@ Actual local HTTP tests use a fake Mongo client and stalled advisory callbacks. 
 Closing the pool fences its current connection generation and closes both established and in-flight clients. A connect or ping that finishes after close cannot publish that candidate as the process client. Its failure also cannot clear a newer generation's shared connection promise. Multiple callers still share one current attempt; an ordinary current-generation failure can retry normally.
 
 Controlled-promise tests on the actual pool module cover close during connect, close during ping, old connect rejection after a newer attempt begins, shared fresh callers and normal retry. Client methods are fixtures; no network connection is made. These tests do not replace real driver/network/shutdown acceptance. Pool close remains reusable by later callers and is not a permanent process-wide admission stop; the shutdown lifecycle owns stopping new application work.
+
+## Bootstrap wait ownership
+
+The startup supervisor still has its existing15-second per-wait deadline and retry budget. A wait timeout is not cancellation of schema/index work. Retries now attach to the same tracked pending bootstrap attempt instead of launching another potentially overlapping bootstrap writer. A genuine underlying rejection releases ownership for a new attempt; a completed success can be reused. Each wait clears its timer on settlement.
+
+The normal work lifecycle continues tracking the underlying attempt after an HTTP/supervisor wait expires. Shutdown must still drain that work or report its existing deadline failure. Exhausting startup waits does not turn an eventual late completion into a ready deployment automatically; degraded mode remains until a normal accepted bootstrap/start cycle succeeds. No stuck operation is declared cancelled or successful merely because a timer fired.
+
+Controlled-promise tests verify single ownership across timeout/retry and concurrent waiters, late success, current/late failure retry, invalid deadlines and drain tracking. This is not real Mongo slow-index-build or hosted restart qualification.
