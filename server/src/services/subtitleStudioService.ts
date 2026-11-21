@@ -1,3 +1,4 @@
+import {insertProjectWithinQuota, projectQuotaPolicy} from '../db/repositories/projectQuotaRepository.js';
 import {subtitleProjectDefaults} from '../shared/subtitleProjectDefaults.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import {assertTranscriptReusable} from './transcriptSourceBindingService.js';
@@ -61,17 +62,7 @@ export class SubtitleStudioService {
       updated_at: now,
     };
 
-    const { data: inserted, error } = await dataRepository
-      .from('projects')
-      .insert(record)
-      .select()
-      .single();
-
-    if (error || !inserted) {
-      logger.error('Failed to create subtitle studio project in database', { userId, error });
-      throw new AppError('Failed to create subtitle project.', 500, 'DB_ERROR');
-    }
-
+    const inserted = await insertProjectWithinQuota(userId, record, projectQuotaPolicy(entitlements));
     return inserted as SubtitleProjectRecord;
   }
 

@@ -1,3 +1,4 @@
+import {insertProjectWithinQuota, projectQuotaPolicy} from '../db/repositories/projectQuotaRepository.js';
 import {workLifecycle} from '../services/queue/workLifecycle.js';
 import {assertTranscriptReusable} from '../services/transcriptSourceBindingService.js';
 import {withNewProjectFraming} from '../shared/newProjectFraming.js';
@@ -322,21 +323,7 @@ export const createProject = async (req: AuthenticatedRequest, res: Response): P
   };
 
   try {
-    const { data, error } = await dataRepository
-      .from('projects')
-      .insert(projectRecord)
-      .select()
-      .single();
-
-    if (error) {
-      logger.error('Failed to create project in MongoDB', {
-        requestId: req.requestId,
-        userId,
-        error: error.message,
-      });
-      res.status(500).json({ status: 'error', code: 'DB_ERROR', message: 'Failed to create project.' });
-      return;
-    }
+    const data = await insertProjectWithinQuota(userId, projectRecord, projectQuotaPolicy(entitlements));
 
     // Register the public ID for URL-safe external references
     try {
@@ -352,7 +339,9 @@ export const createProject = async (req: AuthenticatedRequest, res: Response): P
       userId,
       error: err instanceof Error ? err.message : String(err),
     });
-    res.status(500).json({ status: 'error', code: 'INTERNAL_ERROR', message: 'An unexpected error occurred.' });
+    const failure = err as any;
+    const status = failure.statusCode || 500;
+    res.status(status).json({status: 'error', code: status < 500 ? failure.code : 'INTERNAL_ERROR', message: status < 500 ? failure.message : 'An unexpected error occurred.'});
   }
 };
 
