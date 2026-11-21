@@ -1,3 +1,4 @@
+import type {ClientSession} from 'mongodb';
 import crypto from 'node:crypto';
 import { getMongoDb } from '../mongoClient.js';
 import { UserConcurrencySlotRecord, AppError } from '../../types/index.js';
@@ -186,8 +187,9 @@ export class ConcurrencySlotRepository {
     slotId: string;
     slotToken: string;
     onlyIfPending?: boolean;
+    session?: ClientSession;
   }): Promise<boolean> {
-    const { slotId, slotToken, onlyIfPending = false } = params;
+    const { slotId, slotToken, onlyIfPending = false, session } = params;
     const db = await getMongoDb();
     const slots = db.collection<UserConcurrencySlotRecord>('user_concurrency_slots');
     const now = new Date();
@@ -208,7 +210,8 @@ export class ConcurrencySlotRepository {
           leased_until: null,
           updated_at: now,
         },
-      }
+      },
+      { session }
     );
 
     return result.matchedCount === 1;

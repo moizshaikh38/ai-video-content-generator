@@ -1341,11 +1341,12 @@ export class CreditRepository {
         throw new AppError('Idempotency update conflict during settlement. Aborted.', 409, 'IDEMPOTENCY_UPDATE_CONFLICT');
       }
 
-      // Post-commit: release concurrency slot if provided
+      // Release the provided slot inside this financial transaction.
       if (fencingParams?.slotId && fencingParams?.slotToken) {
         await ConcurrencySlotRepository.releaseSlot({
           slotId: fencingParams.slotId,
           slotToken: fencingParams.slotToken,
+          session,
         }).catch(() => undefined);
       }
 
@@ -1580,11 +1581,12 @@ export class CreditRepository {
         throw new AppError('Idempotency update conflict during refund. Aborted.', 409, 'IDEMPOTENCY_UPDATE_CONFLICT');
       }
 
-      // Post-commit: release concurrency slot if provided
+      // Release the provided slot inside this financial transaction.
       if (fencingParams?.slotId && fencingParams?.slotToken) {
         await ConcurrencySlotRepository.releaseSlot({
           slotId: fencingParams.slotId,
           slotToken: fencingParams.slotToken,
+          session,
         }).catch(() => undefined);
       }
 
