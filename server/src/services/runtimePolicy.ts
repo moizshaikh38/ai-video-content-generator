@@ -3,6 +3,13 @@ export type ServiceRole='combined'|'api'|'worker';
 export function serviceRole(env:NodeJS.ProcessEnv=process.env):ServiceRole{const role=env.VIREO_SERVICE_ROLE??'combined';if(!['combined','api','worker'].includes(role))throw Error('VIREO_SERVICE_ROLE must be combined, api or worker');return role as ServiceRole;}
 export const runsBackgroundWorkers=()=>serviceRole()!=='api';
 export const acceptsApiRequests=()=>serviceRole()!=='worker';
+function workerEnabled(env:NodeJS.ProcessEnv,key:string):boolean {
+ const value=env[key];if(value===undefined||value==='')return true;
+ if(value==='1'||value==='true')return true;if(value==='0'||value==='false')return false;
+ throw Error(`${key} must be true, false, 1 or 0`);
+}
+export const runsPublishingWorker=(env:NodeJS.ProcessEnv=process.env)=>serviceRole(env)!=='api'&&workerEnabled(env,'VIREO_PUBLISHING_WORKER_ENABLED');
+export const runsMultimodalWorker=(env:NodeJS.ProcessEnv=process.env)=>serviceRole(env)!=='api'&&workerEnabled(env,'VIREO_MULTIMODAL_WORKER_ENABLED');
 function positive(env:NodeJS.ProcessEnv,key:string):number|undefined{const value=env[key];if(value===undefined||value==='')return undefined;const n=Number(value);if(!Number.isSafeInteger(n)||n<=0)throw Error(`${key} must be a positive safe integer`);return n;}
 export function renderBudget(env:NodeJS.ProcessEnv=process.env){const max=positive(env,'VIREO_RENDER_MAX_CONCURRENT'),threads=positive(env,'VIREO_FFMPEG_THREADS'),memory=positive(env,'VIREO_RENDER_MEMORY_BUDGET_MB'),perJob=positive(env,'VIREO_RENDER_ESTIMATED_JOB_MB'),reserve=positive(env,'VIREO_RENDER_MEMORY_RESERVE_MB');if(Boolean(memory)!==Boolean(perJob))throw Error('Render memory budget and estimated job memory must be configured together');return{max,threads,memory,perJob,reserve:reserve??256};}
 export function budgetedRenderCapacity(input:{cpuCount:number;memoryLimitMb?:number;memoryUsedMb?:number;occupied?:number},env:NodeJS.ProcessEnv=process.env):number{
@@ -25,4 +32,4 @@ export function hostRenderCapacity(occupied=0,probe:RenderHostProbe={cpuCount:os
 export function ffmpegThreadArgs(env:NodeJS.ProcessEnv=process.env):string[]{const n=renderBudget(env).threads;return n===undefined?[]:['-threads',String(n),'-filter_threads',String(n),'-filter_complex_threads',String(n)];}
 export function ffmpegEncoderThreadArgs(env:NodeJS.ProcessEnv=process.env):string[]{const n=renderBudget(env).threads;return n===undefined?[]:['-threads',String(n)];}
 export function renderSweepInterval(env:NodeJS.ProcessEnv=process.env):number{const value=positive(env,'VIREO_RENDER_SWEEP_INTERVAL_MS')??60000;if(value<1000||value>60000)throw Error('Render sweep interval must be between 1000 and 60000 milliseconds');return value;}
-export function validateRuntimePolicy(){serviceRole();renderBudget();renderSweepInterval();}
+export function validateRuntimePolicy(){serviceRole();renderBudget();renderSweepInterval();workerEnabled(process.env,'VIREO_PUBLISHING_WORKER_ENABLED');workerEnabled(process.env,'VIREO_MULTIMODAL_WORKER_ENABLED');}

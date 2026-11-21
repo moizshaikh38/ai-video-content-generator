@@ -16,14 +16,14 @@ An independent writer-process test with local transactional Mongo checks that an
 
 ## Explicit budgets, not new unmeasured defaults
 
-Existing render/thread behavior is preserved when the following variables are absent. No lower preset, resolution, frame rate or CRF is selected by this feature.
+Default render capacity honors available CPU affinity and readable cgroup-v2 CPU quota, even when explicit budget variables are absent. Existing encoder/thread defaults are preserved when the following variables are absent. No lower preset, resolution, frame rate or CRF is selected by this feature.
 
 - `VIREO_RENDER_MAX_CONCURRENT`: positive integer upper bound, still subject to the existing maximum of four renders per process.
 - `VIREO_FFMPEG_THREADS`: positive integer decoder/filter/encoder thread setting for the Quick and Pro final render invocation paths. This is not a process-wide bound on every Python/OpenCV or media helper.
 - `VIREO_RENDER_MEMORY_BUDGET_MB` and `VIREO_RENDER_ESTIMATED_JOB_MB`: configure together. A conservative per-job estimate must come from representative measurement, not a short demo. The configured total, cgroup-v2 limit when readable, and live cgroup headroom constrain admission. No free slot leaves the job queued.
 - `VIREO_RENDER_MEMORY_RESERVE_MB`: positive reserve, default 256 only within the opt-in memory policy. This reserve is an operator safety allocation, not a measured application requirement.
 
-With budgets enabled, CPU affinity/available parallelism and readable cgroup-v2 CPU quota constrain capacity too. Unavailable cgroup metrics are not a proof of unlimited resources; the explicit memory budget still applies. These are per-process controls. Replica multiplication and other workers require a separate deployment-wide capacity budget.
+CPU affinity/available parallelism and readable cgroup-v2 CPU quota constrain default capacity; explicit render/thread caps can reduce it further. Unavailable cgroup metrics are not a proof of unlimited resources; the explicit memory budget still applies. These are per-process controls. Replica multiplication and other workers require a separate deployment-wide capacity budget.
 
 Lower concurrency can increase queue wait; fewer threads can slow an individual render. API isolation protects responsiveness but does not eliminate rendering CPU work. Do not claim reduced total cost, instant output, unchanged latency or a customer capacity without a representative before/after benchmark.
 
@@ -89,3 +89,13 @@ reported as automatic capacity. Do not guess production memory costs from short
 1080 examples, set arbitrary universal safe concurrency, reduce final quality,
 or claim that slower queues are a speed improvement. No such deployment-wide
 resource policy is activated by the owner-fair change.
+
+## Optional background-worker opt-outs
+
+`VIREO_PUBLISHING_WORKER_ENABLED` and `VIREO_MULTIMODAL_WORKER_ENABLED` independently control the persistent publishing poller and multimodal timeline poller. Each accepts `true`/`1` or `false`/`0`; absent or empty preserves the existing enabled default. Other spellings fail startup validation. The `api` role never runs either poller, even with an enabled flag. Render recovery, reservation/cache cleanup and OAuth-state cleanup are not disabled by these flags.
+
+The flags gate timer startup and polling entry points before database work. They are deployment configuration, not a cancellation API. Restart with the reviewed configuration; this change does not cancel, delete, mark successful, or drain queued jobs. Running work is not interrupted by changing an environment variable. An available compatible enabled worker is still needed to service each queue. Disabling every consumer leaves those jobs pending, including pending provider-status resolution. Do not call a disabled optional workflow available or fully qualified.
+
+These flags do not disable direct user-requested publishing, analysis enqueueing, source processing, or explicit analysis/CV HTTP routes. They are not feature-access controls, a platform-wide publishing kill switch, or complete API workload isolation. Existing permissions and job/lease fencing remain necessary. No hosting settings are changed by this implementation.
+
+Local tests exercise the flag/role matrix, malformed-policy startup refusal, disabled entry-point refusal before job claim, enabled boundary reachability with fixture callbacks, and publishing timer suppression. No database, provider dispatch, actual multimodal processing, hosted restart or backlog-drain acceptance is claimed by those tests.

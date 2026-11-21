@@ -1,4 +1,4 @@
-import {runsBackgroundWorkers} from '../runtimePolicy.js';
+import {runsPublishingWorker} from '../runtimePolicy.js';
 import { publishingService } from '../publishingService.js';
 import { logger } from '../../utils/logger.js';
 
@@ -7,7 +7,7 @@ let timer: NodeJS.Timeout | null = null;
 const POLL_INTERVAL_MS = 15000; // Poll every 15 seconds
 
 export function startPublishingWorker(): void {
-  if (!runsBackgroundWorkers() || isRunning) return;
+  if (!runsPublishingWorker() || isRunning) return;
   isRunning = true;
 
   logger.info('Publishing background worker started (interval: 15s)');

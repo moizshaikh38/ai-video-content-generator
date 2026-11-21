@@ -1,3 +1,4 @@
+import {runsPublishingWorker} from './runtimePolicy.js';
 import {selectPublishMedia,assertPublishMediaSelection,assertPublishObjectSelection,assertReviewedPublishMedia,type PublishMediaSelection} from '../shared/publishMediaSelection.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import crypto from 'node:crypto';
@@ -702,7 +703,7 @@ export class PublishingService {
    * Background processor loop: claims scheduled jobs and recovers stale locks
    */
   async processDueJobs():Promise<number>{
-    if(workLifecycle.isDraining())return 0;
+    if(!runsPublishingWorker()||workLifecycle.isDraining())return 0;
     return workLifecycle.run('publishing-sweep',()=>this.executeDueJobs());
   }
   private async executeDueJobs(): Promise<number> {

@@ -1,7 +1,7 @@
 import {databaseBootstrapAdmission} from './middleware/databaseBootstrapAdmission.js';
 import {setDatabaseBootstrapState} from './services/databaseBootstrapState.js';
 import {startRenderQueueWake} from './services/queue/renderQueueWake.js';
-import {runsBackgroundWorkers,acceptsApiRequests,validateRuntimePolicy,renderSweepInterval} from './services/runtimePolicy.js';
+import {runsBackgroundWorkers,acceptsApiRequests,validateRuntimePolicy,renderSweepInterval,runsPublishingWorker,runsMultimodalWorker} from './services/runtimePolicy.js';
 import {workLifecycle,createShutdown,workAdmission} from './services/queue/workLifecycle.js';
 import express from 'express';
 import cors from 'cors';
@@ -177,7 +177,7 @@ if (process.env.NODE_ENV !== 'test') {
       oauthCleanupTimer.unref();
 
       // Start Phase 10 persistent publishing worker
-      startPublishingWorker();
+      if(runsPublishingWorker())startPublishingWorker();
 
       // Render job sweep: retries transient render failures, recovers stale leases
       // left by crashes/restarts, and drains jobs deferred by the inline concurrency cap.
@@ -219,6 +219,7 @@ if (process.env.NODE_ENV !== 'test') {
       // Multimodal timeline sweep: same stuck-job class as renders (audit C-1).
       // claimNextJob atomically claims queued jobs and processing jobs whose
       // 5-minute lease expired, so multi-replica deployments stay safe.
+      if(runsMultimodalWorker()){
       const MULTIMODAL_SWEEP_INTERVAL_MS = 45_000;
       const MULTIMODAL_SWEEP_MAX_PER_TICK = 2;
       let multimodalSweepRunning = false;
@@ -244,6 +245,7 @@ if (process.env.NODE_ENV !== 'test') {
       const trackedMultimodalSweep=()=>{if(workLifecycle.isDraining())return;void workLifecycle.run('multimodal-sweep',runMultimodalSweep).catch(error=>logger.warn('Multimodal sweep failed',{error:String(error)}));};
       multimodalSweepTimer = setInterval(trackedMultimodalSweep, MULTIMODAL_SWEEP_INTERVAL_MS);
       multimodalSweepTimer.unref();
+      }
     }
   };
 
