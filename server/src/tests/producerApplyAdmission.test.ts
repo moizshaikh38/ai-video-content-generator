@@ -22,6 +22,7 @@ test('Producer Apply atomically admits a revision-bound job and replays without 
  const {ProEditorService}=await import('../services/proEditorService.js');
  const {commitProducerApply}=await import('../db/repositories/producerApplyRepository.js');
  const db=await getMongoDb(),client=await getMongoClient();
+ const {bootstrapMongo}=await import('../db/bootstrapMongo.js');await bootstrapMongo(db);
  const oldGate=process.env.VIREO_RENDER_ADMISSION_V1,oldWorker=ClipRenderService.renderClipJob,oldPlan=EntitlementService.resolveUserEntitlements;
  const launches:any[]=[];
  (ClipRenderService as any).renderClipJob=async(...args:any[])=>{launches.push(args);};
@@ -47,6 +48,7 @@ test('Producer Apply atomically admits a revision-bound job and replays without 
   const f=await fixture();const results=await Promise.all([apply(f),apply(f)]);await new Promise(r=>setImmediate(r));
   assert.equal(results[0].renderJob.id,results[1].renderJob.id);assert.equal(results.filter(r=>r.replayed).length,1);assert.equal(launches.length,1);assert.equal(launches[0][2],results[0].renderJob.id);
   const clip=await db.collection('clips').findOne({id:f.clip}),editor=await db.collection('editor_projects').findOne({clip_id:f.clip});
+  assert(editor?.created_at instanceof Date);assert(editor?.updated_at instanceof Date);
   assert.equal(clip?.render_status,'queued');assert.equal(clip?.render_version,2);assert.equal(clip?.editor_version,2);assert.equal(editor?.version,1);
   assert.deepEqual(results[0].renderJob.editor_project_snapshot,editorRenderSnapshot(editor));assert.equal(results[0].renderJob.admission_version,1);assert.equal(await db.collection('render_jobs').countDocuments({clip_id:f.clip}),2);
   const tracks=JSON.stringify(editor?.tracks);const replay=await apply(f);assert(replay.replayed);assert.equal(JSON.stringify((await db.collection('editor_projects').findOne({clip_id:f.clip}))?.tracks),tracks);assert.equal(launches.length,1);

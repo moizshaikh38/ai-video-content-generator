@@ -545,7 +545,9 @@ export class ProducerRenderService {
     // Validate without writes. Even unchanged tracks get a new revision so the
     // applied clip and queued editor snapshot share one transaction boundary.
     const stagedUpdates=await ProEditorService.prepareEditorRevision(editorProject,userId,{tracks:editorProject.tracks,version:editorProject.version});
-    const stagedEditor=JSON.parse(JSON.stringify({...editorProject,...stagedUpdates,version:existingEditor?existingEditor.version+1:1}));
+    // Preserve BSON Date fields; JSON cloning turns them into strings that
+    // violate the bootstrapped editor_projects collection validator.
+    const stagedEditor={...JSON.parse(JSON.stringify({...editorProject,...stagedUpdates,version:existingEditor?existingEditor.version+1:1})),created_at:editorProject.created_at,updated_at:stagedUpdates.updated_at};
     const result=await commitProducerApply(await getMongoClient(),db,{userId,plan:originalPlan,clip,expectedEditor:existingEditor,editor:stagedEditor,clipUpdates,quotaPolicy});
     if(!result?.clip||!result?.renderJob)throw new AppError('Producer Apply did not return a committed render receipt.',503,'PRODUCER_APPLY_UNVERIFIED');
     if(!result.replayed)launchInlineRender(clip.id,userId,result.renderJob.id);
