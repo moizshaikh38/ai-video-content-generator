@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   UploadCloud,
+  Link2,
+  ClipboardPaste,
   FileVideo,
   Sparkles,
   Captions,
@@ -36,6 +38,13 @@ export const SubtitleStudioPage: React.FC = () => {
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [isLoadingProject, setIsLoadingProject] = useState(false);
   const [projectError, setProjectError] = useState<string | null>(null);
+
+  // Source tabs: upload vs URL import
+  const [sourceTab, setSourceTab] = useState<'upload' | 'url'>('upload');
+  const [ingestUrl, setIngestUrl] = useState('');
+  const [ingestTitle, setIngestTitle] = useState('');
+  const [isIngesting, setIsIngesting] = useState(false);
+  const [ingestError, setIngestError] = useState<string | null>(null);
 
   // Upload state
   const [dragActive, setDragActive] = useState(false);
@@ -225,6 +234,36 @@ export const SubtitleStudioPage: React.FC = () => {
     setIsUploading(false);
     setUploadProgress(0);
     setUploadStats(null);
+  };
+
+  // Import a video by URL via the subtitle ingest endpoint (import-only; no auto-transcription)
+  const handleIngestUrl = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const url = ingestUrl.trim();
+    if (!url) {
+      setIngestError('Paste a video URL first.');
+      return;
+    }
+    setIsIngesting(true);
+    setIngestError(null);
+    try {
+      const data = await backendRequest<{ status: string; project: SubtitleProject }>(
+        '/subtitles/projects/ingest-url',
+        {
+          method: 'POST',
+          body: JSON.stringify({ url, ...(ingestTitle.trim() ? { title: ingestTitle.trim() } : {}) }),
+        }
+      );
+      if (data?.status === 'ok' && data.project?.id) {
+        navigate(`/subtitles/${data.project.id}`);
+        return;
+      }
+      setIngestError('The video could not be imported. Check the link and try again.');
+    } catch (err: any) {
+      setIngestError(err?.message || 'The video could not be imported. Check the link and try again.');
+    } finally {
+      setIsIngesting(false);
+    }
   };
 
   // Upload video and trigger transcription
@@ -422,8 +461,105 @@ export const SubtitleStudioPage: React.FC = () => {
         </p>
       </div>
 
-      {/* Upload Dropzone Card */}
-      <div className="rounded-3xl bg-zinc-900/90 border border-zinc-800 p-6 md:p-8 shadow-2xl backdrop-blur-xl space-y-6">
+      {/* Source Card: Upload or URL import */}
+      <div className="rounded-3xl bg-zinc-900/90 border border-zinc-800 p-4 sm:p-6 md:p-8 shadow-2xl backdrop-blur-xl space-y-6">
+        {/* Source Tabs */}
+        <div className="flex items-center gap-1 p-1 rounded-full bg-white/[0.04] w-fit" role="tablist" aria-label="Subtitle source">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={sourceTab === 'upload'}
+            onClick={() => setSourceTab('upload')}
+            className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+              sourceTab === 'upload'
+                ? 'bg-violet-500/25 text-white border border-violet-500/40'
+                : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+            }`}
+          >
+            Upload file
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={sourceTab === 'url'}
+            onClick={() => setSourceTab('url')}
+            className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+              sourceTab === 'url'
+                ? 'bg-violet-500/25 text-white border border-violet-500/40'
+                : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+            }`}
+          >
+            Paste URL
+          </button>
+        </div>
+
+        {sourceTab === 'url' && (
+          <form onSubmit={handleIngestUrl} className="space-y-3">
+            <div className="relative flex items-center gap-2.5 rounded-2xl bg-zinc-950/70 border border-zinc-700/80 px-3 py-2 focus-within:border-violet-500/70 transition-colors">
+              <Link2 className="size-4 text-zinc-400 shrink-0" />
+              <input
+                type="url"
+                value={ingestUrl}
+                onChange={(e) => setIngestUrl(e.target.value)}
+                placeholder="YouTube, Vimeo, Kick clip, Drive/Dropbox link, or video file URL"
+                aria-label="Video URL"
+                className="flex-1 min-w-0 w-0 min-h-[40px] bg-transparent border-0 outline-none pr-14 text-sm text-white placeholder:text-zinc-500 placeholder:truncate"
+              />
+              <button
+                type="button"
+                aria-label="Paste URL from clipboard"
+                onClick={async () => {
+                  try {
+                    const t = await navigator.clipboard.readText();
+                    if (t) setIngestUrl(t.trim());
+                  } catch {
+                    /* clipboard unavailable; paste manually */
+                  }
+                }}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/[0.08] border border-white/[0.12] text-[11px] font-semibold text-zinc-200 hover:bg-white/[0.15] transition-colors cursor-pointer"
+              >
+                <ClipboardPaste className="size-3.5 text-violet-400" />
+                <span>Paste</span>
+              </button>
+            </div>
+            <input
+              type="text"
+              value={ingestTitle}
+              onChange={(e) => setIngestTitle(e.target.value)}
+              placeholder="Optional title for this subtitle project"
+              aria-label="Optional project title"
+              className="w-full rounded-2xl bg-zinc-950/70 border border-zinc-700/80 px-3.5 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-violet-500/70"
+            />
+            {ingestError && (
+              <p role="alert" className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-300 flex items-center gap-2">
+                <AlertCircle className="size-4 shrink-0" />
+                <span>{ingestError}</span>
+              </p>
+            )}
+            <Button
+              variant="brand"
+              type="submit"
+              disabled={isIngesting}
+              className="w-full sm:w-auto text-xs font-bold bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500"
+            >
+              {isIngesting ? (
+                <Loader2 className="size-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <ArrowRight className="size-3.5 mr-1.5" />
+              )}
+              {isIngesting ? 'Importing video...' : 'Import video & create project'}
+            </Button>
+            <p className="text-[11px] text-zinc-500">
+              Import only: the video is fetched and a subtitle project is created. Transcription starts separately and uses credits.
+            </p>
+            <p className="text-[11px] text-zinc-500">
+              Kick: completed public clips. Google Drive and Dropbox: public single-file share links. Private, folder, live, and DRM-protected videos cannot be imported.
+            </p>
+          </form>
+        )}
+
+        {sourceTab === 'upload' && (
+        <>
         <div
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -601,6 +737,8 @@ export const SubtitleStudioPage: React.FC = () => {
               <X className="size-3.5" />
             </button>
           </div>
+        )}
+        </>
         )}
       </div>
 

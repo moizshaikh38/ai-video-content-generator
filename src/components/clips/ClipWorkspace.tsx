@@ -4,7 +4,7 @@ import {freshCandidateSubtitle} from '../../../server/src/shared/freshClipPresen
 import {NEW_CAPTION_PRESET_ID} from '../../../server/src/shared/captionPresets';
 import {candidateRankingDisplay} from '../../../server/src/shared/candidateRankingDisplay';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Film,
   Sparkles,
@@ -30,6 +30,7 @@ import {
   Wand2,
   Layers,
   Flame,
+  Minus,
   Smartphone,
   Monitor,
   Square,
@@ -485,6 +486,79 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
   };
 
   const selectedCount = candidates.filter((c) => c.status === 'selected').length;
+
+  // === Simplified results design (user-approved 2026-11-20): selection UX, filters, bottom bar ===
+  const navigate = useNavigate();
+  const [selectedClipIds, setSelectedClipIds] = useState<Set<string>>(new Set());
+  const [clipFilter, setClipFilter] = useState<'all' | 'potential' | 'short' | 'long'>('all');
+  const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+
+  const clipScore = (clip: RenderedClip): number | null =>
+    candidateRankingDisplay(candidates.find((c) => c.id === clip.candidate_id));
+  const isReadyClip = (clip: RenderedClip) => clip.render_status === 'ready';
+  const isHighPotential = (clip: RenderedClip) => {
+    const s = clipScore(clip);
+    return s !== null && s >= 80;
+  };
+  const isShortClip = (clip: RenderedClip) => clip.duration_seconds < 45;
+  const isLongClip = (clip: RenderedClip) => clip.duration_seconds >= 45;
+
+  const filterCounts = useMemo(() => ({
+    all: myClips.length,
+    potential: myClips.filter(isHighPotential).length,
+    short: myClips.filter(isShortClip).length,
+    long: myClips.filter(isLongClip).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [myClips, candidates]);
+
+  const filteredMyClips = useMemo(() => {
+    if (clipFilter === 'potential') return myClips.filter(isHighPotential);
+    if (clipFilter === 'short') return myClips.filter(isShortClip);
+    if (clipFilter === 'long') return myClips.filter(isLongClip);
+    return myClips;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myClips, candidates, clipFilter]);
+
+  const readyClipIds = useMemo(() => myClips.filter(isReadyClip).map((c) => c.id), [myClips]);
+  const selectedReadyIds = useMemo(
+    () => readyClipIds.filter((id) => selectedClipIds.has(id)),
+    [readyClipIds, selectedClipIds]
+  );
+  const allReadySelected = readyClipIds.length > 0 && selectedReadyIds.length === readyClipIds.length;
+  const someReadySelected = selectedReadyIds.length > 0 && !allReadySelected;
+  const selectedTotalSeconds = useMemo(
+    () => myClips.filter((c) => selectedClipIds.has(c.id)).reduce((a, c) => a + (c.duration_seconds || 0), 0),
+    [myClips, selectedClipIds]
+  );
+
+  const toggleClipSelected = (id: string) => {
+    setSelectedClipIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleSelectAllClips = () => {
+    setSelectedClipIds((prev) => {
+      const allSelected = readyClipIds.length > 0 && readyClipIds.every((id) => prev.has(id));
+      return allSelected ? new Set<string>() : new Set<string>(readyClipIds);
+    });
+  };
+  const handleDownloadSelected = async () => {
+    if (isBulkDownloading) return;
+    setIsBulkDownloading(true);
+    try {
+      for (const id of selectedReadyIds) {
+        await handleDownloadClip(id);
+      }
+    } finally {
+      setIsBulkDownloading(false);
+    }
+  };
+  const handleEditSelected = () => {
+    if (selectedReadyIds.length === 0) return;
+    navigate(`/clips/${selectedReadyIds[0]}/edit`);
+  };
 
   // 1. Initial Loading State
   if (isLoading) {
@@ -1314,79 +1388,126 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {myClips.map((clip) => {
-                const matchingCand = candidates.find((c) => c.id === clip.candidate_id);
-                const title = matchingCand?.title || `Clip (${clip.aspect_ratio})`;
-                const isReady = clip.render_status === 'ready';
-                const isFailed = clip.render_status === 'failed';
-                const isRendering = ['queued', 'rendering', 'uploading', 'draft'].includes(clip.render_status);
-                const progress = clip.latest_job?.progress ?? (isReady ? 100 : 0);
-                const stage = clip.latest_job?.stage || clip.render_status;
-                // Never fabricate a rank for clips whose candidate was not scored.
-                const score = candidateRankingDisplay(matchingCand);
+            <div className="space-y-3">
+              {/* Header: title + count (simplified per approved design) */}
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="text-lg sm:text-xl font-bold font-['Sora',sans-serif] text-white">Your clips</h2>
+                <span className="text-[11px] text-zinc-400 font-mono shrink-0">{myClips.length} ready to edit</span>
+              </div>
 
-                return (
-                  <div
-                    key={clip.id}
-                    className="overflow-hidden rounded-2xl border border-white/[0.08] bg-vc-surface1/90 flex flex-col justify-between shadow-xl backdrop-blur-xl transition-all hover:border-violet-500/40 group"
+              {/* Filter chips */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-0.5 -mx-1 px-1">
+                {([
+                  ['all', 'All'],
+                  ['potential', 'High potential'],
+                  ['short', 'Short'],
+                  ['long', 'Long'],
+                ] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setClipFilter(key)}
+                    className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                      clipFilter === key
+                        ? 'bg-violet-600 border-transparent text-white shadow-lg shadow-violet-900/40'
+                        : 'bg-white/[0.04] border-white/[0.12] text-zinc-300 hover:border-violet-500/40 hover:text-white'
+                    }`}
                   >
-                    <div className="p-4 space-y-3.5">
-                      {/* Vertical 9:16 Video Preview Card Area */}
-                      <div className="relative aspect-[9/16] max-h-72 w-full overflow-hidden rounded-xl bg-black border border-white/10 flex items-center justify-center group/vid">
-                        {previewClipId === clip.id && previewUrls[clip.id] ? (
-                          <video
-                            src={previewUrls[clip.id]}
-                            controls
-                            autoPlay
-                            className="w-full h-full object-contain"
-                          />
-                        ) : (
-                          <ClipThumbImage
-                            clip={clip}
-                            alt={title}
-                            className="w-full h-full object-cover group-hover/vid:scale-105 transition-transform duration-300"
-                            fallback={
-                              <div className="flex flex-col items-center justify-center p-4 text-center">
-                                <div className="flex items-center gap-1 opacity-25 mb-2">
-                                  {[25, 60, 40, 80, 65, 35, 75, 50, 90, 45].map((h, i) => (
-                                    <span
-                                      key={i}
-                                      style={{ height: `${h * 0.4}px` }}
-                                      className="w-1 rounded-full bg-white/40"
-                                    />
-                                  ))}
-                                </div>
-                                <span className="text-[11px] font-mono text-zinc-500">9:16 Clip Preview</span>
-                              </div>
-                            }
-                          />
-                        )}
+                    {label} ({filterCounts[key]})
+                  </button>
+                ))}
+              </div>
 
-                        {/* Top Overlay Badges */}
-                        <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between z-10 pointer-events-none">
-                          {score !== null ? (
-                            <span className="px-2 py-0.5 rounded-md bg-emerald-500/25 text-emerald-300 text-[11px] font-extrabold font-mono shadow-sm flex items-center gap-1 backdrop-blur-md">
-                              <Flame className="size-3 text-emerald-400 fill-emerald-400" />
-                              {score} AI Rank
-                            </span>
+              {/* Select all (ready clips only) */}
+              {readyClipIds.length > 0 && (
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={toggleSelectAllClips}
+                    className="flex items-center gap-2 cursor-pointer group"
+                  >
+                    <span
+                      className={`w-[18px] h-[18px] p-0 rounded-[5px] border flex items-center justify-center transition-all ${
+                        allReadySelected || someReadySelected
+                          ? 'bg-violet-600 border-transparent'
+                          : 'border-white/25 group-hover:border-violet-400'
+                      }`}
+                    >
+                      {allReadySelected && <Check className="size-3 text-white" />}
+                      {someReadySelected && <Minus className="size-3 text-white" />}
+                    </span>
+                    <span className="text-xs font-semibold text-zinc-200">Select all</span>
+                  </button>
+                  {selectedReadyIds.length > 0 && (
+                    <span className="text-[11px] text-zinc-400 font-mono">
+                      {selectedReadyIds.length} of {readyClipIds.length} selected
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Clip cards: Recent Projects style on mobile, Media Library grid on desktop */}
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                {filteredMyClips.map((clip) => {
+                  const matchingCand = candidates.find((c) => c.id === clip.candidate_id);
+                  const title = matchingCand?.title || `Clip (${clip.aspect_ratio})`;
+                  const isReady = clip.render_status === 'ready';
+                  const isFailed = clip.render_status === 'failed';
+                  const isRendering = ['queued', 'rendering', 'uploading', 'draft'].includes(clip.render_status);
+                  const progress = clip.latest_job?.progress ?? (isReady ? 100 : 0);
+                  const stage = clip.latest_job?.stage || clip.render_status;
+                  // Never fabricate a rank for clips whose candidate was not scored.
+                  const score = candidateRankingDisplay(matchingCand);
+                  const isSelected = selectedClipIds.has(clip.id);
+
+                  return (
+                    <div
+                      key={clip.id}
+                      className={`flex flex-col overflow-hidden rounded-2xl border bg-vc-surface1/90 shadow-xl backdrop-blur-xl transition-all group ${
+                        isSelected
+                          ? 'border-violet-500/70 ring-1 ring-violet-500/50'
+                          : 'border-white/[0.08] hover:border-violet-500/40'
+                      }`}
+                    >
+                      {/* Thumbnail: strip on mobile, tall poster on desktop */}
+                      <div className="relative aspect-[9/12] w-full bg-black group/vid">
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          {previewClipId === clip.id && previewUrls[clip.id] ? (
+                            <video
+                              src={previewUrls[clip.id]}
+                              controls
+                              autoPlay
+                              className="w-full h-full object-contain"
+                            />
                           ) : (
-                            <span className="px-2 py-0.5 rounded-md bg-white/10 text-zinc-300 text-[11px] font-bold font-mono shadow-sm backdrop-blur-md">
-                              Unranked
-                            </span>
+                            <ClipThumbImage
+                              clip={clip}
+                              alt={title}
+                              className="w-full h-full object-cover group-hover/vid:scale-105 transition-transform duration-300"
+                              fallback={
+                                <div className="flex flex-col items-center justify-center p-3 text-center h-full">
+                                  <span className="text-[11px] font-mono text-zinc-500">9:16 Preview</span>
+                                </div>
+                              }
+                            />
                           )}
-                          <span className="px-2 py-0.5 rounded-md bg-black/75 text-white text-[10px] font-mono font-bold backdrop-blur-md">
-                            {clip.aspect_ratio}
-                          </span>
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold backdrop-blur-md flex items-center gap-1 ${
-                            clip.caption_enabled === false
-                              ? 'bg-zinc-800/80 text-zinc-300 border border-white/10'
-                              : 'bg-violet-950/80 text-violet-300 border border-violet-500/30'
-                          }`}>
-                            <Captions className="size-2.5" />
-                            {clip.caption_enabled === false ? 'No Subtitles' : (clip.caption_style || 'Hormozi')}
-                          </span>
                         </div>
+
+                        {/* Selection checkbox (ready clips) */}
+                        {isReady && (
+                          <button
+                            type="button"
+                            onClick={() => toggleClipSelected(clip.id)}
+                            aria-label={isSelected ? 'Deselect clip' : 'Select clip'}
+                            className={`absolute top-2 left-2 z-20 w-5 h-5 p-0 rounded-[6px] border flex items-center justify-center transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-violet-600 border-transparent'
+                                : 'bg-black/60 border-white/40 hover:border-violet-400'
+                            }`}
+                          >
+                            {isSelected && <Check className="size-3.5 text-white" />}
+                          </button>
+                        )}
 
                         {/* Play preview hover button */}
                         {isReady && previewClipId !== clip.id && (
@@ -1395,30 +1516,50 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                             onClick={() => handleTogglePreview(clip.id)}
                             className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/vid:opacity-100 transition-opacity cursor-pointer"
                           >
-                            <div className="size-11 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white shadow-xl hover:scale-110 transition-transform">
-                              <Play className="size-5 ml-0.5 fill-white" />
+                            <div className="size-10 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white shadow-xl hover:scale-110 transition-transform">
+                              <Play className="size-4 ml-0.5 fill-white" />
                             </div>
                           </button>
                         )}
 
-                        {/* Duration pill at bottom right */}
+                        {/* Duration pill */}
                         <div className="absolute bottom-2 right-2 z-10 pointer-events-none">
-                          <span className="px-2 py-0.5 rounded bg-black/80 text-white text-[10px] font-mono font-bold backdrop-blur-sm">
+                          <span className="px-1.5 py-0.5 rounded bg-black/80 text-white text-[10px] font-mono font-bold backdrop-blur-sm">
                             {Math.round(clip.duration_seconds)}s
                           </span>
                         </div>
                       </div>
 
-                      <CandidateReviewNotice candidate={matchingCand}/>
-                      {/* Title & Timing Info */}
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <span className="text-[11px] font-mono text-zinc-400 flex items-center gap-1">
-                            <Clock className="size-3 text-violet-400" />
-                            {formatTime(clip.start_seconds)} – {formatTime(clip.end_seconds)}
+                      {/* Info + actions */}
+                      <div className="flex-1 min-w-0 p-2.5 sm:p-3 flex flex-col gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {score !== null ? (
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-500/25 text-emerald-300 text-[11px] font-extrabold font-mono shadow-sm flex items-center gap-1 backdrop-blur-md">
+                              <Flame className="size-3 text-emerald-400 fill-emerald-400" />
+                              {score}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-md bg-white/10 text-zinc-300 text-[11px] font-bold font-mono shadow-sm backdrop-blur-md">
+                              Unranked
+                            </span>
+                          )}
+                          {isHighPotential(clip) && (
+                            <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/25 text-[10px] font-bold uppercase tracking-wide">
+                              High potential
+                            </span>
+                          )}
+                          <span className="px-2 py-0.5 rounded-md bg-black/60 text-zinc-300 border border-white/10 text-[10px] font-mono font-bold">
+                            {clip.aspect_ratio}
                           </span>
-
-                          <div>
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold flex items-center gap-1 ${
+                            clip.caption_enabled === false
+                              ? 'bg-zinc-800/80 text-zinc-300 border border-white/10'
+                              : 'bg-violet-950/80 text-violet-300 border border-violet-500/30'
+                          }`}>
+                            <Captions className="size-2.5" />
+                            {clip.caption_enabled === false ? 'No Subtitles' : (clip.caption_style || 'Hormozi')}
+                          </span>
+                          <span className="ml-auto">
                             {isReady && (
                               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 text-emerald-400 px-2 py-0.5 text-[10px] font-semibold">
                                 <Check className="size-2.5" />
@@ -1437,137 +1578,183 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                                 Failed
                               </span>
                             )}
-                          </div>
+                          </span>
                         </div>
 
-                        <h4 className="font-semibold text-sm font-['Sora',sans-serif] text-white line-clamp-2 leading-snug">
+                        <h4 className="font-semibold text-sm sm:text-[15px] font-['Sora',sans-serif] text-white line-clamp-2 leading-snug">
                           {title}
                         </h4>
-                      </div>
 
-                      {/* Active Rendering Progress Bar */}
-                      {isRendering && (
-                        <div className="space-y-1.5 pt-1">
-                          <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
-                            <span className="capitalize">{stage}…</span>
-                            <span className="text-violet-300 font-bold">{progress}%</span>
+                        <span className="text-[11px] font-mono text-zinc-400 flex items-center gap-1">
+                          <Clock className="size-3 text-violet-400" />
+                          {formatTime(clip.start_seconds)} – {formatTime(clip.end_seconds)}
+                        </span>
+
+                        <CandidateReviewNotice candidate={matchingCand}/>
+
+                        {/* Active Rendering Progress Bar */}
+                        {isRendering && (
+                          <div className="space-y-1.5 pt-1">
+                            <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
+                              <span className="capitalize">{stage}…</span>
+                              <span className="text-violet-300 font-bold">{progress}%</span>
+                            </div>
+                            <div className="w-full bg-white/[0.08] rounded-full h-2 overflow-hidden border border-white/10">
+                              <div
+                                className="bg-violet-500 h-full transition-all duration-300 rounded-full"
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
                           </div>
-                          <div className="w-full bg-white/[0.08] rounded-full h-2 overflow-hidden border border-white/10">
-                            <div
-                              className="bg-violet-500 h-full transition-all duration-300 rounded-full"
-                              style={{ width: `${progress}%` }}
-                            />
+                        )}
+
+                        {/* Failure Message */}
+                        {isFailed && (
+                          <div className="p-3 rounded-xl bg-rose-500/10 text-rose-300 text-xs">
+                            {clip.render_error_message || 'Video rendering failed. Please try again.'}
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Failure Message */}
-                      {isFailed && (
-                        <div className="p-3 rounded-xl bg-rose-500/10 text-rose-300 text-xs">
-                          {clip.render_error_message || 'Video rendering failed. Please try again.'}
-                        </div>
-                      )}
-                    </div>
+                        {/* Actions (all existing controls preserved) */}
+                        <div className="mt-auto pt-1.5 border-t border-white/[0.06] flex flex-wrap items-center gap-1.5">
+                          {isReady && (
+                            <>
+                              <Link to={`/clips/${clip.id}/edit`}>
+                                <Button
+                                  variant="brand"
+                                  size="sm"
+                                  className="text-[10px] font-bold"
+                                  title="Open full multi-track Timeline Editor"
+                                >
+                                  <Sliders className="size-3.5 mr-1" />
+                                  Open Editor
+                                </Button>
+                              </Link>
 
-                    {/* Bottom Action Bar */}
-                    <div className="p-3.5 bg-black/40 border-t border-white/[0.06] flex items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {isReady && (
-                          <>
-                            <Link to={`/clips/${clip.id}/edit?tab=producer`}>
+                              <Link to={`/clips/${clip.id}/edit?tab=producer`}>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-[10px] font-semibold border-violet-500/40 bg-violet-500/10 text-violet-300 hover:bg-violet-600 hover:text-white transition-all"
+                                  title="Open VireoClip Producer AI Director (auto dead air cuts, kinetic captions, punch-ins)"
+                                >
+                                  <Wand2 className="size-3.5 mr-1 text-violet-400" />
+                                  Produce
+                                </Button>
+                              </Link>
+
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="text-xs font-semibold border-violet-500/40 bg-violet-500/10 text-violet-300 hover:bg-violet-600 hover:text-white transition-all"
-                                title="Open VireoClip Producer AI Director (auto dead air cuts, kinetic captions, punch-ins)"
+                                className="text-[10px] font-semibold border-white/10 bg-white/[0.04] text-zinc-200 hover:text-white hover:bg-white/[0.08]"
+                                onClick={() => setContentPackClip(clip)}
+                                title="Generate multi-platform Content Pack (titles, hooks, captions)"
                               >
-                                <Wand2 className="size-3.5 mr-1 text-violet-400" />
-                                Produce
+                                <Layers className="size-3.5 mr-1 text-zinc-300" />
+                                Kit
                               </Button>
-                            </Link>
 
-                            <Link to={`/clips/${clip.id}/edit`}>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="text-xs font-semibold border-white/10 bg-white/[0.04] text-zinc-200 hover:bg-white hover:text-black transition-all"
-                                title="Open full multi-track Timeline Editor"
+                                className="text-[10px] border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-600 hover:text-white"
+                                onClick={() => setPublishingClip(clip)}
+                                title="Publish or schedule clip to social channels"
                               >
-                                <Sliders className="size-3.5 mr-1" />
-                                Edit Video
+                                <Share2 className="size-3 mr-1" />
+                                Publish
                               </Button>
-                            </Link>
 
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs font-semibold border-white/10 bg-white/[0.04] text-zinc-200 hover:text-white hover:bg-white/[0.08]"
-                              onClick={() => setContentPackClip(clip)}
-                              title="Generate multi-platform Content Pack (titles, hooks, captions)"
-                            >
-                              <Layers className="size-3.5 mr-1 text-zinc-300" />
-                              Kit
-                            </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-[10px] font-semibold border-white/10 bg-white/[0.04] text-zinc-200 hover:bg-white/[0.08]"
+                                disabled={isDownloading === clip.id}
+                                onClick={() => handleDownloadClip(clip.id)}
+                              >
+                                {isDownloading === clip.id ? (
+                                  <Loader2 className="size-3 animate-spin mr-1" />
+                                ) : (
+                                  <Download className="size-3 mr-1" />
+                                )}
+                                MP4
+                              </Button>
+                            </>
+                          )}
 
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-600 hover:text-white"
-                              onClick={() => setPublishingClip(clip)}
-                              title="Publish or schedule clip to social channels"
-                            >
-                              <Share2 className="size-3 mr-1" />
-                              Publish
-                            </Button>
-
+                          {isFailed && (
                             <Button
                               variant="primary"
                               size="sm"
-                              className="text-xs font-bold"
-                              disabled={isDownloading === clip.id}
-                              onClick={() => handleDownloadClip(clip.id)}
+                              className="text-xs bg-rose-600 hover:bg-rose-500 text-white font-semibold"
+                              disabled={retryingClipId === clip.id}
+                              onClick={() => handleRetryRender(clip.id)}
                             >
-                              {isDownloading === clip.id ? (
+                              {retryingClipId === clip.id ? (
                                 <Loader2 className="size-3 animate-spin mr-1" />
                               ) : (
-                                <Download className="size-3 mr-1" />
+                                <RefreshCw className="size-3 mr-1" />
                               )}
-                              MP4
+                              Retry Render
                             </Button>
-                          </>
-                        )}
+                          )}
 
-                        {isFailed && (
                           <Button
-                            variant="primary"
+                            variant="ghost"
                             size="sm"
-                            className="text-xs bg-rose-600 hover:bg-rose-500 text-white font-semibold"
-                            disabled={retryingClipId === clip.id}
-                            onClick={() => handleRetryRender(clip.id)}
+                            className="text-zinc-500 hover:text-rose-400 px-2 cursor-pointer ml-auto"
+                            onClick={() => handleDeleteClip(clip.id)}
+                            title="Delete clip"
                           >
-                            {retryingClipId === clip.id ? (
-                              <Loader2 className="size-3 animate-spin mr-1" />
-                            ) : (
-                              <RefreshCw className="size-3 mr-1" />
-                            )}
-                            Retry Render
+                            <Trash2 className="size-3.5" />
                           </Button>
-                        )}
+                        </div>
                       </div>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-zinc-500 hover:text-rose-400 px-2 cursor-pointer"
-                        onClick={() => handleDeleteClip(clip.id)}
-                        title="Delete clip"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
                     </div>
+                  );
+                })}
+              </div>
+
+              {/* Bottom selection bar: visible only when clips are selected */}
+              {selectedReadyIds.length > 0 && (
+                <div className="sticky bottom-4 z-20 w-full max-w-3xl pb-[env(safe-area-inset-bottom)]">
+                  <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-2xl border border-white/[0.12] bg-zinc-950/95 shadow-2xl shadow-black/60 backdrop-blur-xl">
+                    <span className="w-[18px] h-[18px] p-0 rounded-[5px] bg-violet-600 flex items-center justify-center shrink-0">
+                      <Check className="size-3 text-white" />
+                    </span>
+                    <span className="text-xs text-zinc-300 whitespace-nowrap">
+                      <b className="text-white">{selectedReadyIds.length} selected</b>
+                      {' · '}
+                      {Math.floor(selectedTotalSeconds / 60)}m {Math.round(selectedTotalSeconds % 60)}s
+                    </span>
+                    <div className="flex-1" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs font-semibold border-white/15 bg-white/[0.06] text-zinc-100 hover:bg-white/[0.12] rounded-full"
+                      disabled={isBulkDownloading}
+                      onClick={handleDownloadSelected}
+                    >
+                      {isBulkDownloading ? (
+                        <Loader2 className="size-3.5 animate-spin mr-1" />
+                      ) : (
+                        <Download className="size-3.5 mr-1" />
+                      )}
+                      Download ({selectedReadyIds.length})
+                    </Button>
+                    <Button
+                      variant="brand"
+                      size="sm"
+                      className="text-xs font-bold rounded-full"
+                      onClick={handleEditSelected}
+                      title={selectedReadyIds.length > 1 ? 'Opens the first selected clip in the editor' : 'Open this clip in the editor'}
+                    >
+                      <Sliders className="size-3.5 mr-1" />
+                      {selectedReadyIds.length > 1 ? 'Edit first selected' : 'Open Editor'}
+                    </Button>
                   </div>
-                );
-              })}
+                </div>
+              )}
             </div>
           )}
         </div>

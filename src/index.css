@@ -564,12 +564,49 @@ select { padding-right: 1.75rem; }
 .compact-clip-settings .settings-help[open] { grid-column:span 1; }
 .clean-configure-panel .compact-clip-settings > .border { border-color:rgba(255,255,255,.07); }
 
+/* Mobile: flatten the Configure panel chrome (grey card) so fields sit on the
+   page background, matching the approved flattened Video Projects direction.
+   Desktop panel appearance is unchanged. */
+/* Clean look app-wide: Settings section cards sit on the page background. */
+.settings-page .bg-card {
+  background: transparent;
+  box-shadow: none;
+}
+.clean-configure-panel.vireo-dash-glass {
+  background: transparent;
+  box-shadow: none;
+  border-color: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+@media (max-width: 639px) {
+  .clean-configure-panel.vireo-dash-glass {
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  /* Settings: flatten grey section cards on mobile; section headers with
+     bottom borders keep the purposeful grouping. Desktop unchanged. */
+  .settings-page .bg-card {
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
 /* ─── Mobile foundations (max-width: 639px, Tailwind `sm` breakpoint floor) ───
    Guard rails for small touch screens. Element-level rules only fill gaps:
    utility classes (h-*, text-*) still win, so desktop styling is untouched. */
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* Sticky app header is 64-68px: keep focused fields and anchor targets clear of it. */
+  scroll-padding-top: 88px;
 }
 body {
   -webkit-tap-highlight-color: transparent;
@@ -767,4 +804,60 @@ body {
   .vc-timeline-root {
     max-height: 44vh;
   }
+}
+
+/* Configure action row: desktop keeps the full panel and pinned Generate. */
+@media (min-width: 640px) {
+  .cfg-summary { display: none; }
+  .cfg-actions .cfg-cost { display: none; }
+  .cfg-actions .cfg-ready-text { display: none; }
+  .cfg-actions button { pointer-events: auto; }
+  /* Desktop: Generate stays pinned to the bottom while scrolling, then rests in its normal footer spot. */
+  .cfg-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 25;
+    background: transparent;
+    border: 0;
+    pointer-events: none;
+    justify-content: flex-end;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+}
+@media (max-width: 639.98px) {
+  /* Approved mobile bar: opaque black tray, Est. cost pill above the button
+     (approved mobile reference); no content shows through. */
+  .cfg-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 25;
+    background: #050508;
+    border: 0;
+    pointer-events: none;
+    margin: 0 -1rem;
+    padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom));
+  }
+  .cfg-actions .cfg-ready-text { display: none; }
+  .cfg-actions button { pointer-events: auto; }
+  .cfg-actions .cfg-cost {
+    background: rgba(0, 0, 0, 0.82);
+    border-radius: 9999px;
+    padding: 0.15rem 0.6rem;
+  }
+  .cfg-actions .cfg-btn-cost { display: none; }
+}
+@media (min-width: 640px) {
+  .cfg-actions .cfg-btn-cost { display: none; }
+}
+
+/* Clean black look inside the signed-in app: content panels sit on the page
+   background with a hairline boundary. Inputs, buttons, clip thumbnail cards and
+   the editor are not touched. */
+.app-flat-surfaces :is(.rounded-xl, .rounded-2xl, .rounded-3xl):is(.bg-vc-surface1, .bg-vc-surface1\/80, .bg-vc-surface1\/90, .bg-zinc-900\/90, .bg-zinc-900\/80, .bg-zinc-900\/60, .bg-zinc-950\/80):not(.mv-cv-auto):not(button):not(input):not(select):not(textarea) {
+  background: transparent;
+  box-shadow: none;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }

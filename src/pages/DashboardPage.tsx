@@ -1,8 +1,10 @@
 import { projectRetentionNotice } from '../../server/src/shared/projectRetention';
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Clock, Play } from 'lucide-react';
+import { Search, Clock, Play, MoreVertical, Copy } from 'lucide-react';
 import { HomeClippingWorkflow } from '../components/dashboard/HomeClippingWorkflow';
+import { TwitchImportConnection } from '../components/dashboard/TwitchImportConnection';
+import { LiveCaptureSection } from '../components/live/LiveCaptureSection';
 import { projectService } from '../services/projectService';
 import { useAuth } from '../context/AuthContext';
 import { useCinematicScrollReveal } from '../hooks/useCinematicScrollReveal';
@@ -83,10 +85,12 @@ export const DashboardPage: React.FC = () => {
   useCinematicScrollReveal(pageRef, { threshold: 0.08 });
 
   const [projects, setProjects] = useState<Project[]>([]);
+  const [twitchImportOpen, setTwitchImportOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [projectTab, setProjectTab] = useState<'all' | 'processing' | 'completed' | 'failed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const loadProjects = async () => {
     if (!user) return;
@@ -190,21 +194,21 @@ export const DashboardPage: React.FC = () => {
             Recent projects
           </h2>
 
-          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
             {/* Quick Search Input */}
-            <div className="relative">
+            <div className="relative w-full sm:w-auto order-first sm:order-none">
               <Search className="size-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search projects..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-8 pl-8 pr-3 text-xs rounded-full bg-white/[0.05] border border-white/[0.09] text-vc-text-primary placeholder:text-zinc-500 focus:outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10 w-32 sm:w-44 transition-all"
+                className="h-9 sm:h-8 pl-8 pr-3 text-xs rounded-full bg-white/[0.05] border border-white/[0.09] text-vc-text-primary placeholder:text-zinc-500 focus:outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10 w-full sm:w-44 transition-all"
               />
             </div>
 
             {/* Status Tabs with Live Counts */}
-            <div className="flex items-center gap-1 p-1 rounded-full bg-white/[0.04] text-xs">
+            <div className="flex items-center gap-0.5 sm:gap-1 p-1 rounded-full bg-white/[0.04] text-[11px] sm:text-xs">
               <button
                 type="button"
                 onClick={() => setProjectTab('all')}
@@ -264,16 +268,16 @@ export const DashboardPage: React.FC = () => {
 
         {/* Projects Grid or Honest Empty State */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {[1, 2, 3, 4].map((i) => (
               <div
                 key={i}
-                className="h-64 rounded-2xl bg-white/[0.03] border border-white/[0.06] mv-shimmer"
+                className="h-44 sm:h-64 rounded-2xl bg-white/[0.03] border border-white/[0.06] mv-shimmer"
               />
             ))}
           </div>
         ) : filteredProjects.length > 0 ? (
-          <Reveal variant="fade" as="div" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mv-stagger">
+          <Reveal variant="fade" as="div" className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mv-stagger">
             {filteredProjects.slice(0, 8).map((p, idx) => {
               const statusStr = getStatus(p);
               const isComp = completeStatuses.includes(statusStr);
@@ -297,7 +301,7 @@ export const DashboardPage: React.FC = () => {
               return (
                 <article
                   key={p.id}
-                  className="vireo-dash-glass overflow-hidden rounded-2xl flex flex-col justify-between hover:border-violet-500/50 hover:-translate-y-1 transition-all group"
+                  className="vireo-dash-glass relative overflow-hidden rounded-2xl flex flex-col justify-between hover:border-violet-500/50 hover:-translate-y-1 transition-all group"
                 >
                   {/* Thumbnail / Header Area - Clickable to project */}
                   <Link
@@ -305,7 +309,7 @@ export const DashboardPage: React.FC = () => {
                     aria-label={`Open project ${p.title || 'Untitled'}`}
                     onMouseEnter={prefetchProjectDetail}
                     onFocus={prefetchProjectDetail}
-                    className={`block h-[132px] p-2.5 relative flex items-end justify-between overflow-hidden cursor-pointer ${
+                    className={`block h-[104px] sm:h-[132px] p-2.5 relative flex items-end justify-between overflow-hidden cursor-pointer ${
                       !thumbUrl ? `bg-gradient-to-br ${gradientClass}` : 'bg-black'
                     }`}
                   >
@@ -387,16 +391,70 @@ export const DashboardPage: React.FC = () => {
                     </span>
                   </Link>
 
+                  {/* Mobile overflow menu (3-dot, per user reference) */}
+                  <div className="absolute top-2 right-2 z-20 sm:hidden">
+                    <button
+                      type="button"
+                      aria-label={`More actions for ${p.title || 'Untitled project'}`}
+                      aria-expanded={openMenuId === p.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMenuId(openMenuId === p.id ? null : p.id);
+                      }}
+                      className="flex size-8 items-center justify-center rounded-full bg-black/60 text-zinc-200 backdrop-blur-sm border border-white/10 active:bg-black/80"
+                    >
+                      <MoreVertical className="size-4" />
+                    </button>
+                    {openMenuId === p.id && (
+                      <>
+                        <button
+                          type="button"
+                          aria-label="Close menu"
+                          className="fixed inset-0 z-10 cursor-default bg-transparent"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(null);
+                          }}
+                        />
+                        <div className="absolute right-0 top-9 z-20 w-44 overflow-hidden rounded-xl border border-white/10 bg-zinc-900/95 shadow-xl backdrop-blur-md">
+                          <Link
+                            to={projectPath(p)}
+                            onClick={() => setOpenMenuId(null)}
+                            className="block px-3.5 py-2.5 text-xs font-medium text-zinc-100 hover:bg-white/[0.08]"
+                          >
+                            Open project
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                await navigator.clipboard.writeText(`${window.location.origin}${projectPath(p)}`);
+                              } catch {
+                                /* clipboard unavailable */
+                              }
+                              setOpenMenuId(null);
+                            }}
+                            className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-xs font-medium text-zinc-100 hover:bg-white/[0.08]"
+                          >
+                            <Copy className="size-3.5 text-zinc-400" />
+                            <span>Copy link</span>
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
                   {/* Body Info */}
-                  <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between">
+                  <div className="p-2.5 sm:p-4 flex-1 flex flex-col justify-between">
                     <div>
                       <Link
                         to={projectPath(p)}
-                        className="font-semibold text-sm text-vc-text-primary truncate group-hover:text-white block hover:underline"
+                        className="font-semibold text-[13px] sm:text-sm text-vc-text-primary truncate group-hover:text-white block hover:underline"
                       >
                         {p.title || 'Untitled Project'}
                       </Link>
-                      <p className="text-[12px] text-vc-text-secondary mt-1">
+                      <p className="text-[11px] sm:text-[12px] text-vc-text-secondary mt-1">
                         Updated {formatTimeAgo(p.updated_at || p.created_at)}
                       </p>
                       {projectRetentionNotice(p.retention_policy) && (
@@ -407,10 +465,10 @@ export const DashboardPage: React.FC = () => {
                     </div>
 
                     {statusStr === 'uploaded' && (
-                      <p className="mt-3 text-[11px] text-vc-text-secondary">Source saved. Processing has not started.</p>
+                      <p className="hidden sm:block mt-3 text-[11px] text-vc-text-secondary">Source saved. Processing has not started.</p>
                     )}
                     {statusStr === 'transcribed' && (
-                      <p className="mt-3 text-[11px] text-vc-text-secondary">Transcript ready. Clip selection and export are separate steps.</p>
+                      <p className="hidden sm:block mt-3 text-[11px] text-vc-text-secondary">Transcript ready. Clip selection and export are separate steps.</p>
                     )}
 
                     {/* Honest processing progress bar */}
@@ -441,7 +499,7 @@ export const DashboardPage: React.FC = () => {
                     {/* Action Button */}
                     <Link
                       to={projectPath(p)}
-                      className="mt-3.5 inline-flex items-center justify-center h-9 w-full rounded-full bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] text-xs font-semibold text-vc-text-primary transition-all cursor-pointer"
+                      className="hidden sm:inline-flex mt-3.5 items-center justify-center h-9 w-full rounded-full bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] text-xs font-semibold text-vc-text-primary transition-all cursor-pointer"
                     >
                       {needsReview ? 'View transcript issue' : isComp ? 'Open project' : isProc ? 'View status' : isFail ? 'View error & retry' : 'Continue'}
                     </Link>
@@ -467,7 +525,30 @@ export const DashboardPage: React.FC = () => {
             </button>
           </div>
         ) : null}
+       </section>
+
+      {/* 3. SECONDARY: TWITCH IMPORT (kept discoverable outside the clean hero) */}
+      <section aria-label="Twitch import" className="pt-1">
+        <div className="rounded-2xl bg-white/[0.03] border border-white/[0.08] px-3.5 py-3 sm:px-4">
+          <button
+            type="button"
+            onClick={() => setTwitchImportOpen((o) => !o)}
+            aria-expanded={twitchImportOpen}
+            className="w-full flex items-center justify-between gap-2 text-xs sm:text-sm font-semibold text-zinc-300 hover:text-white transition-colors cursor-pointer"
+          >
+            <span>Import from Twitch</span>
+            <span className="text-[11px] text-zinc-500">{twitchImportOpen ? 'Hide' : 'Show'}</span>
+          </button>
+          {twitchImportOpen && (
+            <div className="mt-3 text-left">
+              <TwitchImportConnection userId={user?.id} />
+            </div>
+          )}
+        </div>
       </section>
+
+      {/* 4. SECONDARY: LIVE CAPTURE LOCAL PREVIEW (explicit, disabled unless the local backend enables it) */}
+      <LiveCaptureSection />
     </div>
   );
 };

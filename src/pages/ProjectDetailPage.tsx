@@ -189,9 +189,14 @@ export const ProjectDetailPage: React.FC = () => {
       const t = await projectService.fetchTranscript(id);
       if (t) setTranscript(t);
 
-      // Load current content outputs from the backend
-      const realOutputs = await projectService.fetchContentOutputs(id);
-      if (realOutputs) setOutputs(realOutputs);
+      // Load current content outputs from the backend; a failed optional fetch
+      // must never leave the page stuck on its loading state.
+      try {
+        const realOutputs = await projectService.fetchContentOutputs(id);
+        if (realOutputs) setOutputs(realOutputs);
+      } catch {
+        // Outputs stay at their cached/empty state.
+      }
     } else if (p && transcriptReviewRequired(projectClippingFailure(p))) {
       // Reading flagged text does not approve it or bypass the export gate.
       setTranscript(await projectService.fetchTranscript(id));

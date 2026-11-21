@@ -1,7 +1,7 @@
-import {TwitchImportConnection} from './TwitchImportConnection';
+
 import type {CandidateCreationInput} from '../../lib/candidateCreationRecovery';
 import {candidateRankingDisplay} from '../../../server/src/shared/candidateRankingDisplay';
-import { GenerationCaptionPreset } from '../clips/GenerationCaptionPreset';
+import { ClipThumbImage } from '../ClipThumbImage';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BTN_PILL_BRAND, BTN_PILL_PRIMARY } from '../../lib/buttonStyles';
@@ -21,13 +21,11 @@ import {
   X,
   Download,
   Share2,
-  Square,
-  Volume2,
   Loader2,
   RotateCcw,
-  CheckSquare,
   Search,
   Coins,
+  ClipboardPaste,
 } from 'lucide-react';
 import { backendRequest } from '../../services/backendClient';
 import { projectService } from '../../services/projectService';
@@ -43,11 +41,12 @@ import { useAuth } from '../../context/AuthContext';
 import { Project, ClipCandidate, RenderedClip, ClipPreferences } from '../../types';
 import { PublishModal } from '../PublishModal';
 import {
-  ClipPreferencesControl,
   loadSavedClipPreferences,
   saveClipPreferencesToStorage,
+  ASPECT_RATIO_OPTIONS,
 } from '../clips/ClipPreferencesControl';
 import { WhyThisClipSection } from '../clips/WhyThisClipSection';
+import { ConfigureClipsPanel } from './ConfigureClipsPanel';
 
 export type WorkflowState =
   | 'no_source'
@@ -58,7 +57,7 @@ export type WorkflowState =
   | 'error';
 
 export type AspectRatioOption = '9:16' | '1:1' | '16:9';
-export type DurationPref = 'auto' | '15-30' | '30-60' | '60-90';
+export type DurationPref = 'auto' | '0-30' | '15-30' | '30-60' | '60-90' | '60-120' | '120-180';
 export type CaptionLang = 'auto' | 'en' | 'es' | 'fr' | 'de' | 'hi';
 export type ClipCountPref = 'auto' | '3' | '5';
 
@@ -79,20 +78,6 @@ interface HomeClippingWorkflowProps {
   onScrollToProjects?: () => void;
 }
 
-const SAMPLE_VIDEOS = [
-  {
-    label: 'OpenAI DevDay Keynote',
-    icon: Sparkles,
-    url: 'https://www.youtube.com/watch?v=kCc8FmEb1nY',
-    title: 'OpenAI DevDay Opening Keynote',
-  },
-  {
-    label: 'Steve Jobs — Stanford 2005',
-    icon: Film,
-    url: 'https://www.youtube.com/watch?v=UF8uR6Z6KLc',
-    title: 'Steve Jobs — Stanford Commencement Address',
-  },
-];
 
 const STORAGE_KEY = 'vireo_home_active_workflow';
 
@@ -128,6 +113,64 @@ function getYouTubeThumbnail(url: string): string | null {
   return null;
 }
 
+
+// Compact supported-source symbol row (mobile): logos stand in for names; each keeps an accessible label.
+const YouTubeMark = ({ className = 'size-4' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} role="img" aria-label="YouTube">
+    <rect x="1" y="4.5" width="22" height="15" rx="4" fill="#ff0033" />
+    <polygon points="10,8.8 16,12 10,15.2" fill="#fff" />
+  </svg>
+);
+const TwitchMark = ({ className = 'size-4' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} role="img" aria-label="Twitch">
+    <path fill="#a970ff" d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.429l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
+  </svg>
+);
+const VimeoMark = ({ className = 'size-4' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} role="img" aria-label="Vimeo">
+    <rect x="1" y="4.5" width="22" height="15" rx="7.5" fill="#17b3e8" />
+    <polygon points="10,8.8 16,12 10,15.2" fill="#fff" />
+  </svg>
+);
+
+// Official current Kick mark (blocky K, simple-icons geometry) in brand green.
+const KickMark = ({ className = 'size-4' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} role="img" aria-label="Kick">
+    <path d="M1.333 0h8v5.333H12V2.667h2.667V0h8v8H20v2.667h-2.667v2.666H20V16h2.667v8h-8v-2.667H12v-2.666H9.333V24h-8Z" fill="#53FC18" />
+  </svg>
+);
+// Official Google Drive mark geometry (2020), brand strip colors.
+const DriveMark = ({ className = 'size-4' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} role="img" aria-label="Google Drive">
+    <path d="M12.01 1.485c-2.082 0-3.754.02-3.743.047.01.02 1.708 3.001 3.774 6.62l3.76 6.574h3.76c2.081 0 3.753-.02 3.742-.047-.005-.02-1.708-3.001-3.775-6.62l-3.76-6.574z" fill="#4285F4" />
+    <path d="M7.25 3.214a789.828 789.861 0 0 0-3.63 6.319L0 15.868l1.89 3.298 1.885 3.297 3.62-6.335 3.618-6.33-1.88-3.287C8.1 4.704 7.255 3.22 7.25 3.214z" fill="#FBBC04" />
+    <path d="M9.509 15.867l-.203.348c-.114.198-.96 1.672-1.88 3.287a423.93 423.948 0 0 1-1.698 2.97c-.01.026 3.24.042 7.222.042h7.244l1.796-3.157c.992-1.734 1.85-3.23 1.906-3.323l.104-.167h-7.249z" fill="#34A853" />
+  </svg>
+);
+const DropboxMark = ({ className = 'size-4' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} role="img" aria-label="Dropbox">
+    <path d="M6 2.5 1.2 5.6 6 8.7 10.8 5.6z" fill="#0061FF" />
+    <path d="M18 2.5 13.2 5.6 18 8.7 22.8 5.6z" fill="#0061FF" />
+    <path d="M6 15.3 1.2 12.2 6 9.1 10.8 12.2z" fill="#0061FF" />
+    <path d="M18 15.3 13.2 12.2 18 9.1 22.8 12.2z" fill="#0061FF" />
+    <path d="M6.3 16.4l5.7 3.6 5.7-3.6v1.5L12 21.5l-5.7-3.6z" fill="#0061FF" />
+  </svg>
+);
+
+// Mobile hero: small cycling platform icons at the link-icon position (the sources URL import actually supports).
+// Reduced-motion users get a static link icon instead of the animation.
+const PlatformIconCycle = () => (
+  <span className="relative size-5 shrink-0 block" aria-hidden="true">
+    <YouTubeMark className="absolute inset-0 size-5 vireo-hero-logo vireo-hero-logo-1" />
+    <TwitchMark className="absolute inset-0 size-5 vireo-hero-logo vireo-hero-logo-2" />
+    <VimeoMark className="absolute inset-0 size-5 vireo-hero-logo vireo-hero-logo-3" />
+    <KickMark className="absolute inset-0 size-5 vireo-hero-logo vireo-hero-logo-4" />
+    <DriveMark className="absolute inset-0 size-5 vireo-hero-logo vireo-hero-logo-5" />
+    <DropboxMark className="absolute inset-0 size-5 vireo-hero-logo vireo-hero-logo-6" />
+    <Link2 className="absolute inset-0 size-5 text-vc-text-secondary vireo-hero-logo-static" />
+  </span>
+);
+
 export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   existingProjects,
   onRefreshProjects,
@@ -142,6 +185,11 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
   // Source selection state
   const [selectedSource, setSelectedSource] = useState<SelectedSource | null>(null);
+  // Thumbnail URLs can expire or 404: fall back to the Film icon instead of a broken image.
+  const [thumbLoadFailed, setThumbLoadFailed] = useState(false);
+  useEffect(() => {
+    setThumbLoadFailed(false);
+  }, [selectedSource?.thumbnailUrl]);
   const [localVideoPreviewUrl, setLocalVideoPreviewUrl] = useState<string | null>(null);
   const [inputUrl, setInputUrl] = useState('');
   const [urlValidationError, setUrlValidationError] = useState<string | null>(null);
@@ -215,11 +263,46 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   };
   const needsTranscriptReview = transcriptReviewRequired({ code: errorCode });
 
+  // Recovery help must match the actual failure cause, not assume one source.
+  // Upload formats mirror storageService.validateVideoFile; no size promise here.
+  const uploadFallbackHelp = errorCode === 'CLOUD_FILE_LINK_REQUIRED'
+    ? 'This link points to a folder or document, not a video file. Open the video in your cloud drive, share the video file itself, and paste that file link. You can also upload the video file directly (MP4, MOV or WebM) to continue clipping with AI transcription.'
+    : errorCode?.startsWith('YOUTUBE_')
+      ? 'If YouTube restricts automated downloads for this video, you can upload the video file directly (MP4, MOV or WebM) to continue clipping with full AI transcription.'
+      : 'You can upload the video file directly (MP4, MOV or WebM) to continue clipping with AI transcription.';
+
   // Results state
   const [candidates, setCandidates] = useState<ClipCandidate[]>([]);
   const [renderedClips, setRenderedClips] = useState<RenderedClip[]>([]);
   const [selectedClipIds, setSelectedClipIds] = useState<Set<string>>(new Set());
+  // Simplified results design (user-approved 2026-11-20): filter chips + conditional bottom bar
+  const [resultsFilter, setResultsFilter] = useState<'all' | 'potential' | 'short' | 'long'>('all');
+  const renderedClipScore = (clip: { candidate_id?: string | null }): number | null => {
+    const cand = candidates.find((c) => c.id === clip.candidate_id);
+    return cand ? candidateRankingDisplay(cand) : null;
+  };
+  const resultsFilterMatches = (dur: number, score: number | null): boolean => {
+    if (resultsFilter === 'potential') return score !== null && score >= 80;
+    if (resultsFilter === 'short') return dur < 45;
+    if (resultsFilter === 'long') return dur >= 45;
+    return true;
+  };
+  const resultsFilterCounts = {
+    all: candidates.length + renderedClips.length,
+    potential:
+      candidates.filter((c) => { const s = candidateRankingDisplay(c); return s !== null && s >= 80; }).length +
+      renderedClips.filter((cl) => { const s = renderedClipScore(cl); return s !== null && s >= 80; }).length,
+    short: candidates.filter((c) => c.duration_seconds < 45).length + renderedClips.filter((cl) => cl.duration_seconds < 45).length,
+    long: candidates.filter((c) => c.duration_seconds >= 45).length + renderedClips.filter((cl) => cl.duration_seconds >= 45).length,
+  };
+  const filteredRenderedClips = renderedClips.filter((cl) => resultsFilterMatches(cl.duration_seconds, renderedClipScore(cl)));
+  const filteredCandidates = candidates.filter((c) => resultsFilterMatches(c.duration_seconds, candidateRankingDisplay(c)));
+  const firstSelectedId = selectedClipIds.size > 0 ? Array.from(selectedClipIds)[0] : null;
+  const selectedTotalSeconds = [...candidates, ...renderedClips]
+    .filter((x) => selectedClipIds.has(x.id))
+    .reduce((a, x) => a + (x.duration_seconds || 0), 0);
   const [activePreviewClipId, setActivePreviewClipId] = useState<string | null>(null);
+  const [previewUnavailable, setPreviewUnavailable] = useState(false);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [sourceVideoStreamingUrl, setSourceVideoStreamingUrl] = useState<string | null>(null);
   const [clipSignedPreviewUrls, setClipSignedPreviewUrls] = useState<Record<string, string>>({});
@@ -281,6 +364,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     setIsSubmitting(false);
   };
   const videoPlayerRef = useRef<HTMLVideoElement | null>(null);
+  const pendingPreviewStartRef = useRef<number | null>(null);
   const offscreenVideoRef = useRef<HTMLVideoElement | null>(null);
   const exportRequestRef = useRef<AbortController | null>(null);
   const [creationRecoveryTarget,setCreationRecoveryTarget]=useState<{projectId:string;input:CandidateCreationInput}|null>(null);
@@ -443,7 +527,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         if (status === 'queued') {
           setProcessingStageMessage('Job queued in processing pipeline...');
         } else if (status === 'processing' || status === 'transcribing') {
-          setProcessingStageMessage('Transcribing video speech with Whisper AI...');
+          setProcessingStageMessage('Transcribing the video speech...');
         } else if (status === 'analyzing') {
           setProcessingStageMessage('Analyzing transcript and ranking viral hooks...');
         } else if (status === 'generating') {
@@ -645,15 +729,13 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     setWorkflowState('source_selected');
   };
 
-  const handleUrlSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const selectUrlSource = (trimmed: string): boolean => {
     setUrlValidationError(null);
     setErrorMessage(null);
 
-    const trimmed = inputUrl.trim();
     if (!trimmed) {
       setUrlValidationError('Please paste a supported video URL.');
-      return;
+      return false;
     }
 
     let parsedUrl: URL;
@@ -664,7 +746,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       }
     } catch {
       setUrlValidationError('Please enter a valid HTTP or HTTPS video URL.');
-      return;
+      return false;
     }
 
     resultReadSequenceRef.current++;
@@ -688,25 +770,41 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       thumbnailUrl: ytThumb,
     });
     setWorkflowState('source_selected');
+    return true;
   };
 
-  const handlePickSample = (sample: (typeof SAMPLE_VIDEOS)[0]) => {
-    cancelGeneration();
-    resultReadSequenceRef.current++;
-    workflowSessionRef.current++;
-    setActiveProjectId(null);
-    setInputUrl(sample.url);
-    setUrlValidationError(null);
-    setErrorMessage(null);
-    const ytThumb = getYouTubeThumbnail(sample.url);
-    setSelectedSource({
-      type: 'url',
-      url: sample.url,
-      title: sample.title,
-      thumbnailUrl: ytThumb || undefined,
-    });
-    setWorkflowState('source_selected');
+  const handleUrlSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    selectUrlSource(inputUrl.trim());
   };
+
+  // Static tools-pages handoff: /dashboard?url=<video-url>&tool=<captions|reframe|gaming-clips>.
+  // Opens the same Configure state as pressing Continue with URL. The link is kept in
+  // memory only (no storage/history writes), no processing starts and Generate stays manual.
+  // tool only preselects matching Configure settings for this session; it does not open a
+  // separate tool experience.
+  const toolHandoffRef = useRef(false);
+  useEffect(() => {
+    if (toolHandoffRef.current) return;
+    const incoming = (searchParams.get('url') || '').trim();
+    if (!incoming) return;
+    if (searchParams.get('project') || searchParams.get('view')) return;
+    toolHandoffRef.current = true;
+    if (!selectUrlSource(incoming)) return;
+    setInputUrl(incoming);
+    const tool = searchParams.get('tool');
+    if (tool === 'gaming-clips') {
+      setClipPreferences((prefs) => ({ ...prefs, genre: 'gaming', genreSelectionMode: 'manual' }));
+    } else if (tool === 'captions') {
+      setCaptionsEnabled(true);
+    } else if (tool === 'reframe') {
+      setClipPreferences((prefs) => ({
+        ...prefs,
+        framingDefaults: { version: 1, layout: 'auto', autoReframe: true },
+      }));
+    }
+  }, [searchParams]);
+
 
   const handleSelectExistingProject = (proj: Project) => {
     cancelGeneration();
@@ -950,26 +1048,66 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
   const handlePlayClipPreview = async (clipId: string, startSeconds: number) => {
     setActivePreviewClipId(clipId);
+    setPreviewUnavailable(false);
 
     // If rendered clip with ready status, fetch its signed preview URL
     const rendered = renderedClips.find((c) => c.id === clipId);
+    let hasClipUrl = Boolean(clipSignedPreviewUrls[clipId]);
+    let freshClipUrl: string | undefined;
     if (rendered && rendered.render_status === 'ready' && !clipSignedPreviewUrls[clipId]) {
       try {
         const url = await clipRenderService.getPreviewUrl(clipId);
         setClipSignedPreviewUrls((prev) => ({ ...prev, [clipId]: url }));
+        freshClipUrl = url;
+        hasClipUrl = true;
       } catch {
         // Fall back to source video seeking
       }
     }
-
-    if (videoPlayerRef.current) {
-      videoPlayerRef.current.currentTime = startSeconds;
-      videoPlayerRef.current.play().then(() => {
-        setIsPlayingPreview(true);
-      }).catch(() => {
-        setIsPlayingPreview(false);
-      });
+    if (!hasClipUrl && !sourceVideoStreamingUrl && !localVideoPreviewUrl) {
+      setPreviewUnavailable(true);
+      return;
     }
+
+    // A rendered clip file starts at 0. The full source needs the clip's source time.
+    const clipUrl = clipSignedPreviewUrls[clipId] || (hasClipUrl ? freshClipUrl : undefined);
+    const targetSrc = clipUrl || sourceVideoStreamingUrl || localVideoPreviewUrl || '';
+    const targetStart = clipUrl ? 0 : startSeconds;
+    const video = videoPlayerRef.current;
+    if (video && video.getAttribute('src') === targetSrc && video.readyState >= 1) {
+      pendingPreviewStartRef.current = null;
+      video.currentTime = targetStart;
+      video.play().then(() => setIsPlayingPreview(true)).catch(() => setIsPlayingPreview(false));
+    } else {
+      // The source is about to change, which resets the element. Start once it has loaded.
+      pendingPreviewStartRef.current = targetStart;
+    }
+  };
+
+  const handlePreviewLoadedMetadata = () => {
+    const video = videoPlayerRef.current;
+    const start = pendingPreviewStartRef.current;
+    if (!video || start === null) return;
+    pendingPreviewStartRef.current = null;
+    video.currentTime = start;
+    video.play().then(() => setIsPlayingPreview(true)).catch(() => setIsPlayingPreview(false));
+  };
+
+  const handlePreviewError = () => {
+    // The rendered clip file failed to load: fall back to the source at the clip's start time.
+    const id = activePreviewClipId;
+    if (!id || !clipSignedPreviewUrls[id]) {
+      if (activePreviewClipId) setPreviewUnavailable(true);
+      return;
+    }
+    const clipStart = renderedClips.find((c) => c.id === id)?.start_seconds ?? candidates.find((c) => c.id === id)?.start_seconds ?? 0;
+    setClipSignedPreviewUrls((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    if (sourceVideoStreamingUrl || localVideoPreviewUrl) pendingPreviewStartRef.current = clipStart;
+    else setPreviewUnavailable(true);
   };
 
   const handleTogglePlayPause = () => {
@@ -1141,7 +1279,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       {workflowState === 'no_source' && (
         <section
           aria-label="Create clips"
-          className="vireo-dash-glass p-6 sm:p-8 lg:p-10 xl:p-12 2xl:py-14 text-center rounded-[28px] shadow-[0_24px_70px_rgba(0,0,0,0.6)] relative transition-all duration-300 flex flex-col justify-between lg:min-h-[clamp(520px,calc(100vh-170px),740px)]"
+          className="p-4 sm:p-8 lg:p-10 xl:p-12 2xl:py-14 text-center relative transition-all duration-300 flex flex-col justify-between lg:min-h-[clamp(520px,calc(100vh-170px),740px)]"
           onDragOver={(e) => {
             e.preventDefault();
             setIsDragOver(true);
@@ -1155,8 +1293,8 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           }}
         >
           {/* Main Hero Header */}
-          <div className="relative z-10 max-w-2xl mx-auto flex-1 flex flex-col justify-center">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/[0.04] text-violet-300 text-xs font-semibold tracking-wide self-center">
+          <div className="relative z-10 max-w-2xl mx-auto flex-1 flex flex-col justify-center min-w-0">
+            <div className="hidden sm:inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/[0.04] text-violet-300 text-xs font-semibold tracking-wide self-center">
               <span className="size-1.5 rounded-full bg-white animate-pulse" />
               <span>AI video clipping journey</span>
             </div>
@@ -1183,19 +1321,35 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             {/* URL Ingestion Input Form Bar */}
             <form
               onSubmit={handleUrlSubmit}
-              className={`mt-5 sm:mt-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-1.5 sm:p-2.5 rounded-2xl sm:rounded-full bg-vc-canvas/80 border shadow-[0_20px_50px_rgba(0,0,0,0.4)] focus-within:ring-4 focus-within:ring-violet-500/20 transition-all text-left ${
+              className={`mt-4 sm:mt-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-1.5 sm:p-2.5 min-w-0 max-w-full rounded-2xl sm:rounded-full bg-vc-canvas/80 border shadow-[0_20px_50px_rgba(0,0,0,0.4)] focus-within:ring-4 focus-within:ring-violet-500/20 transition-all text-left ${
                 isDragOver ? 'border-white/60 ring-4 ring-white/15' : 'border-white/[0.14] focus-within:border-violet-500/80'
               }`}
             >
-              <div className="flex items-center gap-2.5 flex-1 min-w-0 px-2 sm:px-3 py-2 sm:py-0">
-                <Link2 className="size-5 text-vc-text-secondary shrink-0" />
+              <div className="relative flex items-center gap-2.5 flex-1 min-w-0 max-w-full px-2 sm:px-3 py-2 sm:py-0">
+                <PlatformIconCycle />
+                <button
+                  type="button"
+                  aria-label="Paste URL from clipboard"
+                  onClick={async () => {
+                    try {
+                      const t = await navigator.clipboard.readText();
+                      if (t) setInputUrl(t.trim());
+                    } catch {
+                      /* clipboard unavailable; user can paste manually */
+                    }
+                  }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-b from-white/[0.14] to-white/[0.06] border border-white/[0.16] shadow-[0_2px_10px_rgba(0,0,0,0.35)] text-[11px] font-semibold text-zinc-100 hover:from-white/[0.2] hover:to-white/[0.1] hover:border-violet-400/40 active:scale-[0.97] transition-all cursor-pointer"
+                >
+                  <ClipboardPaste className="size-3.5 text-violet-300" />
+                  <span>Paste</span>
+                </button>
                 <input
                   type="url"
                   value={inputUrl}
                   onChange={(e) => setInputUrl(e.target.value)}
                   placeholder="YouTube, your Twitch clip, or a direct video file URL"
                   aria-label="Video URL"
-                  className="flex-1 min-w-0 min-h-[40px] sm:min-h-[28px] bg-transparent border-0 outline-none text-base sm:text-[15px] text-vc-text-primary placeholder:text-vc-text-secondary"
+                  className="flex-1 min-w-0 w-0 min-h-[40px] sm:min-h-[28px] bg-transparent border-0 outline-none pr-16 sm:pr-20 text-base sm:text-[15px] text-vc-text-primary placeholder:text-vc-text-secondary placeholder:truncate"
                 />
               </div>
               <button
@@ -1206,9 +1360,9 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               </button>
             </form>
 
-            <TwitchImportConnection userId={user?.id}/>
+            {/* Twitch import lives as a secondary entry below Recent Projects (see DashboardPage) so the hero stays clean on every viewport. */}
             {/* Source Action Buttons Row */}
-            <div className="mt-4 sm:mt-5 flex flex-wrap items-center justify-center gap-3">
+            <div className="mt-3 sm:mt-5 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -1218,71 +1372,22 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                 <span>Upload Video (MP4, MOV, WebM)</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setIsBrowseModalOpen(true)}
-                className="inline-flex items-center gap-2 h-10 sm:h-11 px-5 sm:px-6 rounded-full bg-white/[0.06] border border-white/[0.14] hover:bg-white/[0.12] hover:border-white/[0.22] text-xs sm:text-[13px] font-semibold text-zinc-100 shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-              >
-                <FolderOpen className="size-4 text-zinc-200" />
-                <span>Browse Projects ({existingProjects.length})</span>
-              </button>
+
             </div>
 
-            {/* Sample Video Quick Try Options */}
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-              <span className="text-[11px] font-medium text-vc-text-muted flex items-center gap-1">
-                <Sparkles className="size-3 text-violet-400" />
-                <span>Try sample video:</span>
-              </span>
-              {SAMPLE_VIDEOS.map((s) => (
-                <button
-                  key={s.url}
-                  type="button"
-                  onClick={() => handlePickSample(s)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] hover:bg-violet-500/15 border border-white/[0.08] hover:border-violet-500/30 text-[11px] font-medium text-zinc-300 hover:text-white transition-all cursor-pointer"
-                  title={s.title}
-                >
-                  <s.icon className="size-3 text-violet-400" />
-                  <span>{s.label}</span>
-                </button>
-              ))}
-            </div>
 
             {/* Supported Formats & Guidelines */}
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-[11px] text-vc-text-muted">
-              <span>Supports YouTube, Vimeo &amp; direct video links</span>
-              <span className="text-zinc-600">•</span>
-              <span>MP4, MOV, WebM up to 2 GB</span>
-              <span className="text-zinc-600">•</span>
-              <span>Up to 120 minutes</span>
+            {/* Compact supported-source symbols (names removed per user direction). */}
+            <div className="mt-2.5 flex items-center justify-center gap-3.5" role="list" aria-label="Supported sources: YouTube, Twitch, Vimeo, Kick clips, public Google Drive or Dropbox file links, or a direct video link">
+              <span role="listitem" title="YouTube"><YouTubeMark /></span>
+              <span role="listitem" title="Twitch"><TwitchMark /></span>
+              <span role="listitem" title="Vimeo"><VimeoMark /></span>
+              <span role="listitem" title="Kick (completed public clips)"><KickMark /></span>
+              <span role="listitem" title="Google Drive (public file link)"><DriveMark /></span>
+              <span role="listitem" title="Dropbox (public file link)"><DropboxMark /></span>
+              <span role="listitem" title="Direct video link"><Link2 className="size-4 text-zinc-300" aria-label="Direct video link" /></span>
             </div>
 
-            {/* Drag & Drop Indicator */}
-            <p className="mt-2 text-[11.5px] text-vc-text-secondary">
-              Drag and drop any video file directly onto this panel
-            </p>
-
-            {/* How It Works 4-Step List */}
-            <ol
-              aria-label="How it works"
-              className="mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-white/[0.08] grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-left list-none p-0"
-            >
-              {[
-                { step: '01', title: 'Add Video', desc: 'File or streaming URL' },
-                { step: '02', title: 'Configure', desc: 'Aspect ratio & preferences' },
-                { step: '03', title: 'AI Clipping', desc: 'Speech & hook extraction' },
-                { step: '04', title: 'Edit & Export', desc: 'Timeline & multi-platform' },
-              ].map((item) => (
-                <li
-                  key={item.step}
-                  className="p-3 sm:p-3.5 rounded-xl bg-white/[0.025] transition-colors "
-                >
-                  <div className="font-mono text-[10px] font-bold text-violet-400">{item.step}</div>
-                  <div className="mt-1 font-semibold text-xs text-zinc-100">{item.title}</div>
-                  <div className="mt-0.5 text-[11px] text-vc-text-secondary leading-tight">{item.desc}</div>
-                </li>
-              ))}
-            </ol>
           </div>
         </section>
       )}
@@ -1304,8 +1409,9 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               <div>
                 <span className="text-[10px] font-semibold tracking-wider text-violet-400 uppercase">Step 2 of 4</span>
                 <h2 className="text-xl sm:text-2xl font-bold text-vc-text-primary font-['Sora',sans-serif]">
-                  Configure Video Clipping
+                  Configure your clips
                 </h2>
+                <p className="text-xs text-vc-text-secondary">Choose how Vireo finds your best moments.</p>
               </div>
             </div>
 
@@ -1319,11 +1425,11 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             </button>
           </div>
 
-          {/* Selected Source Overview Card */}
-          <div className="p-2 rounded-2xl bg-vc-canvas/80 flex flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-4 min-w-0">
+          {/* Selected Source Overview Card — prominent thumbnail on mobile, compact row on desktop */}
+          <div className="p-2 rounded-2xl bg-vc-canvas/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 min-w-0 w-full">
               {/* Thumbnail or Video Preview Frame */}
-              <div className="relative size-12 sm:size-12 rounded-xl overflow-hidden bg-black/60 border border-white/15 shrink-0 flex items-center justify-center">
+              <div className="relative w-full aspect-video sm:w-44 sm:h-auto sm:aspect-video rounded-xl overflow-hidden bg-black/60 border border-white/15 shrink-0 flex items-center justify-center">
                 {localVideoPreviewUrl ? (
                   <video
                     src={localVideoPreviewUrl}
@@ -1331,11 +1437,12 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                     muted
                     playsInline
                   />
-                ) : selectedSource.thumbnailUrl ? (
+                ) : selectedSource.thumbnailUrl && !thumbLoadFailed ? (
                   <img
                     src={selectedSource.thumbnailUrl}
                     alt={selectedSource.title}
                     className="w-full h-full object-cover"
+                    onError={() => setThumbLoadFailed(true)}
                   />
                 ) : (
                   <Film className="size-8 text-violet-500" />
@@ -1376,78 +1483,15 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             </div>
           </div>
 
-          {/* Genre, Goal, Duration, Aspect Ratio & Focus Instructions */}
-          <ClipPreferencesControl
+          <ConfigureClipsPanel
             preferences={clipPreferences}
             onChange={handlePreferencesChange}
             disabled={isSubmitting}
-            compact
+            captionsEnabled={captionsEnabled}
+            onCaptionsEnabledChange={setCaptionsEnabled}
+            clipCount={clipCount}
+            onClipCountChange={handleClipCountChange}
           />
-
-          <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6 items-start border-t border-white/10 pt-3">
-          <GenerationCaptionPreset value={clipPreferences.captionStyle} disabled={isSubmitting || !captionsEnabled}
-            onChange={captionStyle => handlePreferencesChange({...clipPreferences,captionStyle})} />
-
-          {/* Setting: Smart Captions & Target Count */}
-          <div className="grid grid-cols-1 gap-3">
-            {/* Smart Captions Toggle */}
-            <div className="py-2 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="size-6 flex items-center justify-center text-violet-300">
-                  <Volume2 className="size-4" />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-vc-text-primary">Generate Smart Captions</div>
-                  <div className="text-[11px] text-vc-text-secondary">Captions from the transcript; review timing</div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setCaptionsEnabled(!captionsEnabled)}
-                role="switch" aria-checked={captionsEnabled} aria-label="Generate captions"
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
-                  captionsEnabled ? 'bg-violet-500' : 'bg-white/20'
-                }`}
-              >
-                <span
-                  className={`inline-block size-4 transform rounded-full bg-white transition-transform ${
-                    captionsEnabled ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Target Clip Count */}
-            <div className="py-2 flex items-center justify-between gap-2">
-              <div>
-                <div className="text-xs font-semibold text-vc-text-primary">Target Clip Count</div>
-                <div className="text-[11px] text-vc-text-secondary">Max suggested moments</div>
-              </div>
-              <div className="flex gap-1.5">
-                {[
-                  { id: 'auto', label: 'Auto' },
-                  { id: '3', label: 'Top 3' },
-                  { id: '5', label: 'Top 5' },
-                ].map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => handleClipCountChange(c.id as ClipCountPref)}
-                    className={`px-2.5 py-1 rounded-lg border text-xs font-medium cursor-pointer transition-all ${
-                      clipCount === c.id
-                        ? 'bg-violet-500/20 border-violet-500 text-white'
-                        : 'bg-vc-canvas border-white/10 text-vc-text-secondary'
-                    }`}
-                  >
-                    {c.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          </div>
 
           {/* Credit Pre-Flight Cost Transparency */}
           {(creditEstimate || isCreditEstimateLoading) && (
@@ -1468,11 +1512,16 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             <button type="button" className="rounded-full border border-amber-200/30 px-3 py-1.5" onClick={()=>setEstimateRetry(n=>n+1)}>Refresh estimate</button>
           </div>}
           {/* Primary Action Button: Generate Clips */}
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-vc-text-secondary">
+          <div className="cfg-actions pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="cfg-ready-text text-xs text-vc-text-secondary">
               Ready to process. We will transcribe the audio and suggest clips in {aspectRatio}. Review framing and context before exporting.
             </p>
 
+            {creditEstimate?.estimated_credits != null && (
+              <span className="cfg-cost text-[11px] font-mono text-vc-text-secondary whitespace-nowrap">
+                Est. {creditEstimate.estimated_credits} credits
+              </span>
+            )}
             <button
               type="button"
               onClick={handleGenerateClips}
@@ -1488,6 +1537,11 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                 <>
                   <Sparkles className="size-4 text-zinc-200" />
                   <span>Generate Clips</span>
+                  {creditEstimate?.estimated_credits != null && (
+                    <span className="cfg-btn-cost text-[11px] font-mono font-medium text-white/75">
+                      · {creditEstimate.estimated_credits} credits
+                    </span>
+                  )}
                 </>
               )}
             </button>
@@ -1501,35 +1555,73 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       {workflowState === 'processing' && (
         <section
           aria-label="Processing job"
-          className="vireo-dash-glass p-8 sm:p-10 rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.55)] relative text-center space-y-6"
+          className="relative space-y-5 text-center"
         >
-          {/* Animated Ambient Pulsing Spinner */}
-          <div className="relative mx-auto size-20 flex items-center justify-center">
-            <div className="size-16 rounded-full border-2 border-white/10 border-t-violet-500 border-r-white/60 animate-spin flex items-center justify-center">
-              <Film className="size-6 text-violet-400" />
-            </div>
+          {/* Large source thumbnail hero (approved design: prominent video, flat background) */}
+          <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black/60 border border-white/15 flex items-center justify-center">
+            {localVideoPreviewUrl ? (
+              <video
+                src={localVideoPreviewUrl}
+                className="w-full h-full object-cover"
+                muted
+                playsInline
+              />
+            ) : selectedSource?.thumbnailUrl && !thumbLoadFailed ? (
+              <img
+                src={selectedSource.thumbnailUrl}
+                alt={selectedSource.title || 'Processing video'}
+                className="w-full h-full object-cover"
+                onError={() => setThumbLoadFailed(true)}
+              />
+            ) : (
+              <Film className="size-10 text-violet-500" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+            {selectedSource?.duration ? (
+              <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/80 font-mono text-[10px] text-white">
+                {formatDuration(selectedSource.duration)}
+              </span>
+            ) : null}
           </div>
 
           <div className="max-w-md mx-auto space-y-2">
-            <span className="px-3 py-1 rounded-full bg-violet-500/20 text-violet-200 text-xs font-semibold tracking-wide uppercase">
-              Stage: {activeProjectStatus}
-            </span>
-
-            <h2 className="text-2xl font-bold text-vc-text-primary font-['Sora',sans-serif]">
+            <h2 className="text-xl sm:text-2xl font-bold text-vc-text-primary font-['Sora',sans-serif] truncate">
               {selectedSource?.title || 'Processing Video'}
             </h2>
-
-            <p className="text-sm text-vc-text-secondary">
-              {processingStageMessage || 'Analyzing video frames and speech transcript with AI...'}
+            <p className="text-[11px] text-vc-text-secondary">
+              {[
+                ASPECT_RATIO_OPTIONS.find((a) => a.id === clipPreferences.aspectRatio)?.label || '9:16 Vertical',
+                captionsEnabled ? 'Captions on' : 'Captions off',
+                clipCount === 'auto' ? 'Auto clips' : `Top ${clipCount} clips`,
+              ].join(' \u00b7 ')}
             </p>
+          </div>
 
-            {/* Credit reservation note */}
-            <div className="flex items-center justify-center gap-2 text-xs text-zinc-400 pt-2">
-              <Coins className="size-3.5 text-violet-400" />
-              <span>
-                {creditEstimate?.estimated_credits ? `${creditEstimate.estimated_credits} credits reserved` : 'Credits reserved'}. Settle on completion (100% refunded on error).
-              </span>
+          {/* Compact progress ring + current stage */}
+          <div className="flex items-center justify-center gap-3">
+            <div className="size-12 rounded-full border-2 border-white/10 border-t-violet-500 animate-spin flex items-center justify-center shrink-0">
+              <Film className="size-4 text-violet-400" />
             </div>
+            <div className="text-left min-w-0">
+              <span className="inline-block px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-200 text-[10px] font-semibold tracking-wide uppercase">
+                {activeProjectStatus === 'uploading' ? 'Ingest'
+                  : ['transcribing', 'processing', 'queued'].includes(activeProjectStatus) ? 'Transcription'
+                  : activeProjectStatus === 'analyzing' ? 'Analysis'
+                  : ['generating', 'completed', 'transcribed'].includes(activeProjectStatus) ? 'Framing'
+                  : 'Processing'}
+              </span>
+              <p className="mt-1 text-xs text-vc-text-secondary">
+                {processingStageMessage || 'Analyzing video frames and speech transcript with AI...'}
+              </p>
+            </div>
+          </div>
+
+          {/* Credit reservation note */}
+          <div className="flex items-center justify-center gap-2 text-xs text-zinc-400">
+            <Coins className="size-3.5 text-violet-400" />
+            <span>
+              {creditEstimate?.estimated_credits ? `${creditEstimate.estimated_credits} credits reserved` : 'Credits reserved'}. Charged only on success, released back if processing fails.
+            </span>
           </div>
 
           {/* Byte Upload Progress Bar (Only shown during actual file upload) */}
@@ -1548,31 +1640,37 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             </div>
           )}
 
-          {/* Real Backend Pipeline Stage Indicators */}
-          <div className="max-w-lg mx-auto pt-4 border-t border-white/[0.08] grid grid-cols-4 gap-2 text-left">
-            {[
-              { id: 'upload', label: '1. Ingest', done: activeProjectStatus !== 'uploading' },
-              { id: 'transcribe', label: '2. Whisper', done: ['transcribing', 'analyzing', 'generating', 'completed', 'transcribed'].includes(activeProjectStatus) },
-              { id: 'analyze', label: '3. Hook AI', done: ['analyzing', 'generating', 'completed', 'transcribed'].includes(activeProjectStatus) },
-              { id: 'render', label: '4. Framing', done: ['generating', 'completed'].includes(activeProjectStatus) },
-            ].map((st) => (
-              <div key={st.id} className="p-2 rounded-lg bg-white/[0.02] ">
-                <div className="text-[10px] font-mono text-vc-text-secondary">{st.label}</div>
-                <div className="flex items-center gap-1 mt-1">
-                  {st.done ? (
-                    <span className="size-2 rounded-full bg-white" />
+          {/* Slim pipeline step list; active step derived from the live status so it never contradicts the message */}
+          <div className="max-w-lg mx-auto pt-3 border-t border-white/[0.08] flex items-center justify-center gap-4 sm:gap-6 text-left">
+            {(() => {
+              const stageIndex = activeProjectStatus === 'uploading' ? 0
+                : ['transcribing', 'processing', 'queued'].includes(activeProjectStatus) ? 1
+                : activeProjectStatus === 'analyzing' ? 2
+                : ['generating', 'completed', 'transcribed'].includes(activeProjectStatus) ? 3
+                : 1;
+              return [
+                { id: 'upload', label: 'Ingest' },
+                { id: 'transcribe', label: 'Transcription' },
+                { id: 'analyze', label: 'Analysis' },
+                { id: 'render', label: 'Framing' },
+              ].map((st, i) => (
+                <div key={st.id} className="flex items-center gap-1.5">
+                  {i < stageIndex ? (
+                    <Check className="size-3 text-violet-400" />
+                  ) : i === stageIndex ? (
+                    <span className="size-1.5 rounded-full bg-violet-400 animate-pulse" />
                   ) : (
-                    <span className="size-2 rounded-full bg-white/20 animate-pulse" />
+                    <span className="size-1.5 rounded-full bg-white/25" />
                   )}
-                  <span className="text-[11px] text-zinc-100">
-                    {st.done ? 'Active' : 'Pending'}
+                  <span className={`text-[11px] ${i <= stageIndex ? 'text-zinc-100' : 'text-vc-text-secondary'}`}>
+                    {st.label}
                   </span>
                 </div>
-              </div>
-            ))}
+              ));
+            })()}
           </div>
 
-          <div className="pt-2">
+          <div className="pt-1">
             <button
               type="button"
               onClick={handleReplaceSource}
@@ -1590,93 +1688,27 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       {workflowState === 'clips_ready' && (
         <section
           aria-label="Generated clips review"
-          className="vireo-dash-glass p-6 sm:p-8 rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.55)] relative space-y-6"
+          className="relative space-y-5"
         >
-          {/* Top navigation row: Back to Home button */}
-          <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
-            <button
-              type="button"
-              onClick={handleBackToHome}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-xs font-semibold text-zinc-200 hover:text-white transition-all cursor-pointer shadow-sm group"
-            >
-              <ArrowLeft className="size-3.5 text-zinc-400 group-hover:text-white group-hover:-translate-x-0.5 transition-all" />
-              <span>Back to Home</span>
-            </button>
-            {activeProjectId && (
-              <span className="text-[11px] font-mono text-vc-text-muted">
-                Project ID: {activeProjectId.slice(0, 8)}
-              </span>
-            )}
-          </div>
-
-          {/* Header & Source Association */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-white/[0.08]">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-white/[0.08] text-zinc-200 text-[10px] font-bold uppercase tracking-wider">
-                  Success
-                </span>
-                <span className="text-xs text-vc-text-secondary">
-                  {candidates.length + renderedClips.length} Viral Clips Extracted
-                </span>
-              </div>
-              <div className="flex items-center gap-2.5 mt-1">
-                <button
-                  type="button"
-                  onClick={handleBackToHome}
-                  title="Back to Home"
-                  className="sm:hidden p-1.5 rounded-full bg-white/[0.06] hover:bg-white/10 text-zinc-300 hover:text-white cursor-pointer"
-                >
-                  <ArrowLeft className="size-4" />
-                </button>
-                <h2 className="text-xl sm:text-2xl font-bold text-vc-text-primary font-['Sora',sans-serif]">
-                  Review Generated Clips
-                </h2>
-              </div>
-              <p className="text-xs text-vc-text-secondary mt-0.5">
-                Source: <span className="text-violet-200 font-medium">{selectedSource?.title}</span>
+          {/* Compact results header (approved simplified design) */}
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-white/[0.08]">
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-bold text-vc-text-primary font-['Sora',sans-serif] truncate">
+                Your clips
+              </h2>
+              <p className="text-[11px] text-vc-text-secondary mt-0.5 leading-snug">
+                {candidates.length + renderedClips.length} clips · <span className="text-violet-200 font-medium">{selectedSource?.title}</span>
               </p>
             </div>
-
-            {/* Header Action Buttons */}
-            <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleBackToHome}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-violet-600/20 border border-violet-500/30 hover:bg-violet-600/30 text-xs font-semibold text-violet-200 transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-xs font-semibold text-zinc-200 hover:text-white transition-all cursor-pointer"
               >
-                <ArrowLeft className="size-3.5 text-violet-300" />
-                <span>Back to Home</span>
+                <ArrowLeft className="size-3.5 text-zinc-400" />
+                <span>Back</span>
               </button>
-              <button
-                type="button"
-                onClick={handleSelectAllClips}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/10 hover:bg-white/10 text-xs text-zinc-100 transition-all cursor-pointer"
-              >
-                {selectedClipIds.size === candidates.length + renderedClips.length ? (
-                  <>
-                    <CheckSquare className="size-3.5 text-zinc-200" />
-                    <span>Deselect All</span>
-                  </>
-                ) : (
-                  <>
-                    <Square className="size-3.5 text-vc-text-secondary" />
-                    <span>Select All</span>
-                  </>
-                )}
-              </button>
-
-              {selectedClipIds.size > 0 && (
-                <button
-                  type="button"
-                  onClick={handleBatchExport}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold cursor-pointer ${BTN_PILL_PRIMARY}`}
-                >
-                  <Download className="size-3.5" />
-                  <span>Export ({selectedClipIds.size})</span>
-                </button>
-              )}
-
               <button
                 type="button"
                 onClick={handleReplaceSource}
@@ -1688,22 +1720,26 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             </div>
           </div>
 
-          {/* Post-Processing Settlement Transparency Notice */}
-          <div className="p-3.5 rounded-xl bg-violet-950/40 border border-violet-500/25 flex items-center justify-between gap-3 text-xs text-violet-200">
-            <div className="flex items-center gap-2">
-              <Check className="size-4 text-emerald-400 shrink-0" />
-              <span>
-                <strong>Processing Settled:</strong> Credits for this video were measured and settled atomically. Available balance has been updated in your wallet.
+          {/* Credits settlement: small accessible disclosure instead of a large block */}
+          <details className="text-[11px] text-violet-200/90 bg-violet-950/30 border border-violet-500/20 rounded-xl px-3 py-2">
+            <summary className="cursor-pointer select-none font-semibold flex items-center gap-1.5 list-none">
+              <Check className="size-3.5 text-emerald-400 shrink-0" />
+              <span>Credits settled for this video</span>
+              <span className="text-violet-300/70 font-normal">· details</span>
+            </summary>
+            <div className="pt-1.5 pl-5 flex items-center justify-between gap-3">
+              <span className="text-violet-200/80">
+                Credits were measured and settled atomically. Available balance has been updated in your wallet.
               </span>
+              <button
+                type="button"
+                onClick={() => navigate('/billing')}
+                className="text-violet-300 hover:text-white underline font-semibold whitespace-nowrap cursor-pointer"
+              >
+                View Ledger &rarr;
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => navigate('/billing')}
-              className="text-violet-300 hover:text-white underline font-semibold text-[11px] whitespace-nowrap cursor-pointer"
-            >
-              View Ledger &rarr;
-            </button>
-          </div>
+          </details>
 
           {/* Export Status Toast Banner */}
           {exportStatusMessage && (
@@ -1722,8 +1758,14 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             </div>
           )}
 
+          {previewUnavailable && (
+            <div role="alert" className="rounded-xl border border-amber-400/30 px-4 py-3 text-xs text-amber-100">
+              Preview isn't available for this clip. You can still open it in the editor.
+            </div>
+          )}
+
           {/* Active Preview Player Section (Seeked to selected clip timestamp) */}
-          {(sourceVideoStreamingUrl || localVideoPreviewUrl) && (
+          {(sourceVideoStreamingUrl || localVideoPreviewUrl || (activePreviewClipId && clipSignedPreviewUrls[activePreviewClipId])) && (
             <div className="p-4 rounded-2xl bg-vc-canvas/80 flex flex-col md:flex-row items-center gap-6">
               <div className="relative w-full md:w-72 aspect-[9/16] rounded-xl overflow-hidden bg-black/90 border border-white/15 shadow-xl shrink-0 flex items-center justify-center">
                 <video
@@ -1738,6 +1780,8 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                   playsInline
                   onPlay={() => setIsPlayingPreview(true)}
                   onPause={() => setIsPlayingPreview(false)}
+                  onLoadedMetadata={handlePreviewLoadedMetadata}
+                  onError={handlePreviewError}
                 />
 
                 {/* Video Play/Pause Overlay Control */}
@@ -1781,7 +1825,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                 <h3 className="text-lg font-bold text-vc-text-primary">
                   {renderedClips.find((c) => c.id === activePreviewClipId)?.title ||
                     candidates.find((c) => c.id === activePreviewClipId)?.title ||
-                    'Select a clip below to preview'}
+                    (activePreviewClipId ? 'Untitled clip' : 'Select a clip below to preview')}
                 </h3>
 
                 <p className="text-xs text-vc-text-secondary leading-relaxed line-clamp-3">
@@ -1825,41 +1869,138 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             </div>
           )}
 
-          {/* Generated Clips Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Filter chips (approved simplified results design) */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 -mx-1 px-1">
+            {([
+              ['all', 'All'],
+              ['potential', 'High potential'],
+              ['short', 'Short'],
+              ['long', 'Long'],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setResultsFilter(key)}
+                className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                  resultsFilter === key
+                    ? 'bg-violet-600 border-transparent text-white shadow-lg shadow-violet-900/40'
+                    : 'bg-white/[0.04] border-white/[0.12] text-zinc-300 hover:border-violet-500/40 hover:text-white'
+                }`}
+              >
+                {label} ({resultsFilterCounts[key]})
+              </button>
+            ))}
+          </div>
+
+          {/* Select all row */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSelectAllClips}
+              className="flex items-center gap-2 cursor-pointer group"
+            >
+              <span
+                className={`w-[18px] h-[18px] p-0 rounded-[5px] border flex items-center justify-center transition-all ${
+                  selectedClipIds.size > 0 && selectedClipIds.size === candidates.length + renderedClips.length
+                    ? 'bg-violet-600 border-transparent'
+                    : 'border-white/25 group-hover:border-violet-400'
+                }`}
+              >
+                {selectedClipIds.size > 0 && selectedClipIds.size === candidates.length + renderedClips.length && (
+                  <Check className="size-3 text-white" />
+                )}
+              </span>
+              <span className="text-xs font-semibold text-zinc-200">Select all</span>
+            </button>
+            {selectedClipIds.size > 0 && (
+              <span className="text-[11px] text-zinc-400 font-mono">
+                {selectedClipIds.size} of {candidates.length + renderedClips.length} selected
+              </span>
+            )}
+          </div>
+
+          {/* Generated Clips: thumbnail-card grid (Media Library pattern, mobile + desktop) */}
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
             {/* 1. Rendered Clips (if any) */}
-            {renderedClips.map((clip) => {
+            {filteredRenderedClips.map((clip) => {
               const isSelected = selectedClipIds.has(clip.id);
               const isActive = activePreviewClipId === clip.id;
+              const clipScore = renderedClipScore(clip);
 
               return (
                 <div
                   key={clip.id}
-                  className={`p-4 rounded-2xl border transition-all space-y-3 relative flex flex-col justify-between ${
-                    isActive
-                      ? 'bg-violet-500/15 border-violet-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
-                      : 'bg-vc-canvas/80 border-white/[0.08] hover:border-white/20'
+                  className={`group relative overflow-hidden rounded-2xl border transition-all flex flex-col ${
+                    isSelected
+                      ? 'bg-vc-canvas/80 border-violet-500/70 ring-1 ring-violet-500/50'
+                      : isActive
+                        ? 'bg-white/[0.05] border-white/25'
+                        : 'bg-vc-canvas/80 border-white/[0.08] hover:border-white/20'
                   }`}
                 >
-                  <div className="space-y-3">
-                    {/* Top Row: Selection Checkbox & Badges */}
-                    <div className="flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => handleSelectClip(clip.id)}
-                        className="text-vc-text-secondary hover:text-zinc-200 transition-colors cursor-pointer"
-                      >
-                        {isSelected ? (
-                          <CheckSquare className="size-4 text-zinc-200" />
-                        ) : (
-                          <Square className="size-4" />
-                        )}
-                      </button>
+                  {/* Vertical thumbnail poster */}
+                  <div className="relative aspect-[9/12] w-full bg-black group/vid">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <ClipThumbImage
+                        clip={clip}
+                        alt={clip.title || 'Viral Clip'}
+                        className="w-full h-full object-cover"
+                        fallback={
+                          <div className="flex items-center justify-center h-full">
+                            <span className="text-[10px] font-mono text-zinc-500">9:16</span>
+                          </div>
+                        }
+                      />
+                    </div>
 
-                      <div className="flex items-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded bg-black/60 font-mono text-[10px] text-white">
-                          {formatDuration(clip.duration_seconds)}
+                    {/* Selection checkbox */}
+                    <button
+                      type="button"
+                      onClick={() => handleSelectClip(clip.id)}
+                      aria-label={isSelected ? 'Deselect clip' : 'Select clip'}
+                      className={`absolute top-2 left-2 z-20 w-5 h-5 p-0 rounded-[6px] border flex items-center justify-center transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-violet-600 border-transparent'
+                          : 'bg-black/60 border-white/40 hover:border-violet-400'
+                      }`}
+                    >
+                      {isSelected && <Check className="size-3.5 text-white" />}
+                    </button>
+
+                    {/* Tap to preview in the player */}
+                    <button
+                      type="button"
+                      onClick={() => handlePlayClipPreview(clip.id, clip.start_seconds)}
+                      className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover/vid:opacity-100 transition-opacity cursor-pointer"
+                      aria-label="Preview clip"
+                    >
+                      <div className="size-10 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white shadow-xl">
+                        <Play className="size-4 ml-0.5 fill-white" />
+                      </div>
+                    </button>
+
+                    <div className="absolute bottom-2 right-2 z-10 pointer-events-none">
+                      <span className="px-1.5 py-0.5 rounded bg-black/80 text-white text-[10px] font-mono font-bold">
+                        {formatDuration(clip.duration_seconds)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Info + actions */}
+                  <div className="flex-1 min-w-0 p-2.5 sm:p-3 flex flex-col gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {clipScore !== null && (
+                        <span className="px-2 py-0.5 rounded-md bg-violet-500/30 text-violet-200 text-[10px] font-bold flex items-center gap-1">
+                          <Sparkles className="size-2.5" />
+                          <span>{Math.round(clipScore)}</span>
                         </span>
+                      )}
+                      {clipScore !== null && clipScore >= 80 && (
+                        <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/25 text-[10px] font-bold uppercase tracking-wide">
+                          High potential
+                        </span>
+                      )}
+                      <span className="ml-auto">
                         {clip.is_watermarked === true ? (
                           <span
                             className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold"
@@ -1879,60 +2020,60 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                             Rendered
                           </span>
                         )}
-                      </div>
+                      </span>
                     </div>
 
-                    {/* Clip Title & Timestamps */}
                     <div>
-                      <h4 className="text-sm font-bold text-vc-text-primary line-clamp-1">
+                      <h4 className="text-sm sm:text-[15px] font-bold text-vc-text-primary line-clamp-2 leading-snug">
                         {clip.title || 'Viral Clip'}
                       </h4>
                       <p className="text-[11px] text-vc-text-secondary font-mono mt-0.5">
                         {formatDuration(clip.start_seconds)} – {formatDuration(clip.end_seconds)}
                       </p>
                     </div>
-                  </div>
 
-                  {/* Action Buttons Row */}
-                  <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handlePlayClipPreview(clip.id, clip.start_seconds)}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-violet-300 hover:text-white transition-colors cursor-pointer"
-                    >
-                      <Play className="size-3.5 text-zinc-200" />
-                      <span>Preview</span>
-                    </button>
-
-                    <div className="flex items-center gap-1.5">
+                    {/* Action Buttons Row */}
+                    <div className="mt-auto pt-2 border-t border-white/[0.06] flex flex-wrap items-center gap-1">
                       <button
                         type="button"
                         onClick={() => handleEditClip(clip.id, false)}
-                        className="px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-xs text-zinc-100 font-medium transition-colors cursor-pointer"
+                        className="relative inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-violet-600 hover:bg-violet-500 text-[10px] font-bold text-white transition-colors cursor-pointer after:content-[''] after:absolute after:-inset-y-2 after:inset-x-0"
                       >
-                        Edit
+                        <Film className="size-3.5" />
+                        <span>Open Editor</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handlePlayClipPreview(clip.id, clip.start_seconds)}
+                        className="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-[10px] font-semibold text-zinc-100 transition-colors cursor-pointer after:content-[''] after:absolute after:-inset-y-2 after:inset-x-0"
+                      >
+                        <Play className="size-3 text-zinc-200" />
+                        <span>Preview</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleExportClip(clip.id, false)}
                         disabled={isExportingClipId !== null}
-                        className="px-2.5 py-1 rounded-lg bg-violet-500/30 hover:bg-violet-500/50 text-xs text-white font-medium transition-colors cursor-pointer"
+                        className="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-[10px] font-semibold text-zinc-100 transition-colors cursor-pointer after:content-[''] after:absolute after:-inset-y-2 after:inset-x-0"
                       >
                         {isExportingClipId === clip.id ? (
                           <Loader2 className="size-3 animate-spin" />
                         ) : (
-                          'Export'
+                          <Download className="size-3" />
                         )}
+                        <span>Export</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setPublishingClip(clip)}
-                        className="p-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-vc-text-secondary hover:text-white transition-colors cursor-pointer"
+                        className="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-[10px] font-semibold text-zinc-100 transition-colors cursor-pointer after:content-[''] after:absolute after:-inset-y-2 after:inset-x-0"
                         title="Publish clip"
                       >
-                        <Share2 className="size-3.5" />
+                        <Share2 className="size-3" />
+                        <span>Publish</span>
                       </button>
                     </div>
                   </div>
@@ -1941,50 +2082,79 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             })}
 
             {/* 2. AI Clip Candidates */}
-            {candidates.map((cand) => {
+            {filteredCandidates.map((cand) => {
               const isSelected = selectedClipIds.has(cand.id);
               const isActive = activePreviewClipId === cand.id;
+              const candScore = candidateRankingDisplay(cand);
 
               return (
                 <div
                   key={cand.id}
-                  className={`p-4 rounded-2xl border transition-all space-y-3 relative flex flex-col justify-between ${
-                    isActive
-                      ? 'bg-violet-500/15 border-violet-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
-                      : 'bg-vc-canvas/80 border-white/[0.08] hover:border-white/20'
+                  className={`group relative overflow-hidden rounded-2xl border transition-all flex flex-col ${
+                    isSelected
+                      ? 'bg-vc-canvas/80 border-violet-500/70 ring-1 ring-violet-500/50'
+                      : isActive
+                        ? 'bg-white/[0.05] border-white/25'
+                        : 'bg-vc-canvas/80 border-white/[0.08] hover:border-white/20'
                   }`}
                 >
-                  <div className="space-y-2.5">
-                    {/* Top Row: Selection Checkbox & Virality Score */}
-                    <div className="flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => handleSelectClip(cand.id)}
-                        className="text-vc-text-secondary hover:text-zinc-200 transition-colors cursor-pointer"
-                      >
-                        {isSelected ? (
-                          <CheckSquare className="size-4 text-zinc-200" />
-                        ) : (
-                          <Square className="size-4" />
-                        )}
-                      </button>
-
-                      <div className="flex items-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded bg-black/60 font-mono text-[10px] text-white">
-                          {formatDuration(cand.duration_seconds)}
-                        </span>
-                        {candidateRankingDisplay(cand) !== null && (
-                          <span className="px-2 py-0.5 rounded bg-violet-500/30 text-violet-200 text-[10px] font-bold flex items-center gap-1">
-                            <Sparkles className="size-2.5 text-zinc-200" />
-                            <span>Score: {Math.round(candidateRankingDisplay(cand)!)}</span>
-                          </span>
-                        )}
-                      </div>
+                  {/* Poster placeholder (candidate not yet rendered) */}
+                  <div className="relative aspect-[9/12] w-full bg-zinc-950 group/vid">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Film className="size-6 text-zinc-700" />
                     </div>
 
-                    {/* Clip Title & Hook */}
+                    {/* Selection checkbox */}
+                    <button
+                      type="button"
+                      onClick={() => handleSelectClip(cand.id)}
+                      aria-label={isSelected ? 'Deselect clip' : 'Select clip'}
+                      className={`absolute top-2 left-2 z-20 w-5 h-5 p-0 rounded-[6px] border flex items-center justify-center transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-violet-600 border-transparent'
+                          : 'bg-black/60 border-white/40 hover:border-violet-400'
+                      }`}
+                    >
+                      {isSelected && <Check className="size-3.5 text-white" />}
+                    </button>
+
+                    {/* Tap to preview in the player */}
+                    <button
+                      type="button"
+                      onClick={() => handlePlayClipPreview(cand.id, cand.start_seconds)}
+                      className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover/vid:opacity-100 transition-opacity cursor-pointer"
+                      aria-label="Preview candidate"
+                    >
+                      <div className="size-10 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white shadow-xl">
+                        <Play className="size-4 ml-0.5 fill-white" />
+                      </div>
+                    </button>
+
+                    <div className="absolute bottom-2 right-2 z-10 pointer-events-none">
+                      <span className="px-1.5 py-0.5 rounded bg-black/80 text-white text-[10px] font-mono font-bold">
+                        {formatDuration(cand.duration_seconds)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Info + actions */}
+                  <div className="flex-1 min-w-0 p-2.5 sm:p-3 flex flex-col gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {candScore !== null && (
+                        <span className="px-2 py-0.5 rounded-md bg-violet-500/30 text-violet-200 text-[10px] font-bold flex items-center gap-1">
+                          <Sparkles className="size-2.5" />
+                          <span>{Math.round(candScore)}</span>
+                        </span>
+                      )}
+                      {candScore !== null && candScore >= 80 && (
+                        <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/25 text-[10px] font-bold uppercase tracking-wide">
+                          High potential
+                        </span>
+                      )}
+                    </div>
+
                     <div>
-                      <h4 className="text-sm font-bold text-vc-text-primary line-clamp-1">
+                      <h4 className="text-sm sm:text-[15px] font-bold text-vc-text-primary line-clamp-2 leading-snug">
                         {cand.title}
                       </h4>
                       <p className="text-[11px] text-vc-text-secondary font-mono mt-0.5">
@@ -1996,40 +2166,40 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                     </div>
 
                     {/* Why This Clip: Multi-signal breakdown, reasons & suitability */}
-                    <WhyThisClipSection candidate={cand} className="mt-2" />
-                  </div>
+                    <WhyThisClipSection candidate={cand} className="mt-1" />
 
-                  {/* Action Buttons Row */}
-                  <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handlePlayClipPreview(cand.id, cand.start_seconds)}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-violet-300 hover:text-white transition-colors cursor-pointer"
-                    >
-                      <Play className="size-3.5 text-zinc-200" />
-                      <span>Preview</span>
-                    </button>
-
-                    <div className="flex items-center gap-1.5">
+                    {/* Action Buttons Row */}
+                    <div className="mt-auto pt-2 border-t border-white/[0.06] flex flex-wrap items-center gap-1">
                       <button
                         type="button"
                         onClick={() => handleEditClip(cand.id, true)}
-                        className="px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-xs text-zinc-100 font-medium transition-colors cursor-pointer"
+                        className="relative inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-violet-600 hover:bg-violet-500 text-[10px] font-bold text-white transition-colors cursor-pointer after:content-[''] after:absolute after:-inset-y-2 after:inset-x-0"
                       >
-                        Edit
+                        <Film className="size-3.5" />
+                        <span>Open Editor</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handlePlayClipPreview(cand.id, cand.start_seconds)}
+                        className="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-[10px] font-semibold text-zinc-100 transition-colors cursor-pointer after:content-[''] after:absolute after:-inset-y-2 after:inset-x-0"
+                      >
+                        <Play className="size-3 text-zinc-200" />
+                        <span>Preview</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleExportClip(cand.id, true)}
                         disabled={isExportingClipId !== null}
-                        className="px-2.5 py-1 rounded-lg bg-violet-500/30 hover:bg-violet-500/50 text-xs text-white font-medium transition-colors cursor-pointer"
+                        className="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-[10px] font-semibold text-zinc-100 transition-colors cursor-pointer after:content-[''] after:absolute after:-inset-y-2 after:inset-x-0"
                       >
                         {isExportingClipId === cand.id ? (
                           <Loader2 className="size-3 animate-spin" />
                         ) : (
-                          'Export'
+                          <Download className="size-3" />
                         )}
+                        <span>Export</span>
                       </button>
                     </div>
                   </div>
@@ -2037,6 +2207,42 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
               );
             })}
           </div>
+
+          {/* Bottom selection bar: visible only when clips are selected */}
+          {selectedClipIds.size > 0 && (
+            <div className="sticky bottom-4 z-20 w-full max-w-3xl pb-[env(safe-area-inset-bottom)]">
+              <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-2xl border border-white/[0.12] bg-zinc-950/95 shadow-2xl shadow-black/60 backdrop-blur-xl">
+                <span className="w-[18px] h-[18px] p-0 rounded-[5px] bg-violet-600 flex items-center justify-center shrink-0">
+                  <Check className="size-3 text-white" />
+                </span>
+                <span className="text-xs text-zinc-300 whitespace-nowrap">
+                  <b className="text-white">{selectedClipIds.size} selected</b>
+                  {' · '}
+                  {Math.floor(selectedTotalSeconds / 60)}m {Math.round(selectedTotalSeconds % 60)}s
+                </span>
+                <div className="flex-1" />
+                <button
+                  type="button"
+                  onClick={handleBatchExport}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.08] hover:bg-white/[0.14] border border-white/15 text-[11px] font-semibold text-zinc-100 transition-colors cursor-pointer"
+                >
+                  <Download className="size-3.5" />
+                  <span>Export ({selectedClipIds.size})</span>
+                </button>
+                {firstSelectedId && (
+                  <button
+                    type="button"
+                    onClick={() => handleEditClip(firstSelectedId, candidates.some((c) => c.id === firstSelectedId))}
+                    title={selectedClipIds.size > 1 ? 'Opens the first selected clip in the editor' : 'Open this clip in the editor'}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold cursor-pointer rounded-full ${BTN_PILL_PRIMARY}`}
+                  >
+                    <Film className="size-3.5" />
+                    <span>{selectedClipIds.size > 1 ? 'Edit first selected' : 'Open Editor'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </section>
       )}
 
@@ -2065,7 +2271,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
           {creationRecoveryTarget&&<div className="space-y-2 text-xs text-vc-text-secondary">
             <p>Resolve recovers an already created clip or closes an unadmitted request. It does not create, delete or cancel a rendered clip.</p>
-            <button type="button" onClick={handleResolveCreation} className="px-3 py-2 rounded-lg border border-white/20 text-zinc-200">Resolve saved creation</button>
+            <button type="button" onClick={handleResolveCreation} className="px-3 py-2 rounded-full border border-white/20 text-zinc-200">Resolve saved creation</button>
           </div>}
 
           {/* Direct upload is a recovery only while URL ingestion is unresolved. */}
@@ -2076,7 +2282,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
                 <span>Supported Alternative: Direct Video Upload</span>
               </div>
               <p className="text-[11px] text-vc-text-secondary">
-                If YouTube restricts automated downloads for this video, you can upload the video file directly (MP4, MOV, WebM up to 2 GB) to continue clipping with full AI transcription.
+                {uploadFallbackHelp}
               </p>
             </div>
             <button
@@ -2098,7 +2304,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             No automatic retry will run from this screen. Opening the project does not approve its transcript or start a new transcription.
           </p>}
           <div className="pt-2 flex flex-wrap items-center gap-3">
-            {activeProjectId&&(creationRecoveryTarget||candidates.length>0||renderedClips.length>0)&&<button type="button" onClick={()=>setWorkflowState('clips_ready')} className="px-4 py-2 rounded-lg border border-white/20 text-xs">Back to saved clips</button>}
+            {activeProjectId&&(creationRecoveryTarget||candidates.length>0||renderedClips.length>0)&&<button type="button" onClick={()=>setWorkflowState('clips_ready')} className="px-4 py-2 rounded-full border border-white/20 text-xs">Back to saved clips</button>}
             {needsTranscriptReview && activeProjectId && <button type="button"
               onClick={() => navigate(`/projects/${encodeURIComponent(activeProjectId)}`)}
               className={`px-5 py-2.5 text-xs font-semibold cursor-pointer ${BTN_PILL_BRAND}`}>

@@ -186,9 +186,10 @@ export const GOAL_OPTIONS: Array<{
 
 export const DURATION_OPTIONS = [
   { id: 'auto', label: 'Auto (Sweet Spot)', sub: 'Genre optimal' },
-  { id: '15-30', label: '15 – 30s', sub: 'Shorts & TikTok' },
+  { id: '0-30', label: '0 – 30s', sub: 'Quick shorts' },
   { id: '30-60', label: '30 – 60s', sub: 'Standard Reels' },
-  { id: '60-90', label: '60 – 90s', sub: 'Deep dive' },
+  { id: '60-120', label: '1 – 2 min', sub: 'Deep dive' },
+  { id: '120-180', label: '2 – 3 min', sub: 'Longer cut' },
 ] as const;
 
 export const ASPECT_RATIO_OPTIONS = [
@@ -309,7 +310,7 @@ export const ClipPreferencesControl: React.FC<ClipPreferencesControlProps> = ({
     saveClipPreferencesToStorage(updated);
   };
 
-  const handleDurationSelect = (dur: 'auto' | '15-30' | '30-60' | '60-90') => {
+  const handleDurationSelect = (dur: ClipPreferences['preferredDurations']) => {
     if (disabled) return;
     const updated: ClipPreferences = { ...preferences, preferredDurations: dur };
     onChange(updated);

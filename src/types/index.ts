@@ -203,7 +203,8 @@ export interface ClipPreferences {
   suggestedGenre?: ContentGenre;
   genreConfidence?: number;
   contentGoal: ContentGoal;
-  preferredDurations: 'auto' | '15-30' | '30-60' | '60-90';
+  preferredDurations: 'auto' | '0-30' | '15-30' | '30-60' | '60-90' | '60-120' | '120-180';
+  autoHookTitle?: boolean;
   aspectRatio: ClipAspectRatio;
   topicKeywords?: string[];
   customInstructions?: string;

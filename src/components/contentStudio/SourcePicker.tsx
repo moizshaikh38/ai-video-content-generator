@@ -396,10 +396,10 @@ export const SourcePicker: React.FC<SourcePickerProps> = ({ onGenerate, isGenera
   );
 
   return (
-    <div className="bg-card/70 border border-border/70 rounded-2xl shadow-xl overflow-hidden backdrop-blur-md">
+    <div>
       {/* Top Source Tabs */}
       <div className="border-b border-border/60 bg-muted/20 p-2 sm:p-4">
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:overflow-x-auto no-scrollbar">
           {(
             [
               { type: 'clip' as const, label: 'Clip', icon: Film, desc: 'Single rendered clip' },
@@ -418,7 +418,7 @@ export const SourcePicker: React.FC<SourcePickerProps> = ({ onGenerate, isGenera
                   setSourceType(tab.type);
                   setFormError(null);
                 }}
-                className={`flex-1 min-w-[140px] px-3.5 py-2.5 rounded-xl text-left transition-all border ${
+                className={`sm:flex-1 sm:min-w-[140px] px-3.5 py-2.5 rounded-xl text-left transition-all border ${
                   active
                     ? 'bg-violet-600 text-white border-violet-500 shadow-md shadow-violet-900/30'
                     : 'bg-background/40 hover:bg-background/80 text-muted-foreground hover:text-foreground border-border/40'
@@ -447,7 +447,7 @@ export const SourcePicker: React.FC<SourcePickerProps> = ({ onGenerate, isGenera
 
         {/* 1. SOURCE SELECTION SECTION */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-xs font-bold tracking-wider uppercase text-muted-foreground">
               Step 1: Choose Source Asset
             </span>

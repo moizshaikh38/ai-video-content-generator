@@ -1,4 +1,5 @@
 import React from 'react';
+import vireoSymbol from './assets/brand/vireoclip-symbol.svg';
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -16,13 +17,11 @@ const SettingsPage = React.lazy(() => import('./pages/SettingsPage').then(m => (
 const HelpPage = React.lazy(() => import('./pages/HelpPage').then(m => ({ default: m.HelpPage })));
 const BrandPage = React.lazy(() => import('./pages/BrandPage').then(m => ({ default: m.BrandPage })));
 const PublishingHistoryPage = React.lazy(() => import('./pages/PublishingHistoryPage').then(m => ({ default: m.PublishingHistoryPage })));
-const AnalyticsPage = React.lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })));
 const BillingPage = React.lazy(() => import('./pages/BillingPage').then(m => ({ default: m.BillingPage })));
 const ClipEditorPage = React.lazy(() => import('./pages/ClipEditorPage').then(m => ({ default: m.ClipEditorPage })));
 const AdminPage = React.lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
 const SubtitleStudioPage = React.lazy(() => import('./pages/SubtitleStudioPage').then(m => ({ default: m.SubtitleStudioPage })));
 const ContentStudioPage = React.lazy(() => import('./pages/ContentStudioPage').then(m => ({ default: m.ContentStudioPage })));
-const ABStudioHistoryPage = React.lazy(() => import('./pages/ABStudioHistoryPage').then(m => ({ default: m.ABStudioHistoryPage })));
 const WorkflowPage = React.lazy(() => import('./pages/WorkflowPage').then(m => ({ default: m.WorkflowPage })));
 const WorkspacePage = React.lazy(() => import('./pages/WorkspacePage').then(m => ({ default: m.WorkspacePage })));
 const TermsPage = React.lazy(() => import('./pages/TermsPage').then(m => ({ default: m.TermsPage })));
@@ -37,13 +36,39 @@ const CreateClipsRedirect: React.FC = () => {
   return <Navigate to={search ? `/dashboard?${search}` : '/dashboard'} replace />;
 };
 
+// Temporary gate: Analytics and A/B Testing are preserved in the codebase but show
+// a Coming Soon screen while they are reworked. Restore the lazy imports + route
+// elements to re-enable.
+const ComingSoonGate: React.FC<{ feature: string }> = ({ feature }) => (
+  <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-6 text-center" role="status">
+    <img src={vireoSymbol} alt="" className="h-12 w-auto opacity-90" />
+    <div className="space-y-1.5">
+      <h1 className="font-['Sora',sans-serif] text-xl sm:text-2xl font-extrabold text-white tracking-tight">{feature} is coming soon</h1>
+      <p className="mx-auto max-w-sm text-xs sm:text-sm text-zinc-400">
+        We are rebuilding this experience. Your existing projects and data are safe.
+      </p>
+    </div>
+    <a href="/dashboard" className="mt-1 inline-flex items-center gap-2 rounded-full bg-violet-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-violet-500 transition-colors">
+      Back to Dashboard
+    </a>
+  </div>
+);
+
 export const App: React.FC = () => {
   return (
     <AuthProvider>
       <AppErrorBoundary>
       <BrowserRouter>
         <CookieNotice />
-        <React.Suspense fallback={<div className="mx-auto mt-20 h-40 w-full max-w-6xl animate-pulse rounded-2xl bg-white" aria-label="Loading page" />}><Routes>
+        <React.Suspense fallback={
+          <div className="flex min-h-[45vh] w-full flex-col items-center justify-center gap-4" role="status" aria-label="Loading page">
+            <img src={vireoSymbol} alt="" className="h-10 w-auto animate-pulse motion-reduce:animate-none" />
+            <div className="flex items-center gap-2.5">
+              <span className="size-4 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-400 motion-reduce:animate-none" aria-hidden="true" />
+              <span className="text-sm font-medium text-zinc-400">Loading your workspace...</span>
+            </div>
+          </div>
+        }><Routes>
           {/* Public marketing layout with top navbar & footer */}
           <Route element={<RootLayout />}>
             <Route path="/" element={<LandingPage />} />
@@ -76,8 +101,8 @@ export const App: React.FC = () => {
               <Route path="/media-library" element={<HistoryPage initialTab="clips" />} />
               <Route path="/brand" element={<BrandPage />} />
               <Route path="/publishing" element={<PublishingHistoryPage />} />
-              <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/ab-testing" element={<ABStudioHistoryPage />} />
+              <Route path="/analytics" element={<ComingSoonGate feature="Analytics" />} />
+              <Route path="/ab-testing" element={<ComingSoonGate feature="A/B Testing" />} />
               <Route path="/billing" element={<BillingPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/help" element={<HelpPage />} />

@@ -84,6 +84,16 @@ export const DashboardLayout: React.FC = () => {
   const [isLedgerOpen, setIsLedgerOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Chrome-free header: transparent over the page top, gains a subtle scrim
+  // only once content scrolls underneath so controls stay readable.
+  const [headerScrolled, setHeaderScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setHeaderScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   useEffect(() => {
     if (!user) return;
     const loadWallet = () => {
@@ -120,6 +130,23 @@ export const DashboardLayout: React.FC = () => {
     'Creator';
 
   const userInitial = displayName.charAt(0).toUpperCase();
+  // Google sign-in supplies avatar_url/picture in user_metadata; backend profile may also carry one.
+  const avatarUrl =
+    profile?.avatar_url ||
+    (user?.user_metadata?.avatar_url as string | undefined) ||
+    (user?.user_metadata?.picture as string | undefined) ||
+    '';
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const showAvatar = Boolean(avatarUrl) && !avatarFailed;
+  const avatarImg = showAvatar ? (
+    <img
+      src={avatarUrl}
+      alt=""
+      referrerPolicy="no-referrer"
+      onError={() => setAvatarFailed(true)}
+      className="absolute inset-0 size-full rounded-full object-cover"
+    />
+  ) : null;
 
   const handleSignOut = async () => {
     await signOut();
@@ -396,7 +423,7 @@ export const DashboardLayout: React.FC = () => {
       {/* Main Content Area */}
       <div className="min-w-0 flex-1 flex flex-col">
         {/* Top Navigation Bar Matching Reference */}
-        <header className="sticky top-0 z-30 flex h-[64px] sm:h-[68px] items-center justify-between gap-2.5 sm:gap-3 glass-chrome border-b border-[var(--vc-border)] px-3.5 sm:px-6 lg:px-8">
+        <header className={`sticky top-0 z-30 flex h-[64px] sm:h-[68px] items-center justify-between gap-2.5 sm:gap-3 px-3.5 sm:px-6 lg:px-8 transition-colors duration-200 bg-[var(--vc-canvas)] ${headerScrolled ? 'border-b border-white/[0.06]' : 'border-b border-transparent'}`}>
           {/* Mobile hamburger menu toggle */}
           <button
             type="button"
@@ -514,8 +541,9 @@ export const DashboardLayout: React.FC = () => {
                 aria-expanded={accountOpen}
                 className="flex items-center gap-1.5 sm:gap-2 h-9 sm:h-[38px] px-1.5 sm:px-2 rounded-full border border-[var(--vc-border)] bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
               >
-                <span className="grid size-6 place-items-center rounded-full bg-zinc-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] font-bold text-white text-[11px]">
-                  {userInitial}
+                <span className="relative grid size-6 place-items-center overflow-hidden rounded-full bg-zinc-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] font-bold text-white text-[11px]">
+                  {avatarImg}
+                  {!showAvatar && userInitial}
                 </span>
                 <span className="hidden md:inline-block max-w-[100px] truncate text-xs font-semibold text-vc-text-primary">
                   {displayName}
@@ -572,7 +600,7 @@ export const DashboardLayout: React.FC = () => {
         </header>
 
         {/* Page Content Viewport */}
-        <main className="flex-1 w-full max-w-[1300px] mx-auto px-4 py-7 sm:px-6 sm:py-8 lg:px-8">
+        <main className="app-flat-surfaces flex-1 w-full max-w-[1300px] mx-auto px-4 py-7 sm:px-6 sm:py-8 lg:px-8">
           <div className="mv-page" key={location.pathname}>
             <Outlet />
           </div>
