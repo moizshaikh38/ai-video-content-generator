@@ -64,7 +64,31 @@ const DEMO_POSTERS = [
 ];
 
 const CLIPV = [7, 9, 2, 1, 8, 0];
+
+// Carousel cards: the current live showcase sample clips (v0-v9 stock
+// segments, unchanged from the live site - no creator footage in this
+// baseline). Each poster is extracted from its paired segment, so a tile
+// never promises footage it then replaces with something else. Order maps
+// to ICONS below (YT, IG, in, TT, f, X) - badges unchanged.
+const SHOWCASE_CLIPS = [
+  { video: '/demo/showcase/v7.mp4', poster: '/demo/showcase/v7.webp' },
+  { video: '/demo/showcase/v9.mp4', poster: '/demo/showcase/v9.webp' },
+  { video: '/demo/showcase/v2.mp4', poster: '/demo/showcase/v2.webp' },
+  { video: '/demo/showcase/v1.mp4', poster: '/demo/showcase/v1.webp' },
+  { video: '/demo/showcase/v8.mp4', poster: '/demo/showcase/v8.webp' },
+  { video: '/demo/showcase/v0.mp4', poster: '/demo/showcase/v0.webp' },
+];
 const ICONS: ('YT' | 'IG' | 'in' | 'TT' | 'f' | 'X')[] = ['YT', 'IG', 'in', 'TT', 'f', 'X'];
+import ytLogo from '../../assets/landing/platforms/youtube.svg';
+import igLogo from '../../assets/landing/platforms/instagram.svg';
+import inLogo from '../../assets/landing/platforms/linkedin-in.png';
+import ttLogo from '../../assets/landing/platforms/tiktok.svg';
+import fbLogo from '../../assets/landing/platforms/facebook.svg';
+import xLogo from '../../assets/landing/platforms/x.svg';
+const PLATFORM_LOGOS = { YT: ytLogo, IG: igLogo, in: inLogo, TT: ttLogo, f: fbLogo, X: xLogo } as const;
+const PLATFORM_NAMES = { YT: 'YouTube', IG: 'Instagram', in: 'LinkedIn', TT: 'TikTok', f: 'Facebook', X: 'X' } as const;
+// One-at-a-time logo animation at the link icon, matching the public tool pages.
+const BAR_CYCLE_PLATFORMS = ['YT', 'IG', 'TT', 'f', 'X', 'in'] as const;
 
 const LAYOUTS = [
   'Auto-track layout',
@@ -302,9 +326,9 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
         icon: (
           <path d="M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12" />
         ),
-        c1: '#4a5648',
-        c2: '#2b3a3f',
-        glow: '#7a8a7a',
+        c1: '#221a30',
+        c2: '#0d0d12',
+        glow: '#7c3aed',
       },
       {
         id: 'captions',
@@ -315,17 +339,17 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
             <path d="M7 15h4M14 15h3M7 11h2M12 11h5" />
           </>
         ),
-        c1: '#6b5546',
-        c2: '#3a2f2c',
-        glow: '#a7774f',
+        c1: '#241d2e',
+        c2: '#0e0c12',
+        glow: '#8b5cf6',
       },
       {
         id: 'reframe',
         label: 'Reframe',
         icon: <path d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2" />,
-        c1: '#28507f',
-        c2: '#1b2f4d',
-        glow: '#3b6aa8',
+        c1: '#1f1a2e',
+        c2: '#0c0b11',
+        glow: '#7c3aed',
       },
       {
         id: 'broll',
@@ -336,17 +360,17 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
             <path d="M7 3v18M17 3v18M3 8h4M3 12h18M3 16h4M17 8h4M17 16h4" />
           </>
         ),
-        c1: '#5a3d8c',
-        c2: '#2b2146',
-        glow: '#7a4bb0',
+        c1: '#261c33',
+        c2: '#0e0c13',
+        glow: '#8b5cf6',
       },
       {
         id: 'audio',
         label: 'Audio',
         icon: <path d="M3 10v4M7 6v12M11 3v18M15 8v8M19 11v2" />,
-        c1: '#1f6a68',
-        c2: '#173a40',
-        glow: '#2fa59a',
+        c1: '#1e1a29',
+        c2: '#0c0b10',
+        glow: '#7c3aed',
       },
       {
         id: 'voiceover',
@@ -357,9 +381,9 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
             <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
           </>
         ),
-        c1: '#7a3a58',
-        c2: '#3a2036',
-        glow: '#b04c78',
+        c1: '#251b2e',
+        c2: '#0d0c12',
+        glow: '#8b5cf6',
       },
     ],
     []
@@ -670,6 +694,10 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
       dclip.dataset.cycle = String(cycleCount);
       dclip.dataset.cycleTime = String(Date.now());
 
+      // Preserve user scroll position on the phone clip rail across the cycle reset
+      const railEl = dclip.querySelector('.clip-rail') as HTMLElement | null;
+      const savedRailScroll = railEl ? railEl.scrollLeft : 0;
+
       const targets = dclip.querySelectorAll<HTMLElement>(
         '.src, .fill, .g1, .g2, .clip, .th em, .cur, .rip'
       );
@@ -690,6 +718,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
       targets.forEach((el) => {
         el.style.animation = '';
       });
+      if (railEl && railEl.scrollLeft !== savedRailScroll) railEl.scrollLeft = savedRailScroll;
     };
 
     const scheduleCycle = () => {
@@ -848,13 +877,13 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
   // genuine engagement_score.
   const demoClips: ClipDisplayItem[] = useMemo(
     () =>
-      CLIPV.map((vIdx, nIdx) => ({
+      SHOWCASE_CLIPS.map((c, nIdx) => ({
         id: `demo-${nIdx}`,
         title: `Viral Clip ${nIdx + 1}`,
-        duration: ['0:42', '0:35', '0:58', '0:46', '0:39', '0:51'][nIdx],
-        timestamp: '00:15 - 00:57',
-        thumbnail: DEMO_POSTERS[vIdx % DEMO_POSTERS.length],
-        videoSrc: DEMO_VIDEOS[vIdx % DEMO_VIDEOS.length],
+        duration: '0:03',
+        timestamp: '00:00 - 00:03',
+        thumbnail: c.poster,
+        videoSrc: c.video,
         platform: ICONS[nIdx],
         score: 0,
       })),
@@ -990,9 +1019,14 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                           >
                             <i className="fill" />
                             <div className="bar-field">
-                              <svg className="bar-icon" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
-                              </svg>
+                              <span className="bar-cycle" aria-hidden="true">
+                                {BAR_CYCLE_PLATFORMS.map((p) => (
+                                  <img key={p} src={PLATFORM_LOGOS[p]} alt="" />
+                                ))}
+                                <svg className="bar-icon bar-cycle-link" viewBox="0 0 24 24">
+                                  <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+                                </svg>
+                              </span>
                               <input
                                 type="url"
                                 value={urlInput}
@@ -1016,7 +1050,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                               type="submit"
                               className="get-clips-btn"
                               disabled={isIngesting}
-                              aria-label="Get clips"
+                              aria-label='Get clips'
                             >
                               {isIngesting ? (
                                 <>
@@ -1031,11 +1065,13 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                               ) : (
                                 <span className="btn-label-stack">
                                   <span className="g1">Get clips</span>
-                                  <span className="g2">Finding clips…</span>
+                                  <span className="g2">Get clips</span>
                                 </span>
                               )}
                             </button>
                           </form>
+
+
 
                           {/* Actionable Error / Auth Prompt Message */}
                           {errorMsg && (
@@ -1074,9 +1110,13 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                           )}
 
                           {/* 6 Viral Clip Cards matching original feature showcase */}
+                          <div
+                            className="clip-rail"
+                            onTouchStart={(e) => e.stopPropagation()}
+                            onTouchEnd={(e) => e.stopPropagation()}
+                          >
                           {displayedClips.map((clip, nIdx) => {
-                            const isReal = clip.isReal;
-                            const clipPoster = isReal ? clip.thumbnail : DEMO_POSTERS[CLIPV[nIdx] % DEMO_POSTERS.length];
+                            const clipPoster = clip.thumbnail;
                             return (
                               <div
                                 key={clip.id}
@@ -1099,7 +1139,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                                 }}
                                 title={`${clip.title} (${clip.duration})`}
                               >
-                                <span className="ic">{clip.platform}</span>
+                                <span className="ic"><img className={`plat-${clip.platform}`} src={PLATFORM_LOGOS[clip.platform]} alt={PLATFORM_NAMES[clip.platform]} title={PLATFORM_NAMES[clip.platform]} /></span>
                                 <div className={`th ${s0.shouldLoad ? 'hasvid' : ''}`} data-v={CLIPV[nIdx]}>
                                   <CarouselVideo
                                     src={clip.videoSrc}
@@ -1113,6 +1153,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                               </div>
                             );
                           })}
+                          </div>
 
                           <i
                             className="rip"
