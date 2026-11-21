@@ -39,7 +39,7 @@ export async function getMongoDb(): Promise<Db> {
       .then(async () => {
         assertCurrent();
         const db = candidate.db(config.mongodbDbName);
-        await db.command({ ping: 1 });
+        await db.command({ ping: 1, maxTimeMS:2_000 },{timeoutMS:2_000});
         assertCurrent();
         client = candidate;
         pendingClient=null;
@@ -106,7 +106,7 @@ export async function isMongoHealthy(): Promise<boolean> {
   if (!isMongoConfigured) return false;
   try {
     const db = await getMongoDb();
-    await db.command({ ping: 1, maxTimeMS: 2_000 });
+    await db.command({ ping: 1, maxTimeMS: 2_000 },{timeoutMS:2_000});
     return true;
   } catch {
     return false;
