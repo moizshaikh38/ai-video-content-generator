@@ -1536,7 +1536,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                           {score !== null ? (
                             <span className="px-2 py-0.5 rounded-md bg-emerald-500/25 text-emerald-300 text-[11px] font-extrabold font-mono shadow-sm flex items-center gap-1 backdrop-blur-md">
                               <Flame className="size-3 text-emerald-400 fill-emerald-400" />
-                              {score}
+                              {score} AI Rank
                             </span>
                           ) : (
                             <span className="px-2 py-0.5 rounded-md bg-white/10 text-zinc-300 text-[11px] font-bold font-mono shadow-sm backdrop-blur-md">
