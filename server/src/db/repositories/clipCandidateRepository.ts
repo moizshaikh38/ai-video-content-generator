@@ -16,7 +16,7 @@ export async function replaceSuggestedCandidates(userId: string, projectId: stri
       const project = await db.collection('projects').findOne({ id: projectId, user_id: userId }, { session });
       if (!project) throw new AppError('Project not found.', 404, 'PROJECT_NOT_FOUND');
       if (expectedContextIdentity !== undefined) {
-        if (selectionContextIdentity({clip_preferences:project.clip_preferences,notes:project.notes}) !== expectedContextIdentity) {
+        if (selectionContextIdentity({clip_preferences:project.clip_preferences,notes:project.notes,semantic_genre_receipt:project.semantic_genre_receipt}) !== expectedContextIdentity) {
           throw new AppError('Clip settings or notes changed during analysis. Existing suggestions were kept. Run analysis again with the current settings.',409,'CLIP_SELECTION_CONTEXT_CHANGED');
         }
         // Reading a Mongo snapshot alone does not fence a concurrent project

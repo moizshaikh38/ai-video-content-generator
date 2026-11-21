@@ -380,12 +380,35 @@ async function executeProjectVideo(
     const questionCount = (transcription.text.match(/\?/g) || []).length;
     const questionDensityPerMin = Number((questionCount / durationMin).toFixed(2));
 
-    const genreSuggestion = GenreIntelligenceService.classifyVideoGenreLocally({
+    let genreSuggestion = GenreIntelligenceService.classifyVideoGenreLocally({
       transcriptText: transcription.text,
       wpm,
       durationSeconds: effectiveDuration,
       questionDensityPerMin,
     });
+
+    // Optional zero-price semantic review. Off until explicitly enabled by the
+    // deployment owner. No retry or paid fallback; failure keeps local evidence.
+    let semanticGenreReceipt: import('../shared/semanticGenreEvidence.js').SemanticGenreReceipt | undefined;
+    let semanticGenreStatus: 'disabled'|'unavailable'|'suggested'|'review-required' = 'disabled';
+    if (process.env.VIREO_AUTO_GENRE_REVIEW === 'free' && currentProject.clip_preferences?.genreSelectionMode !== 'manual' && effectiveDuration >= 3 && effectiveDuration <= 7200) {
+      semanticGenreStatus = 'unavailable';
+      const reviewDir = path.join(os.tmpdir(), 'vireo-genre-review-' + crypto.randomUUID());
+      try {
+        const { reviewSourceGenreFree } = await import('./sourceGenreReviewService.js');
+        const { applySemanticGenreReceipt } = await import('../shared/semanticGenreEvidence.js');
+        const receipt = await reviewSourceGenreFree({source:videoPath,transcriptText:transcription.text,transcriptSegments:transcription.segments,out:reviewDir,apiKey:config.openrouterApiKey,model:process.env.VIREO_AUTO_GENRE_MODEL || 'nvidia/nemotron-3.5-super-vl:free'});
+        if (receipt.sourceSha256 !== snapshot.receipt?.sha256 || !sourceObjectReceiptMatches(snapshot.receipt,sourceUrl,await headObject('source',sourceUrl))) throw new AppError('Source changed during genre review',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+        const freshGenreProject = await db.collection('projects').findOne({id:projectId,user_id:userId});
+        if (freshGenreProject?.source_url !== sourceUrl) throw new AppError('Project source changed during genre review',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+        semanticGenreReceipt = receipt;
+        genreSuggestion = applySemanticGenreReceipt(genreSuggestion,receipt,receipt.sourceSha256,effectiveDuration,transcription.text);
+        semanticGenreStatus = genreSuggestion.semanticEvidence?.status === 'suggested' ? 'suggested' : 'review-required';
+      } catch (error:any) {
+        if (error?.code === 'TRANSCRIPT_SOURCE_REVIEW_REQUIRED') throw error;
+        logger.warn('Optional semantic genre review unavailable; keeping local evidence.', {code:'GENRE_REVIEW_UNAVAILABLE'});
+      } finally { await fs.rm(reviewDir,{recursive:true,force:true}); }
+    }
 
     const { data: project } = await dataRepository
       .from('projects')
@@ -410,15 +433,17 @@ async function executeProjectVideo(
           ...project.clip_preferences,
           suggested_genre: genreSuggestion.genre,
           genre_confidence: genreSuggestion.confidence,
+          genre_evidence: genreSuggestion.evidence,
+          genre_semantic_evidence: genreSuggestion.semanticEvidence,
+          genre_review_status: semanticGenreStatus,
         };
       }
     }
 
-    await dataRepository
-      .from('projects')
-      .update(updatePayload)
-      .eq('id', projectId)
-      .eq('user_id', userId);
+    if (semanticGenreReceipt) updatePayload.semantic_genre_receipt = semanticGenreReceipt;
+
+    const {persistGenreProjectUpdate}=await import('../db/repositories/genreProjectRepository.js');
+    await persistGenreProjectUpdate(userId,projectId,sourceUrl,project?.clip_preferences,updatePayload);
 
     // 8. Settle credit reservation and legacy usage reservation atomically using measured audio duration.
     if (processingAttemptId) {

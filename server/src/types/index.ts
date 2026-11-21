@@ -357,7 +357,9 @@ export type GenreSelectionMode = 'manual' | 'suggested' | 'auto';
 
 export interface GenreSuggestion {
   genre: ContentGenre;
-  confidence: number; // 0.0 to 1.0
+  confidence: number; // Heuristic support score, NOT calibrated accuracy. Zero when abstaining.
+  evidence?: {version: 1; method: 'local-heuristic' | 'source-bound-semantic'; status: 'abstained' | 'suggested'; confidenceIsProbability: false; candidateGenre: ContentGenre | null; margin: number; matchedKeywords: Partial<Record<ContentGenre, string[]>>};
+  semanticEvidence?: {model:string;sourceSha256:string;sampleCount:number;scope:'sampled-source';status:'review-required'|'suggested';limitations:string[]};
   reasons: string[];
   metrics: {
     wpm: number | null;

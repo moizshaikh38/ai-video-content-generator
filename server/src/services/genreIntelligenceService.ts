@@ -660,12 +660,21 @@ export class GenreIntelligenceService {
    * Deterministic local auto-genre heuristic classifier.
    * Runs in sub-millisecond local time with 0 API calls and 0 costs.
    */
+  public static applyGenreSuggestion(preferences: ClipPreferences, suggestion: GenreSuggestion): ClipPreferences {
+    if (preferences.genreSelectionMode === 'manual') return preferences;
+    const genre = preferences.genreSelectionMode === 'auto' || preferences.genre === 'general'
+      ? suggestion.genre : preferences.genre;
+    return { ...preferences, genre, suggestedGenre: suggestion.genre, genreConfidence: suggestion.confidence };
+  }
+
   public static classifyVideoGenreLocally(input: ClassifyGenreMetricsInput): GenreSuggestion {
     const finite=(value:unknown,min=0,max=Infinity):number|null=>typeof value==='number'&&Number.isFinite(value)&&value>=min&&value<=max?value:null;
     const wpm=finite(input.wpm),ocrDensityPerMin=finite(input.ocrDensityPerMin),faceCount=Number.isInteger(input.faceCount)?finite(input.faceCount):null,sceneCutRatePerMin=finite(input.sceneCutRatePerMin),silenceRatio=finite(input.silenceRatio,0,1),questionDensityPerMin=finite(input.questionDensityPerMin);
     const transcriptText=typeof input.transcriptText==='string'?input.transcriptText:'';
 
-    const lowerText = transcriptText.toLowerCase();
+    const lowerText = transcriptText.normalize('NFKC').toLocaleLowerCase('en').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    const paddedText = ` ${lowerText} `;
+    const keywordMatches: Partial<Record<ContentGenre, string[]>> = {};
     const scores: Record<ContentGenre, number> = {
       podcast_interview: 0,
       education_tutorial: 0,
@@ -705,8 +714,10 @@ export class GenreIntelligenceService {
       if (keywords.length === 0) continue;
       let matches = 0;
       for (const kw of keywords) {
-        if (lowerText.includes(kw)) {
+        const normalizedKeyword = kw.normalize('NFKC').toLocaleLowerCase('en').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+        if (paddedText.includes(` ${normalizedKeyword} `)) {
           matches++;
+          (keywordMatches[genre] ??= []).push(kw);
         }
       }
       if (matches > 0) {
@@ -716,8 +727,17 @@ export class GenreIntelligenceService {
       }
     }
 
+    // Topic words such as guide/example/concept can occur in interviews about
+    // education. Require an actual teaching directive before topic-only text
+    // can select a tutorial. Measured screen-share evidence remains separate.
+    const teachingIntent = /(?:^| )(?:in this tutorial|step by step|step [0-9]+|today (?:we|you) (?:will|are going to) learn|let me show you|here s how to|how to (?:install|build|create|configure|use|make)|follow these steps|walkthrough|lesson|course|tutorial)(?: |$)/u.test(lowerText);
+    if (!teachingIntent && (keywordMatches.education_tutorial?.length ?? 0) > 0) {
+      scores.education_tutorial = Math.min(scores.education_tutorial, 0.15);
+      reasons.education_tutorial.push('Educational topic words alone do not establish a tutorial.');
+    }
+
     // Currency and Financial Symbols
-    const financialSymbols = (lowerText.match(/[\$€£¥₹%]/g) || []).length;
+    const financialSymbols = (transcriptText.match(/[\$€£¥₹%]/g) || []).length;
     if (financialSymbols >= 2) {
       scores.business_finance += 0.30;
       reasons.business_finance.push(`Detected ${financialSymbols} financial metric/currency symbol(s).`);
@@ -807,12 +827,23 @@ export class GenreIntelligenceService {
       }
     }
 
-    const confidence = Math.min(0.96, Math.max(0.50, Number(bestScore.toFixed(2))));
-    const winningReasons = reasons[bestGenre].length > 0 ? reasons[bestGenre] : ['Default general recommendation based on balanced signals.'];
+    // This is a heuristic score, never a measured probability of accuracy.
+    // Close votes and weak evidence must not silently steer clipping defaults.
+    const ranking = (Object.entries(scores) as [ContentGenre, number][])
+      .filter(([genre]) => genre !== 'general').sort((a, b) => b[1] - a[1]);
+    const margin = Number((ranking[0][1] - ranking[1][1]).toFixed(3));
+    const abstain = bestGenre === 'general' || bestScore < 0.30 || margin < 0.12;
+    const candidateGenre = ranking[0][1] > 0 ? ranking[0][0] : null;
+    if (abstain) bestGenre = 'general';
+    const confidence = abstain ? 0 : Math.min(0.96, Number(bestScore.toFixed(2)));
+    const winningReasons = abstain
+      ? [candidateGenre ? 'Weak or conflicting genre evidence. General defaults retained; review or choose a genre manually.' : 'No distinctive genre evidence. General defaults retained.']
+      : reasons[bestGenre];
 
     return {
       genre: bestGenre,
       confidence,
+      evidence: { version: 1, method: 'local-heuristic', status: abstain ? 'abstained' : 'suggested', confidenceIsProbability: false, candidateGenre, margin, matchedKeywords: keywordMatches },
       reasons: winningReasons,
       metrics: {
         wpm: wpm === null ? null : Math.round(wpm),

@@ -1,3 +1,4 @@
+import {applySemanticGenreReceipt} from '../shared/semanticGenreEvidence.js';
 import {effectiveClipDurationBounds} from '../shared/clipDurationPreferences.js';
 import {selectionContextIdentity} from '../shared/selectionContextIdentity.js';
 import {groundWindowClipProposals} from '../shared/groundWindowClipProposals.js';
@@ -618,7 +619,7 @@ export class ClipAnalysisService {
         // 1. Verify project exists and belongs to user
       const { data: project, error: projErr } = await dataRepository
         .from('projects')
-        .select(process.env.VIREO_AUTOMATIC_GAMING_REVIEW==='1'?'id, user_id, title, notes, clip_preferences, source_url, automatic_gaming_evidence':'id, user_id, title, notes, clip_preferences, source_url')
+        .select(process.env.VIREO_AUTOMATIC_GAMING_REVIEW==='1'?'id, user_id, title, notes, clip_preferences, source_url, semantic_genre_receipt, automatic_gaming_evidence':'id, user_id, title, notes, clip_preferences, source_url, semantic_genre_receipt')
         .eq('id', projectId)
         .eq('user_id', userId)
         .maybeSingle();
@@ -737,23 +738,21 @@ export class ClipAnalysisService {
         durationSeconds: transcript.duration_seconds || durationMinutes * 60,
       });
 
+      // Only exact-source, clock-validated evidence can override topic heuristics.
+      // No provider call occurs here; absent/invalid evidence preserves local behavior.
+      localSuggestion = applySemanticGenreReceipt(localSuggestion, (project as any).semantic_genre_receipt, selectionReceipt.source_receipt.sha256, Number(transcript.duration_seconds), fullTranscriptText);
+
       if(process.env.VIREO_AUTOMATIC_GAMING_REVIEW==='1'){
         const visual=gamingGenreFromVisualReview(selectionReceipt.source_receipt.sha256,(project as any).automatic_gaming_evidence,transcript.duration_seconds);
         if(visual)localSuggestion={...localSuggestion,...visual};
       }
       const rawIncomingPrefs = options.preferences || project.clip_preferences;
-      const normalizedPrefs = GenreIntelligenceService.normalizePreferences(
+      let normalizedPrefs = GenreIntelligenceService.normalizePreferences(
         rawIncomingPrefs || undefined,
         customNotes || project.notes
       );
 
-      if (normalizedPrefs.genreSelectionMode === 'auto' || normalizedPrefs.genreSelectionMode === 'suggested') {
-        if (!rawIncomingPrefs?.genre || normalizedPrefs.genre === 'general') {
-          normalizedPrefs.genre = localSuggestion.genre;
-        }
-        normalizedPrefs.suggestedGenre = localSuggestion.genre;
-        normalizedPrefs.genreConfidence = localSuggestion.confidence;
-      }
+      normalizedPrefs = GenreIntelligenceService.applyGenreSuggestion(normalizedPrefs, localSuggestion);
 
       const effectiveConfig = GenreIntelligenceService.resolveEffectiveConfig({
         userPreferences: normalizedPrefs,
@@ -1170,6 +1169,8 @@ export class ClipAnalysisService {
             content_goal: contentGoal,
             suggested_genre: localSuggestion.genre,
             genre_confidence: localSuggestion.confidence,
+            genre_evidence: localSuggestion.evidence,
+            genre_semantic_evidence: localSuggestion.semanticEvidence,
             cold_open,
             question_included: questionInclusion,
             was_snapped: scored.was_snapped || wordSnapped.was_snapped,
