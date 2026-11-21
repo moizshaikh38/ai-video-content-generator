@@ -36,8 +36,8 @@ export async function insertProjectWithinQuota(owner: string, record: Record<str
   validateRecord('projects', normalized);
   const db = database ?? await getMongoDb(), client = mongoClient ?? await getMongoClient(), id = fenceId(owner);
   const fences = db.collection<any>('project_quota_fences');
-  try {await fences.updateOne({_id: id, user_id: owner}, {$setOnInsert: {id, user_id: owner, serial: 0, created_at: now, updated_at: now}}, {upsert: true});}
-  catch (error: any) {if (error.code !== 11000 || !await fences.findOne({_id: id, user_id: owner})) throw error;}
+  try {await fences.updateOne({_id: id, user_id: owner}, {$setOnInsert: {id, user_id: owner, serial: 0, created_at: now, updated_at: now}}, {upsert: true, timeoutMS: 10_000});}
+  catch (error: any) {if (error.code !== 11000 || !await fences.findOne({_id: id, user_id: owner}, {timeoutMS: 2_000})) throw error;}
   const session = client.startSession();
   try {
     const result = await session.withTransaction(async () => {
@@ -46,7 +46,7 @@ export async function insertProjectWithinQuota(owner: string, record: Record<str
       if (policy.kind === 'limited' && await readProjectUsageCount(db, owner, now, session) >= policy.maximum) throw new AppError(`Your ${policy.displayName} plan allows up to ${policy.maximum} projects per month.`, 403, 'MONTHLY_PROJECT_LIMIT_EXCEEDED');
       await db.collection('projects').insertOne(normalized, {session});
       const {_id, ...saved} = normalized as any; return saved;
-    }, {readPreference: 'primary', readConcern: {level: 'snapshot'}, writeConcern: {w: 'majority'}, maxCommitTimeMS: 10000});
+    }, {readPreference: 'primary', readConcern: {level: 'snapshot'}, writeConcern: {w: 'majority'}, timeoutMS: 10_000});
     if (!result) throw new AppError('Project admission did not complete.', 503, 'PROJECT_USAGE_UNAVAILABLE');
     return result;
   } finally {await session.endSession();}

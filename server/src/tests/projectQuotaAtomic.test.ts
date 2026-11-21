@@ -44,6 +44,26 @@ test('real local Mongo serializes project inserts, rolls back failed admissions 
       await db.collection('projects').insertOne(record);
       await assert.rejects(() => insert(invalid, row(invalid), one, db, client), {code: 'PROJECT_USAGE_UNAVAILABLE'});
     }
+    const blocked = owner();
+    await insert(blocked, row(blocked), {kind: 'unlimited'}, db, client);
+    const blocker = client.startSession(); blocker.startTransaction();
+    let safetyRelease: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await db.collection('project_quota_fences').updateOne({user_id: blocked}, {$inc: {serial: 1}}, {session: blocker});
+      // Keep the negative control bounded instead of waiting for the driver's
+      // default transaction retry window. The fixed path must refuse first.
+      safetyRelease = setTimeout(() => {void blocker.abortTransaction();}, 12000);
+      const began = Date.now();
+      await assert.rejects(() => insert(blocked, row(blocked), {kind: 'unlimited'}, db, client), {name: 'MongoOperationTimeoutError'});
+      assert(Date.now() - began < 11500, 'contention must refuse within a bounded request budget');
+      assert.equal(await db.collection('projects').countDocuments({user_id: blocked}), 1, 'timeout inserts nothing');
+    } finally {
+      if (safetyRelease) clearTimeout(safetyRelease);
+      if (blocker.inTransaction()) await blocker.abortTransaction();
+      await blocker.endSession();
+    }
+    await insert(blocked, row(blocked), {kind: 'unlimited'}, db, client);
+    assert.equal(await db.collection('projects').countDocuments({user_id: blocked}), 2, 'retry after contention clears succeeds');
     const edge = owner();
     await db.collection('projects').insertMany([
       {...row(edge), created_at: '2026-11-01T01:00:00+02:00'},
