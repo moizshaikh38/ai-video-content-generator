@@ -83,8 +83,8 @@ async function getRenderQueueStats(): Promise<ReadinessStatus['renderQueue']> {
     const db = await getMongoDb();
     const col = db.collection('render_jobs');
     const [queued, processing] = await Promise.all([
-      col.countDocuments({ status: 'queued' }),
-      col.countDocuments({ status: 'processing' }),
+      col.countDocuments({ status: 'queued' },{maxTimeMS:500,timeoutMS:500}),
+      col.countDocuments({ status: 'processing' },{maxTimeMS:500,timeoutMS:500}),
     ]);
     return {
       queued,
@@ -99,7 +99,14 @@ async function getRenderQueueStats(): Promise<ReadinessStatus['renderQueue']> {
 
 export async function getReadinessStatus(): Promise<ReadinessStatus> {
   if(workLifecycle.isDraining())return{status:'not_ready',draining:true,timestamp:new Date().toISOString(),checks:{mongodb:false,databaseBootstrap:false,supabase:false,storage:false,aiProvider:false},renderAdmission:{enabled:process.env.VIREO_RENDER_ADMISSION_V1==='1'}};
-  const mongoConnected = await isMongoHealthy();
+  // Advisory queue/CV checks must not turn a cheap supervisor probe into a
+  // 20-second Python import or an unbounded database wait. Late probes are read
+  // only; the shared Mongo connection/runtime check may still settle afterward.
+  const [mongoConnected,renderQueue,reframeRuntime]=await Promise.all([
+    readinessProbe(isMongoHealthy,2_000,false),
+    readinessProbe(getRenderQueueStats,500,null),
+    readinessProbe(getReframeRuntimeStats,500,null),
+  ]);
   const supabaseOk = isServerSupabaseConfigured;
   const storageOk = Boolean(config.r2AccountId && config.r2AccessKeyId && config.r2SecretAccessKey);
   const aiOk = Boolean(config.openrouterApiKey || config.groqApiKey);
@@ -107,8 +114,6 @@ export async function getReadinessStatus(): Promise<ReadinessStatus> {
   const bootstrapReady = isDatabaseBootstrapReady();
   const isReady = !workLifecycle.isDraining() && bootstrapReady && mongoConnected && supabaseOk && storageOk && aiOk;
 
-  const renderQueue = await getRenderQueueStats();
-  const reframeRuntime = await getReframeRuntimeStats();
   // Probes may await while shutdown begins. Never return a pre-await ready result.
   const draining = workLifecycle.isDraining();
   return {
@@ -126,6 +131,15 @@ export async function getReadinessStatus(): Promise<ReadinessStatus> {
     renderQueue,
     reframeRuntime,
   };
+}
+
+/** A deadline bounds the HTTP wait, not cancellation of shared background reads. */
+export async function readinessProbe<T>(probe:()=>Promise<T>,timeoutMs:number,fallback:T):Promise<T>{
+ let timer:ReturnType<typeof setTimeout>|undefined;
+ try{return await Promise.race([
+   Promise.resolve().then(probe).catch(()=>fallback),
+   new Promise<T>(resolve=>{timer=setTimeout(()=>resolve(fallback),timeoutMs);}),
+ ]);}finally{if(timer)clearTimeout(timer);}
 }
 
 async function getReframeRuntimeStats(): Promise<ReadinessStatus['reframeRuntime']> {
