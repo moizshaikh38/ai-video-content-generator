@@ -230,8 +230,8 @@ describe('E1 — speed and gap semantics in the graph', () => {
     ];
     const graph = ProEditorService.compileRenderGraph(makeProject(gapped, 4.6), '/tmp/s.mp4');
     const text = graph.filterComplex.join('\n');
-    assert.match(text, /tpad=stop_duration=0\.600:color=black/);
-    assert.match(text, /apad=pad_dur=0\.600/);
+    assert.match(text, /tpad=start_duration=0\.600:color=black/);
+    assert.match(text, /adelay=delays=600:all=1/);
     // Gap-free timelines stay unpadded.
     const flush = [
       makeItem({ id: 'a', timeline_start: 0, timeline_end: 2, source_start: 0, source_end: 2 }),

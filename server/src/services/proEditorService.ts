@@ -12,7 +12,7 @@ import {editorCachePath} from '../utils/editorCachePath.js';
 import {saveEditorRevision,createEditorRevision} from '../db/repositories/editorRevisionRepository.js';
 import {getMongoDb,getMongoClient} from '../db/mongoClient.js';
 import {visibleEditorAssetItems} from '../shared/visibleEditorAssets.js';
-import {primaryVisibleVideoItems} from '../shared/primaryVideoItems.js';
+import {primaryVisibleVideoItems,usesGeneratedSliceGraph} from '../shared/primaryVideoItems.js';
 import {usesAutomaticSourceClock,automaticSourceWindow} from '../shared/automaticSourceClock.js';
 import {resolveMeasuredItemPlan} from './itemShotPlanService.js';
 import {freshEditorCaptionAppearance} from '../shared/freshEditorCaptionAppearance.js';
@@ -1391,6 +1391,16 @@ export class ProEditorService {
     // and shifted/corrupted the base timeline (found during the two-pass loudnorm
     // work, Nov 2026).
     const allVideoItems = primaryVisibleVideoItems(project);
+    const primaryAudioGain=(item:EditorTrackItem|undefined)=>{const value=item?.audio?.volume;return videoTracks[0]?.muted||item?.muted?0:typeof value==='number'&&Number.isFinite(value)?Math.min(2,Math.max(0,value)):1;};
+    // A uniform base gain belongs after cleanup/normalization, so normalization
+    // cannot cancel it. Non-transition ordinary unequal gains are split below.
+    const firstGain=allVideoItems.length?primaryAudioGain(allVideoItems[0]):1;
+    const uniformGain=allVideoItems.length>0&&allVideoItems.every(i=>primaryAudioGain(i)===firstGain);
+    const programGain=uniformGain?firstGain:1;
+    // Hard-cut ordinary slices have a known output clock. Reapply unequal gains
+    // after normalization without quantizing their boundaries to audio frames.
+    const postSliceGains:Array<{duration:number;gain:number}>|null=!uniformGain&&allVideoItems.length>1&&allVideoItems.every(i=>!(i as any).is_title_card&&!(i as any).is_freeze)&&!allVideoItems.slice(1).some(i=>i.transition_in&&resolveXfadeName(i.transition_in.type,i.transition_in.direction))?[]:null;
+    const sliceInputGain=(item:EditorTrackItem)=>(uniformGain||postSliceGains!==null)&&primaryAudioGain(item)>0?1:primaryAudioGain(item);
 
     // Build base video stream
     let videoStreamLabel = '[0:v]';
@@ -1399,7 +1409,16 @@ export class ProEditorService {
     // Base video scaling & crop filter — resolved per slice below (parity with Quick path).
     const canvasDuration = Number((project.canvas.duration || 0).toFixed(3));
 
-    if (allVideoItems.length > 1) {
+    if (allVideoItems.length === 0) {
+      // No visible primary item means an empty base, never permission to reveal
+      // the original source. Visible overlays and secondary audio still compose.
+      filterComplex.push(`color=c=black:s=${canvasW}x${canvasH}:r=${fps}:d=${Math.max(.1,canvasDuration).toFixed(6)},setsar=1,format=yuv420p[base_v]`);
+      const emptyAudio=`anullsrc=channel_layout=stereo:sample_rate=44100:duration=${Math.max(.1,canvasDuration).toFixed(6)}[base_a]`;
+      filterComplex.push(emptyAudio);
+      audioOnlyChains.push(emptyAudio);
+      videoStreamLabel='[base_v]';
+      audioStreamLabel='[base_a]';
+    } else if (usesGeneratedSliceGraph(allVideoItems,canvasDuration)) {
       // Multiple timeline segments: slice real video, or synthesize title cards,
       // then concat (no transitions) or an xfade/acrossfade chain (transitions).
       // Each slice honors its playback speed; deliberate timeline gaps are padded
@@ -1415,13 +1434,15 @@ export class ProEditorService {
         const qualificationStageStart=filterComplex.length;
         const vSlice = `[v_slice_${i}]`;
         const aSlice = `[a_slice_${i}]`;
-        const timelineDur = Math.max(0.1, item.timeline_end - item.timeline_start);
+        const generated=Boolean((item as any).is_title_card||(item as any).is_freeze);
+        const timelineDur = Math.max(generated?1/fps:.1, item.timeline_end - item.timeline_start);
+        const generatedFrames=Math.max(1,Math.round(item.timeline_end*fps)-Math.round(item.timeline_start*fps));
         const speed = Math.min(4, Math.max(0.25, item.speed?.speed || 1.0));
         const speedVideo = speed !== 1 ? `,setpts=PTS/${speed}` : '';
         const speedAudio = ProEditorService.audioAtempoChain(speed);
         const gap =
-          prevTimelineEnd !== null ? Math.max(0, item.timeline_start - prevTimelineEnd) : 0;
-        const gapPad = gap > 0.05;
+          prevTimelineEnd !== null ? Math.max(0, item.timeline_start - prevTimelineEnd) : Math.max(0,item.timeline_start);
+        const gapPad = Math.round(gap * fps) > 0;
         prevTimelineEnd = item.timeline_end;
 
         if ((item as any).is_title_card) {
@@ -1430,7 +1451,7 @@ export class ProEditorService {
           const cardText = ProEditorService.escapeDrawtext((item as any).title_card_text || item.name || '');
           const fontSize = Math.max(32, Math.round(canvasH * 0.06));
 
-          inputArgs.push('-f', 'lavfi', '-i', `color=c=0x${bgHex}:s=${canvasW}x${canvasH}:r=${fps}:d=${(timelineDur * speed).toFixed(2)}`);
+          inputArgs.push('-f', 'lavfi', '-i', `color=c=0x${bgHex}:s=${canvasW}x${canvasH}:r=${fps}:d=${((generatedFrames/fps+1/fps)*speed).toFixed(6)}`);
           currentInputIdx++;
           const colorIdx = currentInputIdx;
           inputArgs.push('-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100');
@@ -1440,17 +1461,17 @@ export class ProEditorService {
           const drawtext = cardText
             ? `,drawtext=text='${cardText}':fontcolor=white:fontsize=${fontSize}:x=(w-text_w)/2:y=(h-text_h)/2`
             : '';
-          const padV = gapPad ? `,tpad=stop_duration=${gap.toFixed(3)}:color=black` : '';
-          const padA = gapPad ? `,apad=pad_dur=${gap.toFixed(3)}` : '';
-          filterComplex.push(`[${colorIdx}:v]setpts=PTS-STARTPTS${speedVideo},fps=${fps}${drawtext},setsar=1,format=yuv420p${padV}${vSlice}`);
-          const titleAChain = `[${silenceIdx}:a]atrim=0:${(timelineDur * speed).toFixed(2)},asetpts=PTS-STARTPTS${speedAudio ? ',' + speedAudio : ''},${UNIFORM_AUDIO}${padA}${aSlice}`;
+          const padV = gapPad ? `,tpad=start_duration=${gap.toFixed(3)}:color=black` : '';
+          const padA = gapPad ? `,adelay=delays=${Math.round(gap*1000)}:all=1` : '';
+          filterComplex.push(`[${colorIdx}:v]setpts=PTS-STARTPTS${speedVideo},fps=${fps}${drawtext},setsar=1,format=yuv420p,trim=end_frame=${generatedFrames},setpts=N/(${fps}*TB)${padV}${vSlice}`);
+          const titleAChain = `[${silenceIdx}:a]atrim=0:${(timelineDur * speed).toFixed(6)},asetpts=PTS-STARTPTS${speedAudio ? ',' + speedAudio : ''},${UNIFORM_AUDIO}${padA}${aSlice}`;
           filterComplex.push(titleAChain);
           audioOnlyChains.push(titleAChain);
           sliceDurations.push(timelineDur + gap);
         } else if ((item as any).is_freeze) {
           // Freeze frame: hold the exact source frame for the whole span by
-          // trimming a tiny window and cloning its last frame. Silent audio
-          // (the item is muted); a leading timeline gap extends the hold.
+          // selecting the first frame and cloning it. A timeline gap is black
+          // before the hold, not an extension of the frozen source picture.
           const T = Number((item as any).freeze_source_time ?? item.source_start ?? 0);
           const lead = Math.min(0.1, timelineDur);
           inputArgs.push('-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100');
@@ -1459,21 +1480,27 @@ export class ProEditorService {
           const windowStartClipRelFreeze = T - (reframe?.clipStartSec ?? 0);
           const freezeCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRelFreeze, timelineDur, project.canvas);
           const freezeStyle = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH, fps);
-          const chain = [`trim=start=${T.toFixed(3)}:end=${(T + lead).toFixed(3)}`, 'setpts=PTS-STARTPTS'];
+          const chain = [`trim=start=${T.toFixed(3)}:end=${(T + lead).toFixed(3)}`, 'select=eq(n\\,0)', 'setpts=PTS-STARTPTS'];
           if (freezeCrop) chain.push(freezeCrop);
           chain.push(...freezeStyle);
           chain.push(
-            `tpad=stop_mode=clone:stop_duration=${(timelineDur - lead + gap).toFixed(3)}`,
+            `tpad=stop_mode=clone:stop_duration=${timelineDur.toFixed(3)}`,
+            `trim=duration=${timelineDur.toFixed(3)}`,
             `fps=${fps}`,
             'setsar=1',
             'format=yuv420p'
           );
+          chain.push(`trim=end_frame=${generatedFrames}`,`setpts=N/(${fps}*TB)`);
+          if (gapPad) chain.push(`tpad=start_duration=${gap.toFixed(3)}:color=black`);
           filterComplex.push(`[0:v]${chain.join(',')}${vSlice}`);
           const freezeAChain = `[${silenceIdx}:a]atrim=0:${(timelineDur + gap).toFixed(3)},asetpts=PTS-STARTPTS,${UNIFORM_AUDIO}${aSlice}`;
           filterComplex.push(freezeAChain);
           audioOnlyChains.push(freezeAChain);
           sliceDurations.push(timelineDur + gap);
         } else {
+          // Ordinary edits can contain a deliberate one-frame gap. A fixed50ms
+          // cutoff drops it at30fps and shortens the saved timeline.
+          const gapPad = Math.round(gap * fps) > 0;
           const startStr = (item.source_start || 0).toFixed(6);
           const srcEnd = item.source_end !== undefined ? item.source_end : (item.source_start || 0) + timelineDur * speed;
           const endStr = srcEnd.toFixed(6);
@@ -1495,17 +1522,18 @@ export class ProEditorService {
             const frames=Math.max(1,Math.round((item.timeline_start+sliceDur)*fps)-Math.round(item.timeline_start*fps));
             chain.push('tpad=stop_mode=clone:stop_duration=0.1',`trim=end_frame=${frames}`,`setpts=N/(${fps}*TB)`);
           }
-          if (gapPad) chain.push(`tpad=stop_duration=${gap.toFixed(3)}:color=black`);
+          if (gapPad) chain.push(`tpad=start_duration=${gap.toFixed(3)}:color=black`);
           filterComplex.push(`[0:v]${chain.join(',')}${vSlice}`);
 
           const aChain = [`atrim=start=${startStr}:end=${endStr}`, 'asetpts=PTS-STARTPTS'];
           if (speedAudio) aChain.push(speedAudio);
-          aChain.push(UNIFORM_AUDIO);
-          if (gapPad) aChain.push(`apad=pad_dur=${gap.toFixed(3)}`);
+          aChain.push(`volume=${sliceInputGain(item).toFixed(6)}`,UNIFORM_AUDIO);
+          if (gapPad) aChain.push(`adelay=delays=${Math.round(gap*1000)}:all=1`);
           const sliceAChain = `${sourceAudioLabel}${aChain.join(',')}${aSlice}`;
           filterComplex.push(sliceAChain);
           audioOnlyChains.push(sliceAChain);
           sliceDurations.push(sliceDur + gap);
+          postSliceGains?.push({duration:Math.max(0,srcEnd-(item.source_start||0))/speed+gap,gain:primaryAudioGain(item)});
         }
         qualificationSliceStages.push({filterComplex:filterComplex.slice(qualificationStageStart),videoMap:vSlice,audioMap:aSlice});
         vLabels.push(vSlice);
@@ -1628,6 +1656,27 @@ export class ProEditorService {
       }
     }
 
+    if(allVideoItems.length===1&&!usesGeneratedSliceGraph(allVideoItems,canvasDuration)&&programGain===0){
+      const muteChain=`${audioStreamLabel}volume=0[base_a_muted]`;
+      filterComplex.push(muteChain);audioOnlyChains.push(muteChain);audioStreamLabel='[base_a_muted]';
+    }
+
+    // Preserve an explicit empty canvas tail before overlays and secondary audio.
+    // Transition overlap timing is separate and must not be inferred from item ends.
+    const lastBaseEnd=allVideoItems[allVideoItems.length-1]?.timeline_end;
+    const terminalGap=lastBaseEnd===undefined?0:Math.max(0,canvasDuration-lastBaseEnd);
+    const hasBaseTransition=allVideoItems.slice(1).some(i=>i.transition_in&&resolveXfadeName(i.transition_in.type,i.transition_in.direction));
+    const terminalFrames=Math.round(canvasDuration*fps)-Math.round((lastBaseEnd??canvasDuration)*fps);
+    if (terminalFrames>0 && !hasBaseTransition) {
+      filterComplex.push(`color=c=black:s=${canvasW}x${canvasH}:r=${fps}:d=${(terminalGap+1/fps).toFixed(6)},trim=end_frame=${terminalFrames},setsar=1,format=yuv420p[terminal_black]`);
+      filterComplex.push(`${videoStreamLabel}[terminal_black]concat=n=2:v=1:a=0[base_v_tail]`);
+      const tailAudio=`${audioStreamLabel}apad=pad_dur=${terminalGap.toFixed(6)},atrim=duration=${canvasDuration.toFixed(6)}[base_a_tail]`;
+      filterComplex.push(tailAudio);
+      audioOnlyChains.push(tailAudio);
+      videoStreamLabel='[base_v_tail]';
+      audioStreamLabel='[base_a_tail]';
+    }
+
     // 1b. Overlay / B-Roll Video & Image Layers
     const secondaryTracks = project.tracks.filter(
       (t) =>
@@ -1705,7 +1754,11 @@ export class ProEditorService {
           // Card items carry their exact design width; other design_center
           // items use the preview's 280px cap as the base.
           const baseDesignW = designSpace ? ((item as any).card?.width ?? 280) : 360;
-          const targetW = Math.round(Math.min(canvasW * 0.85, Math.max(80, baseDesignW * scaleVal * unitX)));
+          // The legacy 80px floor belongs to the native render canvas. Keeping
+          // it in output pixels doubles small emoji/stickers in 360p exports.
+          // Preserve unmarked legacy sizing and native-tier behavior.
+          const minOverlayW = designSpace ? Math.max(1, 80 * renderCanvasScale) : 80;
+          const targetW = Math.round(Math.min(canvasW * 0.85, Math.max(minOverlayW, baseDesignW * scaleVal * unitX)));
           const posX = Math.round((item.transform?.position_x || 0) * unitX);
           const posY = Math.round((item.transform?.position_y || 0) * unitY);
           const opacity = item.transform?.opacity ?? 1.0;
@@ -1848,9 +1901,9 @@ export class ProEditorService {
     const audioFilters: string[] = [];
     const streamsToMix: string[] = [];
 
-    // Find primary audio config or enhancement
-    const primaryAudioItem = project.tracks
-      .flatMap((t) => t.items)
+    // Excluded lanes/items must not select processing for audible dialogue.
+    const visibleAudioConfigItems = project.tracks.filter(t=>!t.hidden&&!t.muted).flatMap(t=>t.items.filter(i=>!i.hidden&&!i.muted));
+    const primaryAudioItem = visibleAudioConfigItems
       .find((i) => i.audio?.enhancement && i.audio.enhancement.preset !== 'off');
 
     // Loudness normalization is emitted at exactly one of two sites (enhancement
@@ -1882,7 +1935,7 @@ export class ProEditorService {
       if (!/^\[\d+:[au]\]$/.test(audioStreamLabel)) {
         filterComplex.push(`${audioStreamLabel}anullsink`);
       }
-      filterComplex.push(`[${currentInputIdx}:a]anull[dialogue_proc]`);
+      filterComplex.push(`[${currentInputIdx}:a]anull[dialogue_pre_gain]`);
     } else {
       if (primaryAudioItem?.audio?.enhancement) {
         const enh = primaryAudioItem.audio.enhancement;
@@ -1897,9 +1950,7 @@ export class ProEditorService {
         );
         audioFilters.push(...enhanceFilters);
       } else {
-        const needsNormalize = project.tracks.some((t) =>
-          t.items.some((i) => i.audio?.normalized)
-        );
+        const needsNormalize = visibleAudioConfigItems.some(i=>i.audio?.normalized);
         if (needsNormalize && loudnorm !== 'off') {
           loudnormTargetI = -16;
           audioFilters.push(buildLoudnorm(-16));
@@ -1912,8 +1963,19 @@ export class ProEditorService {
       if(edgeFades.fade_in>0)audioFilters.push(`afade=t=in:ss=0:d=${edgeFades.fade_in.toFixed(3)}`);
       if(edgeFades.fade_out>0)audioFilters.push(`afade=t=out:st=${Math.max(0,project.canvas.duration-edgeFades.fade_out).toFixed(3)}:d=${edgeFades.fade_out.toFixed(3)}`);
 
-      filterComplex.push(`${audioStreamLabel}${audioFilters.join(',')||'anull'}[dialogue_proc]`);
+      filterComplex.push(`${audioStreamLabel}${audioFilters.join(',')||'anull'}[dialogue_pre_gain]`);
     }
+    if(postSliceGains?.length){
+      filterComplex.push(`[dialogue_pre_gain]asplit=${postSliceGains.length}${postSliceGains.map((_,i)=>`[dialogue_gain_input_${i}]`).join('')}`);
+      let at=0;
+      postSliceGains.forEach((segment,i)=>{
+        const end=at+segment.duration;
+        const trim=`atrim=start=${at.toFixed(6)}${i<postSliceGains.length-1?`:end=${end.toFixed(6)}`:''}`;
+        filterComplex.push(`[dialogue_gain_input_${i}]${trim},asetpts=PTS-STARTPTS,volume=${segment.gain.toFixed(6)}[dialogue_gain_part_${i}]`);
+        at=end;
+      });
+      filterComplex.push(`${postSliceGains.map((_,i)=>`[dialogue_gain_part_${i}]`).join('')}concat=n=${postSliceGains.length}:v=0:a=1[dialogue_proc]`);
+    }else filterComplex.push(`[dialogue_pre_gain]volume=${programGain.toFixed(6)}[dialogue_proc]`);
     const processedDialogueLabel = '[dialogue_proc]';
     // Dialogue input pad ([base_a] / [0:a] / [base_a_speed]) - captured before
     // audioStreamLabel is reassigned to [master_a] by the final mix below.
@@ -2042,6 +2104,7 @@ export class ProEditorService {
       // can run past canvas.duration (the final render truncates with -t), and
       // metering past the truncation measures material nobody renders.
       measurement = {
+        programDuration:project.canvas.duration,
         filterComplex: [
           ...audioOnlyChains,
           `${dialogueInputLabel}${[...preMarkerFilters, meterFilter].join(',')}[measure_a]`,
@@ -2116,7 +2179,7 @@ export class ProEditorService {
         const wavPath = path.join(tmpDir, `dialogue-normalized-${crypto.randomUUID()}.wav`);
         await LoudnormTwoPassService.renderNormalizedDialogue(
           [...inputSeekArgs, ...probe.inputArgs],
-          probe.measurement,
+          {...probe.measurement,peakConstrained:measured.inputTP+(probe.measurement.targetI-measured.inputI)>-2.0},
           wavPath
         );
         logger.warn(

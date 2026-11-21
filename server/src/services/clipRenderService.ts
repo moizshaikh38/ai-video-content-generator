@@ -15,7 +15,7 @@ import {syncClipEditorRevision} from '../db/repositories/editorRevisionRepositor
 import {editorRenderSnapshot,type EditorRenderSnapshot} from '../shared/editorRenderSnapshot.js';
 import { validateOutputFile } from '../shared/outputValidation.js';
 import {quickCaptionWindows} from '../shared/sceneCaptionPlacement.js';
-import {primaryVisibleVideoItems} from '../shared/primaryVideoItems.js';
+import {primaryVisibleVideoItems,usesGeneratedSliceGraph} from '../shared/primaryVideoItems.js';
 import {singleItemSourceWindow} from '../shared/automaticSourceClock.js';
 import {resolveMeasuredItemPlan} from './itemShotPlanService.js';
 import {prepareSliceRender} from './sliceRenderPreparation.js';
@@ -1021,7 +1021,7 @@ export class ClipRenderService {
         await ProEditorService.preloadRemoteOverlayAssets(editorProject, tempDir);
         assertRenderAssetOwnership(editorProject, tempDir);
         const videoTrackItems = primaryVisibleVideoItems<EditorTrackItem>(editorProject);
-        const isMultiSlice = videoTrackItems.length > 1;
+        const isMultiSlice = usesGeneratedSliceGraph(videoTrackItems,editorProject.canvas.duration);
         // Single-slice renders seek the input; the loudnorm measurement pass must
         // apply the same seek so it measures the exact audio window being rendered.
         // A layout choice must never change the selected source interval.
@@ -2769,6 +2769,11 @@ export class ClipRenderService {
    */
   public static hasCustomProEdits(project: any, clip?: any): boolean {
     if (!project || !Array.isArray(project.tracks)) return false;
+    // An explicitly empty/hidden base must not bypass the compiler and reveal source.
+    if (primaryVisibleVideoItems(project).length === 0) return true;
+    const primaryTrack=project.tracks.find((t:any)=>t.type==='VIDEO'&&!t.hidden);
+    if(primaryTrack?.muted||primaryTrack?.items?.some((i:any)=>!i.hidden&&i.muted))return true;
+    if (usesGeneratedSliceGraph(primaryVisibleVideoItems(project),project.canvas?.duration)) return true;
 
     const clipStart = Number(clip?.start_seconds || 0);
     const trimStart = Number(clip?.trim_start_offset || 0);
@@ -2812,6 +2817,7 @@ export class ClipRenderService {
             Math.abs(i.source_start - expectedBaseSourceStart) > 0.05;
 
           return (
+            Boolean(i.is_freeze || i.is_title_card) ||
             hasKeyframes ||
             hasEffects ||
             hasColor ||

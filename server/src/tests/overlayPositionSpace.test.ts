@@ -102,3 +102,18 @@ test('design_center: item scale multiplies size, not position', () => {
   const chain = compiled.filterComplex.find((f) => f.includes('overlay=x='))!;
   assert.match(chain, /overlay=x='\(W-w\)\/2\+30':y='\(H-h\)\/2\+30'/, 'position scales by unit only');
 });
+
+test('design_center: small emoji size stays proportional at fast export tiers',()=>{
+ for(const [canvasScale,width]of[[1,118],[2/3,78],[.5,59],[1/3,39]]as const){
+  const p=projectWithOverlay({position_x:0,position_y:160,scale:.14,rotation:0,opacity:1,position_space:'design_center'},1080,1920);
+  const g=ProEditorService.compileRenderGraph(p,'/tmp/realmedia/tos-twoshot.mp4','/tmp/ov-out.mp4',os.tmpdir(),{canvasScale}as any);
+  assert(g.filterComplex.some(f=>f.includes(`scale=${width}:-1:force_original_aspect_ratio=decrease`)),`tier ${canvasScale} expected ${width}`);
+ }
+});
+test('design_center minimum scales with the output tier while legacy keeps its historical pixel floor',()=>{
+ for(const position_space of['design_center',undefined]){
+  const p=projectWithOverlay({position_x:0,position_y:0,scale:.01,rotation:0,opacity:1,...(position_space?{position_space}:{})},1080,1920);
+  const g=ProEditorService.compileRenderGraph(p,'/tmp/realmedia/tos-twoshot.mp4','/tmp/ov-out.mp4',os.tmpdir(),{canvasScale:1/3}as any);
+  assert(g.filterComplex.some(f=>f.includes(`scale=${position_space?27:80}:-1:force_original_aspect_ratio=decrease`)));
+ }
+});

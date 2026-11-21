@@ -27,6 +27,10 @@ export function planSparseCaptionEmojis(cues:EmojiCaptionCue[],duration:number):
  const decorations:SparseCaptionEmoji[]=[],used=new Set<string>();
  for(let i=0;i<words.length&&decorations.length<limit;i++){
   const w=words[i],e=entries[clean(w.text)];if(!e||w.customStyle||used.has(e.assetId))continue;
+  // A short token radius misses long negations and tokenized contractions.
+  // Abstain for the whole cue rather than guess which clause is positive.
+  const cueContext=[w.cue.text,...(w.cue.words??[]).map(v=>v.text)].join(' ').toLowerCase().replace(/[\u2018\u2019]/g,"'");
+  if(/\b(?:not|no|never|without|hate|cannot|dont|doesnt|didnt|isnt|wasnt|wont|cant|hardly|barely|neither|nor)\b|\b[a-z]+\s*n\s*'\s*t\b|\b(?:can|will|do|does|did|is|was|are|were|could|would|should|has|have|had)n't\b/i.test(cueContext))continue;
   const context=words.slice(Math.max(0,i-3),Math.min(words.length,i+3)).map(v=>clean(v.text));
   if(context.some(v=>['not','no','never','without','hate','dont',"don't",'cannot',"can't"].includes(v)))continue;
   if(decorations.some(d=>w.start-d.start<6))continue;

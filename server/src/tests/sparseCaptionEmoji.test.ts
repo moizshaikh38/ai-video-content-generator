@@ -8,3 +8,14 @@ test('unknown clocks, overlap and segment-only captions do not manufacture timin
 test('manual styled words and tightly packed repetitions are not changed or decorated',()=>{const x=c('x','great inspiration today',0);Object.assign(x.words[1],{customStyle:{color:'#FFFFFF'}});assert.equal(planSparseCaptionEmojis([x],10).decorations.length,0);assert.equal(planSparseCaptionEmojis([c('a','great idea today',0),c('b','gaming is fun',3)],10).decorations.length,1)});
 
 test('decoration lifetime stays inside the visible phrase, never floats after it disappears',()=>{const cues=[c('a','great inspiration today',0),c('b','and I love',8)],p=planSparseCaptionEmojis(cues,20);for(const d of p.decorations){const cue=cues.find(c=>c.id===d.cueId)!;assert(d.start>=cue.start);assert(d.end<=cue.end);assert(d.start<=d.wordStart);assert(d.wordStart-d.start<=.351);assert(d.end>=d.wordStart);}});
+
+test('long cue negation and contractions abstain rather than attaching a positive emoji',()=>{
+ for(const text of ['I do not really think I could ever love this','I don’t think I love this','I dont think I love this','I can not honestly recommend this gaming setup','I never really thought that was an inspiration','I do n \' t love this','I hardly love this']){
+  const tokens=text.split(' ');const cue={id:'x',start:0,end:8,text,words:tokens.map((text,i)=>({text,start:i*.3,end:(i+1)*.3}))};
+  assert.equal(planSparseCaptionEmojis([cue],10).decorations.length,0,text);
+ }
+});
+test('cue-level abstention does not suppress a later independent positive cue',()=>{
+ const p=planSparseCaptionEmojis([c('negative','I never love this',0),c('positive','a great inspiration',8)],15);
+ assert.deepEqual(p.decorations.map(d=>d.assetId),['1f4a1']);
+});

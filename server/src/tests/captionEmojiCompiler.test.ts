@@ -52,3 +52,11 @@ test('compiler omits stale or caption-hidden decorations without deleting persis
     }
   } finally { fs.rmSync(dir, {recursive: true, force: true}); }
 });
+
+test('compiler omits a new reviewed emoji after composition changes, not only word edits',()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'emoji-composition-'));
+ try{for(const change of [(p:any)=>p.canvas.aspect_ratio='1:1',(p:any)=>p.tracks[0].items[0].caption.position_y=.3,(p:any)=>p.tracks[0].items[0].caption.font_size=100]){
+  const p=project();change(p);const g=ProEditorService.compileRenderGraph(p,'/tmp/test-source.mp4','/tmp/test-out.mp4',dir);
+  assert(!g.inputArgs.some(s=>s.includes('bundled-caption-emoji')));assert.equal(p.tracks[1].hidden,false);
+ }}finally{fs.rmSync(dir,{recursive:true,force:true})}
+});

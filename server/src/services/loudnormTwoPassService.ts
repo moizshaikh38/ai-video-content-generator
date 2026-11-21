@@ -48,6 +48,10 @@ export interface LoudnormMeasured {
 }
 
 export interface LoudnormMeasurementGraph {
+  /** Original finite dialogue duration, before any short-program lookahead pad. */
+  programDuration?: number;
+  /** Measured linear target gain would exceed the requested true-peak ceiling. */
+  peakConstrained?: boolean;
   filterComplex: string[];
   audioMap: string;
   targetI: number;
@@ -206,13 +210,20 @@ export class LoudnormTwoPassService {
     timeoutMs = 300_000
   ): Promise<void> {
     const legacyFilter = `loudnorm=I=${measurement.targetI}:TP=-2.0:LRA=11`;
+    const duration=measurement.programDuration;
+    const shortProgram=measurement.peakConstrained===true&&typeof duration==='number'&&Number.isFinite(duration)&&duration>0&&duration<3;
+    // The dynamic normalizer needs its three-second analysis window. A shorter
+    // EOF can fall into an attenuating linear result even with linear=false.
+    // Pad only the audio analysis input and remove that pad after processing.
+    const lookaheadPad=shortProgram?['apad=whole_dur=3']:[];
+    const restoreDuration=shortProgram?[`atrim=end=${duration.toFixed(6)}`]:[];
     // Rebuild the dialogue chain with one-pass loudnorm at the marker position
     // (limiter/fades after it), exactly as legacy one-pass renders had it. The
     // measurement graph meters at end-of-chain instead, so a blind string swap
     // would misplace the loudnorm.
     const chain =
       `${measurement.dialogueInputLabel}` +
-      `${[...measurement.preMarkerFilters, legacyFilter, ...measurement.postMarkerFilters].join(',')}` +
+      `${[...measurement.preMarkerFilters, ...lookaheadPad, legacyFilter, ...measurement.postMarkerFilters, ...restoreDuration].join(',')}` +
       `${measurement.audioMap}`;
     const renderChains = [...measurement.filterComplex.slice(0, -1), chain];
     await execFileAsync(
