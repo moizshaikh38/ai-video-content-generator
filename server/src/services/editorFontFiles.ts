@@ -1,4 +1,5 @@
 import fs from 'fs';
+import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import path from 'path';
 import os from 'node:os';
@@ -89,20 +90,46 @@ export function drawtextFontArg(fontFamily: string, weight?: string | number | n
 
 /** libass does not recurse into family directories. Stage every bundled TTF
  * in one private directory so preset fonts use the same committed files. */
-export function assFontsDirArg(): string {
-  const root = path.resolve(HERE, '..', '..', 'assets', 'fonts');
-  const dir = path.join(os.tmpdir(), 'vireo-ass-bundled-fonts');
-  fs.mkdirSync(dir, { recursive: true });
-  function addFonts(from: string): void {
-    for (const entry of fs.readdirSync(from, {withFileTypes:true})) {
-      const source = path.join(from, entry.name);
-      if (entry.isDirectory()) addFonts(source);
-      else if (/\.(ttf|otf)$/i.test(entry.name)) {
-        const dest = path.join(dir, entry.name);
-        if (!fs.existsSync(dest) || fs.statSync(dest).size !== fs.statSync(source).size || fs.statSync(dest).mtimeMs < fs.statSync(source).mtimeMs) fs.copyFileSync(source, dest);
+/** Internal deterministic staging boundary, exported for isolated filesystem tests. */
+export function stageBundledAssFonts(root:string,temporaryRoot:string=os.tmpdir()):string {
+  const files: Array<{name:string;bytes:Buffer}> = [];
+  function collect(from:string):void {
+    for(const entry of fs.readdirSync(from,{withFileTypes:true})) {
+      const source=path.join(from,entry.name);
+      if(entry.isDirectory())collect(source);
+      else if(/\.(ttf|otf)$/i.test(entry.name)){
+        if(!entry.isFile())throw Error('Bundled font must be a regular file, not a symbolic link.');
+        files.push({name:entry.name,bytes:fs.readFileSync(source)});
       }
     }
   }
-  addFonts(root);
+  collect(root);files.sort((a,b)=>a.name.localeCompare(b.name));
+  if(!files.length||new Set(files.map(f=>f.name)).size!==files.length)throw Error('Bundled ASS font names are missing or ambiguous.');
+  const manifest=crypto.createHash('sha256');
+  for(const file of files)manifest.update(file.name).update('\0').update(crypto.createHash('sha256').update(file.bytes).digest()).update('\0');
+  // Each byte set has its own directory. Concurrent old/new render jobs never
+  // mutate one another's provider. Prior sets are retained for active readers.
+  const dir=path.join(temporaryRoot,'vireo-ass-fonts-'+manifest.digest('hex'));
+  fs.mkdirSync(dir,{recursive:true,mode:0o700});
+  const provider=fs.lstatSync(dir);
+  if(!provider.isDirectory()||provider.isSymbolicLink())throw Error('ASS font provider must be a real directory, not a symbolic link.');
+  const expected=new Set(files.map(f=>f.name));
+  for(const entry of fs.readdirSync(dir,{withFileTypes:true})){
+    if(entry.name.startsWith('.stage-')&&!/\.(ttf|otf)$/i.test(entry.name))continue;
+    if(!expected.has(entry.name))throw Error('Unexpected file in content-addressed ASS font provider.');
+    if(!entry.isFile())throw Error('Staged ASS font must be a regular file, not a symbolic link.');
+  }
+  for(const file of files){
+    const dest=path.join(dir,file.name);
+    if(fs.existsSync(dest)&&fs.readFileSync(dest).equals(file.bytes))continue;
+    const tmp=path.join(dir,'.stage-'+crypto.randomUUID());
+    try{fs.writeFileSync(tmp,file.bytes,{flag:'wx',mode:0o600});fs.renameSync(tmp,dest);}
+    finally{if(fs.existsSync(tmp))fs.unlinkSync(tmp);}
+  }
+  return dir;
+}
+
+export function assFontsDirArg(): string {
+  const dir=stageBundledAssFonts(path.resolve(HERE,'..','..','assets','fonts'));
   return `:fontsdir='${dir.replace(/\\/g, '/').replace(/:/g, '\\\\:').replace(/'/g, '')}'`;
 }
