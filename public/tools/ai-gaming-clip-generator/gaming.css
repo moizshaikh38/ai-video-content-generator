@@ -62,3 +62,36 @@ h1,h2,h3{font-family:'Oxanium',Manrope,sans-serif}h1{font-weight:600;font-size:6
 .tool-link-form button[type=submit]:hover{background:#8b5cf6}
 .tool-link-form button[type=submit]:active{background:#6d28d9}
 @media(max-width:550px){.tool-link-form{flex-direction:column;align-items:stretch;gap:8px;border-radius:32px;padding:6px}.tool-link-field{padding:8px 12px}.tool-link-field input{min-height:40px;padding-right:70px;font-size:16px}.tool-link-form button[type=submit]{width:100%;height:40px;font-size:12px}}
+
+/* Poster fallback layer: pinned over every demo video until real playback,
+   so cold loads / blocked media never show a black phone frame. */
+.has-video-poster{position:relative}
+.video-poster{position:absolute;z-index:2;pointer-events:none;transition:opacity .3s;background:#0a0810}
+.video-poster-off{opacity:0}
+.demo-start{z-index:3}
+
+/* Unified grouped menu (shared with landing Navbar + static site pages). */
+.site-menu-toggle{display:none;min-height:40px;align-items:center;gap:10px;background:#18101f;border:1px solid #ffffff24;border-radius:100px;padding:0 15px;font-size:11px;color:#f9f7ff}
+.nav-group{position:relative}
+.nav-group>summary{list-style:none;cursor:pointer;white-space:nowrap;font-size:13px;color:#bbb5cc}
+.nav-group>summary:hover{color:#fff}
+.nav-group>summary::-webkit-details-marker{display:none}
+.nav-group>summary:after{content:'▾';margin-left:6px;font-size:9px;color:#9d93b5}
+.nav-group[open]>summary:after{content:'▴'}
+.nav-drop{display:none}
+@media(min-width:761px){
+.nav .site-nav{display:flex;align-items:center;gap:28px}
+.nav-group[open] .nav-drop{display:flex;position:absolute;top:calc(100% + 10px);left:0;min-width:220px;flex-direction:column;background:#110c19;border:1px solid #ffffff24;border-radius:14px;padding:8px;box-shadow:0 18px 50px #000b;z-index:60}
+.nav-drop a{display:block;padding:10px 12px;border-radius:8px;font-size:13px;color:#bbb5cc}
+.nav-drop a:hover{background:#ffffff10;color:#fff}
+.nav-drop a[aria-current="page"]{color:#c9b1f2}
+}
+@media(max-width:760px){
+.site-menu-toggle{display:inline-flex}
+.nav .site-nav{display:none;position:absolute;top:calc(100% + 8px);left:16px;right:16px;background:#110c19;border:1px solid #ffffff24;border-radius:16px;padding:12px;box-shadow:0 18px 50px #000b;z-index:60}
+.nav .site-nav.is-open{display:block}
+.nav-group>summary{display:block;padding:13px 12px;border-bottom:1px solid #ffffff0c}
+.nav-group[open] .nav-drop{display:block;padding:0 0 8px}
+.nav-drop a{display:block;padding:10px 12px 10px 24px;font-size:14px;color:#bbb5cc}
+.nav .site-nav>a{display:block;padding:13px 12px;border-bottom:1px solid #ffffff0c}
+}

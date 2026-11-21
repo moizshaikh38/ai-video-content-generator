@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowRight, Menu, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -6,14 +6,49 @@ import { Logo } from './Logo';
 import '../pages/landing-foundation.css';
 import './public-navigation.css';
 
-const resourceLinks = [{href:'/resources/help-centre',label:'Help Centre'},{href:'/resources/learning-center',label:'Learning Center'},{href:'/resources/blog',label:'Blog'}];
-const publicLinks = [
-  { href: '/features', label: 'Features', detail: 'Clipping, captions and framing' },
-  { href: '/tools', label: 'Tools', detail: 'Find the right editing workflow' },
-  { href: '/use-cases', label: 'Use Cases', detail: 'Podcasters, streamers and agencies' },
-  { href: '/resources', label: 'Resources', detail: 'Help Centre, Learning Center and Blog' },
-  { href: '/pricing', label: 'Pricing', detail: 'Plan information and availability' },
-  { href: '/#faq', label: 'FAQ', detail: 'Before you start' },
+// One shared public menu structure, mirrored by the static site pages
+// (scripts/build-site-pages.mjs) and the gaming demos page, so the menu
+// button and dropdowns look and behave the same across the whole app.
+const navGroups = [
+  {
+    label: 'Features',
+    links: [
+      { href: '/features', label: 'Features overview' },
+      { href: '/#major-features', label: 'See the workflow' },
+    ],
+  },
+  {
+    label: 'Tools',
+    links: [
+      { href: '/tools', label: 'All tools' },
+      { href: '/tools/captions', label: 'Captions' },
+      { href: '/tools/reframe', label: 'Reframe' },
+      { href: '/tools/video-trimmer', label: 'Video trimmer' },
+      { href: '/tools/split-screen', label: 'Split-screen' },
+      { href: '/tools/ai-gaming-clip-generator/', label: 'Gaming clips' },
+      { href: '/tools/gaming-clips/fortnite', label: 'Fortnite clip guide' },
+      { href: '/tools/gaming-clips/gta-v', label: 'GTA V clip guide' },
+      { href: '/tools/gaming-clips/valorant', label: 'Valorant clip guide' },
+    ],
+  },
+  {
+    label: 'Use Cases',
+    links: [
+      { href: '/use-cases', label: 'Use cases overview' },
+      { href: '/use-cases/podcasters', label: 'Podcasters' },
+      { href: '/use-cases/streamers', label: 'Streamers' },
+      { href: '/use-cases/agencies', label: 'Agencies' },
+    ],
+  },
+  {
+    label: 'Resources',
+    links: [
+      { href: '/resources', label: 'Resources overview' },
+      { href: '/resources/learning-center', label: 'Learning center' },
+      { href: '/resources/help-centre', label: 'Help centre' },
+      { href: '/resources/blog', label: 'Blog' },
+    ],
+  },
 ];
 
 export function Navbar() {
@@ -38,25 +73,52 @@ export function Navbar() {
   useEffect(() => setOpen(false), [location.pathname, location.search]);
   const ctaPath = isAuthenticated ? '/dashboard' : '/signup';
   const ctaLabel = isAuthenticated ? 'Open workspace' : 'Get started';
+  const isCurrent = (href: string) => location.pathname === href || (href !== '/' && href.startsWith(location.pathname + '/'));
   return (
     <header className={`lp-navbar vc-public-nav${cinematic ? ' is-cinematic' : ''}${scrolled ? ' is-scrolled' : ''}${open ? ' is-open' : ''}`}>
       <nav className="lp-nav-inner" aria-label="Main navigation">
         <Logo className="lp-nav-logo" size="sm" variant={cinematic ? 'light' : 'dark'} onClick={() => setOpen(false)} />
         <div className="lp-nav-links">
-          {publicLinks.map(item => item.href === '/resources' ? <details className="vc-resources" key={item.href}><summary>Resources</summary><div><a href="/resources">All resources</a>{resourceLinks.map(link=><a key={link.href} href={link.href}>{link.label}</a>)}</div></details> : <a key={item.href} href={item.href} aria-current={location.pathname === item.href ? 'page' : undefined}>{item.label}</a>)}
+          {navGroups.map((group) => (
+            <details className="nav-group" key={group.label}>
+              <summary aria-current={group.links.some((l) => isCurrent(l.href)) ? 'page' : undefined}>{group.label}</summary>
+              <div className="nav-drop">
+                {group.links.map((link) => (
+                  <a key={link.href} href={link.href} aria-current={location.pathname === link.href ? 'page' : undefined}>{link.label}</a>
+                ))}
+              </div>
+            </details>
+          ))}
+          <a href="/pricing" aria-current={location.pathname === '/pricing' ? 'page' : undefined}>Pricing</a>
+          <a href="/#faq">FAQ</a>
         </div>
         <div className="lp-nav-actions">
-          <Link className="lp-nav-login" to={isAuthenticated ? '/dashboard' : '/login'}>{isAuthenticated ? 'Dashboard' : 'Log in'}</Link>
+          <Link className="lp-nav-login" to={isAuthenticated ? '/dashboard' : '/login'}>{isAuthenticated ? 'Dashboard' : 'Sign in'}</Link>
           <Link className="lp-button lp-button-dark" to={ctaPath}>{ctaLabel} <ArrowRight size={15} aria-hidden="true" /></Link>
         </div>
-        <button className="lp-menu-button" type="button" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="lp-mobile-menu" onClick={() => setOpen(v => !v)}>
-          {open ? <X size={21} aria-hidden="true" /> : <Menu size={21} aria-hidden="true" />}
+        <button className="lp-menu-button site-menu-toggle" type="button" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="lp-mobile-menu" onClick={() => setOpen(v => !v)}>
+          <span>Menu</span>
+          {open ? <X size={15} aria-hidden="true" /> : <Menu size={15} aria-hidden="true" />}
         </button>
       </nav>
       {open && <div className="lp-mobile-menu vc-clean-menu" id="lp-mobile-menu">
         <div className="vc-clean-menu-label">EXPLORE VIREOCLIP</div>
-        {publicLinks.map((item, index) => <Fragment key={item.href}><a className="vc-clean-menu-link" href={item.href} onClick={() => setOpen(false)}><span className="vc-menu-number">0{index + 1}</span><span><b>{item.label}</b><small>{item.detail}</small></span><ArrowRight size={16} aria-hidden="true" /></a>{item.href === "/resources" && <div className="vc-resource-mobile" aria-label="Resources">{resourceLinks.map(link=><a key={link.href} href={link.href} onClick={()=>setOpen(false)}>{link.label}<ArrowRight size={13} aria-hidden="true" /></a>)}</div>}</Fragment>)}
-        <div className="vc-clean-menu-actions"><Link to={isAuthenticated ? '/dashboard' : '/login'} onClick={() => setOpen(false)}>{isAuthenticated ? 'Dashboard' : 'Log in'}</Link><Link className="lp-button lp-button-dark" to={ctaPath} onClick={() => setOpen(false)}>{ctaLabel} <ArrowRight size={14} aria-hidden="true" /></Link></div>
+        {navGroups.map((group) => (
+          <details className="nav-group" key={group.label}>
+            <summary>{group.label}</summary>
+            <div className="nav-drop">
+              {group.links.map((link) => (
+                <a key={link.href} href={link.href} onClick={() => setOpen(false)}>
+                  {link.label}
+                  <ArrowRight size={13} aria-hidden="true" />
+                </a>
+              ))}
+            </div>
+          </details>
+        ))}
+        <a className="vc-plain-link" href="/pricing" onClick={() => setOpen(false)}>Pricing<ArrowRight size={13} aria-hidden="true" /></a>
+        <a className="vc-plain-link" href="/#faq" onClick={() => setOpen(false)}>FAQ<ArrowRight size={13} aria-hidden="true" /></a>
+        <div className="vc-clean-menu-actions"><Link to={isAuthenticated ? '/dashboard' : '/login'} onClick={() => setOpen(false)}>{isAuthenticated ? 'Dashboard' : 'Sign in'}</Link><Link className="lp-button lp-button-dark" to={ctaPath} onClick={() => setOpen(false)}>{ctaLabel} <ArrowRight size={14} aria-hidden="true" /></Link></div>
       </div>}
     </header>
   );

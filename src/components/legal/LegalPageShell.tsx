@@ -21,8 +21,8 @@ export interface LegalPageShellProps {
 }
 
 const toneStyles: Record<'draft' | 'ok', string> = {
-  draft: 'bg-amber-100 text-amber-900 border-amber-300',
-  ok: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+  draft: 'bg-amber-500/10 text-amber-300 border-amber-500/30',
+  ok: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
 };
 
 export const LegalPageShell: React.FC<LegalPageShellProps> = ({
@@ -70,7 +70,7 @@ export const LegalPageShell: React.FC<LegalPageShellProps> = ({
   }, [children]);
 
   return (
-    <div className="min-h-screen bg-[#f4f6f1] text-[#1a2e22]">
+    <div className="min-h-screen bg-[#000000] text-[#FAFAFA]">
       {/* Reading progress */}
       <div
         className="fixed top-0 left-0 right-0 h-1 z-50 bg-transparent"
@@ -79,19 +79,19 @@ export const LegalPageShell: React.FC<LegalPageShellProps> = ({
         aria-valuenow={Math.round(progress)}
       >
         <div
-          className="h-full bg-gradient-to-r from-[#36764c] to-[#5ea477] transition-[width] duration-150"
+          className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#7C3AED] transition-[width] duration-150"
           style={{ width: `${progress}%` }}
         />
       </div>
 
       {/* Header band */}
-      <header className="relative overflow-hidden bg-[#0d1f15] text-white">
+      <header className="relative overflow-hidden bg-[#0E0E0E] text-white">
         <div
-          className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-[#36764c]/25 blur-[100px] pointer-events-none"
+          className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-[#8B5CF6]/20 blur-[100px] pointer-events-none"
           aria-hidden="true"
         />
         <div
-          className="absolute -bottom-32 -left-16 w-80 h-80 rounded-full bg-[#20E3A2]/10 blur-[90px] pointer-events-none mv-float-slow"
+          className="absolute -bottom-32 -left-16 w-80 h-80 rounded-full bg-[#8B5CF6]/10 blur-[90px] pointer-events-none mv-float-slow"
           aria-hidden="true"
         />
         <div className="max-w-5xl mx-auto px-5 lg:px-8 pt-10 pb-14 relative">
@@ -103,7 +103,7 @@ export const LegalPageShell: React.FC<LegalPageShellProps> = ({
             Back to VireoClip home
           </Link>
 
-          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-[#8fd6a8]">
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-[#A1A1AA]">
             <ShieldCheck size={14} aria-hidden="true" />
             {eyebrow}
           </div>
@@ -136,8 +136,8 @@ export const LegalPageShell: React.FC<LegalPageShellProps> = ({
             aria-label="Table of contents"
             className="hidden lg:block w-60 shrink-0 sticky top-8"
           >
-            <div className="rounded-2xl border border-[#dfe7da] bg-white/70 backdrop-blur p-4">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#36764c] mb-2.5">
+            <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0E0E0E]/70 backdrop-blur p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#A1A1AA] mb-2.5">
                 On this page
               </p>
               <ol className="space-y-1.5">
@@ -147,11 +147,11 @@ export const LegalPageShell: React.FC<LegalPageShellProps> = ({
                       href={`#${item.id}`}
                       className={`block text-[11px] leading-snug rounded-md px-2 py-1 transition-colors ${
                         activeId === item.id
-                          ? 'bg-[#36764c]/10 text-[#183d2d] font-semibold'
-                          : 'text-[#5c6e60] hover:text-[#183d2d] hover:bg-black/[0.03]'
+                          ? 'bg-[#8B5CF6]/15 text-[#FAFAFA] font-semibold'
+                          : 'text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-white/[0.05]'
                       }`}
                     >
-                      <span className="font-mono text-[9px] text-[#8aa192] mr-1.5">
+                      <span className="font-mono text-[9px] text-[#71717A] mr-1.5">
                         {String(i + 1).padStart(2, '0')}
                       </span>
                       {item.text}
@@ -161,7 +161,7 @@ export const LegalPageShell: React.FC<LegalPageShellProps> = ({
               </ol>
               <Link
                 to="/support"
-                className="mt-3 block text-center text-[11px] font-semibold px-3 py-2 rounded-xl bg-[#183d2d] text-white hover:bg-[#22543a] transition-colors"
+                className="mt-3 block text-center text-[11px] font-semibold px-3 py-2 rounded-xl bg-[#8B5CF6] text-white hover:bg-[#7C3AED] transition-colors"
               >
                 Need help? Support →
               </Link>
@@ -184,7 +184,7 @@ export const LegalSection: React.FC<{ id: string; title: string; children: React
   children,
 }) => (
   <section className="scroll-mt-16">
-    <h2 id={id} className="text-xl font-bold text-[#183d2d] mb-3">
+    <h2 id={id} className="text-xl font-bold text-[#FAFAFA] mb-3">
       {title}
     </h2>
     {children}

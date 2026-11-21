@@ -62,3 +62,30 @@
 .tool-link-form button[type=submit]:hover{background:#8b5cf6}
 .tool-link-form button[type=submit]:active{background:#6d28d9}
 @media(max-width:550px){.tool-link-form{flex-direction:column;align-items:stretch;gap:8px;border-radius:32px;padding:6px}.tool-link-field{padding:8px 12px}.tool-link-field input{min-height:40px;padding-right:70px;font-size:16px}.tool-link-form button[type=submit]{width:100%;height:40px;font-size:12px}}
+
+/* Unified grouped menu (shared with landing Navbar + gaming page). */
+.nav-group{position:relative}
+.nav-group>summary{list-style:none;cursor:pointer;white-space:nowrap}
+.nav-group>summary::-webkit-details-marker{display:none}
+.nav-group>summary:after{content:'▾';margin-left:6px;font-size:9px;color:#9d93b5}
+.nav-group[open]>summary:after{content:'▴'}
+.nav-group>summary[aria-current="page"]{color:#c9b1f2}
+.nav-drop{display:none}
+@media(min-width:741px){
+.site-nav{display:flex;gap:26px}
+.nav-drop{position:absolute;top:calc(100% + 10px);left:0;min-width:220px;flex-direction:column;background:#110c19;border:1px solid #ffffff24;border-radius:14px;padding:8px;box-shadow:0 18px 50px #000b;z-index:60}
+.nav-group[open] .nav-drop{display:flex}
+.nav-drop a{display:block;padding:10px 12px;border-radius:8px;font-size:13px}
+.nav-drop a:hover{background:#ffffff10}
+.nav-drop a[aria-current="page"]{color:#c9b1f2}
+}
+@media(max-width:740px){
+.site-nav a{display:block;padding:15px 12px}
+.nav-group>summary{padding:15px 12px;border-bottom:1px solid #ffffff0c;display:block}
+.nav-drop{display:none;padding:0 0 8px}
+.nav-group[open] .nav-drop{display:block}
+.nav-drop a{display:block;padding:10px 12px 10px 24px!important;font-size:14px;border:0!important}
+}
+
+/* Pill menu button matches landing + gaming exactly. */
+.site-menu-toggle{border:1px solid #ffffff24;border-radius:100px;color:#f9f7ff}

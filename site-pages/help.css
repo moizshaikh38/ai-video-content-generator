@@ -17,3 +17,18 @@
 @media(max-width:740px){
   .help-workspace,.help-tabs a{display:inline-flex;align-items:center;min-height:40px}
 }
+
+/* Unified grouped menu (shared with landing + static pages + gaming). */
+.help-top{position:sticky}
+.site-menu-toggle{display:inline-flex;min-height:40px;align-items:center;gap:10px;background:#18101f;border:1px solid #ffffff24;border-radius:100px;padding:0 15px;font-size:11px;color:#f9f7ff;white-space:nowrap}
+.help-top .site-nav{display:none;position:absolute;top:calc(100% + 8px);left:16px;right:16px;background:#110c19;border:1px solid #ffffff24;border-radius:16px;padding:12px;box-shadow:0 18px 50px #000b;z-index:70}
+.help-top .site-nav.is-open{display:block}
+.nav-group{position:relative}
+.nav-group>summary{list-style:none;cursor:pointer;display:block;padding:13px 12px;border-bottom:1px solid #ffffff0c;font-size:14px;color:#eee8f8}
+.nav-group>summary::-webkit-details-marker{display:none}
+.nav-group>summary:after{content:'▾';margin-left:6px;font-size:9px;color:#9d93b5}
+.nav-group[open]>summary:after{content:'▴'}
+.nav-drop{display:none;padding:0 0 8px}
+.nav-group[open] .nav-drop{display:block}
+.nav-drop a{display:block;padding:10px 12px 10px 24px;font-size:14px;color:#bbb5cc}
+.help-top .site-nav>a{display:block;padding:13px 12px;border-bottom:1px solid #ffffff0c;font-size:14px;color:#eee8f8}

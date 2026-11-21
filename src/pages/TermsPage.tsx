@@ -12,14 +12,14 @@ export const TermsPage: React.FC = () => {
       statusChip={{ label: 'Draft — Owner Review', tone: 'draft' }}
     >
         {/* Legal Review Required Callout Banner */}
-        <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-5 mb-10 text-amber-900 shadow-sm">
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5 mb-10 text-amber-300 shadow-sm">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="size-5 text-amber-600 shrink-0 mt-0.5" />
+            <AlertTriangle className="size-5 text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <h2 className="text-sm font-bold tracking-wide uppercase text-amber-900">
+              <h2 className="text-sm font-bold tracking-wide uppercase text-amber-300">
                 DRAFT — LEGAL REVIEW REQUIRED
               </h2>
-              <p className="mt-1 text-xs leading-relaxed text-amber-800">
+              <p className="mt-1 text-xs leading-relaxed text-amber-200/80">
                 This Terms of Service document is an operational draft reflecting the current technical capabilities and architecture of VireoClip.
                 It does not constitute formal legal advice and has not been reviewed or executed by legal counsel.
                 Items marked with brackets (<span className="font-mono font-semibold">[CONFIRMATION REQUIRED]</span>) must be confirmed and approved by the owner and qualified legal counsel prior to public launch.
@@ -28,11 +28,11 @@ export const TermsPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="max-w-none text-[#2d4233] space-y-8 leading-relaxed text-sm">
+        <div className="max-w-none text-[#FAFAFA] space-y-8 leading-relaxed text-sm">
           <section>
-            <h2 className="text-xl font-bold text-[#183d2d] mb-3">1. Operating Entity and Acceptance of Terms</h2>
+            <h2 className="text-xl font-bold text-[#FAFAFA] mb-3">1. Operating Entity and Acceptance of Terms</h2>
             <p>
-              These Terms of Service ("Terms") govern your access to and use of the VireoClip web application, APIs, and associated services (collectively, "VireoClip" or the "Service"), operated by <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Legal Company / Registered Entity Name]</span> ("Company", "we", "us", or "our"), with registered offices at <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Registered Physical Business Address]</span>.
+              These Terms of Service ("Terms") govern your access to and use of the VireoClip web application, APIs, and associated services (collectively, "VireoClip" or the "Service"), operated by <span className="bg-amber-100 text-amber-300 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Legal Company / Registered Entity Name]</span> ("Company", "we", "us", or "our"), with registered offices at <span className="bg-amber-100 text-amber-300 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Registered Physical Business Address]</span>.
             </p>
             <p className="mt-2">
               By accessing, browsing, registering an account with, or utilizing any portion of VireoClip, you agree to be bound by these Terms. If you do not agree to all terms and conditions set forth herein, you must not access or use the Service.
@@ -40,7 +40,7 @@ export const TermsPage: React.FC = () => {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#183d2d] mb-3">2. Account Registration and Security</h2>
+            <h2 className="text-xl font-bold text-[#FAFAFA] mb-3">2. Account Registration and Security</h2>
             <p>
               To utilize core features of VireoClip, you must create an account using a valid email address and secure password (authenticated through our identity provider, Supabase Auth) or an authorized third-party OAuth provider (such as Google).
             </p>
@@ -53,7 +53,7 @@ export const TermsPage: React.FC = () => {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#183d2d] mb-3">3. Service Description and AI Processing</h2>
+            <h2 className="text-xl font-bold text-[#FAFAFA] mb-3">3. Service Description and AI Processing</h2>
             <p>
               VireoClip is a video content repurposing and management platform designed to transcribe spoken audio, detect notable clips, reframe video to vertical 9:16 aspect ratios, burn closed captions, generate multi-platform social media copy, and assist in publishing workflows.
             </p>
@@ -68,7 +68,7 @@ export const TermsPage: React.FC = () => {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#183d2d] mb-3">4. User Content and Intellectual Property Rights</h2>
+            <h2 className="text-xl font-bold text-[#FAFAFA] mb-3">4. User Content and Intellectual Property Rights</h2>
             <p>
               <strong>Your Content:</strong> You retain full copyright, ownership, and intellectual property rights in and to all videos, audio files, images, branding assets, and text you upload or submit to VireoClip ("User Content").
             </p>
@@ -87,7 +87,7 @@ export const TermsPage: React.FC = () => {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#183d2d] mb-3">5. Third-Party Integrations and Social Publishing</h2>
+            <h2 className="text-xl font-bold text-[#FAFAFA] mb-3">5. Third-Party Integrations and Social Publishing</h2>
             <p>
               VireoClip enables users to connect external third-party social media accounts (including YouTube / Google, Meta / Instagram, TikTok, LinkedIn, and X) using OAuth 2.0.
             </p>
@@ -99,7 +99,7 @@ export const TermsPage: React.FC = () => {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#183d2d] mb-3">6. Subscriptions, Processing Quotas, and Billing Status</h2>
+            <h2 className="text-xl font-bold text-[#FAFAFA] mb-3">6. Subscriptions, Processing Quotas, and Billing Status</h2>
             <p>
               VireoClip structures service usage around monthly processing minutes and workspace member entitlements across plan tiers:
             </p>
@@ -116,12 +116,12 @@ export const TermsPage: React.FC = () => {
               <li>Fees will be billed in advance on a recurring monthly or annual basis via our payment processors: Razorpay for customers billed in India, and Paddle (as reseller and merchant of record) for customers billed in all other supported countries.</li>
               <li>Usage quotas reset on the first day of each calendar month (UTC). Unused processing minutes do not roll over.</li>
               <li>Cancellations will take effect at the conclusion of the active prepaid billing cycle.</li>
-              <li>Refund policy terms: <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Refund policy terms, e.g. 14-day statutory EU right of withdrawal vs non-refundable consumed quotas]</span>.</li>
+              <li>Refund policy terms: <span className="bg-amber-100 text-amber-300 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Refund policy terms, e.g. 14-day statutory EU right of withdrawal vs non-refundable consumed quotas]</span>.</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#183d2d] mb-3">7. Disclaimers and Limitations of Liability</h2>
+            <h2 className="text-xl font-bold text-[#FAFAFA] mb-3">7. Disclaimers and Limitations of Liability</h2>
             <p>
               TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, VIREOCLIP IS PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS, WITHOUT WARRANTIES OF ANY KIND, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, INCLUDING WITHOUT LIMITATION WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
             </p>
@@ -131,19 +131,19 @@ export const TermsPage: React.FC = () => {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#183d2d] mb-3">8. Governing Law and Dispute Resolution</h2>
+            <h2 className="text-xl font-bold text-[#FAFAFA] mb-3">8. Governing Law and Dispute Resolution</h2>
             <p>
-              These Terms and any dispute arising from or related to the Service shall be governed by and construed in accordance with the laws of <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Governing Jurisdiction, State/Country]</span>, without regard to conflict of law principles.
+              These Terms and any dispute arising from or related to the Service shall be governed by and construed in accordance with the laws of <span className="bg-amber-100 text-amber-300 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Governing Jurisdiction, State/Country]</span>, without regard to conflict of law principles.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#183d2d] mb-3">9. Contact and Notices</h2>
+            <h2 className="text-xl font-bold text-[#FAFAFA] mb-3">9. Contact and Notices</h2>
             <p>
               Questions, notices, or inquiries regarding these Terms should be directed to:
             </p>
-            <p className="mt-1 font-mono text-xs text-[#36764c]">
-              <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Designated Support / Legal Email Address, e.g., legal@vireoclip.ai]</span>
+            <p className="mt-1 font-mono text-xs text-[#FAFAFA]">
+              <span className="bg-amber-100 text-amber-300 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Designated Support / Legal Email Address, e.g., legal@vireoclip.ai]</span>
             </p>
           </section>
         </div>

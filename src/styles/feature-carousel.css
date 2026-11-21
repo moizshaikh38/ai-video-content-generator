@@ -2088,3 +2088,29 @@
 /* Phone (user correction Nov 21 18:39): restore pre-release one-screen fit -
    wide short panel (base aspect-ratio 2/1.08) with all six clip tiles visible
    in the base absolute layout; the big swipe-card rail from 1704986 is reverted. */
+
+/* Poster fallback layer: always painted under/over the video until real
+   playback starts, so cold loads, suspended autoplay and decode failures
+   never show a bare dark tile. */
+.vireo-showcase .vfp {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.vireo-showcase .vfp {
+  z-index: 2;
+  transition: opacity 0.25s ease;
+}
+
+.vireo-showcase .vfp.vfp-off {
+  opacity: 0;
+}
+
+.vireo-showcase .vf {
+  z-index: 1;
+  background: transparent;
+}

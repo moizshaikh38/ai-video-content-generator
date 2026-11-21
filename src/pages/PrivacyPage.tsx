@@ -13,14 +13,14 @@ export const PrivacyPage: React.FC = () => {
     >
 
         {/* Legal Review Required Callout Banner */}
-        <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-5 mb-10 text-amber-900 shadow-sm">
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5 mb-10 text-amber-300 shadow-sm">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="size-5 text-amber-600 shrink-0 mt-0.5" />
+            <AlertTriangle className="size-5 text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <h2 className="text-sm font-bold tracking-wide uppercase text-amber-900">
+              <h2 className="text-sm font-bold tracking-wide uppercase text-amber-300">
                 DRAFT — LEGAL REVIEW REQUIRED
               </h2>
-              <p className="mt-1 text-xs leading-relaxed text-amber-800">
+              <p className="mt-1 text-xs leading-relaxed text-amber-200/80">
                 This Privacy Policy is an evidence-based draft detailing the exact data collection, processing, and storage architecture of VireoClip.
                 It has been prepared for developer and operator review and does not constitute formal legal counsel.
                 Items marked with brackets (<span className="font-mono font-semibold">[CONFIRMATION REQUIRED]</span>) require explicit confirmation by the application owner and review by qualified legal counsel.
@@ -31,56 +31,56 @@ export const PrivacyPage: React.FC = () => {
         </div>
 
 
-        <div className="max-w-none text-[#2d4233] space-y-8 leading-relaxed text-sm">
+        <div className="max-w-none text-[#FAFAFA] space-y-8 leading-relaxed text-sm">
           <section>
-            <h2 className="text-xl font-bold text-[#183d2d] mb-3">1. Data Controller and Scope</h2>
+            <h2 className="text-xl font-bold text-[#FAFAFA] mb-3">1. Data Controller and Scope</h2>
             <p>
-              This Privacy Policy explains how <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Legal Company / Registered Entity Name]</span> ("VireoClip", "we", "us", or "our") collects, uses, processes, and safeguards personal data through the VireoClip web application.
+              This Privacy Policy explains how <span className="bg-amber-500/20 text-amber-200 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Legal Company / Registered Entity Name]</span> ("VireoClip", "we", "us", or "our") collects, uses, processes, and safeguards personal data through the VireoClip web application.
             </p>
             <p className="mt-2">
               For privacy inquiries or data requests, contact our designated privacy representative at:
               <br />
-              <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs mt-1 inline-block">[CONFIRMATION REQUIRED: Privacy / Data Protection Contact Email, e.g. privacy@vireoclip.ai]</span>
+              <span className="bg-amber-500/20 text-amber-200 px-1.5 py-0.5 rounded font-mono text-xs mt-1 inline-block">[CONFIRMATION REQUIRED: Privacy / Data Protection Contact Email, e.g. privacy@vireoclip.ai]</span>
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#183d2d] mb-3">2. Categories of Data Collected and Processed</h2>
+            <h2 className="text-xl font-bold text-[#FAFAFA] mb-3">2. Categories of Data Collected and Processed</h2>
             <p>
               In accordance with our application architecture, we collect only data necessary to deliver video processing and publishing capabilities:
             </p>
             <div className="mt-3 space-y-3">
-              <div className="p-3.5 rounded-lg border border-[#e1e7db] bg-white">
-                <h3 className="font-bold text-xs uppercase text-[#183d2d] tracking-wide">A. Account and Identity Data</h3>
-                <p className="mt-1 text-xs text-[#526857]">
+              <div className="p-3.5 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#0E0E0E]">
+                <h3 className="font-bold text-xs uppercase text-[#FAFAFA] tracking-wide">A. Account and Identity Data</h3>
+                <p className="mt-1 text-xs text-[#A1A1AA]">
                   Email address, hashed password credentials (managed securely via Supabase Auth), optional user display name, and unique account identifiers.
                 </p>
               </div>
 
-              <div className="p-3.5 rounded-lg border border-[#e1e7db] bg-white">
-                <h3 className="font-bold text-xs uppercase text-[#183d2d] tracking-wide">B. Video, Audio, and Creative Assets</h3>
-                <p className="mt-1 text-xs text-[#526857]">
+              <div className="p-3.5 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#0E0E0E]">
+                <h3 className="font-bold text-xs uppercase text-[#FAFAFA] tracking-wide">B. Video, Audio, and Creative Assets</h3>
+                <p className="mt-1 text-xs text-[#A1A1AA]">
                   Raw video files uploaded via browser or imported from authorized URLs, extracted audio tracks, generated transcripts, custom watermarks, brand color hex codes, and brand tone guidelines.
                 </p>
               </div>
 
-              <div className="p-3.5 rounded-lg border border-[#e1e7db] bg-white">
-                <h3 className="font-bold text-xs uppercase text-[#183d2d] tracking-wide">C. Connected Social Platform OAuth Credentials</h3>
-                <p className="mt-1 text-xs text-[#526857]">
+              <div className="p-3.5 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#0E0E0E]">
+                <h3 className="font-bold text-xs uppercase text-[#FAFAFA] tracking-wide">C. Connected Social Platform OAuth Credentials</h3>
+                <p className="mt-1 text-xs text-[#A1A1AA]">
                   OAuth access and refresh tokens for connected channels (YouTube, Instagram, TikTok, LinkedIn, X), platform user/channel identifiers, and scheduled publishing timestamps. <em>All OAuth tokens are encrypted at rest using AES-256-GCM encryption with randomized IVs.</em>
                 </p>
               </div>
 
-              <div className="p-3.5 rounded-lg border border-[#e1e7db] bg-white">
-                <h3 className="font-bold text-xs uppercase text-[#183d2d] tracking-wide">D. Billing and Subscription Metadata</h3>
-                <p className="mt-1 text-xs text-[#526857]">
+              <div className="p-3.5 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#0E0E0E]">
+                <h3 className="font-bold text-xs uppercase text-[#FAFAFA] tracking-wide">D. Billing and Subscription Metadata</h3>
+                <p className="mt-1 text-xs text-[#A1A1AA]">
                   Customer identifiers, subscription IDs, billing plan tier, current period start/end dates, and webhook event logs received from payment processors (Razorpay for India, Paddle elsewhere). <em>VireoClip does NOT store raw credit card numbers, CVVs, or full bank account details on our servers.</em>
                 </p>
               </div>
 
-              <div className="p-3.5 rounded-lg border border-[#e1e7db] bg-white">
-                <h3 className="font-bold text-xs uppercase text-[#183d2d] tracking-wide">E. Operational Logs and Quota Metrics</h3>
-                <p className="mt-1 text-xs text-[#526857]">
+              <div className="p-3.5 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#0E0E0E]">
+                <h3 className="font-bold text-xs uppercase text-[#FAFAFA] tracking-wide">E. Operational Logs and Quota Metrics</h3>
+                <p className="mt-1 text-xs text-[#A1A1AA]">
                   Video processing minutes consumed, worker job execution states, API rate-limiting records, and workspace audit logs.
                 </p>
               </div>
@@ -88,20 +88,20 @@ export const PrivacyPage: React.FC = () => {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#183d2d] mb-3">3. Subprocessors and Third-Party Infrastructure</h2>
+            <h2 className="text-xl font-bold text-[#FAFAFA] mb-3">3. Subprocessors and Third-Party Infrastructure</h2>
             <p>
               We disclose data to vetted technical subprocessors strictly as required to provide core product functionality:
             </p>
             <div className="overflow-x-auto mt-3">
-              <table className="w-full text-left text-xs border border-[#dfe7da] bg-white rounded-lg">
-                <thead className="bg-[#f2f5ec] text-[#183d2d] font-bold">
+              <table className="w-full text-left text-xs border border-[rgba(255,255,255,0.08)] bg-[#0E0E0E] rounded-lg">
+                <thead className="bg-[#0E0E0E] text-[#FAFAFA] font-bold">
                   <tr>
-                    <th className="p-2.5 border-b border-[#dfe7da]">Subprocessor</th>
-                    <th className="p-2.5 border-b border-[#dfe7da]">Role & Function</th>
-                    <th className="p-2.5 border-b border-[#dfe7da]">Data Involved</th>
+                    <th className="p-2.5 border-b border-[rgba(255,255,255,0.08)]">Subprocessor</th>
+                    <th className="p-2.5 border-b border-[rgba(255,255,255,0.08)]">Role & Function</th>
+                    <th className="p-2.5 border-b border-[rgba(255,255,255,0.08)]">Data Involved</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#dfe7da] text-[#425947]">
+                <tbody className="divide-y divide-[rgba(255,255,255,0.08)] text-[#A1A1AA]">
                   <tr>
                     <td className="p-2.5 font-semibold">Supabase</td>
                     <td className="p-2.5">User authentication and session tokens</td>
@@ -143,7 +143,7 @@ export const PrivacyPage: React.FC = () => {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#183d2d] mb-3">4. Cookies and Client-Side Storage</h2>
+            <h2 className="text-xl font-bold text-[#FAFAFA] mb-3">4. Cookies and Client-Side Storage</h2>
             <p>
               VireoClip uses browser storage for the functions listed below. Third-party services, including payment services, may also load on the site. This section is not a complete third-party tracking inventory.
             </p>
@@ -160,13 +160,13 @@ export const PrivacyPage: React.FC = () => {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#183d2d] mb-3">5. Data Retention, Deletion, and User Rights</h2>
+            <h2 className="text-xl font-bold text-[#FAFAFA] mb-3">5. Data Retention, Deletion, and User Rights</h2>
             <p>
               <strong>Media Retention:</strong> Uploaded source videos and generated clips remain stored in your account until you delete them or close your account.
               Local server temporary processing files generated during FFmpeg transcoding are deleted upon job completion.
             </p>
             <p className="mt-2">
-              <strong>Account Deletion:</strong> <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Target retention period after account closure, e.g. 30 days grace period before hard database purge]</span>. Users may request full account and data erasure by contacting our privacy email.
+              <strong>Account Deletion:</strong> <span className="bg-amber-500/20 text-amber-200 px-1.5 py-0.5 rounded font-mono text-xs">[CONFIRMATION REQUIRED: Target retention period after account closure, e.g. 30 days grace period before hard database purge]</span>. Users may request full account and data erasure by contacting our privacy email.
             </p>
             <p className="mt-2">
               <strong>User Rights:</strong> Depending on your jurisdiction, you may have the right to request access to, rectification of, or deletion of your personal data.
@@ -175,7 +175,7 @@ export const PrivacyPage: React.FC = () => {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#183d2d] mb-3">6. Security Measures</h2>
+            <h2 className="text-xl font-bold text-[#FAFAFA] mb-3">6. Security Measures</h2>
             <p>
               We implement industry-standard technical safeguards to protect personal data:
             </p>
@@ -188,14 +188,14 @@ export const PrivacyPage: React.FC = () => {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#183d2d] mb-3">7. Policy Updates and Contact</h2>
+            <h2 className="text-xl font-bold text-[#FAFAFA] mb-3">7. Policy Updates and Contact</h2>
             <p>
               We may update this Privacy Policy from time to time. Any material changes will be posted on this page with an updated revision date.
             </p>
             <p className="mt-2">
               For questions regarding this draft policy or our privacy practices:
               <br />
-              <span className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs mt-1 inline-block">[CONFIRMATION REQUIRED: Designated Support / Privacy Email Address]</span>
+              <span className="bg-amber-500/20 text-amber-200 px-1.5 py-0.5 rounded font-mono text-xs mt-1 inline-block">[CONFIRMATION REQUIRED: Designated Support / Privacy Email Address]</span>
             </p>
           </section>
         </div>

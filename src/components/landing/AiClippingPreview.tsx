@@ -145,6 +145,11 @@ const CarouselVideo: React.FC<CarouselVideoProps> = React.memo(({
   style,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    if (!shouldLoad) setPlaying(false);
+  }, [shouldLoad]);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -174,31 +179,48 @@ const CarouselVideo: React.FC<CarouselVideoProps> = React.memo(({
     }
   }, []);
 
-  if (!shouldLoad) {
-    return null;
-  }
-
   const transformOrigin = origin || pos;
 
+  // The poster is ALWAYS rendered as its own layer, independent of video
+  // mount/decode/autoplay state: an unmounted video (shouldLoad false), a
+  // suspended mobile/in-app autoplay, or a decode failure previously left a
+  // bare dark tile. It fades out once the video is actually playing.
   return (
-    <video
-      ref={videoRef}
-      className={className}
-      src={src}
-      poster={poster}
-      muted
-      loop
-      playsInline
-      preload={shouldPlay ? 'auto' : 'metadata'}
-      aria-hidden="true"
-      onLoadedData={handleLoadedData}
-      style={{
-        objectPosition: pos,
-        transformOrigin,
-        transform: zoom !== 1 ? `scale(${zoom})` : undefined,
-        ...style,
-      }}
-    />
+    <>
+      {poster ? (
+        <img
+          className={`vfp${playing ? ' vfp-off' : ''}`}
+          src={poster}
+          alt=""
+          aria-hidden="true"
+          style={{ objectPosition: pos }}
+        />
+      ) : null}
+      {shouldLoad ? (
+        <video
+          ref={videoRef}
+          className={className}
+          src={src}
+          poster={poster}
+          muted
+          loop
+          playsInline
+          preload={shouldPlay ? 'auto' : 'metadata'}
+          aria-hidden="true"
+          onLoadedData={handleLoadedData}
+          onPlaying={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onStalled={() => setPlaying(false)}
+          onError={() => setPlaying(false)}
+          style={{
+            objectPosition: pos,
+            transformOrigin,
+            transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+            ...style,
+          }}
+        />
+      ) : null}
+    </>
   );
 });
 

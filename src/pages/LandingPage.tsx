@@ -13,20 +13,14 @@ import { Logo } from "../components/Logo";
 import { apiBase } from "../services/backendClient";
 import vireoOutput916 from "../assets/landing/vireo-output-916.webp";
 import rawFootage169 from "../assets/landing/raw-footage-169.webp";
-import ucPodcasters from "../assets/landing/uc-podcasters.webp";
-import ucCreators from "../assets/landing/uc-creators.webp";
-import ucAgencies from "../assets/landing/uc-agencies.webp";
-import ucFounders from "../assets/landing/uc-founders.webp";
 import stepHooks from "../assets/landing/step-hooks.webp";
 import stepPublish from "../assets/landing/step-publish.webp";
 import { TransformationVisual } from "../components/landing/ProductVisuals";
-import { platformOutputs } from "../data/platforms";
 import { plans } from "../data/marketing";
 import { useLandingMotion } from "../components/landing/useLandingMotion";
 import { Reveal, AnimatedNumber } from "../lib/motion";
 import { LandingHero } from "../components/landing/LandingHero";
-import { TiltedStreamShowcase } from "../components/landing/TiltedStreamShowcase";
-import { ExploreMajorFeatures } from "../components/landing/ExploreMajorFeatures";
+import { CombinedWorkflowShowcase } from "../components/landing/CombinedWorkflowShowcase";
 import { useCurrency, CurrencyProvider } from "../context/CurrencyContext";
 import { CurrencyToggle } from "../components/CurrencyToggle";
 import { getMarketingPlanRate } from "../utils/pricingUtils";
@@ -79,62 +73,6 @@ function ProofStrip() {
         </div>
       ))}
     </div>
-  );
-}
-
-function PlatformStrip() {
-  const channelDetails = [
-    { name: "YouTube Shorts", format: "9:16 Vertical • Viral SEO", logo: platformOutputs[0]?.logo },
-    { name: "TikTok", format: "9:16 High Pacing • Fast Cuts", logo: platformOutputs[1]?.logo },
-    { name: "Instagram Reels", format: "9:16 Aesthetic • Curated Hooks", logo: platformOutputs[2]?.logo },
-    { name: "LinkedIn", format: "Square / Summary • Thought Leadership", logo: platformOutputs[3]?.logo },
-    { name: "X (Twitter)", format: "Viral Snippet • Thread Format", logo: platformOutputs[4]?.logo },
-  ];
-
-  return (
-    <section className="py-16 lg:py-20 bg-[#000000]" aria-label="Supported content platforms">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-10">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] mb-3">
-            <span className="w-2 h-2 rounded-full bg-[#20E3A2] animate-ping" />
-            <span className="text-[11px] font-mono font-bold tracking-widest text-[#bba9e8] uppercase">
-              Omnichannel Content Kits
-            </span>
-          </div>
-          <h3 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-snug">
-            Repurposed for the Algorithms{" "}
-            <span className="text-[#bba9e8]">Where Your Audience Spends Hours Daily</span>
-          </h3>
-          <p className="text-sm text-slate-400 mt-2">
-            Every clip is automatically calibrated with native pacing, aspect ratio, captions, and copy for each target platform.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-          {channelDetails.map((channel) => (
-            <div
-              key={channel.name}
-              className="p-4 rounded-2xl bg-[#080B14]/80 hover:bg-[#0E1222] transition-all shadow-lg flex flex-col justify-between group"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="w-8 h-8 rounded-xl bg-white/[0.04] flex items-center justify-center p-1.5">
-                  <img src={channel.logo} alt="" className="w-full h-full object-contain" loading="lazy" decoding="async" />
-                </span>
-                <span className="w-1.5 h-1.5 rounded-full bg-[#20E3A2]" />
-              </div>
-              <div>
-                <strong className="text-xs font-bold text-white block mb-0.5 group-hover:text-[#bba9e8] transition-colors truncate">
-                  {channel.name}
-                </strong>
-                <small className="text-[10px] text-slate-400 leading-tight block">
-                  {channel.format}
-                </small>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -274,79 +212,6 @@ function BeforeAfter() {
               </div>
             </div>
           )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function UseCases() {
-  const cases = [
-    {
-      title: "Podcasters & Talk Shows",
-      metric: "12+ Shorts / Ep",
-      desc: "Transform long conversational recordings into high-converting highlight reels without scrubbing hours of video.",
-      img: ucPodcasters,
-    },
-    {
-      title: "YouTube & Content Creators",
-      metric: "10x Faster Output",
-      desc: "Repurpose past long-form videos into daily YouTube Shorts, TikToks, and Instagram Reels to capture new subscribers.",
-      img: ucCreators,
-    },
-    {
-      title: "Agencies & Media Networks",
-      metric: "Multi-Client Kits",
-      desc: "Manage high-volume client deliveries with dedicated workspaces, centralized brand kits, and automated publishing.",
-      img: ucAgencies,
-    },
-    {
-      title: "Founders & Thought Leaders",
-      metric: "5-Platform Kits",
-      desc: "Turn keynotes and podcast appearances into high-authority LinkedIn posts, X threads, and vertical video clips.",
-      img: ucFounders,
-    },
-  ];
-
-  return (
-    <section id="use-cases" className="py-20 lg:py-28 bg-[#000000]">
-      <div className="lv-container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <Label>BUILT FOR SPEED & SCALE</Label>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white mt-3 mb-4">
-            Spend More Time Creating. <br />
-            <em className="text-[#bba9e8] not-italic">Zero Time Repurposing.</em>
-          </h2>
-          <p className="text-base text-slate-300">
-            Tailored workflows for creators, production houses, and fast-moving social teams.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {cases.map((item) => (
-            <div
-              key={item.title}
-              className="rounded-2xl bg-[#080B14] overflow-hidden hover:bg-[#0D1120] transition-all flex flex-col justify-between shadow-xl"
-            >
-              <div className="p-6 pb-0">
-                <img
-                  src={item.img}
-                  alt={item.title}
-                  loading="lazy"
-                  className="w-full h-32 object-cover rounded-xl mb-4 opacity-90"
-                />
-                <span className="inline-block text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#8753e3]/20 text-[#c4b5fd] mb-3">
-                  {item.metric}
-                </span>
-                <h3 className="text-lg font-bold text-white mb-2">{item.title}</h3>
-                <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">{item.desc}</p>
-              </div>
-              <div className="m-6 mt-4 pt-4 border-t border-white/[0.04] flex items-center justify-between text-xs text-[#bba9e8]">
-                <span>Automated Workflow</span>
-                <ArrowRight size={14} />
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     </section>
@@ -817,11 +682,8 @@ export function LandingPage() {
           <ProofStrip />
         </Reveal>
 
-        {/* CYLINDRICAL STREAM SHOWCASE (NO BOX, NO CARD BORDER) */}
-        <TiltedStreamShowcase />
-
-        {/* 100X BETTER INTERACTIVE MAJOR FEATURES STUDIO */}
-        <ExploreMajorFeatures id="major-features" />
+        {/* ONE combined source-journey animation (user 12:34: "Bas ek hi rakhenge animation dono nhi") */}
+        <CombinedWorkflowShowcase />
 
         {/* CLEAN BORDERLESS TRANSFORMATION FLOW */}
         <section className="lv-transformation">
@@ -838,14 +700,8 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* 100X BETTER REFINED PLATFORM PROOF STRIP */}
-        <PlatformStrip />
-
         {/* INTERACTIVE BEFORE & AFTER SLIDER */}
         <BeforeAfter />
-
-        {/* USE CASES */}
-        <UseCases />
 
         {/* 4-STEP HOW IT WORKS */}
         <HowItWorks />

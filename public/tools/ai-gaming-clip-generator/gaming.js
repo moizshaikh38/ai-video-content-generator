@@ -47,6 +47,43 @@
     });
     document.querySelector('.gallery-track').scrollLeft = 0;
   }));
+  // Always-visible poster layer: mobile/in-app WebViews often never paint the
+  // native video poster, leaving black frames until playback starts.
+  document.querySelectorAll('video[poster]').forEach(video => {
+    const img = document.createElement('img');
+    img.className = 'video-poster';
+    img.alt = '';
+    img.setAttribute('aria-hidden', 'true');
+    // Only force position:relative on parents that are static; positioned
+    // parents (e.g. absolutely placed device frames) must keep their position.
+    if (getComputedStyle(video.parentElement).position === 'static') {
+      video.parentElement.classList.add('has-video-poster');
+    }
+    video.insertAdjacentElement('afterend', img);
+    const sync = () => {
+      img.src = video.poster;
+      const cs = getComputedStyle(video);
+      img.style.objectFit = cs.objectFit;
+      img.style.borderRadius = cs.borderRadius;
+      img.style.left = video.offsetLeft + 'px';
+      img.style.top = video.offsetTop + 'px';
+      img.style.width = video.offsetWidth + 'px';
+      img.style.height = video.offsetHeight + 'px';
+    };
+    sync();
+    new ResizeObserver(sync).observe(video);
+    const hidePoster = () => img.classList.add('video-poster-off');
+    const showPoster = () => { img.classList.remove('video-poster-off'); sync(); };
+    video.addEventListener('playing', hidePoster);
+    // Recover the poster not just on reload but on any post-start stall,
+    // decode error, abort or pause, so a failed mid-play never leaves black.
+    video.addEventListener('loadstart', showPoster);
+    video.addEventListener('stalled', showPoster);
+    video.addEventListener('error', showPoster);
+    video.addEventListener('emptied', showPoster);
+    video.addEventListener('abort', showPoster);
+    video.addEventListener('pause', showPoster);
+  });
   // Large click-to-play affordances keep idle posters clear and defer media loads.
   document.querySelectorAll('.gallery-video video, #layout-video').forEach(video => {
     video.controls = false;
@@ -89,3 +126,17 @@ form.addEventListener('submit',event=>{event.preventDefault();location.href='/#w
 input.addEventListener('input',()=>input.setCustomValidity(''));
 form.querySelector('.tool-link-paste')?.addEventListener('click',async()=>{try{const text=await navigator.clipboard.readText();if(text)input.value=text.trim();}catch{}});
 });
+
+// Unified menu toggle (same behavior as the static site pages).
+(() => {
+  const menuToggle = document.querySelector('.site-menu-toggle');
+  const siteNav = document.querySelector('#site-nav');
+  menuToggle?.addEventListener('click', () => {
+    const open = menuToggle.getAttribute('aria-expanded') !== 'true';
+    menuToggle.setAttribute('aria-expanded', String(open));
+    siteNav?.classList.toggle('is-open', open);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { menuToggle?.setAttribute('aria-expanded', 'false'); siteNav?.classList.remove('is-open'); }
+  });
+})();
