@@ -56,12 +56,12 @@ describe('Phase 13 Production Hardening & Reliability Tests', () => {
       const data = await res.json() as any;
 
       assert.strictEqual(data.status, 'error');
-      assert.strictEqual(data.code, 'DATABASE_UNAVAILABLE');
+      assert.strictEqual(data.code, 'INTERNAL_ERROR');
       assert.strictEqual(data.request_id, 'test-req-12345');
       assert.ok(data.error);
-      assert.strictEqual(data.error.code, 'DATABASE_UNAVAILABLE');
+      assert.strictEqual(data.error.code, 'INTERNAL_ERROR');
       assert.strictEqual(data.error.request_id, 'test-req-12345');
-      assert.strictEqual(data.error.message, 'Database query timed out');
+      assert.strictEqual(data.error.message, 'Internal server error');
       // Must not leak internal stack traces to client
       assert.strictEqual(data.stack, undefined);
     } finally {

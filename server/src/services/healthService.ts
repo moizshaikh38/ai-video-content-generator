@@ -1,3 +1,4 @@
+import {isDatabaseBootstrapReady} from './databaseBootstrapState.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import { HealthStatus } from '../types/index.js';
 import { config } from '../config/index.js';
@@ -46,6 +47,7 @@ export interface ReadinessStatus {
   timestamp: string;
   checks: {
     mongodb: boolean;
+    databaseBootstrap: boolean;
     supabase: boolean;
     storage: boolean;
     aiProvider: boolean;
@@ -96,26 +98,33 @@ async function getRenderQueueStats(): Promise<ReadinessStatus['renderQueue']> {
 }
 
 export async function getReadinessStatus(): Promise<ReadinessStatus> {
-  if(workLifecycle.isDraining())return{status:'not_ready',draining:true,timestamp:new Date().toISOString(),checks:{mongodb:false,supabase:false,storage:false,aiProvider:false},renderAdmission:{enabled:process.env.VIREO_RENDER_ADMISSION_V1==='1'}};
+  if(workLifecycle.isDraining())return{status:'not_ready',draining:true,timestamp:new Date().toISOString(),checks:{mongodb:false,databaseBootstrap:false,supabase:false,storage:false,aiProvider:false},renderAdmission:{enabled:process.env.VIREO_RENDER_ADMISSION_V1==='1'}};
   const mongoConnected = await isMongoHealthy();
   const supabaseOk = isServerSupabaseConfigured;
   const storageOk = Boolean(config.r2AccountId && config.r2AccessKeyId && config.r2SecretAccessKey);
   const aiOk = Boolean(config.openrouterApiKey || config.groqApiKey);
 
-  const isReady = !workLifecycle.isDraining() && mongoConnected && supabaseOk && storageOk && aiOk;
+  const bootstrapReady = isDatabaseBootstrapReady();
+  const isReady = !workLifecycle.isDraining() && bootstrapReady && mongoConnected && supabaseOk && storageOk && aiOk;
 
+  const renderQueue = await getRenderQueueStats();
+  const reframeRuntime = await getReframeRuntimeStats();
+  // Probes may await while shutdown begins. Never return a pre-await ready result.
+  const draining = workLifecycle.isDraining();
   return {
-    status: isReady ? 'ready' : 'not_ready',
+    status: !draining && isReady ? 'ready' : 'not_ready',
+    ...(draining ? { draining: true } : {}),
     timestamp: new Date().toISOString(),
     checks: {
       mongodb: mongoConnected,
+      databaseBootstrap: bootstrapReady,
       supabase: supabaseOk,
       storage: storageOk,
       aiProvider: aiOk,
     },
     renderAdmission: { enabled: process.env.VIREO_RENDER_ADMISSION_V1 === '1' },
-    renderQueue: await getRenderQueueStats(),
-    reframeRuntime: await getReframeRuntimeStats(),
+    renderQueue,
+    reframeRuntime,
   };
 }
 

@@ -175,10 +175,24 @@ async function rangedObjectToFile(
           if (!result.ContentRange || Number(result.ContentLength) !== end - start + 1) {
             throw new RangeNotHonoredError('Storage ignored the Range header');
           }
+          const returnedRange = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(result.ContentRange);
+          if (!returnedRange || Number(returnedRange[1]) !== start ||
+              Number(returnedRange[2]) !== end || Number(returnedRange[3]) !== size) {
+            (result.Body as Readable).destroy();
+            throw new Error('Storage returned an unexpected byte range');
+          }
           let position = start;
           for await (const chunk of result.Body as Readable) {
             const buffer = chunk as Buffer;
-            await handle.write(buffer, 0, buffer.length, position);
+            if (position + buffer.length > end + 1) throw new Error('Storage exceeded requested byte range');
+            let written = 0;
+            while (written < buffer.length) {
+              const { bytesWritten } = await handle.write(buffer, written, buffer.length - written, position + written);
+              if (!Number.isSafeInteger(bytesWritten) || bytesWritten <= 0 || bytesWritten > buffer.length - written) {
+                throw new Error('Storage download file write made invalid progress');
+              }
+              written += bytesWritten;
+            }
             position += buffer.length;
           }
           if (position !== end + 1) throw new Error(`Short ranged read at ${start}`);

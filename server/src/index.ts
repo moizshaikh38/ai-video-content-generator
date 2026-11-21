@@ -1,3 +1,5 @@
+import {databaseBootstrapAdmission} from './middleware/databaseBootstrapAdmission.js';
+import {setDatabaseBootstrapState} from './services/databaseBootstrapState.js';
 import {startRenderQueueWake} from './services/queue/renderQueueWake.js';
 import {runsBackgroundWorkers,acceptsApiRequests,validateRuntimePolicy,renderSweepInterval} from './services/runtimePolicy.js';
 import {workLifecycle,createShutdown,workAdmission} from './services/queue/workLifecycle.js';
@@ -92,7 +94,7 @@ app.use(express.json({ limit: '1mb', reviver: pollutionSafeReviver }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // API Routes
-if(acceptsApiRequests())app.use('/api', apiRouter);
+if(acceptsApiRequests())app.use('/api', databaseBootstrapAdmission, apiRouter);
 else app.use('/api',(_req,res)=>{res.status(503).json({status:'error',code:'WORKER_ONLY',message:'This service only runs background workers.'});});
 
 // 404 & Global Error Handlers (M2)
@@ -134,10 +136,12 @@ if (process.env.NODE_ENV !== 'test') {
             setTimeout(() => reject(new Error('MongoDB bootstrap connection timeout (15s)')), 15_000)
           ),
         ]);
+        setDatabaseBootstrapState('ready');
         mongoReady = true;
         logger.info('Database bootstrap completed successfully.');
         break;
       } catch (err) {
+        setDatabaseBootstrapState('failed');
         const errMsg = err instanceof Error ? err.message : String(err);
         if (attempt < maxRetries) {
           logger.warn(`Database connection attempt ${attempt}/${maxRetries} failed (${errMsg}). Retrying in 2s...`);
