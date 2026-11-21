@@ -121,7 +121,7 @@ export function CombinedWorkflowShowcase() {
             </span>
           </h2>
           <p className="text-sm sm:text-lg text-slate-300 leading-relaxed">
-            The same sample video travels the whole VireoClip workflow: source,
+            One illustrative scene travels the whole VireoClip workflow: source,
             moment markers, vertical reframe, captions and clip cards.
           </p>
         </div>

@@ -118,7 +118,7 @@ function Pricing() {
         </div>
 
         {/* Pricing Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto lv-reveal-group">
+        <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 max-w-7xl lv-reveal-group overflow-x-auto md:overflow-visible snap-x snap-mandatory md:snap-none -mx-4 px-4 md:mx-auto md:px-0 pb-4 md:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {plans.map((plan) => {
             const planId = plan.name.toLowerCase() as 'free' | 'creator' | 'pro' | 'studio';
             const rate = getMarketingPlanRate(planId, billingInterval, currency);
@@ -127,9 +127,9 @@ function Pricing() {
             return (
               <div
                 key={plan.name}
-                className={`rounded-3xl p-6 flex flex-col justify-between transition-all relative ${
+                className={`rounded-3xl p-6 flex flex-col justify-between transition-all relative shrink-0 w-[85%] sm:w-[70%] md:w-auto snap-center md:snap-align-none ${
                   isFeatured
-                    ? 'bg-gradient-to-b from-[#111424] to-[#080B15] shadow-[0_0_40px_rgba(139,92,246,0.25)] scale-[1.02]'
+                    ? 'bg-gradient-to-b from-[#111424] to-[#080B15] shadow-[0_0_40px_rgba(139,92,246,0.25)] md:scale-[1.02]'
                     : 'bg-[#080B14] hover:bg-[#0D1120]'
                 }`}
               >
@@ -154,6 +154,9 @@ function Pricing() {
                       {rate.symbol}{rate.amount}
                     </span>
                     <span className="text-xs text-slate-400 ml-1.5">{rate.periodText}</span>
+                    {rate.billedNote && (
+                      <span className="block mt-1 text-[11px] text-slate-400">{rate.billedNote}</span>
+                    )}
                     {rate.savingsBadge && (
                       <span className="block mt-1.5 text-[10px] font-mono text-[#20E3A2]">{rate.savingsBadge}</span>
                     )}

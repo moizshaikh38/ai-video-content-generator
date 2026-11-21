@@ -163,6 +163,7 @@ export function getMarketingPlanRate(
   amount: string;
   symbol: string;
   periodText: string;
+  billedNote: string | null;
   isAvailable: boolean;
   savingsBadge: string | null;
 } {
@@ -171,6 +172,7 @@ export function getMarketingPlanRate(
       symbol: currency === 'INR' ? '₹' : '$',
       amount: '0',
       periodText: interval === 'year' ? '/ forever' : '/ month',
+      billedNote: null,
       isAvailable: true,
       savingsBadge: null,
     };
@@ -182,6 +184,7 @@ export function getMarketingPlanRate(
         symbol: '₹',
         amount: '—',
         periodText: 'Unavailable in INR',
+        billedNote: null,
         isAvailable: false,
         savingsBadge: null,
       };
@@ -195,6 +198,7 @@ export function getMarketingPlanRate(
       symbol: '₹',
       amount: rates[planId].toLocaleString('en-IN'),
       periodText: '/ mo',
+      billedNote: null,
       isAvailable: true,
       savingsBadge: null,
     };
@@ -204,16 +208,19 @@ export function getMarketingPlanRate(
   if (interval === 'year') {
     // Annual billing at the owner-directed 50% off the monthly rate
     // (2026-11-21 WhatsApp instruction): yearly = monthly x 12 x 0.5.
-    const yearlyRates: Record<'creator' | 'pro' | 'studio', { amount: number; monthly: string; save: number }> = {
-      creator: { amount: 72, monthly: '$6/mo', save: 72 },
-      pro: { amount: 144, monthly: '$12/mo', save: 144 },
-      studio: { amount: 294, monthly: '$24.50/mo', save: 294 },
+    // Headline shows the effective per-month rate (2026-11-22 WhatsApp
+    // instruction); the annual total stays visible as billing clarity.
+    const yearlyRates: Record<'creator' | 'pro' | 'studio', { monthly: number; yearly: number; save: number }> = {
+      creator: { monthly: 6, yearly: 72, save: 72 },
+      pro: { monthly: 12, yearly: 144, save: 144 },
+      studio: { monthly: 24.5, yearly: 294, save: 294 },
     };
     const rate = yearlyRates[planId];
     return {
       symbol: '$',
-      amount: rate.amount.toString(),
-      periodText: `/ year (${rate.monthly})`,
+      amount: rate.monthly % 1 ? rate.monthly.toFixed(2) : rate.monthly.toString(),
+      periodText: '/ mo',
+      billedNote: `Billed $${rate.yearly} yearly`,
       isAvailable: true,
       savingsBadge: `Save 50% ($${rate.save}/yr)`,
     };
@@ -228,6 +235,7 @@ export function getMarketingPlanRate(
     symbol: '$',
     amount: monthlyRates[planId].toString(),
     periodText: '/ month',
+    billedNote: null,
     isAvailable: true,
     savingsBadge: null,
   };
