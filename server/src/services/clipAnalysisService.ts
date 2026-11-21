@@ -616,6 +616,7 @@ export class ClipAnalysisService {
 
     return await ownerContext.run(userId, async () => {
       try {
+        if(process.env.VIREO_AUTO_GENRE_REVIEW==='free'){const {refreshStoredGenreReview}=await import('./retainedGenreReviewService.js');await refreshStoredGenreReview(userId,projectId);}
         // 1. Verify project exists and belongs to user
       const { data: project, error: projErr } = await dataRepository
         .from('projects')

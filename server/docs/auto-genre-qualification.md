@@ -11,11 +11,12 @@ This backend change is a candidate, not a production release or an accuracy benc
 - Sources from 3 to 180 seconds use five uniform frame samples. Longer sources, up to 7200 seconds, use nine. Long transcript evidence uses five distributed timestamped windows when valid segments exist. Otherwise character-distributed excerpts are explicitly marked as having no clock claim.
 - Receipts bind the exact source SHA-256, full transcript text digest, duration and expected sample times. Invalid or stale receipts cannot replace local evidence. Model support is not calibrated accuracy.
 - Mixed, uncertain and contradictory sampled presentation abstains. A suggested model status cannot override material mixed-form evidence. Sparse sampling does not establish uniform genre throughout a source.
-- Clip analysis consumes stored evidence without another provider request. Consumed evidence participates in the transactional selection-intent fence. Concurrent manual/caption edits survive processing metadata updates; source movement fails before successful enrichment/settlement.
+- In explicit free mode, clip analysis refreshes missing or stale evidence for an older valid transcript without repeating STT or charging transcription credits. Valid stored evidence and manual mode skip new inference. Clip analysis then consumes the stored evidence. Consumed evidence participates in the transactional selection-intent fence. Concurrent manual/caption edits survive processing metadata updates; source movement fails before successful enrichment/settlement.
 - No crop geometry, active-speaker identity, caption default change or hosted activation is granted by genre evidence.
 
 ## Evidence collected during development
 
+- A second actual compiled run removed only the optional semantic receipt to represent an older valid upload. Actual clip analysis refreshed it, used Gaming, did not repeat STT or change wallet credits, and a subsequent helper invocation reused the valid receipt.
 - Genuine retained GTA gameplay source with its hash-matched German provider transcript exercised compiled processing, fresh free semantic inference, persisted evidence and actual clip analysis using Gaming. STT was replayed, not freshly transcribed. The selection adapter intentionally returned no proposals; the resulting short-source fallback is unranked and is not highlight-quality proof.
 - A retained game interview produced a Podcast suggestion. A Wiki conversation abstained. These are sparse-source checks, not full-video labels.
 - Real software demonstration and live basketball sources produced Tutorial and Sports suggestions in visual-only checks. No STT or clip-selection claim applies to these checks.
@@ -24,4 +25,4 @@ This backend change is a candidate, not a production release or an accuracy benc
 
 ## Remaining gates
 
-Full long-source ingestion and selection with a genuine complete transcript, hour-scale media, held-out mixed-content behavior, automatic highlight quality and final captioned Gaming export remain unverified. Existing transcript-quality and output-audio concerns are separate open issues. Reusing an existing transcript currently returns before new optional semantic collection; this candidate does not add a re-review endpoint. No claim of production readiness or parity with other products is made.
+Full long-source ingestion and selection with a genuine complete transcript, hour-scale media, held-out mixed-content behavior, automatic highlight quality and final captioned Gaming export remain unverified. Existing transcript-quality and output-audio concerns are separate open issues. Transcription-only reuse does not itself collect semantic evidence; explicit free-mode clip analysis now handles older uploads. No separate re-review endpoint was added. No claim of production readiness or parity with other products is made.
