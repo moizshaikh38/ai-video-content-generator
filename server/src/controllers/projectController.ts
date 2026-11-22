@@ -1,3 +1,4 @@
+import {transcriptReviewCode} from '../shared/transcriptReviewErrors.js';
 import {insertProjectWithinQuota, projectQuotaPolicy} from '../db/repositories/projectQuotaRepository.js';
 import {workLifecycle} from '../services/queue/workLifecycle.js';
 import {assertTranscriptReusable} from '../services/transcriptSourceBindingService.js';
@@ -1085,6 +1086,11 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
       error: err instanceof Error ? err.message : String(err),
     });
 
+    const reviewCode=transcriptReviewCode((err as any)?.code);
+    if(reviewCode){
+      res.status(409).json({status:'error',code:reviewCode,message:err instanceof Error?err.message:'Transcript and source need review before processing.'});
+      return;
+    }
     res.status(503).json({
       status: 'error',
       code: 'DATABASE_UNAVAILABLE',
