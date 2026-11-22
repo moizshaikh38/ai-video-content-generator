@@ -1,3 +1,4 @@
+import {createOrderedWordBoundarySafety} from '../../shared/orderedWordBoundarySafety.js';
 import {
   SceneCutPoint,
   AudioSilenceInterval,
@@ -79,6 +80,10 @@ export class ShotBoundaryFusionService {
       .map((w) => ({...w,start:Number(w.start.toFixed(3)),end:Number(w.end.toFixed(3))}))
       .filter((w) => w.end > w.start)
       .sort((a, b) => a.start - b.start);
+
+    // Duration expansion/contraction probes many candidate edges. Index the
+    // same normalized clocks once instead of scanning all words per edge.
+    const safeEdge = createOrderedWordBoundarySafety(sortedWords);
 
     const sortedCuts = [...sceneCuts]
       .map((c) => c.timestamp)
@@ -273,7 +278,6 @@ export class ShotBoundaryFusionService {
       const expandEnd = Math.min(totalVideoDuration, currentEnd + deficit);
       const remainingDeficit = minDur - (expandEnd - currentStart);
       const expandStart = Math.max(0, currentStart - remainingDeficit);
-      const safeEdge=(t:number)=>!sortedWords.some(w=>w.start<t&&w.end>t);
       // Expanding by elapsed seconds can land inside a word and discard an
       // otherwise usable candidate at final validation. Prefer the nearest
       // complete-word edge inside the same duration limits. Narrative scoring
@@ -298,7 +302,7 @@ export class ShotBoundaryFusionService {
       const excess = finalDuration - maxDur;
       const ceiling = currentStart + maxDur;
       const safeEndWords = sortedWords.filter((w) => w.end <= ceiling && w.end - currentStart >= minDur &&
-        !sortedWords.some((other) => other.start < w.end && other.end > w.end));
+        safeEdge(w.end));
       const terminalEnds = safeEndWords.filter((w) => this.TERMINAL_PUNCTUATION_REGEX.test(w.word.trim()));
       const chosen = terminalEnds.at(-1) ?? safeEndWords.at(-1);
       currentEnd = Number((chosen?.end ?? ceiling).toFixed(3));
@@ -322,8 +326,7 @@ export class ShotBoundaryFusionService {
 
     // Duration enforcement must not quietly reintroduce a partial spoken word.
     // An impossible duration/word combination is rejected by the live caller.
-    const wordBoundarySafe = !sortedWords.some((w) =>
-      (w.start < currentStart && w.end > currentStart) || (w.start < currentEnd && w.end > currentEnd));
+    const wordBoundarySafe = safeEdge(currentStart) && safeEdge(currentEnd);
     const finalWords = sortedWords.filter((w) => w.start >= currentStart && w.end <= currentEnd);
     if (sortedWords.length > 0) {
       wasSentencePreserved = wordBoundarySafe && Boolean(finalWords.length &&
