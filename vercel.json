@@ -4,6 +4,22 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/tools/video-trimmer",
+      "destination": "/tools/video-trimmer/index.html"
+    },
+    {
+      "source": "/tools/video-trimmer/",
+      "destination": "/tools/video-trimmer/index.html"
+    },
+    {
+      "source": "/tools/split-screen",
+      "destination": "/tools/split-screen/index.html"
+    },
+    {
+      "source": "/tools/split-screen/",
+      "destination": "/tools/split-screen/index.html"
+    },
+    {
       "source": "/api/waitlist",
       "destination": "https://api.vireoclip.com/api/waitlist"
     },
