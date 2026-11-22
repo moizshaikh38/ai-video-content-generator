@@ -1,3 +1,4 @@
+import{placementUpdate}from'../../../server/src/shared/manualVideoPlacement';
 import {SourceTextReviewBanner} from './SourceTextReviewBanner';
 import {initialExportResolution} from '../../../server/src/shared/initialExportResolution.js';
 import {canvasForResolution} from '../../../server/src/shared/renderResolution.js';
@@ -2069,6 +2070,12 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               clearSelection();
             }}
             onCommitProject={onCommitProject}
+            onUpdateItemPlacement={(itemId,manual_placement,options,manual_source_crop)=>{
+              const track=project.tracks.find(t=>t.items.some(i=>i.id===itemId));const item=track?.items.find(i=>i.id===itemId);
+              if(!track||!item||track.locked||item.locked)return;
+              const time=item.source_start+(currentTime-item.timeline_start)*(item.speed?.speed||1);
+              onUpdateTrackItem(track.id,itemId,placementUpdate(item,time,manual_placement,manual_source_crop),options);
+            }}
             onUpdateItemTransform={(itemId, transform, options) => {
               if (selectedTrackId) {
                 onUpdateTrackItem(selectedTrackId, itemId, { transform }, options);

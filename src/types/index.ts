@@ -1082,6 +1082,8 @@ export interface EditorAudioConfig {
 }
 
 export interface EditorTrackItem {
+  manual_source_crop?: import('../../server/src/shared/manualVideoPlacement').ManualSourceCrop;
+  manual_placement?: import('../../server/src/shared/manualVideoPlacement').ManualVideoPlacement;
   automatic_framing?: {enabled:boolean;freeze_source_time?:number};
   id: string;
   track_id: string;

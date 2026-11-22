@@ -1,3 +1,4 @@
+import {assertManualPlacement,assertPlacementTree,manualPlacementFilter} from '../shared/manualVideoPlacement.js';
 import {splitReviewItemCropConfig} from '../shared/automaticSplitEvidence.js';
 import{cacheBuiltinSoundEffect}from'./builtinSoundEffectAssetService.js';
 import {readEditorAndFreezePendingHook} from '../db/repositories/pendingHookInitializationRepository.js';
@@ -420,6 +421,7 @@ export class ProEditorService {
       }
     }
 
+    for(const track of dto.tracks??current.tracks)for(const item of track.items) { try { assertPlacementTree(item,{...current.canvas,...dto.canvas}); } catch(e:any) { throw new AppError(e.message,400,'INVALID_MANUAL_PLACEMENT'); } }
     const expectedVersion=dto.version;
     if(!Number.isSafeInteger(expectedVersion)||expectedVersion!==current.version)throw new AppError('This editor project changed elsewhere. Your local edits are kept. Reload or reconcile before saving again.',409,'EDITOR_REVISION_CONFLICT');
     const now = new Date();
@@ -907,6 +909,9 @@ export class ProEditorService {
     const csDims = canvasDims('9:16', cs);
     const ratio = (reframe?.aspectRatio || '9:16') as ClipAspectRatio;
 
+    if ((item as any).manual_placement !== undefined) {
+      try { const dims=canvasDims(ratio,cs); return manualPlacementFilter(item,dims.width,dims.height,canvas,reframe?.decodedSource); } catch(e:any) { throw new AppError(e.message,409,'INVALID_MANUAL_PLACEMENT'); }
+    }
     if (item.is_title_card) return null;
 
     if ((item as any).framing_window !== undefined) {
@@ -1353,11 +1358,13 @@ export class ProEditorService {
     for (const t of project.tracks) for (const i of t.items) {
       if (i.framing_window !== undefined) ProEditorService.buildFramingWindowFilter(i, reframe, i.timeline_end-i.timeline_start, project.canvas);
     }
+    for(const t of project.tracks)for(const i of t.items)if(i.manual_source_crop){if(i.manual_source_crop.source_path!==reframe.sourceStoragePath||i.manual_source_crop.source_asset_id!==reframe.sourceAssetId)throw new AppError('Manual source crop identity needs review',409,'INVALID_MANUAL_PLACEMENT');assertManualPlacement(i,project.canvas);}
     project=ProEditorService.prepareTrackerHandoffs(project,reframe);
     project=expandSceneLayoutProject(project);
     for (const t of project.tracks) for (const i of t.items) {
       if (i.framing_window !== undefined) ProEditorService.buildFramingWindowFilter(i, reframe, i.timeline_end-i.timeline_start, project.canvas);
     }
+    for(const t of project.tracks)for(const i of t.items){try{assertManualPlacement(i,project.canvas)}catch(e:any){throw new AppError(e.message,409,'INVALID_MANUAL_PLACEMENT')}if(i.manual_source_crop&&(i.manual_source_crop.source_path!==reframe.sourceStoragePath||i.manual_source_crop.source_asset_id!==reframe.sourceAssetId))throw new AppError('Manual source crop identity needs review',409,'INVALID_MANUAL_PLACEMENT');}
     assertPanelViewsAssigned(project);
     const inputArgs: string[] = [];
     const filterComplex: string[] = [];

@@ -1,3 +1,5 @@
+import{InlineSourceCrop}from'./InlineSourceCrop';
+import {dragPlacement,placementSupported,placementPixels,materializeFit,sourcePreviewStyle,type ManualVideoPlacement,type ManualSourceCrop} from '../../../server/src/shared/manualVideoPlacement';
 import {bareSmartSplitReviewForItem,type BareSmartSplitReview} from '../../../server/src/shared/automaticSplitEvidence';
 import{suppressStaleCaptionEmojis}from'../../../server/src/shared/sparseCaptionEmojiProject';
 import {automaticFitFocusY} from '../../../server/src/shared/automaticFitGeometry';
@@ -66,6 +68,7 @@ interface PreviewCanvasProps {
   onDeleteItem?: (itemId: string) => void;
   onTurnOffHook?: (itemId: string) => void;
   onTurnOffCaptions?: () => void;
+  onUpdateItemPlacement?: (itemId:string,placement:ManualVideoPlacement|undefined,options?:UpdateProjectOptions,source?:ManualSourceCrop)=>void;
   onUpdateItemTransform: (itemId: string, transform: any, options?: UpdateProjectOptions) => void;
   // Preview-first crop override: dragging the base video pans the per-item crop
   // focus (EditorTrackItem.crop.focusX/focusY), which the render compiler honors
@@ -247,6 +250,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   onDeleteItem,
   onTurnOffHook,
   onTurnOffCaptions,
+  onUpdateItemPlacement,
   onUpdateItemTransform,
   onUpdateItemCrop,
   onBeginCrop,
@@ -357,6 +361,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       const vItems = proj?.tracks.find((t) => t.type === 'VIDEO')?.items ?? [];
       const ph = playheadRef.current;
       const item = vItems.find((i) => !i.hidden && ph >= i.timeline_start && ph < i.timeline_end) ?? vItems[0];
+      if (item?.manual_placement) return;
       if (!proj || !item || item.locked || proj.tracks.some(t => t.locked && t.items.some(i => i.id===item.id))) return;
       if (!preCropProjectRef.current) {
         preCropProjectRef.current = JSON.parse(JSON.stringify(proj));
@@ -1307,6 +1312,22 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const fitW = Math.round(baseW * fitScale);
   const fitH = Math.round(baseH * fitScale);
 
+  const [inlineCropOpen,setInlineCropOpen]=useState(false);
+  useEffect(()=>setInlineCropOpen(false),[baseVideoItem?.id,baseVideoItem?.source_path,playhead]);
+  const placementEnabled = Boolean(viewMode==='edit' && baseVideoItem && !videoCropLocked && videoDims && onUpdateItemPlacement && Boolean(baseVideoItem.source_path&&baseVideoItem.source_asset_id) && placementSupported(baseVideoItem,project.canvas) && !activePanels && !groupFitView && primaryLayoutMode!=='split');
+  const materialized = placementEnabled && videoDims && baseVideoItem ? materializeFit(baseVideoItem,project.canvas,videoDims.w,videoDims.h,baseW,baseH) : null;
+  const picturePlacement = baseVideoItem?.manual_placement ?? materialized?.destination ?? null;
+  const pictureSource = baseVideoItem?.manual_source_crop ?? materialized?.source ?? null;
+  const pictureBox = picturePlacement ? placementPixels(picturePlacement,baseW,baseH) : null;
+  const beginPlacement = (e:React.PointerEvent,corner?:string) => {
+    if(!placementEnabled || !baseVideoItem || !picturePlacement || !onUpdateItemPlacement)return;
+    e.stopPropagation();e.preventDefault();onBeginCrop?.();onSelectItem(baseVideoItem.id);
+    const target=e.currentTarget as HTMLElement;target.setPointerCapture(e.pointerId);
+    const before=JSON.parse(JSON.stringify(projectRef.current));const start={x:e.clientX,y:e.clientY};const initial=picturePlacement;let moved=false;
+    const move=(ev:PointerEvent)=>{const dx=(ev.clientX-start.x)/(baseW*fitScaleRef.current),dy=(ev.clientY-start.y)/(baseH*fitScaleRef.current);if(Math.abs(dx)+Math.abs(dy)<.002&&!moved)return;moved=true;onUpdateItemPlacement(baseVideoItem.id,dragPlacement(initial,dx,dy,corner),{recordHistory:false,markAsDirty:true},pictureSource??undefined);};
+    const end=()=>{target.removeEventListener('pointermove',move);target.removeEventListener('pointerup',end);target.removeEventListener('pointercancel',end);if(moved){suppressClickAfterCropDragRef.current=true;onCommitProject?.(before);}};
+    target.addEventListener('pointermove',move);target.addEventListener('pointerup',end);target.addEventListener('pointercancel',end);
+  };
   return (
     <div
       onPointerDown={(e) => {
@@ -1543,7 +1564,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             transform: `scale(${fitScale})`,
             transformOrigin: 'top left',
           }}
-          onClick={() => { if (suppressClickAfterCaptionTapRef.current) { suppressClickAfterCaptionTapRef.current = false; return; } onSelectItem(null); }}
+          onClick={() => { if(suppressClickAfterCropDragRef.current){suppressClickAfterCropDragRef.current=false;return;} if (suppressClickAfterCaptionTapRef.current) { suppressClickAfterCaptionTapRef.current = false; return; } onSelectItem(null); }}
           className="relative overflow-hidden flex items-center justify-center"
         >
           <svg aria-hidden style={{position:'absolute',width:0,height:0,pointerEvents:'none'}}>
@@ -1568,6 +1589,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               ref={videoRef}
               src={activeVideoSrc}
               playsInline
+              disableRemotePlayback
               muted={project.tracks.some((t) => t.type === 'VIDEO' && t.muted)}
               onLoadedMetadata={() => {
                 if (videoRef.current) {
@@ -1581,38 +1603,13 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 // Double-click resets the crop reframe (edit mode only).
                 if (viewMode !== 'edit' || !onUpdateItemCrop) return;
                 const item = activeVideoItems[0];
-                if (!item || !item.crop || videoCropLocked) return;
+                if (!item || !item.crop || videoCropLocked || item.manual_placement) return;
                 e.stopPropagation();
                 onUpdateItemCrop(item.id, { mode: item.crop.mode ?? ((item as any).crop_mode === 'fit' ? 'fit' : 'custom'), focusX: 0.5, focusY: 0.5, scale: 1 });
               }}
-              onMouseDown={(e) => {
-                // Drag the base video to pan its crop focus (edit mode only).
-                if (viewMode !== 'edit' || !onUpdateItemCrop) return;
-                const item = activeVideoItems[0];
-                if (!item || videoCropLocked) return;
-                preCropProjectRef.current = JSON.parse(JSON.stringify(projectRef.current));
-                setCropDrag({
-                  itemId: item.id,
-                  startX: e.clientX,
-                  startY: e.clientY,
-                  startFocusX: item.crop?.focusX ?? 0.5,
-                  startFocusY: item.crop?.focusY ?? 0.5,
-                  moved: false,
-                });
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (suppressClickAfterCropDragRef.current) {
-                  suppressClickAfterCropDragRef.current = false;
-                  return;
-                }
-                if (selectedItemId) {
-                  if (suppressClickAfterCaptionTapRef.current) { suppressClickAfterCaptionTapRef.current = false; return; }
-                  onSelectItem(null);
-                  return;
-                }
-                onTogglePlay();
-              }}
+              data-selectable-item="video"
+              onPointerDown={(e)=>{if(placementEnabled)beginPlacement(e);}}
+              onClick={(e)=>{e.stopPropagation();if(viewMode==='edit'&&baseVideoItem){onSelectItem(baseVideoItem.id);return;}onTogglePlay();}}
               className={
                 primaryLayoutMode === 'split'
                   ? splitView1
@@ -1670,6 +1667,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     activeVideoItems[0].transform?.rotation || 0
                   )}deg)`
                 : undefined,
+              ...(baseVideoItem?.manual_placement && pictureBox && pictureSource ? sourcePreviewStyle(pictureSource,pictureBox) : {}),
               // Crop zoom magnifies around the crop focus, matching the
               // single-pass crop window the export filter computes.
               transformOrigin: `${((activeVideoItems[0]?.crop?.focusX ?? 0.5) * 100).toFixed(2)}% ${((activeVideoItems[0]?.crop?.focusY ?? 0.5) * 100).toFixed(2)}%`,
@@ -2634,8 +2632,13 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               );
             })()}
 
+            {inlineCropOpen && pictureSource && materialized && picturePlacement && activeVideoSrc && <InlineSourceCrop source={pictureSource} original={materialized.source} src={activeVideoSrc} time={targetVideoTime} onCancel={()=>setInlineCropOpen(false)} onApply={source=>{if(baseVideoItem&&onUpdateItemPlacement)onUpdateItemPlacement(baseVideoItem.id,picturePlacement,{recordHistory:true,markAsDirty:true},source);setInlineCropOpen(false)}}/>}
+            {placementEnabled && pictureBox && selectedItemId===baseVideoItem?.id && !inlineCropOpen && <div data-selectable-item="video-placement" data-testid="video-placement-box" className="absolute border-2 border-white pointer-events-auto touch-none cursor-move" style={{left:pictureBox.x,top:pictureBox.y,width:pictureBox.w,height:pictureBox.h}} onPointerDown={e=>beginPlacement(e)} onClick={e=>e.stopPropagation()}>
+              <div className="absolute -top-9 left-0 flex gap-1 whitespace-nowrap bg-black/80 text-white text-[10px]"><span>Move / resize</span><button type="button" data-testid="open-source-crop" className="bg-white/20 p-1" onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setInlineCropOpen(true)}}>Crop source</button><button type="button" className="bg-white/20 p-1" onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();if(materialized&&baseVideoItem)onUpdateItemPlacement?.(baseVideoItem.id,materialized.destination,{recordHistory:true,markAsDirty:true},pictureSource??undefined)}}>Reset position</button><button type="button" data-testid="reset-manual-framing" className="bg-white/20 p-1" onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();if(baseVideoItem)onUpdateItemPlacement?.(baseVideoItem.id,undefined,{recordHistory:true,markAsDirty:true})}}>Original framing</button></div>
+              {(['nw','ne','sw','se'] as const).map(c=><button key={c} type="button" aria-label={`Resize video ${c}`} data-testid={`video-corner-${c}`} className="absolute w-6 h-6 bg-white border-2 border-black rounded-sm touch-none" style={{left:c.includes('w')?0:undefined,right:c.includes('e')?0:undefined,top:c.includes('n')?0:undefined,bottom:c.includes('s')?0:undefined,cursor:c==='nw'||c==='se'?'nwse-resize':'nesw-resize'}} onPointerDown={e=>beginPlacement(e,c)} onClick={e=>e.stopPropagation()}/>)}
+            </div>}
             {/* DIRECT MANIPULATION TRANSFORM HANDLES (FOR NON-TEXT ITEMS) */}
-            {selectedItem && selectedItem.type !== 'TEXT' && (
+            {selectedItem && selectedItem.type !== 'TEXT' && selectedItem.type !== 'VIDEO' && (
               <div
                 style={{
                   transform: `translate(${selectedItem.transform?.position_x || 0}px, ${

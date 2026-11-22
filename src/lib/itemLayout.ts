@@ -60,7 +60,7 @@ export function applyItemLayout(
           if (i.locked || i.id !== itemId) return i;
           if(layout==='auto'){
             const next:any={...i,crop_config:{...((i as any).crop_config||{}),layout_mode_source:'auto'}};
-            delete next.crop;delete next.panels;delete next.framing_window;delete next.layout_mode;delete next.scene_layout_overrides;
+            delete next.crop;delete next.panels;delete next.framing_window;delete next.layout_mode;delete next.scene_layout_overrides;delete next.manual_placement;delete next.manual_source_crop;
             delete next.crop_config.layout_mode;delete next.crop_config.split;delete next.crop_config.screencast;
             // Manual object tracking and camera-motion hold are independent settings.
             return next as EditorTrackItem;
@@ -68,7 +68,7 @@ export function applyItemLayout(
           const base: any = { ...i, crop_config: { ...((i as any).crop_config || {}), layout_mode: layout === 'split' ? 'split' : 'track', layout_mode_source: 'user' } };
           base.layout_mode = layout === 'split' ? 'split' : 'track';
           // A layout pick replaces an accepted auto-plan context window (never both).
-          delete base.framing_window;delete base.scene_layout_overrides;
+          delete base.framing_window;delete base.scene_layout_overrides;delete base.manual_placement;delete base.manual_source_crop;
           if ((PANEL_LAYOUTS as string[]).includes(layout)) {
             const prev = (i as any).panels?.layout === layout ? (i as any).panels : undefined;
             const measured=measuredPanelChoice(measuredChoices,layout,i.source_start,i.source_end,i.id);
@@ -110,7 +110,7 @@ export function applyFramingStrategy(project: EditorProject, mode: 'center'|'fit
     // Clip-wide framing replaces scene layout choices too. Retaining an Auto
     // scene patch makes preview fall back to legacy crop_mode while export
     // expands the patch and silently discards this new crop.
-    delete next.panels;delete next.framing_window;delete next.scene_layout_overrides;
+    delete next.panels;delete next.framing_window;delete next.scene_layout_overrides;delete next.manual_placement;delete next.manual_source_crop;
     if(mode==='smart'){
       delete next.crop;delete next.tracker;delete next.layout_mode;
       const cfg={...next.crop_config};
@@ -137,7 +137,7 @@ export function applySceneLayout(project:EditorProject,itemId:string,start:numbe
  const effective={...resolveSceneLayoutItem(item,(a+b)/2),source_start:a,source_end:b};
  const scoped={...project,tracks:project.tracks.map(q=>q.id!==t.id?q:{...q,items:q.items.map(i=>i.id!==itemId?i:effective)})};
  const changed=applyItemLayout(scoped,itemId,layout,subjectKeyframes,sourceSize,measuredChoices).tracks.find(q=>q.id===t.id)?.items.find(i=>i.id===itemId) as any;
- const patch:any={};for(const k of ['crop','panels','layout_mode','crop_config'])if(changed[k]!==undefined)patch[k]=changed[k];
+ const patch:any={};for(const k of ['crop','panels','layout_mode','crop_config','manual_placement','manual_source_crop'])if(changed[k]!==undefined)patch[k]=changed[k];
  const prior=((item as any).scene_layout_overrides||[]).flatMap((o:any)=>o.end<=a||o.start>=b?[o]:[...(o.start<a?[{...o,end:a}]:[]),...(o.end>b?[{...o,start:b}]:[])]);
  const overrides=[...prior,{start:a,end:b,layout,patch}].sort((x,y)=>x.start-y.start);
  return {...project,tracks:project.tracks.map(q=>q.id!==t.id?q:{...q,items:q.items.map(i=>i.id!==itemId?i:{...i,scene_layout_overrides:overrides})})} as EditorProject;

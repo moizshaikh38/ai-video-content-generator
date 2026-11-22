@@ -1,8 +1,10 @@
+import{effectiveScenePatch,SCENE_LAYOUT_FIELDS}from'./sceneLayoutFields.js';
+import{assertManualPlacement}from'./manualVideoPlacement.js';
 import {validateAutomaticLayoutCropConfig} from './automaticLayoutValidation.js';
 import {resolveTrackerEvidence,trackerEvidenceRange} from './trackerEvidence.js';
 import {normalizePanels} from './panelLayouts.js';
-export interface SceneLayoutOverride {start:number;end:number;layout:string;patch:{crop?:any;panels?:any;layout_mode?:string;crop_config?:any}}
-const keys=['crop','panels','layout_mode','crop_config'] as const;
+export interface SceneLayoutOverride {start:number;end:number;layout:string;patch:{crop?:any;panels?:any;layout_mode?:string;crop_config?:any;manual_placement?:any;manual_source_crop?:any}}
+const keys=SCENE_LAYOUT_FIELDS;
 const layouts=['auto','fill','fit','blur','split','three','four','screenshare','gameplay','game_screen_first','watch_party','streaming'];
 export function validateSceneLayoutOverrides(item:any):void{
  const os=item.scene_layout_overrides;if(os===undefined)return;
@@ -18,15 +20,14 @@ export function validateSceneLayoutOverrides(item:any):void{
   if(o.patch.panels&&!normalizePanels(o.patch.panels))throw Error('Invalid scene panels');
   if(o.patch.crop&&!['fill','fit','blur','custom'].includes(o.patch.crop.mode))throw Error('Invalid scene crop');
   if(o.patch.layout_mode&&!['track','split','screencast','blur'].includes(o.patch.layout_mode))throw Error('Invalid scene mode');
+  assertManualPlacement(effectiveScenePatch(item,o.patch));
   end=o.end;
  }
 }
 export function sceneOverrideAt(item:any,sourceTime:number):SceneLayoutOverride|undefined{return item?.scene_layout_overrides?.find((o:SceneLayoutOverride)=>sourceTime>=o.start&&(sourceTime<o.end||(Math.abs(sourceTime-item.source_end)<=1e-9&&Math.abs(o.end-item.source_end)<=1e-9)));}
 export function resolveSceneLayoutItem<T extends object>(item:T,sourceTime:number):T{
  const o=sceneOverrideAt(item,sourceTime);if(!o)return resolveTrackerEvidence(item,sourceTime);
- const next:any={...item};delete next.framing_window;
- for(const k of keys)delete next[k];
- Object.assign(next,o.patch);return resolveTrackerEvidence(next,sourceTime);
+ return resolveTrackerEvidence(effectiveScenePatch(item,o.patch),sourceTime) as T;
 }
 /** Render-only slices: persisted timeline items/IDs stay intact. Exact source
  * clocks survive trims/speed; internal boundaries add no edit transitions. */

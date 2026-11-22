@@ -2175,6 +2175,8 @@ export interface EditorAudioConfig {
 }
 
 export interface EditorTrackItem {
+  manual_source_crop?: import('../shared/manualVideoPlacement.js').ManualSourceCrop;
+  manual_placement?: import('../shared/manualVideoPlacement.js').ManualVideoPlacement;
   automatic_framing?: {enabled:boolean;freeze_source_time?:number};
   id: string;
   track_id: string;
