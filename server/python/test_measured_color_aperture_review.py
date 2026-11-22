@@ -5,6 +5,13 @@ class ClosedApertureReviewTests(unittest.TestCase):
  def frame(self):return np.full((200,320,3),40,np.uint8)
  def ring(self,f,x,y,hue=60):
   color=cv2.cvtColor(np.uint8([[[hue,255,230]]]),cv2.COLOR_HSV2BGR)[0,0].tolist();cv2.rectangle(f,(x,y),(x+80,y+60),color,5)
+ def test_signed_hue_distance_matches_original_all_hues_and_windows(self):
+  hue=np.arange(180,dtype=np.uint8)
+  for width in [30,45,60]:
+   for center in range(0,180,10):
+    old=np.abs(hue.astype(int)-center);old=np.minimum(old,180-old)
+    fast=np.abs(hue.astype(np.int16)-center);fast=np.minimum(fast,180-fast)
+    np.testing.assert_array_equal(old<=width/2,fast<=width/2)
  def test_colors_and_positions_are_not_fixed(self):
   for hue in [0,30,60,90,120,150]:
    for x,y in [(10,10),(200,100)]:

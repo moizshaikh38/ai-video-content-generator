@@ -5,11 +5,11 @@ must independently enclose a near-rectangle. Does not union crossing rectangles.
 import cv2,numpy as np,hashlib,json,sys
 
 def apertures(frame):
- h,w=frame.shape[:2];hsv=cv2.cvtColor(frame,cv2.COLOR_BGR2HSV);out=[]
+ h,w=frame.shape[:2];hsv=cv2.cvtColor(frame,cv2.COLOR_BGR2HSV);out=[];hue=hsv[:,:,0].astype(np.int16);saturated=(hsv[:,:,1]>160)&(hsv[:,:,2]>50)
  pixels=frame.astype(np.int16);gx=np.max(np.abs(pixels[:,1:]-pixels[:,:-1]),axis=2)>35;gy=np.max(np.abs(pixels[1:]-pixels[:-1]),axis=2)>35;band=max(2,round(min(w,h)*.006))
  for width in [30,45,60]:
   for center in range(0,180,10):
-   delta=np.abs(hsv[:,:,0].astype(int)-center);delta=np.minimum(delta,180-delta);mask=((delta<=width/2)&(hsv[:,:,1]>160)&(hsv[:,:,2]>50)).astype(np.uint8)*255
+   delta=np.abs(hue-center);delta=np.minimum(delta,180-delta);mask=((delta<=width/2)&saturated).astype(np.uint8)*255
    contours,hierarchy=cv2.findContours(mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
    if hierarchy is None:continue
    for i,c in enumerate(contours):
