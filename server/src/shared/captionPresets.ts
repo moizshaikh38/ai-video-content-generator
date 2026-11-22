@@ -1306,6 +1306,8 @@ export interface WordCustomStyle {
 }
 
 export interface PresetTimedWord {
+  /** Original clip-local display constituent spans, not newly aligned words. */
+  originalTimedParts?: Array<{text:string;start:number;end:number}>;
   text: string;
   start: number;
   end: number;
@@ -1633,6 +1635,7 @@ export function getValidCueWords(cue: PresetTimedCue): PresetTimedWord[] {
         start,
         end,
         customStyle: w.customStyle,
+        ...(Array.isArray(w.originalTimedParts)?{originalTimedParts:w.originalTimedParts.map(p=>({...p}))}:{}),
       };
     })
     .filter((w) => w.text.length > 0 && w.end > w.start)

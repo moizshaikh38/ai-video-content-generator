@@ -801,6 +801,8 @@ export interface CaptionConfig {
 }
 
 export interface TimedCaptionToken {
+  /** Original clip-local display constituent spans, not newly aligned words. */
+  originalTimedParts?: Array<{text:string;start:number;end:number}>;
   text: string;
   word?: string;
   start: number; // local to clip (seconds)

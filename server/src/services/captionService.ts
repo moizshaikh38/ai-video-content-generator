@@ -1,3 +1,4 @@
+import {joinTimedCaptionCompounds} from '../shared/captionCompoundWords.js';
 import {assertSpeechWordCoverage} from '../shared/speechWordCoverage.js';
 import { reliableOrderedClocks } from '../shared/orderedTranscriptTiming.js';
 import {newCaptionDefaults} from '../shared/newCaptionDefaults.js';
@@ -464,7 +465,8 @@ export class CaptionService {
     clipEnd: number,
     trimStartOffset = 0,
     trimEndOffset = 0,
-    captionConfig?: CaptionConfig
+    captionConfig?: CaptionConfig,
+    options: { joinTimedHyphenCompounds?: boolean } = {}
   ): { timingMode: CaptionTimingMode; cues: TimedCaptionCue[] } {
     const effectiveStart = Number((clipStart + trimStartOffset).toFixed(3));
     const effectiveEnd = Number((clipEnd - trimEndOffset).toFixed(3));
@@ -519,7 +521,14 @@ export class CaptionService {
       }
 
       if (candidateTokens.length > 0) {
-        let cues = this.groupIntoCues(candidateTokens, maxWords, maxLines, maxCharsPerLine);
+        // Review-only and fresh extraction only. Saved editor cues never pass
+        // through this join. Keep existing cue-ID manual corrections authoritative.
+        const overrides=captionConfig?.caption_overrides;
+        const hasOverrides=Array.isArray(overrides)?overrides.length>0:!!overrides&&Object.keys(overrides).length>0;
+        const displayTokens=options.joinTimedHyphenCompounds&&!hasOverrides
+          ?joinTimedCaptionCompounds(candidateTokens,String(transcript.text??transcript.transcript_text??''))
+          :candidateTokens;
+        let cues = this.groupIntoCues(displayTokens, maxWords, maxLines, maxCharsPerLine);
 
         // Apply manual text overrides if any
         cues = this.applyOverrides(cues, captionConfig?.caption_overrides);
@@ -710,7 +719,7 @@ export class CaptionService {
     transcript: { text?: unknown; transcript_text?: unknown; segments?: any[]; words?: any[] },
     clip: Pick<ClipRecord, 'start_seconds' | 'end_seconds' | 'trim_start_offset' | 'trim_end_offset' | 'caption_style' | 'caption_config' | 'aspect_ratio'> & { caption_overrides?: any },
     aspectRatio: ClipAspectRatio = (clip.aspect_ratio as ClipAspectRatio) || '9:16',
-    options: { preserveCase?: boolean } = {}
+    options: { preserveCase?: boolean; joinTimedHyphenCompounds?: boolean } = {}
   ): { timingMode: CaptionTimingMode; cues: TimedCaptionCue[]; preset: ResolvedCaptionStyle | null } {
     const baseConfig: CaptionConfig = {
       ...(clip.caption_config || {}),
@@ -734,7 +743,8 @@ export class CaptionService {
       clip.end_seconds,
       Number(clip.trim_start_offset || 0),
       Number(clip.trim_end_offset || 0),
-      effectiveConfig
+      effectiveConfig,
+      {joinTimedHyphenCompounds:options.joinTimedHyphenCompounds??process.env.VIREO_CAPTION_COMPOUND_REVIEW==='1'}
     );
 
     if (preset && timingMode === 'segment' && !options.preserveCase) {
