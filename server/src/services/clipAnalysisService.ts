@@ -853,9 +853,16 @@ export class ClipAnalysisService {
               logger.info(
                 `Analyzing chunk ${chunkNum}/${chunks.length} (segments [${chunk.startIndex}..${chunk.endIndex}], duration ~${Math.round(chunk.durationSeconds)}s)...`
               );
+              // An undersized final window cannot contain a span meeting the
+              // source-wide duration floor. Skip before invoking the provider.
+              if (chunk.durationSeconds < minimumAcceptedDuration) {
+                logger.info(`Skipping chunk ${chunkNum}: supplied window is shorter than the accepted clip minimum.`);
+                return [];
+              }
               const userPrompt = ClipPromptService.buildClipAnalysisPrompt({
                 segments: chunk.segments,
                 durationSeconds: chunk.durationSeconds,
+                sourceDurationSeconds: transcript.duration_seconds,
                 creatorProfile,
                 customNotes: customNotes || project.notes,
                 multimodalTimeline,
