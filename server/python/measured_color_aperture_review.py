@@ -28,6 +28,8 @@ def apertures(frame):
 def run(video,track):
  cap=cv2.VideoCapture(video);fps=cap.get(cv2.CAP_PROP_FPS);duration=cap.get(cv2.CAP_PROP_FRAME_COUNT)/fps;rows=[]
  if not(np.isfinite(duration)and 6<=duration<=30):cap.release();raise ValueError('Only bounded6to30second local review')
+ width=cap.get(cv2.CAP_PROP_FRAME_WIDTH);height=cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+ if width*height*min(32,max(8,int(duration)+1))>12000000:cap.release();raise ValueError('Local review pixel budget exceeded')
  if any(not np.isfinite(z.get('time',float('nan')))or z['time']<0 or z['time']>=duration for z in track['raw_samples']):cap.release();raise ValueError('Face sample clock outside source review')
  for t in np.linspace(0,max(0,duration-.1),min(32,max(8,int(duration)+1))):
   cap.set(cv2.CAP_PROP_POS_MSEC,float(t)*1000);ok,frame=cap.read()

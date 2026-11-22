@@ -35,4 +35,12 @@ class ClosedApertureReviewTests(unittest.TestCase):
    w.release()
    for t in [-1,6,float('nan')]:
     with self.assertRaises(ValueError):run(p,{'raw_samples':[{'time':t,'faces':[]}]})
+ def test_pixel_budget_rejects_before_decoding(self):
+  from unittest.mock import patch
+  class Oversized:
+   def get(self,field):return {cv2.CAP_PROP_FPS:30,cv2.CAP_PROP_FRAME_COUNT:600,cv2.CAP_PROP_FRAME_WIDTH:1080,cv2.CAP_PROP_FRAME_HEIGHT:1920}[field]
+   def release(self):pass
+   def read(self):raise AssertionError('Oversized source must not decode')
+  with patch('measured_color_aperture_review.cv2.VideoCapture',return_value=Oversized()):
+   with self.assertRaisesRegex(ValueError,'pixel budget'):run('/unused',{'raw_samples':[]})
 if __name__=='__main__':unittest.main()
