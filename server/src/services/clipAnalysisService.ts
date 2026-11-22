@@ -577,6 +577,7 @@ export class ClipAnalysisService {
       const cold_open_segment_index = parseSegmentIndex(item.cold_open_segment_index);
 
       const parseSubscore = (v: unknown): number | undefined => {
+        if (typeof v === 'string' && v.trim().length === 0) return undefined;
         const n = typeof v === 'string' ? Number(v) : v;
         return typeof n === 'number' && Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : undefined;
       };
