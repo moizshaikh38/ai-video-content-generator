@@ -49,7 +49,7 @@ export const SupportPage: React.FC = () => {
       <header className="relative overflow-hidden bg-[#0E0E0E] text-white">
         <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-[#8B5CF6]/25 blur-[100px] pointer-events-none" aria-hidden="true" />
         <div className="absolute -bottom-32 -left-16 w-80 h-80 rounded-full bg-[#8B5CF6]/10 blur-[90px] pointer-events-none mv-float-slow" aria-hidden="true" />
-        <div className="max-w-5xl mx-auto px-5 lg:px-8 pt-10 pb-14 relative">
+        <div className="max-w-5xl mx-auto px-5 lg:px-8 pt-28 pb-14 relative">
           <Link to="/" className="inline-flex items-center gap-2 text-xs font-semibold text-white/60 hover:text-white mb-8 transition-colors">
             <ArrowLeft size={15} aria-hidden="true" />
             Back to VireoClip home
@@ -108,8 +108,8 @@ export const SupportPage: React.FC = () => {
                 Ask about supported formats, the editor, caption styles, minutes, or billing — Vira answers
                 instantly from the product itself. For anything involving your account (refunds, deletion,
                 plan disputes), Vira hands you off to a human at{' '}
-                <a className="font-semibold text-[#FAFAFA] underline" href="mailto:vertexdigitals07@gmail.com">
-                  vertexdigitals07@gmail.com
+                <a className="font-semibold text-[#FAFAFA] underline" href="mailto:support@vireoclip.com">
+                  support@vireoclip.com
                 </a>
                 .
               </p>
@@ -150,7 +150,7 @@ export const SupportPage: React.FC = () => {
             </p>
           </div>
           <a
-            href="mailto:vertexdigitals07@gmail.com?subject=VireoClip%20Support%20Request"
+            href="mailto:support@vireoclip.com?subject=VireoClip%20Support%20Request"
             className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-[#8B5CF6] text-white text-sm font-bold hover:bg-[#7C3AED] transition-colors mv-lift"
           >
             <Mail size={15} aria-hidden="true" />

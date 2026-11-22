@@ -17,8 +17,7 @@ import { Reveal } from "../lib/motion";
 import { LandingHero } from "../components/landing/LandingHero";
 import HiwMotion from "../components/landing/HiwMotion";
 import { CombinedWorkflowShowcase } from "../components/landing/CombinedWorkflowShowcase";
-import { useCurrency, CurrencyProvider } from "../context/CurrencyContext";
-import { CurrencyToggle } from "../components/CurrencyToggle";
+import { CurrencyProvider } from "../context/CurrencyContext";
 import { getMarketingPlanRate } from "../utils/pricingUtils";
 import "./landing.css";
 import "./landing-motion.css";
@@ -57,8 +56,9 @@ function HowItWorks() {
   );
 }
 
+
 function Pricing() {
-  const { currency } = useCurrency();
+  const waitlistMode = import.meta.env.VITE_WAITLIST_ENABLED === 'true';
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
 
   return (
@@ -73,9 +73,6 @@ function Pricing() {
           <p className="text-base text-slate-300">
             Get started for free with 15 processing minutes. Upgrade as your production grows.
           </p>
-          <div className="mt-6 mx-auto max-w-xl rounded-2xl border border-amber-300/40 bg-amber-300/10 px-5 py-3 text-[12px] leading-relaxed text-amber-200">
-            <strong className="font-bold uppercase tracking-wider">Proposed preview — not purchasable.</strong> Checkout is not active. Plan features and allowances shown below are under capability review and may change before any paid launch.
-          </div>
         </div>
 
         {/* Cadence & Currency Controls */}
@@ -92,15 +89,10 @@ function Pricing() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                if (currency !== 'INR') setBillingInterval('year');
-              }}
-              disabled={currency === 'INR'}
+              onClick={() => setBillingInterval('year')}
               className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
                 billingInterval === 'year'
                   ? 'bg-[#8753e3] text-white shadow-md'
-                  : currency === 'INR'
-                  ? 'opacity-40 cursor-not-allowed text-slate-500'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -111,17 +103,13 @@ function Pricing() {
             </button>
           </div>
 
-          <div className="flex items-center gap-2 bg-[#090C16] px-3.5 py-1.5 rounded-full">
-            <span className="text-xs text-slate-400">Currency:</span>
-            <CurrencyToggle size="sm" />
-          </div>
         </div>
 
         {/* Pricing Cards Grid */}
         <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 max-w-7xl lv-reveal-group overflow-x-auto md:overflow-visible snap-x snap-mandatory md:snap-none -mx-4 px-4 md:mx-auto md:px-0 pb-4 md:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {plans.map((plan) => {
             const planId = plan.name.toLowerCase() as 'free' | 'creator' | 'pro' | 'studio';
-            const rate = getMarketingPlanRate(planId, billingInterval, currency);
+            const rate = getMarketingPlanRate(planId, billingInterval, 'USD');
             const isFeatured = plan.name === 'Pro';
 
             return (
@@ -176,14 +164,18 @@ function Pricing() {
 
                 <div>
                   <Link
-                    to="/signup"
+                    to={waitlistMode ? '/#waitlist' : '/signup'}
+                    onClick={waitlistMode ? event => {
+                      event.preventDefault();
+                      document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+                    } : undefined}
                     className={`w-full py-3.5 sm:py-2.5 px-4 rounded-full text-xs font-bold text-center block transition-all ${
                       isFeatured
                         ? 'bg-gradient-to-r from-[#6734c9] to-[#8753e3] hover:brightness-110 text-white shadow-lg'
                         : 'bg-white/[0.06] hover:bg-white/[0.1] text-white'
                     }`}
                   >
-                    {plan.name === 'Free' ? 'Start Free' : 'Choose Plan'}
+                    {waitlistMode ? 'Join waitlist' : (plan.name === 'Free' ? 'Start Free' : 'Choose Plan')}
                   </Link>
                   <p className="mt-3 text-[10px] text-slate-500 text-center leading-relaxed">{plan.statusNote}</p>
                 </div>
@@ -333,6 +325,7 @@ function Waitlist() {
 }
 
 function FinalCTA() {
+  const waitlistMode = import.meta.env.VITE_WAITLIST_ENABLED === 'true';
   return (
     <section className="py-24 lg:py-32 bg-[#000000] relative overflow-hidden">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[850px] h-[450px] bg-gradient-to-r from-[#6734c9]/20 via-[#8753e3]/20 to-[#20E3A2]/10 blur-[130px] rounded-full pointer-events-none -z-0" />
@@ -361,13 +354,23 @@ function FinalCTA() {
         </Reveal>
         <Reveal variant="up" delay={260}>
         <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link
-            to="/signup"
-            className="mv-glow w-full sm:w-auto px-8 py-3.5 rounded-full text-sm font-bold text-white bg-gradient-to-r from-[#6734c9] to-[#8753e3] hover:brightness-110 transition flex items-center justify-center gap-2"
-          >
-            <span>Get Free Clips Now</span>
-            <ArrowRight size={16} />
-          </Link>
+          {waitlistMode ? (
+            <a
+              href="#waitlist"
+              className="mv-glow w-full sm:w-auto px-8 py-3.5 rounded-full text-sm font-bold text-white bg-gradient-to-r from-[#6734c9] to-[#8753e3] hover:brightness-110 transition flex items-center justify-center gap-2"
+            >
+              <span>Get Free Clips Now</span>
+              <ArrowRight size={16} />
+            </a>
+          ) : (
+            <Link
+              to="/signup"
+              className="mv-glow w-full sm:w-auto px-8 py-3.5 rounded-full text-sm font-bold text-white bg-gradient-to-r from-[#6734c9] to-[#8753e3] hover:brightness-110 transition flex items-center justify-center gap-2"
+            >
+              <span>Get Free Clips Now</span>
+              <ArrowRight size={16} />
+            </Link>
+          )}
           <a
             href="#major-features"
             className="w-full sm:w-auto px-6 py-3.5 rounded-full text-sm font-semibold text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] transition"

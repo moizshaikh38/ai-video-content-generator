@@ -1,0 +1,32 @@
+:root{--vc-glass-bg:rgba(22,22,22,.78);--vc-glass-border:rgba(255,255,255,.10);--vc-glass-highlight:rgba(255,255,255,.08);--vc-glass-muted:#a1a1aa;--vc-glass-text:#fafafa;--vc-glass-shadow:inset 0 1px 0 rgba(255,255,255,.08),inset 0 0 0 1px rgba(255,255,255,.04),0 24px 60px -12px rgba(0,0,0,.85)}
+/* Explicit surface opt-in. Never blur video, canvas, text or every app card. */
+.vc-glass-surface,.vc-glass-popover{background:var(--vc-glass-bg);border:1px solid var(--vc-glass-border);box-shadow:var(--vc-glass-shadow);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);color:var(--vc-glass-text)}
+.vc-glass-control{background:rgba(255,255,255,.06);border:1px solid var(--vc-glass-border);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);color:var(--vc-glass-text)}
+.lp-navbar.vc-public-nav .lp-mobile-menu.vc-glass-popover,.lp-navbar.vc-public-nav .lp-nav-links .nav-group[open] .nav-drop.vc-glass-popover{background:var(--vc-glass-bg);border:1px solid var(--vc-glass-border);box-shadow:var(--vc-glass-shadow);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);color:var(--vc-glass-text)}
+.lp-navbar.vc-public-nav .lp-mobile-menu.vc-glass-popover{padding:12px;max-height:calc(100dvh - 104px);border-radius:20px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.vc-public-nav .lp-mobile-menu.vc-glass-popover .vc-clean-menu-label{font-size:9px;letter-spacing:.14em;color:var(--vc-glass-muted);margin:2px 10px 6px}
+.vc-public-nav .lp-mobile-menu.vc-glass-popover .nav-group>summary,.vc-public-nav .lp-mobile-menu.vc-glass-popover .vc-plain-link{box-sizing:border-box;min-height:44px;padding:10px 12px;font-size:13px;font-weight:600;line-height:1.4;letter-spacing:0;color:var(--vc-glass-text);border-bottom:1px solid rgba(255,255,255,.06);border-radius:10px}
+.vc-public-nav .lp-mobile-menu.vc-glass-popover .nav-group[open]>summary{background:rgba(255,255,255,.06);border-bottom-color:transparent}
+.vc-public-nav .lp-mobile-menu.vc-glass-popover .nav-group>summary:after,.vc-public-nav .lp-mobile-menu.vc-glass-popover svg{color:var(--vc-glass-muted)}
+.vc-public-nav .lp-mobile-menu.vc-glass-popover .nav-drop{padding:4px 0 6px}
+.vc-public-nav .lp-mobile-menu.vc-glass-popover .nav-drop a{box-sizing:border-box;min-height:44px;padding:10px 12px 10px 22px;font-size:12px;line-height:1.4;color:#d4d4d8;border-radius:10px}
+.vc-public-nav .lp-mobile-menu.vc-glass-popover .nav-drop a:hover,.vc-public-nav .lp-mobile-menu.vc-glass-popover .vc-plain-link:hover,.vc-public-nav .lp-mobile-menu.vc-glass-popover summary:hover{background:rgba(255,255,255,.08);color:#fff}
+.vc-public-nav .lp-mobile-menu.vc-glass-popover .vc-clean-menu-actions{padding:12px 4px 2px;gap:12px}
+.vc-public-nav .lp-mobile-menu.vc-glass-popover .vc-clean-menu-actions>a{min-height:44px;font-size:12px}
+.lp-navbar.vc-public-nav .lp-menu-button.vc-glass-control{min-width:44px;min-height:44px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);color:#fafafa}
+.vc-public-nav .vc-glass-popover a:focus-visible,.vc-public-nav .vc-glass-popover summary:focus-visible,.vc-public-nav .vc-glass-control:focus-visible{outline:2px solid rgba(255,255,255,.65);outline-offset:2px}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.vc-glass-surface,.vc-glass-popover,.lp-navbar.vc-public-nav .lp-mobile-menu.vc-glass-popover,.lp-navbar.vc-public-nav .lp-nav-links .nav-group[open] .nav-drop.vc-glass-popover{background:#161616}}
+@media(prefers-reduced-transparency:reduce){.vc-glass-surface,.vc-glass-popover,.lp-navbar.vc-public-nav .lp-mobile-menu.vc-glass-popover,.lp-navbar.vc-public-nav .lp-nav-links .nav-group[open] .nav-drop.vc-glass-popover{background:#161616;backdrop-filter:none;-webkit-backdrop-filter:none}}
+:root{--vc-glass-solid:#161616}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){:root{--vc-glass-bg:var(--vc-glass-solid)}}
+@media(prefers-reduced-transparency:reduce){:root{--vc-glass-bg:var(--vc-glass-solid)}}
+/* Generated public tool/resource pages use the same material and compact controls. */
+body>header .site-menu-toggle{box-sizing:border-box;min-width:44px;min-height:44px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid var(--vc-glass-border);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);color:var(--vc-glass-text)}
+body>header .site-nav.is-open,body>header .site-nav .nav-group[open]>.nav-drop{background:var(--vc-glass-bg);border:1px solid var(--vc-glass-border);box-shadow:var(--vc-glass-shadow);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);color:var(--vc-glass-text)}
+body>header .site-nav a:focus-visible,body>header .site-nav summary:focus-visible,body>header .site-menu-toggle:focus-visible{outline:2px solid rgba(255,255,255,.65);outline-offset:2px}
+@media(max-width:740px){body>header .site-nav.is-open{padding:12px;max-height:calc(100dvh - 104px);overflow-y:auto;overscroll-behavior:contain;border-radius:20px}body>header .site-nav.is-open>.nav-group>summary,body>header .site-nav.is-open>a{box-sizing:border-box;min-height:44px;padding:10px 12px;font-size:13px;line-height:1.4;color:var(--vc-glass-text)}body>header .site-nav.is-open .nav-drop a{box-sizing:border-box;min-height:44px;font-size:12px;line-height:1.4;color:#d4d4d8}body>header .site-nav.is-open .vc-clean-menu-label{font-size:9px;letter-spacing:.14em;color:var(--vc-glass-muted)}body>header .site-nav.is-open .nav-group[open]>.nav-drop{background:transparent;border:0;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(prefers-reduced-transparency:reduce){body>header .site-nav.is-open,body>header .site-nav .nav-group[open]>.nav-drop{background:var(--vc-glass-solid);backdrop-filter:none;-webkit-backdrop-filter:none}}
+
+/* An open navigation panel must sample the page, not a filtered header backdrop root. */
+body>header:has(.site-nav.is-open),body>header:has(.site-nav .nav-group[open]){backdrop-filter:none;-webkit-backdrop-filter:none}
+@supports not selector(:has(*)){body>header .site-nav.is-open,body>header .site-nav .nav-group[open]>.nav-drop{background:#161616}}

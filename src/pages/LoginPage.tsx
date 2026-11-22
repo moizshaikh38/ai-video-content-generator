@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import { authPathWithReturn, landingReturnPath } from '../lib/landingReturnPath';
 
 export const LoginPage: React.FC = () => {
+  const waitlistMode = import.meta.env.VITE_WAITLIST_ENABLED === 'true';
   const navigate = useNavigate();
   const location = useLocation();
   const destination = landingReturnPath(
@@ -202,10 +203,10 @@ export const LoginPage: React.FC = () => {
       <p className="mt-4 text-center text-xs sm:text-sm text-slate-400">
         Don't have an account?{' '}
         <Link
-          to={authPathWithReturn('/signup', destination)}
+          to={waitlistMode ? '/#waitlist' : authPathWithReturn('/signup', destination)}
           className="font-semibold text-violet-400 hover:text-violet-300 transition-colors"
         >
-          Sign up for free
+          {waitlistMode ? 'Join waitlist' : 'Sign up for free'}
         </Link>
       </p>
 

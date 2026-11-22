@@ -56,6 +56,7 @@ const ComingSoonGate: React.FC<{ feature: string }> = ({ feature }) => (
 );
 
 export const App: React.FC = () => {
+  const waitlistMode = import.meta.env.VITE_WAITLIST_ENABLED === 'true';
   return (
     <AuthProvider>
       <AppErrorBoundary>
@@ -77,7 +78,7 @@ export const App: React.FC = () => {
           {/* Auth routes: only accessible when not logged in */}
           <Route element={<PublicOnlyRoute />}>
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/signup" element={waitlistMode ? <Navigate to="/#waitlist" replace /> : <SignupPage />} />
           </Route>
 
           {/* Protected dashboard routes: require authenticated session */}

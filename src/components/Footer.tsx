@@ -31,10 +31,12 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     {label:'Help Centre',href:'/resources/help-centre'}, {label:'Learning Center',href:'/resources/learning-center'}, {label:'Blog',href:'/resources/blog'},
     {label:'FAQ',href:'/#faq'}, {label:'Support',href:'/support'},
     {label:'Terms of Service',href:'/terms'}, {label:'Privacy Policy',href:'/privacy'},
+    {label:'Footage credits',href:'/demo/showcase/SOURCES.md',isExternal:true},
   ]},
 ];
 
 export const Footer: React.FC = () => {
+  const waitlistMode = import.meta.env.VITE_WAITLIST_ENABLED === 'true';
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -84,18 +86,29 @@ export const Footer: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Link
-              to="/signup"
-              className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-purple-900/30 hover:brightness-110 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
-            >
-              Start Creating Free
-            </Link>
-            <Link
-              to="/login"
-              className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.08] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
-            >
-              Sign In
-            </Link>
+            {waitlistMode ? (
+              <a
+                href="/#waitlist"
+                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-purple-900/30 hover:brightness-110 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+              >
+                Join waitlist
+              </a>
+            ) : (
+              <Link
+                to="/signup"
+                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-purple-900/30 hover:brightness-110 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+              >
+                Start Creating Free
+              </Link>
+            )}
+            {!waitlistMode && (
+              <Link
+                to="/login"
+                className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.08] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+              >
+                Sign In
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -163,7 +176,7 @@ export const Footer: React.FC = () => {
         <div className="mx-auto flex max-w-7xl flex-col sm:flex-row items-center justify-between gap-4 px-5 py-6 sm:px-8 lg:px-10 text-xs text-zinc-500">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <span>© {new Date().getFullYear()} VireoClip by Vertex Digitals. All rights reserved.</span>
-            <span>Support: vertexdigitals07@gmail.com</span>
+            <span>Support: support@vireoclip.com</span>
           </div>
 
           <div className="flex items-center gap-6">

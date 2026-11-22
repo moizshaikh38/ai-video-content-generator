@@ -24,6 +24,7 @@ function HeroVideoInput() {
   const { isAuthenticated } = useAuth();
   const [url, setUrl] = useState('');
   const [error, setError] = useState('');
+  const waitlistMode = import.meta.env.VITE_WAITLIST_ENABLED === 'true';
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -32,6 +33,10 @@ function HeroVideoInput() {
       const parsed = new URL(trimmed);
       if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('invalid');
       setError('');
+      if (waitlistMode && !isAuthenticated) {
+        document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
       const projectPath = `/projects/new?url=${encodeURIComponent(trimmed)}`;
       navigate(creationPath(isAuthenticated, projectPath));
     } catch {
@@ -58,9 +63,15 @@ function HeroVideoInput() {
         <button className="vc-hero-submit" type="submit">Get free clips <ArrowRight size={18} aria-hidden="true" /></button>
       </form>
       {error && <p id="vc-video-url-error" className="vc-form-error" role="alert">{error}</p>}
-      <Link className="vc-upload-link" to={creationPath(isAuthenticated, '/projects/new')}>
-        <UploadCloud size={17} aria-hidden="true" /> Upload video
-      </Link>
+      {waitlistMode && !isAuthenticated ? (
+        <a className="vc-upload-link" href="#waitlist">
+          <UploadCloud size={17} aria-hidden="true" /> Upload video
+        </a>
+      ) : (
+        <Link className="vc-upload-link" to={creationPath(isAuthenticated, '/projects/new')}>
+          <UploadCloud size={17} aria-hidden="true" /> Upload video
+        </Link>
+      )}
     </div>
   );
 }

@@ -94,7 +94,7 @@ export const LegalPageShell: React.FC<LegalPageShellProps> = ({
           className="absolute -bottom-32 -left-16 w-80 h-80 rounded-full bg-[#8B5CF6]/10 blur-[90px] pointer-events-none mv-float-slow"
           aria-hidden="true"
         />
-        <div className="max-w-5xl mx-auto px-5 lg:px-8 pt-10 pb-14 relative">
+        <div className="max-w-5xl mx-auto px-5 lg:px-8 pt-28 pb-14 relative">
           <Link
             to="/"
             className="inline-flex items-center gap-2 text-xs font-semibold text-white/60 hover:text-white mb-8 transition-colors py-2.5 -my-2.5"
@@ -123,7 +123,7 @@ export const LegalPageShell: React.FC<LegalPageShellProps> = ({
               </span>
             )}
             <span className="px-2.5 py-1 rounded-full bg-white/[0.07] border border-white/10 text-white/70">
-              vireoclip.ai
+              vireoclip.com
             </span>
           </div>
         </div>
