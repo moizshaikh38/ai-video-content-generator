@@ -1,0 +1,25 @@
+{
+  "status": "HELD_NOT_NATIVE_QUALIFIED_NOT_ACTIVE_RUNTIME",
+  "createdAt": "2026-11-22T19:03:46.045900+00:00",
+  "purpose": "Recover the separate Fit-region backdrop-retention candidate. Existing app runtime files are not changed by this checkpoint.",
+  "basis": "Normal numeric geometry and displayed-Auto crop entry baseline. The source snapshot is the complete CropBoxControl candidate.",
+  "tests": {
+    "checks": 57,
+    "normalRegressions": 350,
+    "baselineDiagnostics": 332,
+    "candidateDiagnostics": 331,
+    "addedDiagnostics": 0,
+    "missingExactDependencies": 8
+  },
+  "remaining": "Actual native Fit-region edit and background inspection, Save/reload, styled captions and export. Prior black-background evidence must not be replaced. Source/output changes while the crop modal is open remain unqualified.",
+  "files": [
+    {
+      "path": "src/components/editor/CropBoxControl.tsx",
+      "beforeGitBlob": "8123b149aa8917a108fdd69249339aef3f475c53",
+      "beforeSha256": "3f31305fd7b8176a4aa48d541d167f75feee4028cc289c21f94c053100f7e1f9",
+      "sha256": "6c6da08220ca4f58e0864c71f9e487f059ad98979908381e115290b4b9922436",
+      "bytes": 8916
+    }
+  ],
+  "releaseGate": "No publish until approval and slice verification."
+}
