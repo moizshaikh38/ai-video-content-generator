@@ -9,7 +9,7 @@
     "dev:backend": "npm run dev --prefix server",
     "build": "npm run build:frontend",
     "build:all": "npm run build:frontend && npm run build:backend",
-    "build:frontend": "tsc && vite build && node scripts/build-site-pages.mjs",
+    "build:frontend": "tsc && vite build && node scripts/build-site-pages.mjs && node scripts/build-glass-surfaces.mjs",
     "build:backend": "npm run build --prefix server",
     "start": "npm run start --prefix server",
     "preview": "vite preview",

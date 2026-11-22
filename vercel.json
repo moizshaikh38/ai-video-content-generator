@@ -4,6 +4,14 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/waitlist",
+      "destination": "https://api.vireoclip.com/api/waitlist"
+    },
+    {
+      "source": "/api/waitlist/:path*",
+      "destination": "https://api.vireoclip.com/api/waitlist/:path*"
+    },
+    {
       "source": "/resources/learning-center/editor-tour",
       "destination": "/resources/learning-center/editor-tour/index.html"
     },

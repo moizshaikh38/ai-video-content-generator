@@ -11,18 +11,18 @@
 /* Bundled editor fonts use SIL OFL 1.1. Each font folder includes OFL.txt.
    The pro export burns text with these exact files via drawtext fontfile=,
    so the preview and the export render the same letterforms and weights. */
-@font-face { font-family: 'Montserrat'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/montserrat/Montserrat-Regular.ttf') format('truetype'); }
-@font-face { font-family: 'Montserrat'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/montserrat/Montserrat-Medium.ttf') format('truetype'); }
-@font-face { font-family: 'Montserrat'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/montserrat/Montserrat-Bold.ttf') format('truetype'); }
-@font-face { font-family: 'Montserrat'; font-style: normal; font-weight: 900; font-display: swap; src: url('/fonts/montserrat/Montserrat-Black.ttf') format('truetype'); }
-@font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/inter/Inter-Regular.ttf') format('truetype'); }
-@font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/inter/Inter-SemiBold.ttf') format('truetype'); }
-@font-face { font-family: 'Inter'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/inter/Inter-Bold.ttf') format('truetype'); }
-@font-face { font-family: 'Inter'; font-style: normal; font-weight: 900; font-display: swap; src: url('/fonts/inter/Inter-Black.ttf') format('truetype'); }
-@font-face { font-family: 'Sora'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/sora/Sora-Regular.ttf') format('truetype'); }
-@font-face { font-family: 'Sora'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/sora/Sora-SemiBold.ttf') format('truetype'); }
-@font-face { font-family: 'Sora'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/sora/Sora-Bold.ttf') format('truetype'); }
-@font-face { font-family: 'Sora'; font-style: normal; font-weight: 800; font-display: swap; src: url('/fonts/sora/Sora-ExtraBold.ttf') format('truetype'); }
+@font-face { font-family: 'Montserrat'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/montserrat/Montserrat-Regular.woff2') format('woff2'), url('/fonts/montserrat/Montserrat-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'Montserrat'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/montserrat/Montserrat-Medium.woff2') format('woff2'), url('/fonts/montserrat/Montserrat-Medium.ttf') format('truetype'); }
+@font-face { font-family: 'Montserrat'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/montserrat/Montserrat-Bold.woff2') format('woff2'), url('/fonts/montserrat/Montserrat-Bold.ttf') format('truetype'); }
+@font-face { font-family: 'Montserrat'; font-style: normal; font-weight: 900; font-display: swap; src: url('/fonts/montserrat/Montserrat-Black.woff2') format('woff2'), url('/fonts/montserrat/Montserrat-Black.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/inter/Inter-Regular.woff2') format('woff2'), url('/fonts/inter/Inter-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/inter/Inter-SemiBold.woff2') format('woff2'), url('/fonts/inter/Inter-SemiBold.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/inter/Inter-Bold.woff2') format('woff2'), url('/fonts/inter/Inter-Bold.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 900; font-display: swap; src: url('/fonts/inter/Inter-Black.woff2') format('woff2'), url('/fonts/inter/Inter-Black.ttf') format('truetype'); }
+@font-face { font-family: 'Sora'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/sora/Sora-Regular.woff2') format('woff2'), url('/fonts/sora/Sora-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'Sora'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/sora/Sora-SemiBold.woff2') format('woff2'), url('/fonts/sora/Sora-SemiBold.ttf') format('truetype'); }
+@font-face { font-family: 'Sora'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/sora/Sora-Bold.woff2') format('woff2'), url('/fonts/sora/Sora-Bold.ttf') format('truetype'); }
+@font-face { font-family: 'Sora'; font-style: normal; font-weight: 800; font-display: swap; src: url('/fonts/sora/Sora-ExtraBold.woff2') format('woff2'), url('/fonts/sora/Sora-ExtraBold.ttf') format('truetype'); }
 
 @tailwind base;
 @tailwind components;
