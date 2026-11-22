@@ -64,7 +64,7 @@ export function assessTranscriptQuality(result: NormalizedTranscriptionResult, e
  * Recheck observed clocks too: an absent/stale quality flag cannot overrule
  * a recorded invalid/disordered time window. Use the same clock/order check
  * as provider normalization and captions. No clock is invented. */
-export function assertTranscriptUsable(record: SpeechCoverageInput & {quality_assessment?: TranscriptQualityAssessment}): void {
+export function assertTranscriptUsable(record: SpeechCoverageInput & {quality_assessment?: TranscriptQualityAssessment;transcription_timing_issues?: unknown;timingIssues?: unknown}): void {
   assertSpeechWordCoverage(record);
   const segments=Array.isArray(record.segments)?record.segments:[];
   const rootWords=Array.isArray(record.words)?record.words:[];
@@ -74,7 +74,12 @@ export function assertTranscriptUsable(record: SpeechCoverageInput & {quality_as
   // complete/ordered-clock contract already used by providers and captions.
   const invalidRecordedClock=clockGroups.some(group=>group.length>0&&
     !reliableOrderedClocks(group as Array<{start?:unknown;end?:unknown}>));
-  if (record.quality_assessment?.status !== 'needs_review' && !invalidRecordedClock) {
+  // Normalization may remove invalid provider rows from the surviving arrays.
+  // Their recorded review issues remain evidence even if a legacy/stale quality
+  // flag says unverified. Missing or empty diagnostics still means unknown.
+  const recordedProviderTimingIssue=[record.transcription_timing_issues,record.timingIssues]
+    .some(issues=>Array.isArray(issues)&&issues.length>0);
+  if (record.quality_assessment?.status !== 'needs_review' && !invalidRecordedClock && !recordedProviderTimingIssue) {
     // Match caption extraction's root-first selection, preserving existing
     // clock/review error precedence before checking valid nested word text.
     if (!rootWords.length) assertSpeechWordCoverage({...record,words:nestedWords});
