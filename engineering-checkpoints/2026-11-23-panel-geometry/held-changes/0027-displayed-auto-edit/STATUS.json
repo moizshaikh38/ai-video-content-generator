@@ -1,0 +1,35 @@
+{
+  "status": "HELD_NOT_NATIVE_QUALIFIED_NOT_ACTIVE_RUNTIME",
+  "createdAt": "2026-11-22T18:58:04.927972+00:00",
+  "purpose": "Recover the separate displayed-Auto Gameplay crop candidate. Existing app runtime files are not changed by this checkpoint.",
+  "basis": "Normal numeric geometry baseline plus prior manual-crop metadata correction. Source snapshots include the complete candidate files.",
+  "tests": {
+    "entryChecks": 46,
+    "baselineDiagnostics": 332,
+    "candidateDiagnostics": 331,
+    "addedDiagnostics": 0,
+    "missingExactDependencies": 8
+  },
+  "remaining": "Actual native Auto crop open/cancel, Apply, scene/other-panel preservation, Save/reload, styled captions, export and Auto release. Source/output changes while the crop modal is open remain unqualified.",
+  "files": [
+    {
+      "path": "src/components/editor/PreviewCanvas.tsx",
+      "beforeSha256": "8636c688be2bb74810dd84d26aff5d565c7448e7fed576f82cd52d281259b16e",
+      "sha256": "3c80c0f37c45067311dcb4a9e4b826f933d0765f014e38a43b56a304ccb463c2",
+      "bytes": 143620
+    },
+    {
+      "path": "src/components/editor/EditorShell.tsx",
+      "beforeSha256": "1861f27c7c4176308eae4532614c85365b795ed94f264e4db1482ec5fa36212c",
+      "sha256": "b956a68018cc59ce814d67567f2b79aa78d13fa68070fa8b850ca88a1be6df39",
+      "bytes": 123714
+    },
+    {
+      "path": "src/lib/itemLayout.ts",
+      "beforeSha256": "3aabb95e5919d375b0e91f836283cac83f5bcff82e49e37d9b433586e71bb2be",
+      "sha256": "80de24c373939aa7f7261829e32df762744a04b5ffeb46b9e8aab92eb556ab80",
+      "bytes": 13808
+    }
+  ],
+  "releaseGate": "No publish until approval and slice verification."
+}
