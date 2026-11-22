@@ -1,4 +1,5 @@
 import {assertSpeechWordCoverage,speechWordCoverage,type SpeechCoverageInput} from '../../shared/speechWordCoverage.js';
+import {reliableOrderedClocks} from '../../shared/orderedTranscriptTiming.js';
 import type { NormalizedTranscriptionResult } from './types.js';
 
 export interface TranscriptQualityIssue {
@@ -60,12 +61,25 @@ export function assessTranscriptQuality(result: NormalizedTranscriptionResult, e
 }
 
 /** Missing legacy metadata alone is not a failure or proof of accuracy.
- * An observed text/word conflict still requires review without saved metadata. */
+ * Recheck observed clocks too: an absent/stale quality flag cannot overrule
+ * a recorded invalid/disordered time window. Use the same clock/order check
+ * as provider normalization and captions. No clock is invented. */
 export function assertTranscriptUsable(record: SpeechCoverageInput & {quality_assessment?: TranscriptQualityAssessment}): void {
   assertSpeechWordCoverage(record);
-  if (record.quality_assessment?.status !== 'needs_review') return;
+  const segments=Array.isArray(record.segments)?record.segments:[];
+  const clockGroups:unknown[][]=[Array.isArray(record.words)?record.words:[],segments,
+    segments.flatMap(s=>Array.isArray((s as any)?.words)?(s as any).words:[])];
+  const invalidRecordedClock=clockGroups.some(group=>{
+    // Entirely absent legacy clocks stay unknown. A partially recorded clock
+    // array must satisfy the existing complete/ordered-clock contract.
+    const recorded=group.some(span=>span&&typeof span==='object'&&
+      (Object.hasOwn(span,'start')||Object.hasOwn(span,'end')));
+    return recorded&&!reliableOrderedClocks(group as Array<{start?:unknown;end?:unknown}>);
+  });
+  if (record.quality_assessment?.status !== 'needs_review' && !invalidRecordedClock) return;
   const error = new Error('Transcript needs audio review before automatic captions can be exported. Check the flagged speech spans and source language; no words were silently replaced.');
   (error as any).code = 'TRANSCRIPT_REVIEW_REQUIRED';
+  (error as any).statusCode = 409;
   throw error;
 }
 
