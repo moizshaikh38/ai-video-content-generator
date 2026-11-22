@@ -7,11 +7,11 @@ import { createConfiguredOpenRouterProvider } from './openRouterTranscriptionPro
 /**
  * Returns a configured TranscriptionProvider instance according to the TRANSCRIPTION_PROVIDER env var.
  * Supported values: 'groq' | 'openrouter'
- * Default: 'groq'
- * Automatically falls back if primary provider key is unset but secondary key is available.
+ * Default: 'openrouter'. Explicit provider choices are preserved.
+ * Missing credentials fail on the selected route; no implicit provider fallback.
  */
 export function getTranscriptionProvider(providerName?: string): TranscriptionProvider {
-  const chosen = (providerName || config.transcriptionProvider || 'groq').toLowerCase().trim();
+  const chosen = (providerName || config.transcriptionProvider || 'openrouter').toLowerCase().trim();
 
   switch (chosen) {
     case 'groq':

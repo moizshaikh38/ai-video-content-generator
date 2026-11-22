@@ -71,7 +71,7 @@ export const config = {
   tieredTranscriptionEnabled: process.env.VIREO_TIERED_TRANSCRIPTION === '1',
   transcriptionModel: process.env.TRANSCRIPTION_MODEL || 'openai/whisper-large-v3-turbo',
   groqApiKey: process.env.GROQ_API_KEY || '',
-  transcriptionProvider: process.env.TRANSCRIPTION_PROVIDER || 'groq',
+  transcriptionProvider: process.env.TRANSCRIPTION_PROVIDER || 'openrouter',
   appUrl: process.env.APP_URL || process.env.CORS_ORIGIN || 'http://localhost:5173',
   twitchImportClientId: process.env.TWITCH_IMPORT_CLIENT_ID || '',
   twitchImportClientSecret: process.env.TWITCH_IMPORT_CLIENT_SECRET || '',

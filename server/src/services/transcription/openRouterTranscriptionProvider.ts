@@ -20,8 +20,20 @@ const MODELS = [OPENROUTER_MODEL,'openai/whisper-large-v3','elevenlabs/scribe-v2
 
 export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
   readonly name = 'openrouter';
-  constructor(private readonly model: string = OPENROUTER_MODEL) {
-    if(!MODELS.includes(model)) throw new Error('Unsupported timing-capable transcription model');
+  private readonly model: string;
+  constructor(model: string = OPENROUTER_MODEL) {
+    // Old .env.example used these bare Whisper IDs. Resolve only those exact
+    // aliases inside this OpenRouter adapter, never change provider or tier.
+    const value = typeof model === 'string' ? model.trim() : '';
+    const aliases: Record<string,string> = {
+      'whisper-large-v3-turbo': OPENROUTER_MODEL,
+      'whisper-large-v3': 'openai/whisper-large-v3',
+    };
+    const resolved = Object.prototype.hasOwnProperty.call(aliases,value) ? aliases[value] : value;
+    if (!MODELS.includes(resolved)) {
+      throw Object.assign(new Error('Unsupported timing-capable transcription model. For OpenRouter, set TRANSCRIPTION_MODEL=openai/whisper-large-v3-turbo (or another explicitly supported model), then restart the server. No transcription request was sent.'), {code:'TRANSCRIPTION_MODEL_CONFIG_INVALID'});
+    }
+    this.model = resolved;
   }
 
   async transcribeAudio(
