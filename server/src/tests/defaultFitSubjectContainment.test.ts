@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {SmartReframeService as S} from '../services/smartReframeService.js';
+import {shotPlanOptions} from '../shared/shotPlanOptions.js';
 const face={x:.49,y:.3,width:.08,height:.16,center_x:.53,center_y:.38,confidence:.9,track_id:'one',area:.0128};
 const person={x:.1,y:.1,width:.8,height:.85,confidence:.95};
 const rawSamples=Array.from({length:16},(_,i)=>({time:i/4,faces:[face],persons:[person]}));
@@ -23,6 +24,19 @@ test('default static clip Fit also contains the measured wide person',()=>{
   assert.ok(k.centerX+shot.windowW/2>=person.x+person.width);
   assert.ok(k.centerY-shot.windowH/2<=person.y);
   assert.ok(k.centerY+shot.windowH/2>=person.y+person.height);
+ }
+ assert.equal(plan[0].presentationProtection?.reason,'measured-context');
+});
+test('app options without saved aspect metadata retain measured body containment',()=>{
+ const track={raw_samples:rawSamples,source_width:854,source_height:480,metadata:{}};
+ const before=JSON.stringify(track);
+ const input=shotPlanOptions({track,duration:4});
+ assert.equal(input.automaticFitAspect,undefined);
+ const plan=S.computeShotComposition(input);
+ assert.equal(JSON.stringify(track),before);
+ for(const shot of plan)for(const k of shot.keyframes){
+  assert.ok(k.centerX-shot.windowW/2<=person.x);
+  assert.ok(k.centerX+shot.windowW/2>=person.x+person.width);
  }
  assert.equal(plan[0].presentationProtection?.reason,'measured-context');
 });
