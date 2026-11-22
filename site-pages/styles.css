@@ -97,13 +97,13 @@ header{position:sticky;top:14px;z-index:60;margin-top:14px;height:auto;min-heigh
 @media(max-width:740px){header{min-height:56px;padding:6px 16px}}
 
 /* Shared menu structure + fonts (matches the app) */
-@font-face{font-family:'Inter';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/inter/Inter-Regular.ttf') format('truetype')}
-@font-face{font-family:'Inter';font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/inter/Inter-SemiBold.ttf') format('truetype')}
-@font-face{font-family:'Inter';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/inter/Inter-Bold.ttf') format('truetype')}
-@font-face{font-family:'Sora';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/sora/Sora-Regular.ttf') format('truetype')}
-@font-face{font-family:'Sora';font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/sora/Sora-SemiBold.ttf') format('truetype')}
-@font-face{font-family:'Sora';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/sora/Sora-Bold.ttf') format('truetype')}
-@font-face{font-family:'Sora';font-style:normal;font-weight:800;font-display:swap;src:url('/fonts/sora/Sora-ExtraBold.ttf') format('truetype')}
+@font-face{font-family:'Inter';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/inter/Inter-Regular.woff2') format('woff2'),url('/fonts/inter/Inter-Regular.ttf') format('truetype')}
+@font-face{font-family:'Inter';font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/inter/Inter-SemiBold.woff2') format('woff2'),url('/fonts/inter/Inter-SemiBold.ttf') format('truetype')}
+@font-face{font-family:'Inter';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/inter/Inter-Bold.woff2') format('woff2'),url('/fonts/inter/Inter-Bold.ttf') format('truetype')}
+@font-face{font-family:'Sora';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/sora/Sora-Regular.woff2') format('woff2'),url('/fonts/sora/Sora-Regular.ttf') format('truetype')}
+@font-face{font-family:'Sora';font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/sora/Sora-SemiBold.woff2') format('woff2'),url('/fonts/sora/Sora-SemiBold.ttf') format('truetype')}
+@font-face{font-family:'Sora';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/sora/Sora-Bold.woff2') format('woff2'),url('/fonts/sora/Sora-Bold.ttf') format('truetype')}
+@font-face{font-family:'Sora';font-style:normal;font-weight:800;font-display:swap;src:url('/fonts/sora/Sora-ExtraBold.woff2') format('woff2'),url('/fonts/sora/Sora-ExtraBold.ttf') format('truetype')}
 h1,h2,h3{font-family:'Sora','Inter',ui-sans-serif,system-ui,sans-serif}
 .brand img.brand-logo{width:132px;height:auto}
 .vc-clean-menu-label,.vc-clean-menu-actions{display:none}
