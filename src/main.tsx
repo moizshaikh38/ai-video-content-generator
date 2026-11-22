@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
+import './styles/glass-surfaces.css';
 
 // TEST-ONLY: ?harness=studio mounts the studio harness instead of the app.
 // The harness self-renders into #root on import.

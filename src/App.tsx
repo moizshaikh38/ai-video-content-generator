@@ -30,7 +30,6 @@ const TermsPage = React.lazy(() => import('./pages/TermsPage').then(m => ({ defa
 const PrivacyPage = React.lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 const SupportPage = React.lazy(() => import('./pages/SupportPage').then(m => ({ default: m.SupportPage })));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
-import { CookieNotice } from './components/CookieNotice';
 
 const CreateClipsRedirect: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -44,7 +43,6 @@ export const App: React.FC = () => {
     <AuthProvider>
       <AppErrorBoundary>
       <BrowserRouter>
-        <CookieNotice />
         <React.Suspense fallback={<PageLoading />}><Routes>
           {/* Public marketing layout with top navbar & footer */}
           <Route element={<RootLayout />}>
