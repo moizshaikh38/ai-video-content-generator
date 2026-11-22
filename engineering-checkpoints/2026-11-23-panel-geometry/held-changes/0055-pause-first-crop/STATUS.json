@@ -1,0 +1,25 @@
+{
+  "status": "HELD_NOT_NATIVE_QUALIFIED_NOT_ACTIVE_RUNTIME",
+  "scope": "Pause-first crop entry captures post-pause props on next paint, retaining strict open-edit context guards. The qualified runtime remains unchanged.",
+  "tests": {
+    "status": "PASS",
+    "checks": 126,
+    "scope": "Whole actual CropBoxControl transpiled with an in-memory React hook harness and actual crop math. Unchanged-context Fit/Fill, invalidation before effects, latched invalidation, source/time/dimensions/aspect/current/item/scene/output changes, close/reopen and late Apply guard; queued playing entry captures post-pause props and retains later seek invalidation. Not browser interaction or render/export qualification."
+  },
+  "limits": "Native first-click playing entry remains unqualified. Prior0045 paused Apply and ratio/seek checks passed, playing entry failed. Physical-tier/source/multiscene changes remain unknown. No backend concurrency claim.",
+  "files": [
+    {
+      "path": "src/components/editor/CropBoxControl.tsx",
+      "beforeSha256": "0ff042822131746f78aff30f0a43b00d2d60075820638bb9ceda2a7fc383919c",
+      "sha256": "7439ddf9b58d5b6951d546256a027581b467c3a8165abf3f07a873f08da7fd54",
+      "bytes": 10920
+    },
+    {
+      "path": "src/components/editor/PreviewCanvas.tsx",
+      "beforeSha256": "f89318ec981d1c37cb337066e81c581936aea888c922eb2ff279c8af5a42daeb",
+      "sha256": "dd11c7b0a65899811ec1e9903d89f238281235fc236352c61209c263fc1a95f4",
+      "bytes": 144046
+    }
+  ],
+  "releaseGate": "No publish until approval and slice verification."
+}
