@@ -1,0 +1,45 @@
+{
+  "status": "HELD_NOT_NATIVE_QUALIFIED_NOT_ACTIVE_RUNTIME",
+  "scope": "Crop-specific primary-owner pause clock receipt and committed-prop handshake. Strict post-open context checks remain; ordinary pause unchanged. Qualified runtime is unchanged.",
+  "tests": {
+    "component": {
+      "status": "PASS",
+      "checks": 139,
+      "scope": "Whole actual CropBoxControl transpiled with an in-memory React hook harness and actual crop math. Unchanged-context Fit/Fill, invalidation before effects, latched invalidation, source/time/dimensions/aspect/current/item/scene/output changes, close/reopen and late Apply guard; both observed owner clock/paused orderings, cancelled pending entry and invalid receipt rejection. Not browser interaction or render/export qualification."
+    },
+    "ownerClock": {
+      "status": "PASS",
+      "checks": 24,
+      "scope": "Actual crop-specific playback owner callback with the real source/timeline mapping. Observed2.068/3.526 clocks, offsets/speed/duplicated slices, no seek or media-time rewrite, explicit invalid receipt failure. Ordinary pause is not changed. Native event/React commit behavior remains unqualified."
+    },
+    "normalRegressions": 350
+  },
+  "limits": "Native first-click playing entry, actual clock acknowledgement and paused Fit compatibility remain unqualified. Prior0045/0055 failed playing entry. Physical tier/source/multiscene changes unknown. No renderer or automatic source-quality claim.",
+  "files": [
+    {
+      "path": "src/components/editor/CropBoxControl.tsx",
+      "beforeSha256": "7439ddf9b58d5b6951d546256a027581b467c3a8165abf3f07a873f08da7fd54",
+      "sha256": "44124e1b6c8c8d388a22867ae041686b8f1d3f411956099d268faa7d35a87e34",
+      "bytes": 11407
+    },
+    {
+      "path": "src/components/editor/PreviewCanvas.tsx",
+      "beforeSha256": "dd11c7b0a65899811ec1e9903d89f238281235fc236352c61209c263fc1a95f4",
+      "sha256": "c9fff16afdb932f80a7b9c5dd63aa46148ee391fb31d78b131d1f7c96c188bfa",
+      "bytes": 144153
+    },
+    {
+      "path": "src/components/editor/EditorShell.tsx",
+      "beforeSha256": "b956a68018cc59ce814d67567f2b79aa78d13fa68070fa8b850ca88a1be6df39",
+      "sha256": "b4c114de9a99f445a440a7274b7ac300f84cd8689bbc3f3ea3a795eb150c4a46",
+      "bytes": 123765
+    },
+    {
+      "path": "src/hooks/useEditorPlayback.ts",
+      "beforeSha256": "e5091f687ed8c7655b4f039600ac1b219265be6548ff37ca0e7f0a37583d6fd1",
+      "sha256": "4fb4a824f8f26b62ee0589fbad5b0369065dff677b132391ebe4453274188365",
+      "bytes": 11101
+    }
+  ],
+  "releaseGate": "No publish until approval and slice verification."
+}
