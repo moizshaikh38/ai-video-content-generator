@@ -15,7 +15,6 @@ import { plans } from "../data/marketing";
 import { useLandingMotion } from "../components/landing/useLandingMotion";
 import { Reveal } from "../lib/motion";
 import { LandingHero } from "../components/landing/LandingHero";
-import HiwMotion from "../components/landing/HiwMotion";
 import { CombinedWorkflowShowcase } from "../components/landing/CombinedWorkflowShowcase";
 import { CurrencyProvider } from "../context/CurrencyContext";
 import { getMarketingPlanRate } from "../utils/pricingUtils";
@@ -45,16 +44,6 @@ const Label = ({ children }: { children: React.ReactNode }) => (
   <Reveal variant="fade" as="span" className="lv-section-label inline-block">{children}</Reveal>
 );
 
-function HowItWorks() {
-  return (
-    <section id="how" className="py-20 lg:py-28 bg-[#000000] relative">
-      <div id="resources" className="absolute -top-24 left-0 pointer-events-none" aria-hidden="true" />
-      <div className="lv-container mx-auto px-4 sm:px-6 lg:px-8">
-        <HiwMotion />
-      </div>
-    </section>
-  );
-}
 
 
 function Pricing() {
@@ -483,9 +472,6 @@ export function LandingPage() {
         {/* INTERACTIVE BEFORE & AFTER SLIDER — removed per user request (23:26): the
             SIDE-BY-SIDE TRANSFORMATION section is out of the candidate. Component kept
             unused below; do not re-add without explicit approval. */}
-
-        {/* 4-STEP HOW IT WORKS */}
-        <HowItWorks />
 
         {/* TRANSPARENT PRICING */}
         <Pricing />
