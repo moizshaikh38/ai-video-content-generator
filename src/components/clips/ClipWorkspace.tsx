@@ -1,3 +1,4 @@
+import { GenreEvidenceBadge } from './GenreEvidenceBadge';
 import type {CandidateCreationInput} from '../../lib/candidateCreationRecovery';
 import {CandidateReviewNotice} from './CandidateReviewNotice';
 import {freshCandidateSubtitle} from '../../../server/src/shared/freshClipPresentationDefaults';
@@ -911,6 +912,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                               {candidate.genre || candidate.metadata?.genre}
                             </span>
                           )}
+                          <GenreEvidenceBadge metadata={candidate.metadata} />
                           {candidate.content_goal && (
                             <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-mono text-zinc-300">
                               {candidate.content_goal}

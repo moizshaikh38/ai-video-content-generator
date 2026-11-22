@@ -135,7 +135,7 @@ export const GENRE_OPTIONS: Array<{
   },
   {
     id: 'comedy_entertainment',
-    label: 'Comedy / Standup',
+    label: 'Comedy & Entertainment',
     icon: Laugh,
     badge: 'Pause Cuts OFF',
     defaultGoal: 'shareable_moments',

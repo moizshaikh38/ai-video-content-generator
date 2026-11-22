@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { ClipCandidate, VireoClipScoreExplanation } from '../../types';
 import { GENRE_OPTIONS, GOAL_OPTIONS } from './ClipPreferencesControl';
+import { GenreEvidenceBadge } from './GenreEvidenceBadge';
 
 export interface WhyThisClipSectionProps {
   candidate: ClipCandidate;
@@ -29,8 +30,6 @@ export const WhyThisClipSection: React.FC<WhyThisClipSectionProps> = ({
   // Genre badge resolution
   const genreId = candidate.genre || candidate.metadata?.genre;
   const matchedGenre = GENRE_OPTIONS.find((g) => g.id === genreId);
-  const suggestedGenre = candidate.metadata?.suggested_genre;
-  const genreConfidence = candidate.metadata?.genre_confidence;
 
   // Content goal badge resolution
   const goalId = candidate.content_goal || candidate.metadata?.content_goal;
@@ -49,16 +48,7 @@ export const WhyThisClipSection: React.FC<WhyThisClipSectionProps> = ({
             </span>
           )}
 
-          {/* AI Auto-Detected Genre Indicator */}
-          {suggestedGenre && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.08] text-[10px] font-mono text-zinc-200">
-              <Sparkles className="size-2.5" />
-              <span>
-                AI: {suggestedGenre}
-                {typeof genreConfidence === 'number' && ` (${Math.round(genreConfidence * 100)}%)`}
-              </span>
-            </span>
-          )}
+          <GenreEvidenceBadge metadata={candidate.metadata} />
 
           {/* Content Goal Badge */}
           {matchedGoal && (
