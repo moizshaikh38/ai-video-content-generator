@@ -75,9 +75,6 @@ function Pricing() {
           <p className="text-base text-slate-300">
             Get started for free with 15 processing minutes. Upgrade as your production grows.
           </p>
-          <div className="mt-6 mx-auto max-w-xl rounded-2xl border border-amber-300/40 bg-amber-300/10 px-5 py-3 text-[12px] leading-relaxed text-amber-200">
-            <strong className="font-bold uppercase tracking-wider">Proposed preview — not purchasable.</strong> Checkout is not active. Plan features and allowances shown below are under capability review and may change before any paid launch.
-          </div>
         </div>
 
         {/* Cadence & Currency Controls */}
