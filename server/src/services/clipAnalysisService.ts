@@ -1070,14 +1070,16 @@ export class ClipAnalysisService {
         // question it doesn't include and the exchange fits the genre clamps,
         // repair the boundary instead of only penalizing completeness.
         let questionInclusion: { extendedBySec: number; includedQuestionText: string } | null = null;
-        if ((isQaCriticalGenre(genreProfile.genre) || potentialDependentOpening(candidateText)) && precedingSeg) {
+        const adjustedCandidateText = finalSpokenText(rawWords,start_seconds,end_seconds) || segments.filter(s => Number(s.start) >= start_seconds && Number(s.end) <= end_seconds).map(s => String(s.text || '')).join(' ');
+        const adjustedPrecedingSeg = segments.filter(s => Number(s.end) <= start_seconds && Number(s.start) < start_seconds).at(-1) ?? null;
+        if ((isQaCriticalGenre(genreProfile.genre) || potentialDependentOpening(adjustedCandidateText)) && adjustedPrecedingSeg) {
           const inclusion = tryIncludeQuestion(
             {
               start_seconds,
               end_seconds,
-              candidateText,
+              candidateText: adjustedCandidateText,
             },
-            { start: Number(precedingSeg.start), end: Number(precedingSeg.end), text: String(precedingSeg.text || '') },
+            { start: Number(adjustedPrecedingSeg.start), end: Number(adjustedPrecedingSeg.end), text: String(adjustedPrecedingSeg.text || '') },
             { minDurationSec: minDurationLimit, maxDurationSec: maxDurationLimit }
           );
           if (inclusion) {

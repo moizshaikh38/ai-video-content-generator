@@ -13,5 +13,5 @@ test('word-verified potentially dependent opening is review-only even with uncha
  for(const tokens of [['Why?','Because','it','worked.'],['Becauseway','is','a','name.'],['I','love','this','game.']]){const s=compare({words:tokens.map((word,i)=>({word,start:10+i,end:10.5+i})),...bounds});assert.equal(s.finalOpeningReviewReason,undefined);assert.equal(reason(s,bounds),undefined)}
 });
 test('live selection may include actual adjacent question for dependent answer outside interview genre, never grants a new score',()=>{
- const source=fs.readFileSync(new URL('../services/clipAnalysisService.ts',import.meta.url),'utf8');assert(source.includes('(isQaCriticalGenre(genreProfile.genre) || potentialDependentOpening(candidateText)) && precedingSeg'));assert(source.includes('narrativeRankingInvalidationReason(finalSpeechScope'));
+ const source=fs.readFileSync(new URL('../services/clipAnalysisService.ts',import.meta.url),'utf8');assert(source.includes('(isQaCriticalGenre(genreProfile.genre) || potentialDependentOpening(adjustedCandidateText)) && adjustedPrecedingSeg'));assert(source.includes('narrativeRankingInvalidationReason(finalSpeechScope'));
 });

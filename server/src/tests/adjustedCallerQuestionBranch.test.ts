@@ -1,0 +1,22 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+import {finalSpokenText,potentialDependentOpening,compareFinalSpeechScope,narrativeRankingInvalidationReason} from '../shared/finalSpeechScope.js';
+import {tryIncludeQuestion,isQaCriticalGenre} from '../utils/questionInclusion.js';
+// Execute the actual caller's post-fusion branch without importing providers or DB.
+const source=fs.readFileSync(new URL('../services/clipAnalysisService.ts',import.meta.url),'utf8');
+const block=source.slice(source.indexOf('        let questionInclusion:'),source.indexOf('        const fallbackCompleteEnd='));
+assert(block.includes('const adjustedCandidateText'));
+const js=ts.transpileModule(block+'\nreturn {start_seconds,end_seconds,duration_seconds,questionInclusion,adjustedCandidateText,adjustedPrecedingSeg};',{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
+const branch=new Function('start_seconds','end_seconds','rawWords','segments','genreProfile','minDurationLimit','maxDurationLimit','finalSpokenText','potentialDependentOpening','tryIncludeQuestion','isQaCriticalGenre',`let duration_seconds=end_seconds-start_seconds;${js}`);
+const run=(segments:any[],words:any[]=[],max=30,genre='education')=>branch(10,31,words,segments,{genre},20,max,finalSpokenText,potentialDependentOpening,tryIncludeQuestion,isQaCriticalGenre);
+const q={start:7,end:9.7,text:'Why did it happen?'};
+const answer={start:10,end:31,text:'Because it happened. More context.'};
+const words=[{start:10,end:11,word:'Because'},{start:11,end:31,word:'context.'}];
+const unranked=(r:any,w:any[])=>narrativeRankingInvalidationReason(compareFinalSpeechScope({words:w,originalStart:15,originalEnd:31,finalStart:r.start_seconds,finalEnd:r.end_seconds}),{originalStart:15,originalEnd:31,finalStart:r.start_seconds,finalEnd:r.end_seconds});
+test('actual caller includes the real preceding question for a dependent adjusted opening',()=>{const r=run([q,answer],words);assert.equal(r.start_seconds,7);assert.equal(r.end_seconds,31);assert.equal(r.questionInclusion.includedQuestionText,q.text);assert.equal(unranked(r,words),'spoken-content-changed-after-proposal');});
+test('actual caller leaves no-question or clamped dependent opening unranked, not repaired',()=>{for(const [segments,max] of [[[ {...q,text:'No question.'},answer],30],[[q,answer],23]] as any){const r=run(segments,words,max);assert.equal(r.questionInclusion,null);assert.equal(r.start_seconds,10);assert.equal(unranked(r,words),'spoken-content-changed-after-proposal');}});
+test('actual segment-only fallback uses adjusted text and remains speech-scope-unverified',()=>{const r=run([q,answer]);assert.equal(r.adjustedCandidateText,answer.text);assert.equal(r.start_seconds,7);assert.equal(unranked(r,[]),'changed-interval-speech-scope-unverified');});
+test('actual branch cannot reuse stale preceding context when no fully preceding segment exists',()=>{const r=run([{...q,start:8,end:11},answer]);assert.equal(r.adjustedPrecedingSeg,null);assert.equal(r.questionInclusion,null);assert.equal(r.start_seconds,10);});
+test('partial word evidence does not become verified speech through segment fallback',()=>{const partial=[{start:9.8,end:10.3,word:'Because'},{start:10.3,end:31,word:'context.'}],r=run([answer],partial);assert.equal(r.adjustedCandidateText,answer.text);const scope=compareFinalSpeechScope({words:partial,originalStart:15,originalEnd:31,finalStart:r.start_seconds,finalEnd:r.end_seconds});assert.equal(scope.finalWordBoundarySafe,false);assert.equal(scope.finalEndingPunctuation,false);});
