@@ -69,13 +69,10 @@ export function assertTranscriptUsable(record: SpeechCoverageInput & {quality_as
   const segments=Array.isArray(record.segments)?record.segments:[];
   const clockGroups:unknown[][]=[Array.isArray(record.words)?record.words:[],segments,
     segments.flatMap(s=>Array.isArray((s as any)?.words)?(s as any).words:[])];
-  const invalidRecordedClock=clockGroups.some(group=>{
-    // Entirely absent legacy clocks stay unknown. A partially recorded clock
-    // array must satisfy the existing complete/ordered-clock contract.
-    const recorded=group.some(span=>span&&typeof span==='object'&&
-      (Object.hasOwn(span,'start')||Object.hasOwn(span,'end')));
-    return recorded&&!reliableOrderedClocks(group as Array<{start?:unknown;end?:unknown}>);
-  });
+  // Missing legacy arrays remain unknown. Supplied rows must satisfy the same
+  // complete/ordered-clock contract already used by providers and captions.
+  const invalidRecordedClock=clockGroups.some(group=>group.length>0&&
+    !reliableOrderedClocks(group as Array<{start?:unknown;end?:unknown}>));
   if (record.quality_assessment?.status !== 'needs_review' && !invalidRecordedClock) return;
   const error = new Error('Transcript needs audio review before automatic captions can be exported. Check the flagged speech spans and source language; no words were silently replaced.');
   (error as any).code = 'TRANSCRIPT_REVIEW_REQUIRED';
