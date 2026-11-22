@@ -1,0 +1,5 @@
+{
+  "status": "PASS",
+  "checks": 24,
+  "scope": "Actual crop-specific playback owner callback with the real source/timeline mapping. Observed2.068/3.526 clocks, offsets/speed/duplicated slices, no seek or media-time rewrite, explicit invalid receipt failure. Ordinary pause is not changed. Native event/React commit behavior remains unqualified."
+}

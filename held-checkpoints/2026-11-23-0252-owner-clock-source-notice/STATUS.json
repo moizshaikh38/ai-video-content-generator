@@ -1,0 +1,23 @@
+{
+  "status": "HELD_QUALIFIED_LOCAL_COMPOSITION_NOT_RUNTIME_OR_RELEASE",
+  "qualifiedBaselineCommit": "5c75b2631bb0284e43e1fd80d162ce1b432b5e37",
+  "branchHeadBefore": "41c734d3c555d45e24d7b4ef234b62c6653fe0b9",
+  "mainBefore": "923d16ab7ae3448782f172a3da7e49b921b92faa",
+  "source": "Accepted0247 owner-clock crop handshake plus shared unknown-source-caption notice, composed against0050. Snapshot only, no existing runtime path changed.",
+  "qualification": [
+    "139 whole-component checks and24 owner-clock checks rerun",
+    "17 notice plus13 timeline checks inherited through byte-identical contract",
+    "Two actual playing crop entry trials usable, Cancel unchanged",
+    "Apply/save and explicit captions Off/On persisted in fresh sessions",
+    "0248 reproduced old navigation stall is harness beforeunload timing; same-page DOM/notice reload qualified, decoded playback readiness not claimed",
+    "Frontend same2preexisting diagnostics, server notice0"
+  ],
+  "limits": [
+    "One retained source only, no global source/scene/tier or decoded-frame equality",
+    "Explicit Fill mechanics crops source text/action, not recommended automatic framing",
+    "No automatic subtitle detection/story quality/ASR success or production-ready claim",
+    "0228 semantic port remains disabled/separate;0250/0252/0254 remain separate held designs",
+    "No paid inference, main update, live deployment or migration activation"
+  ],
+  "releaseGate": "No publish until approval and slice verification."
+}

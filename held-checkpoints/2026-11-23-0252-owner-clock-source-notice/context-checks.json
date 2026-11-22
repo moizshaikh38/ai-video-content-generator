@@ -1,0 +1,5 @@
+{
+  "status": "PASS",
+  "checks": 139,
+  "scope": "Whole actual CropBoxControl transpiled with an in-memory React hook harness and actual crop math. Unchanged-context Fit/Fill, invalidation before effects, latched invalidation, source/time/dimensions/aspect/current/item/scene/output changes, close/reopen and late Apply guard; both observed owner clock/paused orderings, cancelled pending entry and invalid receipt rejection. Not browser interaction or render/export qualification."
+}

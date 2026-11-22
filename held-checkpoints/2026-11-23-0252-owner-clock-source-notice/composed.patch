@@ -1,0 +1,307 @@
+--- a/src/hooks/useEditorPlayback.ts
++++ b/src/hooks/useEditorPlayback.ts
+@@ -24,6 +24,7 @@
+   previewQuality: 'auto' | '360p' | '540p' | '720p';
+   play: () => void;
+   pause: () => void;
++  pauseForEdit: () => number | null;
+   togglePlay: () => void;
+   seek: (time: number) => void;
+   stepFrames: (frames: number) => void;
+@@ -115,6 +116,23 @@
+     setIsPlaying(false);
+   }, []);
+ 
++  // Crop-specific pause receipt: publish the same final clock native timeupdate
++  // will publish, rather than letting an editor snapshot race that later event.
++  const pauseForEdit = useCallback((): number | null => {
++    const v=videoRef.current;
++    if(!v)return null;
++    v.pause();
++    setIsMediaAdvancing(false);setIsPlaying(false);
++    if(v.seeking || !Number.isFinite(v.currentTime))return null;
++    const raw=sourceToTimelineTime(slicesRef.current,v.currentTime,timeRef.current,sourceOffsetRef.current);
++    if(!Number.isFinite(raw) || !Number.isFinite(durationRef.current) || durationRef.current<=0)return null;
++    const finalTime=Math.max(0,Math.min(durationRef.current,Number(raw.toFixed(3))));
++    timeRef.current=finalTime;lastMediaTime.current=v.currentTime;
++    setCurrentTime(finalTime);
++    onTimeUpdateRef.current?.(finalTime);
++    return finalTime;
++  }, []);
++
+   const togglePlay = useCallback(() => {
+     if (isPlaying) {
+       pause();
+@@ -286,6 +304,7 @@
+     previewQuality,
+     play,
+     pause,
++    pauseForEdit,
+     togglePlay,
+     seek,
+     stepFrames,
+--- a/src/components/editor/EditorShell.tsx
++++ b/src/components/editor/EditorShell.tsx
+@@ -1,3 +1,4 @@
++import {SourceTextReviewBanner} from './SourceTextReviewBanner';
+ import {initialExportResolution} from '../../../server/src/shared/initialExportResolution.js';
+ import {canvasForResolution} from '../../../server/src/shared/renderResolution.js';
+ import {HookModeControls} from './HookModeControls';
+@@ -171,6 +172,7 @@
+     showSafeGuides,
+     previewQuality,
+     togglePlay,
++    pauseForEdit,
+     seek,
+     stepFrames,
+     setVolume,
+@@ -1990,10 +1992,7 @@
+                 </div>
+               )}
+               {viewMode==='edit' && sourceReviewNotice && (
+-                <div role="status" data-testid="source-text-review-notice" className="shrink-0 flex items-start gap-2 pl-3 pr-3 max-md:pr-14 py-1.5 max-md:py-3 border-b border-white/10 bg-vc-surface1">
+-                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" />
+-                  <p className="text-[11px] text-neutral-300 leading-snug"><span className="md:hidden">Text was seen in sampled source frames.{' '}<button type="button" aria-expanded={warnDetailsOpen} onClick={() => setWarnDetailsOpen(v => !v)} className="underline underline-offset-2 relative after:content-[''] after:absolute after:-inset-y-[15px] after:-inset-x-3">{warnDetailsOpen ? 'Less' : 'Details'}</button>{warnDetailsOpen && <span className="block mt-1">{sourceReviewNotice.message}</span>}</span><span className="max-md:hidden">{sourceReviewNotice.message}</span></p>
+-                </div>
++                <SourceTextReviewBanner notice={sourceReviewNotice}/>
+               )}
+           {/* Mobile discoverability: collapsed inspector gets an explicit opener in normal flow above the canvas,
+               so it never overlaps the rendered video or the caption safe area (an earlier overlay pill obscured cues). */}
+@@ -2076,10 +2075,11 @@
+               }
+             }}
+             onBeginCrop={() => {
+-              if (isPlaying) togglePlay();
++              const pausedAt=pauseForEdit();
+               if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                 clearSelection(); setActiveSidebarTab('captions'); setInspectorCollapsed(true); setTranscriptCollapsed(true);
+               }
++              return pausedAt;
+             }}
+             onUpdateItemCrop={(itemId, crop, options) => {
+               const track = project.tracks.find((t) => t.items.some((i) => i.id === itemId));
+--- a/src/components/editor/CropBoxControl.tsx
++++ b/src/components/editor/CropBoxControl.tsx
+@@ -22,22 +22,50 @@
+   disabledReason?: string;
+   notice?: string;
+   onApply: (crop: EditableCrop) => void;
++  /** Source item, scene and physical output identity. Changes invalidate an open edit. */
++  editContextKey?: string;
++  /** Pause intent is handled by onOpen before a playing entry captures its box. */
++  isPlaying?: boolean;
++  timelineTime?: number;
+   /** Render directly inside the editor canvas, rather than a modal. */
+   inlineTarget?: HTMLElement | null;
+-  onOpen?: () => void;
++  onOpen?: () => number | null | void;
+ }
+ 
+ /** Preview-top "Crop": drag the box to move it, drag a corner to resize (zoom). Aspect is locked to the canvas. */
+-export const CropBoxControl: React.FC<Props> = ({ label, videoSrc, sourceTime, srcW, srcH, canvasAspect, current, enabled, onApply, inlineTarget, onOpen, disabledReason, notice, allowRegionFit }) => {
++export const CropBoxControl: React.FC<Props> = ({ label, videoSrc, sourceTime, srcW, srcH, canvasAspect, current, enabled, onApply, inlineTarget, onOpen, disabledReason, notice, allowRegionFit, editContextKey, isPlaying, timelineTime }) => {
+   const [open, setOpen] = useState(false);
+   const [fit, setFit] = useState(false);
++  const [invalidated, setInvalidated] = useState(false);
++  const openedContext = useRef<string | null>(null);
++  const editContext = JSON.stringify([editContextKey ?? null, videoSrc, sourceTime, srcW, srcH, canvasAspect, current, !!allowRegionFit, enabled]);
++  const latestContext = useRef(editContext);
++  latestContext.current = editContext;
++  const staleContext = open && openedContext.current !== editContext;
+   const regionBox = (): CropBox => current.sourceRect ? {left:current.sourceRect.x,top:current.sourceRect.y,w:current.sourceRect.w,h:current.sourceRect.h} : {left:0,top:0,w:1,h:1};
+   const [box, setBox] = useState<CropBox>(() => boxFromCrop(srcW || 16, srcH || 9, canvasAspect, current));
+   const stage = useRef<HTMLDivElement>(null);
+   const drag = useRef<null | { kind: 'move'; last: { x: number; y: number } } | { kind: 'corner'; anchor: { x: number; y: number } }>(null);
+-  useEffect(() => { if (!open) return; const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false); document.addEventListener('keydown', esc); return () => document.removeEventListener('keydown', esc); }, [open]);
+-  useEffect(() => { if (!enabled) setOpen(false); }, [enabled]);
++  const pauseRequest = useRef<number | null>(null);
++  const [pendingOpen, setPendingOpen] = useState(false);
++  const closeEdit = () => { pauseRequest.current=null;setPendingOpen(false);setOpen(false); };
++  useEffect(() => { if (!open && !pendingOpen) return; const esc = (e: KeyboardEvent) => e.key === 'Escape' && closeEdit(); document.addEventListener('keydown', esc); return () => document.removeEventListener('keydown', esc); }, [open, pendingOpen]);
++  useEffect(() => { if (!enabled) closeEdit(); }, [enabled]);
++  useEffect(() => { if (open && openedContext.current !== editContext) { drag.current = null; openedContext.current = null; setInvalidated(true); } }, [open, editContext]);
+   const sw = srcW || 16, sh = srcH || 9;
++  const latestBeginEdit = useRef<() => void>(() => {});
++  latestBeginEdit.current = () => {
++    if (!enabled) return;
++    pauseRequest.current=null;setPendingOpen(false);
++    openedContext.current = editContext; setInvalidated(false); drag.current = null;
++    setFit(!!allowRegionFit && current.fit === 'contain');
++    setBox(allowRegionFit && current.fit === 'contain' ? regionBox() : boxFromCrop(sw, sh, canvasAspect, current));
++    setOpen(true);
++  };
++  useEffect(() => {
++    const expected=pauseRequest.current;
++    if(pendingOpen && expected!==null && !isPlaying && timelineTime===expected) latestBeginEdit.current();
++  }, [pendingOpen,isPlaying,timelineTime,editContext]);
+   const pt = (e: React.PointerEvent) => { const r = stage.current!.getBoundingClientRect(); return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) }; };
+   const fitHelp = current.fit==='contain' && current.backdrop==='blur'
+     ? 'Choose the source region to keep whole. Drag to move; resize any corner. Unused panel space keeps its blurred background.'
+@@ -48,15 +76,22 @@
+   ];
+   return (
+     <div>
+-      <button type="button" disabled={!enabled} onClick={(e) => { e.stopPropagation(); onOpen?.(); setFit(!!allowRegionFit && current.fit === 'contain'); setBox(allowRegionFit && current.fit === 'contain' ? regionBox() : boxFromCrop(sw, sh, canvasAspect, current)); setOpen(true); }}
++      <button type="button" disabled={!enabled} onClick={(e) => { e.stopPropagation();
++        const receipt=onOpen?.();
++        if(typeof receipt==='number' && Number.isFinite(receipt)) {
++          pauseRequest.current=receipt;setPendingOpen(true);setOpen(false);
++        } else if(receipt!==undefined || isPlaying) {
++          pauseRequest.current=null;setPendingOpen(false);setInvalidated(true);setOpen(true);
++        } else latestBeginEdit.current(); }}
+         className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg hover:bg-white/[0.08] text-neutral-300 hover:text-white transition font-medium disabled:opacity-40"
+         title={enabled ? (allowRegionFit ? 'Choose a panel crop or fit a whole source region' : 'Crop: drag the box, resize from a corner') : (disabledReason || 'Crop applies to Fill scenes. Set this scene to Fill first.')}>
+         <Crop className="w-3.5 h-3.5" /><span>{label ?? 'Crop'}</span>
+       </button>
+-      {open && createPortal(
+-        <div onPointerDown={e => e.stopPropagation()} data-testid={inlineTarget ? "inline-preview-crop" : "crop-dialog"} className={inlineTarget ? "absolute inset-0 z-[80] bg-black flex items-center justify-center" : "fixed inset-0 z-[100] bg-black/60 flex items-center justify-center"} onClick={() => setOpen(false)}>
++      {(open || pendingOpen) && createPortal(
++        <div onPointerDown={e => e.stopPropagation()} data-testid={inlineTarget ? "inline-preview-crop" : "crop-dialog"} className={inlineTarget ? "absolute inset-0 z-[80] bg-black flex items-center justify-center" : "fixed inset-0 z-[100] bg-black/60 flex items-center justify-center"} onClick={closeEdit}>
+           <div className={inlineTarget ? "bg-black p-3 w-full max-w-[560px] max-h-full overflow-y-auto text-neutral-200" : "bg-vc-surface1 border border-white/10 rounded-2xl p-5 w-[560px] max-w-[92vw] text-neutral-200"} onClick={(e) => e.stopPropagation()}>
+-            <div className="flex items-center justify-between mb-1"><h3 className="text-sm font-semibold text-white">{label ?? 'Crop'}</h3><button type="button" onClick={(e) => { e.stopPropagation(); setOpen(false); }} aria-label="Close"><X className="w-4 h-4" /></button></div>
++            <div className="flex items-center justify-between mb-1"><h3 className="text-sm font-semibold text-white">{label ?? 'Crop'}</h3><button type="button" onClick={(e) => { e.stopPropagation(); closeEdit(); }} aria-label="Close"><X className="w-4 h-4" /></button></div>
++            {pendingOpen ? <p data-testid="crop-awaiting-owner-clock" className="text-xs text-neutral-300 py-4">Pausing at the current frame...</p> : invalidated || staleContext ? <p role="alert" data-testid="crop-context-changed" className="text-xs text-amber-300 py-4">The source, scene or output changed. Close and reopen Crop before applying an edit.</p> : <>
+             <p className="text-[11px] text-neutral-400 mb-3">{fit ? fitHelp : 'Drag the box to move it. Drag a corner to resize (zoom 1x-4x). The box keeps the canvas shape.'}</p>
+             {allowRegionFit && <div className="flex gap-2 mb-3 text-[11px]" role="group" aria-label="Panel scaling">
+               <button type="button" aria-pressed={!fit} className={`px-2 py-1 rounded ${!fit ? 'bg-white text-black' : 'bg-white/10'}`} onClick={() => {setFit(false);setBox(boxFromCrop(sw,sh,canvasAspect,current));}}>Fill panel</button>
+@@ -86,9 +121,10 @@
+               <span className="text-neutral-400">{fit ? 'Whole selected region' : `Zoom ${cropFromBox(sw, sh, canvasAspect, box).scale.toFixed(2)}x`}</span>
+               <div className="flex gap-2">
+                 <button type="button" className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15" onClick={() => setBox(fit ? {left:0,top:0,w:1,h:1} : boxFromCrop(sw, sh, canvasAspect, { focusX: 0.5, focusY: 0.5, scale: 1 }))}>Reset</button>
+-                <button type="button" className="px-3 py-1.5 rounded-lg bg-white text-black font-medium" onClick={(e) => { e.stopPropagation(); onApply(fit ? {focusX:.5,focusY:.5,scale:1,fit:'contain',...(current.fit==='contain'&&current.backdrop==='blur'?{backdrop:'blur' as const}:{}),sourceRect:{x:box.left,y:box.top,w:box.w,h:box.h}} : cropFromBox(sw, sh, canvasAspect, box)); setOpen(false); }}>Apply</button>
++                <button type="button" className="px-3 py-1.5 rounded-lg bg-white text-black font-medium" onClick={(e) => { e.stopPropagation(); if (!enabled || invalidated || openedContext.current !== latestContext.current) { drag.current = null; setInvalidated(true); return; } onApply(fit ? {focusX:.5,focusY:.5,scale:1,fit:'contain',...(current.fit==='contain'&&current.backdrop==='blur'?{backdrop:'blur' as const}:{}),sourceRect:{x:box.left,y:box.top,w:box.w,h:box.h}} : cropFromBox(sw, sh, canvasAspect, box)); setOpen(false); }}>Apply</button>
+               </div>
+             </div>
++            </>}
+           </div>
+         </div>,
+         inlineTarget || document.body
+--- a/src/components/editor/SourceTextReviewBanner.tsx
++++ b/src/components/editor/SourceTextReviewBanner.tsx
+@@ -0,0 +1,3 @@
++import {useState} from 'react';
++import type {SourceTextReviewNotice} from '../../lib/sourceTextReviewNotice';
++export function SourceTextReviewBanner({notice}:{notice:SourceTextReviewNotice}){const[open,setOpen]=useState(false);const summary=notice.kind==='source-text-unchecked'?'Source captions were not checked.':'Text was seen in sampled source frames.';return <div role="status" data-testid="source-text-review-notice" className="shrink-0 flex items-start gap-2 pl-3 pr-3 max-md:pr-14 py-1.5 max-md:py-3 border-b border-white/10 bg-vc-surface1"><span className="mt-1 w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0"/><p className="text-[11px] text-neutral-300 leading-snug"><span className="md:hidden">{summary}{' '}<button type="button" aria-expanded={open} onClick={()=>setOpen(v=>!v)} className="underline underline-offset-2 relative after:content-[''] after:absolute after:-inset-y-[15px] after:-inset-x-3">{open?'Less':'Details'}</button>{open&&<span className="block mt-1">{notice.message}</span>}</span><span className="max-md:hidden">{notice.message}</span></p></div>;}
+--- a/src/components/editor/PreviewCanvas.tsx
++++ b/src/components/editor/PreviewCanvas.tsx
+@@ -70,7 +70,7 @@
+   // Preview-first crop override: dragging the base video pans the per-item crop
+   // focus (EditorTrackItem.crop.focusX/focusY), which the render compiler honors
+   // ahead of the auto face track.
+-  onBeginCrop?: () => void;
++  onBeginCrop?: () => number | null;
+   onUpdateItemCrop?: (
+     itemId: string,
+     crop: { mode: 'fit' | 'fill' | 'blur' | 'custom'; focusX: number; focusY: number; scale?: number },
+@@ -1436,7 +1436,10 @@
+                 return (
+                   <CropBoxControl
+                     key={`${baseVideoItem.id}-${activePanels.layout}-${i}`}
++                    editContextKey={JSON.stringify({clipId,item:baseVideoItem,panels:activePanels,range:automaticPanelEditRange,canvas:project.canvas,output:geometryOutputSize,playhead})}
+                     allowRegionFit
++                    isPlaying={Boolean(isPlaying)}
++                    timelineTime={playhead}
+                     inlineTarget={stageViewportRef.current}
+                     label={['watch_party','streaming'].includes(activePanels.layout) ? `${i===0?'Facecam (top)':'Stream / Display (bottom)'}${activePanels.slots[i].set ? '' : ' - set view'}` : activePanels.slots[i].set ? `Panel ${i + 1}` : `Panel ${i + 1} (set view)`}
+                     videoSrc={cleanSourceUrl || activeVideoSrc || null}
+@@ -1448,7 +1451,7 @@
+                     notice={automaticPanelEditRange ? "Apply makes this scene manual; Cancel keeps Auto. Fill replaces the chosen source region. Fit keeps or resizes it." : activePanels.slots[i].sourceRect ? "This view uses a chosen source region. Fill replaces it with a full-source crop. Fit lets you keep or resize the region." : undefined}
+                     enabled={!videoCropLocked}
+                     disabledReason="Unlock this scene or track to change its panel crop."
+-                    onOpen={() => { setMobileFramingToolsOpen(false); onBeginCrop?.(); }}
++                    onOpen={() => { setMobileFramingToolsOpen(false); return onBeginCrop?.(); }}
+                     onApply={(c) => {
+                       if (videoCropLocked) return;
+                       const slots = activePanels.slots.map((s: import('../../../server/src/shared/panelLayouts.js').PanelSlot, j: number) => (j === i ? { ...c, set: true } : s));
+@@ -1464,8 +1467,11 @@
+             <>
+               <CropBoxControl
+                 key={activeVideoItems[0].id}
++                isPlaying={Boolean(isPlaying)}
++                timelineTime={playhead}
++                editContextKey={JSON.stringify({clipId,item:activeVideoItems[0],canvas:project.canvas,output:geometryOutputSize,playhead})}
+                 inlineTarget={stageViewportRef.current}
+-                onOpen={() => { setMobileFramingToolsOpen(false); onBeginCrop?.(); }}
++                onOpen={() => { setMobileFramingToolsOpen(false); return onBeginCrop?.(); }}
+                 disabledReason={videoCropLocked ? "Unlock this scene or track to change its crop." : undefined}
+                 notice={activeVideoItems[0].framing_window ? "Applying a manual crop replaces this scene's context window. Cancel keeps it unchanged." : undefined}
+                 videoSrc={cleanSourceUrl || activeVideoSrc || null}
+--- a/src/lib/sourceTextReviewNotice.ts
++++ b/src/lib/sourceTextReviewNotice.ts
+@@ -1,34 +1,2 @@
+-/** Read-only editor review notice. This is recorded evidence about selected
+- * source bytes, not a current-object fetch, semantic subtitle classification,
+- * interval-wide clearance or permission to crop/remove generated captions. */
+-export interface SourceTextReviewNotice {
+- kind:'source-text-observed';
+- blocking:false;
+- message:string;
+- evidence:'recorded-source-samples';
+- timeBasis:'selected-source-window-not-edited-timeline';
+- observedSourceTimes:number[];
+- sourceSha256:string;
+- sourceStart:number;
+- sourceEnd:number;
+- observedClipTimes:number[];
+- sampledClipTimes:number[];
+- coverage:'sparse-positive-only';
+- semanticVerification:'unknown';
+- establishesTextAbsence:false;
+- captionSettingsChanged:false;
+-}
+-export function sourceTextReviewNotice(clip:any):SourceTextReviewNotice|null {
+- const review=clip?.reframe_metadata?.source_subtitle_review;
+- const sha=clip?.selection_source_receipt?.source_receipt?.sha256;
+- if(review?.status!=='suspected-source-text'||review.hasBurnedSubtitles!==true||typeof sha!=='string'||!/^[a-f0-9]{64}$/.test(sha)||review.sourceSha256!==sha)return null;
+- const start=Number(clip.start_seconds)+Number(clip.trim_start_offset||0),end=Number(clip.end_seconds)-Number(clip.trim_end_offset||0);
+- if(![start,end,review.sourceStart,review.sourceEnd].every(Number.isFinite)||start<0||end<=start||Math.abs(review.sourceStart-start)>.001||Math.abs(review.sourceEnd-end)>.001)return null;
+- const duration=end-start,rows=Array.isArray(review.samples)?review.samples.slice(0,5):[];
+- const valid=rows.filter((s:any)=>Number.isSafeInteger(s?.sampleIndex)&&s.sampleIndex>=0&&s.sampleIndex<5&&Number.isFinite(s.clipTime)&&s.clipTime>=0&&s.clipTime<duration&&Number.isFinite(s.sourceTime)&&Math.abs(s.sourceTime-start-s.clipTime)<=.001&&['suspected-source-text','not-observed','unavailable'].includes(s.status));
+- // Preserve actual observation times only. Never invent times for legacy
+- // clip-wide summaries, and never treat an empty list as absence.
+- const times=(items:any[])=>[...new Set<number>(items.map(s=>s.clipTime))].sort((a,b)=>a-b);
+- const observed=valid.filter((s:any)=>s.status==='suspected-source-text'&&Number.isFinite(s.candidateTop)&&s.candidateTop>=.72&&s.candidateTop<1);
+- return {kind:'source-text-observed',blocking:false,message:'Text was observed in sampled source frames. Generated captions may overlap or repeat it. Review the preview; unobserved times remain unknown.',evidence:'recorded-source-samples',timeBasis:'selected-source-window-not-edited-timeline',observedSourceTimes:[...new Set<number>(observed.map((s:any)=>s.sourceTime))].sort((a,b)=>a-b),sourceSha256:sha,sourceStart:start,sourceEnd:end,observedClipTimes:times(observed),sampledClipTimes:times(valid),coverage:'sparse-positive-only',semanticVerification:'unknown',establishesTextAbsence:false,captionSettingsChanged:false};
+-}
++export {sourceTextReviewNotice} from '../../server/src/shared/sourceTextReviewNotice';
++export type {SourceTextReviewNotice} from '../../server/src/shared/sourceTextReviewNotice';
+--- a/server/src/shared/sourceTextReviewNotice.ts
++++ b/server/src/shared/sourceTextReviewNotice.ts
+@@ -1,29 +1,19 @@
+ /** Read-only editor review notice. This is recorded evidence about selected
+  * source bytes, not a current-object fetch, semantic subtitle classification,
+  * interval-wide clearance or permission to crop/remove generated captions. */
+-export interface SourceTextReviewNotice {
+- kind:'source-text-observed';
+- blocking:false;
+- message:string;
+- evidence:'recorded-source-samples';
+- timeBasis:'selected-source-window-not-edited-timeline';
+- observedSourceTimes:number[];
+- sourceSha256:string;
+- sourceStart:number;
+- sourceEnd:number;
+- observedClipTimes:number[];
+- sampledClipTimes:number[];
+- coverage:'sparse-positive-only';
+- semanticVerification:'unknown';
+- establishesTextAbsence:false;
+- captionSettingsChanged:false;
++interface NoticeBase {
++ blocking:false;message:string;timeBasis:'selected-source-window-not-edited-timeline';observedSourceTimes:number[];sourceSha256:string;sourceStart:number;sourceEnd:number;observedClipTimes:number[];sampledClipTimes:number[];semanticVerification:'unknown';establishesTextAbsence:false;captionSettingsChanged:false;
+ }
++export type SourceTextReviewNotice=NoticeBase&({kind:'source-text-observed';evidence:'recorded-source-samples';coverage:'sparse-positive-only'}|{kind:'source-text-unchecked';evidence:'recorded-review-unavailable';coverage:'unavailable'});
+ export function sourceTextReviewNotice(clip:any):SourceTextReviewNotice|null {
+  const review=clip?.reframe_metadata?.source_subtitle_review;
+  const sha=clip?.selection_source_receipt?.source_receipt?.sha256;
+- if(review?.status!=='suspected-source-text'||review.hasBurnedSubtitles!==true||typeof sha!=='string'||!/^[a-f0-9]{64}$/.test(sha)||review.sourceSha256!==sha)return null;
+- const start=Number(clip.start_seconds)+Number(clip.trim_start_offset||0),end=Number(clip.end_seconds)-Number(clip.trim_end_offset||0);
++ const unchecked=review?.status==='unavailable';
++ if((!unchecked&&(review?.status!=='suspected-source-text'||review.hasBurnedSubtitles!==true))||typeof sha!=='string'||!/^[a-f0-9]{64}$/.test(sha)||review.sourceSha256!==sha)return null;
++ if(![clip.start_seconds,clip.end_seconds].every(x=>typeof x==='number'&&Number.isFinite(x))||['trim_start_offset','trim_end_offset'].some(k=>clip[k]!==undefined&&(typeof clip[k]!=='number'||!Number.isFinite(clip[k]))))return null;
++ const start=clip.start_seconds+(clip.trim_start_offset??0),end=clip.end_seconds-(clip.trim_end_offset??0);
+  if(![start,end,review.sourceStart,review.sourceEnd].every(Number.isFinite)||start<0||end<=start||Math.abs(review.sourceStart-start)>.001||Math.abs(review.sourceEnd-end)>.001)return null;
++ if(unchecked)return {kind:'source-text-unchecked',blocking:false,message:'Source captions were not checked. Review the preview for repeated text. If the source already has captions, Captions Off keeps only those. Your caption settings have not changed.',evidence:'recorded-review-unavailable',timeBasis:'selected-source-window-not-edited-timeline',observedSourceTimes:[],sourceSha256:sha,sourceStart:start,sourceEnd:end,observedClipTimes:[],sampledClipTimes:[],coverage:'unavailable',semanticVerification:'unknown',establishesTextAbsence:false,captionSettingsChanged:false};
+  const duration=end-start,rows=Array.isArray(review.samples)?review.samples.slice(0,5):[];
+  const valid=rows.filter((s:any)=>Number.isSafeInteger(s?.sampleIndex)&&s.sampleIndex>=0&&s.sampleIndex<5&&Number.isFinite(s.clipTime)&&s.clipTime>=0&&s.clipTime<duration&&Number.isFinite(s.sourceTime)&&Math.abs(s.sourceTime-start-s.clipTime)<=.001&&['suspected-source-text','not-observed','unavailable'].includes(s.status));
+  // Preserve actual observation times only. Never invent times for legacy

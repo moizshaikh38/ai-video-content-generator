@@ -1,0 +1,34 @@
+[
+  {
+    "path": "src/hooks/useEditorPlayback.ts",
+    "mode": "owner-only",
+    "baseline": "e5091f687ed8c7655b4f039600ac1b219265be6548ff37ca0e7f0a37583d6fd1",
+    "owner": "4fb4a824f8f26b62ee0589fbad5b0369065dff677b132391ebe4453274188365",
+    "notice": "e5091f687ed8c7655b4f039600ac1b219265be6548ff37ca0e7f0a37583d6fd1",
+    "composed": "4fb4a824f8f26b62ee0589fbad5b0369065dff677b132391ebe4453274188365"
+  },
+  {
+    "path": "src/components/editor/EditorShell.tsx",
+    "mode": "three-way-clean",
+    "baseline": "b956a68018cc59ce814d67567f2b79aa78d13fa68070fa8b850ca88a1be6df39",
+    "owner": "b4c114de9a99f445a440a7274b7ac300f84cd8689bbc3f3ea3a795eb150c4a46",
+    "notice": "312dd47127a55bcc15170f8529141ab919845b10316d1c11d1f4ce616a0cc7ab",
+    "composed": "7032ab16b57f902fd22ce522e075f19ec2c9fb2242fff1849d0133abb41b605e"
+  },
+  {
+    "path": "src/components/editor/CropBoxControl.tsx",
+    "mode": "owner-only",
+    "baseline": "6c6da08220ca4f58e0864c71f9e487f059ad98979908381e115290b4b9922436",
+    "owner": "44124e1b6c8c8d388a22867ae041686b8f1d3f411956099d268faa7d35a87e34",
+    "notice": "6c6da08220ca4f58e0864c71f9e487f059ad98979908381e115290b4b9922436",
+    "composed": "44124e1b6c8c8d388a22867ae041686b8f1d3f411956099d268faa7d35a87e34"
+  },
+  {
+    "path": "src/components/editor/PreviewCanvas.tsx",
+    "mode": "owner-only",
+    "baseline": "3c80c0f37c45067311dcb4a9e4b826f933d0765f014e38a43b56a304ccb463c2",
+    "owner": "c9fff16afdb932f80a7b9c5dd63aa46148ee391fb31d78b131d1f7c96c188bfa",
+    "notice": "3c80c0f37c45067311dcb4a9e4b826f933d0765f014e38a43b56a304ccb463c2",
+    "composed": "c9fff16afdb932f80a7b9c5dd63aa46148ee391fb31d78b131d1f7c96c188bfa"
+  }
+]
