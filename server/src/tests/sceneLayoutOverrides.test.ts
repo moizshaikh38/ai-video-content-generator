@@ -49,3 +49,25 @@ test('Color then Blur keeps the later explicit choice in expanded scene export',
 
 test('manual scene re-selection stays scene-local when automatic preview is bypassed',()=>{let p=applySceneLayout(make(),'item',48,56,'fill');p=applySceneLayout(p,'item',56,64,'blur');const next=applyLayoutAtSourceTime(p,'item',50,'fit');assert.deepEqual(item(next).scene_layout_overrides.map((o:any)=>[o.start,o.end,o.layout]),[[48,56,'fit'],[56,64,'blur']]);assert.equal(resolveSceneLayoutItem(item(next),42).crop,undefined);assert.equal(resolveSceneLayoutItem(item(next),60).crop.mode,'blur');assert.equal(item(next).crop,undefined);});
 test('implicit gap and2xsourceclock preserve adjacent saved scenes despite a broad current analysis shot',()=>{let p=applySceneLayout(make(),'item',48,56,'fill');const next=applyLayoutAtSourceTime(p,'item',45,'fit',{start:40,end:64});assert.deepEqual(item(next).scene_layout_overrides.map((o:any)=>[o.start,o.end,o.layout]),[[40,48,'fit'],[48,56,'fill']]);assert.equal(resolveSceneLayoutItem(item(next),60).crop,undefined);assert.equal(applyLayoutAtSourceTime(p,'item',30,'fit'),p);});
+
+// The paused last frame is displayed in the editor even though render ranges stay half-open.
+test('terminal scene layout is visible after end-of-clip re-selection, internal cuts stay half-open',()=>{
+ let p=make();item(p).crop={mode:'fit',focusX:.5,focusY:.5,scale:1};
+ p=applySceneLayout(p,'item',48,56,'fill');p=applySceneLayout(p,'item',56,64,'fit');
+ const tracker=JSON.parse(JSON.stringify(item(p).tracker));
+ const q=applyLayoutAtSourceTime(p,'item',64,'fill');
+ assert.equal(resolveSceneLayoutItem(item(q),64).crop.mode,'fill');
+ assert.equal(resolveSceneLayoutItem(item(q),64+1e-12).crop.mode,'fill');
+ assert.equal(resolveSceneLayoutItem(item(q),56).crop.mode,'fill');
+ assert.equal(resolveSceneLayoutItem(item(p),56).crop.choice,'fit');
+ assert.deepEqual(item(q).tracker,tracker);assert.deepEqual(item(q).transform,item(p).transform);
+ assert.deepEqual(item(q).scene_layout_overrides.map((o:any)=>[o.start,o.end]),[[48,56],[56,64]]);
+ assert.equal(item(q).crop.mode,'fit');
+});
+test('terminal roundoff normalized but genuinely outside layout command rejected',()=>{
+ const p=applySceneLayout(make(),'item',56,64,'fit');
+ const q=applyLayoutAtSourceTime(p,'item',64+1e-12,'fill');assert.notEqual(q,p);assert.equal(resolveSceneLayoutItem(item(q),64).crop.mode,'fill');
+ assert.equal(applyLayoutAtSourceTime(p,'item',64+.0001,'fill'),p);
+ assert.equal(applyLayoutAtSourceTime(p,'item',40-.0001,'fill'),p);
+ assert.equal(applyLayoutAtSourceTime(p,'item',NaN,'fill'),p);
+});

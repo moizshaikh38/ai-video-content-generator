@@ -152,7 +152,11 @@ export function applyWholeClipLayout(project:EditorProject,layout:SceneLayout,su
 /** Re-selecting a manual scene layout must not expand the operation to the
  * whole source item merely because its automatic preview plan is bypassed. */
 export function applyLayoutAtSourceTime(project:EditorProject,itemId:string,sourceTime:number,layout:SceneLayout,shotRange?:{start:number;end:number},subjectKeyframes?:Array<{time:number;centerX:number;centerY?:number}>|null,sourceSize?:{width:number;height:number},measuredChoices?:MeasuredPanelChoice[]):EditorProject{
- const item=project.tracks.flatMap(t=>t.type==='VIDEO'?t.items:[]).find(i=>i.id===itemId);if(!item||!Number.isFinite(sourceTime)||sourceTime<item.source_start||sourceTime>item.source_end)return project;
+ const item=project.tracks.flatMap(t=>t.type==='VIDEO'?t.items:[]).find(i=>i.id===itemId);if(!item||!Number.isFinite(sourceTime))return project;
+ // Timeline arithmetic can overshoot an exact source endpoint by machine epsilon.
+ // Only terminal roundoff is normalized, never a genuinely out-of-range command.
+ if(Math.abs(sourceTime-item.source_end)<=1e-9)sourceTime=item.source_end;
+ if(sourceTime<item.source_start||sourceTime>item.source_end)return project;
  const inside=(s:{source_start:number;source_end:number})=>sourceTime>=s.source_start&&(sourceTime<s.source_end||(sourceTime===item.source_end&&s.source_end===item.source_end));
  const persisted=item.scene_layout_overrides?.length?expandSceneLayoutItem(item).find(inside):undefined;
  const range=persisted?{start:persisted.source_start,end:persisted.source_end}:shotRange;

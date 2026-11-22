@@ -21,7 +21,7 @@ export function validateSceneLayoutOverrides(item:any):void{
   end=o.end;
  }
 }
-export function sceneOverrideAt(item:any,sourceTime:number):SceneLayoutOverride|undefined{return item?.scene_layout_overrides?.find((o:SceneLayoutOverride)=>sourceTime>=o.start&&sourceTime<o.end);}
+export function sceneOverrideAt(item:any,sourceTime:number):SceneLayoutOverride|undefined{return item?.scene_layout_overrides?.find((o:SceneLayoutOverride)=>sourceTime>=o.start&&(sourceTime<o.end||(Math.abs(sourceTime-item.source_end)<=1e-9&&Math.abs(o.end-item.source_end)<=1e-9)));}
 export function resolveSceneLayoutItem<T extends object>(item:T,sourceTime:number):T{
  const o=sceneOverrideAt(item,sourceTime);if(!o)return resolveTrackerEvidence(item,sourceTime);
  const next:any={...item};delete next.framing_window;
