@@ -1,0 +1,27 @@
+{
+  "status": "HELD_NOT_NATIVE_QUALIFIED_NOT_ACTIVE_RUNTIME",
+  "scope": "Report known provider word-clock issues before normalized lexical mismatch. Fail closed, preserve original raw coverage check. No timing repair or transcript acceptance.",
+  "tests": {
+    "checks": 11,
+    "actualRawResponseSha256": "a348252c37eb74bcf9d0bfabd7a58cde3e31c5284b6d096a9f3889a0a9d3ab20",
+    "originalRawWords": 385,
+    "originalRawResponseUnchanged": true,
+    "actualPayloadReplayedOffline": true,
+    "mockedTransport": true,
+    "paidRequests": 0,
+    "networkRequests": 0,
+    "baselineCode": "TRANSCRIPT_WORD_TEXT_REVIEW_REQUIRED",
+    "candidateCode": "TRANSCRIPT_REVIEW_REQUIRED",
+    "candidateReviewReason": "provider-word-timing-unusable",
+    "notRecovered": true
+  },
+  "limits": "Actual response replay through mocked transport only. No fresh ASR, persistence, recovery, transcript overwrite or clock transplant. Full-source automatic output remains blocked.",
+  "files": [
+    {
+      "path": "server/src/services/transcription/openRouterTranscriptionProvider.ts",
+      "beforeSha256": "cdf3ae772c10558f911642a3120b3380b38a6ced4371654b12e6309c48ebe804",
+      "sha256": "1fc6bae77e373bdb84a49e24de91bfa203a6c1a61cc1a92a91a650b113d141c8"
+    }
+  ],
+  "releaseGate": "No publish until approval and slice verification."
+}
