@@ -11,7 +11,7 @@ import {expandSceneLayoutItem,resolveSceneLayoutItem} from '../../../server/src/
 import {resolvePreviewItemPlan,type PreviewMeasuredPlanEnvelope} from '../../../server/src/shared/previewItemAutomaticPlan';
 import {normalizeEditorCanvasAspect} from '../../../server/src/shared/editorCanvasAspect';
 import {setProjectAutoCandidate,projectAutoCandidate,projectAutoCandidateState} from '../../../server/src/shared/automaticLayoutCandidate';
-import { applyLayoutAtSourceTime, applyWholeClipLayout, readItemLayout, applyFramingStrategy } from '../../lib/itemLayout';
+import { applyLayoutAtSourceTime, applyWholeClipLayout, readItemLayout, applyFramingStrategy, applyDisplayedPanelCrop } from '../../lib/itemLayout';
 import { applyPlanSceneToProject, FRAMING_WINDOW_PREVIEW_PARITY, type PlanShot } from '../../../server/src/shared/framingWindow';
 import { SceneLayoutGrid } from './SceneLayoutMenu';
 import { captionLegacyColorDefaults } from '../../lib/captionPresets';
@@ -2088,10 +2088,11 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 if(o)onUpdateTrackItem(track.id,itemId,{scene_layout_overrides:item.scene_layout_overrides!.map(x=>x===o?{...x,patch:{...x.patch,crop}}:x)},options);else onUpdateTrackItem(track.id, itemId, { crop, framing_window: undefined }, options); // a manual crop replaces an accepted context window
               }
             }}
-            onUpdateItemPanels={(itemId, panels, options) => {
+            onUpdateItemPanels={(itemId, panels, options, sourceRange?: {start:number;end:number}) => {
               const track = project.tracks.find((t) => t.items.some((i) => i.id === itemId));
               if (track && !track.locked && !track.items.find(i => i.id === itemId)?.locked) {
                 const item=track.items.find(i=>i.id===itemId)!;const time=item.source_start+(currentTime-item.timeline_start)*(item.speed?.speed||1);const o=item.scene_layout_overrides?.find(o=>time>=o.start&&time<o.end);
+                if(sourceRange){onUpdateProject(prev=>applyDisplayedPanelCrop(prev,itemId,time,panels,sourceRange),options);return;}
                 if(o)onUpdateTrackItem(track.id,itemId,{scene_layout_overrides:item.scene_layout_overrides!.map(x=>x===o?{...x,patch:{...x.patch,panels}}:x)},options);else onUpdateTrackItem(track.id, itemId, { panels, framing_window: undefined }, options);
               }
             }}

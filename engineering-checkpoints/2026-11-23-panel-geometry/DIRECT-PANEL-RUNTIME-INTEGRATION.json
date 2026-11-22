@@ -1,0 +1,52 @@
+{
+  "status": "PRIVATE_RUNTIME_SOURCE_INTEGRATED_NOT_RELEASED",
+  "createdAt": "2026-11-22T19:11:53.570701+00:00",
+  "parent": "04539c2d18ce8b77c2fc8bbb59cbe7e3bbb4ffd2",
+  "scope": "Direct crop entry on displayed Auto Gameplay panels, bounded manual adoption and retained Fit-region blur. No automatic detector, producer, model route or default activation.",
+  "qualification": "Retained GTA source: native open/cancel/Apply/Save/reload, 720p render/download and return to Auto. The manual caption track and camera panel were retained. Four changed source hashes and original measured helper match local native qualification. This newly composed remote branch has not had a clean full build or a new native qualification.",
+  "checks": {
+    "directCallbackChecks": 46,
+    "fitApplyExpressionChecks": 57,
+    "normalRegressions": 350,
+    "overlayBaselineDiagnostics": 332,
+    "overlayCandidateDiagnostics": 331,
+    "missingExactDependencies": 8
+  },
+  "limits": [
+    "Title overlaps face and explicit multiline manual caption crosses camera edge.",
+    "Same-profile post-render resume remains unexplained. Fresh-profile download succeeded, not recovery proof.",
+    "Native Fill Apply/export, automatic captions after adoption, fresh varied sources, modal source/output changes, edited clocks and high-tier exports remain unqualified."
+  ],
+  "releaseGate": "No publish until approval and slice verification. Main and production remain unchanged.",
+  "files": [
+    {
+      "path": "src/components/editor/PreviewCanvas.tsx",
+      "beforeSha256": "0697bff0983ac66127f35befeec1810f31d01e9ae52c365e9247f245efffb8cf",
+      "afterSha256": "3c80c0f37c45067311dcb4a9e4b826f933d0765f014e38a43b56a304ccb463c2",
+      "beforeGitBlob": "b0cd22e46df4851e669568fa499f24bd395fd054",
+      "afterGitBlob": "9475d040ad0b2cb1d6431cca8f548459f0484b03"
+    },
+    {
+      "path": "src/components/editor/EditorShell.tsx",
+      "beforeSha256": "1861f27c7c4176308eae4532614c85365b795ed94f264e4db1482ec5fa36212c",
+      "afterSha256": "b956a68018cc59ce814d67567f2b79aa78d13fa68070fa8b850ca88a1be6df39",
+      "beforeGitBlob": "6a456e0f059b30c2446ce8d690b1ea20217c171e",
+      "afterGitBlob": "59226b5f50906a97292d0fa3b860b65973fd4800"
+    },
+    {
+      "path": "src/lib/itemLayout.ts",
+      "beforeSha256": "3aabb95e5919d375b0e91f836283cac83f5bcff82e49e37d9b433586e71bb2be",
+      "afterSha256": "80de24c373939aa7f7261829e32df762744a04b5ffeb46b9e8aab92eb556ab80",
+      "beforeGitBlob": "20a5c16ab5cf7e1f916e604c00e6efe90b70a0fc",
+      "afterGitBlob": "374574410c1dba461a9e313e3488296fb12d747a"
+    },
+    {
+      "path": "src/components/editor/CropBoxControl.tsx",
+      "beforeSha256": "3f31305fd7b8176a4aa48d541d167f75feee4028cc289c21f94c053100f7e1f9",
+      "afterSha256": "6c6da08220ca4f58e0864c71f9e487f059ad98979908381e115290b4b9922436",
+      "beforeGitBlob": "8123b149aa8917a108fdd69249339aef3f475c53",
+      "afterGitBlob": "02c5c195fed05d6f74df7b5d302e7ccf1ca03bcf"
+    }
+  ],
+  "unchangedMeasuredHelperSha256": "34f9ef16e8bbb2865d1ed6fc3dc0f6965913264a4fe67758e510f203987fec03"
+}

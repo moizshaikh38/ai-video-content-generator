@@ -3,7 +3,7 @@ import {coverWindow} from './cropBox';
 import {expandSceneLayoutItem,resolveSceneLayoutItem} from '../../server/src/shared/sceneLayoutOverrides';
 import type { EditorProject, EditorTrackItem } from '../types';
 
-import { normalizePanels, PANEL_LAYOUTS, seedPanelsFromSubject, subjectCenterInWindow, type PanelLayout } from '../../server/src/shared/panelLayouts';
+import { normalizePanels, PANEL_LAYOUTS, seedPanelsFromSubject, subjectCenterInWindow, type PanelLayout, type ItemPanels } from '../../server/src/shared/panelLayouts';
 
 export type SceneLayout = 'auto' | 'fill' | 'fit' | 'blur' | 'split' | PanelLayout;
 
@@ -74,7 +74,7 @@ export function applyItemLayout(
             const measured=measuredPanelChoice(measuredChoices,layout,i.source_start,i.source_end,i.id);
             const priorChoice=prev?.slots?.some((s:any)=>s.set===true||s.sourceRect)?prev.slots:undefined;
             const seeded = priorChoice ?? measured?.slots ?? prev?.slots ?? seedPanelsFromSubject(layout as PanelLayout, undefined, subjectCenterInWindow(subjectKeyframes, i.source_start || 0, i.source_end ?? ((i.source_start || 0) + (i.timeline_end - i.timeline_start))),sourceSize,project.canvas.width&&project.canvas.height?project.canvas.width/project.canvas.height:project.canvas.aspect_ratio==='16:9'?16/9:project.canvas.aspect_ratio==='1:1'?1:9/16);
-            base.panels = normalizePanels({ layout: layout as PanelLayout, slots: seeded });
+            base.panels = normalizePanels({ ...prev, layout: layout as PanelLayout, slots: seeded });
             delete base.crop;
             return base as EditorTrackItem;
           }
@@ -158,4 +158,20 @@ export function applyLayoutAtSourceTime(project:EditorProject,itemId:string,sour
  const range=persisted?{start:persisted.source_start,end:persisted.source_end}:shotRange;
  if(range&&(![range.start,range.end].every(Number.isFinite)||sourceTime<range.start||sourceTime>=range.end&&!(sourceTime===item.source_end&&range.end===item.source_end)))return project;
  return range?applySceneLayout(project,itemId,range.start,range.end,layout,subjectKeyframes,sourceSize,measuredChoices):applyItemLayout(project,itemId,layout,subjectKeyframes,sourceSize,measuredChoices);
+}
+
+/** Manual crop Apply adopts the currently displayed automatic panel geometry
+ * only within its source shot. No identity is fabricated and opening/canceling
+ * the control never calls this function. Existing scene/layout guards apply. */
+export function applyDisplayedPanelCrop(project:EditorProject,itemId:string,sourceTime:number,panelsIn:ItemPanels,range:{start:number;end:number}):EditorProject{
+ const panels=normalizePanels(panelsIn);
+ const item=project.tracks.flatMap(t=>t.type==='VIDEO'?t.items:[]).find(i=>i.id===itemId);
+ if(!panels||!item||![range.start,range.end,sourceTime].every(Number.isFinite))return project;
+ const scene=item.scene_layout_overrides?.length?expandSceneLayoutItem(item).find(s=>sourceTime>=s.source_start&&(sourceTime<s.source_end||sourceTime===item.source_end&&s.source_end===item.source_end)):item;
+ if(!scene)return project;
+ const start=Math.max(range.start,scene.source_start),end=Math.min(range.end,scene.source_end);
+ if(end<=start||sourceTime<start||sourceTime>end||sourceTime===end&&end!==item.source_end)return project;
+ const next=applySceneLayout(project,itemId,start,end,panels.layout);
+ if(next===project)return project;
+ return {...next,tracks:next.tracks.map(t=>t.type!=='VIDEO'?t:{...t,items:t.items.map(i=>i.id!==itemId?i:{...i,scene_layout_overrides:i.scene_layout_overrides?.map(o=>o.start===start&&o.end===end?{...o,patch:{...o.patch,panels}}:o)})})};
 }

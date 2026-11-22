@@ -46,7 +46,7 @@ import { BackgroundControl } from './BackgroundControl';
 import { TrackerControl } from './TrackerControl';
 import { CropBoxControl } from './CropBoxControl';
 import { PanelsPreview } from './PanelsPreview';
-import { normalizePanels, panelSourceWindow, panelTargetRects,  PANEL_LABELS } from '../../../server/src/shared/panelLayouts';
+import { normalizePanels, panelSourceWindow, panelTargetRects, panelPixelRects,  PANEL_LABELS } from '../../../server/src/shared/panelLayouts';
 import { FIT_BAND_ASPECT, effectiveFitBand, fitBandApplies } from '../../../server/src/shared/fitBand';
 
 interface PreviewCanvasProps {
@@ -77,7 +77,7 @@ interface PreviewCanvasProps {
     options?: UpdateProjectOptions
   ) => void;
   /** Multi-panel scene: update one scene's per-panel crops. */
-  onUpdateItemPanels?: (itemId: string, panels: NonNullable<EditorTrackItem['panels']>, options?: UpdateProjectOptions) => void;
+  onUpdateItemPanels?: (itemId: string, panels: NonNullable<EditorTrackItem['panels']>, options?: UpdateProjectOptions, sourceRange?: {start:number;end:number}) => void;
   onCommitProject?: (preOperationProject: EditorProject) => void;
   showSafeGuides: boolean;
   onToggleSafeGuides?: () => void;
@@ -513,8 +513,12 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const shotRelativeTime = Math.max(0,shotSourceTime-compositionClipStart);
   const activePlanShot = !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && !baseVideoItem?.framing_window && !manualPanels && (baseVideoItem as any)?.crop_config?.layout_mode_source !== 'user'
     ? effectiveShotComposition.find(s=>shotRelativeTime>=s.start&&shotRelativeTime<s.end&&(!(s as any).requiredAspect||(s as any).requiredAspect===project.canvas.aspect_ratio)) : undefined;
-  const automaticMultiPanels = activePlanShot?.split?.focusPanels && ['three','four','gameplay'].includes(activePlanShot.split.focusPanels.layout) ? activePlanShot.split.focusPanels : null;
+  const automaticMultiPanels: NonNullable<EditorTrackItem['panels']> | null = activePlanShot?.split?.focusPanels && ['three','four','gameplay'].includes(activePlanShot.split.focusPanels.layout) ? activePlanShot.split.focusPanels : null;
   const activePanels = manualPanels || (viewMode === 'export_review' && renderedPreviewUrl ? null : automaticMultiPanels);
+  // Applying a displayed Auto Gameplay crop is an explicit manual choice.
+  // Keep its source-shot scope; opening/canceling does not adopt anything.
+  const automaticPanelEditRange = !manualPanels && activePanels?.layout==='gameplay' && activePlanShot && activePanels.slots.every(s=>s.set&&s.sourceRect) && Number.isFinite(activePlanShot.start) && Number.isFinite(activePlanShot.end)
+    ? {start:compositionClipStart+activePlanShot.start,end:compositionClipStart+activePlanShot.end} : undefined;
   // Framing layout pick (Framing panel): 'split' renders a two-speaker
   // top/bottom stack mirroring the export's buildSplitPodcastFilter.
   const primaryLayoutMode = useMemo(() => {
@@ -1424,10 +1428,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 ]}, {recordHistory:true,markAsDirty:true});
               }}>Edit Split views</button>
           )}
-          {onUpdateItemPanels && manualPanels && activePanels && videoDims && videoDims.w > 0 && baseVideoItem && (
+          {onUpdateItemPanels && (manualPanels || automaticPanelEditRange) && activePanels && videoDims && videoDims.w > 0 && baseVideoItem && (
             <>
               {panelTargetRects(activePanels).map((r, i) => {
                 const cw = parseFloat(canvasDims.width), ch = parseFloat(canvasDims.height);
+                const physicalTarget=geometryOutputSize?panelPixelRects(activePanels.layout,geometryOutputSize.width,geometryOutputSize.height,activePanels.topFraction)[i]:undefined;
                 return (
                   <CropBoxControl
                     key={`${baseVideoItem.id}-${activePanels.layout}-${i}`}
@@ -1438,16 +1443,16 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     sourceTime={targetVideoTime}
                     srcW={videoDims.w}
                     srcH={videoDims.h}
-                    canvasAspect={(r.w * cw) / (r.h * ch)}
+                    canvasAspect={physicalTarget?physicalTarget.w/physicalTarget.h:(r.w * cw) / (r.h * ch)}
                     current={activePanels.slots[i]}
-                    notice={activePanels.slots[i].sourceRect ? "This view uses a chosen source region. Fill replaces it with a full-source crop. Fit lets you keep or resize the region." : undefined}
+                    notice={automaticPanelEditRange ? "Apply makes this scene manual; Cancel keeps Auto. Fill replaces the chosen source region. Fit keeps or resizes it." : activePanels.slots[i].sourceRect ? "This view uses a chosen source region. Fill replaces it with a full-source crop. Fit lets you keep or resize the region." : undefined}
                     enabled={!videoCropLocked}
                     disabledReason="Unlock this scene or track to change its panel crop."
                     onOpen={() => { setMobileFramingToolsOpen(false); onBeginCrop?.(); }}
                     onApply={(c) => {
                       if (videoCropLocked) return;
-                      const slots = activePanels.slots.map((s, j) => (j === i ? { ...c, set: true } : s));
-                      onUpdateItemPanels(baseVideoItem.id, { layout: activePanels.layout, slots }, { recordHistory: true, markAsDirty: true });
+                      const slots = activePanels.slots.map((s: import('../../../server/src/shared/panelLayouts.js').PanelSlot, j: number) => (j === i ? { ...c, set: true } : s));
+                      onUpdateItemPanels(baseVideoItem.id, { ...activePanels, slots }, { recordHistory: true, markAsDirty: true }, automaticPanelEditRange);
                     }}
                   />
                 );
