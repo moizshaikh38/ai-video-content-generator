@@ -21,7 +21,7 @@ const NON_FAILOVER_MESSAGE_PATTERNS = [
 
 /** Errors that justify trying the secondary provider. */
 export function isFailoverWorthy(err: unknown): boolean {
-  if ((err as any)?.code === 'TRANSCRIPT_WORD_TEXT_REVIEW_REQUIRED') return false;
+  if (['TRANSCRIPTION_PROVIDER_CREDITS_UNAVAILABLE','TRANSCRIPT_WORD_TEXT_REVIEW_REQUIRED','TRANSCRIPT_REVIEW_REQUIRED','PARAKEET_WORD_TIMING_REQUIRED','MAI_WORD_TIMING_REQUIRED'].includes((err as any)?.code)) return false;
   const message = err instanceof Error ? err.message : String(err);
   if (NON_FAILOVER_MESSAGE_PATTERNS.some((p) => p.test(message))) return false;
   // Normalized provider errors carry their HTTP status; everything except
@@ -60,6 +60,8 @@ export class FailoverTranscriptionProvider implements TranscriptionProvider {
         logger.info(`[Transcription] Failover succeeded via '${this.secondary.name}'.`);
         return result;
       } catch (secondaryErr) {
+        // A terminal secondary response never becomes a generic retryable error.
+        if(!isFailoverWorthy(secondaryErr))throw secondaryErr;
         const secondaryMsg = secondaryErr instanceof Error ? secondaryErr.message : String(secondaryErr);
         const err = new Error(
           `Transcription failed on the primary provider (${primaryMsg}) and the secondary provider (${secondaryMsg}).`

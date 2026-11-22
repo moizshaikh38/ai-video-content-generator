@@ -26,7 +26,7 @@ export function normalizeTranscriptionError(
   }
 
   if (status === 402) {
-    return new Error('Transcription provider credit balance is insufficient.');
+    return Object.assign(new Error('Transcription provider available credits are insufficient, possibly because requests are still in flight. No automatic retry was started.'),{code:'TRANSCRIPTION_PROVIDER_CREDITS_UNAVAILABLE',statusCode:402});
   }
 
   if (status === 408) {

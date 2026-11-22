@@ -1,3 +1,4 @@
+import{runTranscriptionWindows}from'./settleTranscriptionWindows.js';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -262,8 +263,8 @@ export async function transcribeAudioFast(
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), `vireo-chunks-${crypto.randomUUID().slice(0, 8)}-`));
   const started = Date.now();
   try {
-    const parts = await Promise.all(
-      plans.map(async (plan) => {
+    const parts = await runTranscriptionWindows(
+      plans.map((plan) => async () => {
         const chunkPath = path.join(workDir, `chunk-${plan.index}.mp3`);
         await cutAudioWindow(audio.audioPath, plan, plan.index === plans.length - 1, chunkPath);
         const buffer = await fs.promises.readFile(chunkPath);
@@ -288,7 +289,7 @@ export async function transcribeAudioFast(
     }
     return merged;
   } catch (err) {
-    if (provider.allowWholeFileFallback === false || !fitsOneRequest || ['TRANSCRIPT_WORD_TEXT_REVIEW_REQUIRED','TRANSCRIPTION_SEAM_REVIEW_REQUIRED','PARAKEET_WORD_TIMING_REQUIRED','MAI_WORD_TIMING_REQUIRED','PARAKEET_LANGUAGE_REVIEW_REQUIRED','TRANSCRIPTION_POLICY_REVIEW_REQUIRED','TRANSCRIPTION_ENTITLEMENT_REVIEW_REQUIRED'].includes((err as any)?.code)) throw err;
+    if ((err as any)?.noAutomaticRetry || provider.allowWholeFileFallback === false || !fitsOneRequest || ['TRANSCRIPTION_PROVIDER_CREDITS_UNAVAILABLE','TRANSCRIPT_WORD_TEXT_REVIEW_REQUIRED','TRANSCRIPT_REVIEW_REQUIRED','TRANSCRIPTION_SEAM_REVIEW_REQUIRED','PARAKEET_WORD_TIMING_REQUIRED','MAI_WORD_TIMING_REQUIRED','PARAKEET_LANGUAGE_REVIEW_REQUIRED','TRANSCRIPTION_POLICY_REVIEW_REQUIRED','TRANSCRIPTION_ENTITLEMENT_REVIEW_REQUIRED'].includes((err as any)?.code)) throw err;
     const msg = err instanceof Error ? err.message : String(err);
     logger.warn(`[Transcription] Parallel windows failed (${msg}); retrying as a single request.`);
     return provider.transcribeAudio(audio.audioBuffer, fileName, 'audio/mp3', options);
