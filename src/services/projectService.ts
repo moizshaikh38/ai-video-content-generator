@@ -1,5 +1,6 @@
 import { Project, ContentOutput, OutputPlatform, CreatorProfile, ProjectStatus, Transcript, GenerationOverrides, ClipPreferences } from '../types';
 import { backendRequest } from './backendClient';
+import { getCurrentAuthOwner } from '../lib/authOwner';
 
 export interface CreateProjectInput {
   id?: string; userId?: string; title: string; sourceType?: 'upload' | 'url';
@@ -17,7 +18,40 @@ class ProjectService {
   private outputs: ContentOutput[] = [];
   private profile: CreatorProfile = INITIAL_PROFILE;
 
-  clear(): void { this.projects = []; this.outputs = []; this.profile = INITIAL_PROFILE; }
+  private scopeOwner = getCurrentAuthOwner();
+  private scopeVersion = 0;
+
+  clear(): void {
+    this.scopeVersion++;
+    this.scopeOwner = getCurrentAuthOwner();
+    this.projects = [];
+    this.outputs = [];
+    this.profile = INITIAL_PROFILE;
+    this.inFlightProjectsPromise = null;
+    this.inFlightProjectPromises.clear();
+  }
+
+  private captureScope(): number {
+    if (this.scopeOwner !== getCurrentAuthOwner()) this.clear();
+    return this.scopeVersion;
+  }
+
+  private assertScope(scope: number): void {
+    if (this.captureScope() === scope) return;
+    throw Object.assign(new Error('The signed-in account changed. Load this page again.'), {
+      name: 'AuthContextChangedError', code: 'AUTH_CONTEXT_CHANGED',
+    });
+  }
+
+  /** Old-account failures must not surface their details in the new account. */
+  private async scopedRequest<T>(scope: number, path: string, options: RequestInit = {}): Promise<T> {
+    try {
+      return await backendRequest<T>(path, options);
+    } catch (error) {
+      this.assertScope(scope);
+      throw error;
+    }
+  }
 
   private mapRow(row: any): Project {
     const status = (row.video_status as ProjectStatus) || 'uploading';
@@ -41,7 +75,8 @@ class ProjectService {
   private inFlightProjectsPromise: Promise<Project[]> | null = null;
   private inFlightProjectPromises: Map<string, Promise<Project | null>> = new Map();
 
-  private cacheProject(row: any): Project {
+  private cacheProject(row: any, scope = this.captureScope()): Project {
+    this.assertScope(scope);
     const project = this.mapRow(row);
     this.projects = [project, ...this.projects.filter((p) => p.id !== project.id)];
     window.dispatchEvent(new CustomEvent('vireo_project_updated', { detail: { projectId: project.id } }));
@@ -49,37 +84,41 @@ class ProjectService {
   }
 
   async fetchProjects(_userId?: string): Promise<Project[]> {
+    const scope = this.captureScope();
     if (this.inFlightProjectsPromise) {
       return this.inFlightProjectsPromise;
     }
 
-    this.inFlightProjectsPromise = (async () => {
+    const promise: Promise<Project[]> = (async () => {
       try {
-        const data = await backendRequest<{ projects: any[] }>('/projects');
+        const data = await this.scopedRequest<{ projects: any[] }>(scope, '/projects');
+        this.assertScope(scope);
         this.projects = (data.projects || []).map((row) => this.mapRow(row));
         return this.getProjects();
       } finally {
-        this.inFlightProjectsPromise = null;
+        if (this.inFlightProjectsPromise === promise) this.inFlightProjectsPromise = null;
       }
     })();
 
-    return this.inFlightProjectsPromise;
+    this.inFlightProjectsPromise = promise;
+    return promise;
   }
 
   async fetchProject(id: string): Promise<Project | null> {
+    const scope = this.captureScope();
     if (this.inFlightProjectPromises.has(id)) {
       return this.inFlightProjectPromises.get(id)!;
     }
 
-    const promise = (async () => {
+    const promise: Promise<Project | null> = (async () => {
       try {
-        const data = await backendRequest<{ project: any }>(`/projects/${id}`);
-        return this.cacheProject(data.project);
+        const data = await this.scopedRequest<{ project: any }>(scope, `/projects/${id}`);
+        return this.cacheProject(data.project, scope);
       } catch (error: any) {
         if (error.status === 404) return null;
         throw error;
       } finally {
-        this.inFlightProjectPromises.delete(id);
+        if (this.inFlightProjectPromises.get(id) === promise) this.inFlightProjectPromises.delete(id);
       }
     })();
 
@@ -87,17 +126,19 @@ class ProjectService {
     return promise;
   }
 
-  getProjects(): Project[] { return [...this.projects]; }
-  getProject(id: string): Project | undefined { return this.projects.find((p) => p.id === id); }
-  getOutputs(projectId: string): ContentOutput[] { return this.outputs.filter((o) => o.project_id === projectId); }
-  getProfile(): CreatorProfile { return { ...this.profile }; }
+  getProjects(): Project[] { this.captureScope(); return [...this.projects]; }
+  getProject(id: string): Project | undefined { this.captureScope(); return this.projects.find((p) => p.id === id); }
+  getOutputs(projectId: string): ContentOutput[] { this.captureScope(); return this.outputs.filter((o) => o.project_id === projectId); }
+  getProfile(): CreatorProfile { this.captureScope(); return { ...this.profile }; }
   updateProfile(profile: Partial<CreatorProfile>): CreatorProfile {
+    this.captureScope();
     this.profile = { ...this.profile, ...profile };
     return this.getProfile();
   }
 
   async createProjectAsync(input: CreateProjectInput): Promise<Project> {
-    const data = await backendRequest<{ project: any }>('/projects', {
+    const scope = this.captureScope();
+    const data = await this.scopedRequest<{ project: any }>(scope, '/projects', {
       method: 'POST', body: JSON.stringify({
         id: input.id || crypto.randomUUID(),
         title: input.title,
@@ -106,7 +147,7 @@ class ProjectService {
         clip_preferences: input.clip_preferences,
       }),
     });
-    return this.cacheProject(data.project);
+    return this.cacheProject(data.project, scope);
   }
 
   async ingestProjectUrlAsync(input: {
@@ -118,7 +159,8 @@ class ProjectService {
     /** Aborts the client-side wait; the server may still finish the ingestion. */
     signal?: AbortSignal;
   }): Promise<Project> {
-    const data = await backendRequest<{ project: any }>('/projects/ingest-url', {
+    const scope = this.captureScope();
+    const data = await this.scopedRequest<{ project: any }>(scope, '/projects/ingest-url', {
       method: 'POST',
       signal: input.signal,
       body: JSON.stringify({
@@ -129,21 +171,24 @@ class ProjectService {
         clip_preferences: input.clip_preferences,
       }),
     });
-    return this.cacheProject(data.project);
+    return this.cacheProject(data.project, scope);
   }
 
   async updateProjectAsync(id: string, updates: Partial<Project>): Promise<Project | null> {
+    const scope = this.captureScope();
     const patch: Record<string, unknown> = {};
     if (updates.title !== undefined) patch.title = updates.title;
     if (updates.notes !== undefined) patch.notes = updates.notes;
     if (updates.clip_preferences !== undefined) patch.clip_preferences = updates.clip_preferences;
     if (!Object.keys(patch).length) return this.fetchProject(id);
-    const data = await backendRequest<{ project: any }>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
-    return this.cacheProject(data.project);
+    const data = await this.scopedRequest<{ project: any }>(scope, `/projects/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+    return this.cacheProject(data.project, scope);
   }
 
   async deleteProject(id: string): Promise<boolean> {
-    await backendRequest(`/projects/${id}`, { method: 'DELETE' });
+    const scope = this.captureScope();
+    await this.scopedRequest(scope, `/projects/${id}`, { method: 'DELETE' });
+    this.assertScope(scope);
     this.projects = this.projects.filter((p) => p.id !== id);
     this.outputs = this.outputs.filter((o) => o.project_id !== id);
     window.dispatchEvent(new CustomEvent('vireo_project_updated'));
@@ -159,6 +204,7 @@ class ProjectService {
   }
 
   updateOutputContent(outputId: string, content: string): boolean {
+    this.captureScope();
     const item = this.outputs.find((o) => o.id === outputId);
     if (!item) return false;
     item.content = content;
@@ -166,7 +212,9 @@ class ProjectService {
   }
 
   async startProcessing(projectId: string): Promise<{ success: boolean; message?: string }> {
-    const data = await backendRequest<{ message?: string }>(`/projects/${projectId}/process`, { method: 'POST' });
+    const scope = this.captureScope();
+    const data = await this.scopedRequest<{ message?: string }>(scope, `/projects/${projectId}/process`, { method: 'POST' });
+    this.assertScope(scope);
     const project = this.getProject(projectId);
     if (project) { project.video_status = 'processing'; project.status = 'processing'; }
     window.dispatchEvent(new CustomEvent('vireo_project_updated', { detail: { projectId } }));
@@ -175,8 +223,10 @@ class ProjectService {
   }
 
   async fetchTranscript(projectId: string): Promise<Transcript | null> {
+    const scope = this.captureScope();
     try {
-      const data = await backendRequest<{ transcript: Transcript }>(`/projects/${projectId}/transcript`);
+      const data = await this.scopedRequest<{ transcript: Transcript }>(scope, `/projects/${projectId}/transcript`);
+      this.assertScope(scope);
       return data.transcript || null;
     } catch (error: any) {
       if (error.status === 404) return null;
@@ -185,7 +235,9 @@ class ProjectService {
   }
 
   async fetchContentOutputs(projectId: string): Promise<ContentOutput[]> {
-    const data = await backendRequest<{ outputs: ContentOutput[] }>(`/projects/${projectId}/content`);
+    const scope = this.captureScope();
+    const data = await this.scopedRequest<{ outputs: ContentOutput[] }>(scope, `/projects/${projectId}/content`);
+    this.assertScope(scope);
     const outputs = data.outputs || [];
     this.outputs = this.outputs.filter((o) => o.project_id !== projectId).concat(outputs);
     return outputs;
@@ -193,11 +245,13 @@ class ProjectService {
 
   async generateContent(projectId: string, platform?: OutputPlatform, customNotes?: string,
     overrides?: GenerationOverrides): Promise<{ success: boolean; message: string; outputs: ContentOutput[] }> {
-    const data = await backendRequest<{ message?: string; outputs?: ContentOutput[] }>(`/projects/${projectId}/generate-content`, {
+    const scope = this.captureScope();
+    const data = await this.scopedRequest<{ message?: string; outputs?: ContentOutput[] }>(scope, `/projects/${projectId}/generate-content`, {
       method: 'POST', body: JSON.stringify({ platform, customNotes,
         overrideTone: overrides?.overrideTone, overrideLanguage: overrides?.overrideLanguage,
         overrideCTA: overrides?.overrideCTA }),
     });
+    this.assertScope(scope);
     const outputs = data.outputs || [];
     if (platform) this.outputs = this.outputs.filter((o) => !(o.project_id === projectId && o.platform === platform))
       .concat(outputs.filter((o) => o.platform === platform));
@@ -207,9 +261,11 @@ class ProjectService {
   }
 
   async updateOutputContentAsync(outputId: string, projectId: string, content: string): Promise<boolean> {
-    await backendRequest(`/projects/${projectId}/content/${outputId}`, {
+    const scope = this.captureScope();
+    await this.scopedRequest(scope, `/projects/${projectId}/content/${outputId}`, {
       method: 'PATCH', body: JSON.stringify({ content }),
     });
+    this.assertScope(scope);
     this.updateOutputContent(outputId, content);
     return true;
   }
