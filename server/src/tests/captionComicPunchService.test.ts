@@ -6,7 +6,7 @@ test('actual CaptionService emits phrase Comic Punch with real timing, two lines
  const words='These 15 bombs'.split(' ').map((text,i)=>({text,start:Number((i*.6).toFixed(3)),end:Number(((i+1)*.6).toFixed(3))}));
  const cue={id:'phrase',start:0,end:2.4,text:words.map(w=>w.text).join(' '),words,position_x:.4,position_y:.62,position_anchor:'center'};
  const override={id:'other',start:2.4,end:3,text:'Other',words:[{text:'Other',start:2.4,end:3}],presetOverride:'soft_build'};
- (dataRepository as any).from=(table:string)=>{const q:any={select:()=>q,eq:()=>q,maybeSingle:async()=>({data:table==='editor_projects'?{canvas:{aspect_ratio:'9:16'},tracks:[{type:'CAPTION',items:[{timeline_start:0,timeline_end:3,caption:{style:'vireo_comic_punch',cues:[cue,override]}}]}]}:null,error:null})};return q;};
+ (dataRepository as any).from=(table:string)=>{const q:any={select:()=>q,eq:()=>q,maybeSingle:async()=>({data:table==='editor_projects'?{clip_id:'test',user_id:'u',canvas:{aspect_ratio:'9:16'},tracks:[{type:'CAPTION',items:[{timeline_start:0,timeline_end:3,caption:{style:'vireo_comic_punch',cues:[cue,override]}}]}]}:null,error:null})};return q;};
  try{
   const clip:any={id:'test',user_id:'u',project_id:'p',start_seconds:0,end_seconds:3,caption_style:'vireo_comic_punch',caption_position:'bottom',caption_config:{}};
   const result=await CaptionService.generateCaptionsForClip({clip,targetAspectRatio:'9:16'});
@@ -15,4 +15,11 @@ test('actual CaptionService emits phrase Comic Punch with real timing, two lines
   assert.equal(result.cues[1].presetOverride,'soft_build');assert.equal(result.cues[1].text,'Other');
   assert.match(result.assContent,/Style: Default,Komika Axis,125/);assert.match(result.assContent,/\\org\(\d+\.\d+,1190.400\)/);assert.match(result.assContent,/00FFF5/);assert.match(result.assContent,/35FF20/);
  }finally{dataRepository.from=original;}
+});
+
+test('saved editor identity remains required before caption rendering',async()=>{
+ const clip:any={id:'test',user_id:'u',project_id:'p',start_seconds:0,end_seconds:3,caption_style:'vireo_comic_punch',caption_config:{}};
+ for(const identity of [{},{clip_id:'test',user_id:'other'},{clip_id:'other',user_id:'u'}]){
+  await assert.rejects(CaptionService.generateCaptionsForClip({clip,editorProjectSnapshot:{...identity,canvas:{aspect_ratio:'9:16'},tracks:[]}}),{code:'CAPTION_SOURCE_MISMATCH'});
+ }
 });
