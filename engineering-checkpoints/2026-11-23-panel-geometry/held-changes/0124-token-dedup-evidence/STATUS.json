@@ -1,0 +1,29 @@
+{
+  "status": "HELD_NOT_NATIVE_QUALIFIED_NOT_ACTIVE_RUNTIME",
+  "scope": "Token fallback preserves distinct explicit numeral or English negation evidence before suppressing a candidate. Active runtime is unchanged.",
+  "tests": {
+    "targeted": {
+      "checks": 66,
+      "baselineOppositeAdviceSurvivors": 1,
+      "candidateOppositeAdviceSurvivors": 2,
+      "baselineDifferentQuantitySurvivors": 1,
+      "candidateDifferentQuantitySurvivors": 2,
+      "strictDiagnostics": 0,
+      "scope": "synthetic contrasting text through actual frozen module and candidate, not fresh generated clips"
+    },
+    "existingB2B4UnicodeWiring": {
+      "pass": 17,
+      "fail": 0
+    }
+  },
+  "limits": "Synthetic baseline reproduction plus pure ordered-selection checks only. No fresh generated output. Does not understand arbitrary contradictions, role swaps, non-English negation or word-number quantities. Embedding-auto behavior unchanged.",
+  "files": [
+    {
+      "path": "server/src/utils/semanticDedup.ts",
+      "beforeSha256": "396e42a0ea729045eab19bd6701235c5fe56c802b6e0b9ecb490e404202cdf20",
+      "sha256": "28c5cce578df291a63075190be4cf31b45c3e0143adc45ca0dfb0b04f575c225",
+      "bytes": 5749
+    }
+  ],
+  "releaseGate": "No publish until approval and slice verification."
+}
