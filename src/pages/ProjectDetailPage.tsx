@@ -1,6 +1,6 @@
-import { projectClippingFailure, transcriptReviewRequired } from '../lib/clippingRecovery';
+import { projectTranscriptReviewRequired } from '../lib/clippingRecovery';
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { BTN_PILL_BRAND_SOFT } from '../lib/buttonStyles';
 import {
   AlertCircle,
@@ -101,6 +101,8 @@ const TABS: TabConfig[] = [
 
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const reviewOnly = searchParams.get('review') === 'transcript';
   const { creatorProfile } = useAuth();
   const [project, setProject] = useState<Project | undefined>(() =>
     id ? projectService.getProject(id) : undefined
@@ -197,7 +199,7 @@ export const ProjectDetailPage: React.FC = () => {
       } catch {
         // Outputs stay at their cached/empty state.
       }
-    } else if (p && transcriptReviewRequired(projectClippingFailure(p))) {
+    } else if (p && projectTranscriptReviewRequired(p, reviewOnly)) {
       // Reading flagged text does not approve it or bypass the export gate.
       setTranscript(await projectService.fetchTranscript(id));
     } else {
@@ -217,13 +219,13 @@ export const ProjectDetailPage: React.FC = () => {
     return () => {
       window.removeEventListener('vireo_project_updated', handleUpdate);
     };
-  }, [id]);
+  }, [id, reviewOnly]);
 
   const hasAttemptedAutoStart = useRef(false);
 
   // Auto-start processing once when newly uploaded
   useEffect(() => {
-    if (!project || !id || hasAttemptedAutoStart.current) return;
+    if (!project || !id || hasAttemptedAutoStart.current || projectTranscriptReviewRequired(project, reviewOnly)) return;
     const currentStatus = project.video_status || project.status;
     if (currentStatus === 'uploaded' && project.source_url) {
       hasAttemptedAutoStart.current = true;
@@ -242,7 +244,7 @@ export const ProjectDetailPage: React.FC = () => {
         console.warn('Auto-start processing notice:', err.message);
       });
     }
-  }, [id, project?.video_status, project?.status, project?.source_url]);
+  }, [id, project?.video_status, project?.status, project?.source_url, project?.error_code, project?.transcript_quality_status, reviewOnly]);
 
   // Polling loop while processing or transcribing or generating
   useEffect(() => {
@@ -260,7 +262,7 @@ export const ProjectDetailPage: React.FC = () => {
   }, [id, project?.video_status, project?.status]);
 
   const handleRetryProcessing = async () => {
-    if (!id || (project && transcriptReviewRequired(projectClippingFailure(project)))) return;
+    if (!id || projectTranscriptReviewRequired(project, reviewOnly)) return;
     setIsRetrying(true);
     setActionError(null);
     setQuotaError(null);
@@ -309,7 +311,7 @@ export const ProjectDetailPage: React.FC = () => {
   const isUrl = project.source_type === 'url';
   const statusVal = project.video_status || project.status;
   const isUploaded = statusVal === 'uploaded';
-  const transcriptNeedsReview = transcriptReviewRequired(projectClippingFailure(project));
+  const transcriptNeedsReview = projectTranscriptReviewRequired(project, reviewOnly);
   const hasOutputs = outputs && outputs.length > 0;
 
 

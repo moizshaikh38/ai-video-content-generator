@@ -2306,7 +2306,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           <div className="pt-2 flex flex-wrap items-center gap-3">
             {activeProjectId&&(creationRecoveryTarget||candidates.length>0||renderedClips.length>0)&&<button type="button" onClick={()=>setWorkflowState('clips_ready')} className="px-4 py-2 rounded-full border border-white/20 text-xs">Back to saved clips</button>}
             {needsTranscriptReview && activeProjectId && <button type="button"
-              onClick={() => navigate(`/projects/${encodeURIComponent(activeProjectId)}`)}
+              onClick={() => navigate(`/projects/${encodeURIComponent(activeProjectId)}?review=transcript`)}
               className={`px-5 py-2.5 text-xs font-semibold cursor-pointer ${BTN_PILL_BRAND}`}>
               Open Project for Review
             </button>}
