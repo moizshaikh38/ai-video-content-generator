@@ -131,94 +131,107 @@ interface CarouselVideoProps {
   shouldPlay: boolean;
   className?: string;
   style?: React.CSSProperties;
+  allowManualRecovery?: boolean;
 }
 
 const CarouselVideo: React.FC<CarouselVideoProps> = React.memo(({
-  src,
-  poster,
-  pos = '50% 50%',
-  origin,
-  zoom = 1,
-  shouldLoad,
-  shouldPlay,
-  className = 'vf',
-  style,
+  src, poster, pos = '50% 50%', origin, zoom = 1,
+  shouldLoad, shouldPlay, className = 'vf', style, allowManualRecovery = false,
 }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [playbackBlocked, setPlaybackBlocked] = useState(false);
 
-  useEffect(() => {
-    if (!shouldLoad) setPlaying(false);
-  }, [shouldLoad]);
+  const setVideoRef = useCallback((v: HTMLVideoElement | null) => {
+    videoRef.current = v;
+    if (!v) return;
+    // Set both DOM state and the content attributes before the first play request.
+    v.muted = true;
+    v.defaultMuted = true;
+    v.setAttribute('muted', '');
+    v.playsInline = true;
+    v.setAttribute('playsinline', '');
+  }, []);
 
   useEffect(() => {
     const v = videoRef.current;
-    if (!v) return;
-
-    if (!shouldLoad) {
+    setPlaybackBlocked(false);
+    if (!v) { setPlaying(false); return; }
+    let cancelled = false;
+    let attempted = false;
+    let inFlight = false;
+    const tryPlay = () => {
+      if (cancelled || !shouldLoad || !shouldPlay || document.hidden ||
+          window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+          v.readyState < 2 || attempted || inFlight) return;
+      attempted = true;
+      inFlight = true;
+      v.muted = true;
+      const request = v.play();
+      if (request && request.catch) {
+        request.catch((error: DOMException) => {
+          if (!cancelled && error?.name !== 'AbortError') {
+            setPlaying(false);
+            if (allowManualRecovery) setPlaybackBlocked(true);
+          }
+        }).finally(() => { inFlight = false; });
+      } else { inFlight = false; }
+    };
+    const visibilityChanged = () => {
+      if (document.hidden) v.pause();
+      else { attempted = false; tryPlay(); }
+    };
+    if (!shouldLoad || !shouldPlay) {
       v.pause();
-      v.removeAttribute('src');
-      v.load();
-      return;
-    }
-
-    if (shouldPlay) {
-      const p = v.play();
-      if (p && p.catch) p.catch(() => {});
+      setPlaying(false);
     } else {
-      v.pause();
+      v.addEventListener('loadeddata', tryPlay);
+      v.addEventListener('canplay', tryPlay);
+      v.addEventListener('vireo:request-play', tryPlay);
+      document.addEventListener('visibilitychange', visibilityChanged);
+      tryPlay();
     }
-  }, [shouldLoad, shouldPlay, src]);
+    return () => {
+      cancelled = true;
+      v.removeEventListener('loadeddata', tryPlay);
+      v.removeEventListener('canplay', tryPlay);
+      v.removeEventListener('vireo:request-play', tryPlay);
+      document.removeEventListener('visibilitychange', visibilityChanged);
+    };
+  }, [shouldLoad, shouldPlay, src, allowManualRecovery]);
 
   const handleLoadedData = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
     const v = e.currentTarget;
     if (v.paused && v.currentTime === 0) {
-      try {
-        v.currentTime = 0.05;
-      } catch {}
+      try { v.currentTime = 0.05; } catch {}
     }
   }, []);
 
-  const transformOrigin = origin || pos;
+  const playFromGesture = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    const v = videoRef.current;
+    if (!v || !shouldPlay || document.hidden ||
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    v.muted = true;
+    v.play().then(() => setPlaybackBlocked(false)).catch(() => setPlaybackBlocked(true));
+  }, [shouldPlay]);
 
-  // The poster is ALWAYS rendered as its own layer, independent of video
-  // mount/decode/autoplay state: an unmounted video (shouldLoad false), a
-  // suspended mobile/in-app autoplay, or a decode failure previously left a
-  // bare dark tile. It fades out once the video is actually playing.
   return (
     <>
-      {poster ? (
-        <img
-          className={`vfp${playing ? ' vfp-off' : ''}`}
-          src={poster}
-          alt=""
-          aria-hidden="true"
-          style={{ objectPosition: pos }}
-        />
-      ) : null}
-      {shouldLoad ? (
-        <video
-          ref={videoRef}
-          className={className}
-          src={src}
-          poster={poster}
-          muted
-          loop
-          playsInline
-          preload={shouldPlay ? 'auto' : 'metadata'}
-          aria-hidden="true"
-          onLoadedData={handleLoadedData}
-          onPlaying={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
-          onStalled={() => setPlaying(false)}
-          onError={() => setPlaying(false)}
-          style={{
-            objectPosition: pos,
-            transformOrigin,
-            transform: zoom !== 1 ? `scale(${zoom})` : undefined,
-            ...style,
-          }}
-        />
+      {poster ? <img className={`vfp${playing ? ' vfp-off' : ''}`} src={poster}
+        alt="" aria-hidden="true" style={{ objectPosition: pos }} /> : null}
+      {shouldLoad ? <video ref={setVideoRef} className={className} src={src} poster={poster}
+        muted loop playsInline preload={shouldPlay ? 'auto' : 'metadata'} aria-hidden="true"
+        data-managed-playback="true" onLoadedData={handleLoadedData}
+        onPlaying={() => { setPlaying(true); setPlaybackBlocked(false); }}
+        onPause={() => setPlaying(false)} onStalled={() => setPlaying(false)}
+        onError={() => setPlaying(false)} style={{ objectPosition: pos,
+          transformOrigin: origin || pos, transform: zoom !== 1 ? `scale(${zoom})` : undefined, ...style }} /> : null}
+      {allowManualRecovery && playbackBlocked && shouldPlay ? (
+        <button type="button" className="mini-preview-play" onClick={playFromGesture}
+          aria-label="Play clip preview" title="Tap to play preview">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M6 3.5v13l10-6.5z" /></svg>
+        </button>
       ) : null}
     </>
   );
@@ -306,6 +319,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
   const isHeldRef = useRef<boolean>(false);
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const waitlistMode = import.meta.env.VITE_WAITLIST_ENABLED === 'true';
 
   useCinematicScrollReveal(containerRef, { threshold: 0.05 });
 
@@ -444,8 +458,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
         const vids = sNode.querySelectorAll<HTMLVideoElement>('video.vf');
         vids.forEach((v) => {
           if (sIdx === activeIdx && !reduce && !hidden && inView) {
-            const p = v.play();
-            if (p && p.catch) p.catch(() => {});
+            v.dispatchEvent(new Event('vireo:request-play'));
           } else {
             v.pause();
           }
@@ -825,6 +838,13 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
       return;
     }
 
+    if (waitlistMode && !isAuthenticated) {
+      setAuthPrompt(false);
+      setErrorMsg('');
+      document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
     const isYouTube = /(?:youtube\.com\/(?:watch\?|shorts\/|embed\/)|youtu\.be\/)/i.test(trimmed);
     const isDirectVideo = /\.(mp4|webm|mov|mkv)(?:\?.*)?$/i.test(parsed.pathname);
 
@@ -1171,6 +1191,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
                                     poster={clipPoster}
                                     shouldLoad={s0.shouldLoad}
                                     shouldPlay={s0.shouldPlay}
+                                    allowManualRecovery
                                   />
                                   <i className="p" aria-hidden="true" />
                                   {clip.isReal && clip.score > 0 ? <em /> : null}
