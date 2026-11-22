@@ -1,0 +1,25 @@
+{
+  "status": "HELD_NOT_NATIVE_QUALIFIED_NOT_ACTIVE_RUNTIME",
+  "scope": "Invalidate an open crop edit on observed source, scene or output context changes. The qualified runtime remains unchanged.",
+  "tests": {
+    "status": "PASS",
+    "checks": 117,
+    "scope": "Whole actual CropBoxControl transpiled with an in-memory React hook harness and actual crop math. Unchanged-context Fit/Fill, invalidation before effects, latched invalidation, source/time/dimensions/aspect/current/item/scene/output changes, close/reopen and late Apply guard. Not browser interaction or render/export qualification."
+  },
+  "limits": "Native UI, pause/time-update behavior, output/scene changes, reopen shape and ordinary Apply/Save remain unqualified. Not a backend concurrency protocol.",
+  "files": [
+    {
+      "path": "src/components/editor/CropBoxControl.tsx",
+      "beforeSha256": "6c6da08220ca4f58e0864c71f9e487f059ad98979908381e115290b4b9922436",
+      "sha256": "0ff042822131746f78aff30f0a43b00d2d60075820638bb9ceda2a7fc383919c",
+      "bytes": 10095
+    },
+    {
+      "path": "src/components/editor/PreviewCanvas.tsx",
+      "beforeSha256": "3c80c0f37c45067311dcb4a9e4b826f933d0765f014e38a43b56a304ccb463c2",
+      "sha256": "f89318ec981d1c37cb337066e81c581936aea888c922eb2ff279c8af5a42daeb",
+      "bytes": 143948
+    }
+  ],
+  "releaseGate": "No publish until approval and slice verification."
+}
