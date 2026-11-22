@@ -1,3 +1,4 @@
+import{cacheBuiltinSoundEffect}from'./builtinSoundEffectAssetService.js';
 import {readEditorAndFreezePendingHook} from '../db/repositories/pendingHookInitializationRepository.js';
 import {automaticFitFocusY} from '../shared/automaticFitGeometry.js';
 import {placeFreshHookInUpperBand,type FreshHookBandReview} from '../shared/freshHookPictureBand.js';
@@ -823,6 +824,8 @@ export class ProEditorService {
       if (!rawPath) continue;
       const bundledEmoji=cacheBundledCaptionEmoji(rawPath,tmpDir);
       if(bundledEmoji){item.source_path=bundledEmoji;continue;}
+      const builtinSound=cacheBuiltinSoundEffect(rawPath,tmpDir);
+      if(builtinSound){item.source_path=builtinSound;continue;}
 
       // Defense in depth: items persisted before source-path validation existed
       // must not be fetched server-side. Disallowed sources are skipped.
