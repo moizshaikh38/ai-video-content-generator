@@ -1,0 +1,42 @@
+{
+  "status": "PRIVATE_RUNTIME_SOURCE_INTEGRATED_NOT_RELEASED",
+  "createdAt": "2026-11-22T19:40:22.501690+00:00",
+  "parent": "1f8769d9bf0f0025516a6d07552a934e80fe5a29",
+  "scope": "Measured Gameplay seams, automatic two-line house Comic only: first-line seam retained, additional line grows down. Explicit/manual positions and saved tracks remain unchanged. No new producer/model/default activation.",
+  "qualification": "Retained-source local native automatic panel edit/Save/reload/720p export/download and Auto release passed. One-line decoded frame unchanged, two multiline cues improve in inspected pixels. Separate explicit-manual baseline and candidate native exports are byte-identical and all360 decoded video frames match. Newly composed remote branch has not had a new native run or clean full build.",
+  "checks": {
+    "placementWrapFinalizerAssAssertions": 112,
+    "normalRegressions": 350,
+    "overlayBaseline": 332,
+    "overlayCandidate": 331,
+    "missingExactDependencies": 8
+  },
+  "limits": [
+    "Legacy title still overlaps camera face. Some caption ink grazes seam; not global collision/HUD acceptance.",
+    "Single retained GTA source, house Comic and720p native output; fresh sources/detectors, broader styles and high-tier native outputs unqualified.",
+    "First interaction stall and extra manual reload timeout unexplained; successful reruns are not fixes.",
+    "Early manual preview labels were not actual times. Later corrected preview-only check used then-current Fill state, not another export pair.",
+    "Crop-context0045/0055 remain held. Diagnostic0106 is not product source."
+  ],
+  "manualExportSha256": "38d8ce3fc3109c9744d2481683a66333e5975d5430483f6ed48ba257e2a5a1de",
+  "automaticExportSha256": "45ede3c0454647ab514b9dcd0b68dd8890a4578a637c01ab0be14dd643d522a8",
+  "releaseGate": "No publish until approval and slice verification. Main and production unchanged.",
+  "files": [
+    {
+      "path": "server/src/shared/sceneCaptionPlacement.ts",
+      "beforeSha256": "b397036651868f248c67e391b1d5eb3f880b089698e232f88a79a5202d1a2702",
+      "sha256": "f72f091a04661a7b9933ccf3de073a4f98076d8b9dc83747e01c3c4e57d9e237",
+      "gitBlob": "359a8a5c38a59c4493adc1afbfbb95f14ec67b81"
+    }
+  ],
+  "verifiedUnchangedConsumers": [
+    {
+      "path": "src/components/editor/PreviewCanvas.tsx",
+      "sha256": "3c80c0f37c45067311dcb4a9e4b826f933d0765f014e38a43b56a304ccb463c2"
+    },
+    {
+      "path": "server/src/services/captionService.ts",
+      "sha256": "87847fc7a4625c9ff29a1b0b9db012ccec17467ac6ad678f0ab0c86047e7f562"
+    }
+  ]
+}
