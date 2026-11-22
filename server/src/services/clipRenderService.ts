@@ -902,7 +902,7 @@ export class ClipRenderService {
             sourceWidth: reframeDecision.track?.source_width ?? proBlurSourceWidth,
             sourceHeight: reframeDecision.track?.source_height ?? proBlurSourceHeight,
             sceneLayoutFallback: reframeDecision.layoutMode,
-            automaticSceneWindows: editorProject ? ProEditorService.captionSceneWindows(editorProject,{mode:reframeDecision.mode,layoutMode:reframeDecision.layoutMode,track:reframeDecision.track,clipStartSec:startSec,cropConfig:clip.crop_config,aspectRatio:clip.aspect_ratio,sourceSha256,sourceAssetId:clip.id,sourceStoragePath:clip.source_storage_path,decodedSource:srcDims}) : (reframeDecision.metadata as any)?.caption_windows,
+            automaticSceneWindows: editorProject ? ProEditorService.captionSceneWindows(editorProject,{mode:reframeDecision.mode,layoutMode:reframeDecision.layoutMode,track:reframeDecision.track,clipStartSec:startSec,cropConfig:clip.crop_config,aspectRatio:clip.aspect_ratio,sourceSha256,sourceAssetId:clip.id,sourceStoragePath:clip.source_storage_path,decodedSource:srcDims,canvasScale}) : (reframeDecision.metadata as any)?.caption_windows,
             speakerSplit,
           });
 
@@ -1622,10 +1622,10 @@ export class ClipRenderService {
           return { cropFilter: centerCrop(), mode: 'fallback_center', metadata: { reason: 'stale_track', detected_face_count: track.detected_face_count || 0 }, layoutMode: 'track', track };
         }
 
-        const explicitAuto=SmartReframeService.explicitAutoLayoutPlan(track,clip.crop_config,durationSec);
-        if(nonPortraitAutoFullSourceFit(explicitAuto,clip.aspect_ratio))return {cropFilter:buildBackdropFitChain(clip.aspect_ratio,1,{kind:'blur'},'autoWhole',canvasScale),mode:'smart',layoutMode:'track',metadata:{reason:'automatic_full_source_fit',caption_windows:quickCaptionWindows(explicitAuto!,durationSec,track.source_width||1920,track.source_height||1080,clip.aspect_ratio)},track};
+        const explicitAuto=SmartReframeService.explicitAutoLayoutPlan(track,clip.crop_config,durationSec,clip.aspect_ratio);
+        if(nonPortraitAutoFullSourceFit(explicitAuto,clip.aspect_ratio))return {cropFilter:buildBackdropFitChain(clip.aspect_ratio,1,{kind:'blur'},'autoWhole',canvasScale),mode:'smart',layoutMode:'track',metadata:{reason:'automatic_full_source_fit',caption_windows:quickCaptionWindows(explicitAuto!,durationSec,track.source_width||1920,track.source_height||1080,clip.aspect_ratio,canvasDims(clip.aspect_ratio,canvasScale))},track};
         const legacyFit=explicitAuto||(clip.crop_config?.layout_mode_source!=='user'?legacyFit43Plan(track,durationSec,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)):undefined);
-        if(legacyFit&&(clip.aspect_ratio||'9:16')==='9:16')return {cropFilter:SmartReframeService.buildShotCompositionFilter({plan:legacyFit,duration:durationSec,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,canvasScale}),mode:'smart',layoutMode:'track',metadata:{reason:explicitAuto?'automatic_layout_plan':'legacy_fit_43_review',caption_windows:quickCaptionWindows(legacyFit,durationSec,track.source_width||1920,track.source_height||1080)},track};
+        if(legacyFit&&(clip.aspect_ratio||'9:16')==='9:16')return {cropFilter:SmartReframeService.buildShotCompositionFilter({plan:legacyFit,duration:durationSec,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,canvasScale}),mode:'smart',layoutMode:'track',metadata:{reason:explicitAuto?'automatic_layout_plan':'legacy_fit_43_review',caption_windows:quickCaptionWindows(legacyFit,durationSec,track.source_width||1920,track.source_height||1080,'9:16',canvasDims('9:16',canvasScale))},track};
         const legacyFallback=clip.crop_config?.layout_mode_source!=='user'?legacyPolicyFallback(clip.crop_config?.layoutPolicy,track,durationSec):undefined;
         if(legacyFallback)return {cropFilter:buildBackdropFitChain(clip.aspect_ratio as ClipAspectRatio,1,{kind:'blur',bandAspect:4/3},'legacyPolicy',canvasScale),mode:'smart',layoutMode:'blur',metadata:{reason:'layout_policy_review_fit'},track};
         if ((track.detected_face_count || 0) === 0 || !track.dominant_track_id) {
@@ -2226,6 +2226,11 @@ export class ClipRenderService {
       // here would wipe the stored layout on every unrelated editor save.
       const validLayouts = ['track', 'split', 'screencast', 'blur'] as const;
       const incomingLayout = (update.cropConfig as any).layout_mode;
+      const incomingLayoutSource = (update.cropConfig as any).layout_mode_source;
+      const recordedLayoutSource = ['auto', 'genre_recommendation', 'user', 'legacy_unknown'].includes(incomingLayoutSource)
+        ? incomingLayoutSource
+        : undefined;
+      const hasIncomingLayout = Boolean(incomingLayout && (validLayouts as readonly string[]).includes(incomingLayout));
       const clampSpeakerX = (v: unknown): number | undefined => {
         const n = Number(v);
         return Number.isFinite(n) ? Math.min(0.9, Math.max(0.1, n)) : undefined;
@@ -2241,10 +2246,11 @@ export class ClipRenderService {
           trackId: update.cropConfig.smart.trackId ? String(update.cropConfig.smart.trackId) : undefined,
           strength: Math.min(1.0, Math.max(0.0, Number(update.cropConfig.smart.strength ?? 1.0))),
         } : undefined,
-        // An explicit layout in the update is a user panel pick; stamp provenance.
-        ...(incomingLayout && (validLayouts as readonly string[]).includes(incomingLayout)
-          ? { layout_mode: incomingLayout, layout_mode_source: 'user' as const }
-          : {}),
+        // Studio saves serialize automatic defaults too. Honor their recorded
+        // ownership; retain the legacy layout-only API's manual-pick default.
+        ...(hasIncomingLayout
+          ? { layout_mode: incomingLayout, layout_mode_source: recordedLayoutSource ?? 'user' as const }
+          : recordedLayoutSource === 'auto' ? { layout_mode_source: 'auto' as const } : {}),
         ...(incomingSplit
           ? {
               split: {
@@ -2269,6 +2275,13 @@ export class ClipRenderService {
             }
           : {}),
       };
+      // The explicit Auto action removes the item's manual layout geometry.
+      // Mirror that release instead of retaining the clip's previous manual pick.
+      if (recordedLayoutSource === 'auto' && !hasIncomingLayout) {
+        delete safeCrop.layout_mode;
+        delete safeCrop.split;
+        delete safeCrop.screencast;
+      }
     }
 
 

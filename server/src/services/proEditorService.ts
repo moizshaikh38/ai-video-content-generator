@@ -1,3 +1,4 @@
+import {splitReviewItemCropConfig} from '../shared/automaticSplitEvidence.js';
 import{cacheBuiltinSoundEffect}from'./builtinSoundEffectAssetService.js';
 import {readEditorAndFreezePendingHook} from '../db/repositories/pendingHookInitializationRepository.js';
 import {automaticFitFocusY} from '../shared/automaticFitGeometry.js';
@@ -23,7 +24,7 @@ import {validateAutomaticLayoutCropConfig} from '../shared/automaticLayoutValida
 import {normalizeEditorCanvasAspect} from '../shared/editorCanvasAspect.js';
 import {candidateCompositionOptions} from '../shared/automaticLayoutCandidate.js';
 import {newSpeechEdgeFades,dialogueProgramFades} from '../shared/dialogueEdgeFades.js';
-import {captionCompositionWindows,type CaptionLayoutWindow} from '../shared/sceneCaptionPlacement.js';
+import {captionCompositionWindows,captionPersistedPanelWindows,type CaptionLayoutWindow} from '../shared/sceneCaptionPlacement.js';
 import {trackerHandoffSpec,buildTrackerHandoffFilter} from '../shared/trackerHandoff.js';
 import {legacyFit43Plan,legacyPolicyFallback} from '../shared/automaticLayoutPolicy.js';
 import {expandSceneLayoutProject,validateSceneLayoutOverrides} from '../shared/sceneLayoutOverrides.js';
@@ -918,7 +919,8 @@ export class ProEditorService {
       const dims = canvasDims(ratio, cs);
       const bd = {w:dims.width,h:dims.height};
       const tag = 'vcp'+crypto.createHash('sha256').update(String(item.id||'x')).digest('hex').slice(0,12);
-      return buildPanelsFilter(panelCfg, bd.w, bd.h, tag);
+      if(panelCfg.slots.some(slot=>slot.sourceRect)&&!reframe?.decodedSource)throw new AppError('Panel source dimensions need review',409,'PANEL_SOURCE_REVIEW_REQUIRED');
+      return buildPanelsFilter(panelCfg, bd.w, bd.h, tag,reframe?.decodedSource??undefined);
     }
 
     // Per-item manual crop override wins over clip-level reframing.
@@ -1007,7 +1009,7 @@ export class ProEditorService {
       // "Too many inputs specified for the split filter" (editor split exports
       // failed permanently until this).
       const layoutTag = 'vc' + crypto.createHash('sha256').update(String(item.id || 'x')).digest('hex').slice(0, 16);
-      const explicitAuto=SmartReframeService.explicitAutoLayoutPlan(track,itemCfg,Number(track.metadata?.clip_duration)||sliceDuration);
+      const explicitAuto=SmartReframeService.explicitAutoLayoutPlan(track,splitReviewItemCropConfig(item,reframe?.sourceStoragePath||track.metadata?.analyzed_source_path,{start:reframe?.clipStartSec||0,end:(reframe?.clipStartSec||0)+(Number(track.metadata?.clip_duration)||sliceDuration)}),Number(track.metadata?.clip_duration)||sliceDuration,ratio);
       if(nonPortraitAutoFullSourceFit(explicitAuto,ratio))return buildBackdropFitChain(ratio,1,{kind:'blur'},layoutTag,cs);
       const legacyFit=explicitAuto||(!userItemLayout?legacyFit43Plan(track,Number(track.metadata?.clip_duration)||sliceDuration,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)):undefined);
       if(legacyFit&&ratio==='9:16')return SmartReframeService.buildShotCompositionFilter({plan:freezeAutomaticPlan(legacyFit,item.automatic_framing,reframe?.clipStartSec||0),start:sliceWindowStartClipRel,duration:sliceDuration,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080,tag:layoutTag,canvasScale:cs});
@@ -1293,6 +1295,10 @@ export class ProEditorService {
   /** Bounded adaptive scene contract: same measured shot plan as picture export.
    * Legacy fallback remains unchanged; no claim of a full legacy-layout rewrite. */
   public static captionSceneWindows(project:EditorProject,reframe:ProReframeContext):CaptionLayoutWindow[]{
+    const physicalOutput=canvasDims(project.canvas.aspect_ratio,reframe.canvasScale??1);
+    const source=reframe.decodedSource;
+    const persisted=source?captionPersistedPanelWindows(project,source.width,source.height,physicalOutput):[];
+    const automatic=()=>{
     const track=reframe.track;
     if(reframe.mode!=='smart'||!track||track.isStale||!track.smoothed_keyframes?.length)return [];
     const expanded=expandSceneLayoutProject(project);
@@ -1302,15 +1308,17 @@ export class ProEditorService {
       // Match ordinary Auto picture export before the experimental-plan gate.
       // captionCompositionWindows owns manual crop/panel/tracker precedence.
       const duration=Number(track.metadata?.clip_duration)||project.canvas.duration;
-      const ordinary=SmartReframeService.explicitAutoLayoutPlan(track,item.crop_config,duration)||
+      const ordinary=SmartReframeService.explicitAutoLayoutPlan(track,splitReviewItemCropConfig(item,reframe.sourceStoragePath||track.metadata?.analyzed_source_path,{start:reframe.clipStartSec||0,end:(reframe.clipStartSec||0)+duration}),duration,project.canvas.aspect_ratio)||
         (item.crop_config?.layout_mode_source!=='user'?legacyFit43Plan(track,duration,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)):undefined);
       if(project.canvas.aspect_ratio!=='9:16'&&!nonPortraitAutoFullSourceFit(ordinary,project.canvas.aspect_ratio))return [];
-      if(ordinary)return captionCompositionWindows(one,ordinary,reframe.clipStartSec||0,track.source_width||1920,track.source_height||1080);
+      if(ordinary)return captionCompositionWindows(one,ordinary,reframe.clipStartSec||0,track.source_width||1920,track.source_height||1080,physicalOutput);
       if(track.metadata?.shot_composition_candidate!==true)return [];
       const layout=item.crop_config?.layout_mode_source==='user'?item.layout_mode:reframe.layoutMode;
       if(['blur','split','screencast'].includes(layout||''))return [];
-      return captionCompositionWindows(one,ProEditorService.resolveShotCompositionPlan(item,reframe),reframe.clipStartSec||0,track.source_width||1920,track.source_height||1080);
+      return captionCompositionWindows(one,ProEditorService.resolveShotCompositionPlan(item,reframe),reframe.clipStartSec||0,track.source_width||1920,track.source_height||1080,physicalOutput);
     });
+    };
+    return [...persisted,...automatic()];
   }
 
   public static prepareTrackerHandoffs(project:EditorProject,reframe?:{track?:any;clipStartSec?:number;cropConfig?:any}):EditorProject{
@@ -2292,7 +2300,7 @@ export class ProEditorService {
     if(clip?.crop_config?.mode!=='smart'||clip?.crop_config?.layout_mode_source!=='auto')return unavailable('Only a new explicit Auto smart layout is eligible.');
     if(typeof sha!=='string'||!/^[a-f0-9]{64}$/.test(sha)||!track||track.status!=='ready'||track.isStale||track.sourceObjectVerified!==true||reframeTrackFreshness(clip,track,sha).isStale)return unavailable('A current independently verified source framing track is required.');
     const duration=Number(clip.end_seconds)-Number(clip.start_seconds)-Number(clip.trim_start_offset||0)-Number(clip.trim_end_offset||0);
-    const plan=SmartReframeService.explicitAutoLayoutPlan(track,clip.crop_config,duration);
+    const plan=SmartReframeService.explicitAutoLayoutPlan(track,clip.crop_config,duration,clip.aspect_ratio);
     if(!Array.isArray(plan)||!plan.length||plan.some((s:any,i:number)=>s.kind!=='fit'||s.split||s.windowW!==1||s.windowH!==1||!s.keyframes?.length||s.keyframes.some((k:any)=>k.centerX!==.5||k.centerY!==.5)||Math.abs(s.start-(i?plan[i-1].end:0))>.001)||Math.abs(plan[plan.length-1].end-duration)>.001)return unavailable('Only a complete static whole-source Auto Fit supplies this placement geometry.');
     if(project.canvas.aspect_ratio!==clip.aspect_ratio||project.clip_id!==clip.id)return unavailable('The fresh canvas and clip identity must match.');
     if(project.tracks.some(t=>!['VIDEO','TEXT','CAPTION','AUDIO'].includes(t.type)&&!t.hidden&&t.items.some(i=>!i.hidden)))return unavailable('Other visual layers require a separate collision review.');

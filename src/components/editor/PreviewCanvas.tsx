@@ -1,3 +1,4 @@
+import {bareSmartSplitReviewForItem,type BareSmartSplitReview} from '../../../server/src/shared/automaticSplitEvidence';
 import{suppressStaleCaptionEmojis}from'../../../server/src/shared/sparseCaptionEmojiProject';
 import {automaticFitFocusY} from '../../../server/src/shared/automaticFitGeometry';
 import {needsAutomaticFitFallback} from '../../../server/src/shared/automaticPreviewFallback';
@@ -11,7 +12,7 @@ import { framingWindowRect, validateFramingWindow } from '../../../server/src/sh
 import { SceneLayoutMenu } from './SceneLayoutMenu';
 import { readItemLayout, type SceneLayout } from '../../lib/itemLayout';
 import { nonPortraitAutoFullSourceFit } from '../../../server/src/shared/nonPortraitAutoFit';
-import { applySceneCaptionPlacement,captionCompositionWindows,finalizeAutomaticFitCaptionGrowth } from '../../../server/src/shared/sceneCaptionPlacement';
+import { applySceneCaptionPlacement,captionPersistedPanelWindows,captionCompositionWindows,finalizeAutomaticFitCaptionGrowth } from '../../../server/src/shared/sceneCaptionPlacement';
 import {effectiveContentLayout, type ContentFramingDecision} from '../../../server/src/shared/contentFramingDecision';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
@@ -49,6 +50,7 @@ import { normalizePanels, panelSourceWindow, panelTargetRects,  PANEL_LABELS } f
 import { FIT_BAND_ASPECT, effectiveFitBand, fitBandApplies } from '../../../server/src/shared/fitBand';
 
 interface PreviewCanvasProps {
+  geometryOutputSize?:{width:number;height:number};
   contentFramingDecision?: ContentFramingDecision | null;
   project: EditorProject;
   playhead: number;
@@ -125,6 +127,7 @@ interface PreviewCanvasProps {
    * the export's buildGroupFitFilter uses): blur backdrop + the group window
    * fitted to canvas width at 42% height. Null = tight tracking preview. */
     shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';split?:{speaker1X:number;speaker2X:number;dividerX:number;focusPanels?:import('../../../server/src/shared/panelLayouts').ItemPanels};contextStatus?:string;uncertainty?:string;presentationProtection?:import('../../../server/src/shared/automaticLayoutPolicy').PresentationProtection;windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
+  bareSmartSplitReview?: BareSmartSplitReview | null;
   compositionClipStart?: number;
   autoCandidateEnabled?:boolean;
   autoCandidateMixed?:boolean;
@@ -229,6 +232,7 @@ function cssColorFilters(item?: EditorTrackItem | null): string | undefined {
 }
 
 export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
+  geometryOutputSize,
   project,
   playhead,
   isPlaying,
@@ -264,7 +268,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   watermarkRequired = false,
   groupReframe = null,
   contentFramingDecision = null,
-  shotComposition = null,
+  shotComposition: incomingShotComposition = null,
+  bareSmartSplitReview = null,
   compositionClipStart = 0,
   onSetAutomaticFraming,
   autoCandidateEnabled,
@@ -479,6 +484,9 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const [layoutAnchor, setLayoutAnchor] = React.useState<DOMRect | null>(null);
   const [mobileFramingToolsOpen, setMobileFramingToolsOpen] = useState(false);
   const baseVideoItem: EditorTrackItem | undefined = activeVideoItems[0] ?? project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
+  // Resolve the current local scene, not a saved-project map. Pending manual
+  // choices take priority immediately; the source-bound plan keeps its clock.
+  const shotComposition: PreviewCanvasProps['shotComposition'] = bareSmartSplitReviewForItem(baseVideoItem,bareSmartSplitReview,compositionClipStart) ?? incomingShotComposition;
   // The rendered export preview already contains the panels; only compose them live from the clean source.
   const videoCropLocked = Boolean(baseVideoItem?.locked || project.tracks.some(t => t.locked && t.items.some(i => i.id === baseVideoItem?.id)));
   const manualPanels = viewMode === 'export_review' && renderedPreviewUrl ? null : normalizePanels((baseVideoItem as any)?.panels);
@@ -504,7 +512,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const shotSourceTime = (baseVideoItem?.source_start || 0) + (playhead-(baseVideoItem?.timeline_start||0)) * (baseVideoItem?.speed?.speed||1);
   const shotRelativeTime = Math.max(0,shotSourceTime-compositionClipStart);
   const activePlanShot = !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && !baseVideoItem?.framing_window && !manualPanels && (baseVideoItem as any)?.crop_config?.layout_mode_source !== 'user'
-    ? effectiveShotComposition.find(s=>shotRelativeTime>=s.start&&shotRelativeTime<s.end) : undefined;
+    ? effectiveShotComposition.find(s=>shotRelativeTime>=s.start&&shotRelativeTime<s.end&&(!(s as any).requiredAspect||(s as any).requiredAspect===project.canvas.aspect_ratio)) : undefined;
   const automaticMultiPanels = activePlanShot?.split?.focusPanels && ['three','four','gameplay'].includes(activePlanShot.split.focusPanels.layout) ? activePlanShot.split.focusPanels : null;
   const activePanels = manualPanels || (viewMode === 'export_review' && renderedPreviewUrl ? null : automaticMultiPanels);
   // Framing layout pick (Framing panel): 'split' renders a two-speaker
@@ -602,11 +610,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const cues = useMemo(() => applySceneCaptionPlacement(rawCues, {
     project, sourceWidth: videoDims?.w, sourceHeight: videoDims?.h,
     fallbackLayout: primaryLayoutMode,
-    automaticWindows:captionCompositionWindows(project,nonPortraitAutoFullSourceFit(effectiveShotComposition,project.canvas.aspect_ratio)?effectiveShotComposition:(shotComposition||[]),compositionClipStart,videoDims?.w||0,videoDims?.h||0),
+    automaticWindows:[...captionPersistedPanelWindows(project,videoDims?.w||0,videoDims?.h||0,geometryOutputSize),...captionCompositionWindows(project,nonPortraitAutoFullSourceFit(effectiveShotComposition,project.canvas.aspect_ratio)?effectiveShotComposition:(shotComposition||[]),compositionClipStart,videoDims?.w||0,videoDims?.h||0,geometryOutputSize)],
     fontSize: placementStyle?.fontSize ?? captionItem?.caption?.font_size,
     maxCharsPerLine: placementStyle?.maxCharsPerLine,
     maxLines: placementStyle?.maxLines ?? captionItem?.caption?.max_lines,
-  }), [rawCues, project, videoDims, primaryLayoutMode, shotComposition, effectiveShotComposition, compositionClipStart, captionItem, placementStyle?.fontSize, placementStyle?.maxLines, placementStyle?.maxCharsPerLine]);
+  }), [rawCues, project, videoDims, geometryOutputSize, primaryLayoutMode, shotComposition, effectiveShotComposition, compositionClipStart, captionItem, placementStyle?.fontSize, placementStyle?.maxLines, placementStyle?.maxCharsPerLine]);
   // Gallery presets render through the shared preset engine (same cue grouping, timing,
   // geometry and colors as the ASS export). Legacy styles keep the overlay below.
   const captionData = captionItem?.caption;
@@ -763,9 +771,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const autoShotTime = Math.max(0,targetVideoTime-compositionClipStart);
   const activeAutomaticShot = !manualPanels && !baseVideoItem?.framing_window && !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && (primaryLayoutMode === 'track' || Boolean(activePlanShot?.split))
     ? effectiveShotComposition.find(s=>autoShotTime>=s.start&&autoShotTime<s.end) : undefined;
-  const automaticLayoutLabel = automaticPlanReviewRequired?'Auto Fit · Review':!baseVideoItem?.crop&&!activePanels&&missingAutomaticCamera ? 'Auto Fit · Review' : activeAutomaticShot && videoDims
+  const automaticLayoutLabelBase = automaticPlanReviewRequired?'Auto Fit · Review':!baseVideoItem?.crop&&!activePanels&&missingAutomaticCamera ? 'Auto Fit · Review' : activeAutomaticShot && videoDims
     ? automaticMultiPanels ? `Auto ${PANEL_LABELS[automaticMultiPanels.layout]}` : activeAutomaticShot.split ? 'Auto Split' : Math.abs(activeAutomaticShot.windowW*videoDims.w/(activeAutomaticShot.windowH!*videoDims.h)-9/16)<.01 ? 'Auto Fill' : 'Auto Fit'
     : undefined;
+  const automaticLayoutLabel = automaticLayoutLabelBase && activeAutomaticShot?.contextStatus?.startsWith('unresolved') && !automaticLayoutLabelBase.includes('Review')
+    ? `${automaticLayoutLabelBase} · Review` : automaticLayoutLabelBase;
 
   // Tracking-floor fallback (mirrors the export paths): a weak dominant track
   // with no group frame renders as the blurred fit layout, not a tight track.
@@ -1708,6 +1718,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
 
         {activePanels && activeVideoSrc && videoDims && videoDims.w > 0 ? (
           <PanelsPreview
+            outputSize={geometryOutputSize}
             src={activeVideoSrc}
             panels={activePanels}
             canvasW={parseFloat(canvasDims.width)}

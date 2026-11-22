@@ -29,6 +29,8 @@ const RESOLUTION_OPTIONS: Array<{ value: ExportResolution; title: string; hint: 
 ];
 
 interface ExportDialogProps {
+  resolution?:ExportResolution;
+  onResolutionChange?:(resolution:ExportResolution)=>void;
   hookControls?: React.ReactNode;
   isOpen: boolean;
   onClose: () => void;
@@ -54,6 +56,8 @@ interface ExportDialogProps {
 }
 
 export const ExportDialog: React.FC<ExportDialogProps> = ({
+  resolution:controlledResolution,
+  onResolutionChange,
   isOpen,
   onClose,
   clip,
@@ -73,7 +77,9 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   downloadStale = false,
   hookControls,
 }) => {
-  const [resolution, setResolution] = useState<ExportResolution>(() => initialExportResolution(clip));
+  const [localResolution, setLocalResolution] = useState<ExportResolution>(() => initialExportResolution(clip));
+  const resolution=controlledResolution??localResolution;
+  const setResolution=(value:ExportResolution)=>{setLocalResolution(value);onResolutionChange?.(value);};
   const unassignedViews = project ? unassignedPanelViews(project) : [];
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);

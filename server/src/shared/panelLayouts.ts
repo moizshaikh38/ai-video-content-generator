@@ -1,3 +1,4 @@
+import {materializeNumericPanels,numericPanelsFilter,type NumericPanelGeometry} from './numericPanelGeometry.js';
 /**
  * Multi-panel layouts. Target rectangles are normalised canvas fractions measured from ONE Opus
  * 9:16 (720x1280) manual-inspection copy (first paused scene, no gutters/insets). They are reference
@@ -10,7 +11,7 @@ export const PANEL_LAYOUTS: PanelLayout[] = ['three', 'four', 'screenshare', 'ga
 
 export interface PanelRect { x: number; y: number; w: number; h: number }
 /** `set: true` only after the user chose this panel's view (crop box) or a detector assigned it. Defaults are unassigned placeholders. */
-export interface PanelSlot { /** Show the entire chosen region with black bars, ignoring cover zoom/focus. Manual opt-in only. */ fit?: 'contain'; focusX: number; focusY: number; scale: number; /** Restrict this view to a measured source rectangle before cover/zoom. Normalized source coordinates. */ sourceRect?: PanelRect; set?: boolean; /** 'track' = framed on the clip's subject track (a design choice, not Opus's rule). */ auto?: 'track' }
+export interface PanelSlot { /** Show the entire chosen region with black bars, ignoring cover zoom/focus. Manual opt-in only. */ fit?: 'contain'; /** Blur only behind a contained region; absent retains existing black bars. */ backdrop?: 'blur'; focusX: number; focusY: number; scale: number; /** Restrict this view to a measured source rectangle before cover/zoom. Normalized source coordinates. */ sourceRect?: PanelRect; set?: boolean; /** 'track' = framed on the clip's subject track (a design choice, not Opus's rule). */ auto?: 'track' }
 export interface ItemPanels { layout: PanelLayout; slots: PanelSlot[]; /** Source-aspect top panel, explicit local gaming review only. */ topFraction?:number }
 
 const R = (x: number, y: number, w: number, h: number): PanelRect => ({ x, y, w, h });
@@ -81,7 +82,7 @@ export function normalizePanels(p: Partial<ItemPanels> | undefined | null): Item
     layout: p.layout,
     ...(p.layout==='gameplay'&&typeof p.topFraction==='number'&&Number.isFinite(p.topFraction)&&p.topFraction>=.25&&p.topFraction<=.5?{topFraction:p.topFraction}:{}),
     slots: rects.map((_, i) => ({
-      ...(p.slots?.[i]?.fit === 'contain' ? { fit: 'contain' as const } : {}),
+      ...(p.slots?.[i]?.fit === 'contain' ? { fit: 'contain' as const, ...(p.slots?.[i]?.backdrop === 'blur' ? {backdrop:'blur' as const} : {}) } : {}),
       focusX: clamp(p.slots?.[i]?.focusX, 0, 1, def[i].focusX),
       focusY: clamp(p.slots?.[i]?.focusY, 0, 1, def[i].focusY),
       scale: clamp(p.slots?.[i]?.scale, 1, 4, def[i].scale),
@@ -107,7 +108,29 @@ export function panelPixelRects(layout: PanelLayout, canvasW: number, canvasH: n
  * Chain-safe ffmpeg fragment (consumes the slice stream, ends unlabeled): split into N copies, each
  * cover-cropped with focus/zoom, or contained whole with black bars, then stacked.
  */
-export function buildPanelsFilter(panelsIn: ItemPanels, canvasW: number, canvasH: number, tag = 'vcp'): string {
+/** Materialize the current normal panel settings using actual source and
+ * physical output dimensions. No new layout, ownership or persistence store. */
+export function materializePanels(panelsIn:ItemPanels,sourceW:number,sourceH:number,outputW:number,outputH:number):NumericPanelGeometry|undefined {
+ const p=normalizePanels(panelsIn);if(!p)return;
+ const targets=panelPixelRects(p.layout,outputW,outputH,p.topFraction);
+ return materializeNumericPanels({width:sourceW,height:sourceH},{width:outputW,height:outputH},targets.map((target,i)=>{
+  const s=p.slots[i];
+  // Compatibility is explicit and happens ONCE. Existing normal exports first
+  // serialized source fractions to eight decimals. Preserve that chosen view,
+  // then give preview/export/captions the same integers, never FFmpeg math text.
+  // Validated review proposals do not enter this persisted-panel wrapper.
+  const region=s.sourceRect?Object.fromEntries(Object.entries(s.sourceRect).map(([k,v])=>[k,Number(v.toFixed(8))])) as unknown as PanelRect:undefined;
+  const legacySource={...s,...(region?{sourceRect:region}:{}),fit:'contain' as const};
+  return{target,base:panelSourceWindow(legacySource,sourceW,sourceH,target.w/target.h),fit:s.fit==='contain'?'contain':'cover',scale:s.scale,focusX:s.focusX,focusY:s.focusY,backdrop:s.backdrop==='blur'?'blur':'black'};
+ }));
+}
+export function buildPanelsFilter(panelsIn: ItemPanels, canvasW: number, canvasH: number, tag = 'vcp', sourceSize?:{width:number;height:number}): string {
+  if(sourceSize){
+    const geometry=materializePanels(panelsIn,sourceSize.width,sourceSize.height,canvasW,canvasH);
+    const numeric=geometry&&numericPanelsFilter(geometry,tag);
+    if(!numeric)throw new Error('PANEL_NUMERIC_GEOMETRY_REVIEW_REQUIRED');
+    return numeric;
+  }
   const panels = normalizePanels(panelsIn)!;
   const rects = panelPixelRects(panels.layout, canvasW, canvasH,panels.topFraction);
   const n = rects.length;
@@ -116,9 +139,18 @@ export function buildPanelsFilter(panelsIn: ItemPanels, canvasW: number, canvasH
   rects.forEach((r, i) => {
     const a = (r.w / r.h).toFixed(5);
     const s = panels.slots[i];
+    const region = s.sourceRect ? `crop=w='min(iw,max(2,round(iw*${s.sourceRect.w.toFixed(8)}/2)*2))':h='min(ih,max(2,round(ih*${s.sourceRect.h.toFixed(8)}/2)*2))':x='min(iw-ow,max(0,round(iw*${s.sourceRect.x.toFixed(8)}/2)*2))':y='min(ih-oh,max(0,round(ih*${s.sourceRect.y.toFixed(8)}/2)*2))',` : '';
+    if(s.fit==='contain' && s.backdrop==='blur') {
+      const radius=Math.max(1,Math.round(canvasW/540*16));
+      parts.push(`[${tag}_i${i}]${region}split=2[${tag}_bb${i}][${tag}_ff${i}]`,
+        `[${tag}_bb${i}]scale=${r.w}:${r.h}:force_original_aspect_ratio=increase,crop=${r.w}:${r.h},boxblur=${radius}:4,eq=brightness=-0.15[${tag}_bg${i}]`,
+        `[${tag}_ff${i}]scale=${r.w}:${r.h}:force_original_aspect_ratio=decrease:force_divisible_by=2[${tag}_fg${i}]`,
+        `[${tag}_bg${i}][${tag}_fg${i}]overlay=(W-w)/2:(H-h)/2,setsar=1[${tag}_p${i}]`);
+    } else {
     parts.push(
       `[${tag}_i${i}]${s.sourceRect ? `crop=w='min(iw,max(2,round(iw*${s.sourceRect.w.toFixed(8)}/2)*2))':h='min(ih,max(2,round(ih*${s.sourceRect.h.toFixed(8)}/2)*2))':x='min(iw-ow,max(0,round(iw*${s.sourceRect.x.toFixed(8)}/2)*2))':y='min(ih-oh,max(0,round(ih*${s.sourceRect.y.toFixed(8)}/2)*2))',` : ''}${s.fit === 'contain' ? `scale=${r.w}:${r.h}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=${r.w}:${r.h}:(ow-iw)/2:(oh-ih)/2:color=black` : `crop=w='min(iw,ih*${a})/${s.scale.toFixed(4)}':h='min(ih,iw/${a})/${s.scale.toFixed(4)}':x='(iw-ow)*${s.focusX.toFixed(4)}':y='(ih-oh)*${s.focusY.toFixed(4)}',scale=${r.w}:${r.h}`},setsar=1[${tag}_p${i}]`
     );
+    }
   });
   const p = (i: number) => `[${tag}_p${i}]`;
   switch (panels.layout) {

@@ -1,3 +1,5 @@
+import {materializePanels} from './panelLayouts.js';
+import {numericPanelSeam} from './numericPanelGeometry.js';
 import {nonPortraitAutoFullSourceFit} from './nonPortraitAutoFit.js';
 import {automaticFitBottomBoundary} from './automaticFitGeometry.js';
 import {expandSceneLayoutProject} from './sceneLayoutOverrides.js';
@@ -19,7 +21,7 @@ const automaticFitBoundary = Symbol('automaticFitCaptionBoundary');
 export interface CaptionLayoutWindow {itemId:string;start:number;end:number;layout:CaptionSceneLayout;anchorY?:number}
 /** Derived only from the picture composition plan. No persisted layout writes.
  * Plan clocks are clip-relative; item clocks include trim, speed and timeline edits. */
-export function captionCompositionWindows(project:any,plan:any[],clipStart:number,sourceW:number,sourceH:number):CaptionLayoutWindow[]{
+export function captionCompositionWindows(project:any,plan:any[],clipStart:number,sourceW:number,sourceH:number,outputSize?:{width:number;height:number}):CaptionLayoutWindow[]{
  if((project?.canvas?.aspect_ratio!=='9:16'&&!nonPortraitAutoFullSourceFit(plan,project?.canvas?.aspect_ratio))||![clipStart,sourceW,sourceH].every(Number.isFinite)||sourceW<=0||sourceH<=0)return [];
  const outputAspect=project.canvas.aspect_ratio==='1:1'?1:project.canvas.aspect_ratio==='16:9'?16/9:9/16;
  const items=expandSceneLayoutProject(project).tracks?.find((t:any)=>t.type==='VIDEO'&&!t.hidden)?.items||[];
@@ -31,9 +33,26 @@ export function captionCompositionWindows(project:any,plan:any[],clipStart:numbe
    if(![s.start,s.end,s.windowW,s.windowH].every(Number.isFinite)||s.end<=s.start||s.windowW<=0||s.windowH<=0)return [];
    const a=Math.max(i.source_start,s.start+clipStart),z=Math.min(i.source_end,s.end+clipStart);if(z<=a)return [];
    const start=Math.max(i.timeline_start,i.timeline_start+(a-i.source_start)/speed),end=Math.min(i.timeline_end,i.timeline_start+(z-i.source_start)/speed);
+   if(s.split?.focusPanels&&(i.keyframes?.length||(i.transform?.scale??1)!==1||(i.transform?.rotation??0)!==0||(i.transform?.position_x??0)!==0||(i.transform?.position_y??0)!==0||i.transition_in))return [];
+   const panelGeometry=s.split?.focusPanels&&outputSize?materializePanels(s.split.focusPanels,sourceW,sourceH,outputSize.width,outputSize.height):undefined;
+   if(s.split?.focusPanels&&outputSize&&!panelGeometry)return [];
    const layout:CaptionSceneLayout=s.split?.focusPanels?.layout==='gameplay'?'panel_gameplay':s.split?'split':Math.abs(s.windowW*sourceW/(s.windowH*sourceH)-outputAspect)<.01?'fill':'fit';
-   return end>start?[{itemId:i.id,start,end,layout,...(layout==='panel_gameplay'?{anchorY:panelTargetRects(s.split.focusPanels)[0].h}:layout==='fit'?{anchorY:automaticFitBottomBoundary(s.windowW*sourceW/(s.windowH*sourceH),project.canvas.aspect_ratio)}:{})}]:[];
+   return end>start?[{itemId:i.id,start,end,layout,...(layout==='panel_gameplay'?{anchorY:panelGeometry?numericPanelSeam(panelGeometry):panelTargetRects(s.split.focusPanels)[0].h}:layout==='fit'?{anchorY:automaticFitBottomBoundary(s.windowW*sourceW/(s.windowH*sourceH),project.canvas.aspect_ratio)}:{})}]:[];
   });
+ });
+}
+
+/** Physical-output seam for existing persisted item panels. This is not an
+ * application grant. Manual caption coordinates still win downstream. */
+export function captionPersistedPanelWindows(project:any,sourceW:number,sourceH:number,outputSize?:{width:number;height:number}):CaptionLayoutWindow[]{
+ if(!outputSize)return [];
+ const items=expandSceneLayoutProject(project).tracks?.find((t:any)=>t.type==='VIDEO'&&!t.hidden)?.items||[];
+ return items.flatMap((i:any)=>{
+  if(i.hidden||i.is_title_card||i.framing_window||!i.panels||!Number.isFinite(i.timeline_start)||!Number.isFinite(i.timeline_end)||i.timeline_end<=i.timeline_start)return [];
+  // These downstream operations need their own final-picture qualification.
+  if(i.keyframes?.length||(i.transform?.scale??1)!==1||(i.transform?.rotation??0)!==0||(i.transform?.position_x??0)!==0||(i.transform?.position_y??0)!==0||i.transition_in)return [];
+  const geometry=materializePanels(i.panels,sourceW,sourceH,outputSize.width,outputSize.height),anchor=geometry&&numericPanelSeam(geometry);
+  return Number.isFinite(anchor)?[{itemId:i.id,start:i.timeline_start,end:i.timeline_end,layout:'panel_gameplay' as const,anchorY:anchor}]:[];
  });
 }
 
@@ -136,4 +155,4 @@ export function finalizeAutomaticFitCaptionGrowth<T extends {text?:string;positi
 
 /** Quick-render uses its actual picture plan, without creating a saved editor. */
 export function quickCaptionProject(duration:number,aspect='9:16'){return {canvas:{aspect_ratio:aspect,duration},tracks:[{type:'VIDEO',items:[{id:'quick-source',source_start:0,source_end:duration,timeline_start:0,timeline_end:duration}]}]};}
-export function quickCaptionWindows(plan:any[],duration:number,w:number,h:number,aspect='9:16'){return captionCompositionWindows(quickCaptionProject(duration,aspect),plan,0,w,h);}
+export function quickCaptionWindows(plan:any[],duration:number,w:number,h:number,aspect='9:16',outputSize?:{width:number;height:number}){return captionCompositionWindows(quickCaptionProject(duration,aspect),plan,0,w,h,outputSize);}

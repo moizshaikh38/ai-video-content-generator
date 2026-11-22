@@ -1,3 +1,5 @@
+import {initialExportResolution} from '../../../server/src/shared/initialExportResolution.js';
+import {canvasForResolution} from '../../../server/src/shared/renderResolution.js';
 import {HookModeControls} from './HookModeControls';
 import {sourceTextReviewNotice} from '../../lib/sourceTextReviewNotice';
 import {centerProjectHook, reviewHookCanvasPosition} from '../../../server/src/shared/hookCanvasPosition';
@@ -61,7 +63,7 @@ import { ABStudioWorkspace } from '../abStudio/ABStudioWorkspace';
 import { ArrowLeft, Sparkles, Type as TypeIcon, Film, X, PanelRightOpen } from 'lucide-react';
 import { insertIntroOutro, createTitleCardItem } from '../../utils/introOutro';
 import { initCoveredEnd, healCaptionTracks } from '../../lib/captionExtendMerge';
-import { clipRenderService } from '../../services/clipRenderService';
+import { clipRenderService, type ExportResolution } from '../../services/clipRenderService';
 import { applyOutputTemplateToProject, getOutputTemplate, OutputTemplateId } from '../../../server/src/shared/outputTemplates';
 
 interface EditorShellProps {
@@ -210,6 +212,9 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   });
 
   // Dialogs state
+  const [geometryResolution,setGeometryResolution]=useState<ExportResolution>(()=>initialExportResolution(clip));
+  useEffect(()=>{setGeometryResolution(initialExportResolution(clip));},[clip.id]);
+  const geometryOutputSize=canvasForResolution(project.canvas.aspect_ratio,geometryResolution);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState<boolean>(false);
   // Concise notice when an extend cannot supply full caption coverage
   // (missing/short transcript) or the coverage fetch fails after extending.
@@ -226,6 +231,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     } | null;
     shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';split?:{speaker1X:number;speaker2X:number;dividerX:number;focusPanels?:import('../../../server/src/shared/panelLayouts').ItemPanels};windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
     contentFramingDecision?: import('../../../server/src/shared/contentFramingDecision').ContentFramingDecision | null;
+    bareSmartSplitReview?:import('../../../server/src/shared/automaticSplitEvidence').BareSmartSplitReview|null;
     analyzedTrimStart?: number;
     groupFrame?: {
       keyframes: Array<{ time: number; centerX: number; centerY: number }>;
@@ -281,6 +287,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             groupFrame: r.groupFrame ?? null,
             shotComposition: r.shotComposition ?? null,
             contentFramingDecision: r.contentFramingDecision ?? null,
+            bareSmartSplitReview: r.bareSmartSplitReview ?? null,
             analyzedTrimStart: Number(r.analyzedTrimStart) || 0,
             lowConfidenceTrack: Boolean(r.lowConfidenceTrack),
             analyzedSourcePath: typeof r.analyzedSourcePath === 'string' ? r.analyzedSourcePath : null,
@@ -2002,6 +2009,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             </div>
           )}
           <PreviewCanvas
+            geometryOutputSize={geometryOutputSize}
             automaticPlanReviewRequired={automaticPlanReviewRequired}
             project={project}
             playhead={currentTime}
@@ -2014,6 +2022,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             groupReframe={speakerSplit?.groupFrame ?? null}
             contentFramingDecision={speakerSplit?.contentFramingDecision ?? null}
             shotComposition={speakerSplit?.shotComposition ?? null}
+            bareSmartSplitReview={speakerSplit?.bareSmartSplitReview ?? null}
             autoCandidateEnabled={autoCandidateEnabled}
             autoCandidateMixed={projectAutoCandidateState(project)==='mixed'}
             onSetAutoCandidate={enabled=>{onCommitProject?.(project);onUpdateProject(prev=>setProjectAutoCandidate(prev,enabled));}}
@@ -2419,6 +2428,8 @@ export const EditorShell: React.FC<EditorShellProps> = ({
 
       {/* 4. EXPORT DIALOG */}
       <ExportDialog
+        resolution={geometryResolution}
+        onResolutionChange={setGeometryResolution}
         isOpen={isExportDialogOpen}
         onClose={() => {
           setIsExportDialogOpen(false);

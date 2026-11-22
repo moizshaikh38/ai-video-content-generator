@@ -1,3 +1,7 @@
+import {produceGamingSceneEvidence} from './gamingSceneProducerService.js';
+import {normalGamingScenePlan} from '../shared/normalGamingScenePlan.js';
+import {sourceWindowSceneCuts} from '../shared/sourceWindowSceneCuts.js';
+import {readAutomaticScenePlan,snapshotAutomaticScenePlan} from '../shared/automaticScenePlan.js';
 import {automaticSplitReviewPlan} from '../shared/automaticSplitEvidence.js';
 import {compactEmbeddedReviewPanels} from '../shared/compactEmbeddedReviewPanels.js';
 import {AUTOMATIC_FIT_FOCUS_Y} from '../shared/automaticFitGeometry.js';
@@ -36,8 +40,10 @@ import { dataRepository } from '../db/repositories/dataRepository.js';
  * Detects faces, tracks dominant subject over time, smoothes camera movement,
  * and generates dynamic crop filters for FFmpeg 9:16 rendering.
  *
- * All computer vision is 100% local (OpenCV).
- * Zero external/paid AI calls. No biometric identity or cross-project profile storage.
+ * Primary detection/tracking is local (OpenCV). The separate source-gaming
+ * region-role check is disabled by default and can use one verified-zero-price
+ * external image request only when explicitly enabled. No paid fallback.
+ * No biometric identity or cross-project profile storage.
  */
 
 import fs from 'node:fs';
@@ -1478,7 +1484,15 @@ export class SmartReframeService {
   /** Explicit Auto choices may use existing measured pair/body geometry even
    * when experimental composition is off. Never upgrade legacy/user ownership,
    * stale/unbound evidence, or partially eligible clips by inference. */
-  public static explicitAutoLayoutPlan(track:any,cropConfig:any,duration:number):ReturnType<typeof SmartReframeService.computeShotComposition>|undefined {
+  public static explicitAutoLayoutPlan(track:any,cropConfig:any,duration:number,outputAspect?:string):ReturnType<typeof SmartReframeService.computeShotComposition>|undefined {
+    const gaming=normalGamingScenePlan(track,cropConfig,duration,outputAspect);
+    if(gaming)return gaming;
+    const persisted=readAutomaticScenePlan(track,cropConfig,duration);
+    if(persisted)return persisted as ReturnType<typeof SmartReframeService.computeShotComposition>;
+    return this.computeNormalAutoLayoutPlan(track,cropConfig,duration);
+  }
+
+  private static computeNormalAutoLayoutPlan(track:any,cropConfig:any,duration:number):ReturnType<typeof SmartReframeService.computeShotComposition>|undefined {
     // Explicit local candidate only. Normal Auto and manual layouts do not
     // consume ambiguous inset evidence or infer an editorial source role.
     if(track?.metadata?.embedded_camera_panel_review_enabled===true&&cropConfig?.layout_mode_source==='auto'&&track.status==='ready'&&!track.isStale&&track.sourceObjectVerified===true&&!(track.metadata.scene_cuts||[]).length&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('split'))){
@@ -1953,7 +1967,7 @@ export class SmartReframeService {
         return {time:t-a,centerX:k[n].centerX+(k[n+1].centerX-k[n].centerX)*f,centerY:k[n].centerY+(k[n+1].centerY-k[n].centerY)*f};
       };
       const kfs=[frameAt(a),...s.keyframes.filter(k=>k.time>a && k.time<b).map(k=>({...k,time:k.time-a})),frameAt(b)];
-      const f=s.split?.focusPanels ? buildPanelsFilter(s.split.focusPanels,canvasDims('9:16',options.canvasScale??1).width,canvasDims('9:16',options.canvasScale??1).height,`${tag}_${i}_focus`) : s.split ? this.buildSplitPodcastFilter({speaker1X:s.split.speaker1X,speaker2X:s.split.speaker2X,dividerX:s.split.dividerX,
+      const f=s.split?.focusPanels ? buildPanelsFilter(s.split.focusPanels,canvasDims('9:16',options.canvasScale??1).width,canvasDims('9:16',options.canvasScale??1).height,`${tag}_${i}_focus`,{width:options.sourceWidth,height:options.sourceHeight}) : s.split ? this.buildSplitPodcastFilter({speaker1X:s.split.speaker1X,speaker2X:s.split.speaker2X,dividerX:s.split.dividerX,
         splitFit:'contain',canvasWidth:canvasDims('9:16',options.canvasScale??1).width,canvasHeight:canvasDims('9:16',options.canvasScale??1).height,
         sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}_split`})
         : this.buildGroupFitFilter({keyframes:kfs,windowW:s.windowW,windowH:s.windowH,sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}`,canvasWidth:canvasDims('9:16',options.canvasScale??1).width,canvasHeight:canvasDims('9:16',options.canvasScale??1).height});
@@ -3067,28 +3081,19 @@ export class SmartReframeService {
 
       // 6. Gather scene cuts and speech intervals for audio-visual shot-aware reframe
       let clipSceneCuts = options.sceneCuts ? [...options.sceneCuts] : [];
+      let timelineCutJoin:ReturnType<typeof sourceWindowSceneCuts>['audit']={status:'unavailable',reason:'EXPLICIT_LOCAL_CUTS_OR_NOT_REQUESTED'};
       let speechIntervals = options.speechIntervals;
       let wordTimings: Array<{ start: number; end: number; word?: string }> = [];
 
       try {
         if (clipSceneCuts.length === 0) {
-          const { data: analysisRec } = await dataRepository
-            .from('video_analyses')
-            .select('timeline')
-            .eq('project_id', clip.project_id)
-            .maybeSingle();
-
-          const rawCuts = (analysisRec as any)?.timeline?.scene_cuts;
-          if (Array.isArray(rawCuts)) {
-            clipSceneCuts = rawCuts
-              .map(Number)
-              .filter((c: number) => c > startSec + 0.25 && c < startSec + durationSec - 0.25)
-              .map((c: number) => Number((c - startSec).toFixed(3)));
-          }
-        }
-
-        if (cvResult.scene_cuts && Array.isArray(cvResult.scene_cuts)) {
-          clipSceneCuts=mergeDetectedSceneCuts(clipSceneCuts,cvResult.scene_cuts.map(Number),durationSec,cvResult.scene_cut_evidence);
+          // Timeline fusion emits timestamp-bearing objects. Resolve its
+          // existing source/transcript freshness boundary before rebasing;
+          // project ID alone is not a join to this downloaded source window.
+          const {MultimodalTimelineService}=await import('./multimodal/multimodalTimelineService.js');
+          const analysisRec=await MultimodalTimelineService.getFreshAnalysis(clip.project_id,userId);
+          const joined=sourceWindowSceneCuts(analysisRec,{sourceReceipt,sourceSha256:analyzedSourceSha256,start:startSec,end:endSec});
+          clipSceneCuts=joined.cuts;timelineCutJoin=joined.audit;
         }
 
         if (!speechIntervals) {
@@ -3112,6 +3117,12 @@ export class SmartReframeService {
         }
       } catch (ctxErr: any) {
         logger.warn(`[SmartReframe] Optional timeline/transcript enrichment skipped: ${ctxErr.message}`);
+      }
+
+      // Current local-CV cuts are independent of optional timeline/transcript
+      // reads. A failed/stale enrichment must not discard these boundaries.
+      if(Array.isArray(cvResult.scene_cuts)){
+        clipSceneCuts=mergeDetectedSceneCuts(clipSceneCuts,cvResult.scene_cuts,durationSec,cvResult.scene_cut_evidence);
       }
 
       // 7. Associate tracks and select dominant subject. A persistent static
@@ -3190,6 +3201,12 @@ export class SmartReframeService {
           if(embeddedCameraPanelReview({receipt:candidate,sha256:analyzedSourceSha256,sourceStart:startSec,sourceEnd:endSec,sourceWidth:cvResult.source_width,sourceHeight:cvResult.source_height})){const {observations,...compactReceipt}=candidate;embeddedCameraReview=compactReceipt;}
         }catch(error:any){logger.warn('[SmartReframe] Optional inset geometry review unavailable',{code:error?.code??'MEASUREMENT_UNAVAILABLE'});}
       }
+      let sourceGamingProduction:Awaited<ReturnType<typeof produceGamingSceneEvidence>>|undefined;
+      if(process.env.VIREO_SOURCE_AWARE_GAMING==='1'){
+        const workerPath=[path.resolve(process.cwd(),'server/python/gaming_scene/measure_gaming_geometry.py'),path.resolve(process.cwd(),'python/gaming_scene/measure_gaming_geometry.py'),path.resolve(process.cwd(),'../server/python/gaming_scene/measure_gaming_geometry.py')].find(p=>fs.existsSync(p))||'';
+        sourceGamingProduction=await produceGamingSceneEvidence({enabled:true,apiKey:process.env.OPENROUTER_API_KEY||'',model:process.env.VIREO_GAMING_ROLE_MODEL||'nvidia/nemotron-3.5-super-vl:free',sourcePath:localSourcePath,sourceVerified:!!sourceReceipt,sourceSha256:analyzedSourceSha256,sourceStart:startSec,sourceEnd:endSec,sourceWidth:cvResult.source_width,sourceHeight:cvResult.source_height,crop:clip.crop_config,aspect:clip.aspect_ratio,sceneCuts:clipSceneCuts,shotCompositionOwned:adaptiveScenes||process.env.SMART_REFRAME_SHOT_COMPOSITION==='1',rawSamples:cvResult.samples,python:this.getPythonPath(),workerPath,outputDir:path.join(tempDir,'source-gaming'),signal:options.signal});
+        logger.info('[SmartReframe] Optional source-gaming evidence stage',{status:sourceGamingProduction.status});
+      }
       const trackPayload: Partial<ReframeTrackRecord> = {
         clip_id: clipId,
         project_id: clip.project_id,
@@ -3205,6 +3222,8 @@ export class SmartReframeService {
         raw_samples: cvResult.samples,
         smoothed_keyframes: fusedKeyframes,
         metadata: {
+          ...(sourceGamingProduction?.evidence?{gaming_source_scene_evidence:sourceGamingProduction.evidence}:{}),
+          ...(sourceGamingProduction?{gaming_source_scene_producer:{version:1,status:sourceGamingProduction.status,cameraRegionId:sourceGamingProduction.cameraRegionId}}:{}),
           participant_manual_review:adaptiveScenes&&sourceGenre==='podcast_interview'&&process.env.SMART_REFRAME_AUTO_CONVERSATION_SPLIT==='1'&&process.env.VIREO_PARTICIPANT_EXPANDED_REVIEW==='1'?'expanded-three-v1':null,
           participant_panels_review:adaptiveScenes&&sourceGenre==='podcast_interview'&&process.env.SMART_REFRAME_AUTO_CONVERSATION_SPLIT==='1'&&process.env.VIREO_PARTICIPANT_ASPECT_REVIEW==='1'?'aspect-face-v1':null,
           embedded_camera_panel_review_enabled:!!embeddedCameraReview&&process.env.VIREO_EMBEDDED_CAMERA_PANEL_REVIEW==='1',
@@ -3233,6 +3252,7 @@ export class SmartReframeService {
           analyzed_source_end: endSec,
           clip_duration: durationSec,
           scene_cuts: clipSceneCuts,
+          scene_cut_timeline_join: timelineCutJoin,
           scene_cut_evidence: cvResult.scene_cut_evidence || [],
           person_detector: cvResult.person_detector ?? null,
           face_resolution_passes: cvResult.face_resolution_passes ?? null,
@@ -3253,6 +3273,16 @@ export class SmartReframeService {
         analyzed_aspect_ratio: clip.aspect_ratio || '9:16',
         updated_at: new Date().toISOString(),
       };
+
+      // Cache only the existing normal baseline. Sparse visual observations and
+      // manual genre declarations do not authorize additional scene narrowing.
+      // Retain actual policy/focus/default fields instead of a minimal config
+      // that cannot match the real consumer's exact configuration fingerprint.
+      const autoConfig={...(clip.crop_config||{}),mode:'smart',layout_mode_source:'auto'};
+      const planningTrack={...trackPayload,sourceObjectVerified:!!sourceReceipt,isStale:false};
+      const normalPlan=this.explicitAutoLayoutPlan(planningTrack,autoConfig,durationSec);
+      const normalSnapshot=snapshotAutomaticScenePlan(planningTrack,autoConfig,durationSec,normalPlan);
+      if(normalSnapshot)(trackPayload.metadata as any).automatic_scene_plan=normalSnapshot;
 
       if(options.signal?.aborted)throw options.signal.reason||Object.assign(Error('Analysis cancelled before persistence.'),{code:'WORK_CANCELLED'});
       const { data: savedRecord, error: upsertErr } = await dataRepository
@@ -3325,7 +3355,7 @@ export class SmartReframeService {
     // Embedded-region review and source-structure guards require an independently
     // verified object receipt at every consumer, including ordinary export.
     const cutLocalSplit=track.metadata?.cut_local_split_recovery_review_enabled===true&&track.layout_mode==='split'&&track.metadata?.shot_composition_candidate!==true&&Array.isArray(track.metadata?.scene_cuts)&&track.metadata.scene_cuts.length>0;
-    if(verifyObjectReceipt||cutLocalSplit||track.metadata?.embedded_camera_panel_review_enabled===true||track.metadata?.embedded_source_split_guard_enabled===true){
+    if(verifyObjectReceipt||track.metadata?.automatic_scene_plan||track.metadata?.gaming_source_scene_evidence||cutLocalSplit||track.metadata?.embedded_camera_panel_review_enabled===true||track.metadata?.embedded_source_split_guard_enabled===true){
       sourceObjectVerified=false;
       const receipt=track.metadata?.analyzed_source_receipt;
       if(receipt && clip.source_storage_path){

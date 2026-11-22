@@ -1,3 +1,4 @@
+import {splitReviewCropConfig,createBareSmartSplitReview} from '../shared/automaticSplitEvidence.js';
 import {readRenderUsageCount} from '../db/repositories/renderQuotaRepository.js';
 import {renderQuotaPolicy} from '../db/repositories/renderQuotaRepository.js';
 import {assertRenderQuotaMaximum} from '../shared/renderQuotaSnapshot.js';
@@ -1372,11 +1373,14 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
     const measuredComposition=track.metadata?.shot_composition_candidate===true?(measuredPlanEnvelope?.shots||SmartReframeService.computeShotComposition(measuredOptions)):null;
     const explicitAutoConfig=policyClip?.crop_config?.layout_mode_source==='auto'?policyClip.crop_config:
       policyProject?.tracks?.flatMap((t:any)=>t.type==='VIDEO'?t.items:[]).some((i:any)=>i.crop_config?.layout_mode_source==='auto'||i.scene_layout_overrides?.some((o:any)=>o.layout==='auto'))?{...policyClip?.crop_config,layout_mode_source:'auto'}:policyClip?.crop_config;
-    const explicitAutoPlan=SmartReframeService.explicitAutoLayoutPlan(track,explicitAutoConfig,Number(track.metadata?.clip_duration)||1);
+    const legacyItemLayout=policyProject?.tracks?.flatMap((t:any)=>t.type==='VIDEO'?t.items:[])
+      .find((i:any)=>i.layout_mode&&i.layout_mode!=='track'&&!['auto','genre_recommendation'].includes(i.crop_config?.layout_mode_source))?.layout_mode;
+    const explicitAutoPlan=SmartReframeService.explicitAutoLayoutPlan(track,splitReviewCropConfig(explicitAutoConfig,legacyItemLayout),Number(track.metadata?.clip_duration)||1,policyClip?.aspect_ratio);
     // Return safe data without exposing server paths
     res.status(200).json({
       status: track.status,
       measuredPlanEnvelope,
+      bareSmartSplitReview:createBareSmartSplitReview(track,Number(track.metadata?.clip_duration)||1,(t,c,d)=>SmartReframeService.explicitAutoLayoutPlan(t,c,d,policyClip?.aspect_ratio)),
       adaptiveComposition: track.metadata?.shot_composition_candidate===true,
       detectedFaceCount: track.detected_face_count || 0,
       dominantTrackId: track.dominant_track_id,

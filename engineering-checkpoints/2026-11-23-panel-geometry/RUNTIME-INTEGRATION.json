@@ -1,0 +1,187 @@
+{
+  "status": "PRIVATE_BRANCH_SOURCE_INTEGRATED_NOT_RELEASED",
+  "createdAt": "2026-11-22T18:50:29.396370+00:00",
+  "parent": "d4db77e9b0fc63527a6f3b306eb6dbaffa0cd14d",
+  "scope": "Exact bounded normal numeric geometry source, related disabled dependencies, and two source-bound split baseline prerequisites. Existing branch files outside this set are preserved.",
+  "qualification": "Retained-source normal Save/reload and native 720p/1080p exports were checked on the pinned local baseline. The newly composed remote branch has not been newly native-qualified or shown to have a clean full build. Available local overlay had 332 baseline and 332 candidate diagnostics, zero added, eight missing dependencies.",
+  "held": "Manual crop callback and source-aware Gameplay picker corrections are not applied in this runtime commit. Held source snapshots remain separately recoverable.",
+  "releaseGate": "No publish until approval and slice verification. No main update, production DB write, model call, producer/default activation or account-setting change.",
+  "reconciliation": "Every target was checked against its observed live remote blob. The four differing frozen baselines only add the inspected source-bound split guard and its consumers; both prerequisite source files are included. A non-forced ref update preserves divergent concurrent commits by rejecting the write.",
+  "files": [
+    {
+      "path": "server/python/gaming_scene/measure_closed_perimeter.py",
+      "beforeGitBlob": null,
+      "gitBlob": "dbb282f2fc80b73cc3fcff485949614b62918e0b",
+      "sha256": "2ec53f85cf31f95d6cfb3395c5f7ac1026dc09bdaafcab7a5eda1a434b6ae09c",
+      "bytes": 7400
+    },
+    {
+      "path": "server/python/gaming_scene/measure_gaming_geometry.py",
+      "beforeGitBlob": null,
+      "gitBlob": "148e31c9e790e4f7b17d9358f7aa129b5538686c",
+      "sha256": "70b4e7a1623b0c9e58d89d5322fffb63fa5c880e91f488c80ffcf22acd8beaee",
+      "bytes": 4589
+    },
+    {
+      "path": "server/python/gaming_scene/measure_side_seams.py",
+      "beforeGitBlob": null,
+      "gitBlob": "28dd34df7386c30331b6628bceeae0a33f785bd1",
+      "sha256": "0002d5063a74eaef4f8565f63e3e3a3928e6f23be6c2079d1e4c0fcd328085fb",
+      "bytes": 4457
+    },
+    {
+      "path": "server/python/gaming_scene/native_geometry_ops.py",
+      "beforeGitBlob": null,
+      "gitBlob": "2b4e8cf9f450b6ff1491d9b602463d7f05a78cb5",
+      "sha256": "3dbef70bcb2a14cd0070521cc42bb24505a59be2bbb2f6fd4afd41f68809a290",
+      "bytes": 2257
+    },
+    {
+      "path": "server/src/controllers/clipController.ts",
+      "beforeGitBlob": "52e55d362d9684848d1f2f79c1bdb8262368d665",
+      "gitBlob": "7d93c45e64fe3c263599c92fb2f9d473ac5afd95",
+      "sha256": "3e78660d84c6168f405041c046a267b8fd65bf0abddabd446153d57a1258cee8",
+      "bytes": 68967
+    },
+    {
+      "path": "server/src/services/clipRenderService.ts",
+      "beforeGitBlob": "6843e14b5917b8389af3cd754711d71df813c4c8",
+      "gitBlob": "5df2bd88ff24154b75141effa7d3198855ebf4ac",
+      "sha256": "705ef6fc320f8077b23f83d96e4d44f7edf3bd24670feab0679f2047df53b6e7",
+      "bytes": 141741
+    },
+    {
+      "path": "server/src/services/gamingSceneProducerService.ts",
+      "beforeGitBlob": null,
+      "gitBlob": "858d54f64e47d4a5a0dc339984f632a4fea87693",
+      "sha256": "520a1934dd89375ec6149f520f37e6e0e51fc9e3d4c6e3748bccd1487ac09032",
+      "bytes": 6736
+    },
+    {
+      "path": "server/src/services/proEditorService.ts",
+      "beforeGitBlob": "ffae40b28596418cd3394c776acdc61fae17795b",
+      "gitBlob": "332df822313b796c4998fc58a82b93a484e87d1b",
+      "sha256": "12e214b3a5e93bdd47574331b94c0a432c454dce269293d0e6d25656bb439cae",
+      "bytes": 152959
+    },
+    {
+      "path": "server/src/services/smartReframeService.ts",
+      "beforeGitBlob": "563693f4f61f2e5c56b5ca5bdbdf56d361d45126",
+      "gitBlob": "8122a2fa9d947669e12d19b05e0e8ed30e0b8a03",
+      "sha256": "6ec96fbea39ccfeffbea41d87a29473f431c13d5d047b92abb57ea3c88ecc6e4",
+      "bytes": 185708
+    },
+    {
+      "path": "server/src/shared/automaticSplitEvidence.ts",
+      "beforeGitBlob": "0afc72daf4f16fa21bbef7207716c6e5af38c883",
+      "gitBlob": "595449bba2808cc503745123db518c6c23412b44",
+      "sha256": "db41ce7425afc943812fd8570bf7da5d8c9bc40d1d6e6d21fd3a37de2cf9cd9c",
+      "bytes": 7272
+    },
+    {
+      "path": "server/src/shared/bindMeasuredGamingRegions.ts",
+      "beforeGitBlob": null,
+      "gitBlob": "0e304f844e1a01a2d8ac57e3b8e34f5e07908fe3",
+      "sha256": "03a92c0bc4e2902054c66e96a736c815b5851844f5a90db399fd3946521dcb7a",
+      "bytes": 4373
+    },
+    {
+      "path": "server/src/shared/buildGamingSceneEvidence.ts",
+      "beforeGitBlob": null,
+      "gitBlob": "17f9812f7730c289b5f98e26590e1bc9573ed7fd",
+      "sha256": "248e66a873b3cba859a16e9ef66cb2c5d058bbaabc9679e5c50ab4ff3967f0a2",
+      "bytes": 5131
+    },
+    {
+      "path": "server/src/shared/compositionProposalContract.ts",
+      "beforeGitBlob": null,
+      "gitBlob": "e6a5efaa9aa0f6e7ae275520580a785d69f1c32a",
+      "sha256": "09e56fd02d736bc27e38351d21faaa1d3b2324fd4201221a7f4fd590e258f43c",
+      "bytes": 14654
+    },
+    {
+      "path": "server/src/shared/compositionReviewRender.ts",
+      "beforeGitBlob": null,
+      "gitBlob": "336bd8aa71a5e7f9dc1c8d8ae820ecf0f64aed39",
+      "sha256": "f703034a42f69e8a2e2c54b6de2dd847767e33219925b285ec0a6b5a0ecf30c6",
+      "bytes": 7807
+    },
+    {
+      "path": "server/src/shared/freeGamingRoleClient.ts",
+      "beforeGitBlob": null,
+      "gitBlob": "f6f705c99fb3556a904450b1c9434038dab46208",
+      "sha256": "4a41d0ad5720992b9a30997073580e69456f90638207d87efdd6e8e0941722e4",
+      "bytes": 6327
+    },
+    {
+      "path": "server/src/shared/normalGamingScenePlan.ts",
+      "beforeGitBlob": null,
+      "gitBlob": "0ab0351bcd23e3c85aab31426ea6cdcd5473084b",
+      "sha256": "a978352ca63ec409f1aadb4c129c92a7b86fbf0d1ac81d5f88c18587b763f024",
+      "bytes": 5581
+    },
+    {
+      "path": "server/src/shared/numericPanelGeometry.ts",
+      "beforeGitBlob": null,
+      "gitBlob": "7e22e0d4c5a7607f054d142560ffda07e79e7831",
+      "sha256": "a4b33ec57abf44ba57df5ac1e3cb9810a868948dbf97c50f4cd8c97200d430b1",
+      "bytes": 7251
+    },
+    {
+      "path": "server/src/shared/panelLayouts.ts",
+      "beforeGitBlob": "76cb2a9e96b2dbf81ad8dbba4202899fa6e3132e",
+      "gitBlob": "8349db9a80844db5d5dca63e1bd840703d2fd84e",
+      "sha256": "4dfdb9079f95739300d991436444b07435e2c50e4aa01d26a5e005e0eabf8e38",
+      "bytes": 17065
+    },
+    {
+      "path": "server/src/shared/sceneCaptionPlacement.ts",
+      "beforeGitBlob": "2e3311fd06eb42ba601294c5d6e88bfaf05122b4",
+      "gitBlob": "1ca4a8d6df616320d34a09b8c6ce2190d1d33e37",
+      "sha256": "b397036651868f248c67e391b1d5eb3f880b089698e232f88a79a5202d1a2702",
+      "bytes": 12062
+    },
+    {
+      "path": "src/components/editor/CompositionReviewPreview.tsx",
+      "beforeGitBlob": null,
+      "gitBlob": "65da39e04bb560db2248975ed3f0acf7d5e22559",
+      "sha256": "133fe8f970bcb2efdb597a97b63da225d7575347b46bc12c8946ced69900d645",
+      "bytes": 2686
+    },
+    {
+      "path": "src/components/editor/EditorShell.tsx",
+      "beforeGitBlob": "819dbac28702009d6986fee127fa9a06cdf6b1ce",
+      "gitBlob": "6a456e0f059b30c2446ce8d690b1ea20217c171e",
+      "sha256": "1861f27c7c4176308eae4532614c85365b795ed94f264e4db1482ec5fa36212c",
+      "bytes": 123515
+    },
+    {
+      "path": "src/components/editor/ExportDialog.tsx",
+      "beforeGitBlob": "1c3f5ad1ffade31ed9a446857574e6a6fa553204",
+      "gitBlob": "2bc7ccd440f1b54f3a74b3e3038fac12d2d14dc6",
+      "sha256": "26abac46fbec04ed1bb7d634a61cde2281eea120d2ecdab06f5607ed49e30333",
+      "bytes": 23486
+    },
+    {
+      "path": "src/components/editor/PanelsPreview.tsx",
+      "beforeGitBlob": "5cc855cbb615e77d5e8344681a63b8555e12e7e4",
+      "gitBlob": "19ce624be2e07202d80daac6eebc82b10fbc3008",
+      "sha256": "00126fc2df26864ab22166335416b8ede6b22c1398ed4c8c7c98f1d3c77da475",
+      "bytes": 4963
+    },
+    {
+      "path": "src/components/editor/PreviewCanvas.tsx",
+      "beforeGitBlob": "c99bec4eb3d12992f699f1bb1ba4a481cea68d54",
+      "gitBlob": "b0cd22e46df4851e669568fa499f24bd395fd054",
+      "sha256": "0697bff0983ac66127f35befeec1810f31d01e9ae52c365e9247f245efffb8cf",
+      "bytes": 142525
+    },
+    {
+      "path": "src/services/clipRenderService.ts",
+      "beforeGitBlob": "b3b57a5e071ee42ad8afef83b37f1cbd9ab08c30",
+      "gitBlob": "c3c1f03bc3b206fec5a38e5c914459b3cf03e643",
+      "sha256": "02c192348e088937776fbd74dde80c63df7e9a3a9da4cef251131e4f2bf48fe8",
+      "bytes": 13666
+    }
+  ]
+}
