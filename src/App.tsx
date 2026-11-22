@@ -1,4 +1,5 @@
 import React from 'react';
+import { PageLoading } from './components/PageLoading';
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -43,7 +44,7 @@ export const App: React.FC = () => {
       <AppErrorBoundary>
       <BrowserRouter>
         <CookieNotice />
-        <React.Suspense fallback={<div className="mx-auto mt-20 h-40 w-full max-w-6xl animate-pulse rounded-2xl bg-white" aria-label="Loading page" />}><Routes>
+        <React.Suspense fallback={<PageLoading />}><Routes>
           {/* Public marketing layout with top navbar & footer */}
           <Route element={<RootLayout />}>
             <Route path="/" element={<LandingPage />} />

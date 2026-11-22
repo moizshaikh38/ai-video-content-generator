@@ -17,8 +17,7 @@ import { Reveal } from "../lib/motion";
 import { LandingHero } from "../components/landing/LandingHero";
 import HiwMotion from "../components/landing/HiwMotion";
 import { CombinedWorkflowShowcase } from "../components/landing/CombinedWorkflowShowcase";
-import { useCurrency, CurrencyProvider } from "../context/CurrencyContext";
-import { CurrencyToggle } from "../components/CurrencyToggle";
+import { CurrencyProvider } from "../context/CurrencyContext";
 import { getMarketingPlanRate } from "../utils/pricingUtils";
 import "./landing.css";
 import "./landing-motion.css";
@@ -60,7 +59,6 @@ function HowItWorks() {
 
 function Pricing() {
   const waitlistMode = import.meta.env.VITE_WAITLIST_ENABLED === 'true';
-  const { currency } = useCurrency();
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
 
   return (
@@ -91,15 +89,10 @@ function Pricing() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                if (currency !== 'INR') setBillingInterval('year');
-              }}
-              disabled={currency === 'INR'}
+              onClick={() => setBillingInterval('year')}
               className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
                 billingInterval === 'year'
                   ? 'bg-[#8753e3] text-white shadow-md'
-                  : currency === 'INR'
-                  ? 'opacity-40 cursor-not-allowed text-slate-500'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -110,17 +103,13 @@ function Pricing() {
             </button>
           </div>
 
-          <div className="flex items-center gap-2 bg-[#090C16] px-3.5 py-1.5 rounded-full">
-            <span className="text-xs text-slate-400">Currency:</span>
-            <CurrencyToggle size="sm" />
-          </div>
         </div>
 
         {/* Pricing Cards Grid */}
         <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 max-w-7xl lv-reveal-group overflow-x-auto md:overflow-visible snap-x snap-mandatory md:snap-none -mx-4 px-4 md:mx-auto md:px-0 pb-4 md:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {plans.map((plan) => {
             const planId = plan.name.toLowerCase() as 'free' | 'creator' | 'pro' | 'studio';
-            const rate = getMarketingPlanRate(planId, billingInterval, currency);
+            const rate = getMarketingPlanRate(planId, billingInterval, 'USD');
             const isFeatured = plan.name === 'Pro';
 
             return (

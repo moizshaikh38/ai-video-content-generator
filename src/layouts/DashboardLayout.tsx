@@ -27,6 +27,7 @@ import {
   Coins,
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
+import { PageLoading } from '../components/PageLoading';
 import { NotificationsPopover } from '../components/NotificationsPopover';
 import { useAuth } from '../context/AuthContext';
 import { useBillingUsage } from '../hooks/useBillingUsage';
@@ -574,7 +575,7 @@ export const DashboardLayout: React.FC = () => {
         {/* Page Content Viewport */}
         <main className="flex-1 w-full max-w-[1300px] mx-auto px-4 py-7 sm:px-6 sm:py-8 lg:px-8">
           <div className="mv-page" key={location.pathname}>
-            <Outlet />
+            <React.Suspense fallback={<PageLoading />}><Outlet /></React.Suspense>
           </div>
         </main>
       </div>
