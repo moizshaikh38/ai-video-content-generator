@@ -1,5 +1,5 @@
 import { projectTranscriptReviewRequired } from '../lib/clippingRecovery';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { BTN_PILL_BRAND_SOFT } from '../lib/buttonStyles';
 import {
@@ -138,18 +138,47 @@ export const ProjectDetailPage: React.FC = () => {
 
   const hasTuningOverrides = Boolean(tuningTone || tuningLanguage || tuningInstructions || tuningCTA);
 
+  // A route transition must not let an earlier project's reads replace this one.
+  const activeProjectId = useRef(id);
+  const refreshSequence = useRef(0);
+  const hasAttemptedAutoStart = useRef(false);
+  useLayoutEffect(() => {
+    activeProjectId.current = id;
+    refreshSequence.current++;
+    const cached = id ? projectService.getProject(id) : undefined;
+    setProject(cached);
+    setOutputs(id ? projectService.getOutputs(id) : []);
+    setTranscript(null);
+    setVideoPreviewUrl(null);
+    setIsLoading(!cached);
+    setActionError(null);
+    setGenerationError(null);
+    setIsRetrying(false);
+    setIsGenerating(false);
+    setGeneratingPlatform(null);
+    setQuotaError(null);
+    setIsQuotaModalOpen(false);
+    setShowTuning(false);
+    setTuningTone('');
+    setTuningLanguage('');
+    setTuningInstructions('');
+    setTuningCTA('');
+    setWorkspaceTab('clips');
+    return () => { activeProjectId.current = undefined; refreshSequence.current++; };
+  }, [id]);
+
   useEffect(() => {
     let active = true;
     setVideoPreviewUrl(null);
-    if (!project?.source_url) return;
+    if (!project?.source_url || project.id !== id) return;
     backendRequest<{ signedUrl: string }>(`/projects/${project.id}/source-preview-url`).then((data) => {
       if (active) setVideoPreviewUrl(data.signedUrl || null);
     }).catch(() => { if (active) setVideoPreviewUrl(null); });
     return () => { active = false; };
-  }, [project?.source_url]);
+  }, [id, project?.id, project?.source_url]);
 
   const handleGenerateContent = async (targetPlatform?: OutputPlatform) => {
-    if (!id) return;
+    if (!id || activeProjectId.current !== id) return;
     setIsGenerating(true);
     setGeneratingPlatform(targetPlatform || null);
     setGenerationError(null);
@@ -171,42 +200,46 @@ export const ProjectDetailPage: React.FC = () => {
       );
       await refreshData();
     } catch (err: any) {
-      setGenerationError(err.message || 'Failed to generate content. Please try again.');
+      if (activeProjectId.current === id) setGenerationError(err.message || 'Failed to generate content. Please try again.');
     } finally {
-      setIsGenerating(false);
-      setGeneratingPlatform(null);
+      if (activeProjectId.current === id) {
+        setIsGenerating(false);
+        setGeneratingPlatform(null);
+      }
     }
   };
 
   const refreshData = async () => {
-    if (!id) return;
+    if (!id || activeProjectId.current !== id) return;
+    const sequence = ++refreshSequence.current;
+    const isCurrent = () => activeProjectId.current === id && refreshSequence.current === sequence;
     const p = await projectService.fetchProject(id);
+    if (!isCurrent()) return;
     const o = projectService.getOutputs(id);
-    if (p) setProject(p);
+    setProject(p || undefined);
     setOutputs(o);
 
-    // Only query transcript if project has reached a transcribed/completed milestone
     const currentStatus = p?.video_status || p?.status;
     if (currentStatus === 'transcribed' || currentStatus === 'completed' || currentStatus === 'complete' || currentStatus === 'generating') {
       const t = await projectService.fetchTranscript(id);
-      if (t) setTranscript(t);
-
-      // Load current content outputs from the backend; a failed optional fetch
-      // must never leave the page stuck on its loading state.
+      if (!isCurrent()) return;
+      setTranscript(t || null);
       try {
         const realOutputs = await projectService.fetchContentOutputs(id);
+        if (!isCurrent()) return;
         if (realOutputs) setOutputs(realOutputs);
       } catch {
+        if (!isCurrent()) return;
         // Outputs stay at their cached/empty state.
       }
     } else if (p && projectTranscriptReviewRequired(p, reviewOnly)) {
-      // Reading flagged text does not approve it or bypass the export gate.
-      setTranscript(await projectService.fetchTranscript(id));
+      const t = await projectService.fetchTranscript(id);
+      if (!isCurrent()) return;
+      setTranscript(t || null);
     } else {
       setTranscript(null);
     }
-
-    setIsLoading(false);
+    if (isCurrent()) setIsLoading(false);
   };
 
   // Initial load & updates listener
@@ -221,15 +254,14 @@ export const ProjectDetailPage: React.FC = () => {
     };
   }, [id, reviewOnly]);
 
-  const hasAttemptedAutoStart = useRef(false);
-
   // Auto-start processing once when newly uploaded
   useEffect(() => {
-    if (!project || !id || hasAttemptedAutoStart.current || projectTranscriptReviewRequired(project, reviewOnly)) return;
+    if (!project || !id || project.id !== id || hasAttemptedAutoStart.current || projectTranscriptReviewRequired(project, reviewOnly)) return;
     const currentStatus = project.video_status || project.status;
     if (currentStatus === 'uploaded' && project.source_url) {
       hasAttemptedAutoStart.current = true;
       projectService.startProcessing(id).catch((err: any) => {
+        if (activeProjectId.current !== id) return;
         if (err.status === 403 || err.error_code === 'QUOTA_EXCEEDED') {
           setQuotaError({
             remaining_minutes: err.remaining_minutes,
@@ -262,7 +294,7 @@ export const ProjectDetailPage: React.FC = () => {
   }, [id, project?.video_status, project?.status]);
 
   const handleRetryProcessing = async () => {
-    if (!id || projectTranscriptReviewRequired(project, reviewOnly)) return;
+    if (!id || activeProjectId.current !== id || projectTranscriptReviewRequired(project, reviewOnly)) return;
     setIsRetrying(true);
     setActionError(null);
     setQuotaError(null);
@@ -270,6 +302,7 @@ export const ProjectDetailPage: React.FC = () => {
       await projectService.startProcessing(id);
       await refreshData();
     } catch (err: any) {
+      if (activeProjectId.current !== id) return;
       if (err.status === 403 || err.error_code === 'QUOTA_EXCEEDED') {
         setQuotaError({
           remaining_minutes: err.remaining_minutes,
@@ -282,11 +315,11 @@ export const ProjectDetailPage: React.FC = () => {
         setActionError(err.message || 'Failed to start processing.');
       }
     } finally {
-      setIsRetrying(false);
+      if (activeProjectId.current === id) setIsRetrying(false);
     }
   };
 
-  if (isLoading) {
+  if (isLoading || (project && project.id !== id)) {
     return (
       <div className="pt-12">
         <LoadingState
