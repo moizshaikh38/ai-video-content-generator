@@ -1103,7 +1103,7 @@ export interface EditorTrackItem {
   framing_window?: import('../../server/src/shared/framingWindow').FramingWindow;
   /** Multi-panel scene layout (Three/Four/ScreenShare/Gameplay): per-panel source crops. Target rects live in shared/panelLayouts. */
   scene_layout_overrides?: import('../../server/src/shared/sceneLayoutOverrides').SceneLayoutOverride[];
-  panels?: { layout: 'split2' | 'three' | 'four' | 'screenshare' | 'gameplay' | 'watch_party' | 'streaming' | 'game_screen_first'; slots: Array<{ focusX: number; focusY: number; scale: number; sourceRect?: { x: number; y: number; w: number; h: number }; set?: boolean; auto?: 'track' }> };
+  panels?: { topFraction?: number; layout: 'split2' | 'three' | 'four' | 'screenshare' | 'gameplay' | 'watch_party' | 'streaming' | 'game_screen_first'; slots: Array<{ focusX: number; focusY: number; scale: number; sourceRect?: { x: number; y: number; w: number; h: number }; set?: boolean; auto?: 'track' }> };
   crop?: {
     mode: 'fit' | 'fill' | 'custom' | 'blur';
     /** Fit/Blur shape in a 9:16 canvas: '4:3' band or 'full' frame (legacy when absent). */

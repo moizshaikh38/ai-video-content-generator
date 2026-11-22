@@ -45,7 +45,7 @@ const obj=(v:unknown):v is Record<string,any>=>!!v&&typeof v==='object'&&!Array.
 const finite=(v:unknown):v is number=>typeof v==='number'&&Number.isFinite(v);
 const hash=(v:unknown):v is string=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
 const id=(v:unknown):v is string=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,96}$/.test(v);
-const keys=(v:Record<string,any>,required:string[],optional:string[]=[])=>required.every(k=>Object.hasOwn(v,k))&&Object.keys(v).every(k=>required.includes(k)||optional.includes(k));
+const keys=(v:Record<string,any>,required:string[],optional:string[]=[])=>required.every(k=>Object.prototype.hasOwnProperty.call(v,k))&&Object.keys(v).every(k=>required.includes(k)||optional.includes(k));
 const unit=(v:unknown):v is number=>finite(v)&&v>=0&&v<=1;
 const copyRect=(r:PanelRect):PanelRect=>({x:r.x,y:r.y,w:r.w,h:r.h});
 const rect=(r:unknown):r is PanelRect=>obj(r)&&keys(r,['x','y','w','h'])&&[r.x,r.y,r.w,r.h].every(finite)&&r.x>=0&&r.y>=0&&r.w>=.01&&r.h>=.01&&r.x+r.w<=1&&r.y+r.h<=1;

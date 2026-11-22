@@ -1,4 +1,5 @@
 import React from 'react';
+import { PageLoading } from './components/PageLoading';
 import vireoSymbol from './assets/brand/vireoclip-symbol.svg';
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
@@ -60,15 +61,7 @@ export const App: React.FC = () => {
       <AppErrorBoundary>
       <BrowserRouter>
         <CookieNotice />
-        <React.Suspense fallback={
-          <div className="flex min-h-[45vh] w-full flex-col items-center justify-center gap-4" role="status" aria-label="Loading page">
-            <img src={vireoSymbol} alt="" className="h-10 w-auto animate-pulse motion-reduce:animate-none" />
-            <div className="flex items-center gap-2.5">
-              <span className="size-4 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-400 motion-reduce:animate-none" aria-hidden="true" />
-              <span className="text-sm font-medium text-zinc-400">Loading your workspace...</span>
-            </div>
-          </div>
-        }><Routes>
+        <React.Suspense fallback={<PageLoading />}><Routes>
           {/* Public marketing layout with top navbar & footer */}
           <Route element={<RootLayout />}>
             <Route path="/" element={<LandingPage />} />
