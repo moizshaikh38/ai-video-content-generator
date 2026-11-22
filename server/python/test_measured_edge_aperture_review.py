@@ -1,6 +1,7 @@
 import unittest
 import tempfile
 import os
+import hashlib
 import cv2
 import numpy as np
 from unittest.mock import patch
@@ -15,14 +16,22 @@ class EdgeApertureReviewTests(unittest.TestCase):
         x,y,xx,yy=boxes[side]
         cv2.rectangle(image,(x,y),(xx,yy),(220,220,220),2)
         return x,y,xx,yy
-    def video(self,image,faces,times=None):
+    def video(self,image,faces,times=None,mutate_track=None):
         with tempfile.TemporaryDirectory() as temp:
             path=os.path.join(temp,'source.avi')
             writer=cv2.VideoWriter(path,cv2.VideoWriter_fourcc(*'MJPG'),2,(320,200))
             for _ in range(12):
                 writer.write(image)
             writer.release()
-            return run(path,{'raw_samples':[{'time':t,'faces':faces} for t in (times or [i*.5 for i in range(12)])]})
+            with open(path,'rb') as source:
+                source_sha256=hashlib.sha256(source.read()).hexdigest()
+            track={'source_sha256':source_sha256,
+                   'source_width':320,'source_height':200,'source_start':0,'source_end':6,
+                   'sample_clock':'interval-relative',
+                   'raw_samples':[{'time':t,'faces':faces} for t in (times or [i*.5 for i in range(12)])]}
+            if mutate_track:
+                mutate_track(track)
+            return run(path,track)
     def face(self):
         return {'x':.06,'y':.36,'width':.08,'height':.12,'confidence':.95,'track_id':'one'}
     def test_all_four_source_edges_are_discovered_without_color(self):
@@ -48,6 +57,21 @@ class EdgeApertureReviewTests(unittest.TestCase):
         self.assertTrue(receipt['not_real_person_proof'])
         self.assertEqual(receipt['proposals'][0]['implicit_source_edge'],2)
         self.assertEqual(self.video(image,[])['status'],'unresolved')
+    def test_stale_missing_or_wrong_scope_face_header_rejects_before_decode(self):
+        image=self.image();self.rectangle(image,2)
+        changes=[lambda t:t.pop('source_sha256'),
+                 lambda t:t.update(source_sha256='0'*64),
+                 lambda t:t.update(source_width=321),
+                 lambda t:t.update(source_height=201),
+                 lambda t:t.update(source_start=.1),
+                 lambda t:t.update(source_end=5.9),
+                 lambda t:t.update(source_end=float('nan')),
+                 lambda t:t.update(source_start=False),
+                 lambda t:t.update(sample_clock='source-absolute')]
+        with patch.object(review,'_edges',side_effect=AssertionError('binding must reject before pixels')):
+            for change in changes:
+                with self.assertRaisesRegex(ValueError,'source binding'):
+                    self.video(image,[self.face()],mutate_track=change)
     def test_weak_or_competing_faces_do_not_promote(self):
         image=self.image();self.rectangle(image,2)
         self.assertEqual(self.video(image,[{**self.face(),'confidence':.79}])['status'],'unresolved')

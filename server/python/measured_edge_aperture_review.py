@@ -91,6 +91,22 @@ def run(video,track):
         count=min(32,max(8,int(duration)+1))
         if width*height*count>12000000:
             raise ValueError('Local review pixel budget exceeded')
+        # The image receipt alone cannot bind a separately supplied CV file.
+        # Require the trusted caller's source header before consuming faces.
+        # This rejects accidental stale inputs, not forged caller metadata.
+        with open(video,'rb') as source:
+            digest=hashlib.sha256()
+            for chunk in iter(lambda:source.read(1024*1024),b''):
+                digest.update(chunk)
+        source_sha256=digest.hexdigest()
+        numeric=['source_width','source_height','source_start','source_end']
+        if (track.get('source_sha256')!=source_sha256 or
+            track.get('sample_clock')!='interval-relative' or
+            any(isinstance(track.get(k),bool) or not isinstance(track.get(k),(int,float)) or
+                not np.isfinite(track[k]) for k in numeric) or
+            track['source_width']!=width or track['source_height']!=height or
+            track['source_start']!=0 or abs(track['source_end']-duration)>.001):
+            raise ValueError('Face sample source binding mismatch or missing hash/dimensions/interval header')
         samples=track['raw_samples']
         if any(not np.isfinite(s.get('time',float('nan'))) or not 0<=s['time']<duration or
                (i>0 and s['time']<=samples[i-1]['time']) for i,s in enumerate(samples)):
@@ -138,19 +154,17 @@ def run(video,track):
             continue
         proposals.append({**candidate,'anchor_samples':len(anchors),'anchor_observations':anchors,
                           'observed_frames':observed,'sampled_frames':len(rows),'coverage':coverage})
-    with open(video,'rb') as source:
-        digest=hashlib.sha256()
-        for chunk in iter(lambda:source.read(1024*1024),b''):
-            digest.update(chunk)
     return {'schema_version':4,'local_review_only':True,'not_genre_proof':True,'not_real_person_proof':True,
-            'source_sha256':digest.hexdigest(),'source_start':0,'source_end':duration,'duration_seconds':duration,
+            'source_sha256':source_sha256,'source_start':0,'source_end':duration,'duration_seconds':duration,
             'sample_clock':'interval-relative','method':'one-source-edge-lines-review-v1',
+            'face_sample_source_binding':'sha256-dimensions-full-video-interval-header',
             'status':'measured-rectangle' if len(proposals)==1 else 'unresolved','proposals':proposals,
             'observations':[{'time':r['time'],'discovery_status':r['discovery_status']} for r in rows],
             'limits':['Offline candidate only; not wired to normal Auto or the review ingest service',
                       'An actual source boundary replaces only that unobservable image side',
                       'Three other measured gradient sides, temporal recurrence and one stable face-candidate track required',
                       'No color, real-person, speaker, role, action/HUD or unseen-motion safety proof',
+                      'Face input header matches current source bytes/dimensions/interval; not independent detector-execution proof',
                       'Crossing or nested remaining proposals are unresolved; no scalar winner selected']}
 
 
