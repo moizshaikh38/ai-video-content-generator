@@ -175,7 +175,7 @@ export const Footer: React.FC = () => {
         <div className="mx-auto flex max-w-7xl flex-col sm:flex-row items-center justify-between gap-4 px-5 py-6 sm:px-8 lg:px-10 text-xs text-zinc-500">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <span>© {new Date().getFullYear()} VireoClip by Vertex Digitals. All rights reserved.</span>
-            <span>Support: vertexdigitals07@gmail.com</span>
+            <span>Support: support@vireoclip.com</span>
           </div>
 
           <div className="flex items-center gap-6">

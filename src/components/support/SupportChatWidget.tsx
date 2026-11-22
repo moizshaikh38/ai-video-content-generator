@@ -195,8 +195,8 @@ export const SupportChatWidget: React.FC = () => {
         </form>
         <p className="px-3 pb-2 text-[9.5px] text-[#8aa192] bg-white">
           AI answers can be imperfect — for account or billing actions, email{' '}
-          <a className="underline" href="mailto:vertexdigitals07@gmail.com">
-            vertexdigitals07@gmail.com
+          <a className="underline" href="mailto:support@vireoclip.com">
+            support@vireoclip.com
           </a>
           .
         </p>
