@@ -126,7 +126,7 @@ export function LandingHero() {
           <AiClippingPreview />
         </div>
       </div>
-      <p className="vc-hero-media-note"><a href="/demo/showcase/SOURCES.md" target="_blank" rel="noreferrer">Sample footage by knownoodle, Pangalau and Real Madrid (CC-licensed via Wikimedia Commons, full credits and licenses)</a> — demonstration only, no creator endorsement implied.</p>
+      <p className="vc-hero-media-note">Sample footage</p>
     </section>
   );
 }

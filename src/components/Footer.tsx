@@ -31,6 +31,7 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     {label:'Help Centre',href:'/resources/help-centre'}, {label:'Learning Center',href:'/resources/learning-center'}, {label:'Blog',href:'/resources/blog'},
     {label:'FAQ',href:'/#faq'}, {label:'Support',href:'/support'},
     {label:'Terms of Service',href:'/terms'}, {label:'Privacy Policy',href:'/privacy'},
+    {label:'Footage credits',href:'/demo/showcase/SOURCES.md',isExternal:true},
   ]},
 ];
 

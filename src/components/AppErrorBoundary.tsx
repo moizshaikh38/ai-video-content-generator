@@ -1,6 +1,17 @@
 import React from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
+export const isPageAssetLoadError = (error: Error | null): boolean =>
+  /Unable to preload CSS|Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Loading (?:CSS )?chunk [\w-]+ failed|CSS_CHUNK_LOAD_FAILED|ChunkLoadError/i.test(error?.message || '');
+
+export const getErrorRecoveryLink = (pathname: string): { href: string; label: string } => {
+  const privatePaths = ['/dashboard', '/workflows', '/workspaces', '/projects', '/subtitles',
+    '/studio', '/clips', '/history', '/media-library', '/brand', '/publishing', '/analytics',
+    '/ab-testing', '/billing', '/settings', '/help', '/admin', '/new'];
+  const isPrivatePath = privatePaths.some(path => pathname === path || pathname.startsWith(`${path}/`));
+  return isPrivatePath ? { href: '/dashboard', label: 'Dashboard' } : { href: '/', label: 'Back to Home' };
+};
+
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
@@ -27,8 +38,20 @@ export class AppErrorBoundary extends React.Component<
     console.error('[AppErrorBoundary] Rendering error caught:', error.message, info.componentStack);
   }
 
+  private handleRetry = () => {
+    if (isPageAssetLoadError(this.state.error)) {
+      // User-initiated only. A full reload replaces a rejected lazy-import promise
+      // and preserves the current path, query and hash without clearing storage.
+      window.location.reload();
+      return;
+    }
+    this.setState({ hasError: false, error: null });
+  };
+
   render() {
     if (this.state.hasError) {
+      const isAssetError = isPageAssetLoadError(this.state.error);
+      const recoveryLink = getErrorRecoveryLink(typeof window === 'undefined' ? '/' : window.location.pathname);
       return (
         <div className="min-h-screen bg-[#080B12] flex items-center justify-center p-6">
           <div className="max-w-md w-full rounded-2xl border border-white/[0.08] bg-[#0E1017] p-8 text-center">
@@ -36,10 +59,12 @@ export class AppErrorBoundary extends React.Component<
               <AlertTriangle className="size-6 text-rose-400" aria-hidden="true" />
             </div>
             <h1 className="text-lg font-bold text-white font-['Sora',sans-serif]">
-              Something went wrong
+              {isAssetError ? "Page update couldn't load" : 'Something went wrong'}
             </h1>
             <p className="mt-2 text-sm text-slate-400 leading-relaxed">
-              The page encountered an unexpected error. Try refreshing — your work is saved on the server.
+              {isAssetError
+                ? 'A required page file could not load. Refresh to try the latest page. Unsaved changes may be lost.'
+                : 'The page encountered an unexpected error. You can try again or refresh the page. Unsaved changes may be lost when refreshing.'}
             </p>
             {this.state.error && (
               <details className="mt-4 text-left">
@@ -56,18 +81,18 @@ export class AppErrorBoundary extends React.Component<
             <div className="mt-6 flex gap-3 justify-center">
               <button
                 type="button"
-                onClick={() => this.setState({ hasError: false, error: null })}
+                onClick={this.handleRetry}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-colors"
               >
                 <RefreshCw size={15} aria-hidden="true" />
-                Try again
+                {isAssetError ? 'Refresh page' : 'Try again'}
               </button>
               <a
-                href="/dashboard"
+                href={recoveryLink.href}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-slate-300 text-sm font-semibold transition-colors"
               >
                 <Home size={15} aria-hidden="true" />
-                Dashboard
+                {recoveryLink.label}
               </a>
             </div>
           </div>
