@@ -295,9 +295,7 @@ export function CombinedWorkflowShowcase() {
 
           <p className="cw-caption-mob">{STAGES[activeStage].sub}</p>
 
-          <p className="cw-credit">
-            Illustrative AI-generated images supplied by the site owner, not Vireo exports.
-          </p>
+          <p className="cw-credit">AI illustrations</p>
         </div>
 
         {/* Static capability chips (no second animation) */}
