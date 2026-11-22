@@ -1637,6 +1637,11 @@ export class SmartReframeService {
   }
 
   private static computeShotCompositionLegacy(options: ShotCompositionOptions): ReturnType<typeof SmartReframeService.computeShotComposition> {
+    // Final Fit presentation already defaults to4:3 even without persisted
+    // aspect metadata. Run its measured-subject protections for that same
+    // default, not only for projects that explicitly stored the preference.
+    // No review feature flag or source measurement is invented here.
+    options = {...options, automaticFitAspect: options.automaticFitAspect ?? '4:3'};
     if(options.sharedViewReview && options.windowScope==='shot' && options.automaticFitAspect==='4:3' && (!options.layoutPolicy||options.layoutPolicy.allowed.includes('fit'))){
       const baseline=this.computeShotComposition({...options,sharedViewReview:false});
       return buildSharedViewReviewPlan(baseline,{samples:options.rawSamples||[],sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,protectedRegions:options.protectedContentRegions||[]}).shots as ReturnType<typeof SmartReframeService.computeShotComposition>;
@@ -1759,7 +1764,14 @@ export class SmartReframeService {
     // silently discard an explicit or persistent measured constraint.
     const preservePresentationRegions = (plan: ReturnType<typeof SmartReframeService.computeShotComposition>) => {
       const constrained=plan.map(shot=>{
-        const regions=[...(options.protectedContentRegions||[]),...shots.flatMap(original=>original.start<shot.end&&original.end>shot.start?objectRegions.get(original)||[]:[])].filter(r=>
+        const localSamples=rawSamples.filter(s=>s.time>=shot.start&&s.time<shot.end);
+        const bodyIds=[...new Set(localSamples.flatMap(s=>s.faces.map(f=>f.track_id).filter((id):id is string=>!!id)))];
+        // A final static Fit can lose the same body that sized its original
+        // view. Constrain that presentation just like measured object context.
+        // Moving paths and split panels have separate per-frame geometry.
+        const body=!shot.split&&shot.keyframes.length===1?associatedBodyEnvelope(localSamples,bodyIds):null;
+        const bodyRegions=body?[{start:shot.start,end:shot.end,x:body.left,y:body.top,width:body.right-body.left,height:body.bottom-body.top,confidence:1}]:[];
+        const regions=[...bodyRegions,...(options.protectedContentRegions||[]),...shots.flatMap(original=>original.start<shot.end&&original.end>shot.start?objectRegions.get(original)||[]:[])].filter(r=>
           [r.start,r.end,r.x,r.y,r.width,r.height,r.confidence].every(Number.isFinite)&&r.end>r.start&&r.start<shot.end&&r.end>shot.start&&r.confidence>=.7&&r.x>=0&&r.y>=0&&r.width>0&&r.height>0&&r.x+r.width<=1.001&&r.y+r.height<=1.001);
         if(!regions.length)return shot;
         // A split is not evidence that a context rectangle is legible in one
