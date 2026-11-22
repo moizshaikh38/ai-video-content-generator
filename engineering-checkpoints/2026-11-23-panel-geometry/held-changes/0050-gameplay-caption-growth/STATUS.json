@@ -1,0 +1,40 @@
+{
+  "status": "HELD_NOT_NATIVE_QUALIFIED_NOT_ACTIVE_RUNTIME",
+  "scope": "Two-line automatic house Comic captions keep their first-line Gameplay seam and grow downward. The qualified runtime remains unchanged.",
+  "tests": {
+    "status": "PASS",
+    "checks": 112,
+    "scope": "Actual native automatic-caption editor payload, whole shared placement/regroup/finalization/ASS functions. One-line seam unchanged; two-line house Comic grows down; manual/override/other panel/preset/landscape paths unchanged. Synthetic windows are labeled. Not new native UI or decoded pixel acceptance.",
+    "movedCues": 2,
+    "evidence": [
+      {
+        "text": "RENNEN\\NGEGEN DANIEL",
+        "start": 9.3,
+        "end": 9.86,
+        "before": 0.3984375,
+        "after": 0.43385416666666665,
+        "fontSize": 136,
+        "playResY": 1920
+      },
+      {
+        "text": "MIT IHM\\NGESCHRIEBEN.",
+        "start": 11.24,
+        "end": 11.8,
+        "before": 0.3984375,
+        "after": 0.43385416666666665,
+        "fontSize": 136,
+        "playResY": 1920
+      }
+    ]
+  },
+  "limits": "Native preview/export pixels, lower-game and HUD review remain unqualified. Not a global collision solver; legacy title and explicit/manual caption positions remain unchanged.",
+  "files": [
+    {
+      "path": "server/src/shared/sceneCaptionPlacement.ts",
+      "beforeSha256": "b397036651868f248c67e391b1d5eb3f880b089698e232f88a79a5202d1a2702",
+      "sha256": "f72f091a04661a7b9933ccf3de073a4f98076d8b9dc83747e01c3c4e57d9e237",
+      "bytes": 12653
+    }
+  ],
+  "releaseGate": "No publish until approval and slice verification."
+}
