@@ -1,3 +1,5 @@
+import{transcriptContentIdentity}from'../shared/transcriptSourceBinding.js';
+import{resolveClipReframeGenre,reframeGenreContextKey,genreTrackStale}from'../shared/effectiveClipGenre.js';
 import {produceGamingSceneEvidence} from './gamingSceneProducerService.js';
 import {normalGamingScenePlan} from '../shared/normalGamingScenePlan.js';
 import {sourceWindowSceneCuts} from '../shared/sourceWindowSceneCuts.js';
@@ -3030,6 +3032,8 @@ export class SmartReframeService {
       // type. Explicit per-call options and the user's own layout choice win.
       let genreReframe: ReturnType<typeof resolveGenreReframeOptions> = {};
       let sourceGenre: string | null = null;
+      let genrePreferences:any;
+      let genreTranscriptIdentity:string|undefined;
       try {
         if (clip.project_id) {
           const { data: proj } = await dataRepository
@@ -3037,8 +3041,8 @@ export class SmartReframeService {
             .select('clip_preferences')
             .eq('id', clip.project_id)
             .maybeSingle();
-          sourceGenre = (proj as any)?.clip_preferences?.genre ?? null;
-          genreReframe = resolveGenreReframeOptions(options, sourceGenre);
+          genrePreferences=(proj as any)?.clip_preferences;
+          if(clip.crop_config?.effective_genre){const{data:transcript}=await dataRepository.from('transcripts').select('*').eq('project_id',clip.project_id).maybeSingle();genreTranscriptIdentity=transcript?transcriptContentIdentity(transcript):undefined;}
         }
       } catch (genreErr: any) {
         logger.warn(`[SmartReframe] Genre profile resolution skipped: ${genreErr.message}`);
@@ -3059,6 +3063,10 @@ export class SmartReframeService {
 
       const analyzedSourceSha256 = await computeFileStreamSha256(localSourcePath);
       if(options.localSourcePath&&options.sourceReceipt&&sourceObjectReceiptMatches(options.sourceReceipt,clip.source_storage_path,{size:fs.statSync(localSourcePath).size,etag:options.sourceReceipt.etag},analyzedSourceSha256))sourceReceipt=options.sourceReceipt;
+
+      if(clip.crop_config?.effective_genre&&genreTranscriptIdentity!==clip.crop_config.effective_genre.transcriptSha256)throw Object.assign(Error('Selection transcript changed before reframe.'),{code:'GENRE_SELECTION_STALE'});
+      sourceGenre=resolveClipReframeGenre(genrePreferences,clip,analyzedSourceSha256)??null;
+      genreReframe=resolveGenreReframeOptions(options,sourceGenre);
 
       // 4. Determine effective clip boundaries
       const trimStart = Number(clip.trim_start_offset || 0);
@@ -3263,6 +3271,7 @@ export class SmartReframeService {
           cv_duration: cvResult.duration,
           sample_fps: cvResult.sample_fps,
           total_samples: cvResult.samples.length,
+          genre_context_key:reframeGenreContextKey(genrePreferences,clip,analyzedSourceSha256),
           keyframe_count: fusedKeyframes.length, word_energy_fused: wordTimings.length > 0,
           // User-correctable suggestion only (static geometry, not intent proof)
           facecam_box: facecamSuggestion?.box ?? null,
@@ -3284,6 +3293,12 @@ export class SmartReframeService {
       const normalSnapshot=snapshotAutomaticScenePlan(planningTrack,autoConfig,durationSec,normalPlan);
       if(normalSnapshot)(trackPayload.metadata as any).automatic_scene_plan=normalSnapshot;
 
+      const assertGenreContextCurrent=async()=>{
+        const{data:project,error}=await dataRepository.from('projects').select('clip_preferences').eq('id',clip.project_id).maybeSingle();
+        if(error||!project||reframeGenreContextKey(project.clip_preferences,clip,analyzedSourceSha256)!==(trackPayload.metadata as any).genre_context_key)throw Object.assign(Error('Genre preferences changed during analysis.'),{code:'GENRE_CONTEXT_CHANGED'});
+        if(clip.crop_config?.effective_genre){const{data:transcript}=await dataRepository.from('transcripts').select('*').eq('project_id',clip.project_id).maybeSingle();if(!transcript||transcriptContentIdentity(transcript)!==genreTranscriptIdentity)throw Object.assign(Error('Transcript changed during analysis.'),{code:'GENRE_SELECTION_STALE'});}
+      };
+      await assertGenreContextCurrent();
       if(options.signal?.aborted)throw options.signal.reason||Object.assign(Error('Analysis cancelled before persistence.'),{code:'WORK_CANCELLED'});
       const { data: savedRecord, error: upsertErr } = await dataRepository
         .from('reframe_tracks')
@@ -3291,6 +3306,7 @@ export class SmartReframeService {
         .select()
         .single();
 
+      await assertGenreContextCurrent();
       if (upsertErr) {
         logger.error(`[SmartReframe] Failed to save reframe track for clip ${clipId}: ${upsertErr.message}`);
         // Return constructed record even if DB upsert had issue so client isn't blocked
@@ -3330,7 +3346,7 @@ export class SmartReframeService {
     // Fetch clip to verify ownership and current trim/aspect ratio
     const { data: clip, error: clipErr } = await dataRepository
       .from('clips')
-      .select('id, user_id, source_storage_path, start_seconds, end_seconds, trim_start_offset, trim_end_offset, aspect_ratio')
+      .select('id, user_id, project_id, candidate_id, crop_config, selection_source_receipt, source_storage_path, start_seconds, end_seconds, trim_start_offset, trim_end_offset, aspect_ratio')
       .eq('id', clipId)
       .maybeSingle();
 
@@ -3351,6 +3367,12 @@ export class SmartReframeService {
     }
 
     let {isStale} = reframeTrackFreshness(clip,track,expectedSourceSha256);
+    if(track.metadata?.genre_context_key!==undefined||clip.crop_config?.effective_genre){
+      try{const {data:project,error}=await dataRepository.from('projects').select('clip_preferences').eq('id',clip.project_id).maybeSingle();
+        if(error||!project||genreTrackStale(project.clip_preferences,clip,track))isStale=true;
+        if(clip.crop_config?.effective_genre){const{data:transcript}=await dataRepository.from('transcripts').select('*').eq('project_id',clip.project_id).maybeSingle();if(!transcript||transcriptContentIdentity(transcript)!==clip.crop_config.effective_genre.transcriptSha256)isStale=true;}
+      }catch{isStale=true;}
+    }
     let sourceObjectVerified:boolean|undefined;
     // Embedded-region review and source-structure guards require an independently
     // verified object receipt at every consumer, including ordinary export.

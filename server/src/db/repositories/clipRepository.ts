@@ -1,3 +1,4 @@
+import {candidateEffectiveGenre} from '../../shared/effectiveClipGenre.js';
 import {config} from '../../config/index.js';
 import {registerPendingHookInitialization} from './pendingHookInitializationRepository.js';
 import {candidateAutoHookTitle} from '../../shared/autoHookTitle.js';
@@ -38,6 +39,8 @@ export async function readCandidateCreationTemplate(db:Db, session:ClientSession
         throw new AppError('Candidate timestamps are invalid.', 400, 'INVALID_TIMESTAMPS');
       }
       const candidateMeta = (candidate as any)?.metadata || {};
+      const effectiveGenre=candidateEffectiveGenre(candidateMeta,project.clip_preferences,candidateId);
+      if(candidateMeta.genre_preference_input&&!effectiveGenre)throw new AppError('Genre preferences changed after selection. Reanalyze candidates before creating a clip.',409,'GENRE_SELECTION_STALE');
       const automaticDefault=project.clip_preferences?.framingDefaults?.version===1&&project.clip_preferences.framingDefaults.layout==='auto'&&String(cropMode)==='smart';
       const layoutMode = automaticDefault?'track':candidateMeta.layout_mode || 'track';
       // Candidates analyzed before provenance tracking carry no marker; treat
@@ -50,11 +53,13 @@ export async function readCandidateCreationTemplate(db:Db, session:ClientSession
         start_seconds: start, end_seconds: end, duration_seconds: end - start,
         aspect_ratio: aspectRatio, crop_mode: cropMode, render_status: 'queued',
         crop_config: {
+          ...(effectiveGenre?{effective_genre:effectiveGenre}:{}),
           mode: project.clip_preferences?.layoutPolicy?.defaultLayout==='fit'?'fit_blur':project.clip_preferences?.layoutPolicy?.defaultLayout==='fill'?'manual':cropMode,
           layoutPolicy:project.clip_preferences?.layoutPolicy,
           layout_mode: layoutMode,
           layout_mode_source: layoutModeSource,
         },
+        ...(effectiveGenre?{genre:effectiveGenre.genre}:{}),
         caption_position: captionPos,
         caption_enabled: options?.caption_enabled !== undefined ? Boolean(options.caption_enabled) : true,
         // New captions use the house style. Explicit choices/config are preserved.

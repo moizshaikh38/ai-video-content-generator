@@ -1171,6 +1171,9 @@ export class ClipAnalysisService {
             vireo_score: isUnranked ? null : scored.vireo_score,
             explanation: usedShortSourceFallback || narrativeRankingInvalidated ? null : scored.explanation,
             genre: genreProfile.genre,
+            genre_selection_mode: normalizedPrefs.genreSelectionMode,
+            genre_preference_input: {genre:project.clip_preferences?.genre??null,mode:project.clip_preferences?.genreSelectionMode??null},
+            ...(options.preferences?{genre_preference_override:{genre:options.preferences.genre??null,mode:options.preferences.genreSelectionMode??null}}:{}),
             layout_mode: genreProfile.recommendedLayoutMode || 'track',
             // Provenance: this value is a genre-profile recommendation, not a
             // measurement and not a user choice. Consumers must treat it as a

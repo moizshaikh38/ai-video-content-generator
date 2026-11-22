@@ -1486,7 +1486,7 @@ export class ClipRenderService {
       // caller must quarantine capacity, not downgrade this to fencing only.
       if(err?.code==='PROCESS_STOP_UNVERIFIED')throw err;
       if(signal?.aborted)throw signal.reason||err;
-      if(['FENCING_TOKEN_MISMATCH','RENDER_INPUT_CHANGED','WORK_CANCELLED','PROCESS_STOP_UNVERIFIED','SUPERVISION_UNAVAILABLE','RESOURCE_POLICY_MISMATCH','RESOURCE_WORK_TOO_LARGE'].includes(err?.code))throw err;
+      if(['GENRE_SELECTION_STALE','GENRE_CONTEXT_CHANGED','FENCING_TOKEN_MISMATCH','RENDER_INPUT_CHANGED','WORK_CANCELLED','PROCESS_STOP_UNVERIFIED','SUPERVISION_UNAVAILABLE','RESOURCE_POLICY_MISMATCH','RESOURCE_WORK_TOO_LARGE'].includes(err?.code))throw err;
       logger.warn(`[ClipRender] Auto reframe analysis failed for clip ${clip.id}: ${err?.message || err}. Falling back to center crop.`);
     }
   }
