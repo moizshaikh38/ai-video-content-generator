@@ -15,6 +15,7 @@ export interface CaptionPlacementContext {
   explicitConfigPosition?: boolean;
 }
 
+const automaticFitBoundary = Symbol('automaticFitCaptionBoundary');
 export interface CaptionLayoutWindow {itemId:string;start:number;end:number;layout:CaptionSceneLayout;anchorY?:number}
 /** Derived only from the picture composition plan. No persisted layout writes.
  * Plan clocks are clip-relative; item clocks include trim, speed and timeline edits. */
@@ -110,10 +111,27 @@ export function applySceneCaptionPlacement<T extends {start:number;end:number;te
       const window=windows.find(w=>w.itemId===scene.id&&start>=w.start-.001&&start<w.end-.001);
       const layout=window?.layout??captionSceneLayout(scene,context.fallbackLayout);
       result.push({...cue,id:cue.id,start,end,...(words?{words}:{}),text,
+        ...(window?.layout==='fit'&&Number.isFinite(window.anchorY)?{[automaticFitBoundary]:window.anchorY}:{}),
         position_y:window?.anchorY??autoCaptionAnchor(layout,context,scene,text),position_anchor:'center',auto_position:true});
     }
   }
   return result;
+}
+
+/** Finalize after physical line wrapping. The house comic's first line keeps the
+ * existing automatic Fit center; later lines grow downward, not into the picture.
+ * A symbol carries runtime-only geometry through regrouping without becoming a
+ * saved user coordinate. Other presets, explicit choices and panel seams stay put.
+ * CSS and ASS both use one resolved font-size unit for each ordinary line. */
+export function finalizeAutomaticFitCaptionGrowth<T extends {text?:string;position_y?:number;position_anchor?:string;presetOverride?:unknown;styleOverrides?:unknown;words?:any[]}>(cues:T[],style:{fontSize:number;playResX:number;playResY:number;cueMotion?:string;box?:unknown;activeWordBox?:unknown}):T[]{
+ if(style.cueMotion!=='comic'||style.box||style.activeWordBox||style.playResY<=style.playResX||!Number.isFinite(style.fontSize)||style.fontSize<=0)return cues;
+ return cues.map(cue=>{
+  const boundary=(cue as any)[automaticFitBoundary];
+  if(!Number.isFinite(boundary)||(cue as any).auto_position!==true||cue.position_anchor!=='center'||cue.presetOverride||cue.styleOverrides||cue.words?.some(w=>w.customStyle?.fontSizeMultiplier!==undefined))return cue;
+  const lines=String(cue.text??'').split(/\\N|\r?\n/).length;
+  if(lines!==2||boundary+(lines-.5)*style.fontSize/style.playResY>.96)return cue;
+  return {...cue,position_y:boundary+(lines-1)*style.fontSize/(2*style.playResY)};
+ });
 }
 
 /** Quick-render uses its actual picture plan, without creating a saved editor. */

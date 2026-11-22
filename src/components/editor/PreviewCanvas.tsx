@@ -11,7 +11,7 @@ import { framingWindowRect, validateFramingWindow } from '../../../server/src/sh
 import { SceneLayoutMenu } from './SceneLayoutMenu';
 import { readItemLayout, type SceneLayout } from '../../lib/itemLayout';
 import { nonPortraitAutoFullSourceFit } from '../../../server/src/shared/nonPortraitAutoFit';
-import { applySceneCaptionPlacement,captionCompositionWindows } from '../../../server/src/shared/sceneCaptionPlacement';
+import { applySceneCaptionPlacement,captionCompositionWindows,finalizeAutomaticFitCaptionGrowth } from '../../../server/src/shared/sceneCaptionPlacement';
 import {effectiveContentLayout, type ContentFramingDecision} from '../../../server/src/shared/contentFramingDecision';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
@@ -607,7 +607,20 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     maxCharsPerLine: placementStyle?.maxCharsPerLine,
     maxLines: placementStyle?.maxLines ?? captionItem?.caption?.max_lines,
   }), [rawCues, project, videoDims, primaryLayoutMode, shotComposition, effectiveShotComposition, compositionClipStart, captionItem, placementStyle?.fontSize, placementStyle?.maxLines, placementStyle?.maxCharsPerLine]);
-  const activeCue = cues.find(c => playhead >= c.start && playhead < c.end);
+  // Gallery presets render through the shared preset engine (same cue grouping, timing,
+  // geometry and colors as the ASS export). Legacy styles keep the overlay below.
+  const captionData = captionItem?.caption;
+  const captionTransform = captionItem?.transform;
+  const aspectRatio = project.canvas.aspect_ratio;
+  const presetStyle = useMemo(
+    () => resolveEditorCaptionStyle(captionData, aspectRatio, captionTransform),
+    [captionData, aspectRatio, captionTransform]
+  );
+  // Bound each existing edited cue independently. Never merge scene/position/override boundaries.
+  const presetCues = presetStyle ? finalizeAutomaticFitCaptionGrowth(cues.flatMap(cue => cue.presetOverride && cue.presetOverride !== presetStyle.presetId ? [cue]
+      : regroupCuesForPreset([cue], presetStyle).cues.map(part => ({...part, id: cue.id}))),presetStyle) : null;
+
+  const activeCue = (presetCues || cues).find(c => playhead >= c.start && playhead < c.end);
   const splitCaptionCueY = undefined;
   const effectiveCaptionCoords = {
     x: activeCue?.position_x ?? currentCaptionCoords.x,
@@ -620,18 +633,6 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     .flatMap((t) => (t.hidden ? [] : t.items))
     .find((i) => i.is_title_card && playhead >= i.timeline_start && playhead <= i.timeline_end);
 
-  // Gallery presets render through the shared preset engine (same cue grouping, timing,
-  // geometry and colors as the ASS export). Legacy styles keep the overlay below.
-  const captionData = captionItem?.caption;
-  const captionTransform = captionItem?.transform;
-  const aspectRatio = project.canvas.aspect_ratio;
-  const presetStyle = useMemo(
-    () => resolveEditorCaptionStyle(captionData, aspectRatio, captionTransform),
-    [captionData, aspectRatio, captionTransform]
-  );
-  // Bound each existing edited cue independently. Never merge scene/position/override boundaries.
-  const presetCues = presetStyle ? cues.flatMap(cue => cue.presetOverride && cue.presetOverride !== presetStyle.presetId ? [cue]
-      : regroupCuesForPreset([cue], presetStyle).cues.map(part => ({...part, id: cue.id}))) : null;
 
   // Selected item reference
   const selectedItem = project.tracks

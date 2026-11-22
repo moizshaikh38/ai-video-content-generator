@@ -4,7 +4,7 @@ import {newCaptionDefaults} from '../shared/newCaptionDefaults.js';
 import { clampCaptionFontSize } from '../shared/captionPresets.js';
 import {assertSelectionSourceCurrent} from './selectionSourceGuardService.js';
 import {assertTranscriptUsable} from './transcription/transcriptQuality.js';
-import { applySceneCaptionPlacement,quickCaptionProject } from '../shared/sceneCaptionPlacement.js';
+import { applySceneCaptionPlacement,finalizeAutomaticFitCaptionGrowth,quickCaptionProject } from '../shared/sceneCaptionPlacement.js';
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { mergeExtendedCues, maxCueEnd, editorProjectCoveredEnd, hasAuthoritativeCaptionCues } from './captionExtendMerge.js';
@@ -1584,6 +1584,7 @@ export class CaptionService {
       cues = cues.flatMap(cue => cue.presetOverride && cue.presetOverride !== preset!.presetId
         ? [cue]
         : regroupCuesForPreset([cue], preset!).cues as TimedCaptionCue[]);
+      cues = finalizeAutomaticFitCaptionGrowth(cues,preset);
     }
 
     const isKinetic = Boolean(
