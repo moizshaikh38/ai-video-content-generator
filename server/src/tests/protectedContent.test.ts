@@ -18,6 +18,17 @@ test('content constraints preserve one clip-wide window size across cuts',()=>{
 });
 test('unknown-shot content must not be discarded by the subject-window review policy',()=>{
  const rawSamples=[...samples,...samples.map(s=>({time:s.time+2,faces:[],persons:[]}))];
- const p=S.computeShotComposition({...opts,duration:4,rawSamples,sceneCuts:[2],unresolvedContextPolicy:'shared-subject-window',protectedContentRegions:[{...region,start:2,end:4}]});
- assert.equal(p[0].windowW,1);assert.equal(p[0].windowH,1);assert.equal(p[1].contextStatus,'unresolved-preserved');
+ const retained={...region,start:2,end:4};
+ const p=S.computeShotComposition({...opts,duration:4,rawSamples,sceneCuts:[2],unresolvedContextPolicy:'shared-subject-window',protectedContentRegions:[retained]});
+ // Default4:3 may crop irrelevant sides, but not this measured lower third.
+ assert.equal(p[0].windowW,.75);assert.equal(p[0].windowH,1);
+ assert.equal(p[1].windowW,p[0].windowW);assert.equal(p[1].windowH,p[0].windowH);
+ for(const shot of p)for(const k of shot.keyframes){
+  assert.ok(k.centerX-shot.windowW/2<=retained.x-.025+1e-9);
+  assert.ok(k.centerX+shot.windowW/2>=retained.x+retained.width+.025-1e-9);
+  assert.ok(k.centerY-shot.windowH/2<=retained.y-.025+1e-9);
+  assert.ok(k.centerY+shot.windowH/2>=retained.y+retained.height+.025-1e-9);
+ }
+ assert.equal(p[1].contextStatus,'unresolved-review-required');
+ assert.match(p[1].uncertainty!,/Review/);
 });
