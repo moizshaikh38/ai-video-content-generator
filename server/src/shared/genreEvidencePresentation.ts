@@ -12,7 +12,7 @@ export function genreEvidencePresentation(metadata:any,knownGenres:readonly stri
  if(evidence?.version!==1||evidence.status!=='suggested'||evidence.confidenceIsProbability!==false)return review('This saved genre suggestion has no current evidence record. Review it before sharing.');
  if(evidence.method==='source-bound-semantic'){
   if(semantic?.status!=='suggested'||semantic.scope!=='sampled-source'||![5,9].includes(semantic.sampleCount))return review('The saved visual genre evidence needs review.');
-  return {state:'suggested',genreId:genre,description:`Based on ${semantic.sampleCount} sampled frames and transcript. Unseen content may differ. This is a suggestion, not an accuracy score.`};
+  return {state:'suggested',genreId:genre,description:`Based on ${semantic.sampleCount} sampled frames. Unseen content may differ. This is a suggestion, not an accuracy score.`};
  }
  if(evidence.method==='local-heuristic')return {state:'suggested',genreId:genre,description:'Local heuristic suggestion, not measured accuracy. Review the recording before sharing.'};
  return review('This saved genre suggestion has no recognized evidence method. Review it before sharing.');
