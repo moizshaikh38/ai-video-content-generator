@@ -210,9 +210,8 @@ async function executeProjectVideo(
     }
     const tierSelection = config.tieredTranscriptionEnabled
       ? await freezeTierSelection(db,userId,processingAttemptId,async()=>(await EntitlementService.resolveUserEntitlements(userId)).planId) : undefined;
-    const delegate = tierSelection ? createTierTranscriptionProvider(tierSelection) : process.env.VIREO_AUTOMATIC_GAMING_REVIEW==='1'
-      ? new (await import('./transcription/openRouterTranscriptionProvider.js')).OpenRouterTranscriptionProvider('elevenlabs/scribe-v2')
-      : getTranscriptionProviderWithFailover();
+    // Framing review never changes transcription provider or authorizes a paid STT model.
+    const delegate = tierSelection ? createTierTranscriptionProvider(tierSelection) : getTranscriptionProviderWithFailover();
     const inputs=observeTranscriptionInputs(delegate);
     const {provider,requests}=inputs;
     const preparedAudioSha256=audioInputSha256(extractedAudio.audioBuffer);

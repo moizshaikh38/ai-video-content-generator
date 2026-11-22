@@ -30,3 +30,18 @@ test('missing detected language stays unknown through adapters and chunk merge, 
   }
  }finally{globalThis.fetch=priorFetch;(config as any).groqApiKey=priorGroq;(config as any).openrouterApiKey=priorOR}
 });
+
+test('zero-length source word exposes its recorded span without repairing or accepting it',()=>{
+ const words=[{word:'Hold',start:23.22,end:23.22}];
+ const result:any={text:'Hold',language:'en',durationSeconds:24,segments:[{start:23,end:24,text:'Hold'}],words};
+ const before=JSON.stringify(result);const quality=assessTranscriptQuality(result);
+ assert.equal(quality.status,'needs_review');assert.deepEqual(quality.issues.map(i=>({code:i.code,start:i.start,end:i.end})),[{code:'invalid_timing',start:23.22,end:23.22}]);
+ assert.throws(()=>assertTranscriptUsable({transcript_text:'Hold',words,quality_assessment:quality}),(e:any)=>e.code==='TRANSCRIPT_REVIEW_REQUIRED');
+ assert.equal(JSON.stringify(result),before);
+});
+test('bad word diagnostic preserves only finite clocks, never NaN or Infinity',()=>{
+ for(const [start,end,expected]of [[NaN,3,{end:3}],[2,Infinity,{start:2}],[-1,0,{start:-1,end:0}] ]as const){
+  const q=assessTranscriptQuality({text:'Hold',language:'en',durationSeconds:3,segments:[{start:0,end:3,text:'Hold'}],words:[{word:'Hold',start,end}]});
+  const issue=q.issues.find(i=>i.code==='invalid_timing');assert.ok(issue);assert.deepEqual(Object.fromEntries(Object.entries({start:issue.start,end:issue.end}).filter(([,v])=>v!==undefined)),expected);assert.equal(q.status,'needs_review');
+ }
+});

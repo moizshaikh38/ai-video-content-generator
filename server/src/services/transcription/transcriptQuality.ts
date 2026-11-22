@@ -33,7 +33,7 @@ export function assessTranscriptQuality(result: NormalizedTranscriptionResult, e
   for (const word of result.words || []) {
     if (word.kind === 'audio_event' || word.kind === 'redaction') issues.push({code:'non_speech_annotation',start:word.start,end:word.end,detail:'Provider returned an audio event or redacted speech token. Review before treating it as a spoken-word caption.'});
     if (![word.start,word.end].every(Number.isFinite) || word.start < 0 || word.end <= word.start) {
-      issues.push({code:'invalid_timing',detail:'Speech word has an invalid time window.'});
+      issues.push({code:'invalid_timing',...(Number.isFinite(word.start)?{start:word.start}:{}),...(Number.isFinite(word.end)?{end:word.end}:{}),detail:'Speech word has an invalid time window. Review the original audio at this span; no replacement timestamp was invented.'});
     }
   }
   const requested = expectedLanguage || result.provenance?.requested_language;
