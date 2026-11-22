@@ -58,6 +58,20 @@ export function tokenJaccard(a: string, b: string): number {
   return inter / (ta.size + tb.size - inter);
 }
 
+/** Token overlap is not semantic equivalence. A changed explicit quantity or
+ * English negation is evidence against dropping a separate moment. Preserve
+ * both for ranking rather than declaring which meaning is correct. This narrow
+ * guard does not understand arbitrary contradictions or other languages. */
+export function tokenDedupEvidenceCompatible(a: string, b: string): boolean {
+  const normalized = (text: string) => String(text || '').normalize('NFC').toLowerCase().replace(/[’]/gu, "'");
+  const quantities = (text: string) => normalized(text).match(/[+\-−]?\p{N}+(?:[.,]\p{N}+)*(?:\s*%)?/gu)?.map(value => value.replace(/\s+/gu, '')) || [];
+  const negations = (text: string) => normalized(text).match(/[\p{L}\p{M}]+(?:'[\p{L}\p{M}]+)*/gu)?.filter(value =>
+    /^(?:no|not|never|without|cannot|can't|don't|doesn't|didn't|won't|wouldn't|isn't|aren't|wasn't|weren't|shouldn't|couldn't|haven't|hasn't|hadn't)$/u.test(value)) || [];
+  // Keep order and repeats: swapping two quantities can change the outcome.
+  return JSON.stringify(quantities(a)) === JSON.stringify(quantities(b)) &&
+    JSON.stringify(negations(a)) === JSON.stringify(negations(b));
+}
+
 /** Cosine similarity of two equal-length vectors (0 when shapes differ). */
 export function cosineSimilarity(a: number[], b: number[]): number {
   if (!Array.isArray(a) || !Array.isArray(b) || a.length === 0 || a.length !== b.length) return 0;
@@ -106,6 +120,8 @@ export function deduplicateSemantically<T extends SemanticDedupCandidate>(
     keptIdx.add(i);
     for (let j = i + 1; j < ranked.length; j++) {
       if (droppedFor.has(j) || keptIdx.has(j)) continue;
+      const usesTokenFallback = mode === 'token' || !(ranked[i].embedding && ranked[j].embedding);
+      if (usesTokenFallback && !tokenDedupEvidenceCompatible(String(ranked[i].text), String(ranked[j].text))) continue;
       if (candidateSimilarity(ranked[i], ranked[j], mode) >= threshold) {
         droppedFor.set(j, i);
       }

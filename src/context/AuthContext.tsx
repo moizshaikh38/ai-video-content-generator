@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { backendRequest } from '../services/backendClient';
 import { projectService } from '../services/projectService';
-import { setCurrentAuthOwner } from '../lib/authOwner';
+import { getCurrentAuthOwner, setCurrentAuthOwner } from '../lib/authOwner';
 
 export interface UserProfile {
   id: string;
@@ -61,7 +61,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Publish the signed-in account synchronously with render so detached save chains see an account switch immediately.
   setCurrentAuthOwner(user?.id);
 
+  // A profile result belongs to the account AND request that was current when it
+  // started. profileFetchEpoch increments on every fetch and on sign-out, so any
+  // earlier request's late success or late failure is discarded, including
+  // same-account overlapping refreshes. The owner check drops a response from a
+  // previous account; a not-yet-published owner (first login before its render)
+  // must still apply, so this deliberately does not use the strict ownerMismatch.
+  const profileFetchEpoch = useRef(0);
+
   const fetchProfiles = useCallback(async (userId: string, userEmail: string, token?: string) => {
+    const epoch = ++profileFetchEpoch.current;
+    const isStale = (): boolean => {
+      if (epoch !== profileFetchEpoch.current) return true;
+      const owner = getCurrentAuthOwner();
+      return owner !== undefined && owner !== userId;
+    };
+    // Drop a previous account's profile data as soon as a fetch for a different
+    // account starts, so the old brand never renders under the new account while
+    // the request is in flight. Same-account refreshes are a no-op.
+    setProfile((prev) => (prev && prev.id !== userId ? null : prev));
+    setCreatorProfile((prev) => (prev && prev.user_id !== userId ? null : prev));
     if (!isSupabaseConfigured) {
       // Local fallback profile
       setProfile({
@@ -81,11 +100,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const data = await backendRequest<{ profile: UserProfile; creatorProfile: CreatorProfileData }>('/profiles/me', {}, token);
+      if (isStale()) return; // newer request issued or account switched mid-flight; discard
       setProfile(data.profile);
       setCreatorProfile(data.creatorProfile);
     } catch (err) {
       console.error('Error fetching user profiles:', err);
+      if (isStale()) return; // newer request issued or account switched mid-flight; discard
       setProfile({ id: userId, email: userEmail, full_name: userEmail.split('@')[0] || 'Creator' });
+      // A failed fetch must not keep a previous account's creator profile on this session.
+      setCreatorProfile(null);
     }
   }, []);
 
@@ -154,6 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (newSession?.user) {
         await fetchProfiles(newSession.user.id, newSession.user.email || '', newSession.access_token);
       } else {
+        profileFetchEpoch.current++; // invalidate any in-flight profile fetch
         setProfile(null);
         setCreatorProfile(null);
         projectService.clear();
@@ -247,6 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('SignOut error:', err);
       }
     }
+    profileFetchEpoch.current++; // invalidate any in-flight profile fetch
     setUser(null);
     setSession(null);
     setProfile(null);

@@ -89,6 +89,9 @@ class ProjectService {
       return this.inFlightProjectsPromise;
     }
 
+    // Token avoids the promise referencing itself inside its own initializer (TS2454);
+    // token.settled is assigned synchronously below, before the async body can reach finally.
+    const token: { settled?: Promise<Project[]> } = {};
     const promise: Promise<Project[]> = (async () => {
       try {
         const data = await this.scopedRequest<{ projects: any[] }>(scope, '/projects');
@@ -96,10 +99,11 @@ class ProjectService {
         this.projects = (data.projects || []).map((row) => this.mapRow(row));
         return this.getProjects();
       } finally {
-        if (this.inFlightProjectsPromise === promise) this.inFlightProjectsPromise = null;
+        if (this.inFlightProjectsPromise === token.settled) this.inFlightProjectsPromise = null;
       }
     })();
 
+    token.settled = promise;
     this.inFlightProjectsPromise = promise;
     return promise;
   }
@@ -110,6 +114,8 @@ class ProjectService {
       return this.inFlightProjectPromises.get(id)!;
     }
 
+    // Same TS2454 repair: compare against token.settled, assigned synchronously below.
+    const token: { settled?: Promise<Project | null> } = {};
     const promise: Promise<Project | null> = (async () => {
       try {
         const data = await this.scopedRequest<{ project: any }>(scope, `/projects/${id}`);
@@ -118,10 +124,11 @@ class ProjectService {
         if (error.status === 404) return null;
         throw error;
       } finally {
-        if (this.inFlightProjectPromises.get(id) === promise) this.inFlightProjectPromises.delete(id);
+        if (this.inFlightProjectPromises.get(id) === token.settled) this.inFlightProjectPromises.delete(id);
       }
     })();
 
+    token.settled = promise;
     this.inFlightProjectPromises.set(id, promise);
     return promise;
   }

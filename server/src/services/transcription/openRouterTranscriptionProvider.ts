@@ -169,6 +169,17 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
     }
 
     assertSpeechWordCoverage(result);
+    // A raw text/word agreement must not become a misleading lexical mismatch
+    // merely because unusable provider clocks were excluded by normalization.
+    // Fail before accepting the shortened word rendition; never invent a window.
+    const unusableWordClocks = timingIssues.filter(issue => issue.kind === 'word');
+    if (unusableWordClocks.length) {
+      throw Object.assign(new Error('The transcription provider returned missing, invalid or overlapping word timestamps. Review the original audio before automatic captions; no speech was dropped and no replacement timestamps were invented.'), {
+        code: 'TRANSCRIPT_REVIEW_REQUIRED', statusCode: 409,
+        reviewReason: 'provider-word-timing-unusable',
+        timingIssues: unusableWordClocks.map(issue => ({...issue})),
+      });
+    }
     assertSpeechWordCoverage({...result,words});
 
     const durationSeconds = typeof result?.duration === 'number' ? result.duration : null;
