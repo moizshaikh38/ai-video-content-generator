@@ -1376,7 +1376,20 @@ export function enforceZeroOverlap<T extends PresetTimedCue>(cues: T[]): T[] {
     const current = sorted[i];
     const next = sorted[i + 1];
     if (current.end > next.start) {
-      const clampedEnd = Math.max(current.start + 0.05, Number(next.start.toFixed(3)));
+      const nextStart = Number(next.start.toFixed(3));
+      const onlyWord = Array.isArray(current.words) && current.words.length === 1 ? current.words[0] : undefined;
+      // An exact single-word envelope already has a measured positive span.
+      // A 50ms display floor must not grow it over the next distinct onset.
+      // Keep source word clocks intact; only the display envelope yields.
+      // Manual holds, equal starts and larger overlaps retain legacy behavior.
+      if (onlyWord && Number.isFinite(onlyWord.start) && Number.isFinite(onlyWord.end) &&
+          Number(onlyWord.start.toFixed(3)) === current.start && Number(onlyWord.end.toFixed(3)) === current.end &&
+          onlyWord.end > onlyWord.start && nextStart > current.start && Number((nextStart-current.start).toFixed(3)) < 0.05 &&
+          Number((current.end-nextStart).toFixed(3)) <= 0.08) {
+        current.end = nextStart;
+        continue;
+      }
+      const clampedEnd = Math.max(current.start + 0.05, nextStart);
       current.end = clampedEnd;
 
       if (Array.isArray(current.words) && current.words.length > 0) {
