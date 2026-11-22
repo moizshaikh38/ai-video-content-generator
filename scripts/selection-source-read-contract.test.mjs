@@ -4,13 +4,15 @@ import fs from 'node:fs';
 import ts from 'typescript';
 const load=async source=>import('data:text/javascript;base64,'+Buffer.from(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64'));
 const clean=path=>fs.readFileSync(path,'utf8').replace(/^import\b.*;\n/gm,'');
+const binding=await load("import crypto from 'node:crypto';\n"+clean('server/src/shared/sourceObjectReceipt.ts')+clean('server/src/shared/transcriptSourceBinding.ts'));
+const validTranscript={id:'transcript'};validTranscript.source_binding={version:1,source_receipt:{key:'source',size:12,etag:'same',sha256:'a'.repeat(64)},prepared_audio_sha256:'b'.repeat(64),requests:[{sha256:'b'.repeat(64),bytes:12,status:'completed'}],transcript_content_sha256:binding.transcriptContentIdentity(validTranscript)};
 const guard=clean('server/src/services/selectionSourceGuardService.ts');
 const reuse=clean('server/src/services/transcriptSourceBindingService.ts');
-const {make}=await load(`export function make(d:any){const {dataRepository,ownerContext,AppError,selectionSourceReceiptMatches,headObject,assertTranscriptUsable,transcriptSourceBindingMatches}=d;${reuse.replace('export async function','async function')};${guard.replace('export async function','async function')};return {assertSelectionSourceCurrent,assertTranscriptReusable};}`);
+const {make}=await load(`export function make(d:any){const {dataRepository,ownerContext,AppError,selectionSourceReceiptMatches,headObject,assertTranscriptUsable,transcriptSourceBindingMatches,hasValidTranscriptSourceBinding}=d;${reuse.replace('export async function','async function')};${guard.replace('export async function','async function')};return {assertSelectionSourceCurrent,assertTranscriptReusable};}`);
 class AppError extends Error{constructor(message,statusCode,code){super(message);this.statusCode=statusCode;this.code=code;}}
-function fixture({projectError=null,transcriptError=null,project={source_url:'source'},transcript={id:'transcript'},receiptMatches=true,bindingMatches=true,storageError=null,qualityError=null,readReject=null}={}){
+function fixture({projectError=null,transcriptError=null,project={source_url:'source'},transcript=structuredClone(validTranscript),receiptMatches=true,bindingMatches=true,storageError=null,qualityError=null,readReject=null}={}){
   const events=[];
-  const functions=make({AppError,ownerContext:{run:async(owner,fn)=>{events.push(['owner',owner]);return fn()}},
+  const functions=make({AppError,hasValidTranscriptSourceBinding:binding.hasValidTranscriptSourceBinding,ownerContext:{run:async(owner,fn)=>{events.push(['owner',owner]);return fn()}},
     dataRepository:{from:table=>{events.push(['read',table]);const q={select:()=>q,eq:(key,value)=>{events.push(['filter',table,key,value]);return q},maybeSingle:async()=>{if(readReject)throw readReject;return table==='projects'?{data:project,error:projectError}:{data:transcript,error:transcriptError}}};return q}},
     selectionSourceReceiptMatches:()=>{events.push('receipt');return receiptMatches},
     assertTranscriptUsable:()=>{events.push('quality');if(qualityError)throw qualityError},
@@ -68,3 +70,4 @@ test('candidate repository rejection preserves its error and never launches a fa
 test('successful candidate source read remains owner/project/candidate scoped and launches only after creation',async()=>{const s=candidateFixture();await s.run();assert.deepEqual(s.events.filter(e=>typeof e==='string'),['source','create','launch']);assert(s.events.some(e=>Array.isArray(e)&&e[1]==='user_id'&&e[2]==='owner'));assert(s.events.some(e=>Array.isArray(e)&&e[1]==='project_id'&&e[2]==='project'));assert(s.events.some(e=>Array.isArray(e)&&e[1]==='id'&&e[2]==='candidate'))});
 
 test('a concurrently recovered initial-creation receipt never relaunches its committed job',async()=>{const s=candidateFixture({replayed:true});await s.run();assert.deepEqual(s.events.filter(e=>typeof e==='string'),['source','create']);assert(!s.events.includes('launch'))});
+test('missing local source binding refuses before storage even when HEAD would match',async()=>{const s=fixture({transcript:{id:'unbound'}});await assert.rejects(s.run(),{code:'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'});assert(!s.events.some(e=>Array.isArray(e)&&e[0]==='head'));});
