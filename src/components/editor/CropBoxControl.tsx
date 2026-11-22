@@ -101,7 +101,7 @@ export const CropBoxControl: React.FC<Props> = ({ label, videoSrc, sourceTime, s
             <div ref={stage} data-testid="crop-stage" className="relative bg-black rounded-lg overflow-hidden select-none touch-none" style={{ aspectRatio: `${sw}/${sh}`, maxHeight: '58vh', maxWidth: '100%', margin: '0 auto' }}
               onPointerMove={(e) => {
                 const d = drag.current; if (!d) return; const p = pt(e);
-                if (d.kind === 'move') { setBox((b) => moveBox(b, p.x - d.last.x, p.y - d.last.y)); d.last = p; }
+                if (d.kind === 'move') { const dx = p.x - d.last.x, dy = p.y - d.last.y; d.last = p; setBox((b) => moveBox(b, dx, dy)); }
                 else if (fit) setBox(resizeRegionBox(d.anchor,p)); else setBox(resizeBox(sw, sh, canvasAspect, d.anchor, p));
               }}
               onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }}>
