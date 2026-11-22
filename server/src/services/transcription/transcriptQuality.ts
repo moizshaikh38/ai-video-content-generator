@@ -67,13 +67,19 @@ export function assessTranscriptQuality(result: NormalizedTranscriptionResult, e
 export function assertTranscriptUsable(record: SpeechCoverageInput & {quality_assessment?: TranscriptQualityAssessment}): void {
   assertSpeechWordCoverage(record);
   const segments=Array.isArray(record.segments)?record.segments:[];
-  const clockGroups:unknown[][]=[Array.isArray(record.words)?record.words:[],segments,
-    segments.flatMap(s=>Array.isArray((s as any)?.words)?(s as any).words:[])];
+  const rootWords=Array.isArray(record.words)?record.words:[];
+  const nestedWords=segments.flatMap(s=>Array.isArray((s as any)?.words)?(s as any).words:[]);
+  const clockGroups:unknown[][]=[rootWords,segments,nestedWords];
   // Missing legacy arrays remain unknown. Supplied rows must satisfy the same
   // complete/ordered-clock contract already used by providers and captions.
   const invalidRecordedClock=clockGroups.some(group=>group.length>0&&
     !reliableOrderedClocks(group as Array<{start?:unknown;end?:unknown}>));
-  if (record.quality_assessment?.status !== 'needs_review' && !invalidRecordedClock) return;
+  if (record.quality_assessment?.status !== 'needs_review' && !invalidRecordedClock) {
+    // Match caption extraction's root-first selection, preserving existing
+    // clock/review error precedence before checking valid nested word text.
+    if (!rootWords.length) assertSpeechWordCoverage({...record,words:nestedWords});
+    return;
+  }
   const error = new Error('Transcript needs audio review before automatic captions can be exported. Check the flagged speech spans and source language; no words were silently replaced.');
   (error as any).code = 'TRANSCRIPT_REVIEW_REQUIRED';
   (error as any).statusCode = 409;
