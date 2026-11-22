@@ -1,0 +1,167 @@
+{
+  "purpose": "Private recovery checkpoint. Source snapshots are not imported by the app. This is not a release or a merge into active runtime paths.",
+  "createdAt": "2026-11-22T18:36:07.329412+00:00",
+  "releaseGate": "No publish until approval and slice verification.",
+  "qualification": {
+    "normalNumericGeometry": "Bounded retained-source normal editor Save/reload and native 720p/1080p export checks; not general quality acceptance.",
+    "typecheck": "Available mixed overlay has 332 baseline and 332 candidate diagnostics, zero added and eight missing exact dependencies. Not a clean full build.",
+    "heldChanges": {
+      "cropbox-callback": "33 callback assertions and 350 normal regressions, no interactive qualification.",
+      "same-layout-metadata": "Candidate source only; test harness import-resolution check pending."
+    },
+    "remaining": "Fresh uploads/detectors, varied sources, natural Auto-to-manual panel entry, transforms, broader race/clock checks and general style/collision safety remain open. No successful new model inference or producer activation."
+  },
+  "recovery": "Strip the .snapshot suffix to recover each recorded source file. Merge deliberately against current branch files. Held changes are separate. Source snapshots alone do not replace earlier application history.",
+  "files": [
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/held-changes/cropbox-callback/src/components/editor/PreviewCanvas.tsx.snapshot",
+      "sha256": "8636c688be2bb74810dd84d26aff5d565c7448e7fed576f82cd52d281259b16e",
+      "gitBlobSha": "18d69390e156bb21000ab4e6d124559b04104daa",
+      "bytes": 142762
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/held-changes/same-layout-metadata/src/lib/itemLayout.ts.snapshot",
+      "sha256": "2060f0d72fe26b7ea3db64703d79fd417fcd39188a1cad8511176f037ca8b1c8",
+      "gitBlobSha": "505ab692d83938c3af3b6bba32182cc8811eae8d",
+      "bytes": 12380
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/python/gaming_scene/measure_closed_perimeter.py.snapshot",
+      "sha256": "2ec53f85cf31f95d6cfb3395c5f7ac1026dc09bdaafcab7a5eda1a434b6ae09c",
+      "gitBlobSha": "dbb282f2fc80b73cc3fcff485949614b62918e0b",
+      "bytes": 7400
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/python/gaming_scene/measure_gaming_geometry.py.snapshot",
+      "sha256": "70b4e7a1623b0c9e58d89d5322fffb63fa5c880e91f488c80ffcf22acd8beaee",
+      "gitBlobSha": "148e31c9e790e4f7b17d9358f7aa129b5538686c",
+      "bytes": 4589
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/python/gaming_scene/measure_side_seams.py.snapshot",
+      "sha256": "0002d5063a74eaef4f8565f63e3e3a3928e6f23be6c2079d1e4c0fcd328085fb",
+      "gitBlobSha": "28dd34df7386c30331b6628bceeae0a33f785bd1",
+      "bytes": 4457
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/python/gaming_scene/native_geometry_ops.py.snapshot",
+      "sha256": "3dbef70bcb2a14cd0070521cc42bb24505a59be2bbb2f6fd4afd41f68809a290",
+      "gitBlobSha": "2b4e8cf9f450b6ff1491d9b602463d7f05a78cb5",
+      "bytes": 2257
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/src/controllers/clipController.ts.snapshot",
+      "sha256": "3e78660d84c6168f405041c046a267b8fd65bf0abddabd446153d57a1258cee8",
+      "gitBlobSha": "7d93c45e64fe3c263599c92fb2f9d473ac5afd95",
+      "bytes": 68967
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/src/services/clipRenderService.ts.snapshot",
+      "sha256": "705ef6fc320f8077b23f83d96e4d44f7edf3bd24670feab0679f2047df53b6e7",
+      "gitBlobSha": "5df2bd88ff24154b75141effa7d3198855ebf4ac",
+      "bytes": 141741
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/src/services/gamingSceneProducerService.ts.snapshot",
+      "sha256": "520a1934dd89375ec6149f520f37e6e0e51fc9e3d4c6e3748bccd1487ac09032",
+      "gitBlobSha": "858d54f64e47d4a5a0dc339984f632a4fea87693",
+      "bytes": 6736
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/src/services/proEditorService.ts.snapshot",
+      "sha256": "12e214b3a5e93bdd47574331b94c0a432c454dce269293d0e6d25656bb439cae",
+      "gitBlobSha": "332df822313b796c4998fc58a82b93a484e87d1b",
+      "bytes": 152959
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/src/services/smartReframeService.ts.snapshot",
+      "sha256": "6ec96fbea39ccfeffbea41d87a29473f431c13d5d047b92abb57ea3c88ecc6e4",
+      "gitBlobSha": "8122a2fa9d947669e12d19b05e0e8ed30e0b8a03",
+      "bytes": 185708
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/src/shared/bindMeasuredGamingRegions.ts.snapshot",
+      "sha256": "03a92c0bc4e2902054c66e96a736c815b5851844f5a90db399fd3946521dcb7a",
+      "gitBlobSha": "0e304f844e1a01a2d8ac57e3b8e34f5e07908fe3",
+      "bytes": 4373
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/src/shared/buildGamingSceneEvidence.ts.snapshot",
+      "sha256": "248e66a873b3cba859a16e9ef66cb2c5d058bbaabc9679e5c50ab4ff3967f0a2",
+      "gitBlobSha": "17f9812f7730c289b5f98e26590e1bc9573ed7fd",
+      "bytes": 5131
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/src/shared/compositionProposalContract.ts.snapshot",
+      "sha256": "09e56fd02d736bc27e38351d21faaa1d3b2324fd4201221a7f4fd590e258f43c",
+      "gitBlobSha": "e6a5efaa9aa0f6e7ae275520580a785d69f1c32a",
+      "bytes": 14654
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/src/shared/compositionReviewRender.ts.snapshot",
+      "sha256": "f703034a42f69e8a2e2c54b6de2dd847767e33219925b285ec0a6b5a0ecf30c6",
+      "gitBlobSha": "336bd8aa71a5e7f9dc1c8d8ae820ecf0f64aed39",
+      "bytes": 7807
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/src/shared/freeGamingRoleClient.ts.snapshot",
+      "sha256": "4a41d0ad5720992b9a30997073580e69456f90638207d87efdd6e8e0941722e4",
+      "gitBlobSha": "f6f705c99fb3556a904450b1c9434038dab46208",
+      "bytes": 6327
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/src/shared/normalGamingScenePlan.ts.snapshot",
+      "sha256": "a978352ca63ec409f1aadb4c129c92a7b86fbf0d1ac81d5f88c18587b763f024",
+      "gitBlobSha": "0ab0351bcd23e3c85aab31426ea6cdcd5473084b",
+      "bytes": 5581
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/src/shared/numericPanelGeometry.ts.snapshot",
+      "sha256": "a4b33ec57abf44ba57df5ac1e3cb9810a868948dbf97c50f4cd8c97200d430b1",
+      "gitBlobSha": "7e22e0d4c5a7607f054d142560ffda07e79e7831",
+      "bytes": 7251
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/src/shared/panelLayouts.ts.snapshot",
+      "sha256": "4dfdb9079f95739300d991436444b07435e2c50e4aa01d26a5e005e0eabf8e38",
+      "gitBlobSha": "8349db9a80844db5d5dca63e1bd840703d2fd84e",
+      "bytes": 17065
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/server/src/shared/sceneCaptionPlacement.ts.snapshot",
+      "sha256": "b397036651868f248c67e391b1d5eb3f880b089698e232f88a79a5202d1a2702",
+      "gitBlobSha": "1ca4a8d6df616320d34a09b8c6ce2190d1d33e37",
+      "bytes": 12062
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/src/components/editor/CompositionReviewPreview.tsx.snapshot",
+      "sha256": "133fe8f970bcb2efdb597a97b63da225d7575347b46bc12c8946ced69900d645",
+      "gitBlobSha": "65da39e04bb560db2248975ed3f0acf7d5e22559",
+      "bytes": 2686
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/src/components/editor/EditorShell.tsx.snapshot",
+      "sha256": "1861f27c7c4176308eae4532614c85365b795ed94f264e4db1482ec5fa36212c",
+      "gitBlobSha": "6a456e0f059b30c2446ce8d690b1ea20217c171e",
+      "bytes": 123515
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/src/components/editor/ExportDialog.tsx.snapshot",
+      "sha256": "26abac46fbec04ed1bb7d634a61cde2281eea120d2ecdab06f5607ed49e30333",
+      "gitBlobSha": "2bc7ccd440f1b54f3a74b3e3038fac12d2d14dc6",
+      "bytes": 23486
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/src/components/editor/PanelsPreview.tsx.snapshot",
+      "sha256": "00126fc2df26864ab22166335416b8ede6b22c1398ed4c8c7c98f1d3c77da475",
+      "gitBlobSha": "19ce624be2e07202d80daac6eebc82b10fbc3008",
+      "bytes": 4963
+    },
+    {
+      "path": "engineering-checkpoints/2026-11-23-panel-geometry/source-snapshot/src/components/editor/PreviewCanvas.tsx.snapshot",
+      "sha256": "0697bff0983ac66127f35befeec1810f31d01e9ae52c365e9247f245efffb8cf",
+      "gitBlobSha": "b0cd22e46df4851e669568fa499f24bd395fd054",
+      "bytes": 142525
+    }
+  ]
+}
