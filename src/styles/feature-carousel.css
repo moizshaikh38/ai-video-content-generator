@@ -625,7 +625,8 @@
 .vireo-showcase .d-clip .clip {
   position: absolute;
   top: 29cqw;
-  left: calc(13cqw + var(--n) * 12.6cqw);
+  /* 5-tile set: base offset centers the cascade (was 13cqw for six tiles) */
+  left: calc(19.3cqw + var(--n) * 12.6cqw);
   width: 11cqw;
   cursor: pointer;
   transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -2084,43 +2085,32 @@
 /* Clip rail wrapper: transparent on desktop (cards stay absolutely positioned) */
 .vireo-showcase .d-clip .clip-rail { display: contents; }
 
-/* Phone: big-card swipe rail — fewer, much larger cards, each badged, all six reachable by swipe */
-@media (max-width: 768px) {
-  .vireo-showcase .card { aspect-ratio: 2 / 2.06; }
-  .vireo-showcase .d-clip .clip-rail {
-    display: flex;
-    position: absolute;
-    top: 26cqw;
-    left: 0;
-    right: 0;
-    gap: 4cqw;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    padding: 4.5cqw 8cqw 2cqw;
-    scrollbar-width: none;
-    z-index: 3;
-  }
-  .vireo-showcase .d-clip .clip-rail::-webkit-scrollbar { display: none; }
-  .vireo-showcase .d-clip .clip {
-    position: relative;
-    top: auto;
-    left: auto;
-    flex: 0 0 46cqw;
-    scroll-snap-align: center;
-  }
-  .vireo-showcase .d-clip .th { height: 63cqw; border-radius: 2.4cqw; }
-  .vireo-showcase .d-clip .ic { width: 6cqw; height: 6cqw; top: -3cqw; }
-  .vireo-showcase .d-clip .ic img { width: 3.2cqw; height: 3.2cqw; }
-  .vireo-showcase .d-clip .th em { font-size: 2.8cqw; padding: 0.6cqw 1.6cqw; }
-  .vireo-showcase .nav { top: calc(21cqw - 17px); width: 34px; height: 34px; }
+/* Phone (user correction Nov 21 18:39): restore pre-release one-screen fit -
+   wide short panel (base aspect-ratio 2/1.08) with all six clip tiles visible
+   in the base absolute layout; the big swipe-card rail from 1704986 is reverted. */
+
+/* Poster fallback layer: always painted under/over the video until real
+   playback starts, so cold loads, suspended autoplay and decode failures
+   never show a bare dark tile. */
+.vireo-showcase .vfp {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
 }
 
-/* Badge fully above the big cards (rail pass) */
-@media (max-width: 768px) {
-  .vireo-showcase .d-clip .ic { top: -4.2cqw; z-index: 6; }
+.vireo-showcase .vfp {
+  z-index: 2;
+  transition: opacity 0.25s ease;
 }
 
-/* Phone: vertically center non-clip demo scenes in the taller panel */
-@media (max-width: 768px) {
-  .vireo-showcase .demo:is(.d-cap, .d-rf, .d-br, .d-au, .d-vo) { transform: translateY(22cqw); }
+.vireo-showcase .vfp.vfp-off {
+  opacity: 0;
+}
+
+.vireo-showcase .vf {
+  z-index: 1;
+  background: transparent;
 }

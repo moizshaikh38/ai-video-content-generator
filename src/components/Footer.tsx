@@ -15,67 +15,27 @@ interface FooterColumn {
 }
 
 const FOOTER_COLUMNS: FooterColumn[] = [
-  {
-    title: 'Creation Studio',
-    links: [
-      { label: 'AI Clipping', href: '/#clipping' },
-      { label: 'AI Captions', href: '/#captions' },
-      { label: 'AI Auto-Reframe (9:16)', href: '/#reframe' },
-      { label: 'AI B-Roll Insertion', href: '/#broll' },
-      { label: 'Audio Enhancement', href: '/#audio' },
-      { label: 'AI Voice & Dubbing', href: '/#voice' },
-      { label: 'Multi-Track Timeline Editor', href: '/dashboard' },
-      { label: 'New Project Upload', href: '/dashboard' },
-    ],
-  },
-  {
-    title: 'Creator Intelligence',
-    links: [
-      { label: 'Brand Brain', href: '/brand', badge: 'Live' },
-      { label: 'A/B Testing Studio', href: '/ab-testing', badge: 'Live' },
-      { label: 'Performance Analytics', href: '/analytics', badge: 'Live' },
-      { label: 'Hook Lab', href: '/#product' },
-      { label: 'Thumbnail Lab', href: '/#product' },
-      { label: 'Content Pack Studio', href: '/#product' },
-      { label: 'Autopilot Engine', href: '/workflows' },
-    ],
-  },
-  {
-    title: 'Workspaces & Teams',
-    links: [
-      { label: 'Team Workspaces & RBAC', href: '/workspaces', badge: 'New' },
-      { label: 'Workflow Automation', href: '/workflows' },
-      { label: 'Social Publishing Queue & Post Scheduling', href: '/publishing' },
-      { label: 'Project History & Library', href: '/history' },
-      { label: 'Creator Dashboard', href: '/dashboard' },
-      { label: 'Account Settings', href: '/settings' },
-    ],
-  },
-  {
-    title: 'Platform Channels',
-    links: [
-      { label: 'YouTube Shorts Repurposing', href: '/#platforms' },
-      { label: 'TikTok & Reels Optimization', href: '/#platforms' },
-      { label: 'Instagram Captions & Hooks', href: '/#platforms' },
-      { label: 'LinkedIn Professional Posts', href: '/#platforms' },
-      { label: 'X (Twitter) Thread Kits', href: '/#platforms' },
-      { label: '4-Step Pipeline Architecture', href: '/#how' },
-    ],
-  },
-  {
-    title: 'Company & Trust',
-    links: [
-      { label: 'Plans & Pricing (USD / INR)', href: '/#pricing' },
-      { label: 'Creator Use Cases', href: '/#use-cases' },
-      { label: 'Frequently Asked Questions', href: '/#faq' },
-      { label: 'Terms of Service', href: '/terms' },
-      { label: 'Privacy Policy', href: '/privacy' },
-      { label: 'Official Support', href: '/support' },
-    ],
-  },
+  { title: 'Explore', links: [
+    {label:'Features',href:'/features'}, {label:'Tools',href:'/tools'},
+    {label:'Use Cases',href:'/use-cases'}, {label:'Resources',href:'/resources'}, {label:'Plans & Pricing',href:'/pricing'},
+  ]},
+  { title: 'Editing workflows', links: [
+    {label:'Captions',href:'/tools/captions'}, {label:'Reframe',href:'/tools/reframe'},
+    {label:'Gaming layout demos',href:'/tools/ai-gaming-clip-generator/'},
+  ]},
+  { title: 'Made for your recording', links: [
+    {label:'Podcasters',href:'/use-cases/podcasters'}, {label:'Streamers',href:'/use-cases/streamers'},
+    {label:'Agencies',href:'/use-cases/agencies'},
+  ]},
+  { title: 'Resources & help', links: [
+    {label:'Help Centre',href:'/resources/help-centre'}, {label:'Learning Center',href:'/resources/learning-center'}, {label:'Blog',href:'/resources/blog'},
+    {label:'FAQ',href:'/#faq'}, {label:'Support',href:'/support'},
+    {label:'Terms of Service',href:'/terms'}, {label:'Privacy Policy',href:'/privacy'},
+  ]},
 ];
 
 export const Footer: React.FC = () => {
+  const waitlistMode = import.meta.env.VITE_WAITLIST_ENABLED === 'true';
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -125,18 +85,29 @@ export const Footer: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Link
-              to="/signup"
-              className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-purple-900/30 hover:brightness-110 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
-            >
-              Start Creating Free
-            </Link>
-            <Link
-              to="/login"
-              className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.08] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
-            >
-              Sign In
-            </Link>
+            {waitlistMode ? (
+              <a
+                href="/#waitlist"
+                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-purple-900/30 hover:brightness-110 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+              >
+                Join waitlist
+              </a>
+            ) : (
+              <Link
+                to="/signup"
+                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-purple-900/30 hover:brightness-110 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+              >
+                Start Creating Free
+              </Link>
+            )}
+            {!waitlistMode && (
+              <Link
+                to="/login"
+                className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.08] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+              >
+                Sign In
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -153,7 +124,7 @@ export const Footer: React.FC = () => {
 
               <ul className="space-y-2.5 text-xs sm:text-[13px] text-zinc-400">
                 {col.links.map((link) => {
-                  const isInternalRoute = link.href.startsWith('/') && !link.href.includes('#');
+                  const isInternalRoute = false; // Static marketing routes need a document navigation, not the SPA router.
 
                   return (
                     <li key={link.label}>
@@ -210,19 +181,19 @@ export const Footer: React.FC = () => {
           <div className="flex items-center gap-6">
             <Link
               to="/terms"
-              className="transition-colors hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-400 focus-visible:rounded"
+              className="inline-flex items-center py-2.5 sm:py-0 transition-colors hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-400 focus-visible:rounded"
             >
               Terms of Service
             </Link>
             <Link
               to="/privacy"
-              className="transition-colors hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-400 focus-visible:rounded"
+              className="inline-flex items-center py-2.5 sm:py-0 transition-colors hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-400 focus-visible:rounded"
             >
               Privacy Policy
             </Link>
             <Link
               to="/support"
-              className="transition-colors hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-400 focus-visible:rounded"
+              className="inline-flex items-center py-2.5 sm:py-0 transition-colors hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-400 focus-visible:rounded"
             >
               Official Support
             </Link>

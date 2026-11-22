@@ -1,3 +1,4 @@
+import {candidateRankingDisplay} from './candidateRankingDisplay';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Loader2, AlertCircle } from 'lucide-react';
@@ -65,20 +66,21 @@ const DEMO_POSTERS = [
 
 const CLIPV = [7, 9, 2, 1, 8, 0];
 
-// Carousel cards: the current live showcase sample clips (v0-v9 stock
-// segments, unchanged from the live site - no creator footage in this
-// baseline). Each poster is extracted from its paired segment, so a tile
-// never promises footage it then replaces with something else. Order maps
-// to ICONS below (YT, IG, in, TT, f, X) - badges unchanged.
+// Carousel cards: genuine top-creator HD segments (creator-*.mp4), restored
+// per user request Nov 21 18:48 ('purane hd top creators ke clip daal').
+// creator-ishowspeed-gta (YouTube standard license, public-use rights NOT
+// established) is omitted - the user permitted removing one card (18:39).
+// Remaining 5 are CC-tagged Wikimedia Commons files; Commons tags are
+// uploader assertions, not a rights clearance - see /demo/showcase/SOURCES.md.
+// Order maps to ICONS below - badges unchanged per tile.
 const SHOWCASE_CLIPS = [
-  { video: '/demo/showcase/v7.mp4', poster: '/demo/showcase/v7.webp' },
-  { video: '/demo/showcase/v9.mp4', poster: '/demo/showcase/v9.webp' },
-  { video: '/demo/showcase/v2.mp4', poster: '/demo/showcase/v2.webp' },
-  { video: '/demo/showcase/v1.mp4', poster: '/demo/showcase/v1.webp' },
-  { video: '/demo/showcase/v8.mp4', poster: '/demo/showcase/v8.webp' },
-  { video: '/demo/showcase/v0.mp4', poster: '/demo/showcase/v0.webp' },
+  { video: '/demo/showcase/creator-mrbeast-hook.mp4', poster: '/demo/showcase/creator-mrbeast-hook.webp' },
+  { video: '/demo/showcase/creator-mrbeast-challenge.mp4', poster: '/demo/showcase/creator-mrbeast-challenge.webp' },
+  { video: '/demo/showcase/creator-ishowspeed-moto.mp4', poster: '/demo/showcase/creator-ishowspeed-moto.webp' },
+  { video: '/demo/showcase/creator-ronaldo-a.mp4', poster: '/demo/showcase/creator-ronaldo-a.webp' },
+  { video: '/demo/showcase/creator-ronaldo-b.mp4', poster: '/demo/showcase/creator-ronaldo-b.webp' },
 ];
-const ICONS: ('YT' | 'IG' | 'in' | 'TT' | 'f' | 'X')[] = ['YT', 'IG', 'in', 'TT', 'f', 'X'];
+const ICONS: ('YT' | 'IG' | 'in' | 'TT' | 'f' | 'X')[] = ['YT', 'in', 'TT', 'f', 'X'];
 import ytLogo from '../../assets/landing/platforms/youtube.svg';
 import igLogo from '../../assets/landing/platforms/instagram.svg';
 import inLogo from '../../assets/landing/platforms/linkedin-in.png';
@@ -143,6 +145,11 @@ const CarouselVideo: React.FC<CarouselVideoProps> = React.memo(({
   style,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    if (!shouldLoad) setPlaying(false);
+  }, [shouldLoad]);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -172,31 +179,48 @@ const CarouselVideo: React.FC<CarouselVideoProps> = React.memo(({
     }
   }, []);
 
-  if (!shouldLoad) {
-    return null;
-  }
-
   const transformOrigin = origin || pos;
 
+  // The poster is ALWAYS rendered as its own layer, independent of video
+  // mount/decode/autoplay state: an unmounted video (shouldLoad false), a
+  // suspended mobile/in-app autoplay, or a decode failure previously left a
+  // bare dark tile. It fades out once the video is actually playing.
   return (
-    <video
-      ref={videoRef}
-      className={className}
-      src={src}
-      poster={poster}
-      muted
-      loop
-      playsInline
-      preload={shouldPlay ? 'auto' : 'metadata'}
-      aria-hidden="true"
-      onLoadedData={handleLoadedData}
-      style={{
-        objectPosition: pos,
-        transformOrigin,
-        transform: zoom !== 1 ? `scale(${zoom})` : undefined,
-        ...style,
-      }}
-    />
+    <>
+      {poster ? (
+        <img
+          className={`vfp${playing ? ' vfp-off' : ''}`}
+          src={poster}
+          alt=""
+          aria-hidden="true"
+          style={{ objectPosition: pos }}
+        />
+      ) : null}
+      {shouldLoad ? (
+        <video
+          ref={videoRef}
+          className={className}
+          src={src}
+          poster={poster}
+          muted
+          loop
+          playsInline
+          preload={shouldPlay ? 'auto' : 'metadata'}
+          aria-hidden="true"
+          onLoadedData={handleLoadedData}
+          onPlaying={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onStalled={() => setPlaying(false)}
+          onError={() => setPlaying(false)}
+          style={{
+            objectPosition: pos,
+            transformOrigin,
+            transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+            ...style,
+          }}
+        />
+      ) : null}
+    </>
   );
 });
 
@@ -282,6 +306,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
   const isHeldRef = useRef<boolean>(false);
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const waitlistMode = import.meta.env.VITE_WAITLIST_ENABLED === 'true';
 
   useCinematicScrollReveal(containerRef, { threshold: 0.05 });
 
@@ -801,6 +826,13 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
       return;
     }
 
+    if (waitlistMode && !isAuthenticated) {
+      setAuthPrompt(false);
+      setErrorMsg('');
+      document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
     const isYouTube = /(?:youtube\.com\/(?:watch\?|shorts\/|embed\/)|youtu\.be\/)/i.test(trimmed);
     const isDirectVideo = /\.(mp4|webm|mov|mkv)(?:\?.*)?$/i.test(parsed.pathname);
 
@@ -849,7 +881,7 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
             thumbnail: c.metadata?.thumbnail_url || DEMO_POSTERS[i % DEMO_POSTERS.length],
             videoSrc: DEMO_VIDEOS[i % DEMO_VIDEOS.length],
             platform: ICONS[i % ICONS.length],
-            score: c.engagement_score || 0,
+            score: candidateRankingDisplay(c) ?? 0,
             isReal: true,
             projectId: project.id,
           };
@@ -872,7 +904,8 @@ export const AiClippingPreview: React.FC<AiClippingPreviewProps> = ({
     }
   };
 
-  // Demo clips matching final.html CLIPV. No score badge on demo clips:
+  // Demo clips matching final.html CLIPV (first 5 used with the 5-tile set).
+// No score badge on demo clips:
   // a virality number would be fabricated; only real clips carry their
   // genuine engagement_score.
   const demoClips: ClipDisplayItem[] = useMemo(

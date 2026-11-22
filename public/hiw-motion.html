@@ -1,0 +1,2142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How It Works — Continuous Video-to-Clips Motion Piece</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #000000;
+      --surface: #0a0d17;
+      --surface-2: #101526;
+      --border: rgba(255, 255, 255, 0.06);
+      --border-hi: rgba(255, 255, 255, 0.14);
+      --purple: #8753e3;
+      --green: #20E3A2;
+      --lavender: #bba9e8;
+      --accent-grad: linear-gradient(135deg, #8753e3 0%, #20E3A2 100%);
+      --accent-grad-h: linear-gradient(90deg, #8753e3 0%, #20E3A2 100%);
+      --text-1: #f5f6fa;
+      --text-2: rgba(245, 246, 250, 0.64);
+      --text-3: rgba(245, 246, 250, 0.42);
+      --radius-stage: 28px;
+      --radius-frame: 20px;
+      --radius-clip: 22px;
+      --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+      --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text-1);
+      font-family: 'Sora', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(18px, 2.8vw, 36px) clamp(14px, 3vw, 32px);
+    }
+
+    /* =====================================================================
+       SECTION SHELL
+       ===================================================================== */
+    .hiw-section {
+      width: 100%;
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    .hiw-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 18px;
+    }
+
+    .hiw-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--lavender);
+      margin-bottom: 12px;
+    }
+
+    .hiw-eyebrow-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--accent-grad);
+    }
+
+    .hiw-title {
+      font-size: clamp(24px, 3.2vw, 38px);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.025em;
+      color: var(--text-1);
+      max-width: 620px;
+    }
+
+    .hiw-title span {
+      background: none;
+      color: var(--lavender);
+    }
+
+    /* Live single-focal beat readout in header */
+    .hiw-beat-narrative {
+      position: relative;
+      min-height: 48px;
+      width: 310px;
+      flex-shrink: 0;
+      text-align: right;
+    }
+
+    .beat-copy {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: flex-end;
+      opacity: 0;
+      transform: translate3d(0, 8px, 0);
+      transition: opacity 0.45s var(--ease-out-expo), transform 0.5s var(--ease-out-expo);
+      pointer-events: none;
+    }
+
+    .beat-copy.is-active {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+
+    .beat-copy-kicker {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--lavender);
+      margin-bottom: 4px;
+    }
+
+    .beat-copy-text {
+      font-size: 13.5px;
+      line-height: 1.45;
+      color: var(--text-2);
+    }
+
+    /* =====================================================================
+       MAIN STUDIO STAGE (ONE UNIFIED SURFACE)
+       ===================================================================== */
+    .hiw-stage-card {
+      position: relative;
+      background: transparent;
+      border: none;
+      border-radius: var(--radius-stage);
+      overflow: hidden;
+    }
+
+    /* Subtle restrained ambient studio glow — never busy */
+    .stage-ambient {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .stage-ambient::before {
+      content: "";
+      position: absolute;
+      width: 560px;
+      height: 360px;
+      left: 50%;
+      top: 46%;
+      transform: translate3d(-50%, -50%, 0);
+      background: radial-gradient(ellipse at center, rgba(135, 83, 227, 0.14) 0%, rgba(32, 227, 162, 0.05) 45%, transparent 72%);
+      opacity: 0.22;
+      transition: opacity 0.8s ease;
+    }
+
+    .hiw-stage-card[data-phase="2"] .stage-ambient::before,
+    .hiw-stage-card[data-phase="3"] .stage-ambient::before {
+      opacity: 0.3;
+    }
+
+    /* Fine architectural dot grid — barely perceptible depth */
+    .stage-grid {
+      position: absolute;
+      inset: 0;
+      background-image: none;
+      background-size: 28px 28px;
+      mask-image: radial-gradient(ellipse 75% 75% at 50% 48%, #000 20%, transparent 80%);
+      -webkit-mask-image: radial-gradient(ellipse 75% 75% at 50% 48%, #000 20%, transparent 80%);
+      pointer-events: none;
+    }
+
+    /* The interactive visual viewport */
+    .stage-viewport {
+      position: relative;
+      width: 100%;
+      height: 504px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* =====================================================================
+       LAYER A: 16:9 RAW SOURCE + NLE TIMELINE (PHASES 0 & 1)
+       ===================================================================== */
+    .source-rig {
+      position: absolute;
+      width: 652px;
+      max-width: calc(100% - 48px);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      transform: translate3d(0, 0, 0) scale(1);
+      opacity: 1;
+      will-change: transform, opacity;
+      transition: opacity 0.65s var(--ease-out-expo), transform 0.85s var(--ease-spring);
+    }
+
+    .hiw-stage-card[data-phase="2"] .source-rig,
+    .hiw-stage-card[data-phase="3"] .source-rig {
+      opacity: 0;
+      transform: translate3d(0, -10px, 0) scale(0.96);
+      pointer-events: none;
+    }
+
+    /* 16:9 Video Frame */
+    .source-video-frame {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: var(--radius-frame);
+      overflow: hidden;
+      background: #05070d;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      box-shadow: 0 28px 70px rgba(0, 0, 0, 0.65);
+    }
+
+    .source-video-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center center;
+      transform: scale(1.02);
+      will-change: transform;
+      transition: transform 2.6s var(--ease-out-expo);
+    }
+
+    .hiw-stage-card[data-phase="1"] .source-video-img {
+      transform: scale(1.0);
+    }
+
+    /* Subtle dark cinema vignette for HUD legibility */
+    .source-vignette {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(5, 7, 13, 0.48) 0%, transparent 28%, transparent 72%, rgba(5, 7, 13, 0.56) 100%);
+      pointer-events: none;
+    }
+
+    /* Top HUD inside 16:9 frame */
+    .source-hud-top {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 4;
+      transition: opacity 0.4s ease;
+    }
+
+    .hiw-stage-card[data-reframe-prep="1"] .source-hud-top {
+      opacity: 0.35;
+    }
+
+    .hud-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(10, 13, 23, 0.76);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-1);
+      letter-spacing: 0.01em;
+    }
+
+    .hud-pill-muted {
+      color: var(--text-2);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .rec-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(245, 246, 250, 0.55);
+      transition: background 0.35s ease;
+    }
+
+    .hiw-stage-card[data-moment-found="1"] .rec-dot {
+      background: var(--green);
+    }
+
+    /* Outer letterbox shutters that dim the unused 16:9 wings right before the reframe morph */
+    .wing-mask {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      background: rgba(5, 7, 13, 0.72);
+      opacity: 0;
+      z-index: 3;
+      pointer-events: none;
+      will-change: opacity;
+      transition: opacity 0.55s var(--ease-out-expo);
+    }
+
+    .wing-mask-left {
+      left: 0;
+      width: 45.2%;
+    }
+
+    .wing-mask-right {
+      right: 0;
+      width: 23.2%;
+    }
+
+    .hiw-stage-card[data-reframe-prep="1"] .wing-mask {
+      opacity: 1;
+    }
+
+    /* 9:16 Smart-Crop Viewfinder overlaid directly on the speaker (right-of-center) */
+    .crop-viewfinder {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 45.2%;
+      width: 31.6%; /* 9:16 inside 16:9 = (9/16)/(16/9) = 31.64% */
+      z-index: 5;
+      pointer-events: none;
+      opacity: 0;
+      transform: scale(1.06);
+      will-change: transform, opacity;
+      transition: opacity 0.5s var(--ease-out-expo), transform 0.65s var(--ease-spring);
+    }
+
+    .hiw-stage-card[data-reframe-prep="1"] .crop-viewfinder {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .crop-frame-border {
+      position: absolute;
+      inset: 4px 0;
+      border-radius: 14px;
+      border: 1.5px solid rgba(32, 227, 162, 0.85);
+      box-shadow: inset 0 0 0 1px rgba(135, 83, 227, 0.35);
+    }
+
+    /* Precision viewfinder corner brackets */
+    .vf-corner {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-color: var(--green);
+      border-style: solid;
+      border-width: 0;
+    }
+    .vf-tl { top: 10px; left: 8px; border-top-width: 2px; border-left-width: 2px; border-top-left-radius: 4px; }
+    .vf-tr { top: 10px; right: 8px; border-top-width: 2px; border-right-width: 2px; border-top-right-radius: 4px; }
+    .vf-bl { bottom: 10px; left: 8px; border-bottom-width: 2px; border-left-width: 2px; border-bottom-left-radius: 4px; }
+    .vf-br { bottom: 10px; right: 8px; border-bottom-width: 2px; border-right-width: 2px; border-bottom-right-radius: 4px; }
+
+    /* Subtle face-lock reticle inside the crop box */
+    .face-reticle {
+      position: absolute;
+      left: 50%;
+      top: 30%;
+      width: 74px;
+      height: 74px;
+      transform: translate3d(-50%, -50%, 0) scale(1.18);
+      border-radius: 16px;
+      border: 1px dashed rgba(187, 169, 232, 0.72);
+      opacity: 0;
+      transition: opacity 0.4s ease 0.15s, transform 0.6s var(--ease-spring) 0.15s;
+    }
+
+    .hiw-stage-card[data-reframe-prep="1"] .face-reticle {
+      opacity: 1;
+      transform: translate3d(-50%, -50%, 0) scale(1);
+    }
+
+    .crop-lock-badge {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translate3d(-50%, 0, 0);
+      white-space: nowrap;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: rgba(10, 13, 23, 0.86);
+      border: 1px solid rgba(32, 227, 162, 0.45);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--green);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .crop-lock-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--green);
+    }
+
+    /* =====================================================================
+       NLE SOURCE TIMELINE STRIP
+       ===================================================================== */
+    .timeline-shell {
+      position: relative;
+      background: rgba(16, 21, 38, 0.72);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px 14px 11px;
+      transition: transform 0.55s var(--ease-out-expo), opacity 0.45s ease;
+    }
+
+    .hiw-stage-card[data-phase="2"] .timeline-shell,
+    .hiw-stage-card[data-phase="3"] .timeline-shell {
+      opacity: 0;
+      transform: translate3d(0, 16px, 0);
+    }
+
+    .timeline-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 9px;
+      font-size: 11px;
+      color: var(--text-3);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .timeline-status-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-2);
+      transition: color 0.35s ease;
+    }
+
+    .hiw-stage-card[data-moment-found="1"] .timeline-status-tag {
+      color: var(--green);
+    }
+
+    .timeline-track {
+      position: relative;
+      height: 40px;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      overflow: hidden;
+    }
+
+    /* Subtle static speech-density cadence silhouette (muted, realistic NLE track) */
+    .speech-cadence-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.42;
+      transition: opacity 0.45s ease;
+    }
+
+    .hiw-stage-card[data-moment-found="1"] .speech-cadence-svg {
+      opacity: 0.18;
+    }
+
+    /* Secondary found moments (Clips 02 & 03 foreshadowing) */
+    .moment-span-secondary {
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      border-radius: 6px;
+      background: rgba(187, 169, 232, 0.16);
+      border: 1px solid rgba(187, 169, 232, 0.42);
+      opacity: 0;
+      transform: scaleY(0.82);
+      will-change: transform, opacity;
+      transition: opacity 0.45s var(--ease-out-expo), transform 0.5s var(--ease-spring);
+    }
+
+    .moment-span-2 { left: 13%; width: 10%; }
+    .moment-span-3 { left: 68%; width: 11%; }
+
+    .hiw-stage-card[data-scan-m2="1"] .moment-span-2 {
+      opacity: 1;
+      transform: scaleY(1);
+    }
+
+    .hiw-stage-card[data-scan-m3="1"] .moment-span-3 {
+      opacity: 1;
+      transform: scaleY(1);
+    }
+
+    /* Hero found moment bracket (Moment 01: 14:22 — 15:04) */
+    .moment-span-hero {
+      position: absolute;
+      top: 2px;
+      bottom: 2px;
+      left: 34%;
+      width: 16%;
+      border-radius: 8px;
+      background: linear-gradient(90deg, rgba(135, 83, 227, 0.34), rgba(32, 227, 162, 0.30));
+      border: 1.5px solid var(--green);
+      box-shadow: inset 0 0 0 1px rgba(135, 83, 227, 0.4);
+      opacity: 0;
+      transform: scaleX(0.45);
+      transform-origin: left center;
+      will-change: transform, opacity;
+      transition: opacity 0.38s var(--ease-out-expo), transform 0.52s var(--ease-spring);
+      z-index: 3;
+    }
+
+    .hiw-stage-card[data-moment-found="1"] .moment-span-hero {
+      opacity: 1;
+      transform: scaleX(1);
+    }
+
+    .moment-handle {
+      position: absolute;
+      top: 50%;
+      width: 4px;
+      height: 16px;
+      border-radius: 99px;
+      background: #ffffff;
+      transform: translate3d(0, -50%, 0);
+    }
+    .moment-handle-l { left: 3px; }
+    .moment-handle-r { right: 3px; }
+
+    /* Floating moment callout pill above the locked span */
+    .moment-pill {
+      position: absolute;
+      left: 42%;
+      top: -12px;
+      transform: translate3d(-50%, 6px, 0) scale(0.92);
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--accent-grad-h);
+      color: #05070d;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      opacity: 0;
+      will-change: transform, opacity;
+      transition: opacity 0.38s var(--ease-out-expo), transform 0.48s var(--ease-spring);
+      z-index: 6;
+    }
+
+    .hiw-stage-card[data-moment-found="1"] .moment-pill {
+      opacity: 1;
+      transform: translate3d(-50%, 0, 0) scale(1);
+    }
+
+    /* Scanning laser beam / playhead */
+    .timeline-playhead {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 2px;
+      background: #ffffff;
+      z-index: 5;
+      will-change: transform;
+      transform: translate3d(0, 0, 0);
+    }
+
+    .timeline-playhead::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: 0;
+      width: 44px;
+      background: linear-gradient(90deg, transparent, rgba(135, 83, 227, 0.32), rgba(32, 227, 162, 0.45));
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    .hiw-stage-card[data-scanning="1"] .timeline-playhead {
+      background: var(--green);
+    }
+
+    .hiw-stage-card[data-scanning="1"] .timeline-playhead::before {
+      opacity: 1;
+    }
+
+    /* =====================================================================
+       LAYER B: 9:16 VERTICAL HERO CLIP + MULTIPLIED OUTPUT DECK (PHASES 2 & 3)
+       ===================================================================== */
+    .clips-rig {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    /* Base vertical clip card */
+    .clip-card {
+      position: absolute;
+      width: 228px;
+      aspect-ratio: 9 / 16;
+      border-radius: var(--radius-clip);
+      overflow: hidden;
+      background: #05070d;
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      box-shadow: 0 32px 72px rgba(0, 0, 0, 0.72);
+      will-change: transform, opacity;
+    }
+
+    .clip-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      will-change: transform;
+    }
+
+    /* Clip 01 uses the EXACT same source 16:9 image, cropped to the speaker */
+    .clip-card-hero .clip-img {
+      object-position: 61% 28%;
+      transform: scale(1.06);
+      transition: transform 2.4s var(--ease-out-expo);
+    }
+
+    .hiw-stage-card[data-phase="2"] .clip-card-hero .clip-img,
+    .hiw-stage-card[data-phase="3"] .clip-card-hero .clip-img {
+      transform: scale(1.01);
+    }
+
+    /* Hero Clip initial state: aligned over the right-of-center 9:16 crop zone inside 16:9 */
+    .clip-card-hero {
+      z-index: 4;
+      opacity: 0;
+      transform: translate3d(78px, -28px, 0) scale(0.92);
+      transition: transform 0.92s var(--ease-spring), opacity 0.42s ease, border-color 0.5s ease;
+    }
+
+    /* Phase 2: Reframed dead-center, sole focal point */
+    .hiw-stage-card[data-phase="2"] .clip-card-hero {
+      opacity: 1;
+      transform: translate3d(0, -6px, 0) scale(1.02);
+      border-color: rgba(32, 227, 162, 0.42);
+    }
+
+    /* Phase 3: Settles slightly as sibling clips fan out */
+    .hiw-stage-card[data-phase="3"] .clip-card-hero {
+      opacity: 1;
+      transform: translate3d(0, -14px, 0) scale(0.97);
+      border-color: rgba(255, 255, 255, 0.16);
+    }
+
+    /* Companion clips (Clip 02 left, Clip 03 right) */
+    .clip-card-left,
+    .clip-card-right {
+      z-index: 2;
+      opacity: 0;
+      transform: translate3d(0, -6px, 0) scale(0.84);
+      transition: transform 0.95s var(--ease-spring), opacity 0.55s var(--ease-out-expo);
+    }
+
+    .clip-card-left {
+      transition-delay: 0.06s;
+    }
+
+    .clip-card-right {
+      transition-delay: 0.16s;
+    }
+
+    .hiw-stage-card[data-phase="3"] .clip-card-left {
+      opacity: 1;
+      transform: translate3d(-242px, 6px, 0) rotate(-3deg) scale(0.88);
+    }
+
+    .hiw-stage-card[data-phase="3"] .clip-card-right {
+      opacity: 1;
+      transform: translate3d(242px, 6px, 0) rotate(3deg) scale(0.88);
+    }
+
+    /* Gradient legibility scrim inside every vertical clip */
+    .clip-scrim {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        180deg,
+        rgba(5, 7, 13, 0.52) 0%,
+        transparent 24%,
+        transparent 52%,
+        rgba(5, 7, 13, 0.86) 100%
+      );
+      pointer-events: none;
+    }
+
+    /* Top bar inside each vertical clip */
+    .clip-top-bar {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 3;
+    }
+
+    .clip-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(10, 13, 23, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-1);
+      letter-spacing: 0.02em;
+    }
+
+    .clip-ready-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(32, 227, 162, 0.16);
+      border: 1px solid rgba(32, 227, 162, 0.42);
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--green);
+      opacity: 0;
+      transform: translate3d(0, -4px, 0);
+      transition: opacity 0.45s var(--ease-out-expo), transform 0.5s var(--ease-spring);
+    }
+
+    .hiw-stage-card[data-phase="3"] .clip-ready-pill {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+      transition-delay: 0.25s;
+    }
+
+    .ready-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--green);
+    }
+
+    /* =====================================================================
+       KINETIC CAPTIONS (LOWER-THIRD SAFE ZONE)
+       ===================================================================== */
+    .caption-zone {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 42px;
+      z-index: 4;
+      text-align: center;
+      min-height: 54px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .caption-line {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 4px 6px;
+      font-size: 15.5px;
+      font-weight: 700;
+      line-height: 1.28;
+      letter-spacing: -0.015em;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
+    }
+
+    .cap-word {
+      display: inline-block;
+      color: rgba(255, 255, 255, 0.42);
+      opacity: 0;
+      transform: translate3d(0, 7px, 0) scale(0.95);
+      will-change: transform, opacity;
+      transition: opacity 0.22s var(--ease-out-expo), transform 0.28s var(--ease-spring), color 0.18s ease;
+    }
+
+    .cap-word.is-visible {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+      color: #ffffff;
+    }
+
+    .cap-word.is-active {
+      opacity: 1;
+      color: var(--green);
+      transform: translate3d(0, -2px, 0) scale(1.06);
+    }
+
+    /* Static caption styling on companion clips */
+    .caption-static {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: -0.015em;
+      color: #ffffff;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
+    }
+
+    .caption-static .hl-green { color: var(--green); }
+    .caption-static .hl-lavender { color: var(--lavender); }
+
+    /* Bottom clip footer: format metadata + subtle progress hairline */
+    .clip-footer {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .clip-footer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10px;
+      font-weight: 500;
+      color: rgba(245, 246, 250, 0.68);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .clip-progress-track {
+      height: 2.5px;
+      width: 100%;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.16);
+      overflow: hidden;
+    }
+
+    .clip-progress-fill {
+      height: 100%;
+      width: 100%;
+      background: var(--accent-grad-h);
+      transform-origin: left center;
+      transform: scaleX(0);
+      will-change: transform;
+    }
+
+    /* Subtle payoff tray beneath the fanned triptych in Phase 3 */
+    .ready-summary-pill {
+      position: absolute;
+      bottom: 18px;
+      left: 50%;
+      transform: translate3d(-50%, 10px, 0);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      background: rgba(16, 21, 38, 0.9);
+      border: 1px solid rgba(32, 227, 162, 0.28);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-1);
+      opacity: 0;
+      will-change: transform, opacity;
+      transition: opacity 0.55s var(--ease-out-expo), transform 0.65s var(--ease-spring);
+      z-index: 6;
+    }
+
+    .hiw-stage-card[data-phase="3"] .ready-summary-pill {
+      opacity: 1;
+      transform: translate3d(-50%, 0, 0);
+      transition-delay: 0.3s;
+    }
+
+    .ready-summary-pill svg {
+      width: 14px;
+      height: 14px;
+      color: var(--green);
+      flex-shrink: 0;
+    }
+
+    /* =====================================================================
+       INTERACTIVE CHAPTER SCRUBBER BAR (OUTSIDE role="img")
+       ===================================================================== */
+    .stage-controls {
+      display: flex;
+      align-items: stretch;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      background: rgba(5, 7, 13, 0.6);
+    }
+
+    .chapter-list {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      flex: 1;
+    }
+
+    .chapter-btn {
+      position: relative;
+      appearance: none;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      padding: 10px 12px 12px;
+      text-align: left;
+      cursor: pointer;
+      color: var(--text-3);
+      font-family: inherit;
+      transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+      overflow: hidden;
+    }
+
+    .chapter-btn:hover {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-2);
+    }
+
+    .chapter-btn:focus-visible {
+      outline: 2px solid var(--lavender);
+      outline-offset: 2px;
+    }
+
+    .chapter-btn[aria-current="step"] {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: var(--border-hi);
+      color: var(--text-1);
+    }
+
+    .chapter-num {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--lavender);
+      opacity: 0.6;
+      margin-bottom: 3px;
+    }
+
+    .chapter-btn[aria-current="step"] .chapter-num {
+      opacity: 1;
+    }
+
+    .chapter-label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 500;
+      line-height: 1.25;
+    }
+
+    .chapter-bar-track {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 6px;
+      height: 2px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.07);
+      overflow: hidden;
+    }
+
+    .chapter-bar-fill {
+      height: 100%;
+      width: 100%;
+      background: var(--accent-grad-h);
+      transform-origin: left center;
+      transform: scaleX(0);
+      will-change: transform;
+    }
+
+    .playback-btn {
+      appearance: none;
+      flex-shrink: 0;
+      width: 44px;
+      min-height: 44px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    }
+
+    .playback-btn:hover {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: var(--border-hi);
+      color: var(--text-1);
+    }
+
+    .playback-btn:focus-visible {
+      outline: 2px solid var(--lavender);
+      outline-offset: 2px;
+    }
+
+    /* =====================================================================
+       HONEST DISCLOSURE FOOTNOTE
+       ===================================================================== */
+    .hiw-footnote {
+      margin-top: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 11.5px;
+      color: var(--text-3);
+      padding: 0 4px;
+    }
+
+    /* =====================================================================
+       REDUCED MOTION STATIC EDITORIAL COMPOSITION
+       (All 4 story beats visible in one connected static frame)
+       ===================================================================== */
+    .reduced-motion-view {
+      display: none;
+      padding: 28px;
+      gap: 24px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .rm-source-col {
+      flex: 1.15;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .rm-connector {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      color: var(--lavender);
+    }
+
+    .rm-connector-line {
+      width: 48px;
+      height: 2px;
+      background: var(--accent-grad-h);
+      border-radius: 99px;
+      position: relative;
+    }
+
+    .rm-connector-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--lavender);
+      white-space: nowrap;
+    }
+
+    .rm-clips-col {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      min-height: 360px;
+    }
+
+    .rm-clip {
+      position: relative;
+      width: 176px;
+      aspect-ratio: 9 / 16;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: #05070d;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
+    }
+
+    .rm-clip-back-l {
+      position: absolute;
+      left: 50%;
+      transform: translate3d(-154px, 10px, 0) rotate(-4deg) scale(0.88);
+      z-index: 1;
+    }
+
+    .rm-clip-back-r {
+      position: absolute;
+      left: 50%;
+      transform: translate3d(-22px, 10px, 0) rotate(4deg) scale(0.88);
+      z-index: 1;
+    }
+
+    .rm-clip-front {
+      z-index: 3;
+      border-color: rgba(32, 227, 162, 0.48);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .stage-viewport,
+      .stage-controls,
+      .hiw-beat-narrative {
+        display: none !important;
+      }
+
+      .reduced-motion-view {
+        display: flex;
+      }
+
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+
+    /* =====================================================================
+       MOBILE COMPOSITION (DESIGNED FOR 390px PHONES — NOT A SHRUNK DESKTOP)
+       ===================================================================== */
+    @media (max-width: 760px) {
+      .hiw-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+
+      .hiw-beat-narrative {
+        width: 100%;
+        text-align: left;
+        min-height: 44px;
+      }
+
+      .beat-copy {
+        align-items: flex-start;
+      }
+
+      .reduced-motion-view {
+        flex-direction: column;
+        padding: 18px 14px;
+      }
+
+      .rm-connector {
+        transform: rotate(90deg);
+        margin: 8px 0;
+      }
+
+      .rm-connector-label {
+        display: none;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 20px 12px 28px;
+        align-items: flex-start;
+      }
+
+      .hiw-stage-card {
+        border-radius: 22px;
+      }
+
+      .stage-viewport {
+        height: 472px;
+      }
+
+      /* Mobile Beat 0 & 1: Full-width crisp 16:9 + generous readable timeline */
+      .source-rig {
+        width: calc(100% - 28px);
+        max-width: 100%;
+        gap: 14px;
+      }
+
+      .source-video-frame {
+        border-radius: 16px;
+      }
+
+      .source-hud-top {
+        top: 10px;
+        left: 10px;
+        right: 10px;
+      }
+
+      .hud-pill {
+        font-size: 10.5px;
+        padding: 4px 8px;
+      }
+
+      .face-reticle {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+      }
+
+      .crop-lock-badge {
+        font-size: 9px;
+        padding: 3px 7px;
+        top: 8px;
+      }
+
+      .timeline-shell {
+        padding: 12px 12px 11px;
+        border-radius: 14px;
+      }
+
+      .timeline-track {
+        height: 44px;
+      }
+
+      .timeline-meta-row {
+        font-size: 11px;
+      }
+
+      /* Mobile Beat 2 & 3: Large readable portrait hero + tight layered fanned deck */
+      .clip-card {
+        width: 212px;
+        border-radius: 20px;
+      }
+
+      .clip-card-hero {
+        transform: translate3d(34px, -24px, 0) scale(0.86);
+      }
+
+      .hiw-stage-card[data-phase="2"] .clip-card-hero {
+        transform: translate3d(0, -10px, 0) scale(1);
+      }
+
+      .hiw-stage-card[data-phase="3"] .clip-card-hero {
+        transform: translate3d(0, -20px, 0) scale(0.95);
+      }
+
+      .hiw-stage-card[data-phase="3"] .clip-card-left {
+        opacity: 0.94;
+        transform: translate3d(-72px, -4px, 0) rotate(-5.5deg) scale(0.82);
+      }
+
+      .hiw-stage-card[data-phase="3"] .clip-card-right {
+        opacity: 0.94;
+        transform: translate3d(72px, -4px, 0) rotate(5.5deg) scale(0.82);
+      }
+
+      .caption-zone {
+        bottom: 38px;
+        left: 12px;
+        right: 12px;
+      }
+
+      .caption-line {
+        font-size: 14.5px;
+      }
+
+      .ready-summary-pill {
+        bottom: 14px;
+        font-size: 11.5px;
+        padding: 6px 12px;
+      }
+
+      /* Mobile Chapter Bar: Clean 2x2 grid + Play/Pause */
+      .stage-controls {
+        flex-direction: column;
+        padding: 12px;
+        gap: 10px;
+      }
+
+      .chapter-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+      }
+
+      .chapter-btn {
+        padding: 9px 10px 12px;
+        min-height: 48px;
+      }
+
+      .chapter-label {
+        font-size: 12px;
+      }
+
+      .playback-btn {
+        width: 100%;
+        height: 40px;
+        min-height: 40px;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+
+      .hiw-footnote {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        font-size: 11px;
+      }
+
+      .rm-clips-col {
+        min-height: 310px;
+      }
+
+      .rm-clip {
+        width: 156px;
+      }
+
+      .rm-clip-back-l {
+        transform: translate3d(-128px, 10px, 0) rotate(-5deg) scale(0.84);
+      }
+
+      .rm-clip-back-r {
+        transform: translate3d(-28px, 10px, 0) rotate(5deg) scale(0.84);
+      }
+    }
+  </style>
+</head>
+<body>
+  <section class="hiw-section" aria-labelledby="hiw-heading">
+    <!-- Editorial Header -->
+    <div class="hiw-header">
+      <div>
+        <div class="hiw-eyebrow">
+          <span class="hiw-eyebrow-dot" aria-hidden="true"></span>
+          <span>How it works</span>
+        </div>
+        <h2 class="hiw-title" id="hiw-heading">
+          One long video in.<br /><span>Vertical clips out.</span>
+        </h2>
+      </div>
+
+      <!-- Dynamic single-focal beat narrative -->
+      <div class="hiw-beat-narrative" aria-live="polite">
+        <div class="beat-copy is-active" data-beat-copy="0">
+          <span class="beat-copy-kicker">01 · Raw source</span>
+          <p class="beat-copy-text">Start with a full-length 16:9 recording.</p>
+        </div>
+        <div class="beat-copy" data-beat-copy="1">
+          <span class="beat-copy-kicker">02 · Moment found</span>
+          <p class="beat-copy-text">Standout segments lock in along the timeline.</p>
+        </div>
+        <div class="beat-copy" data-beat-copy="2">
+          <span class="beat-copy-kicker">03 · Reframe &amp; captions</span>
+          <p class="beat-copy-text">16:9 tracks the speaker into 9:16 as captions appear.</p>
+        </div>
+        <div class="beat-copy" data-beat-copy="3">
+          <span class="beat-copy-kicker">04 · Ready-to-post clips</span>
+          <p class="beat-copy-text">Highlighted moments multiply into vertical clips.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Unified Obsidian Stage -->
+    <div
+      class="hiw-stage-card"
+      id="hiwStage"
+      data-phase="0"
+      data-scanning="0"
+      data-moment-found="0"
+      data-scan-m2="0"
+      data-scan-m3="0"
+      data-reframe-prep="0"
+    >
+      <div class="stage-ambient" aria-hidden="true"></div>
+      <div class="stage-grid" aria-hidden="true"></div>
+
+      <!-- =================================================================
+           ANIMATED VISUAL STAGE (role="img" with descriptive aria-label)
+           ================================================================= -->
+      <div
+        class="stage-viewport"
+        role="img"
+        aria-label="Continuous animation showing one long 16:9 studio video transforming into ready-to-post vertical clips: first a full-length recording plays over a timeline, then a highlight scan locks onto key moments, next the 16:9 frame reframes onto the speaker in 9:16 vertical format with word-by-word captions, and finally three captioned vertical clips fan out ready to post."
+      >
+        <!-- LAYER A: 16:9 Source Frame + NLE Timeline -->
+        <div class="source-rig" aria-hidden="true">
+          <div class="source-video-frame">
+            <img
+              class="source-video-img" alt="Illustrative AI-generated sample frame: fictional arena challenge scene (owner-generated)"
+              data-media-slot="source"
+              src="/demo/landing/clips/mrbeast-arena-raw-169-poster.jpg"
+              alt="Illustrative AI-generated sample frame: fictional arena challenge scene (owner-generated)"
+              decoding="async"
+            />
+            <div class="source-vignette"></div>
+
+            <!-- Top minimal HUD -->
+            <div class="source-hud-top">
+              <div class="hud-pill">
+                <span class="rec-dot"></span>
+                <span>arena-challenge-raw</span>
+                <span class="hud-pill-muted">· 16:9</span>
+              </div>
+              <div class="hud-pill hud-pill-muted" id="sourceTimecode" style="display:none">RAW</div>
+            </div>
+
+            <!-- Letterbox shutters that dim unused wings right before morph -->
+            <div class="wing-mask wing-mask-left"></div>
+            <div class="wing-mask wing-mask-right"></div>
+
+            <!-- 9:16 Smart-Crop Viewfinder positioned directly over speaker -->
+            <div class="crop-viewfinder">
+              <div class="crop-frame-border"></div>
+              <span class="vf-corner vf-tl"></span>
+              <span class="vf-corner vf-tr"></span>
+              <span class="vf-corner vf-bl"></span>
+              <span class="vf-corner vf-br"></span>
+              <div class="face-reticle"></div>
+              <div class="crop-lock-badge">
+                <span class="crop-lock-dot"></span>
+                <span>9:16 track</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tactile NLE Timeline Strip -->
+          <div class="timeline-shell">
+            <div class="moment-pill">Moment 01</div>
+
+            <div class="timeline-meta-row">
+              <span>00:00</span>
+              <span class="timeline-status-tag" id="timelineStatus">Full recording</span>
+              
+            </div>
+
+            <div class="timeline-track" id="timelineTrack">
+              <!-- Muted speech-density track (static architectural audio cadence, not decorative waves) -->
+              <svg class="speech-cadence-svg" viewBox="0 0 680 40" preserveAspectRatio="none">
+                <g fill="rgba(245,246,250,0.45)">
+                  <rect x="8" y="16" width="3" height="8" rx="1.5" />
+                  <rect x="16" y="13" width="3" height="14" rx="1.5" />
+                  <rect x="24" y="17" width="3" height="6" rx="1.5" />
+                  <rect x="32" y="14" width="3" height="12" rx="1.5" />
+                  <rect x="44" y="16" width="3" height="8" rx="1.5" />
+                  <rect x="52" y="12" width="3" height="16" rx="1.5" />
+                  <rect x="60" y="15" width="3" height="10" rx="1.5" />
+                  <rect x="72" y="17" width="3" height="6" rx="1.5" />
+                  <rect x="88" y="10" width="3" height="20" rx="1.5" />
+                  <rect x="96" y="8" width="3" height="24" rx="1.5" />
+                  <rect x="104" y="11" width="3" height="18" rx="1.5" />
+                  <rect x="112" y="9" width="3" height="22" rx="1.5" />
+                  <rect x="120" y="12" width="3" height="16" rx="1.5" />
+                  <rect x="128" y="10" width="3" height="20" rx="1.5" />
+                  <rect x="136" y="14" width="3" height="12" rx="1.5" />
+                  <rect x="148" y="17" width="3" height="6" rx="1.5" />
+                  <rect x="160" y="15" width="3" height="10" rx="1.5" />
+                  <rect x="172" y="16" width="3" height="8" rx="1.5" />
+                  <rect x="184" y="13" width="3" height="14" rx="1.5" />
+                  <rect x="196" y="16" width="3" height="8" rx="1.5" />
+                  <rect x="208" y="14" width="3" height="12" rx="1.5" />
+                  <rect x="220" y="15" width="3" height="10" rx="1.5" />
+                  <!-- High-energy hero segment region -->
+                  <rect x="236" y="8" width="3" height="24" rx="1.5" />
+                  <rect x="244" y="6" width="3" height="28" rx="1.5" />
+                  <rect x="252" y="9" width="3" height="22" rx="1.5" />
+                  <rect x="260" y="5" width="3" height="30" rx="1.5" />
+                  <rect x="268" y="7" width="3" height="26" rx="1.5" />
+                  <rect x="276" y="10" width="3" height="20" rx="1.5" />
+                  <rect x="284" y="6" width="3" height="28" rx="1.5" />
+                  <rect x="292" y="8" width="3" height="24" rx="1.5" />
+                  <rect x="300" y="7" width="3" height="26" rx="1.5" />
+                  <rect x="308" y="9" width="3" height="22" rx="1.5" />
+                  <rect x="316" y="6" width="3" height="28" rx="1.5" />
+                  <rect x="324" y="10" width="3" height="20" rx="1.5" />
+                  <rect x="332" y="12" width="3" height="16" rx="1.5" />
+                  <!-- Mid quiet region -->
+                  <rect x="348" y="16" width="3" height="8" rx="1.5" />
+                  <rect x="360" y="14" width="3" height="12" rx="1.5" />
+                  <rect x="372" y="17" width="3" height="6" rx="1.5" />
+                  <rect x="384" y="15" width="3" height="10" rx="1.5" />
+                  <rect x="396" y="13" width="3" height="14" rx="1.5" />
+                  <rect x="408" y="16" width="3" height="8" rx="1.5" />
+                  <rect x="420" y="15" width="3" height="10" rx="1.5" />
+                  <rect x="432" y="17" width="3" height="6" rx="1.5" />
+                  <rect x="444" y="14" width="3" height="12" rx="1.5" />
+                  <!-- Third highlight region -->
+                  <rect x="464" y="9" width="3" height="22" rx="1.5" />
+                  <rect x="472" y="7" width="3" height="26" rx="1.5" />
+                  <rect x="480" y="10" width="3" height="20" rx="1.5" />
+                  <rect x="488" y="8" width="3" height="24" rx="1.5" />
+                  <rect x="496" y="11" width="3" height="18" rx="1.5" />
+                  <rect x="504" y="8" width="3" height="24" rx="1.5" />
+                  <rect x="512" y="10" width="3" height="20" rx="1.5" />
+                  <rect x="520" y="12" width="3" height="16" rx="1.5" />
+                  <rect x="528" y="15" width="3" height="10" rx="1.5" />
+                  <!-- Tail -->
+                  <rect x="544" y="16" width="3" height="8" rx="1.5" />
+                  <rect x="556" y="14" width="3" height="12" rx="1.5" />
+                  <rect x="568" y="17" width="3" height="6" rx="1.5" />
+                  <rect x="580" y="15" width="3" height="10" rx="1.5" />
+                  <rect x="596" y="16" width="3" height="8" rx="1.5" />
+                  <rect x="612" y="14" width="3" height="12" rx="1.5" />
+                  <rect x="628" y="17" width="3" height="6" rx="1.5" />
+                  <rect x="644" y="15" width="3" height="10" rx="1.5" />
+                  <rect x="660" y="16" width="3" height="8" rx="1.5" />
+                </g>
+              </svg>
+
+              <!-- Secondary highlight spans -->
+              <div class="moment-span-secondary moment-span-2"></div>
+              <div class="moment-span-secondary moment-span-3"></div>
+
+              <!-- Hero locked highlight bracket -->
+              <div class="moment-span-hero">
+                <span class="moment-handle moment-handle-l"></span>
+                <span class="moment-handle moment-handle-r"></span>
+              </div>
+
+              <!-- Moving playhead / scan beam -->
+              <div class="timeline-playhead" id="timelinePlayhead"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LAYER B: Reframed 9:16 Hero Clip + Multiplied Companion Clips -->
+        <div class="clips-rig" aria-hidden="true">
+          <!-- Companion Clip 02 (Left) -->
+          <div class="clip-card clip-card-left">
+            <img
+              class="clip-img"
+              data-media-slot="clip-2"
+              src="/demo/landing/clips/hiw-cand-916-a.jpg"
+              alt=""
+              decoding="async"
+            />
+            <div class="clip-scrim"></div>
+            <div class="clip-top-bar">
+              <span class="clip-badge">Clip 02</span>
+              <span class="clip-ready-pill"><span class="ready-dot"></span>Ready</span>
+            </div>
+            <div class="caption-zone">
+              <div class="caption-static">
+                Girl, c'mon, you <span class="hl-lavender">messing</span><br />me up here.
+              </div>
+            </div>
+            <div class="clip-footer">
+              <div class="clip-footer-row">
+                <span>9:16 · Captioned</span>
+                
+              </div>
+              <div class="clip-progress-track">
+                <div class="clip-progress-fill" style="transform: scaleX(0.62);"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Companion Clip 03 (Right) -->
+          <div class="clip-card clip-card-right">
+            <img
+              class="clip-img"
+              data-media-slot="clip-3"
+              src="/demo/landing/clips/hiw-cand-916-b.jpg"
+              alt=""
+              decoding="async"
+            />
+            <div class="clip-scrim"></div>
+            <div class="clip-top-bar">
+              <span class="clip-badge">Clip 03</span>
+              <span class="clip-ready-pill"><span class="ready-dot"></span>Ready</span>
+            </div>
+            <div class="caption-zone">
+              <div class="caption-static">
+                Ay! Yo,<br />is we <span class="hl-green">playin'?</span>
+              </div>
+            </div>
+            <div class="clip-footer">
+              <div class="clip-footer-row">
+                <span>9:16 · Captioned</span>
+                
+              </div>
+              <div class="clip-progress-track">
+                <div class="clip-progress-fill" style="transform: scaleX(0.48);"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hero Clip 01 (Center — exact same footage as 16:9 source, reframed 9:16) -->
+          <div class="clip-card clip-card-hero">
+            <img
+              class="clip-img"
+              data-media-slot="clip-1"
+              src="/demo/landing/clips/hiw-cand-916-c.jpg"
+              alt=""
+              decoding="async"
+            />
+            <div class="clip-scrim"></div>
+            <div class="clip-top-bar">
+              <span class="clip-badge">Clip 01</span>
+              <span class="clip-ready-pill"><span class="ready-dot"></span>Ready</span>
+            </div>
+            <div class="caption-zone">
+              <div class="caption-line" id="heroCaptionLine"></div>
+            </div>
+            <div class="clip-footer">
+              <div class="clip-footer-row">
+                <span>9:16 · Captioned</span>
+                <span id="heroClipTime"></span>
+              </div>
+              <div class="clip-progress-track">
+                <div class="clip-progress-fill" id="heroClipProgress"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subtle bottom payoff pill in Phase 3 -->
+        <div class="ready-summary-pill" aria-hidden="true">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3.5 8.5L6.5 11.5L12.5 4.5" />
+          </svg>
+          <span>3 vertical clips ready to post</span>
+        </div>
+      </div>
+
+      <!-- =================================================================
+           STATIC COMPOSED FALLBACK FOR prefers-reduced-motion: reduce
+           ================================================================= -->
+      <div
+        class="reduced-motion-view"
+        role="img"
+        aria-label="Static overview showing one long 16:9 studio video with highlighted timeline moments and a 9:16 crop frame on the left, flowing into three reframed, captioned vertical clips ready to post on the right."
+      >
+        <div class="rm-source-col" aria-hidden="true">
+          <div class="source-video-frame">
+            <img
+              class="source-video-img" alt="Illustrative AI-generated sample frame: fictional arena challenge scene (owner-generated)"
+              data-media-slot="source"
+              src="/demo/landing/clips/mrbeast-arena-raw-169-poster.jpg"
+              alt="Illustrative AI-generated sample frame: fictional arena challenge scene (owner-generated)"
+            />
+            <div class="source-vignette"></div>
+            <div class="source-hud-top">
+              <div class="hud-pill"><span class="rec-dot" style="background: var(--green);"></span><span>arena-challenge-raw · 16:9</span></div>
+            </div>
+            <div class="wing-mask wing-mask-left" style="opacity: 0.72;"></div>
+            <div class="wing-mask wing-mask-right" style="opacity: 0.72;"></div>
+            <div class="crop-viewfinder" style="opacity: 1; transform: none;">
+              <div class="crop-frame-border"></div>
+              <span class="vf-corner vf-tl"></span>
+              <span class="vf-corner vf-tr"></span>
+              <span class="vf-corner vf-bl"></span>
+              <span class="vf-corner vf-br"></span>
+              <div class="crop-lock-badge"><span class="crop-lock-dot"></span><span>9:16</span></div>
+            </div>
+          </div>
+          <div class="timeline-shell">
+            <div class="moment-pill" style="opacity: 1; transform: translate3d(-50%, 0, 0);">Moment 01</div>
+            <div class="timeline-meta-row">
+              <span>00:00</span>
+              <span style="color: var(--green); font-weight: 500;">3 moments found</span>
+              
+            </div>
+            <div class="timeline-track">
+              <div class="moment-span-secondary moment-span-2" style="opacity: 1; transform: none;"></div>
+              <div class="moment-span-secondary moment-span-3" style="opacity: 1; transform: none;"></div>
+              <div class="moment-span-hero" style="opacity: 1; transform: none;">
+                <span class="moment-handle moment-handle-l"></span>
+                <span class="moment-handle moment-handle-r"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rm-connector" aria-hidden="true">
+          <span class="rm-connector-label">Reframe</span>
+          <div class="rm-connector-line"></div>
+        </div>
+
+        <div class="rm-clips-col" aria-hidden="true">
+          <div class="rm-clip rm-clip-back-l">
+            <img class="clip-img" data-media-slot="clip-2" src="/demo/landing/clips/hiw-cand-916-a.jpg" alt="" />
+            <div class="clip-scrim"></div>
+            <div class="clip-top-bar"><span class="clip-badge">Clip 02</span></div>
+          </div>
+          <div class="rm-clip rm-clip-back-r">
+            <img class="clip-img" data-media-slot="clip-3" src="/demo/landing/clips/hiw-cand-916-b.jpg" alt="" />
+            <div class="clip-scrim"></div>
+            <div class="clip-top-bar"><span class="clip-badge">Clip 03</span></div>
+          </div>
+          <div class="rm-clip rm-clip-front">
+            <img class="clip-img" data-media-slot="clip-1" src="/demo/landing/clips/hiw-cand-916-c.jpg" alt="" style="object-position: 61% 28%;" />
+            <div class="clip-scrim"></div>
+            <div class="clip-top-bar">
+              <span class="clip-badge">Clip 01</span>
+              <span class="clip-ready-pill" style="opacity: 1; transform: none;"><span class="ready-dot"></span>Ready</span>
+            </div>
+            <div class="caption-zone" style="bottom: 24px;">
+              <div class="caption-static">You need to go to sleep<br />and <span class="hl-green">wake up</span> and start over.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive Chapter Control Rail -->
+      <div class="stage-controls" role="region" aria-label="Animation step controls">
+        <div class="chapter-list" role="tablist" aria-label="Story beats">
+          <button type="button" class="chapter-btn" data-jump-phase="0" aria-current="step">
+            <span class="chapter-num">01</span>
+            <span class="chapter-label">Raw video</span>
+            <span class="chapter-bar-track" aria-hidden="true"><span class="chapter-bar-fill" data-bar="0"></span></span>
+          </button>
+          <button type="button" class="chapter-btn" data-jump-phase="1">
+            <span class="chapter-num">02</span>
+            <span class="chapter-label">Moment found</span>
+            <span class="chapter-bar-track" aria-hidden="true"><span class="chapter-bar-fill" data-bar="1"></span></span>
+          </button>
+          <button type="button" class="chapter-btn" data-jump-phase="2">
+            <span class="chapter-num">03</span>
+            <span class="chapter-label">Reframe &amp; captions</span>
+            <span class="chapter-bar-track" aria-hidden="true"><span class="chapter-bar-fill" data-bar="2"></span></span>
+          </button>
+          <button type="button" class="chapter-btn" data-jump-phase="3">
+            <span class="chapter-num">04</span>
+            <span class="chapter-label">Ready clips</span>
+            <span class="chapter-bar-track" aria-hidden="true"><span class="chapter-bar-fill" data-bar="3"></span></span>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          class="playback-btn"
+          id="playbackToggle"
+          aria-label="Pause animation"
+          aria-pressed="false"
+          title="Play / Pause"
+        >
+          <svg id="iconPause" width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
+            <rect x="2.5" y="2" width="3" height="10" rx="1" />
+            <rect x="8.5" y="2" width="3" height="10" rx="1" />
+          </svg>
+          <svg id="iconPlay" width="14" height="14" viewBox="0 0 14 14" fill="currentColor" style="display:none;" aria-hidden="true">
+            <path d="M3.5 2.2a.8.8 0 0 1 1.22-.68l7.4 4.8a.8.8 0 0 1 0 1.36l-7.4 4.8A.8.8 0 0 1 3.5 11.8V2.2Z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Honest Labeling Footnote -->
+    <div class="hiw-footnote">
+      <span>Illustrative process animation, simplified. Not a recording of product output. Frames: AI-generated illustrations supplied by the site owner; caption lines are illustrative.</span>
+    </div>
+  </section>
+
+  <script>
+    (function () {
+      'use strict';
+
+      /**
+       * REPLACEABLE MEDIA SLOTS
+       * Swap any URL below (or pass props in React) to replace the sample studio stills
+       * with your own footage thumbnails or video posters.
+       */
+      var MEDIA_SLOTS = {
+        source: null, // defaults to embedded data URI on [data-media-slot="source"]
+        clip1: null,  // defaults to embedded data URI on [data-media-slot="clip-1"]
+        clip2: null,  // defaults to embedded data URI on [data-media-slot="clip-2"]
+        clip3: null   // defaults to embedded data URI on [data-media-slot="clip-3"]
+      };
+
+      function applyCustomMediaSlots() {
+        var map = [
+          ['source', MEDIA_SLOTS.source],
+          ['clip-1', MEDIA_SLOTS.clip1],
+          ['clip-2', MEDIA_SLOTS.clip2],
+          ['clip-3', MEDIA_SLOTS.clip3]
+        ];
+        for (var i = 0; i < map.length; i++) {
+          if (map[i][1]) {
+            var els = document.querySelectorAll('[data-media-slot="' + map[i][0] + '"]');
+            for (var j = 0; j < els.length; j++) {
+              els[j].src = map[i][1];
+            }
+          }
+        }
+      }
+      applyCustomMediaSlots();
+
+      /* =====================================================================
+         CHOREOGRAPHY TIMELINE (seconds)
+         One continuous 14.6s loop with deliberate anticipation and settle.
+         ===================================================================== */
+      var PHASES = [
+        { id: 0, start: 0.0,  end: 2.8,  jump: 0.2  }, // Raw long video
+        { id: 1, start: 2.8,  end: 6.2,  jump: 3.9  }, // Best moments found + crop lock
+        { id: 2, start: 6.2,  end: 10.4, jump: 7.4  }, // 16:9 -> 9:16 reframe + live captions
+        { id: 3, start: 10.4, end: 14.6, jump: 11.2 }  // Clips multiply -> ready-to-post
+      ];
+      var TOTAL_DURATION = 14.6;
+
+      var CAPTION_PHRASES = [
+        {
+          start: 6.95,
+          end: 8.65,
+          words: [
+            { text: 'Your',  at: 6.95 },
+            { text: 'best',  at: 7.18 },
+            { text: 'moments,',  at: 7.48 },
+            { text: 'found',  at: 7.72 },
+            { text: 'for',  at: 7.92 },
+            { text: 'you.', at: 8.22 }
+          ]
+        },
+        {
+          start: 8.65,
+          end: 14.6,
+          words: [
+            { text: 'Captions,',   at: 8.68 },
+            { text: "styled", at: 8.92 },
+            { text: 'word',  at: 9.24 },
+            { text: 'by',   at: 9.52 },
+            { text: "word.", at: 9.74 }
+          ]
+        }
+      ];
+
+      /* DOM references */
+      var stageEl = document.getElementById('hiwStage');
+      var playheadEl = document.getElementById('timelinePlayhead');
+      var trackEl = document.getElementById('timelineTrack');
+      var sourceTimecodeEl = document.getElementById('sourceTimecode');
+      var timelineStatusEl = document.getElementById('timelineStatus');
+      var heroCaptionLineEl = document.getElementById('heroCaptionLine');
+      var heroClipProgressEl = document.getElementById('heroClipProgress');
+      var heroClipTimeEl = document.getElementById('heroClipTime');
+      var playbackBtn = document.getElementById('playbackToggle');
+      var iconPause = document.getElementById('iconPause');
+      var iconPlay = document.getElementById('iconPlay');
+      var chapterBtns = Array.prototype.slice.call(document.querySelectorAll('.chapter-btn'));
+      var chapterBars = Array.prototype.slice.call(document.querySelectorAll('.chapter-bar-fill'));
+      var beatCopies = Array.prototype.slice.call(document.querySelectorAll('.beat-copy'));
+
+      var reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+      var isReducedMotion = reducedMotionQuery.matches;
+
+      var elapsed = 0;
+      var lastTs = null;
+      var isPaused = false;
+      var isVisible = true;
+      var rafId = null;
+
+      /* Cached state to avoid redundant DOM writes */
+      var lastPhase = -1;
+      var lastPhraseIdx = -1;
+      var lastActiveWordIdx = -1;
+      var lastStatusText = '';
+      var lastTimecode = '';
+      var lastClipTime = '';
+      var trackWidth = 680;
+
+      function measureTrack() {
+        if (trackEl) {
+          var w = trackEl.clientWidth;
+          if (w > 0) trackWidth = w;
+        }
+      }
+      measureTrack();
+      window.addEventListener('resize', measureTrack, { passive: true });
+
+      function clamp(val, min, max) {
+        return val < min ? min : (val > max ? max : val);
+      }
+
+      function easeOutCubic(x) {
+        return 1 - Math.pow(1 - x, 3);
+      }
+
+      function formatTimecode(sec) {
+        var totalFrames = Math.floor(sec * 24);
+        var frames = totalFrames % 24;
+        var totalSec = Math.floor(sec);
+        var s = totalSec % 60;
+        var m = Math.floor(totalSec / 60) % 60;
+        var h = Math.floor(totalSec / 3600);
+        return (
+          String(h).padStart(2, '0') + ':' +
+          String(m).padStart(2, '0') + ':' +
+          String(s).padStart(2, '0') + ':' +
+          String(frames).padStart(2, '0')
+        );
+      }
+
+      function setPhase(phaseId) {
+        if (phaseId === lastPhase) return;
+        lastPhase = phaseId;
+        stageEl.setAttribute('data-phase', String(phaseId));
+
+        for (var i = 0; i < chapterBtns.length; i++) {
+          if (i === phaseId) {
+            chapterBtns[i].setAttribute('aria-current', 'step');
+          } else {
+            chapterBtns[i].removeAttribute('aria-current');
+          }
+        }
+
+        for (var j = 0; j < beatCopies.length; j++) {
+          if (j === phaseId) {
+            beatCopies[j].classList.add('is-active');
+          } else {
+            beatCopies[j].classList.remove('is-active');
+          }
+        }
+      }
+
+      function renderCaptionPhrase(phraseIdx) {
+        if (phraseIdx === lastPhraseIdx) return;
+        lastPhraseIdx = phraseIdx;
+        lastActiveWordIdx = -1;
+        heroCaptionLineEl.innerHTML = '';
+
+        if (phraseIdx < 0) return;
+        var phrase = CAPTION_PHRASES[phraseIdx];
+        for (var i = 0; i < phrase.words.length; i++) {
+          var span = document.createElement('span');
+          span.className = 'cap-word';
+          span.textContent = phrase.words[i].text;
+          heroCaptionLineEl.appendChild(span);
+        }
+      }
+
+      function updateCaptions(t) {
+        if (t < 6.9) {
+          renderCaptionPhrase(-1);
+          return;
+        }
+        var phraseIdx = t < CAPTION_PHRASES[0].end ? 0 : 1;
+        renderCaptionPhrase(phraseIdx);
+
+        var phrase = CAPTION_PHRASES[phraseIdx];
+        var activeIdx = -1;
+        for (var i = 0; i < phrase.words.length; i++) {
+          if (t >= phrase.words[i].at) activeIdx = i;
+        }
+
+        if (activeIdx === lastActiveWordIdx) return;
+        lastActiveWordIdx = activeIdx;
+
+        var wordEls = heroCaptionLineEl.children;
+        for (var j = 0; j < wordEls.length; j++) {
+          if (j < activeIdx) {
+            wordEls[j].className = 'cap-word is-visible';
+          } else if (j === activeIdx) {
+            wordEls[j].className = 'cap-word is-visible is-active';
+          } else {
+            wordEls[j].className = 'cap-word';
+          }
+        }
+      }
+
+      function renderFrame(t) {
+        /* 1. Determine current phase */
+        var phaseId = 0;
+        for (var i = 0; i < PHASES.length; i++) {
+          if (t >= PHASES[i].start && t < PHASES[i].end) {
+            phaseId = PHASES[i].id;
+            break;
+          }
+        }
+        setPhase(phaseId);
+
+        /* 2. Update chapter progress bars (pure transform scaleX) */
+        for (var b = 0; b < PHASES.length; b++) {
+          var p = PHASES[b];
+          var ratio = 0;
+          if (t >= p.end) ratio = 1;
+          else if (t > p.start) ratio = (t - p.start) / (p.end - p.start);
+          chapterBars[b].style.transform = 'scaleX(' + ratio.toFixed(4) + ')';
+        }
+
+        /* 3. Phase 0 & 1 timeline playhead + moment detection beats */
+        var scanning = t >= 2.85 && t < 4.55;
+        var scanM2 = t >= 3.18;
+        var momentFound = t >= 3.68;
+        var scanM3 = t >= 4.28;
+        var reframePrep = t >= 4.55 && t < 6.45;
+
+        stageEl.setAttribute('data-scanning', scanning ? '1' : '0');
+        stageEl.setAttribute('data-scan-m2', scanM2 ? '1' : '0');
+        stageEl.setAttribute('data-moment-found', momentFound ? '1' : '0');
+        stageEl.setAttribute('data-scan-m3', scanM3 ? '1' : '0');
+        stageEl.setAttribute('data-reframe-prep', reframePrep ? '1' : '0');
+
+        /* Playhead position across timeline */
+        var headRatio = 0.08;
+        if (t < 2.85) {
+          // Gentle natural playback in Phase 0
+          headRatio = 0.08 + (t / 2.85) * 0.12;
+        } else if (t < 4.55) {
+          // Swift scan sweep across timeline
+          var scanP = (t - 2.85) / 1.70;
+          headRatio = 0.06 + easeOutCubic(scanP) * 0.78;
+        } else {
+          // Settles onto locked hero moment start
+          var settleP = clamp((t - 4.55) / 0.5, 0, 1);
+          headRatio = 0.84 - easeOutCubic(settleP) * 0.50; // lands at 0.34 (Moment 01 start)
+        }
+        playheadEl.style.transform = 'translate3d(' + (headRatio * trackWidth).toFixed(1) + 'px, 0, 0)';
+
+        /* Source timecode readout */
+        var tcSec = 855 + t * 1.0; // starts at 00:14:15
+        if (momentFound) tcSec = 862 + (t - 3.68); // 00:14:22
+        var tcStr = formatTimecode(tcSec);
+        if (tcStr !== lastTimecode) {
+          lastTimecode = tcStr;
+          sourceTimecodeEl.textContent = tcStr;
+        }
+
+        /* Timeline status readout */
+        var statusStr = 'Full recording';
+        if (scanning && !momentFound) statusStr = 'Scanning timeline...';
+        else if (momentFound && !reframePrep) statusStr = '3 moments found';
+        else if (reframePrep) statusStr = 'Locking 9:16 subject frame';
+        if (statusStr !== lastStatusText) {
+          lastStatusText = statusStr;
+          timelineStatusEl.textContent = statusStr;
+        }
+
+        /* 4. Phase 2 & 3 Hero clip captions & progress */
+        updateCaptions(t);
+
+        var clipProg = 0;
+        if (t >= 6.4) {
+          clipProg = clamp((t - 6.4) / 7.8, 0, 1);
+        }
+        heroClipProgressEl.style.transform = 'scaleX(' + clipProg.toFixed(4) + ')';
+
+        var clipSec = Math.floor(clipProg * 42);
+        var clipTimeStr = '';
+        if (clipTimeStr !== lastClipTime) {
+          lastClipTime = clipTimeStr;
+          heroClipTimeEl.textContent = clipTimeStr;
+        }
+      }
+
+      function tick(ts) {
+        if (isReducedMotion) return;
+        if (lastTs === null) lastTs = ts;
+        var dt = (ts - lastTs) / 1000;
+        lastTs = ts;
+
+        // Guard large tab-switch frame jumps
+        if (dt > 0.1) dt = 0.016;
+
+        if (!isPaused && isVisible) {
+          elapsed = (elapsed + dt) % TOTAL_DURATION;
+          renderFrame(elapsed);
+        }
+        rafId = window.requestAnimationFrame(tick);
+      }
+
+      function updatePlaybackUI() {
+        playbackBtn.setAttribute('aria-pressed', isPaused ? 'true' : 'false');
+        playbackBtn.setAttribute('aria-label', isPaused ? 'Play animation' : 'Pause animation');
+        iconPause.style.display = isPaused ? 'none' : 'block';
+        iconPlay.style.display = isPaused ? 'block' : 'none';
+      }
+
+      /* Chapter button click handlers */
+      for (var i = 0; i < chapterBtns.length; i++) {
+        (function (btn) {
+          btn.addEventListener('click', function () {
+            var idx = parseInt(btn.getAttribute('data-jump-phase'), 10);
+            if (!isNaN(idx) && PHASES[idx]) {
+              elapsed = PHASES[idx].jump;
+              renderFrame(elapsed);
+            }
+          });
+        })(chapterBtns[i]);
+      }
+
+      /* Play / Pause toggle */
+      playbackBtn.addEventListener('click', function () {
+        isPaused = !isPaused;
+        lastTs = null;
+        updatePlaybackUI();
+      });
+
+      /* Pause automatically when scrolled out of view to save mobile battery */
+      if ('IntersectionObserver' in window) {
+        var io = new IntersectionObserver(
+          function (entries) {
+            isVisible = entries[0].isIntersecting;
+            if (isVisible) lastTs = null;
+          },
+          { threshold: 0.15 }
+        );
+        io.observe(stageEl);
+      }
+
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) lastTs = null;
+      });
+
+      if (reducedMotionQuery.addEventListener) {
+        reducedMotionQuery.addEventListener('change', function (e) {
+          isReducedMotion = e.matches;
+          if (!isReducedMotion && !rafId) {
+            lastTs = null;
+            rafId = window.requestAnimationFrame(tick);
+          }
+        });
+      }
+
+      /* Boot */
+      if (!isReducedMotion) {
+        renderFrame(0);
+        rafId = window.requestAnimationFrame(tick);
+      }
+    })();
+  </script>
+</body>
+</html>

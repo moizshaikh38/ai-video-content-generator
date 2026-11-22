@@ -1,0 +1,140 @@
+/* Pipeline process animation v2: mock product-UI stages, one 10s loop.
+   Transform/opacity/fill only; full freeze under prefers-reduced-motion. */
+.plx-wrap { max-width: 1120px; margin: 0 auto 44px; }
+.plx { width: 100%; height: auto; display: block; }
+.plx-mobile { display: none; }
+
+.plx-panel { fill: #0a0d17; stroke: #ffffff14; }
+.plx-glow { fill: none; stroke: url(#plx-accent); stroke-width: 1.5; opacity: 0; }
+.plx-mobile .plx-glow { stroke: url(#plx-accent-m); }
+.plx-stage.s1 .plx-glow { animation: plx-glowpulse 10s ease-in-out infinite; }
+.plx-stage.s2 .plx-glow { animation: plx-glowpulse 10s ease-in-out infinite 2.5s; }
+.plx-stage.s3 .plx-glow { animation: plx-glowpulse 10s ease-in-out infinite 5s; }
+.plx-stage.s4 .plx-glow { animation: plx-glowpulse 10s ease-in-out infinite 7.5s; }
+
+.plx-chrome { fill: #ffffff08; }
+.plx-dot.r { fill: #f87171; } .plx-dot.y { fill: #fbbf24; } .plx-dot.g { fill: #34d399; }
+.plx-urlpill { fill: #ffffff0d; }
+.plx-video { fill: #141c30; stroke: #ffffff0d; }
+.plx-playbtn { fill: #8753e3; opacity: .92; }
+.plx-playicon { fill: #fff; }
+.plx-track { fill: #ffffff14; }
+.plx-track-fill { fill: #8753e3; }
+.plx-handle { fill: #c4b5fd; }
+.plx-time { fill: #64748b; font-size: 9.5px; text-anchor: end; font-family: inherit; }
+.plx-tag { fill: #9aa3b8; font-size: 10px; letter-spacing: 1.8px; font-weight: 700; font-family: inherit; }
+
+.plx-tool { fill: #ffffff12; }
+.plx-tick { fill: #ffffff1c; }
+.plx-trackbg { fill: #0d1524; stroke: #ffffff0d; }
+.plx-clipblk { fill: #8753e31f; stroke: #8753e355; }
+.plx-clipblk.b2 { fill: #8753e314; }
+.plx-wave rect { fill: #7c6bb8; opacity: .8; }
+.plx-select { fill: #20E3A215; stroke: #20E3A2; stroke-dasharray: 4 3; }
+.plx-chip { opacity: 0; transform-box: fill-box; transform-origin: center bottom; animation: plx-chip 10s ease-in-out infinite; }
+.plx-chipbg { fill: #20E3A2; }
+.plx-chiptext { fill: #04150f; font-size: 9.5px; font-weight: 800; text-anchor: middle; font-family: inherit; }
+.plx-playhead { animation: plx-scan 10s ease-in-out infinite; }
+.plx-ph-handle { fill: #20E3A2; }
+.plx-ph-line { fill: #20E3A2; }
+
+.plx-ghost { fill: #10182b; stroke: #ffffff10; }
+.plx-corner { stroke: #c4b5fd; stroke-width: 2; fill: none; opacity: 0; animation: plx-corners 10s ease-in-out infinite; }
+.plx-vert { animation: plx-vert-in 10s ease-in-out infinite; }
+.plx-phone { fill: #0d1524; stroke: url(#plx-accent); stroke-width: 1.5; }
+.plx-mobile .plx-phone { stroke: url(#plx-accent-m); }
+.plx-notch { fill: #ffffff14; }
+.plx-word { fill: #47556944; }
+.plx-word.w1 { animation: plx-word 10s ease-in-out infinite; }
+.plx-word.w2 { animation: plx-word 10s ease-in-out infinite .45s; }
+.plx-word.w3 { animation: plx-word 10s ease-in-out infinite .9s; }
+
+.plx-mini { opacity: .22; animation: plx-mini 10s ease-in-out infinite; }
+.plx-mini.k2 { animation-delay: .3s; }
+.plx-mini.k3 { animation-delay: .6s; }
+.plx-clipcard { fill: #0d1524; stroke: #ffffff1c; }
+.plx-plat.red { fill: #ff0000cc; }
+.plx-plat.dark { fill: #111; stroke: #25F4EE66; }
+.plx-plat.ig { fill: #c13584cc; }
+.plx-check { opacity: 0; transform-box: fill-box; transform-origin: center; animation: plx-check 10s ease-in-out infinite; }
+.plx-checkbg { fill: #20E3A2; }
+.plx-checkmark { stroke: #04150f; stroke-width: 2.4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+.plx-wire { stroke: #ffffff26; stroke-width: 2; stroke-dasharray: 5 5; animation: plx-flow 1.4s linear infinite; }
+.plx-packet, .plx-packet-v { fill: #20E3A2; opacity: 0; }
+.plx-packet.p1 { animation: plx-px 10s ease-in-out infinite; }
+.plx-packet.p2 { animation: plx-px 10s ease-in-out infinite 2.5s; }
+.plx-packet.p3 { animation: plx-px 10s ease-in-out infinite 5s; }
+.plx-packet-v.v1 { animation: plx-py 10s ease-in-out infinite; }
+.plx-packet-v.v2 { animation: plx-py 10s ease-in-out infinite 2.5s; }
+.plx-packet-v.v3 { animation: plx-py 10s ease-in-out infinite 5s; }
+
+@keyframes plx-flow { to { stroke-dashoffset: -20; } }
+@keyframes plx-glowpulse { 0%, 3% { opacity: 0; } 8%, 20% { opacity: .9; } 26%, 100% { opacity: 0; } }
+@keyframes plx-scan {
+  0%, 24% { transform: translateX(20px); opacity: 0; }
+  28% { opacity: 1; }
+  44% { transform: translateX(160px); opacity: 1; }
+  50%, 100% { transform: translateX(160px); opacity: 0; }
+}
+@keyframes plx-chip {
+  0%, 30% { opacity: 0; transform: scale(.5); }
+  34%, 46% { opacity: 1; transform: scale(1); }
+  52%, 100% { opacity: 0; transform: scale(1); }
+}
+@keyframes plx-corners {
+  0%, 50% { opacity: 0; }
+  55%, 90% { opacity: 1; }
+  96%, 100% { opacity: 0; }
+}
+@keyframes plx-vert-in {
+  0%, 48% { transform: translateY(6px); opacity: .28; }
+  58%, 94% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(0); opacity: .28; }
+}
+@keyframes plx-word {
+  0%, 57% { fill: #47556944; }
+  62%, 88% { fill: #20E3A2; }
+  94%, 100% { fill: #47556944; }
+}
+@keyframes plx-mini {
+  0%, 70% { opacity: .22; transform: translateY(4px); }
+  80%, 92% { opacity: 1; transform: translateY(0); }
+  100% { opacity: .22; transform: translateY(0); }
+}
+@keyframes plx-check {
+  0%, 82% { opacity: 0; transform: scale(.4); }
+  87%, 94% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; }
+}
+@keyframes plx-px {
+  0%, 2% { opacity: 0; transform: translateX(0); }
+  5%, 9% { opacity: 1; }
+  13%, 100% { opacity: 0; transform: translateX(30px); }
+}
+@keyframes plx-py {
+  0%, 2% { opacity: 0; transform: translateY(0); }
+  5%, 9% { opacity: 1; }
+  13%, 100% { opacity: 0; transform: translateY(31px); }
+}
+
+.plx-note { text-align: center; font-size: 10px; color: #64748b; margin: 10px 0 0; }
+
+@media (max-width: 768px) {
+  .plx-desktop { display: none; }
+  .plx-mobile { display: block; }
+  .plx-wrap { margin-bottom: 32px; max-width: 420px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plx-wire, .plx-playhead, .plx-vert, .plx-chip, .plx-corner,
+  .plx-word, .plx-mini, .plx-check, .plx-packet, .plx-packet-v, .plx-glow {
+    animation: none !important;
+  }
+  .plx-glow { opacity: .35; }
+  .plx-chip, .plx-corner, .plx-check { opacity: 1; transform: none; }
+  .plx-mini { opacity: 1; transform: none; }
+  .plx-vert { transform: none; opacity: 1; }
+  .plx-word { fill: #20E3A2; }
+  .plx-playhead { opacity: 1; }
+}

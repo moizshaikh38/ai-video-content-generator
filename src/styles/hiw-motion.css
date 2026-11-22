@@ -1,0 +1,25 @@
+.hiw-motion-embed {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.hiw-motion-frame {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  height: 860px;
+}
+
+@media (max-width: 1024px) {
+  .hiw-motion-frame {
+    height: 830px;
+  }
+}
+
+@media (max-width: 640px) {
+  .hiw-motion-frame {
+    height: 960px;
+  }
+}

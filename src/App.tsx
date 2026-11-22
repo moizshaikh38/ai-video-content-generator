@@ -47,6 +47,7 @@ export const App: React.FC = () => {
           {/* Public marketing layout with top navbar & footer */}
           <Route element={<RootLayout />}>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/pricing" element={<Navigate to="/#pricing" replace />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/support" element={<SupportPage />} />
