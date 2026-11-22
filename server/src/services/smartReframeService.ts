@@ -1734,6 +1734,13 @@ export class SmartReframeService {
             if(fits)return {start,end,kind:'fit' as const,contextStatus:'unresolved-review-required' as const,
               uncertainty:'Balanced 4:3 candidate from sparse face evidence. Side objects, text and undetected people are not verified; review before sharing.',
               windowW,windowH,keyframes:[{time:start,centerX:cx,centerY:.5}]};
+            // This explicit sparse-review candidate already measured a
+            // horizontal conflict. A later generic4:3 presentation must not
+            // discard that decision and choose which observed box to cut.
+            return {start,end,kind:'fit' as const,contextStatus:'unresolved-review-required' as const,
+              presentationProtection:{preserveWindow:true as const,reason:'measured-subject-conflict' as const},
+              uncertainty:'Full-source review Fit: sparse face boxes cannot fit one4:3 window. Detector identity, bodies and scene meaning remain unverified.',
+              windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]};
           }
         }
         return {start,end,kind:'fit' as const,contextStatus:'unresolved-preserved' as const,uncertainty:'No reliable subject anchor. Important scene/object regions are unresolved.',windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]};
@@ -1834,6 +1841,7 @@ export class SmartReframeService {
       const bodyOnly=options.bodyOnlyPortraitReview&&options.windowScope==='shot'&&!originalShot.split?bodyOnlyPortraitProposal(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight,[...(options.protectedContentRegions||[]),...(objectRegions.get(originalShot)||[])]):null;
       const movingBody=options.bodyOnlyPortraitReview&&options.windowScope==='shot'&&!originalShot.split&&!bodyOnly?movingBodyPortraitProposal(local,originalShot.start,originalShot.end,sourceWidth,sourceHeight,[...(options.protectedContentRegions||[]),...(objectRegions.get(originalShot)||[])]):null;
       const shot:ReturnType<typeof SmartReframeService.computeShotComposition>[number]=focusShot||compactPair||closeup||bodyOnly||movingBody||originalShot;
+      if (options.unresolvedContextPolicy === 'balanced-inset-review' && shot.presentationProtection?.reason === 'measured-subject-conflict') return shot;
       if (options.automaticFitAspect !== '4:3' || shot.split || shot.contextStatus==='unresolved-preserved' || shot.contextStatus==='crowd-preserved') return shot;
       const maxWidth = shot.windowH * (4/3) * sourceHeight/sourceWidth;
       if (shot.windowW <= maxWidth) return shot;
@@ -1890,6 +1898,20 @@ export class SmartReframeService {
         centerX:Math.max(width/2,Math.min(1-width/2,k.centerX)),
         centerY:Math.max(height/2,Math.min(1-height/2,k.centerY))}))};
     }),options.layoutPolicy,sourceWidth,sourceHeight),sourceWidth,sourceHeight),options.automaticFitAspect==='4:3'?rawSamples:[],sourceWidth,sourceHeight,options.pairFocusReview===true));
+    // An explicit sparse-review conflict requires one common full-source
+    // window in clip scope, not a full-width first shot and narrowed later
+    // shots after the presentation bridge. Shot scope remains independent.
+    if (options.unresolvedContextPolicy === 'balanced-inset-review' && shots.some(s =>
+        s.presentationProtection?.reason === 'measured-subject-conflict')) {
+      return shots.map(shot => {
+        const next = {...shot,kind:'fit' as const,windowW:1,windowH:1,
+          presentationProtection:{preserveWindow:true as const,reason:'measured-subject-conflict' as const},
+          contextStatus:'unresolved-review-required' as const,
+          uncertainty:'Full-source clip review Fit: sparse face boxes in one shot cannot fit one4:3 window. Detector identity, bodies and scene meaning remain unverified.',
+          keyframes:shot.keyframes.map(k=>({...k,centerX:.5,centerY:.5}))};
+        delete next.split;return next;
+      });
+    }
     // A source cut may change the subject, not the presentation's crop size.
     // Use the widest required context in both axes for the ENTIRE analyzed
     // clip, including edited slices. A full-source fallback deliberately makes
