@@ -1709,7 +1709,15 @@ export function computeCueWordSlices(cue: PresetTimedCue, validWords = getValidC
 /** Index of the word after which the cue text breaks to a second line, or -1. */
 export function getCueLineBreakIndex(cue: PresetTimedCue, wordCount: number): number {
   if (!cue.text || !cue.text.includes('\\N')) return -1;
-  const line1Words = cue.text.split('\\N')[0].trim().split(/\s+/).filter(Boolean);
+  const firstLine = cue.text.split('\\N')[0].trim();
+  // A timed atom can include a dialogue marker or several display tokens.
+  // Map the requested display prefix to actual atoms before using the legacy
+  // token-count fallback. No word is split or retimed to place a line break.
+  const words=getValidCueWords(cue),key=(text:string)=>text.replace(/\s+/g,' ').trim().toUpperCase();
+  if(words.length===wordCount){
+    for(let i=0;i<words.length-1;i++)if(key(words.slice(0,i+1).map(w=>w.text).join(' '))===key(firstLine))return i;
+  }
+  const line1Words = firstLine.split(/\s+/).filter(Boolean);
   if (line1Words.length > 0 && line1Words.length < wordCount) return line1Words.length - 1;
   return -1;
 }
@@ -2666,7 +2674,7 @@ export function auditCaptionReadability(cues: PresetTimedCue[], style: ResolvedC
   for (const cue of cues) {
     const duration = cue.end - cue.start;
     if (duration <= 0.05) continue;
-    const cps = cue.text.replace(/\s+/g, ' ').trim().length / duration;
+    const cps = cue.text.replace(/\\N/g, ' ').replace(/\s+/g, ' ').trim().length / duration;
     maxCps = Math.max(maxCps, cps);
     if (cps > CAPTION_READABILITY.maxCharsPerSecond) {
       warnings.push(
