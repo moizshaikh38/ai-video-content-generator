@@ -246,9 +246,9 @@ export const AnalyticsPage: React.FC = () => {
             </div>
 
             {/* Metric Highlight Selector for Timeline */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-2xs font-semibold uppercase text-muted-foreground">Chart Metric:</span>
-              <div className="inline-flex rounded-lg bg-sand/30 p-0.5">
+              <div className="inline-flex max-w-full flex-wrap rounded-lg bg-sand/30 p-0.5">
                 {[
                   { id: 'views', label: 'Views' },
                   { id: 'impressions', label: 'Impressions' },
