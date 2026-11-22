@@ -116,6 +116,8 @@ export const ProjectDetailPage: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingPlatform, setGeneratingPlatform] = useState<OutputPlatform | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [savedDataReadError, setSavedDataReadError] = useState<string | null>(null);
+  const [isReadingSavedData, setIsReadingSavedData] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
 
@@ -142,6 +144,7 @@ export const ProjectDetailPage: React.FC = () => {
   const activeProjectId = useRef(id);
   const refreshSequence = useRef(0);
   const hasAttemptedAutoStart = useRef(false);
+  const readOnlyReloadIds = useRef(new Set<string>());
   useLayoutEffect(() => {
     activeProjectId.current = id;
     refreshSequence.current++;
@@ -152,6 +155,8 @@ export const ProjectDetailPage: React.FC = () => {
     setVideoPreviewUrl(null);
     setIsLoading(!cached);
     setActionError(null);
+    setSavedDataReadError(null);
+    setIsReadingSavedData(false);
     setGenerationError(null);
     setIsRetrying(false);
     setIsGenerating(false);
@@ -213,33 +218,48 @@ export const ProjectDetailPage: React.FC = () => {
     if (!id || activeProjectId.current !== id) return;
     const sequence = ++refreshSequence.current;
     const isCurrent = () => activeProjectId.current === id && refreshSequence.current === sequence;
-    const p = await projectService.fetchProject(id);
-    if (!isCurrent()) return;
-    const o = projectService.getOutputs(id);
-    setProject(p || undefined);
-    setOutputs(o);
+    let stage: 'project' | 'transcript' = 'project';
+    setIsReadingSavedData(true);
+    try {
+      const p = await projectService.fetchProject(id);
+      if (!isCurrent()) return;
+      const o = projectService.getOutputs(id);
+      setProject(p || undefined);
+      setOutputs(o);
 
-    const currentStatus = p?.video_status || p?.status;
-    if (currentStatus === 'transcribed' || currentStatus === 'completed' || currentStatus === 'complete' || currentStatus === 'generating') {
-      const t = await projectService.fetchTranscript(id);
-      if (!isCurrent()) return;
-      setTranscript(t || null);
-      try {
-        const realOutputs = await projectService.fetchContentOutputs(id);
+      const currentStatus = p?.video_status || p?.status;
+      if (currentStatus === 'transcribed' || currentStatus === 'completed' || currentStatus === 'complete' || currentStatus === 'generating') {
+        stage = 'transcript';
+        const t = await projectService.fetchTranscript(id);
         if (!isCurrent()) return;
-        if (realOutputs) setOutputs(realOutputs);
-      } catch {
+        setTranscript(t || null);
+        try {
+          const realOutputs = await projectService.fetchContentOutputs(id);
+          if (!isCurrent()) return;
+          if (realOutputs) setOutputs(realOutputs);
+        } catch {
+          if (!isCurrent()) return;
+          // Outputs stay at their cached/empty state.
+        }
+      } else if (p && projectTranscriptReviewRequired(p, reviewOnly)) {
+        stage = 'transcript';
+        const t = await projectService.fetchTranscript(id);
         if (!isCurrent()) return;
-        // Outputs stay at their cached/empty state.
+        setTranscript(t || null);
+      } else {
+        setTranscript(null);
       }
-    } else if (p && projectTranscriptReviewRequired(p, reviewOnly)) {
-      const t = await projectService.fetchTranscript(id);
-      if (!isCurrent()) return;
-      setTranscript(t || null);
-    } else {
-      setTranscript(null);
+      if (isCurrent()) setSavedDataReadError(null);
+    } catch {
+      if (isCurrent()) setSavedDataReadError(stage === 'transcript'
+        ? 'The saved transcript could not be loaded. Try loading it again.'
+        : 'Project details could not be loaded. Try loading them again.');
+    } finally {
+      if (isCurrent()) {
+        setIsLoading(false);
+        setIsReadingSavedData(false);
+      }
     }
-    if (isCurrent()) setIsLoading(false);
   };
 
   // Initial load & updates listener
@@ -256,7 +276,7 @@ export const ProjectDetailPage: React.FC = () => {
 
   // Auto-start processing once when newly uploaded
   useEffect(() => {
-    if (!project || !id || project.id !== id || hasAttemptedAutoStart.current || projectTranscriptReviewRequired(project, reviewOnly)) return;
+    if (!project || !id || project.id !== id || hasAttemptedAutoStart.current || readOnlyReloadIds.current.has(id) || projectTranscriptReviewRequired(project, reviewOnly)) return;
     const currentStatus = project.video_status || project.status;
     if (currentStatus === 'uploaded' && project.source_url) {
       hasAttemptedAutoStart.current = true;
@@ -319,6 +339,19 @@ export const ProjectDetailPage: React.FC = () => {
     }
   };
 
+  const savedDataReadNotice = savedDataReadError ? (
+    <div role="alert" className="rounded-xl bg-amber-500/10 p-4 space-y-3 text-sm text-amber-100">
+      <p>{savedDataReadError}</p>
+      <p className="text-xs text-zinc-300">Reloading reads saved data only. It does not restart processing.</p>
+      <Button variant="outline" size="sm" disabled={isReadingSavedData} onClick={() => {
+        if (!id || activeProjectId.current !== id) return;
+        // A read retry must never turn into a new transcription/processing attempt.
+        readOnlyReloadIds.current.add(id);
+        void refreshData();
+      }}>Retry loading</Button>
+    </div>
+  ) : null;
+
   if (isLoading || (project && project.id !== id)) {
     return (
       <div className="pt-12">
@@ -333,7 +366,7 @@ export const ProjectDetailPage: React.FC = () => {
   if (!project) {
     return (
       <div className="py-20 text-center space-y-4">
-        <p className="text-muted-foreground text-sm">Project not found.</p>
+        {savedDataReadNotice || <p className="text-muted-foreground text-sm">Project not found.</p>}
         <Button variant="outline" size="sm" asChild>
           <Link to="/dashboard">Back to Studio</Link>
         </Button>
@@ -350,6 +383,8 @@ export const ProjectDetailPage: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      {savedDataReadNotice}
+      {isReadingSavedData && savedDataReadError && <p role="status" className="text-sm text-zinc-400">Loading saved project data...</p>}
       {/* Back Link */}
       <Link
         to="/history"
@@ -503,13 +538,13 @@ export const ProjectDetailPage: React.FC = () => {
                 <div className="space-y-1">
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-violet-500/15 text-violet-300 text-xs font-semibold">
                     <Sparkles className="size-3 text-violet-400" />
-                    <span>Autonomous AI Processing</span>
+                    <span>{isUploaded ? 'Upload saved' : 'Autonomous AI Processing'}</span>
                   </div>
                   <h2 className="font-['Sora',sans-serif] text-xl sm:text-2xl font-bold text-white tracking-tight">
-                    Clipping & Analyzing Your Video
+                    {isUploaded ? 'Ready to process your video' : 'Clipping & Analyzing Your Video'}
                   </h2>
                   <p className="text-xs sm:text-sm text-zinc-400">
-                    Our AI is extracting dialogue, detecting viral hooks, and generating 9:16 vertical clips.
+                    {isUploaded ? 'Your upload is saved. Start processing when you are ready.' : 'Our AI is extracting dialogue, detecting viral hooks, and generating 9:16 vertical clips.'}
                   </p>
                 </div>
 
@@ -518,14 +553,14 @@ export const ProjectDetailPage: React.FC = () => {
                     <Clock className="size-4.5" />
                   </div>
                   <div className="text-left">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Estimated time</p>
-                    <p className="text-sm font-bold font-mono text-white leading-tight">~60–90 seconds</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Processing status</p>
+                    <p className="text-sm font-bold font-mono text-white leading-tight">{isUploaded ? 'Not started' : statusVal}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Progress Bar */}
-              {(() => {
+              {/* Active processing stage indicator, not an idle-upload progress claim. */}
+              {!isUploaded && (() => {
                 const currentIdx = ['uploading', 'uploaded', 'queued', 'processing', 'transcribing', 'analyzing', 'generating', 'transcribed', 'complete', 'completed'].indexOf(statusVal);
                 const percent = Math.min(95, Math.max(15, Math.round((Math.max(1, currentIdx + 1) / 8) * 100)));
                 return (
@@ -592,11 +627,11 @@ export const ProjectDetailPage: React.FC = () => {
                     <Sparkles className="size-4" />
                   </div>
                   <p className="text-zinc-300 leading-relaxed">
-                    <strong className="text-white">Pro Tip:</strong> 85% of viewers watch short-form videos with sound muted. Our engine automatically adds kinetic word-pop captions to maximize retention.
+                    <strong className="text-white">Before sharing:</strong> Review captions against the source audio.
                   </p>
                 </div>
                 <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 font-mono text-[11px] shrink-0 font-medium">
-                  ✓ Safe to close tab
+                  {isUploaded ? 'Not started' : 'Server-side processing'}
                 </span>
               </div>
 
@@ -635,7 +670,7 @@ export const ProjectDetailPage: React.FC = () => {
               {isUploaded && !isProcessing(statusVal) && (
                 <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.04]">
                   <div className="text-xs sm:text-sm text-zinc-300">
-                    <span className="font-semibold text-white">Ready to start processing:</span> Audio extraction, transcription, and AI content kits are queued.
+                    <span className="font-semibold text-white">Ready to start processing:</span> Start processing to request clips and captions.
                   </div>
                   <Button
                     size="sm"
