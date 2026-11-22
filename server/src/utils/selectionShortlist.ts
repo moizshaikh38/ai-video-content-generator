@@ -11,7 +11,9 @@
  * Recall guards:
  *  - Passthrough (order preserved) when candidate count <= budget.
  *  - Budget floor: max(targetCount * MARGIN, MIN_DETAILED) so final selection
- *    always has a deep pool after dedupe.
+ *    can retain a deep pool when enough distinct proposals exist.
+ *  - Over budget, exact main-span/teaser repeats cannot crowd out all distinct
+ *    proposed footage. Unknown identities stay independent.
  *  - Stable sort: ties keep discovery order.
  */
 
@@ -39,10 +41,27 @@ export function shortlistBudget(targetCount: number): number {
   return Math.max(t * SHORTLIST_MARGIN, SHORTLIST_MIN_DETAILED);
 }
 
+/** Exact source IDs only. No fuzzy overlap grouping or guessed identity. */
+function sourceProposalKey(candidate: ShortlistScores): string | undefined {
+  const row = candidate as ShortlistScores & {
+    start_segment_index?: unknown;
+    end_segment_index?: unknown;
+    cold_open_segment_index?: unknown;
+  };
+  const isIndex = (value: unknown): value is number =>
+    typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+  const start = row.start_segment_index, end = row.end_segment_index;
+  const teaser = row.cold_open_segment_index;
+  if (!isIndex(start) || !isIndex(end) || end < start) return undefined;
+  if (teaser !== undefined && teaser !== null && !isIndex(teaser)) return undefined;
+  return `${start}:${end}:${teaser ?? 'none'}`;
+}
+
 /**
- * Returns the candidates to send through detailed scoring. Either the input
- * array itself (passthrough, identical order) or a new array of the top
- * `budget` candidates by base composite score, in discovery order.
+ * Under budget, preserve the original array. Over budget, rank as before but
+ * first reserve slots for distinct exact source proposals, including teaser
+ * identity. If fewer distinct proposals exist, fill with the best remaining
+ * duplicates. Return original objects in discovery order, within the same cap.
  */
 export function shortlistCandidatesForDetailedScoring<T extends ShortlistScores>(
   candidates: T[],
@@ -52,8 +71,20 @@ export function shortlistCandidatesForDetailedScoring<T extends ShortlistScores>
   if (candidates.length <= budget) return candidates;
   const ranked = candidates
     .map((c, i) => ({ c, i, s: baseCompositeScore(c) }))
-    .sort((a, b) => (b.s - a.s) || (a.i - b.i))
-    .slice(0, budget)
-    .sort((a, b) => a.i - b.i);
-  return ranked.map((r) => r.c);
+    .sort((a, b) => (b.s - a.s) || (a.i - b.i));
+  const selected: typeof ranked = [];
+  const deferred: typeof ranked = [];
+  const seen = new Set<string>();
+  for (const row of ranked) {
+    const key = sourceProposalKey(row.c);
+    if (key !== undefined && seen.has(key)) {
+      deferred.push(row);
+      continue;
+    }
+    if (key !== undefined) seen.add(key);
+    selected.push(row);
+    if (selected.length === budget) break;
+  }
+  if (selected.length < budget) selected.push(...deferred.slice(0, budget - selected.length));
+  return selected.sort((a, b) => a.i - b.i).map((row) => row.c);
 }
