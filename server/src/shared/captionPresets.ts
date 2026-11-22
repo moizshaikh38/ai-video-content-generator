@@ -2686,7 +2686,10 @@ export function auditCaptionReadability(cues: PresetTimedCue[], style: ResolvedC
   let maxCps = 0;
   for (const cue of cues) {
     const duration = cue.end - cue.start;
-    if (duration <= 0.05) continue;
+    if (!Number.isFinite(duration) || duration <= 0) {
+      warnings.push(`cue@${cue.start.toFixed(1)}s has an invalid display duration`);
+      continue;
+    }
     const cps = cue.text.replace(/\\N/g, ' ').replace(/\s+/g, ' ').trim().length / duration;
     maxCps = Math.max(maxCps, cps);
     if (cps > CAPTION_READABILITY.maxCharsPerSecond) {
