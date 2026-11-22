@@ -163,6 +163,14 @@ async function executeProjectVideo(
       };
     }
 
+    // A reuse-only reservation is not permission for a fresh transcription.
+    // Detect its missing transcript before downloading/decoding source media.
+    // Keep the later check too, since reservation state can change mid-run.
+    if(processingAttemptId){
+      const reservation=await db.collection<CreditReservationRecord>('credit_reservations').findOne({attempt_id:processingAttemptId,user_id:userId});
+      if(reservation?.metadata?.isReusedTranscript)throw new AppError('The transcript selected for reuse is no longer available. No new transcription was started.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+    }
+
     // 2. Stream private R2 object to a local scratch file reusing the shared source cache.
     const storagePath = sourceUrl;
     const originalFileName = storagePath.split('/').pop() || 'video.mp4';
