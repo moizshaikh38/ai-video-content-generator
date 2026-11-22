@@ -156,6 +156,15 @@ export function findReactionArcs(input: MomentStructurerInput): MomentCandidate[
   return results;
 }
 
+function transcriptWordText(word: WordTiming): string {
+  if (typeof word.word === 'string' && word.word.trim()) return word.word.trim();
+  return typeof word.text === 'string' ? word.text.trim() : '';
+}
+
+function endsSentence(word: WordTiming): boolean {
+  return /[.!?؟][\]})"'’”]*$/u.test(transcriptWordText(word));
+}
+
 /**
  * Dialogue Q&A: question word (?-ending segment) → answer → takeaway.
  * Uses transcript text for question detection (grounded in real words).
@@ -168,26 +177,35 @@ export function findDialogueMoments(input: MomentStructurerInput): MomentCandida
   // Find segments ending with '?' by grouping words into pseudo-sentences.
   let sentenceStart = 0;
   for (let i = 0; i < words.length; i++) {
-    const isQuestion = typeof words[i].word === 'string' && words[i].word!.includes('?');
+    const isQuestion = /[?؟][\]})"'’”]*$/u.test(transcriptWordText(words[i]));
     const isBoundary = i === words.length - 1 || (words[i + 1] && words[i + 1].start - words[i].end > 0.4);
 
-    if (isQuestion && isBoundary) {
+    if (isQuestion) {
       const questionStart = words[sentenceStart]?.start ?? words[i].start;
       const questionEnd = words[i].end;
       const answerStart = words[i + 1]?.start;
       if (answerStart === undefined) { sentenceStart = i + 1; continue; }
 
-      // Answer: up to 8 sentences or 45s after the question.
+      // Answer: one complete sentence, bounded by 45s after the question.
       let answerEnd = answerStart;
+      let answerEndIndex = i;
       let j = i + 1;
       while (j < words.length && words[j].end - answerStart < 45) {
         answerEnd = words[j].end;
-        if (words[j].word?.match(/[.!?]$/)) break;
+        answerEndIndex = j;
+        if (endsSentence(words[j])) break;
         j++;
       }
 
-      const start = Math.max(0, questionStart - 0.2);
-      const end = Math.min(durationSec, answerEnd + 0.3);
+      if (answerEndIndex === i) { sentenceStart = i + 1; continue; }
+      // Keep optional breathing room inside a real gap. Padding must not cut
+      // into the preceding sentence or the next spoken word.
+      const priorEnd = words[sentenceStart - 1]?.end;
+      const start = Math.max(0, questionStart - 0.2,
+        priorEnd === undefined ? 0 : Math.min(priorEnd, questionStart));
+      const nextStart = words[answerEndIndex + 1]?.start;
+      const end = Math.min(durationSec, answerEnd + 0.3,
+        nextStart === undefined ? durationSec : Math.max(answerEnd, nextStart));
       if (end - start >= 5 && end - start <= 90) {
         results.push({
           start,
@@ -208,7 +226,7 @@ export function findDialogueMoments(input: MomentStructurerInput): MomentCandida
       sentenceStart = i + 1;
     }
 
-    if (isBoundary) sentenceStart = i + 1;
+    if (isBoundary || endsSentence(words[i])) sentenceStart = i + 1;
   }
   return results;
 }
