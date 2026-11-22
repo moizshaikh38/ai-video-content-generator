@@ -24,6 +24,7 @@ export interface UseEditorPlaybackReturn {
   previewQuality: 'auto' | '360p' | '540p' | '720p';
   play: () => void;
   pause: () => void;
+  pauseForEdit: () => number | null;
   togglePlay: () => void;
   seek: (time: number) => void;
   stepFrames: (frames: number) => void;
@@ -113,6 +114,23 @@ export function useEditorPlayback({
       videoRef.current.pause();
     }
     setIsPlaying(false);
+  }, []);
+
+  // Crop-specific pause receipt: publish the same final clock native timeupdate
+  // will publish, rather than letting an editor snapshot race that later event.
+  const pauseForEdit = useCallback((): number | null => {
+    const v=videoRef.current;
+    if(!v)return null;
+    v.pause();
+    setIsMediaAdvancing(false);setIsPlaying(false);
+    if(v.seeking || !Number.isFinite(v.currentTime))return null;
+    const raw=sourceToTimelineTime(slicesRef.current,v.currentTime,timeRef.current,sourceOffsetRef.current);
+    if(!Number.isFinite(raw) || !Number.isFinite(durationRef.current) || durationRef.current<=0)return null;
+    const finalTime=Math.max(0,Math.min(durationRef.current,Number(raw.toFixed(3))));
+    timeRef.current=finalTime;lastMediaTime.current=v.currentTime;
+    setCurrentTime(finalTime);
+    onTimeUpdateRef.current?.(finalTime);
+    return finalTime;
   }, []);
 
   const togglePlay = useCallback(() => {
@@ -286,6 +304,7 @@ export function useEditorPlayback({
     previewQuality,
     play,
     pause,
+    pauseForEdit,
     togglePlay,
     seek,
     stepFrames,

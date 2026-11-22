@@ -70,7 +70,7 @@ interface PreviewCanvasProps {
   // Preview-first crop override: dragging the base video pans the per-item crop
   // focus (EditorTrackItem.crop.focusX/focusY), which the render compiler honors
   // ahead of the auto face track.
-  onBeginCrop?: () => void;
+  onBeginCrop?: () => number | null;
   onUpdateItemCrop?: (
     itemId: string,
     crop: { mode: 'fit' | 'fill' | 'blur' | 'custom'; focusX: number; focusY: number; scale?: number },
@@ -1436,7 +1436,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                 return (
                   <CropBoxControl
                     key={`${baseVideoItem.id}-${activePanels.layout}-${i}`}
+                    editContextKey={JSON.stringify({clipId,item:baseVideoItem,panels:activePanels,range:automaticPanelEditRange,canvas:project.canvas,output:geometryOutputSize,playhead})}
                     allowRegionFit
+                    isPlaying={Boolean(isPlaying)}
+                    timelineTime={playhead}
                     inlineTarget={stageViewportRef.current}
                     label={['watch_party','streaming'].includes(activePanels.layout) ? `${i===0?'Facecam (top)':'Stream / Display (bottom)'}${activePanels.slots[i].set ? '' : ' - set view'}` : activePanels.slots[i].set ? `Panel ${i + 1}` : `Panel ${i + 1} (set view)`}
                     videoSrc={cleanSourceUrl || activeVideoSrc || null}
@@ -1448,7 +1451,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
                     notice={automaticPanelEditRange ? "Apply makes this scene manual; Cancel keeps Auto. Fill replaces the chosen source region. Fit keeps or resizes it." : activePanels.slots[i].sourceRect ? "This view uses a chosen source region. Fill replaces it with a full-source crop. Fit lets you keep or resize the region." : undefined}
                     enabled={!videoCropLocked}
                     disabledReason="Unlock this scene or track to change its panel crop."
-                    onOpen={() => { setMobileFramingToolsOpen(false); onBeginCrop?.(); }}
+                    onOpen={() => { setMobileFramingToolsOpen(false); return onBeginCrop?.(); }}
                     onApply={(c) => {
                       if (videoCropLocked) return;
                       const slots = activePanels.slots.map((s: import('../../../server/src/shared/panelLayouts.js').PanelSlot, j: number) => (j === i ? { ...c, set: true } : s));
@@ -1464,8 +1467,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             <>
               <CropBoxControl
                 key={activeVideoItems[0].id}
+                isPlaying={Boolean(isPlaying)}
+                timelineTime={playhead}
+                editContextKey={JSON.stringify({clipId,item:activeVideoItems[0],canvas:project.canvas,output:geometryOutputSize,playhead})}
                 inlineTarget={stageViewportRef.current}
-                onOpen={() => { setMobileFramingToolsOpen(false); onBeginCrop?.(); }}
+                onOpen={() => { setMobileFramingToolsOpen(false); return onBeginCrop?.(); }}
                 disabledReason={videoCropLocked ? "Unlock this scene or track to change its crop." : undefined}
                 notice={activeVideoItems[0].framing_window ? "Applying a manual crop replaces this scene's context window. Cancel keeps it unchanged." : undefined}
                 videoSrc={cleanSourceUrl || activeVideoSrc || null}

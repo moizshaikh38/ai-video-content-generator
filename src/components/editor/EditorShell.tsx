@@ -1,3 +1,4 @@
+import {SourceTextReviewBanner} from './SourceTextReviewBanner';
 import {initialExportResolution} from '../../../server/src/shared/initialExportResolution.js';
 import {canvasForResolution} from '../../../server/src/shared/renderResolution.js';
 import {HookModeControls} from './HookModeControls';
@@ -171,6 +172,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     showSafeGuides,
     previewQuality,
     togglePlay,
+    pauseForEdit,
     seek,
     stepFrames,
     setVolume,
@@ -1990,10 +1992,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 </div>
               )}
               {viewMode==='edit' && sourceReviewNotice && (
-                <div role="status" data-testid="source-text-review-notice" className="shrink-0 flex items-start gap-2 pl-3 pr-3 max-md:pr-14 py-1.5 max-md:py-3 border-b border-white/10 bg-vc-surface1">
-                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" />
-                  <p className="text-[11px] text-neutral-300 leading-snug"><span className="md:hidden">Text was seen in sampled source frames.{' '}<button type="button" aria-expanded={warnDetailsOpen} onClick={() => setWarnDetailsOpen(v => !v)} className="underline underline-offset-2 relative after:content-[''] after:absolute after:-inset-y-[15px] after:-inset-x-3">{warnDetailsOpen ? 'Less' : 'Details'}</button>{warnDetailsOpen && <span className="block mt-1">{sourceReviewNotice.message}</span>}</span><span className="max-md:hidden">{sourceReviewNotice.message}</span></p>
-                </div>
+                <SourceTextReviewBanner notice={sourceReviewNotice}/>
               )}
           {/* Mobile discoverability: collapsed inspector gets an explicit opener in normal flow above the canvas,
               so it never overlaps the rendered video or the caption safe area (an earlier overlay pill obscured cues). */}
@@ -2076,10 +2075,11 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               }
             }}
             onBeginCrop={() => {
-              if (isPlaying) togglePlay();
+              const pausedAt=pauseForEdit();
               if (typeof window !== 'undefined' && window.innerWidth < 768) {
                 clearSelection(); setActiveSidebarTab('captions'); setInspectorCollapsed(true); setTranscriptCollapsed(true);
               }
+              return pausedAt;
             }}
             onUpdateItemCrop={(itemId, crop, options) => {
               const track = project.tracks.find((t) => t.items.some((i) => i.id === itemId));
