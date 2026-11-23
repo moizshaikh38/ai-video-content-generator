@@ -1,3 +1,4 @@
+import{previewWheelCrop}from'../../../server/src/shared/previewWheelCrop';
 import{InlineSourceCrop}from'./InlineSourceCrop';
 import {dragPlacement,placementSupported,placementPixels,materializeFit,sourcePreviewStyle,type ManualVideoPlacement,type ManualSourceCrop} from '../../../server/src/shared/manualVideoPlacement';
 import {bareSmartSplitReviewForItem,type BareSmartSplitReview} from '../../../server/src/shared/automaticSplitEvidence';
@@ -354,24 +355,14 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     if (!v || !onUpdateItemCrop) return;
     const handleWheel = (e: WheelEvent) => {
       if (viewMode !== 'edit') return;
-      e.preventDefault();
       const proj = projectRef.current;
-      // Zoom the scene under the playhead (per-scene crop), not always the first clip.
-      const vItems = proj?.tracks.find((t) => t.type === 'VIDEO')?.items ?? [];
-      const ph = playheadRef.current;
-      const item = vItems.find((i) => !i.hidden && ph >= i.timeline_start && ph < i.timeline_end) ?? vItems[0];
-      if (item?.manual_placement) return;
-      if (!proj || !item || item.locked || proj.tracks.some(t => t.locked && t.items.some(i => i.id===item.id))) return;
+      const target=previewWheelCrop(proj,playheadRef.current,e.deltaY);
+      if(!target)return;
+      e.preventDefault();
       if (!preCropProjectRef.current) {
         preCropProjectRef.current = JSON.parse(JSON.stringify(proj));
       }
-      const cur = item.crop?.scale ?? 1;
-      const next = Math.min(4, Math.max(1, Number((cur * (e.deltaY < 0 ? 1.1 : 1 / 1.1)).toFixed(3))));
-      onUpdateItemCrop(
-        item.id,
-        { mode: item.crop?.mode ?? ((item as any).crop_mode === 'fit' ? 'fit' : 'custom'), focusX: item.crop?.focusX ?? 0.5, focusY: item.crop?.focusY ?? 0.5, scale: next },
-        { recordHistory: false, markAsDirty: false }
-      );
+      onUpdateItemCrop(target.itemId,target.crop,{recordHistory:false,markAsDirty:false});
       if (cropZoomCommitTimer.current) clearTimeout(cropZoomCommitTimer.current);
       cropZoomCommitTimer.current = setTimeout(() => {
         if (preCropProjectRef.current && onCommitProject) {
