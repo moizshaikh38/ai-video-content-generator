@@ -1,3 +1,4 @@
+import {initialPublishAccount} from '../shared/publishAccountChoice';
 import {PublishRenderedReview} from './PublishRenderedReview';
 import type {PublishMediaReview} from '../services/publishingService';
 import {tikTokCommercialErrors} from '../../server/src/shared/tiktokCommercialDisclosure';
@@ -48,6 +49,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
   initialPlatform,
 }) => {
   const accountsLoadingRef=useRef(false);
+  const accountsGeneration=useRef(0);
   const [accounts, setAccounts] = useState<SafeSocialAccountConnection[]>([]);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string>('');
   const [loadingAccounts, setLoadingAccounts] = useState(false);
@@ -97,18 +99,23 @@ export const PublishModal: React.FC<PublishModalProps> = ({
   };
 
   useEffect(() => {
+    const generation=++accountsGeneration.current;
+    setAccounts([]);setSelectedConnectionId('');
+    accountsLoadingRef.current=false;setLoadingAccounts(false);
     if (isOpen) {
-      loadAccounts();
+      loadAccounts(generation);
       setTitle(initialTitle);
       setCaption(initialCaption);
       setTags(initialTags.join(', '));
       setPrivacy('private');
+      setSelectedConnectionId('');
       setFeedback(null);
       setPreview(null);
     }
-  }, [isOpen, initialTitle, initialCaption]);
+    return ()=>{++accountsGeneration.current;accountsLoadingRef.current=false;};
+  }, [isOpen, initialTitle, initialCaption, initialPlatform,projectId,clipId]);
 
-  const loadAccounts = async () => {
+  const loadAccounts = async (generation:number) => {
     try {
       accountsLoadingRef.current=true;
       setLoadingAccounts(true);
@@ -117,6 +124,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
         publishingService.getCapabilities().catch(() => DEFAULT_PLATFORM_CAPABILITIES),
       ]);
 
+      if(accountsGeneration.current!==generation)return;
       const connected = accountsRes.accounts || [];
       const caps = capsRes || DEFAULT_PLATFORM_CAPABILITIES;
       setAccounts(connected);
@@ -128,25 +136,11 @@ export const PublishModal: React.FC<PublishModalProps> = ({
         return c ? !c.supportsTextOnly : (a.provider === 'youtube' || a.provider === 'instagram' || a.provider === 'tiktok');
       };
 
-      if (connected.length > 0) {
-        if (initialPlatform) {
-          const match = connected.find((a) => a.provider === initialPlatform && !checkDisabled(a));
-          if (match) {
-            setSelectedConnectionId(match.id);
-          } else {
-            const firstEnabled = connected.find((a) => !checkDisabled(a));
-            setSelectedConnectionId(firstEnabled ? firstEnabled.id : (hasMedia ? connected[0].id : ''));
-          }
-        } else {
-          const firstEnabled = connected.find((a) => !checkDisabled(a));
-          setSelectedConnectionId(firstEnabled ? firstEnabled.id : (hasMedia ? connected[0].id : ''));
-        }
-      }
+      setSelectedConnectionId(initialPublishAccount(connected,initialPlatform,checkDisabled));
     } catch (err: any) {
-      console.warn('Could not load social accounts:', err?.message);
+      if(accountsGeneration.current===generation)console.warn('Could not load social accounts:', err?.message);
     } finally {
-      accountsLoadingRef.current=false;
-      setLoadingAccounts(false);
+      if(accountsGeneration.current===generation){accountsLoadingRef.current=false;setLoadingAccounts(false);}
     }
   };
 
@@ -191,8 +185,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
     if (!selectedConnectionId || hasMedia) return;
     const current = accounts.find((a) => a.id === selectedConnectionId);
     if (current && isAccountDisabled(current)) {
-      const firstEnabled = accounts.find((a) => !isAccountDisabled(a));
-      setSelectedConnectionId(firstEnabled ? firstEnabled.id : '');
+      setSelectedConnectionId('');
     }
   }, [hasMedia, accounts, selectedConnectionId, capabilities]);
 
@@ -551,6 +544,8 @@ export const PublishModal: React.FC<PublishModalProps> = ({
               </div>
             )}
           </div>
+
+          {!selectedConnectionId&&initialPlatform&&accounts.length>0&&<p role="status" className="text-xs text-amber-300">No eligible {initialPlatform} account is selected. Connect that account or explicitly choose a different destination above.</p>}
 
           {selectedAccount?.provider==='tiktok'&&<TikTokComposerConstraints mediaDurationSeconds={preview?.media_metadata?.duration_seconds} creator={tiktokCurrent?tiktokOptions!.creator:null} loading={tiktokLoading} error={tiktokError} selection={tiktokSelection} onChange={setTikTokSelection} onRefresh={()=>setTikTokRefresh(v=>v+1)}/>}
 
