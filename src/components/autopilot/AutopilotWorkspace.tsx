@@ -1,3 +1,6 @@
+import {PublishModal} from '../PublishModal';
+import type {SocialPlatform} from '../../services/socialService';
+import {autopilotComposerHandoff} from '../../shared/autopilotComposerHandoff';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Sparkles,
@@ -32,7 +35,7 @@ export interface AutopilotWorkspaceProps {
 
 export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
   clipId,
-  projectId: _projectId,
+  projectId,
   clipTitle,
   clipDurationSeconds: _clipDurationSeconds,
   onOpenPublish,
@@ -41,21 +44,27 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [executing, setExecuting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [composer,setComposer]=useState<ReturnType<typeof autopilotComposerHandoff>|null>(null);
+  const composerGeneration=React.useRef(0);
+
 
   // Settings
   const [producerMode, setProducerMode] = useState<'LIGHT' | 'BALANCED' | 'AGGRESSIVE'>('BALANCED');
   const [targetPlatform, setTargetPlatform] = useState<'tiktok' | 'youtube' | 'instagram' | 'shorts'>('tiktok');
   const [userInstruction, setUserInstruction] = useState<string>('');
 
-  const initialMountDone = React.useRef(false);
+  const loadGeneration=React.useRef(0);
 
   const loadRun = useCallback(async (isUserAction = false) => {
+    const generation=++loadGeneration.current;
     try {
       setLoading(true);
       setError(null);
 
       // 1. Check for existing runs belonging to this clip
-      const existingRuns = await autopilotService.getRunsForClip(clipId).catch(() => []);
+      const existingRuns = await autopilotService.getRunsForClip(clipId);
+      if(generation!==loadGeneration.current)return;
+      if(existingRuns.some(r=>r.clip_id!==clipId||r.project_id!==projectId))throw new Error('The loaded pipeline does not match this clip. Reload before continuing.');
 
       // Selection rule:
       // - Prioritize the latest run that is COMPLETED, RUNNING, or APPROVED.
@@ -100,68 +109,78 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
         user_instruction: userInstruction || undefined,
         auto_select_highest_scoring_thumbnail: true,
       });
+      if(generation!==loadGeneration.current)return;
+      if(newRun.clip_id!==clipId||newRun.project_id!==projectId)throw new Error('The new pipeline does not match this clip.');
       setRun(newRun);
     } catch (err: any) {
-      setError(err.message || 'Failed to initialize Autopilot run.');
+      if(generation===loadGeneration.current)setError(err.message || 'Failed to initialize Autopilot run.');
     } finally {
-      setLoading(false);
+      if(generation===loadGeneration.current)setLoading(false);
     }
-  }, [clipId, producerMode, targetPlatform, userInstruction]);
+  }, [clipId, projectId, producerMode, targetPlatform, userInstruction]);
 
   useEffect(() => {
-    if (!initialMountDone.current) {
-      initialMountDone.current = true;
-      loadRun(false);
-    }
-  }, [loadRun]);
+    ++composerGeneration.current;
+    setComposer(null);setExecuting(false);setRun(null);setError(null);
+    void loadRun(false);
+    return()=>{++composerGeneration.current;++loadGeneration.current;};
+    // Settings are inputs only when starting a new run, not a destination change.
+  }, [clipId,projectId]);
 
   const handleStartPipeline = async () => {
-    if (!run) return;
+    if (!run||run.clip_id!==clipId||run.project_id!==projectId) return;
+    const generation=++composerGeneration.current;
     try {
       setExecuting(true);
       setError(null);
       const updated = await autopilotService.executeRun(run.id);
+      if(generation!==composerGeneration.current)return;
       setRun(updated);
     } catch (err: any) {
+      if(generation!==composerGeneration.current)return;
       setError(err.message || 'Autopilot pipeline failed.');
       // Refresh state to see which step failed
       if (run) {
         const fresh = await autopilotService.getRun(run.id).catch(() => null);
-        if (fresh) setRun(fresh);
+        if (fresh&&generation===composerGeneration.current) setRun(fresh);
       }
     } finally {
-      setExecuting(false);
+      if(generation===composerGeneration.current)setExecuting(false);
     }
   };
 
   const handleRetryStep = async (step: AutopilotStepName) => {
-    if (!run) return;
+    if (!run||run.clip_id!==clipId||run.project_id!==projectId) return;
+    const generation=++composerGeneration.current;
     try {
       setExecuting(true);
       setError(null);
       const updated = await autopilotService.retryStep(run.id, step);
+      if(generation!==composerGeneration.current)return;
       setRun(updated);
     } catch (err: any) {
-      setError(err.message || `Failed to retry step ${step}.`);
+      if(generation===composerGeneration.current)setError(err.message || `Failed to retry step ${step}.`);
     } finally {
-      setExecuting(false);
+      if(generation===composerGeneration.current)setExecuting(false);
     }
   };
 
   const handleApprove = async () => {
-    if (!run) return;
+    if (!run||run.clip_id!==clipId||run.project_id!==projectId) return;
+    const generation=++composerGeneration.current;
     try {
       setExecuting(true);
       setError(null);
       const result = await autopilotService.approveRun(run.id);
+      if(generation!==composerGeneration.current)return;
+      const copy=autopilotComposerHandoff(result,{runId:run.id,clipId,projectId});
       setRun(result.run);
-      if (onOpenPublish && result.publishing_handoff) {
-        onOpenPublish(result.publishing_handoff);
-      }
+      if(onOpenPublish)onOpenPublish(result.publishing_handoff);
+      else setComposer(copy);
     } catch (err: any) {
-      setError(err.message || 'Failed to approve Autopilot package.');
+      if(generation===composerGeneration.current)setError(err.message || 'Failed to approve Autopilot package.');
     } finally {
-      setExecuting(false);
+      if(generation===composerGeneration.current)setExecuting(false);
     }
   };
 
@@ -281,7 +300,8 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
 
           {isApproved && (
             <button
-              onClick={() => onOpenPublish && run?.publishing_handoff && onOpenPublish(run.publishing_handoff)}
+              onClick={handleApprove}
+              disabled={executing}
               className="px-4 py-2 bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-white font-semibold text-xs rounded-full shadow-md flex items-center gap-2 transition"
             >
               <Share2 className="w-3.5 h-3.5" />
@@ -403,9 +423,10 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
                       Approve for Publishing
                     </button>
                   )}
-                  {step.step === 'APPROVAL' && isApproved && onOpenPublish && Boolean(run?.publishing_handoff) && (
+                  {step.step === 'APPROVAL' && isApproved && (
                     <button
-                      onClick={() => onOpenPublish(run!.publishing_handoff!)}
+                      onClick={handleApprove}
+                      disabled={executing}
                       className="px-3 py-1 bg-vc-ai-hover hover:bg-vc-ai active:bg-violet-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(0,0,0,0.4)] text-white font-semibold text-xs rounded-full shadow-sm flex items-center gap-1.5 transition"
                     >
                       <Share2 className="w-3 h-3" />
@@ -430,6 +451,8 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
           ))}
         </div>
       </div>
+
+      {composer&&<PublishModal isOpen onClose={()=>setComposer(null)} projectId={projectId} clipId={clipId} initialTitle={composer.title} initialCaption={composer.caption} initialTags={composer.tags} initialPlatform={composer.platform as SocialPlatform|undefined}/>}
 
       {/* Review & Outputs Summary */}
       {(isPipelineCompleted || isApproved) && (
