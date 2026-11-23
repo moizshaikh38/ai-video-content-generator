@@ -817,7 +817,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   // dominant face zone inside the hook window. Without analysis the template
   // default stands. Mirrors the export exactly: the item transform persists
   // and drawtext burns the same position.
-  const seedHookPlacementFromAnalysis = (hookDurationSec: number) => {
+  const seedHookPlacementFromAnalysis = (hookDurationSec: number,target:{id:string;snapshot?:string}) => {
     if (!clip?.id) return;
     const identityVersion=seedIdentityRef.current.version,sequence=++hookSeedSequence.current;
     const currentSeed=()=>seedIdentityRef.current.version===identityVersion&&hookSeedSequence.current===sequence;
@@ -840,8 +840,9 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             return {
               ...t,
               items: t.items.map((i: any) => {
-                // Only the template-inserted hook: starts inside the hook window
-                // and still sits at the template default band.
+                // Only this action's newly inserted hook, unchanged since insert.
+                // Same time/position is never identity; all intervening item edits win.
+                if (!target.snapshot || i.id!==target.id || JSON.stringify(i)!==target.snapshot) return i;
                 if (i.locked || i.timeline_start >= hookDurationSec) return i;
                 if (i.transform?.position_y !== -240) return i;
                 return { ...i, transform: { ...i.transform, position_y: hookY } };
@@ -876,9 +877,15 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     // The shared mapper is typed against the server EditorProject; the client
     // type is structurally identical for every field the mapper touches
     // (tracks/items/caption/crop/canvas), so the boundary cast is safe.
-    onUpdateProject((prev) => applyOutputTemplateToProject(prev as any, effectiveTpl) as unknown as EditorProject);
+    const hookTarget={id:crypto.randomUUID(),snapshot:undefined as string|undefined};
+    onUpdateProject((prev) => {
+      const next=applyOutputTemplateToProject(prev as any,effectiveTpl,{hookItemId:hookTarget.id}) as unknown as EditorProject;
+      const inserted=next.tracks.flatMap(t=>t.type==='TEXT'?t.items:[]).find(i=>i.id===hookTarget.id);
+      hookTarget.snapshot=inserted?JSON.stringify(inserted):undefined;
+      return next;
+    });
     if (tpl.framing.layoutMode === 'split') seedSplitAnchorsFromAnalysis();
-    if (tpl.hook) seedHookPlacementFromAnalysis(tpl.hook.durationSec);
+    if (tpl.hook) seedHookPlacementFromAnalysis(tpl.hook.durationSec,hookTarget);
   };
 
   // Apply Caption Preset: 'none' hides the caption track (captionEnabled=false on save),

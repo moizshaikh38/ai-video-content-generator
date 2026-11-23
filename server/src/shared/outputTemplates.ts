@@ -124,6 +124,7 @@ const CANVAS_DIMS: Record<OutputTemplate['aspectRatio'], { width: number; height
 export function applyOutputTemplateToProject(
   project: EditorProject,
   template: OutputTemplate,
+  options?: {hookItemId?:string},
 ): EditorProject {
   const dims = CANVAS_DIMS[template.aspectRatio];
   const hookTpl = template.hook
@@ -207,6 +208,7 @@ export function applyOutputTemplateToProject(
   if (hookTpl && !hookAlreadyPresent) {
     const trackId = textTrackId ?? crypto.randomUUID();
     const hookItem = createTrackItemFromTemplate(hookTpl, trackId, 0, project.canvas.duration);
+    if(options?.hookItemId)hookItem.id=options.hookItemId;
     hookItem.timeline_end = Math.min(
       project.canvas.duration,
       hookItem.timeline_start + template.hook!.durationSec,
