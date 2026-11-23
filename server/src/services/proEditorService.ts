@@ -90,6 +90,7 @@ import {
   ReframeTrackRecord,
 } from '../types/index.js';
 import { downloadObjectToFile, uploadFile, signObjectGet } from './objectStorageService.js';
+import {prepareEditorProjectSourceAsset} from './editorProjectSourceAssetService.js';
 import {assertSelectionSourceCurrent} from './selectionSourceGuardService.js';
 import { CaptionService } from './captionService.js';
 import { isKnownCaptionStyle } from '../shared/captionPresets.js';
@@ -809,9 +810,16 @@ export class ProEditorService {
     project: EditorProject,
     tmpDir: string
   ): Promise<EditorProject> {
+    const primary = new Set(primaryVisibleVideoItems(project));
     for (const item of visibleEditorAssetItems(project)) {
+      if (primary.has(item)) continue;
       const rawPath = item.source_path;
       if (!rawPath) continue;
+      if (rawPath.startsWith('users/')) {
+        const prepared = await prepareEditorProjectSourceAsset(project.user_id, item, tmpDir);
+        if (prepared) item.source_path = prepared;
+        continue;
+      }
       const bundledEmoji=cacheBundledCaptionEmoji(rawPath,tmpDir);
       if(bundledEmoji){item.source_path=bundledEmoji;continue;}
       const builtinSound=cacheBuiltinSoundEffect(rawPath,tmpDir);

@@ -130,7 +130,8 @@ async function streamObjectToFile(
   key: string,
   path: string,
   signal: AbortSignal,
-  expected?: {size:number;etag?:string}
+  expected?: {size:number;etag?:string},
+  maxBytes?: number
 ): Promise<{ sizeBytes: number; sha256: string }> {
   const result = await storageClient().send(
     new GetObjectCommand({ Bucket: bucketName(bucket), Key: key, IfMatch: expected?.etag }),
@@ -140,11 +141,12 @@ async function streamObjectToFile(
   const hasher = crypto.createHash('sha256');
   let totalBytes = 0;
   const bodyStream = result.Body as Readable;
-  bodyStream.on('data', (chunk) => {
-    hasher.update(chunk);
+  const meter = new Transform({ transform(chunk, _encoding, callback) {
     totalBytes += chunk.length;
-  });
-  await pipeline(bodyStream, createWriteStream(path, { flags: 'w' }), { signal });
+    if (maxBytes !== undefined && totalBytes > maxBytes) { callback(new Error('Object exceeds byte budget.')); return; }
+    hasher.update(chunk); callback(null, chunk);
+  }});
+  await pipeline(bodyStream, meter, createWriteStream(path, { flags: 'w' }), { signal });
   if (expected && totalBytes !== expected.size) throw new Error('Source object length changed during download.');
   return { sizeBytes: totalBytes, sha256: hasher.digest('hex') };
 }
@@ -240,7 +242,7 @@ export async function downloadObjectToFile(
   bucket: ObjectBucket,
   key: string,
   path: string,
-  options?: { timeoutMs?: number; requireStreamingSha256?: boolean; requireSnapshotReceipt?: boolean; expectedObject?:{size:number;etag:string;versionId?:string|null} }
+  options?: { timeoutMs?: number; requireStreamingSha256?: boolean; requireSnapshotReceipt?: boolean; expectedObject?:{size:number;etag:string;versionId?:string|null}; maxBytes?:number }
 ): Promise<{ sizeBytes: number; sha256: string; sourceReceipt?:SourceObjectReceipt }> {
   let timeoutMs = options?.timeoutMs || 60000;
   const controller = new AbortController();
@@ -261,6 +263,8 @@ export async function downloadObjectToFile(
     const expectedObject=options?.expectedObject;
     if(expectedObject&&(head.ContentLength!==expectedObject.size||head.ETag!==expectedObject.etag||(expectedObject.versionId!=null&&head.VersionId!==expectedObject.versionId)))throw new AppError('Selected output object changed before download.',409,'SOURCE_VERSION_CHANGED');
     const size = Number(head.ContentLength || 0);
+    if(options?.maxBytes !== undefined && (!Number.isSafeInteger(options.maxBytes) || options.maxBytes <= 0 ||
+      !Number.isSafeInteger(size) || size <= 0 || size > options.maxBytes)) throw new Error('Object exceeds byte budget.');
     const sizedTimeout = downloadTimeoutForSize(size, timeoutMs);
     if (sizedTimeout > timeoutMs) {
       clearTimeout(timer);
@@ -277,7 +281,7 @@ export async function downloadObjectToFile(
     };
 
     // Default to wire-speed single stream hashing to avoid a second disk read
-    if (size >= PARALLEL_DOWNLOAD_MIN_BYTES && !options?.requireStreamingSha256) {
+    if (size >= PARALLEL_DOWNLOAD_MIN_BYTES && !options?.requireStreamingSha256 && options?.maxBytes === undefined) {
       try {
         await rangedObjectToFile(bucket, key, path, size, head.ETag, controller.signal);
         const sha256 = await computeFileStreamSha256(path);
@@ -286,7 +290,7 @@ export async function downloadObjectToFile(
         if (!(err instanceof RangeNotHonoredError)) throw err;
       }
     }
-    return await complete(await streamObjectToFile(bucket, key, path, controller.signal, {size,etag:head.ETag}));
+    return await complete(await streamObjectToFile(bucket, key, path, controller.signal, {size,etag:head.ETag}, options?.maxBytes));
   } catch (err: any) {
     if (controller.signal.aborted || err?.name === 'AbortError') {
       throw new AppError(`Source object download timed out after ${timeoutMs / 1000}s.`, 504, 'DOWNLOAD_TIMEOUT');
