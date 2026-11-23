@@ -1,3 +1,4 @@
+import {multimodalTranscriptSourceCurrent} from '../../shared/multimodalTranscriptSource.js';
 import {probeMultimodalSourceDuration} from './sourceDurationService.js';
 import {multimodalSourceKey} from '../../shared/multimodalSourceKey.js';
 import {runsMultimodalWorker} from '../runtimePolicy.js';
@@ -185,6 +186,8 @@ export class VideoAnalysisWorker {
       } else {
         throw new Error('Project has no accessible source video file or storage path.');
       }
+
+      if(!multimodalTranscriptSourceCurrent(transcript,sourceReceipt))throw Object.assign(Error('Multimodal transcript cannot be verified against the downloaded source. Review the source and transcript; no transcription was started.'),{code:'TRANSCRIPT_SOURCE_REVIEW_REQUIRED'});
 
       // Visual coverage uses measured video-stream metadata, not speech/provider length.
       durationSeconds=await probeMultimodalSourceDuration(videoPath);

@@ -1,3 +1,7 @@
+import {headObject} from '../services/objectStorageService.js';
+import {multimodalKnownSourceContradiction} from '../shared/multimodalTranscriptSource.js';
+import {assertTranscriptReusable} from '../services/transcriptSourceBindingService.js';
+import {multimodalSourceKey} from '../shared/multimodalSourceKey.js';
 import {unverifiedMultimodalSignals} from '../shared/multimodalSignalEvidence.js';
 import { Response } from 'express';
 import { AuthenticatedRequest, AppError, isValidUUID } from '../types/index.js';
@@ -27,7 +31,7 @@ export async function findProjectMoments(req: AuthenticatedRequest, res: Respons
   // 1. Verify project ownership
   const { data: project, error: projErr } = await dataRepository
     .from('projects')
-    .select('id, user_id, title')
+    .select('id, user_id, title, source_url, storage_path')
     .eq('id', projectId)
     .eq('user_id', userId)
     .maybeSingle();
@@ -50,6 +54,15 @@ export async function findProjectMoments(req: AuthenticatedRequest, res: Respons
 
     if (!transcript || !transcript.transcript_text) {
       throw new AppError('Transcript not available for this project.', 404, 'TRANSCRIPT_NOT_FOUND');
+    }
+
+    const sourceKey=multimodalSourceKey(project);
+    if(!sourceKey)throw new AppError('Current source cannot be verified before searching this transcript.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+    await assertTranscriptReusable(transcript,sourceKey);
+    const stored=await MultimodalTimelineService.getAnalysis(projectId,userId);
+    if(stored?.metadata?.source_receipt){
+      const head=await headObject('source',sourceKey);
+      if(multimodalKnownSourceContradiction(transcript,sourceKey,head,stored.metadata.source_receipt))throw new AppError('Current source evidence contradicts this transcript. Review the source and transcript before searching.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
     }
 
     const rawSegments = transcript.segments || [];
