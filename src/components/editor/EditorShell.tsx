@@ -2168,10 +2168,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             onSetTracker={({ itemId }, tracker) => {
               onUpdateProject((prev) => ({
                 ...prev,
-                tracks: prev.tracks.map((t) => t.type !== 'VIDEO' ? t : {
+                tracks: prev.tracks.map((t) => t.type !== 'VIDEO'||t.locked ? t : {
                   ...t,
                   items: t.items.map((i) => {
-                    if (itemId && i.id !== itemId) return i;
+                    if (i.locked || itemId && i.id !== itemId) return i;
                     const next: any = { ...i };
                     if (tracker) { next.tracker = tracker; delete next.framing_window; } else delete next.tracker;
                     return next;
