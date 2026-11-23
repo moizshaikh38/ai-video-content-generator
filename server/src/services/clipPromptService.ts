@@ -151,6 +151,9 @@ export class ClipPromptService {
 
     const genreProfile = incomingGenreProfile || GenreIntelligenceService.getGenreProfile('general');
     const indexedTranscript = this.formatIndexedTranscript(segments, multimodalTimeline, startIndexOffset || 0);
+    const fullSourceDuration = sourceDurationSeconds ?? durationSeconds;
+    const {min:minDur,max:maxDur}=effectiveClipDurationBounds(genreProfile.targetDuration,fullSourceDuration);
+    const achievableOptimal=Math.max(minDur,Math.min(maxDur,genreProfile.targetDuration.optimal));
 
     let genreContext = [
       `GENRE INTELLIGENCE (${genreProfile.displayName}):`,
@@ -159,7 +162,8 @@ export class ClipPromptService {
       `- Strict Editorial Safeguard: ${genreProfile.editorialSafeguard}`,
       `- Recommended 9:16 Framing: ${(genreProfile.recommendedLayoutMode || 'track').toUpperCase()}`,
       `- Caption Placement: ${(genreProfile.captionSafePlacement || 'bottom').toUpperCase()}`,
-      `- Target Duration Sweet Spot: ${genreProfile.targetDuration.optimal}s (Bounds: ${genreProfile.targetDuration.min}s–${genreProfile.targetDuration.max}s)`,
+      `- Target Duration Sweet Spot: ${achievableOptimal}s (Bounds: ${minDur}s–${maxDur}s)`,
+      ...(fullSourceDuration && fullSourceDuration < 15 ? ['- Short-source review exception only: duration eligibility does not prove a complete thought. Return {"clips":[]} if every available span has a dependent opening or incomplete ending. Do not pad or invent missing speech.'] : []),
       '',
     ].join('\n');
 
@@ -232,9 +236,6 @@ export class ClipPromptService {
       '',
     ].join('\n') : '';
 
-    const fullSourceDuration = sourceDurationSeconds ?? durationSeconds;
-    const {min:minDur,max:maxDur}=effectiveClipDurationBounds(genreProfile.targetDuration,fullSourceDuration);
-
     const firstAvailableIndex = startIndexOffset || 0;
     const lastAvailableIndex = firstAvailableIndex + Math.max(0, segments.length - 1);
     const proposalLimit = Math.min(10, segments.length * (segments.length + 1) / 2);
@@ -261,7 +262,7 @@ export class ClipPromptService {
       'DURATION CONSTRAINTS:',
       fullSourceDuration && fullSourceDuration < 15
         ? `- This video is short (~${Math.round(fullSourceDuration)}s). Clips may span between ${minDur} seconds and ${maxDur} seconds.`
-        : `- Each clip MUST span between ${minDur} seconds and ${maxDur} seconds in duration (optimal sweet spot: ~${genreProfile.targetDuration.optimal}s).`,
+        : `- Each clip MUST span between ${minDur} seconds and ${maxDur} seconds in duration (optimal sweet spot: ~${achievableOptimal}s).`,
       '- Calculate duration mentally by looking at the start timestamp of start_segment_index and the end timestamp of end_segment_index.',
       `- Do not return clips under ${minDur} seconds or over ${maxDur} seconds.`,
       '',

@@ -21,6 +21,8 @@ export interface CompletionTelemetry {
   usedFallback: boolean;
   tokenMeasurementType: 'provider_measured' | 'unavailable';
   estimatedProviderCostUsd: number | null;
+  /** Actual billed response cost, never replaced by modeled token arithmetic. */
+  actualProviderCostUsd?: number | null;
 }
 
 export interface CompletionResult<T> {
@@ -52,6 +54,7 @@ interface OpenRouterChatResponse {
     prompt_tokens?: number;
     completion_tokens?: number;
     total_tokens?: number;
+    cost?: number;
   };
 }
 
@@ -60,10 +63,9 @@ interface OpenRouterChatResponse {
  * Permanent errors (400, 401, 402, 403, 404, 422) must NOT be retried.
  */
 export function isTransientError(err: any, statusCode?: number): boolean {
-  if (statusCode !== undefined) {
-    if ([429, 500, 502, 503, 504].includes(statusCode)) return true;
-    if ([400, 401, 402, 403, 404, 422].includes(statusCode)) return false;
-  }
+  if (statusCode !== undefined) return [429, 500, 502, 503, 504].includes(statusCode);
+  if (err?.noAutomaticRetry) return false;
+  if (err?.name==='SyntaxError' || /redirect/i.test(String(err?.cause?.code||'')+' '+String(err?.cause?.message||'')+' '+String(err?.message||''))) return false;
   if (!err) return false;
   const msg = (err.message || String(err)).toLowerCase();
   const code = (err.code || '').toLowerCase();
@@ -112,7 +114,7 @@ export function estimateProviderCostUsd(
  */
 export function parseStructuredJsonResponse<T>(content: string): T {
   if (!content || typeof content !== 'string') {
-    throw new Error('AI provider returned an empty or malformed completion response.');
+    throw Object.assign(new Error('AI provider returned an empty or malformed completion response.'),{noAutomaticRetry:true});
   }
 
   // Safely extract and parse JSON even if surrounded by markdown code fences or whitespace
@@ -122,7 +124,7 @@ export function parseStructuredJsonResponse<T>(content: string): T {
     return JSON.parse(cleaned) as T;
   } catch (err: any) {
     logger.error('Failed to parse JSON response from LLM', { rawContent: content });
-    throw new Error(`Failed to parse structured JSON from AI provider response: ${err.message}`);
+    throw Object.assign(new Error(`Failed to parse structured JSON from AI provider response: ${err.message}`),{noAutomaticRetry:true});
   }
 }
 
@@ -160,6 +162,7 @@ export class OpenRouterContentProvider implements AIProviderClient {
 
     const payload = {
       model: this.defaultModel,
+      provider: {zdr:true,data_collection:'deny'},
       messages: [
         { role: 'system', content: request.systemPrompt },
         { role: 'user', content: request.userPrompt },
@@ -188,6 +191,7 @@ export class OpenRouterContentProvider implements AIProviderClient {
         // E2E); production leaves it unset and hits OpenRouter.
         const response = await fetch(process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
+          redirect: 'error',
           headers: {
             Authorization: `Bearer ${this.apiKey}`,
             'HTTP-Referer': this.appUrl,
@@ -212,15 +216,15 @@ export class OpenRouterContentProvider implements AIProviderClient {
 
           if (!isTransient || attempt >= maxAttempts) {
             if (response.status === 401) {
-              throw new Error('AI provider authentication failed (401): invalid API key.');
+              throw Object.assign(new Error('AI provider authentication failed (401): invalid API key.'),{providerStatus:401});
             }
             if (response.status === 402) {
-              throw new Error(`AI provider payment/credits error: ${cleanMsg}. Please check your OpenRouter credit balance.`);
+              throw Object.assign(new Error(`AI provider payment/credits error: ${cleanMsg}. Please check your OpenRouter credit balance.`),{providerStatus:402});
             }
             if (response.status === 429) {
-              throw new Error(`AI provider rate limit exceeded: ${cleanMsg}. Please wait a moment and try again.`);
+              throw Object.assign(new Error(`AI provider rate limit exceeded: ${cleanMsg}. Please wait a moment and try again.`),{providerStatus:429});
             }
-            throw new Error(`AI provider error (${response.status}): ${cleanMsg}`);
+            throw Object.assign(new Error(`AI provider error (${response.status}): ${cleanMsg}`),{providerStatus:response.status});
           }
 
           // Eligible transient error with retries remaining
@@ -256,13 +260,14 @@ export class OpenRouterContentProvider implements AIProviderClient {
             usedFallback: false,
             tokenMeasurementType,
             estimatedProviderCostUsd,
+            actualProviderCostUsd: typeof data.usage?.cost==='number' && Number.isFinite(data.usage.cost) && data.usage.cost>=0 ? data.usage.cost : null,
           },
         };
       } catch (err: any) {
         clearTimeout(timeoutId);
         lastError = err;
 
-        const isTransient = isTransientError(err);
+        const isTransient = isTransientError(err,err?.providerStatus);
         if (!isTransient || attempt >= maxAttempts) {
           throw err;
         }
@@ -481,7 +486,7 @@ export class ReliableAiContentProvider implements AIProviderClient {
         logger.warn(`[ReliableAiProvider] Primary provider (OpenRouter) failed: ${primaryErr.message}`);
 
         // Check if fallback is eligible and available
-        if (this.fallbackProvider.isConfigured()) {
+        if (this.fallbackProvider.isConfigured() && isTransientError(primaryErr,primaryErr?.providerStatus)) {
           logger.info('[ReliableAiProvider] Engaging fallback provider (Groq)...');
           try {
             return await this.fallbackProvider.executeRequest<T>(request);
