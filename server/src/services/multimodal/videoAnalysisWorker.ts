@@ -1,3 +1,4 @@
+import {probeMultimodalSourceDuration} from './sourceDurationService.js';
 import {multimodalSourceKey} from '../../shared/multimodalSourceKey.js';
 import {runsMultimodalWorker} from '../runtimePolicy.js';
 import {workLifecycle} from '../queue/workLifecycle.js';
@@ -161,7 +162,7 @@ export class VideoAnalysisWorker {
       words: s.words,
     }));
 
-    const durationSeconds = Number(transcript.duration_seconds || project.duration_seconds || 60);
+    let durationSeconds:number;
 
     const tag = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
     const rawTempDir = path.join(os.tmpdir(), `vireo-analysis-${job.id}-${tag}`);
@@ -184,6 +185,9 @@ export class VideoAnalysisWorker {
       } else {
         throw new Error('Project has no accessible source video file or storage path.');
       }
+
+      // Visual coverage uses measured video-stream metadata, not speech/provider length.
+      durationSeconds=await probeMultimodalSourceDuration(videoPath);
 
       // Step 1: Detect Visual Scene Cuts (20%)
       await this.updateJobStage(job.id, 'extracting_scenes', 20);
