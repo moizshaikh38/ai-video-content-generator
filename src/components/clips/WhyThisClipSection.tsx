@@ -26,6 +26,7 @@ export const WhyThisClipSection: React.FC<WhyThisClipSectionProps> = ({
 
   const explanation = candidate.metadata?.ranking_status==='unranked' ? undefined : candidate.metadata?.explanation as VireoClipScoreExplanation | undefined;
   const wasSnapped = Boolean(candidate.metadata?.was_snapped);
+  const unranked=candidate.metadata?.ranking_status==='unranked';
 
   // Genre badge resolution
   const genreId = candidate.genre || candidate.metadata?.genre;
@@ -129,7 +130,7 @@ export const WhyThisClipSection: React.FC<WhyThisClipSectionProps> = ({
             <div className="space-y-1">
               <span className="text-[10px] font-mono uppercase tracking-wider text-vc-text-secondary flex items-center gap-1">
                 <Lightbulb className="size-3 text-zinc-200" />
-                <span>Editorial Justification</span>
+                <span>{unranked?'Original Proposal Reason (unreviewed)':'Proposal Reason'}</span>
               </span>
               <ul className="space-y-1 pt-0.5">
                 {explanation.reasons.map((r, i) => (
@@ -144,11 +145,12 @@ export const WhyThisClipSection: React.FC<WhyThisClipSectionProps> = ({
             <div className="space-y-1">
               <span className="text-[10px] font-mono uppercase tracking-wider text-vc-text-secondary flex items-center gap-1">
                 <Lightbulb className="size-3 text-zinc-200" />
-                <span>Editorial Justification</span>
+                <span>{unranked?'Original Proposal Reason (unreviewed)':'Proposal Reason'}</span>
               </span>
               <p className="text-zinc-200 text-[11px] leading-relaxed pt-0.5">
                 {candidate.reason}
               </p>
+              {unranked&&<p className="text-amber-200 text-[11px] leading-relaxed">This reason describes the original proposal, not a verified review of the final clip. Watch the opening, ending and context before exporting.</p>}
             </div>
           ) : null}
 
@@ -157,7 +159,7 @@ export const WhyThisClipSection: React.FC<WhyThisClipSectionProps> = ({
             <div className="flex items-center gap-1.5 p-2 rounded-lg bg-emerald-500/10 text-[11px] text-emerald-200">
               <Sparkles className="size-3 text-emerald-400 shrink-0" />
               <span>
-                <strong>Cold Open Inversion:</strong> A {candidate.cold_open.duration_seconds.toFixed(1)}s teaser punchline is spliced to the front (0:00) as a viral hook before narrative setup.
+                <strong>Cold Open Inversion:</strong> A {candidate.cold_open.duration_seconds.toFixed(1)}s teaser punchline is spliced to the front (0:00) before the main interval. Review the transition and context; a teaser is not proof of hook quality.
               </span>
             </div>
           )}
@@ -166,7 +168,7 @@ export const WhyThisClipSection: React.FC<WhyThisClipSectionProps> = ({
           {wasSnapped && (
             <div className="flex items-center gap-1.5 p-2 rounded-lg bg-amber-500/10 text-[11px] text-amber-200">
               <CheckCircle2 className="size-3 text-amber-400 shrink-0" />
-              <span>Snapped to clean word & conversational pause boundaries (no mid-sentence cuts).</span>
+              <span>Timing was adjusted using transcript word and pause signals. A word-safe boundary does not verify a complete sentence, complete thought or natural ending.</span>
             </div>
           )}
 
