@@ -9,7 +9,8 @@ import {renewRenderLeaseForCv} from './queue/renderLeaseClaim.js';
 import {runsBackgroundWorkers,hostRenderCapacity,ffmpegThreadArgs,ffmpegEncoderThreadArgs} from './runtimePolicy.js';
 import type {RenderQuotaPolicy} from '../db/repositories/renderQuotaRepository.js';
 import {enforceSavedRenderFreshness} from './renderFreshnessGuard.js';
-import {assertRenderAssetOwnership} from '../utils/renderAssetOwnership.js';
+import {assertRenderAssetOwnership,assertRenderAssetsMaterialized} from '../utils/renderAssetOwnership.js';
+import {suppressStaleCaptionEmojis} from '../shared/sparseCaptionEmojiProject.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import {verifiedCaptionAssPath} from '../shared/captionBurnInArtifact.js';
 import {syncClipEditorRevision} from '../db/repositories/editorRevisionRepository.js';
@@ -1026,9 +1027,11 @@ export class ClipRenderService {
         logger.info(`[ClipRender] Compiling and executing multi-track EditorProject graph for clip ${clipId}`);
         editorProject=ProEditorService.prepareTrackerHandoffs(editorProject,{track:reframeDecision.track,clipStartSec:startSec,cropConfig:clip.crop_config});
         editorProject=expandSceneLayoutProject(editorProject);
+        editorProject=suppressStaleCaptionEmojis(editorProject);
         assertRenderAssetOwnership(editorProject, tempDir);
         await ProEditorService.preloadRemoteOverlayAssets(editorProject, tempDir);
         assertRenderAssetOwnership(editorProject, tempDir);
+        assertRenderAssetsMaterialized(editorProject, tempDir);
         const videoTrackItems = primaryVisibleVideoItems<EditorTrackItem>(editorProject);
         const isMultiSlice = usesGeneratedSliceGraph(videoTrackItems,editorProject.canvas.duration);
         // Single-slice renders seek the input; the loudnorm measurement pass must
@@ -2806,6 +2809,10 @@ export class ClipRenderService {
     // An explicitly empty/hidden base must not bypass the compiler and reveal source.
     if (primaryVisibleVideoItems(project).length === 0) return true;
     const primaryTrack=project.tracks.find((t:any)=>t.type==='VIDEO'&&!t.hidden);
+    // Secondary visible video and overlay layers are Pro-only composition,
+    // regardless of display name or unrelated edits on their items.
+    if(project.tracks.some((t:any)=>!t.hidden&&(t.type==='OVERLAY'||t.type==='VIDEO'&&t!==primaryTrack)&&
+       t.items?.some((i:any)=>!i.hidden)))return true;
     if(primaryTrack?.muted||primaryTrack?.items?.some((i:any)=>!i.hidden&&i.muted))return true;
     if (usesGeneratedSliceGraph(primaryVisibleVideoItems(project),project.canvas?.duration)) return true;
 
