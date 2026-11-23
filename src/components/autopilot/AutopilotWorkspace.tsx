@@ -452,7 +452,7 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
         </div>
       </div>
 
-      {composer&&<PublishModal isOpen onClose={()=>setComposer(null)} projectId={projectId} clipId={clipId} initialTitle={composer.title} initialCaption={composer.caption} initialTags={composer.tags} initialPlatform={composer.platform as SocialPlatform|undefined}/>}
+      {composer&&<PublishModal isOpen onClose={()=>setComposer(null)} projectId={projectId} clipId={clipId} autopilotRunId={composer.runId} initialTitle={composer.title} initialCaption={composer.caption} initialTags={composer.tags} initialPlatform={composer.platform as SocialPlatform|undefined}/>}
 
       {/* Review & Outputs Summary */}
       {(isPipelineCompleted || isApproved) && (

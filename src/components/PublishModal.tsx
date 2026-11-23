@@ -35,6 +35,7 @@ export interface PublishModalProps {
   initialCaption?: string;
   initialTags?: string[];
   initialPlatform?: SocialPlatform;
+  autopilotRunId?: string;
 }
 
 export const PublishModal: React.FC<PublishModalProps> = ({
@@ -47,6 +48,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
   initialCaption = '',
   initialTags = [],
   initialPlatform,
+  autopilotRunId,
 }) => {
   const accountsLoadingRef=useRef(false);
   const accountsGeneration=useRef(0);
@@ -113,7 +115,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
       setPreview(null);
     }
     return ()=>{++accountsGeneration.current;accountsLoadingRef.current=false;};
-  }, [isOpen, initialTitle, initialCaption, initialPlatform,projectId,clipId]);
+  }, [isOpen, initialTitle, initialCaption, initialPlatform,projectId,clipId,autopilotRunId]);
 
   const loadAccounts = async (generation:number) => {
     try {
@@ -214,6 +216,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
           tags: parsedTags,
           privacy,
           ...tiktokPayload,
+          platform_custom:{...tiktokPayload.platform_custom,...(autopilotRunId?{autopilot_run_id:autopilotRunId}:{})},
         };
 
         const res = await publishingService.preview(selectedConnectionId, clipId, payload);
@@ -227,7 +230,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
 
     const timer = setTimeout(runPreview, 400);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [selectedConnectionId, clipId, title, caption, tags, privacy, selectedAccount, capabilities, tiktokSelection,renderReviewed,renderReview]);
+  }, [selectedConnectionId, clipId, title, caption, tags, privacy, selectedAccount, capabilities, tiktokSelection,renderReviewed,renderReview,autopilotRunId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -261,6 +264,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
         tags: parsedTags,
         privacy,
         ...tiktokPayload,
+        platform_custom:{...tiktokPayload.platform_custom,...(autopilotRunId?{autopilot_run_id:autopilotRunId}:{})},
       };
 
       if (publishMode === 'now') {

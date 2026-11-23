@@ -1,3 +1,5 @@
+import {readAutopilotPublishProof,fenceAutopilotPublishProof,assertStoredAutopilotPublishProof} from '../db/repositories/autopilotPublishProofRepository.js';
+import {assertSelectionSourceCurrent} from './selectionSourceGuardService.js';
 import {runsPublishingWorker} from './runtimePolicy.js';
 import {selectPublishMedia,assertPublishMediaSelection,assertPublishObjectSelection,assertReviewedPublishMedia,type PublishMediaSelection} from '../shared/publishMediaSelection.js';
 import {workLifecycle} from './queue/workLifecycle.js';
@@ -49,7 +51,8 @@ export class PublishingService {
     clipId: string | null | undefined,
     payload: PublishPayload,
     scheduledFor?: string | null,
-    mediaSelection?:PublishMediaSelection
+    mediaSelection?:PublishMediaSelection,
+    approvalIdentity?:string
   ): string {
     const canonical = [
       userId,
@@ -61,7 +64,7 @@ export class PublishingService {
       scheduledFor || 'immediate',
     ].join('::');
 
-    return crypto.createHash('sha256').update(mediaSelection?JSON.stringify([canonical,mediaSelection]):canonical).digest('hex');
+    return crypto.createHash('sha256').update(approvalIdentity?JSON.stringify([canonical,mediaSelection,approvalIdentity]):mediaSelection?JSON.stringify([canonical,mediaSelection]):canonical).digest('hex');
   }
 
   /**
@@ -250,6 +253,10 @@ export class PublishingService {
       assertPublishMediaSelection({user_id:dto.userId,project_id:dto.projectId,clip_id:clip.id,media_selection:mediaSelection},current);
     }
 
+    const runId=dto.payload.platform_custom?.autopilot_run_id;
+    const hookApproval=runId===undefined?null:await readAutopilotPublishProof(db,{userId:dto.userId,projectId:dto.projectId,clipId:dto.clipId,runId});
+    if(hookApproval){const c=hookApproval.current;await assertSelectionSourceCurrent(dto.userId,dto.projectId,c.clip!.selection_source_receipt,c.clip!.source_storage_path);const head=await headObject('clips',hookApproval.receipt.proof.output_storage_path);const a=hookApproval.receipt.proof.output_artifact_receipt;if(head.size!==a.size||head.etag!==a.etag||(a.version_id&&head.versionId!==a.version_id))throw new AppError('The approved hook video object changed.',409,'AUTOPILOT_PUBLISH_CHANGED');}
+
     // 5. Idempotency Check via deterministic fingerprint
     const fingerprint = this.generateFingerprint(
       dto.userId,
@@ -257,7 +264,8 @@ export class PublishingService {
       dto.clipId,
       dto.payload,
       dto.scheduledFor,
-      mediaSelection
+      mediaSelection,
+      hookApproval?.receipt.approval_identity
     );
 
     const existingPost = await db.collection<PublishedPostRecord>('published_posts').findOne({
@@ -301,6 +309,7 @@ export class PublishingService {
       last_error_code: null,
       last_error_message: null,
       request_fingerprint: fingerprint,
+      ...(hookApproval?{autopilot_hook_receipt:hookApproval.receipt}:{}),
       payload: dto.payload,
       created_at: now,
       updated_at: now,
@@ -328,6 +337,13 @@ export class PublishingService {
       // A visible post must have its durable worker job. Never compensate a
       // partial failure by deleting history or admit work before commit.
       await session.withTransaction(async () => {
+        if(hookApproval){
+          await fenceAutopilotPublishProof(db,session,{userId:dto.userId,projectId:dto.projectId,clipId:dto.clipId,runId,expected:hookApproval});
+          const liveConnection=await db.collection('social_account_connections').findOne({id:conn.id,user_id:dto.userId},{session});
+          if(!liveConnection||liveConnection.provider!==conn.provider||liveConnection.provider_account_id!==conn.provider_account_id)throw new AppError('The selected publishing account changed.',409,'PUBLISH_ACCOUNT_CHANGED');
+          const f=await db.collection('social_account_connections').updateOne({_id:liveConnection._id,user_id:dto.userId},{$inc:{autopilot_publish_fence:1}},{session});if(f.matchedCount!==1)throw new AppError('The selected publishing account changed.',409,'PUBLISH_ACCOUNT_CHANGED');
+          assertPublishMediaSelection(postRecord,await db.collection('clips').findOne({id:dto.clipId,user_id:dto.userId},{session}));
+        }
         await db.collection<PublishedPostRecord>('published_posts').insertOne(postRecord, { session });
         await db.collection<PublishJobRecord>('publish_jobs').insertOne(jobRecord, { session });
       }, { readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' } });
@@ -408,6 +424,15 @@ export class PublishingService {
     if (!job.provider_pending_id && post.provider === 'instagram' && !conn.scopes?.includes('instagram_content_publish')) {
       await this.markJobFailed(jobId,post.id,'INSTAGRAM_PUBLISH_SCOPE_REQUIRED','Instagram publishing permission is missing. No post was sent.',false);return;
     }
+
+    // A scheduled marked post must still have its exact approved package.
+    // Refuse before token refresh or any provider call. Never silently reapprove.
+    if(!job.provider_pending_id&&((post as any).autopilot_hook_receipt||post.payload.platform_custom?.autopilot_run_id!==undefined)){try{
+      const stored=(post as any).autopilot_hook_receipt;
+      const current=await readAutopilotPublishProof(db,{userId:post.user_id,projectId:post.project_id,clipId:post.clip_id,runId:stored?.run_id??post.payload.platform_custom?.autopilot_run_id});
+      assertStoredAutopilotPublishProof(stored,current.receipt);
+      const c=current.current;await assertSelectionSourceCurrent(post.user_id,post.project_id,c.clip!.selection_source_receipt,c.clip!.source_storage_path);
+    }catch(error:any){await this.markJobFailed(jobId,post.id,error.code||'AUTOPILOT_PUBLISH_CHANGED',error.message||'The approved hook package changed.',false);return;}}
 
     // Step 2: Check & refresh token if expired
     let accessToken: string;
@@ -506,11 +531,26 @@ export class PublishingService {
     try {
       // A one-way marker is persisted before the first external side effect.
       // Ambiguous crashes/transport errors never authorize another upload.
-      const dispatch = await db.collection<PublishJobRecord>('publish_jobs').updateOne(
+      let dispatch:any;
+      if((post as any).autopilot_hook_receipt){
+        try{const current=await readAutopilotPublishProof(db,{userId:post.user_id,projectId:post.project_id,clipId:post.clip_id,runId:(post as any).autopilot_hook_receipt.run_id});assertStoredAutopilotPublishProof((post as any).autopilot_hook_receipt,current.receipt);await assertSelectionSourceCurrent(post.user_id,post.project_id,current.current.clip!.selection_source_receipt,current.current.clip!.source_storage_path);}catch(error:any){await this.markJobFailed(jobId,post.id,error.code||'AUTOPILOT_PUBLISH_CHANGED',error.message||'Approved source changed before dispatch.',false);return;}
+        const tx=(await getMongoClient()).startSession();try{dispatch=await tx.withTransaction(async()=>{
+          const stored=(post as any).autopilot_hook_receipt;
+          const expected=await readAutopilotPublishProof(db,{userId:post.user_id,projectId:post.project_id,clipId:post.clip_id,runId:stored.run_id},tx);
+          assertStoredAutopilotPublishProof(stored,expected.receipt);
+          await fenceAutopilotPublishProof(db,tx,{userId:post.user_id,projectId:post.project_id,clipId:post.clip_id,runId:stored.run_id,expected});
+          const currentConnection=await db.collection('social_account_connections').findOne({id:conn.id,user_id:post.user_id},{session:tx});
+          if(!currentConnection||currentConnection.provider!==post.provider||currentConnection.provider_account_id!==post.provider_account_id||(post.provider==='instagram'&&!currentConnection.scopes?.includes('instagram_content_publish'))||(post.provider==='tiktok'&&!currentConnection.scopes?.includes('video.publish')))throw new AppError('The selected publishing account or permission changed.',409,'PUBLISH_ACCOUNT_CHANGED');
+          await db.collection('social_account_connections').updateOne({_id:currentConnection._id,user_id:post.user_id},{$inc:{autopilot_publish_fence:1}},{session:tx});
+          return await db.collection('publish_jobs').updateOne({id:jobId,user_id:job.user_id,published_post_id:post.id,status:'publishing',provider_attempt_started_at:{$exists:false}},{$set:{provider_attempt_started_at:new Date(),updated_at:new Date()}},{session:tx});
+        },{readConcern:{level:'snapshot'},writeConcern:{w:'majority'}});}catch(error:any){await this.markJobFailed(jobId,post.id,error.code||'AUTOPILOT_PUBLISH_CHANGED',error.message||'Approved hook changed before dispatch.',false);return;}finally{await tx.endSession();}
+      }else{
+        dispatch = await db.collection<PublishJobRecord>('publish_jobs').updateOne(
         {id:jobId,user_id:job.user_id,published_post_id:post.id,status:'publishing',provider_attempt_started_at:{$exists:false}},
         {$set:{provider_attempt_started_at:new Date(),updated_at:new Date()}},
         {writeConcern:{w:'majority'}}
       );
+      }
       if (dispatch.matchedCount !== 1) return;
       providerEntered = true;
       const pubResult = await publishProvider.publish({
@@ -601,14 +641,31 @@ export class PublishingService {
       const db=await getMongoDb();
       const result = provider.continuePending ? await provider.continuePending(
         {accessToken,payload:post.payload,providerAccountId:post.provider_account_id,grantedScopes},job.provider_pending_id!,job.provider_pending_metadata || {},async(metadata)=>{
-          const saved=await db.collection<PublishJobRecord>('publish_jobs').updateOne(
+          let saved:any;
+          if((post as any).autopilot_hook_receipt||post.payload.platform_custom?.autopilot_run_id!==undefined){
+            const stored=(post as any).autopilot_hook_receipt;
+            const expected=await readAutopilotPublishProof(db,{userId:post.user_id,projectId:post.project_id,clipId:post.clip_id,runId:stored?.run_id??post.payload.platform_custom?.autopilot_run_id});
+            assertStoredAutopilotPublishProof(stored,expected.receipt);
+            await assertSelectionSourceCurrent(post.user_id,post.project_id,expected.current.clip!.selection_source_receipt,expected.current.clip!.source_storage_path);
+            const artifact=expected.receipt.proof.output_artifact_receipt,head=await headObject('clips',artifact.key);
+            if(head.size!==artifact.size||head.etag!==artifact.etag||(artifact.version_id&&head.versionId!==artifact.version_id))throw new AppError('Approved output changed before publication.',409,'AUTOPILOT_PUBLISH_CHANGED');
+            const tx=(await getMongoClient()).startSession();try{saved=await tx.withTransaction(async()=>{
+              await fenceAutopilotPublishProof(db,tx,{userId:post.user_id,projectId:post.project_id,clipId:post.clip_id,runId:stored.run_id,expected});
+              const currentConnection=await db.collection('social_account_connections').findOne({id:post.social_connection_id,user_id:post.user_id},{session:tx});
+              if(!currentConnection||currentConnection.provider!==post.provider||currentConnection.provider_account_id!==post.provider_account_id||!currentConnection.scopes?.includes('instagram_content_publish'))throw new AppError('The selected publishing account or permission changed before publication.',409,'PUBLISH_ACCOUNT_CHANGED');
+              await db.collection('social_account_connections').updateOne({_id:currentConnection._id,user_id:post.user_id},{$inc:{autopilot_publish_fence:1}},{session:tx});
+              return await db.collection('publish_jobs').updateOne({id:job.id,user_id:job.user_id,published_post_id:post.id,status:'publishing',provider_pending_id:job.provider_pending_id,'provider_pending_metadata.publishDispatchStarted':{$ne:true}},{$set:{provider_pending_metadata:metadata,updated_at:new Date()}},{session:tx});
+            },{readConcern:{level:'snapshot'},writeConcern:{w:'majority'}});}finally{await tx.endSession();}
+          }else{
+            saved=await db.collection<PublishJobRecord>('publish_jobs').updateOne(
             {id:job.id,user_id:job.user_id,published_post_id:post.id,status:'publishing',provider_pending_id:job.provider_pending_id,'provider_pending_metadata.publishDispatchStarted':{$ne:true}},
             {$set:{provider_pending_metadata:metadata,updated_at:new Date()}},{writeConcern:{w:'majority'}});
+          }
           if(saved.matchedCount!==1)throw new AppError('Publish dispatch was already started or could not be checkpointed.',409,'PUBLISH_CHECKPOINT_UNVERIFIED');
         }) : await provider.resolvePending(accessToken,job.provider_pending_id!);
       await this.recordPublishOutcome(job,post,result);
     } catch (error: any) {
-      if (['TIKTOK_SUBMISSION_FAILED','INSTAGRAM_SUBMISSION_FAILED','INSTAGRAM_SUBMISSION_BINDING_CHANGED','INSTAGRAM_PUBLISH_SCOPE_REQUIRED'].includes(error?.code)) {
+      if (['PUBLISH_ACCOUNT_CHANGED','AUTOPILOT_PUBLISH_CHANGED','AUTOPILOT_HOOK_OUTPUT_REQUIRED','AUTOPILOT_APPROVAL_CONFLICT','TIKTOK_SUBMISSION_FAILED','INSTAGRAM_SUBMISSION_FAILED','INSTAGRAM_SUBMISSION_BINDING_CHANGED','INSTAGRAM_PUBLISH_SCOPE_REQUIRED'].includes(error?.code)) {
         await this.markJobFailed(job.id,post.id,error.code,error.message || 'The saved platform submission failed. No automatic new upload will be made.',false);
         return;
       }
