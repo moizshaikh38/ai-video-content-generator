@@ -1,3 +1,4 @@
+import {reframeWordPreviewFreshness} from '../shared/reframeWordPreviewFreshness.js';
 import {normalGamingManualEnvelope} from '../services/normalGamingManualChoiceService.js';
 import {splitReviewCropConfig,createBareSmartSplitReview} from '../shared/automaticSplitEvidence.js';
 import {readRenderUsageCount} from '../db/repositories/renderQuotaRepository.js';
@@ -1366,6 +1367,16 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
+    // Preview-only freshness: never alter cached records or trigger analysis.
+    // Render keeps its existing selection/source gates and regeneration policy.
+    if(track.metadata?.word_energy_fused===true){
+      let currentTranscript:unknown;
+      try{const {data,error}=await dataRepository.from('transcripts').select('*').eq('project_id',track.project_id).eq('user_id',userId).maybeSingle();if(!error)currentTranscript=data;}catch{}
+      if(reframeWordPreviewFreshness(track,currentTranscript)==='stale'){
+        res.status(200).json({status:track.status,isStale:true,transcriptTimingStale:true,detectedFaceCount:track.detected_face_count||0,dominantTrackId:null,smoothedKeyframes:[],analysisVersion:track.analysis_version,shotComposition:null,measuredPlanEnvelope:null,normalGamingManualEnvelope:null,adaptiveComposition:false,speaker1X:null,speaker2X:null});
+        return;
+      }
+    }
     const {data:policyClip}=await dataRepository.from('clips').select('*').eq('id',clipId).eq('user_id',userId).maybeSingle();
     const {data:policyProject}=await dataRepository.from('editor_projects').select('tracks').eq('clip_id',clipId).eq('user_id',userId).maybeSingle();
     const retainedPlan=track.sourceObjectVerified!==false&&policyClip?.crop_config?.mode==='smart'&&policyProject?storedScenePlanWindow(policyProject,policyClip,track):null;
