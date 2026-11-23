@@ -663,6 +663,13 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
         )}
       </div>
 
+      {analysisError && (
+        <div role="alert" className="p-3.5 rounded-xl border border-destructive/20 bg-destructive/10 text-destructive text-xs flex items-center gap-2">
+          <AlertCircle className="size-4 shrink-0" />
+          <span>{analysisError}</span>
+        </div>
+      )}
+
       {clipActionError && (
         <div className="p-3.5 rounded-xl border border-destructive/20 bg-destructive/10 text-destructive text-xs flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -702,12 +709,7 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
                 </p>
               </div>
 
-              {analysisError && (
-                <div className="p-3.5 rounded-xl bg-rose-500/10 text-rose-300 text-xs max-w-md mx-auto flex items-center gap-2">
-                  <AlertCircle className="size-4 shrink-0 text-rose-400" />
-                  <span>{analysisError}</span>
-                </div>
-              )}
+
 
               <div className="pt-2">
                 <Button

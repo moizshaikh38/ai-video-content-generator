@@ -1,3 +1,4 @@
+import {settleClipSelectionWindows} from '../shared/settleClipSelectionWindows.js';
 import {applySemanticGenreReceipt} from '../shared/semanticGenreEvidence.js';
 import {effectiveClipDurationBounds} from '../shared/clipDurationPreferences.js';
 import {selectionContextIdentity} from '../shared/selectionContextIdentity.js';
@@ -848,7 +849,7 @@ export class ClipAnalysisService {
 
         for (let i = 0; i < chunks.length; i += concurrency) {
           const batch = chunks.slice(i, i + concurrency);
-          const batchResults = await Promise.all(
+          const batchResults = await settleClipSelectionWindows(
             batch.map(async (chunk, batchIdx) => {
               const chunkNum = i + batchIdx + 1;
               logger.info(
@@ -891,7 +892,7 @@ export class ClipAnalysisService {
                 return grounded;
               } catch (err: any) {
                 logger.warn(`Failed AI analysis for chunk ${chunkNum}/${chunks.length}: ${err.message}`);
-                return [];
+                throw err;
               }
             })
           );

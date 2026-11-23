@@ -142,6 +142,11 @@ export const analyzeProjectClips = async (req: AuthenticatedRequest, res: Respon
       return;
     }
 
+    if(['CLIP_SELECTION_PROVIDER_CREDITS_UNAVAILABLE','CLIP_SELECTION_PROVIDER_RATE_LIMITED','CLIP_SELECTION_WINDOWS_FAILED'].includes(err.code)){
+      res.status(err.code==='CLIP_SELECTION_PROVIDER_RATE_LIMITED'?429:502).json({status:'error',code:err.code,stage:'clip_selection',message:err.message});
+      return;
+    }
+
     if (err.code === 'SOURCE_TOO_SHORT_FOR_CLIP_SETTINGS') {
       res.status(400).json({ status: 'error', code: err.code, message: err.message });
       return;
