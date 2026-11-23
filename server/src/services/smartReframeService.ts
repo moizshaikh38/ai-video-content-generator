@@ -26,13 +26,13 @@ import {constrainedFit43} from '../shared/constrainedFit43.js';
 import {bodyOnlyPortraitProposal} from '../shared/bodyOnlyPortraitProposal.js';
 import {auditPairComposition} from '../shared/pairCompositionQuality.js';
 import {boundedPairComposition} from '../shared/boundedPairComposition.js';
-import {buildPanelsFilter,type ItemPanels} from '../shared/panelLayouts.js';
+import {buildPanelsFilter,materializePanels,type ItemPanels} from '../shared/panelLayouts.js';
 import {groupPortraitPresentation} from '../shared/groupPortraitPresentation.js';
 import {closeupPortraitPresentation} from '../shared/closeupPresentation.js';
 import {anchorFitToMeasuredFaces,anchorClipFitToMeasuredFaces} from '../shared/fitSubjectAnchor.js';
 import {presentFit43,applyAutomaticLayoutPolicy,type AutomaticLayoutPolicy} from '../shared/automaticLayoutPolicy.js';
 import {persistentObjectRegions} from '../shared/objectContext.js';
-import { canvasDims } from '../shared/renderResolution.js';
+import { canvasDims, canvasForResolution, RENDER_RESOLUTIONS } from '../shared/renderResolution.js';
 import {associatedBodyEnvelope, anchoredSingleBodyPath} from '../shared/bodyContext.js';
 import {chooseContentFraming, type ContentFramingDecision} from '../shared/contentFramingDecision.js';
 import { isMongoConfigured } from '../db/mongoClient.js';
@@ -1491,10 +1491,31 @@ export class SmartReframeService {
     if(gaming)return gaming;
     const persisted=readAutomaticScenePlan(track,cropConfig,duration);
     if(persisted)return persisted as ReturnType<typeof SmartReframeService.computeShotComposition>;
-    return this.computeNormalAutoLayoutPlan(track,cropConfig,duration);
+    return this.computeNormalAutoLayoutPlan(track,cropConfig,duration,outputAspect);
   }
 
-  private static computeNormalAutoLayoutPlan(track:any,cropConfig:any,duration:number):ReturnType<typeof SmartReframeService.computeShotComposition>|undefined {
+  private static verifiedGamingReviewPlan(track:any,crop:any,duration:number,aspect?:string):ReturnType<typeof SmartReframeService.computeShotComposition>|undefined {
+    const m=track?.metadata,e=m?.automatic_gaming_evidence;
+    if(aspect!=='9:16'||crop?.mode!=='smart'||crop.layout_mode_source!=='auto'||track?.status!=='ready'||track.isStale||track.sourceObjectVerified!==true||m?.shot_composition_candidate===true||m?.automatic_gaming_review_enabled!==true||!Array.isArray(m.scene_cuts)||m.scene_cuts.length||!e||!/^[a-f0-9]{64}$/.test(m.analyzed_source_sha256||'')||e.sourceSha256!==m.analyzed_source_sha256||e.sourceWidth!==track.source_width||e.sourceHeight!==track.source_height||m.analyzed_source_start!==0||!Number.isFinite(m.analyzed_source_end)||Math.abs(m.analyzed_source_end-duration)>.001||Math.abs(e.durationSeconds-duration)>.05||(crop.layoutPolicy&&(!Array.isArray(crop.layoutPolicy.allowed)||!crop.layoutPolicy.allowed.includes('split')))||['screen_content','action_context','scene_context'].includes(m.content_framing_decision?.policy)||m.content_framing_decision?.evidence?.possibleEmbeddedCamera===true||!proposeAutomaticGamingPanels(e))return;
+    // Specific protected content must fit entirely in the actual game panel,
+    // not merely overlap a camera panel or its blurred background.
+    if(!Array.isArray(m.protected_content_regions))return;
+    const candidate=proposeAutomaticGamingPanels(e)!;
+    const canvases=[canvasDims('9:16',1/3),...RENDER_RESOLUTIONS.map(res=>canvasForResolution('9:16',res))];
+    const views=canvases.map(({width,height})=>materializePanels(candidate.panels,track.source_width,track.source_height,width,height)?.panels[1]?.view);
+    if(views.some(v=>!v))return;
+    for(const r of m.protected_content_regions){
+      if(!r||![r.x,r.y,r.width,r.height,r.start,r.end,r.confidence].every(Number.isFinite)||r.x<0||r.y<0||r.width<=0||r.height<=0||r.x+r.width>1||r.y+r.height>1||r.start<0||r.end<=r.start||r.end>duration+.001||r.confidence<0||r.confidence>1)return;
+      const x=r.x*track.source_width,y=r.y*track.source_height,xx=(r.x+r.width)*track.source_width,yy=(r.y+r.height)*track.source_height;
+      // Two source pixels account for integer crop-edge uncertainty. Readability
+      // and unseen HUD remain unqualified even when the measured box survives.
+      if(views.some(view=>!view||x<view.x+2||y<view.y+2||xx>view.x+view.w-2||yy>view.y+view.h-2))return;
+    }
+    const plan=this.computeShotComposition({rawSamples:track.raw_samples,sceneCuts:m.scene_cuts,duration,sourceWidth:track.source_width,sourceHeight:track.source_height,automaticGamingReview:e,layoutPolicy:crop.layoutPolicy});
+    return plan.some(s=>s.split?.focusPanels?.layout==='gameplay')?plan:undefined;
+  }
+
+  private static computeNormalAutoLayoutPlan(track:any,cropConfig:any,duration:number,outputAspect?:string):ReturnType<typeof SmartReframeService.computeShotComposition>|undefined {
     // Explicit local candidate only. Normal Auto and manual layouts do not
     // consume ambiguous inset evidence or infer an editorial source role.
     if(track?.metadata?.embedded_camera_panel_review_enabled===true&&cropConfig?.layout_mode_source==='auto'&&track.status==='ready'&&!track.isStale&&track.sourceObjectVerified===true&&!(track.metadata.scene_cuts||[]).length&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('split'))){
@@ -1504,6 +1525,8 @@ export class SmartReframeService {
     }
     const embeddedSplitVeto=embeddedSourceSplitVeto(track,cropConfig,duration);
     if(embeddedSplitVeto)return embeddedSplitVeto;
+    const gamingReview=this.verifiedGamingReviewPlan(track,cropConfig,duration,outputAspect);
+    if(gamingReview)return gamingReview;
     const unsupportedSplit=automaticSplitReviewPlan(track,cropConfig,duration);
     if(unsupportedSplit){
       // Rejecting a clip-wide pair is not evidence that every measured shot
@@ -1547,10 +1570,6 @@ export class SmartReframeService {
        (cropConfig.layoutPolicy&&!cropConfig.layoutPolicy.allowed.some((x:string)=>x==='fit'||x==='split'||x==='fill'))||
        ['screen_content','action_context','scene_context'].includes(track.metadata?.content_framing_decision?.policy)||
        track.metadata?.content_framing_decision?.evidence?.possibleEmbeddedCamera===true)return undefined;
-    if(track.metadata?.automatic_gaming_review_enabled===true&&track.metadata.automatic_gaming_evidence?.sourceSha256===track.metadata.analyzed_source_sha256){
-      const plan=this.computeShotComposition({rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,duration,sourceWidth:track.source_width,sourceHeight:track.source_height,automaticGamingReview:track.metadata.automatic_gaming_evidence,layoutPolicy:cropConfig.layoutPolicy});
-      if(plan.some(s=>s.split?.focusPanels?.layout==='gameplay'))return plan;
-    }
     // Reuse independently repeated non-person constraints as well as explicit
     // regions. A body anchor cannot erase measured side objects from the plan.
     const bodyRegions=(samples:ReframeSample[],start:number,end:number)=>[
@@ -3289,7 +3308,7 @@ export class SmartReframeService {
       // that cannot match the real consumer's exact configuration fingerprint.
       const autoConfig={...(clip.crop_config||{}),mode:'smart',layout_mode_source:'auto'};
       const planningTrack={...trackPayload,sourceObjectVerified:!!sourceReceipt,isStale:false};
-      const normalPlan=this.explicitAutoLayoutPlan(planningTrack,autoConfig,durationSec);
+      const normalPlan=this.explicitAutoLayoutPlan(planningTrack,autoConfig,durationSec,clip.aspect_ratio);
       const normalSnapshot=snapshotAutomaticScenePlan(planningTrack,autoConfig,durationSec,normalPlan);
       if(normalSnapshot)(trackPayload.metadata as any).automatic_scene_plan=normalSnapshot;
 
@@ -3377,7 +3396,7 @@ export class SmartReframeService {
     // Embedded-region review and source-structure guards require an independently
     // verified object receipt at every consumer, including ordinary export.
     const cutLocalSplit=track.metadata?.cut_local_split_recovery_review_enabled===true&&track.layout_mode==='split'&&track.metadata?.shot_composition_candidate!==true&&Array.isArray(track.metadata?.scene_cuts)&&track.metadata.scene_cuts.length>0;
-    if(verifyObjectReceipt||track.metadata?.automatic_scene_plan||track.metadata?.gaming_source_scene_evidence||cutLocalSplit||track.metadata?.embedded_camera_panel_review_enabled===true||track.metadata?.embedded_source_split_guard_enabled===true){
+    if(verifyObjectReceipt||track.metadata?.automatic_gaming_review_enabled===true||track.metadata?.automatic_scene_plan||track.metadata?.gaming_source_scene_evidence||cutLocalSplit||track.metadata?.embedded_camera_panel_review_enabled===true||track.metadata?.embedded_source_split_guard_enabled===true){
       sourceObjectVerified=false;
       const receipt=track.metadata?.analyzed_source_receipt;
       if(receipt && clip.source_storage_path){
