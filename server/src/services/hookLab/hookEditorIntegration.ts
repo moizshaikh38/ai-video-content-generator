@@ -1,3 +1,5 @@
+import {getMongoClient,getMongoDb} from '../../db/mongoClient.js';
+import {assertHookEditorIdentity,commitHookEditorRevision,hookCandidateEditIdentity} from '../../db/repositories/hookEditorRevisionRepository.js';
 import {renderHookSourcePreview} from './hookSourcePreview.js';
 import crypto from 'node:crypto';
 import { dataRepository, ownerContext } from '../../db/repositories/dataRepository.js';
@@ -34,6 +36,12 @@ export class HookEditorIntegration {
   ): Promise<ApplyHookResult> {
     return await ownerContext.run(userId, async () => {
       const currentProject = await ProEditorService.getEditorProject(editorProjectId, userId);
+      const {data:persisted}=await dataRepository.from('hook_candidates').select('*').eq('id',candidate.id).eq('user_id',userId).single();
+      const {data:hookSession}=await dataRepository.from('hook_lab_sessions').select('*').eq('id',candidate.hook_lab_session_id).eq('user_id',userId).single();
+      const {data:clip}=await dataRepository.from('clips').select('*').eq('id',currentProject.clip_id).eq('user_id',userId).single();
+      assertHookEditorIdentity(userId,persisted,hookSession,clip,currentProject);
+      if(hookCandidateEditIdentity(persisted)!==hookCandidateEditIdentity(candidate))throw new AppError('The hook changed. Reload before applying it.',409,'HOOK_EDITOR_IDENTITY_REQUIRED');
+      if(persisted.applied||(persisted as any).editor_apply_receipt?.state==='applied')throw new AppError('This hook is already applied. Undo it before applying it again.',409,'HOOK_ALREADY_APPLIED');
       const previousSnapshot = JSON.parse(JSON.stringify(currentProject)) as EditorProject;
       const appliedOperations: string[] = [];
 
@@ -182,10 +190,8 @@ export class HookEditorIntegration {
       }
 
       // Update editor project in DB
-      const updatedProject = await ProEditorService.updateEditorProject(editorProjectId, userId, {
-        tracks: updatedTracks,
-        version: currentProject.version,
-      },{clipSyncRequired:false});
+      const updates=await ProEditorService.prepareEditorRevision(currentProject,userId,{tracks:updatedTracks,version:currentProject.version});
+      const updatedProject=await commitHookEditorRevision(await getMongoClient(),await getMongoDb(),{userId,candidate:persisted,expectedEditor:currentProject,updates}) as unknown as EditorProject;
 
       logger.info('Applied HookCandidate to EditorProject', {
         editorProjectId,
@@ -204,22 +210,21 @@ export class HookEditorIntegration {
   /**
    * Reverts an applied hook operation by restoring the previous EditorProject snapshot.
    */
-  public static async revertCandidateInEditor(
-    userId: string,
-    editorProjectId: string,
-    snapshot: EditorProject
-  ): Promise<EditorProject> {
-    return await ownerContext.run(userId, async () => {
-      const restored = await ProEditorService.updateEditorProject(editorProjectId, userId, {
-        tracks: snapshot.tracks,
-        canvas: snapshot.canvas,
-        settings: snapshot.settings,
-        title: snapshot.title,
-        version: snapshot.version + 1,
-      },{clipSyncRequired:false});
-
-      logger.info('Reverted HookCandidate in EditorProject', { editorProjectId });
-      return restored;
+  public static async revertCandidateInEditor(userId:string,editorProjectId:string,snapshot:EditorProject,candidate:HookCandidate):Promise<EditorProject>{
+    return ownerContext.run(userId,async()=>{
+      const current=await ProEditorService.getEditorProject(editorProjectId,userId);
+      const {data:persisted}=await dataRepository.from('hook_candidates').select('*').eq('id',candidate.id).eq('user_id',userId).single();
+      const {data:hookSession}=await dataRepository.from('hook_lab_sessions').select('*').eq('id',candidate.hook_lab_session_id).eq('user_id',userId).single();
+      const {data:clip}=await dataRepository.from('clips').select('*').eq('id',current.clip_id).eq('user_id',userId).single();
+      assertHookEditorIdentity(userId,persisted,hookSession,clip,current,snapshot);
+      if(hookCandidateEditIdentity(persisted)!==hookCandidateEditIdentity(candidate))throw new AppError('The hook changed. Reload before undoing it.',409,'HOOK_EDITOR_IDENTITY_REQUIRED');
+      const receipt=(persisted as any).editor_apply_receipt;
+      if(receipt?.version!==1||receipt.state!=='applied'||!receipt.before)throw new AppError('This old hook has no verifiable undo receipt. Use Studio history instead.',409,'HOOK_EDITOR_IDENTITY_REQUIRED');
+      // Only the server's retained prior revision is restored. Client snapshots
+      // are identity confirmations, never arbitrary replacement instructions.
+      const before=receipt.before;
+      const updates=await ProEditorService.prepareEditorRevision(current,userId,{tracks:before.tracks,canvas:before.canvas,settings:before.settings,title:before.title,version:current.version});
+      return await commitHookEditorRevision(await getMongoClient(),await getMongoDb(),{userId,candidate:persisted,expectedEditor:current,updates,snapshot,revert:true}) as unknown as EditorProject;
     });
   }
 

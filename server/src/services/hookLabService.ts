@@ -757,26 +757,6 @@ export class HookLabService {
         cand as HookCandidate
       );
 
-      // Mark applied in DB
-      await dataRepository
-        .from('hook_candidates')
-        .update({
-          applied: true,
-          status: 'APPLIED',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', candidateId)
-        .eq('user_id', userId);
-
-      await dataRepository
-        .from('hook_lab_sessions')
-        .update({
-          status: 'APPLIED',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', sessionId)
-        .eq('user_id', userId);
-
       return result;
     });
   }
@@ -792,21 +772,9 @@ export class HookLabService {
     snapshot: any
   ): Promise<any> {
     return await ownerContext.run(userId, async () => {
-      const restored = await HookEditorIntegration.revertCandidateInEditor(
-        userId,
-        editorProjectId,
-        snapshot
-      );
-
-      await dataRepository
-        .from('hook_candidates')
-        .update({
-          applied: false,
-          status: 'EDITED',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', candidateId)
-        .eq('user_id', userId);
+      const {data:candidate}=await dataRepository.from('hook_candidates').select('*').eq('id',candidateId).eq('hook_lab_session_id',sessionId).eq('user_id',userId).single();
+      if(!candidate)throw new AppError('Candidate not found.',404,'CANDIDATE_NOT_FOUND');
+      const restored=await HookEditorIntegration.revertCandidateInEditor(userId,editorProjectId,snapshot,candidate as HookCandidate);
 
       return restored;
     });
