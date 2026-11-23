@@ -3,7 +3,7 @@ import {dragPlacement,placementSupported,placementPixels,materializeFit,sourcePr
 import {bareSmartSplitReviewForItem,type BareSmartSplitReview} from '../../../server/src/shared/automaticSplitEvidence';
 import{suppressStaleCaptionEmojis}from'../../../server/src/shared/sparseCaptionEmojiProject';
 import {automaticFitFocusY} from '../../../server/src/shared/automaticFitGeometry';
-import {needsAutomaticFitFallback} from '../../../server/src/shared/automaticPreviewFallback';
+import {needsAutomaticFitFallback,previewLayoutForResolvedShot,previewShotOwnedElsewhere} from '../../../server/src/shared/automaticPreviewFallback';
 import {previewBackdropBlurPx,PREVIEW_BACKDROP_COLOR_MATRIX} from '../../../server/src/shared/blurBackdropPreview';
 import {mirrorDecodedFrames} from '../../lib/decodedFrameMirror';
 import {trackerHandoffSpec,trackerHandoffRect} from '../../../server/src/shared/trackerHandoff';
@@ -13,7 +13,6 @@ import {freezeAutomaticPlan,freezeAutomaticKeyframes} from '../../../server/src/
 import { framingWindowRect, validateFramingWindow } from '../../../server/src/shared/framingWindow';
 import { SceneLayoutMenu } from './SceneLayoutMenu';
 import { readItemLayout, type SceneLayout } from '../../lib/itemLayout';
-import { nonPortraitAutoFullSourceFit } from '../../../server/src/shared/nonPortraitAutoFit';
 import { applySceneCaptionPlacement,captionPersistedPanelWindows,captionCompositionWindows,finalizeAutomaticFitCaptionGrowth } from '../../../server/src/shared/sceneCaptionPlacement';
 import {effectiveContentLayout, type ContentFramingDecision} from '../../../server/src/shared/contentFramingDecision';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
@@ -516,7 +515,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const effectiveShotComposition = freezeAutomaticPlan(automaticPlanReviewRequired?rawPlan:presentFit43(rawPlan,videoDims?.w||1920,videoDims?.h||1080),baseVideoItem?.automatic_framing,compositionClipStart);
   const shotSourceTime = (baseVideoItem?.source_start || 0) + (playhead-(baseVideoItem?.timeline_start||0)) * (baseVideoItem?.speed?.speed||1);
   const shotRelativeTime = Math.max(0,shotSourceTime-compositionClipStart);
-  const activePlanShot = !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && !baseVideoItem?.framing_window && !manualPanels && (baseVideoItem as any)?.crop_config?.layout_mode_source !== 'user'
+  const activePlanShot = !previewShotOwnedElsewhere(baseVideoItem) && !manualPanels
     ? effectiveShotComposition.find(s=>shotRelativeTime>=s.start&&shotRelativeTime<s.end&&(!(s as any).requiredAspect||(s as any).requiredAspect===project.canvas.aspect_ratio)) : undefined;
   const automaticMultiPanels: NonNullable<EditorTrackItem['panels']> | null = activePlanShot?.split?.focusPanels && ['three','four','gameplay'].includes(activePlanShot.split.focusPanels.layout) ? activePlanShot.split.focusPanels : null;
   const activePanels = manualPanels || (viewMode === 'export_review' && renderedPreviewUrl ? null : automaticMultiPanels);
@@ -528,7 +527,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   // top/bottom stack mirroring the export's buildSplitPodcastFilter.
   const primaryLayoutMode = useMemo(() => {
     if(automaticPlanReviewRequired)return 'track';
-    return activePlanShot?.split && !(viewMode === 'export_review' && renderedPreviewUrl) ? 'split' : effectiveContentLayout(baseVideoItem,contentFramingDecision);
+    return previewLayoutForResolvedShot(effectiveContentLayout(baseVideoItem,contentFramingDecision),activePlanShot,Boolean(viewMode === 'export_review' && renderedPreviewUrl),previewShotOwnedElsewhere(baseVideoItem)); 
   }, [baseVideoItem,contentFramingDecision,activePlanShot,viewMode,renderedPreviewUrl,automaticPlanReviewRequired]);
 
   const splitAnchors = useMemo(() => {
@@ -619,7 +618,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const cues = useMemo(() => applySceneCaptionPlacement(rawCues, {
     project, sourceWidth: videoDims?.w, sourceHeight: videoDims?.h,
     fallbackLayout: primaryLayoutMode,
-    automaticWindows:[...captionPersistedPanelWindows(project,videoDims?.w||0,videoDims?.h||0,geometryOutputSize),...captionCompositionWindows(project,nonPortraitAutoFullSourceFit(effectiveShotComposition,project.canvas.aspect_ratio)?effectiveShotComposition:(shotComposition||[]),compositionClipStart,videoDims?.w||0,videoDims?.h||0,geometryOutputSize)],
+    automaticWindows:[...captionPersistedPanelWindows(project,videoDims?.w||0,videoDims?.h||0,geometryOutputSize),...captionCompositionWindows(project,effectiveShotComposition,compositionClipStart,videoDims?.w||0,videoDims?.h||0,geometryOutputSize)],
     fontSize: placementStyle?.fontSize ?? captionItem?.caption?.font_size,
     maxCharsPerLine: placementStyle?.maxCharsPerLine,
     maxLines: placementStyle?.maxLines ?? captionItem?.caption?.max_lines,
