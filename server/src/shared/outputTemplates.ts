@@ -137,7 +137,7 @@ export function applyOutputTemplateToProject(
 
   const tracks = project.tracks.map((track) => {
     if (track.type === 'TEXT') {
-      textTrackId = track.id;
+      if(!track.locked)textTrackId = track.id;
       if (
         template.hook &&
         track.items.some((i) => i.timeline_start < (template.hook!.durationSec))
@@ -148,10 +148,11 @@ export function applyOutputTemplateToProject(
     }
 
     if (track.type === 'CAPTION') {
+      if(track.locked)return track;
       return {
         ...track,
         hidden: false,
-        items: track.items.map((i) => ({
+        items: track.items.map((i) => i.locked?i:({
           ...i,
           caption: {
             cues: (i.caption as any)?.cues || [],
@@ -168,9 +169,11 @@ export function applyOutputTemplateToProject(
     }
 
     if (track.type === 'VIDEO') {
+      if(track.locked)return track;
       return {
         ...track,
         items: track.items.map((i, idx) => {
+          if(i.locked)return i;
           const item: EditorTrackItem = {
             ...i,
             layout_mode: template.framing.layoutMode,
