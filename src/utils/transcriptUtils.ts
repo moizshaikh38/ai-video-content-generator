@@ -1,3 +1,4 @@
+import {subtitleWordsMatchCue} from '../../server/src/shared/subtitleWordClockReview';
 import { TimedCaptionCue } from '../types';
 
 export interface FlattenedTranscriptWord {
@@ -9,6 +10,7 @@ export interface FlattenedTranscriptWord {
   start: number;
   end: number;
   confidence?: number;
+  timingSource: 'word' | 'cue-only';
   globalIndex: number;
 }
 
@@ -33,7 +35,7 @@ export function formatTranscriptTime(seconds: number | undefined | null): string
 
 /**
  * Deterministically flattens cues into a linear sequence of words with global contiguous indexing.
- * Synthesizes word-level timestamps when only cue-level segment timing is provided.
+ * Keeps cue-only text editable without inventing individual word timestamps.
  */
 export function flattenTranscriptWords(cues: TimedCaptionCue[]): FlattenedTranscriptWord[] {
   const result: FlattenedTranscriptWord[] = [];
@@ -44,9 +46,10 @@ export function flattenTranscriptWords(cues: TimedCaptionCue[]): FlattenedTransc
     const cueStart = Number.isFinite(cue.start) ? Math.max(0, cue.start) : 0;
     const cueEnd = Number.isFinite(cue.end) ? Math.max(cueStart + 0.1, cue.end) : cueStart + 1.0;
 
-    if (Array.isArray(cue.words) && cue.words.length > 0) {
-      for (let wordIdx = 0; wordIdx < cue.words.length; wordIdx++) {
-        const w = cue.words[wordIdx];
+    const normalizedWords=Array.isArray(cue.words)?cue.words.map(w=>w&&typeof w==='object'?{...w,text:w.text||(w as any).word}:w):undefined;
+    if (cue.start>=0 && subtitleWordsMatchCue({...cue,words:normalizedWords as any})) {
+      for (let wordIdx = 0; wordIdx < normalizedWords!.length; wordIdx++) {
+        const w = normalizedWords![wordIdx];
         const text = (w.text || (w as any).word || '').trim();
         if (!text) continue;
 
@@ -59,22 +62,21 @@ export function flattenTranscriptWords(cues: TimedCaptionCue[]): FlattenedTransc
           cueIdx,
           wordIdx,
           text,
-          start: Number(start.toFixed(3)),
-          end: Number(end.toFixed(3)),
-          confidence: w.confidence ?? 1.0,
+          start,
+          end,
+          confidence: w.confidence,
+          timingSource:'word',
           globalIndex: globalIndex++,
         });
       }
     } else {
-      // Synthesize words from text tokenization
-      const rawWords = (cue.text || '').trim().split(/\s+/).filter(Boolean);
-      const cueDuration = Math.max(0.1, cueEnd - cueStart);
-      const wordDuration = cueDuration / Math.max(1, rawWords.length);
+      // Display tokens share the whole cue interval, never a guessed cut interval.
+      const rawWords = (cue.text || '').replace(/\\[Nn]/g,' ').trim().split(/\s+/).filter(Boolean);
 
       for (let wordIdx = 0; wordIdx < rawWords.length; wordIdx++) {
         const text = rawWords[wordIdx];
-        const start = cueStart + wordIdx * wordDuration;
-        const end = cueStart + (wordIdx + 1) * wordDuration;
+        const start = cueStart;
+        const end = cueEnd;
 
         result.push({
           key: `${cue.id}:${wordIdx}`,
@@ -82,9 +84,9 @@ export function flattenTranscriptWords(cues: TimedCaptionCue[]): FlattenedTransc
           cueIdx,
           wordIdx,
           text,
-          start: Number(start.toFixed(3)),
-          end: Number(end.toFixed(3)),
-          confidence: 1.0,
+          start,
+          end,
+          timingSource:'cue-only',
           globalIndex: globalIndex++,
         });
       }
@@ -122,7 +124,7 @@ export function findActiveWord(
 ): FlattenedTranscriptWord | null {
   if (!words || words.length === 0) return null;
   for (const w of words) {
-    if (currentTime >= w.start && currentTime <= w.end) {
+    if (w.timingSource==='word' && currentTime >= w.start && currentTime <= w.end) {
       return w;
     }
   }

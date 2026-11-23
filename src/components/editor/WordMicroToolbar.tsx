@@ -21,6 +21,7 @@ export interface WordMicroToolbarProps {
     start: number;
     end: number;
     confidence?: number;
+    timingSource?: 'word'|'cue-only';
     customStyle?: WordCustomStyle;
   };
   cue: TimedCaptionCue;
@@ -139,13 +140,14 @@ export const WordMicroToolbar: React.FC<WordMicroToolbarProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('timing')}
+            disabled={word.timingSource!=='word'}
+            title={word.timingSource!=='word'?'Unavailable without valid word timing':'Trim word boundaries'}
+            onClick={() => {if(word.timingSource==='word')setActiveTab('timing')}}
             className={`px-2 py-1 rounded-lg text-xs font-medium flex items-center gap-1 transition ${
               activeTab === 'timing'
                 ? 'bg-white/[0.1] text-white shadow-sm'
                 : 'text-neutral-400 hover:text-white'
             }`}
-            title="Trim word boundaries"
           >
             <Clock className="w-3 h-3 text-emerald-400" />
             <span>Timing</span>
@@ -336,7 +338,9 @@ export const WordMicroToolbar: React.FC<WordMicroToolbarProps> = ({
           {/* 1-Click Punch-In Zoom */}
           <div className="pt-1 border-t border-white/[0.08]">
             <button
+              disabled={word.timingSource!=='word'}
               onClick={() => {
+                if(word.timingSource!=='word')return;
                 onPunchInZoom(word.start);
                 onClose();
               }}
@@ -409,6 +413,7 @@ export const WordMicroToolbar: React.FC<WordMicroToolbarProps> = ({
 
           <button
             onClick={() => {
+              if(word.timingSource!=='word')return;
               onUpdateWordTiming(startSec, endSec);
               onClose();
             }}
@@ -441,18 +446,21 @@ export const WordMicroToolbar: React.FC<WordMicroToolbarProps> = ({
           </button>
 
           <button
+            disabled={word.timingSource!=='word'}
+            title={word.timingSource!=='word'?'Word-level video cuts need valid word timing':undefined}
             onClick={() => {
+              if(word.timingSource!=='word')return;
               onDeleteWord(true);
               onClose();
             }}
-            className="w-full py-2 px-2.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/70 border border-rose-800/60 text-left text-xs text-rose-200 transition space-y-0.5 shadow-md shadow-rose-950/30"
+            className="disabled:opacity-40 disabled:cursor-not-allowed w-full py-2 px-2.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/70 border border-rose-800/60 text-left text-xs text-rose-200 transition space-y-0.5 shadow-md shadow-rose-950/30"
           >
             <div className="font-semibold flex items-center gap-1.5 text-rose-300">
               <Scissors className="w-3.5 h-3.5" />
               <span>✂️ Ripple Cut Video & Word</span>
             </div>
             <div className="text-[10px] text-rose-400/80">
-              Cuts out {durationMs}ms of video footage & shifts subsequent timeline items
+              {word.timingSource!=='word'?'Unavailable: this caption has full-cue timing only':`Cuts out ${durationMs}ms of video footage & shifts subsequent timeline items`}
             </div>
           </button>
         </div>

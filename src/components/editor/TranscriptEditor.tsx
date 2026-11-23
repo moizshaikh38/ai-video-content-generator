@@ -68,6 +68,7 @@ interface ActiveWordSelection {
     start: number;
     end: number;
     confidence?: number;
+    timingSource?: 'word'|'cue-only';
   };
   cue: TimedCaptionCue;
   wordIdx: number;
@@ -109,14 +110,18 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
   const [inlineEditingWordText, setInlineEditingWordText] = useState<string>('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [pauseThreshold, setPauseThreshold] = useState<number>(0.5);
-  const [activeWord, setActiveWord] = useState<ActiveWordSelection | null>(null);
+  const [activeWordSnapshot, setActiveWord] = useState<ActiveWordSelection | null>(null);
 
   // Range Selection State
-  const [selectedWordKeys, setSelectedWordKeys] = useState<Set<string>>(new Set());
+  const [selectionSnapshot, setSelectionSnapshot] = useState<{keys:Set<string>;source:TimedCaptionCue[]}>({keys:new Set(),source:cues});
+  const selectedWordKeys=selectionSnapshot.source===cues?selectionSnapshot.keys:new Set<string>();
+  const setSelectedWordKeys=(keys:Set<string>)=>setSelectionSnapshot({keys,source:cues});
   const [anchorWordIndex, setAnchorWordIndex] = useState<number | null>(null);
   const [isDraggingSelection, setIsDraggingSelection] = useState<boolean>(false);
   const [showRangeCutModal, setShowRangeCutModal] = useState<boolean>(false);
   const [copyFeedback, setCopyFeedback] = useState<boolean>(false);
+
+  useEffect(()=>{setAnchorWordIndex(null);setShowRangeCutModal(false);setIsDraggingSelection(false)},[cues]);
 
   // Auto-scroll management
   const [isAutoScrollPaused, setIsAutoScrollPaused] = useState<boolean>(false);
@@ -129,6 +134,11 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
   // Flatten words across all cues with contiguous global indices
   const allWords = useMemo(() => flattenTranscriptWords(cues), [cues]);
 
+  const cleanupCues=useMemo(()=>cues.map(c=>({...c,...(!Number.isFinite(c.start)||!Number.isFinite(c.end)||c.start<0||c.end<=c.start?{start:NaN,end:NaN}:{}),words:allWords.filter(w=>w.cueId===c.id&&w.timingSource==='word')})),[cues,allWords]);
+
+  // A changed cue invalidates the open toolbar before its next render/action.
+  const activeWord = activeWordSnapshot && cues.some(cue=>cue===activeWordSnapshot.cue) ? activeWordSnapshot : null;
+
   // Detected pause and filler stats for subtle badges
   const detectedStats = useMemo(() => {
     let pauseCount = 0;
@@ -137,7 +147,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
         const prev = cues[i - 1];
         if (cues[i].start - prev.end >= pauseThreshold) pauseCount++;
       }
-      const words = cues[i].words;
+      const words = allWords.filter(w=>w.cueId===cues[i].id&&w.timingSource==='word');
       if (Array.isArray(words)) {
         for (let j = 0; j < words.length - 1; j++) {
           if (words[j + 1].start - words[j].end >= pauseThreshold) pauseCount++;
@@ -154,7 +164,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
     }
 
     return { pauseCount, fillerCount, totalIssues: pauseCount + fillerCount };
-  }, [cues, pauseThreshold]);
+  }, [cues, allWords, pauseThreshold]);
 
   // Close overflow menu on outside click
   useEffect(() => {
@@ -199,6 +209,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
       message: validation.message,
       text,
       count: selectedWords.length,
+      hasWordTiming:selectedWords.every(w=>w.timingSource==='word'),
     };
   }, [selectedWords]);
 
@@ -207,7 +218,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
     setSelectedWordKeys(new Set());
     setAnchorWordIndex(null);
     setShowRangeCutModal(false);
-  }, []);
+  }, [cues]);
 
   // Window pointerup listener to finish mouse-drag selection
   useEffect(() => {
@@ -359,7 +370,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
 
   // Cut selected words: text only vs ripple cut media
   const handleExecuteRangeCut = (cutMedia: boolean) => {
-    if (!selectionRange) return;
+    if (!selectionRange || (cutMedia && !selectionRange.hasWordTiming)) return;
 
     if (cutMedia && onDeleteTimeRange) {
       onDeleteTimeRange(selectionRange.start, selectionRange.end);
@@ -377,7 +388,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
         const cue = cues.find((c) => c.id === cueId);
         if (!cue) continue;
 
-        if (Array.isArray(cue.words)) {
+        if (allWords.some(w=>w.cueId===cue.id&&w.timingSource==='word') && Array.isArray(cue.words)) {
           const remainingWords = cue.words.filter((_, idx) => !wordIndices.has(idx));
           const updatedText = remainingWords.map((w) => w.text || (w as any).word).join(' ');
           onUpdateCueText(cue.id, updatedText || ' ');
@@ -424,13 +435,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
   // for hosts without timeline-cut wiring.
   const handleCleanAllFillers = () => {
     if (onDeleteTimeRanges) {
-      const words = cues.flatMap((cue) =>
-        (Array.isArray(cue.words) ? cue.words : []).map((w: any) => ({
-          text: String(w.text ?? w.word ?? ''),
-          start: Number(w.start),
-          end: Number(w.end),
-        }))
-      );
+      const words = allWords.filter(w=>w.timingSource==='word');
       if (words.length === 0) {
         window.alert('Filler removal needs word-level timings. Re-analyze captions first.');
         return;
@@ -503,7 +508,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
       onReplaceWordGlobally(oldWordText, newWord);
     } else {
       const cue = activeWord.cue;
-      if (Array.isArray(cue.words)) {
+      if (activeWord.word.timingSource==='word' && Array.isArray(cue.words)) {
         const updatedWords = [...cue.words];
         updatedWords[activeWord.wordIdx] = {
           ...updatedWords[activeWord.wordIdx],
@@ -536,7 +541,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
     setInlineEditingWordKey(null);
     if (!trimmed || trimmed === word.text) return;
 
-    if (Array.isArray(cue.words) && cue.words.length > 0) {
+    if (word.timingSource==='word' && Array.isArray(cue.words) && cue.words.length > 0) {
       const updatedWords = cue.words.map((w, idx) => {
         if (idx === word.wordIdx) {
           return {
@@ -561,11 +566,12 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
   const handleDeleteWord = (cutMedia: boolean) => {
     if (!activeWord) return;
     const { word, cue, wordIdx } = activeWord;
+    if(cutMedia&&word.timingSource!=='word')return;
 
     if (cutMedia && onDeleteTimeRange) {
       onDeleteTimeRange(word.start, word.end);
     } else {
-      if (Array.isArray(cue.words)) {
+      if (activeWord.word.timingSource==='word' && Array.isArray(cue.words)) {
         const updatedWords = cue.words.filter((_, idx) => idx !== wordIdx);
         const updatedText = updatedWords.map((w) => w.text || (w as any).word).join(' ');
         onUpdateCueText(cue.id, updatedText || ' ');
@@ -584,7 +590,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
     const currentText = word.text || word.word || '';
     const newWord = `${currentText} ${emoji}`;
 
-    if (Array.isArray(cue.words)) {
+    if (activeWord.word.timingSource==='word' && Array.isArray(cue.words)) {
       const updatedWords = [...cue.words];
       updatedWords[wordIdx] = {
         ...updatedWords[wordIdx],
@@ -602,7 +608,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
     const { word, cue, wordIdx } = activeWord;
     const currentText = word.text || word.word || '';
     const coloredText = `<c:${colorHex}>${currentText}</c>`;
-    if (Array.isArray(cue.words)) {
+    if (activeWord.word.timingSource==='word' && Array.isArray(cue.words)) {
       const updatedWords = [...cue.words];
       updatedWords[wordIdx] = {
         ...updatedWords[wordIdx],
@@ -621,7 +627,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
     if (!clean) return 0;
     let count = 0;
     for (const cue of cues) {
-      if (Array.isArray(cue.words)) {
+      if (allWords.some(w=>w.cueId===cue.id&&w.timingSource==='word') && Array.isArray(cue.words)) {
         for (const w of cue.words) {
           const text = (w.text || (w as any).word || '').toLowerCase();
           if (text === clean) count++;
@@ -641,6 +647,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
       className="flex flex-col h-full bg-vc-canvas text-neutral-200 select-none relative"
       onClick={clearSelection}
     >
+      {allWords.some(w=>w.timingSource==='cue-only')&&<p role="status" className="px-3 py-2 text-xs leading-relaxed text-amber-200 bg-amber-400/10 border-b border-amber-400/20">Some captions have full-cue timing only. Text editing remains available. Word timing, word zoom and word-level video cuts need valid word timing. Whole-caption cuts require valid caption timing.</p>}
       {/* 1. OPUS-STYLE ELEVATED HEADER WITH SPEECH CLEANUP & ACTIONS */}
       <div
         className="h-11 px-3 shrink-0 flex items-center justify-between border-b border-white/[0.06] bg-vc-surface1/95 backdrop-blur-md z-10"
@@ -790,7 +797,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
         <SpeechCleanupTool
           isOpen={isCleanupOpen}
           onClose={() => setIsCleanupOpen(false)}
-          cues={cues}
+          cues={cleanupCues}
           threshold={pauseThreshold}
           onThresholdChange={setPauseThreshold}
           onCleanAllPauses={(pauses) => {
@@ -1068,7 +1075,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
                       {cueWords.length > 0 ? (
                         cueWords.map((w, wIdx) => {
                           const wordText = w.text;
-                          const isWordPlaying = currentTime >= w.start && currentTime <= w.end;
+                          const isWordPlaying = w.timingSource==='word' && currentTime >= w.start && currentTime <= w.end;
                           const isWordSelected = selectedWordKeys.has(w.key);
                           const cleanWord = wordText.toLowerCase().replace(/[^a-z]/g, '');
                           const isFiller = COMMON_FILLER_WORDS.has(cleanWord);
@@ -1134,13 +1141,13 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
                                 onClick={(e) => handleWordClick(e, cue, w)}
                                 onDoubleClick={(e) => handleWordDoubleClick(e, cue, w)}
                                 className={`cursor-pointer px-1 py-0.5 rounded transition text-xs select-none mr-0.5 ${wordClass}`}
-                                title={`"${wordText}" (${w.start.toFixed(2)}s – ${w.end.toFixed(2)}s) • Double-click to edit`}
+                                title={w.timingSource==='word'?`"${wordText}" (${w.start.toFixed(2)}s – ${w.end.toFixed(2)}s) • Double-click to edit`:`"${wordText}" • Full-cue timing only • Double-click to edit`}
                               >
                                 {wordText}
                               </span>
 
                               {/* Duration Badge (Opus.pro style) */}
-                              {showTimings && wordDur > 0.3 && (
+                              {showTimings && w.timingSource==='word' && wordDur > 0.3 && (
                                 <span className="inline-flex items-center text-[9px] font-mono px-1 py-0.2 rounded bg-white/[0.06] text-neutral-400 mx-0.5 select-none opacity-80 hover:opacity-100">
                                   {wordDur}s
                                 </span>
@@ -1200,7 +1207,10 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
                           Text Only
                         </button>
                         <button
+                          disabled={!Number.isFinite(cue.start)||!Number.isFinite(cue.end)||cue.start<0||cue.end<=cue.start}
+                          title="Cuts the caption's original timing, not individual word timing"
                           onClick={() => {
+                            if(!Number.isFinite(cue.start)||!Number.isFinite(cue.end)||cue.start<0||cue.end<=cue.start)return;
                             onDeleteCue(cue.id, true);
                             setConfirmDeleteId(null);
                           }}
@@ -1261,7 +1271,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
               <span className="font-medium text-white text-[12px]">
                 {selectionRange.count} words • {selectionRange.duration}s
               </span>
-              {selectionRange.isValid ? (
+              {!selectionRange.hasWordTiming?<span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/15 text-amber-300">Full-cue timing only</span>:selectionRange.isValid ? (
                 <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/15 text-emerald-300 font-medium">
                   Valid Clip
                 </span>
@@ -1335,11 +1345,13 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
                   Text Only
                 </button>
                 <button
+                  disabled={!selectionRange.hasWordTiming}
+                  title={!selectionRange.hasWordTiming?'Word-level video cuts need valid word timing':undefined}
                   onClick={() => {
                     handleExecuteRangeCut(true);
                     setShowRangeCutModal(false);
                   }}
-                  className="flex-1 px-2 py-1 rounded bg-rose-600 text-white hover:bg-rose-500 text-[11px] font-semibold flex items-center justify-center gap-1 shadow-sm transition"
+                  className="disabled:opacity-40 disabled:cursor-not-allowed flex-1 px-2 py-1 rounded bg-rose-600 text-white hover:bg-rose-500 text-[11px] font-semibold flex items-center justify-center gap-1 shadow-sm transition"
                 >
                   <Scissors className="w-3 h-3" />
                   <span>Ripple Cut Video</span>
@@ -1366,7 +1378,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
           onClose={() => setActiveWord(null)}
           onUpdateWordText={handleUpdateWordText}
           onUpdateWordTiming={(newStart, newEnd) => {
-            if (onUpdateWordTiming) {
+            if (onUpdateWordTiming && activeWord.word.timingSource==='word') {
               onUpdateWordTiming(activeWord.cue.id, activeWord.wordIdx, newStart, newEnd);
             }
           }}
@@ -1378,7 +1390,7 @@ export const TranscriptEditor: React.FC<TranscriptEditorProps> = ({
           }}
           onInsertEmoji={handleInsertEmoji}
           onPunchInZoom={(wordStart) => {
-            if (onPunchInZoom) onPunchInZoom(wordStart);
+            if (onPunchInZoom && activeWord.word.timingSource==='word') onPunchInZoom(wordStart);
           }}
           onDeleteWord={handleDeleteWord}
           onSeek={onSeek}
