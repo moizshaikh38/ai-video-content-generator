@@ -323,11 +323,12 @@ export function buildBlurFitChain(
   const cd = canvasDims(aspectRatio, canvasScale);
   const ar = { w: cd.width, h: cd.height };
   const z = Math.min(4, Math.max(1, Number(zoom) || 1));
-  const fgW = Math.max(2, Math.round((ar.w * z) / 2) * 2);
+  // Contain on BOTH axes before zoom. Width-only scaling cuts tall sources.
+  const zoomFilter = z > 1 ? `,scale=trunc(iw*${z}/2)*2:trunc(ih*${z}/2)*2` : '';
   return (
     `split=2[${tag}_bgs][${tag}_fgs];` +
     `[${tag}_bgs]scale=${ar.w}:${ar.h}:force_original_aspect_ratio=increase,crop=${ar.w}:${ar.h},boxblur=${Math.round(25 * canvasScale)}:5,eq=brightness=-0.15:contrast=0.95[${tag}_bg];` +
-    `[${tag}_fgs]scale=${fgW}:-2[${tag}_fg];` +
+    `[${tag}_fgs]scale=${ar.w}:${ar.h}:force_original_aspect_ratio=decrease${zoomFilter}[${tag}_fg];` +
     `[${tag}_bg][${tag}_fg]overlay=(W-w)/2:(H-h)/2`
   );
 }
@@ -379,8 +380,9 @@ export function buildBackdropFitChain(
   const bg = spec.kind === 'color'
     ? `scale=${ar.w}:${ar.h},drawbox=x=0:y=0:w=${ar.w}:h=${ar.h}:color=0x${normalizeBackdropHex(spec.color)}:t=fill`
     : `scale=${ar.w}:${ar.h}:force_original_aspect_ratio=increase,crop=${ar.w}:${ar.h},boxblur=${Math.round(25 * cs)}:5,eq=brightness=-0.15:contrast=0.95`;
-  // Fit inside the inset box (never wider than the box at zoom 1; zoom widens it, overlay crops at canvas edge).
-  const fgScale = z > 1 ? `scale=${fgW}:-2` : `scale=${boxW}:${boxH}:force_original_aspect_ratio=decrease`;
+  // Zoom the contained frame, not the inset width, so tall sources do not jump to width-fit.
+  const zoomFilter = z > 1 ? `,scale=trunc(iw*${z}/2)*2:trunc(ih*${z}/2)*2` : '';
+  const fgScale = `scale=${boxW}:${boxH}:force_original_aspect_ratio=decrease${zoomFilter}`;
   let fg = `${fgScale}`;
   if (spec.bandAspect && spec.bandAspect > 0) {
     const B = Number(spec.bandAspect).toFixed(5);

@@ -13,7 +13,7 @@ describe('fit_blur quick-render layout (Opus-style blur-pad)', () => {
     assert.ok(d.cropFilter.includes('boxblur'), 'blurred background fill present');
     assert.ok(d.cropFilter.includes('split=2[vcb_bgs][vcb_fgs]'), 'split stage present');
     assert.ok(d.cropFilter.includes('scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920'), 'bg covers canvas');
-    assert.ok(d.cropFilter.includes('scale=1080:-2'), 'fg contained at canvas width');
+    assert.ok(d.cropFilter.includes('scale=1080:1920:force_original_aspect_ratio=decrease'), 'fg contained inside canvas on either source aspect');
     assert.ok(d.cropFilter.trimEnd().endsWith('overlay=(W-w)/2:(H-h)/2'), 'ends on unlabeled overlay for chaining');
   });
 
