@@ -2560,13 +2560,17 @@ export class ProEditorService {
     const storedClipCrop = explicitCrop?.layout_mode_source!=='user'&&prefDefault&&prefDefault!=='auto'?{...explicitCrop,mode:prefDefault==='fit'?'fit_blur':'manual',layout_mode:'track',layout_mode_source:'user',layoutPolicy:projectPreferences?.layoutPolicy}:explicitCrop;
     const newAutomaticDefault=projectPreferences?.framingDefaults?.version===1&&projectPreferences.framingDefaults.layout==='auto'&&!producerPlan&&storedClipCrop?.layout_mode_source!=='user'&&!['manual','custom','fit','fit_blur'].includes(storedClipCrop?.mode);
     const clipCrop = newAutomaticDefault?{...storedClipCrop,mode:'smart',layout_mode:'track',layout_mode_source:'auto',layoutPolicy:projectPreferences?.layoutPolicy||storedClipCrop?.layoutPolicy}:storedClipCrop;
-    const seededCrop: { mode: 'fill' | 'fit' | 'blur' | 'custom'; band?: '4:3'; focusX: number; focusY: number } | undefined =
+    // First editor initialization must retain an existing explicit Quick crop zoom.
+    // This seed is not applied to saved editor projects or scene overrides.
+    const requestedCropScale = Number(clipCrop?.scale ?? 1);
+    const seededScale = Number.isFinite(requestedCropScale) ? Math.min(4, Math.max(1, requestedCropScale)) : 1;
+    const seededCrop: { mode: 'fill' | 'fit' | 'blur' | 'custom'; band?: '4:3'; focusX: number; focusY: number; scale: number } | undefined =
       clipCrop?.mode === 'fit_blur'
-        ? { mode: 'blur', band: '4:3', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
+        ? { mode: 'blur', band: '4:3', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5, scale: seededScale }
         : clipCrop?.mode === 'fit'
-        ? { mode: 'blur', band: '4:3', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
+        ? { mode: 'blur', band: '4:3', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5, scale: seededScale }
         : clipCrop?.mode === 'manual'
-          ? { mode: 'custom', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5 }
+          ? { mode: 'custom', focusX: clipCrop.focusX ?? 0.5, focusY: clipCrop.focusY ?? 0.5, scale: seededScale }
           : undefined;
 
     // Track 1: Main Video Track (Multi-slice with Cold Open if enabled)
