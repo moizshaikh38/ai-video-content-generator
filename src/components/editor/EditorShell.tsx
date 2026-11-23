@@ -272,6 +272,13 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   const selectedComposition=previewItemPlan?.status==='ready'?previewItemPlan.shots as NonNullable<typeof speakerSplitData>['shotComposition']:adaptivePlanExpected?null:activeCandidate?speakerSplitData?.shotComposition:stableShotComposition;
   const speakerSplit=automaticPlanReviewRequired?null:speakerSplitData?{...speakerSplitData,shotComposition:selectedComposition}:null;
   const measuredParticipantChoices=adaptivePlanExpected?measuredPanelChoicesForManualPick(activeCandidateItem?{...activeCandidateItem,id:activeCandidateBase?.id}:undefined,activeEnvelope,{sourceAssetId:clip.id,sourcePath:clip.source_storage_path,outputAspect:project.canvas.aspect_ratio,layoutPolicy:clip.crop_config?.layoutPolicy,sourceVersion:(clip as any).selection_source_receipt?.source_receipt?.sha256}):undefined;
+  // Late template analysis may never update another clip, project or source,
+  // including A -> B -> A navigation and unmount/reopen of the same identity.
+  const seedIdentityKey=JSON.stringify([clip.id,project.id,clip.source_storage_path,(clip as any).selection_source_receipt?.source_receipt?.sha256,persistedReframeSourceKey]);
+  const seedIdentityRef=useRef({key:seedIdentityKey,version:0});
+  if(seedIdentityRef.current.key!==seedIdentityKey)seedIdentityRef.current={key:seedIdentityKey,version:seedIdentityRef.current.version+1};
+  const splitSeedSequence=useRef(0),hookSeedSequence=useRef(0);
+  useEffect(()=>()=>{seedIdentityRef.current.version++;splitSeedSequence.current++;hookSeedSequence.current++},[]);
   const currentSourceVersionRef=useRef<string|undefined>(undefined);currentSourceVersionRef.current=(clip as any).selection_source_receipt?.source_receipt?.sha256;
   const measuredGamingChoices=normalGamingManualChoices(activeCandidateItem?{...activeCandidateItem,id:activeCandidateBase?.id}:undefined,normalGamingOption,{sourceAssetId:clip.id,sourcePath:clip.source_storage_path,outputAspect:project.canvas.aspect_ratio,layoutPolicy:clip.crop_config?.layoutPolicy,sourceVersion:(clip as any).selection_source_receipt?.source_receipt?.sha256});
   const measuredPanelChoices=[...(measuredParticipantChoices||[]),...(measuredGamingChoices||[])];
@@ -763,21 +770,25 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   // no credible pair the symmetric defaults apply.
   const seedSplitAnchorsFromAnalysis = () => {
     if (!clip?.id) return;
+    const identityVersion=seedIdentityRef.current.version,sequence=++splitSeedSequence.current;
+    const currentSeed=()=>seedIdentityRef.current.version===identityVersion&&splitSeedSequence.current===sequence;
     const item = project.tracks.find((t) => t.type === 'VIDEO')?.items[0] as any;
     const existing = item?.crop_config?.split;
     if (Number.isFinite(existing?.speaker1X) && Number.isFinite(existing?.speaker2X)) return;
     void clipRenderService
       .getClipReframe(clip.id)
       .then((r) => {
+        if(!currentSeed())return;
         const s1 = typeof r.speaker1X === 'number' && Number.isFinite(r.speaker1X) ? r.speaker1X : 0.25;
         const s2 = typeof r.speaker2X === 'number' && Number.isFinite(r.speaker2X) ? r.speaker2X : 0.75;
-        onUpdateProject((prev) => ({
+        onUpdateProject((prev) => !currentSeed()?prev:({
           ...prev,
           tracks: prev.tracks.map((t) => {
-            if (t.type !== 'VIDEO') return t;
+            if (t.type !== 'VIDEO'||t.locked) return t;
             return {
               ...t,
               items: t.items.map((i: any) => {
+                if(i.locked)return i;
                 const cur = i?.crop_config?.split;
                 if (Number.isFinite(cur?.speaker1X) && Number.isFinite(cur?.speaker2X)) return i;
                 return {
@@ -808,9 +819,12 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   // and drawtext burns the same position.
   const seedHookPlacementFromAnalysis = (hookDurationSec: number) => {
     if (!clip?.id) return;
+    const identityVersion=seedIdentityRef.current.version,sequence=++hookSeedSequence.current;
+    const currentSeed=()=>seedIdentityRef.current.version===identityVersion&&hookSeedSequence.current===sequence;
     void clipRenderService
       .getClipReframe(clip.id)
       .then((r) => {
+        if(!currentSeed())return;
         const kfs = (r.smoothedKeyframes || []).filter((k) => k.time < hookDurationSec);
         if (kfs.length === 0) return;
         const faceY = kfs.reduce((acc, k) => acc + (k.centerY ?? 0.5), 0) / kfs.length;
@@ -819,16 +833,16 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         // clearly lower -> upper band; middle -> keep the template default.
         const hookY = faceY < 0.45 ? 140 : faceY > 0.6 ? -240 : null;
         if (hookY === null) return;
-        onUpdateProject((prev) => ({
+        onUpdateProject((prev) => !currentSeed()?prev:({
           ...prev,
           tracks: prev.tracks.map((t) => {
-            if (t.type !== 'TEXT') return t;
+            if (t.type !== 'TEXT'||t.locked) return t;
             return {
               ...t,
               items: t.items.map((i: any) => {
                 // Only the template-inserted hook: starts inside the hook window
                 // and still sits at the template default band.
-                if (i.timeline_start >= hookDurationSec) return i;
+                if (i.locked || i.timeline_start >= hookDurationSec) return i;
                 if (i.transform?.position_y !== -240) return i;
                 return { ...i, transform: { ...i.transform, position_y: hookY } };
               }),
@@ -847,6 +861,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   const handleApplyOutputTemplate = (templateId: OutputTemplateId) => {
     const tpl = getOutputTemplate(templateId);
     if (!tpl) return;
+    splitSeedSequence.current++;hookSeedSequence.current++;
     setExportStale(true);
     // A template whose caption preset exceeds the current plan would otherwise
     // stamp a premium style the save endpoint then rejects (PRESET_RESTRICTED),
@@ -1876,9 +1891,11 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               showSafeGuides={showSafeGuides}
               onToggleSafeGuides={toggleSafeGuides}
               onUpdateCropMode={(mode) => {
+                splitSeedSequence.current++;hookSeedSequence.current++;
                 onUpdateProject(prev => applyFramingStrategy(prev, mode));
               }}
               onUpdateLayoutMode={(layout) => {
+                splitSeedSequence.current++;hookSeedSequence.current++;
                 onUpdateProject((prev) => ({
                   ...prev,
                   tracks: prev.tracks.map((t) => {
@@ -2153,6 +2170,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               });
             }}
             onUpdateCropMode={(mode) => {
+              splitSeedSequence.current++;hookSeedSequence.current++;
               onUpdateProject(prev => applyFramingStrategy(prev, mode));
             }}
             videoRef={videoRef}
